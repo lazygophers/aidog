@@ -1,6 +1,6 @@
 use super::*;
 
-/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数、401/403 auto_disable、
+/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
 /// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_non_success(
@@ -66,9 +66,10 @@ pub(crate) async fn handle_non_success(
     let is_429_quota_exhausted =
         code == 429 && classify_429(extracted_msg.as_deref().unwrap_or(&body));
 
-    // ── 熔断计数：5xx 或 429-限流 计一次失败；401/403/402/429-配额/其他客户端 4xx 不计熔断（仅 inflight-1）。
-    //   熔断与 auto_disabled 解耦：走 auto_disabled 的（401/403/402）不参与熔断。──
-    if code >= 500 || (code == 429 && !is_429_quota_exhausted) {
+    // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
+    //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
+    //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
+    if code == 429 && !is_429_quota_exhausted {
         state
             .scheduler
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
@@ -100,22 +101,17 @@ pub(crate) async fn handle_non_success(
         );
     }
 
-    // ── 自动禁用（指数退避，换下个候选）：仅 401 鉴权失败、402 余额不足 ──
-    //   403 一律不自动禁用（区域封锁常返 403，误禁用代价高）；区域封锁的 401 同样不禁用
-    //   （is_region_blocked 按 message 文本分类）。429（无论配额耗尽还是限流）不触发
-    //   auto_disable，统一按决策 A 走 failover 换下个候选。熔断仍按 classify_429 区分
-    //   配额/限流（见上）。其它状态码（含 403/404/405/429）不自动禁用，仅按决策 A 走 failover 重试。
+    // ── 权限/余额冷却（内存固定 5 分钟，2026-09-15 取代旧 DB auto_disabled 指数退避）：
+    //   仅 401 鉴权失败、402 余额不足。403 一律不冷却（区域封锁常返 403，误伤代价高）；
+    //   区域封锁的 401 同样不冷却（is_region_blocked 按 message 文本分类）。不写 DB status：
+    //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
     if (code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body))) || code == 402 {
-        match aidog_db::set_platform_auto_disabled(&state.db, route.platform.id).await {
-            Ok(until) if until > 0 => tracing::warn!(
-                platform = %route.platform.name, platform_id = route.platform.id, status = code,
-                auto_disabled_until = until, "platform auto-disabled (auth/balance)"
-            ),
-            Ok(_) => {} // 用户手动 disabled，不动
-            Err(e) => {
-                tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed")
-            }
-        }
+        state.scheduler.set_auth_cooldown(route.platform.id, aidog_db::now());
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id, status = code,
+            cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
+            "platform out of scheduling for fixed auth/balance cooldown (memory-only, not disabled)"
+        );
     }
 
     // ── 中间件 error_rule 分类（出站）：按规则将上游错误分类为 retryable/non-retryable。

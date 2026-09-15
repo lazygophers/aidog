@@ -712,7 +712,7 @@ async fn connect_timeout_applied_to_tcp_handshake() {
     let state = make_state().await;
     let start = std::time::Instant::now();
     // 10.255.255.1：典型不可路由地址（本地路由器丢弃 SYN，无 RST，必超时而非拒绝）。
-    let res = connect::tcp_connect_accounted(&state, "10.255.255.1:80", 0, None, 1).await;
+    let res = connect::tcp_connect_accounted(&state, "10.255.255.1:80", 0, 1).await;
     let elapsed = start.elapsed();
     assert!(res.is_err(), "不可路由 target 必返 Err(())");
     assert!(
@@ -732,13 +732,13 @@ fn closed_loopback_target() -> String {
     format!("{addr}")
 }
 
-/// P2-B：TCP 失败（connection refused，未监听端口）→ `scheduler.record_failure` 计入。
-/// 关键断言：breaker_state 从 Closed{fails:0} → Closed{fails:1}（未达阈值仍 Closed，但 fails+1）；
-/// latency EMA 仍 None（record_failure 不更新 EMA，防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
+/// P2-B：TCP 失败（connection refused，未监听端口）→ `record_ignored`（2026-09-15 网络失败
+/// 不降权）。关键断言：breaker 保持 Closed{fails:0}（网络失败不计熔断，下一轮调度仍优先）；
+/// inflight 归零；latency EMA 仍 None（防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
 #[tokio::test]
-async fn connect_failure_records_breaker_fail_count() {
+async fn connect_failure_does_not_touch_breaker() {
     use crate::gateway::models::{CreatePlatform, Protocol};
-    use crate::gateway::scheduling::{BreakerState, BreakerThresholds};
+    use crate::gateway::scheduling::BreakerState;
     use aidog_db::test_support;
 
     let db = test_support::test_db().await;
@@ -779,34 +779,24 @@ async fn connect_failure_records_breaker_fail_count() {
 
     // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
     // platform_id = p.id（直接传，模拟 host 匹配后传入）。
-    let th = BreakerThresholds {
-        failure_threshold: 5,
-        open_secs: 60,
-        half_open_max: 2,
-    };
     let target = closed_loopback_target();
-    let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
+    let res = connect::tcp_connect_accounted(&state, &target, p.id, 5).await;
     assert!(res.is_err(), "关闭端口必拒绝连接");
 
-    // 熔断失败计数：Closed{fails:0} → Closed{fails:1}（未达阈值 5 仍 Closed）。
+    // 网络失败不计熔断：breaker 保持 Closed{fails:0}（下一轮调度仍优先选择）。
     let st = state.scheduler.breaker_state(p.id);
     assert!(
-        matches!(st, BreakerState::Closed { fails } if fails == 1),
-        "TCP 失败必须 record_failure 使 fails=1，实际: {:?}",
+        matches!(st, BreakerState::Closed { fails: 0 }),
+        "TCP 失败不得计入熔断（网络失败不降权），实际: {:?}",
         st
     );
-    // inflight 必归零（record_failure 内 dec_inflight）。
+    // inflight 必归零（record_ignored 内 dec_inflight）。
     assert_eq!(state.scheduler.inflight(p.id), 0, "失败后 inflight 必归零");
-    // EMA 未被污染（record_failure 不动 latency_ema_ms，仍 None）。
+    // EMA 未被污染（record_ignored 不动 latency_ema_ms，仍 None）。
     assert!(
         state.scheduler.latency_ema(p.id).is_none(),
-        "record_failure 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI LeastLatency 排序）"
+        "record_ignored 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI LeastLatency 排序）"
     );
-
-    // 未命中平台（platform_id=0）→ breaker_th=None → 不计入熔断。
-    let target2 = closed_loopback_target();
-    let _ = connect::tcp_connect_accounted(&state, &target2, 0, None, 5).await;
-    // platform_id=0 不该被任何 breaker 记账。
 }
 
 /// P2-C：TCP 失败 → `db::set_platform_last_error` 写入 platform.last_error 列。
@@ -814,7 +804,6 @@ async fn connect_failure_records_breaker_fail_count() {
 #[tokio::test]
 async fn connect_failure_sets_platform_last_error() {
     use crate::gateway::models::{CreatePlatform, Protocol};
-    use crate::gateway::scheduling::BreakerThresholds;
     use aidog_db::test_support;
 
     let db = test_support::test_db().await;
@@ -853,13 +842,8 @@ async fn connect_failure_sets_platform_last_error() {
         log_tx,
     });
 
-    let th = BreakerThresholds {
-        failure_threshold: 5,
-        open_secs: 60,
-        half_open_max: 2,
-    };
     let target = closed_loopback_target();
-    let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
+    let res = connect::tcp_connect_accounted(&state, &target, p.id, 5).await;
     assert!(res.is_err(), "关闭端口必拒绝连接");
 
     // 读回 platform，验 last_error 已写。

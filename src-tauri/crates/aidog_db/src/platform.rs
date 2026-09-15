@@ -397,6 +397,10 @@ const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
 /// 401/403 触发：将平台标记 auto_disabled，strikes++，按指数退避计算下次试探时间。
 /// 仅在当前非用户手动 disabled 时生效（不覆盖用户主动关闭的平台）。
 /// 返回更新后的退避截止时间戳（毫秒），供日志记录。
+///
+/// 2026-09-15 起生产路径不再调用（401/402 改调度器内存 auth 冷却，见
+/// aidog_core gateway/scheduling.rs）：仅保留给测试构造「存量 auto_disabled 行」场景
+/// （DB 存量行仍按 until 过滤、成功时 recover）。
 #[track_caller]
 pub fn set_platform_auto_disabled(
     db: &Db,

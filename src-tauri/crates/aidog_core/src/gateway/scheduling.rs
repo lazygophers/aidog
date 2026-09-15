@@ -1,20 +1,29 @@
 //! Group 智能调度 + 全局 Platform 级熔断器（内存状态）。
 //!
-//! 职责划分（与 router/proxy 解耦）：
-//! - 熔断器：临时性，针对 5xx/超时等可恢复故障，自动半开探测恢复（本模块）。
-//! - auto_disabled：永久性（401/403 鉴权失败），指数退避，状态持久化在 DB（db.rs）。
-//! - 候选过滤取 [熔断 Open] ∪ [auto_disabled] 并集，二者状态独立，互不改写。
+//! 失败分类（2026-09-15 用户裁决：网络类故障不降权，下一轮调度继续优先选择）：
+//! - 熔断器：仅 **429-限流**（状态码 + 响应体解析出的平台主动限流）计入，临时性，
+//!   自动半开探测恢复（本模块）。
+//! - auth 冷却：**401 鉴权 / 402 余额不足** → 固定 [`AUTH_COOLDOWN_MS`] 内存冷却，
+//!   不写 DB（平台 UI 仍是启用态），到点自动回调度。取代旧 auto_disabled 指数退避；
+//!   DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复（recover_platform_auto_disabled）。
+//! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
+//! - **不影响调度**：网络错误（连不上/超时/断流）、上游 5xx、200 空响应 —— 仅 inflight-1，
+//!   延迟 EMA 与候选排序不动（下一轮仍优先选择该平台）。
 //!
 //! 状态机三态：
 //! ```text
-//! Closed{fails}:  5xx/超时(retry 耗尽)计 fail → fails+1；达 threshold → Open{until=now+open_secs}。成功 → fails=0。
+//! Closed{fails}:  429-限流计 fail → fails+1；达 threshold → Open{until=now+open_secs}。成功 → fails=0。
 //! Open{until_ms}: 候选过滤直接踢出；now>=until → 转 HalfOpen{probes=0}。
 //! HalfOpen{probes}: 放行至多 half_open_max 个探测；任一成功 → Closed；任一失败 → Open{重置 until}。
 //! ```
-//! 不计熔断：401/403（走 auto_disabled）、客户端 4xx(非 429)、probe 请求。
+//! 不计熔断：401/402（走 auth 冷却）、429-配额（走配额冷却）、5xx/网络错误/空响应
+//! （不降权）、客户端 4xx(非 429)、probe 请求。
 
 use std::collections::HashMap;
 use std::sync::RwLock;
+
+/// 401 权限 / 402 余额失败的内存冷却时长（毫秒）。
+pub const AUTH_COOLDOWN_MS: i64 = 5 * 60 * 1000;
 
 /// 熔断三态。
 #[derive(Debug, Clone, PartialEq)]
@@ -55,6 +64,9 @@ pub struct PlatformHealth {
     /// 配额冷却截止（unix ms，0 = 无）。429 配额耗尽且上游给出重置时间时设置：
     /// 该时刻前不参与调度，但**不改 DB status**（平台在 UI 仍是启用态，只是不被选中）。
     pub quota_cooldown_until_ms: i64,
+    /// 401 权限 / 402 余额冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，
+    /// 纯内存态（取代旧 DB auto_disabled），到点自动回调度。
+    pub auth_cooldown_until_ms: i64,
 }
 
 impl Default for PlatformHealth {
@@ -64,6 +76,7 @@ impl Default for PlatformHealth {
             latency_ema_ms: 0.0,
             inflight: 0,
             quota_cooldown_until_ms: 0,
+            auth_cooldown_until_ms: 0,
         }
     }
 }
@@ -138,6 +151,24 @@ impl SchedulerState {
             .is_some_and(|until| until > now_ms)
     }
 
+    /// 401 权限 / 402 余额不足：把平台冷却固定 [`AUTH_COOLDOWN_MS`]（取 max，不缩短已有冷却）。
+    /// 纯内存维度——不写 DB status，平台 UI 仍是启用态，到点自动回调度。
+    pub fn set_auth_cooldown(&self, platform_id: u64, now_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            h.auth_cooldown_until_ms = (now_ms + AUTH_COOLDOWN_MS).max(h.auth_cooldown_until_ms);
+        }
+    }
+
+    /// 该平台此刻是否处于 auth 冷却中（到点自动失效，无需清理）。
+    pub fn auth_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.auth_cooldown_until_ms))
+            .is_some_and(|until| until > now_ms)
+    }
+
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
     /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
     pub fn admission(
@@ -204,7 +235,7 @@ impl SchedulerState {
         }
     }
 
-    /// 失败（5xx/超时，本平台 retry 耗尽计一次）：breaker fail 计数、inflight-1。
+    /// 失败（仅 429-限流，本平台 retry 耗尽计一次）：breaker fail 计数、inflight-1。
     /// 不更新延迟 EMA（失败样本不计入延迟）。
     pub fn record_failure(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64) {
         if let Ok(mut g) = self.health.write() {
@@ -234,7 +265,8 @@ impl SchedulerState {
         }
     }
 
-    /// 不计入熔断的请求结束（401/403/客户端 4xx 非 429）：仅 inflight-1，不动 breaker/EMA。
+    /// 不计入熔断的请求结束（网络错误/5xx/空响应/401/402/客户端 4xx 非 429）：仅 inflight-1，
+    /// 不动 breaker/EMA（网络类故障不降权）。
     pub fn record_ignored(&self, platform_id: u64) {
         if let Ok(mut g) = self.health.write()
             && let Some(h) = g.get_mut(&platform_id)
@@ -445,6 +477,23 @@ mod tests {
         assert!(!s.quota_cooled(7, now + 5000));
         // 冷却不影响熔断维度（仍 Allow）
         assert_eq!(s.admission(7, &thresholds(3, 30, 2), now, true), Admission::Allow);
+    }
+
+    #[test]
+    fn auth_cooldown_fixed_window() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        assert!(!s.auth_cooled(8, now));
+        s.set_auth_cooldown(8, now);
+        assert!(s.auth_cooled(8, now));
+        assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
+        // 到点即失效，回调度
+        assert!(!s.auth_cooled(8, now + AUTH_COOLDOWN_MS));
+        // 重复设置不缩短已有冷却
+        s.set_auth_cooldown(8, now - 10_000);
+        assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
+        // 冷却不影响熔断维度（仍 Allow）
+        assert_eq!(s.admission(8, &thresholds(3, 30, 2), now, true), Admission::Allow);
     }
 
     #[test]

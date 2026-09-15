@@ -100,12 +100,11 @@ async fn handle_connect_inner(
     tracing::info!(target = %target, host_only = %host_only, request_id = %request_id, "connect parsed target/host");
     let on_upgrade = hyper::upgrade::on(req);
 
-    // P1 平台匹配：仅 host（无 apikey，HTTPS 未解密）。未命中 → None（落 platform_id=0）。
-    // P2-B：match_platform_by_host 返回 (id, Platform)，Platform 用于解 per-platform breaker 阈值。
-    let (platform_id, platform_opt) = match match_platform_by_host(&state.db, &host_only).await {
-        Some((id, p)) => (id, Some(p)),
-        None => (0u64, None),
-    };
+    // P1 平台匹配：仅 host（无 apikey，HTTPS 未解密）。未命中 → 0（无平台可挂记账）。
+    let platform_id = match_platform_by_host(&state.db, &host_only)
+        .await
+        .map(|(id, _)| id)
+        .unwrap_or(0u64);
 
     // 日志开关：disabled 时整条不落 proxy_log（与 upsert_log 早退语义一致）。
     // settings + system_timeout 一次缓存借齐（每请求 ≥2 次 DB 缓存读 → 1 次 read lock）。
@@ -123,21 +122,6 @@ async fn handle_connect_inner(
     } else {
         10
     };
-    // P2-B：本平台熔断阈值（未命中平台 → None，跳过熔断记账）。
-    // ponytail: 用 SchedulingBreakerSettings::default()（全局默认值）而非读 DB —— CONNECT 高频
-    // 小请求，每连一 DB 读增 IO；platform.extra.breaker 覆盖经 effective_thresholds 仍生效（只需
-    // Platform struct，不需 settings 字段非默认值，覆盖在 Platform 自带）。全局默认值的 breaker_*
-    // 字段不影响 effective_thresholds 的 per-platform 覆盖判定（>0 用 platform，否则用全局）。
-    let breaker_th = platform_opt.as_ref().map(|p| {
-        let sched_defaults = super::models::SchedulingBreakerSettings::default();
-        let (ft, os, hom) = sched_defaults.effective_thresholds(p);
-        super::scheduling::BreakerThresholds {
-            failure_threshold: ft,
-            open_secs: os,
-            half_open_max: hom,
-        }
-    });
-
     let start = std::time::Instant::now();
 
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
@@ -159,7 +143,6 @@ async fn handle_connect_inner(
             &state,
             &target,
             platform_id,
-            breaker_th.as_ref(),
             conn_timeout_secs,
         )
         .await
@@ -246,8 +229,7 @@ async fn handle_connect_inner(
                     &target,
                     request_id,
                     platform_id,
-                    breaker_th.as_ref(),
-                    conn_timeout_secs,
+                            conn_timeout_secs,
                     start,
                     log_enabled,
                     &[],
@@ -317,7 +299,6 @@ async fn handle_connect_inner(
             &target,
             request_id,
             platform_id,
-            breaker_th.as_ref(),
             conn_timeout_secs,
             start,
             log_enabled,
@@ -423,7 +404,7 @@ fn spawn_blind_relay(
 /// `prefetch` 是已从客户端预读的字节（hyper-util speculative read 命中，如 TLS ClientHello），
 /// 须 flush 到 upstream（上游才收得到）；通常空（合法 CONNECT 客户端收 200 才发数据）。
 ///
-/// P2-A/B/C：connect 套 timeout + TCP 失败 record_failure + set_platform_last_error +
+/// P2-A/B/C：connect 套 timeout + TCP 失败 record_ignored（网络失败不降权）+ set_platform_last_error +
 /// inflight-1；成功侧 record_ignored（仅 inflight-1，**禁 record_success**，避 CONNECT TCP
 /// 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
 ///
@@ -438,7 +419,6 @@ async fn blind_relay_after_connect(
     target: &str,
     request_id: String,
     platform_id: u64,
-    breaker_th: Option<&super::scheduling::BreakerThresholds>,
     conn_timeout_secs: u64,
     start: std::time::Instant,
     log_enabled: bool,
@@ -447,7 +427,7 @@ async fn blind_relay_after_connect(
     // blind_relay: TCP 字节透传非 AirDog 构造响应，header 物理不可注入（双向 copy 加密 TLS 字节流，
     // AirDog 看不见 / 改不了 HTTP 层）。trace header 已在 spawn 前的 CONNECT 200 响应注入，
     // 此处隧道内的客户端真实 HTTP 请求/响应不经 axum，无 inject_trace_header 调用点。
-    match tcp_connect_accounted(st, target, platform_id, breaker_th, conn_timeout_secs).await {
+    match tcp_connect_accounted(st, target, platform_id, conn_timeout_secs).await {
         Ok(mut upstream) => {
             // 预读字节先 flush 到上游（read_buf 来自客户端 speculative read，上游需收得到）。
             if !prefetch.is_empty() {
@@ -486,8 +466,8 @@ async fn blind_relay_after_connect(
 ///
 /// - **A. timeout**：`tokio::time::timeout(conn_timeout_secs, TcpStream::connect)` —— 仅 TCP
 ///   握手阶段超时，隧道建后 idle 不限（避 SSE/WebSocket over TLS 长连接误杀）。
-/// - **B. 熔断**：命中平台（platform_id != 0 && breaker_th.is_some()）→ connect 前
-///   `inc_inflight`；失败 → `record_failure`；超时（timeout elapsed）→ 同 record_failure。
+/// - **B. 在途记账**：命中平台（platform_id != 0）→ connect 前
+///   `inc_inflight`；失败/超时 → `record_ignored`（网络失败不降权，仅 inflight-1）。
 ///   **成功侧由调用方在隧道关闭后 `record_ignored`**（仅 inflight-1，禁 record_success，
 ///   避 CONNECT TCP 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
 /// - **C. last_error**：失败 → `set_platform_last_error`（成功侧禁 recover_platform_auto_disabled，
@@ -500,7 +480,6 @@ pub(crate) async fn tcp_connect_accounted(
     st: &Arc<ProxyState>,
     target: &str,
     platform_id: u64,
-    breaker_th: Option<&super::scheduling::BreakerThresholds>,
     conn_timeout_secs: u64,
 ) -> Result<tokio::net::TcpStream, ()> {
     // P2-B：connect 前 inc_inflight（仅命中平台）。
@@ -516,13 +495,7 @@ pub(crate) async fn tcp_connect_accounted(
         Ok(Ok(s)) => Ok(s),
         Ok(Err(e)) => {
             tracing::warn!(error = %e, target, "connect: upstream TCP failed");
-            record_connect_failure(
-                st,
-                platform_id,
-                breaker_th,
-                format!("connect TCP error: {e}"),
-            )
-            .await;
+            record_connect_failure(st, platform_id, format!("connect TCP error: {e}")).await;
             Err(())
         }
         Err(_) => {
@@ -534,7 +507,6 @@ pub(crate) async fn tcp_connect_accounted(
             record_connect_failure(
                 st,
                 platform_id,
-                breaker_th,
                 format!("connect TCP timeout ({conn_timeout_secs}s)"),
             )
             .await;
@@ -543,21 +515,17 @@ pub(crate) async fn tcp_connect_accounted(
     }
 }
 
-/// P2-B/C 失败记账：record_failure（breaker fail 计数）+ set_platform_last_error。
-/// 未命中平台（platform_id=0 / breaker_th=None）→ 仅返回（无平台可挂）。
+/// P2-B/C 失败记账：record_ignored（网络类失败不降权——不计熔断、不动 EMA，仅 inflight-1）+
+/// set_platform_last_error。未命中平台（platform_id=0）→ 仅返回（无平台可挂）。
 async fn record_connect_failure(
     st: &Arc<ProxyState>,
     platform_id: u64,
-    breaker_th: Option<&super::scheduling::BreakerThresholds>,
     err_msg: String,
 ) {
     if platform_id == 0 {
         return;
     }
-    if let Some(th) = breaker_th {
-        st.scheduler
-            .record_failure(platform_id, th, aidog_db::now());
-    }
+    st.scheduler.record_ignored(platform_id);
     let _ = aidog_db::set_platform_last_error(&st.db, platform_id, Some(err_msg)).await;
 }
 

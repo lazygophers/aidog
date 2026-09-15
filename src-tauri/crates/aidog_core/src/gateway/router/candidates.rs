@@ -302,14 +302,17 @@ fn filter_candidates<'a>(
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
         }
 
-        // 配额冷却维度（内存态，与熔断总开关无关）：429 配额耗尽 + 上游给出重置时间的平台
-        // 在重置前不参与调度（DB status 不变，平台仍是启用态）。
+        // 冷却维度（内存态，与熔断总开关无关）：
+        // - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 重置前不调度（DB status 不变）。
+        // - auth 冷却：401 权限 / 402 余额 → 固定 5 分钟不调度（内存态，DB status 不变，
+        //   取代旧 auto_disabled 指数退避）。
         if let Some(c) = ctx
-            && c.scheduler.quota_cooled(gp.platform.id, now_ms)
+            && (c.scheduler.quota_cooled(gp.platform.id, now_ms)
+                || c.scheduler.auth_cooled(gp.platform.id, now_ms))
         {
             tracing::debug!(
                 platform_id = gp.platform.id, platform = %gp.platform.name,
-                "candidate skipped: quota cooldown until upstream reset"
+                "candidate skipped: quota/auth cooldown (memory-only)"
             );
             continue;
         }
