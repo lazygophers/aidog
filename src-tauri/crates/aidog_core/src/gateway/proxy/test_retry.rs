@@ -59,7 +59,7 @@ fn retry_hard_request_errors_not_retried() {
 
 #[test]
 fn retry_auth_dead_endpoint_retried() {
-    // 401/403（鉴权→auto_disabled）、404/405（端点/方法错，仅 failover 不禁用）均重试下一平台。
+    // 401/402（鉴权/余额→内存 auth 冷却）、404/405（端点/方法错，仅 failover）均重试下一平台。
     assert!(is_status_retryable(401));
     assert!(is_status_retryable(403));
     assert!(is_status_retryable(404));
@@ -429,7 +429,7 @@ fn region_blocked_markers() {
 
 #[test]
 fn region_blocked_plain_auth_is_false() {
-    // 普通鉴权失败不含区域 marker → 保持 auto_disable
+    // 普通鉴权失败不含区域 marker → 触发 auth 冷却
     assert!(!is_region_blocked("invalid api key"));
     assert!(!is_region_blocked("unauthorized"));
     assert!(!is_region_blocked(""));

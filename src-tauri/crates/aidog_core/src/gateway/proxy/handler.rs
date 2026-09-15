@@ -635,7 +635,7 @@ pub(crate) async fn handle_proxy_core(
 
     // ── 重试编排：遍历候选，逐个 forward。
     //   2xx → 成功（曾 auto_disabled 则恢复 enabled），进入下游成功处理直接 return。
-    //   401/403 → 标记平台 auto_disabled（指数退避），换下个候选。
+    //   401/402 → 内存 auth 冷却 5 分钟（不写 DB），换下个候选。
     //   其他错误(5xx/超时/连接失败) → 换下个候选。
     //   每次尝试均 record 进 attempts；超过 max_retries 或候选耗尽 → 返回最后一次错误。
     let max_retries = group.max_retries as usize;

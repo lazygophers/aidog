@@ -698,7 +698,8 @@ pub(crate) async fn forward_attempt(
     // ── 发上游 + 同平台瞬时重试 ──
     // transport 错误（上游中途掐连接 / 连不上）先在同一平台原地重试 TRANSPORT_RETRY_MAX 次再
     // 换候选：单平台组没有 failover 候选，不原地重试则任何瞬断都直接 502 到客户端。
-    // 重试期间不 record_failure（in-flight 仍 +1，本次尝试尚未定终态），仅最终失败时计一次。
+    // 重试期间不记账（in-flight 仍 +1，本次尝试尚未定终态）；最终失败仅 inflight-1（record_ignored，
+    // 网络类失败不降权——见下方 Err 分支注释）。
     // try_clone 对本路径恒 Some（body 是 String，非 stream body）；None 时退化为不重试。
     let mut pending = Some(req_builder);
     let mut transport_retried = 0u32;
@@ -739,10 +740,9 @@ pub(crate) async fn forward_attempt(
             }
             Err(e) => {
                 // 同平台重试已用尽 / 错误不宜重试 → 换下个候选；候选耗尽则返回 502。
-                // 熔断：连接失败 / 超时计一次失败（in-flight -1 + breaker fail 计数）。
-                state
-                    .scheduler
-                    .record_failure(route.platform.id, &breaker_th, aidog_db::now());
+                // 网络类失败不降权（2026-09-15 用户裁决）：不计熔断、不动 EMA，下一轮调度
+                // 仍优先选择该平台；仅 inflight-1。
+                state.scheduler.record_ignored(route.platform.id);
                 let detail = err_chain(&e);
                 tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
                 let upstream_err = format!("upstream error: {detail}");
@@ -828,10 +828,10 @@ pub(crate) async fn forward_attempt(
     let attempt_latency_ms = attempt_start.elapsed().as_millis() as i64;
 
     // 决策 B 失败（200 空响应）时记一次失败 attempt 并 failover；候选耗尽则返回 502。
-    // 与连接错误/超时同语义：熔断计一次失败（record_failure），但不 auto_disable（非鉴权/死端点信号）。
+    // 不降权（2026-09-15 用户裁决）：不计熔断、不 auto_disable，仅 inflight-1。
     macro_rules! retry_on_empty_2xx {
         ($reason:expr, $upstream_text:expr) => {{
-            state.scheduler.record_failure(route.platform.id, &breaker_th, aidog_db::now());
+            state.scheduler.record_ignored(route.platform.id);
             tracing::warn!(
                 platform = %route.platform.name, platform_id = route.platform.id,
                 reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"

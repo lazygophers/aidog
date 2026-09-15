@@ -317,7 +317,9 @@ async fn upstream_400_hard_error_no_retry() {
 }
 
 #[tokio::test]
-async fn upstream_401_auto_disables_platform() {
+async fn upstream_401_cools_platform_in_memory() {
+    // 2026-09-15：401 不再写 DB auto_disabled（旧路径 1 小时起指数退避），
+    // 改调度器内存 auth 冷却（固定 5 分钟），到点自动回调度。
     let upstream = spawn_stub_upstream(401, r#"{"error":"unauthorized"}"#).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gk4", &upstream).await;
@@ -328,12 +330,23 @@ async fn upstream_401_auto_disables_platform() {
     );
     let _ = handle_proxy(AxumState(state.clone()), req).await;
 
-    // 平台应被 auto_disabled（auto_disabled_until > 0）
     flush_log_queue(&state).await;
     let plats = aidog_db::list_platforms(&state.db).await.unwrap();
     assert!(
-        plats.iter().any(|p| p.auto_disabled_until > 0),
-        "401 应触发 auto_disable"
+        plats.iter().all(|p| p.auto_disabled_until == 0),
+        "401 不应写 DB auto_disabled（改内存冷却，UI 状态不变）"
+    );
+    let pid = plats[0].id;
+    assert!(
+        state.scheduler.auth_cooled(pid, aidog_db::now() + 1000),
+        "401 应设 5 分钟内存 auth 冷却"
+    );
+    assert!(
+        !state.scheduler.auth_cooled(
+            pid,
+            aidog_db::now() + crate::gateway::scheduling::AUTH_COOLDOWN_MS + 1000
+        ),
+        "auth 冷却到点必须失效"
     );
 }
 
