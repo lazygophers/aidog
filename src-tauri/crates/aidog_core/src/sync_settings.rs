@@ -266,6 +266,22 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 
     let mut written = Vec::new();
 
+    // 纯 claude_code（订阅透传）组集合：关联平台全部为 Protocol::ClaudeCode。
+    // 透传客户端自带订阅 OAuth，settings 注入 ANTHROPIC_AUTH_TOKEN=group_key 会覆盖
+    // OAuth 致上游 401（spec claude-code-passthrough：aidog 不注入 token）—— 这类组
+    // 跳过路由 env 注入。details 同时供下方 pi 段使用，只查一次。
+    let group_details = aidog_db::list_group_details(db).await?;
+    let pure_cc_groups: std::collections::HashSet<String> = group_details
+        .iter()
+        .filter(|d| {
+            !d.platforms.is_empty()
+                && d.platforms
+                    .iter()
+                    .all(|gp| gp.platform.platform_type == gateway::models::Protocol::ClaudeCode)
+        })
+        .map(|d| d.group.group_key.clone())
+        .collect();
+
     // 默认分组捕获：循环内为默认组算出的 config（已 strip 内部 marker），循环结束后
     // merge 写入 ~/.claude/settings.json 全局。None = 无默认组（循环后跳过全局写入）。
     let mut default_claude_config: Option<serde_json::Value> = None;
@@ -275,20 +291,23 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
 
         let mut config = base_config.clone();
 
-        // Set proxy routing fields inside env
+        // Set proxy routing fields inside env（纯 claude_code 透传组跳过路由字段：见 pure_cc_groups 注释）
         if let Some(obj) = config.as_object_mut() {
             if !obj.contains_key("env") {
                 obj.insert("env".into(), serde_json::Value::Object(Default::default()));
             }
             if let Some(env_map) = obj.get_mut("env").and_then(|v| v.as_object_mut()) {
-                env_map.insert(
-                    "ANTHROPIC_BASE_URL".to_string(),
-                    serde_json::Value::String(format!("http://127.0.0.1:{}/proxy", port)),
-                );
-                env_map.insert(
-                    "ANTHROPIC_AUTH_TOKEN".to_string(),
-                    serde_json::Value::String(group_key.clone()),
-                );
+                let skip_routing_env = pure_cc_groups.contains(group_key.as_str());
+                if !skip_routing_env {
+                    env_map.insert(
+                        "ANTHROPIC_BASE_URL".to_string(),
+                        serde_json::Value::String(format!("http://127.0.0.1:{}/proxy", port)),
+                    );
+                    env_map.insert(
+                        "ANTHROPIC_AUTH_TOKEN".to_string(),
+                        serde_json::Value::String(group_key.clone()),
+                    );
+                }
                 // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段
                 // ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 禁止覆盖 —— 同名 key 丢弃 + warn。
                 for ev in &group.env_vars {
@@ -415,9 +434,8 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // pi：所有分组共用同一份 `~/.pi/agent/models.json`（pi 只认单一全局文件），因此
     // 必须在循环外一次性写入全部分组 —— 删除的分组由 aidog- 前缀清扫顺带消失，
     // 不需要单独一趟 cleanup。pi 未装也不应阻塞，失败仅记录。
-    // 模型候选要平台维度，故取 details（`groups` 只有分组本体）。
-    let pi_groups: Vec<gateway::pi::PiGroup> = aidog_db::list_group_details(db)
-        .await?
+    // 模型候选要平台维度，故复用上方 group_details（不再二次查询）。
+    let pi_groups: Vec<gateway::pi::PiGroup> = group_details
         .iter()
         .map(|d| gateway::pi::PiGroup {
             group_key: d.group.group_key.clone(),
