@@ -361,3 +361,149 @@ fn pi_models_fall_back_to_static_defaults_when_group_has_none() {
     assert!(!models.is_empty());
     assert_eq!(models, crate::gateway::proxy::STATIC_MODEL_IDS);
 }
+
+/// 纯 claude_code（订阅透传）组：settings.{group}.json 禁注入路由 env
+/// （ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN）—— 透传客户端自带订阅 OAuth，
+/// AUTH_TOKEN=group_key 会覆盖 OAuth 致上游 401。混合组照常注入。
+#[tokio::test]
+async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+    use aidog_db::models::Protocol;
+    use aidog_db::test_support::{HomeGuard, test_db};
+
+    let h = HomeGuard::new();
+    let db = test_db().await;
+
+    // 纯透传组：单平台 Protocol::ClaudeCode
+    let cc_platform = aidog_db::create_platform(
+        &db,
+        aidog_db::models::CreatePlatform {
+            name: "cc-sub".to_string(),
+            platform_type: Protocol::ClaudeCode,
+            base_url: "https://api.anthropic.com".to_string(),
+            api_key: String::new(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: Some(false),
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
+
+    let g_cc = aidog_db::create_group(
+        &db,
+        CreateGroup {
+            name: "cc".to_string(),
+            group_key: Some("gk_cc".to_string()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 2,
+            model_mappings: Vec::new(),
+            env_vars: Vec::new(),
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(
+        &db,
+        g_cc.id,
+        &[aidog_db::models::GroupPlatformInput {
+            platform_id: cc_platform.id,
+            priority: None,
+            weight: None,
+            level_priority: None,
+        }],
+    )
+    .await
+    .unwrap();
+
+    // 对照组：普通平台 → 照常注入
+    let normal = aidog_db::create_platform(
+        &db,
+        aidog_db::models::CreatePlatform {
+            name: "normal".to_string(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://api.example.com".to_string(),
+            api_key: "sk-x".to_string(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: Some(false),
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    let g_norm = aidog_db::create_group(
+        &db,
+        CreateGroup {
+            name: "norm".to_string(),
+            group_key: Some("gk_norm".to_string()),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: 2,
+            model_mappings: Vec::new(),
+            env_vars: Vec::new(),
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(
+        &db,
+        g_norm.id,
+        &[aidog_db::models::GroupPlatformInput {
+            platform_id: normal.id,
+            priority: None,
+            weight: None,
+            level_priority: None,
+        }],
+    )
+    .await
+    .unwrap();
+
+    super::do_sync_group_settings(&db, 9912).await.unwrap();
+
+    let cc: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_cc.json")).unwrap(),
+    )
+    .unwrap();
+    // 透传组：路由 env 不存在（客户端保留订阅 OAuth，直连/走系统代理）
+    assert!(
+        cc["env"].get("ANTHROPIC_BASE_URL").is_none(),
+        "pure claude_code group must not set ANTHROPIC_BASE_URL, got: {}",
+        cc["env"]
+    );
+    assert!(
+        cc["env"].get("ANTHROPIC_AUTH_TOKEN").is_none(),
+        "pure claude_code group must not set ANTHROPIC_AUTH_TOKEN, got: {}",
+        cc["env"]
+    );
+
+    let norm: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_norm.json")).unwrap(),
+    )
+    .unwrap();
+    // 对照：普通组照常注入
+    assert_eq!(
+        norm["env"]["ANTHROPIC_BASE_URL"],
+        "http://127.0.0.1:9912/proxy"
+    );
+    assert_eq!(norm["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_norm");
+
+    aidog_db::delete_group(&db, g_cc.id).await.unwrap();
+    aidog_db::delete_group(&db, g_norm.id).await.unwrap();
+}
