@@ -359,6 +359,33 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
     aidog_db::delete_group(&db, g.id).await.unwrap();
 }
 
+/// group_min_context_window：haiku（杂活槽）/ gpt（Codex 专用）不参与窗口约束。
+/// 回归点：haiku 挂 glm-4.5（131072）时，窗口必须取主对话槽 glm-4.6（200000），
+/// 而不是被杂活模型拖到 131072。
+#[tokio::test]
+async fn group_min_context_window_ignores_haiku_and_gpt_slots() {
+    use aidog_db::test_support::test_db;
+    let db = test_db().await;
+
+    let pm = aidog_db::models::PlatformModels {
+        default: Some("glm-4.6".to_string()),
+        sonnet: Some("glm-4.6".to_string()),
+        opus: Some("deepseek-chat".to_string()), // 1048576
+        haiku: Some("glm-4.5".to_string()),      // 131072，必须被忽略
+        gpt: Some("gpt-4o".to_string()),         // 128000，必须被忽略
+    };
+
+    // 不写死具体数值：registry 里同名模型各平台窗口可能被更新，
+    // 断言点是「结果高于两个杂活槽的窗口」= 它们没参与 min。
+    let got = super::group_min_context_window(&db, &[], &[&pm])
+        .await
+        .expect("主对话槽模型在 registry 里查得到");
+    assert!(
+        got > 131_072,
+        "haiku(glm-4.5=131072)/gpt(gpt-4o=128000) 槽不得参与最小值计算，got {got}"
+    );
+}
+
 // ── pi 模型候选：分组映射 ∪ 平台有效模型，去重；全空回落静态默认清单 ──
 
 use super::pi_model_candidates;
