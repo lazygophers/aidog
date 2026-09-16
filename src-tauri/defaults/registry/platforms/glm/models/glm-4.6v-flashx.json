@@ -1,10 +1,15 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1789538918,
   "model_id": "glm-4.6v-flashx",
   "canonical_model": "glm-4.6v-flashx",
   "capabilities": [
-    "text"
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
   ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "max_input_tokens": 131072,
   "context_window": 131072,
   "max_output_tokens": 16000,
