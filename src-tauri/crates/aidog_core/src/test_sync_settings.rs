@@ -351,7 +351,8 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
     );
     // 用户 env_var 里同名的两个窗口 key 已被保护清单丢弃（上面注入值仍在）
     assert_ne!(
-        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"], "evil"
+        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"],
+        "evil"
     );
     assert_ne!(written["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"], "evil");
 
@@ -359,30 +360,51 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
     aidog_db::delete_group(&db, g.id).await.unwrap();
 }
 
-/// group_min_context_window：haiku（杂活槽）/ gpt（Codex 专用）不参与窗口约束。
-/// 回归点：haiku 挂 glm-4.5（131072）时，窗口必须取主对话槽 glm-4.6（200000），
-/// 而不是被杂活模型拖到 131072。
+/// group_max_context_window：haiku（杂活槽）/ gpt（Codex 专用）不参与窗口计算。
+/// 构造成杂活槽窗口**最宽**，取 max 时若误把它算进来就会被拉到 1048576；
+/// 正确结果必须停在主对话槽（glm-4.5 / glm-4.6 均远小于 1M）。
 #[tokio::test]
-async fn group_min_context_window_ignores_haiku_and_gpt_slots() {
+async fn group_max_context_window_ignores_haiku_and_gpt_slots() {
     use aidog_db::test_support::test_db;
     let db = test_db().await;
 
     let pm = aidog_db::models::PlatformModels {
-        default: Some("glm-4.6".to_string()),
+        default: Some("glm-4.5".to_string()), // 131072
         sonnet: Some("glm-4.6".to_string()),
-        opus: Some("deepseek-chat".to_string()), // 1048576
-        haiku: Some("glm-4.5".to_string()),      // 131072，必须被忽略
-        gpt: Some("gpt-4o".to_string()),         // 128000，必须被忽略
+        opus: Some("glm-4.6".to_string()),
+        haiku: Some("deepseek-chat".to_string()), // 1048576，必须被忽略
+        gpt: Some("deepseek-chat".to_string()),   // 同上
     };
 
     // 不写死具体数值：registry 里同名模型各平台窗口可能被更新，
-    // 断言点是「结果高于两个杂活槽的窗口」= 它们没参与 min。
-    let got = super::group_min_context_window(&db, &[], &[&pm])
+    // 断言点是「结果没被 1M 的杂活槽顶上去」= 它们没参与 max。
+    let got = super::group_max_context_window(&db, &[], &[&pm])
+        .await
+        .expect("主对话槽模型在 registry 里查得到");
+    assert!(
+        (131_072..1_000_000).contains(&got),
+        "haiku/gpt 槽(deepseek-chat=1048576)不得参与最大值计算，got {got}"
+    );
+}
+
+/// group_max_context_window 取的是最大值：宽模型在组里就按宽的算，不被窄模型拖低。
+#[tokio::test]
+async fn group_max_context_window_takes_widest_main_loop_model() {
+    use aidog_db::test_support::test_db;
+    let db = test_db().await;
+
+    let pm = aidog_db::models::PlatformModels {
+        default: Some("glm-4.5".to_string()),    // 131072
+        opus: Some("deepseek-chat".to_string()), // 1048576
+        ..Default::default()
+    };
+
+    let got = super::group_max_context_window(&db, &[], &[&pm])
         .await
         .expect("主对话槽模型在 registry 里查得到");
     assert!(
         got > 131_072,
-        "haiku(glm-4.5=131072)/gpt(gpt-4o=128000) 槽不得参与最小值计算，got {got}"
+        "必须取组内最宽的主对话模型窗口，不得被 glm-4.5(131072) 拖低，got {got}"
     );
 }
 
