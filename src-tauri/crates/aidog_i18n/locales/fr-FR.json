@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "Déplacer automatiquement les sous-agents longs en arrière-plan",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "Désactiver l'en-tête d'attribution",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "Omettre le bloc d'attribution du prompt système, améliore le cache de l'agent",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "Supprimer l'attribution de session",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "Ne pas joindre d'informations d'attribution aux sessions",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "Fenêtre de compactage auto",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "Tokens de contexte utilisés pour le calcul du compactage auto",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Rapports Datadog",
@@ -2853,5 +2855,7 @@
   "stats.codingPlanOnly": "Plans de code uniquement",
   "stats.planAll": "Toute la facturation",
   "platform.codingWindowCost": "Est. ce cycle",
+  "platform.rateLimit": "Débit",
+  "platform.rateLimitTitle": "Marge de limite de débit amont (par minute), d'après les en-têtes {{vendor}}",
   "platform.codingPlanPrice": "Forfait"
 }

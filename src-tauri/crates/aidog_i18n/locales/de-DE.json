@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "Lange laufende Subagenten automatisch in Hintergrund verschieben",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "Attributions-Header deaktivieren",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "Attributionsblock aus System-Prompt weglassen, verbessert Agent-Caching",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "Sitzungsattribution unterdrücken",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "Keine Attributionsinformationen an Sitzungen anhängen",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "Auto-Kompaktierungsfenster",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "Kontext-Token für Auto-Kompaktierungsberechnung",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Datadog-Berichte",
@@ -2853,5 +2855,7 @@
   "stats.codingPlanOnly": "Nur Coding-Plan",
   "stats.planAll": "Alle Abrechnungen",
   "platform.codingWindowCost": "Geschätzt diese Periode",
+  "platform.rateLimit": "Rate",
+  "platform.rateLimitTitle": "Verbleibendes Ratenlimit des Anbieters (pro Minute), aus {{vendor}}-Response-Headern",
   "platform.codingPlanPrice": "Tarif"
 }

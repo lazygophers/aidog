@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "Автоматически перемещать долго работающих субагентов в фон",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "Отключить заголовок атрибуции",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "Пропускать блок атрибуции из системного промпта, улучшает кэширование агента",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "Скрыть атрибуцию сессии",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "Не прикреплять информацию об атрибуции к сессиям",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "Окно автосжатия",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "Токены контекста для расчёта автосжатия",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Отчёты Datadog",
@@ -2853,5 +2855,7 @@
   "stats.codingPlanOnly": "Только Coding Plan",
   "stats.planAll": "Вся тарификация",
   "platform.codingWindowCost": "За текущий цикл",
+  "platform.rateLimit": "Лимит",
+  "platform.rateLimitTitle": "Остаток лимита частоты запросов (в минуту), из заголовков ответа {{vendor}}",
   "platform.codingPlanPrice": "Тариф"
 }
