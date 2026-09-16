@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "長時間実行されるサブエージェントを自動的にバックグラウンドへ移動",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "帰属ヘッダーを無効化",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "システムプロンプトから帰属ブロックを省略、エージェントキャッシュを改善",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "セッション帰属を抑制",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "セッションに帰属情報を付加しない",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "自動圧縮ウィンドウ",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "自動圧縮計算に使用されるコンテキストトークン",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Datadog 報告",
@@ -2853,5 +2855,7 @@
   "stats.codingPlanOnly": "Coding Plan のみ",
   "stats.planAll": "全課金",
   "platform.codingWindowCost": "今周期の換算",
+  "platform.rateLimit": "レート",
+  "platform.rateLimitTitle": "上流のレート制限残量（毎分）、{{vendor}} のレスポンスヘッダー由来",
   "platform.codingPlanPrice": "プラン"
 }

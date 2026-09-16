@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "Automatically move long-running subagents to background",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "Disable Attribution Header",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "Omit attribution block from system prompt, improves agent caching",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "Suppress Session Attribution",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "Do not attach attribution info to sessions",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "Autocompact Window",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "Context tokens used for autocompact calculation",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Datadog Reporting",
@@ -2831,5 +2833,7 @@
   "stats.codingPlanOnly": "Coding Plan only",
   "stats.planAll": "All billing",
   "platform.codingWindowCost": "This cycle est.",
+  "platform.rateLimit": "Rate",
+  "platform.rateLimitTitle": "Upstream rate limit headroom (per minute), from {{vendor}} response headers",
   "platform.codingPlanPrice": "Plan"
 }

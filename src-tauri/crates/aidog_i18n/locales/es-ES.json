@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "Mover automáticamente los subagentes de larga duración a segundo plano",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "Desactivar encabezado de atribución",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "Omitir bloque de atribución del prompt del sistema, mejora el caché del agente",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "Suprimir atribución de sesión",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "No adjuntar información de atribución a las sesiones",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "Ventana de autocompactación",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "Tokens de contexto usados para el cálculo de autocompactación",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Informes Datadog",
@@ -2831,5 +2833,7 @@
   "stats.codingPlanOnly": "Solo Coding Plan",
   "stats.planAll": "Todo el cobro",
   "platform.codingWindowCost": "Estimado del ciclo",
+  "platform.rateLimit": "Tasa",
+  "platform.rateLimitTitle": "Margen del límite de tasa del proveedor (por minuto), de las cabeceras de {{vendor}}",
   "platform.codingPlanPrice": "Plan"
 }

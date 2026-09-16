@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "自动将长时间运行的子代理移到后台",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "禁用归属标头",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "从系统提示省略归属块，改善代理缓存",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "不附带会话归属",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "不在会话中附带归属信息",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "自动压缩窗口",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "用于自动压缩计算的上下文令牌数",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "Datadog 上报",
@@ -2831,5 +2833,7 @@
   "stats.codingPlanOnly": "仅 Coding Plan",
   "stats.planAll": "全部计费",
   "platform.codingWindowCost": "本周期折算",
+  "platform.rateLimit": "速率",
+  "platform.rateLimitTitle": "上游速率限制余量（每分钟），来自 {{vendor}} 响应头",
   "platform.codingPlanPrice": "套餐"
 }

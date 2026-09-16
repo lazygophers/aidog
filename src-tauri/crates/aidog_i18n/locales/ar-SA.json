@@ -187,6 +187,8 @@
   "env.CLAUDE_AUTO_BACKGROUND_TASKS.desc": "نقل الوكلاء الفرعيين طويلي التشغيل إلى الخلفية تلقائيًا",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER": "تعطيل رأس الإسناد",
   "env.CLAUDE_CODE_ATTRIBUTION_HEADER.desc": "حذف كتلة الإسناد من موجه النظام، يحسّن التخزين المؤقت للوكيل",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION": "إخفاء إسناد الجلسة",
+  "env.CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION.desc": "عدم إرفاق معلومات الإسناد بالجلسات",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW": "نافذة الضغط التلقائي",
   "env.CLAUDE_CODE_AUTO_COMPACT_WINDOW.desc": "رموز السياق المستخدمة لحساب الضغط التلقائي",
   "env.CLAUDE_CODE_BYOC_ENABLE_DATADOG": "تقارير Datadog",
@@ -2853,5 +2855,7 @@
   "stats.codingPlanOnly": "خطط البرمجة فقط",
   "stats.planAll": "كل الفوترة",
   "platform.codingWindowCost": "تقدير هذه الدورة",
+  "platform.rateLimit": "المعدل",
+  "platform.rateLimitTitle": "هامش حد المعدل للمزود (في الدقيقة)، من رؤوس استجابة {{vendor}}",
   "platform.codingPlanPrice": "الخطة"
 }
