@@ -213,6 +213,53 @@ fn proxy_url_from_config(config: &serde_json::Value) -> Option<String> {
         .map(str::to_string)
 }
 
+/// aidog 管理的 env key（用户 env_vars 同名一律丢弃 + warn，防静默破坏路由/压缩语义）。
+const MANAGED_ENV_KEYS: &[&str] = &[
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_AUTH_TOKEN",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
+];
+
+/// 组内可路由模型的真实上下文窗口最小值，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+/// 让 Claude Code 按真实后端窗口（而非假模型名的内置窗口）触发自动压缩。
+/// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台有效模型；
+/// registry 查不到的模型不计入（未知窗口不反向约束），一个都查不到 → None。
+async fn group_min_context_window(
+    db: &Db,
+    mappings: &[aidog_db::models::ModelMapping],
+    platform_models: &[&aidog_db::models::PlatformModels],
+) -> Option<i64> {
+    let mut seen = std::collections::HashSet::new();
+    let models: Vec<String> = mappings
+        .iter()
+        .map(|m| {
+            let target = m.target_model.trim();
+            if target.is_empty() {
+                m.source_model.trim()
+            } else {
+                target
+            }
+            .to_string()
+        })
+        .chain(platform_models.iter().flat_map(|m| m.all_values()))
+        .filter(|m| !m.is_empty())
+        .filter(|m| seen.insert(m.clone()))
+        .collect();
+    let mut min: Option<i64> = None;
+    for model in &models {
+        let entry = match aidog_db::get_model_entry_any_platform(db, model).await {
+            Ok(Some(e)) => e,
+            _ => continue,
+        };
+        let Some(ctx) = entry.max_input_tokens.or(entry.context_window) else {
+            continue;
+        };
+        min = Some(min.map_or(ctx, |m: i64| m.min(ctx)));
+    }
+    min
+}
+
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
@@ -308,17 +355,48 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                         serde_json::Value::String(group_key.clone()),
                     );
                 }
-                // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段
-                // ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 禁止覆盖 —— 同名 key 丢弃 + warn。
+                // Claude Code 上下文窗口对齐（非透传组）：真实后端窗口 < CC 按假模型名
+                // 认定的窗口时，CC 压缩时机会偏晚 → 按组内模型窗口最小值收窄。
+                // 纯 claude_code 透传组 CC 认识真实模型，跳过（同 skip_routing_env）。
+                if !skip_routing_env {
+                    let platform_models: Vec<&aidog_db::models::PlatformModels> = group_details
+                        .iter()
+                        .find(|d| d.group.group_key == *group_key)
+                        .map(|d| {
+                            d.platforms
+                                .iter()
+                                .map(|gp| &gp.platform.models)
+                                .collect::<Vec<_>>()
+                        })
+                        .unwrap_or_default();
+                    if let Some(window) =
+                        group_min_context_window(db, &group.model_mappings, &platform_models).await
+                    {
+                        // CC 只认纯整数 token 数，且窗口合法区间 [100k, 1M]。
+                        let clamped = window.clamp(100_000, 1_000_000);
+                        env_map.insert(
+                            "CLAUDE_CODE_AUTO_COMPACT_WINDOW".to_string(),
+                            serde_json::Value::String(clamped.to_string()),
+                        );
+                    }
+                    // 未识别模型 ID（如网关别名）改为被动压缩：API 报 too-long 才压，
+                    // 避免 CC 按 200k 默认值过早压缩。对 claude- 名字无副作用。
+                    env_map.insert(
+                        "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT".to_string(),
+                        serde_json::Value::String("1".to_string()),
+                    );
+                }
+                // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段与
+                // 压缩窗口字段禁止覆盖 —— 同名 key 丢弃 + warn。
                 for ev in &group.env_vars {
                     let key = ev.key.trim();
                     if key.is_empty() {
                         continue;
                     }
-                    if key == "ANTHROPIC_BASE_URL" || key == "ANTHROPIC_AUTH_TOKEN" {
+                    if MANAGED_ENV_KEYS.contains(&key) {
                         tracing::warn!(
                             group = %group_key, env_key = %key,
-                            "user env_var skipped: aidog-managed routing field, cannot override"
+                            "user env_var skipped: aidog-managed field, cannot override"
                         );
                         continue;
                     }

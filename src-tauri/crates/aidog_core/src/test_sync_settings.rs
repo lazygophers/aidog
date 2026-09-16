@@ -285,7 +285,13 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
             connect_timeout_secs: 0,
             source_protocol: None,
             max_retries: 2,
-            model_mappings: Vec::new(),
+            model_mappings: vec![aidog_db::models::ModelMapping {
+                source_model: "claude-sonnet-5".to_string(),
+                target_platform_id: 0,
+                target_model: "deepseek-chat".to_string(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
             env_vars: vec![
                 EnvVar {
                     key: "CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(),
@@ -299,6 +305,14 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
                 EnvVar {
                     key: "ANTHROPIC_AUTH_TOKEN".to_string(),
                     value: "leaked".to_string(),
+                },
+                EnvVar {
+                    key: "CLAUDE_CODE_AUTO_COMPACT_WINDOW".to_string(),
+                    value: "evil".to_string(),
+                },
+                EnvVar {
+                    key: "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT".to_string(),
+                    value: "evil".to_string(),
                 },
             ],
         },
@@ -321,6 +335,25 @@ async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
         "http://127.0.0.1:9911/proxy"
     );
     assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_envtest");
+    // 压缩窗口对齐 env 注入（组内有 registry 模型 deepseek-chat）
+    let compact = written["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]
+        .as_str()
+        .expect("CLAUDE_CODE_AUTO_COMPACT_WINDOW must be injected for non-passthrough group")
+        .parse::<i64>()
+        .expect("must be plain integer");
+    assert!(
+        (100_000..=1_000_000).contains(&compact),
+        "window must clamp into CC legal range, got {compact}"
+    );
+    assert_eq!(
+        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"], "1",
+        "未识别模型被动压缩开关必须注入"
+    );
+    // 用户 env_var 里同名的两个窗口 key 已被保护清单丢弃（上面注入值仍在）
+    assert_ne!(
+        written["env"]["CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT"], "evil"
+    );
+    assert_ne!(written["env"]["CLAUDE_CODE_AUTO_COMPACT_WINDOW"], "evil");
 
     // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
     aidog_db::delete_group(&db, g.id).await.unwrap();
@@ -485,6 +518,19 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
     assert!(
         cc["env"].get("ANTHROPIC_BASE_URL").is_none(),
         "pure claude_code group must not set ANTHROPIC_BASE_URL, got: {}",
+        cc["env"]
+    );
+    // 透传组：CC 认识真实模型，压缩窗口 env 同样不注入
+    assert!(
+        cc["env"].get("CLAUDE_CODE_AUTO_COMPACT_WINDOW").is_none(),
+        "pure claude_code group must not set CLAUDE_CODE_AUTO_COMPACT_WINDOW, got: {}",
+        cc["env"]
+    );
+    assert!(
+        cc["env"]
+            .get("CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT")
+            .is_none(),
+        "pure claude_code group must not set DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT, got: {}",
         cc["env"]
     );
     assert!(
