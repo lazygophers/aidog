@@ -477,15 +477,22 @@ def seg_group_window_cost(inp, o, gi):
         return None
     return (o.get("prefix", "$")) + "%.2f" % c
 
-# coding plan 配额色阈值：按剩余配额% 着色（与显示数字同口径），与 usage_color.rs
-# 同阈值（<40 红 / <60 黄 / ≥60 绿）。不再消费后端 pace-based level —— 那按剩余时间%
-# 着色，窗口初期 elapsed 小 → pace 大 → 即便配额剩 90%+ 也显红，与显示数字矛盾。
-_CODING_RED_PCT = 40
-_CODING_YELLOW_PCT = 60
+# coding plan 配额色阈值：按「额度已用% − 时间已过%」的百分点差着色，与 usage_color.rs
+# 同口径（> +3 红 / ±3 内 黄 / < -3 绿）。旧口径只看剩余配额%，不看时间维度 —— 周期只剩
+# 17m 还剩 42% 配额（明显省着用）会被判黄，与直觉矛盾。
+_CODING_PACE_DELTA_PP = 3
+
+# 周期时长（秒，按 tier name 硬编码，对齐 usage_color.rs::cycle_ms_for_tier）。
+_CODING_CYCLE_SECS = {
+    "five_hour": 5 * 3600,
+    "seven_day": 7 * 86400,
+    "weekly_limit": 7 * 86400,
+    "mcp_monthly": 30 * 86400,
+}
 
 
 def _coding_tiers(gi):
-    """每 tier 归一化为 (nm, remain_pct, reset_at)。remain = clamp(100 - utilization, 0, 100)。"""
+    """每 tier 归一化为 (nm, remain_pct, reset_at, cycle_secs)。remain = clamp(100 - utilization, 0, 100)。"""
     plans = get(gi, "coding_plan", default=[])
     out = []
     for p in plans:
@@ -505,34 +512,49 @@ def _coding_tiers(gi):
         elif remain > 100:
             remain = 100
         remain = 100 - remain
-        out.append((nm, remain, p.get("reset_at")))
+        out.append((nm, remain, p.get("reset_at"), _CODING_CYCLE_SECS.get(name)))
     return out
 
 
 def _coding_units(gi):
-    """每 tier 单元：(nm, remain_pct, plain)。plain = `nm r%` + 有 reset_at 时追加 `(倒计时)`。"""
+    """每 tier 单元：(plain, color)。plain = `nm r%` + 有 reset_at 时追加 `(倒计时)`；
+    color = None 表示无法判定（缺 reset_at / 未知 tier name），不上色。"""
     now = _now_epoch()
     out = []
-    for (nm, r, rs) in _coding_tiers(gi):
+    for (nm, r, rs, cycle) in _coding_tiers(gi):
         plain = nm + " " + jts(r) + "%"
+        left = None
         if rs is not None:
             d = rs - now
             if d > 0:
                 plain += "(" + _coding_reset_fmt(d) + ")"
-        out.append((nm, r, plain))
+            left = d
+        out.append((plain, _coding_color(r, left, cycle)))
     return out
 
 
 def _coding_text(gi):
     # 配额剩余%（= 100 - utilization），不带后缀（数字本身即剩余口径）。
-    return "·".join(plain for (_nm, _r, plain) in _coding_units(gi))
+    return "·".join(plain for (plain, _c) in _coding_units(gi))
 
 
-def _coding_color(remain):
-    # 单 tier 按自身剩余配额% 取色（<40 红 / <60 黄 / ≥60 绿），与显示数字同口径。
-    if remain < _CODING_RED_PCT:
+def _coding_color(remain, left_secs, cycle_secs):
+    # 差额 = 额度已用% − 时间已过%。负 = 省着用（绿），正 = 超支（红），±3pp 内 = 黄。
+    # 缺剩余时间 / 未知周期 → None（不上色），与 usage_color.rs 的 Neutral 同语义。
+    if left_secs is None or not cycle_secs:
+        return None
+    if remain <= 0:
+        # 配额耗尽 → 红。差额衡量「用量进度 vs 时间进度」，耗尽后该语义失效。
         return ANSI_RED
-    if remain < _CODING_YELLOW_PCT:
+    elapsed = (cycle_secs - left_secs) * 100.0 / cycle_secs
+    if elapsed < 0:
+        elapsed = 0.0
+    elif elapsed > 100:
+        elapsed = 100.0
+    delta = (100 - remain) - elapsed
+    if delta > _CODING_PACE_DELTA_PP:
+        return ANSI_RED
+    if delta >= -_CODING_PACE_DELTA_PP:
         return ANSI_AMBER
     return ANSI_GREEN
 
@@ -555,16 +577,16 @@ def seg_group_coding(inp, o, gi):
     units = _coding_units(gi)
     if not units:
         return None
-    plain = "·".join(plain for (_nm, _r, plain) in units)
+    plain = "·".join(txt for (txt, _c) in units)
     if not plain:
         return None
     if not o.get("dynamicColor"):
         return plain
-    # 每 tier 按自身剩余配额% 独立上色后拼接（不再整行单色，避免某 tier 低把整行染色）。
-    # 各 tier 自带自己的 reset 倒计时（灰色，无 reset_at 的 tier 不显示）。
+    # 每 tier 按自身进度差独立上色后拼接（不再整行单色，避免某 tier 低把整行染色）。
+    # 各 tier 自带自己的 reset 倒计时（灰色，无 reset_at 的 tier 不显示，也无法判色 → 原样输出）。
     parts = []
-    for (_nm, _r, plain) in units:
-        parts.append(fg(_coding_color(_r), plain))
+    for (txt, color) in units:
+        parts.append(fg(color, txt) if color else txt)
     return ("DYN", "·".join(parts))
 
 def seg_group_route(inp, o, gi):

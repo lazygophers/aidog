@@ -9,12 +9,11 @@
 //!   - `green`  → 充足
 //!   - `neutral`→ 无数据 / 无法判定（不报警）
 
-// ── Coding plan tier：剩余可用时间% 阈值 ──────────────────────
-// 剩余可用时间% = clamp(100 / pace, 0, 100)，pace = 额度已用比 / 时间已过比。
-/// 剩余可用时间% < 40 → 红（pace > 2.5，烧太快撑不到重置）
-pub const CODING_REMAIN_PCT_DANGER: f64 = 40.0;
-/// 40 ≤ 剩余 ≤ 60 → 黄（pace 1.67~2.5）；> 60 → 绿（pace < 1.67）
-pub const CODING_REMAIN_PCT_WARN: f64 = 60.0;
+// ── Coding plan tier：进度差（百分点）阈值 ───────────────────
+// 差额 = 额度已用% − 时间已过%（同为 0-100 的百分比，直接相减取百分点）。
+// 负 = 用得比时间慢（省）；正 = 烧得比时间快（超支）。
+/// |差额| ≤ 3 个百分点 → 黄（跟得上时间进度）；< -3 → 绿；> +3 → 红。
+pub const CODING_PACE_DELTA_PP: f64 = 3.0;
 
 // ── 余额：剩余可用天数阈值 ──────────────────────────────────
 /// days_remaining < 1 → 红
@@ -56,7 +55,7 @@ impl UsageLevel {
     }
 }
 
-/// Coding plan tier 配色（按 pace / 剩余可用时间%）。
+/// Coding plan tier 配色（按「额度已用% − 时间已过%」的百分点差）。
 ///
 /// 入参：
 ///   - `utilization`：额度已用百分比（0-100）
@@ -76,41 +75,29 @@ pub fn coding_tier_level(
         (Some(r), Some(c)) if c > 0 => (r as f64, c as f64),
         _ => return UsageLevel::Neutral,
     };
-    // 配额已耗尽（util≥100，剩余=0）→ 直接 Red。pace 算法衡量「按当前燃烧速度能否撑到周期末」，
-    // 但配额耗尽后该语义失效（已无可用，撑不撑得到无意义），按时间维度判绿会与现实矛盾。
+    // 配额已耗尽（util≥100）→ 直接 Red。差额算法衡量「用量进度 vs 时间进度」，
+    // 但配额耗尽后该语义失效（已无可用，进度快慢无意义），按进度判绿会与现实矛盾。
     if utilization >= 100.0 {
         return UsageLevel::Red;
     }
-    let remain_pct = coding_remain_pct(utilization, remain, cycle);
-    level_from_coding_remain_pct(remain_pct)
+    level_from_pace_delta(coding_pace_delta(utilization, remain, cycle))
 }
 
-/// 剩余可用时间% = clamp(100 / pace, 0, 100)；pace = util_ratio / elapsed_ratio。
-/// pace < 1（省着用）→ 100% 充足；elapsed_ratio → 0 时 pace → ∞ → 0%。
-pub fn coding_remain_pct(utilization: f64, remain_ms: f64, cycle_ms: f64) -> f64 {
-    let util_ratio = (utilization / 100.0).clamp(0.0, 1.0);
-    let elapsed_ratio = ((cycle_ms - remain_ms) / cycle_ms).clamp(0.0, 1.0);
-    if util_ratio <= 0.0 {
-        return 100.0; // 未消耗 → 充足
-    }
-    if elapsed_ratio <= 0.0 {
-        return 0.0; // 周期刚开始却已有消耗 → pace → ∞ → 0% 充足
-    }
-    let pace = util_ratio / elapsed_ratio;
-    if pace <= 0.0 {
-        return 100.0;
-    }
-    (100.0 / pace).clamp(0.0, 100.0)
+/// 进度差（百分点）= 额度已用% − 时间已过%。负 = 省着用，正 = 超支。
+pub fn coding_pace_delta(utilization: f64, remain_ms: f64, cycle_ms: f64) -> f64 {
+    let used_pct = utilization.clamp(0.0, 100.0);
+    let elapsed_pct = ((cycle_ms - remain_ms) / cycle_ms * 100.0).clamp(0.0, 100.0);
+    used_pct - elapsed_pct
 }
 
-/// 剩余可用时间% → 级别。<40 红 / 40-60 黄 / >60 绿。
-pub fn level_from_coding_remain_pct(remain_pct: f64) -> UsageLevel {
-    if !remain_pct.is_finite() {
+/// 进度差 → 级别。< -3 绿 / -3~+3 黄 / > +3 红。
+pub fn level_from_pace_delta(delta_pp: f64) -> UsageLevel {
+    if !delta_pp.is_finite() {
         return UsageLevel::Neutral;
     }
-    if remain_pct < CODING_REMAIN_PCT_DANGER {
+    if delta_pp > CODING_PACE_DELTA_PP {
         UsageLevel::Red
-    } else if remain_pct <= CODING_REMAIN_PCT_WARN {
+    } else if delta_pp >= -CODING_PACE_DELTA_PP {
         UsageLevel::Yellow
     } else {
         UsageLevel::Green
@@ -146,46 +133,53 @@ mod tests {
         assert_eq!(cycle_ms_for_tier("unknown"), None);
     }
 
-    // pace = util_ratio / elapsed_ratio。验收：pace=2.0→黄 / 3.0→红 / 1.2→绿。
+    // 差额 = 已用% − 已过时间%。验收：+2→黄 / +8→红 / -36→绿。
     #[test]
-    fn coding_pace_2_is_yellow() {
-        // util=50%, 时间过半 (elapsed 0.5) → pace = 0.5/0.5 = ... 需 pace=2:
-        // util_ratio=0.5, elapsed_ratio=0.25 → pace=2.0 → remain%=50 → 黄
-        let cycle = 168.0 * 3600.0 * 1000.0;
-        let remain = cycle * 0.75; // elapsed 0.25
-        let pct = coding_remain_pct(50.0, remain, cycle);
-        assert!((pct - 50.0).abs() < 1e-6, "remain% = {pct}");
-        assert_eq!(level_from_coding_remain_pct(pct), UsageLevel::Yellow);
-    }
-
-    #[test]
-    fn coding_pace_3_is_red() {
-        // util_ratio=0.6, elapsed_ratio=0.2 → pace=3.0 → remain%≈33.3 → 红
-        let cycle = 5.0 * 3600.0 * 1000.0;
-        let remain = cycle * 0.8;
-        let pct = coding_remain_pct(60.0, remain, cycle);
-        assert!((pct - 100.0 / 3.0).abs() < 1e-6, "remain% = {pct}");
-        assert_eq!(level_from_coding_remain_pct(pct), UsageLevel::Red);
-    }
-
-    #[test]
-    fn coding_pace_1_2_is_green() {
-        // util_ratio=0.6, elapsed_ratio=0.5 → pace=1.2 → remain%≈83.3 → 绿
+    fn coding_delta_within_band_is_yellow() {
+        // 5h 周期过半（elapsed 50%），用了 52% → +2pp → 黄
         let cycle = 5.0 * 3600.0 * 1000.0;
         let remain = cycle * 0.5;
-        let pct = coding_remain_pct(60.0, remain, cycle);
-        assert!((pct - 100.0 / 1.2).abs() < 1e-6, "remain% = {pct}");
-        assert_eq!(level_from_coding_remain_pct(pct), UsageLevel::Green);
+        let d = coding_pace_delta(52.0, remain, cycle);
+        assert!((d - 2.0).abs() < 1e-6, "delta = {d}");
+        assert_eq!(level_from_pace_delta(d), UsageLevel::Yellow);
+        // 边界 ±3 含在黄区
+        assert_eq!(level_from_pace_delta(3.0), UsageLevel::Yellow);
+        assert_eq!(level_from_pace_delta(-3.0), UsageLevel::Yellow);
+    }
+
+    #[test]
+    fn coding_overspend_is_red() {
+        // elapsed 50%，用了 58% → +8pp → 红
+        let cycle = 5.0 * 3600.0 * 1000.0;
+        let remain = cycle * 0.5;
+        let d = coding_pace_delta(58.0, remain, cycle);
+        assert!((d - 8.0).abs() < 1e-6, "delta = {d}");
+        assert_eq!(level_from_pace_delta(d), UsageLevel::Red);
     }
 
     #[test]
     fn coding_under_budget_is_green() {
-        // pace<1（省着用）→ remain% clamp 100 → 绿
+        // 用户实例：5h 周期剩 17m（elapsed 94.33%），配额剩 42%（已用 58%）→ -36.3pp → 绿
         let cycle = 5.0 * 3600.0 * 1000.0;
-        let remain = cycle * 0.1; // elapsed 0.9
-        let pct = coding_remain_pct(10.0, remain, cycle);
-        assert!((pct - 100.0).abs() < 1e-6, "remain% = {pct}");
-        assert_eq!(level_from_coding_remain_pct(pct), UsageLevel::Green);
+        let remain = 17.0 * 60.0 * 1000.0;
+        let d = coding_pace_delta(58.0, remain, cycle);
+        assert!((d + 36.333_333).abs() < 1e-3, "delta = {d}");
+        assert_eq!(level_from_pace_delta(d), UsageLevel::Green);
+        assert_eq!(
+            coding_tier_level(58.0, Some(17 * 60 * 1000), Some(5 * HOUR_MS)),
+            UsageLevel::Green
+        );
+    }
+
+    #[test]
+    fn coding_window_start_is_yellow_not_red() {
+        // 周期刚开 3 分钟（elapsed 1%）随手用了 2% → +1pp → 黄（旧 pace 算法会判红）
+        let cycle = 5 * HOUR_MS;
+        let remain = cycle - cycle / 100;
+        assert_eq!(
+            coding_tier_level(2.0, Some(remain), Some(cycle)),
+            UsageLevel::Yellow
+        );
     }
 
     #[test]
@@ -206,7 +200,7 @@ mod tests {
 
     #[test]
     fn coding_depleted_is_red() {
-        // 配额耗尽（util≥100）→ Red，绕过 pace。weekly 剩 2d（elapsed≈0.71）按 pace 会判绿。
+        // 配额耗尽（util≥100）→ Red，绕过差额算法。weekly 剩 2d（elapsed 71%）按差额会判绿。
         let cycle = 7 * 24 * 3_600_000; // weekly ms
         let remain = 2 * 24 * 3_600_000; // 剩 2d
         assert_eq!(
@@ -218,10 +212,11 @@ mod tests {
             coding_tier_level(150.0, Some(remain), Some(cycle)),
             UsageLevel::Red
         );
-        // 边界：99.9 仍走 pace（非本修复目标）
-        assert_ne!(
-            coding_tier_level(99.9, Some(remain), Some(cycle)),
-            UsageLevel::Red
+        // 边界：99.9 < 100，不走短路，仍按差额算。时间也快用完（剩 1h，elapsed 99.4%）
+        // → 差额 +0.5pp → 黄，证明短路只在 util≥100 时接管。
+        assert_eq!(
+            coding_tier_level(99.9, Some(HOUR_MS), Some(cycle)),
+            UsageLevel::Yellow
         );
     }
 

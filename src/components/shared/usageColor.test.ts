@@ -3,8 +3,8 @@ import { describe, it, expect } from "vitest";
 import {
   usageLevelToColor,
   cycleMsForTier,
-  codingRemainPct,
-  colorFromCodingRemainPct,
+  codingPaceDelta,
+  colorFromPaceDelta,
   codingTierLevel,
   balanceColorLevel,
 } from "./usageColor";
@@ -38,40 +38,41 @@ describe("cycleMsForTier", () => {
   });
 });
 
-describe("codingRemainPct", () => {
-  it("returns 100 when utilization is 0 (saving)", () => {
-    expect(codingRemainPct(0, 5 * HOUR, 5 * HOUR)).toBe(100);
+describe("codingPaceDelta", () => {
+  it("is 0 when usage tracks time exactly", () => {
+    expect(codingPaceDelta(50, 2.5 * HOUR, 5 * HOUR)).toBe(0);
   });
-  it("returns 0 when no time elapsed (elapsedRatio <= 0)", () => {
-    // remainMs == cycleMs → elapsedRatio = 0
-    expect(codingRemainPct(50, 5 * HOUR, 5 * HOUR)).toBe(0);
+  it("is positive when overspending", () => {
+    // elapsed 50%, used 58% → +8pp
+    expect(codingPaceDelta(58, 2.5 * HOUR, 5 * HOUR)).toBeCloseTo(8, 6);
   });
-  it("returns 100 when pace below 1 (under budget)", () => {
-    // util 10% used after 50% elapsed → pace 0.2 → remain clamps to 100
-    expect(codingRemainPct(10, 2.5 * HOUR, 5 * HOUR)).toBe(100);
+  it("is negative when under budget", () => {
+    // 5h 周期剩 17m（elapsed 94.33%），已用 58% → -36.33pp
+    expect(codingPaceDelta(58, 17 * 60_000, 5 * HOUR)).toBeCloseTo(-36.333333, 4);
   });
-  it("computes a mid remaining pct when pace > 1", () => {
-    // util 80% after 40% elapsed → pace = 0.8/0.4 = 2 → 100/2 = 50
-    expect(codingRemainPct(80, 3 * HOUR, 5 * HOUR)).toBe(50);
+  it("clamps utilization and elapsed into 0-100", () => {
+    expect(codingPaceDelta(150, 5 * HOUR, 5 * HOUR)).toBe(100);
+    expect(codingPaceDelta(0, -HOUR, 5 * HOUR)).toBe(-100);
   });
 });
 
-describe("colorFromCodingRemainPct", () => {
+describe("colorFromPaceDelta", () => {
   it("neutral for non-finite", () => {
-    expect(colorFromCodingRemainPct(NaN)).toBe("neutral");
-    expect(colorFromCodingRemainPct(Infinity)).toBe("neutral");
+    expect(colorFromPaceDelta(NaN)).toBe("neutral");
+    expect(colorFromPaceDelta(Infinity)).toBe("neutral");
   });
-  it("danger below 40", () => {
-    expect(colorFromCodingRemainPct(39)).toBe("danger");
-    expect(colorFromCodingRemainPct(0)).toBe("danger");
+  it("danger above +3", () => {
+    expect(colorFromPaceDelta(3.1)).toBe("danger");
+    expect(colorFromPaceDelta(50)).toBe("danger");
   });
-  it("warning in [40, 60]", () => {
-    expect(colorFromCodingRemainPct(40)).toBe("warning");
-    expect(colorFromCodingRemainPct(60)).toBe("warning");
+  it("warning within ±3", () => {
+    expect(colorFromPaceDelta(3)).toBe("warning");
+    expect(colorFromPaceDelta(0)).toBe("warning");
+    expect(colorFromPaceDelta(-3)).toBe("warning");
   });
-  it("success above 60", () => {
-    expect(colorFromCodingRemainPct(61)).toBe("success");
-    expect(colorFromCodingRemainPct(100)).toBe("success");
+  it("success below -3", () => {
+    expect(colorFromPaceDelta(-3.1)).toBe("success");
+    expect(colorFromPaceDelta(-100)).toBe("success");
   });
 });
 
@@ -88,11 +89,15 @@ describe("codingTierLevel", () => {
   it("danger when quota exhausted (util >= 100)", () => {
     expect(codingTierLevel(100, 0, 5 * HOUR)).toBe("danger");
   });
-  it("delegates to pace-based coloring otherwise", () => {
-    // util 80% after 40% elapsed → remain 50 → warning
-    expect(codingTierLevel(80, 3 * HOUR, 5 * HOUR)).toBe("warning");
-    // saving → success
-    expect(codingTierLevel(10, 2.5 * HOUR, 5 * HOUR)).toBe("success");
+  it("delegates to the pace-delta coloring otherwise", () => {
+    // elapsed 40%, used 80% → +40pp → danger
+    expect(codingTierLevel(80, 3 * HOUR, 5 * HOUR)).toBe("danger");
+    // elapsed 50%, used 52% → +2pp → warning
+    expect(codingTierLevel(52, 2.5 * HOUR, 5 * HOUR)).toBe("warning");
+    // 用户实例：5h 剩 17m，配额剩 42%（已用 58%）→ -36.33pp → success
+    expect(codingTierLevel(58, 17 * 60_000, 5 * HOUR)).toBe("success");
+    // 周期刚开 1%，用了 2% → +1pp → warning（旧 pace 算法会判 danger）
+    expect(codingTierLevel(2, 5 * HOUR * 0.99, 5 * HOUR)).toBe("warning");
   });
 });
 

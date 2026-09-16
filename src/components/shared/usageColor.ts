@@ -1,16 +1,16 @@
 // ── 使用速率配色（前端唯一事实源）──
-// 与后端 src-tauri/src/gateway/usage_color.rs 阈值常量一一对应，禁前端各处各写一套。
+// 与后端 src-tauri/crates/aidog_core/src/gateway/usage_color.rs 阈值常量一一对应，禁前端各处各写一套。
 // 全部「金额 / 额度」颜色统一按使用速率算红黄绿；后端能算 level 的路径（statusline / group-info）
 // 直接消费后端 level，本模块供前端列表页从原始 est 数据本地算 level（同一阈值，无漂移）。
 
 import type { ColorLevel } from "./colorScale";
 import { clamp } from "../../utils/formatters";
 
-// ── Coding plan tier：剩余可用时间% 阈值（对齐 usage_color.rs）──
-/** 剩余可用时间% < 40 → 红 */
-export const CODING_REMAIN_PCT_DANGER = 40;
-/** 40 ≤ 剩余 ≤ 60 → 黄；> 60 → 绿 */
-export const CODING_REMAIN_PCT_WARN = 60;
+// ── Coding plan tier：进度差（百分点）阈值（对齐 usage_color.rs）──
+// 差额 = 额度已用% − 时间已过%（同为 0-100 的百分比，直接相减取百分点）。
+// 负 = 用得比时间慢（省）；正 = 烧得比时间快（超支）。
+/** |差额| ≤ 3 个百分点 → 黄；< -3 → 绿；> +3 → 红。 */
+export const CODING_PACE_DELTA_PP = 3;
 
 // ── 余额：剩余可用天数阈值（对齐 usage_color.rs）──
 /** days_remaining < 1 → 红 */
@@ -54,30 +54,23 @@ export function cycleMsForTier(name: string): number | null {
   }
 }
 
-/**
- * 剩余可用时间% = clamp(100 / pace, 0, 100)；pace = util_ratio / elapsed_ratio。
- * pace < 1（省着用）→ 100% 充足；elapsed_ratio → 0 时 pace → ∞ → 0%。
- */
-export function codingRemainPct(utilization: number, remainMs: number, cycleMs: number): number {
-  const utilRatio = clamp(utilization / 100, 0, 1);
-  const elapsedRatio = clamp((cycleMs - remainMs) / cycleMs, 0, 1);
-  if (utilRatio <= 0) return 100;
-  if (elapsedRatio <= 0) return 0;
-  const pace = utilRatio / elapsedRatio;
-  if (pace <= 0) return 100;
-  return clamp(100 / pace, 0, 100);
+/** 进度差（百分点）= 额度已用% − 时间已过%。负 = 省着用，正 = 超支。 */
+export function codingPaceDelta(utilization: number, remainMs: number, cycleMs: number): number {
+  const usedPct = clamp(utilization, 0, 100);
+  const elapsedPct = clamp(((cycleMs - remainMs) / cycleMs) * 100, 0, 100);
+  return usedPct - elapsedPct;
 }
 
-/** 剩余可用时间% → ColorLevel。<40 红 / 40-60 黄 / >60 绿。 */
-export function colorFromCodingRemainPct(remainPct: number): ColorLevel {
-  if (!Number.isFinite(remainPct)) return "neutral";
-  if (remainPct < CODING_REMAIN_PCT_DANGER) return "danger";
-  if (remainPct <= CODING_REMAIN_PCT_WARN) return "warning";
+/** 进度差 → ColorLevel。< -3 绿 / -3~+3 黄 / > +3 红。 */
+export function colorFromPaceDelta(deltaPp: number): ColorLevel {
+  if (!Number.isFinite(deltaPp)) return "neutral";
+  if (deltaPp > CODING_PACE_DELTA_PP) return "danger";
+  if (deltaPp >= -CODING_PACE_DELTA_PP) return "warning";
   return "success";
 }
 
 /**
- * Coding plan tier 配色级别。
+ * Coding plan tier 配色级别（按「额度已用% − 时间已过%」的百分点差）。
  *   - utilization：额度已用百分比（0-100）
  *   - remainMs：本周期剩余时间（ms）；null = 无可靠 remain（无 resets_at / 无 window_start）
  *   - cycleMs：周期时长（ms）；null = 未知 name（无周期概念）
@@ -90,9 +83,9 @@ export function codingTierLevel(
 ): ColorLevel {
   if (!Number.isFinite(utilization) || utilization < 0) return "neutral";
   if (remainMs == null || cycleMs == null || cycleMs <= 0) return "neutral";
-  // 配额已耗尽（util≥100，剩余=0）→ danger。pace 算法衡量「撑到周期末」，耗尽后无意义（对齐 usage_color.rs）。
+  // 配额已耗尽（util≥100，剩余=0）→ danger。差额算法衡量「用量进度 vs 时间进度」，耗尽后无意义（对齐 usage_color.rs）。
   if (utilization >= 100) return "danger";
-  return colorFromCodingRemainPct(codingRemainPct(utilization, remainMs, cycleMs));
+  return colorFromPaceDelta(codingPaceDelta(utilization, remainMs, cycleMs));
 }
 
 /** 余额配色级别（按剩余可用天数）。null = 无用量 / 无余额 → neutral（不报警）。 */

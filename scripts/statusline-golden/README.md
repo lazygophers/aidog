@@ -50,3 +50,13 @@ Python ones. To refresh after an intentional rendering change:
 
 Never run `build.mjs golden` (without `--bash`) — it would overwrite the golden
 with the current Python output, defeating the regression.
+
+### Deliberate divergences from bash
+
+Colors of the coding-plan quota segment in
+`main-default__main__full__groupinfo.golden` and
+`group-dynamic__main__full__groupinfo.golden` were hand-edited on 2026-09-16:
+tier coloring switched from "remaining quota %" to "quota used % − time
+elapsed %" (see `_coding_color` in `engine.py` and `usage_color.rs`), so the
+bash-captured colors for the 5h / 7d tiers no longer apply. Everything else in
+those files still matches bash byte-for-byte.
