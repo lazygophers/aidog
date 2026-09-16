@@ -1,12 +1,12 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "kimi-k2-instruct",
   "canonical_model": "kimi-k2-instruct",
   "context_window": 131072,
   "capabilities": [
     "text"
   ],
-  "official": true,
+  "official": false,
   "price": {
     "input": 5.4e-7,
     "output": 0.00000216

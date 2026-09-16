@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "muse-spark-1.1",
   "canonical_model": "muse-spark-1.1",
   "context_window": 1048576,
@@ -13,7 +13,7 @@
     "tool_use",
     "reasoning"
   ],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.000001375,
     "output": 0.000004675

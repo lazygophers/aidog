@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "ernie-4.5-0.3b",
   "canonical_model": "ernie-4.5-0.3b",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 1.36e-8,
     "output": 5.44e-8

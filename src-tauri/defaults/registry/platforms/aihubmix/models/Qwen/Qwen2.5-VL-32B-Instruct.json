@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "Qwen/Qwen2.5-VL-32B-Instruct",
   "canonical_model": "Qwen/Qwen2.5-VL-32B-Instruct",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 2.4e-7,
     "output": 2.4e-7

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "baidu-deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "family": "deepseek",
@@ -11,7 +11,7 @@
   "max_input_tokens": 1048576,
   "max_output_tokens": 393216,
   "context_window": 1048576,
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.000001268,
     "output": 0.000003804,

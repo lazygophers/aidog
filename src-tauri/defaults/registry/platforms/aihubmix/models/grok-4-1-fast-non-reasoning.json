@@ -1,12 +1,12 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "grok-4-1-fast-non-reasoning",
   "canonical_model": "grok-4-1-fast-non-reasoning",
   "context_window": 2000000,
   "capabilities": [
     "text"
   ],
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1789539801,
   "model_id": "Qwen/Qwen2.5-VL-72B-Instruct",
   "canonical_model": "qwen2.5-vl-72b-instruct",
   "capabilities": [
@@ -8,7 +8,7 @@
   "max_input_tokens": 131072,
   "max_output_tokens": 128000,
   "context_window": 131072,
-  "official": true,
+  "official": false,
   "price": {
     "input": 5e-7,
     "output": 5e-7

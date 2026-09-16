@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "gpt-5.4-low",
   "canonical_model": "gpt-5.4-low",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.0000025,
     "output": 0.000015,

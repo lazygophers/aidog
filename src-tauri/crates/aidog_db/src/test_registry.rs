@@ -276,13 +276,38 @@ fn glm_coding_keeps_peak_branches() {
     assert_eq!(glm["is_coding_plan"], true);
 }
 
+/// 没有任何 official 条目、且不能靠「整个平台零 official」规则放行的 `model_id`，
+/// 逐条核过来源后在此登记豁免：
+/// - `deepseek-v3.2-think`：只上架 qianfan（百度转售），deepseek 官方平台无同名条目
+///   （官方侧是 `deepseek-v3.2` / `deepseek-v3.2-exp`）。
+/// - `grok-4-1-fast-non-reasoning` / `grok-4-fast-reasoning`：只上架 pipellm（转售），
+///   xai 官方平台无同名条目。
+/// - `hy4-preview`：只上架 opencode（转售），registry 无腾讯混元官方平台。
+/// - `qwen3-coder-plus-2025-07-22`：bailian / bailian_en 上有条目但标 `official: false`，
+///   同族的 `qwen3-coder-plus` 与 `-2025-09-23` 均为 true。是历史快照下架还是漏标未定，
+///   阿里云文档抓取被挡（`webgrab https://help.aliyun.com/zh/model-studio/models` 空返回），
+///   按「推测值禁写入」不改数据，先豁免。
+const NO_OFFICIAL_CHANNEL: &[&str] = &[
+    "deepseek-v3.2-think",
+    "grok-4-1-fast-non-reasoning",
+    "grok-4-fast-reasoning",
+    "hy4-preview",
+    "qwen3-coder-plus-2025-07-22",
+];
+
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
 /// 一个都没有 → 该模型在 UI 里挑不出默认平台）。旧断言经 `registry::model_entry`
 /// 归并视图间接验证，该视图随票 T6 删除，这里直接数原始文件。
+///
+/// 两类例外：① 整个平台一条 official 都没有 = 中转/聚合站（aihubmix、各 coding
+/// 套餐协议等），只在这类平台上架的 `model_id` 挑不出官方平台是数据事实不是缺口；
+/// ② `NO_OFFICIAL_CHANNEL` 里逐条核过的散例。
 #[test]
 fn every_model_has_an_official_platform() {
     let mut seen = std::collections::HashSet::new();
     let mut official: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
+    let mut hosted_on: std::collections::BTreeMap<String, Vec<&str>> = Default::default();
+    let mut official_platforms = std::collections::HashSet::new();
     for (code, _file, json) in MODEL_FILES {
         let e = parse(code, json);
         let id = e["model_id"].as_str().expect("model_id");
@@ -291,13 +316,22 @@ fn every_model_has_an_official_platform() {
             "{code} 内 model_id `{id}` 重复"
         );
         assert!(e["capabilities"].is_array(), "{code}/{id} 缺 capabilities");
+        hosted_on.entry(id.to_string()).or_default().push(code);
         let slot = official.entry(id.to_string()).or_default();
         if e["official"] == Value::Bool(true) {
             slot.push(code);
+            official_platforms.insert(*code);
         }
     }
     for (id, codes) in &official {
-        assert!(!codes.is_empty(), "{id} 无 official 条目");
+        if !codes.is_empty() || NO_OFFICIAL_CHANNEL.contains(&id.as_str()) {
+            continue;
+        }
+        let hosts = &hosted_on[id];
+        assert!(
+            hosts.iter().all(|c| !official_platforms.contains(c)),
+            "{id} 无 official 条目，上架平台 {hosts:?} 中有官方渠道"
+        );
     }
 }
 

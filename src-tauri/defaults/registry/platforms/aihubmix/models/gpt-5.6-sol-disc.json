@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "gpt-5.6-sol-disc",
   "canonical_model": "gpt-5.6-sol-disc",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.000004,
     "output": 0.00002,

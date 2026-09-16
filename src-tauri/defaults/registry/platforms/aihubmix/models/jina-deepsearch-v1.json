@@ -1,10 +1,10 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "jina-deepsearch-v1",
   "canonical_model": "jina-deepsearch-v1",
   "display_name": "Jina DeepSearch",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 5e-8,
     "output": 5e-8

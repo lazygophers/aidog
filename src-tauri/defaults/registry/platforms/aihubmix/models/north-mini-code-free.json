@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1789539801,
   "model_id": "north-mini-code-free",
   "canonical_model": "north-mini-code-free",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.0
   }

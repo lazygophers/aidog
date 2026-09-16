@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1789539801,
   "model_id": "claude-opus-4-6-think",
   "canonical_model": "claude-opus-4-6",
   "capabilities": [
@@ -8,7 +8,7 @@
   "max_input_tokens": 1000000,
   "max_output_tokens": 131072,
   "context_window": 1000000,
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "price": {
     "input": 0.000005,
