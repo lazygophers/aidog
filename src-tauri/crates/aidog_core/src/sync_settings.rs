@@ -221,13 +221,16 @@ const MANAGED_ENV_KEYS: &[&str] = &[
     "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
 ];
 
-/// 组内可路由模型的真实上下文窗口最小值，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
-/// 让 Claude Code 按真实后端窗口（而非假模型名的内置窗口）触发自动压缩。
+/// 组内可路由模型的真实上下文窗口**最大值**，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
+/// 让 Claude Code 按后端真实窗口（而非假模型名的内置窗口）触发自动压缩。
 /// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台**主对话槽位**模型
-/// （default / sonnet / opus）；haiku 杂活槽与 gpt（Codex 专用）不承接长上下文，
-/// 计入只会把整组压缩门槛拖到最窄的那个杂活模型上，故排除。
-/// registry 查不到的模型不计入（未知窗口不反向约束），一个都查不到 → None。
-async fn group_min_context_window(
+/// （default / sonnet / opus）；haiku 杂活槽与 gpt（Codex 专用）不承接长上下文，故排除。
+/// registry 查不到的模型不计入（未知窗口不参与），一个都查不到 → None。
+///
+/// 取 max 而非 min 是用户显式选择（2026-09-16）：窗口最宽的模型才是该组的实际容量上限，
+/// 按最窄的算会让宽模型白白浪费容量。代价是路由落到窄模型且上下文已超它时不会提前压缩，
+/// 由上游返回超长错误兜底（`CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT` 同时注入）。
+async fn group_max_context_window(
     db: &Db,
     mappings: &[aidog_db::models::ModelMapping],
     platform_models: &[&aidog_db::models::PlatformModels],
@@ -248,7 +251,7 @@ async fn group_min_context_window(
         .filter(|m| !m.is_empty())
         .filter(|m| seen.insert(m.clone()))
         .collect();
-    let mut min: Option<i64> = None;
+    let mut max: Option<i64> = None;
     for model in &models {
         let entry = match aidog_db::get_model_entry_any_platform(db, model).await {
             Ok(Some(e)) => e,
@@ -257,9 +260,9 @@ async fn group_min_context_window(
         let Some(ctx) = entry.max_input_tokens.or(entry.context_window) else {
             continue;
         };
-        min = Some(min.map_or(ctx, |m: i64| m.min(ctx)));
+        max = Some(max.map_or(ctx, |m: i64| m.max(ctx)));
     }
-    min
+    max
 }
 
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
@@ -316,15 +319,14 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // statusline 脚本物化（同 hook 机制）：每次调用无条件重写两个 .py，并把
     // statusLine / subagentStatusLine 原生字段注入各组 config（strip marker 之前）。
     // 脚本内容与 marker 同源（base_config），每组一致 → 循环外算一次。
-    let statusline_fields = match crate::statusline::prepare_statusline_fields(db, &base_config)
-        .await
-    {
-        Ok(f) => Some(f),
-        Err(e) => {
-            tracing::warn!(error = %e, "generate statusline scripts failed");
-            None
-        }
-    };
+    let statusline_fields =
+        match crate::statusline::prepare_statusline_fields(db, &base_config).await {
+            Ok(f) => Some(f),
+            Err(e) => {
+                tracing::warn!(error = %e, "generate statusline scripts failed");
+                None
+            }
+        };
 
     let mut written = Vec::new();
 
@@ -385,7 +387,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                         })
                         .unwrap_or_default();
                     if let Some(window) =
-                        group_min_context_window(db, &group.model_mappings, &platform_models).await
+                        group_max_context_window(db, &group.model_mappings, &platform_models).await
                     {
                         // CC 只认纯整数 token 数，且窗口合法区间 [100k, 1M]。
                         let clamped = window.clamp(100_000, 1_000_000);
