@@ -223,7 +223,9 @@ const MANAGED_ENV_KEYS: &[&str] = &[
 
 /// 组内可路由模型的真实上下文窗口最小值，注入 `CLAUDE_CODE_AUTO_COMPACT_WINDOW`
 /// 让 Claude Code 按真实后端窗口（而非假模型名的内置窗口）触发自动压缩。
-/// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台有效模型；
+/// 候选 = 映射 target_model（空 = 透传 source_model）∪ 各平台**主对话槽位**模型
+/// （default / sonnet / opus）；haiku 杂活槽与 gpt（Codex 专用）不承接长上下文，
+/// 计入只会把整组压缩门槛拖到最窄的那个杂活模型上，故排除。
 /// registry 查不到的模型不计入（未知窗口不反向约束），一个都查不到 → None。
 async fn group_min_context_window(
     db: &Db,
@@ -242,7 +244,7 @@ async fn group_min_context_window(
             }
             .to_string()
         })
-        .chain(platform_models.iter().flat_map(|m| m.all_values()))
+        .chain(platform_models.iter().flat_map(|m| m.main_loop_values()))
         .filter(|m| !m.is_empty())
         .filter(|m| seen.insert(m.clone()))
         .collect();
