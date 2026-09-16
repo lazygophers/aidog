@@ -1,14 +1,13 @@
 // ponytail: 自 StatusLineSection.tsx L301-480 外迁，零逻辑变更。
 // 收 Panel 全部 state + derived + actions + effect。
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
   type RowAlign,
   type StatusLineSegment,
   type SegmentType,
   DEFAULT_SEGMENTS,
   DEFAULT_SUBAGENT_SEGMENTS,
-  materializeStatusline,
   normalizeSegments,
   SEGMENT_DEF_MAP,
 } from "../../statusline-gen";
@@ -30,10 +29,9 @@ export function useStatusLinePanel({
   const fieldName = isMain ? "statusLine" : "subagentStatusLine";
 
   const stored = (config[aidogKey] ?? {}) as Record<string, any>;
-  // Single source of truth for enabled/mode/customCommand/scriptContent derivation —
-  // mirrors the on-save materializer exactly (see statusline-gen.ts::materializeStatusline).
-  const materialized = materializeStatusline(stored, scriptType);
-  const { enabled, mode, customCommand } = materialized;
+  const enabled = !!stored.enabled;
+  const mode: "builtin" | "custom" = stored.mode === "custom" ? "custom" : "builtin";
+  const customCommand = typeof stored.customCommand === "string" ? stored.customCommand : "";
 
   // Segments — main and subagent share the same editor; only the first-run /
   // reset default layout differs.
@@ -42,7 +40,6 @@ export function useStatusLinePanel({
     stored.segments ?? defaultSegments.map(s => ({ ...s }));
 
   const [showScript, setShowScript] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [editSeg, setEditSeg] = useState<StatusLineSegment | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
@@ -86,62 +83,21 @@ export function useStatusLinePanel({
     updateSegments(segments.filter(s => !ids.has(s.id)));
   };
 
-  // Script preview — sourced from the same materializeStatusline() call above, so
-  // the preview panel is byte-for-byte the same script the save path would write.
-  // scriptContent is only non-null when enabled && mode==="builtin", which is the
-  // exact condition StatusLinePanel gates the preview render on.
-  const scriptPreview = materialized.scriptContent ?? "";
-
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      const command = await statuslineApi.generate(scriptType, scriptPreview);
-      const value: Record<string, any> = { type: "command", command };
-      updateField(fieldName, value);
-    } catch (e: any) {
-      console.error("generate_statusline_script:", e);
-    }
-    setSaving(false);
-  };
-
-  // Live-preview convenience only: keep the native `statusLine` / `subagentStatusLine`
-  // draft field roughly in sync while the user edits builtin segments, so the JSON
-  // view reflects changes without a save round-trip. This is NO LONGER the
-  // persistence path — Settings.handleSave → materializeStatuslineFields is the
-  // authoritative, race-free materializer (covers disabled/custom/subagent too,
-  // which this effect deliberately does not touch). The effect keys off the *real
-  // inputs* (scriptPreview / padding / hideVim / enabled), NOT the generated path,
-  // and skips the write when the value is unchanged — keeping `updateField`
-  // idempotent so the dirty state never thrashes / loops. Because the save writes
-  // the same stable command path, the two never conflict.
-  const lastWrittenRef = useRef<string>("");
+  // Script preview — rendered by Rust (same generator that materializes the real
+  // file during sync), so what's shown is exactly what lands on disk. Read-only:
+  // the actual .py files are (re)written by do_sync_group_settings on every
+  // startup and on every settings change, never from here.
+  const [scriptPreview, setScriptPreview] = useState("");
   useEffect(() => {
-    if (!enabled || mode !== "builtin") return;
+    if (!showScript || !enabled || mode !== "builtin") return;
     let cancelled = false;
-    const timer = setTimeout(async () => {
-      try {
-        const command = await statuslineApi.generate(scriptType, scriptPreview);
-        if (cancelled) return;
-        const value: Record<string, any> = { type: "command", command };
-
-        const signature = JSON.stringify(value);
-        // Skip when the field already holds this exact value → no spurious dirty.
-        const current = config[fieldName];
-        if (signature === lastWrittenRef.current && JSON.stringify(current) === signature) return;
-        lastWrittenRef.current = signature;
-        updateField(fieldName, value);
-      } catch (e: any) {
-        console.error("auto generate_statusline_script:", e);
-      }
-    }, 500);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-    // Depends on real inputs only (scriptPreview captures segments/template).
+    statuslineApi.preview(scriptType, stored).then(src => {
+      if (!cancelled) setScriptPreview(src);
+    }).catch(e => console.error("preview_statusline_script:", e));
+    return () => { cancelled = true; };
+    // stored is a fresh object each render — key off its serialized content.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, mode, scriptPreview, scriptType, isMain, fieldName]);
+  }, [showScript, enabled, mode, scriptType, JSON.stringify(stored)]);
 
   // Apply custom mode: write the native Claude Code statusLine command directly,
   // bypassing aidog script generation. Empty command clears the field.
@@ -211,11 +167,10 @@ export function useStatusLinePanel({
     segments, scriptPreview,
     // state
     showScript, setShowScript,
-    saving,
     editSeg, setEditSeg,
     showAddMenu, setShowAddMenu,
     // actions
-    handleToggle, updateSegments, deleteRow, handleSave, handleApplyCustom,
+    handleToggle, updateSegments, deleteRow, handleApplyCustom,
     switchMode, addSegment, addRow, resetToDefaultLayout, cycleRowAlign,
   };
 }

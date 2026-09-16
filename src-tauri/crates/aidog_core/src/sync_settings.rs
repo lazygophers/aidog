@@ -311,6 +311,19 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         Vec::new()
     };
 
+    // statusline 脚本物化（同 hook 机制）：每次调用无条件重写两个 .py，并把
+    // statusLine / subagentStatusLine 原生字段注入各组 config（strip marker 之前）。
+    // 脚本内容与 marker 同源（base_config），每组一致 → 循环外算一次。
+    let statusline_fields = match crate::statusline::prepare_statusline_fields(db, &base_config)
+        .await
+    {
+        Ok(f) => Some(f),
+        Err(e) => {
+            tracing::warn!(error = %e, "generate statusline scripts failed");
+            None
+        }
+    };
+
     let mut written = Vec::new();
 
     // 纯 claude_code（订阅透传）组集合：关联平台全部为 Protocol::ClaudeCode。
@@ -409,6 +422,11 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         // N2：遍历 inject_events（enabled 事件）注入，每个指向通用脚本 command。
         if let Some(scripts) = &hook_scripts {
             aidog_hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
+        }
+
+        // statusline 注入（strip marker 之前）：脚本已在循环外落盘，这里只填字段。
+        if let Some(fields) = &statusline_fields {
+            crate::statusline::inject_statusline(&mut config, fields);
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.

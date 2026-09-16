@@ -1,16 +1,15 @@
 # Statusline golden-output regression
 
 Guards the bash→Python conversion of the statusline / subagent-statusline script
-generators (`src/components/settings/statusline-gen.ts`). The generated Python
+generators (`src-tauri/crates/aidog_core/src/statusline.rs`). The generated Python
 scripts must produce **byte-for-byte identical stdout** to the former jq/printf/
 awk/sed bash implementation.
 
 ## Layout
 
 - `engine.py` — the rendering engine, single source of truth. Embedded verbatim
-  into every generated script via `statusline-runtime.ts`
-  (`node scripts/build-statusline-runtime.mjs`). Also imported directly by the
-  golden runner.
+  into every generated script by the Rust generator (`include_str!` in
+  `aidog_core::statusline`). Also imported directly by the golden runner.
 - `configs.mjs` — representative segment layouts (defaults + all-atoms + autocolor
   + alignment + group static/dynamic + subagent).
 - `inputs/*.json` — fixture stdin payloads covering boundaries: full / minimal /
@@ -19,7 +18,9 @@ awk/sed bash implementation.
 - `golden/*.golden` — captured **bash** stdout, byte-for-byte. Checked in.
 - `shim/date` — deterministic `date +%s` (fixed epoch) so reset-time deltas /
   task elapsed stay stable.
-- `build.mjs` — runner. `emit.mjs` / `emit-bash.mjs` — script emitters.
+- `build.mjs` — runner; it builds and drives the Rust emitter
+  (`cargo build -p aidog_core --example statusline_emit --no-default-features`).
+  `emit-bash.mjs` — bootstrap-only bash emitter (gitignored).
 - `server.mjs` — mock `/api/group-info` (separate process; the sync script runner
   would otherwise starve an in-process server).
 
@@ -42,7 +43,8 @@ Python ones. To refresh after an intentional rendering change:
 # 1. Re-extract the original bash generators from git history into .bash-orig.ts
 #    (lines 1620–3133 of the pre-conversion editors.tsx, with the three exports
 #    SEGMENT_DEFS / SEGMENT_DEF_MAP / groupRows added) and write emit-bash.mjs
-#    (a copy of emit.mjs importing ./.bash-orig.ts). Both are gitignored.
+#    (it imports ./.bash-orig.ts and prints the script for <kind> <configName>).
+#    Both are gitignored.
 # 2. node scripts/statusline-golden/build.mjs golden --bash
 ```
 

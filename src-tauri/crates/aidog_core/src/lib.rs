@@ -25,6 +25,8 @@ pub use axum as __axum;
 #[doc(hidden)]
 pub use serde_json as __serde_json;
 pub mod hooks;
+// statusline 脚本生成（原前端 TS，2026-09-16 下沉）：启动时随 sync 无条件重写。
+pub mod statusline;
 pub mod sync_settings;
 // 票 06：AppCtx 的桌面壳实现（唯一把 AppHandle 接进命令层的地方）。
 // 票 08：随 `desktop` feature 一起开关 —— 无界面内核不链 tauri，自带 `HeadlessCtx`。

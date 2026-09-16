@@ -9,6 +9,7 @@ import { execFileSync, spawn } from "node:child_process";
 import { mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { CONFIGS } from "./configs.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, "../..");
@@ -59,17 +60,30 @@ const CASES = [
   ["subagent-default", "subagent", "sa_times"],
 ];
 
-// Bundle the chosen emitter once (esbuild from node_modules).
-const esbuild = join(ROOT, "node_modules/.bin/esbuild");
-const emitBundle = join(TMP, "emit.bundle.mjs");
-const emitSrc = useBash ? "emit-bash.mjs" : "emit.mjs";
-execFileSync(esbuild, [
-  join(HERE, emitSrc), "--bundle", "--platform=node", "--format=esm",
-  `--outfile=${emitBundle}`,
-], { stdio: ["ignore", "ignore", "inherit"] });
+// Emitter. Python path: the Rust generator (aidog_core::statusline) — the same
+// code that materializes the real scripts during settings sync — built once as
+// an example binary. Bash path (bootstrap only): the gitignored emit-bash.mjs,
+// bundled with esbuild.
+const SRC_TAURI = join(ROOT, "src-tauri");
+let emitBundle = null, emitBin = null;
+if (useBash) {
+  emitBundle = join(TMP, "emit.bundle.mjs");
+  execFileSync(join(ROOT, "node_modules/.bin/esbuild"), [
+    join(HERE, "emit-bash.mjs"), "--bundle", "--platform=node", "--format=esm",
+    `--outfile=${emitBundle}`,
+  ], { stdio: ["ignore", "ignore", "inherit"] });
+} else {
+  execFileSync("cargo", [
+    "build", "-p", "aidog_core", "--example", "statusline_emit", "--no-default-features",
+  ], { cwd: SRC_TAURI, stdio: ["ignore", "ignore", "inherit"] });
+  emitBin = join(SRC_TAURI, "target/debug/examples/statusline_emit");
+}
 
 function genScript(cfg, kind) {
-  return execFileSync("node", [emitBundle, kind, cfg]);
+  if (useBash) return execFileSync("node", [emitBundle, kind, cfg]);
+  // `segments: null` → let the Rust generator pick its own built-in default.
+  const segments = CONFIGS[cfg]?.segments ?? null;
+  return execFileSync(emitBin, [kind], { input: JSON.stringify(segments) });
 }
 
 function startServer(payloadPath) {

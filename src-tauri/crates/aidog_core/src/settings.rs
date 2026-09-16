@@ -3,7 +3,6 @@
 //! 薄壳：转 `gateway::db` 的 `*_setting` 函数 + statusline 脚本生成 + claude code 配置读取。
 
 use crate::gateway;
-use crate::shared::*;
 use crate::sync_settings::try_sync_settings;
 use aidog_db::{self as db};
 
@@ -48,32 +47,13 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
-    pub async fn generate_statusline_script(
+    /// 只读预览：按 UI 当前的 statusline 配置渲染脚本正文，不落盘。
+    /// 真正的脚本物化在 `do_sync_group_settings`（每次启动 / 每次改设置无条件重写）。
+    pub async fn preview_statusline_script(
         script_type: String,
-        content: String) -> Result<String, String> {
-    let db = aidog_ctx::db();
-        tracing::debug!(command = "generate_statusline_script", script_type = %script_type, "command invoked");
-        let scripts_dir = aidog_scripts_dir()?;
-        let (filename, legacy_sh) = if script_type == "subagent" {
-            ("aidog-subagent-statusline.py", "aidog-subagent-statusline.sh")
-        } else {
-            ("aidog-statusline.py", "aidog-statusline.sh")
-        };
-        // 迁移清理：删除旧版 bash 脚本（~/.aidog/ 根 + scripts/ 下）。
-        cleanup_legacy_root_script(filename);
-        cleanup_legacy_root_script(legacy_sh);
-        cleanup_legacy_scripts_dir_file(&scripts_dir, legacy_sh);
-        let path = scripts_dir.join(filename);
-        std::fs::write(&path, &content).map_err(|e| format!("write script: {e}"))?;
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&path).map_err(|e| format!("stat script: {e}"))?.permissions();
-            perms.set_mode(0o755);
-            std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod script: {e}"))?;
-        }
-        let invoker = resolve_script_invoker(db).await;
-        Ok(invoker.command_for(&path.to_string_lossy()))
+        stored: serde_json::Value) -> Result<String, String> {
+        tracing::debug!(command = "preview_statusline_script", script_type = %script_type, "command invoked");
+        Ok(crate::statusline::preview(&stored, script_type != "subagent"))
     }
 }
 
