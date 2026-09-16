@@ -78,6 +78,22 @@ impl PlatformModels {
         v
     }
 
+    /// 返回承接主对话的槽位模型名（去重）：只有 default / sonnet / opus 会跑完整会话。
+    /// haiku 是杂活槽（生成对话标题等短请求），gpt 是 Codex 专用，Claude Code 不路由到它 ——
+    /// 二者都不承接长上下文，不该参与上下文窗口的约束计算。
+    pub fn main_loop_values(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        for s in [&self.default, &self.sonnet, &self.opus]
+            .into_iter()
+            .flatten()
+        {
+            if !v.contains(s) {
+                v.push(s.clone());
+            }
+        }
+        v
+    }
+
     /// 5 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
     /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
     pub fn is_empty(&self) -> bool {
@@ -483,6 +499,33 @@ mod tests {
     fn platform_models_all_values_empty() {
         let pm = PlatformModels::default();
         assert!(pm.all_values().is_empty());
+    }
+
+    // ── PlatformModels::main_loop_values ──
+
+    #[test]
+    fn platform_models_main_loop_values_excludes_haiku_and_gpt() {
+        let pm = PlatformModels {
+            default: Some("glm-4.7".into()),
+            sonnet: Some("glm-4.7".into()), // duplicate
+            opus: Some("glm-5.3".into()),
+            haiku: Some("glm-4.5".into()),
+            gpt: Some("gpt-5".into()),
+        };
+        assert_eq!(
+            pm.main_loop_values(),
+            vec!["glm-4.7".to_string(), "glm-5.3".to_string()]
+        );
+    }
+
+    #[test]
+    fn platform_models_main_loop_values_empty_when_only_side_slots() {
+        let pm = PlatformModels {
+            haiku: Some("glm-4.5".into()),
+            gpt: Some("gpt-5".into()),
+            ..Default::default()
+        };
+        assert!(pm.main_loop_values().is_empty());
     }
 
     // ── parse_breaker ──
