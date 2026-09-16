@@ -44,7 +44,6 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `export_preview` | 否 | `src-tauri/crates/aidog_backup/src/commands.rs` | `src/services/api/exchange.ts` |
 | `export_to_file` | 否 | `src-tauri/crates/aidog_backup/src/commands.rs` | `src/services/api/exchange.ts` |
 | `fs_autocomplete` | 是 | `src-tauri/crates/aidog_core/src/system_cmd/fs_autocomplete.rs` | 无 TS wrapper |
-| `generate_statusline_script` | 否 | `src-tauri/crates/aidog_core/src/settings.rs` | `src/services/api/settings.ts` |
 | `get_auto_update_enabled` | 否 | `src-tauri/crates/aidog_core/src/system_cmd/auto_update.rs` | `src/services/api/system.ts` |
 | `get_client_types_json` | 否 | `src-tauri/crates/aidog_core/src/defaults.rs` | `src/services/api/platforms.ts` |
 | `get_default_hooks_enabled` | 否 | `src-tauri/crates/aidog_core/src/hooks.rs` | `src/services/api/notification.ts` |
@@ -144,6 +143,7 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `popover_config_set` | 否 | `src-tauri/crates/aidog_core/src/popover.rs` | `src/services/api/tray.ts` |
 | `popover_data` | 是 | `src-tauri/crates/aidog_core/src/popover.rs` | 无 TS wrapper |
 | `popover_platform_today` | 否 | `src-tauri/crates/aidog_core/src/popover.rs` | `src/services/api/tray.ts` |
+| `preview_statusline_script` | 否 | `src-tauri/crates/aidog_core/src/settings.rs` | `src/services/api/settings.ts` |
 | `price_sync_settings_get` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/price.rs` | `src/services/api/pricing.ts` |
 | `price_sync_settings_set` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/price.rs` | `src/services/api/pricing.ts` |
 | `proxy_client_get_settings` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy.rs` | `src/services/api/proxy.ts` |
@@ -167,9 +167,11 @@ description: 由 startup 注册表、Rust 实现和 TypeScript wrapper 生成的
 | `proxy_stop` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy.rs` | `src/services/api/proxy.ts` |
 | `proxy_timeout_get` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_timeout.rs` | `src/services/api/proxy.ts` |
 | `proxy_timeout_set` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_timeout.rs` | `src/services/api/proxy.ts` |
+| `quota_snapshots` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/stats.rs` | `src/services/api/stats.ts` |
 | `read_claude_code_settings` | 否 | `src-tauri/crates/aidog_core/src/settings.rs` | `src/services/api/settings.ts` |
 | `remove_hooks` | 否 | `src-tauri/crates/aidog_core/src/hooks.rs` | `src/services/api/notification.ts` |
 | `request_log_list` | 否 | `src-tauri/crates/aidog_core/src/proxy_cmd/proxy_log.rs` | `src/services/api/proxy.ts` |
+| `scatter_histogram` | 否 | `src-tauri/crates/aidog_core/src/platform_cmd/stats.rs` | `src/services/api/stats.ts` |
 | `scheduling_settings_get` | 否 | `src-tauri/crates/aidog_core/src/system_cmd/scheduling.rs` | `src/services/api/scheduling.ts` |
 | `scheduling_settings_set` | 否 | `src-tauri/crates/aidog_core/src/system_cmd/scheduling.rs` | `src/services/api/scheduling.ts` |
 | `set_auto_update_enabled` | 否 | `src-tauri/crates/aidog_core/src/system_cmd/auto_update.rs` | `src/services/api/system.ts` |

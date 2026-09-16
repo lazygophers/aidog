@@ -31,8 +31,8 @@ export function StatusLinePanel({
 }) {
   const {
     isMain, aidogKey, stored, enabled, mode, customCommand, segments, scriptPreview,
-    showScript, setShowScript, saving, editSeg, setEditSeg, showAddMenu, setShowAddMenu,
-    handleToggle, updateSegments, deleteRow, handleSave, handleApplyCustom,
+    showScript, setShowScript, editSeg, setEditSeg, showAddMenu, setShowAddMenu,
+    handleToggle, updateSegments, deleteRow, handleApplyCustom,
     switchMode, addSegment, addRow, resetToDefaultLayout, cycleRowAlign,
   } = useStatusLinePanel({ config, updateField, scriptType });
 
@@ -298,7 +298,7 @@ export function StatusLinePanel({
                 {t("statusline.scriptPreview", "脚本预览")}
               </span>
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontFamily: '"SF Mono", "Fira Code", monospace' }}>
-                ~/.aidog/aidog-{scriptType === "subagent" ? "subagent-" : ""}statusline.sh
+                ~/.aidog/scripts/aidog-{scriptType === "subagent" ? "subagent-" : ""}statusline.py
               </span>
             </Button>
             {showScript && (
@@ -314,13 +314,6 @@ export function StatusLinePanel({
             )}
           </div>
 
-          {/* Apply button */}
-          <div style={{ display: "flex", justifyContent: "flex-end" }}>
-            <Button variant="default" className="ripple" style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={(e) => { makeRipple(e); handleSave(); }} disabled={saving}>
-              {saving ? t("statusline.generating", "生成中…") : t("statusline.applyGenerate", "应用并生成脚本")}
-            </Button>
-          </div>
         </>
       )}
 

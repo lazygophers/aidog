@@ -77,13 +77,13 @@ export async function writeClaudeConfigField(
 
 export const statuslineApi = {
   /**
-   * Generate the statusline Python script in ~/.aidog/scripts/ and return the
-   * **command string** to invoke it (`uv run --script <path>` or `python3 <path>`,
-   * per the resolved ScriptInvoker). Write this verbatim into the native
-   * `statusLine.command` / `subagentStatusLine.command` field.
+   * Render the statusline Python script body for the given UI config — preview
+   * only, nothing is written to disk. Script materialization lives in Rust
+   * (`do_sync_group_settings` rewrites both scripts on every startup / settings
+   * change). Returns "" for custom/disabled modes (no builtin script).
    */
-  generate: (scriptType: string, content: string) =>
-    invoke<string>("generate_statusline_script", { scriptType, content }),
+  preview: (scriptType: string, stored: unknown) =>
+    invoke<string>("preview_statusline_script", { scriptType, stored }),
 };
 
 // ─── Script Executor (uv / python3) ────────────────────────

@@ -193,7 +193,7 @@ rpc_routes! {
     aidog_core::settings::settings_set,
     aidog_core::settings::settings_delete,
     aidog_core::settings::settings_list,
-    aidog_core::settings::generate_statusline_script,
+    aidog_core::settings::preview_statusline_script,
     aidog_core::settings::read_claude_code_settings,
     aidog_core::gateway::codex::codex_config_read,
     aidog_core::gateway::codex::codex_config_write,

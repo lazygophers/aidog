@@ -191,9 +191,9 @@ export function buildImportDiffTree(
 
 /**
  * 由 `_aidog_*` 内部配置物化出来的原生字段，不是用户在这棵 diff 里编辑的对象：
- * `statusLine` / `subagentStatusLine` 由 `materializeStatuslineFields` 每次保存时
- * 从 `_aidog_statusline` / `_aidog_subagent_statusline` 重新生成，`hooks` 由 Rust 侧
- * `inject_claude_code_hooks` 按 `_aidog_hooks` 注入。RECOMMENDED_CONFIG 只带
+ * `statusLine` / `subagentStatusLine` 由 Rust 侧 `inject_statusline` 按
+ * `_aidog_statusline` / `_aidog_subagent_statusline` 在每次 sync 时重新生成（脚本
+ * 一并重写），`hooks` 由 Rust 侧 `inject_claude_code_hooks` 按 `_aidog_hooks` 注入。RECOMMENDED_CONFIG 只带
  * `_aidog_*` 源字段、不带物化结果，若不排除，用户已启用的状态栏 / 通知 hook 会被
  * 列成「删除」项——而它们下一次保存又会被重新写回，提示本身就是错的。
  */
