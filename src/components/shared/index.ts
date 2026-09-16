@@ -25,8 +25,8 @@ export {
   type UsageLevelStr,
   usageLevelToColor,
   cycleMsForTier,
-  codingRemainPct,
-  colorFromCodingRemainPct,
+  codingPaceDelta,
+  colorFromPaceDelta,
   codingTierLevel,
   balanceColorLevel,
 } from "./usageColor";
