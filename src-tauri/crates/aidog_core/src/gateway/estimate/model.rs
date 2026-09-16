@@ -54,7 +54,10 @@ pub struct EstTier {
     /// - `prompt_count`：按次扣。has_base → 每请求 +`100/limit`；无 → 拟合 [`Self::coef_per_request`]
     /// - `mcp_time`：MCP 使用时长，不增量只真查
     /// - `tokens` / `""`（缺省）：按 token 扣，现行为兜底
-    /// - `response_inline`：响应头/体带配额真值，本地不增量
+    ///
+    /// 曾有 `response_inline`（响应头带真值）一项，2026-09-16 删除：它只实现了「不增量」
+    /// 半边，提取端从未写过。速率限制余量改由独立的 `platform.rate_limit` 列承载
+    /// （见 `gateway::estimate::rate_limit`），与本结构的「周期内套餐额度」不是一个维度。
     #[serde(default)]
     pub unit: String,
 }

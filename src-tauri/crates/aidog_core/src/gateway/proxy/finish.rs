@@ -164,6 +164,14 @@ pub(crate) async fn finish_nonstream(
     );
     upsert_log(state, log, log_settings).await;
 
+    // ── 上游速率限制余量落库（后台）──
+    spawn_rate_limit(
+        state,
+        route.platform.id,
+        upstream_resp_headers,
+        tracing::Span::current(),
+    );
+
     // ── 请求驱动预估（后台，不阻塞响应）──
     spawn_estimate(
         state,
@@ -210,6 +218,14 @@ pub(crate) async fn finish_stream<S>(
 where
     S: futures::Stream<Item = reqwest::Result<Bytes>> + Unpin + Send + 'static,
 {
+    // 速率限制头随响应起始就到齐（不在 SSE 尾部），此处记录即可，无需等流结束
+    spawn_rate_limit(
+        state,
+        route.platform.id,
+        upstream_resp_headers,
+        tracing::Span::current(),
+    );
+
     let source_protocol = &ctx.source_protocol;
     let requested_model = ctx.requested_model.as_str();
     let actual_model = ctx.actual_model.as_str();

@@ -388,19 +388,37 @@ fn prompt_count_cold_start_no_estimate() {
     assert!((tier.requests_since_real - 10.0).abs() < 1e-9);
 }
 
-// mcp_time / response_inline：任何请求都不增量
+// mcp_time：任何请求都不增量（时长口径与请求数无关，只靠真查校准）
 #[test]
-fn mcp_time_and_response_inline_no_increment() {
-    for unit in ["mcp_time", "response_inline"] {
-        let mut tier = EstTier {
-            name: "five_hour".into(),
-            est_utilization: 5.0,
-            unit: unit.into(),
-            ..Default::default()
-        };
-        apply_tier_delta(&mut tier, 100, 2_000_000.0);
-        assert_eq!(tier.est_utilization, 5.0, "unit={unit} 不增量");
-    }
+fn mcp_time_no_increment() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 5.0,
+        unit: "mcp_time".into(),
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 100, 2_000_000.0);
+    assert_eq!(tier.est_utilization, 5.0);
+}
+
+// 已删除的 response_inline：存量 JSON 里可能残留该 unit 值，必须退回 tokens 兜底增量，
+// 不得因为「认不出的 unit」而静默不增量（那正是它被删掉的原因）。
+#[test]
+fn removed_response_inline_unit_falls_back_to_token_increment() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 5.0,
+        unit: "response_inline".into(),
+        has_base: true,
+        limit: 1_000_000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 1, 100_000.0);
+    assert!(
+        tier.est_utilization > 5.0,
+        "未知 unit 必须走 tokens 兜底，实得 {}",
+        tier.est_utilization
+    );
 }
 
 // calibrate prompt_count：拟合 coef_per_request = Δutil/Δ请求数

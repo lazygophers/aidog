@@ -69,7 +69,8 @@ pub struct QuotaTier {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub remaining: Option<f64>,
     /// 计费单位（spec B1，registry quota 脚本声明）：`prompt_count`（按次）/ `mcp_time` /
-    /// `tokens` / `response_inline`。缺失 = tokens 兜底。透传到 EstTier.unit 决定增量口径。
+    /// `tokens`。缺失 = tokens 兜底。透传到 EstTier.unit 决定增量口径。
+    /// （`response_inline` 已于 2026-09-16 删除，速率限制改走 `platform.rate_limit` 列。）
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub unit: Option<String>,
 }

@@ -866,6 +866,15 @@ ALTER TABLE "group_new" RENAME TO "group";
         [],
     );
     let _ = conn.execute("DROP TABLE IF EXISTS cli_proxy_provider", []);
+
+    // Migration 20260916-01 (response_inline 票 02): platform.rate_limit 物化列。
+    // 上游响应头自带的**速率限制**余量（每分钟能发多少），与 est_coding_plan 承载的
+    // **套餐额度**（周期内还剩多少）是两个维度，故独立成列不复用。
+    // 空串 = 该平台从未返回过可识别的速率限制头。ALTER 幂等（同 quota_script 先例）。
+    let _ = conn.execute(
+        "ALTER TABLE platform ADD COLUMN rate_limit TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     Ok(())
 }
 

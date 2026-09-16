@@ -435,6 +435,27 @@ pub(crate) fn spawn_estimate(
     );
 }
 
+/// 上游响应头里的速率限制余量落库（后台，不阻塞响应）。
+/// 与 [`spawn_estimate`] 分开：那边无 token 就跳过，而速率限制头在 429 / 失败响应上
+/// 恰恰最有价值，不能跟着一起跳过。认不出任何厂商的头 → 不写库（不把「没有」记成 0）。
+pub(crate) fn spawn_rate_limit(
+    state: &Arc<ProxyState>,
+    platform_id: u64,
+    headers: &axum::http::HeaderMap,
+    span: tracing::Span,
+) {
+    let Some(rl) = super::estimate::parse_rate_limit(headers, aidog_db::now()) else {
+        return;
+    };
+    let db = state.db.clone();
+    tokio::spawn(
+        async move {
+            super::estimate::write_rate_limit(&db, platform_id, &rl).await;
+        }
+        .instrument(span),
+    );
+}
+
 /// P1 CONNECT 隧道元数据写入：独立路径，**不走 upsert_log**。
 ///
 /// 原因：upsert_log 会触发 `upsert_stats_agg`（污染今日统计 — 隧道不计费，token=0）+

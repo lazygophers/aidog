@@ -22,6 +22,7 @@ pub(super) fn mk_platform(status: PlatformStatus, until: i64) -> Platform {
         deleted_at: 0,
         est_balance_remaining: 0.0,
         est_coding_plan: String::new(),
+        rate_limit: String::new(),
         last_real_query_at: 0,
         estimate_count: 0,
         show_in_tray: false,

@@ -2,7 +2,7 @@ use super::*;
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// SELECT 列序
-pub const PLATFORM_COLUMNS: &str = "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script";
+pub const PLATFORM_COLUMNS: &str = "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script, rate_limit";
 
 /// 从查询行构造 Platform
 pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -42,6 +42,7 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         last_error: row.get(24)?,
         last_error_at: row.get::<_, i64>(25)?,
         quota_script: row.get(26)?,
+        rate_limit: row.get(27)?,
     })
 }
 
@@ -148,6 +149,7 @@ pub fn create_platform(
             deleted_at: 0,
             est_balance_remaining: 0.0,
             est_coding_plan: String::new(),
+            rate_limit: String::new(),
             last_real_query_at: 0,
             estimate_count: 0,
             show_in_tray: false,

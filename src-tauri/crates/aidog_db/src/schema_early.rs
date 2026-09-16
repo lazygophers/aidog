@@ -216,6 +216,7 @@ CREATE TABLE IF NOT EXISTS platform (
     enabled          INTEGER NOT NULL DEFAULT 1,
     est_balance_remaining REAL NOT NULL DEFAULT 0,
     est_coding_plan       TEXT NOT NULL DEFAULT '',
+    rate_limit            TEXT NOT NULL DEFAULT '',
     last_real_query_at    INTEGER NOT NULL DEFAULT 0,
     estimate_count        INTEGER NOT NULL DEFAULT 0,
     show_in_tray          INTEGER NOT NULL DEFAULT 0,

@@ -9,7 +9,7 @@ import {
   PROTOCOL_LABELS, HEALTH_COLORS,
   computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, deriveHealth,
-  platformHasQuotaScript,
+  platformHasQuotaScript, parseRateLimit, rateLimitRatio,
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
@@ -108,6 +108,28 @@ export const PlatformCard = memo(function PlatformCard({
     [p, quotaRaw, quotaPreferReal],
   );
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  // 上游速率限制快照：窗口通常 1 分钟，超 5 分钟的旧值不再代表现状，宁可不显示。
+  const rateLimit = useMemo(() => {
+    const rl = parseRateLimit(p.rate_limit ?? "");
+    if (!rl) return null;
+    return Date.now() - rl.observed_at > 300_000 ? null : rl;
+  }, [p.rate_limit]);
+  const rateLimitRatioValue = rateLimit ? rateLimitRatio(rateLimit) : null;
+  // 配色沿用余额那套口径：剩得越少越红。拿不到占比（厂商没给 limit）时退中性。
+  const rateLimitColor = rateLimitRatioValue == null
+    ? "var(--text-tertiary)"
+    : rateLimitRatioValue < 0.1
+      ? "var(--color-danger)"
+      : rateLimitRatioValue < 0.3
+        ? "var(--color-warning)"
+        : "var(--text-tertiary)";
+  const rateLimitText = (() => {
+    if (!rateLimit) return "";
+    // 有占比就显示百分比（一眼可比），否则退回绝对值（OpenRouter 只给 remaining）
+    if (rateLimitRatioValue != null) return formatPercent(rateLimitRatioValue * 100, 0);
+    const rem = rateLimit.requests_remaining ?? rateLimit.tokens_remaining;
+    return rem != null ? formatNumber(rem) : "";
+  })();
   // B3 折算行：手填套餐月价（platform.extra.plan_price，¥/月），有才显示套餐段
   const planPrice = (() => {
     try {
@@ -513,6 +535,19 @@ export const PlatformCard = memo(function PlatformCard({
                       );
                     })}
                   </div>
+                )}
+                {/* 上游速率限制余量（每分钟能发多少，来自响应头）。与上面的套餐额度是两回事，
+                    故单列一个 chip 不混进 tiers。窗口通常 1 分钟，快照超 5 分钟即视为过期不展示。 */}
+                {rateLimit && (
+                  <span
+                    title={t("platform.rateLimitTitle", "上游速率限制余量（每分钟），来自 {{vendor}} 响应头", { vendor: rateLimit.vendor })}
+                    style={{
+                      flexShrink: 0, fontSize: 10, whiteSpace: "nowrap",
+                      color: rateLimitColor,
+                    }}
+                  >
+                    {t("platform.rateLimit", "速率")} {rateLimitText}
+                  </span>
                 )}
               </div>
             )}

@@ -227,6 +227,11 @@ pub struct Platform {
     /// 预估 coding plan JSON（含 tiers est_utilization + 方案 B 拟合系数/样本；系统维护，前端只读）
     #[serde(default)]
     pub est_coding_plan: String,
+    /// 上游响应头里的速率限制余量快照 JSON（每分钟能发多少；系统维护，前端只读）。
+    /// 与 `est_coding_plan`（周期内还剩多少）是两个维度，故独立列不复用。
+    /// 空串 = 该平台从未返回过可识别的速率限制头。
+    #[serde(default)]
+    pub rate_limit: String,
     /// 上次真实 quota 查询毫秒戳（校准基准；系统维护，前端只读）
     #[serde(default)]
     #[ts(type = "number")]
@@ -673,6 +678,7 @@ mod tests {
             updated_at: 0,
             deleted_at: 0,
             est_coding_plan: "".into(),
+            rate_limit: "".into(),
             last_real_query_at: 0,
             estimate_count: 0,
             show_in_tray: false,
