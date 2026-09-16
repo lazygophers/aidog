@@ -287,6 +287,138 @@ async fn successful_forward_to_stub_upstream() {
     );
 }
 
+/// 写日志设置进 DB，并按生产同款路径重建 ProxyState 设置缓存（mod.rs start_proxy 同款 load_from）。
+/// 只写 DB 不刷缓存 = 旧值仍生效（这正是要防的陈旧路径）。
+async fn set_log_settings(state: &Arc<ProxyState>, settings: ProxyLogSettings) {
+    aidog_db::set_setting(
+        &state.db,
+        crate::gateway::models::SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value: serde_json::to_value(&settings).unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    *state.settings_cache.write().await =
+        super::settings_cache::ProxySettingsCache::load_from(&state.db).await;
+}
+
+/// 发一条非流式请求后取该 group 最新终态日志行。
+async fn last_log_for(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::ProxyLog {
+    flush_log_queue(state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let id = logs
+        .iter()
+        .find(|l| l.group_key == gk)
+        .expect("log row missing")
+        .id
+        .clone();
+    aidog_logs::get_proxy_log(&state.db, &id).await.unwrap().unwrap()
+}
+
+/// 开关矩阵（用户报告「上游实际请求没记录」的精确验收）：
+/// log_upstream_request=true / log_user_request=false 时——
+/// 上游侧（upstream_request_headers/body + response_body）非空；用户侧（request_body /
+/// user_response_body）为空；auth 头脱敏。
+#[tokio::test]
+async fn log_switches_record_upstream_side_only() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gklogup", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = messages_request(
+        "gklogup",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = last_log_for(&state, "gklogup").await;
+    assert!(!row.upstream_request_headers.is_empty(), "上游请求头必须记录");
+    assert!(!row.upstream_request_headers.contains("sk-up"), "上游 auth 头必须脱敏");
+    assert!(
+        !row.upstream_request_body.is_empty(),
+        "上游请求体必须记录（用户报告缺失的字段）"
+    );
+    assert!(row.upstream_request_body.contains("\"model\""));
+    assert!(!row.response_body.is_empty(), "上游响应正文属上游侧，必须记录");
+    assert!(row.request_body.is_empty(), "用户侧关闭时 request_body 必须为空");
+    assert!(row.user_response_body.is_empty(), "用户侧关闭时 user_response_body 必须为空");
+}
+
+/// 对称矩阵：log_user_request=true / log_upstream_request=false——用户侧记录、上游侧清空。
+#[tokio::test]
+async fn log_switches_record_user_side_only() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkloguser", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: true,
+            log_upstream_request: false,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = messages_request(
+        "gkloguser",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = last_log_for(&state, "gkloguser").await;
+    assert!(!row.request_body.is_empty(), "用户侧开启时 request_body 必须记录");
+    assert!(!row.user_response_body.is_empty(), "用户侧开启时 user_response_body 必须记录");
+    assert!(row.upstream_request_body.is_empty(), "上游侧关闭时必须清空");
+    assert!(row.response_body.is_empty(), "上游侧关闭时上游响应正文必须清空");
+    assert!(row.upstream_request_headers.is_empty(), "上游侧关闭时上游请求头必须清空");
+}
+
+/// 主开关 enabled=false：不落 proxy_log 行（统计聚合照常，不在此断言）。
+#[tokio::test]
+async fn log_master_off_writes_no_row() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gklogoff", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: false,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = messages_request(
+        "gklogoff",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(
+        logs.iter().all(|l| l.group_key != "gklogoff"),
+        "master off 时不得落 proxy_log 行"
+    );
+}
+
 #[tokio::test]
 async fn upstream_500_records_attempt_and_returns_error() {
     let upstream = spawn_stub_upstream(500, r#"{"error":"boom"}"#).await;

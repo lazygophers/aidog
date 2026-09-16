@@ -39,11 +39,22 @@ async fn run(script: &str, base_url: &str, extra: &str) -> crate::quota::Platfor
 }
 
 #[tokio::test]
-async fn quota_script_log_has_non_empty_id() {
-    let log = make_quota_log_for_script("https://example.com/quota", 200, "{}", 0);
+async fn quota_script_log_captures_upstream_request() {
+    let log = make_quota_log_for_script(
+        "https://example.com/quota?api_key=credential&region=eu",
+        200,
+        "{}",
+        0,
+    );
     assert!(!log.id.is_empty());
     assert_eq!(log.group_key, "[quota:script]");
     assert_eq!(log.source_protocol, "quota");
+    assert!(
+        !log.upstream_request_headers.is_empty(),
+        "quota 上游请求开关开启时必须有实际请求头可供落库"
+    );
+    assert!(log.upstream_request_url.contains("region=eu"));
+    assert!(!log.upstream_request_url.contains("credential"));
 }
 
 // ── deepseek ──────────────────────────────────────────────

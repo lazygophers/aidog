@@ -117,6 +117,74 @@ pub(super) async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
     }
 }
 
+fn is_sensitive_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "authorization" | "api-key" | "x-api-key" | "x-goog-api-key" | "cookie" | "set-cookie"
+    )
+}
+
+fn request_headers_to_log_json(headers: &[(String, String)]) -> String {
+    let values = headers
+        .iter()
+        .map(|(name, value)| {
+            (
+                name.clone(),
+                serde_json::Value::String(if is_sensitive_header(name) {
+                    "[REDACTED]".to_string()
+                } else {
+                    value.clone()
+                }),
+            )
+        })
+        .collect();
+    serde_json::Value::Object(values).to_string()
+}
+
+fn response_headers_to_log_json(headers: &reqwest::header::HeaderMap) -> String {
+    let values = headers
+        .iter()
+        .filter_map(|(name, value)| {
+            value.to_str().ok().map(|value| {
+                (
+                    name.as_str().to_string(),
+                    serde_json::Value::String(if is_sensitive_header(name.as_str()) {
+                        "[REDACTED]".to_string()
+                    } else {
+                        value.to_string()
+                    }),
+                )
+            })
+        })
+        .collect();
+    serde_json::Value::Object(values).to_string()
+}
+
+fn redact_url_query(url: &str) -> String {
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return url
+            .split_once('?')
+            .map_or_else(|| url.to_string(), |(base, _)| format!("{base}?[REDACTED]"));
+    };
+    if parsed.query().is_none() {
+        return parsed.to_string();
+    }
+    let pairs: Vec<(String, String)> = parsed
+        .query_pairs()
+        .map(|(name, value)| {
+            let lower = name.to_ascii_lowercase();
+            let sensitive = lower.contains("key")
+                || lower.contains("token")
+                || lower.contains("secret")
+                || lower.contains("password")
+                || lower.contains("signature");
+            (name.into_owned(), if sensitive { "[REDACTED]".into() } else { value.into_owned() })
+        })
+        .collect();
+    parsed.query_pairs_mut().clear().extend_pairs(pairs);
+    parsed.to_string()
+}
+
 /// JS 自定义查询脚本出站单点（get/post 统一）: 走注入的系统代理 client（由 script.rs
 /// eval 前 build 好传入），错误/成功均落 proxy_log（group_key="[quota:script]"）。
 /// 错误文案维持 script 既有格式（裸 reqwest 错误 /
@@ -131,6 +199,8 @@ pub(super) async fn quota_script_request(
     platform_id: i64,
 ) -> Result<serde_json::Value, String> {
     tracing::info!(method = %method, url = %url, "quota script outbound request");
+    let request_body = body.clone().unwrap_or_default();
+    let request_headers = headers.clone();
     let mut req = client.request(method, url);
     for (k, v) in &headers {
         req = req.header(k, v);
@@ -142,16 +212,41 @@ pub(super) async fn quota_script_request(
         Ok(r) => r,
         Err(e) => {
             let msg = e.to_string();
-            persist_quota_log(db, make_quota_log_for_script(url, 0, &msg, platform_id)).await;
+            persist_quota_log(
+                db,
+                make_quota_log_for_script_with_request(
+                    url,
+                    &request_headers,
+                    &request_body,
+                    0,
+                    "",
+                    &msg,
+                    platform_id,
+                ),
+            )
+            .await;
             return Err(msg);
         }
     };
     let status = resp.status().as_u16();
+    let response_headers = response_headers_to_log_json(resp.headers());
     let text = match resp.text().await {
         Ok(t) => t,
         Err(e) => {
             let msg = e.to_string();
-            persist_quota_log(db, make_quota_log_for_script(url, status, &msg, platform_id)).await;
+            persist_quota_log(
+                db,
+                make_quota_log_for_script_with_request(
+                    url,
+                    &request_headers,
+                    &request_body,
+                    status,
+                    &response_headers,
+                    &msg,
+                    platform_id,
+                ),
+            )
+            .await;
             return Err(msg);
         }
     };
@@ -160,11 +255,35 @@ pub(super) async fn quota_script_request(
             "HTTP {status}: {}",
             text.chars().take(500).collect::<String>()
         );
-        persist_quota_log(db, make_quota_log_for_script(url, status, &msg, platform_id)).await;
+        persist_quota_log(
+            db,
+            make_quota_log_for_script_with_request(
+                url,
+                &request_headers,
+                &request_body,
+                status,
+                &response_headers,
+                &msg,
+                platform_id,
+            ),
+        )
+        .await;
         return Err(msg);
     }
     // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
-    persist_quota_log(db, make_quota_log_for_script(url, status, &text, platform_id)).await;
+    persist_quota_log(
+        db,
+        make_quota_log_for_script_with_request(
+            url,
+            &request_headers,
+            &request_body,
+            status,
+            &response_headers,
+            &text,
+            platform_id,
+        ),
+    )
+    .await;
     serde_json::from_str(&text).map_err(|e| format!("JSON parse: {e}"))
 }
 
@@ -176,13 +295,36 @@ pub fn make_quota_log_for_script(
     body: &str,
     platform_id: i64,
 ) -> aidog_db::models::ProxyLog {
+    make_quota_log_for_script_with_request(
+        url,
+        &[("source".to_string(), "quota".to_string())],
+        "",
+        upstream_status,
+        "",
+        body,
+        platform_id,
+    )
+}
+
+fn make_quota_log_for_script_with_request(
+    url: &str,
+    request_headers: &[(String, String)],
+    request_body: &str,
+    upstream_status: u16,
+    response_headers: &str,
+    response_body: &str,
+    platform_id: i64,
+) -> aidog_db::models::ProxyLog {
     let created_at = now_millis();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
     let mut log = make_quota_log(
         &request_id,
         url,
+        request_headers,
+        request_body,
         upstream_status as i32,
-        body,
+        response_headers,
+        response_body,
         0,
         created_at,
         platform_id,
@@ -195,8 +337,11 @@ pub fn make_quota_log_for_script(
 fn make_quota_log(
     request_id: &str,
     url: &str,
+    request_headers: &[(String, String)],
+    request_body: &str,
     upstream_status: i32,
-    body: &str,
+    response_headers: &str,
+    response_body: &str,
     duration_ms: i32,
     created_at: i64,
     platform_id: i64,
@@ -211,16 +356,16 @@ fn make_quota_log(
         platform_id: platform_id.max(0) as u64,
         request_headers: r#"{"source":"quota"}"#.into(),
         request_body: String::new(),
-        upstream_request_headers: String::new(),
-        upstream_request_body: String::new(),
-        response_body: body.into(),
-        // quota 是 aidog 主动拉余额，无独立用户侧 URL；记完整上游 URL（非占位 path）便于日志可读。
-        request_url: url.to_string(),
-        upstream_request_url: url.to_string(),
-        upstream_response_headers: String::new(),
+        upstream_request_headers: request_headers_to_log_json(request_headers),
+        upstream_request_body: request_body.to_string(),
+        response_body: response_body.into(),
+        // quota 是 aidog 主动拉余额，无独立用户侧 URL；记完整上游 URL（查询参数已脱敏）。
+        request_url: redact_url_query(url),
+        upstream_request_url: redact_url_query(url),
+        upstream_response_headers: response_headers.into(),
         upstream_status_code: upstream_status,
         user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
-        user_response_body: body.into(),
+        user_response_body: response_body.into(),
         status_code: upstream_status,
         duration_ms,
         input_tokens: 0,
@@ -236,7 +381,6 @@ fn make_quota_log(
         updated_at: created_at,
         deleted_at: 0,
         done: true,
-        // quota 拉取不经出站 body 构造 seam，无字段留痕（票 10）。
         field_trace: String::new(),
     }
 }
@@ -247,5 +391,47 @@ async fn persist_quota_log(db: Option<&Arc<Db>>, log: aidog_db::models::ProxyLog
         && let Err(e) = aidog_logs::upsert_proxy_log(d, log).await
     {
         tracing::warn!(error = %e, "persist quota log failed");
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn quota_log_captures_request_and_redacts_credentials() {
+        let headers = vec![
+            ("authorization".to_string(), "credential".to_string()),
+            ("content-type".to_string(), "application/json".to_string()),
+        ];
+        let log = make_quota_log_for_script_with_request(
+            "https://example.invalid/quota?api_key=credential&region=eu",
+            &headers,
+            r#"{"scope":"balance"}"#,
+            200,
+            r#"{"content-type":"application/json"}"#,
+            "{}",
+            0,
+        );
+
+        assert!(log.upstream_request_headers.contains("content-type"));
+        assert!(log.upstream_request_headers.contains("[REDACTED]"));
+        assert!(!log.upstream_request_headers.contains("credential"));
+        assert_eq!(log.upstream_request_body, r#"{"scope":"balance"}"#);
+        assert!(log.upstream_response_headers.contains("content-type"));
+        assert!(log.upstream_request_url.contains("region=eu"));
+        assert!(!log.upstream_request_url.contains("credential"));
+    }
+
+    #[test]
+    fn quota_response_headers_redact_cookies() {
+        let mut headers = reqwest::header::HeaderMap::new();
+        headers.insert("content-type", "application/json".parse().unwrap());
+        headers.insert("set-cookie", "credential".parse().unwrap());
+
+        let logged = response_headers_to_log_json(&headers);
+        assert!(logged.contains("content-type"));
+        assert!(logged.contains("[REDACTED]"));
+        assert!(!logged.contains("credential"));
     }
 }

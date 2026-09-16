@@ -60,6 +60,18 @@ pub(crate) fn filter_upstream_resp_headers(
     out
 }
 
+fn is_sensitive_log_header(name: &str) -> bool {
+    matches!(
+        name.to_ascii_lowercase().as_str(),
+        "authorization"
+            | "api-key"
+            | "x-api-key"
+            | "x-goog-api-key"
+            | "cookie"
+            | "set-cookie"
+    )
+}
+
 /// 把实发头集合（HeaderName, HeaderValue）序列化为日志 JSON 字符串，
 /// 与 upstream_response_headers 同格式 `{name: value}`；多值同名头保留首值（与既有格式约定一致）。
 pub(crate) fn resp_headers_to_log_json(
@@ -68,8 +80,13 @@ pub(crate) fn resp_headers_to_log_json(
     let mut h = serde_json::Map::new();
     for (k, v) in headers {
         if let Ok(s) = v.to_str() {
-            h.entry(k.as_str().to_string())
-                .or_insert_with(|| Value::String(s.to_string()));
+            h.entry(k.as_str().to_string()).or_insert_with(|| {
+                Value::String(if is_sensitive_log_header(k.as_str()) {
+                    "[REDACTED]".to_string()
+                } else {
+                    s.to_string()
+                })
+            });
         }
     }
     Value::Object(h).to_string()
@@ -81,8 +98,13 @@ pub(crate) fn upstream_headers_to_json(headers: &reqwest::header::HeaderMap) -> 
     let mut h = serde_json::Map::new();
     for (k, v) in headers {
         if let Ok(s) = v.to_str() {
-            h.entry(k.as_str().to_string())
-                .or_insert_with(|| Value::String(s.to_string()));
+            h.entry(k.as_str().to_string()).or_insert_with(|| {
+                Value::String(if is_sensitive_log_header(k.as_str()) {
+                    "[REDACTED]".to_string()
+                } else {
+                    s.to_string()
+                })
+            });
         }
     }
     Value::Object(h).to_string()

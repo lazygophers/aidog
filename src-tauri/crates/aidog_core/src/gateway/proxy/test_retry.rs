@@ -28,6 +28,33 @@ fn count_of(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &st
 }
 
 #[test]
+fn response_header_log_redacts_credentials() {
+    let headers = rq_headers(&[
+        ("content-type", "application/json"),
+        ("set-cookie", "credential"),
+        ("x-api-key", "credential"),
+    ]);
+    let logged = upstream_headers_to_json(&headers);
+    assert!(logged.contains("content-type"));
+    assert!(logged.contains("[REDACTED]"));
+    assert!(!logged.contains("credential"));
+
+    let client_headers = headers
+        .iter()
+        .filter_map(|(name, value)| {
+            Some((
+                axum::http::HeaderName::from_bytes(name.as_str().as_bytes()).ok()?,
+                axum::http::HeaderValue::from_bytes(value.as_bytes()).ok()?,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let logged = resp_headers_to_log_json(&client_headers);
+    assert!(logged.contains("content-type"));
+    assert!(logged.contains("[REDACTED]"));
+    assert!(!logged.contains("credential"));
+}
+
+#[test]
 fn is_stream_request_false_but_upstream_sse() {
     // 中转站对未声明 stream 的请求强制以 SSE 响应 → 必须判为流式（修复账目零 token bug）。
     assert!(resolve_is_stream(false, "text/event-stream"));
