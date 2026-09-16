@@ -262,7 +262,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   }, [footChips]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 720, margin: "0 auto", width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1200, margin: "0 auto", width: "100%" }}>
       {/* Header */}
       <div>
         <div className="section-title">{t("page.home", "首页")}</div>
@@ -332,117 +332,128 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           )}
         </div>
 
-        {/* 3. 24h 紧凑双线趋势：琥珀主线（请求，面积填充）+ 灰阶虚线辅线（花费，独立标尺） */}
+        {/* 3+4. 趋势与平台并排：auto-fit 塞得下两栏就两栏，塞不下自动叠成一栏。
+            1px gap 配容器底色当分隔线 —— 双栏时是竖线、单栏时是横线，无需断点。 */}
         <div
-          ref={revealTrend.ref}
-          className={`reveal${revealTrend.shown ? " in" : ""}`}
-          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+            gap: 1,
+            background: PANEL.line,
+            borderBottom: `1px solid ${PANEL.line}`,
+          }}
         >
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-            <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.trend24h", "24 小时趋势")}</b>
-            <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
-              HOURLY · {t("home.trendRequests", "请求数")} / {t("home.trendCost", "花费")}
-              {hasTrend && ` · ${t("home.trendPeak", "峰值")} ${formatNumber(trendPeak)}`}
-            </span>
-          </div>
-          {hasTrend ? (
-            <>
-              {/* 紧凑双线趋势走公共层双 Y 轴（mini：去轴去网格，标尺仍独立生效） */}
-              <LineChart
-                mini
-                area
-                height={88}
-                xKey="x"
-                data={trendRows}
-                config={{ req: { label: t("home.trendRequests", "请求数"), color: seriesColor(0) } }}
-                rightConfig={{ cost: { label: t("home.trendCost", "花费"), color: seriesColor(1) } }}
-                rightValueFormat={formatCostUsd}
-                dashedKeys={["cost"]}
-              />
-              {/* x 轴整点小时标注：每 6 桶（hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"） */}
-              <div style={{ position: "relative", height: 12 }}>
-                {trendBuckets.map((b, i) =>
-                  i % 6 === 0 ? (
-                    <span
-                      key={i}
-                      style={{
-                        position: "absolute",
-                        left: `${((i / (trendBuckets.length - 1)) * 100).toFixed(1)}%`,
-                        transform: "translateX(-50%)",
-                        fontFamily: PANEL.mono,
-                        fontSize: 8,
-                        color: PANEL.muted,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {b.time_bucket.slice(11, 13)}
-                    </span>
-                  ) : null,
-                )}
-              </div>
-            </>
-          ) : (
-            <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "8px 0" }}>
-              {loading ? "" : t("home.noToday", "今日暂无请求")}
+          <div
+            ref={revealTrend.ref}
+            className={`reveal${revealTrend.shown ? " in" : ""}`}
+            style={{ padding: "14px 16px", background: PANEL.s1 }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+              <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.trend24h", "24 小时趋势")}</b>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+                HOURLY · {t("home.trendRequests", "请求数")} / {t("home.trendCost", "花费")}
+                {hasTrend && ` · ${t("home.trendPeak", "峰值")} ${formatNumber(trendPeak)}`}
+              </span>
             </div>
-          )}
-        </div>
-
-        {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
-        <div
-          ref={revealPlats.ref}
-          className={`reveal${revealPlats.shown ? " in" : ""}`}
-          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
-        >
-          <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
-            <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.topPlatforms", "今日平台用量")}</b>
-            <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
-              TOP {TOP_PLATFORMS} · {t("home.trendCost", "花费")}
-            </span>
-          </div>
-          {topPlatforms.length > 0 ? (
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {topPlatforms.map((p, i) => (
-                <div
-                  key={p.platform_id}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "9px 0",
-                    borderBottom: i < topPlatforms.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
-                  }}
-                >
-                  <MiniRing share={topCostSum > 0 ? p.cost / topCostSum : 0} />
-                  <span style={{ fontSize: F.small + 1, fontWeight: 600, color: PANEL.fg, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.platform_name}
-                  </span>
-                  <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
-                    <span
-                      style={{
-                        display: "block",
-                        width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`,
-                        height: "100%",
-                        background: seriesColor(0),
-                        borderRadius: 2,
-                        transition: "width 0.3s ease",
-                      }}
-                    />
-                  </span>
-                  <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap" }}>
-                    {formatNumber(p.requests)} · {formatNumber(p.tokens)}
-                  </span>
-                  <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap" }}>
-                    {formatCostUsd(p.cost)}
-                  </span>
+            {hasTrend ? (
+              <>
+                {/* 紧凑双线趋势走公共层双 Y 轴（mini：去轴去网格，标尺仍独立生效） */}
+                <LineChart
+                  mini
+                  area
+                  height={88}
+                  xKey="x"
+                  data={trendRows}
+                  config={{ req: { label: t("home.trendRequests", "请求数"), color: seriesColor(0) } }}
+                  rightConfig={{ cost: { label: t("home.trendCost", "花费"), color: seriesColor(1) } }}
+                  rightValueFormat={formatCostUsd}
+                  dashedKeys={["cost"]}
+                />
+                {/* x 轴整点小时标注：每 6 桶（hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"） */}
+                <div style={{ position: "relative", height: 12 }}>
+                  {trendBuckets.map((b, i) =>
+                    i % 6 === 0 ? (
+                      <span
+                        key={i}
+                        style={{
+                          position: "absolute",
+                          left: `${((i / (trendBuckets.length - 1)) * 100).toFixed(1)}%`,
+                          transform: "translateX(-50%)",
+                          fontFamily: PANEL.mono,
+                          fontSize: 8,
+                          color: PANEL.muted,
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {b.time_bucket.slice(11, 13)}
+                      </span>
+                    ) : null,
+                  )}
                 </div>
-              ))}
+              </>
+            ) : (
+              <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "8px 0" }}>
+                {loading ? "" : t("home.noToday", "今日暂无请求")}
+              </div>
+            )}
+          </div>
+
+          {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
+          <div
+            ref={revealPlats.ref}
+            className={`reveal${revealPlats.shown ? " in" : ""}`}
+            style={{ padding: "14px 16px", background: PANEL.s1 }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
+              <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.topPlatforms", "今日平台用量")}</b>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+                TOP {TOP_PLATFORMS} · {t("home.trendCost", "花费")}
+              </span>
             </div>
-          ) : (
-            <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
-              {loading ? "" : t("home.noToday", "今日暂无请求")}
-            </div>
-          )}
+            {topPlatforms.length > 0 ? (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {topPlatforms.map((p, i) => (
+                  <div
+                    key={p.platform_id}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 12,
+                      padding: "9px 0",
+                      borderBottom: i < topPlatforms.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
+                    }}
+                  >
+                    <MiniRing share={topCostSum > 0 ? p.cost / topCostSum : 0} />
+                    <span style={{ fontSize: F.small + 1, fontWeight: 600, color: PANEL.fg, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {p.platform_name}
+                    </span>
+                    <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
+                      <span
+                        style={{
+                          display: "block",
+                          width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`,
+                          height: "100%",
+                          background: seriesColor(0),
+                          borderRadius: 2,
+                          transition: "width 0.3s ease",
+                        }}
+                      />
+                    </span>
+                    <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap" }}>
+                      {formatNumber(p.requests)} · {formatNumber(p.tokens)}
+                    </span>
+                    <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap" }}>
+                      {formatCostUsd(p.cost)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
+                {loading ? "" : t("home.noToday", "今日暂无请求")}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 5. 总余额行 + 快捷键 footer */}

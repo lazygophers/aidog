@@ -220,7 +220,7 @@ export function About() {
         flexDirection: "column",
         gap: 20,
         width: "100%",
-        maxWidth: 720,
+        maxWidth: 1200,
         margin: "0 auto",
         boxSizing: "border-box",
         minWidth: 0,
