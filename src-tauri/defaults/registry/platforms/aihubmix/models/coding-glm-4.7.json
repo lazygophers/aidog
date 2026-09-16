@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "coding-glm-4.7",
   "canonical_model": "glm-4.7",
   "family": "glm",
@@ -15,7 +15,7 @@
   "max_input_tokens": 204800,
   "max_output_tokens": 65535,
   "context_window": 204800,
-  "official": true,
+  "official": false,
   "price": {
     "input": 6e-8,
     "output": 2.2e-7,

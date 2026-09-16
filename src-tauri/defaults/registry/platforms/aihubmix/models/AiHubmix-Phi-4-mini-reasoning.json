@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "AiHubmix-Phi-4-mini-reasoning",
   "canonical_model": "AiHubmix-Phi-4-mini-reasoning",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "price": {
     "input": 1.2e-7,

@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "DeepSeek-V3.1-Think",
   "canonical_model": "DeepSeek-V3.1-Think",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "price": {
     "input": 5.6e-7,

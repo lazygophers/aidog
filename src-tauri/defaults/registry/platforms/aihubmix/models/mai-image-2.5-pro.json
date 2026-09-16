@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1789539801,
   "model_id": "mai-image-2.5-pro",
   "canonical_model": "mai-image-2.5-pro",
   "display_name": "MAI-Image-2.5 Pro",
@@ -11,7 +11,7 @@
   ],
   "max_output_tokens": 1024,
   "context_window": 4096,
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.000005,
     "output": 0.000005

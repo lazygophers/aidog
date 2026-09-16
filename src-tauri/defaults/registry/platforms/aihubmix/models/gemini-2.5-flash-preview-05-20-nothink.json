@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "gemini-2.5-flash-preview-05-20-nothink",
   "canonical_model": "gemini-2.5-flash-preview-05-20-nothink",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {

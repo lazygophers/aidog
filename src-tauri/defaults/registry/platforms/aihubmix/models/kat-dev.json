@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "kat-dev",
   "canonical_model": "kat-dev",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 1.37e-7,
     "output": 5.48e-7

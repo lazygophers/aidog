@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "command-r",
   "canonical_model": "command-r",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 6.4e-7,
     "output": 0.00000192

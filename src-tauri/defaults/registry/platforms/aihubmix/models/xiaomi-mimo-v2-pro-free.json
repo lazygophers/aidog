@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1789539801,
   "model_id": "xiaomi-mimo-v2-pro-free",
   "canonical_model": "xiaomi-mimo-v2-pro-free",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.0
   }

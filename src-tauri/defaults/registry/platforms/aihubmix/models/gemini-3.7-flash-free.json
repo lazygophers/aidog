@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1789539801,
   "model_id": "gemini-3.7-flash-free",
   "canonical_model": "gemini-3.7-flash",
   "thinking_supported": true,
@@ -10,7 +10,7 @@
   "max_input_tokens": 1048576,
   "max_output_tokens": 65535,
   "context_window": 1048576,
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.0
   }

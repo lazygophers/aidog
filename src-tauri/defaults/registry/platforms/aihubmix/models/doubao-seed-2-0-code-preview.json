@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "doubao-seed-2-0-code-preview",
   "canonical_model": "doubao-seed-2-0-code-preview",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 4.822e-7,
     "output": 0.000002411,

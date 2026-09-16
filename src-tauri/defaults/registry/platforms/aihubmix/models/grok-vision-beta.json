@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "grok-vision-beta",
   "canonical_model": "grok-vision-beta",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "price": {
     "input": 0.0000056,
     "output": 0.0000168

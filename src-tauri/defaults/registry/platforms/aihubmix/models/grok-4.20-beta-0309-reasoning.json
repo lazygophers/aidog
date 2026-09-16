@@ -1,9 +1,9 @@
 {
-  "last_updated": 1788100767,
+  "last_updated": 1789539801,
   "model_id": "grok-4.20-beta-0309-reasoning",
   "canonical_model": "grok-4.20-beta-0309-reasoning",
   "capabilities": [],
-  "official": true,
+  "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
