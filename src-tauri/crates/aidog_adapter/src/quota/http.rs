@@ -334,6 +334,7 @@ fn make_quota_log_for_script_with_request(
 }
 
 /// 构造 quota 日志条目 (复用 fetch_models/model_test 标记约定, platform_id=0)。
+#[allow(clippy::too_many_arguments)]
 fn make_quota_log(
     request_id: &str,
     url: &str,
