@@ -107,7 +107,7 @@ pub(crate) use log::flush_log_queue;
 #[allow(unused_imports)]
 pub(crate) use log::{
     LogMsg, block_inbound, get_log_settings, record_observed, remove_log_snapshot, spawn_estimate,
-    spawn_log_writer, upsert_connect_log, upsert_log,
+    spawn_log_writer, spawn_rate_limit, upsert_connect_log, upsert_log,
 };
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;

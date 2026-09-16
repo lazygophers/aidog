@@ -56,6 +56,30 @@ pub async fn apply_coding_plan_delta(
     Ok(())
 }
 
+/// 速率限制快照落库（覆盖写，只保留最新一条）。与 coding plan 预估无关，不碰
+/// `estimate_count`：它是「离上次真查多久」的计数器，速率限制不走真查那条链。
+pub async fn write_rate_limit(db: &Db, platform_id: u64, rl: &super::RateLimit) {
+    let json = rl.to_json();
+    if json.is_empty() {
+        return;
+    }
+    let r = db
+        .platform_write_conn()
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET rate_limit = ?1 WHERE id = ?2",
+                params![json, platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await;
+    if let Err(e) = r {
+        tracing::warn!(platform_id, error = %e, "write_rate_limit failed");
+        return;
+    }
+    db.invalidate_group_details_cache();
+}
+
 /// 静态锚点播种（spec B2）：无查询 API 平台（bailian_coding）用 registry `plan_quotas`
 /// 的绝对额度作 has_base 锚点。仅当 est_coding_plan 为空时写（幂等，不覆盖已有预估/校准）。
 pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str) -> bool {
@@ -134,7 +158,7 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
                 t.limit,
                 t.resets_at.as_deref(),
                 now(),
-                // unit 透传（spec B1）：脚本声明 prompt_count/mcp_time/tokens/response_inline，
+                // unit 透传（spec B1）：脚本声明 prompt_count/mcp_time/tokens，
                 // 缺失 = tokens 兜底
                 t.unit.as_deref().unwrap_or("tokens"),
             )

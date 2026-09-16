@@ -26,16 +26,14 @@ pub fn balance_cost(
 ///     （Kimi 精确）；无 → 拟合 `coef_per_request`（`est = util_at_last_real + requests_since_real × coef`，
 ///     冷启动不预估，est 维持真值）。token 不参与。
 ///   - `mcp_time`（GLM mcp_monthly）：MCP 使用时长口径，与请求无关 → 不增量，只靠真查校准。
-///   - `response_inline`：响应头/体自带配额真值 → 不增量。
 ///   - `tokens` / `""`（缺省，向后兼容旧 JSON）：has_base → 每 token +`100/limit`；
 ///     无 → 拟合 `coef_per_token`（`est = util_at_last_real + tokens_since_real × coef`）。
 ///   - 旧 JSON 无 unit 但 name == "mcp_monthly" 的存量行：同样不增量（历史特判保留，
 ///     校准后 unit 会被脚本返回值覆盖为 `mcp_time`）。
 pub fn apply_tier_delta(tier: &mut EstTier, requests: i64, tokens: f64) {
     let per_request_unit = tier.unit == "prompt_count";
-    let no_increment = tier.unit == "mcp_time"
-        || tier.unit == "response_inline"
-        || (tier.unit.is_empty() && tier.name == "mcp_monthly");
+    let no_increment =
+        tier.unit == "mcp_time" || (tier.unit.is_empty() && tier.name == "mcp_monthly");
     if no_increment {
         return;
     }

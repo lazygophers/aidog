@@ -19,6 +19,7 @@ mod algo;
 mod anchors;
 mod db_ops;
 mod model;
+mod rate_limit;
 
 // 对外路径保持 `gateway::estimate::X` 不变（部分项仅测试 / 备用，allow 保稳定 API）。
 #[allow(unused_imports)]
@@ -30,9 +31,11 @@ pub use algo::{
 pub use db_ops::{
     apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan,
     calibrate_from_quota, estimate_after_request, read_estimate_state, seed_plan_anchor_if_empty,
-    spawn_refresh_at, write_real_quota,
+    spawn_refresh_at, write_rate_limit, write_real_quota,
 };
 #[allow(unused_imports)]
 pub use anchors::{anchors_in, default_plan_quota_anchors};
 #[allow(unused_imports)]
 pub use model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstCodingPlan, EstTier};
+#[allow(unused_imports)]
+pub use rate_limit::{RateLimit, parse_rate_limit};

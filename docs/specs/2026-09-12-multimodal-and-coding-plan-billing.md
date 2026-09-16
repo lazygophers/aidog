@@ -46,7 +46,7 @@
 | `prompt_count` | 按次扣 | `has_base`（有绝对 limit）→ 每请求 +`100/limit`；无绝对 → 拟合 `coef_per_request`（真查样本 Δutil/Δ请求数），替代现 `coef_per_token` | GLM（无绝对数）、Kimi（有）、MiniMax（有）、百炼（静态 plan_quotas 当 has_base） |
 | `mcp_time` | MCP 使用时长 | 不增量，只真查（现 algo.rs:33 特判转正为类型） | GLM mcp_monthly |
 | `tokens` | 按 token 扣 | 现 coef_per_token 行为原样保留（兜底；qianfan 新 Token Plan 属此型） | qianfan、未标注平台 |
-| `response_inline` | 响应头/体带配额真值 | 优先覆盖 est（registry 脚本声明提取点；各平台可用性未验证，标 推测:） | 待逐平台确认 |
+| ~~`response_inline`~~ | ~~响应头/体带配额真值~~ | **2026-09-16 删除**：只实现了「不增量」半边，提取端从未写过。速率限制余量改由独立列 `platform.rate_limit` 承载（`gateway::estimate::rate_limit`），与本表的「周期内套餐额度」不是一个维度 | — |
 
 - 数据流：registry quota 脚本返回值（`QuotaTier`，`aidog_adapter/src/quota/http.rs:51`）增加 `unit` 透传 → `calibrate_from_quota` 写入 EstTier
 - 调用点：`apply_tier_delta`（algo.rs:28）签名从 tokens 改为（请求数, tokens）按 unit 分派
@@ -75,7 +75,7 @@ est_cost 口径不动（上游 usage × API 价，billing.rs）。新增三处�
 ## 遗留（实现时确认，不阻塞开工）
 
 - audio/video typed 块是否与 image Unknown 路径并型（实现取舍）
-- response_inline 各平台可用性（逐平台标注，首个候选：响应头带 ratelimit/credits 的平台）
+- ~~response_inline 各平台可用性~~ → 2026-09-16 结案：改为独立的 `platform.rate_limit` 列，认 Anthropic / OpenAI / OpenRouter 三家响应头
 - compshare `cp.compshare.cn` endpoint 实测
 - Kimi 扣费单位官方原文未取到（行为按条数，第 3 类证据）
 

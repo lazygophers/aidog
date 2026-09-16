@@ -57,6 +57,12 @@ est_balance_remaining: number,
  */
 est_coding_plan: string, 
 /**
+ * 上游响应头里的速率限制余量快照 JSON（每分钟能发多少；系统维护，前端只读）。
+ * 与 `est_coding_plan`（周期内还剩多少）是两个维度，故独立列不复用。
+ * 空串 = 该平台从未返回过可识别的速率限制头。
+ */
+rate_limit: string, 
+/**
  * 上次真实 quota 查询毫秒戳（校准基准；系统维护，前端只读）
  */
 last_real_query_at: number, 

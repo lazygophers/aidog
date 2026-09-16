@@ -449,7 +449,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
               fresh.last_real_query_at === p.last_real_query_at &&
               fresh.estimate_count === p.estimate_count &&
               fresh.last_error === p.last_error &&
-              fresh.last_error_at === p.last_error_at
+              fresh.last_error_at === p.last_error_at &&
+              fresh.rate_limit === p.rate_limit
             ) return p;
             changed = true;
             return {
@@ -460,6 +461,7 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
               estimate_count: fresh.estimate_count,
               last_error: fresh.last_error,
               last_error_at: fresh.last_error_at,
+              rate_limit: fresh.rate_limit,
             };
           });
           return changed ? next : prev;
