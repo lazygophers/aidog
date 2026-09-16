@@ -158,10 +158,15 @@ pub fn bundled_platform_presets() -> &'static [PlatformPreset] {
     })
 }
 
-/// 按 `canonical_model` 聚合。代表平台按「可选平台优先、其中再 `official` 优先」挑：
+/// 按 `canonical_model` 聚合。代表平台按「同名条目优先、可选平台优先、其中再 `official` 优先」挑：
 /// `pricing_only` 里的 code（纯协议豁免，没有 `platform.json`，用户选不到）
 /// 不能当聚合行的代表平台（票 13-I）。全组都是 pricing_only 时才退给它们。
 /// 2026-08-31 起该清单为空，机制保留供纯协议条目复用。
+///
+/// 同名（`model_id == canonical_model`）排在最前是票 #20 的修复：aihubmix 这类聚合商
+/// 把 coding 套餐折算价挂成独立 `model_id`（`coding-glm-5.3` = 6e-8，同组按量价 1.11e-6），
+/// 又整片标了 `official`，字典序还排第一，于是套餐价成了聚合行的代表价。套餐 / 日期别名 /
+/// free 变体的 `model_id` 都带后缀，同名判据一条就把它们全挡在代表位之外，无需新字段。
 /// 输入顺序不作要求，输出按 `canonical_model` 升序、组内按 `platform_code` 升序。
 pub fn group_by_canonical(
     mut entries: Vec<ModelEntry>,
@@ -189,10 +194,13 @@ pub fn group_by_canonical(
     for g in &mut out {
         // 代表条目同时决定 primary_platform 与聚合行展示名（票 T10：官方那条的展示名）。
         let selectable = |e: &&ModelEntry| !pricing_only.contains(&e.platform_code);
+        let same_name = |e: &&ModelEntry| e.model_id == g.canonical_model;
         let primary = g
             .entries
             .iter()
-            .find(|e| e.official && selectable(e))
+            .find(|e| same_name(e) && e.official && selectable(e))
+            .or_else(|| g.entries.iter().find(|e| same_name(e) && selectable(e)))
+            .or_else(|| g.entries.iter().find(|e| e.official && selectable(e)))
             .or_else(|| g.entries.iter().find(selectable))
             .or_else(|| g.entries.iter().find(|e| e.official))
             .or_else(|| g.entries.first());
