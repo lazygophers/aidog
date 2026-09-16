@@ -144,6 +144,48 @@ async fn group_by_canonical_picks_official_as_primary() {
     );
 }
 
+/// 票 #20：聚合商把 coding 套餐折算价挂成独立 `model_id` 又标 official，字典序还排第一，
+/// 于是套餐价成了聚合行代表价。同名（`model_id == canonical_model`）优先把它们挡在代表位外。
+/// `display_name` 留空时回落 `model_id`，用它反查代表条目是哪条。
+#[tokio::test]
+async fn group_by_canonical_prefers_same_name_entry_over_plan_price_variant() {
+    let groups = group_by_canonical(
+        vec![
+            // 套餐折算价条目：官方标记 + 字典序第一，旧链会选中它。
+            entry("aihubmix", "coding-glm-5.3", "glm-5.3", true),
+            entry("aihubmix", "coding-glm-5.3-free", "glm-5.3", true),
+            entry("aihubmix", "glm-5.3", "glm-5.3", true),
+            entry("glm", "glm-5.3", "glm-5.3", true),
+        ],
+        &Default::default(),
+    );
+    assert_eq!(groups.len(), 1);
+    // 同名条目里再按 official + platform_code 字典序 → aihubmix 的按量条目。
+    assert_eq!(groups[0].primary_platform, "aihubmix");
+    assert_eq!(groups[0].display_name, "glm-5.3");
+
+    // 同名条目非 official 时仍胜过异名的 official 条目（异名 = 套餐/别名，计价口径不同）。
+    let groups = group_by_canonical(
+        vec![
+            entry("aihubmix", "claude-opus-4-6-think", "claude-opus-4-6", true),
+            entry("zzz", "claude-opus-4-6", "claude-opus-4-6", false),
+        ],
+        &Default::default(),
+    );
+    assert_eq!(groups[0].primary_platform, "zzz");
+    assert_eq!(groups[0].display_name, "claude-opus-4-6");
+
+    // 全组无同名条目 → 退回原链（official 优先），不因新判据挑不出代表条目。
+    let groups = group_by_canonical(
+        vec![
+            entry("aihubmix", "MiniMax-M2", "minimax-m2", false),
+            entry("minimax", "MiniMax-M2-x", "minimax-m2", true),
+        ],
+        &Default::default(),
+    );
+    assert_eq!(groups[0].primary_platform, "minimax");
+}
+
 #[tokio::test]
 async fn platform_preset_upsert_overwrites_whole_json() {
     let db = test_db().await;
