@@ -31,6 +31,79 @@ impl FetchModelsError {
     }
 }
 
+fn models_request_headers_log(protocol: &Protocol) -> String {
+    let headers = match protocol {
+        Protocol::Anthropic => serde_json::json!({
+            "x-api-key": "[REDACTED]",
+            "anthropic-version": "2023-06-01",
+        }),
+        _ => serde_json::json!({
+            "authorization": "[REDACTED]",
+            "api-key": "[REDACTED]",
+        }),
+    };
+    headers.to_string()
+}
+
+fn models_response_headers_log(headers: &reqwest::header::HeaderMap) -> String {
+    let values = headers
+        .iter()
+        .filter_map(|(name, value)| {
+            value.to_str().ok().map(|value| {
+                (
+                    name.as_str().to_string(),
+                    serde_json::Value::String(if matches!(
+                        name.as_str().to_ascii_lowercase().as_str(),
+                        "authorization"
+                            | "api-key"
+                            | "x-api-key"
+                            | "x-goog-api-key"
+                            | "cookie"
+                            | "set-cookie"
+                    ) {
+                        "[REDACTED]".to_string()
+                    } else {
+                        value.to_string()
+                    }),
+                )
+            })
+        })
+        .collect::<serde_json::Map<_, _>>();
+    serde_json::Value::Object(values).to_string()
+}
+
+fn redact_models_url(url: &str) -> String {
+    let Ok(mut parsed) = reqwest::Url::parse(url) else {
+        return url
+            .split_once('?')
+            .map_or_else(|| url.to_string(), |(base, _)| format!("{base}?[REDACTED]"));
+    };
+    if parsed.query().is_none() {
+        return parsed.to_string();
+    }
+    let pairs: Vec<(String, String)> = parsed
+        .query_pairs()
+        .map(|(name, value)| {
+            let lower = name.to_ascii_lowercase();
+            let sensitive = lower.contains("key")
+                || lower.contains("token")
+                || lower.contains("secret")
+                || lower.contains("password")
+                || lower.contains("signature");
+            (
+                name.into_owned(),
+                if sensitive {
+                    "[REDACTED]".into()
+                } else {
+                    value.into_owned()
+                },
+            )
+        })
+        .collect();
+    parsed.query_pairs_mut().clear().extend_pairs(pairs);
+    parsed.to_string()
+}
+
 crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
@@ -49,6 +122,7 @@ pub async fn platform_fetch_models(
     // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
     let make_log = |upstream_status: i32,
                     user_status: i32,
+                    response_headers: &str,
                     body: &str,
                     log_url: &str|
      -> gateway::models::ProxyLog {
@@ -62,12 +136,12 @@ pub async fn platform_fetch_models(
             platform_id: 0,
             request_headers: r#"{"source":"fetch-models"}"#.into(),
             request_body: String::new(),
-            upstream_request_headers: String::new(),
+            upstream_request_headers: models_request_headers_log(&protocol),
             upstream_request_body: String::new(),
             response_body: body.into(),
             request_url: "/fetch-models".into(),
-            upstream_request_url: log_url.to_string(),
-            upstream_response_headers: String::new(),
+            upstream_request_url: redact_models_url(log_url),
+            upstream_response_headers: response_headers.into(),
             upstream_status_code: upstream_status,
             user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
             user_response_body: body.into(),
@@ -110,7 +184,7 @@ pub async fn platform_fetch_models(
             tracing::error!("fetch models request failed: {e}");
             if let Err(le) = aidog_logs::upsert_proxy_log(
                 db,
-                make_log(0, 502, &format!("upstream error: {e}"), &url),
+                make_log(0, 502, "{}", &format!("upstream error: {e}"), &url),
             )
             .await
             {
@@ -123,16 +197,34 @@ pub async fn platform_fetch_models(
         }
     };
     let status = resp.status();
-    let body = resp.text().await.map_err(|e| {
-        tracing::error!(url = %url, "read body failed: {e}");
-        FetchModelsError::from_status(0, format!("read body: {e}"))
-    })?;
+    let response_headers = models_response_headers_log(resp.headers());
+    let body = match resp.text().await {
+        Ok(body) => body,
+        Err(e) => {
+            tracing::error!(url = %url, "read body failed: {e}");
+            if let Err(le) = aidog_logs::upsert_proxy_log(
+                db,
+                make_log(
+                    status.as_u16() as i32,
+                    502,
+                    &response_headers,
+                    &format!("read body: {e}"),
+                    &url,
+                ),
+            )
+            .await
+            {
+                tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
+            }
+            return Err(FetchModelsError::from_status(0, format!("read body: {e}")));
+        }
+    };
     tracing::info!(url = %url, %status, "fetch models response status");
     tracing::debug!(url = %url, body = %gateway::log_util::log_body_preview(&body), "fetch models response body");
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
     if let Err(le) =
-        aidog_logs::upsert_proxy_log(db, make_log(upstream_status, upstream_status, &body, &url))
+        aidog_logs::upsert_proxy_log(db, make_log(upstream_status, upstream_status, &response_headers, &body, &url))
             .await
     {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
@@ -174,6 +266,31 @@ pub async fn platform_fetch_models(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn models_request_log_headers_match_protocol_without_credentials() {
+        let anthropic = models_request_headers_log(&Protocol::Anthropic);
+        assert!(anthropic.contains("x-api-key"));
+        assert!(anthropic.contains("anthropic-version"));
+        assert!(anthropic.contains("[REDACTED]"));
+
+        let openai = models_request_headers_log(&Protocol::OpenAI);
+        assert!(openai.contains("authorization"));
+        assert!(openai.contains("api-key"));
+        assert!(openai.contains("[REDACTED]"));
+
+        let mut response = reqwest::header::HeaderMap::new();
+        response.insert("content-type", "application/json".parse().unwrap());
+        response.insert("set-cookie", "credential".parse().unwrap());
+        let response = models_response_headers_log(&response);
+        assert!(response.contains("content-type"));
+        assert!(response.contains("[REDACTED]"));
+        assert!(!response.contains("credential"));
+
+        let url = redact_models_url("https://example.invalid/models?api_key=credential&region=eu");
+        assert!(url.contains("region=eu"));
+        assert!(!url.contains("credential"));
+    }
 
     #[test]
     fn auth_variant_for_401_403() {
