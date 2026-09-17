@@ -7,7 +7,7 @@ import { ChartCard } from "./ChartCard";
 import { ChartsTooltip, tooltipValueRows } from "./tooltip";
 import { withDefaultColors } from "./palette";
 import { niceTicks } from "./ticks";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 export interface BarChartProps {
   /** 系列声明：每个 key 一组柱；缺 color 按键序走公共层色板（首位琥珀）。 */
@@ -39,6 +39,7 @@ export function BarChart({
   className,
   children,
 }: BarChartProps) {
+  const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
   const effConfig = useMemo(() => withDefaultColors(config), [config]);
 
@@ -74,7 +75,7 @@ export function BarChart({
               dataKey={k}
               fill={`var(--color-${k})`}
               radius={[4, 4, 0, 0]}
-              {...drawInProps()}
+              {...drawIn}
             />
           ))}
           {children}

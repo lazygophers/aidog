@@ -2,7 +2,7 @@
 export { PRIMARY_COLOR, seriesColor, seriesColors, heatColor, HEAT_MIN_ALPHA, HEAT_MAX_ALPHA, withDefaultColors } from "./palette";
 export { niceTicks, formatTimeTick, bucketMs } from "./ticks";
 export { downsampleLTTB, LTTB_THRESHOLD } from "./downsample";
-export { drawInProps, useDrawInPath } from "./drawIn";
+export { useDrawIn, useDrawInPath } from "./drawIn";
 export { ChartCard, type ChartCardProps } from "./ChartCard";
 export { ChartsTooltip, tooltipValueRows } from "./tooltip";
 // 批次一六组件（#35）

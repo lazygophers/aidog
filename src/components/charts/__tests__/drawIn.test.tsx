@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { useRef } from "react";
+import { renderHook } from "@testing-library/react";
 import { render, screen, waitFor } from "../../../test/render";
-import { drawInProps, useDrawInPath } from "../drawIn";
+import { useDrawIn, useDrawInPath } from "../drawIn";
 
 /** ref 回调先于 effect 跑：在这里 stub getTotalLength。stub=undefined 时不挂（走无函数分支）。 */
 function Probe({ stub }: { stub?: number }) {
@@ -24,13 +25,24 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("drawInProps", () => {
-  it("returns recharts animation props with default 700ms", () => {
-    expect(drawInProps()).toEqual({ isAnimationActive: true, animationBegin: 0, animationDuration: 700 });
+describe("useDrawIn", () => {
+  it("首次渲染开动画，默认 700ms", () => {
+    const { result } = renderHook(() => useDrawIn());
+    expect(result.current).toEqual({ isAnimationActive: true, animationBegin: 0, animationDuration: 700 });
   });
 
-  it("honours custom duration", () => {
-    expect(drawInProps(300).animationDuration).toBe(300);
+  it("自定义时长", () => {
+    const { result } = renderHook(() => useDrawIn(300));
+    expect(result.current.animationDuration).toBe(300);
+  });
+
+  // 票 11 病灶 A 的回归闸：挂载后的重渲染（数据刷新）不得再播生长动画——
+  // recharts 的动画每帧一次 React 提交，重播一轮 ≈ 42 次提交。
+  it("挂载之后的重渲染不再播动画", () => {
+    const { result, rerender } = renderHook(() => useDrawIn());
+    expect(result.current.isAnimationActive).toBe(true);
+    rerender();
+    expect(result.current.isAnimationActive).toBe(false);
   });
 });
 

@@ -10,7 +10,7 @@ import { ChartsTooltip, tooltipValueRows } from "./tooltip";
 import { withDefaultColors } from "./palette";
 import { niceTicks } from "./ticks";
 import { downsampleLTTB } from "./downsample";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 export interface StackedBarChartProps {
   /** 系列声明：每个 key 一段柱，label 进 tooltip/legend；缺 color 按键序走公共层色板。 */
@@ -43,6 +43,7 @@ export function StackedBarChart({
   children,
 }: StackedBarChartProps) {
   const { t } = useTranslation();
+  const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
   const effConfig = useMemo(() => withDefaultColors(config), [config]);
 
@@ -101,7 +102,7 @@ export function StackedBarChart({
             content={<ChartTooltipContent formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))} />}
           />
           {seriesKeys.map((k) => (
-            <Bar key={k} dataKey={k} stackId="s" fill={`var(--color-${k})`} {...drawInProps()} />
+            <Bar key={k} dataKey={k} stackId="s" fill={`var(--color-${k})`} {...drawIn} />
           ))}
           {children}
         </RechartsBarChart>

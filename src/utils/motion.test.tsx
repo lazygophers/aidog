@@ -124,34 +124,54 @@ describe("useReveal", () => {
 });
 
 describe("useCounter", () => {
-  it("初始显示目标值本身（decimals 决定精度）", () => {
+  it("display 是目标值本身（未进视口 / 无动画时的静态回退，decimals 决定精度）", () => {
     const { result } = renderHook(() => useCounter(42));
     expect(result.current.display).toBe("42");
     const { result: dec } = renderHook(() => useCounter(1.5, 2));
     expect(dec.current.display).toBe("1.50");
   });
 
-  it("无 IntersectionObserver 时立即启动并缓动到目标值", async () => {
+  it("无 IntersectionObserver 时立即启动，逐帧写进 ref 的 textContent", async () => {
     vi.stubGlobal("IntersectionObserver", undefined);
-    const { result } = renderHook(() => {
+    const span = document.createElement("span");
+    renderHook(() => {
       const h = useCounter(100, 0, 10);
-      h.ref.current ??= document.createElement("span");
+      h.ref.current ??= span;
       return h;
     });
     await act(() => new Promise((r) => setTimeout(r, 60)));
-    expect(Number(result.current.display.replace(/,/g, ""))).toBe(100);
+    expect(Number((span.textContent ?? "").replace(/,/g, ""))).toBe(100);
   });
 
   it("进入视口后启动，且重复进入只启动一次", async () => {
-    const { result } = renderHook(() => {
+    const span = document.createElement("span");
+    renderHook(() => {
       const h = useCounter(50, 1, 10);
-      h.ref.current ??= document.createElement("span");
+      h.ref.current ??= span;
       return h;
     });
     enterView();
     enterView();
     await act(() => new Promise((r) => setTimeout(r, 60)));
-    expect(result.current.display).toBe("50.0");
+    expect(span.textContent).toBe("50.0");
+  });
+
+  // 票 11 病灶 A 的回归闸：滚动的中间值一律直写 DOM，绝不触发 React 重渲染。
+  // 这条一旦红，说明有人把逐帧值搬回了 state —— Stats 一次加载会重新涨回 70+ 次提交。
+  it("滚动全程零重渲染（中间值不走 React state）", async () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
+    const span = document.createElement("span");
+    let renders = 0;
+    renderHook(() => {
+      renders++;
+      const h = useCounter(100, 0, 10);
+      h.ref.current ??= span;
+      return h;
+    });
+    const rendersAfterMount = renders;
+    await act(() => new Promise((r) => setTimeout(r, 60)));
+    expect(span.textContent).toBe("100");
+    expect(renders).toBe(rendersAfterMount);
   });
 });
 

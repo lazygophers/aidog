@@ -6,11 +6,11 @@ import { Area, AreaChart as RechartsAreaChart, CartesianGrid, Legend, XAxis, YAx
 import { useTranslation } from "react-i18next";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
-import { ChartsTooltip, tooltipValueRows } from "./tooltip";
+import { ChartsTooltip, tooltipValueRows, TOOLTIP_THROTTLE_MS } from "./tooltip";
 import { withDefaultColors } from "./palette";
 import { formatTimeTick, niceTicks, xNum } from "./ticks";
 import { downsampleLTTB } from "./downsample";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 export interface StackedAreaChartProps {
   /** 系列声明：每个 key 一层，label 进 tooltip/legend；缺 color 按键序走公共层色板。 */
@@ -47,6 +47,7 @@ export function StackedAreaChart({
   children,
 }: StackedAreaChartProps) {
   const { t } = useTranslation();
+  const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
   const effConfig = useMemo(() => withDefaultColors(config), [config]);
 
@@ -88,7 +89,7 @@ export function StackedAreaChart({
   return (
     <ChartCard title={title} subtitle={sub} empty={data.length === 0} emptyHint={emptyHint} className={className}>
       <ChartContainer config={effConfig} className="w-full" style={{ height }}>
-        <RechartsAreaChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <RechartsAreaChart data={rows} throttleDelay={TOOLTIP_THROTTLE_MS} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
           <defs>
             {seriesKeys.map((k) => (
               <linearGradient key={k} id={`stack-${k}`} x1="0" y1="0" x2="0" y2="1">
@@ -149,7 +150,7 @@ export function StackedAreaChart({
               stroke={`var(--color-${k})`}
               strokeWidth={1.5}
               fill={`url(#stack-${k})`}
-              {...drawInProps()}
+              {...drawIn}
             />
           ))}
           {children}
