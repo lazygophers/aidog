@@ -6,6 +6,15 @@
 import type * as React from "react";
 import { ChartTooltip as ShadcnChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 
+/**
+ * 笛卡尔图表根组件的 `throttleDelay`：指针移动多久才允许更新一次 tooltip / cursor。
+ *
+ * recharts 3 的缺省值是 `'raf'` —— 每个动画帧一次，于是连续悬停 1.93 s 就是 122 次
+ * React 提交、脚本占 86%（票 11 病灶 C 实测）。tooltip 是给人读的，30 Hz 跟手已经看不出
+ * 与 60 Hz 的差别，提交数直接减半。要更跟手就调小，代价是提交数等比回升。
+ */
+export const TOOLTIP_THROTTLE_MS = 32;
+
 export function ChartsTooltip({
   content,
   wrapperStyle,

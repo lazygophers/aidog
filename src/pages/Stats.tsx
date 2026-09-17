@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -302,8 +302,12 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     [granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  // silent=true：后台刷新（代理事件触发），不掀 loading。掀了就会把整页内容换成「加载中...」，
+  // 图表 / 卡片全部卸载再挂载 —— 每次代理跑完一个请求，4 张图就从零重播一遍生长动画
+  // （每帧一次 React 提交），实测一次刷新 55 次提交里 ~40 次出自这一次重挂载（票 11 病灶 A）。
+  // silent 分支的写法对齐 RequestLog.tsx 的 load(silent)。
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const range = getTimeRange(preset);
       const base = baseQuery();
@@ -334,7 +338,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     } catch (e) {
       console.error(e);
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [baseQuery, preset, granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
 
   useEffect(() => { load(); }, [load]);
@@ -386,8 +390,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     return () => { cancelled = true; };
   }, [activeTab, preset, filterPlatform]);
 
-  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载（依赖 load，刷新尊重当前时间范围/筛选）
-  useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
+  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载（依赖 load，刷新尊重当前时间范围/筛选）。
+  // 走 silent 分支：后台刷新不掀 loading，页面内容原地更新而不是卸载重挂。
+  useEffect(() => onProxyLogUpdated(() => { load(true); }), [load]);
 
   // Load filter options
   const loadFilterOptions = useCallback(() => {
@@ -397,8 +402,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
 
   useEffect(() => { loadFilterOptions(); }, [loadFilterOptions]);
 
-  // 请求完成后同步刷新筛选选项（平台/分组列表可能已变）
-  useEffect(() => onProxyLogUpdated(() => { loadFilterOptions(); }), [loadFilterOptions]);
+  // 注意：筛选选项（分组 / 平台列表）**不订阅** proxy-log-updated。代理跑完一个请求不会
+  // 改变分组或平台列表，那两条查询是纯浪费；而独立订阅还会带来第二条 500 ms 防抖，
+  // 让一次代理事件触发两轮重查（票 11 病灶 B）。列表变更走用户编辑路径，挂载时拉一次即可。
 
   // 维度 / 筛选变化时重置分页
   useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan, preset]);
@@ -941,7 +947,9 @@ interface OverviewCardProps {
   t: TFunction;
 }
 
-function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, delta, deltaInverse, t }: OverviewCardProps) {
+// memo：8 张卡的 props 全是原始值 + 稳定的 t，页内排序 / 翻页 / 切 tab 这些与卡片无关的
+// 重渲染就不再穿透到卡片子树（票 11 病灶 A）。
+const OverviewCard = memo(function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, delta, deltaInverse, t }: OverviewCardProps) {
   const { ref: revealRef, shown } = useReveal<HTMLDivElement>(staggerMs);
   // numericValue 提供时用 counter 滚动；否则回退到预格式化字符串
   const { ref: counterRef, display: counterDisplay } = useCounter(numericValue ?? 0, 0, 1200);
@@ -974,7 +982,7 @@ function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, 
       {deltaNode}
     </Card>
   );
-}
+});
 
 // ── 可排序表头 ──
 interface SortableThProps {

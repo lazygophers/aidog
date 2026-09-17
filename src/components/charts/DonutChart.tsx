@@ -9,7 +9,7 @@ import { formatPercent } from "@/utils/formatters";
 import { ChartCard } from "./ChartCard";
 import { ChartsTooltip, tooltipValueRows } from "./tooltip";
 import { seriesColor } from "./palette";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 type Slice = { name: string; value: number; fill: string; percent: number };
 
@@ -51,6 +51,7 @@ export function DonutChart({
   showLegend = true,
 }: DonutChartProps) {
   const { t } = useTranslation();
+  const drawIn = useDrawIn(600);
 
   const slices = useMemo<Slice[]>(() => {
     const sorted = data
@@ -105,7 +106,7 @@ export function DonutChart({
                 outerRadius="88%"
                 paddingAngle={2}
                 strokeWidth={0}
-                {...(animate ? drawInProps(600) : { isAnimationActive: false })}
+                {...(animate ? drawIn : { isAnimationActive: false })}
               >
                 {slices.map((d) => (
                   <Cell key={d.name} fill={d.fill} />

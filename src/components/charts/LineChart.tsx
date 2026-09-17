@@ -6,11 +6,11 @@ import { Area, CartesianGrid, ComposedChart, Legend, Line, XAxis, YAxis } from "
 import { useTranslation } from "react-i18next";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
-import { ChartsTooltip, tooltipValueRows } from "./tooltip";
+import { ChartsTooltip, tooltipValueRows, TOOLTIP_THROTTLE_MS } from "./tooltip";
 import { withDefaultColors } from "./palette";
 import { formatTimeTick, niceTicks, xNum } from "./ticks";
 import { downsampleLTTB } from "./downsample";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 export interface LineChartProps {
   /** 系列声明：每个 key 一条线，label 进 tooltip/legend；缺 color 按键序走公共层色板。 */
@@ -64,6 +64,7 @@ export function LineChart({
 }: LineChartProps) {
   const { t } = useTranslation();
   const areaId = useId();
+  const drawIn = useDrawIn();
   const leftKeys = useMemo(() => Object.keys(config), [config]);
   const rightKeys = useMemo(() => (rightConfig ? Object.keys(rightConfig) : []), [rightConfig]);
   const seriesKeys = useMemo(() => [...leftKeys, ...rightKeys], [leftKeys, rightKeys]);
@@ -121,7 +122,7 @@ export function LineChart({
 
   const chart = (
     <ChartContainer config={effConfig} className="w-full" style={{ height: effHeight }}>
-      <ComposedChart data={rows} margin={mini ? { top: 4, right: 4, bottom: 0, left: 0 } : { top: 8, right: 12, bottom: 0, left: 0 }}>
+      <ComposedChart data={rows} throttleDelay={TOOLTIP_THROTTLE_MS} margin={mini ? { top: 4, right: 4, bottom: 0, left: 0 } : { top: 8, right: 12, bottom: 0, left: 0 }}>
         {!mini && <CartesianGrid vertical={false} strokeDasharray="3 3" />}
         {area && leftKeys.length > 0 && (
           <defs>
@@ -216,7 +217,7 @@ export function LineChart({
               strokeDasharray={dashedKeys.includes(k) ? "3 3" : undefined}
               dot={mini ? false : rows.length <= 60}
               activeDot={{ r: mini ? 2.5 : 3 }}
-              {...drawInProps()}
+              {...drawIn}
             />
           ))}
           {children}

@@ -54,12 +54,16 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(staggerMs = 0)
 
 /**
  * 数字滚动：target 目标值，decimals 小数位，durMs 时长。
- * 返回 [ref, display]；ref 绑到容器，进入视口后启动一次滚动到 target。
+ * 返回 [ref, display]；ref 绑到承载数字的元素，进入视口后启动一次滚动到 target。
  * ponytail: requestAnimationFrame + cubic ease-out，stdlib only。
+ *
+ * 逐帧的中间值**直写 DOM textContent，不走 React state**：滚动一次 1200 ms ≈ 72 帧，
+ * 走 state 就是 72 次 React 根提交（Stats 页 8 张卡同时滚，实测「加载一页 76 次提交」
+ * 里 ~60 次出自这里）。`display` 是目标值本身，负责 SSR/首帧/未进视口时的静态回退，
+ * 也让 target 变化时 React 直接落最终值。
  */
 export function useCounter(target: number, decimals = 0, durMs = 1200) {
   const ref = useRef<HTMLSpanElement | null>(null);
-  const [display, setDisplay] = useState(decimals ? target.toFixed(decimals) : String(target));
   const startedRef = useRef(false);
 
   useEffect(() => {
@@ -73,7 +77,7 @@ export function useCounter(target: number, decimals = 0, durMs = 1200) {
         const p = Math.min((now - start) / durMs, 1);
         const eased = 1 - Math.pow(1 - p, 3);
         const val = target * eased;
-        setDisplay(decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString());
+        el.textContent = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString();
         if (p < 1) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -95,7 +99,7 @@ export function useCounter(target: number, decimals = 0, durMs = 1200) {
     return () => obs.disconnect();
   }, [target, decimals, durMs]);
 
-  return { ref, display };
+  return { ref, display: decimals ? target.toFixed(decimals) : String(target) };
 }
 
 /** Ripple 涟漪 onClick handler：绑到按钮/卡片，点击生成扩散波。

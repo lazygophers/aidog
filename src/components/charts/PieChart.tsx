@@ -6,7 +6,7 @@ import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/compone
 import { ChartCard } from "./ChartCard";
 import { ChartsTooltip, tooltipValueRows } from "./tooltip";
 import { seriesColors } from "./palette";
-import { drawInProps } from "./drawIn";
+import { useDrawIn } from "./drawIn";
 
 export interface PieChartProps {
   /** 占比数据：name 进 tooltip，value 定扇区。内部过滤 value ≤ 0。 */
@@ -35,6 +35,7 @@ export function PieChart({
   children,
   animate = true,
 }: PieChartProps) {
+  const drawIn = useDrawIn(600);
   const slices = useMemo(() => data.filter((d) => d.value > 0), [data]);
   const fills = useMemo(() => seriesColors(slices.length), [slices.length]);
   const fmt = formatValue ?? ((n: number) => n.toLocaleString());
@@ -66,7 +67,7 @@ export function PieChart({
             nameKey="name"
             outerRadius="85%"
             strokeWidth={0}
-            {...(animate ? drawInProps(600) : { isAnimationActive: false })}
+            {...(animate ? drawIn : { isAnimationActive: false })}
           >
             {slices.map((d, i) => (
               <Cell key={d.name} fill={fills[i]} />
