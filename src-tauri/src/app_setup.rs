@@ -9,6 +9,7 @@ use aidog_core::sync_settings::try_sync_settings;
 use aidog_core::system_cmd::app_log::{
     load_app_log_settings_from_db, migrate_log_settings_file_to_db,
 };
+#[cfg(not(target_os = "macos"))]
 use aidog_core::tray_render::{TrayMenuBuildImpl, build_tray_menu, refresh_tray_menu};
 use aidog_db::Db;
 use aidog_middleware::MiddlewareEngine;
@@ -16,7 +17,29 @@ use aidog_stats::DbInitTables;
 use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use tauri::Manager;
+#[cfg(not(target_os = "macos"))]
 use tauri::tray::TrayIconBuilder;
+
+/// 票 I10：macOS 的菜单栏由 `aidog_core::menubar` 自持的 NSStatusItem 承载，
+/// 本函数只负责「取数（任意线程）→ 跳主线程 → 交给 menubar 画」，是唯一还带 tauri 的一跳。
+/// 非 macOS 走原 Tauri 托盘菜单路径（`refresh_tray_menu`），两条路互斥，不抢同一个 status item。
+#[cfg(target_os = "macos")]
+async fn refresh_menu_bar(app: &tauri::AppHandle) -> Result<(), String> {
+    let state = aidog_core::menubar::collect_state(aidog_ctx::db()).await;
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.run_on_main_thread(move || {
+        aidog_core::menubar::render(state);
+        let _ = tx.send(());
+    })
+    .map_err(|e| e.to_string())?;
+    rx.recv().map_err(|e| e.to_string())
+}
+
+/// 与 `refresh_menu_bar` 同名异构：非 macOS 保持既有 Tauri 菜单重建。
+#[cfg(not(target_os = "macos"))]
+async fn refresh_menu_bar(app: &tauri::AppHandle) -> Result<(), String> {
+    refresh_tray_menu(app, &TrayMenuBuildImpl).await
+}
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // 运行时 PATH 修复（GUI launchd/Finder env 极简，brew/nvm/pyenv 装的
@@ -410,56 +433,43 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         }
     }
 
-    // 系统托盘
-    let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
-    TrayIconBuilder::with_id("main")
-        .icon(app.default_window_icon().cloned().unwrap())
-        .menu(&menu)
-        .tooltip("AiDog — AI API Gateway")
-        .show_menu_on_left_click(false)
-        .on_tray_icon_event(|tray, event| {
-            use tauri::tray::{MouseButton, MouseButtonState};
-            if let tauri::tray::TrayIconEvent::Click {
-                button,
-                button_state,
-                rect,
-                ..
-            } = event
-            {
-                // 只响应 Down，忽略 Up（否则 Down 创建 → Up 立刻销毁）
-                if button != MouseButton::Left || button_state != MouseButtonState::Down {
-                    return;
-                }
-                let app = tray.app_handle().clone();
-                tracing::info!(button = ?button, "tray click → toggle popover");
-                // 按需创建：开着就销毁，关着就现建（启动期不再预建，省 58 MB 常驻）。
+    // 系统托盘 / 菜单栏
+    //
+    // 票 I10 —— macOS 走原生：`aidog_core::menubar` 自己向 NSStatusBar 要 NSStatusItem，
+    // 这里**不建** Tauri TrayIcon。两者共存会在菜单栏并排出现两个条目、抢同一块位置，
+    // 所以是 `cfg` 二选一而不是叠加。其余平台（Windows 本就无托盘标题）原样保留 Tauri 路径。
+    #[cfg(target_os = "macos")]
+    {
+        use aidog_core::menubar::{MenuBarActions, install};
+        let click_handle = app.handle().clone();
+        let proxy_handle = app.handle().clone();
+        let show_handle = app.handle().clone();
+        let quit_handle = app.handle().clone();
+        install(MenuBarActions {
+            on_click: Box::new(move |x, y, w, h| {
+                tracing::info!(x, y, w, h, "menubar click → toggle popover");
+                // 按需创建：开着就销毁，关着就现建（启动期不预建，省 58 MB 常驻）。
                 if crate::popover_window::is_open() {
-                    crate::popover_window::close(&app);
+                    crate::popover_window::close(&click_handle);
                     return;
                 }
-                // 定位：居中于 tray 图标正下方
-                // rect 坐标为 Physical 像素，position() 接受 Logical 坐标，需除以 scale factor
-                let scale = app
-                    .get_webview_window("main")
-                    .and_then(|w| w.scale_factor().ok())
-                    .unwrap_or(2.0);
-                let (rx, ry) = match rect.position {
-                    tauri::Position::Physical(p) => (p.x as f64 / scale, p.y as f64 / scale),
-                    tauri::Position::Logical(p) => (p.x, p.y),
-                };
-                let (rw, rh) = match rect.size {
-                    tauri::Size::Physical(s) => (s.width as f64 / scale, s.height as f64 / scale),
-                    tauri::Size::Logical(s) => (s.width, s.height),
-                };
-                let pw = 300.0;
-                let x = rx + rw / 2.0 - pw / 2.0;
-                let y = ry + rh;
-                tracing::info!(x, y, scale, "popover show position");
-                crate::popover_window::open(&app, Some((x, y)));
-            }
-        })
-        .on_menu_event(|app, event| match event.id().as_ref() {
-            "proxy_start" => {
+                // 定位：居中于图标正下方。menubar 给的矩形已是左上原点 logical 坐标，
+                // 不需要再除 scale factor（旧 Tauri 路径拿到的是 Physical 像素才要除）。
+                const POPOVER_WIDTH: f64 = 300.0;
+                crate::popover_window::open(
+                    &click_handle,
+                    Some((x + w / 2.0 - POPOVER_WIDTH / 2.0, y + h)),
+                );
+            }),
+            on_toggle_proxy: Box::new(move |running| {
+                if running {
+                    tauri::async_runtime::block_on(async {
+                        if let Err(e) = proxy_stop().await {
+                            tracing::error!(error = %e, "menubar: proxy stop failed");
+                        }
+                    });
+                    return;
+                }
                 let settings = tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db()))
                     .unwrap_or(ProxySettings {
                         port: 9890,
@@ -468,39 +478,129 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         bind_lan: false,
                     });
                 let port = settings.port;
-                let app_handle = app.clone();
+                let app_handle = proxy_handle.clone();
                 tauri::async_runtime::block_on(async move {
                     if let Err(e) = proxy_start(port).await {
-                        tracing::error!(port, error = %e, "tray: proxy start failed");
-                        // 无前端窗口路径（托盘点启动同自启动，proxy-port-no-drift s3）：
-                        // emit 结构化错误供 App.tsx 监听转系统通知（i18n 在前端做，
-                        // Rust 侧不硬编码文案）+ 复用既有 tray-refresh 事件确认未启动态。
+                        tracing::error!(port, error = %e, "menubar: proxy start failed");
+                        // 无前端窗口路径（proxy-port-no-drift s3）：emit 结构化错误供
+                        // App.tsx 转系统通知（i18n 在前端做）+ 复用 tray-refresh 确认未启动态。
                         use tauri::Emitter;
                         let _ = app_handle.emit("proxy-start-failed", &e);
                         let _ = app_handle.emit("tray-refresh", ());
                     }
                 });
-            }
-            "proxy_stop" => {
-                tauri::async_runtime::block_on(async {
-                    if let Err(e) = proxy_stop().await {
-                        tracing::error!(error = %e, "tray: proxy stop failed");
-                    }
-                });
-            }
-            "show" => {
-                if let Some(w) = app.get_webview_window("main") {
+            }),
+            on_show: Box::new(move || {
+                if let Some(w) = show_handle.get_webview_window("main") {
                     let _ = w.show();
                     let _ = w.set_focus();
                 }
-            }
-            "quit" => {
-                app.exit(0);
-            }
-            _ => {}
-        })
-        .build(app)
-        .map_err(|e| e.to_string())?;
+            }),
+            on_quit: Box::new(move || quit_handle.exit(0)),
+        });
+        // 首帧直接画：setup 本身就在主线程，且事件循环尚未启动——此处若走
+        // `refresh_menu_bar` 的 run_on_main_thread + recv 会等一个永远跑不到的闭包（死锁）。
+        let state =
+            tauri::async_runtime::block_on(aidog_core::menubar::collect_state(aidog_ctx::db()));
+        aidog_core::menubar::render(state);
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
+        TrayIconBuilder::with_id("main")
+            .icon(app.default_window_icon().cloned().unwrap())
+            .menu(&menu)
+            .tooltip("AiDog — AI API Gateway")
+            .show_menu_on_left_click(false)
+            .on_tray_icon_event(|tray, event| {
+                use tauri::tray::{MouseButton, MouseButtonState};
+                if let tauri::tray::TrayIconEvent::Click {
+                    button,
+                    button_state,
+                    rect,
+                    ..
+                } = event
+                {
+                    // 只响应 Down，忽略 Up（否则 Down 创建 → Up 立刻销毁）
+                    if button != MouseButton::Left || button_state != MouseButtonState::Down {
+                        return;
+                    }
+                    let app = tray.app_handle().clone();
+                    tracing::info!(button = ?button, "tray click → toggle popover");
+                    // 按需创建：开着就销毁，关着就现建（启动期不再预建，省 58 MB 常驻）。
+                    if crate::popover_window::is_open() {
+                        crate::popover_window::close(&app);
+                        return;
+                    }
+                    // 定位：居中于 tray 图标正下方
+                    // rect 坐标为 Physical 像素，position() 接受 Logical 坐标，需除以 scale factor
+                    let scale = app
+                        .get_webview_window("main")
+                        .and_then(|w| w.scale_factor().ok())
+                        .unwrap_or(2.0);
+                    let (rx, ry) = match rect.position {
+                        tauri::Position::Physical(p) => (p.x as f64 / scale, p.y as f64 / scale),
+                        tauri::Position::Logical(p) => (p.x, p.y),
+                    };
+                    let (rw, rh) = match rect.size {
+                        tauri::Size::Physical(s) => {
+                            (s.width as f64 / scale, s.height as f64 / scale)
+                        }
+                        tauri::Size::Logical(s) => (s.width, s.height),
+                    };
+                    let pw = 300.0;
+                    let x = rx + rw / 2.0 - pw / 2.0;
+                    let y = ry + rh;
+                    tracing::info!(x, y, scale, "popover show position");
+                    crate::popover_window::open(&app, Some((x, y)));
+                }
+            })
+            .on_menu_event(|app, event| match event.id().as_ref() {
+                "proxy_start" => {
+                    let settings =
+                        tauri::async_runtime::block_on(load_proxy_settings(aidog_ctx::db()))
+                            .unwrap_or(ProxySettings {
+                                port: 9890,
+                                autostart: true,
+                                silent_launch: false,
+                                bind_lan: false,
+                            });
+                    let port = settings.port;
+                    let app_handle = app.clone();
+                    tauri::async_runtime::block_on(async move {
+                        if let Err(e) = proxy_start(port).await {
+                            tracing::error!(port, error = %e, "tray: proxy start failed");
+                            // 无前端窗口路径（托盘点启动同自启动，proxy-port-no-drift s3）：
+                            // emit 结构化错误供 App.tsx 监听转系统通知（i18n 在前端做，
+                            // Rust 侧不硬编码文案）+ 复用既有 tray-refresh 事件确认未启动态。
+                            use tauri::Emitter;
+                            let _ = app_handle.emit("proxy-start-failed", &e);
+                            let _ = app_handle.emit("tray-refresh", ());
+                        }
+                    });
+                }
+                "proxy_stop" => {
+                    tauri::async_runtime::block_on(async {
+                        if let Err(e) = proxy_stop().await {
+                            tracing::error!(error = %e, "tray: proxy stop failed");
+                        }
+                    });
+                }
+                "show" => {
+                    if let Some(w) = app.get_webview_window("main") {
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+                "quit" => {
+                    app.exit(0);
+                }
+                _ => {}
+            })
+            .build(app)
+            .map_err(|e| e.to_string())?;
+    }
 
     // 监听后台预估发出的 tray-refresh 事件，在主线程刷新托盘（避免后台线程直接操作 tray）
     // trailing 防抖：单请求生命周期内多次 emit（4-6 次）合并成一次菜单重建，避免 UI 卡顿
@@ -522,7 +622,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 // 单请求生命周期内终态 emit 通常 1-2 次，200ms trailing 合并多请求 burst。
                 let new_task = tauri::async_runtime::spawn(async move {
                     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-                    let _ = refresh_tray_menu(&handle, &TrayMenuBuildImpl).await;
+                    let _ = refresh_menu_bar(&handle).await;
                 });
                 *pending.lock().unwrap() = Some(new_task);
             });
@@ -558,9 +658,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     "tray_refresh_tick",
                     trace_id = %logging::new_trace_id()
                 );
-                let _ = refresh_tray_menu(&handle, &TrayMenuBuildImpl)
-                    .instrument(cycle_span)
-                    .await;
+                let _ = refresh_menu_bar(&handle).instrument(cycle_span).await;
             }
         });
     }
