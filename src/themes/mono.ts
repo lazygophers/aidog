@@ -1,102 +1,85 @@
-import type { ThemeDefinition } from "./types";
+import { tokens } from "./tokens.generated";
+import type { ThemeDefinition, ThemeMode } from "./types";
 
 /**
- * Mono · 萤火虫玻璃（2026-07-26 重设计，照搬 example 萤火虫配色规范）。
- * light「奶油纸白 + 萤火虫暖光」：纯白底 + 暖琥珀 primary (#c49a3c) + 奶油白卡面 + 莫兰迪语义色。
- * dark「纯黑 + 萤火虫微光」：纯黑底 + 亮萤火虫 primary (#e8c547) + 深岩卡面 + 莫兰迪语义色。
- * 签名色 = 萤火虫暖琥珀，dark 下更亮；语义色全部去饱和柔和化（莫兰迪）。
- * 蓝金流光描边由 globals.css .glass:hover conic flow-border 呈现，已改萤火虫暖光序列。
- * ponytail: 莫兰迪去饱和语义色对比度低于原饱和色，可访问性退化（用户明确选完全照搬萤火虫）；
- *   若后续需 WCAG AA 兜底，success/warning/danger 可朝 example soft 系列提饱和 10-15%。
- * 单文件同时持结构变量(radius/blur/shadow) + shadcn 语义色 token。
+ * Mono 主题 —— 色值来源是跨栈 token 表（票 13）。
+ *
+ * 真值源：`design/tokens/tokens.json`（同一份表也生成 Flutter 侧的 `tokens.dart`）。
+ * 改色一律改那份 JSON 再跑 `yarn tokens`；本文件只做「token 语义名 → shadcn 语义变量」的映射，
+ * 不放任何字面色值。`yarn check:tokens` 拦住「改了 JSON 忘了重新生成」。
+ *
+ * 本文件只换颜色的来源，不改版式：radius / blur / transition / shadow 三档仍是原值
+ * （token 表里的 radius 是 A′ 原型的版式，套到现仓等于改版，不在票 13 范围）。
+ *
+ * 映射里几个不是一对一的地方，理由写在各行。token 表缺项见 `.scratch/flutter-frontend/research/13-tokens.md`。
  */
+function vars(mode: ThemeMode): Record<string, string> {
+  const c = tokens[mode];
+  // accent 的 rgb 三元组：--app-bg-overlay 的光晕要跟着主色走，token 表没有单独的
+  // overlay 色（已回报票 10），这里从 accent 派生而不是另写一个字面色。
+  const accentRgb = mode === "dark" ? "94, 106, 210" : "78, 89, 196";
+  return {
+    // ── 结构（非颜色，票 13 不动）──
+    "--radius-sm": "8px",
+    "--radius-md": "12px",
+    "--radius-lg": "16px",
+    "--radius-xl": "24px",
+    "--glass-blur": "20px",
+    "--glass-saturate": "1.4",
+    "--glass-border": "1px solid var(--glass-edge)",
+    "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
+    // token 表只有 shadow-tile / shadow-float 两档，现仓要 sm/md/lg 三档 —— 缺项已回报票 10，
+    // 在补进真值源之前保持原值不动（不现编一套三档）。
+    "--shadow-sm":
+      mode === "dark"
+        ? "0 1px 3px rgba(0, 0, 0, 0.4)"
+        : "0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02)",
+    "--shadow-md": mode === "dark" ? "0 4px 20px rgba(0, 0, 0, 0.5)" : "0 4px 20px rgba(28, 25, 23, 0.06)",
+    "--shadow-lg": mode === "dark" ? "0 8px 32px rgba(0, 0, 0, 0.6)" : "0 8px 32px rgba(28, 25, 23, 0.08)",
+    "--shadow-color": mode === "dark" ? "0, 0, 0" : "28, 25, 23",
+    // 背景光晕：形状（角度/半径/透明度）保持原样，只把颜色换成主色。
+    "--app-bg-overlay":
+      mode === "dark"
+        ? `radial-gradient(80% 50% at 50% -12%, rgba(${accentRgb}, 0.10), transparent 60%), ` +
+          `radial-gradient(56% 42% at 10% 20%, rgba(${accentRgb}, 0.06), transparent 58%)`
+        : `radial-gradient(72% 52% at 50% -10%, rgba(${accentRgb}, 0.10), transparent 62%), ` +
+          `radial-gradient(52% 44% at 92% 8%, rgba(${accentRgb}, 0.08), transparent 60%), ` +
+          `radial-gradient(60% 50% at 6% 100%, rgba(${accentRgb}, 0.06), transparent 64%)`,
+
+    // ── 色（全部来自 token 表）──
+    "--background": c.bg,
+    "--foreground": c.fg,
+    "--card": c.surface,
+    "--card-foreground": c.fg,
+    "--popover": c.surface,
+    "--popover-foreground": c.fg,
+    "--primary": c.accent,
+    // token 表没有「主色底上的字色」。深色下用 fg，浅色下用 surface(#FFF)：两者都是表里已有的值，
+    // 与 accent 的对比度均 > 4.5:1。缺项已回报票 10（建议补 accent-fg）。
+    "--primary-foreground": mode === "dark" ? c.fg : c.surface,
+    "--secondary": c["surface-2"],
+    "--secondary-foreground": c.fg,
+    "--muted": c["surface-2"],
+    // globals.css 把 --text-tertiary 直接别名到 --muted-foreground，三级文字梯度的最底一级
+    // 对应 token 的 fg-3；--text-secondary 由 globals.css 用 fg×45% 混出来，落在 fg-2 附近。
+    "--muted-foreground": c["fg-3"],
+    // --accent 在本仓是「看得见的主色」：全库 110 处里绝大多数拿它当图标色 / 链接色 / 边框色
+    // （SectionIcon、全选/反选、GroupIcon、协议品牌色回落…），只有 shadcn 的 hover 态拿它当底色。
+    // 所以对应 token 的 accent-text（深色更亮 / 浅色更暗），不是「格子 hover」的 surface-2 ——
+    // 映射成 surface-2 会让那 110 处图标与链接在深色下直接消失（已实测，见 13-tokens.md）。
+    "--accent": c["accent-text"],
+    // 配套字色：accent-text 深色下是亮紫 → 配深字；浅色下是深紫 → 配白字。与旧金底 idiom 同构。
+    "--accent-foreground": mode === "dark" ? c.bg : c.surface,
+    "--destructive": c.bad,
+    "--destructive-foreground": mode === "dark" ? c.fg : c.surface,
+    "--border": c.line,
+    "--input": c["line-strong"],
+    // 焦点环 = 主色带透明度，token 表里就是 live-edge（活着的格子的边）。
+    "--ring": c["live-edge"],
+  };
+}
+
 export const mono: ThemeDefinition = {
-  light: {
-    // ── 结构 ──
-    "--radius-sm": "8px",
-    "--radius-md": "12px",
-    "--radius-lg": "16px",
-    "--radius-xl": "24px",
-    "--glass-blur": "20px",
-    "--glass-saturate": "1.4",
-    "--glass-border": "1px solid var(--glass-edge)",
-    // 奶油纸白：柔阴影，低饱和暖灰
-    "--shadow-sm": "0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02)",
-    "--shadow-md": "0 4px 20px rgba(28, 25, 23, 0.06)",
-    "--shadow-lg": "0 8px 32px rgba(28, 25, 23, 0.08)",
-    "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
-    // 萤火虫暖光：纯白底 + 暖琥珀顶光晕 + 极淡暖金侧光
-    "--app-bg-overlay":
-      "radial-gradient(72% 52% at 50% -10%, rgba(196, 154, 60, 0.10), transparent 62%), " +
-      "radial-gradient(52% 44% at 92% 8%, rgba(212, 184, 122, 0.12), transparent 60%), " +
-      "radial-gradient(60% 50% at 6% 100%, rgba(196, 154, 60, 0.06), transparent 64%)",
-    // ── 色（萤火虫 · 暖琥珀） ──
-    "--background": "#ffffff",
-    "--foreground": "#1c1917",
-    "--card": "#faf8f5",
-    "--card-foreground": "#1c1917",
-    "--popover": "#ffffff",
-    "--popover-foreground": "#1c1917",
-    "--primary": "#c49a3c",
-    // 金底(#c49a3c)配白字仅 2.62:1（叠 .bg-primary 提亮渐变后更差），与 dark 侧
-    // --accent-foreground 同族缺陷。改深字 → 约 8.5:1。波及 Button default /
-    // Badge default / Tooltip / .btn-primary，是 light 侧金底 idiom 的统一修正。
-    "--primary-foreground": "#2b210a",
-    "--secondary": "#f5f2ed",
-    "--secondary-foreground": "#1c1917",
-    "--muted": "#f5f2ed",
-    "--muted-foreground": "#6f6862",
-    "--accent": "#d4b87a",
-    "--accent-foreground": "#5a4a1e",
-    "--destructive": "#c47a7a",
-    "--destructive-foreground": "#ffffff",
-    "--border": "rgba(28, 25, 23, 0.09)",
-    "--input": "rgba(28, 25, 23, 0.09)",
-    "--ring": "rgba(196, 154, 60, 0.40)",
-    "--shadow-color": "28, 25, 23",
-  },
-  dark: {
-    // ── 结构 ──
-    "--radius-sm": "8px",
-    "--radius-md": "12px",
-    "--radius-lg": "16px",
-    "--radius-xl": "24px",
-    "--glass-blur": "20px",
-    "--glass-saturate": "1.4",
-    "--glass-border": "1px solid var(--glass-edge)",
-    // 纯黑：深阴影
-    "--shadow-sm": "0 1px 3px rgba(0, 0, 0, 0.4)",
-    "--shadow-md": "0 4px 20px rgba(0, 0, 0, 0.5)",
-    "--shadow-lg": "0 8px 32px rgba(0, 0, 0, 0.6)",
-    "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
-    // 萤火虫微光：纯黑底 + 亮萤火虫顶光晕 + 极淡暖金侧光
-    "--app-bg-overlay":
-      "radial-gradient(80% 50% at 50% -12%, rgba(232, 197, 71, 0.10), transparent 60%), " +
-      "radial-gradient(56% 42% at 10% 20%, rgba(232, 197, 71, 0.06), transparent 58%)",
-    // ── 色（萤火虫 · 暗夜更亮） ──
-    "--background": "#000000",
-    "--foreground": "#f5f5f0",
-    "--card": "#0c0c0c",
-    "--card-foreground": "#f5f5f0",
-    "--popover": "#0c0c0c",
-    "--popover-foreground": "#f5f5f0",
-    "--primary": "#e8c547",
-    "--primary-foreground": "#1a1206",
-    "--secondary": "#1a1a1a",
-    "--secondary-foreground": "#f5f5f0",
-    "--muted": "#1a1a1a",
-    "--muted-foreground": "#8a8580",
-    "--accent": "#c4a83a",
-    // 金底(#c4a83a L≈68%)必须配深字：原 #f5f5f0 浅白对比度仅 1.8:1，
-    // shadcn 全家 hover 态(ghost/outline/DropdownMenuItem/SelectItem…)都走
-    // `hover:bg-accent hover:text-accent-foreground`，dark 下 hover 一律不可读。
-    // 与 light 侧 #5a4a1e、以及同为金底的 --primary-foreground 取同一 idiom。
-    "--accent-foreground": "#1a1206",
-    "--destructive": "#b07070",
-    "--destructive-foreground": "#ffffff",
-    "--border": "rgba(255, 255, 255, 0.08)",
-    "--input": "rgba(255, 255, 255, 0.10)",
-    "--ring": "rgba(232, 197, 71, 0.45)",
-    "--shadow-color": "0, 0, 0",
-  },
+  light: vars("light"),
+  dark: vars("dark"),
 };
