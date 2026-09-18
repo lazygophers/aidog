@@ -35,6 +35,41 @@ fn unknown_argument_is_an_error_not_a_silent_default() {
     ));
 }
 
+#[test]
+fn port_flag_is_parsed() {
+    let o = match parse_args(vec!["--ui".into(), "--port".into(), "18999".into()]) {
+        ParseOutcome::Run(o) => o,
+        _ => panic!("--port <n> 必须是正常启动"),
+    };
+    assert_eq!(o.port, Some(18999));
+}
+
+/// 端口 0 是合法输入，不是「没给」：它明确表示「让系统挑一个空闲端口」。
+#[test]
+fn port_zero_means_let_the_os_choose_not_unset() {
+    let o = match parse_args(vec!["--ui".into(), "--port".into(), "0".into()]) {
+        ParseOutcome::Run(o) => o,
+        _ => panic!("--port 0 必须是正常启动"),
+    };
+    assert_eq!(o.port, Some(0), "0 必须落在 Some 里，不能与 None 混为一谈");
+}
+
+#[test]
+fn port_flag_rejects_garbage_and_missing_value() {
+    assert!(matches!(
+        parse_args(vec!["--port".into(), "abc".into()]),
+        ParseOutcome::Error(_)
+    ));
+    assert!(matches!(
+        parse_args(vec!["--port".into(), "70000".into()]),
+        ParseOutcome::Error(_)
+    ));
+    assert!(matches!(
+        parse_args(vec!["--port".into()]),
+        ParseOutcome::Error(_)
+    ));
+}
+
 // ─── 验收：纯内核形态下无任何 HTTP 管理面在听 ──────────────────────────────
 
 /// `management_bind_addr` 是全进程唯一决定「开不开管理面监听」的地方（`run` 里只有这一处
@@ -44,6 +79,7 @@ fn unknown_argument_is_an_error_not_a_silent_default() {
 fn pure_kernel_never_binds_a_management_socket() {
     let opts = Options {
         ui: false,
+        port: None,
         ui_dir: None,
     };
     let configured = KernelSettings {
@@ -68,6 +104,7 @@ fn pure_kernel_never_binds_a_management_socket() {
 fn management_always_binds_loopback() {
     let opts = Options {
         ui: true,
+        port: None,
         ui_dir: None,
     };
     let addr = management_bind_addr(&opts, &KernelSettings::default()).unwrap();
@@ -81,6 +118,7 @@ fn management_always_binds_loopback() {
 fn no_setting_can_expose_management_beyond_loopback() {
     let opts = Options {
         ui: true,
+        port: None,
         ui_dir: None,
     };
     let s = KernelSettings {
@@ -94,6 +132,117 @@ fn no_setting_can_expose_management_beyond_loopback() {
         "管理面绝不能监听 0.0.0.0"
     );
     assert_eq!(addr.port(), 18891, "端口仍可配");
+}
+
+/// `--port` 覆盖设置里的端口，但**覆盖不了绑定的 IP**。
+#[test]
+fn port_flag_overrides_settings_but_never_the_bound_ip() {
+    let opts = Options {
+        ui: true,
+        port: Some(19999),
+        ui_dir: None,
+    };
+    let s = KernelSettings {
+        port: 18891,
+        auth_token: String::new(),
+    };
+    let addr = management_bind_addr(&opts, &s).unwrap();
+    assert_eq!(addr.port(), 19999, "命令行优先于设置");
+    assert_eq!(
+        addr.ip(),
+        IpAddr::V4(Ipv4Addr::LOCALHOST),
+        "命令行只能改端口，改不了绑定的 IP"
+    );
+}
+
+/// 没带 `--port` 时仍取设置里的值 —— 新开关不得改变既有默认行为。
+#[test]
+fn without_port_flag_settings_still_win() {
+    let opts = Options {
+        ui: true,
+        port: None,
+        ui_dir: None,
+    };
+    let s = KernelSettings {
+        port: 18891,
+        auth_token: String::new(),
+    };
+    assert_eq!(management_bind_addr(&opts, &s).unwrap().port(), 18891);
+}
+
+/// `--port` 不能把纯内核形态变成开监听 —— 决定「开不开」的只有 `--ui`。
+#[test]
+fn port_flag_cannot_turn_pure_kernel_into_a_listening_one() {
+    let opts = Options {
+        ui: false,
+        port: Some(19999),
+        ui_dir: None,
+    };
+    assert_eq!(
+        management_bind_addr(&opts, &KernelSettings::default()),
+        None
+    );
+}
+
+// ─── 单实例锁 ──────────────────────────────────────────────────────────────
+
+/// 第一个进程抢到锁，第二个抢不到 —— 这正是共存期里旧壳与新壳同装时要挡的场景。
+#[test]
+fn second_instance_cannot_acquire_the_lock() {
+    let dir = std::env::temp_dir().join(format!("aidog-lock-test-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let first = acquire_single_instance_lock(&dir).unwrap();
+    let held = match first {
+        LockOutcome::Acquired(f) => f,
+        LockOutcome::AlreadyRunning(_) => panic!("干净目录里第一次必须抢到锁"),
+    };
+
+    match acquire_single_instance_lock(&dir).unwrap() {
+        LockOutcome::AlreadyRunning(addr) => {
+            assert!(addr.is_empty(), "还没写过地址时读出来应该是空的，实得 {addr:?}")
+        }
+        LockOutcome::Acquired(_) => panic!("锁还被持有时第二次不得抢到"),
+    }
+
+    // 释放后下一个进程能接上 —— 否则进程崩一次就永远起不来了。
+    drop(held);
+    assert!(matches!(
+        acquire_single_instance_lock(&dir).unwrap(),
+        LockOutcome::Acquired(_)
+    ));
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// 抢到锁的实例把监听地址写进锁文件，抢不到的那个原样读回来。
+#[test]
+fn lock_file_carries_the_listen_address_to_the_next_instance() {
+    let dir = std::env::temp_dir().join(format!("aidog-lock-addr-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+
+    let held = match acquire_single_instance_lock(&dir).unwrap() {
+        LockOutcome::Acquired(f) => f,
+        LockOutcome::AlreadyRunning(_) => panic!("干净目录里第一次必须抢到锁"),
+    };
+    let line = format!("{LISTEN_LINE_PREFIX}http://127.0.0.1:19999");
+    record_listen_addr(&held, &line);
+
+    match acquire_single_instance_lock(&dir).unwrap() {
+        LockOutcome::AlreadyRunning(addr) => assert_eq!(addr, line),
+        LockOutcome::Acquired(_) => panic!("锁还被持有时第二次不得抢到"),
+    }
+
+    // 覆写必须截断：短地址盖长地址时不能留下前一次的尾巴。
+    let shorter = format!("{LISTEN_LINE_PREFIX}http://127.0.0.1:81");
+    record_listen_addr(&held, &shorter);
+    match acquire_single_instance_lock(&dir).unwrap() {
+        LockOutcome::AlreadyRunning(addr) => assert_eq!(addr, shorter, "覆写没截断，留下了旧内容"),
+        LockOutcome::Acquired(_) => panic!("锁还被持有时第二次不得抢到"),
+    }
+
+    drop(held);
+    std::fs::remove_dir_all(&dir).ok();
 }
 
 // ─── 路由表 ────────────────────────────────────────────────────────────────
@@ -183,6 +332,47 @@ async fn rpc_command_error_maps_to_non_2xx() {
         .await
         .unwrap();
     assert_eq!(resp.status(), 400);
+}
+
+/// `/healthz` 在没配凭据时可用，形状与代理端口那两个健康端点一致。
+#[tokio::test]
+async fn healthz_reports_the_management_surface_is_up() {
+    let (base, _ctx, _addr) = spawn_test_management("").await;
+    let resp = reqwest::Client::new()
+        .get(format!("{base}/healthz"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200);
+    let body: serde_json::Value = resp.json().await.unwrap();
+    assert_eq!(body["service"].as_str(), Some("aidog"));
+    assert_eq!(body["ok"].as_bool(), Some(true));
+}
+
+/// **`/healthz` 免鉴权**：配了凭据、不带 Bearer 也必须 200。
+///
+/// 拉起内核的父进程要在还没拿到凭据时就能判断「起来了没有」。这条断言钉的是那个豁免 ——
+/// 把它挪到鉴权 layer 之前会让本测试变红。
+#[tokio::test]
+async fn healthz_stays_open_even_when_a_credential_is_configured() {
+    let (base, _ctx, _addr) = spawn_test_management("s3cret").await;
+    let client = reqwest::Client::new();
+
+    let resp = client
+        .get(format!("{base}/healthz"))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(resp.status(), 200, "探活不该被凭据挡住");
+
+    // 同一个服务上，别的路径仍然要凭据 —— 证明豁免只开在 /healthz 这一条上。
+    let guarded = client
+        .post(format!("{base}/rpc/about_info"))
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .unwrap();
+    assert_eq!(guarded.status(), 401, "豁免不得外溢到其它路径");
 }
 
 /// 验收：管理面只在 127.0.0.1 可达。绑定地址即证据 —— 0.0.0.0 与 127.0.0.1
