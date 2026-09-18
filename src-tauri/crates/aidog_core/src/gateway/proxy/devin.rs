@@ -378,6 +378,7 @@ pub(crate) async fn handle_devin(
                 .await;
             }
             log.status_code = StatusCode::GATEWAY_TIMEOUT.as_u16() as i32;
+            log.done = true;
             log.blocked_reason = "devin_timeout".into();
             log.input_tokens = 0;
             log.output_tokens = 0;
@@ -434,6 +435,7 @@ pub(crate) async fn handle_devin(
         "error" => {
             // 会话异常 → 客户端可见错误
             log.status_code = StatusCode::BAD_GATEWAY.as_u16() as i32;
+            log.done = true;
             let body = format_chat_error_body(source_protocol, &session_id, "Devin session error");
             log.response_body = body.clone();
             log.user_response_body = body.clone();
@@ -460,6 +462,7 @@ pub(crate) async fn handle_devin(
             tracing::warn!(platform_id = platform.id, session_id = %session_id, status_detail = %detail, "devin session suspended");
             let body = format_chat_error_body(source_protocol, &session_id, &human);
             log.status_code = StatusCode::PAYMENT_REQUIRED.as_u16() as i32;
+            log.done = true;
             log.response_body = body.clone();
             log.user_response_body = body.clone();
             log.input_tokens = 0;
@@ -531,6 +534,7 @@ pub(crate) async fn handle_devin(
 
     // ── 5. usage + est_cost 落 log（契约 9: est_cost=acus_consumed 禁 $ 折算）──
     log.status_code = 200;
+    log.done = true;
     log.input_tokens = 0;
     log.output_tokens = 0;
     // ponytail: ACU 是厂商实际计量, 不叠 peak 倍率(叠加=重复计价)
@@ -1020,6 +1024,8 @@ async fn devin_error(
 ) -> Response {
     let _ = lang;
     log.status_code = status.as_u16() as i32;
+    // 统一错误出口：状态码已定、立即回客户端，无后继写 → 终态置位（票 06 的 done 列语义）。
+    log.done = true;
     log.response_body = msg.to_string();
     log.user_response_body = msg.to_string();
     log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
@@ -1142,6 +1148,8 @@ async fn stream_terminal_response(
         _ => (StatusCode::OK, content.to_string()),
     };
     log.status_code = http_status.as_u16() as i32;
+    // 伪流式：chunk 序列已在上方构造完毕（不再二次 poll，无后继写）→ 终态。
+    log.done = true;
     log.input_tokens = 0;
     log.output_tokens = 0;
     // ponytail: ACU 是厂商实际计量, 不叠 peak 倍率(叠加=重复计价)
