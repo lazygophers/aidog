@@ -19,6 +19,8 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:registry": "node scripts/check-registry.mjs",
     "check:modal": "node scripts/check-modal-centering.mjs",
+    "tokens": "node design/tokens/build-tokens.mjs",
+    "check:tokens": "node design/tokens/build-tokens.mjs --check",
     "check:rpc": "node scripts/check-frontend-rpc-coverage.mjs",
     "gen:types": "cd src-tauri && cargo test -p aidog_core export_bindings",
     "check:docs": "node scripts/gen-command-docs.mjs --check && yarn workspace aidog-docs check:docs",
