@@ -94,6 +94,9 @@ pub(crate) async fn handle_count_tokens(
             log.user_response_body = est_body.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
+            // 四个兜底分支（路由失败 / 无候选 / 连接失败 / 上游 4xx5xx）走到这里即定稿回客户端，
+            // 之后只剩一次 upsert_log → 终态置位，否则日志页不刷新（票 06 的 done 列语义）。
+            log.done = true;
             est_body
         }};
     }
@@ -222,6 +225,7 @@ pub(crate) async fn handle_count_tokens(
     if status.is_success() {
         // 上游支持 count_tokens → 原样回客户端真实值
         log.status_code = status.as_u16() as i32;
+        log.done = true;
         log.response_body = body_str.clone();
         log.user_response_body = body_str;
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();

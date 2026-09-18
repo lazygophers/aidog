@@ -62,6 +62,7 @@ pub(crate) async fn handle_mock(
             let status =
                 StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
             log.status_code = cfg.status_code as i32;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
@@ -86,6 +87,7 @@ pub(crate) async fn handle_mock(
             let body = mock::build_error_body(source_protocol, 429, "mock rate limit");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             log.status_code = 429;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
@@ -116,6 +118,7 @@ pub(crate) async fn handle_mock(
             let body = mock::build_error_body(source_protocol, 504, "mock timeout");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             log.status_code = 504;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
@@ -178,6 +181,9 @@ pub(crate) async fn handle_mock(
         let body = Body::from_stream(body_stream);
 
         log.status_code = 200;
+        // mock 流式：chunk 序列已就地构造完毕（无上游、无 StreamLogGuard 后继写），
+        // 本次即该请求最后一次落库 → 终态。
+        log.done = true;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.response_body = "[mock stream]".to_string();
         log.user_response_body = "[mock stream]".to_string();
@@ -205,6 +211,7 @@ pub(crate) async fn handle_mock(
     let body_str = serde_json::to_string(&resp_body).unwrap_or_default();
     let status = StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::OK);
     log.status_code = cfg.status_code as i32;
+    log.done = true;
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();

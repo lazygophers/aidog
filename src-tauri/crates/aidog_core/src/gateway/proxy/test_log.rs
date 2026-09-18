@@ -241,3 +241,54 @@ async fn upsert_log_skips_clone_when_queue_full() {
 
     let _ = std::fs::remove_file(path);
 }
+
+// 10) 回归（proxy-log-done-flag）：流式请求在 flush 之前的中间态**仍然不放行 emit**。
+//     补 done 置位时那个诱人的一行——去掉 `log.rs` 的 `&& cols.done != 0`——会让流式的
+//     40 次中间态每次都 emit，把票 06 装这道门的理由整个拆掉。
+//     这里钉住的是「status 已是 200（上游响应头已到）但流未 flush」这个真实中间态：
+//     process_upsert 里 emit 与 remove_log_snapshot 共用同一个 `is_terminal` 条件
+//     （log.rs 相邻两处），故「快照仍在 + agg 无行」即证明 emit 未触发。
+#[tokio::test]
+async fn streaming_intermediate_states_do_not_emit() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let id = "stream_mid_0001";
+    let settings = ProxyLogSettings::default();
+
+    // 上游 200 已到、流式聚合中：status_code=200 但 done 未置位。
+    let mut mid = placeholder_stream_log(id);
+    mid.status_code = 200;
+    assert!(!mid.done);
+    for _ in 0..38 {
+        assert!(!super::is_terminal_log(&mid), "流式中间态不得被判为终态");
+        upsert_log(&state, &mid, &settings).await;
+    }
+    flush_log_queue(&state).await;
+    assert_eq!(
+        agg_request_count(&state.db, "gk_test").await,
+        0,
+        "流式中间态不得进 stats_agg"
+    );
+    assert!(
+        state.log_snapshots.contains_key(id),
+        "中间态不得走终态分支（快照被移除 == emit 已触发）"
+    );
+
+    // flush 终态：done 置位后才放行。
+    let mut done = mid.clone();
+    done.done = true;
+    done.platform_id = 1;
+    upsert_log(&state, &done, &settings).await;
+    flush_log_queue(&state).await;
+    assert_eq!(
+        agg_request_count(&state.db, "gk_test").await,
+        1,
+        "终态 flush 必须放行一次"
+    );
+    assert!(
+        !state.log_snapshots.contains_key(id),
+        "终态写完必须移除快照（与 emit 同条件）"
+    );
+
+    let _ = std::fs::remove_file(path);
+}

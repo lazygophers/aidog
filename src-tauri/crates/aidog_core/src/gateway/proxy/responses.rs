@@ -41,6 +41,7 @@ pub(crate) async fn handle_responses_subendpoint(
             tracing::warn!(group = %group.name, error = %e, "responses subendpoint: get_group_platforms failed");
             log.response_body = format!("group platforms error: {e}");
             log.status_code = 503;
+            log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
             return {
@@ -87,6 +88,7 @@ pub(crate) async fn handle_responses_subendpoint(
                         "no responses-capable or enabled platform for responses subendpoint"
                             .to_string();
                     log.status_code = 503;
+                    log.done = true;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(state, log, log_settings).await;
                     return {
@@ -122,6 +124,7 @@ pub(crate) async fn handle_responses_subendpoint(
         log.platform_id = platform.id;
         log.response_body = "base_url missing".to_string();
         log.status_code = 502;
+        log.done = true;
         log.upstream_status_code = 0;
         log.user_response_body = msg.clone();
         log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
@@ -181,6 +184,7 @@ pub(crate) async fn handle_responses_subendpoint(
             tracing::error!(url = %url, error = %e, "responses subendpoint upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
+            log.done = true;
             log.upstream_status_code = 0;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -209,6 +213,8 @@ pub(crate) async fn handle_responses_subendpoint(
     let body_str = String::from_utf8_lossy(&body).to_string();
 
     log.status_code = status.as_u16() as i32;
+    // 子端点无 failover / 无流式聚合：本次 upsert 即该请求唯一终态写。
+    log.done = true;
     log.response_body = body_str.clone();
     log.user_response_body = body_str;
     log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);

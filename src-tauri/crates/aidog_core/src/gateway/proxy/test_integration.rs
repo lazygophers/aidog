@@ -2036,3 +2036,308 @@ async fn debug_bench_query_endpoint_is_gone() {
         "响应体不得含旧 bench handler 字段，实际: {body}"
     );
 }
+
+// ═══════════════ proxy-log-done-flag：终态落库必须置 done ═══════════════
+//
+// 缺陷（.scratch/proxy-log-done-flag/01-missing-done-flag.md）：22 个终态 upsert_log 调用点
+// 漏写 `log.done = true`，而 `process_upsert` 的 emit 门与 stats_agg 门同为
+// `status_code != 0 && done`（log.rs），于是上游 4xx/5xx、mock、count_tokens、responses
+// 子端点、devin 的请求既不推 `proxy-log-updated`，也不进 `stats_agg_hourly`。
+// 下列测试逐类钉住「终态行 done=1」，`emit_gate_*`（test_log.rs）钉住「中间态不放行」。
+
+/// 任意 Protocol + extra 的平台 + group（`setup_group_with_upstream` 只能建 Anthropic 平台）。
+async fn setup_group_with_platform(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    platform_type: Protocol,
+    base_url: &str,
+    extra: &str,
+) {
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: format!("p_{gk}"),
+            platform_type,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: extra.to_string(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// 取某 group 的唯一 proxy_log 整行（断言恰好一条，避免误取别的测试的行）。
+/// 走 `get_proxy_log` 而非 list：`done` 只在整行上（summary 不带该列）。
+async fn only_log_of(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::ProxyLog {
+    flush_log_queue(state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 200, 0).await.unwrap();
+    let mut mine: Vec<_> = logs.into_iter().filter(|l| l.group_key == gk).collect();
+    assert_eq!(mine.len(), 1, "group {gk} 应恰好落一条 proxy_log");
+    let id = mine.pop().unwrap().id;
+    aidog_logs::get_proxy_log(&state.db, &id)
+        .await
+        .unwrap()
+        .expect("proxy_log 整行必须可读")
+}
+
+/// stats_agg_hourly 里该 group 的 (request_count, error_count)。
+async fn agg_counts(db: &aidog_db::Db, gk: &str) -> (i64, i64) {
+    let g = gk.to_string();
+    db.write_conn()
+        .call(move |c| {
+            Ok(c.query_row(
+                "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(error_count),0) \
+                 FROM stats_agg_hourly WHERE group_key = ?1",
+                rusqlite::params![g],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )?)
+        })
+        .await
+        .unwrap()
+}
+
+/// P0：上游 4xx/5xx 的终态行必须 done=1 并进 stats_agg_hourly（错误率不再系统性偏低）。
+/// 修复前实测：3×500 + 3×400 → 0 条事件、done=0、stats_agg_hourly 零行。
+#[tokio::test]
+async fn upstream_non_success_marks_done_and_enters_stats_agg() {
+    for (upstream_status, gk) in [(500u16, "gkdone500"), (400u16, "gkdone400")] {
+        let upstream = spawn_stub_upstream(upstream_status, r#"{"error":"boom"}"#).await;
+        let state = make_state(test_db().await).await;
+        setup_group_with_upstream(&state, gk, &upstream).await;
+
+        let req = messages_request(
+            gk,
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        );
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status().as_u16(), upstream_status);
+
+        let row = only_log_of(&state, gk).await;
+        assert_eq!(row.status_code, upstream_status as i32);
+        assert!(
+            row.done,
+            "上游 {upstream_status} 的终态行必须 done=1，否则不 emit、不进统计"
+        );
+        let (requests, errors) = agg_counts(&state.db, gk).await;
+        assert_eq!(requests, 1, "上游 {upstream_status} 必须进 stats_agg_hourly");
+        assert_eq!(errors, 1, "上游 {upstream_status} 必须计入 error_count");
+    }
+}
+
+/// mock 平台 5 条落库路径（http_error / 429 / 非流式 200 / 流式 200）全部 done=1。
+/// timeout 分支 sleep 600s 不可测，与 http_error 共用同一形状，不单测。
+#[tokio::test]
+async fn mock_platform_terminal_logs_are_done() {
+    let cases = [
+        (
+            "gkmkerr",
+            r#"{"mock":{"error_mode":"http_error","status_code":503}}"#,
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+            503,
+        ),
+        (
+            "gkmk429",
+            r#"{"mock":{"error_mode":"rate_limit_429"}}"#,
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+            429,
+        ),
+        (
+            "gkmkok",
+            r#"{"mock":{"input_tokens":11,"output_tokens":7}}"#,
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+            200,
+        ),
+        (
+            "gkmkstream",
+            r#"{"mock":{"stream_override":true}}"#,
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+            200,
+        ),
+    ];
+    for (gk, extra, body, want_status) in cases {
+        let state = make_state(test_db().await).await;
+        setup_mock_group(&state, gk, extra).await;
+        let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, body)).await;
+        assert_eq!(resp.status().as_u16(), want_status, "gk={gk}");
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+        let row = only_log_of(&state, gk).await;
+        assert!(row.done, "mock 终态行必须 done=1（gk={gk}）");
+        let (requests, _) = agg_counts(&state.db, gk).await;
+        assert_eq!(requests, 1, "mock 请求必须进 stats_agg_hourly（gk={gk}）");
+    }
+}
+
+fn count_tokens_request(gk: &str) -> Request {
+    HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages/count_tokens")
+        .header("authorization", format!("Bearer {gk}"))
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+        ))
+        .unwrap()
+}
+
+/// count_tokens 两条终态路径（上游透传成功 / 上游不支持走本地估算兜底）都 done=1。
+/// 统计口径不变：count_tokens 被 log.rs 的 `!is_count_tokens` 门排除在 stats_agg 之外，
+/// 本修复只让日志页对它实时刷新。
+#[tokio::test]
+async fn count_tokens_terminal_logs_are_done() {
+    for (upstream_status, upstream_body, gk) in [
+        (200u16, r#"{"input_tokens":42}"#, "gkct200"),
+        (500u16, r#"{"error":"unsupported"}"#, "gkctfb"),
+    ] {
+        let upstream = spawn_stub_upstream(upstream_status, upstream_body).await;
+        let state = make_state(test_db().await).await;
+        setup_group_with_upstream(&state, gk, &upstream).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), count_tokens_request(gk)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "gk={gk}");
+
+        let row = only_log_of(&state, gk).await;
+        assert_eq!(row.status_code, 200);
+        assert!(row.done, "count_tokens 终态行必须 done=1（gk={gk}）");
+        let (requests, _) = agg_counts(&state.db, gk).await;
+        assert_eq!(requests, 0, "count_tokens 照旧不进 stats_agg（gk={gk}）");
+    }
+}
+
+/// responses 子端点：上游正常响应 / 上游连不上（502）两条终态路径都 done=1。
+#[tokio::test]
+async fn responses_subendpoint_terminal_logs_are_done() {
+    for (gk, upstream, want) in [
+        (
+            "gkrsok",
+            spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await,
+            200u16,
+        ),
+        ("gkrs502", spawn_reset_upstream().await, 502u16),
+    ] {
+        let state = make_state(test_db().await).await;
+        setup_group_with_platform(&state, gk, Protocol::OpenAIResponses, &upstream, "").await;
+
+        let resp = handle_proxy(
+            AxumState(state.clone()),
+            get_request(gk, "/v1/responses/resp_1"),
+        )
+        .await;
+        assert_eq!(resp.status().as_u16(), want, "gk={gk}");
+
+        let row = only_log_of(&state, gk).await;
+        assert_eq!(row.status_code, want as i32);
+        assert!(row.done, "responses 子端点终态行必须 done=1（gk={gk}）");
+        let (requests, _) = agg_counts(&state.db, gk).await;
+        assert_eq!(requests, 1, "responses 子端点请求必须进 stats_agg（gk={gk}）");
+    }
+}
+
+/// 假 Devin API：POST /sessions 建会话，GET /sessions/{id} 直接给终态，
+/// GET /sessions/{id}/messages 回一条 devin message。`status` 由参数决定（exit / error）。
+async fn spawn_stub_devin(session_status: &'static str) -> String {
+    use axum::routing::{get, post};
+    let app = axum::Router::new()
+        .route(
+            "/sessions",
+            post(|| async { axum::Json(serde_json::json!({"session_id":"dev_1"})) }),
+        )
+        .route(
+            "/sessions/{id}",
+            get(move || async move {
+                axum::Json(serde_json::json!({"status": session_status, "acus_consumed": 1.5}))
+            }),
+        )
+        .route(
+            "/sessions/{id}/messages",
+            get(|| async {
+                axum::Json(serde_json::json!([{"source":"devin","message":"done"}]))
+            }),
+        );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    format!("http://{addr}")
+}
+
+/// devin 的四条终态路径（配置错误统一出口 / 会话 error / 非流式 exit / 伪流式）都 done=1。
+#[tokio::test]
+async fn devin_terminal_logs_are_done() {
+    const ORG: &str = r#"{"devin":{"org_id":"org_1"}}"#;
+    let ok_upstream = spawn_stub_devin("exit").await;
+    let err_upstream = spawn_stub_devin("error").await;
+
+    // (gk, base_url, extra, body, 期望状态码)
+    let cases = [
+        // extra 缺 org_id → devin_error 统一出口（400）
+        (
+            "gkdvcfg",
+            ok_upstream.clone(),
+            "",
+            r#"{"model":"devin","messages":[{"role":"user","content":"hi"}]}"#,
+            400u16,
+        ),
+        // 会话终态 error → 502
+        (
+            "gkdverr",
+            err_upstream.clone(),
+            ORG,
+            r#"{"model":"devin","messages":[{"role":"user","content":"hi"}]}"#,
+            502,
+        ),
+        // 非流式 exit → 200
+        (
+            "gkdvok",
+            ok_upstream.clone(),
+            ORG,
+            r#"{"model":"devin","messages":[{"role":"user","content":"hi"}]}"#,
+            200,
+        ),
+        // 伪流式 exit → 200（SSE chunk 已就地构造完毕，落库即终态）
+        (
+            "gkdvstream",
+            ok_upstream.clone(),
+            ORG,
+            r#"{"model":"devin","stream":true,"messages":[{"role":"user","content":"hi"}]}"#,
+            200,
+        ),
+    ];
+    for (gk, base_url, extra, body, want) in cases {
+        let state = make_state(test_db().await).await;
+        setup_group_with_platform(&state, gk, Protocol::Devin, &base_url, extra).await;
+        let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, body)).await;
+        assert_eq!(resp.status().as_u16(), want, "gk={gk}");
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+
+        let row = only_log_of(&state, gk).await;
+        assert_eq!(row.status_code, want as i32, "gk={gk}");
+        assert!(row.done, "devin 终态行必须 done=1（gk={gk}）");
+        let (requests, _) = agg_counts(&state.db, gk).await;
+        assert_eq!(requests, 1, "devin 请求必须进 stats_agg（gk={gk}）");
+    }
+}

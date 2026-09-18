@@ -175,6 +175,9 @@ pub(crate) async fn handle_non_success(
     log.platform_id = route.platform.id;
     log.response_body = body.clone();
     log.status_code = out_code as i32;
+    // 终态：真实 HTTP 状态码已定、不再换候选、之后不会再写这一行（票 06 的 done 列语义）。
+    // 漏置位会让 upsert_log 的 is_terminal 恒 false → 既不 emit 也不进 stats_agg。
+    log.done = true;
     log.user_response_body = out_body.clone();
     log.user_response_headers = log.upstream_response_headers.clone();
     log.duration_ms = duration_ms as i32;
