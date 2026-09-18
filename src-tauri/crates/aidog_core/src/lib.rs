@@ -33,6 +33,9 @@ pub mod sync_settings;
 #[cfg(feature = "desktop")]
 pub mod tauri_ctx;
 pub mod tray_render;
+// 票 I10：macOS 菜单栏文字改由自持 NSStatusItem 承载（零 tauri，删 Tauri 后原样可用）。
+#[cfg(all(target_os = "macos", feature = "desktop"))]
+pub mod menubar;
 // 票 08：内核管理面设置（绑定开关 + Bearer 凭据）。与代理的 `bind_lan` 相互独立。
 pub mod kernel_settings;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。
@@ -52,5 +55,5 @@ pub use aidog_db::Db;
 pub use gateway::models::SetSettingInput;
 pub use gateway::models::*;
 pub use tray_render::{TrayColumn, TrayLayout};
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub use tray_render::{TrayMenuBuild, refresh_tray_menu};

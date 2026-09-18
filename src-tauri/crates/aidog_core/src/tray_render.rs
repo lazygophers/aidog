@@ -1,19 +1,27 @@
 use crate::gateway;
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use crate::shared::*;
 use aidog_db::{self as db, Db};
 use gateway::models::*;
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use std::future::Future;
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use std::pin::Pin;
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 
 // TrayColumn / TrayLayout / TRAY_FONT_SIZE 数据类型 + build_tray_menu / tray_layout /
 // tray_separator 等 UI 构造函数 + TrayMenuBuildImpl 全部下沉 core（C3 c3-commands 第 1 批，
 // 原 commands_tray::tray 迁入）。TrayMenuBuild trait 原为防 core→commands 反向依赖循环而设
 // 的注入点，crate 合并后该循环风险已消失，但保留 trait 间接层是纯搬运的选择（不做设计改动）。
+//
+// 票 I10：macOS 的菜单栏宿主换成 `crate::menubar`（自持 NSStatusItem，零 tauri），故本文件
+// 的 Tauri 托管分支（TrayMenuBuild / refresh_tray_menu / TrayMenuBuildImpl / build_tray_menu）
+// 整体 `cfg(not(target_os = "macos"))`——macOS 上已死代码，删 Tauri 时随 cfg 一并消失；
+// Windows 仍靠它拿托盘右键菜单（该平台本就无标题文字，零回归）。
+// 下面 3 个 objc2 直连 AppKit 的函数（resolve_tray_color / measure_text_width /
+// set_tray_attributed_title）是**再宿主**不是重写：除入参从 `&TrayIcon` 改成 `&NSStatusBarButton`
+// 外，渲染主体逐字保留。
 
 /// 托盘单列：name（标签）+ value（值）+ 颜色（三态）+ 字号 + two_line（该列是否两行展示）。
 #[derive(Debug, Clone)]
@@ -50,7 +58,7 @@ pub const TRAY_FONT_SIZE: f64 = 9.0;
 /// UI 构造注入点：refresh_tray_menu 需要的 3 个 UI 辅助函数（build_tray_menu /
 /// tray_layout / tray_separator）由 commands::tray 层（root 过渡 → C8 commands-tray）
 /// 实现，避免 core 反向依赖 commands crate（循环）。
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub trait TrayMenuBuild: Sync {
     /// 构造菜单（proxy 状态 / quota 详情 / show+quit 项）。
     fn build_menu<'a>(
@@ -120,10 +128,10 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
     unsafe { ns_text.sizeWithAttributes(Some(&attrs)) }.width
 }
 
-/// macOS：用 attributedTitle 给 tray button 设多列小字（每列独立颜色/字号）。
-/// Tauri/tray-icon 的 set_title 走 button.setTitle(NSString) 无字号/颜色控制，故直连 NSStatusItem button。
-/// 通过 tauri TrayIcon::with_inner_tray_icon 拿 tray_icon::TrayIcon，再 ns_status_item() 取底层 NSStatusItem。
-/// 闭包在主线程执行（with_inner_tray_icon 保证），满足 AppKit 主线程约束。
+/// macOS：用 attributedTitle 给菜单栏 button 设多列小字（每列独立颜色/字号）。
+/// tray-icon 的 set_title 走 button.setTitle(NSString) 无字号/颜色控制，故直接操作 NSStatusItem button。
+/// 票 I10 起 button 由 `crate::menubar` 自持的 NSStatusItem 提供（不再经 Tauri 透传），
+/// 调用方须已在主线程（`menubar::render` 持 MainThreadMarker 保证），满足 AppKit 主线程约束。
 ///
 /// 布局（iStat Menus 式）：
 /// - 有任一 two_line 列 → **两行多列模式**：
@@ -136,7 +144,7 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
 ///   整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
 #[cfg(all(target_os = "macos", feature = "desktop"))]
 pub(crate) fn set_tray_attributed_title(
-    tray: &tauri::tray::TrayIcon,
+    button: &objc2_app_kit::NSStatusBarButton,
     columns: Vec<TrayColumn>,
     gaps: Vec<Option<String>>,
     _separator: String,
@@ -152,18 +160,9 @@ pub(crate) fn set_tray_attributed_title(
         NSArray, NSAttributedString, NSDictionary, NSMutableAttributedString, NSNumber, NSString,
     };
 
-    tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
-        // SAFETY: with_inner_tray_icon 在主线程执行闭包，AppKit 调用满足主线程要求。
-        let status_item = inner
-            .ns_status_item()
-            .ok_or_else(|| "ns_status_item unavailable".to_string())?;
-        // MainThreadMarker：闭包已在主线程，断言获取。
-        let mtm = objc2_foundation::MainThreadMarker::new()
-            .ok_or_else(|| "not on main thread".to_string())?;
-        let button = status_item
-            .button(mtm)
-            .ok_or_else(|| "status item has no button".to_string())?;
-
+    // 下面整块为 objc2 渲染主体，票 I10 逐字保留（仅由外层 with_inner_tray_icon 闭包
+    // 换成普通块——button 改由调用方传入，缩进层级不变以便 diff 自证未重写）。
+    {
         let two_line_mode = columns.iter().any(|c| c.two_line);
 
         // 段落样式：两行模式压缩行高（min==max）让两行紧凑；单行模式不压缩，字号更大。
@@ -402,21 +401,16 @@ pub(crate) fn set_tray_attributed_title(
 
         button.setAttributedTitle(&result);
         Ok(())
-    })
-    .map_err(|e| e.to_string())?
+    }
 }
 
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub async fn refresh_tray_menu(
     app: &tauri::AppHandle,
     builder: &dyn TrayMenuBuild,
 ) -> Result<(), String> {
-    // 异步准备（可在任意线程）：菜单 + 布局数据。tray 句柄不在此触碰。
+    // 异步准备（可在任意线程）：菜单数据。tray 句柄不在此触碰。
     let menu = builder.build_menu(app).await?;
-    #[cfg(target_os = "macos")]
-    let layout = builder.layout().await;
-    #[cfg(target_os = "macos")]
-    let separator = builder.separator().await;
 
     // tauri TrayIcon<R> 内含非原子 Rc（tray-icon crate 的 Rc<RefCell<platform TrayIcon>>），
     // 其 `unsafe impl Send` 的安全契约是「所有访问（含 Drop）恒在主线程」。
@@ -435,34 +429,8 @@ pub async fn refresh_tray_menu(
             let r = (|| -> Result<(), String> {
                 let tray = app.tray_by_id("main").ok_or("tray not found")?;
                 tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
-                // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
-                // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
-                #[cfg(target_os = "macos")]
-                {
-                    if layout.columns.is_empty() {
-                        tray.set_icon(app.default_window_icon().cloned())
-                            .map_err(|e| e.to_string())?;
-                        tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
-                    } else {
-                        tray.set_icon(None).map_err(|e| e.to_string())?;
-                        // 兜底文字：各列 "名 值"，间隙用 separator
-                        let fallback_text = layout
-                            .columns
-                            .iter()
-                            .map(|c| format!("{} {}", c.name, c.value))
-                            .collect::<Vec<_>>()
-                            .join(separator.as_str());
-                        tray.set_title(Some(&fallback_text))
-                            .map_err(|e| e.to_string())?;
-                        if let Err(e) =
-                            set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator)
-                        {
-                            tracing::warn!(
-                                "tray attributed title failed, fallback to default font: {e}"
-                            );
-                        }
-                    }
-                }
+                // 非 macOS 平台仅 menu item 降级（tray-icon 的 title 在 Windows 标 Unsupported，
+                // Linux 也不保证显示）。macOS 的标题渲染已移出本函数，见 `crate::menubar`。
                 Ok(())
                 // tray 在此 drop —— 主线程内，Rc 递减安全。
             })();
@@ -476,10 +444,10 @@ pub async fn refresh_tray_menu(
 /// build_tray_menu / tray_layout / tray_separator（同 crate 合并后无需再跨 crate 注入，
 /// 保留 trait 间接层是纯搬运选择）。root aidog crate（app_setup）经
 /// `aidog_core::tray_render::TrayMenuBuildImpl` 路径引用（C3 c3-commands 迁入）。
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub struct TrayMenuBuildImpl;
 
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 impl TrayMenuBuild for TrayMenuBuildImpl {
     fn build_menu<'a>(
         &'a self,
@@ -680,7 +648,7 @@ pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
     Some(texts.join(&default_sep))
 }
 
-#[cfg(feature = "desktop")]
+#[cfg(all(feature = "desktop", not(target_os = "macos")))]
 pub async fn build_tray_menu(
     app: &tauri::AppHandle,
 ) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
@@ -736,6 +704,10 @@ pub async fn build_tray_menu(
 
     Ok(menu)
 }
+
+#[cfg(test)]
+#[path = "test_tray_render.rs"]
+mod test_tray_render;
 
 /// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
 pub(crate) fn trim_trailing_zeros(s: &str) -> String {
