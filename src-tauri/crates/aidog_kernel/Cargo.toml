@@ -25,6 +25,7 @@ aidog_db = { path = "../aidog_db" }
 aidog_logs = { path = "../aidog_logs" }
 aidog_stats = { path = "../aidog_stats" }
 aidog_middleware = { path = "../aidog_middleware" }
+aidog_notification = { path = "../aidog_notification" }
 aidog_adapter = { path = "../aidog_adapter" }
 axum = { workspace = true }
 tokio = { workspace = true, features = ["signal"] }

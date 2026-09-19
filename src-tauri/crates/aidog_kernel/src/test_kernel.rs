@@ -504,3 +504,30 @@ async fn events_stream_delivers_proxy_log_updated() {
         "payload 形状必须不变（platform_id 是数字，不是字符串/对象），实际: {seen:?}"
     );
 }
+
+/// 验收（票 I12）：内核没有桌面会话，系统弹窗必须**转发给外壳**而不是被丢掉。
+///
+/// 丢掉的后果不是「少个弹窗」：`aidog_notification::dispatch` 的整条 Popup 通道
+/// （额度告警、任务完成……）在 Flutter 形态下会全哑。外壳侧的订阅方是
+/// `flutter/lib/platform.dart::bindKernelPopups`，事件名与 payload 键名两边必须一字不差。
+#[tokio::test]
+async fn show_popup_forwards_to_shell_instead_of_dropping() {
+    use aidog_ctx::AppCtx;
+
+    let (_base, c, _addr) = spawn_test_management("").await;
+    let mut rx = c.subscribe();
+
+    assert!(
+        c.show_popup("标题", "正文"),
+        "请求已交给外壳 —— 返回 false 会让 DispatchResult.popup 一律报「没弹」"
+    );
+
+    let ev = rx.try_recv().expect("show_popup 必须广播出一个事件");
+    assert_eq!(ev.name, aidog_notification::NOTIF_POPUP);
+    assert_eq!(
+        ev.name, "notif-popup",
+        "事件名是跨语言契约，改名要连 Dart 一起改"
+    );
+    assert_eq!(ev.payload["title"], "标题");
+    assert_eq!(ev.payload["body"], "正文");
+}

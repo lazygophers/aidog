@@ -25,6 +25,71 @@ kernel.states.listen(...);                  // connecting / connected / reconnec
 **禁止**自己开 HTTP 连接。`package:http` / `dart:io` 的 `HttpClient` 打 RPC 比持久 socket
 慢一个数量级。
 
+## 原生能力（票 I12）
+
+```dart
+import 'package:aidog_flutter/platform.dart';
+```
+
+需求文档是 React 版的 `src/services/platform.ts:7-15` 那张表，本层按同一份语义落地。
+
+| 你要做的事 | 调这个 | React 版对应物 |
+|---|---|---|
+| 复制文本 | `writeText(s)` | `platform.ts::writeText` |
+| 读剪贴板 | `readText()` → 空剪贴板给 `''` | `platform.ts::readText` |
+| 打开外部链接 | `openUrl(url)`，打不开会抛 | `platform.ts::openUrl` |
+| 在访达 / 资源管理器里定位文件 | `revealItemInDir(path)` | `platform.ts::revealItemInDir` |
+| 按钮该写「在访达中显示」还是「复制路径」 | `canRevealItemInDir()` | `platform.ts::canRevealItemInDir` |
+| 应用版本号 | `await getAppVersion()` | `platform.ts::getAppVersion` |
+| 选文件 / 目录 / 保存位置 | `await pickPath(PickPathOptions(...))` | `pathPicker.ts::pickPath` |
+| 重启应用 | `await relaunch()`（正常不返回） | `updater.ts:83` 的 `relaunch()` |
+| 弹一条系统通知 | `await notify(title, body)`，失败不抛 | `platform.ts::notify` |
+
+两个降级，UI 要知道：
+
+- **定位文件**：只有 macOS / Windows 有（`open -R` / `explorer /select,`）。其余 OS 上
+  `revealItemInDir` **退化成把路径复制到剪贴板** —— 与 React 版的浏览器降级同一语义。
+  所以按钮文案先看 `canRevealItemInDir()`，别让用户以为访达会弹出来。
+- **对话框标题**：Tauri 的 `title` 设的是对话框窗口标题，`file_selector` 只有
+  `confirmButtonText`。`PickPathOptions.title` 映到后者。macOS 面板本来就不显示窗口标题。
+
+**`main()` 里必须调一次 `bindKernelPopups()`**（在 `kernel.start()` 之后）：
+
+```dart
+await kernel.start();
+bindKernelPopups();     // 不调 = 后端所有通知的「系统弹窗」通道全哑
+```
+
+理由：通知的分发在 Rust 侧（`aidog_notification::dispatch`）。Tauri 外壳那边
+`TauriCtx::show_popup` 直接调插件弹；无界面内核没有桌面会话，改成广播 `notif-popup`
+事件（`HeadlessCtx::show_popup`），由外壳代弹。不订阅就等于把这条通道剪断。
+
+**`fs` / `shell` / `path_provider` 不在本层**：前端对这两个 Tauri 插件零调用
+（`plugin-shell` 已迁到后端命令 `mitm_install_ca`，见 `src/services/api/mitm.ts:81`；
+`plugin-fs` 全库只有 `package.json` 里一行，没有 import 点）。要读写文件的都在 Rust 侧走 RPC。
+
+### 定时 / 重复通知的三平台缺口，对现状零影响
+
+`flutter_local_notifications` 的已知空洞是真的：macOS 不实现旧的 `schedule` /
+`showDailyAtTime` / `showWeeklyAtDayAndTime`（`zonedSchedule` 有），Linux 完全没有调度 API，
+Windows 的 `periodicallyShow*` 抛 `UnsupportedError`。
+
+**本项目一条都没用到。** 全库的系统通知只有「立刻弹一条」这一种：React 版
+`platform.ts::notify` 只被 `App.tsx:156` 的 `proxy-start-failed` 调用；Rust 侧
+`aidog_notification::show_popup` 也只有立即弹。定时那一层在 Rust 的周期任务里，到点了才调
+「立刻弹」—— 调度权从来不在通知插件手上。所以零功能损失。
+
+`test/platform_test.dart` 里有一条断言盯着这件事：本层一旦用上 `zonedSchedule` /
+`periodicallyShow` / `showDailyAtTime` / `showWeeklyAtDayAndTime` 中任何一个，测试当场红 ——
+那时候这些缺口就从「不相干」变成「真缺功能」，得先谈清楚再写。
+
+### macOS 沙箱
+
+I01 关掉了 App Sandbox（沙箱会挡住外壳连自己的内核）。所以 `file_selector` 不需要
+`com.apple.security.files.user-selected.read-write`、`url_launcher` 不需要
+`com.apple.security.network.client`、`Process.start` 也不受限。**哪天把沙箱打开，这三项要
+同时补 entitlement**，否则会静默失败。
+
 ### 实测往返耗时（I01 交付时跑的，不是估算）
 
 同一台机器、同一个 release 内核、同一个命令（`about_info`），断言写在
@@ -96,5 +161,6 @@ lib/src/transport/
   kernel_process.dart           aidog-kernel 子进程：拉起、读端口、指数退避重拉
   rpc_client.dart               持久 Socket + 手拼 HTTP/1.1 + 连接池
   event_stream.dart             单连接 SSE + 按事件名扇出 + 自写重连
+lib/platform.dart               原生能力 6 项（票 I12）：剪贴板 / 对话框 / 链接 / 进程 / 通知
 lib/main.dart                   占位外壳，票 I02 会整个换掉
 ```

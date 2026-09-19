@@ -6,6 +6,13 @@ use aidog_db::models::TtsBackend;
 /// 前端事件名：WebSpeech 后端播报请求（payload = 文本，前端 webview SpeechSynthesis 朗读）。
 pub const NOTIF_SPEAK: &str = "notif-speak";
 
+/// 前端事件名：系统弹窗请求（payload = `{"title","body"}`）。
+///
+/// 无界面内核自己弹不了系统通知（没有桌面会话、也不依赖 tauri），转而把请求广播给外壳，
+/// 由外壳用**自己那套**通知 API 弹（Flutter 外壳走 `flutter_local_notifications`，票 I12）。
+/// 与 [`NOTIF_SPEAK`] 同一 idiom：内核只负责「该弹了」，谁弹由形态决定。
+pub const NOTIF_POPUP: &str = "notif-popup";
+
 /// 系统弹窗：全平台统一走 `tauri-plugin-notification`
 /// （macOS UserNotifications / Windows WinRT toast / Linux freedesktop）。
 ///
