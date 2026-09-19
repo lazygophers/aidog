@@ -88,6 +88,54 @@ ChartSeries(
    **绘制顺序整体反转**（栈顶先画，否则上层填充盖住下层）。反的是 `ChartSeries` 列表
    本身，tooltip 查的是同一个列表。
 
+## 页面层（票 I06 起）
+
+```dart
+import 'package:aidog_flutter/pages.dart';
+```
+
+`main.dart` 的 `pageBuilder` 按 `activeId` 分发；已落地的页面走真实现，其余仍是占位。
+
+**三条约定，后续页面票（I07-I09）沿用，别各发明一套**：
+
+1. **没有第二套 api 封装**。页面直接 `kernel.invoke('cmd', {...})` 传内联 map，
+   字段名从 `src/services/api/types/generated/<Type>.ts` 抄（理由见下面「不生成 203 个
+   Dart 绑定」）。模型类放 `lib/src/pages/models.dart`（页面私有）或 `lib/stats/models.dart`
+   （统计 wire 类型）。
+2. **每个页面收一个 `InvokeFn`**（缺省 `kernelInvoke`），widget 测试塞假实现 ——
+   全局 `kernel` 是 `final`，不留这个口子就没法在不起内核的情况下测页面。
+   事件同理：页面收一个 `Stream<void>? logUpdates`，缺省是
+   `debounceStream(kernelProxyLogUpdated())`（500 ms 防抖，对齐 React 的 `onProxyLogUpdated`）。
+3. **状态就是 `StatefulWidget` + `setState`**。React 那边是 `useState` + `useEffect`，
+   再套一层 controller 就是只有一个实现的抽象。
+
+### 对齐是怎么证的：命令覆盖零差集
+
+`test/pages/command_coverage_test.dart` 把页面沿**所有路径**走一遍（统计页四个 tab +
+两个密度视图），把实际发出的命令名收成**排序后的串**，与从 React 版逐行读出来的清单
+逐字比对。差一条 = 少一块功能，多一条 = 多一次 React 没有的 IPC，两边都红。
+
+> 比的是**串**不是 `Set`：Dart 的 Set / List / Map 按身份比较，`expect(setA, setB)`
+> 永远不等（本项目踩过，2826 个 key 全报不等）。
+
+首页 6 条、统计页 6 条、共用 2 条、并集 10 条。清单与每条的 React 侧出处写在那个文件抬头。
+
+### widget 测试的两个坑
+
+- **别用 `pumpAndSettle`**：骨架的 `LiveDot` 是 3 秒无限循环呼吸动画，永远等不到静止。
+  用 `test/pages/harness.dart` 的 `settle(tester)`（推几帧）。
+- **画布默认只有 800×600**，统计页一屏放不下，`tap()` 会判成「点不到」。
+  交互测试先 `await useBigSurface(tester)`。
+
+### 与 React 版的已知差异（写下来，不是漏的）
+
+| 处 | React | 这里 | 为什么 |
+|---|---|---|---|
+| 筛选下拉搜索 | `pinyinMatch`（`pinyin-pro` 汉字字典） | label 子串 + `searchTerms` 子串 | Dart 侧要拼音得引一个 5 年没更新、许可未核的字典包。平台下拉不受影响 —— registry 的 `keywords` 本来就把全拼与首字母作为**字面数据**存着（项目 CLAUDE.md：「智谱 → zhipu + zp」）。受影响的只有用户自起中文名的**分组**下拉 |
+| 热力图星期标签 | `Intl.DateTimeFormat(lang,{weekday:'short'})`，「周日 / Sun」 | `MaterialLocalizations.narrowWeekdays`，单字 | 8 语言词条由 `flutter_localizations` 自带、零运行时初始化；`intl` 的 `DateFormat.E` 得先 `await initializeDateFormatting()`，漏调就在非英文 locale 下抛 `LocaleDataException` |
+| 分页文案占位符 | 传 `{page, total}`，而词条写的是 `{{current}}` —— **React 现在渲染出的是没替换的 `{{current}}`** | 传 `{current, total}`，正常替换 | 那是 React 侧的真 bug，不照抄 |
+| 入场动效 | `useReveal` 错峰 + `useCounter` 数字滚动 | 无 | A′ 的格子有自己的过渡；票 I06 的口径是「对齐」指功能不指长相 |
+
 ## 原生能力（票 I12）
 
 ```dart
@@ -239,5 +287,15 @@ lib/src/charts/
   heatmaps.dart                 三张热力图（格子布局，非图表库）
   gauge_chart.dart              仪表盘圆环 + 趋势 sparkline（CustomPainter）
   empty.dart                    诚实空态
-lib/main.dart                   占位外壳，票 I02 会整个换掉
+lib/pages.dart                  页面层入口（票 I06）：pageBuilder 与后续页面票只 import 这个
+lib/src/pages/
+  invoke.dart                   页面与传输层唯一的接缝：InvokeFn + 500ms 防抖事件流
+  models.dart                   页面私有的 RPC 载荷模型（字段名抄 types/generated）
+  home.dart / home_logic.dart   首页（票 I06）
+  stats.dart / stats_logic.dart 使用统计（票 I06）
+  filter_dropdown.dart          带搜索的筛选下拉
+lib/stats/aggregation.dart      Stats 二次聚合四函数（票 I05）
+lib/utils/formatters.dart       数值格式化唯一落点（禁页内重复定义）
+lib/utils/color_level.dart      成功率 / 成本的色编码分级
+lib/main.dart                   主窗口入口
 ```
