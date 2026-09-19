@@ -1,12 +1,13 @@
 //! `--ui` 形态的管理面 HTTP 服务（票 08）。
 //!
-//! 三块：
+//! 四块：
 //!
-//! 1. `/rpc/<命令>` —— 211 个命令的 HTTP 形态，语义等价前端的 `invoke(name, args)`（见
+//! 1. `/rpc/<命令>` —— 203 个命令的 HTTP 形态，语义等价前端的 `invoke(name, args)`（见
 //!    `aidog_core::http_command`）。表在 [`crate::rpc`]。
 //! 2. `/events` —— SSE 事件流。只有一个事件被前端消费（`proxy-log-updated`，payload 是
 //!    平台 id 数字），但这里不过滤，原样广播，形状与 Tauri `emit` 一字不差。
-//! 3. 静态前端资源 —— `dist/` 目录，SPA fallback 到 `index.html`。
+//! 3. `/healthz` —— 探活，**免鉴权**（理由见 [`management_router`] 内注释）。
+//! 4. 静态前端资源 —— `dist/` 目录，SPA fallback 到 `index.html`。
 //!
 //! **纯内核形态（不带 `--ui`）根本不构造本模块的任何东西**，也就没有任何管理面在听。
 //!
@@ -15,7 +16,7 @@
 //! 凭据 = [`aidog_core::kernel_settings::KernelSettings::auth_token`]，Bearer 语义与既有
 //! `/api/*` 一致（`Authorization: Bearer <token>`）。
 //!
-//! - 凭据非空 → **所有**管理面请求都校验（含静态资源）；
+//! - 凭据非空 → 管理面请求都校验（含静态资源），**唯一例外是 `/healthz`**；
 //! - 凭据为空 → 不校验。
 //!
 //! 管理面**永远只绑 127.0.0.1**（[`crate::management_bind_addr`]），所以凭据为空时够得着
@@ -85,8 +86,22 @@ pub fn management_router(state: ManagementState, ui_dir: Option<PathBuf>) -> Rou
         }
     }
 
+    // `/healthz` **挂在鉴权 layer 之后**：axum 的 `layer` 只包住在它之前注册的路由，所以这条
+    // 免鉴权。拉起内核的父进程要在还没拿到凭据时就能判断「起来了没有」，把探活挡在鉴权后面
+    // 等于让它无从判断。回的形状与代理端口那两个健康端点一致（`{"service":"aidog","ok":true}`）。
     app.layer(axum::middleware::from_fn_with_state(state.clone(), auth_mw))
+        .route("/healthz", get(healthz))
         .with_state(state)
+}
+
+/// 探活。不碰 DB、不碰代理 —— 它回答的是「管理面在听吗」，不是「一切正常吗」。
+async fn healthz() -> Response {
+    (
+        StatusCode::OK,
+        [(header::CONTENT_TYPE, "application/json")],
+        r#"{"service":"aidog","ok":true}"#,
+    )
+        .into_response()
 }
 
 /// 鉴权失败的响应体。**必须是合法 JSON**：前端 `services/transport.ts::httpInvoke` 对

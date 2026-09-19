@@ -2,7 +2,7 @@
 //!
 //! ```text
 //! aidog-kernel          纯内核：代理转发 + 定时任务，不开任何 HTTP 管理面
-//! aidog-kernel --ui     额外挂 /rpc/<命令>（211 个）、SSE /events、静态前端资源
+//! aidog-kernel --ui     额外挂 /rpc/<命令>（203 个）、SSE /events、静态前端资源
 //! ```
 //!
 //! 两种形态跑的是**同一套**代理转发、协议转换、路由、计费、统计、MCP、skills、hooks 与
@@ -34,16 +34,24 @@ aidog-kernel — aidog 的无界面内核
 选项:
   --ui              开启管理面（**只监听 127.0.0.1**；端口见「设置 → 内核管理面」，默认 9891。
                     要从别的设备访问，请自行架反向代理回连本机）
+  --port <N>        管理面端口，覆盖设置里的值。写 0 = 由系统挑一个空闲端口。
+                    实际监听地址随后以 AIDOG_KERNEL_LISTEN=<url> 打到标准输出
   --ui-dir <PATH>   Web 界面静态资源目录（默认取环境变量 AIDOG_UI_DIR，再回落
                     <可执行文件目录>/ui，最后 ./dist）
   -h, --help        打印本帮助
   -V, --version     打印版本
 ";
 
-/// 命令行选项。刻意不引 clap：两个开关而已，多一个依赖不划算。
+/// 实际监听地址的机器可读输出前缀。GUI 外壳把内核当子进程拉起时按这个前缀读端口 ——
+/// `--port 0` 下端口由系统挑，除了让内核自己报，调用方没有别的途径知道它是几。
+const LISTEN_LINE_PREFIX: &str = "AIDOG_KERNEL_LISTEN=";
+
+/// 命令行选项。刻意不引 clap：三个开关而已，多一个依赖不划算。
 #[derive(Debug, Default, PartialEq)]
 struct Options {
     ui: bool,
+    /// `None` = 用设置里的端口。`Some(0)` = 由系统挑空闲端口。
+    port: Option<u16>,
     ui_dir: Option<PathBuf>,
 }
 
@@ -60,6 +68,13 @@ fn parse_args<I: IntoIterator<Item = String>>(args: I) -> ParseOutcome {
     while let Some(a) = it.next() {
         match a.as_str() {
             "--ui" => opts.ui = true,
+            "--port" => match it.next() {
+                Some(v) => match v.parse::<u16>() {
+                    Ok(p) => opts.port = Some(p),
+                    Err(_) => return ParseOutcome::Error(format!("--port needs a number, got `{v}`")),
+                },
+                None => return ParseOutcome::Error("--port needs a number".into()),
+            },
             "--ui-dir" => match it.next() {
                 Some(v) => opts.ui_dir = Some(PathBuf::from(v)),
                 None => return ParseOutcome::Error("--ui-dir needs a path".into()),
@@ -128,6 +143,21 @@ fn main() {
 async fn run(opts: Options) -> Result<(), String> {
     let data_dir = aidog_data_dir()?;
 
+    // 单实例锁：在开库之前。第二个实例继续跑下去的代价见 `acquire_single_instance_lock` 文档。
+    // 日志此刻还没初始化，所以提示走标准输出 —— 调用方（GUI 外壳）读的也是这一路。
+    let lock = match acquire_single_instance_lock(&data_dir)? {
+        LockOutcome::Acquired(f) => f,
+        LockOutcome::AlreadyRunning(existing) => {
+            if existing.is_empty() {
+                println!("aidog-kernel: another instance is already running (pure mode)");
+            } else {
+                println!("aidog-kernel: another instance is already running");
+                println!("{existing}");
+            }
+            std::process::exit(0);
+        }
+    };
+
     // adapter 出站 client 构建器注入（与桌面壳 app_setup 同一句，未注入时 adapter 回落直连）。
     aidog_adapter::quota::http::set_client_builder(Arc::new(|db| {
         let db = db.clone();
@@ -174,13 +204,18 @@ async fn run(opts: Options) -> Result<(), String> {
     let kernel_settings = load_kernel_settings(&db).await;
     match management_bind_addr(&opts, &kernel_settings) {
         Some(addr) => {
-            start_management(
+            let local = start_management(
                 ctx.clone(),
                 addr,
                 kernel_settings.auth_token.clone(),
                 resolve_ui_dir(opts.ui_dir),
             )
-            .await?
+            .await?;
+            // 实际地址（`--port 0` 时由系统挑）同时进标准输出与锁文件：前者给拉起我们的父进程，
+            // 后者给下一个抢锁失败的实例。
+            let line = format!("{LISTEN_LINE_PREFIX}http://{local}");
+            println!("{line}");
+            record_listen_addr(&lock, &line);
         }
         None => tracing::info!("kernel: pure mode, no HTTP management surface is listening"),
     }
@@ -208,6 +243,8 @@ async fn run(opts: Options) -> Result<(), String> {
 /// 要从别的设备访问界面，请自行架反向代理（nginx / caddy）回连本机，由它负责 TLS 与鉴权
 /// （2026-09-03 审查裁决，理由见 `aidog_core::kernel_settings` 模块文档）。代理端口自己的
 /// `ProxySettings::bind_lan` 是另一个维度，这里**不读**。
+///
+/// 端口优先级：`--port` > 设置。**命令行只能改端口，改不了绑定的 IP。**
 fn management_bind_addr(
     opts: &Options,
     settings: &aidog_core::kernel_settings::KernelSettings,
@@ -217,17 +254,70 @@ fn management_bind_addr(
     }
     Some(std::net::SocketAddr::new(
         std::net::IpAddr::V4(std::net::Ipv4Addr::LOCALHOST),
-        settings.port,
+        opts.port.unwrap_or(settings.port),
     ))
 }
 
-/// 起管理面。
+/// 单实例锁的结果。
+enum LockOutcome {
+    /// 抢到了。`File` 必须活到进程结束 —— 它一析构锁就释放。
+    Acquired(std::fs::File),
+    /// 已有实例在跑。带的是它写在锁文件里的那一行（纯内核形态下为空）。
+    AlreadyRunning(String),
+}
+
+/// 抢单实例锁（`~/.aidog/kernel.lock`）。
+///
+/// 为什么需要它：两个内核同开一个库，SQLite 是 WAL + busy_timeout，**数据层面是安全的**，
+/// 但两个进程各有一份进程内缓存（`refresh_presets_cache`、`MiddlewareEngine`）会各自变陈旧
+/// 且互不通知；且两个都会按设置自启代理，第二个抢不到端口只 `tracing::error!` 一行就继续跑，
+/// 留下一个半死不活的进程还在跑定时清理。共存期里旧桌面壳与新外壳同装时这一定发生。
+///
+/// 用 std 的文件锁（rustc 1.89 起稳定），不引依赖。锁是**劝告性**的，但进程退出或被杀时由
+/// 内核释放，比「写 pid 文件再判断进程在不在」少一整类陈旧状态。
+fn acquire_single_instance_lock(data_dir: &std::path::Path) -> Result<LockOutcome, String> {
+    let path = data_dir.join("kernel.lock");
+    let file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(&path)
+        .map_err(|e| format!("open {}: {e}", path.display()))?;
+    match file.try_lock() {
+        Ok(()) => Ok(LockOutcome::Acquired(file)),
+        Err(std::fs::TryLockError::WouldBlock) => {
+            // 锁是劝告性的，读文件内容不受影响 —— 里面是已有实例 bind 之后写下的监听地址。
+            let existing = std::fs::read_to_string(&path).unwrap_or_default();
+            Ok(LockOutcome::AlreadyRunning(existing.trim().to_string()))
+        }
+        Err(e) => Err(format!("lock {}: {e}", path.display())),
+    }
+}
+
+/// 把实际监听地址写进锁文件，供后来者读。写失败只 warn：拿不到地址顶多让第二个实例少打一行
+/// 提示，不该让已经起好的服务退出。
+fn record_listen_addr(lock: &std::fs::File, line: &str) {
+    use std::io::{Seek, Write};
+    let write = || -> std::io::Result<()> {
+        lock.set_len(0)?;
+        let mut f = lock;
+        f.rewind()?;
+        f.write_all(line.as_bytes())?;
+        f.flush()
+    };
+    if let Err(e) = write() {
+        tracing::warn!(error = %e, "kernel: cannot record listen address into lock file");
+    }
+}
+
+/// 起管理面，返回**实际**监听地址（`--port 0` 时与入参不同）。
 async fn start_management(
     ctx: Arc<ctx::HeadlessCtx>,
     addr: std::net::SocketAddr,
     auth_token: String,
     ui_dir: Option<PathBuf>,
-) -> Result<(), String> {
+) -> Result<std::net::SocketAddr, String> {
     let has_auth = !auth_token.trim().is_empty();
     let state = server::ManagementState::new(ctx, auth_token);
     let (local, _handle) =
@@ -236,9 +326,9 @@ async fn start_management(
         addr = %local,
         auth = has_auth,
         commands = rpc::RPC_COMMAND_NAMES.len(),
-        "kernel: management surface listening (/rpc/*, /events, web UI)"
+        "kernel: management surface listening (/rpc/*, /events, /healthz, web UI)"
     );
-    Ok(())
+    Ok(local)
 }
 
 /// 启动期一次性维护任务。与桌面壳 `app_setup` 同一批、同样 fire-and-forget。

@@ -6,7 +6,7 @@
 //! |---|---|---|
 //! | db / middleware / proxy_handle | 同一份实例 | 同一份实例 |
 //! | emit | Tauri `emit` 到 webview | 广播给 SSE `/events` 的订阅者 |
-//! | 系统通知弹窗 | tauri-plugin-notification | 无桌面会话 → `false`（不是错误） |
+//! | 系统通知弹窗 | tauri-plugin-notification | 广播 `notif-popup` 给外壳，由外壳去弹 |
 //! | TTS 交给界面读 | emit 给 webview | 纯内核无界面 → `false`（进程内 `say` 后端不经本 trait） |
 //! | 开机自启 | tauri-plugin-autostart | 由 systemd 一类服务管理器负责 → `Err` |
 //!
@@ -76,6 +76,20 @@ impl AppCtx for HeadlessCtx {
             name: event.to_string(),
             payload,
         });
+    }
+
+    /// 内核自己没有桌面会话，但外壳有。把弹窗请求原样广播出去（事件名
+    /// [`aidog_notification::NOTIF_POPUP`]），外壳用自己那套通知 API 弹。
+    ///
+    /// 返回 `true` 的含义与 `speak_via_ui` 一致：**请求已交出去**。内核无从知道外壳最后
+    /// 弹没弹（用户可能没授权），返回 `false` 会让 `DispatchResult.popup` 一律报「没弹」，
+    /// 比乐观返回更失真。
+    fn show_popup(&self, title: &str, body: &str) -> bool {
+        self.emit(
+            aidog_notification::NOTIF_POPUP,
+            serde_json::json!({ "title": title, "body": body }),
+        );
+        true
     }
 
     fn autolaunch_enabled(&self) -> Result<bool, String> {

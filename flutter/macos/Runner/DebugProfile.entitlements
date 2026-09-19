@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- App Sandbox 必须关掉，与现有 Tauri 壳一致（src-tauri/tauri.conf.json 没配任何
+	     entitlements，即不沙盒）：本应用要拉起 aidog-kernel 子进程，由它读写 ~/.aidog、
+	     bind 代理端口，还要 spawn claude / codex 这些外部 CLI。沙盒把这些全挡掉，
+	     开着的话应用连自己的内核都连不上。 -->
+	<key>com.apple.security.app-sandbox</key>
+	<false/>
+	<key>com.apple.security.cs.allow-jit</key>
+	<true/>
+	<!-- 出站：连内核的 127.0.0.1 管理面。入站：内核 bind 管理面与代理端口。 -->
+	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
+	<true/>
+</dict>
+</plist>
