@@ -25,6 +25,69 @@ kernel.states.listen(...);                  // connecting / connected / reconnec
 **禁止**自己开 HTTP 连接。`package:http` / `dart:io` 的 `HttpClient` 打 RPC 比持久 socket
 慢一个数量级。
 
+## 图表层（票 I04）
+
+```dart
+import 'package:aidog_flutter/charts.dart';
+```
+
+页面票（I06 首页 / 统计，I07 平台 / 分组 / 日志）从这里取图表，**卡片壳和图例仍归
+`SeriesTile`**（票 I02 的四种格子之一，本层不造第五种）。
+
+| 要什么 | 用什么 |
+|---|---|
+| 折线 / 双轴 / mini 曲线 | `AidogLineChart(series: [...], area: true, mini: false)` |
+| 堆叠面积 | `AidogStackedAreaChart(series: [...])` |
+| 环形占比 | `AidogDonutChart(data: [...], topN: 4)` |
+| 散点直方图 | `AidogScatterChart(histogram: ...)` |
+| 时刻热力（24×7）/ 迷你热力条 / 维度热力 | `HourHeatmap` / `HourHeatBar` / `DimensionHeatmap` |
+| 仪表盘 + 趋势 sparkline | `GaugeChart(value:, max:, trend: [...])` |
+| 取色 | `ChartPalette.of(context).series(i)` / `.heat(t)` |
+| 图例喂给 `SeriesTile` | `legendOf(series)` |
+| 空态 | 图表自己渲染 `ChartEmpty(emptyText)`，不画零值假图 |
+
+### 一条序列 = 一个 `ChartSeries`，身份不跟位置走
+
+```dart
+ChartSeries(
+  key: 's0',                 // 稳定身份（Stats 的安全键），不是位置
+  label: '深度求索',          // 展示名
+  color: palette.series(0),
+  points: rows,              // 按 x 升序
+  format: formatCostUsd,     // 本序列自己的格式化
+  rightAxis: false, dashed: false,
+);
+```
+
+**为什么这么设计**：fl_chart 的 tooltip 回调只给位置索引（`barIndex`），而 Stats 的序列
+顺序按总量动态排（`src/pages/Stats.tsx:114`）。位置 + 动态排序 = 格式化静默走偏，
+显示一个错的数还不报错 —— commit `a7e665c8` 刚修掉的就是这个形状。这里把
+**身份 / 展示名 / 颜色 / 格式化挂在同一个对象上**，没有第二份按位置对齐的平行数组可漂移。
+
+取行一律走 `tooltipRowAtSpot(series, barIndex, spotIndex)`（数值从序列自己的点集里读，
+不信任绘图坐标）或 `tooltipRowFor(series, key, value)`。越界抛 `RangeError`，key 不存在抛
+`ArgumentError` —— 不静默回落。`test/charts/tooltip_test.dart` 里「按总量重排后」那一组
+是复发闸：把序列顺序整个反过来，每条的名字 / 颜色 / 格式化仍必须是它自己的。
+
+### 迁了 8 个，没迁 3 个
+
+- **fl_chart**（MIT，与本项目 AGPL-3.0-or-later 相容；**Syncfusion 专有许可不可用**）：
+  折线 / 堆叠面积 / 环形 / 散点。
+- **不需要图表库**：三张热力图 —— React 那边本来就是 CSS grid 的 div 格子
+  （文件头写着「零 canvas 零 Recharts」），这里是格子布局不是图表库。
+- **`CustomPainter`**：仪表盘圆环（`canvas.drawArc`）+ 趋势 sparkline。
+- **没迁**：`BarChart` / `PieChart` / `StackedBarChart`（共 276 行）在 React 侧**零页面
+  调用者**，只被 `index.ts` 和自己的测试引用。没有消费者就不迁。
+
+### 两处实现差异，写下来
+
+1. **fl_chart 没有第二 Y 轴**（上游 issue #429 仍 open）。右轴序列的值被线性映射进左轴
+   坐标系再画（`mapToLeft`），右轴刻度反解回原值标注，tooltip 走 `tooltipRowAtSpot`
+   取原值。唯一的双轴消费者 `src/pages/Home.tsx:362` 是 mini 态、轴本来就隐藏。
+2. **fl_chart 没有 `stackId`**。堆叠是 `AidogStackedAreaChart` 自己累加出来的，且
+   **绘制顺序整体反转**（栈顶先画，否则上层填充盖住下层）。反的是 `ChartSeries` 列表
+   本身，tooltip 查的是同一个列表。
+
 ## 原生能力（票 I12）
 
 ```dart
@@ -162,5 +225,19 @@ lib/src/transport/
   rpc_client.dart               持久 Socket + 手拼 HTTP/1.1 + 连接池
   event_stream.dart             单连接 SSE + 按事件名扇出 + 自写重连
 lib/platform.dart               原生能力 6 项（票 I12）：剪贴板 / 对话框 / 链接 / 进程 / 通知
+lib/charts.dart                 图表层入口（票 I04）
+lib/src/charts/
+  tooltip.dart                  序列身份 + tooltip 行模型（先于任何一张图存在，零 fl_chart 依赖）
+  tooltip_item.dart             行模型 → fl_chart 的文本模型
+  palette.dart                  系列色 / 热力色带（色值只来自主题）
+  axes.dart                     niceTicks → fl_chart 的 min/max/interval
+  series.dart                   对齐降采样 / 域计算 / 图例
+  line_chart.dart               折线（含双轴、面积、虚线、mini）
+  stacked_area_chart.dart       堆叠面积（自己累加 + 反序绘制）
+  donut_chart.dart              环形（topN + 其他）
+  scatter_chart.dart            散点直方图
+  heatmaps.dart                 三张热力图（格子布局，非图表库）
+  gauge_chart.dart              仪表盘圆环 + 趋势 sparkline（CustomPainter）
+  empty.dart                    诚实空态
 lib/main.dart                   占位外壳，票 I02 会整个换掉
 ```
