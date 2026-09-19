@@ -122,7 +122,8 @@ class _FilterDropdownState extends State<FilterDropdown> {
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: Material(
-              color: Colors.transparent,
+              // 只为 InkWell 提供墨层，底色仍由下面 Container 的 token 决定。
+              type: MaterialType.transparency,
               child: Container(
                 width: width,
                 constraints: const BoxConstraints(maxHeight: 320),
