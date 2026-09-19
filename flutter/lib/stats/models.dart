@@ -56,6 +56,132 @@ class StatsSeries {
   final List<StatsBucket> buckets;
 }
 
+/// `generated/StatsOverview.ts`：整窗口的汇总量（Overview 卡 + 环比基准）。
+class StatsOverview {
+  const StatsOverview({
+    required this.totalRequests,
+    required this.successRate,
+    required this.totalInputTokens,
+    required this.totalOutputTokens,
+    required this.totalCacheTokens,
+    required this.cacheRate,
+    required this.avgDurationMs,
+    required this.totalCost,
+  });
+
+  factory StatsOverview.fromJson(Map<String, dynamic> j) => StatsOverview(
+    totalRequests: (j['total_requests'] as num?)?.toInt() ?? 0,
+    successRate: (j['success_rate'] as num?)?.toDouble() ?? 0,
+    totalInputTokens: (j['total_input_tokens'] as num?)?.toInt() ?? 0,
+    totalOutputTokens: (j['total_output_tokens'] as num?)?.toInt() ?? 0,
+    totalCacheTokens: (j['total_cache_tokens'] as num?)?.toInt() ?? 0,
+    cacheRate: (j['cache_rate'] as num?)?.toDouble() ?? 0,
+    avgDurationMs: (j['avg_duration_ms'] as num?)?.toDouble() ?? 0,
+    totalCost: (j['total_cost'] as num?)?.toDouble() ?? 0,
+  );
+
+  final int totalRequests;
+  final double successRate;
+  final int totalInputTokens;
+  final int totalOutputTokens;
+  final int totalCacheTokens;
+  final double cacheRate;
+  final double avgDurationMs;
+  final double totalCost;
+}
+
+/// `generated/DimensionEntry.ts`：维度排行表的一行。
+class DimensionEntry {
+  const DimensionEntry({
+    required this.name,
+    required this.totalRequests,
+    required this.successCount,
+    required this.inputTokens,
+    required this.outputTokens,
+    required this.cacheTokens,
+    required this.cacheRate,
+    required this.avgDurationMs,
+    required this.totalCost,
+  });
+
+  factory DimensionEntry.fromJson(Map<String, dynamic> j) => DimensionEntry(
+    name: (j['name'] as String?) ?? '',
+    totalRequests: (j['total_requests'] as num?)?.toInt() ?? 0,
+    successCount: (j['success_count'] as num?)?.toInt() ?? 0,
+    inputTokens: (j['input_tokens'] as num?)?.toInt() ?? 0,
+    outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
+    cacheTokens: (j['cache_tokens'] as num?)?.toInt() ?? 0,
+    cacheRate: (j['cache_rate'] as num?)?.toDouble() ?? 0,
+    avgDurationMs: (j['avg_duration_ms'] as num?)?.toDouble() ?? 0,
+    totalCost: (j['total_cost'] as num?)?.toDouble() ?? 0,
+  );
+
+  /// 维度名。后端回溯失败会返空串，归「未知平台」由页面做（单点归一化）。
+  final String name;
+  final int totalRequests;
+  final int successCount;
+  final int inputTokens;
+  final int outputTokens;
+  final int cacheTokens;
+  final double cacheRate;
+  final double avgDurationMs;
+  final double totalCost;
+
+  /// 换掉名字（空名归一化用），其余字段照抄。
+  DimensionEntry withName(String next) => DimensionEntry(
+    name: next,
+    totalRequests: totalRequests,
+    successCount: successCount,
+    inputTokens: inputTokens,
+    outputTokens: outputTokens,
+    cacheTokens: cacheTokens,
+    cacheRate: cacheRate,
+    avgDurationMs: avgDurationMs,
+    totalCost: totalCost,
+  );
+}
+
+/// `generated/StatsResult.ts`：`stats_query` 的返回体。
+class StatsResult {
+  const StatsResult({
+    required this.overview,
+    required this.buckets,
+    required this.dimensionData,
+    required this.availableModels,
+    required this.series,
+  });
+
+  factory StatsResult.fromJson(Map<String, dynamic> j) => StatsResult(
+    overview: StatsOverview.fromJson(
+      (j['overview'] as Map<String, dynamic>?) ?? const {},
+    ),
+    buckets: [
+      for (final b in (j['buckets'] as List?) ?? const [])
+        StatsBucket.fromJson(b as Map<String, dynamic>),
+    ],
+    dimensionData: [
+      for (final d in (j['dimension_data'] as List?) ?? const [])
+        DimensionEntry.fromJson(d as Map<String, dynamic>),
+    ],
+    availableModels: [
+      for (final m in (j['available_models'] as List?) ?? const [])
+        m as String,
+    ],
+    series: [
+      for (final s in (j['series'] as List?) ?? const [])
+        StatsSeries.fromJson(s as Map<String, dynamic>),
+    ],
+  );
+
+  final StatsOverview overview;
+  final List<StatsBucket> buckets;
+  final List<DimensionEntry> dimensionData;
+
+  /// 当前筛选范围内实际有记录的模型名（模型筛选下拉的数据源，非配置列表）。
+  final List<String> availableModels;
+  final List<StatsSeries> series;
+}
+
 /// 单条配额快照：余额查询成功时的 `est_balance_remaining` 落库值。
 /// `createdAt` 是**毫秒** Unix 时间戳。
 class QuotaSnapshot {
