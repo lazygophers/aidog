@@ -43,6 +43,7 @@ dependencies:
   # design/tokens/tokens.json，`yarn check:tokens` 逐字节校验生成物。
   aidog_tokens:
     path: ../design/tokens
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:
