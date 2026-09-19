@@ -35,6 +35,11 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8
 
+  # 设计 token 的 Dart 投影。path 依赖而不是复制一份：色值的唯一真值源是
+  # design/tokens/tokens.json，`yarn check:tokens` 逐字节校验生成物。
+  aidog_tokens:
+    path: ../design/tokens
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,11 +1,11 @@
 #!/usr/bin/env node
-// tokens.json → tokens.css（原型 / Flutter 侧同用）+ tokens.dart（Flutter 版）
+// tokens.json → tokens.css（原型 / Flutter 侧同用）+ lib/tokens.dart（Flutter 版，pub 包 aidog_tokens）
 //              + src/themes/tokens.generated.ts（现仓 React 版，mono 主题的色值来源）
 // 跑法：node design/tokens/build-tokens.mjs   （无依赖，Node ≥ 18）
 // 自检：node design/tokens/build-tokens.mjs --check
 //   ① 每个颜色 token 两个 mode 一一对应；② 三份生成物与 tokens.json 当前内容逐字节一致。
 //   ② 就是 lint 门禁：改了 tokens.json 不重新生成 → 退出码 1。
-import { readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -63,7 +63,9 @@ const dartField = (k) => k.replace(/-(\w)/g, (_, c) => c.toUpperCase());
 const colorFields = Object.entries(colors).filter(([, v]) => dartColor(v.dark) && dartColor(v.light));
 const rawFields = Object.entries(colors).filter(([, v]) => !(dartColor(v.dark) && dartColor(v.light)));
 
-out["design/tokens/tokens.dart"] = `// 由 build-tokens.mjs 从 tokens.json 生成，禁止手改。
+// 落在 lib/ 下是为了让 design/tokens 成为一个可被 path 依赖的 pub 包
+// （flutter/pubspec.yaml 的 aidog_tokens），这样 Flutter 侧不用复制第二份色值。
+out["design/tokens/lib/tokens.dart"] = `// 由 build-tokens.mjs 从 tokens.json 生成，禁止手改。
 // 用法：AidogColors.dark / AidogColors.light 喂进 ThemeExtension，
 // 尺寸与字阶走 AidogSpace / AidogRadius / AidogLayout / AidogType / AidogMotion（与模式无关）。
 import 'package:flutter/widgets.dart';
@@ -144,5 +146,9 @@ if (process.argv.includes("--check")) {
   process.exit(0);
 }
 
-for (const [rel, body] of Object.entries(out)) writeFileSync(join(repoRoot, rel), body);
+for (const [rel, body] of Object.entries(out)) {
+  const abs = join(repoRoot, rel);
+  mkdirSync(dirname(abs), { recursive: true });
+  writeFileSync(abs, body);
+}
 console.log(`写出 ${Object.keys(out).join(" + ")} · ${Object.keys(colors).length} 个颜色 token × 2 模式`);
