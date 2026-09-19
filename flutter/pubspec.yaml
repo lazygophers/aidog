@@ -39,6 +39,11 @@ dependencies:
   path_provider: ^2.1.6
   flutter_local_notifications: ^22.3.1
 
+  # 设计 token 的 Dart 投影。path 依赖而不是复制一份：色值的唯一真值源是
+  # design/tokens/tokens.json，`yarn check:tokens` 逐字节校验生成物。
+  aidog_tokens:
+    path: ../design/tokens
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

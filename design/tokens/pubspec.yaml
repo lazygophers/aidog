@@ -1,0 +1,13 @@
+# 让 flutter/ 能 `import 'package:aidog_tokens/tokens.dart'` 而不必复制一份色值。
+# lib/tokens.dart 是 build-tokens.mjs 的生成物（禁手改），`yarn check:tokens` 逐字节校验。
+name: aidog_tokens
+description: aidog 跨栈设计 token 的 Dart 投影，由 design/tokens/tokens.json 生成。
+publish_to: 'none'
+version: 1.0.0
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
