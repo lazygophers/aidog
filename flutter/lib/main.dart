@@ -5,6 +5,7 @@ library;
 import 'package:flutter/material.dart';
 
 import 'i18n.dart';
+import 'pages.dart';
 import 'shell.dart';
 import 'transport.dart';
 
@@ -62,12 +63,19 @@ class _AidogAppState extends State<AidogApp> {
                     '${kernel.process.address?.port}',
                   )
                 : i18n.t('common.loading'),
-            pageBuilder: _placeholder,
+            pageBuilder: _page,
           );
         },
       ),
     );
   }
+
+  /// 票 I06 起逐页替换 [_placeholder]：已落地的走真页面，其余仍是占位。
+  Widget _page(BuildContext context, String id) => switch (id) {
+    'home' => HomePage(onNavigate: _nav.navigate),
+    'stats' => const StatsPage(),
+    _ => _placeholder(context, id),
+  };
 
   Widget _placeholder(BuildContext context, String id) {
     final t = AidogTheme.of(context);
