@@ -80,6 +80,13 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    # 设置页的字段 schema（claude / codex / pi 三份），由
+    # `node scripts/gen-flutter-settings-schema.mjs` 从 TS 真值源生成，禁手改。
+    - assets/settings_schema.json
+    # Claude Code 推荐配置 = 后端内置默认，与 React 版同一个文件（零第二份拷贝）。
+    - assets/claude_default_settings.json
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

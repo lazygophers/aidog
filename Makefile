@@ -55,6 +55,8 @@ lint: ## Run linters
 	yarn check:modal
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
 	yarn check:tokens
+	@printf "$(CYAN)▶ Flutter settings schema check...$(RESET)\n"
+	yarn check:flutter-schema
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo clippy --workspace --all-targets -- -D warnings
 
