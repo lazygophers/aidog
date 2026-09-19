@@ -48,6 +48,7 @@ dependencies:
   # design/tokens/tokens.json，`yarn check:tokens` 逐字节校验生成物。
   aidog_tokens:
     path: ../design/tokens
+  fl_chart: ^1.2.0
 
   # 8 语言文案。src-tauri/crates/aidog_i18n/locales/ 的 JSON 直接当资产挂进来，
   # 仓库里没有第二份拷贝（理由见 README「文案是怎么进来的」）。
