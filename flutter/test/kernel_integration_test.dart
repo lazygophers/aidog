@@ -185,12 +185,25 @@ void main() {
       http.close(force: true);
       client.close();
 
-      // 门槛放在 300 µs：真走 socket 是 ~64 µs，退化回 HttpClient 那条路是 ~862 µs。
-      // 这条断言存在的意义就是「哪天有人把 socket 换成 HttpClient，当场红」。
+      // 这条断言存在的意义是「哪天有人把 socket 换成 HttpClient，当场红」。
+      //
+      // 钉**比值**而不是绝对微秒数：绝对值随构建方式和机器变。同一台机器实测
+      // release 内核 socket p50≈115 µs、debug 内核≈354 µs（debug 二进制 176 MB
+      // 对 release 86 MB），拿一个绝对阈值会在 debug 下偶发红，而那时 socket 其实好好的。
+      // 比值是真正的不变量：两条路在同一次运行里、同一个内核上量，倍数只反映客户端开销。
+      expect(
+        httpP50 / p50,
+        greaterThan(3),
+        reason:
+            'socket p50=$p50µs / HttpClient p50=$httpP50µs，只差 '
+            '${(httpP50 / p50).toStringAsFixed(1)} 倍 —— 没走持久 socket，'
+            '整个迁移的性能前提就不成立了',
+      );
+      // 再加一道粗的绝对上限，防的是「两条路一起变慢」这种比值看不出来的退化。
       expect(
         p50,
-        lessThan(300),
-        reason: 'p50=$p50µs —— 没走持久 socket，整个迁移的性能前提就不成立了',
+        lessThan(1500),
+        reason: 'socket p50=$p50µs 绝对值已经离谱，与走哪条路无关',
       );
     }, timeout: const Timeout(Duration(minutes: 3)));
   });

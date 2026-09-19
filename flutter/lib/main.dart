@@ -1,62 +1,23 @@
-/// 主窗口入口。骨架、主题、导航全在 `shell.dart`；页面内容是票 I06-I09 的活，
-/// 这里先按 activeId 占位，页面票逐个替换 `_placeholder`。
+/// 主窗口入口。骨架、主题、导航全在 `shell.dart`，文案与方向全在 `i18n.dart`；
+/// 页面内容是票 I06-I09 的活，这里先按 activeId 占位，页面票逐个替换 `_placeholder`。
 library;
 
 import 'package:flutter/material.dart';
 
+import 'i18n.dart';
 import 'shell.dart';
 import 'transport.dart';
 
-void main() {
-  runApp(const AidogApp());
-  kernel.start().catchError((Object e) {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // 文案是构建期资产，不依赖内核 —— 所以「后端连接中」这一屏本身就是翻好的。
+  await i18n.init();
+  runApp(const AidogI18n(child: AidogApp()));
+  // 内核起来之后再读用户在后端存的语言设置，覆盖掉按系统猜的那个。
+  kernel.start().then((_) => i18n.loadFromBackend()).catchError((Object e) {
     debugPrint('kernel start failed: $e');
-    return Uri();
   });
 }
-
-/// 临时取词：票 I03 会接 8 语言的真 locale 表，到时整块删掉。
-/// 只覆盖骨架自己要显示的 key，页面文案一律走 I03。
-const Map<String, String> _stubZhHans = {
-  'nav.section.overview': '概览',
-  'nav.section.platform': '平台',
-  'nav.section.logStats': '日志统计',
-  'nav.section.extension': '扩展',
-  'nav.section.system': '系统',
-  'nav.home': '首页',
-  'nav.platforms': 'AI 平台',
-  'nav.stats': '使用统计',
-  'nav.logs': '代理日志',
-  'nav.requestLog': '请求日志',
-  'nav.notifications': '通知中心',
-  'nav.skills': 'Skills',
-  'nav.mcp': 'MCP',
-  'nav.settings': '设置',
-  'nav.about': '关于',
-  'nav.collapse': '折叠侧栏',
-  'nav.settingsGroup.general': '常规',
-  'nav.settingsGroup.integration': '集成',
-  'nav.settingsGroup.rules': '规则',
-  'nav.settingsGroup.notification': '通知',
-  'nav.settingsGroup.config': '配置',
-  'appSettings.systemTab': '系统',
-  'appSettings.cliIntegrationTab': 'Coding 设置',
-  'appSettings.claudeTab': 'Claude',
-  'appSettings.codexTab': 'Codex',
-  'appSettings.piTab': 'pi',
-  'appSettings.middlewareTab': '中间件',
-  'appSettings.schedulingTab': '调度熔断',
-  'appSettings.notificationsTab': '系统通知',
-  'appSettings.modelInfoTab': '模型信息',
-  'appSettings.trayTab': '托盘',
-  'appSettings.popoverTab': '浮窗',
-  'appSettings.importExportTab': '导入导出',
-  'appSettings.mitmTab': 'MITM 解密',
-  'theme.dark': '深色',
-  'theme.light': '浅色',
-};
-
-String _t(String key) => _stubZhHans[key] ?? key;
 
 class AidogApp extends StatefulWidget {
   const AidogApp({super.key});
@@ -78,23 +39,33 @@ class _AidogAppState extends State<AidogApp> {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<KernelState>(
-      stream: kernel.states,
-      initialData: kernel.state,
-      builder: (context, snap) {
-        final connected = snap.data == KernelState.connected;
-        return AidogShellApp(
-          controller: _nav,
-          theme: _theme,
-          t: _t,
-          localeLabel: '简体中文',
-          live: connected,
-          status: connected
-              ? '${kernel.process.address?.host}:${kernel.process.address?.port}'
-              : (snap.data ?? KernelState.connecting).name,
-          pageBuilder: (context, id) => _placeholder(context, id),
-        );
-      },
+    // i18n 是 ChangeNotifier：切语言要连带换 textDirection 与整棵树的文案。
+    return AnimatedBuilder(
+      animation: i18n,
+      builder: (context, _) => StreamBuilder<KernelState>(
+        stream: kernel.states,
+        initialData: kernel.state,
+        builder: (context, snap) {
+          final connected = snap.data == KernelState.connected;
+          return AidogShellApp(
+            controller: _nav,
+            theme: _theme,
+            t: i18n.t,
+            locale: i18n.flutterLocale,
+            textDirection: i18n.textDirection,
+            localeLabel: i18n.locale,
+            live: connected,
+            // 地址是内部标识，不翻译，也不该被 bidi 重排。
+            status: connected
+                ? ltr(
+                    '${kernel.process.address?.host}:'
+                    '${kernel.process.address?.port}',
+                  )
+                : i18n.t('common.loading'),
+            pageBuilder: _placeholder,
+          );
+        },
+      ),
     );
   }
 
@@ -103,7 +74,7 @@ class _AidogAppState extends State<AidogApp> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: _t('nav.${id.split('/').first}'), subtitle: id),
+        PageHead(title: i18n.t('nav.${id.split('/').first}'), subtitle: ltr(id)),
         Bento(
           children: [
             BentoCell(

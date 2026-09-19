@@ -5,6 +5,9 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+import '../../i18n.dart' show kSupportedFlutterLocales;
 
 import 'nav.dart';
 import 'rail.dart';
@@ -283,6 +286,7 @@ class AidogShellApp extends StatelessWidget {
     this.localeLabel = '',
     this.onPickLocale,
     this.textDirection = TextDirection.ltr,
+    this.locale,
   });
 
   final ShellController controller;
@@ -297,6 +301,10 @@ class AidogShellApp extends StatelessWidget {
   /// 票 I03 接 8 语言时把阿拉伯语切成 rtl。
   final TextDirection textDirection;
 
+  /// Material / Cupertino 自带控件（文本选择菜单、日期选择器等）的语言。
+  /// 应用自己的文案走 [t]，与这个无关。
+  final Locale? locale;
+
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
@@ -306,6 +314,13 @@ class AidogShellApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: theme.data,
         themeMode: ThemeMode.light,
+        locale: locale,
+        supportedLocales: kSupportedFlutterLocales,
+        localizationsDelegates: const <LocalizationsDelegate<Object>>[
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
         builder: (context, child) => Directionality(
           textDirection: textDirection,
           child: child ?? const SizedBox.shrink(),

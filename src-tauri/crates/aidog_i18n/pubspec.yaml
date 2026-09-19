@@ -1,0 +1,23 @@
+# Flutter 资产包装。文案真值源是同目录的 locales/*.json —— Rust（错误消息）、
+# React（Vite 路径别名 @aidog-i18n/locales）、Flutter（本包）读的是同一份文件，
+# 不存在第二份拷贝，也就不会漂移。
+#
+# 「asset from package dependency」是 Flutter 官方机制：
+# https://docs.flutter.dev/ui/assets/assets-and-images#from-packages
+# Flutter 的 assets 必须落在包目录内，所以用一个只有资产的包把这个目录挂进来，
+# 而不是把 1.6 MB 的 JSON 拷进 flutter/assets/。
+name: aidog_i18n_locales
+description: aidog 8 语言文案 JSON，供 Flutter 侧按资产读取。
+version: 0.0.0
+publish_to: "none"
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  assets:
+    - locales/
