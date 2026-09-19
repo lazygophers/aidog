@@ -40,3 +40,15 @@ String formatDurationMs(double ms) {
 /// 对应 `formatters.ts::formatPercent`。
 String formatPercent(double n, [int digits = 1]) =>
     '${n.toStringAsFixed(digits)}%';
+
+/// 大数缩写。对应 `formatters.ts::formatNumber`：
+/// ≥1e6 → `x.xM`；≥1e3 → `x.xK`；否则整数不带小数、非整数保 1 位。
+String formatNumber(num n) {
+  if (n >= 1000000) return '${(n / 1000000).toStringAsFixed(1)}M';
+  if (n >= 1000) return '${(n / 1000).toStringAsFixed(1)}K';
+  return n.toStringAsFixed(n % 1 == 0 ? 0 : 1);
+}
+
+/// 成功率百分比（0–100）。对应 `formatters.ts::successRate`：总数 ≤ 0 → 0。
+double successRate(num successCount, num totalRequests) =>
+    totalRequests <= 0 ? 0 : (successCount / totalRequests) * 100;
