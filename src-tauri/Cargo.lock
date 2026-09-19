@@ -310,6 +310,7 @@ dependencies = [
  "aidog_db",
  "aidog_logs",
  "aidog_middleware",
+ "aidog_notification",
  "aidog_stats",
  "axum",
  "futures",
