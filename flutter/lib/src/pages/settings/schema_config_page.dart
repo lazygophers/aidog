@@ -126,6 +126,21 @@ Future<SchemaBundle> loadSchemaBundle(
   return SchemaBundle(sections: sections, recommended: recommended);
 }
 
+/// Claude Code 的语言清单（`claude-settings-schema.ts::LANGUAGE_GROUPS` 拍平）。
+/// CLI 集成页的语言下拉用它 —— 与 claude 页同一份数据，不抄第二份。
+Future<List<({String value, String label})>> loadClaudeLanguageOptions() async {
+  final all = await (_schemaAssetCache ??= _loadJsonAsset(
+    'assets/settings_schema.json',
+  ));
+  final groups =
+      ((all['claude'] as Map)['languageGroups'] as List? ?? const []);
+  return [
+    for (final g in groups.whereType<Map>())
+      for (final o in (g['options'] as List? ?? const []).whereType<Map>())
+        (value: '${o['value']}', label: '${g['family']} · ${o['label']}'),
+  ];
+}
+
 class SchemaConfigPage extends StatefulWidget {
   const SchemaConfigPage({
     super.key,
@@ -256,13 +271,14 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
                 c.applyImport(paths, appliedText: t.t('settings.imported')),
           ),
         if (c.pendingNav != null)
-          _UnsavedCard(
+          UnsavedChangesCard(
+            busy: c.saving,
             onSave: () => c.saveAndLeave(savedText: t.t('settings.saved')),
             onDiscard: c.discardAndLeave,
             onCancel: c.cancelLeave,
           ),
         if (c.toast.isNotEmpty)
-          _Toast(text: c.toast, onDone: c.clearToast),
+          AutoToast(text: c.toast, onDone: c.clearToast),
       ],
     );
 
@@ -411,83 +427,6 @@ class _JsonField extends StatelessWidget {
       if (error != null) ErrorNote(text: error!),
     ],
   );
-}
-
-/// 未保存确认卡，三个出口与 `Settings.tsx` 的弹窗一一对应。
-class _UnsavedCard extends StatelessWidget {
-  const _UnsavedCard({
-    required this.onSave,
-    required this.onDiscard,
-    required this.onCancel,
-  });
-
-  final VoidCallback onSave;
-  final VoidCallback onDiscard;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
-    final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
-      child: Tile(
-        title: t.t('settings.unsavedTitle'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              t.t('settings.unsavedBody'),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
-            const SizedBox(height: AidogSpace.ssm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SmallButton(label: t.t('action.cancel'), onTap: onCancel),
-                const SizedBox(width: AidogSpace.ssm),
-                SmallButton(
-                  label: t.t('settings.discardChanges'),
-                  danger: true,
-                  onTap: onDiscard,
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                SmallButton(
-                  label: t.t('settings.saveAndLeave'),
-                  onTap: onSave,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// 3 秒自动消失的提示条。计时器挂在 widget 上，控制器不碰时间。
-class _Toast extends StatefulWidget {
-  const _Toast({required this.text, required this.onDone});
-
-  final String text;
-  final VoidCallback onDone;
-
-  @override
-  State<_Toast> createState() => _ToastState();
-}
-
-class _ToastState extends State<_Toast> {
-  @override
-  void initState() {
-    super.initState();
-    Future<void>.delayed(const Duration(seconds: 3)).then((_) {
-      if (mounted) widget.onDone();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) => ToastBar(text: widget.text, ok: true);
 }
 
 // ── 导入差异弹窗 ──────────────────────────────────────────────
