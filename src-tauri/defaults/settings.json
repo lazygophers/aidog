@@ -192,13 +192,15 @@
         ],
         "allow": [
             "$defaults",
-            "临时目录下的对所有文件/文件夹的操作"
+            "临时文件和目录（包括系统临时目录）下的所有文件/文件夹操作",
+            "执行 Python 脚本"
         ],
         "soft_deny": [
             "$defaults"
         ],
         "hard_deny": [
-            "$defaults"
+            "$defaults",
+            "修改系统配置"
         ]
     },
     "_aidog_statusline": {
