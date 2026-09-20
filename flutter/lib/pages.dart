@@ -29,6 +29,42 @@ export 'src/pages/logs.dart' show LogsPage, RequestLogPage;
 export 'src/pages/logs_logic.dart';
 export 'src/pages/models.dart';
 export 'src/pages/platforms.dart' show PlatformsPage;
+// 票 I16：设置 12 个子页的 widget 层（`settings/pricing` 的模型信息页属票 I09）。
+export 'src/pages/settings/bits.dart'
+    show
+        AutoToast,
+        ChoiceRow,
+        ErrorNote,
+        InfoRow,
+        NumberRow,
+        SelectRow,
+        SettingsCard,
+        SettingsPageBody,
+        SwitchRow,
+        TextRow,
+        UnsavedChangesCard,
+        tOr;
+export 'src/pages/settings/coding_tools_page.dart' show CodingToolsPage;
+export 'src/pages/settings/importexport_page.dart' show ImportExportPage;
+export 'src/pages/settings/mitm_page.dart' show MitmSettingsPage;
+export 'src/pages/settings/notification_events.dart';
+export 'src/pages/settings/notifications_page.dart'
+    show NotificationsSettingsPage;
+export 'src/pages/settings/rules_pages.dart'
+    show MiddlewareSettingsPage, SchedulingSettingsPage;
+export 'src/pages/settings/schema_config_page.dart'
+    show
+        ImportDiffCard,
+        SchemaBundle,
+        SchemaConfigKind,
+        SchemaConfigPage,
+        SchemaField,
+        SchemaSection,
+        loadClaudeLanguageOptions,
+        loadSchemaBundle;
+export 'src/pages/settings/system_page.dart' show SystemSettingsPage;
+export 'src/pages/settings/tray_pages.dart'
+    show PopoverSettingsPage, TraySettingsPage;
 export 'src/pages/platforms_logic.dart';
 export 'src/pages/stats.dart' show StatsPage;
 export 'src/pages/stats_logic.dart';

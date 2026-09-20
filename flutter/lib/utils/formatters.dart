@@ -49,6 +49,20 @@ String formatNumber(num n) {
   return n.toStringAsFixed(n % 1 == 0 ? 0 : 1);
 }
 
+/// 字节数。对应 `formatters.ts::formatBytes`（票 I16 补，设置页的日志清理预估用）：
+/// 非正数 → `0 B`；B 档四舍五入取整，其余保 1 位小数。
+String formatBytes(num n) {
+  if (!(n > 0)) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+  var v = n.toDouble();
+  var i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i += 1;
+  }
+  return '${i == 0 ? v.round() : v.toStringAsFixed(1)} ${units[i]}';
+}
+
 /// 成功率百分比（0–100）。对应 `formatters.ts::successRate`：总数 ≤ 0 → 0。
 double successRate(num successCount, num totalRequests) =>
     totalRequests <= 0 ? 0 : (successCount / totalRequests) * 100;
