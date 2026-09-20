@@ -26,12 +26,17 @@ class AboutPage extends StatefulWidget {
 class _AboutPageState extends State<AboutPage> {
   late final AboutController _c;
 
+  bool _built = false;
+
+  /// 控制器的 t 必须来自 context（全局 `i18n` 在 widget 测试里没 init 过）。
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_built) return;
+    _built = true;
     _c = AboutController(
       invoke: widget.invoke,
-      t: (k, [a]) => i18n.t(k, a),
+      t: AidogI18n.of(context).t,
       onChanged: () {
         if (mounted) setState(() {});
       },

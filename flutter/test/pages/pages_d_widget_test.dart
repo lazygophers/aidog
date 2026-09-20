@@ -1,0 +1,823 @@
+/// 页面批次 D 的 widget 测试（票 I09）：能点、能填、能提交、失败有提示。
+///
+/// 两个坑沿用票 I06 的 `harness.dart`：
+/// - **别用 `pumpAndSettle`**（骨架的 `LiveDot` 是无限循环动画），用 `settle(tester)`；
+/// - 画布默认只有 800×600，交互测试先 `useBigSurface(tester)`。
+library;
+
+import 'package:aidog_flutter/i18n.dart';
+import 'package:aidog_flutter/pages.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'harness.dart';
+
+Map<String, Object?> skill(
+  String name, {
+  List<String> agents = const [],
+  String? source,
+}) => {
+  'name': name,
+  'enabled_agents': agents,
+  'scope': const {'kind': 'global'},
+  'installed_path': '/p/$name',
+  'description': null,
+  'source': source,
+  'source_type': null,
+  'source_url': null,
+  'skill_folder_hash': null,
+  'plugin_name': null,
+  'installed_at': null,
+  'updated_at': null,
+};
+
+Map<String, Object?> cached(List<Map<String, Object?>> items) => {
+  'items': items,
+  'stale': false,
+  'load_failed': false,
+};
+
+Map<String, Object?> opOk() => const {
+  'success': true,
+  'stdout': '',
+  'stderr': '',
+};
+
+void main() {
+  group('技能页', () {
+    FakeKernel fake({
+      bool npx = true,
+      List<Map<String, Object?>>? items,
+      Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+    }) {
+      final list = items ?? [skill('git-flow', agents: ['claude'])];
+      return FakeKernel({
+        'skills_check_env': (_) => {'npx_available': npx},
+        'skills_list_installed': (_) => cached(list),
+        'skills_list_refresh': (_) => cached(list),
+        ...extra,
+      });
+    }
+
+    testWidgets('渲染已装列表，并把两个 agent 开关画出来', (tester) async {
+      final c = await makeI18n(tester);
+      final k = fake();
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text('git-flow'), findsOneWidget);
+      // 两个 agent 各一个开关（skills.agent.claude / codex 的文案）
+      expect(find.text(c.t('skills.agent.claude')), findsWidgets);
+      expect(find.text(c.t('skills.agent.codex')), findsWidgets);
+    });
+
+    testWidgets('空列表给空态文案', (tester) async {
+      final c = await makeI18n(tester);
+      final k = fake(items: const []);
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('skills.installedEmpty')), findsOneWidget);
+    });
+
+    testWidgets('npx 缺失时顶部出提示条', (tester) async {
+      final c = await makeI18n(tester);
+      final k = fake(npx: false);
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('skills.envMissing')), findsOneWidget);
+    });
+
+    testWidgets('点 agent 开关 → 发 skills_disable（已启用的那个）', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'skills_disable': (_) => opOk()});
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      // 行内的 claude 开关（PageHead 里没有同名按钮）
+      await tester.tap(find.text(c.t('skills.agent.claude')).last);
+      await settle(tester);
+      expect(k.countOf('skills_disable'), 1);
+    });
+
+    testWidgets('一键卸载：先出确认卡，确认之前不发命令', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'skills_uninstall_all': (_) => opOk()});
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsNothing);
+
+      await tester.tap(find.text(c.t('skills.uninstallAll')).first);
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('skills_uninstall_all'), 0);
+
+      await tester.tap(find.text(c.t('action.confirm')).last);
+      await settle(tester);
+      expect(k.countOf('skills_uninstall_all'), 1);
+      expect(find.byType(ConfirmCard), findsNothing);
+    });
+
+    testWidgets('确认卡里点取消 → 卡消失且一条命令都不发', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'skills_uninstall_all': (_) => opOk()});
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('skills.uninstallAll')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.cancel')).last);
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsNothing);
+      expect(k.countOf('skills_uninstall_all'), 0);
+    });
+
+    testWidgets('搜索框输入 → 列表实时过滤', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(items: [skill('alpha'), skill('beta')]);
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('beta'), findsOneWidget);
+      await tester.enterText(find.byKey(const Key('skills-search')), 'alph');
+      await settle(tester);
+      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('beta'), findsNothing);
+    });
+
+    testWidgets('点「添加 Skills」切到搜索安装子视图', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'skills_search': (_) => <Object?>[]});
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('skills.install.addBtn')));
+      await settle(tester);
+      expect(find.byType(SkillInstallView), findsOneWidget);
+      // 未输入关键字时给引导文案
+      expect(find.text(c.t('skills.install.emptyHint')), findsOneWidget);
+    });
+
+    testWidgets('点 skill 名进只读详情，并读出 SKILL.md', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          'skill_detail': (_) => {
+            'files': [
+              {'rel_path': 'SKILL.md', 'size': 12, 'is_text': true},
+            ],
+          },
+          'skill_read_file': (_) => {
+            'content': 'hello skill',
+            'truncated': false,
+            'size': 11,
+          },
+        },
+      );
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text('git-flow'));
+      await settle(tester);
+      expect(find.byType(SkillDetailView), findsOneWidget);
+      expect(find.text('hello skill'), findsOneWidget);
+    });
+  });
+
+  group('MCP 页', () {
+    Map<String, Object?> server(
+      String name, {
+      String transport = 'stdio',
+      List<String> agents = const [],
+    }) => {
+      'id': 1,
+      'name': name,
+      'transport': transport,
+      'command': 'npx',
+      'args': const ['-y', 'pkg'],
+      'env': const <String, String>{},
+      'url': '',
+      'headers': const <String, String>{},
+      'enabledAgents': agents,
+      'createdAt': 0,
+      'updatedAt': 0,
+    };
+
+    FakeKernel fake({
+      List<Map<String, Object?>>? servers,
+      Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+    }) => FakeKernel({
+      'mcp_list': (_) => servers ?? [server('fs', agents: ['claude-code'])],
+      ...extra,
+    });
+
+    testWidgets('渲染列表：名字 + 摘要 + 传输', (tester) async {
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
+      await settle(tester);
+      expect(find.text('fs'), findsOneWidget);
+      expect(find.text('npx -y'), findsOneWidget);
+      expect(find.text('stdio'), findsWidgets);
+    });
+
+    testWidgets('空列表给空态', (tester) async {
+      final c = await makeI18n(tester);
+      final k = fake(servers: const []);
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('mcp.empty')), findsOneWidget);
+    });
+
+    testWidgets('删除：确认卡先出，确认之前不发命令', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'mcp_delete': (_) => null});
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.delete')).first);
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('mcp_delete'), 0);
+      await tester.tap(find.text(c.t('action.delete')).last);
+      await settle(tester);
+      expect(k.countOf('mcp_delete'), 1);
+      expect(find.text('fs'), findsNothing, reason: '就地移行');
+    });
+
+    testWidgets('新增：表单 name 为空时保存只报错，不发命令', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'mcp_add': (_) => server('x')});
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.countOf('mcp_add'), 0);
+      expect(find.text(c.t('mcp.nameRequired')), findsOneWidget);
+    });
+
+    testWidgets('新增：填了名字就能保存，并整表重拉', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'mcp_add': (_) => server('x')});
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      await tester.enterText(find.byKey(const Key('mcp-name')), 'newsrv');
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.countOf('mcp_add'), 1);
+      expect(k.countOf('mcp_list'), 2);
+    });
+
+    testWidgets('切传输到 http：表单换成 url + headers', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      expect(find.byKey(const Key('mcp-command')), findsOneWidget);
+      expect(find.byKey(const Key('mcp-url')), findsNothing);
+      await tester.tap(find.text('http'));
+      await settle(tester);
+      expect(find.byKey(const Key('mcp-url')), findsOneWidget);
+      expect(find.byKey(const Key('mcp-command')), findsNothing);
+    });
+
+    testWidgets('扫描：预选未导入项，导入后关窗', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          'mcp_scan': (_) => [
+            {
+              'name': 'a',
+              'transport': 'stdio',
+              'command': 'npx',
+              'args': const <String>[],
+              'env': const <String, String>{},
+              'url': '',
+              'headers': const <String, String>{},
+              'foundInAgents': const ['claude-code'],
+              'alreadyImported': false,
+            },
+          ],
+          'mcp_import': (_) => {
+            'imported': ['a'],
+            'skipped': <String>[],
+          },
+        },
+      );
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.scanImport')));
+      await settle(tester);
+      expect(find.text('a · stdio'), findsOneWidget);
+      await tester.tap(find.text(c.t('mcp.import', {'count': 1})));
+      await settle(tester);
+      expect(k.countOf('mcp_import'), 1);
+    });
+
+    testWidgets('不支持的组合（codex + http）点了给错误提示，不发命令', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        servers: [server('remote', transport: 'http')],
+        extra: {'mcp_set_agent': (_) => null},
+      );
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.agent.codex')));
+      await settle(tester);
+      expect(k.countOf('mcp_set_agent'), 0);
+      expect(find.byType(ToastBar), findsOneWidget);
+    });
+  });
+
+  group('关于页', () {
+    FakeKernel fake({
+      Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+    }) => FakeKernel({
+      'about_info': (_) => const {
+        'app_version': '0.1.17',
+        'tauri_version': '2.0.0',
+        'os': 'macos',
+        'arch': 'aarch64',
+        'family': 'unix',
+        'profile': 'release',
+        'git_commit': 'abc1234',
+        'build_time': '0',
+      },
+      'cli_check_versions': (_) => [
+        {
+          'name': 'claude',
+          'installed': false,
+          'version': null,
+          'path': null,
+          'broken': false,
+          'conflict': false,
+        },
+      ],
+      'cli_check_updates': (_) => <Object?>[],
+      ...extra,
+    });
+
+    testWidgets('版本信息逐行渲染', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(AboutPage(invoke: fake().invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('about.appVersion')), findsOneWidget);
+      expect(find.text(stripIsolates('v0.1.17')), findsOneWidget);
+      expect(find.text(stripIsolates('abc1234')), findsOneWidget);
+      // build_time = "0" → 非正数，原样回显
+      expect(find.text(stripIsolates('0')), findsOneWidget);
+    });
+
+    testWidgets('更新那一块走「这里不检查更新」分支，没有检查按钮', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(AboutPage(invoke: fake().invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('about.updateDesktopOnly')), findsOneWidget);
+      expect(find.text(c.t('about.checkUpdate')), findsNothing);
+    });
+
+    testWidgets('未安装的工具给「安装」按钮，点了发 cli_install', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(extra: {'cli_install': (_) => null});
+      await tester.pumpWidget(wrapPage(AboutPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('about.localEnv.notInstalled')), findsOneWidget);
+      await tester.tap(find.text(c.t('about.localEnv.install')));
+      await settle(tester);
+      expect(k.lastArgsOf('cli_install'), {'tool': 'claude'});
+    });
+
+    testWidgets('诊断失败 → 错误条可见', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {'cli_diagnose_conflicts': (_) => throw StateError('nope')},
+      );
+      await tester.pumpWidget(wrapPage(AboutPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('about.localEnv.diagnose')));
+      await settle(tester);
+      expect(find.byType(ToastBar), findsOneWidget);
+    });
+  });
+
+  group('通知中心', () {
+    Map<String, Object?> notif(
+      int id, {
+      String type = 'task_complete',
+      String title = '',
+      String body = '',
+    }) => {
+      'id': id,
+      'notif_type': type,
+      'title': title,
+      'body': body,
+      'created_at': 0,
+    };
+
+    testWidgets('空列表：空态 + 「清空」是禁用的', (tester) async {
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => <Object?>[],
+        'notification_clear': (_) => null,
+      });
+      await tester.pumpWidget(
+        wrapPage(NotificationsPage(invoke: k.invoke), c),
+      );
+      await settle(tester);
+      expect(find.text(c.t('notif.inboxEmpty')), findsOneWidget);
+      await tester.tap(find.text(c.t('notif.clear')));
+      await settle(tester);
+      expect(k.countOf('notification_clear'), 0, reason: '空列表时按钮禁用');
+    });
+
+    testWidgets('有标题时渲染「标题 · 类型」，没标题只渲染类型', (tester) async {
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => [
+          notif(1, title: '任务好了', body: 'b'),
+          notif(2, type: 'error'),
+        ],
+        'notification_clear': (_) => null,
+      });
+      await tester.pumpWidget(
+        wrapPage(NotificationsPage(invoke: k.invoke), c),
+      );
+      await settle(tester);
+      expect(
+        find.text('任务好了 · ${c.t('notif.type.task_complete')}'),
+        findsOneWidget,
+      );
+      expect(find.text(c.t('notif.type.error')), findsOneWidget);
+      expect(find.text('b'), findsOneWidget);
+    });
+
+    testWidgets('清空：发命令并重查一遍', (tester) async {
+      final c = await makeI18n(tester);
+      var cleared = false;
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => cleared ? <Object?>[] : [notif(1)],
+        'notification_clear': (_) {
+          cleared = true;
+          return null;
+        },
+      });
+      await tester.pumpWidget(
+        wrapPage(NotificationsPage(invoke: k.invoke), c),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('notif.clear')));
+      await settle(tester);
+      expect(k.countOf('notification_clear'), 1);
+      expect(k.countOf('notification_inbox_list'), 2);
+      expect(find.text(c.t('notif.inboxEmpty')), findsOneWidget);
+    });
+
+    testWidgets('「通知设置」按钮把 settings/notifications 传给导航', (tester) async {
+      final c = await makeI18n(tester);
+      String? navigated;
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => <Object?>[],
+        'notification_clear': (_) => null,
+      });
+      await tester.pumpWidget(
+        wrapPage(
+          NotificationsPage(invoke: k.invoke, onNavigate: (id) => navigated = id),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('notifications.goSettings')));
+      await settle(tester);
+      expect(navigated, 'settings/notifications');
+    });
+
+    testWidgets('未知类型原样显示裸值', (tester) async {
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => [notif(1, type: 'brand_new')],
+        'notification_clear': (_) => null,
+      });
+      await tester.pumpWidget(
+        wrapPage(NotificationsPage(invoke: k.invoke), c),
+      );
+      await settle(tester);
+      expect(find.text('brand_new'), findsOneWidget);
+    });
+  });
+
+  group('模型信息页', () {
+    FakeKernel fake({
+      Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+    }) => FakeKernel({
+      'model_info_snapshot': (_) => {
+        'bundled': false,
+        'platforms': const <Object?>[],
+        'pricing_only': const <String>[],
+        'groups': [
+          {
+            'canonical_model': 'glm-4.6',
+            'display_name': 'GLM-4.6',
+            'primary_platform': 'glm',
+            'entries': [
+              {
+                'platform_code': 'glm',
+                'model_id': 'glm-4.6',
+                'display_name': 'GLM-4.6',
+                'canonical_model': 'glm-4.6',
+                'family': 'glm',
+                'version': '4.6',
+                'predecessor': 'glm-4.5',
+                'capabilities': const ['text'],
+                'builtin_tools_excluded': const <String>[],
+                'max_input_tokens': null,
+                'max_output_tokens': null,
+                'context_window': 131072,
+                'official': true,
+                'price_data': '{"price":{"input":1.1e-6,"output":4.2e-6}}',
+                'updated_at': 0,
+              },
+            ],
+          },
+        ],
+      },
+      'price_sync_settings_get': (_) => const {
+        'auto_sync_enabled': false,
+        'sync_interval_secs': 86400,
+        'last_sync_at': 0,
+        'fallback_input_price': 3,
+        'fallback_output_price': 3,
+      },
+      'price_sync_settings_set': (_) => null,
+      'get_defaults_json': (_) =>
+          '{"protocols":{"glm":{"name":{"zh-Hans":"智谱 GLM"}}}}',
+      ...extra,
+    });
+
+    testWidgets('模型维度表：展示名 + 平台名 + 上下文 + 两列价格', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+      expect(find.text('GLM-4.6'), findsWidgets);
+      expect(find.textContaining('智谱 GLM'), findsWidgets);
+      expect(find.text(stripIsolates('131.1K')), findsOneWidget);
+      expect(find.text(stripIsolates('\$1.10')), findsOneWidget);
+      expect(find.text(stripIsolates('\$4.20')), findsOneWidget);
+    });
+
+    testWidgets('点一行开详情，再点关闭收起', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.requestName')), findsNothing);
+      await tester.tap(find.text('GLM-4.6').first);
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.requestName')), findsOneWidget);
+      expect(find.text('glm-4.5'), findsOneWidget, reason: '版本链里的前代');
+      await tester.tap(find.text(c.t('action.close')).last);
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.requestName')), findsNothing);
+    });
+
+    testWidgets('同步按钮：点了发 model_price_sync，失败清单逐条列出', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          'model_price_sync': (_) => const {
+            'added': 1,
+            'updated': 2,
+            'unchanged': 0,
+            'failed': 1,
+            'total': 4,
+            'failures': [
+              {'file': 'platforms/glm/models/glm-4.6.json', 'error': '404'},
+            ],
+          },
+        },
+      );
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('modelInfo.syncNow')));
+      await settle(tester);
+      expect(k.countOf('model_price_sync'), 1);
+      expect(
+        find.text('platforms/glm/models/glm-4.6.json — 404'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('自动同步开关打开后间隔选项才出现，并落盘', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake();
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(stripIsolates('24h')), findsNothing);
+      await tester.tap(find.byType(Switch).first);
+      await settle(tester);
+      expect(find.text(stripIsolates('24h')), findsOneWidget);
+      expect(k.countOf('price_sync_settings_set'), 1);
+    });
+
+    testWidgets('切到平台维度：未选平台时给引导文案，选了才列条目', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('modelInfo.tabPlatforms')));
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.selectPlatform')), findsOneWidget);
+      await tester.tap(find.text('智谱 GLM').first);
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.selectPlatform')), findsNothing);
+      expect(find.text('glm-4.6'), findsWidgets);
+    });
+
+    testWidgets('搜索无结果时表里一行都没有', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+      await tester.enterText(
+        find.byKey(const Key('model-info-search')),
+        '绝无此模型',
+      );
+      await settle(tester);
+      expect(find.text('GLM-4.6'), findsNothing);
+      // 「清除筛选」这时才出现
+      expect(find.text(c.t('modelInfo.clearFilter')), findsOneWidget);
+    });
+
+    testWidgets('bundled=true 时提示尚未同步', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'model_info_snapshot': (_) => {
+          'bundled': true,
+          'platforms': const <Object?>[],
+          'pricing_only': const <String>[],
+          'groups': const <Object?>[],
+        },
+        'price_sync_settings_get': (_) => const {
+          'auto_sync_enabled': false,
+          'sync_interval_secs': 86400,
+          'last_sync_at': 0,
+          'fallback_input_price': 3,
+          'fallback_output_price': 3,
+        },
+        'get_defaults_json': (_) => '{"protocols":{}}',
+      });
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: k.invoke), c));
+      await settle(tester);
+      expect(find.text(c.t('modelInfo.bundledNotice')), findsOneWidget);
+      expect(find.text(c.t('modelInfo.empty')), findsOneWidget);
+    });
+  });
+
+  group('模型测试面板', () {
+    const platform = TestTargetPlatform(
+      id: 7,
+      name: 'GLM',
+      platformType: 'glm',
+      availableModels: ['m1', 'm2'],
+      models: {'default': 'm1'},
+    );
+
+    testWidgets('六个模式按钮都在；切到需要选模型的模式才出模型按钮', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = FakeKernel({'model_test': (_) => const {'success': true}});
+      await tester.pumpWidget(
+        wrapPage(
+          ModelTestPanel(
+            invoke: k.invoke,
+            platform: platform,
+            onClose: () {},
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text(c.t('test.modeQuick')), findsOneWidget);
+      expect(find.text(c.t('test.modeTool')), findsOneWidget);
+      // quick 模式不出模型选择
+      expect(find.text('m2'), findsNothing);
+      await tester.tap(find.text(c.t('test.modeBatch')));
+      await settle(tester);
+      expect(find.text('m1'), findsOneWidget);
+      expect(find.text('m2'), findsOneWidget);
+    });
+
+    testWidgets('跑一轮：结果逐条渲染，含耗时与 token', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'model_test': (_) => const {
+          'success': true,
+          'model': 'm1',
+          'prompt_preview': 'p',
+          'response_preview': 'looks good',
+          'duration_ms': 120,
+          'input_tokens': 3,
+          'output_tokens': 4,
+          'error': '',
+        },
+      });
+      await tester.pumpWidget(
+        wrapPage(
+          ModelTestPanel(invoke: k.invoke, platform: platform, onClose: () {}),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('test.run')));
+      await settle(tester);
+      expect(k.countOf('model_test'), 1);
+      expect(find.text(c.t('test.results')), findsOneWidget);
+      expect(find.text(stripIsolates('120ms')), findsOneWidget);
+      expect(find.text(stripIsolates('7 tok')), findsOneWidget);
+      expect(find.text('looks good'), findsOneWidget);
+    });
+
+    testWidgets('失败：错误文案可见', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'model_test': (_) => throw StateError('upstream 502'),
+      });
+      await tester.pumpWidget(
+        wrapPage(
+          ModelTestPanel(invoke: k.invoke, platform: platform, onClose: () {}),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('test.run')));
+      await settle(tester);
+      expect(find.textContaining('upstream 502'), findsOneWidget);
+      // 零值不渲染：失败行的 durationMs 是 0
+      expect(find.text(stripIsolates('0ms')), findsNothing);
+    });
+
+    testWidgets('custom 模式出提示词输入框，填了就带进请求', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'model_test': (_) => const {'success': true, 'model': 'm1'},
+      });
+      await tester.pumpWidget(
+        wrapPage(
+          ModelTestPanel(invoke: k.invoke, platform: platform, onClose: () {}),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.byKey(const Key('model-test-prompt')), findsNothing);
+      await tester.tap(find.text(c.t('test.modeCustom')));
+      await settle(tester);
+      await tester.enterText(
+        find.byKey(const Key('model-test-prompt')),
+        '你好',
+      );
+      await tester.tap(find.text(c.t('test.run')));
+      await settle(tester);
+      expect((k.lastArgsOf('model_test')!['req'] as Map)['prompt'], '你好');
+    });
+
+    testWidgets('关闭按钮回调父级', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      var closed = false;
+      final k = FakeKernel({'model_test': (_) => const {'success': true}});
+      await tester.pumpWidget(
+        wrapPage(
+          ModelTestPanel(
+            invoke: k.invoke,
+            platform: platform,
+            onClose: () => closed = true,
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.close')));
+      await settle(tester);
+      expect(closed, isTrue);
+    });
+  });
+}
