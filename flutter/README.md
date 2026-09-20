@@ -185,13 +185,22 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 
 | 处 | React | 这里 | 为什么 |
 |---|---|---|---|
-| 平台 / 分组搜索 | `pinyinMatch`（`pinyin-pro` 汉字字典） | 不分大小写子串 + registry `keywords` | 沿用票 I06 已记的同一取舍。**平台不受影响** —— registry 的 `keywords` 本来就把全拼与首字母当字面数据存着；受影响的只有用户自起中文名的平台 / 分组：输拼音搜不到。`groups_logic_test.dart` 里有一条测试把这个差异钉死，哪天引了字典它会红 |
 | 余额查询的入队顺序 | `IntersectionObserver` 按卡片进视口的顺序（可视优先） | 列表顺序 | Flutter 没有等价的廉价原语。并发上限、去重、pending 三态都一样，差的只是**先查哪个** |
 | 该不该查余额 | 还要过 `platformHasQuotaScript`（registry 的 `quota_scripts` 索引） | 只判「有 key 且有 base_url」 | 那个索引是 `get_defaults_json` 的一个子树，本层没解析。后果是**多查**不是少查：没脚本的平台白发一次命令，后端返 `success:false`，UI 表现一致 |
 | 平台卡 | favicon、拖拽手柄、展开端点明细 | 动作做全（启停 / 测试 / 刷余额 / 查日志 / 删除），展开明细未做 | 本票口径是功能对齐优先于观感；拖拽排序的命令（`platform_reorder`）已接，只是没有手柄 UI |
 | 跨组件通知 | `window` 上三个自定义事件（`aidog-groups-changed` 等） | 父子回调 | 分组区在 Flutter 这边是平台页的**子 widget**，不是兄弟页，不需要事件总线 |
 | 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
 | `formatDateTime` | `toLocaleString()`，跟浏览器 locale 走 | 固定 `YYYY/M/D HH:MM:SS` | 跟 locale 走要先 `initializeDateFormatting()`，漏调会在非英文 locale 抛 `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 同一个理由 |
+
+### 拼音搜索（I17 补齐）
+
+平台 / 分组 / 筛选下拉的中文模糊搜索走 `lib/src/utils/pinyin.dart::pinyinMatch`，
+匹配语义与 React 的 `pinyin-pro` 版一致（直接子串 / 全拼子串 / query 中文转拼音 /
+首字母串）。词典是**自建**的 3500 常用字表（`scripts/pinyin_3500.txt`，《现代汉语
+常用字表》），读音由 pinyin-pro 生成、入库为 `lib/src/utils/pinyin_data.dart`
+（约 29 KB，`node scripts/gen-flutter-pinyin-data.mjs --check` 盯着不漂移）。
+不引 pub.dev 拼音包：唯一候选多年未更新且许可证未核实，不往 AGPL 仓库里引。
+表外生僻字按原字符保留（与 pinyin-pro 查不到时的行为一致），只可能搜不到、不会误报。
 
 ### 路由配置这一页，校验和确认是照搬的
 
@@ -375,8 +384,14 @@ lib/src/pages/
   settings/mitm_page.dart       MITM 解密（票 I16）
   settings/tray_pages.dart      托盘 + 浮窗（票 I16）
   settings/importexport_page.dart   导入导出 + 定时备份 + 异源导入（票 I16）
+  settings/permissions_editor.dart  claude 页权限矩阵编辑器（I17，可视化↔JSON 双模式）
+  settings/hooks_editor.dart        claude 页 hooks 构建器 + notify 快捷条（I17）
+  settings/middleware_editor.dart   中间件条件树 / 动作链 / 应用范围编辑器（I17）
+  settings/middleware_dsl.dart      条件树 ↔ DSL 源码互转（I17，mwDsl.ts 移植）
+  settings/popover_layout.dart      浮窗二维布局纯函数：normalize / moveItem / makeItem（I17）
 lib/stats/aggregation.dart      Stats 二次聚合四函数（票 I05）
 lib/utils/formatters.dart       数值格式化唯一落点（禁页内重复定义）
+lib/src/utils/pinyin.dart        拼音模糊搜索（3500 常用字自建词典，I17）
 lib/utils/color_level.dart      成功率 / 成本的色编码分级
 lib/main.dart                   主窗口入口
 ```
