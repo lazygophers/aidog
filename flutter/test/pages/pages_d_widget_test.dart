@@ -410,6 +410,25 @@ void main() {
       expect(find.text(c.t('about.checkUpdate')), findsNothing);
     });
 
+    // 票 I13：桌面形态（onCheckUpdate 非 null）给「检查更新」按钮，点了走 auto_updater。
+    testWidgets('给了 onCheckUpdate → 检查按钮可见且点击触发', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      var tapped = 0;
+      await tester.pumpWidget(
+        wrapPage(
+          AboutPage(invoke: fake().invoke, onCheckUpdate: () async => tapped++),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text(c.t('about.checkUpdate')), findsOneWidget);
+      expect(find.text(c.t('about.updateDesktopOnly')), findsNothing);
+      await tester.tap(find.text(c.t('about.checkUpdate')));
+      await settle(tester);
+      expect(tapped, 1);
+    });
+
     testWidgets('未安装的工具给「安装」按钮，点了发 cli_install', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);

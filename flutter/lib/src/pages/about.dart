@@ -15,9 +15,17 @@ import 'invoke.dart';
 import 'ui_bits.dart';
 
 class AboutPage extends StatefulWidget {
-  const AboutPage({super.key, this.invoke = kernelInvoke});
+  const AboutPage({
+    super.key,
+    this.invoke = kernelInvoke,
+    this.onCheckUpdate,
+  });
 
   final InvokeFn invoke;
+
+  /// 票 I13：非 null 才渲染「检查更新」按钮（auto_updater 只覆盖 macOS / Windows）。
+  /// null 走「这里不检查更新」的说明分支 —— widget 测试与不受支持的平台都用它。
+  final Future<void> Function()? onCheckUpdate;
 
   @override
   State<AboutPage> createState() => _AboutPageState();
@@ -119,15 +127,20 @@ class _AboutPageState extends State<AboutPage> {
         const SizedBox(height: AidogSpace.ssm),
 
         // ── 软件更新 ──
-        // React 在 `About.tsx:291` 按 `isTauri()` 分两条分支；Flutter 外壳没有 Tauri 的
-        // updater 插件（自动更新是票 I13 的 auto_updater，未落地），所以走的是**另一条既有
-        // 分支**：一句说明，不给一个点了必然报错的按钮。见 README 差异表。
+        // React 在 `About.tsx:291` 按 `isTauri()` 分两条分支；Flutter 壳对应的是
+        // `onCheckUpdate` 有没有（票 I13 的 auto_updater，仅 macOS / Windows）：
+        // 有 → 检查按钮，后续 UI（下载/安装/重启）Sparkle 自己接管；没有 → 一句说明。
         Tile(
           title: t.t('about.updateTitle'),
-          child: Text(
-            t.t('about.updateDesktopOnly'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
+          child: widget.onCheckUpdate == null
+              ? Text(
+                  t.t('about.updateDesktopOnly'),
+                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                )
+              : SmallButton(
+                  label: t.t('about.checkUpdate'),
+                  onTap: widget.onCheckUpdate,
+                ),
         ),
         const SizedBox(height: AidogSpace.ssm),
 
