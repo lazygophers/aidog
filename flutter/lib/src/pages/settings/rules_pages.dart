@@ -7,9 +7,9 @@
 ///
 /// 🔴 调度页「写失败不回滚本地值」是照搬 React 的（`scheduling_logic.dart:123`）。
 ///
-/// **规则编辑表单与 React 的差异**：React 侧是卡片 / DSL 双模式编辑器（48 KB），
-/// 这里是「条件 + 动作两个 JSON 编辑框」。功能上能建 / 能改 / 能删 / 能启停，
-/// 但没有可视化条件树。列在 flutter/README.md 的未对齐清单里。
+/// 中间件规则表单（I17）对齐 React 的卡片 ↔ DSL 双模式：条件树 / 动作链 /
+/// 应用范围走 `middleware_editor.dart` 的表单编辑器，DSL 源码与裸 JSON 保留为
+/// 高级模式（React 只有前两种，JSON 是 Flutter 侧多给的一层回退）。
 library;
 
 import 'dart:async';
@@ -24,6 +24,8 @@ import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'middleware_dsl.dart';
+import 'middleware_editor.dart';
 import 'middleware_logic.dart';
 import 'scheduling_logic.dart';
 
@@ -149,6 +151,15 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   /// 表单草稿。表单没开时为 null。
   _RuleDraft? _draft;
 
+  /// 条件区模式：cards（默认）/ dsl / json；动作区：cards / json。
+  /// DSL 与 JSON 只是同一份结构化草稿的文本视图，切换时互转。
+  String _condMode = 'cards';
+  String _dslText = '';
+  String? _dslError;
+  String _condJsonText = '';
+  String _actionsMode = 'cards';
+  String _actionsJsonText = '';
+
   void Function()? _unregisterGuard;
   void Function()? _pendingNav;
 
@@ -186,7 +197,12 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   }
 
   void _openForm(_RuleDraft d) {
-    setState(() => _draft = d);
+    setState(() {
+      _draft = d;
+      _condMode = 'cards';
+      _actionsMode = 'cards';
+      _dslError = null;
+    });
     _syncGuard();
   }
 
@@ -194,6 +210,111 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     setState(() => _draft = null);
     _c.closeForm();
     _syncGuard();
+  }
+
+  /// DSL 文本解析；失败返回错误文案，成功返回 null。
+  String? _tryParseDsl(String src) {
+    try {
+      parseDsl(src);
+      return null;
+    } on DslException catch (e) {
+      return '$e';
+    }
+  }
+
+  /// 切条件区模式：离开文本模式时把文本解析回结构化草稿（解析失败留在原模式）。
+  void _switchCondMode(String target) {
+    final d = _draft;
+    if (d == null) return;
+    if (target == _condMode) return;
+    if (_condMode == 'dsl') {
+      final err = _tryParseDsl(_dslText);
+      if (err != null) return; // React：切回卡片按钮在 DSL 报错时禁用
+      d.conditions = parseDsl(_dslText);
+    } else if (_condMode == 'json') {
+      try {
+        final v = jsonDecode(_condJsonText);
+        if (v is! Map) return;
+        d.conditions = Map<String, Object?>.from(v);
+      } catch (_) {
+        return;
+      }
+    }
+    setState(() {
+      _condMode = target;
+      if (target == 'dsl') {
+        _dslText = treeToDsl(d.conditions);
+        _dslError = null;
+      } else if (target == 'json') {
+        _condJsonText = _pretty(d.conditions);
+      }
+    });
+  }
+
+  void _switchActionsMode(String target) {
+    final d = _draft;
+    if (d == null || target == _actionsMode) return;
+    if (_actionsMode == 'json') {
+      try {
+        final v = jsonDecode(_actionsJsonText);
+        if (v is! List) return;
+        d.actions = [
+          for (final a in v)
+            if (a is Map) Map<String, Object?>.from(a),
+        ];
+      } catch (_) {
+        return;
+      }
+    }
+    setState(() {
+      _actionsMode = target;
+      if (target == 'json') _actionsJsonText = _pretty(d.actions);
+    });
+  }
+
+  static String _pretty(Object? v) =>
+      const JsonEncoder.withIndent('  ').convert(v);
+
+  static const _tJsonErr = 'JSON 解析失败';
+
+  /// 保存前把文本模式下的内容解析回草稿（React `handleSave` 同兜底）。
+  /// 返回 null = 可保存；否则是错误文案。
+  String? _syncDraftFromText() {
+    final d = _draft;
+    if (d == null) return 'no draft';
+    if (_condMode == 'dsl') {
+      final err = _tryParseDsl(_dslText);
+      if (err != null) return err;
+      d.conditions = parseDsl(_dslText);
+    } else if (_condMode == 'json') {
+      try {
+        final v = jsonDecode(_condJsonText);
+        if (v is! Map) return _tJsonErr;
+        d.conditions = Map<String, Object?>.from(v);
+      } catch (_) {
+        return _tJsonErr;
+      }
+    }
+    if (_actionsMode == 'json') {
+      try {
+        final v = jsonDecode(_actionsJsonText);
+        if (v is! List) return _tJsonErr;
+        d.actions = [
+          for (final a in v)
+            if (a is Map) Map<String, Object?>.from(a),
+        ];
+      } catch (_) {
+        return _tJsonErr;
+      }
+    }
+    return null;
+  }
+
+  bool _draftValid() {
+    final d = _draft;
+    if (d == null || !d.valid) return false;
+    if (_condMode == 'dsl' && _dslError != null) return false;
+    return _syncDraftFromText() == null;
   }
 
   @override
@@ -251,7 +372,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           UnsavedChangesCard(
             onSave: () async {
               final d = _draft;
-              if (d == null || !d.valid) return;
+              if (d == null || !_draftValid()) return;
+              _syncDraftFromText();
               await _c.save(d.toInput());
               if (!mounted) return;
               final proceed = _pendingNav;
@@ -314,6 +436,28 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                   Text(
                     r.description,
                     style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                // 条件 / 动作 / 应用范围摘要（React RuleRow 的徽标行）。
+                Text(
+                  conditionsSummary(
+                    r.raw['conditions'] is Map
+                        ? Map<String, Object?>.from(r.raw['conditions'] as Map)
+                        : emptyLeaf,
+                  ),
+                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                ),
+                Text(
+                  actionsSummary(
+                    t,
+                    r.raw['actions'] as List? ?? const [],
+                  ),
+                  style: AidogType.micro.copyWith(color: theme.c.accent),
+                ),
+                if (hasObserveAction(r.raw['actions'] as List? ?? const []))
+                  Text(
+                    '${tOr(t, 'middleware.observe', '观察模式')} · '
+                    '${appliesSummary(r.raw['applies_to'] is Map ? Map<String, Object?>.from(r.raw['applies_to'] as Map) : null)}',
+                    style: AidogType.micro.copyWith(color: theme.c.peak),
                   ),
                 if (budget != null)
                   Text(
@@ -392,35 +536,120 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         value: d.enabled,
         onChanged: (v) => setState(() => d.enabled = v),
       ),
-      TextRow(
-        key: const ValueKey('rule-conditions'),
-        label: t.t('middleware.conditions'),
-        description: t.t('middleware.dslHint'),
-        value: d.conditionsText,
-        maxLines: 5,
-        onChanged: (v) => setState(() => d.conditionsText = v),
+      // ── 条件：卡片 / DSL / JSON 三模式 ──
+      Row(
+        children: [
+          Text(
+            t.t('middleware.conditions'),
+            style: AidogType.label.copyWith(
+              color: AidogTheme.of(context).c.fg,
+            ),
+          ),
+          const Spacer(),
+          SmallButton(
+            key: const ValueKey('cond-mode-cards'),
+            label: tOr(t, 'middleware.toCards', '卡片模式'),
+            active: _condMode == 'cards',
+            onTap: () => _switchCondMode('cards'),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+          SmallButton(
+            key: const ValueKey('cond-mode-dsl'),
+            label: tOr(t, 'middleware.toDsl', 'DSL 源码'),
+            active: _condMode == 'dsl',
+            onTap: () => _switchCondMode('dsl'),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+          SmallButton(
+            key: const ValueKey('cond-mode-json'),
+            label: t.t('settings.jsonMode'),
+            active: _condMode == 'json',
+            onTap: () => _switchCondMode('json'),
+          ),
+        ],
       ),
-      TextRow(
-        key: const ValueKey('rule-actions'),
-        label: t.t('middleware.actions'),
-        value: d.actionsText,
-        maxLines: 5,
-        onChanged: (v) => setState(() => d.actionsText = v),
+      if (_condMode == 'cards')
+        ConditionTreeEditor(
+          node: _draft!.conditions,
+          onChanged: (n) => setState(() => _draft!.conditions = n),
+          onRemove: () => setState(() => _draft!.conditions = emptyLeaf),
+          removeLabel: tOr(t, 'middleware.clearConditions', '清空条件'),
+        )
+      else if (_condMode == 'dsl') ...[
+        TextRow(
+          key: const ValueKey('rule-conditions-dsl'),
+          label: t.t('middleware.conditions'),
+          description: t.t('middleware.dslHint'),
+          value: _dslText,
+          maxLines: 6,
+          onChanged: (v) {
+            setState(() {
+              _dslText = v;
+              _dslError = _tryParseDsl(v);
+            });
+          },
+        ),
+        if (_dslError != null) ErrorNote(text: _dslError!),
+      ]
+      else
+        TextRow(
+          key: const ValueKey('rule-conditions'),
+          label: t.t('middleware.conditions'),
+          value: _condJsonText,
+          maxLines: 6,
+          onChanged: (v) => setState(() => _condJsonText = v),
+        ),
+      if (d.phaseError != null) ErrorNote(text: d.phaseError!),
+      // ── 动作链：卡片 / JSON ──
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              t.t('middleware.actions'),
+              style: AidogType.label.copyWith(
+                color: AidogTheme.of(context).c.fg,
+              ),
+            ),
+          ),
+          SmallButton(
+            key: const ValueKey('actions-mode-cards'),
+            label: tOr(t, 'middleware.toCards', '卡片模式'),
+            active: _actionsMode == 'cards',
+            onTap: () => _switchActionsMode('cards'),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+          SmallButton(
+            key: const ValueKey('actions-mode-json'),
+            label: t.t('settings.jsonMode'),
+            active: _actionsMode == 'json',
+            onTap: () => _switchActionsMode('json'),
+          ),
+        ],
       ),
-      TextRow(
-        key: const ValueKey('rule-applies-to'),
-        label: t.t('middleware.appliesTo'),
-        description: [
-          '${t.t('middleware.appliesPlatforms')}: '
-              '${_c.platforms.map((p) => '${p.id}=${p.name}').join(', ')}',
-          '${t.t('middleware.appliesGroups')}: '
-              '${_c.groups.map((g) => '${g.groupKey}=${g.name}').join(', ')}',
-        ].join('\n'),
-        value: d.appliesToText,
-        maxLines: 4,
-        onChanged: (v) => setState(() => d.appliesToText = v),
+      if (_actionsMode == 'cards')
+        ActionChainEditor(
+          steps: _draft!.actions,
+          onChanged: (s) => setState(() => _draft!.actions = s),
+        )
+      else
+        TextRow(
+          key: const ValueKey('rule-actions'),
+          label: t.t('middleware.actions'),
+          value: _actionsJsonText,
+          maxLines: 6,
+          onChanged: (v) => setState(() => _actionsJsonText = v),
+        ),
+      // ── 应用范围 ──
+      Text(
+        t.t('middleware.appliesTo'),
+        style: AidogType.label.copyWith(color: AidogTheme.of(context).c.fg),
       ),
-      if (d.parseError(t) != null) ErrorNote(text: d.parseError(t)!),
+      AppliesToEditor(
+        value: _draft!.applies,
+        onChanged: (a) => setState(() => _draft!.applies = a),
+        platforms: _c.platforms,
+        groups: _c.groups,
+      ),
       Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -429,10 +658,11 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           SmallButton(
             key: const ValueKey('rule-save'),
             label: t.t('action.save'),
-            // 名字为空、或 JSON 解不开就点不动。
-            onTap: d.valid
+            // 名字为空、条件 / 动作在当前模式下解析不了、或混阶段，就点不动。
+            onTap: _draftValid()
                 ? () async {
-                    await _c.save(d.toInput());
+                    _syncDraftFromText();
+                    await _c.save(_draft!.toInput());
                     if (mounted) _closeForm();
                   }
                 : null,
@@ -443,16 +673,17 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   );
 }
 
-/// 规则表单草稿。三个结构化字段以 JSON 文本承载（见文件头说明）。
+/// 规则表单草稿。conditions / actions / applies_to 是结构化对象（表单直接改），
+/// DSL / JSON 只是同一份数据的文本视图（切换模式时互转）。
 class _RuleDraft {
   _RuleDraft({
     required this.name,
     required this.description,
     required this.priority,
     required this.enabled,
-    required this.conditionsText,
-    required this.actionsText,
-    required this.appliesToText,
+    required this.conditions,
+    required this.actions,
+    required this.applies,
   });
 
   factory _RuleDraft.empty() => _RuleDraft(
@@ -460,60 +691,61 @@ class _RuleDraft {
     description: '',
     priority: 0,
     enabled: true,
-    conditionsText: '{}',
-    actionsText: '[]',
-    appliesToText: '{}',
+    conditions: emptyLeaf,
+    actions: [
+      {
+        'kind': 'mask',
+        'params': {...defaultActionParams(), 'replacement': '****'},
+      },
+    ],
+    applies: {'platforms': [], 'groups': [], 'models': []},
   );
 
-  factory _RuleDraft.fromRule(MiddlewareRule r) => _RuleDraft(
-    name: r.name,
-    description: r.description,
-    priority: r.priority,
-    enabled: r.enabled,
-    conditionsText: _pretty(r.raw['conditions'] ?? <String, Object?>{}),
-    actionsText: _pretty(r.raw['actions'] ?? <Object?>[]),
-    appliesToText: _pretty(r.raw['applies_to'] ?? <String, Object?>{}),
-  );
+  factory _RuleDraft.fromRule(MiddlewareRule r) {
+    Map<String, Object?> asMap(Object? v) =>
+        v is Map ? Map<String, Object?>.from(v) : emptyLeaf;
+    return _RuleDraft(
+      name: r.name,
+      description: r.description,
+      priority: r.priority,
+      enabled: r.enabled,
+      conditions: asMap(r.raw['conditions']),
+      actions: [
+        for (final a in (r.raw['actions'] as List? ?? const []))
+          if (a is Map) Map<String, Object?>.from(a),
+      ],
+      applies: r.raw['applies_to'] is Map
+          ? Map<String, Object?>.from(r.raw['applies_to'] as Map)
+          : {'platforms': [], 'groups': [], 'models': []},
+    );
+  }
 
   String name;
   String description;
   int priority;
   bool enabled;
-  String conditionsText;
-  String actionsText;
-  String appliesToText;
 
-  static String _pretty(Object? v) =>
-      const JsonEncoder.withIndent('  ').convert(v);
+  /// 条件树（serde 形状，见 `middleware_dsl.dart` 的文件头）。
+  Map<String, Object?> conditions;
 
-  Object? _decode(String s) {
-    try {
-      return jsonDecode(s);
-    } catch (_) {
-      return null;
-    }
-  }
+  /// 动作链（有序）。
+  List<Map<String, Object?>> actions;
 
-  /// 三个 JSON 框都解得开、名字非空才算可保存。
-  bool get valid =>
-      name.trim().isNotEmpty &&
-      _decode(conditionsText) != null &&
-      _decode(actionsText) != null &&
-      _decode(appliesToText) != null;
+  /// `{platforms, groups, models}`。
+  Map<String, Object?> applies;
 
-  String? parseError(I18nController t) {
-    if (_decode(conditionsText) == null) return t.t('middleware.conditions');
-    if (_decode(actionsText) == null) return t.t('middleware.actions');
-    if (_decode(appliesToText) == null) return t.t('middleware.appliesTo');
-    return null;
-  }
+  /// 混阶段检查（与 Rust validate_rule_phases 对称，保存前提前提示）。
+  String? get phaseError => mixedPhase(conditions);
+
+  /// 名字非空、叶子不混阶段才算可保存。
+  bool get valid => name.trim().isNotEmpty && phaseError == null;
 
   Map<String, Object?> toInput() => {
     'name': name.trim(),
     'description': description,
-    'conditions': _decode(conditionsText),
-    'actions': _decode(actionsText),
-    'applies_to': _decode(appliesToText),
+    'conditions': conditions,
+    'actions': actions,
+    'applies_to': applies,
     'priority': priority,
     'enabled': enabled,
     'is_builtin': false,

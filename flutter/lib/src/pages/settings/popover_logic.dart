@@ -157,10 +157,6 @@ class PopoverController {
     }
   }
 
-  /// 卡片列表的 order 按下标重排（与托盘同理，拖拽后不重排顺序在后端就是乱的）。
-  static List<Map<String, Object?>> withOrders(List<Map<String, Object?>> items) =>
-      [for (var i = 0; i < items.length; i++) {...items[i], 'order': i}];
-
   static Map<String, Object?> _map(Object? v) =>
       v is Map ? Map<String, Object?>.from(v) : <String, Object?>{};
 }
