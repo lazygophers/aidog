@@ -6,8 +6,18 @@ import 'package:flutter/material.dart';
 
 import 'i18n.dart';
 import 'pages.dart';
+import 'popover.dart';
 import 'shell.dart';
 import 'transport.dart';
+
+/// 托盘小窗那个引擎的入口（票 I11）。
+///
+/// macOS 的 `FlutterEngine.run(withEntrypoint:)` 只在**默认库**（即 `lib/main.dart`）
+/// 里找同名顶层函数，所以这一行转发不能挪到 `src/popover/app.dart` 去。
+/// `@pragma('vm:entry-point')` 挡住 AOT 的摇树 —— 没有 Dart 侧调用者，删了就是
+/// release 包里找不到入口、小窗白屏。
+@pragma('vm:entry-point')
+Future<void> popoverMain() => runPopoverApp();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
