@@ -43,32 +43,32 @@
     "spinnerVerbs": {
         "mode": "replace",
         "verbs": [
-          "删繁就简三秋树，领异标新二月花",
-          "操千曲而后晓声，观千剑而后识器",
-          "千淘万漉虽辛苦，吹尽狂沙始到金",
-          "行到水穷处，坐看云起时",
-          "醉后不知天在水，满船清梦压星河",
-          "掬水月在手，弄花香满衣",
-          "山静似太古，日长如小年",
-          "细雨湿衣看不见，闲花落地听无声",
-          "人间有味是清欢",
-          "殷勤昨夜三更雨，又得浮生一日凉",
-          "小舟从此逝，江海寄余生",
-          "休对故人思故国，且将新火试新茶",
-          "自在飞花轻似梦，无边丝雨细如愁",
-          "雾失楼台，月迷津渡",
-          "落花人独立，微雨燕双飞",
-          "叶上初阳干宿雨，水面清圆，一一风荷举",
-          "流光容易把人抛，红了樱桃，绿了芭蕉",
-          "春水碧于天，画船听雨眠",
-          "惆怅东栏一株雪，人生看得几清明",
-          "苔花如米小，也学牡丹开",
-          "我有一瓢酒，可以慰风尘",
-          "向来枉费推移力，此日中流自在行",
-          "万物静观皆自得，四时佳兴与人同",
-          "城中桃李愁风雨，春在溪头荠菜花",
-          "因过竹院逢僧话，偷得浮生半日闲",
-          "我见青山多妩媚，料青山见我应如是"
+            "删繁就简三秋树，领异标新二月花",
+            "操千曲而后晓声，观千剑而后识器",
+            "千淘万漉虽辛苦，吹尽狂沙始到金",
+            "行到水穷处，坐看云起时",
+            "醉后不知天在水，满船清梦压星河",
+            "掬水月在手，弄花香满衣",
+            "山静似太古，日长如小年",
+            "细雨湿衣看不见，闲花落地听无声",
+            "人间有味是清欢",
+            "殷勤昨夜三更雨，又得浮生一日凉",
+            "小舟从此逝，江海寄余生",
+            "休对故人思故国，且将新火试新茶",
+            "自在飞花轻似梦，无边丝雨细如愁",
+            "雾失楼台，月迷津渡",
+            "落花人独立，微雨燕双飞",
+            "叶上初阳干宿雨，水面清圆，一一风荷举",
+            "流光容易把人抛，红了樱桃，绿了芭蕉",
+            "春水碧于天，画船听雨眠",
+            "惆怅东栏一株雪，人生看得几清明",
+            "苔花如米小，也学牡丹开",
+            "我有一瓢酒，可以慰风尘",
+            "向来枉费推移力，此日中流自在行",
+            "万物静观皆自得，四时佳兴与人同",
+            "城中桃李愁风雨，春在溪头荠菜花",
+            "因过竹院逢僧话，偷得浮生半日闲",
+            "我见青山多妩媚，料青山见我应如是"
         ]
     },
     "worktree": {
@@ -146,7 +146,9 @@
             ]
         },
         "network": {
-            "allowedDomains": ["*"],
+            "allowedDomains": [
+                "*"
+            ],
             "allowLocalBinding": true,
             "allowAllUnixSockets": true
         }
@@ -179,25 +181,25 @@
     "disableDeepLinkRegistration": "disable",
     "includeGitInstructions": false,
     "fallbackModel": [
-      "opus",
-      "sonnet"
+        "opus",
+        "sonnet"
     ],
-    "companyAnnouncements": [
-    ],
+    "companyAnnouncements": [],
     "autoMode": {
-      "classifyAllShell": false,
-      "environment": [
+        "classifyAllShell": false,
+        "environment": [
             "$defaults"
-          ],
-          "allow": [
+        ],
+        "allow": [
+            "$defaults",
+            "临时目录下的对所有文件/文件夹的操作"
+        ],
+        "soft_deny": [
             "$defaults"
-          ],
-          "soft_deny": [
+        ],
+        "hard_deny": [
             "$defaults"
-          ],
-          "hard_deny": [
-            "$defaults"
-          ]
+        ]
     },
     "_aidog_statusline": {
         "enabled": true
@@ -217,11 +219,11 @@
     "permissions": {
         "defaultMode": "auto",
         "additionalDirectories": [
-          ".claude/",
-          ".ask-ui/",
-          ".wiki/",
-          ".scratch/",
-          "graphify-out/"
+            ".claude/",
+            ".ask-ui/",
+            ".wiki/",
+            ".scratch/",
+            "graphify-out/"
         ],
         "deny": [
             "Artifact",
@@ -326,10 +328,10 @@
             "Edit(**/*.wasm)"
         ],
         "allow": [
-          "Bash(go mod *)",
-          "Bash(yarn install)",
-          "Bash(npm install)",
-          "Bash(pnpm install)"
+            "Bash(go mod *)",
+            "Bash(yarn install)",
+            "Bash(npm install)",
+            "Bash(pnpm install)"
         ],
         "ask": [
             "Read(~/.zshrc)",
@@ -360,7 +362,7 @@
         ]
     },
     "env": {
-        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY":"0",
+        "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "0",
         "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
         "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
         "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "3",
