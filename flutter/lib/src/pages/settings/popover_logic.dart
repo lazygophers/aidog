@@ -5,6 +5,8 @@
 /// 任一路失败只让那一块空着，不整页报错（预览就是预览）。
 library;
 
+import '../../popover/cards.dart';
+import '../../popover/model.dart';
 import '../invoke.dart';
 
 /// 小窗里的一张卡。字段名照 `gateway/models.rs::PopoverItem` 的 serde。
@@ -37,6 +39,12 @@ class PopoverController {
   Map<String, Object?> trayToday = const {};
   List<Map<String, Object?>> groupDetails = const [];
   List<Object?> statsBatch = const [];
+  /// `popover_data` 整份（entries / proxy 状态 / 今日统计 / 各平台今日）。
+  Map<String, Object?> popoverData = const {};
+  List<Map<String, Object?>> groupList = const [];
+  /// item.id → StatsResult（由 [statsBatch] 按 itemIds 顺序映射而来）。
+  Map<String, Map<String, Object?>> stats = const {};
+  bool statsLoaded = false;
   List<({int id, String name})> platforms = const [];
   List<({int id, String name, String groupKey})> groups = const [];
 
@@ -51,7 +59,10 @@ class PopoverController {
   }
 
   /// 预览数据各自独立失败。
-  Future<void> loadPreview({List<Map<String, Object?>> statsQueries = const []}) async {
+  ///
+  /// 统计查询按**当前编辑中的**配置算（[config]，不是后端存着的那份）——
+  /// 预览要跟着还没保存的改动走。
+  Future<void> loadPreview() async {
     try {
       final r = await _invoke('popover_platform_today');
       platformToday =
@@ -61,19 +72,55 @@ class PopoverController {
       trayToday = _map(await _invoke('tray_today_stats'));
     } catch (_) {/* */}
     try {
+      popoverData = _map(await _invoke('popover_data'));
+    } catch (_) {/* */}
+    try {
+      final r = await _invoke('group_list');
+      groupList =
+          (r is List ? r : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
+    } catch (_) {/* */}
+    try {
       final r = await _invoke('group_detail_list');
       groupDetails =
           (r is List ? r : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
     } catch (_) {/* */}
-    if (statsQueries.isNotEmpty) {
+    final q = popoverStatsQueries(config);
+    if (q.queries.isNotEmpty) {
       try {
         // 批量查询：一次 IPC 拉多卡数据，结果顺序与 queries 一一对应（消除 fan-out）。
-        final r = await _invoke('stats_query_batch', {'queries': statsQueries});
+        final r = await _invoke('stats_query_batch', {'queries': q.queries});
         statsBatch = r is List ? r : const [];
+        final m = <String, Map<String, Object?>>{};
+        for (var i = 0; i < q.itemIds.length && i < statsBatch.length; i++) {
+          final v = statsBatch[i];
+          if (v is Map) m[q.itemIds[i]] = Map<String, Object?>.from(v);
+        }
+        stats = m;
       } catch (_) {/* */}
+    } else {
+      statsBatch = const [];
+      stats = const {};
     }
+    statsLoaded = true;
     _notify();
   }
+
+  /// 实时预览那一帧。与小窗本体同一份渲染（`PopoverGrid`）——
+  /// 单一事实源，预览与实际不会漂移。`config` 用编辑中的那份覆盖后端返回的。
+  PopoverFrame get previewFrame => PopoverFrame(
+        data: {
+          ...popoverData,
+          'config': config,
+          // popover_data 没拿到时用另外两路兜住今日统计与各平台今日。
+          if (!popoverData.containsKey('today_stats')) 'today_stats': trayToday,
+          if (!popoverData.containsKey('platform_today'))
+            'platform_today': platformToday,
+        },
+        groups: groupList,
+        groupDetails: groupDetails,
+        stats: stats,
+        statsLoaded: statsLoaded,
+      );
 
   /// 选择器的数据源。
   Future<void> loadPickers() async {
