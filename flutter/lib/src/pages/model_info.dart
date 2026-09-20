@@ -29,18 +29,24 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
   late final ModelInfoController _c;
   String? _labelLocale;
 
+  bool _built = false;
+
+  /// 控制器的 t 必须来自 context（全局 `i18n` 在 widget 测试里没 init 过）。
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_built) return;
+    _built = true;
+    final tr = AidogI18n.of(context);
     _c = ModelInfoController(
       invoke: widget.invoke,
-      t: (k, [a]) => i18n.t(k, a),
+      t: tr.t,
       onChanged: () {
         if (mounted) setState(() {});
       },
     );
-    _labelLocale = i18n.locale;
-    _c.init(i18n.locale);
+    _labelLocale = tr.locale;
+    _c.init(tr.locale);
   }
 
   @override

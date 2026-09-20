@@ -30,12 +30,20 @@ class SkillsPage extends StatefulWidget {
 class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   late final SkillsController _c;
 
+  bool _built = false;
+
+  /// 控制器要用 `AidogI18n.of(context).t` —— 全局 `i18n` 单例在 widget 测试里
+  /// 没 init 过，用它会抛「i18n.init() 还没跑完」。`of(context)` 最早只能在
+  /// didChangeDependencies 里调，所以构造挪到这儿（只跑一次）。
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_built) return;
+    _built = true;
+    final tr = AidogI18n.of(context);
     _c = SkillsController(
       invoke: widget.invoke,
-      t: (k, [a]) => i18n.t(k, a),
+      t: tr.t,
       onChanged: () {
         if (mounted) setState(() {});
       },
@@ -615,12 +623,17 @@ class SkillInstallView extends StatefulWidget {
 class _SkillInstallViewState extends State<SkillInstallView> {
   late final SkillInstallController _c;
 
+  bool _built = false;
+
+  /// 同 [SkillsPage]：控制器的 t 必须来自 context，不能是全局单例。
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_built) return;
+    _built = true;
     _c = SkillInstallController(
       invoke: widget.invoke,
-      t: (k, [a]) => i18n.t(k, a),
+      t: AidogI18n.of(context).t,
       onChanged: () {
         if (mounted) setState(() {});
       },
@@ -854,12 +867,17 @@ class SkillDetailView extends StatefulWidget {
 class _SkillDetailViewState extends State<SkillDetailView> {
   late final SkillDetailController _c;
 
+  bool _built = false;
+
+  /// 同 [SkillsPage]：控制器的 t 必须来自 context，不能是全局单例。
   @override
-  void initState() {
-    super.initState();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_built) return;
+    _built = true;
     _c = SkillDetailController(
       invoke: widget.invoke,
-      t: (k, [a]) => i18n.t(k, a),
+      t: AidogI18n.of(context).t,
       onChanged: () {
         if (mounted) setState(() {});
       },
