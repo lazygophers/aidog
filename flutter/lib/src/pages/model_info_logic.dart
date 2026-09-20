@@ -19,10 +19,21 @@ import 'skills_logic.dart' show TrFn;
 
 /// `CapabilityBadges.tsx:12` 的枚举，顺序一字不改（决定 `modelInfo.cap.*` 覆盖面）。
 const List<String> kCapabilities = [
-  'text', 'vision', 'tool_use', 'reasoning',
-  'text_to_image', 'image_to_image', 'image_edit',
-  'text_to_video', 'image_to_video', 'video_to_video', 'video_edit',
-  'audio', 'video', 'embedding', 'rerank',
+  'text',
+  'vision',
+  'tool_use',
+  'reasoning',
+  'text_to_image',
+  'image_to_image',
+  'image_edit',
+  'text_to_video',
+  'image_to_video',
+  'video_to_video',
+  'video_edit',
+  'audio',
+  'video',
+  'embedding',
+  'rerank',
 ];
 
 /// `Pagination.tsx:14`。
@@ -149,16 +160,18 @@ class ModelInfoSnapshot {
   /// true = DB 尚无同步数据，当前是编译期内置 registry 兜底。
   final bool bundled;
 
-  static ModelInfoSnapshot fromJson(Map<String, Object?> j) => ModelInfoSnapshot(
-    groups: [
-      for (final g in (j['groups'] as List<Object?>? ?? const []))
-        ModelEntryGroup.fromJson((g as Map).cast<String, Object?>()),
-    ],
-    pricingOnly: {
-      for (final c in (j['pricing_only'] as List<Object?>? ?? const [])) '$c',
-    },
-    bundled: j['bundled'] == true,
-  );
+  static ModelInfoSnapshot fromJson(Map<String, Object?> j) =>
+      ModelInfoSnapshot(
+        groups: [
+          for (final g in (j['groups'] as List<Object?>? ?? const []))
+            ModelEntryGroup.fromJson((g as Map).cast<String, Object?>()),
+        ],
+        pricingOnly: {
+          for (final c in (j['pricing_only'] as List<Object?>? ?? const []))
+            '$c',
+        },
+        bundled: j['bundled'] == true,
+      );
 }
 
 /// `types/generated/PriceSyncSettings.ts`。
@@ -191,14 +204,17 @@ class PriceSyncSettings {
     fallbackOutputPrice: 3.0,
   );
 
-  static PriceSyncSettings fromJson(Map<String, Object?> j) => PriceSyncSettings(
-    autoSyncEnabled: j['auto_sync_enabled'] == true,
-    syncIntervalSecs: (j['sync_interval_secs'] as num?)?.toInt() ?? 86400,
-    lastSyncAt: (j['last_sync_at'] as num?)?.toInt() ?? 0,
-    registryLastUpdated: (j['registry_last_updated'] as num?)?.toInt() ?? 0,
-    fallbackInputPrice: (j['fallback_input_price'] as num?)?.toDouble() ?? 3.0,
-    fallbackOutputPrice: (j['fallback_output_price'] as num?)?.toDouble() ?? 3.0,
-  );
+  static PriceSyncSettings fromJson(Map<String, Object?> j) =>
+      PriceSyncSettings(
+        autoSyncEnabled: j['auto_sync_enabled'] == true,
+        syncIntervalSecs: (j['sync_interval_secs'] as num?)?.toInt() ?? 86400,
+        lastSyncAt: (j['last_sync_at'] as num?)?.toInt() ?? 0,
+        registryLastUpdated: (j['registry_last_updated'] as num?)?.toInt() ?? 0,
+        fallbackInputPrice:
+            (j['fallback_input_price'] as num?)?.toDouble() ?? 3.0,
+        fallbackOutputPrice:
+            (j['fallback_output_price'] as num?)?.toDouble() ?? 3.0,
+      );
 
   Map<String, Object?> toJson() => {
     'auto_sync_enabled': autoSyncEnabled,
@@ -338,7 +354,9 @@ ModelPriceData parsePriceData(String raw) {
       cacheWrite: (p['cache_write'] as num?)?.toDouble(),
       unit: p['unit'] as String?,
       unitPrice: (p['unit_price'] as num?)?.toDouble(),
-      peak: peak is Map ? PriceTier.fromJson(peak.cast<String, Object?>()) : null,
+      peak: peak is Map
+          ? PriceTier.fromJson(peak.cast<String, Object?>())
+          : null,
       contextTiers: tiers is List
           ? [
               for (final t in tiers)
@@ -376,8 +394,7 @@ EntryFlags parseEntryFlags(String raw) {
 }
 
 /// `priceData.ts:81::perMillion`。$/token → $/M tokens；非有限数 → null。
-double? perMillion(double? v) =>
-    v != null && v.isFinite ? v * 1000000 : null;
+double? perMillion(double? v) => v != null && v.isFinite ? v * 1000000 : null;
 
 /// `priceData.ts:86::fmtPricePerM`。缺值 → `-`。
 String fmtPricePerM(double? v) {
@@ -430,7 +447,9 @@ List<int?> paginationPages(int currentPage, int totalPages) {
   pages.add(1);
   if (currentPage > 3) pages.add(null);
   final start = currentPage - 1 < 2 ? 2 : currentPage - 1;
-  final end = currentPage + 1 > totalPages - 1 ? totalPages - 1 : currentPage + 1;
+  final end = currentPage + 1 > totalPages - 1
+      ? totalPages - 1
+      : currentPage + 1;
   for (var i = start; i <= end; i++) {
     pages.add(i);
   }
@@ -499,7 +518,9 @@ class ModelInfoController {
 
   /// `ModelInfoTab.tsx:133`：**剔掉 pricing_only**，再按本地化名排序。
   List<String> get platformCodes {
-    final codes = byPlatform.keys.where((c) => !pricingOnly.contains(c)).toList();
+    final codes = byPlatform.keys
+        .where((c) => !pricingOnly.contains(c))
+        .toList();
     codes.sort((a, b) => (labelMap[a] ?? a).compareTo(labelMap[b] ?? b));
     return codes;
   }
@@ -563,7 +584,9 @@ class ModelInfoController {
     onChanged();
     try {
       final raw = await invoke('model_info_snapshot');
-      snapshot = ModelInfoSnapshot.fromJson((raw as Map).cast<String, Object?>());
+      snapshot = ModelInfoSnapshot.fromJson(
+        (raw as Map).cast<String, Object?>(),
+      );
     } catch (e) {
       message = '$e';
     }
@@ -574,7 +597,9 @@ class ModelInfoController {
   Future<void> _loadSettings() async {
     try {
       final raw = await invoke('price_sync_settings_get');
-      settings = PriceSyncSettings.fromJson((raw as Map).cast<String, Object?>());
+      settings = PriceSyncSettings.fromJson(
+        (raw as Map).cast<String, Object?>(),
+      );
     } catch (_) {
       // 用默认值（React: `.catch(() => {})`）。
     }
@@ -613,7 +638,9 @@ class ModelInfoController {
     onChanged();
     try {
       final raw = await invoke('model_price_sync');
-      syncResult = PriceSyncResult.fromJson((raw as Map).cast<String, Object?>());
+      syncResult = PriceSyncResult.fromJson(
+        (raw as Map).cast<String, Object?>(),
+      );
       await _loadSettings();
       await load();
     } catch (e) {
@@ -707,9 +734,33 @@ class ModelInfoController {
     onChanged();
   }
 
+  /// 详情里当前选中的条目 tab（[detailTabKey]）。null = 用 `primary_platform` 那条
+  /// （`ModelDetailDialog.tsx:56` 的 `defaultValue`）。
+  String? detailTab;
+
   void select(String? canonical) {
     selected = canonical;
+    // 换一个模型就回到它自己的 primary，不把上一个模型的 tab 带过来。
+    detailTab = null;
     onChanged();
+  }
+
+  void setDetailTab(String key) {
+    detailTab = key;
+    onChanged();
+  }
+
+  /// 详情当前展示的条目：选了 tab 就用它，否则 primary，再否则第一条。
+  ModelEntry? activeDetailEntry(ModelEntryGroup g) {
+    final list = detailEntries(g);
+    if (list.isEmpty) return null;
+    for (final e in list) {
+      if (detailTabKey(e) == detailTab) return e;
+    }
+    for (final e in list) {
+      if (e.platformCode == g.primaryPlatform) return e;
+    }
+    return list.first;
   }
 
   void selectPlatform(String code) {
@@ -724,8 +775,7 @@ class ModelInfoController {
     if (q.isEmpty) return platformCodes;
     return platformCodes
         .where(
-          (c) =>
-              c.contains(q) || (labelMap[c] ?? '').toLowerCase().contains(q),
+          (c) => c.contains(q) || (labelMap[c] ?? '').toLowerCase().contains(q),
         )
         .toList();
   }

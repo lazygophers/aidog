@@ -7,6 +7,9 @@ library;
 import 'package:flutter/foundation.dart' show VoidCallback;
 
 import 'invoke.dart';
+import 'models.dart' show ModelTestResult;
+
+export 'models.dart' show ModelTestResult;
 
 /// `ModelTestPanel.tsx:22::TestMode`，顺序 = 按钮顺序（`:110` 的 modes 数组）。
 const List<String> kTestModes = [
@@ -17,52 +20,6 @@ const List<String> kTestModes = [
   'custom',
   'tool',
 ];
-
-/// `types/generated/ModelTestResult.ts`。
-class ModelTestResult {
-  const ModelTestResult({
-    required this.success,
-    required this.model,
-    required this.promptPreview,
-    required this.responsePreview,
-    required this.durationMs,
-    required this.inputTokens,
-    required this.outputTokens,
-    required this.error,
-  });
-
-  final bool success;
-  final String model;
-  final String promptPreview;
-  final String responsePreview;
-  final int durationMs;
-  final int inputTokens;
-  final int outputTokens;
-  final String error;
-
-  static ModelTestResult fromJson(Map<String, Object?> j) => ModelTestResult(
-    success: j['success'] == true,
-    model: (j['model'] as String?) ?? '',
-    promptPreview: (j['prompt_preview'] as String?) ?? '',
-    responsePreview: (j['response_preview'] as String?) ?? '',
-    durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
-    inputTokens: (j['input_tokens'] as num?)?.toInt() ?? 0,
-    outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
-    error: (j['error'] as String?) ?? '',
-  );
-
-  /// `ModelTestPanel.tsx:90` 的异常兜底行：除 model / error 外全是零值。
-  static ModelTestResult failure(String model, Object e) => ModelTestResult(
-    success: false,
-    model: model,
-    promptPreview: '',
-    responsePreview: '',
-    durationMs: 0,
-    inputTokens: 0,
-    outputTokens: 0,
-    error: '$e',
-  );
-}
 
 /// 被测平台的最小投影（`Platform` 里这面板只用到这几样）。
 class TestTargetPlatform {
@@ -130,16 +87,19 @@ class ModelTestController {
   /// `ModelTestPanel.tsx:41::getModels`，六个分支一字不改。
   List<String> get models => switch (mode) {
     'quick' => [platform.defaultModel],
-    'single' => selectedModels.isNotEmpty
-        ? [selectedModels.first]
-        : [platform.defaultModel],
-    'batch' => selectedModels.isNotEmpty
-        ? selectedModels
-        : platform.allModels.take(5).toList(),
+    'single' =>
+      selectedModels.isNotEmpty
+          ? [selectedModels.first]
+          : [platform.defaultModel],
+    'batch' =>
+      selectedModels.isNotEmpty
+          ? selectedModels
+          : platform.allModels.take(5).toList(),
     'random' => platform.allModels,
-    'custom' => selectedModels.isNotEmpty
-        ? [selectedModels.first]
-        : [platform.defaultModel],
+    'custom' =>
+      selectedModels.isNotEmpty
+          ? [selectedModels.first]
+          : [platform.defaultModel],
     // 工具调用探测：对全部模型发起 get_weather 工具测试。
     'tool' => platform.allModels,
     _ => const [],
@@ -203,7 +163,7 @@ class ModelTestController {
             'model': list[i],
           },
         });
-        res.add(ModelTestResult.fromJson((raw as Map).cast<String, Object?>()));
+        res.add(ModelTestResult.fromJson((raw as Map).cast<String, dynamic>()));
       } catch (e) {
         res.add(ModelTestResult.failure(list[i], e));
       }

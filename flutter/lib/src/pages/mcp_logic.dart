@@ -38,8 +38,7 @@ String mcpSummaryOf({
 }
 
 Map<String, String> _strMap(Object? raw) => {
-  for (final e in ((raw as Map?) ?? const {}).entries)
-    '${e.key}': '${e.value}',
+  for (final e in ((raw as Map?) ?? const {}).entries) '${e.key}': '${e.value}',
 };
 
 List<String> _strList(Object? raw) => [
@@ -102,8 +101,12 @@ class McpServerInfo {
     updatedAt: updatedAt,
   );
 
-  String get summary =>
-      mcpSummaryOf(transport: transport, command: command, args: args, url: url);
+  String get summary => mcpSummaryOf(
+    transport: transport,
+    command: command,
+    args: args,
+    url: url,
+  );
 }
 
 /// `manual.ts:91::McpScanItem`。
@@ -152,7 +155,9 @@ class McpScanItem {
     'env': env,
     'url': url,
     'headers': headers,
-    'sourceAgent': foundInAgents.isNotEmpty ? foundInAgents.first : 'claude-code',
+    'sourceAgent': foundInAgents.isNotEmpty
+        ? foundInAgents.first
+        : 'claude-code',
   };
 }
 
@@ -407,7 +412,10 @@ class McpController {
   String _importText(McpImportReport report) {
     final skipped = report.skipped.length;
     return skipped > 0
-        ? t('mcp.importPartial', {'ok': report.imported.length, 'skip': skipped})
+        ? t('mcp.importPartial', {
+            'ok': report.imported.length,
+            'skip': skipped,
+          })
         : t('mcp.imported', {'count': report.imported.length});
   }
 
@@ -548,10 +556,7 @@ class McpController {
     onChanged();
     try {
       final raw = await invoke('mcp_share_export', {'name': srv.name});
-      shareData = (
-        share: (raw as Map).cast<String, Object?>(),
-        name: srv.name,
-      );
+      shareData = (share: (raw as Map).cast<String, Object?>(), name: srv.name);
       onChanged();
     } catch (e) {
       _err(e);
