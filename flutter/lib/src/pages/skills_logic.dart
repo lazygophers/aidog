@@ -815,8 +815,9 @@ class SkillsController {
   Future<void> runImport() async {
     final ids = importIds;
     if (ids == null || importAgents.isEmpty) return;
-    if (importScopeKind == 'project' && importProjectPath.trim().isEmpty)
+    if (importScopeKind == 'project' && importProjectPath.trim().isEmpty) {
       return;
+    }
     if (env?.npxAvailable != true) {
       setMessage(t('skills.envMissing'));
       return;

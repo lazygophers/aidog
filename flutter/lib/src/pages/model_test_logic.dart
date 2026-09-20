@@ -7,7 +7,7 @@ library;
 import 'package:flutter/foundation.dart' show VoidCallback;
 
 import 'invoke.dart';
-import 'models.dart' show ModelTestResult;
+import 'models.dart' show ModelTestResult, PlatformRow;
 
 export 'models.dart' show ModelTestResult;
 
@@ -50,6 +50,24 @@ class TestTargetPlatform {
         if ((models[k] ?? '').isNotEmpty) models[k]!,
     ];
   }
+
+  /// 从 I07 的 [PlatformRow] 投影出来。`models` 的键名照 wire（`default` 而非 Dart 字段名）。
+  static TestTargetPlatform fromPlatformRow(PlatformRow p) => TestTargetPlatform(
+    id: p.id,
+    name: p.name,
+    platformType: p.platformType,
+    availableModels: p.availableModels,
+    models: {
+      for (final e in <String, String?>{
+        'default': p.models.defaultModel,
+        'sonnet': p.models.sonnet,
+        'opus': p.models.opus,
+        'haiku': p.models.haiku,
+        'gpt': p.models.gpt,
+      }.entries)
+        if ((e.value ?? '').isNotEmpty) e.key: e.value!,
+    },
+  );
 
   /// `ModelTestPanel.tsx:39`：default 非空取它，否则取列表第一条，都没有给空串。
   String get defaultModel {
