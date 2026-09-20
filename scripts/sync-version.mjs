@@ -125,12 +125,33 @@ function updateAidogCargoLockVersions(text, version) {
     .join("\n");
 }
 
+// Flutter pubspec 的版本行 `version: 1.2.3+N`：只管 `+` 前面的 semver（对齐 .version），
+// build number（`+N`）保持原值不动 —— 它与 .version 是两个维度（pub.dev 语义），不参与漂移判定。
+function pubspecTarget(relPath) {
+  const VER_RE = /^version:\s*\S+\s*$/m;
+  return {
+    path: relPath,
+    read() {
+      const m = readFileSync(join(ROOT, relPath), "utf8").match(VER_RE);
+      if (!m) return null;
+      return m[0].match(/version:\s*(\S+)/)[1].split("+")[0];
+    },
+    write(version) {
+      const full = join(ROOT, relPath);
+      const text = readFileSync(full, "utf8");
+      const build = text.match(VER_RE)?.[0].match(/\+(\d+)\s*$/)?.[1] ?? "1";
+      writeFileSync(full, text.replace(VER_RE, `version: ${version}+${build}`));
+    },
+  };
+}
+
 const targets = [
   jsonTarget("package.json"),
   jsonTarget("src-tauri/tauri.conf.json"),
   jsonTarget("docs/package.json"),
   cargoTarget("src-tauri/Cargo.toml"),
   cargoLockTarget("src-tauri/Cargo.lock"),
+  pubspecTarget("flutter/pubspec.yaml"),
 ];
 
 const version = BUMP ? bumpPatch(readVersion()) : SET_VERSION ?? readVersion();

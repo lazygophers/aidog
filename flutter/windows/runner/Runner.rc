@@ -54,6 +54,11 @@ END
 // remains consistent on all systems.
 IDI_APP_ICON            ICON                    "resources\\app_icon.ico"
 
+// 票 I13：WinSparkle 的 DSA 公钥（嵌入资源，WinSparkle 运行时按
+// DSAPub/DSAPEM 这一对名字找它验 appcast 里的 dsaSignature）。
+// 公钥是公开的，私钥在 CI secret（WINSPARKLE_DSA_PRIVATE_KEY）。
+DSAPub                  DSAPEM                  "..\\..\\dsa_pub.pem"
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
