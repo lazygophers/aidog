@@ -118,6 +118,10 @@ jobs:
 
             客户端「关于」页可检查并一键更新；`.sig` / `latest.json` 为更新签名文件，无需手动下载。
 
+            ### 🐕‍🦺 Flutter 版（迁移预览）
+
+            `AiDog-Flutter-*` 是新 Flutter 壳（读 `flutter-appcast.xml` 自动更新，与上面的安装包互不影响）。装了 Flutter 版想回 Tauri 版：从本页下载上一个版本的 `*_universal.dmg` / `*_x64-setup.exe` 覆盖安装即可。
+
             ### 📖 文档
 
             https://lazygophers.github.io/aidog/zh/
@@ -133,3 +137,159 @@ jobs:
         with:
           path: .yarn/cache
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+
+  # ── Flutter 壳（票 I13）── 与老 Tauri 壳并存：同一个 Release 里两套产物、两个 feed
+  #（Tauri 读 latest.json，Flutter 读 flutter-appcast.xml），谁也装不上对方的包。
+  flutter-release:
+    needs: cleanup
+    if: always() && needs.cleanup.result != 'failure'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # Flutter macOS release 默认 universal（arm64 + x64）
+            cargo_targets: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: windows-latest # x64
+            cargo_targets: x86_64-pc-windows-msvc
+    runs-on: ${{ matrix.platform }}
+    env:
+      FLUTTER_VERSION: 3.47.2
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.cargo_targets }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+          cache-on-failure: true
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+
+      - name: Read version (.version 单一源)
+        id: v
+        shell: bash
+        run: |
+          echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+          echo "build=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version sync
+        run: node scripts/sync-version.mjs --check
+
+      - name: flutter pub get
+        working-directory: flutter
+        run: flutter pub get
+
+      - name: Build macOS app (universal, kernel bundled by Xcode phase)
+        if: matrix.platform == 'macos-latest'
+        working-directory: flutter
+        run: flutter build macos --release --build-name=${{ steps.v.outputs.version }} --build-number=${{ steps.v.outputs.build }}
+
+      - name: Zip macOS app (Sparkle 要 ditto zip)
+        if: matrix.platform == 'macos-latest'
+        run: |
+          V=${{ steps.v.outputs.version }}
+          cd flutter/build/macos/Build/Products/Release
+          ditto -c -k --sequesterRsrc --keepParent AiDog.app "AiDog-Flutter-v${V}-macos-universal.zip"
+
+      - name: Sign macOS update artifact (Sparkle EdDSA)
+        if: matrix.platform == 'macos-latest'
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        working-directory: flutter/build/macos/Build/Products/Release
+        shell: bash
+        run: |
+          V=${{ steps.v.outputs.version }}
+          SIG=$(printf '%s' "$SPARKLE_EDDSA_PRIVATE_KEY" | \
+            ../../../../../macos/Pods/Sparkle/bin/sign_update "AiDog-Flutter-v${V}-macos-universal.zip" --ed-key-file - | \
+            sed -E 's/.*edSignature="([^"]+)".*/\1/')
+          test -n "$SIG"
+          printf '{"edSignature":"%s","file":"AiDog-Flutter-v%s-macos-universal.zip"}\n' "$SIG" "$V" > mac.json
+
+      - name: Upload macOS artifact
+        if: matrix.platform == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-macos
+          path: |
+            flutter/build/macos/Build/Products/Release/AiDog-Flutter-v*-macos-universal.zip
+            flutter/build/macos/Build/Products/Release/mac.json
+
+      - name: Build Windows app (kernel bundled by CMake install step)
+        if: matrix.platform == 'windows-latest'
+        working-directory: flutter
+        run: flutter build windows --release --build-name=${{ steps.v.outputs.version }} --build-number=${{ steps.v.outputs.build }}
+
+      - name: Build installer (Inno Setup)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $v = "${{ steps.v.outputs.version }}"
+          iscc "/DMyAppVersion=$v" flutter\packaging\flutter_windows.iss
+
+      - name: Sign Windows update artifact (WinSparkle DSA)
+        if: matrix.platform == 'windows-latest'
+        env:
+          WINSPARKLE_DSA_PRIVATE_KEY: ${{ secrets.WINSPARKLE_DSA_PRIVATE_KEY }}
+        shell: pwsh
+        run: |
+          $v = "${{ steps.v.outputs.version }}"
+          $exe = "flutter\build\installer\AiDog-Flutter-v$v-x64-setup.exe"
+          $keyFile = New-TemporaryFile
+          [IO.File]::WriteAllText($keyFile, $env:WINSPARKLE_DSA_PRIVATE_KEY)
+          $tool = "flutter\windows\flutter\ephemeral\.plugin_symlinks\auto_updater_windows\windows\WinSparkle-0.8.1\bin\sign_update.bat"
+          $out = & cmd /c "`"$tool`" `"$exe`" `"$keyFile`" 2>&1"
+          Remove-Item $keyFile
+          $sig = [regex]::Match(($out -join " "), 'dsaSignature="([^"]+)"').Groups[1].Value
+          if (-not $sig) { throw "dsaSignature 解析失败: $out" }
+          @{ dsaSignature = $sig; file = "AiDog-Flutter-v$v-x64-setup.exe" } |
+            ConvertTo-Json -Compress | Out-File -Encoding ascii flutter\build\installer\win.json
+
+      - name: Upload Windows artifact
+        if: matrix.platform == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: flutter-windows
+          path: |
+            flutter/build/installer/AiDog-Flutter-v*-x64-setup.exe
+            flutter/build/installer/win.json
+
+  # 汇总两平台的签名元数据 → 生成 flutter-appcast.xml，把 Flutter 产物挂上同一个 Release。
+  # needs.release：tauri-action 先把 Release 建出来，gh release upload 才有地方传。
+  flutter-appcast:
+    needs: [cleanup, release, flutter-release]
+    if: always() && needs.cleanup.result != 'failure' && needs.release.result == 'success' && needs.flutter-release.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+
+      - name: Read version
+        id: v
+        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+
+      - name: Download flutter artifacts
+        uses: actions/download-artifact@v5
+        with:
+          pattern: flutter-*
+          path: dist
+          merge-multiple: true
+
+      - name: Generate appcast
+        run: node scripts/gen-flutter-appcast.mjs --version ${{ steps.v.outputs.version }} --build ${{ github.run_number }} --dir dist --tag v${{ steps.v.outputs.version }}
+
+      - name: Attach flutter artifacts to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.v.outputs.version }}
+          gh release upload "v$V" dist/AiDog-Flutter-v*-macos-universal.zip dist/AiDog-Flutter-v*-x64-setup.exe dist/flutter-appcast.xml --clobber

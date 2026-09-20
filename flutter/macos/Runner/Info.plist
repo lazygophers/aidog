@@ -28,5 +28,13 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- 票 I13：Sparkle 自动更新（EdDSA）。feed 只指向 Flutter 产物（flutter-appcast.xml），
+	     与老 Tauri 壳读的 latest.json 互不相认 —— 共存期谁也装不上对方的包。 -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/lazygophers/aidog/releases/latest/download/flutter-appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>jOUfEw4+AGAc6VM77eur8TbeXEMfm/bQ6ZiJ0DQcF/4=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
 </dict>
 </plist>

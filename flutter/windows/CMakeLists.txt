@@ -106,3 +106,22 @@ install(DIRECTORY "${PROJECT_BUILD_DIR}/${FLUTTER_ASSET_DIR_NAME}"
 install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
   CONFIGURATIONS Profile;Release
   COMPONENT Runtime)
+
+# === aidog-kernel helper（票 I13）===
+# 内核与主程序同目录安装 —— `resolveKernelExecutable` 的第 2 条路径
+#（flutter/lib/src/transport/kernel_process.dart）。release profile 固定：
+# Flutter 的 Release/Profile 构建都对应 cargo release。
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe"
+  COMMAND cargo build --release -p aidog_kernel --bin aidog-kernel
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          "${CMAKE_CURRENT_SOURCE_DIR}/../../src-tauri/target/release/aidog-kernel.exe"
+          "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe"
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../.."
+  COMMENT "Building aidog-kernel (cargo release)"
+  VERBATIM)
+add_custom_target(aidog_kernel ALL
+  DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe")
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe"
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
