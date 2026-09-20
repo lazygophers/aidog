@@ -131,7 +131,6 @@ import 'package:aidog_flutter/pages.dart';
 
 | 处 | React | 这里 | 为什么 |
 |---|---|---|---|
-| 筛选下拉搜索 | `pinyinMatch`（`pinyin-pro` 汉字字典） | label 子串 + `searchTerms` 子串 | Dart 侧要拼音得引一个 5 年没更新、许可未核的字典包。平台下拉不受影响 —— registry 的 `keywords` 本来就把全拼与首字母作为**字面数据**存着（项目 CLAUDE.md：「智谱 → zhipu + zp」）。受影响的只有用户自起中文名的**分组**下拉 |
 | 热力图星期标签 | `Intl.DateTimeFormat(lang,{weekday:'short'})`，「周日 / Sun」 | `MaterialLocalizations.narrowWeekdays`，单字 | 8 语言词条由 `flutter_localizations` 自带、零运行时初始化；`intl` 的 `DateFormat.E` 得先 `await initializeDateFormatting()`，漏调就在非英文 locale 下抛 `LocaleDataException` |
 | 分页文案占位符 | 传 `{page, total}`，而词条写的是 `{{current}}` —— **React 现在渲染出的是没替换的 `{{current}}`** | 传 `{current, total}`，正常替换 | 那是 React 侧的真 bug，不照抄 |
 | 入场动效 | `useReveal` 错峰 + `useCounter` 数字滚动 | 无 | A′ 的格子有自己的过渡；票 I06 的口径是「对齐」指功能不指长相 |
@@ -410,15 +409,7 @@ lib/main.dart                   主窗口入口
 
 ### 与 React 的未对齐（照实列，不是没想到）
 
-1. **claude 页的 `json` / `object` / `kv` 类字段是 JSON 编辑框**，不是 React 的可视化编辑器
-   （权限矩阵 `permissions`、hooks 构建器 `hooks`、插件配置）。功能上能改能存，
-   但没有那几个专用面板。465 个字段里命中这一类的是 30 个（22 json + 3 object + 5 kv 系）。
-2. **中间件规则表单是「条件 / 动作两个 JSON 框」**，不是 React 的卡片 ↔ DSL 双模式编辑器
-   （`MiddlewareRules.tsx` 48 KB）。能建 / 改 / 删 / 启停 / 看预算，但没有可视化条件树。
-3. **托盘与浮窗的排序是「上移 / 下移」按钮**，不是拖拽。`ReorderableListView` 要自己管滚动，
-   嵌在外层 `SingleChildScrollView` 里会与之打架；上下移按钮在键盘 / 读屏下反而更好用。
-4. **浮窗页没有二维栅格预览**（React 的 `PopoverLayout` 能设每行列数、跨行拖拽）。
-   本票落地的是「卡片列表 + 显隐 + 排序 + 尺寸 / 维度 / 时间窗」与一块数值预览。
+> I17 已关闭本节原有四项：拼音搜索、claude 权限/hooks 专用编辑器、中间件条件树/动作链/DSL 编辑器、托盘与浮窗拖拽排序、浮窗二维栅格预览。实现与测试见对应 I17 提交。
 
 ### 顺手修掉的一处存量 bug
 
