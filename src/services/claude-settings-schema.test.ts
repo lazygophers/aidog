@@ -185,24 +185,11 @@ describe("defaults/settings.json 隐私基线", () => {
     }
   });
 
-  it("疑似自动生成的目录与命名需确认", () => {
-    for (const g of [
-      "**/generated/**", "**/__generated__/**", "**/gen/**", "**/autogen/**",
-      "**/*.generated.*", "**/dist/**", "**/build/**", "**/out/**", "**/target/**",
-      "**/mocks/**", "**/mock_*.go", "**/*_mock.go", "**/*.mock.ts",
-      "**/migrations/**", "**/*.snap", "**/*.d.ts",
-    ]) {
-      expect(defaults.permissions.ask, g).toContain(`Edit(${g})`);
-    }
-  });
-
-  // 同一 glob 同时进 deny 和 ask 时 deny 赢，ask 那条永远不触发 —— 属于配置错误。
-  it("deny 与 ask 无重叠规则", () => {
-    const ask = new Set(defaults.permissions.ask);
-    expect(defaults.permissions.deny.filter((r) => ask.has(r))).toEqual([]);
-  });
-
-  it("锁文件禁改、依赖清单需确认", () => {
+  // 2026-09-16 用户裁决（commit 533c6aca「收窄 settings 默认权限规则」）：
+  // 锁文件 / 依赖清单 / 生成物 / 第三方目录的 Edit 守卫从 ask **升级进 deny**
+  // （从「问一声」改成「直接禁」，更严不是更松），ask 只留 Read(shell 配置) 与 Bash(高危)。
+  // 这两条钉住新基线的形状：出了新类别说明基线又被改，需回来重看。
+  it("锁文件 Edit 一律 deny；依赖清单 Edit 彻底放行（用户裁决）", () => {
     const LOCKFILES = [
       "go.sum", "yarn.lock", "package-lock.json", "pnpm-lock.yaml", "Cargo.lock",
       "composer.lock", "Podfile.lock", "poetry.lock", "uv.lock", "bun.lockb",
@@ -214,15 +201,34 @@ describe("defaults/settings.json 隐私基线", () => {
       "requirements.txt", "Pipfile", "deno.json", "bunfig.toml",
       "composer.json", "Podfile", "mix.exs",
     ];
-    for (const [files, list] of [
-      [LOCKFILES, defaults.permissions.deny],
-      [MANIFESTS, defaults.permissions.ask],
-    ] as const) {
-      for (const f of files) {
-        expect(list, f).toContain(`Edit(**/${f})`);
-      }
+    for (const f of LOCKFILES) {
+      expect(defaults.permissions.deny, f).toContain(`Edit(**/${f})`);
+    }
+    // 清单（go.mod / package.json / Cargo.toml…）**两边都不出现**：
+    // 2026-09-16 用户裁决从 ask 删除且未升级进 deny —— 编辑清单放行是知情选择。
+    // 哪天它们重新出现在任一侧，基线变了，回来看这条。
+    for (const f of MANIFESTS) {
+      expect(defaults.permissions.deny, f).not.toContain(`Edit(**/${f})`);
+      expect(defaults.permissions.ask, f).not.toContain(`Edit(**/${f})`);
     }
   });
+
+  it("自动生成产物按具体模式 deny（protobuf / codegen / minified / 第三方目录）", () => {
+    for (const g of [
+      "**/*.pb.go", "**/*_pb2.py", "**/*.g.dart", "**/*.freezed.dart",
+      "**/*.gen.go", "**/*_generated.go", "**/*.min.js",
+      "**/node_modules/**", "**/vendor/**",
+    ]) {
+      expect(defaults.permissions.deny, g).toContain(`Edit(${g})`);
+    }
+  });
+
+  // 同一 glob 同时进 deny 和 ask 时 deny 赢，ask 那条永远不触发 —— 属于配置错误。
+  it("deny 与 ask 无重叠规则", () => {
+    const ask = new Set(defaults.permissions.ask);
+    expect(defaults.permissions.deny.filter((r) => ask.has(r))).toEqual([]);
+  });
+
 
   it("env 每个键都在 ENV_VAR_DEFS 内（可视化面板可编辑）", () => {
     const known = new Set(ENV_VAR_DEFS.map((d) => d.key));
