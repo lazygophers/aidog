@@ -483,6 +483,27 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
     (name, value)
 }
 
+/// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。
+pub(crate) fn routed_item_parts(platform: Option<&Platform>) -> (String, String) {
+    (
+        "命中".to_string(),
+        platform.map(|p| p.name.clone()).unwrap_or("—".to_string()),
+    )
+}
+
+/// 「高峰指示」段的（名, 值）：按当前命中平台的 peak 窗口判定，命中窗口 → 「峰」，否则「平」。
+/// 没有命中平台（从未转发）→ 「平」（无平台可判，视作非高峰）。
+pub(crate) fn peak_item_parts(platform: Option<&Platform>, now_ms: i64) -> (String, String) {
+    let in_peak = platform.is_some_and(|p| {
+        let windows = gateway::peak::peak_for(&p.extra, &p.platform_type.wire_str());
+        gateway::peak::is_in_peak_window(&windows, now_ms, "")
+    });
+    (
+        "高峰".to_string(),
+        if in_peak { "峰" } else { "平" }.to_string(),
+    )
+}
+
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
@@ -522,6 +543,20 @@ pub(crate) async fn tray_layout_with_stats(
             .unwrap_or_default()
     };
 
+    // 「当前命中平台」/「高峰指示」两段共用同一个平台，按需取一次。
+    let routed_platform = if items
+        .iter()
+        .any(|i| matches!(i.item_type.as_str(), "routed_platform" | "peak"))
+    {
+        match aidog_stats::last_routed_platform_id(db).await {
+            Ok(Some(pid)) => db::get_platform(db, pid).await.ok().flatten(),
+            _ => None,
+        }
+    } else {
+        None
+    };
+    let now_ms = chrono::Utc::now().timestamp_millis();
+
     let mut columns: Vec<TrayColumn> = Vec::new();
     let mut gaps: Vec<Option<String>> = Vec::new();
     let mut pending_sep: Option<String> = None;
@@ -552,6 +587,8 @@ pub(crate) async fn tray_layout_with_stats(
                 };
                 platform_item_parts(platform, &item.display)
             }
+            "routed_platform" => routed_item_parts(routed_platform.as_ref()),
+            "peak" => peak_item_parts(routed_platform.as_ref(), now_ms),
             "today_usage" => {
                 let owned_stats;
                 let stats = match precomputed_today_stats {

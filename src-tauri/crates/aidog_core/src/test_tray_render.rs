@@ -70,26 +70,18 @@ async fn disabled_items_are_skipped() {
 }
 
 #[tokio::test]
-async fn separator_becomes_gap_not_column() {
+async fn separator_items_no_longer_render_after_i15() {
+    // 票 I15：separator 不再是可选段，存量项在入库/读取时被置 enabled=false（不删），
+    // 于是既不占列也不产生 gap。tray_render 里的 gaps 机制因此变成惰性代码
+    // （I10 的 objc2 渲染主体照旧不动，故保留不删）。
     let l = layout_of(vec![
         usage_item("cost", 0),
         separator_item("|", 1),
         usage_item("requests", 2),
     ])
     .await;
-    assert_eq!(l.columns.len(), 2, "separator 不占列");
-    assert_eq!(l.gaps, vec![Some("|".to_string())]);
-}
-
-#[tokio::test]
-async fn separator_with_empty_display_falls_back_to_middot() {
-    let l = layout_of(vec![
-        usage_item("cost", 0),
-        separator_item("", 1),
-        usage_item("requests", 2),
-    ])
-    .await;
-    assert_eq!(l.gaps, vec![Some("·".to_string())]);
+    assert_eq!(l.columns.len(), 2);
+    assert_eq!(l.gaps, vec![None]);
 }
 
 #[tokio::test]
@@ -99,15 +91,8 @@ async fn gap_is_none_when_no_separator_between_columns() {
 }
 
 #[tokio::test]
-async fn leading_separator_does_not_produce_a_gap() {
-    // 首列之前的 separator 无处可挂，应被丢弃而不是造出越界的 gap。
-    let l = layout_of(vec![separator_item("|", 0), usage_item("cost", 1)]).await;
-    assert_eq!(l.columns.len(), 1);
-    assert!(l.gaps.is_empty());
-}
-
-#[tokio::test]
 async fn today_usage_metrics_have_expected_labels_on_empty_db() {
+    // 4 项配置在入库时被收敛到 3 段（票 I15），第 4 项被关掉不渲染。
     let l = layout_of(vec![
         usage_item("tokens", 0),
         usage_item("cache_rate", 1),
@@ -122,12 +107,7 @@ async fn today_usage_metrics_have_expected_labels_on_empty_db() {
         .collect();
     assert_eq!(
         pairs,
-        vec![
-            ("今日", "0 tok"),
-            ("Cache", "0%"),
-            ("花费", "$0"),
-            ("请求", "0"),
-        ]
+        vec![("今日", "0 tok"), ("Cache", "0%"), ("花费", "$0")]
     );
 }
 
@@ -219,6 +199,49 @@ fn platform_item_parts_coding_plan_beats_balance_display() {
     let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
     let (_, value) = platform_item_parts(&platform(99.0, plan), "balance");
     assert_eq!(value, "90%");
+}
+
+// ─── 票 I15：固定三段（今日费用 · 当前命中平台 · 高峰指示）──────
+
+#[tokio::test]
+async fn default_segments_render_three_columns() {
+    let db = test_db().await;
+    // 空库首读 → 出厂三段。今日费用取的就是统计页同一份 today_stats（空库 = $0）。
+    let l = tray_layout(&db).await;
+    let pairs: Vec<(&str, &str)> = l
+        .columns
+        .iter()
+        .map(|c| (c.name.as_str(), c.value.as_str()))
+        .collect();
+    assert_eq!(
+        pairs,
+        vec![("花费", "$0"), ("命中", "—"), ("高峰", "平")]
+    );
+}
+
+#[test]
+fn routed_parts_fall_back_to_dash_without_traffic() {
+    assert_eq!(
+        super::routed_item_parts(None),
+        ("命中".to_string(), "—".to_string())
+    );
+    assert_eq!(
+        super::routed_item_parts(Some(&platform(1.0, ""))).1,
+        "Acme".to_string()
+    );
+}
+
+#[test]
+fn peak_parts_follow_routed_platform_window() {
+    // 无命中平台 → 非高峰。
+    assert_eq!(super::peak_item_parts(None, 0).1, "平");
+    // 平台带一个 0-24 全天窗口 → 任意时刻都是高峰。
+    let mut p = platform(0.0, "");
+    p.extra = r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":2.0}]}"#.to_string();
+    assert_eq!(super::peak_item_parts(Some(&p), 0).1, "峰");
+    // 窗口只覆盖 UTC 1:00-2:00 → epoch 0（UTC 0:00）不在窗口内。
+    p.extra = r#"{"peak":[{"start_hour":1,"end_hour":2,"multiplier":2.0}]}"#.to_string();
+    assert_eq!(super::peak_item_parts(Some(&p), 0).1, "平");
 }
 
 #[test]

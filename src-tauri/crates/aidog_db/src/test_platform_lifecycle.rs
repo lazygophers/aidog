@@ -506,16 +506,60 @@ async fn tray_config_serde_roundtrip() {
     assert_eq!(got.items[1].order, 1);
 }
 
-/// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成空配置并持久化（避免重复迁移）。
+/// 票 I15 迁移：旧的 5 项二维配置读出来只剩前 3 项 enabled，其余项**仍在**配置里（只被关掉），
+/// 且收敛结果一次性落盘（再读一次形状相同）。
+#[tokio::test]
+async fn tray_config_clamped_on_read_without_dropping_items() {
+    let db = test_db().await;
+    let legacy = serde_json::json!({
+        "separator": " | ",
+        "items": (0..5).map(|i| serde_json::json!({
+            "item_type": if i == 2 { "separator" } else { "platform" },
+            "platform_id": i + 1, "display": "balance",
+            "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
+            "line_mode": "two", "align_row2": "right",
+            "enabled": true, "order": i
+        })).collect::<Vec<_>>(),
+    });
+    set_setting(
+        &db,
+        SetSettingInput {
+            scope: "tray".to_string(),
+            key: "config".to_string(),
+            value: legacy,
+        },
+    )
+    .await
+    .unwrap();
+
+    let cfg = get_tray_config(&db).await.unwrap().expect("config present");
+    assert_eq!(cfg.items.len(), 5, "一项都不许丢");
+    let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
+    // order 0/1 保留，order 2 是 separator 被关掉，order 3 补进第三段，order 4 超额关掉。
+    assert_eq!(enabled, vec![true, true, false, true, false]);
+    // 二维字段原样留着（降级回旧版本仍能按老样子渲染）。
+    assert_eq!(cfg.items[4].line_mode, "two");
+    assert_eq!(cfg.items[4].align_row2.as_deref(), Some("right"));
+
+    // 已落盘：再读一次结果一致（不是每次读现算）。
+    let again = get_tray_config(&db).await.unwrap().expect("config present");
+    assert_eq!(
+        again.items.iter().map(|i| i.enabled).collect::<Vec<_>>(),
+        enabled
+    );
+}
+
+/// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成票 I15 的出厂三段并持久化。
 #[tokio::test]
 async fn tray_config_migrate_empty() {
     let db = test_db().await;
-    // 首次读取触发迁移；无旧平台 → 空 items。
+    // 首次读取触发迁移；无旧平台 → 今日费用 / 当前命中平台 / 高峰指示。
     let cfg = get_tray_config(&db)
         .await
         .unwrap()
         .expect("migrated config");
-    assert_eq!(cfg.items.len(), 0);
+    let kinds: Vec<&str> = cfg.items.iter().map(|i| i.item_type.as_str()).collect();
+    assert_eq!(kinds, vec!["today_usage", "routed_platform", "peak"]);
     // 已持久化：settings 中应存在 tray/config。
     assert!(get_setting(&db, "tray", "config").await.unwrap().is_some());
 }
@@ -533,8 +577,9 @@ async fn tray_config_migrate_from_legacy_platform() {
         .await
         .unwrap()
         .expect("migrated config");
-    assert_eq!(cfg.items.len(), 1, "应从旧平台生成 1 个 platform item");
-    let item = &cfg.items[0];
+    assert_eq!(cfg.items.len(), 3, "出厂三段");
+    // 旧平台顶掉「当前命中平台」那一段（用户当年的显式选择优先），另两段不变。
+    let item = &cfg.items[1];
     assert_eq!(item.item_type, "platform");
     assert_eq!(item.platform_id, Some(p.id));
     assert_eq!(item.display, "coding");
