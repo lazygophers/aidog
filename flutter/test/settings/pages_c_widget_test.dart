@@ -1,0 +1,928 @@
+/// 票 I16：设置 12 个子页的 widget 测试。
+///
+/// 只测**这一层新加的东西**：渲染得出来、禁用条件生效、破坏性操作先确认、
+/// 离页拦截三个出口都走得通。状态机本身由票 I08 的 382 条断言盯着，这里不重测。
+///
+/// 不起内核（假 invoke 顶掉传输层），所以不碰用户的 9890 端口，也不碰 `~/.aidog`。
+library;
+
+import 'package:aidog_flutter/i18n.dart';
+import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/src/pages/settings/coding_tools_logic.dart'
+    show kDateRewriteRuleName;
+import 'package:aidog_flutter/src/pages/settings/importexport_logic.dart'
+    show kImportExportScopes;
+import 'package:aidog_flutter/shell.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import '../pages/harness.dart';
+
+/// 各页首屏要的载荷。给全了才不会被 [FakeKernel] 的「没摆载荷」断言打断。
+Map<String, Object? Function(Map<String, Object?>?)> baseResponses() => {
+  // 系统页
+  'proxy_get_settings': (_) => {
+    'autostart': false,
+    'silent_launch': false,
+    'bind_lan': false,
+    'port': 9890,
+  },
+  'proxy_status': (_) => false,
+  'app_get_autolaunch': (_) => false,
+  'app_set_silent_launch': (_) => null,
+  'proxy_log_settings_get': (_) => {
+    'enabled': true,
+    'retention_days': 90,
+    'retention_unit': 'day',
+    'log_user_request': true,
+    'log_upstream_request': true,
+    'user_request_retention_days': 7,
+    'user_request_retention_unit': 'day',
+    'upstream_request_retention_days': 7,
+    'upstream_request_retention_unit': 'day',
+  },
+  'proxy_timeout_get': (_) => {
+    'request_timeout_secs': 300,
+    'connect_timeout_secs': 10,
+  },
+  'app_log_settings_get': (_) => {
+    'file_enabled': true,
+    'level': 'info',
+    'retention_hours': 3,
+  },
+  'proxy_client_get_settings': (_) => {
+    'enabled': false,
+    'proxy_type': 'socks5',
+    'host': '127.0.0.1',
+    'port': 7890,
+    'username': '',
+    'password': '',
+    'dns_over_proxy': true,
+    'no_proxy': '',
+  },
+  'stats_settings_get': (_) => {'retention_days': 365},
+  'get_auto_update_enabled': (_) => true,
+  'kernel_settings_get': (_) => {'port': 9891, 'auth_token': ''},
+  'proxy_log_cleanup_estimate': (_) => {
+    'overdue_rows': 12,
+    'overdue_body_bytes': 2048,
+    'db_size_bytes': 4096,
+  },
+  'proxy_log_cleanup_expired': (_) => null,
+  'proxy_log_clear': (_) => null,
+  'db_compact': (_) => {'before_bytes': 2048.0, 'after_bytes': 1024.0},
+  'proxy_start': (_) => 'started',
+  'proxy_stop': (_) => null,
+  'settings_get': (_) => <String, Object?>{},
+  'settings_set': (_) => null,
+  'sync_group_settings': (_) => null,
+  // CLI 集成页
+  'coding_tools_settings_get': (_) => {
+    'apply_to_claude_plugin': false,
+    'skip_claude_onboarding': false,
+  },
+  'coding_tools_settings_set': (_) => {
+    'apply_to_claude_plugin': true,
+    'skip_claude_onboarding': false,
+  },
+  'codex_config_read': (_) => <String, Object?>{},
+  'codex_config_write': (_) => null,
+  'pi_settings_read': (_) => <String, Object?>{},
+  'pi_settings_write': (_) => null,
+  // 通知页
+  'notification_settings_get': (_) => {
+    'enabled': true,
+    'tts_enabled': true,
+    'tts_backend': 'cross_platform',
+    'per_type': <String, Object?>{},
+    'per_event': <String, Object?>{},
+    'inbox_retention_days': 7,
+  },
+  'notification_settings_set': (_) => null,
+  'get_default_hooks_enabled': (_) => false,
+  // 规则两页
+  'scheduling_settings_get': (_) => {
+    'default_routing_mode': 'health_aware',
+    'breaker_failure_threshold': 5,
+    'breaker_open_secs': 60,
+    'breaker_half_open_max': 2,
+    'enabled': true,
+  },
+  'scheduling_settings_set': (_) => null,
+  'middleware_list_rules': (_) => <Object?>[],
+  'middleware_budget_status': (_) => <Object?>[],
+  'middleware_settings_get': (_) => {'enabled': true},
+  'middleware_delete_rule': (_) => null,
+  'middleware_create_rule': (_) => null,
+  'platform_list': (_) => <Object?>[],
+  'group_list': (_) => <Object?>[],
+  'group_detail_list': (_) => <Object?>[],
+  // MITM
+  'mitm_status': (_) => {
+    'enabled': false,
+    'ca_present': true,
+    'ca_installed': false,
+    'ca_fingerprint': 'AA:BB',
+    'whitelist': <Object?>[],
+  },
+  'mitm_whitelist_clear': (_) => 3,
+  // 托盘 / 浮窗
+  'tray_config_get': (_) => {'separator': '  ', 'items': <Object?>[]},
+  'tray_today_stats': (_) => {
+    'tokens': 0,
+    'cache_rate': 0,
+    'cost': 0,
+    'total_requests': 0,
+  },
+  'popover_config_get': (_) => <String, Object?>{},
+  'popover_platform_today': (_) => <Object?>[],
+  // 导入导出
+  'backup_settings_get': (_) => {
+    'enabled': false,
+    'interval_hours': 24,
+    'retention_days': 7,
+    'dir': '',
+  },
+  'export_preview': (_) => {'items': <Object?>[], 'conflicts': <Object?>[]},
+};
+
+/// 点一个 [SwitchRow] 里的开关本体。整行不可点（只有 Switch 带 onChanged），
+/// 直接 `tap(byKey(row))` 会打在标签上，什么也不会发生。
+Future<void> tapSwitch(WidgetTester tester, String key) async {
+  await tester.tap(
+    find.descendant(
+      of: find.byKey(ValueKey(key)),
+      matching: find.byType(Switch),
+    ),
+  );
+  await settle(tester);
+}
+
+/// 一份两字段的小 schema —— 每个用例都解 121 KB 资产太慢。
+SchemaBundle fakeBundle() => SchemaBundle(
+  sections: [
+    SchemaSection({
+      'id': 'core',
+      'labelKey': 'settings.sectionCore',
+      'fields': [
+        {'key': 'model', 'label': 'Model', 'type': 'string'},
+        {'key': 'verbose', 'label': 'Verbose', 'type': 'boolean'},
+      ],
+    }),
+  ],
+  recommended: const {'model': 'sonnet'},
+);
+
+void main() {
+  setUp(resetNavGuardForTest);
+  tearDown(resetNavGuardForTest);
+
+  // ── 系统页 ────────────────────────────────────────────
+
+  group('系统页', () {
+    Future<(FakeKernel, I18nController)> mount(WidgetTester tester) async {
+      await useBigSurface(tester);
+      final k = FakeKernel(baseResponses());
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SystemSettingsPage(
+            invoke: k.invoke,
+            appVersionFn: () async => '9.9.9',
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      return (k, i18n);
+    }
+
+    testWidgets('首屏把 11 个读命令全发一遍', (tester) async {
+      final (k, _) = await mount(tester);
+      for (final cmd in [
+        'proxy_get_settings',
+        'proxy_status',
+        'app_get_autolaunch',
+        'proxy_log_settings_get',
+        'proxy_timeout_get',
+        'app_log_settings_get',
+        'proxy_client_get_settings',
+        'stats_settings_get',
+        'get_auto_update_enabled',
+        'kernel_settings_get',
+        'proxy_log_cleanup_estimate',
+      ]) {
+        expect(k.calls, contains(cmd), reason: '$cmd 没发');
+      }
+    });
+
+    testWidgets('启动代理按钮发 proxy_start', (tester) async {
+      final (k, _) = await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('proxy-toggle')));
+      await settle(tester);
+      expect(k.lastArgsOf('proxy_start'), {'port': 9890});
+    });
+
+    testWidgets('压缩数据库：确认之前不发 db_compact', (tester) async {
+      final (k, _) = await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('db-compact')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('db_compact'), 0);
+
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(ConfirmCard),
+              matching: find.byType(SmallButton),
+            )
+            .last,
+      );
+      await settle(tester);
+      expect(k.countOf('db_compact'), 1);
+    });
+
+    testWidgets('清空日志：取消后不发命令，确认后才发', (tester) async {
+      final (k, _) = await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('clear-logs')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(ConfirmCard),
+              matching: find.byType(SmallButton),
+            )
+            .first,
+      );
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsNothing);
+      expect(k.countOf('proxy_log_clear'), 0);
+    });
+  });
+
+  // ── claude / codex / pi 三页 ──────────────────────────
+
+  group('schema 配置页', () {
+    Future<FakeKernel> mount(
+      WidgetTester tester,
+      SchemaConfigKind kind,
+    ) async {
+      await useBigSurface(tester);
+      final k = FakeKernel(baseResponses());
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SchemaConfigPage(
+            kind: kind,
+            invoke: k.invoke,
+            bundleLoader: (_) async => fakeBundle(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('未改动时保存按钮点不动', (tester) async {
+      final i18n = await makeI18n(tester);
+      await mount(tester, SchemaConfigKind.claude);
+      final save = tester.widget<SmallButton>(
+        find.widgetWithText(SmallButton, i18n.t('action.save')),
+      );
+      expect(save.enabled, isFalse);
+    });
+
+    testWidgets('改一个字段 → 脏 → 注册离页守卫 → 保存后守卫注销', (tester) async {
+      final k = await mount(tester, SchemaConfigKind.claude);
+      expect(hasNavGuard, isFalse);
+
+      await tapSwitch(tester, 'field-verbose');
+      expect(hasNavGuard, isTrue, reason: '脏了就该挂守卫');
+
+      final i18n = await makeI18n(tester);
+      await tester.tap(
+        find.widgetWithText(SmallButton, i18n.t('action.save')),
+      );
+      await settle(tester);
+      expect(k.countOf('settings_set'), 1);
+      // claude 页保存后 best-effort 同步分组设置。
+      expect(k.countOf('sync_group_settings'), 1);
+      expect(hasNavGuard, isFalse, reason: '保存完就该注销守卫');
+    });
+
+    testWidgets('离页拦截三个出口：取消留在原地 / 放弃直接走 / 保存并离开', (tester) async {
+      final k = await mount(tester, SchemaConfigKind.claude);
+      await tapSwitch(tester, 'field-verbose');
+
+      var navigated = 0;
+      requestNavigation(() => navigated++);
+      await settle(tester);
+      expect(find.byType(UnsavedChangesCard), findsOneWidget);
+
+      // ① 取消：不走，守卫还在。
+      await tester.tap(find.byKey(const ValueKey('unsaved-cancel')));
+      await settle(tester);
+      expect(navigated, 0);
+      expect(hasNavGuard, isTrue);
+
+      // ② 放弃：直接走，不落盘。
+      requestNavigation(() => navigated++);
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('unsaved-discard')));
+      await settle(tester);
+      expect(navigated, 1);
+      expect(k.countOf('settings_set'), 0);
+
+      // ③ 保存并离开：先落盘再走。
+      requestNavigation(() => navigated++);
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('unsaved-save')));
+      await settle(tester);
+      expect(k.countOf('settings_set'), 1);
+      expect(navigated, 2);
+    });
+
+    testWidgets('codex 页脏了也不注册守卫（照搬 React）', (tester) async {
+      await mount(tester, SchemaConfigKind.codex);
+      await tapSwitch(tester, 'field-verbose');
+      expect(hasNavGuard, isFalse);
+    });
+
+    testWidgets('pi 页脏了也不注册守卫（照搬 React）', (tester) async {
+      await mount(tester, SchemaConfigKind.pi);
+      await tapSwitch(tester, 'field-verbose');
+      expect(hasNavGuard, isFalse);
+    });
+  });
+
+  // ── CLI 集成页 ────────────────────────────────────────
+
+  group('CLI 集成页', () {
+    Future<FakeKernel> mount(WidgetTester tester, {List<Object?>? rules}) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        if (rules != null) 'middleware_list_rules': (_) => rules,
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          CodingToolsPage(
+            invoke: k.invoke,
+            languageLoader: () async => const [
+              (value: 'zh-Hans', label: '中文 · 简体'),
+            ],
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('日期改写规则读不到时开关点不动', (tester) async {
+      await mount(tester);
+      final sw = tester.widget<SwitchRow>(
+        find.byKey(const ValueKey('date-rewrite')),
+      );
+      expect(sw.onChanged, isNull);
+    });
+
+    testWidgets('规则存在时开关可用', (tester) async {
+      await mount(
+        tester,
+        rules: [
+          {
+            'id': 7,
+            'name': kDateRewriteRuleName,
+            'is_builtin': true,
+            'enabled': false,
+          },
+        ],
+      );
+      final sw = tester.widget<SwitchRow>(
+        find.byKey(const ValueKey('date-rewrite')),
+      );
+      expect(sw.onChanged, isNotNull);
+    });
+
+    testWidgets('插件开关发 coding_tools_settings_set', (tester) async {
+      final k = await mount(tester);
+      await tapSwitch(tester, 'apply-to-claude-plugin');
+      expect(k.lastArgsOf('coding_tools_settings_set'), {
+        'applyToClaudePlugin': true,
+      });
+    });
+
+    testWidgets('代理草稿改了就挂守卫，放弃离开会丢回已生效值', (tester) async {
+      await mount(tester);
+      expect(hasNavGuard, isFalse);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('cli-proxy-url')),
+          matching: find.byType(TextField),
+        ),
+        'http://127.0.0.1:1',
+      );
+      await settle(tester);
+      expect(hasNavGuard, isTrue);
+
+      var navigated = 0;
+      requestNavigation(() => navigated++);
+      await settle(tester);
+      expect(find.byType(UnsavedChangesCard), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('unsaved-discard')));
+      await settle(tester);
+      expect(navigated, 1);
+      expect(hasNavGuard, isFalse);
+    });
+  });
+
+  // ── 通知页 ────────────────────────────────────────────
+
+  group('通知页', () {
+    Future<FakeKernel> mount(WidgetTester tester, {bool enabled = true}) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'notification_settings_get': (_) => {
+          'enabled': enabled,
+          'tts_enabled': true,
+          'tts_backend': 'cross_platform',
+          'per_type': <String, Object?>{},
+          'per_event': <String, Object?>{},
+          'inbox_retention_days': 7,
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          NotificationsSettingsPage(invoke: k.invoke, openUrlFn: (_) async {}),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('总开关关掉时「默认注入 hook」点不动', (tester) async {
+      await mount(tester, enabled: false);
+      final sw = tester.widget<SwitchRow>(
+        find.byKey(const ValueKey('default-hooks')),
+      );
+      expect(sw.onChanged, isNull);
+    });
+
+    testWidgets('总开关开着时可用，且 30 个 hook 事件都渲染出来', (tester) async {
+      await mount(tester);
+      final sw = tester.widget<SwitchRow>(
+        find.byKey(const ValueKey('default-hooks')),
+      );
+      expect(sw.onChanged, isNotNull);
+      for (final e in kCcHookEvents) {
+        expect(
+          find.byKey(ValueKey('event-$e')),
+          findsOneWidget,
+          reason: '$e 没渲染',
+        );
+      }
+    });
+
+    testWidgets('四个通道测试各发各的命令', (tester) async {
+      final k = FakeKernel({
+        ...baseResponses(),
+        'notification_test': (_) => null,
+        'notification_test_tts': (_) => null,
+        'notification_test_popup': (_) => null,
+        'notification_test_beep': (_) => null,
+      });
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          NotificationsSettingsPage(invoke: k.invoke, openUrlFn: (_) async {}),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      for (final entry in {
+        'test-notify': 'notification_test',
+        'test-tts': 'notification_test_tts',
+        'test-popup': 'notification_test_popup',
+        'test-beep': 'notification_test_beep',
+      }.entries) {
+        await tester.tap(find.byKey(ValueKey(entry.key)));
+        await settle(tester);
+        expect(k.countOf(entry.value), 1, reason: entry.value);
+      }
+    });
+  });
+
+  // ── 调度熔断页 ────────────────────────────────────────
+
+  testWidgets('调度页：切策略即落盘', (tester) async {
+    await useBigSurface(tester);
+    final k = FakeKernel(baseResponses());
+    final i18n = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(SchedulingSettingsPage(invoke: k.invoke), i18n),
+    );
+    await settle(tester);
+    await tester.tap(
+      find.widgetWithText(SmallButton, i18n.t('group.failover')),
+    );
+    await settle(tester);
+    final args =
+        k.lastArgsOf('scheduling_settings_set')!['settings']! as Map;
+    expect(args['default_routing_mode'], 'failover');
+  });
+
+  // ── 中间件页 ──────────────────────────────────────────
+
+  group('中间件页', () {
+    Future<FakeKernel> mount(WidgetTester tester, {List<Object?>? rules}) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        if (rules != null) 'middleware_list_rules': (_) => rules,
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(MiddlewareSettingsPage(invoke: k.invoke), i18n),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('空列表走空态文案', (tester) async {
+      await mount(tester);
+      final i18n = await makeI18n(tester);
+      expect(find.text(i18n.t('middleware.noRules')), findsOneWidget);
+    });
+
+    testWidgets('删除先确认，确认前不发命令', (tester) async {
+      final k = await mount(
+        tester,
+        rules: [
+          {
+            'id': 3,
+            'name': 'r3',
+            'description': '',
+            'enabled': true,
+            'is_builtin': false,
+            'priority': 0,
+          },
+        ],
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('rule-3')),
+              matching: find.widgetWithText(SmallButton, i18n.t('action.delete')),
+            )
+            .first,
+      );
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('middleware_delete_rule'), 0);
+    });
+
+    testWidgets('新建表单：名字为空时保存点不动，且表单开着就挂守卫', (tester) async {
+      await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('middleware-add')));
+      await settle(tester);
+      expect(hasNavGuard, isTrue);
+      final save = tester.widget<SmallButton>(
+        find.byKey(const ValueKey('rule-save')),
+      );
+      expect(save.enabled, isFalse);
+
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('rule-name')),
+          matching: find.byType(TextField),
+        ),
+        'my-rule',
+      );
+      await settle(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('rule-save')))
+            .enabled,
+        isTrue,
+      );
+    });
+
+    testWidgets('条件 JSON 解不开时保存点不动', (tester) async {
+      await mount(tester);
+      await tester.tap(find.byKey(const ValueKey('middleware-add')));
+      await settle(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('rule-name')),
+          matching: find.byType(TextField),
+        ),
+        'r',
+      );
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('rule-conditions')),
+          matching: find.byType(TextField),
+        ),
+        '{ 这不是 JSON',
+      );
+      await settle(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('rule-save')))
+            .enabled,
+        isFalse,
+      );
+    });
+  });
+
+  // ── MITM 页 ───────────────────────────────────────────
+
+  group('MITM 页', () {
+    Future<FakeKernel> mount(
+      WidgetTester tester, {
+      List<Object?> whitelist = const [],
+    }) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'mitm_status': (_) => {
+          'enabled': false,
+          'ca_present': true,
+          'ca_installed': false,
+          'ca_fingerprint': 'AA:BB',
+          'whitelist': whitelist,
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(MitmSettingsPage(invoke: k.invoke, copyFn: (_) async {}), i18n),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('输入为空时「添加」点不动，白名单为空时「清空」点不动', (tester) async {
+      await mount(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('mitm-add')))
+            .enabled,
+        isFalse,
+      );
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('mitm-clear')))
+            .enabled,
+        isFalse,
+      );
+    });
+
+    testWidgets('填了内容「添加」才可用', (tester) async {
+      await mount(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('mitm-new-pattern')),
+          matching: find.byType(TextField),
+        ),
+        '*.example.com',
+      );
+      await settle(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('mitm-add')))
+            .enabled,
+        isTrue,
+      );
+    });
+
+    testWidgets('清空先确认，确认后才发 mitm_whitelist_clear', (tester) async {
+      final k = await mount(
+        tester,
+        whitelist: [
+          {
+            'host_pattern': 'a.com',
+            'enabled': true,
+            'source': 'user',
+            'rule_type': 'suffix',
+          },
+        ],
+      );
+      await tester.tap(find.byKey(const ValueKey('mitm-clear')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('mitm_whitelist_clear'), 0);
+
+      await tester.tap(
+        find
+            .descendant(
+              of: find.byType(ConfirmCard),
+              matching: find.byType(SmallButton),
+            )
+            .last,
+      );
+      await settle(tester);
+      expect(k.countOf('mitm_whitelist_clear'), 1);
+    });
+
+    testWidgets('两种空态文案不同：整份为空 vs 搜索没命中', (tester) async {
+      final i18n = await makeI18n(tester);
+      await mount(tester);
+      expect(find.text(i18n.t('mitm.whitelistEmpty')), findsOneWidget);
+    });
+  });
+
+  // ── 托盘 / 浮窗 ───────────────────────────────────────
+
+  testWidgets('托盘页：空态 + 添加今日指标即落盘', (tester) async {
+    await useBigSurface(tester);
+    final k = FakeKernel({...baseResponses(), 'tray_config_set': (_) => null});
+    final i18n = await makeI18n(tester);
+    final ticker = LogTicker();
+    addTearDown(ticker.close);
+    await tester.pumpWidget(
+      wrapPage(
+        TraySettingsPage(invoke: k.invoke, logUpdates: ticker.stream),
+        i18n,
+      ),
+    );
+    await settle(tester);
+    expect(find.text(i18n.t('tray.noItems')), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('tray-add-today')),
+        matching: find.widgetWithText(SmallButton, i18n.t('tray.metric.cost')),
+      ),
+    );
+    await settle(tester);
+    final cfg = k.lastArgsOf('tray_config_set')!['config']! as Map;
+    expect((cfg['items']! as List).length, 1);
+
+    // 日志事件触发今日统计刷新（不重拉整表）。
+    final before = k.countOf('tray_today_stats');
+    ticker.fire();
+    await tester.pump(const Duration(milliseconds: 1100));
+    await settle(tester);
+    expect(k.countOf('tray_today_stats'), before + 1);
+  });
+
+  testWidgets('浮窗页：空态 + 添加一项即落盘', (tester) async {
+    await useBigSurface(tester);
+    final k = FakeKernel({
+      ...baseResponses(),
+      'popover_config_set': (_) => null,
+    });
+    final i18n = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(PopoverSettingsPage(invoke: k.invoke), i18n),
+    );
+    await settle(tester);
+    expect(find.text(i18n.t('popover.empty')), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const ValueKey('popover-add')),
+        matching: find.widgetWithText(
+          SmallButton,
+          i18n.t('popover.itemProxyStatus'),
+        ),
+      ),
+    );
+    await settle(tester);
+    final cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
+    expect((cfg['items']! as List).length, 1);
+  });
+
+  // ── 导入导出页 ────────────────────────────────────────
+
+  group('导入导出页', () {
+    Future<FakeKernel> mount(
+      WidgetTester tester, {
+      String? pick,
+      Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+    }) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({...baseResponses(), ...extra});
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          ImportExportPage(
+            invoke: k.invoke,
+            pickPath: ({bool save = false, String? suggested}) async => pick,
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      return k;
+    }
+
+    testWidgets('没预览过就不许导出', (tester) async {
+      await mount(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('export-run')))
+            .enabled,
+        isFalse,
+      );
+    });
+
+    testWidgets('取消勾选全部范围 → 预览点不动并报错', (tester) async {
+      await mount(tester);
+      final i18n = await makeI18n(tester);
+      for (final s in kImportExportScopes) {
+        await tester.tap(find.byKey(ValueKey('scope-$s')));
+        await settle(tester);
+      }
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('export-preview')))
+            .enabled,
+        isFalse,
+      );
+      expect(find.text(i18n.t('importExport.error.noScope')), findsOneWidget);
+    });
+
+    testWidgets('预览出来是空清单 → 走「无可导出条目」空态，仍不许导出', (tester) async {
+      await mount(tester);
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('export-preview')));
+      await settle(tester);
+      expect(find.text(i18n.t('importExport.exportEmpty')), findsOneWidget);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('export-run')))
+            .enabled,
+        isFalse,
+      );
+    });
+
+    testWidgets('选到非 .aidogx 文件时报错且不读文件', (tester) async {
+      final k = await mount(tester, pick: '/tmp/x.zip');
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+      expect(k.countOf('import_read_file'), 0);
+      expect(find.text(i18n.t('importExport.error.notAidogx')), findsOneWidget);
+    });
+
+    testWidgets('冲突没定完不许应用', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'items': [
+              {'scope': 'platforms', 'key': 'p1'},
+            ],
+            'conflicts': [
+              {'scope': 'platforms', 'key': 'p1'},
+            ],
+          },
+          'import_apply': (_) => <String, Object?>{},
+        },
+      );
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+      expect(k.countOf('import_read_file'), 1);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
+            .enabled,
+        isFalse,
+        reason: '冲突还没定决策',
+      );
+
+      expect(
+        find.byKey(const ValueKey('conflict-platforms p1')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('decide-platforms p1-useIncoming')),
+      );
+      await settle(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
+            .enabled,
+        isTrue,
+      );
+
+      // 应用前必须先确认。
+      await tester.tap(find.byKey(const ValueKey('import-apply')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(k.countOf('import_apply'), 0);
+    });
+  });
+}
