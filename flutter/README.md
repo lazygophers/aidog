@@ -366,8 +366,68 @@ lib/src/pages/
   logs.dart / logs_logic.dart            请求日志两页（票 I07）
   ui_bits.dart                  票 I07 三页共用：SmallButton / ConfirmCard / CenteredNote / ToastBar
   filter_dropdown.dart          带搜索的筛选下拉
+  settings/*_logic.dart         设置 12 子页的逻辑层（票 I08）
+  settings/bits.dart            设置页共用表单零件（票 I16）
+  settings/schema_config_page.dart  claude / codex / pi 三页共用一棵树（票 I16）
+  settings/system_page.dart     系统设置（票 I16）
+  settings/coding_tools_page.dart   CLI 集成（票 I16）
+  settings/notifications_page.dart + notification_events.dart  系统通知（票 I16）
+  settings/rules_pages.dart     调度熔断 + 中间件规则（票 I16）
+  settings/mitm_page.dart       MITM 解密（票 I16）
+  settings/tray_pages.dart      托盘 + 浮窗（票 I16）
+  settings/importexport_page.dart   导入导出 + 定时备份 + 异源导入（票 I16）
 lib/stats/aggregation.dart      Stats 二次聚合四函数（票 I05）
 lib/utils/formatters.dart       数值格式化唯一落点（禁页内重复定义）
 lib/utils/color_level.dart      成功率 / 成本的色编码分级
 lib/main.dart                   主窗口入口
 ```
+
+## I16 定下的（2026-09-20）：设置页 widget 层
+
+票 I08 交了 12 个子页的**逻辑层**，I16 补上 widget 树并接进 `main.dart` 的 `pageBuilder`。
+**逻辑一行没重写** —— 在 widget 里再写一遍校验就是第二份真值源，两份一定会漂移。
+
+接进 `pageBuilder` 的 12 个 id：`settings`（裸 id 回退 system）/ `settings/system` /
+`settings/coding_tools` / `settings/claude` / `settings/codex` / `settings/pi` /
+`settings/middleware` / `settings/scheduling` / `settings/notifications` /
+`settings/tray` / `settings/popover` / `settings/importexport` / `settings/mitm`。
+**`settings/pricing`（模型信息）不在本票**：它没有 I08 的逻辑层，属票 I09 的
+`src/pages/ModelInfo/`，那一页落地前仍走占位。
+
+### 离页守卫挂在哪
+
+| 页 | 有守卫 | 理由 |
+|---|---|---|
+| `settings/claude` | ✅ 三个出口（保存并离开 / 放弃 / 取消） | React `Settings.tsx:340` 就是这样 |
+| `settings/codex`、`settings/pi` | ❌ | **照搬 React**：它俩没有守卫也没有 Cmd+S，改属产品改动，单开票 |
+| `settings/coding_tools` | ✅ 代理两个输入框有草稿时 | **相对 React 的有意增强**，见下 |
+| `settings/middleware` | ✅ 规则表单开着时 | **相对 React 的有意增强**，见下 |
+| 其余 8 页 | ❌ | 即时保存，没有草稿态，不存在「静默丢编辑」 |
+
+两处增强的理由：React 的这两个草稿分别靠 `onBlur` 与 modal 收口，而桌面壳里点侧栏
+会直接把整棵页面树拆掉 —— `onBlur` 不一定触发、modal 不存在，编辑会**静默丢失**。
+守卫只在真有草稿时挂，不脏就注销，对 React 行为的唯一可见差别是「点走时会先问一句」。
+
+### 与 React 的未对齐（照实列，不是没想到）
+
+1. **claude 页的 `json` / `object` / `kv` 类字段是 JSON 编辑框**，不是 React 的可视化编辑器
+   （权限矩阵 `permissions`、hooks 构建器 `hooks`、插件配置）。功能上能改能存，
+   但没有那几个专用面板。465 个字段里命中这一类的是 30 个（22 json + 3 object + 5 kv 系）。
+2. **中间件规则表单是「条件 / 动作两个 JSON 框」**，不是 React 的卡片 ↔ DSL 双模式编辑器
+   （`MiddlewareRules.tsx` 48 KB）。能建 / 改 / 删 / 启停 / 看预算，但没有可视化条件树。
+3. **托盘与浮窗的排序是「上移 / 下移」按钮**，不是拖拽。`ReorderableListView` 要自己管滚动，
+   嵌在外层 `SingleChildScrollView` 里会与之打架；上下移按钮在键盘 / 读屏下反而更好用。
+4. **浮窗页没有二维栅格预览**（React 的 `PopoverLayout` 能设每行列数、跨行拖拽）。
+   本票落地的是「卡片列表 + 显隐 + 排序 + 尺寸 / 维度 / 时间窗」与一块数值预览。
+
+### 顺手修掉的一处存量 bug
+
+`settings/importexport_logic.dart` 里 `scope|key` 复合键的分隔符是一个**字面 NUL 字节**
+（`'${e['scope']}\x00${e['key']}'`，join 与 `_splitKey` 三处一致，所以功能是对的）。
+NUL 在编辑器里不可见、会让 grep / diff / 测试里的字符串字面量全部对不上 —— 本票把三处
+一起换成普通空格，行为不变，I08 的断言照常通过。
+
+### 命令覆盖
+
+本票的 widget **没有引入逻辑层之外的新命令**，所以
+`test/settings/command_coverage_test.dart` 的 96/96 零差集继续成立，数字没动。
