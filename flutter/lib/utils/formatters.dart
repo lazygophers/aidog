@@ -52,3 +52,18 @@ String formatNumber(num n) {
 /// 成功率百分比（0–100）。对应 `formatters.ts::successRate`：总数 ≤ 0 → 0。
 double successRate(num successCount, num totalRequests) =>
     totalRequests <= 0 ? 0 : (successCount / totalRequests) * 100;
+
+/// 毫秒戳 → 可读的本地时刻。对应 `formatters.ts::formatDateTime`（票 I07 补）。
+/// 0 / 负数 = 没有时间，返回空串（React 那边这种输入返回 `null`，调用处一律当假值用）。
+///
+/// **与 React 有一处形态差异**：那边是 `Date.toLocaleString()`，跟浏览器 locale 走，
+/// 中文环境出「2026/9/20 14:03:05」、英文环境出「9/20/2026, 2:03:05 PM」。
+/// 这里固定成 `YYYY/M/D HH:MM:SS` 一种。要跟 locale 走得先
+/// `initializeDateFormatting()`（`intl` 包），漏调会在非英文 locale 抛
+/// `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 画星期标签是同一个理由。
+String formatDateTime(int msSinceEpoch) {
+  if (msSinceEpoch <= 0) return '';
+  final d = DateTime.fromMillisecondsSinceEpoch(msSinceEpoch);
+  return '${d.year}/${d.month}/${d.day} '
+      '${pad(d.hour)}:${pad(d.minute)}:${pad(d.second)}';
+}
