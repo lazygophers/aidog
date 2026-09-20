@@ -2,12 +2,15 @@
 /// 页面内容是票 I06-I09 的活，这里先按 activeId 占位，页面票逐个替换 `_placeholder`。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'i18n.dart';
 import 'pages.dart';
 import 'popover.dart';
 import 'shell.dart';
+import 'src/updater.dart';
 import 'transport.dart';
 
 /// 托盘小窗那个引擎的入口（票 I11）。
@@ -21,6 +24,8 @@ Future<void> popoverMain() => runPopoverApp();
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // 票 I13：桌面壳的自动更新（Sparkle / WinSparkle）。放 runApp 之前、不 await 拖首帧。
+  unawaited(initDesktopUpdater());
   // 文案是构建期资产，不依赖内核 —— 所以「后端连接中」这一屏本身就是翻好的。
   await i18n.init();
   runApp(const AidogI18n(child: AidogApp()));
@@ -110,7 +115,10 @@ class _AidogAppState extends State<AidogApp> {
     'skills' => const SkillsPage(),
     'mcp' => const McpPage(),
     'notifications' => NotificationsPage(onNavigate: _nav.navigate),
-    'about' => const AboutPage(),
+    // 桌面形态给检查按钮（Sparkle 接管后续流程）；其余形态维持说明分支。
+    'about' => AboutPage(
+      onCheckUpdate: desktopUpdaterSupported ? checkForAppUpdates : null,
+    ),
     'settings/pricing' => const ModelInfoPage(),
     _ => _placeholder(context, id),
   };

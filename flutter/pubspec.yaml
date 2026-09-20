@@ -43,6 +43,11 @@ dependencies:
   path_provider: ^2.1.6
   flutter_local_notifications: ^22.3.1
 
+  # 自动更新（票 I13）：macOS 走 Sparkle（EdDSA，公钥在 Info.plist 的 SUPublicEDKey），
+  # Windows 走 WinSparkle（DSA，公钥 dsa_pub.pem 作嵌入资源）。包本身 1.0.0 已 22 个月
+  # 未发新版 —— 用户知情接受（票面原文）。Linux 不支持；本项目不发布 Linux 桌面包。
+  auto_updater: ^1.0.0
+
   # 设计 token 的 Dart 投影。path 依赖而不是复制一份：色值的唯一真值源是
   # design/tokens/tokens.json，`yarn check:tokens` 逐字节校验生成物。
   aidog_tokens:
