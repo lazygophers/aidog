@@ -59,9 +59,6 @@ const List<EnvVar> kPrivacyDefaultEnvVars = [
 /// `src/domains/groups/index.ts` 的批量测试并发上限。
 const int kBatchTestConcurrency = 4;
 
-/// `usePlatformQuota.ts` 的 quota 查询并发上限（`domains/platforms` 的 `QUOTA_CONCURRENCY`）。
-const int kQuotaConcurrency = 4;
-
 /// 分组密钥输入过滤：`GroupCreateModal.tsx:78` 的 `replace(/[^\w-]/g, "")`。
 /// JS 的 `\w` = `[A-Za-z0-9_]`，所以允许的字符集是「字母数字下划线连字符」。
 ///
