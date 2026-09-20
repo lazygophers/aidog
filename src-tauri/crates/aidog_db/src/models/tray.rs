@@ -39,7 +39,11 @@ impl Default for TrayColor {
 /// 托盘单个展示项。
 /// - item_type="platform": platform_id 指定平台，display ∈ {"balance","coding"}
 /// - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
-/// - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）
+/// - item_type="routed_platform": 当前命中平台（取最近一条非测试 proxy_log 的平台），无字段
+/// - item_type="peak": 高峰指示（按当前命中平台的 peak 窗口判定），无字段
+/// - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）。
+///   票 I15 起菜单栏只画最多 3 段、separator 不再可选，存量 separator 项一律被
+///   [`clamp_to_segments`] 置 `enabled=false` 留在配置里（不删）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct TrayItem {
@@ -118,6 +122,69 @@ impl Default for TrayConfig {
             items: Vec::new(),
         }
     }
+}
+
+/// 菜单栏最多画几段（票 I15：今日费用 · 当前命中平台 · 高峰指示）。
+pub const TRAY_MAX_SEGMENTS: usize = 3;
+
+/// 一个空白 item 模板（除 item_type / order 外全取默认）。
+fn segment(item_type: &str, metric: Option<&str>, order: i32) -> TrayItem {
+    TrayItem {
+        item_type: item_type.to_string(),
+        platform_id: None,
+        display: String::new(),
+        metric: metric.map(str::to_string),
+        label: None,
+        decimals: None,
+        color: TrayColor::default(),
+        font_size: default_font_size(),
+        line_mode: "single".to_string(),
+        align: default_align(),
+        align_row2: None,
+        enabled: true,
+        order,
+    }
+}
+
+impl TrayConfig {
+    /// 票 I15 的出厂三段：今日费用 · 当前命中平台 · 高峰指示。
+    pub fn default_segments() -> Self {
+        Self {
+            separator: default_separator(),
+            items: vec![
+                segment("today_usage", Some("cost"), 0),
+                segment("routed_platform", None, 1),
+                segment("peak", None, 2),
+            ],
+        }
+    }
+}
+
+/// 票 I15 迁移：二维网格编辑器 → 「最多挑 3 项」单选清单。
+///
+/// **规则是「降级不删除」**：按 order 排序后，前 [`TRAY_MAX_SEGMENTS`] 个 enabled 的
+/// 数据项保持 enabled，其余（含全部 separator 项）一律置 `enabled=false` 留在 items 里。
+/// 字段（line_mode / align / align_row2 / font_size / color / label…）一个不动，
+/// 所以降级到旧版本仍能原样渲染，用户也能在新清单里把被关掉的项重新挑回来。
+///
+/// 返回 true 表示配置被改过（调用方据此决定是否落盘）。
+pub fn clamp_to_segments(cfg: &mut TrayConfig) -> bool {
+    let mut order: Vec<usize> = (0..cfg.items.len()).collect();
+    order.sort_by_key(|&i| cfg.items[i].order);
+    let mut kept = 0usize;
+    let mut changed = false;
+    for i in order {
+        let item = &mut cfg.items[i];
+        let keepable =
+            item.enabled && item.item_type != "separator" && kept < TRAY_MAX_SEGMENTS;
+        if keepable {
+            kept += 1;
+        } else if item.enabled {
+            item.enabled = false;
+            changed = true;
+        }
+    }
+    changed
 }
 
 // ─── Popover Config (KV: scope="popover", key="config") ────
