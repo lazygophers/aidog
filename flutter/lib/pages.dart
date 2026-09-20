@@ -24,8 +24,13 @@ export 'src/pages/home.dart' show HomePage;
 export 'src/pages/home_logic.dart';
 export 'src/pages/invoke.dart'
     show InvokeFn, debounceStream, kProxyLogUpdatedEvent, kernelInvoke, kernelProxyLogUpdated;
+export 'src/pages/groups.dart' show GroupsSection;
+export 'src/pages/logs.dart' show LogsPage, RequestLogPage;
 export 'src/pages/logs_logic.dart';
 export 'src/pages/models.dart';
+export 'src/pages/platforms.dart' show PlatformsPage;
 export 'src/pages/platforms_logic.dart';
 export 'src/pages/stats.dart' show StatsPage;
 export 'src/pages/stats_logic.dart';
+export 'src/pages/ui_bits.dart'
+    show CenteredNote, ConfirmCard, SmallButton, ToastBar;

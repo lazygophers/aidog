@@ -22,6 +22,7 @@ import 'filter_dropdown.dart';
 import 'invoke.dart';
 import 'logs_logic.dart';
 import 'models.dart';
+import 'ui_bits.dart';
 
 // ── Logs 主页 ──────────────────────────────────────────────────────
 
@@ -112,13 +113,13 @@ class _LogsPageState extends State<LogsPage> {
                   _c.cleanupMessage,
                   style: AidogType.micro.copyWith(color: theme.c.ok),
                 ),
-              _SmallButton(
+              SmallButton(
                 label: t.t('logs.cleanupExpired'),
                 onTap: () => _c.cleanupExpired(
                   doneText: t.t('logs.cleanupExpiredDone'),
                 ),
               ),
-              _SmallButton(
+              SmallButton(
                 label: t.t('logs.clear'),
                 danger: true,
                 onTap: () => setState(() => _c.showClearConfirm = true),
@@ -129,9 +130,9 @@ class _LogsPageState extends State<LogsPage> {
         _LogsFilterBar(controller: _c),
         const SizedBox(height: AidogSpace.smd),
         if (_c.loading)
-          _Centered(text: t.t('status.loading'))
+          CenteredNote(text: t.t('status.loading'))
         else if (_c.logs.isEmpty)
-          _Centered(text: t.t('logs.empty'))
+          CenteredNote(text: t.t('logs.empty'))
         else ...[
           _LogTable(
             rows: _c.logs,
@@ -154,7 +155,7 @@ class _LogsPageState extends State<LogsPage> {
           ),
         ],
         if (_c.showClearConfirm)
-          _ConfirmCard(
+          ConfirmCard(
             title: t.t('logs.clearConfirmTitle'),
             body: t.t('logs.clearConfirm'),
             confirmLabel: t.t('logs.clear'),
@@ -253,7 +254,7 @@ class _LogsFilterBar extends StatelessWidget {
             ],
           ),
           if (f.hasFilter)
-            _SmallButton(
+            SmallButton(
               label: t.t('logs.clearFilter'),
               onTap: controller.clearFilter,
             ),
@@ -329,7 +330,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
           subtitle: _c.total > 0
               ? '${_c.total} ${t.t('logs.total')}'
               : t.t('requestLog.empty'),
-          trailing: _SmallButton(
+          trailing: SmallButton(
             label: t.t('action.refresh'),
             onTap: _c.loading ? null : () => _c.load(),
           ),
@@ -395,7 +396,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
                 ],
               ),
               if (_c.hasFilter)
-                _SmallButton(
+                SmallButton(
                   label: t.t('logs.clearFilter'),
                   onTap: _c.clearFilter,
                 ),
@@ -404,9 +405,9 @@ class _RequestLogPageState extends State<RequestLogPage> {
         ),
         const SizedBox(height: AidogSpace.smd),
         if (_c.loading)
-          _Centered(text: t.t('status.loading'))
+          CenteredNote(text: t.t('status.loading'))
         else if (_c.logs.isEmpty)
-          _Centered(text: t.t('requestLog.empty'))
+          CenteredNote(text: t.t('requestLog.empty'))
         else ...[
           _LogTable(
             rows: _c.logs,
@@ -586,7 +587,7 @@ class _Pager extends StatelessWidget {
     final theme = AidogTheme.of(context);
     return Row(
       children: [
-        _SmallButton(
+        SmallButton(
           label: t.t('action.prev'),
           onTap: currentPage > 1 ? () => onPage(currentPage - 1) : null,
         ),
@@ -596,7 +597,7 @@ class _Pager extends StatelessWidget {
           style: AidogType.micro.copyWith(color: theme.c.fg3),
         ),
         const SizedBox(width: AidogSpace.ssm),
-        _SmallButton(
+        SmallButton(
           label: t.t('action.next'),
           onTap: hasMore ? () => onPage(currentPage + 1) : null,
         ),
@@ -604,7 +605,7 @@ class _Pager extends StatelessWidget {
         for (final size in const [20, 50, 100])
           Padding(
             padding: const EdgeInsets.only(left: 4),
-            child: _SmallButton(
+            child: SmallButton(
               label: '$size',
               active: size == pageSize,
               onTap: () => onPageSize(size),
@@ -646,12 +647,12 @@ class _DetailPanel extends StatelessWidget {
           children: [
             Row(
               children: [
-                _SmallButton(
+                SmallButton(
                   label: copied ? t.t('logs.copied') : t.t('logs.copyAll'),
                   onTap: onCopyAll,
                 ),
                 const Spacer(),
-                _SmallButton(label: t.t('action.close'), onTap: onClose),
+                SmallButton(label: t.t('action.close'), onTap: onClose),
               ],
             ),
             const SizedBox(height: AidogSpace.ssm),
@@ -736,115 +737,4 @@ class _DetailPanel extends StatelessWidget {
   );
 }
 
-/// 破坏性操作的确认卡。**不是 `showDialog`** —— 这样确认态就是页面 state 的一部分，
-/// widget 测试里能直接断言它在不在，不必去 dialog route 里捞。
-class _ConfirmCard extends StatelessWidget {
-  const _ConfirmCard({
-    required this.title,
-    required this.body,
-    required this.confirmLabel,
-    required this.onCancel,
-    required this.onConfirm,
-  });
 
-  final String title;
-  final String body;
-  final String confirmLabel;
-  final VoidCallback onCancel;
-  final VoidCallback onConfirm;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
-      child: Tile(
-        title: title,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              body,
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg2,
-              ),
-            ),
-            const SizedBox(height: AidogSpace.ssm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                _SmallButton(label: t.t('action.cancel'), onTap: onCancel),
-                const SizedBox(width: AidogSpace.ssm),
-                _SmallButton(
-                  label: confirmLabel,
-                  danger: true,
-                  onTap: onConfirm,
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _Centered extends StatelessWidget {
-  const _Centered({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Tile(
-    child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: AidogSpace.s_2xl),
-      child: Center(
-        child: Text(
-          text,
-          style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
-        ),
-      ),
-    ),
-  );
-}
-
-/// 页面里用到的小按钮。`onTap` 为 null = 禁用态（颜色变浅且不可点）。
-class _SmallButton extends StatelessWidget {
-  const _SmallButton({
-    required this.label,
-    this.onTap,
-    this.danger = false,
-    this.active = false,
-  });
-
-  final String label;
-  final VoidCallback? onTap;
-  final bool danger;
-  final bool active;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = AidogTheme.of(context);
-    final fg = onTap == null
-        ? theme.c.fg3
-        : danger
-        ? theme.c.bad
-        : active
-        ? theme.c.accentText
-        : theme.c.fg2;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? theme.c.accentWash : null,
-          border: Border.all(color: theme.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        child: Text(label, style: AidogType.micro.copyWith(color: fg)),
-      ),
-    );
-  }
-}
