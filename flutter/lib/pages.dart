@@ -18,18 +18,37 @@
 ///    全局 `kernel` 是 `final`，不留这个口子就没法在不起内核的情况下测页面。
 library;
 
-export 'src/pages/filter_dropdown.dart' show FilterDropdown, FilterOption, filterOptions;
+export 'src/pages/about.dart' show AboutPage;
+export 'src/pages/about_logic.dart';
+export 'src/pages/filter_dropdown.dart'
+    show FilterDropdown, FilterOption, filterOptions;
 export 'src/pages/groups_logic.dart';
 export 'src/pages/home.dart' show HomePage;
 export 'src/pages/home_logic.dart';
 export 'src/pages/invoke.dart'
-    show InvokeFn, debounceStream, kProxyLogUpdatedEvent, kernelInvoke, kernelProxyLogUpdated;
+    show
+        InvokeFn,
+        debounceStream,
+        kProxyLogUpdatedEvent,
+        kernelInvoke,
+        kernelProxyLogUpdated;
 export 'src/pages/groups.dart' show GroupsSection;
 export 'src/pages/logs.dart' show LogsPage, RequestLogPage;
 export 'src/pages/logs_logic.dart';
+export 'src/pages/mcp.dart' show McpPage;
+export 'src/pages/mcp_logic.dart';
+export 'src/pages/model_info.dart' show ModelInfoPage;
+export 'src/pages/model_info_logic.dart';
+export 'src/pages/model_test.dart' show ModelTestPanel;
+export 'src/pages/model_test_logic.dart';
 export 'src/pages/models.dart';
+export 'src/pages/notifications.dart'
+    show NotificationItem, NotificationsPage, notifTypeLabel;
 export 'src/pages/platforms.dart' show PlatformsPage;
 export 'src/pages/platforms_logic.dart';
+export 'src/pages/skills.dart'
+    show SkillDetailView, SkillInstallView, SkillsPage;
+export 'src/pages/skills_logic.dart';
 export 'src/pages/stats.dart' show StatsPage;
 export 'src/pages/stats_logic.dart';
 export 'src/pages/ui_bits.dart'

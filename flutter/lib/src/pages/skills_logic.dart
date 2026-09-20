@@ -709,9 +709,7 @@ class SkillsController {
       if (res.success) {
         final n = parseAlignedCount(res.stdout);
         setMessage(
-          n == 0
-              ? t('skills.alignNoop')
-              : t('skills.alignDone', {'count': n}),
+          n == 0 ? t('skills.alignNoop') : t('skills.alignDone', {'count': n}),
         );
         await refreshInstalled();
       } else {
@@ -817,7 +815,8 @@ class SkillsController {
   Future<void> runImport() async {
     final ids = importIds;
     if (ids == null || importAgents.isEmpty) return;
-    if (importScopeKind == 'project' && importProjectPath.trim().isEmpty) return;
+    if (importScopeKind == 'project' && importProjectPath.trim().isEmpty)
+      return;
     if (env?.npxAvailable != true) {
       setMessage(t('skills.envMissing'));
       return;
@@ -1032,7 +1031,10 @@ class SkillInstallController {
       final agents = (selected[e.id] ?? const <String>{}).toList();
       if (agents.isEmpty) continue;
       final key = ([...agents]..sort()).join(',');
-      final g = groups.putIfAbsent(key, () => (ids: <String>[], agents: agents));
+      final g = groups.putIfAbsent(
+        key,
+        () => (ids: <String>[], agents: agents),
+      );
       g.ids.add(e.id);
     }
 
@@ -1082,7 +1084,8 @@ String formatSkillFileSize(int n) {
   return '${(n / (1024 * 1024)).toStringAsFixed(1)} MB';
 }
 
-bool isMarkdownPath(String rel) => RegExp(r'\.md$', caseSensitive: false).hasMatch(rel);
+bool isMarkdownPath(String rel) =>
+    RegExp(r'\.md$', caseSensitive: false).hasMatch(rel);
 
 class SkillDetailController {
   SkillDetailController({
