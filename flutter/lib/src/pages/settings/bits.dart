@@ -545,6 +545,84 @@ class _AutoToastState extends State<AutoToast> {
       ToastBar(text: widget.text, ok: widget.ok);
 }
 
+/// 无标签的受控文本框（编辑器内部的行用，如权限规则 pattern、hooks 命令）。
+/// 与 [TextRow] 同一套同步规则：外部值变了才写回 controller，不打断正在编辑的光标。
+class PlainTextField extends StatefulWidget {
+  const PlainTextField({
+    super.key,
+    required this.value,
+    this.onChanged,
+    this.onSubmitted,
+    this.hint,
+    this.maxLines = 1,
+    this.enabled = true,
+  });
+
+  final String value;
+  final String? hint;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final int maxLines;
+  final bool enabled;
+
+  @override
+  State<PlainTextField> createState() => _PlainTextFieldState();
+}
+
+class _PlainTextFieldState extends State<PlainTextField> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) widget.onSubmitted?.call(_ctrl.text);
+    });
+  }
+
+  @override
+  void didUpdateWidget(PlainTextField old) {
+    super.didUpdateWidget(old);
+    if (widget.value != _ctrl.text && !_focus.hasFocus) {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return TextField(
+      controller: _ctrl,
+      focusNode: _focus,
+      enabled: widget.enabled,
+      maxLines: widget.maxLines,
+      style: AidogType.micro.copyWith(
+        color: widget.enabled ? theme.c.fg : theme.c.fg3,
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: widget.hint,
+        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+      ),
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+    );
+  }
+}
+
 /// 子页的统一外壳：标题 + 右上角动作 + 内容。
 class SettingsPageBody extends StatelessWidget {
   const SettingsPageBody({

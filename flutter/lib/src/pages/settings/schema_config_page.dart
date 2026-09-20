@@ -22,7 +22,9 @@ import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'hooks_editor.dart';
 import 'import_diff.dart';
+import 'permissions_editor.dart';
 import 'schema_config_logic.dart';
 
 /// 三页的接线 + 文案 key，集中在一处。
@@ -302,6 +304,23 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     SchemaConfigController c,
     SchemaSection s,
   ) {
+    // hooks 区在 schema 里标了 skipGui（通用行渲染器画不了树），但 React 侧
+    // 给它配了专用构建器（HooksSectionInline）—— 这里同样走专用编辑器。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'hooks') {
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          HooksEditor(
+            hooks: c.config['hooks'] is Map
+                ? Map<String, Object?>.from(c.config['hooks'] as Map)
+                : {},
+            onChanged: (v) => c.updateField('hooks', v),
+            updateField: c.updateField,
+            invoke: widget.invoke,
+          ),
+        ],
+      );
+    }
     final rows = <Widget>[];
     for (final f in s.fields) {
       if (f.skipGui) continue;
@@ -318,6 +337,15 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   ) {
     final label = tOr(t, 'settings.f_${f.key}', f.label);
     final value = c.config[f.key];
+    // 权限矩阵：React 侧是专用可视化编辑器（PermissionsSectionInline），
+    // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢。
+    if (widget.kind == SchemaConfigKind.claude && f.key == 'permissions') {
+      return PermissionsEditor(
+        key: const ValueKey('field-permissions'),
+        perms: value is Map ? Map<String, Object?>.from(value) : {},
+        onChanged: (v) => c.updateField(f.key, v),
+      );
+    }
     switch (f.type) {
       case 'boolean':
         return SwitchRow(

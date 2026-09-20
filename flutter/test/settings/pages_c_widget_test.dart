@@ -621,13 +621,8 @@ void main() {
       await mount(tester);
       await tester.tap(find.byKey(const ValueKey('middleware-add')));
       await settle(tester);
-      await tester.enterText(
-        find.descendant(
-          of: find.byKey(const ValueKey('rule-name')),
-          matching: find.byType(TextField),
-        ),
-        'r',
-      );
+      await tester.tap(find.byKey(const ValueKey('cond-mode-json')));
+      await settle(tester);
       await tester.enterText(
         find.descendant(
           of: find.byKey(const ValueKey('rule-conditions')),
