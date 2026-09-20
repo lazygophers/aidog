@@ -306,6 +306,44 @@ I01 关掉了 App Sandbox（沙箱会挡住外壳连自己的内核）。所以 
 不要照着后端 struct 凭记忆写。哪天字段漂移的账真的疼了，再谈生成器 —— 那时它有真实需求撑着，
 不是现在这种「以后可能要」。
 
+## 打包与自动更新（票 I13）
+
+**谁只认谁的产物**：Flutter 壳读 `flutter-appcast.xml`（Sparkle/WinSparkle），老 Tauri 壳读
+`latest.json`（minisign）。两个 feed 在同一个 Release 上，格式互不兼容、签名密钥互不相认，
+谁也不可能给对方装上包。
+
+- macOS：Sparkle，EdDSA 公钥在 `macos/Runner/Info.plist` 的 `SUPublicEDKey`。`aidog-kernel`
+  由 Xcode 的「Bundle aidog-kernel」phase 打进 `Contents/MacOS`，带自己的 bundle id
+  （`<app id>.aidog-kernel`）+ hardened runtime + 独立签名（spec §5.2 的 Apple 规则）；
+  本地无证书时 ad-hoc（`codesign -dv` 可自证）。
+- Windows：WinSparkle，DSA 公钥是嵌入资源（`windows/runner/Runner.rc` 的 `DSAPub` ←
+  `flutter/dsa_pub.pem`）。`aidog-kernel.exe` 由 CMake install 阶段落位到主程序同目录。
+  安装包走 Inno Setup（`packaging/flutter_windows.iss`），WinSparkle 对 Inno 静默安装自带参数。
+
+**版本**：`flutter/pubspec.yaml` 的 version 由 `scripts/sync-version.mjs` 从根 `.version`
+同步（`+N` build number 不参与漂移判定），CI 出包时用 `--build-name/--build-number` 覆盖。
+
+**跨栈回滚**（Flutter 版不乖 → 回 Tauri 版）：两个壳共用 `AiDog` 这个应用槽位，从 Releases
+页下载上一个版本的 Tauri `*_universal.dmg` / `*_x64-setup.exe` 覆盖安装即可；装回去后它的
+`latest.json` 链会继续把它留在 Tauri 线上。
+
+**本地 mock 更新源**（验收「更新流程实跑一次」用）：
+
+```sh
+cd /tmp && mkdir -p feed && cd feed   # 放一个 appcast.xml + 一个高版本的假 zip
+python3 -m http.server 5002
+AIDOG_UPDATE_FEED=http://127.0.0.1:5002/appcast.xml \
+  HOME=/tmp/aidog-I13-home flutter run -d macos   # 或直接开已构建的 .app
+```
+
+`AIDOG_UPDATE_FEED` 设置时启动即弹一次检查（`lib/src/updater.dart`）。
+
+**需要 CI secrets**（本地证不了的部分）：`SPARKLE_EDDSA_PRIVATE_KEY`（Ed25519 私钥，
+base64，`sign_update --ed-key-file -` 吃它）、`WINSPARKLE_DSA_PRIVATE_KEY`（`dsa_priv.pem`
+全文）。私钥的生成件在 `.scratch/flutter-frontend/keys/`（gitignored），**必须备份后再设
+secret** —— 丢了用户就永远升不了级。Apple 侧的真签名 / notarization 未配（与老 Tauri 壳
+同水位），要配的话另需 Developer ID 证书与 notarytool 凭据。
+
 ## 内核可执行文件在哪
 
 `resolveKernelExecutable()` 按顺序找，一条都不中就抛（不静默回落）：
