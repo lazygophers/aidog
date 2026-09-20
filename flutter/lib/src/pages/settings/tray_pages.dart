@@ -1,14 +1,15 @@
-/// 托盘与浮窗两页的 widget 层：
+/// 浮窗两页的 widget 层：
 /// - `settings/tray`    → `src/pages/TrayConfigTab.tsx`
 /// - `settings/popover` → `src/pages/PopoverConfigTab/`
 ///
 /// 两页都是**即时保存**：每次增删改整份写回，没有保存按钮 → 没有脏状态 →
-/// 不需要离页守卫（与 React 一致）。order 每次按下标重排，不这么做拖拽后
-/// 顺序在后端就是乱的（`tray_logic.dart::withOrders`）。
+/// 不需要离页守卫（与 React 一致）。order / row 每次写回前经
+/// `popover_layout.dart::normalizePopoverConfig` 规整，拖拽后顺序在后端才不会乱。
 ///
-/// **与 React 的差异**：拖拽排序换成「上移 / 下移」两个按钮。Flutter 的
-/// `ReorderableListView` 要求自己管滚动，嵌在 Bento 页里会与外层滚动打架；
-/// 上下移按钮在键盘 / 读屏下反而更好用。列在 flutter/README.md 的差异清单里。
+/// 浮窗页是**二维布局编辑器**（I17，对齐 React 的 PopoverLayout + dnd-kit）：
+/// 卡片长按拖拽（行内换位 / 跨行搬移，`movePopoverItemToRow` 同语义），
+/// 每行可设 1-3 列，新添加的项落到新的一行。实时预览与托盘小窗本体共用
+/// `PopoverGrid`，所见即所得。
 library;
 
 import 'dart:async';
@@ -17,10 +18,12 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../../popover.dart';
+import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'popover_layout.dart';
 import 'popover_logic.dart';
 import 'tray_logic.dart';
 
@@ -259,19 +262,101 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     unawaited(_c.loadPickers());
   }
 
-  List<Map<String, Object?>> get _items =>
-      (_c.config['items'] as List? ?? const [])
-          .whereType<Map>()
-          .map(Map<String, Object?>.from)
-          .toList();
+  /// 规整后的编辑视图（React 在 load 后 `setConfig(normalizeConfig(...))`，
+  /// 这里每次 build 派生 —— 幂等、且不为展示而写后端）。行号连续、行内有序。
+  Map<String, Object?> get _norm {
+    final items = (_c.config['items'] as List? ?? const [])
+        .whereType<Map>()
+        .map(Map<String, Object?>.from)
+        .toList();
+    final rows = (_c.config['rows'] as List? ?? const [])
+        .whereType<Map>()
+        .map(Map<String, Object?>.from)
+        .toList();
+    return normalizePopoverConfig(items, rows);
+  }
+
+  List<Map<String, Object?>> _itemsOf(Map<String, Object?> cfg) =>
+      ((cfg['items'] as List? ?? const [])).whereType<Map>().map(Map<String, Object?>.from).toList();
 
   /// 改完配置顺带重拉预览：新加的卡片要有自己的统计结果，否则永远停在加载态。
-  Future<void> _persistItems(List<Map<String, Object?>> next) async {
+  /// 写回前先规整（row/order/rows 对齐），再合进整份 config —— 只带 items/rows
+  /// 会把 config 里其它顶层键清掉。
+  Future<void> _persistRaw(
+    List<Map<String, Object?>> items,
+    List<Map<String, Object?>> rows,
+  ) async {
     await _c.persist({
       ..._c.config,
-      'items': PopoverController.withOrders(next),
+      ...normalizePopoverConfig(items, rows),
     });
     await _c.loadPreview();
+  }
+
+  void _updateItem(String id, Map<String, Object?> patch) {
+    final items = _itemsOf(_norm)
+        .map((it) => '${it['id']}' == id ? {...it, ...patch} : it)
+        .toList();
+    _persistRaw(items, _rowsOf(_norm));
+  }
+
+  void _removeItem(String id) {
+    _persistRaw(
+      _itemsOf(_norm).where((it) => '${it['id']}' != id).toList(),
+      _rowsOf(_norm),
+    );
+  }
+
+  void _setRowCols(int row, int cols) {
+    _persistRaw(_itemsOf(_norm), [
+      for (var r = 0; r < _rowGroups.length; r++) {'cols': r == row ? cols : _colsOf(r)},
+    ]);
+  }
+
+  List<Map<String, Object?>> _rowsOf(Map<String, Object?> cfg) =>
+      ((cfg['rows'] as List? ?? const [])).whereType<Map>().map(Map<String, Object?>.from).toList();
+
+  int _colsOf(int row) {
+    final rows = _rowsOf(_norm);
+    return row < rows.length ? ((rows[row]['cols'] as num?)?.toInt() ?? 1) : 1;
+  }
+
+  /// 行分组视图（编辑器用）：含隐藏卡（显隐是卡内开关，不是从布局里消失）。
+  List<List<Map<String, Object?>>> get _rowGroups {
+    final byRow = <int, List<Map<String, Object?>>>{};
+    for (final it in _itemsOf(_norm)) {
+      (byRow[effRow(it)] ??= []).add(it);
+    }
+    final nums = byRow.keys.toList()..sort();
+    return [
+      for (final n in nums)
+        byRow[n]!
+          ..sort(
+            (a, b) => ((a['order'] as num?)?.toInt() ?? 0)
+                .compareTo((b['order'] as num?)?.toInt() ?? 0),
+          ),
+    ];
+  }
+
+  /// 跨行 / 行内搬移（`usePopoverConfig.ts::moveItemToRow` 同语义）。
+  void _moveItem(String activeId, int targetRow, String? beforeId) {
+    _persistRaw(
+      movePopoverItemToRow(_itemsOf(_norm), activeId, targetRow, beforeId),
+      _rowsOf(_norm),
+    );
+  }
+
+  /// 新项追加到新的一行（行号 = 当前最大行 + 1，React `addItem` 同规则）。
+  void _addItem(String ty) {
+    final nextRow = _rowGroups.length;
+    final item = makePopoverItem(
+      ty,
+      0,
+      nextRow,
+      platforms: _c.platforms,
+      groups: _c.groups,
+    );
+    _persistRaw([..._itemsOf(_norm), item], [..._rowsOf(_norm), {'cols': 1}]);
   }
 
   @override
@@ -283,7 +368,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         children: [CenteredNote(text: t.t('status.loading'))],
       );
     }
-    final items = _items;
+    final groups = _rowGroups;
+    final items = _itemsOf(_norm);
     return SettingsPageBody(
       title: t.t('popover.title'),
       subtitle: '${items.length}',
@@ -300,7 +386,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           ],
         ),
         SettingsCard(
-          title: t.t('popover.addItem'),
+          title: t.t('popover.items'),
           children: [
             ChoiceRow(
               key: const ValueKey('popover-add'),
@@ -315,29 +401,14 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                   .toList(),
               value: '',
               labelOf: _typeLabel(t),
-              onChanged: (ty) => _persistItems([
-                ...items,
-                {
-                  'id': '$ty-${DateTime.now().microsecondsSinceEpoch}',
-                  'item_type': ty,
-                  'visible': true,
-                  'order': items.length,
-                  'row': items.length,
-                  'size': 'm',
-                  'scope': kPopoverGroupTypes.contains(ty)
-                      ? 'group'
-                      : 'overall',
-                  'time_window': '7d',
-                  'color': {'mode': 'follow', 'value': ''},
-                },
-              ]),
+              onChanged: _addItem,
             ),
           ],
         ),
-        if (items.isEmpty)
+        if (groups.isEmpty)
           CenteredNote(text: t.t('popover.empty'))
         else
-          for (var i = 0; i < items.length; i++) _itemCard(t, items, i),
+          for (var r = 0; r < groups.length; r++) _rowEditor(t, r, groups[r]),
         _previewCard(t),
         if (_c.message.isNotEmpty)
           AutoToast(
@@ -354,69 +425,262 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     return e == null ? ty : tOr(t, e.$1, e.$2);
   };
 
-  Widget _itemCard(
+  /// 一行：行号 + 列数选择 + 卡片格。行容器本身是落点（拖到行内空白处 = 追加到行尾）。
+  Widget _rowEditor(I18nController t, int row, List<Map<String, Object?>> items) {
+    final theme = AidogTheme.of(context);
+    final cols = _colsOf(row);
+    return Padding(
+      key: ValueKey('popover-row-$row'),
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
+        onAcceptWithDetails: (details) =>
+            _moveItem(details.data, row, null),
+        builder: (context, candidate, rejected) => Container(
+          padding: const EdgeInsets.all(AidogSpace.ssm),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: candidate.isNotEmpty ? theme.c.accent : theme.c.line,
+              width: candidate.isNotEmpty ? 1.5 : 1,
+            ),
+            borderRadius: BorderRadius.circular(AidogRadius.md),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    ltr(t.t('popover.rowLabel', {'n': row + 1})),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                  const SizedBox(width: AidogSpace.ssm),
+                  Text(
+                    t.t('popover.cols'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  for (var c = 1; c <= kPopoverMaxCols; c++)
+                    Padding(
+                      padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                      child: SmallButton(
+                        key: ValueKey('popover-cols-$row-$c'),
+                        label: '$c',
+                        active: cols == c,
+                        onTap: () => _setRowCols(row, c),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AidogSpace.ssm),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  const gap = AidogSpace.ssm;
+                  final w = (constraints.maxWidth - (cols - 1) * gap) / cols;
+                  return Wrap(
+                    spacing: gap,
+                    runSpacing: gap,
+                    children: [
+                      for (final it in items)
+                        SizedBox(
+                          width: w,
+                          child: _card(t, it),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 单张卡的编辑体：拖拽源 + 落点（落在另一张卡上 = 插到它前面）。
+  /// 内容对齐 React `CardEditor.tsx`：标题 + 预览摘要 / 显隐 / 删除 / scope /
+  /// 尺寸 / 颜色预设 + 自定义 hex。
+  Widget _card(I18nController t, Map<String, Object?> it) {
+    final theme = AidogTheme.of(context);
+    final id = '${it['id']}';
+    final ty = '${it['item_type']}';
+    final color = it['color'] is Map
+        ? Map<String, Object?>.from(it['color'] as Map)
+        : {'mode': 'follow', 'value': ''};
+    return LongPressDraggable<String>(
+      data: id,
+      delay: const Duration(milliseconds: 250),
+      feedback: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AidogSpace.smd,
+          vertical: AidogSpace.ssm,
+        ),
+        decoration: BoxDecoration(
+          color: theme.c.accentWash,
+          border: Border.all(color: theme.c.accent),
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          boxShadow: theme.shadowFloat,
+        ),
+        child: Text(
+          _typeLabel(t)(ty),
+          style: AidogType.label.copyWith(color: theme.c.accent),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.4,
+        child: _cardBody(t, it, color),
+      ),
+      child: DragTarget<String>(
+        onWillAcceptWithDetails: (details) => details.data != id,
+        onAcceptWithDetails: (details) =>
+            _moveItem(details.data, _rowOf(id), id),
+        builder: (context, candidate, rejected) => Container(
+          padding: const EdgeInsets.all(AidogSpace.ssm),
+          decoration: BoxDecoration(
+            color: theme.c.surface2,
+            border: Border.all(
+              color: candidate.isNotEmpty ? theme.c.accent : theme.c.line,
+            ),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: _cardBody(t, it, color),
+        ),
+      ),
+    );
+  }
+
+  /// id 所在的行号（编辑视图）。注意不能用 `indexOf` —— List 按身份比较，
+  /// `_rowGroups` 每次 getter 都是新实例，永远查不到（本项目踩过的同类坑：
+  /// Dart 的 Set / List / Map 都不按值比较）。
+  int _rowOf(String id) {
+    final groups = _rowGroups;
+    for (var r = 0; r < groups.length; r++) {
+      if (groups[r].any((it) => '${it['id']}' == id)) return r;
+    }
+    return 0;
+  }
+
+  Widget _cardBody(
     I18nController t,
-    List<Map<String, Object?>> items,
-    int i,
+    Map<String, Object?> it,
+    Map<String, Object?> color,
   ) {
-    final it = items[i];
+    final theme = AidogTheme.of(context);
+    final id = '${it['id']}';
     final ty = '${it['item_type']}';
     final scope = '${it['scope'] ?? 'overall'}';
-    List<Map<String, Object?>> patch(Map<String, Object?> p) {
-      final next = [...items];
-      next[i] = {...it, ...p};
-      return next;
-    }
-
-    return SettingsCard(
-      key: ValueKey('popover-item-$i'),
-      title: _typeLabel(t)(ty),
-      meta: ltr('#${i + 1}'),
+    void patch(Map<String, Object?> p) => _updateItem(id, p);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Row(
           children: [
-            SmallButton(
-              label: t.t('action.moveUp'),
-              onTap: i == 0
-                  ? null
-                  : () {
-                      final next = [...items];
-                      next.insert(i - 1, next.removeAt(i));
-                      _persistItems(next);
-                    },
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _typeLabel(t)(ty),
+                    style: AidogType.label.copyWith(color: theme.c.fg),
+                  ),
+                  Text(
+                    _summary(t, it),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
             SmallButton(
-              label: t.t('action.moveDown'),
-              onTap: i == items.length - 1
-                  ? null
-                  : () {
-                      final next = [...items];
-                      next.insert(i + 1, next.removeAt(i));
-                      _persistItems(next);
-                    },
-            ),
-            const Spacer(),
-            SmallButton(
+              key: ValueKey('popover-visible-$id'),
               label: t.t('popover.toggleVisible'),
               active: it['visible'] != false,
-              onTap: () =>
-                  _persistItems(patch({'visible': it['visible'] == false})),
+              onTap: () => patch({'visible': it['visible'] == false}),
             ),
             const SizedBox(width: AidogSpace.sxs),
             SmallButton(
+              key: ValueKey('popover-del-$id'),
               label: t.t('action.delete'),
               danger: true,
-              onTap: () => _persistItems([...items]..removeAt(i)),
+              onTap: () => _removeItem(id),
             ),
           ],
         ),
-        ChoiceRow(
-          label: t.t('popover.size'),
-          options: kPopoverSizes,
-          value: '${it['size'] ?? 'm'}',
-          labelOf: (s) => t.t('popover.size_$s'),
-          onChanged: (v) => _persistItems(patch({'size': v})),
+        const SizedBox(height: AidogSpace.sxs),
+        // 尺寸（S / M / L）
+        Row(
+          children: [
+            Text(
+              t.t('popover.size'),
+              style: AidogType.micro.copyWith(color: theme.c.fg3),
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            for (final s in kPopoverSizes)
+              Padding(
+                padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                child: SmallButton(
+                  key: ValueKey('popover-size-$id-$s'),
+                  label: s.toUpperCase(),
+                  active: '${it['size'] ?? 'm'}' == s,
+                  onTap: () => patch({'size': s}),
+                ),
+              ),
+          ],
+        ),
+        // 颜色：跟随 + 三预设 + 自定义 hex（色值走主题 token，与渲染层同映射）。
+        Row(
+          children: [
+            Text(
+              t.t('popover.color'),
+              style: AidogType.micro.copyWith(color: theme.c.fg3),
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            _colorDot(
+              id,
+              selected: color['mode'] == 'follow',
+              fill: null,
+              tooltip: t.t('popover.colorFollow'),
+              onTap: () => patch({'color': {'mode': 'follow', 'value': ''}}),
+            ),
+            _colorDot(
+              id,
+              selected: color['mode'] == 'preset' && color['value'] == 'red',
+              fill: theme.c.bad,
+              tooltip: 'red',
+              onTap: () => patch({'color': {'mode': 'preset', 'value': 'red'}}),
+            ),
+            _colorDot(
+              id,
+              selected: color['mode'] == 'preset' && color['value'] == 'green',
+              fill: theme.c.ok,
+              tooltip: 'green',
+              onTap: () =>
+                  patch({'color': {'mode': 'preset', 'value': 'green'}}),
+            ),
+            _colorDot(
+              id,
+              selected: color['mode'] == 'preset' && color['value'] == 'orange',
+              fill: theme.c.peak,
+              tooltip: 'orange',
+              onTap: () =>
+                  patch({'color': {'mode': 'preset', 'value': 'orange'}}),
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            SizedBox(
+              width: 90,
+              child: _HexField(
+                key: ValueKey('popover-hex-$id'),
+                value: color['mode'] == 'custom' ? '${color['value']}' : '',
+                active: color['mode'] == 'custom',
+                onChanged: (hex) =>
+                    patch({'color': {'mode': 'custom', 'value': hex}}),
+              ),
+            ),
+          ],
         ),
         if (ty == 'cost_trend') ...[
           ChoiceRow(
@@ -428,17 +692,24 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
               'platform' => t.t('popover.trendScopePlatform'),
               _ => t.t('popover.trendScopeOverall'),
             },
-            onChanged: (v) =>
-                _persistItems(patch({'scope': v, 'scope_ref': null})),
+            onChanged: (v) => patch({'scope': v, 'scope_ref': null}),
           ),
           ChoiceRow(
             label: t.t('popover.previewTrend', {'window': ''}),
             options: kPopoverTrendWindows,
             value: '${it['time_window'] ?? '7d'}',
             labelOf: (w) => t.t('popover.trendWindow_$w'),
-            onChanged: (v) => _persistItems(patch({'time_window': v})),
+            onChanged: (v) => patch({'time_window': v}),
           ),
         ],
+        if (ty == 'platform_share' || ty == 'hour_heatbar')
+          ChoiceRow(
+            label: t.t('popover.previewTrend', {'window': ''}),
+            options: kPopoverTrendWindows,
+            value: '${it['time_window'] ?? (ty == 'hour_heatbar' ? 'today' : '7d')}',
+            labelOf: (w) => t.t('popover.trendWindow_$w'),
+            onChanged: (v) => patch({'time_window': v}),
+          ),
         if (scope == 'group' || kPopoverGroupTypes.contains(ty))
           ChoiceRow(
             label: t.t('popover.trendScopeGroup'),
@@ -451,7 +722,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                 )
                 .name,
             onChanged: (v) =>
-                _persistItems(patch({'scope': 'group', 'scope_ref': v})),
+                patch({'scope': 'group', 'scope_ref': v}),
           ),
         if (scope == 'platform' || ty == 'platform_metric')
           ChoiceRow(
@@ -465,10 +736,105 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                 )
                 .name,
             onChanged: (v) =>
-                _persistItems(patch({'scope': 'platform', 'scope_ref': v})),
+                patch({'scope': 'platform', 'scope_ref': v}),
           ),
       ],
     );
+  }
+
+  Widget _colorDot(
+    String id, {
+    required bool selected,
+    required Color? fill,
+    required String tooltip,
+    required VoidCallback onTap,
+  }) {
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: AidogSpace.sxs),
+      child: InkWell(
+        key: ValueKey('popover-color-$id-$tooltip'),
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Container(
+          width: 16,
+          height: 16,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: fill,
+            border: Border.all(
+              color: selected ? theme.c.accent : theme.c.line,
+              width: selected ? 2 : 1,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 卡片标题下的预览摘要（React `previewValue` / `trendSummary` 同口径）。
+  String _summary(I18nController t, Map<String, Object?> it) {
+    final ty = '${it['item_type']}';
+    if (ty == 'cost_trend' || ty == 'platform_metric' ||
+        kPopoverGroupTypes.contains(ty)) {
+      return _trendSummary(t, it);
+    }
+    switch (ty) {
+      case 'proxy_status':
+        return t.t('popover.previewStatusLine');
+      case 'platform_balance':
+        return t.t('popover.previewTrayCols');
+      case 'today_cost':
+        return formatCostUsd(
+          ((_c.trayToday['cost'] as num?) ?? _numAt(_c.popoverData, 'today_stats', 'cost'))?.toDouble() ?? 0,
+        );
+      case 'today_cache_rate':
+        final v = (_c.trayToday['cache_rate'] as num?) ??
+            _numAt(_c.popoverData, 'today_stats', 'cache_rate') ??
+            0;
+        return formatPercent(v.toDouble(), 0);
+      case 'today_tokens':
+        final v = (_c.trayToday['tokens'] as num?) ??
+            _numAt(_c.popoverData, 'today_stats', 'tokens') ??
+            0;
+        return '${formatNumber(v)} tok';
+      case 'platform_today':
+        return _c.platformToday.isEmpty
+            ? t.t('popover.noUsageToday')
+            : t.t('popover.previewPlatformCount', {
+                'count': _c.platformToday.length,
+              });
+      default:
+        final e = kPopoverTypeLabels[ty];
+        return e == null ? ty : tOr(t, e.$1, e.$2);
+    }
+  }
+
+  static num? _numAt(Map<String, Object?> map, String k1, String k2) =>
+      (map[k1] is Map) ? (map[k1] as Map)[k2] as num? : null;
+
+  /// `usePopoverConfig.ts::trendSummary`：scope 名 + 时间窗（group_balance 只显示 scope）。
+  String _trendSummary(I18nController t, Map<String, Object?> it) {
+    final ty = '${it['item_type']}';
+    final scope = '${it['scope'] ?? 'overall'}';
+    String scopeLabel;
+    if (scope == 'platform') {
+      final p = _c.platforms
+          .where((x) => '${x.id}' == '${it['scope_ref'] ?? ''}')
+          .firstOrNull;
+      scopeLabel = p?.name ?? t.t('popover.trendScopePlatform');
+    } else if (scope == 'group') {
+      final g = _c.groups
+          .where((x) => x.groupKey == '${it['scope_ref'] ?? ''}')
+          .firstOrNull;
+      scopeLabel = g?.name ?? t.t('popover.trendScopeGroup');
+    } else {
+      scopeLabel = t.t('popover.trendScopeOverall');
+    }
+    if (ty == 'group_balance') return scopeLabel;
+    final win = '${it['time_window'] ?? '7d'}';
+    final winLabel = t.t('popover.trendWindow_$win');
+    return '$scopeLabel · $winLabel';
   }
 
   /// 实时预览：与托盘小窗本体**共用 `PopoverGrid`**（React 的 `renderGrid` 同样被
@@ -483,6 +849,85 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
       ),
     ],
   );
+}
+
+/// 自定义颜色 hex 输入（React `CustomHexInput`）：合法 6 位 hex（可带 #）即写回；
+/// 非法时描边变红、不写。
+class _HexField extends StatefulWidget {
+  const _HexField({
+    super.key,
+    required this.value,
+    required this.active,
+    required this.onChanged,
+  });
+
+  final String value;
+  final bool active;
+  final ValueChanged<String> onChanged;
+
+  @override
+  State<_HexField> createState() => _HexFieldState();
+}
+
+class _HexFieldState extends State<_HexField> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
+
+  @override
+  void didUpdateWidget(covariant _HexField old) {
+    super.didUpdateWidget(old);
+    if (widget.value != _ctrl.text) {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  static bool _validHex(String s) =>
+      RegExp(r'^#?[0-9a-fA-F]{6}$').hasMatch(s.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final draft = _ctrl.text;
+    final valid = draft.isEmpty || _validHex(draft);
+    return TextField(
+      controller: _ctrl,
+      style: AidogType.micro.copyWith(color: theme.c.fg),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: 'RRGGBB',
+        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: AidogSpace.sxs,
+          vertical: AidogSpace.sxs,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(
+            color: widget.active
+                ? theme.c.accent
+                : valid
+                    ? theme.c.line
+                    : theme.c.bad,
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: valid ? theme.c.accent : theme.c.bad),
+        ),
+      ),
+      onChanged: (v) {
+        if (_validHex(v)) widget.onChanged(v.trim().replaceFirst('#', ''));
+      },
+    );
+  }
 }
 
 extension _FirstOrNull<T> on Iterable<T> {
