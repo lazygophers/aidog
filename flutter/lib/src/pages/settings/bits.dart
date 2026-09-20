@@ -9,6 +9,8 @@
 /// 3. 受控文本框的 `TextEditingController` 必须活在 State 里（理由见 `groups.dart:727`）。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
@@ -428,6 +430,119 @@ class ErrorNote extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 未保存确认卡，三个出口与 `Settings.tsx` 的弹窗一一对应：
+/// 保存并离开 / 放弃更改 / 取消（留在本页，guard 仍挂着）。
+class UnsavedChangesCard extends StatelessWidget {
+  const UnsavedChangesCard({
+    super.key,
+    required this.onSave,
+    required this.onDiscard,
+    required this.onCancel,
+    this.busy = false,
+  });
+
+  final VoidCallback onSave;
+  final VoidCallback onDiscard;
+  final VoidCallback onCancel;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: AidogSpace.smd),
+      child: Tile(
+        title: t.t('settings.unsavedTitle'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.t('settings.unsavedBody'),
+              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
+            const SizedBox(height: AidogSpace.ssm),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SmallButton(
+                  key: const ValueKey('unsaved-cancel'),
+                  label: t.t('action.cancel'),
+                  onTap: busy ? null : onCancel,
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+                SmallButton(
+                  key: const ValueKey('unsaved-discard'),
+                  label: t.t('settings.discardChanges'),
+                  danger: true,
+                  onTap: busy ? null : onDiscard,
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+                SmallButton(
+                  key: const ValueKey('unsaved-save'),
+                  label: t.t('settings.saveAndLeave'),
+                  onTap: busy ? null : onSave,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 3 秒后自动消失的提示条。计时器挂在 widget 上，控制器不碰时间。
+class AutoToast extends StatefulWidget {
+  const AutoToast({
+    super.key,
+    required this.text,
+    required this.onDone,
+    this.ok = true,
+  });
+
+  final String text;
+  final bool ok;
+  final VoidCallback onDone;
+
+  @override
+  State<AutoToast> createState() => _AutoToastState();
+}
+
+class _AutoToastState extends State<AutoToast> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _arm();
+  }
+
+  @override
+  void didUpdateWidget(AutoToast old) {
+    super.didUpdateWidget(old);
+    if (old.text != widget.text) _arm();
+  }
+
+  void _arm() {
+    _timer?.cancel();
+    _timer = Timer(const Duration(seconds: 3), () {
+      if (mounted) widget.onDone();
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      ToastBar(text: widget.text, ok: widget.ok);
 }
 
 /// 子页的统一外壳：标题 + 右上角动作 + 内容。
