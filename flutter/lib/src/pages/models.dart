@@ -600,22 +600,44 @@ class LastTestResult {
 }
 
 /// `platforms.ts:583` 的 `model_test` 返回（`manual.ts::ModelTestResult`）。
+/// 票 I09 的模型测试面板要展示 model / token / 响应预览，故把
+/// `types/generated/ModelTestResult.ts` 剩下的字段补齐（I07 的两个调用点只读
+/// success / durationMs / error，加字段不影响它们）。
 class ModelTestResult {
   const ModelTestResult({
     required this.success,
     required this.durationMs,
     required this.error,
+    this.model = '',
+    this.promptPreview = '',
+    this.responsePreview = '',
+    this.inputTokens = 0,
+    this.outputTokens = 0,
   });
 
   factory ModelTestResult.fromJson(Map<String, dynamic> j) => ModelTestResult(
     success: (j['success'] as bool?) ?? false,
     durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
     error: (j['error'] as String?) ?? '',
+    model: (j['model'] as String?) ?? '',
+    promptPreview: (j['prompt_preview'] as String?) ?? '',
+    responsePreview: (j['response_preview'] as String?) ?? '',
+    inputTokens: (j['input_tokens'] as num?)?.toInt() ?? 0,
+    outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
   );
+
+  /// `ModelTestPanel.tsx:90` 的异常兜底行：除 model / error 外全是零值。
+  factory ModelTestResult.failure(String model, Object e) =>
+      ModelTestResult(success: false, durationMs: 0, error: '$e', model: model);
 
   final bool success;
   final int durationMs;
   final String error;
+  final String model;
+  final String promptPreview;
+  final String responsePreview;
+  final int inputTokens;
+  final int outputTokens;
 }
 
 /// `platforms.ts:500` 的 `platform_purge_disabled` 返回。
@@ -625,7 +647,8 @@ class PurgeReport {
 
   factory PurgeReport.fromJson(Map<String, dynamic> j) => PurgeReport(
     deletedIds: [
-      for (final i in (j['deletedIds'] as List?) ?? const []) (i as num).toInt(),
+      for (final i in (j['deletedIds'] as List?) ?? const [])
+        (i as num).toInt(),
     ],
     unassignedIds: [
       for (final i in (j['unassignedIds'] as List?) ?? const [])

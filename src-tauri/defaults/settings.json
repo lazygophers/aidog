@@ -193,7 +193,8 @@
         "allow": [
             "$defaults",
             "临时文件和目录（包括系统临时目录）下的所有文件/文件夹操作",
-            "执行 Python 脚本"
+            "执行 Python/Bash/protoc 等脚本",
+            "对于`.scratch`/`.ask-ui`的操作"
         ],
         "soft_deny": [
             "$defaults"

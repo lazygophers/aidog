@@ -20,6 +20,8 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'groups.dart';
 import 'invoke.dart';
+import 'model_test.dart';
+import 'model_test_logic.dart';
 import 'models.dart';
 import 'platforms_logic.dart';
 import 'ui_bits.dart';
@@ -50,6 +52,9 @@ class PlatformsPage extends StatefulWidget {
 
 class _PlatformsPageState extends State<PlatformsPage> {
   late final PlatformsController _c;
+
+  /// 票 I09：模型测试面板的目标平台。null = 面板关着。
+  PlatformRow? _testPanelTarget;
   StreamSubscription<void>? _sub;
   ({String text, bool ok})? _toast;
   Timer? _toastTimer;
@@ -160,6 +165,9 @@ class _PlatformsPageState extends State<PlatformsPage> {
                     testing: _c.testingId == p.id,
                     onToggle: () => _c.togglePlatform(p),
                     onTest: () => _c.quickTest(p),
+                    // 票 I09：完整的模型测试面板（六种模式），对应 React 的
+                    // `ModelTestPanel`。上面的 onTest 是平台卡自带的一键快测，两者并存。
+                    onModelTest: () => setState(() => _testPanelTarget = p),
                     onRefreshQuota: () => _c.refreshQuota(p),
                     onDelete: () => _c.askDelete(p.id),
                     onViewLogs: () =>
@@ -188,6 +196,14 @@ class _PlatformsPageState extends State<PlatformsPage> {
             onCancel: _c.cancelDelete,
             onConfirm: () => _c.deletePlatform(_c.deleteTarget!),
           ),
+        if (_testPanelTarget != null)
+          ModelTestPanel(
+            invoke: widget.invoke,
+            platform: TestTargetPlatform.fromPlatformRow(_testPanelTarget!),
+            onClose: () => setState(() => _testPanelTarget = null),
+            // 整轮跑完刷一次统计：每条测试都落 proxy_log(source_protocol='test')。
+            onResult: (_) => _c.refreshStats(),
+          ),
         if (_toast != null) ToastBar(text: _toast!.text, ok: _toast!.ok),
       ],
     );
@@ -207,6 +223,7 @@ class _PlatformCard extends StatelessWidget {
     required this.testing,
     required this.onToggle,
     required this.onTest,
+    required this.onModelTest,
     required this.onRefreshQuota,
     required this.onDelete,
     required this.onViewLogs,
@@ -221,6 +238,7 @@ class _PlatformCard extends StatelessWidget {
   final bool testing;
   final VoidCallback onToggle;
   final VoidCallback onTest;
+  final VoidCallback onModelTest;
   final VoidCallback onRefreshQuota;
   final VoidCallback onDelete;
   final VoidCallback onViewLogs;
@@ -305,6 +323,7 @@ class _PlatformCard extends StatelessWidget {
                 label: testing ? t.t('status.loading') : t.t('platform.quickTest'),
                 onTap: testing ? null : onTest,
               ),
+              SmallButton(label: t.t('test.title'), onTap: onModelTest),
               SmallButton(
                 label: t.t('platform.quotaRefresh'),
                 onTap: quotaRefreshing ? null : onRefreshQuota,
