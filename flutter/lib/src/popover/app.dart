@@ -192,7 +192,7 @@ class _PopoverAppState extends State<PopoverApp> {
             key: _contentKey,
             child: frame == null
                 ? Text(
-                    i18n.t('common.loading'),
+                    AidogI18n.of(context).t('common.loading'),
                     style: AidogType.caption.copyWith(color: t.c.fg3),
                   )
                 : PopoverGrid(frame: frame),
