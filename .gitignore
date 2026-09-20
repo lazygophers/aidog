@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Next.js browser build (票 I14)：构建产物与缓存
+.next
+out
+
 # Test coverage output (vitest)
 coverage/
 
