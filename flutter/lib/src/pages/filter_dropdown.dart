@@ -4,16 +4,15 @@
 /// 「全部…」（不参与过滤）；搜索框自动聚焦；过滤后为空显示 `emptyLabel`；
 /// 选中或关闭时清空搜索词。
 ///
-/// **一处差异，写下来**：React 的 label 匹配走 `pinyinMatch`（依赖 `pinyin-pro` 的
-/// 汉字字典），这里是「label 不分大小写子串」+「searchTerms 不分大小写子串」。
-/// 平台下拉不受影响 —— registry 的 `keywords` 本来就把全拼与首字母作为字面数据存着
-/// （项目 CLAUDE.md：「智谱 → zhipu + zp」），它们经 searchTerms 进来。
-/// 受影响的只有用户自己起中文名的**分组**下拉：那里输拼音搜不到，得输中文。
+/// label 匹配走 [pinyinMatch]（自建 3500 常用字词典，语义同 React 的
+/// `pinyin-pro` 版）：拼音 / 首字母 / 中文 / 中英混合都能搜「分组」这类用户自起中文名。
+/// [searchTerms]（registry 协议词条）仍是纯子串 —— 拼音与首字母已作为字面数据存着。
 library;
 
 import 'package:flutter/material.dart';
 
 import '../shell/theme.dart';
+import '../utils/pinyin.dart';
 
 /// 一个可选项。[searchTerms] 是 label 之外的跨语言搜索词（registry 协议词条）。
 @immutable
@@ -29,14 +28,15 @@ class FilterOption {
   final List<String> searchTerms;
 }
 
-/// 搜索过滤。空查询（含全空格）返回全部；否则 label 或任一 searchTerm 命中子串即保留。
+/// 搜索过滤。空查询（含全空格）返回全部；否则 label 拼音模糊命中、或任一
+/// searchTerm 子串命中即保留。
 List<FilterOption> filterOptions(String query, List<FilterOption> options) {
-  final q = query.trim().toLowerCase();
+  final q = query.trim();
   if (q.isEmpty) return options;
   return [
     for (final o in options)
-      if (o.label.toLowerCase().contains(q) ||
-          o.searchTerms.any((t) => t.toLowerCase().contains(q)))
+      if (pinyinMatch(q, o.label) ||
+          o.searchTerms.any((t) => t.toLowerCase().contains(q.toLowerCase())))
         o,
   ];
 }

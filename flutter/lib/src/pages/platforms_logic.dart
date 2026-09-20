@@ -8,6 +8,7 @@
 /// 不这么做的症状是「删掉的平台过两秒自己回来了」。这里 [epoch] 逐条照搬。
 library;
 
+import '../utils/pinyin.dart';
 import 'groups_logic.dart' show parseProtocolSearchTerms;
 import 'invoke.dart';
 import 'models.dart';
@@ -115,13 +116,17 @@ class PlatformsController {
     ];
   }
 
+  /// `usePlatformsState.ts:620-629` 的口径：name / base_url / platform_type 走
+  /// 拼音模糊（与 `query.ts::platformMatchesQuery` 同链），registry 词条纯子串。
   bool _matches(PlatformRow p, String q) {
-    final needle = q.toLowerCase();
-    if (p.name.toLowerCase().contains(needle)) return true;
-    if (p.baseUrl.toLowerCase().contains(needle)) return true;
-    if (p.platformType.toLowerCase().contains(needle)) return true;
+    final needle = q.trim();
+    if (needle.isEmpty) return true;
+    if (pinyinMatch(needle, p.name)) return true;
+    if (pinyinMatch(needle, p.baseUrl)) return true;
+    if (pinyinMatch(needle, p.platformType)) return true;
+    final lower = needle.toLowerCase();
     final terms = protocolTerms[p.platformType];
-    return terms != null && terms.any((t) => t.toLowerCase().contains(needle));
+    return terms != null && terms.any((t) => t.toLowerCase().contains(lower));
   }
 
   /// `usePlatformsState.ts:631`。
