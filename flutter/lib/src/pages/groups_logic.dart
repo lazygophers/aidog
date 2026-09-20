@@ -17,6 +17,7 @@ library;
 
 import 'dart:convert';
 
+import '../utils/pinyin.dart';
 import 'invoke.dart';
 import 'models.dart';
 /// 调度策略的全表与短名已由票 I08 落在设置页逻辑层（同一份 `routing.ts` 的投影），
@@ -161,31 +162,29 @@ List<PlatformRow> upsertPlatformInto(List<PlatformRow> prev, PlatformRow plat) {
 
 /// `src/domains/groups/query.ts:8::platformMatchesQuery`。
 ///
-/// **一处与 React 不同，写下来**：React 用 `pinyinMatch`（`pinyin-pro` 的汉字字典），
-/// 这里是不分大小写子串。沿用票 I06 已记录的同一取舍（Dart 侧的等价字典包 5 年
-/// 未更新且许可证未核实，不往 AGPL 仓库里引）。**平台不受影响** —— registry 的
-/// `keywords` 本来就把全拼与首字母当字面数据存着（项目 CLAUDE.md：「智谱 → zhipu + zp」），
-/// 它们经 [protocolTerms] 进来。受影响的只有用户自起中文名的平台/分组：输拼音搜不到。
+/// name / base_url / platform_type 走 [pinyinMatch]（自建 3500 常用字词典，
+/// 语义同 React 的 `pinyin-pro` 版）；registry 协议词条（[protocolTerms]）
+/// 仍是纯子串 —— 拼音与首字母已作为字面数据存 platform.json keywords。
 bool platformMatchesQuery(
   PlatformRow p,
   String q, [
   Map<String, List<String>>? protocolTerms,
 ]) {
-  final needle = q.toLowerCase();
+  final needle = q.trim();
   if (needle.isEmpty) return true;
-  if (p.name.toLowerCase().contains(needle)) return true;
-  if (p.baseUrl.toLowerCase().contains(needle)) return true;
-  if (p.platformType.toLowerCase().contains(needle)) return true;
+  if (pinyinMatch(needle, p.name)) return true;
+  if (pinyinMatch(needle, p.baseUrl)) return true;
+  if (pinyinMatch(needle, p.platformType)) return true;
+  final lower = needle.toLowerCase();
   final terms = protocolTerms?[p.platformType];
-  return terms != null && terms.any((t) => t.toLowerCase().contains(needle));
+  return terms != null && terms.any((t) => t.toLowerCase().contains(lower));
 }
 
-/// `query.ts:20::groupMatchesQuery`：命中组名或组密钥 → 整组展开。
+/// `query.ts:20::groupMatchesQuery`：命中组名或组密钥（拼音模糊）→ 整组展开。
 bool groupMatchesQuery(GroupRow g, String q) {
-  final needle = q.toLowerCase();
+  final needle = q.trim();
   if (needle.isEmpty) return true;
-  return g.name.toLowerCase().contains(needle) ||
-      g.groupKey.toLowerCase().contains(needle);
+  return pinyinMatch(needle, g.name) || pinyinMatch(needle, g.groupKey);
 }
 
 /// `useGroupData.ts:14::fetchGroupStats` 的纯函数部分（余额那一半）。

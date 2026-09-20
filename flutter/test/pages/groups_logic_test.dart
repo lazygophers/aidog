@@ -190,12 +190,12 @@ void main() {
       expect(platformMatchesQuery(p, 'kimi', terms), isFalse);
     });
 
-    test('拼音匹配没搬：`ceshi` 搜不到「GLM 测试」——已声明的差异，不是回归', () {
+    test('拼音匹配：`ceshi` 搜「GLM 测试」——自建词典已对齐 React（I17）', () {
       // React 的 `query.test.ts:11` 断言 `platformMatchesQuery(p, "ceshi") === true`，
-      // 靠的是 `pinyin-pro` 的汉字字典。Dart 侧没引那个字典（理由见 groups_logic.dart
-      // 的 platformMatchesQuery 文档与 flutter/README.md 的差异表）。
-      // 这条测试把差异**钉死**：哪天引了字典，它会红，提醒把上面那条翻译回来。
-      expect(platformMatchesQuery(p, 'ceshi'), isFalse);
+      // 靠 `pinyin-pro` 的汉字字典。I17 起 Dart 侧有自建 3500 常用字词典
+      // （lib/src/utils/pinyin.dart），这条照 React 原断言翻译回来。
+      expect(platformMatchesQuery(p, 'ceshi'), isTrue);
+      expect(platformMatchesQuery(p, 'shi', terms), isTrue); // 全拼子串
     });
 
     test('groupMatchesQuery：分组名 / 组密钥子串命中', () {
@@ -207,8 +207,8 @@ void main() {
       expect(groupMatchesQuery(g, '测试组'), isTrue);
       expect(groupMatchesQuery(g, 'test'), isTrue);
       expect(groupMatchesQuery(g, 'other'), isFalse);
-      // 同上：拼音那条（`ceshizu`）未搬。
-      expect(groupMatchesQuery(g, 'ceshizu'), isFalse);
+      // 拼音（React `query.test.ts:33` 原断言，I17 起对齐）。
+      expect(groupMatchesQuery(g, 'ceshizu'), isTrue);
     });
   });
 
