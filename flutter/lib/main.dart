@@ -74,6 +74,12 @@ class _AidogAppState extends State<AidogApp> {
   Widget _page(BuildContext context, String id) => switch (id) {
     'home' => HomePage(onNavigate: _nav.navigate),
     'stats' => const StatsPage(),
+    // 票 I07：平台页内嵌分组区（与 React 的 GroupsEmbedded 同结构）。
+    'platforms' => PlatformsPage(
+      onNavigate: (to, {int? platformId}) => _nav.navigate(to),
+    ),
+    'logs' => const LogsPage(),
+    'request-log' => const RequestLogPage(),
     _ => _placeholder(context, id),
   };
 
