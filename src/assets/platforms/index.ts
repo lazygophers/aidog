@@ -22,16 +22,44 @@ const ALIASES: Partial<Record<Protocol, string>> = {
 };
 
 // ── Build Protocol → URL lookup ──────────────────────────────
-const svgModules = import.meta.glob("./*.svg", { eager: true, query: "?url", import: "default" });
+// 显式静态 import（取代 Vite 专属的 import.meta.glob，票 I14）：
+// 默认导入在 Vite 返回 URL 字符串；Next/Turbopack 由 next.config.ts 的
+// `turbopack.rules["*.svg"] = { type: "asset" }` 提供同一行为。
+import anthropicSvg from "./anthropic.svg";
+import bailianSvg from "./bailian.svg";
+import claudeCodeSvg from "./claude_code.svg";
+import clineSvg from "./cline.svg";
+import doubaoSvg from "./doubao.svg";
+import exaSvg from "./exa.svg";
+import geminiSvg from "./gemini.svg";
+import githubCopilotSvg from "./github-copilot.svg";
+import glmSvg from "./glm.svg";
+import huggingfaceSvg from "./huggingface.svg";
+import kimiSvg from "./kimi.svg";
+import metaSvg from "./meta.svg";
+import ollamaSvg from "./ollama.svg";
+import openaiSvg from "./openai.svg";
+import piSvg from "./pi.svg";
+import sensenovaSvg from "./sensenova.svg";
 
-// filename → URL map (strip "./" prefix and ".svg" suffix)
-const fileMap = new Map<string, string>();
-for (const [path, url] of Object.entries(svgModules)) {
-  if (typeof url === "string") {
-    const name = path.replace(/^\.\//, "").replace(/\.svg$/, "");
-    fileMap.set(name, url);
-  }
-}
+const SVG_URLS: Record<string, string> = {
+  anthropic: anthropicSvg,
+  bailian: bailianSvg,
+  claude_code: claudeCodeSvg,
+  cline: clineSvg,
+  doubao: doubaoSvg,
+  exa: exaSvg,
+  gemini: geminiSvg,
+  "github-copilot": githubCopilotSvg,
+  glm: glmSvg,
+  huggingface: huggingfaceSvg,
+  kimi: kimiSvg,
+  meta: metaSvg,
+  ollama: ollamaSvg,
+  openai: openaiSvg,
+  pi: piSvg,
+  sensenova: sensenovaSvg,
+};
 
 /**
  * Get the logo URL for a platform type.
@@ -39,11 +67,11 @@ for (const [path, url] of Object.entries(svgModules)) {
  */
 export function getPlatformLogo(protocol: Protocol): string | undefined {
   // 1. Direct match (filename === protocol)
-  const direct = fileMap.get(protocol);
+  const direct = SVG_URLS[protocol];
   if (direct) return direct;
   // 2. Alias match
   const alias = ALIASES[protocol];
-  if (alias) return fileMap.get(alias);
+  if (alias) return SVG_URLS[alias];
   return undefined;
 }
 
