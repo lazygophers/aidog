@@ -16,7 +16,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
-import '../../../utils/formatters.dart';
+import '../../../popover.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
@@ -426,8 +426,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         if (mounted) setState(() {});
       },
     );
-    unawaited(_c.load());
-    unawaited(_c.loadPreview());
+    // 预览的统计查询按 config 算，所以要等 load 先把 config 读回来。
+    unawaited(_c.load().then((_) => _c.loadPreview()));
     unawaited(_c.loadPickers());
   }
 
@@ -437,11 +437,14 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           .map(Map<String, Object?>.from)
           .toList();
 
-  Future<void> _persistItems(List<Map<String, Object?>> next) =>
-      _c.persist({
-        ..._c.config,
-        'items': PopoverController.withOrders(next),
-      });
+  /// 改完配置顺带重拉预览：新加的卡片要有自己的统计结果，否则永远停在加载态。
+  Future<void> _persistItems(List<Map<String, Object?>> next) async {
+    await _c.persist({
+      ..._c.config,
+      'items': PopoverController.withOrders(next),
+    });
+    await _c.loadPreview();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -640,42 +643,18 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     );
   }
 
-  /// 实时预览：只显示后端真的返回了数据的那几项，不画零值假图。
-  Widget _previewCard(I18nController t) {
-    final theme = AidogTheme.of(context);
-    final today = _c.trayToday;
-    return SettingsCard(
-      title: t.t('popover.preview'),
-      description: t.t('popover.previewHint'),
-      children: [
-        if (today.isEmpty && _c.platformToday.isEmpty)
-          CenteredNote(text: t.t('popover.noUsageToday'))
-        else ...[
-          InfoRow(
-            label: t.t('popover.todayCost'),
-            value: formatCostUsd((today['cost'] as num?)?.toDouble() ?? 0),
-          ),
-          InfoRow(
-            label: t.t('popover.todayTokens'),
-            value: formatNumber((today['tokens'] as num?) ?? 0),
-          ),
-          InfoRow(
-            label: t.t('popover.todayCacheRate'),
-            value: formatPercent(
-              (today['cache_rate'] as num?)?.toDouble() ?? 0,
-              0,
-            ),
-          ),
-          Text(
-            t.t('popover.previewPlatformCount', {
-              'count': _c.platformToday.length,
-            }),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-        ],
-      ],
-    );
-  }
+  /// 实时预览：与托盘小窗本体**共用 `PopoverGrid`**（React 的 `renderGrid` 同样被
+  /// 两处调用），所见即所得，预览与实际不会漂移。
+  Widget _previewCard(I18nController t) => SettingsCard(
+    title: t.t('popover.preview'),
+    description: t.t('popover.previewHint'),
+    children: [
+      ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: kTrayPanelWidth),
+        child: PopoverGrid(frame: _c.previewFrame),
+      ),
+    ],
+  );
 }
 
 extension _FirstOrNull<T> on Iterable<T> {

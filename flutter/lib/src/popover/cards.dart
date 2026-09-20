@@ -14,6 +14,7 @@ import '../../charts.dart';
 import '../../i18n.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
+import '../shell/tiles.dart' show numStyle;
 import 'model.dart';
 
 /// 小窗一帧的全部数据。整份读整份用，不拆成 14 个 model 类。
@@ -68,7 +69,7 @@ class PopoverGrid extends StatelessWidget {
   Widget build(BuildContext context) {
     final rows = popoverRows(frame.config);
     if (rows.isEmpty) {
-      return _Empty(i18n.t('popover.empty'));
+      return _Empty(AidogI18n.of(context).t('popover.empty'));
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -123,23 +124,23 @@ class PopoverCard extends StatelessWidget {
       'proxy_status' => _ProxyStatus(frame: frame),
       'platform_balance' => _PlatformBalance(frame: frame, size: size),
       'today_cost' => _MetricRow(
-        label: i18n.t('popover.todayCost'),
+        label: AidogI18n.of(context).t('popover.todayCost'),
         value: formatCostUsd(_num(frame.todayStats['cost'])),
-        sub: i18n.t('popover.todayCostSub'),
+        sub: AidogI18n.of(context).t('popover.todayCostSub'),
         size: size,
         color: color,
       ),
       'today_cache_rate' => _MetricRow(
-        label: i18n.t('popover.todayCacheRate'),
+        label: AidogI18n.of(context).t('popover.todayCacheRate'),
         value: formatPercent(_num(frame.todayStats['cache_rate']), 0),
-        sub: i18n.t('popover.todayCacheRateSub'),
+        sub: AidogI18n.of(context).t('popover.todayCacheRateSub'),
         size: size,
         color: color,
       ),
       'today_tokens' => _MetricRow(
-        label: i18n.t('popover.todayTokens'),
+        label: AidogI18n.of(context).t('popover.todayTokens'),
         value: formatNumber(_num(frame.todayStats['tokens'])),
-        sub: i18n.t('popover.todayTokensSub'),
+        sub: AidogI18n.of(context).t('popover.todayTokensSub'),
         size: size,
         color: color,
       ),
@@ -149,7 +150,7 @@ class PopoverCard extends StatelessWidget {
         color: color,
       ),
       'cost_trend' => _StatsCard(
-        title: size == PopoverSize.s ? null : _trendTitle(item, frame),
+        title: size == PopoverSize.s ? null : _trendTitle(context, item, frame),
         stats: stats,
         loaded: frame.statsLoaded,
         builder: (s) => _trendBody(context, s, size, color),
@@ -157,57 +158,57 @@ class PopoverCard extends StatelessWidget {
       'platform_share' => _StatsCard(
         title: size == PopoverSize.s
             ? null
-            : i18n.t('popover.itemPlatformShare'),
+            : AidogI18n.of(context).t('popover.itemPlatformShare'),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _shareBody(s, size),
+        builder: (s) => _shareBody(context, s, size),
       ),
       'hour_heatbar' => _StatsCard(
-        title: size == PopoverSize.s ? null : i18n.t('popover.itemHourHeat'),
+        title: size == PopoverSize.s ? null : AidogI18n.of(context).t('popover.itemHourHeat'),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _heatBody(s),
+        builder: (s) => _heatBody(context, s),
       ),
       'platform_metric' => _StatsCard(
         title: size == PopoverSize.s
             ? null
-            : i18n.t('popover.platformMetricTitle', {
-                'name': _platformName(item, frame),
+            : AidogI18n.of(context).t('popover.platformMetricTitle', {
+                'name': _platformName(context, item, frame),
               }),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _platformMetricBody(s, size, color),
+        builder: (s) => _platformMetricBody(context, s, size, color),
       ),
       'group_cost' => _StatsCard(
         title: size == PopoverSize.s
             ? null
-            : i18n.t('popover.groupCostTitle', {'name': _groupName(item)}),
+            : AidogI18n.of(context).t('popover.groupCostTitle', {'name': _groupName(context, item)}),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _groupCostBody(s, size, color),
+        builder: (s) => _groupCostBody(context, s, size, color),
       ),
       'group_tokens' => _StatsCard(
         title: size == PopoverSize.s
             ? null
-            : i18n.t('popover.groupTokensTitle', {'name': _groupName(item)}),
+            : AidogI18n.of(context).t('popover.groupTokensTitle', {'name': _groupName(context, item)}),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _groupTokensBody(s, size, color),
+        builder: (s) => _groupTokensBody(context, s, size, color),
       ),
       'group_requests' => _StatsCard(
         title: size == PopoverSize.s
             ? null
-            : i18n.t('popover.groupRequestsTitle', {'name': _groupName(item)}),
+            : AidogI18n.of(context).t('popover.groupRequestsTitle', {'name': _groupName(context, item)}),
         stats: stats,
         loaded: frame.statsLoaded,
-        builder: (s) => _groupRequestsBody(s, size, color),
+        builder: (s) => _groupRequestsBody(context, s, size, color),
       ),
       'group_balance' => _GroupBalance(
         item: item,
         frame: frame,
         size: size,
         color: color,
-        name: _groupName(item),
+        name: _groupName(context, item),
       ),
       _ => const SizedBox.shrink(),
     };
@@ -215,19 +216,19 @@ class PopoverCard extends StatelessWidget {
   }
 
   /// cost_trend 标题（体现 scope）。对齐 `trendTitle`。
-  String _trendTitle(Map<String, Object?> item, PopoverFrame frame) {
+  String _trendTitle(BuildContext context, Map<String, Object?> item, PopoverFrame frame) {
     final scope = '${item['scope'] ?? 'overall'}';
     if (scope == 'platform' && '${item['scope_ref'] ?? ''}'.isNotEmpty) {
-      return i18n.t('popover.trendPlatformTitle', {
-        'name': _platformName(item, frame),
+      return AidogI18n.of(context).t('popover.trendPlatformTitle', {
+        'name': _platformName(context, item, frame),
       });
     }
-    if (scope == 'group') return i18n.t('popover.trendGroupTitle');
-    return i18n.t('popover.trendOverallTitle');
+    if (scope == 'group') return AidogI18n.of(context).t('popover.trendGroupTitle');
+    return AidogI18n.of(context).t('popover.trendOverallTitle');
   }
 
   /// 平台名（按 platform_id 查 platform_today，兜底 scope_ref → 未知平台）。
-  String _platformName(Map<String, Object?> item, PopoverFrame frame) {
+  String _platformName(BuildContext context, Map<String, Object?> item, PopoverFrame frame) {
     final ref = '${item['scope_ref'] ?? ''}';
     for (final p in frame.platformToday) {
       if ('${(p['platform_id'] as num?)?.toInt()}' == ref) {
@@ -235,11 +236,11 @@ class PopoverCard extends StatelessWidget {
         if (n.isNotEmpty) return n;
       }
     }
-    return ref.isNotEmpty ? ref : i18n.t('popover.unknownPlatform');
+    return ref.isNotEmpty ? ref : AidogI18n.of(context).t('popover.unknownPlatform');
   }
 
   /// 分组名（按 group_key 查 groups，兜底 scope_ref → 「分组」）。
-  String _groupName(Map<String, Object?> item) {
+  String _groupName(BuildContext context, Map<String, Object?> item) {
     final ref = '${item['scope_ref'] ?? ''}';
     for (final g in frame.groups) {
       if ('${g['group_key'] ?? ''}' == ref) {
@@ -247,7 +248,7 @@ class PopoverCard extends StatelessWidget {
         if (n.isNotEmpty) return n;
       }
     }
-    return ref.isNotEmpty ? ref : i18n.t('popover.trendScopeGroup');
+    return ref.isNotEmpty ? ref : AidogI18n.of(context).t('popover.trendScopeGroup');
   }
 }
 
@@ -260,7 +261,7 @@ Widget _trendBody(
   Color? color,
 ) {
   final buckets = (s['buckets'] as List? ?? const []).whereType<Map>().toList();
-  if (buckets.isEmpty) return _Empty(i18n.t('popover.noUsageToday'));
+  if (buckets.isEmpty) return _Empty(AidogI18n.of(context).t('popover.noUsageToday'));
   final total = buckets.fold<double>(
     0,
     (sum, b) => sum + _num(b['total_cost']),
@@ -281,7 +282,7 @@ Widget _trendBody(
             series: [
               ChartSeries(
                 key: 'v',
-                label: i18n.t('popover.trendCostSeries'),
+                label: AidogI18n.of(context).t('popover.trendCostSeries'),
                 color: p.series(0),
                 points: [
                   for (final b in buckets)
@@ -297,20 +298,20 @@ Widget _trendBody(
         ),
       ),
       if (size == PopoverSize.l)
-        _Sub('${i18n.t('popover.trendTotal')} ${formatCostUsd(total)}', color),
+        _Sub('${AidogI18n.of(context).t('popover.trendTotal')} ${formatCostUsd(total)}', color),
     ],
   );
 }
 
-Widget _shareBody(Map<String, Object?> s, PopoverSize size) {
+Widget _shareBody(BuildContext context, Map<String, Object?> s, PopoverSize size) {
   final entries = popoverShareEntries(s);
   // 不足两个有效扇区构不成占比（与 DonutChart 空态判据一致），诚实空态不画假环。
-  if (entries.length < 2) return _Empty(i18n.t('charts.noData'));
+  if (entries.length < 2) return _Empty(AidogI18n.of(context).t('charts.noData'));
   return Center(
     child: AidogDonutChart(
       mini: true,
       data: entries,
-      restLabel: i18n.t('stats.donutRest'),
+      restLabel: AidogI18n.of(context).t('stats.donutRest'),
       topN: size == PopoverSize.s ? 3 : 4,
       size: switch (size) {
         PopoverSize.s => 64,
@@ -319,17 +320,17 @@ Widget _shareBody(Map<String, Object?> s, PopoverSize size) {
       },
       showLegend: size != PopoverSize.s,
       formatValue: formatCostUsd,
-      centerLabel: i18n.t('popover.trendTotal'),
+      centerLabel: AidogI18n.of(context).t('popover.trendTotal'),
     ),
   );
 }
 
-Widget _heatBody(Map<String, Object?> s) {
+Widget _heatBody(BuildContext context, Map<String, Object?> s) {
   final buckets = (s['buckets'] as List? ?? const []).whereType<Map>().toList();
-  if (buckets.isEmpty) return _Empty(i18n.t('popover.noUsageToday'));
+  if (buckets.isEmpty) return _Empty(AidogI18n.of(context).t('popover.noUsageToday'));
   return AlwaysLtr(
     child: HourHeatBar(
-      semanticLabel: i18n.t('popover.itemHourHeat'),
+      semanticLabel: AidogI18n.of(context).t('popover.itemHourHeat'),
       formatValue: formatNumber,
       data: [
         for (final b in buckets)
@@ -347,6 +348,7 @@ Widget _heatBody(Map<String, Object?> s) {
 }
 
 Widget _platformMetricBody(
+  BuildContext context,
   Map<String, Object?> s,
   PopoverSize size,
   Color? color,
@@ -367,15 +369,20 @@ Widget _platformMetricBody(
       ),
       if (size == PopoverSize.l)
         _Sub(
-          '${i18n.t('popover.tokenIn')} ${formatNumber(_num(o['total_input_tokens']))}'
-          ' · ${i18n.t('popover.tokenOut')} ${formatNumber(_num(o['total_output_tokens']))}',
+          '${AidogI18n.of(context).t('popover.tokenIn')} ${formatNumber(_num(o['total_input_tokens']))}'
+          ' · ${AidogI18n.of(context).t('popover.tokenOut')} ${formatNumber(_num(o['total_output_tokens']))}',
           null,
         ),
     ],
   );
 }
 
-Widget _groupCostBody(Map<String, Object?> s, PopoverSize size, Color? color) {
+Widget _groupCostBody(
+  BuildContext context,
+  Map<String, Object?> s,
+  PopoverSize size,
+  Color? color,
+) {
   final o = _mapOf(s['overview']);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -383,7 +390,7 @@ Widget _groupCostBody(Map<String, Object?> s, PopoverSize size, Color? color) {
       _Value(formatCostUsd(_num(o['total_cost'])), color),
       if (size == PopoverSize.l)
         _Sub(
-          '${formatNumber(_num(o['total_requests']))} ${i18n.t('popover.reqUnit')}'
+          '${formatNumber(_num(o['total_requests']))} ${AidogI18n.of(context).t('popover.reqUnit')}'
           ' · ${formatNumber(popoverOverviewTokens(o))} tok',
           null,
         ),
@@ -392,6 +399,7 @@ Widget _groupCostBody(Map<String, Object?> s, PopoverSize size, Color? color) {
 }
 
 Widget _groupTokensBody(
+  BuildContext context,
   Map<String, Object?> s,
   PopoverSize size,
   Color? color,
@@ -403,8 +411,8 @@ Widget _groupTokensBody(
       _Value('${formatNumber(popoverOverviewTokens(o))} tok', color),
       if (size == PopoverSize.l)
         _Sub(
-          '${i18n.t('popover.tokenIn')} ${formatNumber(_num(o['total_input_tokens']))}'
-          ' · ${i18n.t('popover.tokenOut')} ${formatNumber(_num(o['total_output_tokens']))}',
+          '${AidogI18n.of(context).t('popover.tokenIn')} ${formatNumber(_num(o['total_input_tokens']))}'
+          ' · ${AidogI18n.of(context).t('popover.tokenOut')} ${formatNumber(_num(o['total_output_tokens']))}',
           null,
         ),
     ],
@@ -412,6 +420,7 @@ Widget _groupTokensBody(
 }
 
 Widget _groupRequestsBody(
+  BuildContext context,
   Map<String, Object?> s,
   PopoverSize size,
   Color? color,
@@ -423,7 +432,7 @@ Widget _groupRequestsBody(
       _Value(formatNumber(_num(o['total_requests'])), color),
       if (size == PopoverSize.l)
         _Sub(
-          '${i18n.t('popover.successRate')} '
+          '${AidogI18n.of(context).t('popover.successRate')} '
           '${formatPercent(_num(o['success_rate']), 0)}',
           null,
         ),
@@ -533,9 +542,9 @@ class _PlatformToday extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Title(i18n.t('popover.platformToday')),
+          _Title(AidogI18n.of(context).t('popover.platformToday')),
           if (frame.platformToday.isEmpty)
-            _Empty(i18n.t('popover.noUsageToday'))
+            _Empty(AidogI18n.of(context).t('popover.noUsageToday'))
           else
             for (final p in frame.platformToday)
               Padding(
@@ -545,7 +554,7 @@ class _PlatformToday extends StatelessWidget {
                     Expanded(
                       child: Text(
                         '${p['platform_name'] ?? ''}'.isEmpty
-                            ? i18n.t('popover.unknownPlatform')
+                            ? AidogI18n.of(context).t('popover.unknownPlatform')
                             : '${p['platform_name']}',
                         overflow: TextOverflow.ellipsis,
                         style: AidogType.caption.copyWith(color: c.fg3),
@@ -563,7 +572,7 @@ class _PlatformToday extends StatelessWidget {
                       const SizedBox(width: AidogSpace.sxs),
                       _SubInline(
                         '${formatNumber(_num(p['requests']))} '
-                        '${i18n.t('popover.reqUnit')}',
+                        '${AidogI18n.of(context).t('popover.reqUnit')}',
                       ),
                     ],
                   ],
@@ -610,16 +619,16 @@ class _GroupBalance extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (size != PopoverSize.s)
-            _Title(i18n.t('popover.groupBalanceTitle', {'name': name})),
+            _Title(AidogI18n.of(context).t('popover.groupBalanceTitle', {'name': name})),
           if (details == null)
-            _Empty(i18n.t('common.loading'))
+            _Empty(AidogI18n.of(context).t('common.loading'))
           else if (detail == null)
-            _Empty(i18n.t('popover.trendNoGroup'))
+            _Empty(AidogI18n.of(context).t('popover.trendNoGroup'))
           else ...[
             _Value(formatCostUsd(balance), color),
             if (size == PopoverSize.l)
               _Sub(
-                '${platforms.length} ${i18n.t('popover.platformsUnit')}',
+                '${platforms.length} ${AidogI18n.of(context).t('popover.platformsUnit')}',
                 null,
               ),
           ],
@@ -655,9 +664,9 @@ class _StatsCard extends StatelessWidget {
         children: [
           if (title != null) _Title(title!),
           if (loaded && s == null)
-            _Empty(i18n.t('popover.trendLoadError'))
+            _Empty(AidogI18n.of(context).t('popover.trendLoadError'))
           else if (s == null)
-            _Empty(i18n.t('common.loading'))
+            _Empty(AidogI18n.of(context).t('common.loading'))
           else
             builder(s),
         ],
