@@ -191,9 +191,12 @@ void main() {
       // release 内核 socket p50≈115 µs、debug 内核≈354 µs（debug 二进制 176 MB
       // 对 release 86 MB），拿一个绝对阈值会在 debug 下偶发红，而那时 socket 其实好好的。
       // 比值是真正的不变量：两条路在同一次运行里、同一个内核上量，倍数只反映客户端开销。
+      // 阈值 1.5 不是 3：比值量的是**总延迟**（含服务端耗时），内核一快比值就被压缩——
+      // 实测健康态最低 2.3（release 内核下 HttpClient 409µs 的那次），而真退回 HttpClient
+      // 时两条路一样、比值趋近 1。1.5 在两者之间，离两边都有余量。
       expect(
         httpP50 / p50,
-        greaterThan(3),
+        greaterThan(1.5),
         reason:
             'socket p50=$p50µs / HttpClient p50=$httpP50µs，只差 '
             '${(httpP50 / p50).toStringAsFixed(1)} 倍 —— 没走持久 socket，'
