@@ -784,7 +784,9 @@ void main() {
       wrapPage(PopoverSettingsPage(invoke: k.invoke), i18n),
     );
     await settle(tester);
-    expect(find.text(i18n.t('popover.empty')), findsOneWidget);
+    // 两处：卡片列表自己的空态，加实时预览里那份 `PopoverGrid` 的空态
+    //（票 I11 起预览与托盘小窗共用同一份渲染，所以空态也长一样）。
+    expect(find.text(i18n.t('popover.empty')), findsNWidgets(2));
 
     await tester.tap(
       find.descendant(
