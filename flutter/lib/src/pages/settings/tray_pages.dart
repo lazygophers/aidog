@@ -80,67 +80,54 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
         children: [CenteredNote(text: t.t('status.loading'))],
       );
     }
+    final selected = _c.selected;
+    final options = traySegmentOptions(
+      _c.platforms,
+      (key, fallback) => tOr(t, key, fallback),
+    );
+    final selectedKeys = selected.map(traySegmentKey).toSet();
+    final full = selected.length >= kTrayMaxSegments;
+    // 迁移留下的项：关着、且不在候选清单里（旧 separator / 已删平台）。
+    final keptDisabled = _c.items
+        .where(
+          (i) =>
+              !i.enabled &&
+              !options.any((o) => o.key == traySegmentKey(i)),
+        )
+        .length;
     return SettingsPageBody(
       title: t.t('appSettings.trayTab'),
-      subtitle: '${_c.items.length}',
+      subtitle: ltr('${selected.length}/$kTrayMaxSegments'),
       children: [
-        _preview(t),
+        _preview(t, selected),
         SettingsCard(
-          title: t.t('tray.separatorChar'),
+          title: tOr(t, 'tray.pickAtMost', '最多挑 3 项，菜单栏按勾选顺序显示'),
           children: [
-            ChoiceRow(
-              key: const ValueKey('tray-separator'),
-              label: t.t('tray.separatorChar'),
-              options: kTrayPresetSeparators.map((e) => e.value).toList(),
-              value: _c.separator,
-              labelOf: (v) => v.trim().isEmpty ? t.t('tray.sep.space') : v,
-              onChanged: _c.setSeparator,
+            Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                for (final opt in options)
+                  SmallButton(
+                    key: ValueKey('tray-seg-${opt.key}'),
+                    label: opt.label,
+                    active: selectedKeys.contains(opt.key),
+                    onTap: !selectedKeys.contains(opt.key) && full
+                        ? null
+                        : () => _c.toggleSegment(opt),
+                  ),
+              ],
             ),
           ],
         ),
-        SettingsCard(
-          title: t.t('tray.addItem'),
-          children: [
-            ChoiceRow(
-              key: const ValueKey('tray-add-platform'),
-              label: t.t('tray.catPlatform'),
-              options: _c.platforms.map((p) => '${p.id}').toList(),
-              value: '',
-              labelOf: (id) => _c.platforms
-                  .firstWhere(
-                    (p) => '${p.id}' == id,
-                    orElse: () => (
-                      id: -1,
-                      name: id,
-                      balance: 0,
-                      codingPlan: null,
-                    ),
-                  )
-                  .name,
-              onChanged: (v) => _c.addPlatform(int.parse(v)),
+        if (keptDisabled > 0)
+          CenteredNote(
+            text: tOr(
+              t,
+              'tray.keptDisabled',
+              '旧版托盘配置里多出的 $keptDisabled 项已保留但未启用，不会丢失',
             ),
-            ChoiceRow(
-              key: const ValueKey('tray-add-today'),
-              label: t.t('tray.todayUsage'),
-              options: kTrayTodayMetrics,
-              value: '',
-              labelOf: (m) => t.t('tray.metric.$m'),
-              onChanged: _c.addTodayUsage,
-            ),
-            ChoiceRow(
-              key: const ValueKey('tray-add-separator'),
-              label: t.t('tray.separatorItem'),
-              options: kTrayPresetSeparators.map((e) => e.value).toList(),
-              value: '',
-              labelOf: (v) => v.trim().isEmpty ? t.t('tray.sep.space') : v,
-              onChanged: _c.addSeparator,
-            ),
-          ],
-        ),
-        if (_c.items.isEmpty)
-          CenteredNote(text: t.t('tray.noItems'))
-        else
-          for (var i = 0; i < _c.items.length; i++) _itemCard(t, i),
+          ),
         if (_c.message.isNotEmpty)
           AutoToast(
             text: _c.message,
@@ -151,20 +138,16 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
     );
   }
 
-  Widget _preview(I18nController t) {
+  Widget _preview(I18nController t, List<TrayItem> selected) {
     final theme = AidogTheme.of(context);
-    if (_c.items.isEmpty) {
+    if (selected.isEmpty) {
       return SettingsCard(
         title: t.t('tray.preview'),
         children: [CenteredNote(text: t.t('tray.previewEmpty'))],
       );
     }
     final parts = <String>[];
-    for (final it in _c.items.where((e) => e.enabled)) {
-      if (it.itemType == 'separator') {
-        parts.add(it.display);
-        continue;
-      }
+    for (final it in selected) {
       final p = _c.platforms.where((p) => p.id == it.platformId).firstOrNull;
       final text = computeItemText(
         it,
@@ -183,161 +166,6 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
           ltr(parts.join(_c.separator)),
           style: AidogType.numSm.copyWith(color: theme.c.fg),
         ),
-      ],
-    );
-  }
-
-  Widget _itemCard(I18nController t, int i) {
-    final it = _c.items[i];
-    final isSeparator = it.itemType == 'separator';
-    final isToday = it.itemType == 'today_usage';
-    final colorMode = '${it.color['mode'] ?? 'follow'}';
-    final colorValue = '${it.color['value'] ?? ''}';
-    return SettingsCard(
-      key: ValueKey('tray-item-$i'),
-      title: isSeparator
-          ? t.t('tray.separatorItem')
-          : isToday
-          ? t.t('tray.todayUsage')
-          : t.t('tray.catPlatform'),
-      meta: ltr('#${i + 1}'),
-      children: [
-        Row(
-          children: [
-            SmallButton(
-              label: t.t('action.moveUp'),
-              onTap: i == 0 ? null : () => _c.reorder(i, i - 1),
-            ),
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              label: t.t('action.moveDown'),
-              onTap: i == _c.items.length - 1
-                  ? null
-                  : () => _c.reorder(i, i + 1),
-            ),
-            const Spacer(),
-            SmallButton(
-              label: it.enabled
-                  ? t.t('middleware.enabled')
-                  : t.t('middleware.failed'),
-              active: it.enabled,
-              onTap: () =>
-                  _c.updateItem(i, (e) => e.copyWith(enabled: !e.enabled)),
-            ),
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              label: t.t('action.delete'),
-              danger: true,
-              onTap: () => _c.removeItem(i),
-            ),
-          ],
-        ),
-        if (isSeparator)
-          ChoiceRow(
-            label: t.t('tray.separatorChar'),
-            options: kTrayPresetSeparators.map((e) => e.value).toList(),
-            value: it.display,
-            labelOf: (v) => v.trim().isEmpty ? t.t('tray.sep.space') : v,
-            onChanged: (v) => _c.updateItem(i, (e) => e.copyWith(display: v)),
-          )
-        else ...[
-          if (isToday)
-            ChoiceRow(
-              label: t.t('tray.metric'),
-              options: kTrayTodayMetrics,
-              value: it.metric ?? 'tokens',
-              labelOf: (m) => t.t('tray.metric.$m'),
-              onChanged: (v) => _c.updateItem(i, (e) => e.copyWith(metric: v)),
-            )
-          else
-            ChoiceRow(
-              label: t.t('tray.display'),
-              options: const ['balance', 'coding'],
-              value: it.display,
-              labelOf: (v) => v == 'coding'
-                  ? t.t('tray.displayCoding')
-                  : t.t('tray.displayBalance'),
-              onChanged: (v) =>
-                  _c.updateItem(i, (e) => e.copyWith(display: v)),
-            ),
-          TextRow(
-            label: t.t('tray.customLabel'),
-            hint: t.t('tray.customLabelPlaceholder'),
-            value: it.label ?? '',
-            onSubmitted: (v) => _c.updateItem(i, (e) => e.copyWith(label: v)),
-          ),
-          if (isToday && it.metric == 'cost')
-            NumberRow(
-              label: t.t('tray.decimals'),
-              value: it.decimals ?? 5,
-              onChanged: (v) =>
-                  _c.updateItem(i, (e) => e.copyWith(decimals: v)),
-            ),
-        ],
-        ChoiceRow(
-          label: t.t('tray.lineMode'),
-          options: const ['single', 'two'],
-          value: it.lineMode,
-          labelOf: (v) => v == 'single'
-              ? t.t('tray.lineModeSingle')
-              : t.t('tray.lineModeTwo'),
-          onChanged: (v) => _c.updateItem(i, (e) => e.copyWith(lineMode: v)),
-        ),
-        ChoiceRow(
-          label: t.t('tray.align'),
-          options: kTrayAlignOptions,
-          value: it.align,
-          onChanged: (v) => _c.updateItem(i, (e) => e.copyWith(align: v)),
-        ),
-        if (it.lineMode == 'two')
-          ChoiceRow(
-            label: t.t('tray.alignRow2'),
-            options: kTrayAlignOptions,
-            value: it.alignRow2 ?? it.align,
-            onChanged: (v) =>
-                _c.updateItem(i, (e) => e.copyWith(alignRow2: v)),
-          ),
-        NumberRow(
-          label: t.t('tray.lineBudget'),
-          value: it.fontSize,
-          onChanged: (v) => _c.updateItem(i, (e) => e.copyWith(fontSize: v)),
-        ),
-        ChoiceRow(
-          label: t.t('tray.color'),
-          options: [...kTrayPresetColors.map((e) => e.value), 'custom'],
-          value: colorMode == 'custom' ? 'custom' : colorValue.isEmpty
-              ? 'follow'
-              : colorValue,
-          labelOf: (v) => switch (v) {
-            'follow' => t.t('tray.colorFollow'),
-            'custom' => t.t('tray.colorCustom'),
-            _ => v,
-          },
-          onChanged: (v) => _c.updateItem(
-            i,
-            (e) => e.copyWith(
-              color: v == 'custom'
-                  ? {'mode': 'custom', 'value': colorValue}
-                  : v == 'follow'
-                  ? {'mode': 'follow', 'value': ''}
-                  : {'mode': 'preset', 'value': v},
-            ),
-          ),
-        ),
-        if (colorMode == 'custom') ...[
-          TextRow(
-            label: t.t('tray.colorCustom'),
-            hint: '#RRGGBB',
-            value: colorValue,
-            onSubmitted: (v) => _c.updateItem(
-              i,
-              (e) => e.copyWith(color: {'mode': 'custom', 'value': v}),
-            ),
-          ),
-          // 亮度落在 (40, 215) 之外的十六进制色在菜单栏上看不清。
-          if (isRiskyHex(colorValue))
-            ErrorNote(text: t.t('tray.colorWarning')),
-        ],
       ],
     );
   }
