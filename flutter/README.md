@@ -136,6 +136,74 @@ import 'package:aidog_flutter/pages.dart';
 | 分页文案占位符 | 传 `{page, total}`，而词条写的是 `{{current}}` —— **React 现在渲染出的是没替换的 `{{current}}`** | 传 `{current, total}`，正常替换 | 那是 React 侧的真 bug，不照抄 |
 | 入场动效 | `useReveal` 错峰 + `useCounter` 数字滚动 | 无 | A′ 的格子有自己的过渡；票 I06 的口径是「对齐」指功能不指长相 |
 
+## 页面批次 B（票 I07）：平台 / 分组 / 请求日志 / 日志
+
+```dart
+import 'package:aidog_flutter/pages.dart';   // PlatformsPage / GroupsSection / LogsPage / RequestLogPage
+```
+
+四页都交付了**逻辑层 + widget 树**（不是只有逻辑层）。分层沿用 I06 的三条约定：
+`XController` 持状态与命令、`StatefulWidget` 只负责画、页面收一个 `InvokeFn` 供测试注入。
+
+| 文件 | 管什么 |
+|---|---|
+| `lib/src/pages/platforms_logic.dart` | 平台列表 / 乐观写的 epoch 守卫 / 余额有界并发 / 取模型的多协议回退链 |
+| `lib/src/pages/groups_logic.dart` | 分组分页加载 / 校验 / 四个批量操作 / 破坏性确认 / 一键测试 |
+| `lib/src/pages/logs_logic.dart` | 两页的筛选派生、分页、详情、复制成 markdown |
+| `lib/src/pages/{platforms,groups,logs}.dart` + `ui_bits.dart` | widget 树 |
+
+### SSE 只是「有新数据」的提示，不是数据源
+
+`proxy-log-updated` 对**连接之前**发生的事件什么都不补，断线期间的也全丢。所以两条硬规矩：
+
+1. **每次 mount 必须自己整查一遍**（`init()` 里就查，不等流）；
+2. 流上来的每一下只触发一次**静默**重查（不闪 loading）。
+
+React 侧票 11 量到过「转发期一秒四次整页重查」，根因是订阅没防抖。这里两道闸：
+I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在途一轮没回来就不发第二轮）。
+`test/pages/logs_logic_test.dart` 里「四次事件叠在一起时只该落地一次查询」那条是复发闸。
+
+### 命令覆盖：45 / 51，缺的 6 条逐条写明
+
+清单由 `scripts/i07-react-pages-b-commands.mjs` 从 `src/` **解析**出来（不是手数）：
+命名空间对象只算本文件真访问过的成员，所以 import 一个 `platformApi` 不会把它 20 个方法全算进来。
+产物 `flutter/test/pages/react_pages_b_commands.txt`，比对在 `test/pages/command_coverage_b_test.dart`
+（比**排序后的 List**，不是 Set —— Dart 的 Set 按标识比较）。
+
+解析器本身与票 I08 共用 `scripts/lib/react-commands.mjs`；抽出后 I08 那份 96 条清单
+`--check` 仍逐字节相等。
+
+没覆盖的 6 条，全部写在测试里的 `knownGaps` 表并**计入总数**（不是从清单里删掉）：
+
+| 命令 | 为什么没做 |
+|---|---|
+| `get_client_types_json` | 端点的「客户端形态」下拉。registry 已删 `client_type` 字段，形态按 protocol 派生，本层不读这份表 |
+| `get_protocol_logo_path` / `get_protocol_logo_data_url` / `sync_protocol_logo` | 协议图标三件套。图标由 shell 主题层出，未走这条链 |
+| `settings_get` | 被 `domains/groups/proxy-env.ts` 用来拼分组的环境变量预览文本；本层没做那个预览面板 |
+| `sync_group_settings` | 「一键同步到 ~/.claude/settings.{group}.json」按钮，不属分组 CRUD，未随本票交付 |
+
+### 与 React 版的已知差异（写下来，不是漏的）
+
+| 处 | React | 这里 | 为什么 |
+|---|---|---|---|
+| 平台 / 分组搜索 | `pinyinMatch`（`pinyin-pro` 汉字字典） | 不分大小写子串 + registry `keywords` | 沿用票 I06 已记的同一取舍。**平台不受影响** —— registry 的 `keywords` 本来就把全拼与首字母当字面数据存着；受影响的只有用户自起中文名的平台 / 分组：输拼音搜不到。`groups_logic_test.dart` 里有一条测试把这个差异钉死，哪天引了字典它会红 |
+| 余额查询的入队顺序 | `IntersectionObserver` 按卡片进视口的顺序（可视优先） | 列表顺序 | Flutter 没有等价的廉价原语。并发上限、去重、pending 三态都一样，差的只是**先查哪个** |
+| 该不该查余额 | 还要过 `platformHasQuotaScript`（registry 的 `quota_scripts` 索引） | 只判「有 key 且有 base_url」 | 那个索引是 `get_defaults_json` 的一个子树，本层没解析。后果是**多查**不是少查：没脚本的平台白发一次命令，后端返 `success:false`，UI 表现一致 |
+| 平台卡 | favicon、拖拽手柄、展开端点明细 | 动作做全（启停 / 测试 / 刷余额 / 查日志 / 删除），展开明细未做 | 本票口径是功能对齐优先于观感；拖拽排序的命令（`platform_reorder`）已接，只是没有手柄 UI |
+| 跨组件通知 | `window` 上三个自定义事件（`aidog-groups-changed` 等） | 父子回调 | 分组区在 Flutter 这边是平台页的**子 widget**，不是兄弟页，不需要事件总线 |
+| 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
+| `formatDateTime` | `toLocaleString()`，跟浏览器 locale 走 | 固定 `YYYY/M/D HH:MM:SS` | 跟 locale 走要先 `initializeDateFormatting()`，漏调会在非英文 locale 抛 `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 同一个理由 |
+
+### 路由配置这一页，校验和确认是照搬的
+
+Groups 是全库第二大页，改错一个字段不是显示问题，是请求发去错的地方。所以：
+
+- **能不能点**：「创建」按 `!cName`、「保存」按 `!editName`（**不 trim** —— 一个空格在 React 里是可以保存的，照搬）。
+- **分组密钥**实时剔掉 `[^\w-]`：它创建后锁定不可改，且同时是 Bearer token 与路由匹配键，放进去一个空格就是一个永远匹配不上的组。
+- **破坏性操作一律先确认**：删组、删平台、批量删除、清理失效，确认之前一个命令都不发（widget 测试逐条盯着）。
+- **跨组归属实时拉后端**：「移除平台」弹窗里「这个平台还在几个组里」必须用 `group_detail_list` 现拉。用前端已分页的 `details` 会 overcount，单组平台就会被「移出本组」变成未分组而不是被删掉 —— React 07-08 回归的根因。
+- **`env_vars` 必须透传**：后端 `UpdateGroup.env_vars` 是 `#[serde(default)]` 的 `Vec`（不是 `Option`），改模型映射时不带上它就会把用户已配的环境变量清光。
+
 ## 原生能力（票 I12）
 
 ```dart
@@ -293,6 +361,10 @@ lib/src/pages/
   models.dart                   页面私有的 RPC 载荷模型（字段名抄 types/generated）
   home.dart / home_logic.dart   首页（票 I06）
   stats.dart / stats_logic.dart 使用统计（票 I06）
+  platforms.dart / platforms_logic.dart  平台（票 I07）
+  groups.dart / groups_logic.dart        分组（票 I07，内嵌在平台页里）
+  logs.dart / logs_logic.dart            请求日志两页（票 I07）
+  ui_bits.dart                  票 I07 三页共用：SmallButton / ConfirmCard / CenteredNote / ToastBar
   filter_dropdown.dart          带搜索的筛选下拉
 lib/stats/aggregation.dart      Stats 二次聚合四函数（票 I05）
 lib/utils/formatters.dart       数值格式化唯一落点（禁页内重复定义）
