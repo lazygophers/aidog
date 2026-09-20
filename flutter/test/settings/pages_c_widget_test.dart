@@ -743,7 +743,7 @@ void main() {
 
   // ── 托盘 / 浮窗 ───────────────────────────────────────
 
-  testWidgets('托盘页：空态 + 添加今日指标即落盘', (tester) async {
+  testWidgets('托盘页：勾一个段即落盘（票 I15 单选清单）', (tester) async {
     await useBigSurface(tester);
     final k = FakeKernel({...baseResponses(), 'tray_config_set': (_) => null});
     final i18n = await makeI18n(tester);
@@ -756,17 +756,14 @@ void main() {
       ),
     );
     await settle(tester);
-    expect(find.text(i18n.t('tray.noItems')), findsOneWidget);
+    expect(find.text(i18n.t('tray.previewEmpty')), findsOneWidget);
 
-    await tester.tap(
-      find.descendant(
-        of: find.byKey(const ValueKey('tray-add-today')),
-        matching: find.widgetWithText(SmallButton, i18n.t('tray.metric.cost')),
-      ),
-    );
+    await tester.tap(find.byKey(const ValueKey('tray-seg-peak')));
     await settle(tester);
     final cfg = k.lastArgsOf('tray_config_set')!['config']! as Map;
-    expect((cfg['items']! as List).length, 1);
+    final items = cfg['items']! as List;
+    expect(items.length, 1);
+    expect((items.first as Map)['item_type'], 'peak');
 
     // 日志事件触发今日统计刷新（不重拉整表）。
     final before = k.countOf('tray_today_stats');

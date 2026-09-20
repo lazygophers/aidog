@@ -87,6 +87,28 @@ pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodaySta
     }
 }
 
+/// 当前命中平台 = 最近一条真实转发（非 model_test）日志的平台 id。
+/// 从没有过转发（或平台已删）→ None，调用方自己兜底显示。
+#[track_caller]
+pub fn last_routed_platform_id(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Option<u64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT platform_id FROM proxy_log \
+                 WHERE deleted_at = 0 AND platform_id > 0 AND source_protocol != 'test' \
+                 ORDER BY created_at DESC LIMIT 1",
+            )?;
+            let mut rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;
+            Ok(rows.next().transpose()?.map(|pid| pid as u64))
+        })
+        .await
+        .map_err(|e| format!("last routed platform: {e}"))
+    }
+}
+
 /// 单平台当日使用统计（供 popover「各平台当日」展示）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodayPlatformStat {

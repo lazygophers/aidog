@@ -5,7 +5,11 @@ import type { TrayColor } from "./TrayColor";
  * 托盘单个展示项。
  * - item_type="platform": platform_id 指定平台，display ∈ {"balance","coding"}
  * - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
- * - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）
+ * - item_type="routed_platform": 当前命中平台（取最近一条非测试 proxy_log 的平台），无字段
+ * - item_type="peak": 高峰指示（按当前命中平台的 peak 窗口判定），无字段
+ * - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）。
+ *   票 I15 起菜单栏只画最多 3 段、separator 不再可选，存量 separator 项一律被
+ *   [`clamp_to_segments`] 置 `enabled=false` 留在配置里（不删）。
  */
 export type TrayItem = { item_type: string, platform_id: number | null, display: string, metric: string | null, 
 /**

@@ -14,44 +14,14 @@ import '../invoke.dart';
 
 const int kTrayDefaultFontSize = 9;
 
-/// 4 个预置色。`follow` = 跟随主题前景色，其余是固定色。
-/// 色值**不在这里写死**：`cssVar` 是给 UI 层去主题里取的键名。
-const List<({String value, String themeKey})> kTrayPresetColors = [
-  (value: 'follow', themeKey: 'textPrimary'),
-  (value: 'red', themeKey: 'danger'),
-  (value: 'green', themeKey: 'success'),
-  (value: 'orange', themeKey: 'warning'),
-];
-
-const List<({String label, String value})> kTrayPresetSeparators = [
-  (label: '|', value: '|'),
-  (label: '·', value: '·'),
-  (label: '—', value: '—'),
-  (label: '/', value: '/'),
-  (label: '»', value: '»'),
-  (label: '空格', value: ' '),
-];
-
-const List<String> kTrayAlignOptions = ['left', 'center', 'right'];
+// 票 I15：预置色 / 预置分隔符 / 对齐选项随二维网格编辑器一起删除
+// （菜单栏只画固定三段，这些都不再可选；存量配置里的对应字段原样留在 DB 里）。
 const List<String> kTrayTodayMetrics = ['tokens', 'cache_rate', 'cost', 'requests'];
 
 /// 去掉小数点后多余的零：`0.111000` → `0.111`，`10.10100` → `10.101`，`0.000` → `0`。
 String trimZeros(String s) {
   if (!s.contains('.')) return s;
   return s.replaceFirst(RegExp(r'\.?0+$'), '');
-}
-
-/// 亮度过暗或过亮的十六进制色在菜单栏上看不清。
-/// 判据照搬 React：`0.299r + 0.587g + 0.114b` 落在 (40, 215) 之外就提示。
-bool isRiskyHex(String hex) {
-  final m = RegExp(r'^#?([0-9a-fA-F]{6})$').firstMatch(hex.trim());
-  if (m == null) return false;
-  final n = int.parse(m.group(1)!, radix: 16);
-  final r = (n >> 16) & 0xff;
-  final g = (n >> 8) & 0xff;
-  final b = n & 0xff;
-  final lum = 0.299 * r + 0.587 * g + 0.114 * b;
-  return lum < 40 || lum > 215;
 }
 
 /// 一个托盘展示项。字段名照 `src/services/api/tray.ts::TrayItem`
@@ -103,11 +73,11 @@ class TrayItem {
         order: order,
       );
 
-  factory TrayItem.separator(String separator, int order) => TrayItem(
-        itemType: 'separator',
-        display: separator,
+  /// 票 I15 的无参段：`routed_platform`（当前命中平台）/ `peak`（高峰指示）。
+  factory TrayItem.simple(String itemType, int order) => TrayItem(
+        itemType: itemType,
+        display: '',
         lineMode: 'single',
-        align: 'center',
         order: order,
       );
 
@@ -205,6 +175,15 @@ class TodayStats {
   TodayStats? todayStats,
   String Function(String key, String fallback) t,
 ) {
+  // 票 I15 的两段由后端按实时路由算（当前命中平台 / 该平台是否在高峰窗口），
+  // 前端拿不到这两个值，预览里只占位。
+  if (item.itemType == 'routed_platform' || item.itemType == 'peak') {
+    final auto = item.itemType == 'peak'
+        ? t('tray.segment.peak', '高峰指示')
+        : t('tray.segment.routed', '当前命中平台');
+    final lbl = item.label;
+    return (label: lbl != null && lbl.isNotEmpty ? lbl : auto, value: '—');
+  }
   if (item.itemType == 'today_usage') {
     final s = todayStats ?? TodayStats.zero;
     final auto = switch (item.metric ?? 'tokens') {
@@ -261,6 +240,82 @@ double? _firstTierUtilization(String json) {
   } catch (_) {
     return null;
   }
+}
+
+// ── 票 I15：菜单栏固定三段，配置降成「最多挑 3 项」 ──────────
+//
+// 与 React `src/pages/TrayConfigTab.tsx` 和 Rust `TRAY_MAX_SEGMENTS` 同一套数据模型。
+
+/// 菜单栏最多画几段。
+const int kTrayMaxSegments = 3;
+
+/// 一个可挑选的展示段。key 只在 UI 侧用来对号，入库的仍是 [TrayItem]。
+typedef TraySegmentOption = ({String key, String label, TrayItem item});
+
+/// 某个已存配置项对应的段 key。
+String traySegmentKey(TrayItem item) => switch (item.itemType) {
+      'today_usage' => 'today_usage:${item.metric ?? 'tokens'}',
+      'platform' => 'platform:${item.platformId}',
+      _ => item.itemType,
+    };
+
+/// 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个已启用平台。
+List<TraySegmentOption> traySegmentOptions(
+  List<({int id, String name, double balance, String? codingPlan})> platforms,
+  String Function(String key, String fallback) t,
+) =>
+    [
+      for (final m in kTrayTodayMetrics)
+        (
+          key: 'today_usage:$m',
+          label: '${t('tray.todayUsage', '今日消耗')} — ${t('tray.metric.$m', m)}',
+          item: TrayItem.todayUsage(m, 0),
+        ),
+      (
+        key: 'routed_platform',
+        label: t('tray.segment.routed', '当前命中平台'),
+        item: TrayItem.simple('routed_platform', 0),
+      ),
+      (
+        key: 'peak',
+        label: t('tray.segment.peak', '高峰指示'),
+        item: TrayItem.simple('peak', 0),
+      ),
+      for (final p in platforms)
+        (
+          key: 'platform:${p.id}',
+          label: p.name,
+          item: TrayItem.platform(p.id, 'balance', 0),
+        ),
+    ];
+
+/// 勾选 / 取消一个段。**只翻 enabled，不删项**（票 I15 的迁移规则）：
+/// 取消勾选的项留在 items 里，标签 / 颜色 / 行模式原样保留，勾回来还是老样子。
+/// 已满 3 段时继续勾 → 原样返回（调用方把按钮置灰）。
+List<TrayItem> toggleTraySegment(List<TrayItem> items, TraySegmentOption opt) {
+  final idx = items.indexWhere((it) => traySegmentKey(it) == opt.key);
+  final enabledCount = items.where((it) => it.enabled).length;
+  List<TrayItem> next;
+  if (idx >= 0 && items[idx].enabled) {
+    next = [
+      for (var i = 0; i < items.length; i++)
+        i == idx ? items[i].copyWith(enabled: false) : items[i],
+    ];
+  } else if (enabledCount >= kTrayMaxSegments) {
+    return items;
+  } else if (idx >= 0) {
+    next = [
+      for (var i = 0; i < items.length; i++)
+        i == idx ? items[i].copyWith(enabled: true) : items[i],
+    ];
+  } else {
+    next = [...items, opt.item];
+  }
+  // enabled 的排在前面（保持原相对顺序），order 交给 withOrders 按下标重写。
+  return [
+    ...next.where((it) => it.enabled),
+    ...next.where((it) => !it.enabled),
+  ];
 }
 
 class TrayController {
@@ -334,31 +389,13 @@ class TrayController {
     }
   }
 
-  Future<void> setSeparator(String s) => persist(items, sep: s);
+  /// 勾选 / 取消一个段（票 I15 起这是托盘页唯一的编辑动作）。
+  Future<void> toggleSegment(TraySegmentOption opt) =>
+      persist(toggleTraySegment(items, opt));
 
-  Future<void> updateItem(int index, TrayItem Function(TrayItem) patch) {
-    final next = [...items];
-    next[index] = patch(next[index]);
-    return persist(next);
-  }
-
-  Future<void> removeItem(int index) => persist([...items]..removeAt(index));
-
-  Future<void> addPlatform(int pid) =>
-      persist([...items, TrayItem.platform(pid, 'balance', items.length)]);
-
-  Future<void> addTodayUsage(String metric) =>
-      persist([...items, TrayItem.todayUsage(metric, items.length)]);
-
-  Future<void> addSeparator(String sep) =>
-      persist([...items, TrayItem.separator(sep, items.length)]);
-
-  Future<void> reorder(int oldIndex, int newIndex) {
-    final next = [...items];
-    final it = next.removeAt(oldIndex);
-    next.insert(newIndex, it);
-    return persist(next);
-  }
+  /// 当前启用的段，按 order 排。
+  List<TrayItem> get selected =>
+      [...items.where((i) => i.enabled)]..sort((a, b) => a.order - b.order);
 
   static Map<String, Object?> _map(Object? v) =>
       v is Map ? Map<String, Object?>.from(v) : <String, Object?>{};

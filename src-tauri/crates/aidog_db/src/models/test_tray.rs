@@ -101,3 +101,85 @@ fn default_config_populates_new_fields() {
     }
     assert!(cfg.rows.is_empty());
 }
+
+// ─── 票 I15：二维网格 → 最多 3 段的迁移规则 ───────────────
+
+/// 造一个 enabled 的数据项（item_type 由调用方给）。
+fn it(item_type: &str, order: i32) -> TrayItem {
+    let mut i = segment("platform", None, order);
+    i.item_type = item_type.to_string();
+    i
+}
+
+#[test]
+fn clamp_keeps_first_three_and_disables_rest_without_deleting() {
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![
+            it("platform", 0),
+            it("today_usage", 1),
+            it("platform", 2),
+            it("today_usage", 3),
+            it("platform", 4),
+        ],
+    };
+    assert!(clamp_to_segments(&mut cfg));
+    // 一项都没丢。
+    assert_eq!(cfg.items.len(), 5);
+    let enabled: Vec<bool> = cfg.items.iter().map(|i| i.enabled).collect();
+    assert_eq!(enabled, vec![true, true, true, false, false]);
+}
+
+#[test]
+fn clamp_uses_order_not_array_index() {
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![
+            it("platform", 9),
+            it("today_usage", 0),
+            it("platform", 1),
+            it("today_usage", 2),
+        ],
+    };
+    clamp_to_segments(&mut cfg);
+    // order 0/1/2 三项留下，order 9 那项被关掉（数组第 0 个）。
+    assert!(!cfg.items[0].enabled);
+    assert!(cfg.items[1].enabled && cfg.items[2].enabled && cfg.items[3].enabled);
+}
+
+#[test]
+fn clamp_disables_separators_but_keeps_their_fields() {
+    let mut sep = it("separator", 1);
+    sep.display = "·".to_string();
+    let mut two_line = it("platform", 0);
+    two_line.line_mode = "two".to_string();
+    two_line.align_row2 = Some("right".to_string());
+    let mut cfg = TrayConfig {
+        separator: "  ".to_string(),
+        items: vec![two_line, sep, it("platform", 2)],
+    };
+    assert!(clamp_to_segments(&mut cfg));
+    assert!(!cfg.items[1].enabled, "separator 不再是可选段");
+    assert_eq!(cfg.items[1].display, "·", "字段原样保留，可降级回旧版本");
+    // 二维排布字段（line_mode / align_row2）一律不动。
+    assert_eq!(cfg.items[0].line_mode, "two");
+    assert_eq!(cfg.items[0].align_row2.as_deref(), Some("right"));
+    assert!(cfg.items[0].enabled && cfg.items[2].enabled);
+}
+
+#[test]
+fn clamp_is_idempotent_and_reports_no_change_when_already_clamped() {
+    let mut cfg = TrayConfig::default_segments();
+    assert!(!clamp_to_segments(&mut cfg), "出厂三段本就合规，不该被改");
+    assert_eq!(cfg.items.len(), 3);
+    assert!(cfg.items.iter().all(|i| i.enabled));
+}
+
+#[test]
+fn default_segments_are_cost_routed_peak() {
+    let cfg = TrayConfig::default_segments();
+    let kinds: Vec<&str> = cfg.items.iter().map(|i| i.item_type.as_str()).collect();
+    assert_eq!(kinds, vec!["today_usage", "routed_platform", "peak"]);
+    assert_eq!(cfg.items[0].metric.as_deref(), Some("cost"));
+    assert_eq!(cfg.items.len(), TRAY_MAX_SEGMENTS);
+}
