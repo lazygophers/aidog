@@ -192,13 +192,16 @@
         ],
         "allow": [
             "$defaults",
-            "临时目录下的对所有文件/文件夹的操作"
+            "临时文件和目录（包括系统临时目录）下的所有文件/文件夹操作",
+            "执行 Python/Bash/protoc 等脚本",
+            "对于`.scratch`/`.ask-ui`的操作"
         ],
         "soft_deny": [
             "$defaults"
         ],
         "hard_deny": [
-            "$defaults"
+            "$defaults",
+            "修改系统配置"
         ]
     },
     "_aidog_statusline": {
