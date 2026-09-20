@@ -71,6 +71,9 @@ class _AidogAppState extends State<AidogApp> {
   }
 
   /// 票 I06 起逐页替换 [_placeholder]：已落地的走真页面，其余仍是占位。
+  ///
+  /// 票 I16 接进了设置的 12 个子页。`settings/pricing`（模型信息）属票 I09，
+  /// 那一页落地前仍走占位。
   Widget _page(BuildContext context, String id) => switch (id) {
     'home' => HomePage(onNavigate: _nav.navigate),
     'stats' => const StatsPage(),
@@ -80,6 +83,19 @@ class _AidogAppState extends State<AidogApp> {
     ),
     'logs' => const LogsPage(),
     'request-log' => const RequestLogPage(),
+    // 裸 `settings` 回退 system，与 `nav.dart::settingsTab` 同规则。
+    'settings' || 'settings/system' => const SystemSettingsPage(),
+    'settings/coding_tools' => const CodingToolsPage(),
+    'settings/claude' => const SchemaConfigPage(kind: SchemaConfigKind.claude),
+    'settings/codex' => const SchemaConfigPage(kind: SchemaConfigKind.codex),
+    'settings/pi' => const SchemaConfigPage(kind: SchemaConfigKind.pi),
+    'settings/middleware' => const MiddlewareSettingsPage(),
+    'settings/scheduling' => const SchedulingSettingsPage(),
+    'settings/notifications' => const NotificationsSettingsPage(),
+    'settings/tray' => const TraySettingsPage(),
+    'settings/popover' => const PopoverSettingsPage(),
+    'settings/importexport' => const ImportExportPage(),
+    'settings/mitm' => const MitmSettingsPage(),
     _ => _placeholder(context, id),
   };
 
