@@ -10,6 +10,9 @@ import 'dart:async';
 import '../../transport.dart';
 
 /// 一次命令调用。返回值是命令返回值本身（JSON 解码后的 `Map` / `List` / 标量）。
+///
+/// `args` 的键名按 Tauri v2 的约定走 camelCase，后端 `http_command.rs`
+/// 负责 camelCase → snake_case。
 typedef InvokeFn =
     Future<Object?> Function(String command, [Map<String, Object?>? args]);
 
@@ -28,6 +31,8 @@ Stream<Object?> kernelProxyLogUpdated() =>
 ///
 /// 对齐 React 版 `onProxyLogUpdated` 的 `debounceMs = 500` —— 代理一秒能跑完十个请求，
 /// 不合并就是十轮重查。尾沿触发（最后一个事件之后才发），与 `setTimeout` 重置同语义。
+///
+/// 托盘设置页用的是 1000 ms（`TrayConfigTab.tsx:208` 显式传 1000），调用方自己传 delay。
 Stream<void> debounceStream(
   Stream<Object?> source, {
   Duration delay = const Duration(milliseconds: 500),
