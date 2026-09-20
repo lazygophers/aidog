@@ -106,6 +106,12 @@ class _AidogAppState extends State<AidogApp> {
     'settings/popover' => const PopoverSettingsPage(),
     'settings/importexport' => const ImportExportPage(),
     'settings/mitm' => const MitmSettingsPage(),
+    // 票 I09：技能 / MCP / 通知中心 / 关于 / 模型信息（设置里的「模型信息」子页）。
+    'skills' => const SkillsPage(),
+    'mcp' => const McpPage(),
+    'notifications' => NotificationsPage(onNavigate: _nav.navigate),
+    'about' => const AboutPage(),
+    'settings/pricing' => const ModelInfoPage(),
     _ => _placeholder(context, id),
   };
 
@@ -114,7 +120,10 @@ class _AidogAppState extends State<AidogApp> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: i18n.t('nav.${id.split('/').first}'), subtitle: ltr(id)),
+        PageHead(
+          title: i18n.t('nav.${id.split('/').first}'),
+          subtitle: ltr(id),
+        ),
         Bento(
           children: [
             BentoCell(
