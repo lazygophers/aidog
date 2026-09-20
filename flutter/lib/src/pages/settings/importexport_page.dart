@@ -357,6 +357,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   ),
                   for (final d in ConflictDecisionKind.values) ...[
                     SmallButton(
+                      key: ValueKey('decide-$k-${d.name}'),
                       label: switch (d) {
                         ConflictDecisionKind.keepLocal => t.t(
                           'importExport.skip',
