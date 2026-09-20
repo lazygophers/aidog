@@ -419,6 +419,12 @@ pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
                 item.line_mode = lm.clone();
             }
         }
+        // 票 I15：二维网格 → 最多 3 段。超出的项只置 enabled=false（不删），
+        // 改动一次性落盘，之后读到的就是已收敛的配置。
+        if crate::models::clamp_to_segments(&mut cfg) {
+            tracing::info!("tray config clamped to 3 segments (I15); extra items kept disabled");
+            set_tray_config(db, &cfg).await?;
+        }
         return Ok(Some(cfg));
     }
     // 迁移：无 tray config → 从旧 show_in_tray=1 平台生成默认。
@@ -426,40 +432,36 @@ pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
     Ok(migrated)
 }
 
-/// 从旧 `show_in_tray=1` 平台生成默认 TrayConfig 并存入 settings。
-/// 无旧平台 → 存空配置（避免每次启动重复迁移），返回空配置。
+/// 无 tray config 时生成出厂配置并存入 settings。
+/// 票 I15 起出厂 = 固定三段（今日费用 · 当前命中平台 · 高峰指示）；
+/// 若还有旧 `show_in_tray=1` 平台，用它顶掉「当前命中平台」那一段（用户当年的显式选择优先）。
 async fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
     let legacy = get_tray_platform(db).await?;
-    let mut cfg = TrayConfig::default();
-    if let Some(p) = legacy {
-        let display = if p.tray_display == "coding" {
+    let mut cfg = TrayConfig::default_segments();
+    if let Some(p) = legacy
+        && let Some(slot) = cfg
+            .items
+            .iter_mut()
+            .find(|i| i.item_type == "routed_platform")
+    {
+        slot.item_type = "platform".to_string();
+        slot.platform_id = Some(p.id);
+        slot.display = if p.tray_display == "coding" {
             "coding"
         } else {
             "balance"
-        };
-        cfg.items.push(TrayItem {
-            item_type: "platform".to_string(),
-            platform_id: Some(p.id),
-            display: display.to_string(),
-            metric: None,
-            label: None,
-            decimals: None,
-            color: TrayColor::default(),
-            font_size: 9.0,
-            line_mode: "single".to_string(),
-            align: "left".to_string(),
-            align_row2: None,
-            enabled: true,
-            order: 0,
-        });
+        }
+        .to_string();
     }
     set_tray_config(db, &cfg).await?;
     Ok(Some(cfg))
 }
 
-/// 写入 TrayConfig 到 settings。
+/// 写入 TrayConfig 到 settings。入库前按票 I15 收敛到最多 3 段（超出项置 enabled=false，不删）。
 pub async fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
-    let value = serde_json::to_value(cfg).map_err(|e| format!("serialize tray config: {e}"))?;
+    let mut cfg = cfg.clone();
+    crate::models::clamp_to_segments(&mut cfg);
+    let value = serde_json::to_value(&cfg).map_err(|e| format!("serialize tray config: {e}"))?;
     set_setting(
         db,
         SetSettingInput {
