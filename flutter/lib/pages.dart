@@ -19,10 +19,13 @@
 library;
 
 export 'src/pages/filter_dropdown.dart' show FilterDropdown, FilterOption, filterOptions;
+export 'src/pages/groups_logic.dart';
 export 'src/pages/home.dart' show HomePage;
 export 'src/pages/home_logic.dart';
 export 'src/pages/invoke.dart'
     show InvokeFn, debounceStream, kProxyLogUpdatedEvent, kernelInvoke, kernelProxyLogUpdated;
+export 'src/pages/logs_logic.dart';
 export 'src/pages/models.dart';
+export 'src/pages/platforms_logic.dart';
 export 'src/pages/stats.dart' show StatsPage;
 export 'src/pages/stats_logic.dart';

@@ -15,6 +15,9 @@ import 'dart:convert';
 import '../../utils/formatters.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'stats_logic.dart' show kNoGroupSentinel;
+
+export 'stats_logic.dart' show kNoGroupSentinel;
 
 /// 时间范围预设，对齐 `src/pages/Logs/types.ts:6`。
 const List<String> kTimePresets = ['all', '1h', '6h', '24h', '7d', '30d'];
@@ -28,8 +31,9 @@ const Map<String, int> kTimePresetMs = {
   '30d': 2592000000,
 };
 
-/// `types.ts:19`：分组筛选里「未分组」那一项的哨兵值。
-const String kNoGroupSentinel = '__none__';
+// `types.ts:19` 的「未分组」哨兵 `kNoGroupSentinel` 已由票 I06 的 stats_logic 定义
+// （统计页的分组筛选用的是同一个值），这里直接用，不抄第二份 —— 两页对「未分组」
+// 的编码必须一致，否则同一个筛选在两页选出不同的行。
 
 /// `types.ts:8::timePresetToRange`。`all` → 两端都不带；其余 → `[now-跨度, now]`。
 ({int? start, int? end}) timePresetToRange(String preset, int nowMs) {
