@@ -492,35 +492,10 @@ class _Identity extends StatelessWidget {
     for (final g in membership ?? const <String>[]) {
       badges.add(MiniBadge(text: g, color: theme.c.fg3));
     }
-    // 最近一次测试（无记录不渲染）。
+    // 最近一次测试（无记录不渲染）。带响应正文时点一下展开。
     final lt = lastTest;
     if (lt != null) {
-      final rel = relativeTimeShort(lt.createdAt, nowMs: nowMs);
-      final errorText = !lt.success && lt.error.isNotEmpty
-          ? lt.error.substring(0, lt.error.length < 30 ? lt.error.length : 30)
-          : '';
-      badges.add(
-        MiniBadge(
-          text: [
-            lt.success ? '✓' : '✗',
-            if (lt.durationMs > 0) '${lt.durationMs}ms',
-            if (rel.isNotEmpty) '· $rel',
-            if (errorText.isNotEmpty) errorText,
-          ].join(' '),
-          color: lt.success ? theme.c.ok : theme.c.bad,
-          tooltip: lt.success
-              ? t
-                    .t('platform.lastTestOkHint')
-                    .replaceAll('{{time}}', formatDateTime(lt.createdAt))
-              : t
-                    .t('platform.lastTestFailHint')
-                    .replaceAll('{{time}}', formatDateTime(lt.createdAt))
-                    .replaceAll(
-                      '{{error}}',
-                      lt.error.isEmpty ? '' : '\n${lt.error}',
-                    ),
-        ),
-      );
+      badges.add(_LastTestBadge(result: lt, nowMs: nowMs));
     }
     // 最近一次代理错误（系统维护；最近一次成功即清空）。
     if (p.lastError.isNotEmpty) {
@@ -568,6 +543,78 @@ class _Identity extends StatelessWidget {
               runSpacing: 3,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: badges,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 「最近测试」徽章（`PlatformCard.tsx:963::LastTestBadge`）。
+/// 响应正文非空才可点：点开在徽章下面摊开解析后的正文，再点收起。
+class _LastTestBadge extends StatefulWidget {
+  const _LastTestBadge({required this.result, required this.nowMs});
+
+  final LastTestResult result;
+  final int nowMs;
+
+  @override
+  State<_LastTestBadge> createState() => _LastTestBadgeState();
+}
+
+class _LastTestBadgeState extends State<_LastTestBadge> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final lt = widget.result;
+    final rel = relativeTimeShort(lt.createdAt, nowMs: widget.nowMs);
+    final errorText = !lt.success && lt.error.isNotEmpty
+        ? lt.error.substring(0, lt.error.length < 30 ? lt.error.length : 30)
+        : '';
+    final hasBody = lt.responseBody.trim().isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MiniBadge(
+          text: [
+            lt.success ? '✓' : '✗',
+            if (lt.durationMs > 0) '${lt.durationMs}ms',
+            if (rel.isNotEmpty) '· $rel',
+            if (errorText.isNotEmpty) errorText,
+            if (hasBody) _open ? '▾' : '▸',
+          ].join(' '),
+          color: lt.success ? theme.c.ok : theme.c.bad,
+          onTap: hasBody ? () => setState(() => _open = !_open) : null,
+          tooltip: lt.success
+              ? t
+                    .t('platform.lastTestOkHint')
+                    .replaceAll('{{time}}', formatDateTime(lt.createdAt))
+              : t
+                    .t('platform.lastTestFailHint')
+                    .replaceAll('{{time}}', formatDateTime(lt.createdAt))
+                    .replaceAll(
+                      '{{error}}',
+                      lt.error.isEmpty ? '' : '\n${lt.error}',
+                    ),
+        ),
+        if (_open && hasBody)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.ssm,
+                vertical: AidogSpace.sxs,
+              ),
+              decoration: BoxDecoration(
+                color: theme.c.surface2,
+                border: Border.all(color: theme.c.line),
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+              ),
+              child: TestResultBody(body: lt.responseBody),
             ),
           ),
       ],

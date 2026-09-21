@@ -3,11 +3,12 @@
 /// 打开即自动复制一次 + 手动复制按钮；格式切换 URL(默认) / YAML / JSON / Base64。
 /// 剪贴板走 [native.writeText]（`platform.dart`），与 React 的 Tauri 插件同一条路。
 ///
-/// **与 React 的一处差异**：那边在 URL 格式下还画一张二维码（`qrcode` 包）。Dart 侧没有
-/// 已装的二维码生成库，为一张图引一个新依赖不划算 —— 链接本身照出，复制照旧可用。
+/// 给了 `urlScheme` 就在正文下方画一张深链二维码（`ShareModal.tsx:221-262`）：
+/// 链接长度超 [kQrMaxUrlLen] 就不画，换成「内容过长」提示（与 React 同一条判据）。
 library;
 
 import 'package:flutter/material.dart';
+import 'package:pretty_qr_code/pretty_qr_code.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -15,6 +16,9 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'platform_card_bits.dart';
 import 'ui_bits.dart';
+
+/// 深链超过这个长度就不画二维码（`ShareModal.tsx:23::QR_MAX_URL_LEN`）。
+const int kQrMaxUrlLen = 2900;
 
 class SharePanel extends StatefulWidget {
   const SharePanel({
@@ -63,6 +67,15 @@ class _SharePanelState extends State<SharePanel> {
 
   String get _text =>
       formatShare(widget.share, _format, urlScheme: widget.urlScheme);
+
+  /// 二维码里放的始终是深链（与当前选中的格式无关，`ShareModal.tsx:87-91`）。
+  /// 没给 urlScheme、或链接过长 → null（调用方画降级提示）。
+  String? get _deepLink {
+    final scheme = widget.urlScheme;
+    if (scheme == null) return null;
+    final url = formatShare(widget.share, ShareFormat.url, urlScheme: scheme);
+    return url.length > kQrMaxUrlLen ? null : url;
+  }
 
   Future<void> _doCopy({required bool auto}) async {
     final t = AidogI18n.of(context);
@@ -138,6 +151,56 @@ class _SharePanelState extends State<SharePanel> {
                 ),
               ),
             ),
+            // 二维码区块（仅 urlScheme 存在时出现；超长 → 降级成一行提示）。
+            if (widget.urlScheme != null) ...[
+              const SizedBox(height: AidogSpace.ssm),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AidogSpace.smd,
+                  vertical: AidogSpace.ssm,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.surface2,
+                  border: Border.all(color: theme.c.line),
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      t.t('platform.share.scanToImport'),
+                      style: AidogType.caption.copyWith(color: theme.c.fg2),
+                    ),
+                    const SizedBox(height: AidogSpace.ssm),
+                    if (_deepLink case final link?)
+                      SizedBox(
+                        width: 160,
+                        height: 160,
+                        child: PrettyQrView.data(
+                          data: link,
+                          errorCorrectLevel: QrErrorCorrectLevel.L,
+                          // 黑白是二维码的功能色不是主题色：跟着暗色主题走会把
+                          // 对比度压到扫不出来（React 那边用的也是 qrcode 包的
+                          // 黑白缺省值，`ShareModal.tsx:100`）。
+                          decoration: const PrettyQrDecoration(
+                            shape: PrettyQrSmoothSymbol(color: Colors.black),
+                            background: Colors.white,
+                          ),
+                        ),
+                      )
+                    else
+                      SizedBox(
+                        width: 200,
+                        child: Text(
+                          t.t('platform.share.qrTooLong'),
+                          textAlign: TextAlign.center,
+                          style: AidogType.caption.copyWith(color: theme.c.fg2),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: AidogSpace.ssm),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,

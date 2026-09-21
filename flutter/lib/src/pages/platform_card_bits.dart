@@ -14,6 +14,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../i18n.dart';
 import '../../utils/color_level.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
@@ -955,12 +956,16 @@ class MiniBadge extends StatelessWidget {
     required this.color,
     this.tooltip,
     this.icon,
+    this.onTap,
   });
 
   final String text;
   final Color color;
   final String? tooltip;
   final IconData? icon;
+
+  /// 给了才可点（「最近测试」徽章展开响应正文用）。null = 纯展示。
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -992,9 +997,184 @@ class MiniBadge extends StatelessWidget {
         ],
       ),
     );
-    return tooltip == null || tooltip!.isEmpty
+    final tappable = onTap == null
         ? body
-        : Tooltip(message: tooltip!, child: body);
+        : MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: GestureDetector(onTap: onTap, child: body),
+          );
+    return tooltip == null || tooltip!.isEmpty
+        ? tappable
+        : Tooltip(message: tooltip!, child: tappable);
+  }
+}
+
+// ── 测试响应正文解析（`src/components/shared/TestResultBody.tsx`）───────
+
+/// 结构化视图的一行。
+typedef TestBodyRow = ({String label, String value});
+
+/// [parseTestBody] 的结果：`rows` 非空 = 命中已知结构（渲染结构化）；
+/// 否则回退 `text` 原文（两者互斥，与 React 的 `kind: known | raw` 等价）。
+typedef ParsedTestBody = ({List<TestBodyRow> rows, String text});
+
+/// 安全取字符串：基础类型转字符串，对象 / 数组 JSON 序列化
+/// （`TestResultBody.tsx:17::toDisplay`）。
+String testBodyDisplay(Object? v) {
+  if (v == null) return '';
+  if (v is String) return v;
+  if (v is num || v is bool) return '$v';
+  try {
+    return jsonEncode(v);
+  } catch (_) {
+    return '';
+  }
+}
+
+/// 解析测试响应正文（`TestResultBody.tsx:35::parseTestBody`）。
+/// `t` 取文案，按仿函数模式由调用方注入。
+ParsedTestBody parseTestBody(String raw, String Function(String key) t) {
+  final text = raw.trim();
+  if (text.isEmpty) return (rows: const <TestBodyRow>[], text: '');
+
+  Object? parsed;
+  try {
+    parsed = jsonDecode(text);
+  } catch (_) {
+    return (rows: const <TestBodyRow>[], text: text);
+  }
+  if (parsed is! Map) return (rows: const <TestBodyRow>[], text: text);
+  final obj = parsed.cast<String, Object?>();
+  final rows = <TestBodyRow>[];
+
+  // error 体
+  final err = obj['error'];
+  if (err != null) {
+    if (err is Map) {
+      final e = err.cast<String, Object?>();
+      final msg = testBodyDisplay(e['message']);
+      if (msg.isNotEmpty) {
+        rows.add((label: t('testBody.errorMessage'), value: msg));
+      }
+      final type = testBodyDisplay(e['type']);
+      if (type.isNotEmpty) {
+        rows.add((label: t('testBody.errorType'), value: type));
+      }
+      final code = testBodyDisplay(e['code']);
+      if (code.isNotEmpty) {
+        rows.add((label: t('testBody.errorCode'), value: code));
+      }
+      // error 对象存在但无可识别子字段 → 整体序列化兜底
+      if (msg.isEmpty && type.isEmpty && code.isEmpty) {
+        rows.add((label: t('testBody.error'), value: testBodyDisplay(err)));
+      }
+    } else {
+      rows.add((label: t('testBody.error'), value: testBodyDisplay(err)));
+    }
+  }
+
+  // usage（Anthropic: input_tokens/output_tokens；OpenAI: prompt_tokens/completion_tokens）
+  final usage = obj['usage'];
+  if (usage is Map) {
+    final u = usage.cast<String, Object?>();
+    final input = testBodyDisplay(u['input_tokens'] ?? u['prompt_tokens']);
+    if (input.isNotEmpty) {
+      rows.add((label: t('testBody.inputTokens'), value: input));
+    }
+    final output = testBodyDisplay(u['output_tokens'] ?? u['completion_tokens']);
+    if (output.isNotEmpty) {
+      rows.add((label: t('testBody.outputTokens'), value: output));
+    }
+  }
+
+  // model
+  final model = testBodyDisplay(obj['model']);
+  if (model.isNotEmpty) rows.add((label: t('testBody.model'), value: model));
+
+  // 文本内容：Anthropic content[].text / OpenAI choices[].message.content
+  final content = _extractContentText(obj);
+  if (content.isNotEmpty) {
+    rows.add((label: t('testBody.content'), value: content));
+  }
+
+  if (rows.isNotEmpty) return (rows: rows, text: '');
+  return (rows: const <TestBodyRow>[], text: text);
+}
+
+/// 从 Anthropic content 数组或 OpenAI choices 数组抽取文本内容（取第一段非空）。
+String _extractContentText(Map<String, Object?> obj) {
+  final content = obj['content'];
+  if (content is List) {
+    for (final block in content) {
+      if (block is Map) {
+        final txt = testBodyDisplay(block['text']);
+        if (txt.isNotEmpty) return txt;
+      }
+    }
+  }
+  final choices = obj['choices'];
+  if (choices is List) {
+    for (final choice in choices) {
+      if (choice is Map) {
+        final message = choice['message'];
+        if (message is Map) {
+          final txt = testBodyDisplay(message['content']);
+          if (txt.isNotEmpty) return txt;
+        }
+      }
+    }
+  }
+  return '';
+}
+
+/// 测试响应正文的渲染（`TestResultBody.tsx:127`）。命中已知结构 → key-value 视图，
+/// 否则原文；两者都空 → 什么也不画。
+class TestResultBody extends StatelessWidget {
+  const TestResultBody({super.key, required this.body});
+
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final parsed = parseTestBody(body, t.t);
+    if (parsed.rows.isEmpty) {
+      if (parsed.text.isEmpty) return const SizedBox.shrink();
+      return Text(
+        parsed.text,
+        style: AidogType.numSm.copyWith(color: theme.c.fg2),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final r in parsed.rows)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  r.label,
+                  style: AidogType.micro.copyWith(
+                    color: theme.c.fg3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                Flexible(
+                  child: Text(
+                    r.value,
+                    style: AidogType.micro.copyWith(color: theme.c.fg2),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
 
