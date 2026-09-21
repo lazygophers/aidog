@@ -87,6 +87,10 @@ class PlatformsController {
   Map<int, String> testResults = const {};
   Map<String, List<String>> protocolTerms = const {};
 
+  /// 全局熔断默认，编辑表单用它显示「继承默认 N」。拉不到就是 null（表单退到
+  /// 「继承默认」这句不带数字的 placeholder）。
+  BreakerDefaults? breakerDefaults;
+
   bool loading = true;
   bool usageLoading = false;
   int? testingId;
@@ -104,6 +108,9 @@ class PlatformsController {
 
   void _notify() => onChanged?.call();
   void _toast(String text, {bool ok = true}) => onToast?.call(text, ok: ok);
+
+  /// 让表单控制器也能发提示（批量创建的进度 / 汇总行）。
+  void toast(String text, {bool ok = true}) => _toast(text, ok: ok);
 
   /// 未分组平台（主列表只展示这些；已分组的在分组卡里，避免重复），再套搜索过滤。
   /// `usePlatformsState.ts:620-629`。
@@ -261,7 +268,10 @@ class PlatformsController {
   /// `usePlatformsState.ts:708-716`。
   Future<void> _loadBreakerDefaults() async {
     try {
-      await _invoke('scheduling_settings_get');
+      final v = await _invoke('scheduling_settings_get');
+      if (v is Map) {
+        breakerDefaults = BreakerDefaults.fromJson(v.cast<String, dynamic>());
+      }
       _notify();
     } catch (_) {
       /* React: console.error(...)，不挡编辑 */
@@ -766,6 +776,10 @@ class PlatformsController {
     bool autoGroup = true,
     int? editingId,
     String failText = '保存失败',
+    /// 批量创建时由调用方统一汇总失败，逐条 toast 会刷屏 —— 置 true 就不单独提示。
+    bool silent = false,
+    /// 失败原因原文，供表单底部的错误条展示（React `setSaveError(msg)`）。
+    void Function(String message)? onError,
   }) async {
     final shared = <String, Object?>{
       'platform_type': protocol,
@@ -823,7 +837,8 @@ class PlatformsController {
       _notify();
       return saved;
     } catch (e) {
-      _toast('$failText: $e', ok: false);
+      onError?.call('$e');
+      if (!silent) _toast('$failText: $e', ok: false);
       return null;
     }
   }
