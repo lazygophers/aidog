@@ -327,6 +327,26 @@ class PlatformRow {
   );
 }
 
+/// `generated/SchedulingBreakerSettings.ts` 的三个数值字段
+/// （`scheduling_settings_get` 返回）。编辑表单只用它显示「继承默认 N」。
+class BreakerDefaults {
+  const BreakerDefaults({
+    required this.failureThreshold,
+    required this.openSecs,
+    required this.halfOpenMax,
+  });
+
+  factory BreakerDefaults.fromJson(Map<String, dynamic> j) => BreakerDefaults(
+    failureThreshold: (j['breaker_failure_threshold'] as num?)?.toInt() ?? 0,
+    openSecs: (j['breaker_open_secs'] as num?)?.toInt() ?? 0,
+    halfOpenMax: (j['breaker_half_open_max'] as num?)?.toInt() ?? 0,
+  );
+
+  final int failureThreshold;
+  final int openSecs;
+  final int halfOpenMax;
+}
+
 /// `generated/EnvVar.ts`。
 class EnvVar {
   const EnvVar({required this.key, required this.value});
