@@ -46,13 +46,14 @@ class Titlebar extends StatelessWidget {
       child: Row(
         children: [
           if (leading != null) ...[leading!, const SizedBox(width: AidogSpace.smd)],
-          Container(
+          // 品牌标，对应 React `Sidebar.tsx:268-277` 的 `<img src="/logo.svg">`。
+          // 资产由 `node scripts/gen-flutter-icons.mjs` 从 `src-tauri/icons/` 同步，
+          // 与 Tauri 壳同一个真值源；漂了 `--check` 会红。
+          Image.asset(
+            'assets/logo.webp',
             width: 18,
             height: 18,
-            decoration: BoxDecoration(
-              color: t.c.accent,
-              borderRadius: BorderRadius.circular(AidogRadius.sm),
-            ),
+            filterQuality: FilterQuality.medium,
           ),
           const SizedBox(width: 7),
           Text(
@@ -209,7 +210,13 @@ class _AppShellState extends State<AppShell> {
       builder: (context, _) {
         return ColoredBox(
           color: t.c.bg,
-          child: Column(
+          // 整个骨架统一给一层 Material（Scaffold 干的就是这件事，而这里自绘不走 Scaffold）。
+          // 少了它，顶栏与侧栏的每一行文字都会被 Flutter 画上「缺 Material 祖先」的黄色下划线
+          // —— 页面区之前单独包过一层，所以只有那一块是干净的，看起来像设计差异，其实是缺层。
+          // 透明色：底色仍由上面的 bg token 决定，Material 只负责提供墨层与默认文字样式。
+          child: Material(
+            type: MaterialType.transparency,
+            child: Column(
             children: [
               Titlebar(
                 title: widget.appTitle,
@@ -246,16 +253,10 @@ class _AppShellState extends State<AppShell> {
                             constraints: const BoxConstraints(
                               maxWidth: AidogLayout.contentMax,
                             ),
-                            // 骨架自绘，不走 Scaffold，所以页面区上方没有 Material。
-                            // TextField / Checkbox / InkWell 这类 material 组件都要求
-                            // 祖先里有一个，由骨架统一给一次 —— 否则 22 个页面各包一层。
-                            // 透明色：底色仍由骨架的 bg token 决定，Material 只提供墨层。
-                            child: Material(
-                              type: MaterialType.transparency,
-                              child: widget.pageBuilder(
-                                context,
-                                widget.controller.activeId,
-                              ),
+                            // Material 已由骨架根部统一提供（见上），这里不再包第二层。
+                            child: widget.pageBuilder(
+                              context,
+                              widget.controller.activeId,
                             ),
                           ),
                         ),
@@ -265,6 +266,7 @@ class _AppShellState extends State<AppShell> {
                 ),
               ),
             ],
+            ),
           ),
         );
       },

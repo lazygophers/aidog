@@ -66,9 +66,6 @@ class _RailState extends State<Rail> {
   /// 子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开（同 Sidebar.tsx:322）。
   final Map<String, bool> _expanded = {};
 
-  /// section 折叠态：用户 toggle 覆盖；active 所在 section 强制展开（同 Sidebar.tsx:287）。
-  final Map<String, bool> _sectionCollapsed = {};
-
   String get _topId => widget.activeId.split('/').first;
 
   @override
@@ -121,43 +118,32 @@ class _RailState extends State<Rail> {
     final sections = groupAdjacent(widget.items, (NavItem i) => i.section ?? '');
     final out = <Widget>[];
     for (final sec in sections) {
-      final activeInSection = sec.items.any(
-        (i) => i.id == _topId || widget.activeId.startsWith('${i.id}/'),
-      );
-      final collapsed = (_sectionCollapsed[sec.key] ?? false) && !activeInSection;
       // 空 section key = 平铺区，不渲染节头（与 Sidebar.tsx:289 同规则）。
       if (sec.key.isNotEmpty && !mini) {
-        out.add(_sectionHead(t, sec.key, collapsed));
+        out.add(_sectionHead(t, sec.key));
       }
-      if (sec.key.isEmpty || !collapsed || mini) {
-        for (final item in sec.items) {
-          out.addAll(_navItem(t, item, mini));
-        }
+      // 节不再折叠，整节的项一律渲染。
+      for (final item in sec.items) {
+        out.addAll(_navItem(t, item, mini));
       }
     }
     return out;
   }
 
-  Widget _sectionHead(AidogTheme t, String key, bool collapsed) {
-    return _Tappable(
-      onTap: () => setState(() => _sectionCollapsed[key] = !collapsed),
+  /// 节头是**纯标题**，不可点、不可折叠（用户 2026-09-21 定：「概览、集成这样的，不允许折叠」）。
+  /// 这是对 `Sidebar.tsx:287` 的有意偏离——那边节头点一下会把整节收起来。
+  Widget _sectionHead(AidogTheme t, String key) {
+    return Padding(
       padding: const EdgeInsets.fromLTRB(
         AidogSpace.smd,
         AidogSpace.smd,
         AidogSpace.smd,
         AidogSpace.sxs,
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              widget.t(key).toUpperCase(),
-              style: AidogType.micro.copyWith(color: t.c.fg3),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          _Chevron(open: !collapsed, color: t.c.fg3),
-        ],
+      child: Text(
+        widget.t(key).toUpperCase(),
+        style: AidogType.micro.copyWith(color: t.c.fg3),
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }

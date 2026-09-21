@@ -674,13 +674,20 @@ class _StatsPageState extends State<StatsPage> {
               key: keys[i],
               label: trend.config[keys[i]]!,
               color: palette.series(i),
+              // 宽表是**稀疏**的：某个平台在某个时段没有流量，那一行就没有它的键
+              //（`buildTrendChartData` 照抄 React 的构表方式）。这里必须**每行都出一个点**，
+              // 否则各系列点数不等，`downsampleAligned` 会按契约抛
+              //「宽表语义要求各系列共用同一批 x」——真实数据一进来就崩。
+              //
+              // 缺值填 0 而不是断线：这一列是请求数，「那个时段没有流量」就是 0。
+              // 与 React 的唯一差别是 recharts 默认 `connectNulls={false}` 会在缺口处断线，
+              // 这边画成落到 0；信息量不减，且避免了为「可空 y」改造整条绘制链。
               points: [
                 for (final row in trend.rows)
-                  if (row.containsKey(keys[i]))
-                    ChartPoint(
-                      row['x']!.toDouble(),
-                      row[keys[i]]!.toDouble(),
-                    ),
+                  ChartPoint(
+                    row['x']!.toDouble(),
+                    (row[keys[i]] ?? 0).toDouble(),
+                  ),
               ],
               format: formatNumber,
             ),

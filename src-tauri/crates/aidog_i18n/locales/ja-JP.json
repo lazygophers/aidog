@@ -871,6 +871,7 @@
   "mitm.whitelistTitle": "復号ホワイトリスト",
   "nav.about": "情報",
   "nav.claudeConfig": "Claude Code",
+  "nav.collapse": "サイドバーを折りたたむ",
   "nav.codex": "Codex",
   "nav.groups": "グループ",
   "nav.home": "ホーム",

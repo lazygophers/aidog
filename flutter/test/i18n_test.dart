@@ -67,9 +67,10 @@ void main() {
     test('8 种语言的键集完全一致', () {
       final base = all[kFallbackLocale]!.entries.keys.toSet();
       // 2826（I03 落地时）+ 8（票 I07 给分组 / 平台 / 日志三页补的新词条）
-      // + 4（票 I15 托盘三段：keptDisabled / pickAtMost / segment.peak / segment.routed）。
+      // + 4（票 I15 托盘三段：keptDisabled / pickAtMost / segment.peak / segment.routed）
+      // + 1（nav.collapse —— 侧栏「收起」按钮的文案，8 个 locale 里原先全缺，界面上直接显裸 key）。
       // 这个数是故意写死的：加 key 必须 8 个 locale 一起加，改这一行时就会想起来。
-      expect(base, hasLength(2838));
+      expect(base, hasLength(2839));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');
