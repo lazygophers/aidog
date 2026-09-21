@@ -95,6 +95,10 @@ class PopoverDataController extends ChangeNotifier {
       .toList(growable: false);
 }
 
+/// 小窗外框的边宽。`Border.all` 默认 1px，而它是会算进布局的 ——
+/// 上报尺寸时必须把上下 / 左右各一份加回去。
+const double _borderWidth = 1;
+
 /// 小窗的根。固定深色（与 React 版 `applyTheme("dark")` 一致，不跟随主窗口 themeMode）。
 class PopoverApp extends StatefulWidget {
   const PopoverApp({
@@ -122,7 +126,7 @@ class _PopoverAppState extends State<PopoverApp> {
   );
   final _contentKey = GlobalKey();
   StreamSubscription<void>? _sub;
-  double _lastHeight = 0;
+  Size _lastSize = Size.zero;
 
   @override
   void initState() {
@@ -148,29 +152,43 @@ class _PopoverAppState extends State<PopoverApp> {
     super.dispose();
   }
 
-  /// 内容高度变了就让原生外壳改窗高（≤1px 不动，防抖动循环 —— 对齐 React 的 `DELTA`）。
-  void _syncHeight() {
+  /// 内容尺寸变了就让原生外壳改窗（≤1px 不动，防抖动循环 —— 对齐 React 的 `DELTA`）。
+  ///
+  /// **宽**取内容的 max-intrinsic 宽度，即「不被约束时它想要多宽」——
+  /// 这正是 React 那边 `width: fit-content` + `offsetWidth` 量到的东西
+  /// （`src/styles/popover.css:30` + `src/popover.tsx:180`）。`box.size.width`
+  /// 量不出来：窗口给多宽，`Expanded` 的卡片就铺多宽，量到的永远是窗口宽本身。
+  ///
+  /// **高**取当前布局下的实测高度（跟着宽走，宽变了下一帧会重算）。
+  ///
+  /// 两者都要加上外壳自己占的那一圈：[SingleChildScrollView] 的 padding ×2 +
+  /// `Container` 的 1px 边框 ×2。少算边框就会差 2px，内容被裁掉一线。
+  void _syncSize() {
     final box = _contentKey.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
-    final h = box.size.height + 2 * AidogSpace.smd;
-    if ((h - _lastHeight).abs() <= 1) return;
-    _lastHeight = h;
-    unawaited(widget.reportHeight(h));
+    const chrome = 2 * AidogSpace.smd + 2 * _borderWidth;
+    final size = Size(
+      box.getMaxIntrinsicWidth(double.infinity) + chrome,
+      box.size.height + chrome,
+    );
+    if ((size.width - _lastSize.width).abs() <= 1 &&
+        (size.height - _lastSize.height).abs() <= 1) {
+      return;
+    }
+    _lastSize = size;
+    unawaited(widget.reportSize(size.width, size.height));
   }
 
   @override
   Widget build(BuildContext context) {
-    WidgetsBinding.instance.addPostFrameCallback((_) => _syncHeight());
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncSize());
     return AnimatedBuilder(
       animation: i18n,
       builder: (context, _) => MaterialApp(
         debugShowCheckedModeBanner: false,
         locale: i18n.flutterLocale,
         theme: aidogThemeData(AidogMode.dark),
-        home: Directionality(
-          textDirection: i18n.textDirection,
-          child: _body(),
-        ),
+        home: Directionality(textDirection: i18n.textDirection, child: _body()),
       ),
     );
   }
@@ -183,7 +201,7 @@ class _PopoverAppState extends State<PopoverApp> {
         decoration: BoxDecoration(
           color: t.c.bg,
           borderRadius: BorderRadius.circular(AidogRadius.lg),
-          border: Border.all(color: t.c.line),
+          border: Border.all(color: t.c.line, width: _borderWidth),
         ),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
