@@ -192,6 +192,30 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 | 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
 | `formatDateTime` | `toLocaleString()`，跟浏览器 locale 走 | 固定 `YYYY/M/D HH:MM:SS` | 跟 locale 走要先 `initializeDateFormatting()`，漏调会在非英文 locale 抛 `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 同一个理由 |
 
+### 平台新增 / 编辑表单（I18 补齐）
+
+```dart
+import 'package:aidog_flutter/src/pages/platform_form.dart';      // PlatformEditForm / WindowsEditor
+import 'package:aidog_flutter/src/pages/platform_form_logic.dart'; // PlatformFormController
+```
+
+11 个分区全在（基础信息 / Mock 特例 / 配额脚本 / Devin / 透传 / Protocol Endpoints /
+认证 / 多 key 预览 / 模型矩阵 + 时段档 / 手动预算 / 熔断 / 高峰 / 分组归属 / 过期）。
+表单态在 `PlatformFormController`，列表侧依赖（平台名集合、分组清单、落库动作）
+由 `PlatformsController` 注入，与 React 的 `PlatformFormListDeps` 一一对应。
+
+`platform.extra` 的七对 parse/serialize 在 `platform_extra.dart`，registry 派生层
+（默认端点 / 默认模型 / 模型候选 / peak / 配额变体 / 套餐档位 / 客户端模拟候选）
+在 `platform_defaults.dart`，时段判定内核在 `time_window.dart`。
+
+| 处 | React | 这里 | 为什么 |
+|---|---|---|---|
+| 过期时间 / 生效期的日期输入 | `<input type="datetime-local">`，浏览器原生日历 | 文本框，格式就是 datetime-local 那串 `YYYY-MM-DDTHH:MM` | Flutter 没有等价的单控件；`showDatePicker`+`showTimePicker` 要两次弹窗，反而比原来多一步。用户看到与输入的串一字不差 |
+| 协议选择器 | Tab / Shift-Tab 在整表里循环切下一个平台、logo 图标 | 点开 → 搜 → 选 | Tab 循环依赖 Web 的焦点模型；logo 三级回退属缺口清单 C1-C3，不在本票范围 |
+| 「受影响模型」输入 | `<datalist>` 自动补全 | 纯输入，回车 / 失焦成 chip | 候选列表已经在模型矩阵的下拉里；这里再挂一份是第二个真值源 |
+| 「复制平台」入口 | 平台卡上的按钮 | `handleDuplicate` 已实现，卡片按钮未接 | 卡片按钮属缺口清单 #4，不在本票范围 |
+| 智能粘贴识别 | 表单右上角「智能识别」按钮 | 无 | 属缺口清单 #6，不在本票范围 |
+
 ### 拼音搜索（I17 补齐）
 
 平台 / 分组 / 筛选下拉的中文模糊搜索走 `lib/src/utils/pinyin.dart::pinyinMatch`，
