@@ -27,6 +27,8 @@ class GroupsSection extends StatefulWidget {
     this.invoke = kernelInvoke,
     this.onToast,
     this.onPlatformsDeleted,
+    this.onCreateGroupReady,
+    this.onPlatformDropped,
   });
 
   final InvokeFn invoke;
@@ -34,6 +36,16 @@ class GroupsSection extends StatefulWidget {
 
   /// 分组区删掉平台之后通知父级，让主列表把那几行局部移掉（不整页重拉）。
   final void Function(List<int> ids)? onPlatformsDeleted;
+
+  /// 把「打开新建分组」交给父级，好让页头也能放一颗「+ 添加分组」
+  /// （React 那边是 `openCreateGroupRef`，`PlatformListView.tsx:104-106`）。
+  /// 建好之后回调一次，父级存下来当按钮的 onTap。
+  final void Function(VoidCallback openCreate)? onCreateGroupReady;
+
+  /// 未分组平台被拖进某个分组卡时调用（`usePlatformsState.ts:296-312`）。
+  /// 真正的搬迁由父级做（它持有平台列表控制器，要顺带刷 membership），
+  /// 这里只在它 await 完之后把分组区自己的数据静默重拉一遍。
+  final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
 
   @override
   State<GroupsSection> createState() => _GroupsSectionState();
@@ -60,6 +72,13 @@ class _GroupsSectionState extends State<GroupsSection> {
       onToast: widget.onToast,
     );
     _c.init();
+    widget.onCreateGroupReady?.call(_c.openCreate);
+  }
+
+  /// 父级搬完（后端已写）→ 分组区自己的 details 静默重拉，目标组里立刻出现那一行。
+  Future<void> _acceptDrop(int pid, int gid) async {
+    await widget.onPlatformDropped!(pid, gid);
+    if (mounted) await _c.silentReload();
   }
 
   @override
@@ -69,6 +88,7 @@ class _GroupsSectionState extends State<GroupsSection> {
     return _GroupListView(
       controller: _c,
       onPlatformsDeleted: widget.onPlatformsDeleted,
+      onPlatformDropped: widget.onPlatformDropped == null ? null : _acceptDrop,
     );
   }
 }
@@ -76,10 +96,15 @@ class _GroupsSectionState extends State<GroupsSection> {
 // ── 列表态 ────────────────────────────────────────────────────────
 
 class _GroupListView extends StatelessWidget {
-  const _GroupListView({required this.controller, this.onPlatformsDeleted});
+  const _GroupListView({
+    required this.controller,
+    this.onPlatformsDeleted,
+    this.onPlatformDropped,
+  });
 
   final GroupsController controller;
   final void Function(List<int> ids)? onPlatformsDeleted;
+  final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +134,7 @@ class _GroupListView extends StatelessWidget {
                 controller: c,
                 detail: d,
                 collapsed: c.collapsedGroups.contains(d.group.id),
+                onPlatformDropped: onPlatformDropped,
               ),
             ),
         if (c.loadingMore)
@@ -179,14 +205,42 @@ class _GroupCard extends StatelessWidget {
     required this.controller,
     required this.detail,
     required this.collapsed,
+    this.onPlatformDropped,
   });
 
   final GroupsController controller;
   final GroupDetail detail;
   final bool collapsed;
+  final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
 
   @override
   Widget build(BuildContext context) {
+    final card = _card(context);
+    if (onPlatformDropped == null) return card;
+    // 未分组平台的落点。已经在本组里的平台不接（React 的 `findGroupAt` 落在
+    // 未分组区的卡片上时也拿不到 group id，等价于不接）。
+    final gid = detail.group.id;
+    final memberIds = {for (final gp in detail.platforms) gp.platform.id};
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (d) => !memberIds.contains(d.data),
+      onAcceptWithDetails: (d) => onPlatformDropped!(d.data, gid),
+      builder: (context, candidate, _) => Container(
+        decoration: candidate.isEmpty
+            ? null
+            : BoxDecoration(
+                // React 那边是 `outline: 2px solid var(--accent)` + 2px offset。
+                border: Border.all(
+                  color: AidogTheme.of(context).c.accent,
+                  width: 2,
+                ),
+                borderRadius: BorderRadius.circular(AidogRadius.md),
+              ),
+        child: card,
+      ),
+    );
+  }
+
+  Widget _card(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final c = controller;

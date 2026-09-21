@@ -186,7 +186,8 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 |---|---|---|---|
 | 余额查询的入队顺序 | `IntersectionObserver` 按卡片进视口的顺序（可视优先） | 列表顺序 | Flutter 没有等价的廉价原语。并发上限、去重、pending 三态都一样，差的只是**先查哪个** |
 | 平台 logo | 缓存路径 → `convertFileSrc` 出 `asset://` URL | 缓存路径 → `get_protocol_logo_data_url` 出 data URL | Flutter 没有 Tauri 的 `asset://` 协议，走 React 自己的浏览器分支那条路（`useProtocolLogo.ts:35`）。miss 时同样触发 `sync_protocol_logo` 后台补拉、本会话不轮询 |
-| 分享弹窗的二维码 | URL 格式下画一张二维码（`qrcode` 包） | 无 | Dart 侧没有已装的二维码生成库，为一张图引一个新依赖不划算。深链本身照出、复制照旧可用 |
+| 未分组平台拖进分组 | pointer 事件 + `elementFromPoint` 找落点（WKWebView 里 HTML5 DnD 跨区域失效） | `Draggable<int>` / `DragTarget<int>` | 同一个效果，Flutter 有现成原语。排序手柄在更内层，手势竞技场里先胜出，所以从手柄起手仍是排序 |
+| 分享弹窗的二维码 | URL 格式下画一张二维码（`qrcode` 包） | 同样画（`pretty_qr_code`，MIT） | 超 2900 字的深链两侧都降级成「内容过长」提示 |
 | 卡片「编辑 / 复制平台」 | 打开预填的表单 | 回调没接上就不渲染这两颗按钮 | 表单是另一张票；画一颗点了没反应的按钮比没有这颗按钮更糟。接口留在 `PlatformsPage(onEditPlatform:, onDuplicatePlatform:)` |
 | 跨组件通知 | `window` 上三个自定义事件（`aidog-groups-changed` 等） | 父子回调 | 分组区在 Flutter 这边是平台页的**子 widget**，不是兄弟页，不需要事件总线 |
 | 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
