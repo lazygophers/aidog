@@ -186,7 +186,7 @@
     ],
     "companyAnnouncements": [],
     "autoMode": {
-        "classifyAllShell": false,
+      "classifyAllShell": true,
         "environment": [
             "$defaults"
         ],
