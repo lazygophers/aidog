@@ -177,7 +177,6 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 | 命令 | 为什么没做 |
 |---|---|
 | `get_client_types_json` | 端点的「客户端形态」下拉。registry 已删 `client_type` 字段，形态按 protocol 派生，本层不读这份表 |
-| `get_protocol_logo_path` / `get_protocol_logo_data_url` / `sync_protocol_logo` | 协议图标三件套。图标由 shell 主题层出，未走这条链 |
 | `settings_get` | 被 `domains/groups/proxy-env.ts` 用来拼分组的环境变量预览文本；本层没做那个预览面板 |
 | `sync_group_settings` | 「一键同步到 ~/.claude/settings.{group}.json」按钮，不属分组 CRUD，未随本票交付 |
 
@@ -186,8 +185,9 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 | 处 | React | 这里 | 为什么 |
 |---|---|---|---|
 | 余额查询的入队顺序 | `IntersectionObserver` 按卡片进视口的顺序（可视优先） | 列表顺序 | Flutter 没有等价的廉价原语。并发上限、去重、pending 三态都一样，差的只是**先查哪个** |
-| 该不该查余额 | 还要过 `platformHasQuotaScript`（registry 的 `quota_scripts` 索引） | 只判「有 key 且有 base_url」 | 那个索引是 `get_defaults_json` 的一个子树，本层没解析。后果是**多查**不是少查：没脚本的平台白发一次命令，后端返 `success:false`，UI 表现一致 |
-| 平台卡 | favicon、拖拽手柄、展开端点明细 | 动作做全（启停 / 测试 / 刷余额 / 查日志 / 删除），展开明细未做 | 本票口径是功能对齐优先于观感；拖拽排序的命令（`platform_reorder`）已接，只是没有手柄 UI |
+| 平台 logo | 缓存路径 → `convertFileSrc` 出 `asset://` URL | 缓存路径 → `get_protocol_logo_data_url` 出 data URL | Flutter 没有 Tauri 的 `asset://` 协议，走 React 自己的浏览器分支那条路（`useProtocolLogo.ts:35`）。miss 时同样触发 `sync_protocol_logo` 后台补拉、本会话不轮询 |
+| 分享弹窗的二维码 | URL 格式下画一张二维码（`qrcode` 包） | 无 | Dart 侧没有已装的二维码生成库，为一张图引一个新依赖不划算。深链本身照出、复制照旧可用 |
+| 卡片「编辑 / 复制平台」 | 打开预填的表单 | 回调没接上就不渲染这两颗按钮 | 表单是另一张票；画一颗点了没反应的按钮比没有这颗按钮更糟。接口留在 `PlatformsPage(onEditPlatform:, onDuplicatePlatform:)` |
 | 跨组件通知 | `window` 上三个自定义事件（`aidog-groups-changed` 等） | 父子回调 | 分组区在 Flutter 这边是平台页的**子 widget**，不是兄弟页，不需要事件总线 |
 | 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
 | `formatDateTime` | `toLocaleString()`，跟浏览器 locale 走 | 固定 `YYYY/M/D HH:MM:SS` | 跟 locale 走要先 `initializeDateFormatting()`，漏调会在非英文 locale 抛 `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 同一个理由 |

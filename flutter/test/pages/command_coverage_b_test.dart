@@ -79,10 +79,6 @@ void main() {
       'get_client_types_json':
           '端点的「客户端形态」下拉。registry 已删 client_type 字段，'
           '形态按 protocol 派生（CLAUDE.md 的 derive_client_type），本层不读这份表。',
-      'get_protocol_logo_path':
-          '协议图标的本地路径。Flutter 侧图标由 shell 的主题层出，不走这条命令。',
-      'get_protocol_logo_data_url': '同上，图标 data URL 变体。',
-      'sync_protocol_logo': '同上，图标同步。',
       'settings_get':
           '被 domains/groups/proxy-env.ts 调，用来拼分组的环境变量预览文本。'
           '本层不做那个预览面板。',

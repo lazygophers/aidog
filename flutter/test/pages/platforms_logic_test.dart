@@ -49,7 +49,13 @@ FakeInvoke platformsFake() => FakeInvoke({
   'all_platform_usage_stats': <String, Object?>{},
   'get_last_test_result': null,
   'scheduling_settings_get': null,
-  'get_defaults_json': '{"protocols":{}}',
+  // openai 带一条 quota_scripts 变体：`platformWantsQuota` 的配额脚本门控
+  // （`usePlatformQuota.ts:63-71`）靠它放行，否则余额区整块不查也不画。
+  'get_defaults_json':
+      '{"protocols":{"openai":{"quota_scripts":[{"id":"v1"}]}}}',
+  'get_protocol_logo_path': '',
+  'get_protocol_logo_data_url': '',
+  'sync_protocol_logo': null,
   'platform_usage_stats': null,
   'platform_reorder': null,
   'platform_purge_disabled_preview': <Object?>[],
