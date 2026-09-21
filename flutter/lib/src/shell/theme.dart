@@ -114,6 +114,23 @@ ThemeData aidogThemeData(AidogMode mode) {
     scaffoldBackgroundColor: ext.c.bg,
     canvasColor: ext.c.bg,
     fontFamily: AidogType.familySans,
+    // 输入框一律无下划线。Material 默认给 TextField 画一条 underline 边框，
+    // 15 个页面里的输入框会各带一条横线 —— 与本项目的卡片/描边风格冲突，也不是
+    // React 版的长相（那边输入框走 `.glass-surface` 的圆角描边）。
+    // 统一在主题里关掉，比逐个 TextField 传 `border: InputBorder.none` 可靠：
+    // 新写的输入框不会再漏。要描边的场合自己包 Container 画。
+    inputDecorationTheme: const InputDecorationTheme(
+      border: InputBorder.none,
+      enabledBorder: InputBorder.none,
+      focusedBorder: InputBorder.none,
+      errorBorder: InputBorder.none,
+      focusedErrorBorder: InputBorder.none,
+      disabledBorder: InputBorder.none,
+    ),
+    // 下拉同理：Material 默认在 `DropdownButton` 底下画一条线，现在各处靠
+    // 手写 `underline: SizedBox.shrink()` / `DropdownButtonHideUnderline` 去除，
+    // 漏一个就多一条横线。这里给不出全局开关，故保留各处写法，但新增下拉
+    // 一律用 `DropdownButtonHideUnderline` 包一层。
     extensions: [ext],
   );
 }
