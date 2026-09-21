@@ -164,7 +164,6 @@ fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String>
         &target_protocol,
         &eff_api_key,
         &axum::http::HeaderMap::new(),
-        &url,
     );
     let upstream_headers_json = serde_json::Value::Object(
         upstream_headers

@@ -694,3 +694,26 @@ fn gemini_upstream_to_openai_client_stream_e2e() {
         "stop 渲染为 openai finish_reason 帧"
     );
 }
+
+// ── ping 是 keep-alive，只有 Anthropic wire 有这个事件 ──
+// 客户端按字节计数，静默 300 秒即 abort 整条流；长思考期间心跳是唯一的流量。
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#streaming
+#[test]
+fn ping_renders_for_anthropic_client_only() {
+    let out = to_client_sse(&ChatStreamEvent::Ping, &Protocol::Anthropic, "m")
+        .expect("anthropic 客户端必须收到 ping 帧");
+    assert!(out.starts_with("event: ping\n"), "实得 {out:?}");
+    assert!(
+        out.ends_with("\n\n"),
+        "必须是完整帧（以空行收尾），实得 {out:?}"
+    );
+
+    // openai / gemini 的 wire 里没有 ping 这个事件，无处安放 → 不渲染。
+    // 它们的 keep-alive 由网关侧自发（aidog_core::gateway::proxy::stream::with_idle_ping）。
+    for p in [Protocol::OpenAI, Protocol::Gemini] {
+        assert!(
+            to_client_sse(&ChatStreamEvent::Ping, &p, "m").is_none(),
+            "{p:?} 不该渲染 ping"
+        );
+    }
+}

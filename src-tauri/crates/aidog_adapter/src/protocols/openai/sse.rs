@@ -140,6 +140,8 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
             ))
         }
         ChatStreamEvent::Usage { .. } => None,
+        // openai wire 没有 ping 事件，无处安放；keep-alive 由网关侧自发（见 aidog_core::gateway::proxy::stream::with_idle_ping）。
+        ChatStreamEvent::Ping => None,
     }
 }
 

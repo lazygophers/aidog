@@ -86,7 +86,7 @@ fn passthrough_convert_strips_hop_and_override_keeps_sdk_headers() {
     orig.insert("x-app", "cli".parse().unwrap());
 
     // 官方 Anthropic 上游：anthropic-beta 保留（依赖 beta 协商能力）
-    let fwd = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
+    let fwd = passthrough_convert_headers(&orig);
 
     // 剔除项
     for stripped in [
@@ -128,11 +128,12 @@ fn passthrough_convert_strips_hop_and_override_keeps_sdk_headers() {
     );
 }
 
-// ── convert 路径透传 anthropic-beta host 分流：官方保留 / 第三方剔除 ──
-// 背景: GLM open.bigmodel.cn/api/anthropic 等第三方兼容端点不认新 beta token，
-// 原样透传致上游 400 code 1210「API 调用参数有误」。官方 api.anthropic.com 依赖 beta 协商，保留。
+// ── convert 路径透传 anthropic-beta：官方与第三方一视同仁，都 verbatim 转发 ──
+// 2026-09-21 前这里按 host 分流剔第三方，理由是「GLM 不认新 beta token，返 400 code 1210」。
+// 实测 GLM / CometAPI 对四种 beta 值全部 200，前提已不成立；官方也明令禁按值 allowlist。
+// 第三方真拒时由 forward.rs 的 beta 自动降级兜底（400 → 剔头重试一次）。
 #[test]
-fn passthrough_convert_anthropic_beta_host_gated() {
+fn passthrough_convert_anthropic_beta_forwarded_to_third_party() {
     let mut orig = axum::http::HeaderMap::new();
     orig.insert(
         "anthropic-beta",
@@ -141,29 +142,20 @@ fn passthrough_convert_anthropic_beta_host_gated() {
     orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
     orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
 
-    // 第三方 GLM anthropic 端点 → 剔 anthropic-beta，其余 SDK 头照常透传
-    let glm =
-        passthrough_convert_headers(&orig, "https://open.bigmodel.cn/api/anthropic/v1/messages");
-    assert!(
-        !glm.contains_key("anthropic-beta"),
-        "anthropic-beta must be stripped for third-party endpoint"
+    let fwd = passthrough_convert_headers(&orig);
+    assert_eq!(
+        fwd.get("anthropic-beta").and_then(|v| v.to_str().ok()),
+        Some("context-1m-2025-08-07,effort-2025-11-24"),
+        "anthropic-beta must reach third-party endpoints verbatim"
     );
     assert_eq!(
-        glm.get("anthropic-version").and_then(|v| v.to_str().ok()),
+        fwd.get("anthropic-version").and_then(|v| v.to_str().ok()),
         Some("2023-06-01")
     );
     assert_eq!(
-        glm.get("x-stainless-package-version")
+        fwd.get("x-stainless-package-version")
             .and_then(|v| v.to_str().ok()),
         Some("0.94.0")
-    );
-
-    // 官方 api.anthropic.com（含端口/大小写变体）→ anthropic-beta 保留
-    let official = passthrough_convert_headers(&orig, "https://API.Anthropic.com:443/v1/messages");
-    assert_eq!(
-        official.get("anthropic-beta").and_then(|v| v.to_str().ok()),
-        Some("context-1m-2025-08-07,effort-2025-11-24"),
-        "official anthropic host must keep anthropic-beta"
     );
 }
 
@@ -179,7 +171,7 @@ fn official_anthropic_keeps_unknown_beta_values_verbatim() {
     let mut orig = axum::http::HeaderMap::new();
     orig.insert("anthropic-beta", raw.parse().unwrap());
 
-    let official = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
+    let official = passthrough_convert_headers(&orig);
     assert_eq!(
         official.get("anthropic-beta").and_then(|v| v.to_str().ok()),
         Some(raw),

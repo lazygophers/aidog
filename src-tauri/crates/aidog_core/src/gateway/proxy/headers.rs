@@ -62,10 +62,12 @@ const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
 ];
 
 /// 判定上游 URL 是否指向 Anthropic 官方接口（host == api.anthropic.com，忽略大小写 + 端口）。
-/// 仅官方接口依赖 `anthropic-beta` 头协商能力（1m-context / interleaved-thinking 等）；
-/// 第三方 anthropic 兼容端点（GLM open.bigmodel.cn / 各中转站）不认新 beta token，
-/// 原样透传会触发上游参数校验失败（如 GLM 400 code 1210）。
-/// 故 convert/forward 透传路径仅对官方接口保留 anthropic-beta，对第三方端点剔除（见 strip_anthropic_beta_for_third_party）。
+///
+/// 2026-09-21 起**不再**据此剔除第三方的 `anthropic-beta`：官方明令该头要 verbatim 转发、
+/// 禁按值 allowlist（<https://code.claude.com/docs/en/llm-gateway-protocol#request-headers>），
+/// 且实测 GLM 与 CometAPI 对四种 beta 值全部 200，旧注释里「第三方不认新 beta token 会
+/// 400 code 1210」的前提已不成立。本函数现在只用于 `forward.rs` 的 beta 自动降级闸门
+/// ——官方上游依赖 beta 协商，永不降级。
 pub(crate) fn is_official_anthropic_host(upstream_url: &str) -> bool {
     // 提取 host：scheme://host[:port]/path → host
     let after_scheme = upstream_url
@@ -82,12 +84,6 @@ pub(crate) fn is_official_anthropic_host(upstream_url: &str) -> bool {
         .next()
         .unwrap_or("");
     host.eq_ignore_ascii_case("api.anthropic.com")
-}
-
-/// 是否应在透传路径剔除入站 `anthropic-beta` 头。
-/// 上游非 Anthropic 官方接口 → true（第三方兼容端点不依赖 beta 协商，原样透传会被参数校验拒）。
-fn strip_anthropic_beta_for_third_party(name: &str, upstream_url: &str) -> bool {
-    name.eq_ignore_ascii_case("anthropic-beta") && !is_official_anthropic_host(upstream_url)
 }
 
 /// 鉴权凭证头名（proxy_log 脱敏判定，不区分大小写）。
@@ -165,11 +161,9 @@ pub(crate) fn sanitize_header_injects(
 /// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
 /// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
 /// 原样透传 —— 跨协议（如 CC 入站转 OpenAI）也带，上游忽略未知头不报错，保留利于诊断。
-/// 例外：`anthropic-beta` 仅发给 Anthropic 官方接口；第三方 anthropic 兼容端点剔除（不认新 beta token，
-/// 原样透传致上游参数校验失败，如 GLM 400 code 1210）。upstream_url 用于 host 判定。
+/// `anthropic-beta` 也在原样透传之列（2026-09-21 起不再按 host 剔除，见 is_official_anthropic_host）。
 pub(crate) fn passthrough_convert_headers(
     orig: &axum::http::HeaderMap,
-    upstream_url: &str,
 ) -> reqwest::header::HeaderMap {
     let mut out = reqwest::header::HeaderMap::new();
     for (k, v) in orig {
@@ -178,9 +172,6 @@ pub(crate) fn passthrough_convert_headers(
             .iter()
             .any(|s| name.eq_ignore_ascii_case(s))
         {
-            continue;
-        }
-        if strip_anthropic_beta_for_third_party(name, upstream_url) {
             continue;
         }
         if let (Ok(hn), Ok(hv)) = (
@@ -358,17 +349,7 @@ pub fn apply_client_headers(
         // simulation/auth 完全缺（含 default entry 被远端裁剪的极端情况）：保守 Bearer only。
         rb = rb.header("Authorization", format!("Bearer {api_key}"));
     } else {
-        // 上游 URL 用于 anthropic-beta 第三方端点剔除（与 build_upstream_headers 同源 invariant：
-        // simulation 注入的 anthropic-beta 仅发官方 api.anthropic.com，第三方兼容端点剔）。
-        let upstream_url: String = rb
-            .try_clone()
-            .and_then(|c| c.build().ok())
-            .map(|r| r.url().as_str().to_string())
-            .unwrap_or_default();
         for h in headers {
-            if strip_anthropic_beta_for_third_party(&h.name, &upstream_url) {
-                continue;
-            }
             rb = rb.header(&h.name, fill_placeholder(&h.value, api_key));
         }
     }
@@ -395,26 +376,21 @@ fn uuid_sim() -> String {
 /// 构建上游请求头 KV 表（用于日志记录，反映实际发送：入站透传 + apply 覆盖）。
 /// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + extra headers）复用
 /// 同一 simulation 配置（与 apply_client_headers 同源，日志镜像实发）。
-/// upstream_url 用于 anthropic-beta host 判定（须与 passthrough_convert_headers 同参，日志与实发一致）。
 /// api_key 经 redact_key 脱敏后再填占位符（日志安全）。
 pub fn build_upstream_headers(
     client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
     orig: &axum::http::HeaderMap,
-    upstream_url: &str,
 ) -> Vec<(String, String)> {
     let mut h: Vec<(String, String)> = Vec::new();
-    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT；非官方 anthropic 端点剔 anthropic-beta）。脱敏敏感值。
+    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT）。脱敏敏感值。
     for (k, v) in orig {
         let name = k.as_str();
         if STRIPPED_ON_CONVERT_PASSTHROUGH
             .iter()
             .any(|s| name.eq_ignore_ascii_case(s))
         {
-            continue;
-        }
-        if strip_anthropic_beta_for_third_party(name, upstream_url) {
             continue;
         }
         let val = v.to_str().unwrap_or("");
@@ -444,10 +420,6 @@ pub fn build_upstream_headers(
         h.push(("Authorization".into(), format!("Bearer {redacted}")));
     } else {
         for hdr in headers {
-            // anthropic-beta 第三方剔除（与 apply_client_headers / passthrough_convert_headers 同源 invariant）。
-            if strip_anthropic_beta_for_third_party(&hdr.name, upstream_url) {
-                continue;
-            }
             h.push((hdr.name.clone(), fill_placeholder(&hdr.value, &redacted)));
         }
     }

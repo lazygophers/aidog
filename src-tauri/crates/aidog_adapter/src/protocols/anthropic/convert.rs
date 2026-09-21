@@ -346,6 +346,7 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
                 finish_reason: stop_reason,
             })
         }
+        "ping" => Some(ChatStreamEvent::Ping),
         "message_stop" => Some(ChatStreamEvent::Stop {
             finish_reason: Some("stop".to_string()),
         }),
