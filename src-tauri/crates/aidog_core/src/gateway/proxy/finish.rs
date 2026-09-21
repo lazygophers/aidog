@@ -244,6 +244,8 @@ where
     let passthrough_response = same_protocol_passthrough;
     let protocol = target_protocol_enum.clone();
     let client_protocol = source_protocol.clone();
+    // client_protocol 被 move 进 map 闭包，ping 包装在闭包之后按客户端 wire 分流，故另留一份。
+    let client_protocol_for_ping = source_protocol.clone();
     let model_for_sse = requested_model.to_string();
 
     // ── 中间件出站流式逐块改写上下文：在构建 stream 闭包前读取 settings（闭包在 req span 外轮询，
@@ -489,6 +491,19 @@ where
         Ok(out_bytes)
     });
 
+    // ── 长思考静默兜底：客户端是 Anthropic 系时，静默超 IDLE_PING_INTERVAL 自发一个 ping 帧。
+    //   上游自己发 ping 时计时器每次都被重置，本包装永不触发，对那些上游零副作用。
+    //   只包 Anthropic 系：ping 帧是 Messages SSE 的事件，openai / gemini 客户端不认这个形状。──
+    let stream = if is_anthropic_wire_client(&client_protocol_for_ping) {
+        futures::future::Either::Left(with_idle_ping(
+            stream,
+            ANTHROPIC_PING_FRAME,
+            IDLE_PING_INTERVAL,
+        ))
+    } else {
+        futures::future::Either::Right(stream)
+    };
+
     let body = Body::from_stream(stream);
 
     // Upsert（返回 stream 前的占位）：标记流进行中，token=0、body 占位；
@@ -529,6 +544,19 @@ where
     }
     inject_trace_header(&mut response);
     response
+}
+
+/// 客户端是否说 Anthropic Messages wire（含 glm / kimi 等平台变体）。
+/// 判据与 `upstream_break_error_frame` 的 `_` 兜底臂对称：openai 三兄弟与 gemini 之外都是。
+pub(crate) fn is_anthropic_wire_client(client_protocol: &aidog_db::models::Protocol) -> bool {
+    use aidog_db::models::Protocol;
+    !matches!(
+        client_protocol,
+        Protocol::OpenAI
+            | Protocol::OpenAIResponses
+            | Protocol::OpenAICompletions
+            | Protocol::Gemini
+    )
 }
 
 /// 上游流中途断裂时按客户端协议合成的 error 帧（纯函数，便于单测）。

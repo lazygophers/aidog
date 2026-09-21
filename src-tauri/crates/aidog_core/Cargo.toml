@@ -99,5 +99,7 @@ objc2-app-kit = { workspace = true }
 
 # 测试期 dev-deps：gateway 内 skills（tempdir 隔离 FS）+ proxy/test_stream（gzip round-trip）。
 [dev-dependencies]
+# start_paused = true：ping 注入测试要把 tokio 时钟拨快，否则单测要真等 95 秒。
+tokio = { workspace = true, features = ["test-util"] }
 tempfile = { workspace = true }
 flate2 = { workspace = true }

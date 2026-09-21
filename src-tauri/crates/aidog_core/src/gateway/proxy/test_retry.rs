@@ -751,10 +751,7 @@ fn error_response_keeps_retry_and_ratelimit_headers() {
 #[test]
 fn error_response_falls_back_to_json_content_type() {
     let out = error_response_headers(&rq_headers(&[("retry-after", "3")]), false);
-    assert_eq!(
-        val_of(&out, "content-type"),
-        Some("application/json")
-    );
+    assert_eq!(val_of(&out, "content-type"), Some("application/json"));
     assert_eq!(val_of(&out, "retry-after"), Some("3"));
 }
 
@@ -767,9 +764,6 @@ fn error_response_drops_stale_content_type_when_body_overridden() {
         ("retry-after", "7"),
     ]);
     let out = error_response_headers(&src, true);
-    assert_eq!(
-        val_of(&out, "content-type"),
-        Some("application/json")
-    );
+    assert_eq!(val_of(&out, "content-type"), Some("application/json"));
     assert_eq!(val_of(&out, "retry-after"), Some("7"));
 }
