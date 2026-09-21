@@ -204,6 +204,10 @@ class PlatformRow {
     required this.lastError,
     required this.lastErrorAt,
     required this.sortOrder,
+    this.autoDisabledUntil = 0,
+    this.manualBudgets = const [],
+    this.codingWindowCost = 0,
+    this.balanceLevel = '',
   });
 
   factory PlatformRow.fromJson(Map<String, dynamic> j) => PlatformRow(
@@ -232,6 +236,13 @@ class PlatformRow {
     lastError: (j['last_error'] as String?) ?? '',
     lastErrorAt: (j['last_error_at'] as num?)?.toInt() ?? 0,
     sortOrder: (j['sort_order'] as num?)?.toInt() ?? 0,
+    autoDisabledUntil: (j['auto_disabled_until'] as num?)?.toInt() ?? 0,
+    manualBudgets: [
+      for (final e in (j['manual_budgets'] as List?) ?? const [])
+        ManualBudget.fromJson((e as Map).cast<String, dynamic>()),
+    ],
+    codingWindowCost: (j['coding_window_cost'] as num?)?.toDouble() ?? 0,
+    balanceLevel: (j['balance_level'] as String?) ?? '',
   );
 
   final int id;
@@ -256,6 +267,18 @@ class PlatformRow {
   final String lastError;
   final int lastErrorAt;
   final int sortOrder;
+
+  /// auto_disabled 下次试探时间（毫秒戳）；0 = 立即可试探。
+  final int autoDisabledUntil;
+
+  /// 手动预算限额（卡片取「剩余比例最低」那条展示）。
+  final List<ManualBudget> manualBudgets;
+
+  /// 本周期折算花费 $（非 DB 列，`platform_list` 对 coding plan 平台填充）。
+  final double codingWindowCost;
+
+  /// 余额配色级别 `red|yellow|green|neutral`（非 DB 列，唯一阈值源在后端）。
+  final String balanceLevel;
 
   /// 启停用：只换 status + enabled（React `usePlatformsState.ts:519`）。
   PlatformRow withStatus(String next) =>
@@ -324,6 +347,10 @@ class PlatformRow {
     lastError: lastError ?? this.lastError,
     lastErrorAt: lastErrorAt ?? this.lastErrorAt,
     sortOrder: sortOrder ?? this.sortOrder,
+    autoDisabledUntil: autoDisabledUntil,
+    manualBudgets: manualBudgets,
+    codingWindowCost: codingWindowCost,
+    balanceLevel: balanceLevel,
   );
 }
 
@@ -545,6 +572,35 @@ class UsageStats {
   final double todayCost;
 }
 
+/// `manual.ts::QuotaTier`（coding plan 的一档）。
+class QuotaTier {
+  const QuotaTier({
+    required this.name,
+    required this.utilization,
+    required this.resetsAt,
+    required this.limit,
+    required this.remaining,
+  });
+
+  factory QuotaTier.fromJson(Map<String, dynamic> j) => QuotaTier(
+    name: (j['name'] as String?) ?? '',
+    utilization: (j['utilization'] as num?)?.toDouble() ?? 0,
+    resetsAt: j['resets_at'] as String?,
+    limit: (j['limit'] as num?)?.toInt(),
+    remaining: (j['remaining'] as num?)?.toInt(),
+  );
+
+  final String name;
+
+  /// 0–100。
+  final double utilization;
+
+  /// ISO 8601；null = 无周期信息。
+  final String? resetsAt;
+  final int? limit;
+  final int? remaining;
+}
+
 /// `manual.ts::PlatformQuota`（`platform_query_quota*` 返回）。
 class PlatformQuota {
   const PlatformQuota({
@@ -553,17 +609,34 @@ class PlatformQuota {
     required this.queriedAt,
     required this.newapiUserId,
     required this.balanceRemaining,
+    this.hasBalance = false,
+    this.balanceTotal,
+    this.balanceUsed,
+    this.balanceCurrency,
+    this.codingPlanTiers,
   });
 
-  factory PlatformQuota.fromJson(Map<String, dynamic> j) => PlatformQuota(
-    success: (j['success'] as bool?) ?? false,
-    error: j['error'] as String?,
-    queriedAt: (j['queried_at'] as num?)?.toInt() ?? 0,
-    newapiUserId: j['newapi_user_id'] as String?,
-    balanceRemaining:
-        ((j['balance'] as Map<String, dynamic>?)?['remaining'] as num?)
-            ?.toDouble(),
-  );
+  factory PlatformQuota.fromJson(Map<String, dynamic> j) {
+    final balance = j['balance'] as Map<String, dynamic>?;
+    final coding = j['coding_plan'] as Map<String, dynamic>?;
+    return PlatformQuota(
+      success: (j['success'] as bool?) ?? false,
+      error: j['error'] as String?,
+      queriedAt: (j['queried_at'] as num?)?.toInt() ?? 0,
+      newapiUserId: j['newapi_user_id'] as String?,
+      balanceRemaining: (balance?['remaining'] as num?)?.toDouble(),
+      hasBalance: balance != null,
+      balanceTotal: (balance?['total'] as num?)?.toDouble(),
+      balanceUsed: (balance?['used'] as num?)?.toDouble(),
+      balanceCurrency: balance?['currency'] as String?,
+      codingPlanTiers: coding == null
+          ? null
+          : [
+              for (final e in (coding['tiers'] as List?) ?? const [])
+                QuotaTier.fromJson((e as Map).cast<String, dynamic>()),
+            ],
+    );
+  }
 
   final bool success;
   final String? error;
@@ -572,6 +645,73 @@ class PlatformQuota {
 
   /// `manual.ts::BalanceInfo.remaining`；balance 为 null（coding plan 平台）时留空。
   final double? balanceRemaining;
+
+  /// `balance` 子对象在不在 —— remaining 恰好是 0 时和「没有余额」要分得开。
+  final bool hasBalance;
+  final double? balanceTotal;
+  final double? balanceUsed;
+  final String? balanceCurrency;
+
+  /// `coding_plan.tiers`；null = 该平台没有 coding plan 维度。
+  final List<QuotaTier>? codingPlanTiers;
+}
+
+/// `generated/ManualBudget.ts`（平台卡只读展示用；写入在表单票）。
+class ManualBudget {
+  const ManualBudget({
+    required this.id,
+    required this.kind,
+    required this.unit,
+    required this.amount,
+    required this.consumed,
+    required this.enabled,
+  });
+
+  factory ManualBudget.fromJson(Map<String, dynamic> j) => ManualBudget(
+    id: (j['id'] as String?) ?? '',
+    kind: (j['kind'] as String?) ?? 'total',
+    unit: (j['unit'] as String?) ?? 'usd',
+    amount: (j['amount'] as num?)?.toDouble() ?? 0,
+    consumed: (j['consumed'] as num?)?.toDouble() ?? 0,
+    enabled: (j['enabled'] as bool?) ?? false,
+  );
+
+  final String id;
+
+  /// `total` / `rolling` / `fixed` / `daily`。
+  final String kind;
+
+  /// `usd` / `token` / `count`。
+  final String unit;
+  final double amount;
+  final double consumed;
+  final bool enabled;
+}
+
+/// `platforms.ts:571::PurgeCandidate`（Rust serde `rename_all = "camelCase"`）。
+class PurgeCandidate {
+  const PurgeCandidate({
+    required this.id,
+    required this.name,
+    required this.reason,
+    required this.action,
+  });
+
+  factory PurgeCandidate.fromJson(Map<String, dynamic> j) => PurgeCandidate(
+    id: (j['id'] as num?)?.toInt() ?? 0,
+    name: (j['name'] as String?) ?? '',
+    reason: (j['reason'] as String?) ?? '',
+    action: (j['action'] as String?) ?? '',
+  );
+
+  final int id;
+  final String name;
+
+  /// `auth_failed` | `expired`。
+  final String reason;
+
+  /// `delete` | `unassign`。
+  final String action;
 }
 
 /// `generated/LastTestResult.ts`（`get_last_test_result` 返回，无记录是 null）。
@@ -582,6 +722,7 @@ class LastTestResult {
     required this.durationMs,
     required this.createdAt,
     required this.error,
+    this.responseBody = '',
   });
 
   factory LastTestResult.fromJson(Map<String, dynamic> j) => LastTestResult(
@@ -590,6 +731,7 @@ class LastTestResult {
     durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
     createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
     error: (j['error'] as String?) ?? '',
+    responseBody: (j['response_body'] as String?) ?? '',
   );
 
   final bool success;
@@ -597,6 +739,9 @@ class LastTestResult {
   final int durationMs;
   final int createdAt;
   final String error;
+
+  /// 测试响应正文（成功 / 失败均带，截断 ~4000 字符）。空 = 徽章不可展开。
+  final String responseBody;
 }
 
 /// `platforms.ts:583` 的 `model_test` 返回（`manual.ts::ModelTestResult`）。

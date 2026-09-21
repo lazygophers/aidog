@@ -8,10 +8,13 @@
 /// 不这么做的症状是「删掉的平台过两秒自己回来了」。这里 [epoch] 逐条照搬。
 library;
 
+import 'dart:async';
+
 import '../utils/pinyin.dart';
 import 'groups_logic.dart' show parseProtocolSearchTerms;
 import 'invoke.dart';
 import 'models.dart';
+import 'platform_card_bits.dart';
 
 /// quota 查询的并发上限（`src/domains/platforms` 的 `QUOTA_CONCURRENCY`）。
 /// 这些是真出网的 HTTP，不是本地查询，所以上限比列表渲染那类要低。
@@ -84,8 +87,22 @@ class PlatformsController {
   Map<int, PlatformQuota> quotaMap = const {};
   Map<int, bool> quotaRefreshing = const {};
   Map<int, bool> quotaPending = const {};
+
+  /// 手动刷新校准过的平台 id（`usePlatformQuota.ts::quotaRealIds`）：
+  /// 命中的走真查值而非预估值（`computeQuotaDisplay` 的 `preferRealCalibrated`）。
+  Map<int, bool> quotaRealIds = const {};
   Map<int, String> testResults = const {};
   Map<String, List<String>> protocolTerms = const {};
+
+  /// registry 派生的协议元数据（label / 外链 / coding plan / 配额脚本 / 默认模型 / peak）。
+  ProtocolMetaTable protocolMeta = const ProtocolMetaTable();
+
+  /// 展开明细的平台 id（跨会话落盘，键 `_ui_expand_plat`）。
+  Set<int> expandedIds = <int>{};
+
+  /// 平台 logo 的可渲染来源（data URL / 本地路径）；未命中缓存的不入表。
+  Map<String, String> protocolLogos = const {};
+  final Set<String> _logoAsked = <String>{};
 
   bool loading = true;
   bool usageLoading = false;
@@ -93,7 +110,7 @@ class PlatformsController {
   String searchQuery = '';
 
   /// 清理失效平台：先预览再确认（与分组页同一形态）。
-  List<Map<String, Object?>>? purgeCandidates;
+  List<PurgeCandidate>? purgeCandidates;
 
   /// 删除平台的确认态。React 的列表卡直接调 `handleDelete`（删除按钮自带
   /// AlertDialog），这里把「待删的是谁」显式记下来，让确认与执行分成两步。
@@ -268,14 +285,89 @@ class PlatformsController {
     }
   }
 
+  /// `get_defaults_json` 一次拉全：搜索词 + 协议元数据（label / 外链 / coding plan /
+  /// 配额脚本索引 / 默认模型 / preset peak）。React 那边是 `useProtocolMeta` 每卡
+  /// 一次 `Promise.all`（共享 docPromise 缓存），这里整份文档只解析一次。
   Future<void> _loadProtocolTerms() async {
     try {
       final raw = await _invoke('get_defaults_json');
-      protocolTerms = parseProtocolSearchTerms(raw as String? ?? '');
+      final json = raw as String? ?? '';
+      protocolTerms = parseProtocolSearchTerms(json);
+      protocolMeta = ProtocolMetaTable.parse(json, locale);
       _notify();
     } catch (_) {
       /* React: .catch(console.error) */
     }
+  }
+
+  /// UI 语言，决定协议 label 取哪个 locale 的 name。切语言后调 [setLocale] 重解析。
+  String locale = 'zh-Hans';
+
+  void setLocale(String next) {
+    if (next == locale) return;
+    locale = next;
+    unawaited(_loadProtocolTerms());
+  }
+
+  // ── 平台 logo 三级回退（`useProtocolLogo.ts`）─────────────────────
+  //
+  // ① `get_protocol_logo_path` 查本地缓存路径 → ② 命中就换成
+  // `get_protocol_logo_data_url`（Flutter 没有 Tauri 的 `asset://`，只能走 data URL，
+  // 与 React 的浏览器分支同一条路）→ ③ miss 就触发 `sync_protocol_logo` 后台补拉，
+  // **本会话不再轮询**，下次进页面命中即用。全程失败 → 表里没有这一项 → 卡片显首字母。
+  Future<void> ensureProtocolLogo(String protocol) async {
+    if (protocol.isEmpty || !_logoAsked.add(protocol)) return;
+    try {
+      final path = await _invoke('get_protocol_logo_path', {
+        'protocol': protocol,
+      });
+      if (path is String && path.isNotEmpty) {
+        final dataUrl = await _invoke('get_protocol_logo_data_url', {
+          'protocol': protocol,
+        });
+        if (dataUrl is String && dataUrl.isNotEmpty) {
+          protocolLogos = {...protocolLogos, protocol: dataUrl};
+          _notify();
+        }
+      } else {
+        // 缓存 miss：后台补拉，不等待（React: `.catch(console.warn)`）。
+        unawaited(
+          _invoke('sync_protocol_logo', {'protocol': protocol}).catchError(
+            (Object _) => null,
+          ),
+        );
+      }
+    } catch (_) {
+      /* React: console.warn("[logo] getProtocolLogoPath failed") */
+    }
+  }
+
+  // ── 展开明细（`usePlatformsState.ts:187`）────────────────────────
+
+  final Map<int, Timer> _expandTimers = {};
+
+  /// 展开 / 收起一张卡。落盘走 300ms 防抖 —— 连点不会打后端一串写。
+  void toggleExpanded(int platformId, bool next) {
+    expandedIds = {...expandedIds};
+    if (next) {
+      expandedIds.add(platformId);
+    } else {
+      expandedIds.remove(platformId);
+    }
+    _notify();
+    _expandTimers[platformId]?.cancel();
+    _expandTimers[platformId] = Timer(
+      const Duration(milliseconds: 300),
+      () => unawaited(persistExpanded(platformId, next)),
+    );
+  }
+
+  /// 页面 dispose 时叫一次：把没到点的防抖计时器掐掉。
+  void dispose() {
+    for (final t in _expandTimers.values) {
+      t.cancel();
+    }
+    _expandTimers.clear();
   }
 
   /// 轻量刷新（`proxy-log-updated` 驱动）：**只 merge 后台派生的统计字段**，
@@ -480,6 +572,33 @@ class PlatformsController {
     }
   }
 
+  /// 拖完一张卡：未分组列表里把 [oldIndex] 挪到 [newIndex]，本地先乐观重排
+  /// （松手即到位），再把整串 id 发后端。
+  ///
+  /// 下标口径按 `ReorderableListView.onReorderItem`：newIndex 已经把「旧项先被
+  /// 移走」算进去了，直接当落点用（老的 `onReorder` 要自己减 1，那个已废弃）。
+  Future<void> reorderStandalone(int oldIndex, int newIndex) async {
+    if (oldIndex == newIndex) return;
+    final list = [...standalonePlatforms];
+    if (oldIndex < 0 || oldIndex >= list.length) return;
+    final moved = list.removeAt(oldIndex);
+    list.insert(newIndex.clamp(0, list.length), moved);
+    applyLocalOrder(list);
+    await reorder([for (final p in list) p.id]);
+  }
+
+  /// 拖拽松手的乐观重排：把 [ordered]（只含未分组那批）按新顺序放回 [platforms]，
+  /// **原本属于分组的行留在原位**不动。没有这一步，卡片会等后端回来才跳到新位置。
+  void applyLocalOrder(List<PlatformRow> ordered) {
+    final movable = {for (final p in ordered) p.id};
+    var next = 0;
+    platforms = [
+      for (final p in platforms)
+        if (movable.contains(p.id)) ordered[next++] else p,
+    ];
+    _notify();
+  }
+
   /// 拖拽排序：传按新顺序排的 id 列表。`usePlatformsState.ts:251`。
   Future<void> reorder(List<int> orderedIds) async {
     try {
@@ -519,7 +638,7 @@ class PlatformsController {
       });
       purgeCandidates = [
         for (final e in (v as List? ?? const []))
-          (e as Map).cast<String, Object?>(),
+          PurgeCandidate.fromJson((e as Map).cast<String, dynamic>()),
       ];
     } catch (_) {
       purgeCandidates = const [];
@@ -566,15 +685,15 @@ class PlatformsController {
 
   // ── 余额 / 配额 ────────────────────────────────────────────────
 
-  /// `usePlatformQuota.ts:63-71`：没 key 不查；没 base_url 不查。
+  /// `usePlatformQuota.ts:63-71`：没 key 不查；没配额脚本不查；没 base_url 不查。
   ///
-  /// **与 React 的一处差异**：那边还要过 `platformHasQuotaScript(p)`（按 registry 的
-  /// `quota_scripts` 索引判断这个协议有没有查询脚本）。那个索引是 `get_defaults_json`
-  /// 的一个子树，本层没解析它，所以这里只保留「有 key 且有 URL」两条。
-  /// 后果是**多查**不是少查：没有脚本的平台会白发一次命令，后端返 `success:false`，
-  /// UI 表现一致。记在 README 的差异表里。
+  /// 配额脚本门控走 [ProtocolMetaTable.hasQuotaScript]（registry 变体或用户自定义脚本；
+  /// registry 未到手时回落旧启发式，与 `defaults.ts::platformHasQuotaScript` 同口径）。
+  /// **不**做 requires 满足度门控 —— newapi 的 balance_* 仅 unlimited 路径必需，
+  /// 门控会回归 limited token 用户。
   bool platformWantsQuota(PlatformRow p) {
     if (p.apiKey.isEmpty) return false;
+    if (!protocolMeta.hasQuotaScript(p.platformType, p.extra)) return false;
     return getPrimaryBaseUrl(p.platformType, p.endpoints).isNotEmpty ||
         p.baseUrl.isNotEmpty;
   }
@@ -668,6 +787,8 @@ class PlatformsController {
       final q = await _queryQuota(p);
       if (q != null && q.success) {
         quotaMap = {...quotaMap, p.id: q};
+        // 手动刷新 = 真值校准：这一条之后优先用真查值，不再回落预估。
+        quotaRealIds = {...quotaRealIds, p.id: true};
       } else {
         final err = q?.error;
         _toast('${p.name}: ${err == null || err.isEmpty ? failText : err}', ok: false);
