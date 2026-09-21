@@ -13,10 +13,12 @@
 //! **与 Tauri 不抢 status item**：macOS 上 `TrayIconBuilder` 整块不再构建
 //! （`app_setup.rs` 里 `cfg(not(target_os = "macos"))`），菜单栏恒只有本模块这一个条目。
 
-use crate::tray_render::{
-    TrayLayout, set_tray_attributed_title, tray_layout, tray_quota_text, tray_separator,
-};
-use aidog_db::Db;
+// 票 I20：取数侧（MenuBarState / collect_state / status_text）搬去 `menubar_state`——
+// Flutter 壳里 DB 在内核进程、AppKit 在 Runner 进程，两侧必须能分开编。
+// 这里 re-export 回来，`aidog_core::menubar::collect_state` 等旧路径一字未变。
+pub use crate::menubar_state::{MenuBarState, collect_state, status_text};
+
+use crate::tray_render::{TrayLayout, set_tray_attributed_title};
 use objc2::rc::Retained;
 use objc2::runtime::{AnyObject, NSObject};
 use objc2::{AnyThread, MainThreadOnly, define_class, msg_send, sel};
@@ -51,18 +53,6 @@ pub struct MenuBarActions {
     pub on_quit: Box<dyn Fn()>,
 }
 
-/// 一次渲染所需的全部数据。DB 取数在 [`collect_state`]（任意线程 await），
-/// 取完再跳主线程交给 [`render`]——AppKit 调用里不做 IO。
-pub struct MenuBarState {
-    pub layout: TrayLayout,
-    pub separator: String,
-    /// 菜单首行状态文字，如 `"● Proxy Running :9890"`。
-    pub status_text: String,
-    /// 菜单第二行的余额 / 配额概要；None = 不加该项。
-    pub quota_text: Option<String>,
-    pub proxy_running: bool,
-}
-
 // 全部状态只在主线程触碰，故用 thread_local 而非 static + unsafe Sync。
 // 取值一律 clone 出来再用（`Retained` / `Rc` 都是引用计数），绝不把 borrow 跨进
 // AppKit 回调——否则 performClick 同步弹菜单会重入 borrow 而 panic。
@@ -71,6 +61,10 @@ thread_local! {
     static MENU: RefCell<Option<Retained<NSMenu>>> = const { RefCell::new(None) };
     static ACTIONS: RefCell<Option<Rc<MenuBarActions>>> = const { RefCell::new(None) };
     static TARGET: RefCell<Option<Retained<Target>>> = const { RefCell::new(None) };
+    /// 最近一次 [`render`] 拿到的代理开关态。菜单项的字面（Start/Stop）本来就取自它，
+    /// 点击时再取一遍才是多余的一份真值——`aidog_ctx` 在 Flutter 壳的 Runner 进程里
+    /// 压根没初始化，取它会 panic。
+    static PROXY_RUNNING: RefCell<bool> = const { RefCell::new(false) };
 }
 
 fn item() -> Option<Retained<NSStatusItem>> {
@@ -153,31 +147,6 @@ pub fn install(actions: MenuBarActions) {
     button.sendActionOn(NSEventMask::LeftMouseDown | NSEventMask::RightMouseDown);
 }
 
-/// 取一次渲染所需的数据。可在任意线程 await。
-pub async fn collect_state(db: &Db) -> MenuBarState {
-    let proxy_running = aidog_ctx::ctx().proxy_handle().is_running();
-    let port = crate::shared::load_proxy_settings(db)
-        .await
-        .map(|s| s.port)
-        .unwrap_or(9890);
-    MenuBarState {
-        layout: tray_layout(db).await,
-        separator: tray_separator(db).await,
-        status_text: status_text(proxy_running, port),
-        quota_text: tray_quota_text(db).await,
-        proxy_running,
-    }
-}
-
-/// 菜单首行的代理状态文字（与原 Tauri 菜单 `build_tray_menu` 的文案一致）。
-pub(crate) fn status_text(running: bool, port: u16) -> String {
-    if running {
-        format!("● Proxy Running :{port}")
-    } else {
-        "○ Proxy Stopped".to_string()
-    }
-}
-
 /// 兜底纯文本标题：富文本渲染失败时仍有可读内容（各列 "名 值"，间隙用 separator）。
 pub(crate) fn fallback_title(layout: &TrayLayout, separator: &str) -> String {
     layout
@@ -219,6 +188,7 @@ pub fn render(state: MenuBarState) {
         }
     }
 
+    PROXY_RUNNING.with(|r| *r.borrow_mut() = state.proxy_running);
     let menu = build_menu(
         mtm,
         &state.status_text,
@@ -344,7 +314,7 @@ pub(crate) fn flip_y(screen_height: f64, origin_y: f64, height: f64) -> f64 {
 fn on_menu_click(tag: isize) {
     let Some(a) = actions() else { return };
     match tag {
-        TAG_TOGGLE_PROXY => (a.on_toggle_proxy)(aidog_ctx::ctx().proxy_handle().is_running()),
+        TAG_TOGGLE_PROXY => (a.on_toggle_proxy)(PROXY_RUNNING.with(|r| *r.borrow())),
         TAG_SHOW => (a.on_show)(),
         TAG_QUIT => (a.on_quit)(),
         _ => {}

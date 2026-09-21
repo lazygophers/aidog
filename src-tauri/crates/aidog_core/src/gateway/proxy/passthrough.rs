@@ -346,39 +346,57 @@ async fn relay_passthrough(
     response
 }
 
-/// 静态默认模型集（Claude + Codex 官方默认）。不反映上游真实可用模型 —— 仅供
-/// 客户端模型发现 UI 探测用（GET /models 无需 group / token）。月级腐化需手工核对。
-/// 最近核对: 2026-07-08。参照前端 getDefaultModels（Platforms.tsx）。
-pub(crate) const STATIC_MODEL_IDS: &[&str] = &[
-    "claude-fable-5",
-    "claude-opus-4-8",
-    "claude-sonnet-5",
-    "claude-haiku-4-5",
-    "claude-opus-4-7",
-    "claude-opus-4-6",
-    "claude-sonnet-4-6",
-    "claude-opus-4-5-20251101",
-    "claude-sonnet-4-5-20250929",
-    "gpt-5.5",
-    "gpt-5.5-pro",
-    "gpt-5.4",
-    "gpt-5.4-pro",
-    "gpt-5.4-mini",
-    "gpt-5.4-nano",
-    "gpt-5.3-codex",
-    "gpt-5.2",
-    "gpt-5.2-pro",
-    "gpt-5.1",
-    "gpt-5",
-    "gpt-5-pro",
-    "gpt-5-mini",
-    "gpt-5-nano",
-    "o3",
-    "o3-pro",
-    "gpt-4.1",
-    "gpt-4.1-mini",
-    "gpt-4o-mini",
-];
+/// 默认模型清单：registry 里官方两家（`anthropic` + `openai`）的模型 id，按平台目录顺序去重。
+///
+/// 取代原先硬编码的 `STATIC_MODEL_IDS`：registry（`src-tauri/defaults/registry/`）是模型数据的
+/// **唯一真值源**（见 CLAUDE.md），代码里再抄一份必然腐化——实测 2026-09-21，那份清单最后核对于
+/// 2026-07-08，`claude-opus-5` 与 `claude-fable-5-1` 两个当期旗舰都不在里面。改成从 registry 读之后
+/// 清单跟着远程同步自动更新，不再需要人工核对。
+///
+/// DB 整表空时 `list_model_entries` 内部回落 bundled，故本函数在未同步的新装机上同样有内容。
+pub(crate) async fn default_model_ids(db: &Db) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out: Vec<String> = Vec::new();
+    for code in ["anthropic", "openai"] {
+        let Ok(entries) = aidog_db::list_model_entries(db, Some(code)).await else {
+            continue;
+        };
+        for e in entries {
+            if seen.insert(e.model_id.clone()) {
+                out.push(e.model_id);
+            }
+        }
+    }
+    out
+}
+
+/// 带 group token 时的模型清单：该分组的 `model_mappings` 源模型名 + 组内各平台配着的模型槽位，
+/// 按出现顺序去重。与 `sync_settings::pi_model_candidates` 同一口径（同一份真值源，不另起第二份）。
+///
+/// 不含平台的 `available_models`：那是平台的全量目录（OpenRouter 有几百条），不是这个分组会路由到的
+/// 模型集，混进来只会把发现列表淹掉。
+///
+/// 返回 `None` 表示「没有 token / token 认不出分组 / 该分组一个模型都没配」，调用方回落默认清单。
+async fn group_model_ids(db: &Db, auth_header: Option<&str>) -> Option<Vec<String>> {
+    let group = resolve_group(db, auth_header?).await?;
+    let detail = aidog_db::get_group_detail(db, group.id).await.ok()??;
+    let mut seen = std::collections::HashSet::new();
+    let out: Vec<String> = detail
+        .group
+        .model_mappings
+        .iter()
+        .map(|m| m.source_model.trim().to_string())
+        .chain(
+            detail
+                .platforms
+                .iter()
+                .flat_map(|gp| gp.platform.models.all_values()),
+        )
+        .filter(|m| !m.is_empty())
+        .filter(|m| seen.insert(m.clone()))
+        .collect();
+    (!out.is_empty()).then_some(out)
+}
 
 /// canonical_model → 最大上下文（`max_input_tokens` 优先，缺失回落 `context_window`）。
 /// 同名模型多平台条目取最大值。纯函数，便于单测。
@@ -390,10 +408,14 @@ pub(crate) fn build_context_map(
         let Some(ctx) = e.max_input_tokens.or(e.context_window) else {
             continue;
         };
-        match map.get_mut(&e.canonical_model) {
-            Some(v) => *v = (*v).max(ctx),
-            None => {
-                map.insert(e.canonical_model.clone(), ctx);
+        // 两个键都收：canonical_model 供默认清单命中，platform 真实请求名（model_id）供分组清单命中
+        // ——分组里配的是 glm-4.7 这类平台自家名字，只按 canonical 索引会全部落空。
+        for key in [&e.canonical_model, &e.model_id] {
+            match map.get_mut(key) {
+                Some(v) => *v = (*v).max(ctx),
+                None => {
+                    map.insert(key.clone(), ctx);
+                }
             }
         }
     }
@@ -408,14 +430,15 @@ pub(crate) fn build_context_map(
 /// - gemini（`/v1beta/models`）→ `{"models":[{"name":"models/<id>","displayName",...}]}`
 /// - 其余（含 `/proxy/models` 裸路径回退 anthropic）→
 ///   `{"data":[{"type","id","display_name","created_at"}],"has_more":false,"first_id","last_id"}`
-pub(crate) fn build_static_models_json(
+pub(crate) fn build_models_json(
     proto: &Protocol,
+    ids: &[String],
     ctx_map: &std::collections::HashMap<String, i64>,
 ) -> Value {
     // 命中才附键：未登记的模型不带 max_input_tokens，客户端回落自家默认。
     let ctx_of = |id: &str| ctx_map.get(id).copied();
     if *proto == Protocol::Gemini {
-        let models: Vec<Value> = STATIC_MODEL_IDS
+        let models: Vec<Value> = ids
             .iter()
             .map(|id| {
                 serde_json::json!({
@@ -428,7 +451,7 @@ pub(crate) fn build_static_models_json(
             .collect();
         serde_json::json!({ "models": models })
     } else if *proto == Protocol::OpenAI {
-        let data: Vec<Value> = STATIC_MODEL_IDS
+        let data: Vec<Value> = ids
             .iter()
             .map(|id| {
                 let mut m = serde_json::json!({
@@ -445,7 +468,7 @@ pub(crate) fn build_static_models_json(
             .collect();
         serde_json::json!({ "object": "list", "data": data })
     } else {
-        let data: Vec<Value> = STATIC_MODEL_IDS
+        let data: Vec<Value> = ids
             .iter()
             .map(|id| {
                 let mut m = serde_json::json!({
@@ -460,8 +483,8 @@ pub(crate) fn build_static_models_json(
                 m
             })
             .collect();
-        let first = STATIC_MODEL_IDS.first().copied().unwrap_or("");
-        let last = STATIC_MODEL_IDS.last().copied().unwrap_or("");
+        let first = ids.first().map(String::as_str).unwrap_or("");
+        let last = ids.last().map(String::as_str).unwrap_or("");
         serde_json::json!({
             "data": data,
             "has_more": false,
@@ -471,15 +494,22 @@ pub(crate) fn build_static_models_json(
     }
 }
 
-/// GET /models | /v1/models 总是返回静态默认模型列表，**不依赖 group / token、不 relay 上游**。
-/// 行为变化（v0.1.6）：旧 handle_models_passthrough 选组首平台 relay 上游 /models 已被静态列表取代
-/// （用户明确选「总是返回静态」）—— 模型发现开箱即用、tokenless 探测不再 404；代价是不反映上游真实模型集。
-/// 按请求 path 协议格式化（含 `/v1/` → openai，裸 /proxy/models → anthropic）。仍写 proxy_log(status=200)。
-pub(crate) async fn handle_models_static(
+/// `GET /models` | `/v1/models`：返回模型发现列表，按请求 path 的协议格式化
+/// （含 `/v1/` → openai，裸 `/proxy/models` → anthropic）。仍写 proxy_log(status=200)。
+///
+/// 清单来源两级：
+/// 1. 带 group token（客户端做模型发现时本来就会带）→ 该分组真正配着的模型（`group_model_ids`）；
+/// 2. 没带 / 认不出 / 该分组没配模型 → registry 派生的默认清单（`default_model_ids`）。
+///
+/// v0.1.6 的裁决「不依赖 group / token、tokenless 探测不 404」仍然成立 —— 没 token 只是换一份清单，
+/// 不会 404，也不 relay 上游。2026-09-21 起第 1 级是新增的：原先无论谁问都回同一份硬编码清单，
+/// 既跟用户实际配的平台无关，又靠人工月级核对（已腐化）。
+pub(crate) async fn handle_models_list(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
     path: &str,
+    auth_header: Option<&str>,
     start: std::time::Instant,
 ) -> Response {
     let proto = detect_source_protocol(path);
@@ -489,7 +519,11 @@ pub(crate) async fn handle_models_static(
         .await
         .map(|entries| build_context_map(&entries))
         .unwrap_or_default();
-    let body = build_static_models_json(&proto, &ctx_map);
+    let ids = match group_model_ids(&state.db, auth_header).await {
+        Some(v) => v,
+        None => default_model_ids(&state.db).await,
+    };
+    let body = build_models_json(&proto, &ids, &ctx_map);
     let body_str = body.to_string();
 
     log.source_protocol = proto.wire_str();

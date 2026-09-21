@@ -7,6 +7,34 @@ use super::super::types::*;
 
 /// 将目标协议的 SSE event data 解析为统一的 ChatStreamEvent。
 /// SSE 响应格式由 wire protocol（endpoint 协议）决定。
+/// 从上游响应 JSON 提取服务端实际使用的模型名。
+///
+/// 不同协议把模型放在不同字段（非流式顶层 `model`；OpenAI Responses 嵌在 `response.model`；
+/// Anthropic 流式 message_start 嵌在 `message.model`；Gemini 用 `modelVersion`）；
+/// 空字符串和非字符串都视为缺失，调用方负责回退请求模型。
+pub fn response_model(body: &Value) -> Option<String> {
+    [
+        body.get("model"),
+        body.get("response").and_then(|response| response.get("model")),
+        body.get("message").and_then(|message| message.get("model")),
+        body.get("modelVersion"),
+    ]
+    .into_iter()
+    .flatten()
+    .find_map(|value| {
+        value
+            .as_str()
+            .map(str::trim)
+            .filter(|model| !model.is_empty())
+            .map(str::to_owned)
+    })
+}
+
+/// 从上游响应 JSON 提取模型名；缺失时回退到调用方提供的模型名。
+pub fn response_model_or(body: &Value, fallback_model: &str) -> String {
+    response_model(body).unwrap_or_else(|| fallback_model.to_string())
+}
+
 pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEvent> {
     match wire_protocol {
         Protocol::Anthropic => super::super::anthropic::parse_anthropic_sse(data),
@@ -389,6 +417,41 @@ pub fn split_stream_inline_reasoning(
             out
         }
         other => vec![other],
+    }
+}
+
+#[cfg(test)]
+mod response_model_tests {
+    use super::{response_model, response_model_or};
+    use serde_json::json;
+
+    #[test]
+    fn response_model_prefers_top_level_and_supports_protocol_fields() {
+        assert_eq!(
+            response_model(&json!({"model": "served-model"})).as_deref(),
+            Some("served-model")
+        );
+        assert_eq!(
+            response_model(&json!({"response": {"model": "responses-model"}})).as_deref(),
+            Some("responses-model")
+        );
+        assert_eq!(
+            response_model(&json!({"modelVersion": "gemini-model"})).as_deref(),
+            Some("gemini-model")
+        );
+        assert_eq!(
+            response_model(&json!({"message": {"model": "anthropic-stream-model"}})).as_deref(),
+            Some("anthropic-stream-model")
+        );
+    }
+
+    #[test]
+    fn response_model_falls_back_for_missing_or_empty_fields() {
+        assert_eq!(response_model(&json!({"model": ""})), None);
+        assert_eq!(
+            response_model_or(&json!({"model": ""}), "requested-model"),
+            "requested-model"
+        );
     }
 }
 

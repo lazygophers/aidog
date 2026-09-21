@@ -211,10 +211,10 @@ fn passthrough_does_not_invoke_convert_request() {
     let start = src
         .find("async fn handle_passthrough(")
         .expect("fn present");
-    // 下一个 const（STATIC_MODEL_IDS）作为结束边界
+    // 下一个 fn（default_model_ids）作为结束边界
     let rest = &src[start + 1..];
     let end = rest
-        .find("const STATIC_MODEL_IDS")
+        .find("pub(crate) async fn default_model_ids")
         .map(|i| start + 1 + i)
         .unwrap_or(src.len());
     let body = &src[start..end];
@@ -362,19 +362,28 @@ fn models_auth_by_protocol() {
     assert!(req.headers().get("x-api-key").is_none());
 }
 
-// ── 静态模型列表：openai 格式 = {object:list, data:[{id,object,created,owned_by}]} ──
+/// 测试用固定清单：三条格式化测试只验格式，不该跟着 registry 内容一起漂。
+fn sample_ids() -> Vec<String> {
+    ["claude-fable-5", "gpt-5.5", "gpt-4o-mini"]
+        .iter()
+        .map(|s| s.to_string())
+        .collect()
+}
+
+// ── 模型列表：openai 格式 = {object:list, data:[{id,object,created,owned_by}]} ──
 #[test]
-fn static_models_openai_format() {
+fn models_json_openai_format() {
+    let ids = sample_ids();
     let mut ctx = std::collections::HashMap::new();
     ctx.insert("claude-fable-5".to_string(), 1_000_000_i64);
     ctx.insert("gpt-5.5".to_string(), 400_000_i64);
-    let v = build_static_models_json(&Protocol::OpenAI, &ctx);
+    let v = build_models_json(&Protocol::OpenAI, &ids, &ctx);
     assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
     let data = v
         .get("data")
         .and_then(|d| d.as_array())
         .expect("data array");
-    assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
+    assert_eq!(data.len(), ids.len());
     let first = &data[0];
     assert_eq!(first.get("object").and_then(|o| o.as_str()), Some("model"));
     assert!(first.get("id").and_then(|i| i.as_str()).is_some());
@@ -413,16 +422,17 @@ fn static_models_openai_format() {
     assert!(!ids.contains(&"gpt-5.5-codex"));
 }
 
-// ── 静态模型列表：anthropic 格式 = {data:[{type:model,id,display_name,created_at}],has_more,first_id,last_id} ──
+// ── 模型列表：anthropic 格式 = {data:[{type:model,id,display_name,created_at}],has_more,first_id,last_id} ──
 #[test]
-fn static_models_anthropic_format() {
+fn models_json_anthropic_format() {
     // 裸路径回退 anthropic
-    let v = build_static_models_json(&Protocol::Anthropic, &std::collections::HashMap::new());
+    let ids = sample_ids();
+    let v = build_models_json(&Protocol::Anthropic, &ids, &std::collections::HashMap::new());
     let data = v
         .get("data")
         .and_then(|d| d.as_array())
         .expect("data array");
-    assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
+    assert_eq!(data.len(), ids.len());
     let first = &data[0];
     assert_eq!(first.get("type").and_then(|t| t.as_str()), Some("model"));
     assert!(first.get("id").and_then(|i| i.as_str()).is_some());
@@ -444,15 +454,16 @@ fn static_models_anthropic_format() {
     assert!(ids.contains(&"claude-fable-5"));
 }
 
-// ── 静态模型列表：gemini 格式 = {models:[{name:"models/<id>",displayName,...}]} ──
+// ── 模型列表：gemini 格式 = {models:[{name:"models/<id>",displayName,...}]} ──
 #[test]
-fn static_models_gemini_format() {
-    let v = build_static_models_json(&Protocol::Gemini, &std::collections::HashMap::new());
+fn models_json_gemini_format() {
+    let ids = sample_ids();
+    let v = build_models_json(&Protocol::Gemini, &ids, &std::collections::HashMap::new());
     let models = v
         .get("models")
         .and_then(|m| m.as_array())
         .expect("models array");
-    assert_eq!(models.len(), super::STATIC_MODEL_IDS.len());
+    assert_eq!(models.len(), ids.len());
     let first = &models[0];
     assert_eq!(
         first.get("name").and_then(|n| n.as_str()),

@@ -51,6 +51,16 @@ pub(crate) async fn finish_nonstream(
     let (input_tokens, output_tokens, cache_tokens) =
         extract_usage(String::from_utf8_lossy(&body).as_ref());
 
+    // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：actual_model 从路由目标模型改为
+    // 上游响应自报的模型名，缺失回退客户端请求模型（用户口径，不回退路由映射名）。
+    // 必须在下方 replace_model_in_json 把下发 model 改写回请求名之前，从原始上游 body 提取；
+    // 转换与同协议透传两分支共用此一处（此处 body 尚未被改写）。预估链路（spawn_estimate /
+    // StreamEstCtx）继续用路由目标模型，不受影响。
+    log.actual_model = serde_json::from_slice::<Value>(&body)
+        .ok()
+        .and_then(adapter::response_model)
+        .unwrap_or_else(|| requested_model.to_string());
+
     // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
     //   客户端侧 body 受 log_user_request。body 先不分配——gate 开才走 cap_nonstream_body 截断 + 落库。──
     let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;

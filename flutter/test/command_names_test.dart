@@ -60,8 +60,9 @@ Map<String, List<String>> invokedCommands(Directory libDir) {
 }
 
 void main() {
-  test('generate_handler! 里有 203 个命令（spec §1.2 的实测值）', () {
-    expect(registeredCommands(repoRoot()).length, 203);
+  // 203 是 spec §1.2 的实测值；票 I20 加了 menu_bar_state（菜单栏一帧数据）→ 204。
+  test('generate_handler! 里有 204 个命令', () {
+    expect(registeredCommands(repoRoot()).length, 204);
   });
 
   test('Dart 侧调的每个命令名都在 generate_handler! 里登记过', () {

@@ -263,11 +263,19 @@ pub(crate) async fn handle_proxy_core(
     upsert_log(&state, &log, &log_settings).await;
 
     // ── 模型列表端点分流（必须在 resolve_group 之前）──
-    // GET /v1/models | /models 总是返回静态默认模型列表，**不依赖 group / token**：
-    // tokenless / 错 token 的模型发现探测此前在 resolve_group 阶段就 404（晚于旧分流位置），
-    // 故分流前置于 group 解析之前彻底消除 404 根因。不 relay 上游，按 path 协议静态格式化。
+    // GET /v1/models | /models 永不 404：tokenless / 错 token 的模型发现探测此前在 resolve_group
+    // 阶段就 404（晚于旧分流位置），故分流前置于 group 解析之前彻底消除 404 根因。不 relay 上游。
+    // token 在这里只用来挑清单（认得出就报该分组真配的模型，认不出就报默认清单），不做准入。
     if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
-        return handle_models_static(&state, &mut log, &log_settings, &path, start).await;
+        return handle_models_list(
+            &state,
+            &mut log,
+            &log_settings,
+            &path,
+            auth_header.as_deref(),
+            start,
+        )
+        .await;
     }
 
     // ── 查找分组 ──
