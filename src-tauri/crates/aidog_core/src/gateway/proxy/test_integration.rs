@@ -307,14 +307,19 @@ async fn set_log_settings(state: &Arc<ProxyState>, settings: ProxyLogSettings) {
 /// 发一条非流式请求后取该 group 最新终态日志行。
 async fn last_log_for(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::ProxyLog {
     flush_log_queue(state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     let id = logs
         .iter()
         .find(|l| l.group_key == gk)
         .expect("log row missing")
         .id
         .clone();
-    aidog_logs::get_proxy_log(&state.db, &id).await.unwrap().unwrap()
+    aidog_logs::get_proxy_log(&state.db, &id)
+        .await
+        .unwrap()
+        .unwrap()
 }
 
 /// 开关矩阵（用户报告「上游实际请求没记录」的精确验收）：
@@ -345,16 +350,31 @@ async fn log_switches_record_upstream_side_only() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let row = last_log_for(&state, "gklogup").await;
-    assert!(!row.upstream_request_headers.is_empty(), "上游请求头必须记录");
-    assert!(!row.upstream_request_headers.contains("sk-up"), "上游 auth 头必须脱敏");
+    assert!(
+        !row.upstream_request_headers.is_empty(),
+        "上游请求头必须记录"
+    );
+    assert!(
+        !row.upstream_request_headers.contains("sk-up"),
+        "上游 auth 头必须脱敏"
+    );
     assert!(
         !row.upstream_request_body.is_empty(),
         "上游请求体必须记录（用户报告缺失的字段）"
     );
     assert!(row.upstream_request_body.contains("\"model\""));
-    assert!(!row.response_body.is_empty(), "上游响应正文属上游侧，必须记录");
-    assert!(row.request_body.is_empty(), "用户侧关闭时 request_body 必须为空");
-    assert!(row.user_response_body.is_empty(), "用户侧关闭时 user_response_body 必须为空");
+    assert!(
+        !row.response_body.is_empty(),
+        "上游响应正文属上游侧，必须记录"
+    );
+    assert!(
+        row.request_body.is_empty(),
+        "用户侧关闭时 request_body 必须为空"
+    );
+    assert!(
+        row.user_response_body.is_empty(),
+        "用户侧关闭时 user_response_body 必须为空"
+    );
 }
 
 /// 对称矩阵：log_user_request=true / log_upstream_request=false——用户侧记录、上游侧清空。
@@ -382,11 +402,23 @@ async fn log_switches_record_user_side_only() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     let row = last_log_for(&state, "gkloguser").await;
-    assert!(!row.request_body.is_empty(), "用户侧开启时 request_body 必须记录");
-    assert!(!row.user_response_body.is_empty(), "用户侧开启时 user_response_body 必须记录");
+    assert!(
+        !row.request_body.is_empty(),
+        "用户侧开启时 request_body 必须记录"
+    );
+    assert!(
+        !row.user_response_body.is_empty(),
+        "用户侧开启时 user_response_body 必须记录"
+    );
     assert!(row.upstream_request_body.is_empty(), "上游侧关闭时必须清空");
-    assert!(row.response_body.is_empty(), "上游侧关闭时上游响应正文必须清空");
-    assert!(row.upstream_request_headers.is_empty(), "上游侧关闭时上游请求头必须清空");
+    assert!(
+        row.response_body.is_empty(),
+        "上游侧关闭时上游响应正文必须清空"
+    );
+    assert!(
+        row.upstream_request_headers.is_empty(),
+        "上游侧关闭时上游请求头必须清空"
+    );
 }
 
 /// 主开关 enabled=false：不落 proxy_log 行（统计聚合照常，不在此断言）。
@@ -412,7 +444,9 @@ async fn log_master_off_writes_no_row() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     flush_log_queue(&state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
     assert!(
         logs.iter().all(|l| l.group_key != "gklogoff"),
         "master off 时不得落 proxy_log 行"
@@ -2093,7 +2127,9 @@ async fn setup_group_with_platform(
 /// 走 `get_proxy_log` 而非 list：`done` 只在整行上（summary 不带该列）。
 async fn only_log_of(state: &Arc<ProxyState>, gk: &str) -> aidog_db::models::ProxyLog {
     flush_log_queue(state).await;
-    let logs = aidog_logs::list_proxy_logs(&state.db, 200, 0).await.unwrap();
+    let logs = aidog_logs::list_proxy_logs(&state.db, 200, 0)
+        .await
+        .unwrap();
     let mut mine: Vec<_> = logs.into_iter().filter(|l| l.group_key == gk).collect();
     assert_eq!(mine.len(), 1, "group {gk} 应恰好落一条 proxy_log");
     let id = mine.pop().unwrap().id;
@@ -2142,7 +2178,10 @@ async fn upstream_non_success_marks_done_and_enters_stats_agg() {
             "上游 {upstream_status} 的终态行必须 done=1，否则不 emit、不进统计"
         );
         let (requests, errors) = agg_counts(&state.db, gk).await;
-        assert_eq!(requests, 1, "上游 {upstream_status} 必须进 stats_agg_hourly");
+        assert_eq!(
+            requests, 1,
+            "上游 {upstream_status} 必须进 stats_agg_hourly"
+        );
         assert_eq!(errors, 1, "上游 {upstream_status} 必须计入 error_count");
     }
 }
@@ -2182,7 +2221,9 @@ async fn mock_platform_terminal_logs_are_done() {
         setup_mock_group(&state, gk, extra).await;
         let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, body)).await;
         assert_eq!(resp.status().as_u16(), want_status, "gk={gk}");
-        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
 
         let row = only_log_of(&state, gk).await;
         assert!(row.done, "mock 终态行必须 done=1（gk={gk}）");
@@ -2252,7 +2293,10 @@ async fn responses_subendpoint_terminal_logs_are_done() {
         assert_eq!(row.status_code, want as i32);
         assert!(row.done, "responses 子端点终态行必须 done=1（gk={gk}）");
         let (requests, _) = agg_counts(&state.db, gk).await;
-        assert_eq!(requests, 1, "responses 子端点请求必须进 stats_agg（gk={gk}）");
+        assert_eq!(
+            requests, 1,
+            "responses 子端点请求必须进 stats_agg（gk={gk}）"
+        );
     }
 }
 
@@ -2273,9 +2317,7 @@ async fn spawn_stub_devin(session_status: &'static str) -> String {
         )
         .route(
             "/sessions/{id}/messages",
-            get(|| async {
-                axum::Json(serde_json::json!([{"source":"devin","message":"done"}]))
-            }),
+            get(|| async { axum::Json(serde_json::json!([{"source":"devin","message":"done"}])) }),
         );
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -2332,7 +2374,9 @@ async fn devin_terminal_logs_are_done() {
         setup_group_with_platform(&state, gk, Protocol::Devin, &base_url, extra).await;
         let resp = handle_proxy(AxumState(state.clone()), messages_request(gk, body)).await;
         assert_eq!(resp.status().as_u16(), want, "gk={gk}");
-        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+        let _ = axum::body::to_bytes(resp.into_body(), 1 << 20)
+            .await
+            .unwrap();
 
         let row = only_log_of(&state, gk).await;
         assert_eq!(row.status_code, want as i32, "gk={gk}");

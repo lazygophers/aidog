@@ -301,10 +301,7 @@ fn join_upstream_path_dedupes_version_segment() {
     use super::passthrough::join_upstream_path;
     // newapi 聚合站：base_url 含 /v1 + anthropic api_path 自带 /v1 → 只保留一份（原为 404 的 /v1/v1）
     assert_eq!(
-        join_upstream_path(
-            "https://api.cometapi.com/v1",
-            "/v1/messages/count_tokens"
-        ),
+        join_upstream_path("https://api.cometapi.com/v1", "/v1/messages/count_tokens"),
         "https://api.cometapi.com/v1/messages/count_tokens"
     );
     assert_eq!(
@@ -392,14 +389,21 @@ fn static_models_openai_format() {
     assert!(first.get("created").is_some());
     assert!(first.get("owned_by").is_some());
     // max_input_tokens：命中附键、未命中不带
-    let by_id =
-        |id: &str| data.iter().find(|m| m.get("id").and_then(|i| i.as_str()) == Some(id)).unwrap();
+    let by_id = |id: &str| {
+        data.iter()
+            .find(|m| m.get("id").and_then(|i| i.as_str()) == Some(id))
+            .unwrap()
+    };
     assert_eq!(
-        by_id("claude-fable-5").get("max_input_tokens").and_then(|n| n.as_i64()),
+        by_id("claude-fable-5")
+            .get("max_input_tokens")
+            .and_then(|n| n.as_i64()),
         Some(1_000_000)
     );
     assert_eq!(
-        by_id("gpt-5.5").get("max_input_tokens").and_then(|n| n.as_i64()),
+        by_id("gpt-5.5")
+            .get("max_input_tokens")
+            .and_then(|n| n.as_i64()),
         Some(400_000)
     );
     assert!(by_id("gpt-4o-mini").get("max_input_tokens").is_none());
@@ -501,7 +505,12 @@ fn context_map_prefers_max_input_then_max_across_platforms() {
         m
     };
     let map = build_context_map(&[
-        e("openrouter", "claude-fable-5", Some(1_000_000), Some(128_000)),
+        e(
+            "openrouter",
+            "claude-fable-5",
+            Some(1_000_000),
+            Some(128_000),
+        ),
         e("gemini", "claude-fable-5", None, Some(200_000)), // 回落 context_window，仍小于另一平台
         e("crazyrouter", "gpt-5.5", None, Some(400_000)),   // 唯一条目 → 回落生效
         e("x", "no-ctx-model", None, None),                 // 两键全空 → 不入 map

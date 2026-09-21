@@ -448,7 +448,9 @@ fn region_blocked_markers() {
         "Country, region, or territory not supported"
     ));
     assert!(is_region_blocked("Service is not available in your region"));
-    assert!(is_region_blocked("This model is not available in this region yet"));
+    assert!(is_region_blocked(
+        "This model is not available in this region yet"
+    ));
     // 中文区域封锁文案
     assert!(is_region_blocked("该服务在你所在的地区限制访问"));
     assert!(is_region_blocked("因国家或地区限制，无法提供服务"));
@@ -694,4 +696,80 @@ async fn transport_retryable_body_error_only_when_fast() {
         !is_transport_retryable(&e, std::time::Duration::from_secs(46)),
         "慢失败（≥15s）= 上游收下请求挂很久才掐，重试纯亏，不重试"
     );
+}
+
+// ── 非 2xx 路径必须把上游的重试/限流头带回客户端 ──
+// 背景: 这三个头几乎只出现在 429/503 上，全落在 non_success 这条路径。历史实现只构
+// (StatusCode, body).into_response()，一个上游头都不带 → 客户端拿不到 retry-after，只能盲目重试。
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#response-headers
+#[test]
+fn error_response_keeps_retry_and_ratelimit_headers() {
+    let src = rq_headers(&[
+        ("retry-after", "42"),
+        ("x-should-retry", "false"),
+        ("anthropic-ratelimit-unified-status", "allowed_warning"),
+        ("anthropic-ratelimit-unified-reset", "1758441600"),
+        ("content-type", "application/json"),
+        // hop-by-hop / 必剔项：即使上游发了也不该带回
+        ("content-length", "123"),
+        ("transfer-encoding", "chunked"),
+        ("connection", "keep-alive"),
+        ("content-encoding", "gzip"),
+    ]);
+
+    let out = error_response_headers(&src, false);
+
+    assert_eq!(val_of(&out, "retry-after"), Some("42"));
+    assert_eq!(val_of(&out, "x-should-retry"), Some("false"));
+    assert_eq!(
+        val_of(&out, "anthropic-ratelimit-unified-status"),
+        Some("allowed_warning")
+    );
+    assert_eq!(
+        val_of(&out, "anthropic-ratelimit-unified-reset"),
+        Some("1758441600")
+    );
+    assert_eq!(
+        val_of(&out, "content-type"),
+        Some("application/json"),
+        "上游 content-type 原样保留，不被 axum 的 text/plain 顶掉"
+    );
+    for stripped in [
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "content-encoding",
+    ] {
+        assert!(
+            !has(&out, stripped),
+            "{stripped} 必剔（与 2xx 路径同黑名单）"
+        );
+    }
+}
+
+/// 上游没给 content-type 时兜底 application/json（错误体是 JSON，不是 text/plain）。
+#[test]
+fn error_response_falls_back_to_json_content_type() {
+    let out = error_response_headers(&rq_headers(&[("retry-after", "3")]), false);
+    assert_eq!(
+        val_of(&out, "content-type"),
+        Some("application/json")
+    );
+    assert_eq!(val_of(&out, "retry-after"), Some("3"));
+}
+
+/// 正文被中间件 error_rule 换掉时，上游 content-type 不再描述它 → 剔掉走兜底，
+/// 但重试/限流头照常带回（它们描述的是这次请求的结果，与正文换没换无关）。
+#[test]
+fn error_response_drops_stale_content_type_when_body_overridden() {
+    let src = rq_headers(&[
+        ("content-type", "text/html; charset=utf-8"),
+        ("retry-after", "7"),
+    ]);
+    let out = error_response_headers(&src, true);
+    assert_eq!(
+        val_of(&out, "content-type"),
+        Some("application/json")
+    );
+    assert_eq!(val_of(&out, "retry-after"), Some("7"));
 }

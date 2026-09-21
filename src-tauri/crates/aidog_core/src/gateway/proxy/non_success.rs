@@ -29,6 +29,8 @@ pub(crate) async fn handle_non_success(
         .map(str::to_string);
     // 中间件 response_headers 条件用；同样须在 text() 消费 resp 前取。
     let resp_headers_json = upstream_headers_to_json(resp.headers());
+    // 回客户端时透传用；同样须在 text() 消费 resp 前取。
+    let upstream_resp_headers = resp.headers().clone();
     let body = resp.text().await.unwrap_or_default();
     let duration_ms = start.elapsed().as_millis() as i64;
     let code = status.as_u16();
@@ -105,8 +107,11 @@ pub(crate) async fn handle_non_success(
     //   仅 401 鉴权失败、402 余额不足。403 一律不冷却（区域封锁常返 403，误伤代价高）；
     //   区域封锁的 401 同样不冷却（is_region_blocked 按 message 文本分类）。不写 DB status：
     //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
-    if (code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body))) || code == 402 {
-        state.scheduler.set_auth_cooldown(route.platform.id, aidog_db::now());
+    if (code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body))) || code == 402
+    {
+        state
+            .scheduler
+            .set_auth_cooldown(route.platform.id, aidog_db::now());
         tracing::warn!(
             platform = %route.platform.name, platform_id = route.platform.id, status = code,
             cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
@@ -165,6 +170,9 @@ pub(crate) async fn handle_non_success(
     }
 
     // ── 应用 error_rule override_status/body（若有）回客户端 ──
+    let body_overridden = err_class
+        .as_ref()
+        .is_some_and(|c| c.override_body.is_some());
     let (out_code, out_body) = match err_class {
         Some(c) => (
             c.override_status.unwrap_or(code),
@@ -172,6 +180,9 @@ pub(crate) async fn handle_non_success(
         ),
         None => (code, body.clone()),
     };
+    // 透传上游响应头（与 2xx 路径同一条黑名单），理由见 error_response_headers 的文档注释。
+    let filtered = error_response_headers(&upstream_resp_headers, body_overridden);
+
     log.platform_id = route.platform.id;
     log.response_body = body.clone();
     log.status_code = out_code as i32;
@@ -179,7 +190,8 @@ pub(crate) async fn handle_non_success(
     // 漏置位会让 upsert_log 的 is_terminal 恒 false → 既不 emit 也不进 stats_agg。
     log.done = true;
     log.user_response_body = out_body.clone();
-    log.user_response_headers = log.upstream_response_headers.clone();
+    // 日志字段 = 实际发回客户端的头集合（与 finish.rs 的 2xx 路径同语义）
+    log.user_response_headers = resp_headers_to_log_json(&filtered);
     log.duration_ms = duration_ms as i32;
     log.retry_count = (attempts.len() as i32 - 1).max(0);
     log.attempts = std::mem::take(attempts);
@@ -189,6 +201,10 @@ pub(crate) async fn handle_non_success(
         out_body,
     )
         .into_response();
+    // into_response 对 String 写死 content-type: text/plain；HeaderMap::extend 是 append 语义，
+    // 直接 extend 会留下重复的 content-type（text/plain + 真实值），故先 remove 再 extend。
+    r.headers_mut().remove(axum::http::header::CONTENT_TYPE);
+    r.headers_mut().extend(filtered);
     inject_trace_header(&mut r);
     AttemptOutcome::Respond(r)
 }

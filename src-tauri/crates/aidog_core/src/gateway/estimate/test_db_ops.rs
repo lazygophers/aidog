@@ -238,7 +238,11 @@ async fn calibrate_from_quota_aligns_coding_plan() {
     // chart-engine T4 / #34：coding plan 无按量余额，不落 quota_snapshot（防 0 污染趋势）。
     let snaps = aidog_stats::quota_snapshots(
         &db,
-        &QuotaSnapshotsQuery { start: None, end: None, platform_id: Some(id) },
+        &QuotaSnapshotsQuery {
+            start: None,
+            end: None,
+            platform_id: Some(id),
+        },
     )
     .await
     .unwrap();
@@ -282,7 +286,11 @@ async fn calibrate_from_quota_aligns_balance() {
     // chart-engine T4 / #34：真查成功顺手落一条 quota_snapshot（值 = 真实余额）。
     let snaps = aidog_stats::quota_snapshots(
         &db,
-        &QuotaSnapshotsQuery { start: None, end: None, platform_id: Some(id) },
+        &QuotaSnapshotsQuery {
+            start: None,
+            end: None,
+            platform_id: Some(id),
+        },
     )
     .await
     .unwrap();
@@ -503,9 +511,18 @@ fn claim_refresh_slot_dedups_same_target() {
     let now = 1_700_000_000_000i64;
     let pid = 987_654u64; // 本测试专用 id，避免与其他测试共用全局表冲突
     assert!(claim_refresh_slot(pid, now + 3_600_000, now));
-    assert!(!claim_refresh_slot(pid, now + 3_600_000, now), "同时刻不重复排");
-    assert!(!claim_refresh_slot(pid, now + 3_630_000, now), "相差 <60s 视作同一次");
-    assert!(claim_refresh_slot(pid, now + 7_200_000, now), "另一个时刻单独排");
+    assert!(
+        !claim_refresh_slot(pid, now + 3_600_000, now),
+        "同时刻不重复排"
+    );
+    assert!(
+        !claim_refresh_slot(pid, now + 3_630_000, now),
+        "相差 <60s 视作同一次"
+    );
+    assert!(
+        claim_refresh_slot(pid, now + 7_200_000, now),
+        "另一个时刻单独排"
+    );
     // 已排的时刻到点后（now 越过它）不再挡新的一次
     assert!(claim_refresh_slot(pid, now + 7_200_000, now + 7_200_001));
 }

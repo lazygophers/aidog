@@ -125,13 +125,7 @@ pub async fn select_candidates_ctx(
         mut probe,
         breaker_rejected,
         peak_disabled_count,
-    } = filter_candidates(
-        &group_platforms,
-        ctx,
-        now_ms,
-        source_model,
-        &extra_cache,
-    );
+    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache);
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；

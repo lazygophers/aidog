@@ -140,7 +140,16 @@ fn calibrate_reset_discards_sample() {
 #[test]
 fn calibrate_kimi_records_base() {
     let prev = EstTier::default();
-    let cal = calibrate_tier(&prev, "five_hour", 30.0, true, Some(20_000.0), None, now(), "tokens");
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        30.0,
+        true,
+        Some(20_000.0),
+        None,
+        now(),
+        "tokens",
+    );
     assert!(cal.has_base);
     assert!((cal.limit - 20_000.0).abs() < 1e-9);
     assert!((cal.est_utilization - 30.0).abs() < 1e-9);
@@ -256,7 +265,8 @@ fn calibrate_with_resets_at_iso_and_millis() {
         false,
         None,
         Some("2030-01-01T00:00:00Z"),
-        now(), "tokens",
+        now(),
+        "tokens",
     );
     assert!(cal.window_start != 0);
     // bare millis (>1e12) resets_at
@@ -267,7 +277,8 @@ fn calibrate_with_resets_at_iso_and_millis() {
         false,
         None,
         Some("1893456000000"),
-        now(), "tokens",
+        now(),
+        "tokens",
     );
     assert!(cal2.window_start != 0);
     // bare seconds (<1e12) resets_at → ×1000
@@ -278,7 +289,8 @@ fn calibrate_with_resets_at_iso_and_millis() {
         false,
         None,
         Some("1893456000"),
-        now(), "tokens",
+        now(),
+        "tokens",
     );
     assert!(cal3.window_start != 0);
     // unparseable resets_at → keep prev.window_start (0)
@@ -289,7 +301,8 @@ fn calibrate_with_resets_at_iso_and_millis() {
         false,
         None,
         Some("not-a-date"),
-        now(), "tokens",
+        now(),
+        "tokens",
     );
     assert_eq!(cal4.window_start, prev.window_start);
     // unknown name → no cycle → keep prev.window_start
@@ -300,7 +313,8 @@ fn calibrate_with_resets_at_iso_and_millis() {
         false,
         None,
         Some("2030-01-01T00:00:00Z"),
-        now(), "tokens",
+        now(),
+        "tokens",
     );
     assert_eq!(cal5.window_start, prev.window_start);
 }
@@ -432,8 +446,21 @@ fn calibrate_fits_coef_per_request() {
         ..Default::default()
     };
     // 真查：util 30→50，40 次请求 → coef_per_request = 0.5
-    let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None, None, now(), "prompt_count");
-    assert!((cal.coef_per_request - 0.5).abs() < 1e-12, "got {}", cal.coef_per_request);
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        50.0,
+        false,
+        None,
+        None,
+        now(),
+        "prompt_count",
+    );
+    assert!(
+        (cal.coef_per_request - 0.5).abs() < 1e-12,
+        "got {}",
+        cal.coef_per_request
+    );
     assert_eq!(cal.coef_per_token, 0.0, "prompt_count 口径不动 token coef");
     assert_eq!(cal.unit, "prompt_count");
     assert_eq!(cal.requests_since_real, 0.0);
@@ -449,7 +476,16 @@ fn calibrate_prompt_count_reset_keeps_coefs() {
         coef_per_token: 0.0001,
         ..Default::default()
     };
-    let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None, None, now(), "prompt_count");
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        5.0,
+        false,
+        None,
+        None,
+        now(),
+        "prompt_count",
+    );
     assert!((cal.coef_per_request - 0.4).abs() < 1e-12);
     assert!((cal.coef_per_token - 0.0001).abs() < 1e-12);
 }
@@ -468,7 +504,10 @@ fn est_coding_plan_old_json_backcompat() {
     // 缺省 unit 的 tier 仍走 token 增量（旧行为）
     let mut tier = t.clone();
     apply_tier_delta(&mut tier, 1, 10_000.0);
-    assert!((tier.est_utilization - 52.5).abs() < 1e-9, "10_000 × (100/100_000) = +10%");
+    assert!(
+        (tier.est_utilization - 52.5).abs() < 1e-9,
+        "10_000 × (100/100_000) = +10%"
+    );
 }
 
 // 旧 JSON 无 unit 但 name=mcp_monthly：历史特判保留，不增量

@@ -49,5 +49,9 @@ fn anchors_in_missing_or_noncount() {
 #[test]
 fn default_anchors_from_bundled_registry() {
     let anchors = default_plan_quota_anchors("bailian_coding");
-    assert!(anchors.iter().any(|t| t.name == "five_hour" && (t.limit - 6000.0).abs() < 1e-9));
+    assert!(
+        anchors
+            .iter()
+            .any(|t| t.name == "five_hour" && (t.limit - 6000.0).abs() < 1e-9)
+    );
 }

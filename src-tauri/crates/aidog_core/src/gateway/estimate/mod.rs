@@ -28,13 +28,13 @@ pub use algo::{
     tier_usage_level,
 };
 #[allow(unused_imports)]
+pub use anchors::{anchors_in, default_plan_quota_anchors};
+#[allow(unused_imports)]
 pub use db_ops::{
     apply_balance_delta, apply_coding_plan_delta, build_calibrated_coding_plan,
     calibrate_from_quota, estimate_after_request, read_estimate_state, seed_plan_anchor_if_empty,
     spawn_refresh_at, write_rate_limit, write_real_quota,
 };
-#[allow(unused_imports)]
-pub use anchors::{anchors_in, default_plan_quota_anchors};
 #[allow(unused_imports)]
 pub use model::{CALIBRATE_COUNT, CALIBRATE_INTERVAL_MS, EstCodingPlan, EstTier};
 #[allow(unused_imports)]

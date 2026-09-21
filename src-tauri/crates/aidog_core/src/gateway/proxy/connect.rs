@@ -139,34 +139,28 @@ async fn handle_connect_inner(
     // ── 非 MITM 候选：P1 完整逻辑（spawn 前 TCP 验证 + 502 早返，零回归）─────────────
     if !mitm_candidate {
         // P2-A/B/C：TCP 连接套 timeout + 熔断/last_error 记账（命中平台时）。
-        let upstream = match tcp_connect_accounted(
-            &state,
-            &target,
-            platform_id,
-            conn_timeout_secs,
-        )
-        .await
-        {
-            Ok(s) => s,
-            Err(()) => {
-                if log_enabled {
-                    upsert_connect_log(
-                        &state,
-                        request_id,
-                        String::new(),
-                        platform_id,
-                        target.clone(),
-                        502,
-                        start.elapsed().as_millis() as i32,
-                    )
-                    .await;
+        let upstream =
+            match tcp_connect_accounted(&state, &target, platform_id, conn_timeout_secs).await {
+                Ok(s) => s,
+                Err(()) => {
+                    if log_enabled {
+                        upsert_connect_log(
+                            &state,
+                            request_id,
+                            String::new(),
+                            platform_id,
+                            target.clone(),
+                            502,
+                            start.elapsed().as_millis() as i32,
+                        )
+                        .await;
+                    }
+                    let mut r = (StatusCode::BAD_GATEWAY, format!("connect {target} failed"))
+                        .into_response();
+                    inject_trace_header(&mut r);
+                    return r;
                 }
-                let mut r =
-                    (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
-                inject_trace_header(&mut r);
-                return r;
-            }
-        };
+            };
         return spawn_blind_relay(
             state,
             on_upgrade,
@@ -229,7 +223,7 @@ async fn handle_connect_inner(
                     &target,
                     request_id,
                     platform_id,
-                            conn_timeout_secs,
+                    conn_timeout_secs,
                     start,
                     log_enabled,
                     &[],
@@ -517,11 +511,7 @@ pub(crate) async fn tcp_connect_accounted(
 
 /// P2-B/C 失败记账：record_ignored（网络类失败不降权——不计熔断、不动 EMA，仅 inflight-1）+
 /// set_platform_last_error。未命中平台（platform_id=0）→ 仅返回（无平台可挂）。
-async fn record_connect_failure(
-    st: &Arc<ProxyState>,
-    platform_id: u64,
-    err_msg: String,
-) {
+async fn record_connect_failure(st: &Arc<ProxyState>, platform_id: u64, err_msg: String) {
     if platform_id == 0 {
         return;
     }

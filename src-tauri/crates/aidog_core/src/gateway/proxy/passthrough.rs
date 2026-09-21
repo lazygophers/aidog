@@ -387,7 +387,9 @@ pub(crate) fn build_context_map(
 ) -> std::collections::HashMap<String, i64> {
     let mut map: std::collections::HashMap<String, i64> = std::collections::HashMap::new();
     for e in entries {
-        let Some(ctx) = e.max_input_tokens.or(e.context_window) else { continue };
+        let Some(ctx) = e.max_input_tokens.or(e.context_window) else {
+            continue;
+        };
         match map.get_mut(&e.canonical_model) {
             Some(v) => *v = (*v).max(ctx),
             None => {

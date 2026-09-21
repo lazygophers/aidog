@@ -103,7 +103,10 @@ pub async fn seed_plan_anchor_if_empty(db: &Db, platform_id: u64, protocol: &str
     if !EstCodingPlan::from_json(&json).tiers.is_empty() {
         return false;
     }
-    let plan = EstCodingPlan { tiers: anchors, level: None };
+    let plan = EstCodingPlan {
+        tiers: anchors,
+        level: None,
+    };
     write_real_quota(db, platform_id, 0.0, &plan.to_json(), now())
         .await
         .is_ok()
@@ -224,9 +227,8 @@ pub async fn calibrate_from_quota(
 
 /// 已排定的重置刷新（platform_id → 目标时刻 unix ms）。同一平台同一时刻只排一次定时。
 /// 内存态：进程重启即空，由冷启动真查重新排（见 `cold_start_init_estimates`）。
-static RESET_REFRESH: std::sync::OnceLock<
-    std::sync::Mutex<std::collections::HashMap<u64, i64>>,
-> = std::sync::OnceLock::new();
+static RESET_REFRESH: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<u64, i64>>> =
+    std::sync::OnceLock::new();
 
 /// 排入去重表：已有一个「未到点且时刻相差 <60s」的定时 → 返回 false（不重复排）。
 fn claim_refresh_slot(platform_id: u64, at_ms: i64, now_ms: i64) -> bool {
