@@ -849,6 +849,7 @@
   "mitm.whitelistTitle": "解密白名单",
   "nav.about": "关于",
   "nav.claudeConfig": "Claude Code",
+  "nav.collapse": "收起侧栏",
   "nav.codex": "Codex",
   "nav.groups": "分组路由",
   "nav.home": "首页",

@@ -78,6 +78,13 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
 
+  config:
+    # 钉在 CocoaPods 上。不钉的话 `flutter run` 会**擅自**把 macos/Runner.xcodeproj 迁到
+    # Swift Package Manager 并清空 Podfile.lock —— 每跑一次开发模式工作区就脏一次，而且
+    # flutter 自己就警告过 `auto_updater_macos` 不支持 SPM。发版走的是 CocoaPods 这条路
+    # （`flutter build macos --release` 已验证过），开发模式必须和它同一条路。
+    enable-swift-package-manager: false
+
   # The following line ensures that the Material Icons font is
   # included with your application, so that you can use the icons in
   # the material Icons class.
@@ -89,6 +96,8 @@ flutter:
     - assets/settings_schema.json
     # Claude Code 推荐配置 = 后端内置默认，与 React 版同一个文件（零第二份拷贝）。
     - assets/claude_default_settings.json
+    # 品牌标。由 `node scripts/gen-flutter-icons.mjs` 从 src-tauri/icons/ 同步，禁手改。
+    - assets/logo.webp
 
   # To add assets to your application, add an assets section, like this:
   # assets:

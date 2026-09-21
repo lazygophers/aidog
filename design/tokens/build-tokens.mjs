@@ -21,12 +21,18 @@ for (const [k, v] of Object.entries(colors)) {
 }
 if (check.length) { console.error(check.join("\n")); process.exit(1); }
 
+// 行高。比例字要松（中文混排下 1.35 挤成一坨），等宽的数字要紧（数字块本来就靠行距成列，
+// 松了反而散）。两个值同时喂给 CSS 与 Dart，两端不会漂。
+const LEADING_SANS = 1.55;
+const LEADING_MONO = 1.35;
+const leadingOf = (v) => (v.mono ? LEADING_MONO : LEADING_SANS);
+
 // ── CSS ──
 const cssVars = (mode) => Object.entries(colors).map(([k, v]) => `  --${k}: ${v[mode]};`).join("\n");
 const scale = (name, obj) => Object.entries(drop(obj)).map(([k, v]) =>
   `  --${name}-${k}: ${typeof v === "number" ? v + "px" : v};`).join("\n");
 const typeVars = Object.entries(drop(T.type)).filter(([, v]) => typeof v === "object").map(([k, v]) =>
-  `  --font-${k}: ${v.weight} ${v.size}px/1.35 var(${v.mono ? "--family-mono" : "--family-sans"});\n` +
+  `  --font-${k}: ${v.weight} ${v.size}px/${leadingOf(v)} var(${v.mono ? "--family-mono" : "--family-sans"});\n` +
   `  --tracking-${k}: ${v.tracking}em;`).join("\n");
 
 const out = {};
@@ -107,7 +113,7 @@ class AidogType {
   static const familyMono = 'JetBrains Mono';
 ${Object.entries(drop(T.type)).filter(([, v]) => typeof v === "object").map(([k, v]) =>
   `  static const ${dartField(k)} = TextStyle(fontFamily: ${v.mono ? "familyMono" : "familySans"}, ` +
-  `fontSize: ${v.size.toFixed(1)}, fontWeight: FontWeight.w${v.weight}, letterSpacing: ${(v.tracking * v.size).toFixed(2)}, height: 1.35);`).join("\n")}
+  `fontSize: ${v.size.toFixed(1)}, fontWeight: FontWeight.w${v.weight}, letterSpacing: ${(v.tracking * v.size).toFixed(2)}, height: ${leadingOf(v)});`).join("\n")}
 }
 
 class AidogMotion {

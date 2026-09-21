@@ -849,6 +849,7 @@
   "mitm.whitelistTitle": "Lista blanca de descifrado",
   "nav.about": "Acerca de",
   "nav.claudeConfig": "Claude Code",
+  "nav.collapse": "Contraer barra lateral",
   "nav.codex": "Codex",
   "nav.groups": "Grupos y rutas",
   "nav.home": "Inicio",
