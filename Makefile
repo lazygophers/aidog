@@ -79,6 +79,8 @@ lint: ## Run linters
 	node scripts/gen-flutter-icons.mjs --check
 	@printf "$(CYAN)▶ Flutter underline check...$(RESET)\n"
 	node scripts/check-flutter-underline.mjs
+	@printf "$(CYAN)▶ UI parity check（React 的文案 key 在 Flutter 侧必须都有）...$(RESET)\n"
+	node scripts/check-ui-parity.mjs
 	@printf "$(CYAN)▶ Flutter analyze...$(RESET)\n"
 	cd $(FLUTTER_DIR) && flutter analyze
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"
