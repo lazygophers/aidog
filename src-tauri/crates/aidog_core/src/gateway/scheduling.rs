@@ -476,7 +476,10 @@ mod tests {
         // 到点即失效
         assert!(!s.quota_cooled(7, now + 5000));
         // 冷却不影响熔断维度（仍 Allow）
-        assert_eq!(s.admission(7, &thresholds(3, 30, 2), now, true), Admission::Allow);
+        assert_eq!(
+            s.admission(7, &thresholds(3, 30, 2), now, true),
+            Admission::Allow
+        );
     }
 
     #[test]
@@ -493,7 +496,10 @@ mod tests {
         s.set_auth_cooldown(8, now - 10_000);
         assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
         // 冷却不影响熔断维度（仍 Allow）
-        assert_eq!(s.admission(8, &thresholds(3, 30, 2), now, true), Admission::Allow);
+        assert_eq!(
+            s.admission(8, &thresholds(3, 30, 2), now, true),
+            Admission::Allow
+        );
     }
 
     #[test]

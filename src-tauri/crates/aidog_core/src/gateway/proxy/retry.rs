@@ -60,15 +60,37 @@ pub(crate) fn filter_upstream_resp_headers(
     out
 }
 
+/// 非 2xx 回客户端时的响应头集合：与 2xx 路径同一条黑名单，外加 content-type 兜底。
+///
+/// `retry-after` / `x-should-retry` / `anthropic-ratelimit-unified-*` 几乎只出现在 429/503 上，
+/// 全部落在错误路径；不透传等于对客户端 100% 不可见，客户端只能盲目重试。
+/// 出处: <https://code.claude.com/docs/en/llm-gateway-protocol#response-headers>
+///
+/// `body_overridden`：正文被中间件 error_rule 换掉时，上游的 content-type 不再描述它，剔掉后走兜底。
+pub(crate) fn error_response_headers(
+    src: &reqwest::header::HeaderMap,
+    body_overridden: bool,
+) -> Vec<(axum::http::HeaderName, axum::http::HeaderValue)> {
+    let mut filtered = filter_upstream_resp_headers(src, false);
+    if body_overridden {
+        filtered.retain(|(n, _)| n != axum::http::header::CONTENT_TYPE);
+    }
+    if !filtered
+        .iter()
+        .any(|(n, _)| n == axum::http::header::CONTENT_TYPE)
+    {
+        filtered.push((
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        ));
+    }
+    filtered
+}
+
 fn is_sensitive_log_header(name: &str) -> bool {
     matches!(
         name.to_ascii_lowercase().as_str(),
-        "authorization"
-            | "api-key"
-            | "x-api-key"
-            | "x-goog-api-key"
-            | "cookie"
-            | "set-cookie"
+        "authorization" | "api-key" | "x-api-key" | "x-goog-api-key" | "cookie" | "set-cookie"
     )
 }
 
@@ -119,8 +141,8 @@ pub(crate) fn classify_429(message: &str) -> bool {
     const QUOTA_MARKERS: [&str; 8] = [
         "quota exhausted",
         "用量上限",
-        "使用上限",  // GLM 1308「已达到 5 小时的使用上限」
-        "使用限制",  // 同族措辞（周/月限额）
+        "使用上限", // GLM 1308「已达到 5 小时的使用上限」
+        "使用限制", // 同族措辞（周/月限额）
         "token plan",
         "insufficient",
         "余额",

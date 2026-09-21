@@ -298,11 +298,9 @@ async fn handle_group_info_inner(
         .map(|t| t.window_start)
         .find(|&ws| ws > 0);
     let coding_window_cost = match since {
-        Some(since) => {
-            aidog_stats::sum_est_cost_since(&state.db, platform.id, since)
-                .await
-                .unwrap_or(0.0)
-        }
+        Some(since) => aidog_stats::sum_est_cost_since(&state.db, platform.id, since)
+            .await
+            .unwrap_or(0.0),
         None => 0.0,
     };
 

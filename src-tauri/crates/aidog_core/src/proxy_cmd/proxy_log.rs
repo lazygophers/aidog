@@ -1,9 +1,7 @@
 use crate::gateway;
 use aidog_db::Db;
 
-use gateway::models::{
-    ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary,
-};
+use gateway::models::{ProxyLog, ProxyLogFilter, ProxyLogPage, ProxyLogSettings, ProxyLogSummary};
 
 crate::tauri_command! {
 pub async fn proxy_log_list( limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
@@ -222,9 +220,12 @@ pub async fn run_retention_cleanup(db: &Db, settings: &ProxyLogSettings) {
     // quota_snapshot 同策略删整行（chart-engine T4 / #34，spec D4「retention 对齐 90d」：
     // 与 proxy_log retention_days 共用同一清理链与同一设置）。
     if settings.retention_days > 0
-        && let Err(e) =
-            aidog_stats::cleanup_quota_snapshots(db, settings.retention_days, settings.retention_unit)
-                .await
+        && let Err(e) = aidog_stats::cleanup_quota_snapshots(
+            db,
+            settings.retention_days,
+            settings.retention_unit,
+        )
+        .await
     {
         tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup quota_snapshots failed");
     }

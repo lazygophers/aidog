@@ -2341,8 +2341,15 @@ mod test_openai_max_completion_tokens {
             blocks[1]["image_url"].get("detail").is_none(),
             "auto 应被剔除: {b}"
         );
-        assert_eq!(blocks[1]["image_url"]["url"], json!("data:image/png;base64,AA"));
-        assert_eq!(blocks[2]["image_url"]["detail"], json!("high"), "显式值不动");
+        assert_eq!(
+            blocks[1]["image_url"]["url"],
+            json!("data:image/png;base64,AA")
+        );
+        assert_eq!(
+            blocks[2]["image_url"]["detail"],
+            json!("high"),
+            "显式值不动"
+        );
 
         let mut b = mk();
         assert_eq!(strip_default_image_detail(&mut b, &Protocol::Anthropic), 0);

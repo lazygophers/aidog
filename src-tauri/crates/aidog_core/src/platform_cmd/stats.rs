@@ -20,7 +20,6 @@ pub async fn stats_query_batch(
 }
 }
 
-
 crate::tauri_command! {
 /// 散点直方图（chart-engine D2 / #33）：proxy_log 逐请求 (duration, est_cost) 的
 /// 服务端 bin 化，返回 (duration_bin × cost_bin) 计数矩阵。独立 command 非 stats_query 扩展

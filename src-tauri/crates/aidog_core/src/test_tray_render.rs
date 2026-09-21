@@ -213,10 +213,7 @@ async fn default_segments_render_three_columns() {
         .iter()
         .map(|c| (c.name.as_str(), c.value.as_str()))
         .collect();
-    assert_eq!(
-        pairs,
-        vec![("花费", "$0"), ("命中", "—"), ("高峰", "平")]
-    );
+    assert_eq!(pairs, vec![("花费", "$0"), ("命中", "—"), ("高峰", "平")]);
 }
 
 #[test]

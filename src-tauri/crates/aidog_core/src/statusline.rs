@@ -5,7 +5,9 @@
 //! 并把 `statusLine` / `subagentStatusLine` 原生字段写进每组 settings。
 //! 前端只剩只读预览（`preview`），不再生成、不再落盘。
 
-use crate::shared::{aidog_scripts_dir, cleanup_legacy_root_script, cleanup_legacy_scripts_dir_file};
+use crate::shared::{
+    aidog_scripts_dir, cleanup_legacy_root_script, cleanup_legacy_scripts_dir_file,
+};
 use aidog_db::Db;
 use base64::{Engine as _, engine::general_purpose::STANDARD as B64};
 use serde::Deserialize;
@@ -181,9 +183,15 @@ fn group_rows(segs: &[&Seg]) -> Vec<Value> {
             Some((_, cur)) => seg.newline && !cur.is_empty(),
         };
         if need_new {
-            rows.push((seg.align.clone().unwrap_or_else(|| "left".into()), Vec::new()));
+            rows.push((
+                seg.align.clone().unwrap_or_else(|| "left".into()),
+                Vec::new(),
+            ));
         }
-        rows.last_mut().expect("row pushed above").1.push(seg_spec(seg));
+        rows.last_mut()
+            .expect("row pushed above")
+            .1
+            .push(seg_spec(seg));
     }
     rows.into_iter()
         .map(|(align, segs)| json!({ "align": align, "segs": segs }))
@@ -409,13 +417,16 @@ mod tests {
 
     #[test]
     fn auto_color_only_for_value_colorable() {
-        let s = &segs(r##"[{"type":"context-pct","enabled":true,"autoColor":true,"color":"#ffffff"}]"##)[0];
+        let s = &segs(
+            r##"[{"type":"context-pct","enabled":true,"autoColor":true,"color":"#ffffff"}]"##,
+        )[0];
         let spec = seg_spec(s);
         assert_eq!(spec["autoColor"], true);
         assert!(spec["rgb"].is_null());
 
         // model 不在 VALUE_COLORABLE：autoColor 失效，颜色照常生效。
-        let s = &segs(r##"[{"type":"model","enabled":true,"autoColor":true,"color":"#ffffff"}]"##)[0];
+        let s =
+            &segs(r##"[{"type":"model","enabled":true,"autoColor":true,"color":"#ffffff"}]"##)[0];
         let spec = seg_spec(s);
         assert_eq!(spec["autoColor"], false);
         assert_eq!(spec["rgb"], "255;255;255");

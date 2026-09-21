@@ -52,19 +52,21 @@ fn models_response_headers_log(headers: &reqwest::header::HeaderMap) -> String {
             value.to_str().ok().map(|value| {
                 (
                     name.as_str().to_string(),
-                    serde_json::Value::String(if matches!(
-                        name.as_str().to_ascii_lowercase().as_str(),
-                        "authorization"
-                            | "api-key"
-                            | "x-api-key"
-                            | "x-goog-api-key"
-                            | "cookie"
-                            | "set-cookie"
-                    ) {
-                        "[REDACTED]".to_string()
-                    } else {
-                        value.to_string()
-                    }),
+                    serde_json::Value::String(
+                        if matches!(
+                            name.as_str().to_ascii_lowercase().as_str(),
+                            "authorization"
+                                | "api-key"
+                                | "x-api-key"
+                                | "x-goog-api-key"
+                                | "cookie"
+                                | "set-cookie"
+                        ) {
+                            "[REDACTED]".to_string()
+                        } else {
+                            value.to_string()
+                        },
+                    ),
                 )
             })
         })
