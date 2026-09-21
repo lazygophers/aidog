@@ -2161,6 +2161,32 @@ mod test_field_passthrough {
         assert_eq!(b["top_k"], json!(1));
     }
 
+    /// anthropic→anthropic 透传分支上 `safeguards` 必须原样到上游。
+    ///
+    /// Claude Code 的 auto mode 把安全审查请求放在请求体顶层 `safeguards` 字段，配对 beta 头
+    /// `dangerous-tool-use-2026-09-03`；上游把结论放回 `safeguard_results`。网关删掉、改写其中任何
+    /// 一半，客户端整个 session 降级并改为自费分类器请求。透传分支上本函数是 no-op（出站 body 就是
+    /// 客户端原体，见本文件 `same_protocol_passthrough` 分支的 `req_value.clone()`），本测试守住这点。
+    ///
+    /// 出处：<https://code.claude.com/docs/en/llm-gateway-protocol#feature-pass-through>
+    #[test]
+    fn anthropic_passthrough_keeps_safeguards_field() {
+        let src = json!({
+            "model": "claude-opus-4-8",
+            "messages": [],
+            "safeguards": [{"type": "dangerous_tool_use", "classifier_context": {"v": 1}}]
+        });
+        let mut b = src.clone();
+        apply_field_passthrough(
+            &mut b,
+            &src,
+            &Protocol::Anthropic,
+            "https://api.anthropic.com/v1/messages",
+        );
+        assert_eq!(b["safeguards"], src["safeguards"]);
+        assert_eq!(b, src, "透传分支上本函数是 no-op");
+    }
+
     /// 透传分支：客户端原体即出站 body，本函数不得删掉任何既有字段（只补不删）。
     #[test]
     fn passthrough_body_keeps_its_own_unknown_fields() {
