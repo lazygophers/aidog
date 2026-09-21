@@ -1,0 +1,4 @@
+{
+  "$comment": "界面对齐的例外清单，被 scripts/check-ui-parity.mjs 读取。加一条 = 把一个缺口洗白，提交信息里必须写明理由。type 只能是 synonym（两侧都实现、key 取名不同）或 intentional（明知有、决定不做）。evidence 必填且必须是 file:line。判定规则见 .scratch/flutter-ui-parity/issues/02-what-counts-as-gap.md。",
+  "exceptions": []
+}
