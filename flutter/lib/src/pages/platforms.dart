@@ -79,6 +79,10 @@ class _PlatformsPageState extends State<PlatformsPage> {
   ({String text, bool ok})? _toast;
   Timer? _toastTimer;
 
+  /// 分组区交上来的「打开新建分组」，给页头那颗「+ 添加分组」用
+  /// （React 的 `openCreateGroupRef`，`PlatformListView.tsx:104-106`）。
+  VoidCallback? _openCreateGroup;
+
   @override
   void initState() {
     super.initState();
@@ -183,6 +187,13 @@ class _PlatformsPageState extends State<PlatformsPage> {
                 label: t.t('platform.purgeDisabled'),
                 onTap: _c.askPurgeDisabled,
               ),
+              // 缺口清单「平台页缺口」#37：页头「+ 添加分组」。分组区没渲染
+              //（`showGroups: false` 的单页测试）时按钮不出现。
+              if (widget.showGroups)
+                SmallButton(
+                  label: '+ ${t.t('group.add')}',
+                  onTap: _openCreateGroup,
+                ),
               // 缺口清单「平台页缺口」#2：页头「+ 添加平台」。
               SmallButton(
                 label: '+ ${t.t('platform.add')}',
@@ -197,6 +208,17 @@ class _PlatformsPageState extends State<PlatformsPage> {
             onToast: _showToast,
             // 分组区删平台之后，主列表要把那几行局部移掉（不整页重拉）。
             onPlatformsDeleted: _c.removePlatformsByIds,
+            // 分组区是子 widget，`openCreate` 在它 initState 里才拿得到；
+            // 拿到时页头这一帧已经画完了，所以补一帧重建让按钮可点。
+            onCreateGroupReady: (open) {
+              if (_openCreateGroup != null) return;
+              _openCreateGroup = open;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) setState(() {});
+              });
+            },
+            // 缺口 #8：未分组平台拖进分组。
+            onPlatformDropped: _c.moveIntoGroup,
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
@@ -220,7 +242,14 @@ class _PlatformsPageState extends State<PlatformsPage> {
               return Padding(
                 key: ValueKey(p.id),
                 padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-                child: PlatformCard(
+                // 缺口 #8：按住卡片空白区拖到上方任一分组卡即加入该分组。
+                // 排序手柄自带 ReorderableDragStartListener（更靠内层，手势竞技场里
+                // 先注册先胜出），所以从手柄起手的拖拽仍然是排序不是入组。
+                child: Draggable<int>(
+                  data: p.id,
+                  dragAnchorStrategy: pointerDragAnchorStrategy,
+                  feedback: _DragLabel(name: p.name),
+                  child: PlatformCard(
                   c: _c,
                   platform: p,
                   index: i,
@@ -247,6 +276,7 @@ class _PlatformsPageState extends State<PlatformsPage> {
                       (widget.onEditPlatform ?? _form.handleEdit)(p),
                   onDuplicate: () =>
                       (widget.onDuplicatePlatform ?? _form.handleDuplicate)(p),
+                  ),
                 ),
               );
             },
@@ -335,6 +365,45 @@ class _PlatformsPageState extends State<PlatformsPage> {
           ),
         if (_toast != null) ToastBar(text: _toast!.text, ok: _toast!.ok),
       ],
+    );
+  }
+}
+
+/// 拖拽时跟着指针走的小标签（`PlatformListView.tsx:223-235` 的 groupDrag portal）。
+class _DragLabel extends StatelessWidget {
+  const _DragLabel({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Transform.translate(
+      // React 那边标签偏在指针右下 14px，这里照抄。
+      offset: const Offset(14, 14),
+      child: Material(
+        color: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.smd,
+            vertical: AidogSpace.sxs,
+          ),
+          decoration: BoxDecoration(
+            // React 用的是实心 accent + primary-foreground；token 表里没有
+            // 「accent 上的前景色」，所以换成同一套里的 wash + 描边 + accentText。
+            color: theme.c.accentWash,
+            border: Border.all(color: theme.c.accent),
+            borderRadius: BorderRadius.circular(AidogRadius.md),
+          ),
+          child: Text(
+            name,
+            style: AidogType.micro.copyWith(
+              color: theme.c.accentText,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
