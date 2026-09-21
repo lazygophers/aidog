@@ -20,7 +20,6 @@ fn build_upstream_headers_passes_through_and_overrides_auth() {
         &crate::gateway::models::Protocol::Anthropic,
         "sk-realkey-1234567890",
         &orig,
-        "https://api.anthropic.com/v1/messages",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -42,9 +41,12 @@ fn build_upstream_headers_passes_through_and_overrides_auth() {
     assert_eq!(m.get("Content-Type"), Some(&"application/json"));
 }
 
-// ── 第三方 anthropic 兼容端点：anthropic-beta 剔除（不认新 beta token，原样透传致 GLM 400 code 1210）──
+// ── anthropic-beta 一律 verbatim 转发（含第三方端点）──
+// 官方明令禁按值 allowlist（https://code.claude.com/docs/en/llm-gateway-protocol#request-headers），
+// 且 2026-09-21 实测 GLM / CometAPI 对四种 beta 值全部 200。第三方真拒时由 forward.rs 的
+// beta 自动降级兜底（400 → 剔头重试一次），不在构建头这一层预先剔。
 #[test]
-fn build_upstream_headers_strips_anthropic_beta_for_third_party() {
+fn build_upstream_headers_keeps_anthropic_beta_for_third_party() {
     let mut orig = axum::http::HeaderMap::new();
     orig.insert(
         "anthropic-beta",
@@ -53,23 +55,25 @@ fn build_upstream_headers_strips_anthropic_beta_for_third_party() {
     orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
     orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
 
-    // GLM anthropic 兼容端点 → 剔 anthropic-beta，其余 SDK 头照常透传
     let h = build_upstream_headers(
         &ct("claude_code"),
         &crate::gateway::models::Protocol::Anthropic,
         "sk-realkey-1234567890",
         &orig,
-        "https://open.bigmodel.cn/api/anthropic/v1/messages",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
 
-    assert_eq!(
-        m.get("anthropic-beta"),
-        None,
-        "anthropic-beta must be stripped for third-party endpoint"
+    // claude_code 客户端模拟会用自己那套 beta 集合覆盖入站值（既有行为，与 host 无关）；
+    // 本测试守的是「第三方端点不再把这个头整个剔掉」，故只断言它存在且非空。
+    let beta = m
+        .get("anthropic-beta")
+        .expect("anthropic-beta must reach third-party endpoints, not be stripped");
+    assert!(
+        beta.contains("effort-2025-11-24"),
+        "beta 集合应含客户端模拟注入的值，实得 {beta}"
     );
-    // 非 beta 的 SDK 头仍透传（保留诊断信息 + 协议必需的 version）
+    // 非 beta 的 SDK 头同样透传（保留诊断信息 + 协议必需的 version）
     assert_eq!(m.get("anthropic-version"), Some(&"2023-06-01"));
     assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
 }
@@ -152,7 +156,7 @@ fn passthrough_convert_headers_strips_auth_and_ua() {
     orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
     orig.insert("x-custom-app", "my-app".parse().unwrap());
 
-    let out = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
+    let out = passthrough_convert_headers(&orig);
     assert!(
         !out.contains_key("authorization"),
         "auth stripped in convert path"
@@ -174,30 +178,19 @@ fn passthrough_convert_headers_strips_auth_and_ua() {
     assert!(out.contains_key("x-custom-app"));
 }
 
+/// 透传底座不按 host 分流：`anthropic-beta` 对官方与第三方一视同仁，原样带上。
 #[test]
-fn passthrough_convert_headers_strips_anthropic_beta_for_third_party() {
+fn passthrough_convert_headers_keeps_anthropic_beta() {
     let mut orig = axum::http::HeaderMap::new();
     orig.insert("anthropic-beta", "context-1m".parse().unwrap());
     orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
 
-    let out = passthrough_convert_headers(&orig, "https://open.bigmodel.cn/v1/messages");
-    assert!(
-        !out.contains_key("anthropic-beta"),
-        "beta stripped for third-party"
+    let out = passthrough_convert_headers(&orig);
+    assert_eq!(
+        out.get("anthropic-beta").and_then(|v| v.to_str().ok()),
+        Some("context-1m")
     );
     assert!(out.contains_key("anthropic-version"), "version kept");
-}
-
-#[test]
-fn passthrough_convert_headers_keeps_anthropic_beta_for_official() {
-    let mut orig = axum::http::HeaderMap::new();
-    orig.insert("anthropic-beta", "context-1m".parse().unwrap());
-
-    let out = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
-    assert!(
-        out.contains_key("anthropic-beta"),
-        "beta kept for official anthropic"
-    );
 }
 
 // ── is_sensitive_auth_header ──
@@ -223,7 +216,6 @@ fn build_upstream_headers_codex_openai() {
         &crate::gateway::models::Protocol::OpenAI,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.openai.com/v1/chat/completions",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -252,7 +244,6 @@ fn build_upstream_headers_codex_tui_openai() {
         &crate::gateway::models::Protocol::OpenAI,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.openai.com/v1/chat/completions",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -267,7 +258,6 @@ fn build_upstream_headers_codex_anthropic() {
         &crate::gateway::models::Protocol::Anthropic,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.anthropic.com/v1/messages",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -288,7 +278,6 @@ fn build_upstream_headers_cursor_and_windsurf() {
         &crate::gateway::models::Protocol::Anthropic,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.anthropic.com/v1/messages",
     );
     let m_cursor: std::collections::HashMap<&str, &str> = h_cursor
         .iter()
@@ -301,7 +290,6 @@ fn build_upstream_headers_cursor_and_windsurf() {
         &crate::gateway::models::Protocol::Anthropic,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.anthropic.com/v1/messages",
     );
     let m_windsurf: std::collections::HashMap<&str, &str> = h_windsurf
         .iter()
@@ -318,7 +306,6 @@ fn build_upstream_headers_default_client_gemini() {
         &crate::gateway::models::Protocol::Gemini,
         "AIza-test-key-1234567890",
         &orig,
-        "https://generativelanguage.googleapis.com/v1beta",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -340,7 +327,6 @@ fn build_upstream_headers_default_client_openai() {
         &crate::gateway::models::Protocol::OpenAI,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.openai.com/v1/chat/completions",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -368,7 +354,6 @@ fn build_upstream_headers_claude_code_variants() {
             &crate::gateway::models::Protocol::Anthropic,
             "sk-test-key-1234567890",
             &orig,
-            "https://api.anthropic.com/v1/messages",
         );
         let m: std::collections::HashMap<&str, &str> =
             h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -394,7 +379,6 @@ fn build_upstream_headers_codex_variants() {
             &crate::gateway::models::Protocol::OpenAI,
             "sk-test-key-1234567890",
             &orig,
-            "https://api.openai.com/v1/chat/completions",
         );
         let m: std::collections::HashMap<&str, &str> =
             h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -415,7 +399,6 @@ fn build_upstream_headers_cursor_openai() {
         &crate::gateway::models::Protocol::OpenAI,
         "sk-test-key-1234567890",
         &orig,
-        "https://api.openai.com/v1/chat/completions",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -431,7 +414,6 @@ fn build_upstream_headers_windsurf_gemini() {
         &crate::gateway::models::Protocol::Gemini,
         "AIza-test-key-1234567890",
         &orig,
-        "https://generativelanguage.googleapis.com/v1beta",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -531,7 +513,6 @@ fn build_upstream_headers_claude_code_gemini() {
         &crate::gateway::models::Protocol::Gemini,
         "AIza-test-key-1234567890",
         &orig,
-        "https://generativelanguage.googleapis.com/v1beta",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -546,7 +527,6 @@ fn build_upstream_headers_claude_code_openai_third_party() {
         &crate::gateway::models::Protocol::OpenAI,
         "sk-test-key-1234567890",
         &orig,
-        "https://third-party.example.com/v1/chat/completions",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -566,7 +546,6 @@ fn build_upstream_headers_codex_gemini() {
         &crate::gateway::models::Protocol::Gemini,
         "AIza-test-key-1234567890",
         &orig,
-        "https://generativelanguage.googleapis.com/v1beta",
     );
     let m: std::collections::HashMap<&str, &str> =
         h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
@@ -661,8 +640,8 @@ fn apply_client_headers_claude_code_anthropic() {
 }
 
 #[test]
-fn apply_client_headers_claude_code_anthropic_third_party_strips_beta() {
-    // 第三方 anthropic 兼容端点 → simulation 注入的 anthropic-beta 仍被剔（invariant 同 passthrough）
+fn apply_client_headers_claude_code_anthropic_third_party_keeps_beta() {
+    // 第三方 anthropic 兼容端点 → simulation 注入的 anthropic-beta 照样发（invariant 同 passthrough）
     let client = reqwest::Client::new();
     let rb = client.post("https://open.bigmodel.cn/api/anthropic/v1/messages");
     let rb = apply_client_headers(
@@ -673,8 +652,8 @@ fn apply_client_headers_claude_code_anthropic_third_party_strips_beta() {
     );
     let h = headers_from_builder(rb);
     assert!(
-        !h.contains_key("anthropic-beta"),
-        "anthropic-beta stripped for third-party endpoint"
+        h.contains_key("anthropic-beta"),
+        "anthropic-beta forwarded for third-party endpoint too"
     );
     // 其余特征头照常注入
     assert!(
@@ -1161,13 +1140,7 @@ fn build_upstream_headers_all_client_types_protocol_matrix() {
     ];
     for &c in ALL_CLIENT_TYPES {
         for (proto, proto_key) in &protocols {
-            let h = build_upstream_headers(
-                &ct(c),
-                proto,
-                "sk-realkey-1234567890",
-                &orig,
-                "https://api.example.com",
-            );
+            let h = build_upstream_headers(&ct(c), proto, "sk-realkey-1234567890", &orig);
             let m: std::collections::HashMap<&str, &str> =
                 h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
             assert_eq!(

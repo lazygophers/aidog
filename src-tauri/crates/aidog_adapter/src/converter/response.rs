@@ -237,9 +237,7 @@ pub fn to_client_sse(
         | CherryIn | PackyCode | Cubence | AiGoCode | RightCode | AiCodeMirror | Nvidia
         | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
         | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
-        | LemonData | PipeLlm | OpenCode | OpenCodeZen | NewApi | Devin => {
-            to_anthropic_sse(event)
-        }
+        | LemonData | PipeLlm | OpenCode | OpenCodeZen | NewApi | Devin => to_anthropic_sse(event),
     }
 }
 
@@ -358,6 +356,8 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
             })
         )),
         ChatStreamEvent::Usage { .. } => None,
+        // 上游的心跳原样转给 Anthropic 系客户端：它按字节计数，静默 300 秒就掐断整条流。
+        ChatStreamEvent::Ping => Some("event: ping\ndata: {\"type\":\"ping\"}\n\n".to_string()),
     }
 }
 
@@ -537,6 +537,7 @@ impl AnthropicSseState {
                 Some(parts.join(""))
             }
             ChatStreamEvent::Usage { .. } => None,
+            ChatStreamEvent::Ping => Some("event: ping\ndata: {\"type\":\"ping\"}\n\n".to_string()),
         }
     }
 

@@ -182,8 +182,19 @@ fn parse_sse_message_delta_and_stop() {
 
 #[test]
 fn parse_sse_unknown_type_none() {
-    assert!(parse_anthropic_sse(&json!({"type": "ping"})).is_none());
+    assert!(parse_anthropic_sse(&json!({"type": "nonsense_event"})).is_none());
     assert!(parse_anthropic_sse(&json!({})).is_none());
+}
+
+/// ping 是 keep-alive，2026-09-21 起不再被当未知事件丢掉：客户端按字节计数，
+/// 静默 300 秒即 abort，长思考期间这是唯一的流量。
+/// 出处: <https://code.claude.com/docs/en/llm-gateway-protocol#streaming>
+#[test]
+fn parse_sse_ping_is_kept() {
+    assert!(matches!(
+        parse_anthropic_sse(&json!({"type": "ping"})),
+        Some(ChatStreamEvent::Ping)
+    ));
 }
 
 #[test]
@@ -299,12 +310,26 @@ fn to_anthropic_media_block_dropped() {
         messages: vec![Message {
             role: Role::User,
             content: MessageContent::Blocks(vec![
-                ContentBlock::Text { text: "listen".into(), extra: None },
-                ContentBlock::Media { media_type: "audio/wav".into(), data: Some("aGVsbG8=".into()), url: None },
+                ContentBlock::Text {
+                    text: "listen".into(),
+                    extra: None,
+                },
+                ContentBlock::Media {
+                    media_type: "audio/wav".into(),
+                    data: Some("aGVsbG8=".into()),
+                    url: None,
+                },
             ]),
         }],
-        system: None, max_tokens: None, temperature: None, top_p: None, stream: None,
-        tools: None, tool_choice: None, extra: None, thinking_mode: None,
+        system: None,
+        max_tokens: None,
+        temperature: None,
+        top_p: None,
+        stream: None,
+        tools: None,
+        tool_choice: None,
+        extra: None,
+        thinking_mode: None,
     };
     let out = to_anthropic(&req);
     let arr = out.messages[0].content.as_array().unwrap();

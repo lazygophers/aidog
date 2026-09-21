@@ -577,6 +577,11 @@ pub enum ChatStreamEvent {
     /// 用量
     #[serde(rename = "usage")]
     Usage { usage: Usage },
+    /// 心跳（keep-alive）。只有 Anthropic Messages wire 有这个事件；客户端按字节计数，
+    /// 静默 300 秒即 abort 整条流，长思考期间心跳是唯一的流量。
+    /// 出处: <https://code.claude.com/docs/en/llm-gateway-protocol#streaming>
+    #[serde(rename = "ping")]
+    Ping,
 }
 
 #[cfg(test)]
@@ -851,7 +856,9 @@ mod tests {
         assert_eq!(v["data"], "aGVsbG8=");
         assert!(v.get("url").is_none());
         let back: ContentBlock = serde_json::from_value(v).unwrap();
-        assert!(matches!(back, ContentBlock::Media { media_type, data: Some(_), url: None } if media_type == "audio/wav"));
+        assert!(
+            matches!(back, ContentBlock::Media { media_type, data: Some(_), url: None } if media_type == "audio/wav")
+        );
 
         let m2 = ContentBlock::Media {
             media_type: "video/mp4".into(),
@@ -861,7 +868,14 @@ mod tests {
         let v2 = serde_json::to_value(&m2).unwrap();
         assert_eq!(v2["url"], "https://x/v.mp4");
         let back2: ContentBlock = serde_json::from_value(v2).unwrap();
-        assert!(matches!(back2, ContentBlock::Media { url: Some(_), data: None, .. }));
+        assert!(matches!(
+            back2,
+            ContentBlock::Media {
+                url: Some(_),
+                data: None,
+                ..
+            }
+        ));
     }
 
     #[test]

@@ -604,7 +604,10 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
             // 此前不分 mimeType 一律标 image，audio/video 会被 image 路径错送）：
             // image/* → image block（形状 = Anthropic image 结构），其余 → typed Media。
             if let Some(inline) = p.get("inlineData") {
-                let mime = inline.get("mimeType").and_then(|v| v.as_str()).unwrap_or("application/octet-stream");
+                let mime = inline
+                    .get("mimeType")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("application/octet-stream");
                 if mime.starts_with("image/") {
                     media_blocks.push(ContentBlock::Unknown(serde_json::json!({
                         "type": "image",
@@ -617,7 +620,10 @@ pub fn from_gemini(body: &Value) -> Option<ChatRequest> {
                 } else {
                     media_blocks.push(ContentBlock::Media {
                         media_type: mime.to_string(),
-                        data: inline.get("data").and_then(|v| v.as_str()).map(str::to_string),
+                        data: inline
+                            .get("data")
+                            .and_then(|v| v.as_str())
+                            .map(str::to_string),
                         url: None,
                     });
                 }
@@ -905,6 +911,8 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
             })
         }
         ChatStreamEvent::Usage { .. } => return None,
+        // gemini wire 没有 ping 事件，同 openai。
+        ChatStreamEvent::Ping => return None,
         ChatStreamEvent::ToolDelta { name, input, .. } => {
             let args: Value = input
                 .as_ref()

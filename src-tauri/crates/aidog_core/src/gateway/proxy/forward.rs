@@ -632,7 +632,6 @@ pub(crate) async fn forward_attempt(
         target_protocol_enum,
         &eff_api_key,
         orig_headers,
-        &url,
     );
 
     // ── 中间件 header 注入（inject / header_set，转换与透传两分支共用本 seam）──
@@ -640,7 +639,7 @@ pub(crate) async fn forward_attempt(
     // 写进透传底座（insert = 替换同名客户端头），底座里的名与 apply_client_headers 覆盖的
     // UA/auth/CT 不相交（后者全在拒绝名单里），故不会产生同名多值。
     let injected = sanitize_header_injects(&header_injects);
-    let mut passthrough_base = passthrough_convert_headers(orig_headers, &url);
+    let mut passthrough_base = passthrough_convert_headers(orig_headers);
     for (n, v) in &injected {
         passthrough_base.insert(n.clone(), v.clone());
         // 日志镜像实发：同名替换后追加（受 log_upstream_request 开关控制，值照常按敏感头脱敏）。
@@ -652,6 +651,30 @@ pub(crate) async fn forward_attempt(
         };
         upstream_headers.push((n.to_string(), shown));
     }
+
+    // ── anthropic-beta 自动降级的备用请求（与主请求同构，只少这一个头）──
+    // 背景：`anthropic-beta` 现在一律 verbatim 转发（官方明令禁按值 allowlist），但第三方兼容
+    // 端点不保证认识每个新 beta 值。实测 GLM / CometAPI 对四种值全 200，其余平台没 key 测不了，
+    // 故留这条兜底：第三方回 400 就剔头原地重试一次，成功即继续，客户端无感。
+    // 判据只用「400 + 本次带了这个头 + 上游非官方」，**不匹配报文措辞**——当初促成剔除规则的
+    // GLM 400 code 1210「API 调用参数有误」根本没点名这个头，按措辞匹配会漏掉它这类不透明错误。
+    // 代价是第三方的真·参数错也会多发一次请求（已经失败的路径上多一次，且每次 attempt 至多一次）。
+    let beta_retry_builder = (passthrough_base.contains_key("anthropic-beta")
+        && !is_official_anthropic_host(&url))
+    .then(|| {
+        let mut without_beta = passthrough_base.clone();
+        without_beta.remove("anthropic-beta");
+        apply_client_headers(
+            client
+                .post(&url)
+                .header("Content-Type", "application/json")
+                .headers(without_beta)
+                .body(req_body_str.clone()),
+            &client_type,
+            target_protocol_enum,
+            &eff_api_key,
+        )
+    });
 
     let mut req_builder = client
         .post(&url)
@@ -779,6 +802,27 @@ pub(crate) async fn forward_attempt(
                 );
             }
         }
+    };
+
+    // ── anthropic-beta 自动降级：第三方回 400 → 剔头原地重试一次 ──
+    // 重试发不出去就保留原始 400 走正常失败路径（降级是兜底，不该把失败换成另一种失败）。
+    let resp = match (resp.status().as_u16(), beta_retry_builder) {
+        (400, Some(retry)) => {
+            tracing::warn!(
+                url = %url, platform = %route.platform.name,
+                "third-party upstream rejected request with 400 while anthropic-beta was set, retrying once without it"
+            );
+            attempts.push(ProxyAttempt {
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: 400,
+                error: "400 with anthropic-beta (retrying without it)".to_string(),
+                duration_ms: attempt_start.elapsed().as_millis() as i64,
+                ts: attempt_ts,
+            });
+            retry.send().await.unwrap_or(resp)
+        }
+        _ => resp,
     };
 
     // ── 捕获上游响应 headers + status ──
