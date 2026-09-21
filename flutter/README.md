@@ -500,3 +500,30 @@ NUL 在编辑器里不可见、会让 grep / diff / 测试里的字符串字面�
 
 本票的 widget **没有引入逻辑层之外的新命令**，所以
 `test/settings/command_coverage_test.dart` 的 96/96 零差集继续成立，数字没动。
+
+## I19b 定下的（2026-09-21）：设置页的两条命令覆盖缺口
+
+补的是审计清单 `I18-alignment-gaps.md` 里的 C5 / C6，都挂在 **claude 设置页**上：
+
+- **C5 statusline 面板**（`settings/statusline_model.dart` 数据与纯函数 +
+  `settings/statusline_panel.dart` 界面）。挂在 claude 设置页的 `status` 分区，
+  顺序与 React 的 `StatusLineSection.tsx` 一致：StatusLine 面板 → SubagentStatusLine
+  面板 → `fileSuggestion` 字段 → 可用数据字段参考。脚本预览调
+  `preview_statusline_script`（只读，真正落盘的 `.py` 仍由 `do_sync_group_settings` 写）。
+- **C6 路径输入自动补全**（`settings/path_input.dart`）。schema 里带 `pathType` 的字段
+  （claude 页共 6 个）自动走它，调 `fs_autocomplete`。
+
+命令覆盖清单的生成脚本 `scripts/i08-react-settings-commands.mjs` 原本不扫
+`src/components/settings/editors/`，所以这两条命令一直没进清单、零差集测试照不出缺口。
+本票把那两层加进扫描范围（96 → 100 条），测试从此能管住它们。
+
+### 与 React 的未对齐（照实列）
+
+1. **段编辑器是页面内卡片，不是 Portal 弹窗** —— 与 `ImportDiffCard` /
+   `UnsavedChangesCard` 同一条既有约定（`ui_bits.dart:64`）。
+2. **排序用 `ReorderableListView` 的长按手柄**，不是 dnd-kit 的自定义 handle；
+   行为（拖动改顺序、改完重新推导行）一致。
+3. **颜色选择只有 hex 文本框，没有系统取色器**（React 那边是 `<input type="color">`）。
+   Flutter 没有等价的原生控件，引一个取色器包为一个字段不划算。
+4. `SandboxSection` 里的路径列表在 Flutter 侧仍是 JSON 编辑框（I16 既有缺口，
+   不属于本票范围），所以那几个路径输入还没有补全。
