@@ -24,8 +24,10 @@ import '../ui_bits.dart';
 import 'bits.dart';
 import 'hooks_editor.dart';
 import 'import_diff.dart';
+import 'path_input.dart';
 import 'permissions_editor.dart';
 import 'schema_config_logic.dart';
+import 'statusline_panel.dart';
 
 /// 三页的接线 + 文案 key，集中在一处。
 enum SchemaConfigKind {
@@ -68,6 +70,9 @@ class SchemaField {
   String? get description => raw['description'] as String?;
   String? get placeholder => raw['placeholder'] as String?;
   bool get skipGui => raw['skipGui'] == true;
+
+  /// `file` / `directory` —— 有值就走带补全的路径输入行（React `FieldRenderer.tsx:174`）。
+  String? get pathType => raw['pathType'] as String?;
   List<String> get options =>
       (raw['options'] as List? ?? const []).map((e) => '$e').toList();
 }
@@ -322,9 +327,24 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       );
     }
     final rows = <Widget>[];
+    // 状态栏区：React 侧是专用面板（StatusLineSection = 两个段编辑面板 +
+    // fileSuggestion 字段 + 数据字段参考表），不是逐字段铺开。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'status') {
+      rows.add(
+        StatusLineSectionBody(
+          key: const ValueKey('section-status'),
+          config: c.config,
+          updateField: c.updateField,
+          invoke: widget.invoke,
+        ),
+      );
+    }
     for (final f in s.fields) {
       if (f.skipGui) continue;
       rows.add(_field(t, c, f));
+    }
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'status') {
+      rows.add(const StatusLineDataRef(key: ValueKey('section-status-dataref')));
     }
     if (rows.isEmpty) return const SizedBox.shrink();
     return SettingsCard(title: t.t(s.labelKey), children: rows);
@@ -343,6 +363,19 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       return PermissionsEditor(
         key: const ValueKey('field-permissions'),
         perms: value is Map ? Map<String, Object?>.from(value) : {},
+        onChanged: (v) => c.updateField(f.key, v),
+      );
+    }
+    // 带 pathType 的字段走带补全的路径输入（React `FieldRenderer.tsx:174`）。
+    if (f.pathType != null) {
+      return PathInputRow(
+        key: ValueKey('field-${f.key}'),
+        label: label,
+        description: f.description,
+        hint: f.placeholder,
+        value: value == null ? null : '$value',
+        pathType: f.pathType!,
+        invoke: widget.invoke,
         onChanged: (v) => c.updateField(f.key, v),
       );
     }

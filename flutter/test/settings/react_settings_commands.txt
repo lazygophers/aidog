@@ -1,5 +1,5 @@
 # React 版「设置」13 子页实际调用的命令（由 scripts/i08-react-settings-commands.mjs 生成，禁手改）
-# 共 96 条
+# 共 100 条
 app_get_autolaunch
 app_log_settings_get
 app_log_settings_set
@@ -8,6 +8,7 @@ app_set_silent_launch
 backup_run_now
 backup_settings_get
 backup_settings_set
+build_notify_hooks_fragment
 ccswitch_detect
 ccswitch_import
 ccswitch_read
@@ -19,8 +20,10 @@ coding_tools_settings_set
 db_compact
 export_preview
 export_to_file
+fs_autocomplete
 get_auto_update_enabled
 get_default_hooks_enabled
+get_managed_paths
 group_detail_list
 group_list
 import_apply
@@ -62,6 +65,7 @@ platform_update
 popover_config_get
 popover_config_set
 popover_platform_today
+preview_statusline_script
 proxy_client_get_settings
 proxy_client_set_settings
 proxy_get_settings

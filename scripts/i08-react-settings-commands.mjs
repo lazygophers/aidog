@@ -30,6 +30,11 @@ const FILES = [
   'src/pages/TrayConfigTab.tsx',
   'src/pages/PopoverConfigTab.tsx',
   ...dirFiles(root, 'src/components/settings', /\.tsx$/),
+  // 票 I19b：`editors/` 下的字段渲染器与 statusline 面板也直接 invoke
+  // （`_shared.tsx` 的 fs_autocomplete、`StatusLineSection/useStatusLinePanel.ts`
+  // 的 preview_statusline_script）。不扫这两层，C5 / C6 的缺口测试就照不出来。
+  ...dirFiles(root, 'src/components/settings/editors'),
+  ...dirFiles(root, 'src/components/settings/editors/StatusLineSection'),
   ...dirFiles(root, 'src/pages/AppSettings'),
   ...dirFiles(root, 'src/pages/PopoverConfigTab'),
   ...dirFiles(root, 'src/components/settings/ImportExport'),
