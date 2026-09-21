@@ -33,8 +33,10 @@ const FILES = [
   // 票 I19b：`editors/` 下的字段渲染器与 statusline 面板也直接 invoke
   // （`_shared.tsx` 的 fs_autocomplete、`StatusLineSection/useStatusLinePanel.ts`
   // 的 preview_statusline_script）。不扫这两层，C5 / C6 的缺口测试就照不出来。
+  // 票 I19b：`editors/` 下的字段渲染器与 statusline 面板也直接 invoke
+  // （`_shared.tsx` 的 fs_autocomplete、`StatusLineSection/useStatusLinePanel.ts`
+  // 的 preview_statusline_script）。`dirFiles` 现在递归，子目录不必逐个列。
   ...dirFiles(root, 'src/components/settings/editors'),
-  ...dirFiles(root, 'src/components/settings/editors/StatusLineSection'),
   ...dirFiles(root, 'src/pages/AppSettings'),
   ...dirFiles(root, 'src/pages/PopoverConfigTab'),
   ...dirFiles(root, 'src/components/settings/ImportExport'),

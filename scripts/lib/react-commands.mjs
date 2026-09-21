@@ -111,11 +111,22 @@ export function scanFiles(root, files) {
 }
 
 /** 目录里的 .ts/.tsx（排掉测试文件），返回相对 root 的路径。 */
+/// 递归。不递归的话新开一层子目录就会被静默漏扫 —— 票 I19b 踩过：
+/// `settings/editors/` 一直没进扫描范围，于是 `fs_autocomplete` 与
+/// `preview_statusline_script` 两条缺口长期存在而覆盖测试是绿的。
 export function dirFiles(root, d, re = /\.tsx?$/) {
-  return fs
-    .readdirSync(path.join(root, d))
-    .filter((f) => re.test(f) && !f.includes('.test.'))
-    .map((f) => `${d}/${f}`);
+  const out = [];
+  for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
+    const rel = `${d}/${e.name}`;
+    if (e.isDirectory()) {
+      // 快照目录里没有调用点，扫了只会拖慢。
+      if (e.name === '__snapshots__' || e.name === '__tests__') continue;
+      out.push(...dirFiles(root, rel, re));
+    } else if (re.test(e.name) && !e.name.includes('.test.')) {
+      out.push(rel);
+    }
+  }
+  return out;
 }
 
 /**
