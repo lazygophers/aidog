@@ -930,14 +930,22 @@ fn feed_sse_usage_captures_served_model_first_seen() {
         Some("glm-4.7-served"),
         "上游自报模型应首见定格"
     );
-    assert_eq!(agg.take_served_model(), None, "take 后清空（flush 一次性消费）");
+    assert_eq!(
+        agg.take_served_model(),
+        None,
+        "take 后清空（flush 一次性消费）"
+    );
 }
 
 #[test]
 fn feed_sse_usage_without_model_stays_none() {
     let agg = StreamAggregator::new();
     agg.feed_sse_usage("data: {\"usage\":{\"output_tokens\":3}}\n\n");
-    assert_eq!(agg.take_served_model(), None, "全程无模型帧 → None，由 flush 回退请求模型");
+    assert_eq!(
+        agg.take_served_model(),
+        None,
+        "全程无模型帧 → None，由 flush 回退请求模型"
+    );
 }
 
 // flush 回写：上游自报优先；未自报回退请求模型（不再用路由目标 glm-5）。
@@ -966,7 +974,10 @@ async fn flush_writes_served_model_as_actual_model() {
     guard.agg.feed_sse_usage(chunks[0]);
     guard.flush_if_done(chunks[1]);
     await_flush_write(&state.db, id).await;
-    let row = aidog_logs::get_proxy_log(&state.db, id).await.unwrap().unwrap();
+    let row = aidog_logs::get_proxy_log(&state.db, id)
+        .await
+        .unwrap()
+        .unwrap();
     assert_eq!(row.actual_model, "glm-4.7-served");
     drop(guard);
     let _ = std::fs::remove_file(path);
@@ -998,8 +1009,14 @@ async fn flush_falls_back_to_requested_model_without_served() {
     guard.agg.feed_sse_usage(chunks[0]);
     guard.flush_if_done(chunks[1]);
     await_flush_write(&state.db, id).await;
-    let row = aidog_logs::get_proxy_log(&state.db, id).await.unwrap().unwrap();
-    assert_eq!(row.actual_model, "claude", "应回退请求模型，而非路由目标 glm-5");
+    let row = aidog_logs::get_proxy_log(&state.db, id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        row.actual_model, "claude",
+        "应回退请求模型，而非路由目标 glm-5"
+    );
     drop(guard);
     let _ = std::fs::remove_file(path);
 }

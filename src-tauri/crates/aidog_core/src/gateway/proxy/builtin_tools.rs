@@ -24,8 +24,8 @@ pub(crate) async fn get_builtin_tool_compat_global(
         .unwrap_or_default()
 }
 
-/// Claude Code 内置工具名单（供剔除匹配与日志归因）。与 `STATIC_MODEL_IDS` 同理，
-/// 随 Claude Code 版本演进存在月级腐化，需手工核对。
+/// Claude Code 内置工具名单（供剔除匹配与日志归因）。随 Claude Code 版本演进存在月级腐化，
+/// 需手工核对 —— registry 里没有这份数据，只能硬编码（模型清单已于 2026-09-21 改为 registry 派生）。
 pub const BUILTIN_TOOL_NAMES: &[&str] = &[
     "ToolSearch",
     "Agent",

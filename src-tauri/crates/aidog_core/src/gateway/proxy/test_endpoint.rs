@@ -477,7 +477,7 @@ fn detect_source_protocol_bare_endpoint_without_v1() {
     assert_eq!(d("/proxy/embeddings"), Protocol::OpenAI);
     assert_eq!(d("/proxy/messages"), Protocol::Anthropic);
 
-    // 例外：裸 /models 保持 anthropic（handle_models_static 依赖）
+    // 例外：裸 /models 保持 anthropic（handle_models_list 依赖）
     assert_eq!(d("/proxy/models"), Protocol::Anthropic);
 
     // 未知路径仍回退 anthropic
