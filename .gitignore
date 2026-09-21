@@ -69,3 +69,7 @@ vite.config.js
 
 # 全局 gitignore 的 build/ 会吞掉 spec 的 build 分类目录
 !/.skein/spec/recall/build/
+
+# 全局 gitignore 的 *.xcworkspace 会吞掉 Flutter macOS 的 Runner.xcworkspace，
+# 而 `flutter build macos` 没有它就报 "No macOS desktop project configured"。
+!/flutter/macos/Runner.xcworkspace/

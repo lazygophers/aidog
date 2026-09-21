@@ -5,6 +5,10 @@
 	<!-- 理由见 DebugProfile.entitlements：沙盒开着的话应用连自己的内核都连不上。 -->
 	<key>com.apple.security.app-sandbox</key>
 	<false/>
+	<!-- 理由见 DebugProfile.entitlements 的同名键：ad-hoc 签名下 hardened runtime 的
+	     库校验会拒绝加载 Sparkle.framework，应用启动即崩。配上 Developer ID 后可删。 -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
 	<key>com.apple.security.network.client</key>
 	<true/>
 	<key>com.apple.security.network.server</key>

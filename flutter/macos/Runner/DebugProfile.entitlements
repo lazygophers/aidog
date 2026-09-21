@@ -10,6 +10,14 @@
 	<false/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
+	<!-- hardened runtime 默认开库校验：只加载与主程序**同一 Team ID** 签名的库。
+	     没有 Developer ID 证书时（本地构建、CI 也还没配 Apple 签名）整个 bundle 是
+	     ad-hoc 签名，ad-hoc 之间不视为同队，dyld 直接拒绝加载 Sparkle.framework，
+	     应用启动即崩：
+	       Library not loaded: @rpath/Sparkle.framework/... have different Team IDs
+	     配上真证书后所有 framework 会被同一身份重签，这一条就不再起作用，可以删。 -->
+	<key>com.apple.security.cs.disable-library-validation</key>
+	<true/>
 	<!-- 出站：连内核的 127.0.0.1 管理面。入站：内核 bind 管理面与代理端口。 -->
 	<key>com.apple.security.network.client</key>
 	<true/>

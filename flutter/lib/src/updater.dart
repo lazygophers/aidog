@@ -8,6 +8,7 @@ library;
 import 'dart:io';
 
 import 'package:auto_updater/auto_updater.dart';
+import 'package:flutter/foundation.dart';
 
 /// 生产 feed：与 Tauri 的 `latest.json` 同一个 Release、不同文件。
 const String kUpdateFeedUrl =
@@ -23,9 +24,37 @@ bool get desktopUpdaterSupported =>
     (Platform.isMacOS || Platform.isWindows) &&
     Platform.environment['FLUTTER_TEST'] == null;
 
+/// Sparkle / WinSparkle 的回调只会走到监听器里：不挂监听器，feed 打不开、签名对不上、
+/// XML 解析失败全都是**静默无事发生**——这正是「检查更新点了没反应」这类报告没法查的原因。
+class _UpdaterLog with UpdaterListener {
+  @override
+  void onUpdaterError(UpdaterError? error) => debugPrint('[updater] error: $error');
+
+  @override
+  void onUpdaterCheckingForUpdate(Appcast? appcast) =>
+      debugPrint('[updater] checking: ${appcast?.items.length ?? 0} item(s)');
+
+  @override
+  void onUpdaterUpdateAvailable(AppcastItem? item) =>
+      debugPrint('[updater] available: ${item?.displayVersionString}');
+
+  @override
+  void onUpdaterUpdateNotAvailable(UpdaterError? error) =>
+      debugPrint('[updater] up to date${error == null ? '' : ' ($error)'}');
+
+  @override
+  void onUpdaterUpdateDownloaded(AppcastItem? item) =>
+      debugPrint('[updater] downloaded: ${item?.displayVersionString}');
+
+  @override
+  void onUpdaterBeforeQuitForUpdate(AppcastItem? item) =>
+      debugPrint('[updater] quitting to install: ${item?.displayVersionString}');
+}
+
 /// 主窗口启动时调一次（托盘小窗的 popoverMain **不**调，Sparkle 一个进程一份）。
 Future<void> initDesktopUpdater() async {
   if (!desktopUpdaterSupported) return;
+  autoUpdater.addListener(_UpdaterLog());
   final feed = Platform.environment[_kFeedEnv] ?? kUpdateFeedUrl;
   await autoUpdater.setFeedURL(feed);
   await autoUpdater.setScheduledCheckInterval(86400);
