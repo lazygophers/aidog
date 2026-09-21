@@ -23,6 +23,8 @@ import 'invoke.dart';
 import 'model_test.dart';
 import 'model_test_logic.dart';
 import 'models.dart';
+import 'platform_form.dart';
+import 'platform_form_logic.dart';
 import 'platforms_logic.dart';
 import 'ui_bits.dart';
 
@@ -53,6 +55,10 @@ class PlatformsPage extends StatefulWidget {
 class _PlatformsPageState extends State<PlatformsPage> {
   late final PlatformsController _c;
 
+  /// 新增 / 编辑表单。`showForm` 为 true 时整页换成表单（与 React 的
+  /// `Platforms.tsx:81` 同一条：表单是页面的另一种形态，不是弹窗）。
+  late final PlatformFormController _form;
+
   /// 票 I09：模型测试面板的目标平台。null = 面板关着。
   PlatformRow? _testPanelTarget;
   StreamSubscription<void>? _sub;
@@ -69,6 +75,14 @@ class _PlatformsPageState extends State<PlatformsPage> {
       },
       onToast: _showToast,
     );
+    _form = PlatformFormController(
+      list: _c,
+      invoke: widget.invoke,
+      onChanged: () {
+        if (mounted) setState(() {});
+      },
+    );
+    _form.init(locale: i18n.locale);
     _c.init().then((_) {
       // 平台列表到手之后再后台查余额 —— 查余额是真出网的 HTTP，不能挡首屏。
       if (mounted) _c.pumpQuota();
@@ -99,6 +113,17 @@ class _PlatformsPageState extends State<PlatformsPage> {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
+    // 表单打开时整页换成表单（React `Platforms.tsx:81-83` 的 `showForm` 分支）。
+    if (_form.showForm) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          PlatformEditForm(controller: _form),
+          if (_toast != null) ToastBar(text: _toast!.text, ok: _toast!.ok),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -129,6 +154,11 @@ class _PlatformsPageState extends State<PlatformsPage> {
               SmallButton(
                 label: t.t('platform.purgeDisabled'),
                 onTap: _c.askPurgeDisabled,
+              ),
+              // 缺口清单「平台页缺口」#2：页头「+ 添加平台」。
+              SmallButton(
+                label: '+ ${t.t('platform.add')}',
+                onTap: () => _form.openCreatePlatform(),
               ),
             ],
           ),
@@ -168,6 +198,8 @@ class _PlatformsPageState extends State<PlatformsPage> {
                     // 票 I09：完整的模型测试面板（六种模式），对应 React 的
                     // `ModelTestPanel`。上面的 onTest 是平台卡自带的一键快测，两者并存。
                     onModelTest: () => setState(() => _testPanelTarget = p),
+                    // 缺口清单「平台页缺口」#3：卡片「编辑」。
+                    onEdit: () => _form.handleEdit(p),
                     onRefreshQuota: () => _c.refreshQuota(p),
                     onDelete: () => _c.askDelete(p.id),
                     onViewLogs: () =>
@@ -224,6 +256,7 @@ class _PlatformCard extends StatelessWidget {
     required this.onToggle,
     required this.onTest,
     required this.onModelTest,
+    required this.onEdit,
     required this.onRefreshQuota,
     required this.onDelete,
     required this.onViewLogs,
@@ -239,6 +272,7 @@ class _PlatformCard extends StatelessWidget {
   final VoidCallback onToggle;
   final VoidCallback onTest;
   final VoidCallback onModelTest;
+  final VoidCallback onEdit;
   final VoidCallback onRefreshQuota;
   final VoidCallback onDelete;
   final VoidCallback onViewLogs;
@@ -324,6 +358,7 @@ class _PlatformCard extends StatelessWidget {
                 onTap: testing ? null : onTest,
               ),
               SmallButton(label: t.t('test.title'), onTap: onModelTest),
+              SmallButton(label: t.t('action.edit'), onTap: onEdit),
               SmallButton(
                 label: t.t('platform.quotaRefresh'),
                 onTap: quotaRefreshing ? null : onRefreshQuota,

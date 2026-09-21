@@ -58,6 +58,7 @@ dependencies:
   # 仓库里没有第二份拷贝（理由见 README「文案是怎么进来的」）。
   aidog_i18n_locales:
     path: ../src-tauri/crates/aidog_i18n
+  timezone: ^0.11.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
