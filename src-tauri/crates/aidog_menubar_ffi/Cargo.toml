@@ -1,0 +1,27 @@
+[package]
+name = "aidog_menubar_ffi"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# 票 I20：macOS 菜单栏宿主的 C ABI 外壳，给 Flutter 壳的 Runner 链。
+#
+# 为什么非得链进 Runner：`menubar::install` / `render` 要 NSApp 主线程，而 NSApp 只在
+# Runner 进程里（`aidog-kernel` 是无界面子进程）。GUI 只留在 GUI 进程 —— 把 Rust 那份宿主
+# 链过来，而不是让内核再开一份 NSApp。
+#
+# `default-features = false` 是硬要求：开 `desktop` 会把 tauri 拖进来（wry/tao），
+# Runner 里已经有 Flutter 的那套窗口，两套 GUI 框架不该并存。
+# 带 `http` 只为与 `aidog_kernel` 的 feature 集一致 —— 同一个 target dir 里能复用编译产物。
+[lib]
+name = "aidog_menubar_ffi"
+crate-type = ["staticlib"]
+
+[dependencies]
+aidog_core = { path = "../aidog_core", default-features = false, features = [
+  "http",
+  "menubar",
+] }
+serde_json = { workspace = true }
+tracing = { workspace = true }

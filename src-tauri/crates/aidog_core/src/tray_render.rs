@@ -24,7 +24,9 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 // 外，渲染主体逐字保留。
 
 /// 托盘单列：name（标签）+ value（值）+ 颜色（三态）+ 字号 + two_line（该列是否两行展示）。
-#[derive(Debug, Clone)]
+/// 票 I20：serde 是为了跨进程——Flutter 壳里取数在内核、渲染在 Runner，
+/// 整个 [`TrayLayout`] 以 JSON 过 RPC + method channel。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TrayColumn {
     pub name: String,
     pub value: String,
@@ -45,6 +47,7 @@ pub struct TrayColumn {
 
 /// 托盘渲染布局：columns（数据列）+ gaps（列间间隙）。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认 2px 空白。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct TrayLayout {
     pub columns: Vec<TrayColumn>,
     /// 长度 = columns.len() - 1（若 columns.len() ≥ 2）。
@@ -52,7 +55,7 @@ pub struct TrayLayout {
     pub gaps: Vec<Option<String>>,
 }
 
-#[cfg(all(target_os = "macos", feature = "desktop"))]
+#[cfg(all(target_os = "macos", feature = "menubar"))]
 pub const TRAY_FONT_SIZE: f64 = 9.0;
 
 /// UI 构造注入点：refresh_tray_menu 需要的 3 个 UI 辅助函数（build_tray_menu /
@@ -74,7 +77,7 @@ pub trait TrayMenuBuild: Sync {
     fn separator<'a>(&'a self) -> Pin<Box<dyn Future<Output = String> + Send + 'a>>;
 }
 
-#[cfg(all(target_os = "macos", feature = "desktop"))]
+#[cfg(all(target_os = "macos", feature = "menubar"))]
 pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
     use objc2_app_kit::NSColor;
     match color.mode.as_str() {
@@ -111,7 +114,7 @@ pub(crate) fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2
 /// menuBarFont 近似等宽（CJK 全角约 1 字宽 = fontSize，ASCII 半角约 fontSize*0.6）。
 /// 精确测量文本渲染宽度：用 AppKit sizeWithAttributes 返回实际像素宽。
 /// 需要 MainThread（AppKit 要求），调用方已在主线程闭包内。
-#[cfg(all(target_os = "macos", feature = "desktop"))]
+#[cfg(all(target_os = "macos", feature = "menubar"))]
 pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
     use objc2::rc::Retained;
     use objc2::runtime::AnyObject;
@@ -142,7 +145,7 @@ pub(crate) fn measure_text_width(text: &str, font_size: f64) -> f64 {
 ///     tab/换行字符用 follow 颜色（无 range:setAttributes，规避 utf16 偏移坑）。
 /// - 无 two_line 列 → **单行模式**：沿用 separator 横排拼接（无回归）。
 ///   整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
-#[cfg(all(target_os = "macos", feature = "desktop"))]
+#[cfg(all(target_os = "macos", feature = "menubar"))]
 pub(crate) fn set_tray_attributed_title(
     button: &objc2_app_kit::NSStatusBarButton,
     columns: Vec<TrayColumn>,
@@ -649,7 +652,8 @@ pub(crate) async fn tray_layout_with_stats(
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
-#[cfg(feature = "desktop")]
+// 票 I20：去掉 `cfg(desktop)` —— `menubar_state::collect_state` 无条件要用它，
+// 而内核（http-only）正是菜单栏那一帧数据的取数方。三者都是纯 DB 读，零 tauri。
 pub(crate) async fn tray_separator(db: &Db) -> String {
     if let Ok(Some(config)) = db::get_tray_config(db).await {
         return config.separator;
@@ -657,13 +661,11 @@ pub(crate) async fn tray_separator(db: &Db) -> String {
     default_separator_str()
 }
 
-#[cfg(feature = "desktop")]
 pub(crate) fn default_separator_str() -> String {
     "  ".to_string()
 }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
-#[cfg(feature = "desktop")]
 pub(crate) async fn tray_quota_text(db: &Db) -> Option<String> {
     let layout = tray_layout(db).await;
     if layout.columns.is_empty() {

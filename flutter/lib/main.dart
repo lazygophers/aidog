@@ -10,6 +10,7 @@ import 'i18n.dart';
 import 'pages.dart';
 import 'popover.dart';
 import 'shell.dart';
+import 'src/menubar.dart';
 import 'src/updater.dart';
 import 'transport.dart';
 
@@ -30,9 +31,17 @@ Future<void> main() async {
   await i18n.init();
   runApp(const AidogI18n(child: AidogApp()));
   // 内核起来之后再读用户在后端存的语言设置，覆盖掉按系统猜的那个。
-  kernel.start().then((_) => i18n.loadFromBackend()).catchError((Object e) {
-    debugPrint('kernel start failed: $e');
-  });
+  kernel
+      .start()
+      .then((_) async {
+        await i18n.loadFromBackend();
+        // 票 I20：菜单栏的第一帧。图标本身在 Swift 那边启动即建，这里只补数据，
+        // 所以它失败也不影响菜单栏能点。
+        if (menuBarSupported) await menuBar.start();
+      })
+      .catchError((Object e) {
+        debugPrint('kernel start failed: $e');
+      });
 }
 
 class AidogApp extends StatefulWidget {

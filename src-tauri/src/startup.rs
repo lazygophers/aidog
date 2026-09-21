@@ -68,6 +68,8 @@ pub fn run() {
             aidog_core::popover::popover_config_get,
             aidog_core::popover::popover_config_set,
             aidog_core::popover::popover_platform_today,
+            // 票 I20：Flutter 壳专用（Tauri 壳同进程直调 collect_state）。两张表必须同一批命令。
+            aidog_core::menubar_state::menu_bar_state,
             // Group
             aidog_core::platform_cmd::group::group_create,
             aidog_core::platform_cmd::group::group_list,

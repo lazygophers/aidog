@@ -15,3 +15,12 @@ PRODUCT_BUNDLE_IDENTIFIER = com.aidog.desktop
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2026 com.aidog. All rights reserved.
+
+// 票 I20：菜单栏宿主（Rust staticlib）。
+// .a 由「Build aidog-menubar staticlib」构建阶段产出到 $(BUILT_PRODUCTS_DIR)/aidog-menubar，
+// 那个阶段排在 Sources 之前，所以链接时一定已经在。
+// 下面这串系统库是 `cargo rustc -p aidog_menubar_ffi -- --print native-static-libs` 抄来的，
+// 不是猜的 —— staticlib 不自带依赖信息，链接方得自己声明。
+SWIFT_OBJC_BRIDGING_HEADER = Runner/AidogMenuBar.h
+LIBRARY_SEARCH_PATHS = $(inherited) $(BUILT_PRODUCTS_DIR)/aidog-menubar
+OTHER_LDFLAGS = $(inherited) -laidog_menubar_ffi -framework AppKit -framework CoreVideo -framework CoreData -framework CoreText -framework CoreImage -framework CoreGraphics -framework CloudKit -framework QuartzCore -framework Foundation -framework Security -framework SystemConfiguration -framework CoreFoundation -lobjc -liconv
