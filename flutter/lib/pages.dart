@@ -44,7 +44,10 @@ export 'src/pages/model_test_logic.dart';
 export 'src/pages/models.dart';
 export 'src/pages/notifications.dart'
     show NotificationItem, NotificationsPage, notifTypeLabel;
+export 'src/pages/platform_card_bits.dart';
+export 'src/pages/platform_card_view.dart' show PlatformCard, decodeLogoDataUrl;
 export 'src/pages/platforms.dart' show PlatformsPage;
+export 'src/pages/share_panel.dart' show SharePanel;
 // 票 I16：设置 12 个子页的 widget 层（`settings/pricing` 的模型信息页属票 I09）。
 export 'src/pages/settings/bits.dart'
     show

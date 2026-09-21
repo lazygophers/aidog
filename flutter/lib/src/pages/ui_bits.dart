@@ -80,7 +80,9 @@ class ConfirmCard extends StatelessWidget {
   final String body;
   final String confirmLabel;
   final VoidCallback onCancel;
-  final VoidCallback onConfirm;
+
+  /// null = 确认按钮禁用（候选清单为空之类，点了也没意义）。
+  final VoidCallback? onConfirm;
 
   /// 执行中：两个按钮都禁掉，防止重复提交。
   final bool busy;

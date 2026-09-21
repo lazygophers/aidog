@@ -54,11 +54,16 @@ dependencies:
     path: ../design/tokens
   fl_chart: ^1.2.0
 
+  # 高峰时段判定要按窗口自带的 IANA 时区取本地时刻（registry 里 glm_coding 等写的是
+  # Asia/Shanghai），Dart 核心库没有 IANA 数据库。本包原本就是 flutter_local_notifications
+  # 的传递依赖，这里只是升成直接依赖，不新增下载。
+  timezone: ^0.11.1
+
   # 8 语言文案。src-tauri/crates/aidog_i18n/locales/ 的 JSON 直接当资产挂进来，
   # 仓库里没有第二份拷贝（理由见 README「文案是怎么进来的」）。
   aidog_i18n_locales:
     path: ../src-tauri/crates/aidog_i18n
-  timezone: ^0.11.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
