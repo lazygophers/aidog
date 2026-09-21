@@ -54,6 +54,11 @@ dependencies:
     path: ../design/tokens
   fl_chart: ^1.2.0
 
+  # 分享面板的二维码（对齐 React 的 `qrcode` 包，`ShareModal.tsx:12`）。
+  # 选 pretty_qr_code 而不是下载量更高的 qr_flutter：后者最后一次发版是 2023-05，
+  # 前者 2026-01 仍在维护；许可证 MIT，与本仓库兼容。
+  pretty_qr_code: ^3.6.0
+
   # 高峰时段判定要按窗口自带的 IANA 时区取本地时刻（registry 里 glm_coding 等写的是
   # Asia/Shanghai），Dart 核心库没有 IANA 数据库。本包原本就是 flutter_local_notifications
   # 的传递依赖，这里只是升成直接依赖，不新增下载。
