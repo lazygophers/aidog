@@ -89,8 +89,13 @@ final class TrayPanel: NSObject {
   private func ensurePanel() -> NSPanel {
     if let panel = panel { return panel }
 
+    // `allowHeadlessExecution` 必须是 true（票 I20 修）：`run(withEntrypoint:)` 在这里
+    // 跑在 `FlutterViewController` 附上来**之前**，false 会让引擎拒绝启动 ——
+    // 日志里那句 "Attempted to run an engine with no view controller without headless
+    // mode enabled."，后果是 popoverMain 根本没跑，小窗停在 0×0 什么都不显示。
+    // 语义上也该是 true：小窗收起时引擎照样活着（懒建、建好不释放），那本来就是无视图状态。
     let engine = FlutterEngine(
-      name: "aidog-tray-popover", project: nil, allowHeadlessExecution: false)
+      name: "aidog-tray-popover", project: nil, allowHeadlessExecution: true)
     engine.run(withEntrypoint: "popoverMain")
     self.engine = engine
 
@@ -122,6 +127,9 @@ final class TrayPanel: NSObject {
       backing: .buffered,
       defer: false)
     panel.contentViewController = vc
+    // 赋 contentViewController 会把窗缩到该 VC 视图的尺寸，而 Flutter 视图在出第一帧
+    // 之前是 0×0 —— 不重新撑开就是一个看不见的窗。Dart 量完内容会再报一次真尺寸。
+    panel.setContentSize(NSSize(width: Self.initialWidth, height: Self.initialHeight))
     panel.isFloatingPanel = true
     panel.becomesKeyOnlyIfNeeded = true
     panel.hidesOnDeactivate = false
