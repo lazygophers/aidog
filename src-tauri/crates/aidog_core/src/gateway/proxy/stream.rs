@@ -610,6 +610,59 @@ pub(crate) fn replace_model_in_sse_text(text: &str, model: &str) -> String {
         .into_owned()
 }
 
+/// Anthropic Messages SSE 的心跳帧（keep-alive）。
+pub(crate) const ANTHROPIC_PING_FRAME: &[u8] = b"event: ping\ndata: {\"type\":\"ping\"}\n\n";
+
+/// 静默自发 ping 的间隔。客户端按字节计数，静默 300 秒即 abort 整条流
+/// （<https://code.claude.com/docs/en/llm-gateway-protocol#streaming>），此处取 1/10 留足余量。
+pub(crate) const IDLE_PING_INTERVAL: std::time::Duration = std::time::Duration::from_secs(30);
+
+/// 给下行 SSE 流包一层「静默即自发 ping」。
+///
+/// 长思考期间上游没有正文可发，心跳是唯一的流量。openai 系上游根本不发 anthropic 风格的 ping，
+/// 转换后这段静默就什么都没有，客户端数到 300 秒把流掐断。官方对这种上游的要求原文是
+/// 「When translating from such an upstream, emit your own `ping` events during silent gaps」。
+///
+/// 两条不变量：
+/// - **只在帧边界注入**。上游 chunk 可能停在半个帧上（`event:` 行已下发、`data:` 行还没到），
+///   此时插 ping 会把那一帧劈开。故只在已下发字节以空行收尾时才注入，否则本轮跳过等下一次。
+/// - **任何上游字节都重置计时器**。上游自己发 ping 时本函数永不触发，零副作用。
+pub(crate) fn with_idle_ping<S>(
+    stream: S,
+    frame: &'static [u8],
+    interval: std::time::Duration,
+) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>>
+where
+    S: futures::Stream<Item = Result<Bytes, std::io::Error>>,
+{
+    use std::future::Future;
+    use std::task::Poll;
+
+    let mut inner = Box::pin(stream);
+    let mut idle = Box::pin(tokio::time::sleep(interval));
+    // 首字节到达前就算在边界上：SSE 响应头已发出，此时的 ping 是合法的流首帧。
+    let mut at_frame_boundary = true;
+
+    futures::stream::poll_fn(move |cx| match inner.as_mut().poll_next(cx) {
+        Poll::Ready(item) => {
+            if let Some(Ok(bytes)) = &item
+                && !bytes.is_empty()
+            {
+                at_frame_boundary = bytes.ends_with(b"\n\n");
+                idle.as_mut().reset(tokio::time::Instant::now() + interval);
+            }
+            Poll::Ready(item)
+        }
+        Poll::Pending => {
+            if at_frame_boundary && idle.as_mut().poll(cx).is_ready() {
+                idle.as_mut().reset(tokio::time::Instant::now() + interval);
+                return Poll::Ready(Some(Ok(Bytes::from_static(frame))));
+            }
+            Poll::Pending
+        }
+    })
+}
+
 #[cfg(test)]
 #[path = "test_stream.rs"]
 mod test_stream;

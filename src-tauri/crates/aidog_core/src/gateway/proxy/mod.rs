@@ -125,9 +125,9 @@ pub(crate) use retry::{
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{
-    SseLineReassembler, StreamAggregator, StreamEstCtx, StreamLogGuard, Utf8ChunkReassembler,
-    cap_nonstream_body, extract_usage, replace_model_in_json, replace_model_in_sse_text,
-    resolve_is_stream,
+    ANTHROPIC_PING_FRAME, IDLE_PING_INTERVAL, SseLineReassembler, StreamAggregator, StreamEstCtx,
+    StreamLogGuard, Utf8ChunkReassembler, cap_nonstream_body, extract_usage, replace_model_in_json,
+    replace_model_in_sse_text, resolve_is_stream, with_idle_ping,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 

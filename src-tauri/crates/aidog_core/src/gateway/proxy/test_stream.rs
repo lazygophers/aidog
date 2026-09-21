@@ -826,3 +826,89 @@ fn end_status_upstream_error_wins_over_exhausted() {
     agg.mark_exhausted();
     assert_eq!(agg.end_status_code(), 502);
 }
+
+// ── 静默自发 ping：长思考期间上游无正文可发，心跳是唯一流量，客户端静默 300 秒即掐断 ──
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#streaming
+mod test_idle_ping {
+    use super::*;
+    use futures::StreamExt;
+    use std::time::Duration;
+
+    const IV: Duration = Duration::from_secs(30);
+
+    /// 按脚本造上游流：每项是「先静默 N 秒，再吐这段字节」。
+    fn scripted(
+        script: Vec<(u64, &'static str)>,
+    ) -> impl futures::Stream<Item = Result<Bytes, std::io::Error>> {
+        futures::stream::unfold(script.into_iter(), |mut it| async move {
+            let (delay_secs, text) = it.next()?;
+            tokio::time::sleep(Duration::from_secs(delay_secs)).await;
+            Some((Ok(Bytes::from_static(text.as_bytes())), it))
+        })
+    }
+
+    async fn collect_text(
+        s: impl futures::Stream<Item = Result<Bytes, std::io::Error>>,
+    ) -> Vec<String> {
+        with_idle_ping(s, ANTHROPIC_PING_FRAME, IV)
+            .map(|b| String::from_utf8(b.unwrap().to_vec()).unwrap())
+            .collect()
+            .await
+    }
+
+    /// 上游长时间静默 → 注入 ping；ping 不吃掉后续真实帧。
+    #[tokio::test(start_paused = true)]
+    async fn injects_ping_after_silence() {
+        let out = collect_text(scripted(vec![
+            (0, "event: message_start\ndata: {}\n\n"),
+            (95, "event: message_stop\ndata: {}\n\n"),
+        ]))
+        .await;
+
+        let pings = out.iter().filter(|s| s.starts_with("event: ping")).count();
+        assert_eq!(pings, 3, "95s 静默 / 30s 间隔 → 3 个 ping，实得 {out:?}");
+        assert!(out.first().unwrap().starts_with("event: message_start"));
+        assert!(out.last().unwrap().starts_with("event: message_stop"));
+    }
+
+    /// 上游自己在发 ping（或任何字节）→ 计时器被重置，本包装永不触发，零副作用。
+    #[tokio::test(start_paused = true)]
+    async fn upstream_traffic_resets_timer() {
+        let out = collect_text(scripted(
+            (0..5)
+                .map(|_| (20u64, "event: ping\ndata: {\"type\":\"ping\"}\n\n"))
+                .collect(),
+        ))
+        .await;
+
+        assert_eq!(
+            out.len(),
+            5,
+            "每 20s 有字节 < 30s 间隔 → 一个自发 ping 都不该有"
+        );
+    }
+
+    /// 帧边界不变量：上游停在半个帧上（`event:` 行已下发、`data:` 行未到）时不得注入，
+    /// 否则 ping 会把那一帧劈成两半。等到该帧补全（以空行收尾）后才允许注入。
+    #[tokio::test(start_paused = true)]
+    async fn never_splits_a_half_sent_frame() {
+        let out = collect_text(scripted(vec![
+            (0, "event: content_block_delta\n"),       // 半个帧
+            (90, "data: {}\n\n"),                      // 静默 90s 期间禁止注入，然后补全
+            (45, "event: message_stop\ndata: {}\n\n"), // 回到边界后允许注入
+        ]))
+        .await;
+
+        assert_eq!(
+            out[0], "event: content_block_delta\n",
+            "半帧之后不得插入任何东西"
+        );
+        assert_eq!(out[1], "data: {}\n\n", "必须先让那一帧补全");
+        let tail_pings = out[2..out.len() - 1]
+            .iter()
+            .filter(|s| s.starts_with("event: ping"))
+            .count();
+        assert_eq!(tail_pings, 1, "补全后再静默 45s → 1 个 ping，实得 {out:?}");
+        assert!(out.last().unwrap().starts_with("event: message_stop"));
+    }
+}
