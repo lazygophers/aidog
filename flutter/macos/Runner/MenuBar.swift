@@ -80,9 +80,11 @@ private func aidogMenuBarOnToggleProxy(running: Bool) {
   MenuBar.shared.send("toggleProxy", running)
 }
 
-/// 「Show Window」：主窗口可能已被关掉（`applicationShouldTerminateAfterLastWindowClosed`
-/// 之外还有最小化 / 隐藏），先尽量找回来，再前置。这里**允许**抢焦点 —— 用户点的就是
-/// 「把主窗口拿过来」，与小窗那条「绝不抢焦点」的禁令不是一回事。
+/// 「Show Window」：主窗口点红叉后只是被 `orderOut` 藏起来（见
+/// `MainFlutterWindow.windowShouldClose`），窗对象和 Flutter 引擎都还在，
+/// 这里前置即可，不必重建。最小化 / 隐藏两种态同样吃这一句。
+/// 这里**允许**抢焦点 —— 用户点的就是「把主窗口拿过来」，与小窗那条
+/// 「绝不抢焦点」的禁令不是一回事。
 private func aidogMenuBarOnShow() {
   NSApp.activate(ignoringOtherApps: true)
   if let window = NSApp.windows.first(where: { $0 is MainFlutterWindow }) {

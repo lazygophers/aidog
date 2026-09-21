@@ -1,8 +1,17 @@
 import Cocoa
 import FlutterMacOS
 
-class MainFlutterWindow: NSWindow {
+class MainFlutterWindow: NSWindow, NSWindowDelegate {
+  /// 关窗只隐藏，不销毁。销毁会连 Flutter 引擎一起拆掉（页面状态、已建的连接全没），
+  /// 下次从菜单栏「Show Window」回来要重新冷启动一遍。隐藏则是秒回。
+  /// 菜单栏条目由 `MenuBar` 独立持有，不随窗口走。
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    orderOut(nil)
+    return false
+  }
+
   override func awakeFromNib() {
+    self.delegate = self
     let flutterViewController = FlutterViewController()
     let windowFrame = self.frame
     self.contentViewController = flutterViewController
