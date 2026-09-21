@@ -93,9 +93,7 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
     // 迁移留下的项：关着、且不在候选清单里（旧 separator / 已删平台）。
     final keptDisabled = _c.items
         .where(
-          (i) =>
-              !i.enabled &&
-              !options.any((o) => o.key == traySegmentKey(i)),
+          (i) => !i.enabled && !options.any((o) => o.key == traySegmentKey(i)),
         )
         .length;
     return SettingsPageBody(
@@ -277,7 +275,10 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
   }
 
   List<Map<String, Object?>> _itemsOf(Map<String, Object?> cfg) =>
-      ((cfg['items'] as List? ?? const [])).whereType<Map>().map(Map<String, Object?>.from).toList();
+      ((cfg['items'] as List? ?? const []))
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList();
 
   /// 改完配置顺带重拉预览：新加的卡片要有自己的统计结果，否则永远停在加载态。
   /// 写回前先规整（row/order/rows 对齐），再合进整份 config —— 只带 items/rows
@@ -286,10 +287,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     List<Map<String, Object?>> items,
     List<Map<String, Object?>> rows,
   ) async {
-    await _c.persist({
-      ..._c.config,
-      ...normalizePopoverConfig(items, rows),
-    });
+    await _c.persist({..._c.config, ...normalizePopoverConfig(items, rows)});
     await _c.loadPreview();
   }
 
@@ -309,12 +307,16 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
 
   void _setRowCols(int row, int cols) {
     _persistRaw(_itemsOf(_norm), [
-      for (var r = 0; r < _rowGroups.length; r++) {'cols': r == row ? cols : _colsOf(r)},
+      for (var r = 0; r < _rowGroups.length; r++)
+        {'cols': r == row ? cols : _colsOf(r)},
     ]);
   }
 
   List<Map<String, Object?>> _rowsOf(Map<String, Object?> cfg) =>
-      ((cfg['rows'] as List? ?? const [])).whereType<Map>().map(Map<String, Object?>.from).toList();
+      ((cfg['rows'] as List? ?? const []))
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList();
 
   int _colsOf(int row) {
     final rows = _rowsOf(_norm);
@@ -330,11 +332,11 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     final nums = byRow.keys.toList()..sort();
     return [
       for (final n in nums)
-        byRow[n]!
-          ..sort(
-            (a, b) => ((a['order'] as num?)?.toInt() ?? 0)
-                .compareTo((b['order'] as num?)?.toInt() ?? 0),
+        byRow[n]!..sort(
+          (a, b) => ((a['order'] as num?)?.toInt() ?? 0).compareTo(
+            (b['order'] as num?)?.toInt() ?? 0,
           ),
+        ),
     ];
   }
 
@@ -356,7 +358,13 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
       platforms: _c.platforms,
       groups: _c.groups,
     );
-    _persistRaw([..._itemsOf(_norm), item], [..._rowsOf(_norm), {'cols': 1}]);
+    _persistRaw(
+      [..._itemsOf(_norm), item],
+      [
+        ..._rowsOf(_norm),
+        {'cols': 1},
+      ],
+    );
   }
 
   @override
@@ -426,7 +434,11 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
   };
 
   /// 一行：行号 + 列数选择 + 卡片格。行容器本身是落点（拖到行内空白处 = 追加到行尾）。
-  Widget _rowEditor(I18nController t, int row, List<Map<String, Object?>> items) {
+  Widget _rowEditor(
+    I18nController t,
+    int row,
+    List<Map<String, Object?>> items,
+  ) {
     final theme = AidogTheme.of(context);
     final cols = _colsOf(row);
     return Padding(
@@ -434,8 +446,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
       padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
       child: DragTarget<String>(
         onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
-        onAcceptWithDetails: (details) =>
-            _moveItem(details.data, row, null),
+        onAcceptWithDetails: (details) => _moveItem(details.data, row, null),
         builder: (context, candidate, rejected) => Container(
           padding: const EdgeInsets.all(AidogSpace.ssm),
           decoration: BoxDecoration(
@@ -483,10 +494,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                     runSpacing: gap,
                     children: [
                       for (final it in items)
-                        SizedBox(
-                          width: w,
-                          child: _card(t, it),
-                        ),
+                        SizedBox(width: w, child: _card(t, it)),
                     ],
                   );
                 },
@@ -527,10 +535,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           style: AidogType.label.copyWith(color: theme.c.accent),
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.4,
-        child: _cardBody(t, it, color),
-      ),
+      childWhenDragging: Opacity(opacity: 0.4, child: _cardBody(t, it, color)),
       child: DragTarget<String>(
         onWillAcceptWithDetails: (details) => details.data != id,
         onAcceptWithDetails: (details) =>
@@ -644,30 +649,36 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
               selected: color['mode'] == 'follow',
               fill: null,
               tooltip: t.t('popover.colorFollow'),
-              onTap: () => patch({'color': {'mode': 'follow', 'value': ''}}),
+              onTap: () => patch({
+                'color': {'mode': 'follow', 'value': ''},
+              }),
             ),
             _colorDot(
               id,
               selected: color['mode'] == 'preset' && color['value'] == 'red',
               fill: theme.c.bad,
               tooltip: 'red',
-              onTap: () => patch({'color': {'mode': 'preset', 'value': 'red'}}),
+              onTap: () => patch({
+                'color': {'mode': 'preset', 'value': 'red'},
+              }),
             ),
             _colorDot(
               id,
               selected: color['mode'] == 'preset' && color['value'] == 'green',
               fill: theme.c.ok,
               tooltip: 'green',
-              onTap: () =>
-                  patch({'color': {'mode': 'preset', 'value': 'green'}}),
+              onTap: () => patch({
+                'color': {'mode': 'preset', 'value': 'green'},
+              }),
             ),
             _colorDot(
               id,
               selected: color['mode'] == 'preset' && color['value'] == 'orange',
               fill: theme.c.peak,
               tooltip: 'orange',
-              onTap: () =>
-                  patch({'color': {'mode': 'preset', 'value': 'orange'}}),
+              onTap: () => patch({
+                'color': {'mode': 'preset', 'value': 'orange'},
+              }),
             ),
             const SizedBox(width: AidogSpace.sxs),
             SizedBox(
@@ -676,8 +687,9 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                 key: ValueKey('popover-hex-$id'),
                 value: color['mode'] == 'custom' ? '${color['value']}' : '',
                 active: color['mode'] == 'custom',
-                onChanged: (hex) =>
-                    patch({'color': {'mode': 'custom', 'value': hex}}),
+                onChanged: (hex) => patch({
+                  'color': {'mode': 'custom', 'value': hex},
+                }),
               ),
             ),
           ],
@@ -706,7 +718,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           ChoiceRow(
             label: t.t('popover.previewTrend', {'window': ''}),
             options: kPopoverTrendWindows,
-            value: '${it['time_window'] ?? (ty == 'hour_heatbar' ? 'today' : '7d')}',
+            value:
+                '${it['time_window'] ?? (ty == 'hour_heatbar' ? 'today' : '7d')}',
             labelOf: (w) => t.t('popover.trendWindow_$w'),
             onChanged: (v) => patch({'time_window': v}),
           ),
@@ -721,8 +734,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                   orElse: () => (id: -1, name: k, groupKey: k),
                 )
                 .name,
-            onChanged: (v) =>
-                patch({'scope': 'group', 'scope_ref': v}),
+            onChanged: (v) => patch({'scope': 'group', 'scope_ref': v}),
           ),
         if (scope == 'platform' || ty == 'platform_metric')
           ChoiceRow(
@@ -735,8 +747,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                   orElse: () => (id: -1, name: id),
                 )
                 .name,
-            onChanged: (v) =>
-                patch({'scope': 'platform', 'scope_ref': v}),
+            onChanged: (v) => patch({'scope': 'platform', 'scope_ref': v}),
           ),
       ],
     );
@@ -775,7 +786,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
   /// 卡片标题下的预览摘要（React `previewValue` / `trendSummary` 同口径）。
   String _summary(I18nController t, Map<String, Object?> it) {
     final ty = '${it['item_type']}';
-    if (ty == 'cost_trend' || ty == 'platform_metric' ||
+    if (ty == 'cost_trend' ||
+        ty == 'platform_metric' ||
         kPopoverGroupTypes.contains(ty)) {
       return _trendSummary(t, it);
     }
@@ -786,15 +798,20 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         return t.t('popover.previewTrayCols');
       case 'today_cost':
         return formatCostUsd(
-          ((_c.trayToday['cost'] as num?) ?? _numAt(_c.popoverData, 'today_stats', 'cost'))?.toDouble() ?? 0,
+          ((_c.trayToday['cost'] as num?) ??
+                      _numAt(_c.popoverData, 'today_stats', 'cost'))
+                  ?.toDouble() ??
+              0,
         );
       case 'today_cache_rate':
-        final v = (_c.trayToday['cache_rate'] as num?) ??
+        final v =
+            (_c.trayToday['cache_rate'] as num?) ??
             _numAt(_c.popoverData, 'today_stats', 'cache_rate') ??
             0;
         return formatPercent(v.toDouble(), 0);
       case 'today_tokens':
-        final v = (_c.trayToday['tokens'] as num?) ??
+        final v =
+            (_c.trayToday['tokens'] as num?) ??
             _numAt(_c.popoverData, 'today_stats', 'tokens') ??
             0;
         return '${formatNumber(v)} tok';
@@ -844,7 +861,9 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     description: t.t('popover.previewHint'),
     children: [
       ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: kTrayPanelWidth),
+        // 预览按小窗能长到的最宽来框（真窗按内容在 min..max 之间自适应，
+        // 预览里没有那个测量循环，取上限即可）。
+        constraints: const BoxConstraints(maxWidth: kTrayPanelMaxWidth),
         child: PopoverGrid(frame: _c.previewFrame),
       ),
     ],
@@ -915,8 +934,8 @@ class _HexFieldState extends State<_HexField> {
             color: widget.active
                 ? theme.c.accent
                 : valid
-                    ? theme.c.line
-                    : theme.c.bad,
+                ? theme.c.line
+                : theme.c.bad,
           ),
         ),
         focusedBorder: OutlineInputBorder(

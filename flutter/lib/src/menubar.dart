@@ -36,29 +36,31 @@ bool get menuBarSupported => Platform.isMacOS;
 class MenuBarBridge {
   MenuBarBridge({
     InvokeFn? invoke,
-    MethodChannel channel = kMenuBarChannel,
+    this.channel = kMenuBarChannel,
     Stream<Object?> Function()? refreshEvents,
-    Duration debounce = const Duration(seconds: 1),
+    this.debounce = const Duration(seconds: 1),
   }) : _invoke = invoke ?? kernelInvoke,
-       _channel = channel,
        _refreshEvents =
-           refreshEvents ?? (() => kernel.on<Object?>(kTrayRefreshEvent)),
-       _debounce = debounce;
+           refreshEvents ?? (() => kernel.on<Object?>(kTrayRefreshEvent));
 
   final InvokeFn _invoke;
-  final MethodChannel _channel;
+
+  /// 原生宿主的通道。测试里换成假通道。
+  final MethodChannel channel;
   final Stream<Object?> Function() _refreshEvents;
-  final Duration _debounce;
+
+  /// 刷新防抖窗口。对齐托盘设置页的 1000 ms（`TrayConfigTab.tsx:208`）。
+  final Duration debounce;
 
   StreamSubscription<void>? _sub;
 
   /// 画第一帧并开始跟着 `tray-refresh` 刷新。重复调用无副作用。
   Future<void> start() async {
     if (_sub != null) return;
-    _channel.setMethodCallHandler(_onNativeCall);
+    channel.setMethodCallHandler(_onNativeCall);
     _sub = debounceStream(
       _refreshEvents(),
-      delay: _debounce,
+      delay: debounce,
     ).listen((_) => unawaited(refresh()));
     await refresh();
   }
@@ -72,7 +74,7 @@ class MenuBarBridge {
     } catch (_) {
       return;
     }
-    await _channel.invokeMethod<void>('render', jsonEncode(state));
+    await channel.invokeMethod<void>('render', jsonEncode(state));
   }
 
   /// 菜单里的「Start / Stop Proxy」。[running] = 点击时的状态，true 意味着该停。
@@ -102,7 +104,7 @@ class MenuBarBridge {
   Future<void> dispose() async {
     await _sub?.cancel();
     _sub = null;
-    _channel.setMethodCallHandler(null);
+    channel.setMethodCallHandler(null);
   }
 }
 
