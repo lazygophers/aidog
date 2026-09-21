@@ -408,7 +408,7 @@ async fn group_max_context_window_takes_widest_main_loop_model() {
     );
 }
 
-// ── pi 模型候选：分组映射 ∪ 平台有效模型，去重；全空回落静态默认清单 ──
+// ── pi 模型候选：分组映射 ∪ 平台有效模型，去重；全空回落调用方传入的默认清单 ──
 
 use super::pi_model_candidates;
 use aidog_db::models::{ModelMapping, PlatformModels};
@@ -432,16 +432,18 @@ fn pi_models_union_group_mappings_and_platform_models_deduped() {
             sonnet: Some("glm-4-air".into()),
             ..PlatformModels::default()
         }],
+        &["should-not-be-used".to_string()],
     );
     assert_eq!(models, vec!["claude-sonnet-5", "glm-4-plus", "glm-4-air"]);
 }
 
 #[test]
-fn pi_models_fall_back_to_static_defaults_when_group_has_none() {
+fn pi_models_fall_back_to_caller_defaults_when_group_has_none() {
     // 空 models 的 provider 在 pi 的 /model 里一个模型都选不出来，等于废配置。
-    let models = pi_model_candidates(&[], &[PlatformModels::default()]);
-    assert!(!models.is_empty());
-    assert_eq!(models, crate::gateway::proxy::STATIC_MODEL_IDS);
+    // 兜底清单由调用方查 registry 得到（gateway::proxy::default_model_ids），此处只验「用了它」。
+    let fallback = vec!["claude-opus-5".to_string(), "gpt-5.5".to_string()];
+    let models = pi_model_candidates(&[], &[PlatformModels::default()], &fallback);
+    assert_eq!(models, fallback);
 }
 
 /// 纯 claude_code（订阅透传）组：settings.{group}.json 禁注入路由 env

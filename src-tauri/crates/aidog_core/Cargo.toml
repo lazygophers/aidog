@@ -16,8 +16,14 @@ license = { workspace = true }
 # `#[cfg(feature = "desktop")]`；命令体本身零 tauri 依赖（票 06 的 AppCtx 已经拔干净）。
 [features]
 default = ["desktop", "http"]
-desktop = ["dep:tauri", "dep:tauri-plugin-notification", "dep:tauri-plugin-autostart"]
+desktop = ["dep:tauri", "dep:tauri-plugin-notification", "dep:tauri-plugin-autostart", "menubar"]
 http = []
+# 票 I20：macOS 菜单栏宿主（`menubar` 模块 + `tray_render` 里 3 个 objc2 直连 AppKit 的渲染
+# 函数）。从 `desktop` 拆出来是因为 Flutter 壳要在**不链 tauri** 的前提下拿到同一份宿主：
+# `aidog_menubar_ffi` 以 `default-features = false, features = ["menubar"]` 引本 crate，
+# 编成 staticlib 链进 Runner。`desktop` 蕴含它 → Tauri 壳的 cfg 求值结果一字未变。
+# 非 macOS 上整块由 `cfg(target_os = "macos")` 兜住，开着也是空。
+menubar = []
 
 # C2 core-extract：gateway + shared + models + sync + hooks + tray_refresh + logging
 # 全部业务下沉此 crate。所有依赖从 [workspace.dependencies] 引，禁自定版本。

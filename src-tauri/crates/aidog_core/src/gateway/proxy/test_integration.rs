@@ -287,6 +287,48 @@ async fn successful_forward_to_stub_upstream() {
     );
 }
 
+// ── 实际模型口径（2026-09-21）：非流式 actual_model 取上游自报模型名，缺失回退请求模型 ──
+// 旧缺陷：actual_model 写的是路由 target_model（与请求一致时无感，映射/别名场景统计按
+// 路由名聚合）。用户口径：统计按上游响应自报模型；上游没报才回退请求模型。
+const NO_MODEL_OK: &str = r#"{"id":"msg_2","type":"message","role":"assistant","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
+
+#[tokio::test]
+async fn nonstream_actual_model_uses_upstream_served_model() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await; // 响应 model = "claude-3"
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk_am1", &upstream).await;
+
+    // 请求名与上游自报名不同：actual_model 必须取上游的，不能是请求名/路由名。
+    let req = messages_request(
+        "gk_am1",
+        r#"{"model":"request-model","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gk_am1").await;
+    assert_eq!(log.actual_model, "claude-3", "actual_model 应为上游自报模型");
+    assert_eq!(log.model, "request-model");
+}
+
+#[tokio::test]
+async fn nonstream_actual_model_falls_back_to_requested_when_upstream_silent() {
+    let upstream = spawn_stub_upstream(200, NO_MODEL_OK).await; // 响应无 model 字段
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gk_am2", &upstream).await;
+
+    let req = messages_request(
+        "gk_am2",
+        r#"{"model":"request-model","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let log = last_log_for(&state, "gk_am2").await;
+    assert_eq!(
+        log.actual_model, "request-model",
+        "上游未自报模型时应回退请求模型"
+    );
+}
+
 /// 写日志设置进 DB，并按生产同款路径重建 ProxyState 设置缓存（mod.rs start_proxy 同款 load_from）。
 /// 只写 DB 不刷缓存 = 旧值仍生效（这正是要防的陈旧路径）。
 async fn set_log_settings(state: &Arc<ProxyState>, settings: ProxyLogSettings) {

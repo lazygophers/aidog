@@ -30,6 +30,7 @@
 		4A3F28CF5B7DA59AD8026B85 /* Pods_RunnerTests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AEAFB5FD1818F25817B255B5 /* Pods_RunnerTests.framework */; };
 		9DDF258E30D959937CEE6E6C /* Pods_Runner.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C92995B11A23AA27547733B2 /* Pods_Runner.framework */; };
 		A11B0011AAAA0000BBBB0001 /* TrayPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B0011AAAA0000BBBB0002 /* TrayPanel.swift */; };
+		A11B0030AAAA0000BBBB0001 /* MenuBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11B0030AAAA0000BBBB0002 /* MenuBar.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +85,8 @@
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; path = Debug.xcconfig; sourceTree = "<group>"; };
 		A11B0011AAAA0000BBBB0002 /* TrayPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrayPanel.swift; sourceTree = "<group>"; };
+		A11B0030AAAA0000BBBB0002 /* MenuBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBar.swift; sourceTree = "<group>"; };
+		A11B0030AAAA0000BBBB0003 /* AidogMenuBar.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AidogMenuBar.h; sourceTree = "<group>"; };
 		AEAFB5FD1818F25817B255B5 /* Pods_RunnerTests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_RunnerTests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BECA6B98717940841A24D1A1 /* Pods-Runner.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-Runner.debug.xcconfig"; path = "Target Support Files/Pods-Runner/Pods-Runner.debug.xcconfig"; sourceTree = "<group>"; };
 		C92995B11A23AA27547733B2 /* Pods_Runner.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_Runner.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -194,6 +197,8 @@
 				33CC10F02044A3C60003C045 /* AppDelegate.swift */,
 				33CC11122044BFA00003C045 /* MainFlutterWindow.swift */,
 				A11B0011AAAA0000BBBB0002 /* TrayPanel.swift */,
+				A11B0030AAAA0000BBBB0002 /* MenuBar.swift */,
+				A11B0030AAAA0000BBBB0003 /* AidogMenuBar.h */,
 				33E51913231747F40026EE4D /* DebugProfile.entitlements */,
 				33E51914231749380026EE4D /* Release.entitlements */,
 				33CC11242044D66E0003C045 /* Resources */,
@@ -238,6 +243,7 @@
 			buildConfigurationList = 33CC10FB2044A3C60003C045 /* Build configuration list for PBXNativeTarget "Runner" */;
 			buildPhases = (
 				190A9D2B0CED5DD036E2D92A /* [CP] Check Pods Manifest.lock */,
+				A11B0030AAAA0000BBBB0010 /* Build aidog-menubar staticlib */,
 				33CC10E92044A3C60003C045 /* Sources */,
 				33CC10EA2044A3C60003C045 /* Frameworks */,
 				33CC10EB2044A3C60003C045 /* Resources */,
@@ -387,6 +393,25 @@
 			shellPath = /bin/sh;
 			shellScript = "\"$FLUTTER_ROOT\"/packages/flutter_tools/bin/macos_assemble.sh && touch Flutter/ephemeral/tripwire";
 		};
+		A11B0030AAAA0000BBBB0010 /* Build aidog-menubar staticlib */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build aidog-menubar staticlib";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# 票 I20：菜单栏宿主（aidog_core::menubar + tray_render）编成 staticlib 链进 Runner。\n#\n# 为什么不让内核去持 NSStatusItem：GUI 只该存在于一个进程，而 NSApp 只有 Runner 有。\n# 为什么不用 Swift 重写：菜单栏那行多列富文本的排版是 tray_render 的 340 行，\n# 抄第二份必然漂移 —— 所以原样链过来，Swift 只接线。\nset -e\nROOT=\"$SRCROOT/../..\"\nOUT_DIR=\"$BUILT_PRODUCTS_DIR/aidog-menubar\"\nmkdir -p \"$OUT_DIR\"\n# Xcode 的 Profile 配置没有对应的 cargo profile，按 release 编（与 aidog-kernel 同规则）。\nPROFILE=release\nCARGO_PROFILE_FLAG=--release\nif [ \"$CONFIGURATION\" = \"Debug\" ]; then PROFILE=debug; CARGO_PROFILE_FLAG=\"\"; fi\nBITS=\"\"\nfor ARCH in $ARCHS; do\n  # Xcode 的 ARCHS 写 arm64，rust 的 target triple 写 aarch64 —— 换名。\n  TRIPLE=$(echo $ARCH | sed \"s/^arm64$/aarch64/\")\n  cargo build $CARGO_PROFILE_FLAG --target \"$TRIPLE-apple-darwin\" --manifest-path \"$ROOT/src-tauri/Cargo.toml\" -p aidog_menubar_ffi\n  BITS=\"$BITS $ROOT/src-tauri/target/$TRIPLE-apple-darwin/$PROFILE/libaidog_menubar_ffi.a\"\ndone\nif [ \"$(echo $ARCHS | wc -w)\" -gt 1 ]; then\n  lipo -create -output \"$OUT_DIR/libaidog_menubar_ffi.a\" $BITS\nelse\n  cp $BITS \"$OUT_DIR/libaidog_menubar_ffi.a\"\nfi\n";
+		};
 		A11B0020AAAA0000BBBB0001 /* Bundle aidog-kernel */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
@@ -462,6 +487,7 @@
 			files = (
 				33CC11132044BFA00003C045 /* MainFlutterWindow.swift in Sources */,
 				A11B0011AAAA0000BBBB0001 /* TrayPanel.swift in Sources */,
+				A11B0030AAAA0000BBBB0001 /* MenuBar.swift in Sources */,
 				33CC10F12044A3C60003C045 /* AppDelegate.swift in Sources */,
 				335BBD1B22A9A15E00E9071D /* GeneratedPluginRegistrant.swift in Sources */,
 			);

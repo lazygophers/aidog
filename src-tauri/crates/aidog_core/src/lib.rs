@@ -34,8 +34,13 @@ pub mod sync_settings;
 pub mod tauri_ctx;
 pub mod tray_render;
 // 票 I10：macOS 菜单栏文字改由自持 NSStatusItem 承载（零 tauri，删 Tauri 后原样可用）。
-#[cfg(all(target_os = "macos", feature = "desktop"))]
+// 票 I20：gate 从 `desktop` 换成 `menubar`（`desktop` 蕴含它，Tauri 侧无变化），
+// 让 Flutter 壳的 `aidog_menubar_ffi` 能在不链 tauri 的前提下复用同一个宿主。
+#[cfg(all(target_os = "macos", feature = "menubar"))]
 pub mod menubar;
+// 票 I20：菜单栏一帧数据（取数侧，无 AppKit）。宿主可能不在本进程里（Flutter 壳把
+// GUI 留在 Runner、DB 留在内核），所以取数与渲染分居两个模块、靠 JSON 过进程边界。
+pub mod menubar_state;
 // 票 08：内核管理面设置（绑定开关 + Bearer 凭据）。与代理的 `bind_lan` 相互独立。
 pub mod kernel_settings;
 // C3 c3-commands 第 1 批：commands_tray 4 个 popover command 下沉（薄转发，纯搬运）。

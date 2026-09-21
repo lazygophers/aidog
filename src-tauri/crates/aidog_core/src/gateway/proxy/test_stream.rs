@@ -912,3 +912,94 @@ mod test_idle_ping {
         assert!(out.last().unwrap().starts_with("event: message_stop"));
     }
 }
+
+// ── 实际模型口径（2026-09-21）：流式从 data: 帧观察上游自报模型，flush 回写 actual_model ──
+
+#[test]
+fn feed_sse_usage_captures_served_model_first_seen() {
+    let agg = StreamAggregator::new();
+    // anthropic message_start：model 嵌在 message 里
+    agg.feed_sse_usage(concat!(
+        "event: message_start\n",
+        "data: {\"type\":\"message_start\",\"message\":{\"model\":\"glm-4.7-served\",\"usage\":{\"input_tokens\":5}}}\n\n",
+    ));
+    // 后续帧出现别的名字（异常）不覆盖首见
+    agg.feed_sse_usage("data: {\"model\":\"other-model\"}\n\n");
+    assert_eq!(
+        agg.take_served_model().as_deref(),
+        Some("glm-4.7-served"),
+        "上游自报模型应首见定格"
+    );
+    assert_eq!(agg.take_served_model(), None, "take 后清空（flush 一次性消费）");
+}
+
+#[test]
+fn feed_sse_usage_without_model_stays_none() {
+    let agg = StreamAggregator::new();
+    agg.feed_sse_usage("data: {\"usage\":{\"output_tokens\":3}}\n\n");
+    assert_eq!(agg.take_served_model(), None, "全程无模型帧 → None，由 flush 回退请求模型");
+}
+
+// flush 回写：上游自报优先；未自报回退请求模型（不再用路由目标 glm-5）。
+#[tokio::test]
+async fn flush_writes_served_model_as_actual_model() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let id = "flush_served_model_0001";
+    let log = placeholder_stream_log(id); // model="claude"（请求名），actual_model="glm-5"（路由目标）
+    aidog_logs::insert_proxy_log_columns(
+        &state.db,
+        aidog_logs::ProxyLogColumns::from_log(&log, false, false),
+    )
+    .await
+    .unwrap();
+    state.log_snapshots.insert(
+        id.to_string(),
+        aidog_logs::ProxyLogColumns::from_log(&log, false, false),
+    );
+
+    let chunks = [
+        "data: {\"type\":\"message_start\",\"message\":{\"model\":\"glm-4.7-served\"}}\n\n",
+        "data: [DONE]\n\n",
+    ];
+    let guard = make_guard(&state, log, &chunks, 7);
+    guard.agg.feed_sse_usage(chunks[0]);
+    guard.flush_if_done(chunks[1]);
+    await_flush_write(&state.db, id).await;
+    let row = aidog_logs::get_proxy_log(&state.db, id).await.unwrap().unwrap();
+    assert_eq!(row.actual_model, "glm-4.7-served");
+    drop(guard);
+    let _ = std::fs::remove_file(path);
+}
+
+// 上游全程未自报模型：actual_model 回退请求模型（model 列），不保留路由目标名。
+#[tokio::test]
+async fn flush_falls_back_to_requested_model_without_served() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let id = "flush_served_model_0002";
+    let log = placeholder_stream_log(id); // model="claude"，actual_model="glm-5"
+    aidog_logs::insert_proxy_log_columns(
+        &state.db,
+        aidog_logs::ProxyLogColumns::from_log(&log, false, false),
+    )
+    .await
+    .unwrap();
+    state.log_snapshots.insert(
+        id.to_string(),
+        aidog_logs::ProxyLogColumns::from_log(&log, false, false),
+    );
+
+    let chunks = [
+        "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+        "data: [DONE]\n\n",
+    ];
+    let guard = make_guard(&state, log, &chunks, 7);
+    guard.agg.feed_sse_usage(chunks[0]);
+    guard.flush_if_done(chunks[1]);
+    await_flush_write(&state.db, id).await;
+    let row = aidog_logs::get_proxy_log(&state.db, id).await.unwrap().unwrap();
+    assert_eq!(row.actual_model, "claude", "应回退请求模型，而非路由目标 glm-5");
+    drop(guard);
+    let _ = std::fs::remove_file(path);
+}

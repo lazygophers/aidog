@@ -27,14 +27,17 @@ import FlutterMacOS
 final class TrayPanel: NSObject {
   static let shared = TrayPanel()
 
-  /// 小窗宽（逻辑像素）。与 Dart 侧 `kTrayPanelWidth` 是同一个数，改一处要改两处。
-  private static let width: CGFloat = 340
-  private static let minHeight: CGFloat = 80
-  private static let maxHeight: CGFloat = 600
+  /// 首帧的占位宽（逻辑像素）。**不是权威值** —— 真正的宽高由 Dart 量完内容报上来
+  /// （`resize(width:height:)`），上下限也在 Dart 那边夹（`panel_channel.dart`）。
+  /// 这里只需要一个「内容还没量出来之前先挂着」的数。
+  private static let initialWidth: CGFloat = 300
+  private static let initialHeight: CGFloat = 80
   /// 图标底边与小窗顶边的间距。
   private static let gap: CGFloat = 4
 
   private var panel: NSPanel?
+  /// 最近一次 show 的锚点。改宽之后要重新居中到图标底下，所以得留着。
+  private var anchor: NSRect = .zero
   private var engine: FlutterEngine?
   private var outsideClickMonitor: Any?
   /// 最近一次 show 的时刻：菜单栏那一下点击本身也是「面板外点击」，
@@ -47,6 +50,7 @@ final class TrayPanel: NSObject {
 
   func show(anchor: NSRect) {
     let panel = ensurePanel()
+    self.anchor = anchor
     position(panel, anchor: anchor)
     // 只 orderFrontRegardless：不激活本 app，不切 Space。
     panel.orderFrontRegardless()
@@ -63,15 +67,21 @@ final class TrayPanel: NSObject {
     if isVisible { hide() } else { show(anchor: anchor) }
   }
 
-  /// 内容自己量出来的高度。夹在上下限之间，顶边不动（向下长）。
-  func resize(height: CGFloat) {
+  /// 内容自己量出来的宽高（Dart 已按 `panel_channel.dart` 的上下限夹好）。
+  /// 顶边不动（向下长），横向重新居中到图标底下 —— 与 React 版保持 `centerX` 同语义
+  /// （`src/popover.tsx:198`）。≤1px 的变化不动窗，防抖动循环（对齐 React 的 `DELTA`）。
+  func resize(width: CGFloat, height: CGFloat) {
     guard let panel = panel else { return }
-    let h = min(max(height, Self.minHeight), Self.maxHeight)
     var frame = panel.frame
-    guard abs(frame.size.height - h) > 1 else { return }
-    frame.origin.y += frame.size.height - h
-    frame.size.height = h
+    let dw = abs(frame.size.width - width)
+    let dh = abs(frame.size.height - height)
+    guard dw > 1 || dh > 1 else { return }
+    frame.origin.y += frame.size.height - height
+    frame.size.width = width
+    frame.size.height = height
     panel.setFrame(frame, display: true)
+    // 宽变了就得重新居中；顺带把贴边收回屏内那条也一并复用。
+    if dw > 1 { position(panel, anchor: anchor) }
   }
 
   // MARK: - 构建
@@ -79,8 +89,13 @@ final class TrayPanel: NSObject {
   private func ensurePanel() -> NSPanel {
     if let panel = panel { return panel }
 
+    // `allowHeadlessExecution` 必须是 true（票 I20 修）：`run(withEntrypoint:)` 在这里
+    // 跑在 `FlutterViewController` 附上来**之前**，false 会让引擎拒绝启动 ——
+    // 日志里那句 "Attempted to run an engine with no view controller without headless
+    // mode enabled."，后果是 popoverMain 根本没跑，小窗停在 0×0 什么都不显示。
+    // 语义上也该是 true：小窗收起时引擎照样活着（懒建、建好不释放），那本来就是无视图状态。
     let engine = FlutterEngine(
-      name: "aidog-tray-popover", project: nil, allowHeadlessExecution: false)
+      name: "aidog-tray-popover", project: nil, allowHeadlessExecution: true)
     engine.run(withEntrypoint: "popoverMain")
     self.engine = engine
 
@@ -91,8 +106,12 @@ final class TrayPanel: NSObject {
     ).setMethodCallHandler { [weak self] call, result in
       switch call.method {
       case "resize":
-        let h = (call.arguments as? [String: Any])?["h"] as? Double ?? 0
-        self?.resize(height: CGFloat(h))
+        let args = call.arguments as? [String: Any]
+        guard let w = args?["w"] as? Double, let h = args?["h"] as? Double else {
+          result(FlutterError(code: "bad-args", message: "resize needs w and h", details: nil))
+          return
+        }
+        self?.resize(width: CGFloat(w), height: CGFloat(h))
         result(nil)
       case "close":
         self?.hide()
@@ -103,11 +122,14 @@ final class TrayPanel: NSObject {
     }
 
     let panel = NSPanel(
-      contentRect: NSRect(x: 0, y: 0, width: Self.width, height: Self.minHeight),
+      contentRect: NSRect(x: 0, y: 0, width: Self.initialWidth, height: Self.initialHeight),
       styleMask: [.nonactivatingPanel],
       backing: .buffered,
       defer: false)
     panel.contentViewController = vc
+    // 赋 contentViewController 会把窗缩到该 VC 视图的尺寸，而 Flutter 视图在出第一帧
+    // 之前是 0×0 —— 不重新撑开就是一个看不见的窗。Dart 量完内容会再报一次真尺寸。
+    panel.setContentSize(NSSize(width: Self.initialWidth, height: Self.initialHeight))
     panel.isFloatingPanel = true
     panel.becomesKeyOnlyIfNeeded = true
     panel.hidesOnDeactivate = false

@@ -194,6 +194,11 @@ pub(crate) struct StreamAggregator {
     // 静默丢弃 usage（尤其 anthropic 尾部 message_delta 携带最终 input/output_tokens 时）。
     // 此缓冲保留每个 chunk 末尾未以换行结束的残行，拼到下个 chunk 头部，保证 usage 解析始终见完整行。
     sse_line_buf: std::sync::Mutex<String>,
+    // 上游自报模型名（首见即定格）：流式无单一响应 JSON，模型散布在各 data: 帧里
+    // （anthropic message_start.message.model / openai 每 chunk 的 model / responses 的
+    // response.model）。usage 提取处（feed_sse_usage）顺带观察，flush 回写时取代路由目标模型
+    // 落 proxy_log.actual_model（统计口径，2026-09-21）。首见优先：流中途换名（异常）不覆盖。
+    served_model: std::sync::Mutex<Option<String>>,
     // ── 流终态判定位：relay 闭包 / 哨兵写，StreamLogGuard::flush 读（agg 是二者唯一共享 Arc）。──
     // upstream_err：上游 chunk 返 Err（连接被掐 / 解码失败）——上游截断。
     // exhausted：上游流自然耗尽（Stream 返 None）——即便无 [DONE]/message_stop 终止符也算正常收尾
@@ -214,6 +219,7 @@ impl StreamAggregator {
             tokens_out: std::sync::atomic::AtomicI32::new(0),
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
             sse_line_buf: std::sync::Mutex::new(String::new()),
+            served_model: std::sync::Mutex::new(None),
             upstream_err: std::sync::atomic::AtomicBool::new(false),
             exhausted: std::sync::atomic::AtomicBool::new(false),
         }
@@ -304,6 +310,7 @@ impl StreamAggregator {
                         &self.tokens_out,
                         &self.tokens_cache,
                     );
+                    self.observe_served_model(&json);
                 }
             }
         }
@@ -318,6 +325,21 @@ impl StreamAggregator {
         } else {
             *buf = remainder;
         }
+    }
+
+    /// 从 SSE 帧记录上游自报模型名（首见定格）。见字段注释。
+    fn observe_served_model(&self, json: &Value) {
+        if let Ok(mut slot) = self.served_model.lock()
+            && slot.is_none()
+            && let Some(model) = adapter::response_model(json)
+        {
+            *slot = Some(model);
+        }
+    }
+
+    /// 取观察到的上游自报模型名（消费即取，flush 一次性回写）。
+    fn take_served_model(&self) -> Option<String> {
+        self.served_model.lock().ok().and_then(|mut s| s.take())
     }
 }
 
@@ -411,6 +433,12 @@ impl StreamLogGuard {
         let cache_tokens = self.agg.tokens_cache.load(Relaxed);
 
         let mut final_log = self.log.clone();
+        // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：流式从 data: 帧首见模型名取
+        // actual_model，上游全程未自报则回退客户端请求模型（log.model），不再用路由目标模型。
+        final_log.actual_model = self
+            .agg
+            .take_served_model()
+            .unwrap_or_else(|| final_log.model.clone());
         final_log.input_tokens = input_tokens;
         final_log.output_tokens = output_tokens;
         final_log.cache_tokens = cache_tokens;

@@ -357,6 +357,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "aidog_menubar_ffi"
+version = "0.1.17"
+dependencies = [
+ "aidog_core",
+ "serde_json",
+ "tracing",
+]
+
+[[package]]
 name = "aidog_middleware"
 version = "0.1.17"
 dependencies = [

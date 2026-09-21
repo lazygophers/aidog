@@ -178,11 +178,13 @@ pub fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
 
 /// 一个分组在 pi `/model` 里能选到的模型候选：分组模型映射的对外模型名 ∪ 各关联平台
 /// 的有效模型，按出现顺序去重。pi 的自定义 provider 必须自带 models 才能选模型，
-/// 全空会生成一个选不了模型的废 provider —— 因此回落到 `/models` 那份静态默认清单
-/// （同一份真值源，不另起第二份）。
+/// 全空会生成一个选不了模型的废 provider —— 因此回落到 `/models` 端点那份默认清单
+/// （`gateway::proxy::default_model_ids`，同一份真值源，不另起第二份）。由调用方查好后传入，
+/// 本函数保持纯同步。
 fn pi_model_candidates(
     mappings: &[aidog_db::models::ModelMapping],
     platform_models: &[aidog_db::models::PlatformModels],
+    fallback: &[String],
 ) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut out: Vec<String> = mappings
@@ -194,10 +196,7 @@ fn pi_model_candidates(
         .collect();
 
     if out.is_empty() {
-        out = gateway::proxy::STATIC_MODEL_IDS
-            .iter()
-            .map(|m| m.to_string())
-            .collect();
+        out = fallback.to_vec();
     }
     out
 }
@@ -535,6 +534,9 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // 必须在循环外一次性写入全部分组 —— 删除的分组由 aidog- 前缀清扫顺带消失，
     // 不需要单独一趟 cleanup。pi 未装也不应阻塞，失败仅记录。
     // 模型候选要平台维度，故复用上方 group_details（不再二次查询）。
+    // /models 端点那份默认清单：分组一个模型都没配时兜底，避免生成选不了模型的废 provider。
+    // 查一次给所有分组共用（registry 派生，与分组无关）。
+    let pi_fallback_models = gateway::proxy::default_model_ids(db).await;
     let pi_groups: Vec<gateway::pi::PiGroup> = group_details
         .iter()
         .map(|d| gateway::pi::PiGroup {
@@ -545,6 +547,7 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                     .iter()
                     .map(|gp| gp.platform.models.clone())
                     .collect::<Vec<_>>(),
+                &pi_fallback_models,
             ),
             api: gateway::pi::parse_group_api(&d.group.extra),
         })

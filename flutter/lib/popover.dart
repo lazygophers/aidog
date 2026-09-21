@@ -14,7 +14,8 @@
 /// `NSPanel` 没有 Windows 对应物），[trayPanelSupported] 是判据。
 library;
 
-export 'src/popover/app.dart' show PopoverApp, PopoverDataController, runPopoverApp;
+export 'src/popover/app.dart'
+    show PopoverApp, PopoverDataController, runPopoverApp;
 export 'src/popover/cards.dart' show PopoverCard, PopoverFrame, PopoverGrid;
 export 'src/popover/model.dart'
     show
@@ -38,9 +39,10 @@ export 'src/popover/panel_channel.dart'
         kTrayPanelChannel,
         kTrayPanelContentChannel,
         kTrayPanelMaxHeight,
+        kTrayPanelMaxWidth,
         kTrayPanelMinHeight,
-        kTrayPanelWidth,
-        reportTrayPanelHeight,
+        kTrayPanelMinWidth,
+        reportTrayPanelSize,
         showTrayPanel,
         toggleTrayPanel,
         trayPanelSupported;
