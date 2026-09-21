@@ -27,13 +27,13 @@ const MethodChannel kTrayPanelContentChannel = MethodChannel(
 /// 本平台有没有非激活面板这回事。false → 调用方并进主窗口。
 bool get trayPanelSupported => Platform.isMacOS;
 
-/// 小窗宽度（逻辑像素）。
+/// 小窗宽高上下限（逐个对齐 React 的 `MIN_W` / `MAX_W` / `MIN_H` / `MAX_H`，
+/// `src/popover.tsx:65-68`）。
 ///
-/// ponytail: React 版按内容 300-480 自适应宽；Flutter 的内容宽度由窗口给定，
-/// 反过来测不出「内容想要多宽」。定宽 + 高度自适应，真有人嫌窄再加。
-const double kTrayPanelWidth = 340;
-
-/// 小窗高度上下限（对齐 React 的 `MIN_H` / `MAX_H`）。
+/// **这四个数是唯一真值源**：Swift 侧只留一个「内容还没量出来之前先挂着」的占位宽，
+/// 不再抄一份上下限（票 I20 之前 340 这个数在两边各写了一遍）。
+const double kTrayPanelMinWidth = 300;
+const double kTrayPanelMaxWidth = 480;
 const double kTrayPanelMinHeight = 80;
 const double kTrayPanelMaxHeight = 600;
 
@@ -67,13 +67,12 @@ Future<void> toggleTrayPanel(Rect anchor) async {
   });
 }
 
-/// 小窗内容高度变了 → 让 Swift 改窗高。夹在 [kTrayPanelMinHeight] 与
-/// [kTrayPanelMaxHeight] 之间，超出部分由内容自己滚。
-Future<void> reportTrayPanelHeight(double height) async {
+/// 小窗内容尺寸变了 → 让 Swift 改窗。两边都夹在上下限之间，超出部分由内容自己滚。
+Future<void> reportTrayPanelSize(double width, double height) async {
   if (!trayPanelSupported) return;
-  final h = height.clamp(kTrayPanelMinHeight, kTrayPanelMaxHeight);
   await kTrayPanelContentChannel.invokeMethod<void>('resize', <String, Object?>{
-    'h': h,
+    'w': width.clamp(kTrayPanelMinWidth, kTrayPanelMaxWidth),
+    'h': height.clamp(kTrayPanelMinHeight, kTrayPanelMaxHeight),
   });
 }
 

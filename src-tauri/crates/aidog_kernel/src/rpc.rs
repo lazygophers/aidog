@@ -67,6 +67,8 @@ rpc_routes! {
     aidog_core::popover::popover_config_get,
     aidog_core::popover::popover_config_set,
     aidog_core::popover::popover_platform_today,
+    // 票 I20：Flutter 壳用它把菜单栏一帧数据喂给 Runner 里的 NSStatusItem。
+    aidog_core::menubar_state::menu_bar_state,
     aidog_core::platform_cmd::group::group_create,
     aidog_core::platform_cmd::group::group_list,
     aidog_core::platform_cmd::group::group_get,

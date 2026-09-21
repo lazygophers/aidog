@@ -101,7 +101,7 @@ class PopoverApp extends StatefulWidget {
     super.key,
     this.invoke,
     this.events,
-    this.reportHeight = reportTrayPanelHeight,
+    this.reportSize = reportTrayPanelSize,
   });
 
   final InvokeFn? invoke;
@@ -109,8 +109,8 @@ class PopoverApp extends StatefulWidget {
   /// 「有新请求日志」事件流。缺省走内核 SSE；测试塞假流。
   final Stream<Object?> Function()? events;
 
-  /// 内容高度上报（测试里换成收集器）。
-  final Future<void> Function(double) reportHeight;
+  /// 内容尺寸上报（测试里换成收集器）。参数 = (宽, 高)，逻辑像素。
+  final Future<void> Function(double, double) reportSize;
 
   @override
   State<PopoverApp> createState() => _PopoverAppState();
