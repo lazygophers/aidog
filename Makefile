@@ -77,6 +77,8 @@ lint: ## Run linters
 	yarn check:flutter-schema
 	@printf "$(CYAN)▶ Flutter icon drift check...$(RESET)\n"
 	node scripts/gen-flutter-icons.mjs --check
+	@printf "$(CYAN)▶ Flutter underline check...$(RESET)\n"
+	node scripts/check-flutter-underline.mjs
 	@printf "$(CYAN)▶ Flutter analyze...$(RESET)\n"
 	cd $(FLUTTER_DIR) && flutter analyze
 	@printf "$(CYAN)▶ Linting...$(RESET)\n"

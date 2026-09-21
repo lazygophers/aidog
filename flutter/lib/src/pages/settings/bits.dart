@@ -349,6 +349,8 @@ class SelectRow extends StatelessWidget {
             ),
           DropdownButton<String>(
             value: value.isEmpty ? null : value,
+            // Material 默认在下拉底下画一条横线，与本项目的描边风格冲突。
+            underline: const SizedBox.shrink(),
             isDense: true,
             isExpanded: true,
             dropdownColor: theme.c.surface2,

@@ -189,6 +189,8 @@ class FormDropdown extends StatelessWidget {
     ];
     final dd = DropdownButton<String>(
       value: value.isEmpty ? null : value,
+      // Material 默认在下拉底下画一条横线，与本项目的描边风格冲突。
+      underline: const SizedBox.shrink(),
       isDense: true,
       // 恒 true：给了 width 还让它按最宽选项撑开，IANA 时区名那一排必溢出。
       isExpanded: true,

@@ -167,9 +167,15 @@ class _PopoverAppState extends State<PopoverApp> {
         debugShowCheckedModeBanner: false,
         locale: i18n.flutterLocale,
         theme: aidogThemeData(AidogMode.dark),
-        home: Directionality(
-          textDirection: i18n.textDirection,
-          child: _body(),
+        // 小窗不走 Scaffold（窗本身就是那张卡），所以要自己给一层 Material。
+        // 少了它，Flutter 会给**每一行文字**画上「缺 Material 祖先」的黄色下划线。
+        // 主骨架同样的坑已在 `app_shell.dart:217` 修过，这里是第二个根。
+        home: Material(
+          type: MaterialType.transparency,
+          child: Directionality(
+            textDirection: i18n.textDirection,
+            child: _body(),
+          ),
         ),
       ),
     );
