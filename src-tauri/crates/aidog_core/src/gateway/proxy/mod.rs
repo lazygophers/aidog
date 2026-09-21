@@ -113,7 +113,7 @@ pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,
-    handle_passthrough, is_models_endpoint,
+    handle_passthrough, is_models_endpoint, merge_group_model_names,
 };
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{

@@ -408,18 +408,12 @@ fn models_json_openai_format() {
         Some(400_000)
     );
     assert!(by_id("gpt-4o-mini").get("max_input_tokens").is_none());
-    // 模型集内容
-    let ids: Vec<&str> = data
+    // 传进去的 id 原样出现在输出里，顺序不变（清单内容由调用方决定，本函数只负责格式化）。
+    let out_ids: Vec<&str> = data
         .iter()
         .filter_map(|m| m.get("id").and_then(|i| i.as_str()))
         .collect();
-    assert!(ids.contains(&"claude-opus-4-8"));
-    assert!(ids.contains(&"claude-fable-5"));
-    assert!(ids.contains(&"gpt-5.5"));
-    assert!(ids.contains(&"gpt-5.4"));
-    assert!(ids.contains(&"gpt-5.4-mini"));
-    assert!(ids.contains(&"gpt-5.4-nano"));
-    assert!(!ids.contains(&"gpt-5.5-codex"));
+    assert_eq!(out_ids, ids.iter().map(String::as_str).collect::<Vec<_>>());
 }
 
 // ── 模型列表：anthropic 格式 = {data:[{type:model,id,display_name,created_at}],has_more,first_id,last_id} ──
@@ -427,7 +421,11 @@ fn models_json_openai_format() {
 fn models_json_anthropic_format() {
     // 裸路径回退 anthropic
     let ids = sample_ids();
-    let v = build_models_json(&Protocol::Anthropic, &ids, &std::collections::HashMap::new());
+    let v = build_models_json(
+        &Protocol::Anthropic,
+        &ids,
+        &std::collections::HashMap::new(),
+    );
     let data = v
         .get("data")
         .and_then(|d| d.as_array())
@@ -554,3 +552,51 @@ fn passthrough_patches_model_only() {
 // 一段 gzip 压缩的 anthropic usage JSON，解压后喂 extract_usage，断言 token > 0，
 // 证明「解压后 JSON → extract_usage → token>0」链路成立（reqwest 解压本身为黑盒，
 // 由 Cargo feature gzip/brotli/deflate/zstd 保证，行为有 docs.rs 官方背书）。
+
+// ── 分组候选模型合并：映射源名 ∪ 各平台模型槽位，按出现顺序去重、剔空 ──
+// `/models` 端点（group_model_ids）与 pi 配置同步（pi_model_candidates）共用这一口径。
+#[test]
+fn merge_group_model_names_dedupes_in_order() {
+    use aidog_db::models::{ModelMapping, PlatformModels};
+    let mapping = |s: &str| ModelMapping {
+        source_model: s.to_string(),
+        target_platform_id: 0,
+        target_model: String::new(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+    };
+
+    let out = merge_group_model_names(
+        // 前后空白要被 trim；空串要被剔掉
+        &[
+            mapping("  claude-sonnet-5  "),
+            mapping(""),
+            mapping("glm-4.7"),
+        ],
+        &[
+            PlatformModels {
+                default: Some("glm-4.7".into()), // 与上面的映射重复 → 只留一次
+                sonnet: Some("glm-4.6".into()),
+                ..PlatformModels::default()
+            },
+            PlatformModels {
+                opus: Some("glm-4.6".into()), // 跨平台重复 → 同样只留一次
+                haiku: Some("glm-4.5".into()),
+                ..PlatformModels::default()
+            },
+        ],
+    );
+
+    assert_eq!(
+        out,
+        vec!["claude-sonnet-5", "glm-4.7", "glm-4.6", "glm-4.5"],
+        "映射在前、平台槽位在后，首次出现的顺序即输出顺序"
+    );
+}
+
+/// 一个模型都没配的分组 → 空，调用方据此回落默认清单（`/models` 与 pi 两处都靠这个语义）。
+#[test]
+fn merge_group_model_names_empty_when_nothing_configured() {
+    use aidog_db::models::PlatformModels;
+    assert!(merge_group_model_names(&[], &[PlatformModels::default()]).is_empty());
+}

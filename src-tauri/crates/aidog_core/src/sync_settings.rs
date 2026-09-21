@@ -186,19 +186,12 @@ fn pi_model_candidates(
     platform_models: &[aidog_db::models::PlatformModels],
     fallback: &[String],
 ) -> Vec<String> {
-    let mut seen = std::collections::HashSet::new();
-    let mut out: Vec<String> = mappings
-        .iter()
-        .map(|m| m.source_model.trim().to_string())
-        .chain(platform_models.iter().flat_map(|m| m.all_values()))
-        .filter(|m| !m.is_empty())
-        .filter(|m| seen.insert(m.clone()))
-        .collect();
-
+    let out = gateway::proxy::merge_group_model_names(mappings, platform_models);
     if out.is_empty() {
-        out = fallback.to_vec();
+        fallback.to_vec()
+    } else {
+        out
     }
-    out
 }
 
 /// 出站代理 URL：取 claude config 的 `env.HTTPS_PROXY`，退 `env.HTTP_PROXY`。

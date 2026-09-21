@@ -306,7 +306,10 @@ async fn nonstream_actual_model_uses_upstream_served_model() {
     let resp = handle_proxy(AxumState(state.clone()), req).await;
     assert_eq!(resp.status(), StatusCode::OK);
     let log = last_log_for(&state, "gk_am1").await;
-    assert_eq!(log.actual_model, "claude-3", "actual_model 应为上游自报模型");
+    assert_eq!(
+        log.actual_model, "claude-3",
+        "actual_model 应为上游自报模型"
+    );
     assert_eq!(log.model, "request-model");
 }
 
@@ -623,7 +626,7 @@ fn get_request(gk: &str, uri: &str) -> Request {
         .unwrap()
 }
 
-/// GET /v1/models（含 group token）→ handle_models_static：openai 格式静态列表，不 relay 上游。
+/// GET /v1/models（含 group token）→ handle_models_list：openai 格式列表，不 relay 上游。
 #[tokio::test]
 async fn models_endpoint_returns_static_openai() {
     let state = make_state(test_db().await).await;

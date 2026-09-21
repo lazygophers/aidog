@@ -58,7 +58,7 @@ pub(crate) async fn finish_nonstream(
     // StreamEstCtx）继续用路由目标模型，不受影响。
     log.actual_model = serde_json::from_slice::<Value>(&body)
         .ok()
-        .and_then(adapter::response_model)
+        .and_then(|body| adapter::response_model(&body))
         .unwrap_or_else(|| requested_model.to_string());
 
     // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，

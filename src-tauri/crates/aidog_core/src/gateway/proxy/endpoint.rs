@@ -10,7 +10,7 @@ use super::*;
 /// **`/v1` 可省略**：部分 OpenAI 兼容客户端（网关/SDK 把版本段算进 base_url）直发裸端点
 /// `/proxy/chat/completions`，无 `/v1/` 段。此时按端点名后缀同样判 openai，
 /// 否则会误落 anthropic 回退 → `parse_incoming_request` 解析 OpenAI body 失败返 400。
-/// 例外：裸 `/models` 保持 anthropic 回退（`passthrough::handle_models_static` 依赖此语义
+/// 例外：裸 `/models` 保持 anthropic 回退（`passthrough::handle_models_list` 依赖此语义
 /// 输出 anthropic 列表格式，见 passthrough.rs:342）。
 pub(crate) fn detect_source_protocol(path: &str) -> Protocol {
     if path.contains("/v1beta/") {

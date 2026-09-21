@@ -370,31 +370,38 @@ pub(crate) async fn default_model_ids(db: &Db) -> Vec<String> {
     out
 }
 
-/// 带 group token 时的模型清单：该分组的 `model_mappings` 源模型名 + 组内各平台配着的模型槽位，
-/// 按出现顺序去重。与 `sync_settings::pi_model_candidates` 同一口径（同一份真值源，不另起第二份）。
+/// 合并出一个分组的候选模型名：`model_mappings` 的源模型名 + 各平台配着的模型槽位，
+/// 按出现顺序去重、剔空。纯函数，`/models` 端点与 pi 配置同步共用同一口径
+/// （`sync_settings::pi_model_candidates` 在本函数结果为空时才套用它自己的兜底清单）。
 ///
 /// 不含平台的 `available_models`：那是平台的全量目录（OpenRouter 有几百条），不是这个分组会路由到的
 /// 模型集，混进来只会把发现列表淹掉。
+pub(crate) fn merge_group_model_names(
+    mappings: &[aidog_db::models::ModelMapping],
+    platform_models: &[aidog_db::models::PlatformModels],
+) -> Vec<String> {
+    let mut seen = std::collections::HashSet::new();
+    mappings
+        .iter()
+        .map(|m| m.source_model.trim().to_string())
+        .chain(platform_models.iter().flat_map(|m| m.all_values()))
+        .filter(|m| !m.is_empty())
+        .filter(|m| seen.insert(m.clone()))
+        .collect()
+}
+
+/// 带 group token 时的模型清单：该分组真正配着的模型（见 `merge_group_model_names`）。
 ///
 /// 返回 `None` 表示「没有 token / token 认不出分组 / 该分组一个模型都没配」，调用方回落默认清单。
 async fn group_model_ids(db: &Db, auth_header: Option<&str>) -> Option<Vec<String>> {
-    let group = resolve_group(db, auth_header?).await?;
+    let group = resolve_group(db, Some(auth_header?)).await?;
     let detail = aidog_db::get_group_detail(db, group.id).await.ok()??;
-    let mut seen = std::collections::HashSet::new();
-    let out: Vec<String> = detail
-        .group
-        .model_mappings
+    let platform_models: Vec<aidog_db::models::PlatformModels> = detail
+        .platforms
         .iter()
-        .map(|m| m.source_model.trim().to_string())
-        .chain(
-            detail
-                .platforms
-                .iter()
-                .flat_map(|gp| gp.platform.models.all_values()),
-        )
-        .filter(|m| !m.is_empty())
-        .filter(|m| seen.insert(m.clone()))
+        .map(|gp| gp.platform.models.clone())
         .collect();
+    let out = merge_group_model_names(&detail.group.model_mappings, &platform_models);
     (!out.is_empty()).then_some(out)
 }
 
