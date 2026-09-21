@@ -17,6 +17,11 @@ pub(crate) struct PassthroughOpts {
     /// 流式上游 chunk error 时合成 anthropic `message_stop` 干净收尾。
     /// handle=true（wire=anthropic，避免 CC "error decoding response body"）；forward=false（普通流量空收尾）。
     pub stream_error_msg_stop: bool,
+    /// 流式静默超 `IDLE_PING_INTERVAL` 时自发 anthropic ping 帧。
+    /// handle=true（wire=anthropic，上游若长思考期间不发 ping，客户端 300s 静默即 abort）；
+    /// forward=false（普通浏览流量不是 SSE，插帧只会污染响应体）。
+    /// 转换分支的同一兜底在 `finish.rs::finish_stream`，两处共用 `stream::with_idle_ping`。
+    pub idle_ping: bool,
 }
 
 /// Claude Code 订阅平台纯透传：把客户端原始请求 1:1 relay 到 base_url，原样返回响应，记 proxy_log。
@@ -41,6 +46,7 @@ pub(crate) async fn handle_passthrough(
         extract_usage: true,
         strip_proxy_headers: false,
         stream_error_msg_stop: true,
+        idle_ping: true,
     };
     relay_passthrough(
         state,
@@ -175,11 +181,16 @@ async fn relay_passthrough(
             if let Ok(s) = v.to_str() {
                 h.insert(k.to_string(), Value::String(s.to_string()));
             }
-            // 剔除 hop-by-hop / 长度类，由 axum 按 body 重设
+            // 剔除必剔 + hop-by-hop（长度/传输编码由 axum 按 body 重设），与转换路径同一条黑名单。
+            // 这里原先只手写了 content-length / transfer-encoding / connection 三项，漏了
+            // **content-encoding** —— reqwest 开着 gzip/brotli/deflate/zstd feature 且没调
+            // `.no_gzip()`，`bytes_stream()` 吐出来的已经是解压后的字节；再把上游的
+            // `content-encoding: gzip` 原样转给客户端，客户端会拿明文去 gunzip 而失败。
+            // 转换路径的 RESP_HEADER_BLACKLIST 第一项就是它，注释写着「解压/长度/传输编码失真」。
             let name = k.as_str();
-            if name.eq_ignore_ascii_case("content-length")
-                || name.eq_ignore_ascii_case("transfer-encoding")
-                || name.eq_ignore_ascii_case("connection")
+            if RESP_HEADER_BLACKLIST
+                .iter()
+                .any(|b| name.eq_ignore_ascii_case(b))
             {
                 continue;
             }
@@ -281,6 +292,7 @@ async fn relay_passthrough(
 
     // 提前 copy 到局部，避免 opts 引用逃逸进 'static stream 闭包（E0521）。
     let stream_error_msg_stop = opts.stream_error_msg_stop;
+    let idle_ping = opts.idle_ping;
     let extract_usage = opts.extract_usage;
     let proto_tag = opts.protocol_tag;
     // stream_error_msg_stop：handle (wire=anthropic) 合成 message_stop 干净收尾，避免 CC
@@ -332,6 +344,16 @@ async fn relay_passthrough(
         Ok::<_, std::io::Error>(chunk)
     });
 
+    // 静默兜底：wire=anthropic 时给下行流包一层自发 ping（上游自己发 ping 则永不触发）。
+    let stream = if idle_ping {
+        futures::future::Either::Left(with_idle_ping(
+            stream,
+            ANTHROPIC_PING_FRAME,
+            IDLE_PING_INTERVAL,
+        ))
+    } else {
+        futures::future::Either::Right(stream)
+    };
     let body = Body::from_stream(stream);
 
     // 返回 stream 前的中间态 upsert（票 06：占位哨兵已废，done=false 标记流进行中，
@@ -630,6 +652,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         extract_usage: false,         // 普通浏览流量 cost=0，token 无意义
         strip_proxy_headers: true,    // MITM 解密灌入可能携带代理协商头
         stream_error_msg_stop: false, // 非 anthropic wire，空收尾即可
+        idle_ping: false,             // 同理：普通浏览流量不是 SSE，不插 ping 帧
     };
     relay_passthrough(
         state,

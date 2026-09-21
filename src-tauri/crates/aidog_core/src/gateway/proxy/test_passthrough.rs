@@ -600,3 +600,37 @@ fn merge_group_model_names_empty_when_nothing_configured() {
     use aidog_db::models::PlatformModels;
     assert!(merge_group_model_names(&[], &[PlatformModels::default()]).is_empty());
 }
+
+// ── 纯透传必须剔掉 content-encoding ──
+// reqwest 开着 gzip/brotli/deflate/zstd feature 且没调 .no_gzip()，bytes_stream() 吐的是解压后的
+// 字节；把上游的 content-encoding 原样转给客户端，客户端会拿明文去 gunzip 而失败。
+// 与转换路径共用同一条黑名单（RESP_HEADER_BLACKLIST，第一项就是 content-encoding）。
+#[test]
+fn passthrough_resp_blacklist_covers_content_encoding() {
+    for must_strip in [
+        "content-encoding",
+        "content-length",
+        "transfer-encoding",
+        "connection",
+    ] {
+        assert!(
+            RESP_HEADER_BLACKLIST
+                .iter()
+                .any(|b| b.eq_ignore_ascii_case(must_strip)),
+            "{must_strip} 必须在响应头黑名单里"
+        );
+    }
+    // 反面：业务头不在黑名单里，别误剔
+    for must_keep in [
+        "content-type",
+        "retry-after",
+        "anthropic-ratelimit-unified-status",
+    ] {
+        assert!(
+            !RESP_HEADER_BLACKLIST
+                .iter()
+                .any(|b| b.eq_ignore_ascii_case(must_keep)),
+            "{must_keep} 不该被剔"
+        );
+    }
+}

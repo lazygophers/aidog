@@ -72,6 +72,7 @@ pub(crate) fn error_response_headers(
     body_overridden: bool,
 ) -> Vec<(axum::http::HeaderName, axum::http::HeaderValue)> {
     let mut filtered = filter_upstream_resp_headers(src, false);
+    normalize_retry_after(&mut filtered, chrono::Utc::now());
     if body_overridden {
         filtered.retain(|(n, _)| n != axum::http::header::CONTENT_TYPE);
     }
@@ -85,6 +86,40 @@ pub(crate) fn error_response_headers(
         ));
     }
     filtered
+}
+
+/// 把 `retry-after` 归一成整数秒。官方要求「Return integer seconds rather than an HTTP date」
+/// （<https://code.claude.com/docs/en/llm-gateway-protocol#response-headers>），而上游允许发
+/// RFC 7231 的 HTTP-date 形态，原样透传等于把一个客户端读不懂的值递过去。
+///
+/// 三种输入：已是整数 → 原样留下；HTTP-date → 换算成相对 `now` 的秒数（过去的时间钳到 0）；
+/// 都解析不出来 → **剔掉这个头**。剔掉比留一个读不懂的值好：客户端会退回自己的退避策略，
+/// 而不是把整串日期当秒数解析出一个荒唐的等待时间。
+fn normalize_retry_after(
+    headers: &mut Vec<(axum::http::HeaderName, axum::http::HeaderValue)>,
+    now: chrono::DateTime<chrono::Utc>,
+) {
+    let Some(idx) = headers
+        .iter()
+        .position(|(n, _)| n == axum::http::header::RETRY_AFTER)
+    else {
+        return;
+    };
+    let raw = headers[idx].1.to_str().unwrap_or("").trim().to_string();
+    if raw.parse::<i64>().is_ok() {
+        return;
+    }
+    // HTTP-date：RFC 7231 的 IMF-fixdate 与 RFC 2822 同形，chrono 的 rfc2822 解析器可直接吃。
+    let secs = chrono::DateTime::parse_from_rfc2822(&raw)
+        .ok()
+        .map(|t| (t.with_timezone(&chrono::Utc) - now).num_seconds().max(0));
+    match secs.and_then(|n| axum::http::HeaderValue::from_str(&n.to_string()).ok()) {
+        Some(v) => headers[idx].1 = v,
+        None => {
+            tracing::debug!(value = %raw, "unparseable retry-after from upstream, dropping header");
+            headers.remove(idx);
+        }
+    }
 }
 
 fn is_sensitive_log_header(name: &str) -> bool {

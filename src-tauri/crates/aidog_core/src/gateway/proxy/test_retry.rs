@@ -767,3 +767,60 @@ fn error_response_drops_stale_content_type_when_body_overridden() {
     assert_eq!(val_of(&out, "content-type"), Some("application/json"));
     assert_eq!(val_of(&out, "retry-after"), Some("7"));
 }
+
+// ── retry-after 必须以整数秒回客户端，不能是 HTTP-date ──
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#response-headers
+mod test_retry_after {
+    use super::*;
+
+    fn at(s: &str) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339(s)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    }
+
+    /// 直接喂 normalize_retry_after，不经 error_response_headers —— 后者内部已用真实
+    /// `Utc::now()` 归一过一次，再用假 now 归一第二次就测不到任何东西。
+    fn normalized(raw: &str, now: &str) -> Option<String> {
+        let mut h = vec![(
+            axum::http::header::RETRY_AFTER,
+            axum::http::HeaderValue::from_str(raw).unwrap(),
+        )];
+        normalize_retry_after(&mut h, at(now));
+        val_of(&h, "retry-after").map(str::to_string)
+    }
+
+    /// 已是整数秒 → 原样不动。
+    #[test]
+    fn integer_seconds_pass_through() {
+        assert_eq!(
+            normalized("120", "2026-09-21T10:00:00Z").as_deref(),
+            Some("120")
+        );
+    }
+
+    /// HTTP-date → 换算成相对当前时刻的秒数。
+    #[test]
+    fn http_date_becomes_seconds() {
+        assert_eq!(
+            normalized("Mon, 21 Sep 2026 10:02:30 GMT", "2026-09-21T10:00:00Z").as_deref(),
+            Some("150")
+        );
+    }
+
+    /// 已经过去的 HTTP-date → 钳到 0，而不是给客户端一个负数。
+    #[test]
+    fn past_http_date_clamps_to_zero() {
+        assert_eq!(
+            normalized("Mon, 21 Sep 2026 09:59:00 GMT", "2026-09-21T10:00:00Z").as_deref(),
+            Some("0")
+        );
+    }
+
+    /// 两种都解析不出来 → 剔掉这个头，让客户端退回自己的退避策略，
+    /// 而不是把整串垃圾当秒数解析出一个荒唐的等待时间。
+    #[test]
+    fn unparseable_value_is_dropped() {
+        assert_eq!(normalized("soon-ish", "2026-09-21T10:00:00Z"), None);
+    }
+}
