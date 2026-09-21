@@ -167,6 +167,26 @@ fn passthrough_convert_anthropic_beta_host_gated() {
     );
 }
 
+// ── 官方上游必须 verbatim 转发未知 anthropic-beta 值（禁按已知值 allowlist） ──
+// 背景: Claude Code auto mode 的服务器端安全审查用 beta 值 dangerous-tool-use-2026-09-03，
+// 与请求体顶层 safeguards 字段成对出现，缺一即上游 400；官方文档明令
+// 「Forward the header verbatim; don't allowlist individual values, because the set changes
+// with Claude Code releases」。本测试守住「官方 host 上按 beta 值挑拣」这条回归。
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#request-headers
+#[test]
+fn official_anthropic_keeps_unknown_beta_values_verbatim() {
+    let raw = "dangerous-tool-use-2026-09-03,some-future-beta-2027-01-01";
+    let mut orig = axum::http::HeaderMap::new();
+    orig.insert("anthropic-beta", raw.parse().unwrap());
+
+    let official = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
+    assert_eq!(
+        official.get("anthropic-beta").and_then(|v| v.to_str().ok()),
+        Some(raw),
+        "official anthropic host must forward unknown beta values verbatim"
+    );
+}
+
 // ── is_official_anthropic_host: host 提取 + 官方判定（含端口/userinfo/大小写） ──
 #[test]
 fn official_anthropic_host_detection() {
