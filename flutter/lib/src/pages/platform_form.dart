@@ -174,7 +174,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
-    return Column(
+    // 整张表单淡入（`PlatformEditForm.tsx:138` 的 `animate-fade-in`）：
+    // 从列表切到表单是整页替换，没有过渡会「啪」地换掉一屏。
+    return Reveal(
+      child: Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -207,6 +210,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             onClose: () => setState(() => _showPaste = false),
           ),
       ],
+      ),
     );
   }
 
@@ -796,7 +800,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     // 批量创建前的确认区要显眼（`MultiKeyPreview.tsx:34-76`）：accent 描边强调，
     // 每行自带底色，协议是徽标而不是一串裸字。走普通 FormSection 的话，
     // 它和上面十几个分区长得一模一样，用户容易直接点提交。
-    return Container(
+    // 淡入（`MultiKeyPreview.tsx:36` 的 `animate-fade-in`）：
+    // 这张卡是粘了多把 key 之后凭空出现的，直接闪出来容易被当成误操作。
+    return Reveal(
+      child: Container(
       margin: const EdgeInsets.only(bottom: AidogSpace.smd),
       padding: const EdgeInsets.all(AidogSpace.smd),
       decoration: BoxDecoration(
@@ -879,6 +886,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -195,16 +195,21 @@ class PlatformCard extends StatelessWidget {
                     nowMs: now,
                   ),
                 ),
+                // 展开态的指示箭头。React 那边点头部任意空白处就切，没有独立按钮
+                //（`PlatformCard.tsx:207-209`），所以这里只当指示器画，不再单独接手势
+                // —— 点它落在外层那层 GestureDetector 上，行为一模一样。
+                // tooltip 保留：它是这颗图标唯一的文字说明。
                 if (hasDetail)
-                  IconButton(
-                    iconSize: 16,
-                    visualDensity: VisualDensity.compact,
-                    tooltip: t.t('platform.toggleDetail'),
-                    icon: Icon(
-                      expanded ? Icons.expand_less : Icons.expand_more,
-                      color: theme.c.fg3,
+                  Tooltip(
+                    message: t.t('platform.toggleDetail'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: theme.c.fg3,
+                      ),
                     ),
-                    onPressed: () => c.toggleExpanded(p.id, !expanded),
                   ),
                 _QuickActions(
                   testing: testing,
@@ -248,24 +253,45 @@ class PlatformCard extends StatelessWidget {
               ),
             ),
           ],
-          if (expanded) ...[
-            const SizedBox(height: AidogSpace.smd),
-            _DetailSection(
-              platform: p,
-              meta: meta,
-              quota: q,
-              usage: usage,
-              usagePending: usagePending,
-              configuredModels: configuredModels,
-              nowMs: now,
-              quotaCapable: quotaCapable,
-            ),
-          ],
+          // 展开 / 收起走高度过渡（`PlatformCard.tsx:207-209` 的 `CompactCard`）。
+          // 原先是 `if (expanded)` 直接切，整块内容凭空出现又凭空消失。
+          AnimatedSize(
+            duration: AidogMotion.slow,
+            curve: AidogMotion.easeStandard,
+            alignment: Alignment.topCenter,
+            child: !expanded
+                ? const SizedBox(width: double.infinity)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const SizedBox(height: AidogSpace.smd),
+                      _DetailSection(
+                        platform: p,
+                        meta: meta,
+                        quota: q,
+                        usage: usage,
+                        usagePending: usagePending,
+                        configuredModels: configuredModels,
+                        nowMs: now,
+                        quotaCapable: quotaCapable,
+                      ),
+                    ],
+                  ),
+          ),
         ],
       ),
     );
-    // 停用态整卡压暗（`PlatformCard.tsx:188`：`p.enabled ? 1 : 0.5`）。
-    return Opacity(opacity: p.enabled ? 1 : 0.5, child: card);
+    // 停用态整卡压暗（`PlatformCard.tsx:188`：`p.enabled ? 1 : 0.5`），
+    // 150ms 过渡（同处 `transition: opacity 150ms`）：直接跳变会让人以为卡片被替换了。
+    final dimmed = AnimatedOpacity(
+      opacity: p.enabled ? 1 : 0.5,
+      duration: const Duration(milliseconds: 150),
+      curve: AidogMotion.easeStandard,
+      child: card,
+    );
+    // 逐卡错峰淡入（`PlatformCard.tsx:201,211`：`animationDelay: i*50ms`）。
+    return Reveal(delayMs: index * 50, child: dimmed);
   }
 }
 
@@ -1094,18 +1120,25 @@ class _TokenBudgetBar extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 3),
+        // 宽度过渡 300ms（`PlatformCard.tsx:476` 的 `transition: width 0.3s ease`）：
+        // 额度刷新后进度条直接跳到新位置的话，看不出是涨了还是跌了。
         ClipRRect(
           borderRadius: BorderRadius.circular(AidogRadius.sm),
-          child: LinearProgressIndicator(
-            value: clamp(mb.ratio, 0, 1),
-            minHeight: 4,
-            backgroundColor: theme.c.surface2,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              mb.depleted
-                  ? theme.c.bad
-                  : mb.ratio < 0.2
-                  ? theme.c.peak
-                  : theme.c.ok,
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(end: clamp(mb.ratio, 0, 1)),
+            duration: const Duration(milliseconds: 300),
+            curve: AidogMotion.easeStandard,
+            builder: (context, v, _) => LinearProgressIndicator(
+              value: v,
+              minHeight: 4,
+              backgroundColor: theme.c.surface2,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                mb.depleted
+                    ? theme.c.bad
+                    : mb.ratio < 0.2
+                    ? theme.c.peak
+                    : theme.c.ok,
+              ),
             ),
           ),
         ),

@@ -1115,11 +1115,15 @@ void main() {
           ],
         ),
       );
-      final op = tester.widget<Opacity>(
-        find.ancestor(
-          of: find.text('Test Platform'),
-          matching: find.byType(Opacity),
-        ).first,
+      // 压暗现在走 150ms 过渡（React 同处 `transition: opacity 150ms`），
+      // 所以拿的是 `AnimatedOpacity` 的目标值。
+      final op = tester.widget<AnimatedOpacity>(
+        find
+            .ancestor(
+              of: find.text('Test Platform'),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first,
       );
       expect(op.opacity, 0.5);
     });

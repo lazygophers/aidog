@@ -508,7 +508,7 @@ class _GhostCard extends StatelessWidget {
     return Opacity(
       opacity: 0.5,
       child: CustomPaint(
-        painter: _DashedBorder(
+        painter: DashedBorder(
           color: theme.c.accent,
           radius: AidogRadius.md,
         ),
@@ -544,38 +544,4 @@ class _GhostCard extends StatelessWidget {
       ),
     );
   }
-}
-
-/// 虚线圆角框。Flutter 没有 `border-style: dashed`，自己描一圈。
-class _DashedBorder extends CustomPainter {
-  const _DashedBorder({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = RRect.fromRectAndRadius(
-      Offset.zero & size,
-      Radius.circular(radius),
-    );
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    const dash = 6.0;
-    const gap = 4.0;
-    for (final metric in (Path()..addRRect(rect)).computeMetrics()) {
-      var at = 0.0;
-      while (at < metric.length) {
-        final end = (at + dash).clamp(0.0, metric.length);
-        canvas.drawPath(metric.extractPath(at, end), paint);
-        at = end + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedBorder old) =>
-      old.color != color || old.radius != radius;
 }
