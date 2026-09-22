@@ -19,6 +19,7 @@ import '../../utils/color_level.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import 'models.dart';
+import 'platform_paste_logic.dart';
 import 'time_window.dart';
 
 // 卡片侧原先自带一份 TimeWindow / isCurrentlyPeak，与表单侧重复（见下方「高峰时段」处的
@@ -297,8 +298,7 @@ QuotaDisplay computeQuotaDisplay(
   final preferReal = preferRealCalibrated && q != null;
   final estCoding = parseEstCodingPlan(p.estCodingPlan);
   final hasEstBalance = p.estBalanceRemaining > 0;
-  final hasEst =
-      hasEstBalance || (estCoding != null && estCoding.isNotEmpty);
+  final hasEst = hasEstBalance || (estCoding != null && estCoding.isNotEmpty);
 
   if (hasEst && !preferReal) {
     final tiers = <QuotaTierDisplay>[
@@ -319,9 +319,9 @@ QuotaDisplay computeQuotaDisplay(
             remainPct: remainPct,
             utilization: tier.estUtilization,
             resetsAt: remainMs != null
-                ? DateTime.fromMillisecondsSinceEpoch(
-                    now + remainMs,
-                  ).toUtc().toIso8601String()
+                ? DateTime.fromMillisecondsSinceEpoch(now + remainMs)
+                      .toUtc()
+                      .toIso8601String()
                 : null,
             limit: limit,
             remaining: remaining,
@@ -561,6 +561,9 @@ class ProtocolMetaTable {
     this.defaultModels = const {},
     this.peakModels = const {},
     this.presetPeak = const {},
+    this.keywords = const {},
+    this.hosts = const {},
+    this.keyPrefixes = const {},
     this.loaded = false,
   });
 
@@ -584,9 +587,38 @@ class ProtocolMetaTable {
     final defModels = <String, List<String>>{};
     final peakModels = <String, List<String>>{};
     final presetPeak = <String, List<TimeWindow>>{};
+    final keywords = <String, List<String>>{};
+    final hosts = <String, List<String>>{};
+    final keyPrefixes = <String, List<String>>{};
     protocols.forEach((key, entry) {
       final code = '$key';
       if (entry is! Map) return;
+      // 智能识别的三样数据源（`defaults.ts:478::buildProtocolsFromPresets`）：
+      // keywords / key_prefixes 直取，hosts 由 default 端点派生。
+      final kw = entry['keywords'];
+      if (kw is List) {
+        final v = [
+          for (final e in kw)
+            if (e is String && e.isNotEmpty) e,
+        ];
+        if (v.isNotEmpty) keywords[code] = v;
+      }
+      final kp = entry['key_prefixes'];
+      if (kp is List) {
+        final v = [
+          for (final e in kp)
+            if (e is String && e.isNotEmpty) e,
+        ];
+        if (v.isNotEmpty) keyPrefixes[code] = v;
+      }
+      final eps = entry['endpoints'];
+      if (eps is Map && eps['default'] is List) {
+        final v = deriveProtocolHosts([
+          for (final e in eps['default'] as List)
+            if (e is Map && e['base_url'] is String) e['base_url'] as String,
+        ]);
+        if (v.isNotEmpty) hosts[code] = v;
+      }
       final name = entry['name'];
       if (name is Map) {
         final v = name[locale] ?? name['en-US'];
@@ -633,6 +665,9 @@ class ProtocolMetaTable {
       defaultModels: defModels,
       peakModels: peakModels,
       presetPeak: presetPeak,
+      keywords: keywords,
+      hosts: hosts,
+      keyPrefixes: keyPrefixes,
       loaded: true,
     );
   }
@@ -647,8 +682,32 @@ class ProtocolMetaTable {
   final Map<String, List<String>> peakModels;
   final Map<String, List<TimeWindow>> presetPeak;
 
+  /// registry `platform.json` 的 `keywords`（智能识别的 keyword 扫描用）。
+  final Map<String, List<String>> keywords;
+
+  /// 由 default 端点派生的 host（或 host+path）子串（智能识别的优先级 1）。
+  final Map<String, List<String>> hosts;
+
+  /// registry `platform.json` 的 `key_prefixes`（智能识别的优先级 2）。
+  final Map<String, List<String>> keyPrefixes;
+
   /// 文档是否已到手。false = registry 未就绪，调用方按旧启发式回落。
   final bool loaded;
+
+  /// 喂给智能识别解析器的 preset 视图（`defaults.ts:478::buildProtocolsFromPresets`）。
+  ///
+  /// 平台匹配词全部来自 registry，代码里不写任何平台名 —— 这是项目既定规矩。
+  List<PastePresetRef> get pastePresets => [
+    for (final code in labels.keys)
+      PastePresetRef(
+        value: code,
+        label: labels[code] ?? code,
+        keywords: keywords[code] ?? const [],
+        hosts: hosts[code] ?? const [],
+        keyPrefixes: keyPrefixes[code] ?? const [],
+        codingPlan: codingPlanProtocols.contains(code),
+      ),
+  ];
 
   String label(String protocol) => labels[protocol] ?? protocol;
 
@@ -752,9 +811,14 @@ String _yamlScalar(String s) {
       s.contains(': ') ||
       s.contains(' #') ||
       s.contains('\n') ||
-      const ['true', 'false', 'null', 'yes', 'no', '~'].contains(
-        s.toLowerCase(),
-      ) ||
+      const [
+        'true',
+        'false',
+        'null',
+        'yes',
+        'no',
+        '~',
+      ].contains(s.toLowerCase()) ||
       double.tryParse(s) != null;
   if (!needsQuote) return s;
   return '"${s.replaceAll(r'\', r'\\').replaceAll('"', r'\"').replaceAll('\n', r'\n')}"';
@@ -856,7 +920,12 @@ class BalanceBar extends StatelessWidget {
         ),
         if (pct != null) ...[
           const SizedBox(height: AidogSpace.sxs),
-          _Bar(ratio: pct / 100, color: color, height: 6, track: theme.c.surface2),
+          _Bar(
+            ratio: pct / 100,
+            color: color,
+            height: 6,
+            track: theme.c.surface2,
+          ),
         ],
         if (label != null)
           Text(label!, style: AidogType.micro.copyWith(color: theme.c.fg3)),
@@ -918,9 +987,7 @@ class StatChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    final valueColor = level != null
-        ? levelColor(level!, theme.c)
-        : theme.c.fg;
+    final valueColor = level != null ? levelColor(level!, theme.c) : theme.c.fg;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
@@ -970,7 +1037,10 @@ class MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final body = Container(
-      padding: const EdgeInsets.symmetric(horizontal: AidogSpace.ssm, vertical: 1),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.ssm,
+        vertical: 1,
+      ),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
         border: Border.all(color: color.withValues(alpha: 0.30)),
@@ -1081,7 +1151,9 @@ ParsedTestBody parseTestBody(String raw, String Function(String key) t) {
     if (input.isNotEmpty) {
       rows.add((label: t('testBody.inputTokens'), value: input));
     }
-    final output = testBodyDisplay(u['output_tokens'] ?? u['completion_tokens']);
+    final output = testBodyDisplay(
+      u['output_tokens'] ?? u['completion_tokens'],
+    );
     if (output.isNotEmpty) {
       rows.add((label: t('testBody.outputTokens'), value: output));
     }

@@ -13,6 +13,7 @@ import 'invoke.dart';
 import 'models.dart';
 import 'platform_defaults.dart';
 import 'platform_extra.dart';
+import 'platform_paste_logic.dart';
 import 'platforms_logic.dart';
 import 'time_window.dart';
 
@@ -26,15 +27,15 @@ Map<String, String> emptyModelSlots() => {
 };
 
 class PlatformFormController {
-  PlatformFormController({
-    required this.list,
-    InvokeFn? invoke,
-    this.onChanged,
-  }) : _invoke = invoke ?? kernelInvoke;
+  PlatformFormController({required this.list, InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   /// 列表侧控制器（平台名集合 / 分组清单 / 真正的落库动作都在它身上）。
   final PlatformsController list;
   final InvokeFn _invoke;
+
+  /// 给要自己发命令的子 widget 用（智能识别弹窗探测分享串走 `platform_share_parse`）。
+  InvokeFn get invoke => _invoke;
 
   /// 重绘回调。非 final：页面可能在控制器造好之后才拿到 `setState`
   /// （widget 测试就是这么挂的）。
@@ -131,8 +132,7 @@ class PlatformFormController {
   }
 
   /// 批量创建态（预览卡渲染 + 保存按钮文案的判据）。
-  bool get isBatch =>
-      batchPreviewKeys != null && batchPreviewKeys!.length > 1;
+  bool get isBatch => batchPreviewKeys != null && batchPreviewKeys!.length > 1;
 
   /// `usePlatformForm.ts:598::previewNames` —— 撞名基准 = 当前平台名集合。
   List<String> get previewNames {
@@ -154,8 +154,9 @@ class PlatformFormController {
   List<TimeWindow> get presetPeak => defaults.defaultPeak(protocol);
 
   /// 模型下拉候选：拉到过的 available 优先，否则回落 registry 的 model_list。
-  List<String> get modelDropdownSource =>
-      availableModels.isNotEmpty ? availableModels : defaults.defaultModelList(protocol);
+  List<String> get modelDropdownSource => availableModels.isNotEmpty
+      ? availableModels
+      : defaults.defaultModelList(protocol);
 
   /// 端点是否锁死（厂商直连平台，只读展示）。
   bool get endpointsLocked => kEndpointsLockedProtocols.contains(protocol);
@@ -289,6 +290,106 @@ class PlatformFormController {
     _notify();
   }
 
+  /// 智能识别弹窗点「填入表单」之后把结果灌进表单。
+  /// `platformPasteApply.ts:78::applyPaste`。
+  ///
+  /// 三条路各走各的：
+  ///   1. 命中 aidog 分享串（[SmartPasteApplyResult.fullShare]）→ 整体灌，以**新建态**打开；
+  ///   2. 多 key → 灌表单 + 置 [batchPreviewKeys] 触发批量预览（**不立刻创建**，由预览区确认）；
+  ///   3. 单 key / 无 key → 只填 base_url 与 key。
+  void applyPaste(SmartPasteApplyResult r) {
+    final share = r.fullShare;
+    if (share != null) {
+      String s(String k) => (share[k] as String?) ?? '';
+      final eps = [
+        for (final e in (share['endpoints'] as List? ?? const []))
+          if (e is Map) PlatformEndpoint.fromJson(e.cast<String, dynamic>()),
+      ];
+      name = s('name');
+      protocol = s('platform_type');
+      // 分享串只含一个 api_key，这条路保持单平台行为。
+      apiKey = s('api_key');
+      codingPlan = eps.any((e) => e.codingPlan);
+      final m = share['models'];
+      models = {
+        ...emptyModelSlots(),
+        if (m is Map)
+          for (final slot in emptyModelSlots().keys)
+            if (m[slot] is String) slot: m[slot] as String,
+      };
+      availableModels = [
+        for (final e in (share['available_models'] as List? ?? const []))
+          if (e is String) e,
+      ];
+      endpoints = eps;
+      manualBudgets = [
+        for (final e in (share['manual_budgets'] as List? ?? const []))
+          if (e is Map) ManualBudget.fromJson(e.cast<String, dynamic>()),
+      ];
+      extra = s('extra');
+      mockConfig = parseMockConfig(extra);
+      final qs = parseQuotaScriptConfig(extra);
+      quotaVariantId = qs.variantId;
+      quotaCustomScript = qs.customScript;
+      quotaRequires = {};
+      devinConfig = parseDevinConfig(extra);
+      final brk = parsePlatformBreaker(extra);
+      breakerFailureThreshold = brk.failureThreshold > 0
+          ? '${brk.failureThreshold}'
+          : '';
+      breakerOpenSecs = brk.openSecs > 0 ? '${brk.openSecs}' : '';
+      breakerHalfOpenMax = brk.halfOpenMax > 0 ? '${brk.halfOpenMax}' : '';
+      editing = null;
+      lockedGroupId = null;
+      joinGroupIds = const [];
+      fetchError = '';
+      saveError = '';
+      batchPreviewKeys = null;
+      showForm = true;
+      _syncQuotaRequires();
+      _syncPlanTiers();
+      _notify();
+      return;
+    }
+
+    // 命中内置平台 → 走协议切换（顺带填上 name / 默认 endpoints / client_type）。
+    // 没命中 → 不动平台选择，只填 base_url 与 key。
+    final hit = r.platform;
+    if (hit != null) {
+      handleProtocolChange(hit.value, newCodingPlan: hit.codingPlan);
+    }
+
+    // 命中平台时用「该平台的默认 endpoints」当底（上面刚填进 endpoints），
+    // 否则用当前表单里的。两条路都在这一刻取值，不存在读到旧态的问题。
+    final merged = computePastedEndpoints(
+      endpoints,
+      r.baseUrls,
+      platformMatched: hit != null,
+    );
+
+    if (r.apiKeys.length > 1) {
+      // 多 key：apiKey 灌成多行文本（用户看得见，预览区再 splitApiKeys 拆回来）。
+      apiKey = r.apiKeys.join('\n');
+      endpoints = merged;
+      batchPreviewKeys = r.apiKeys;
+    } else {
+      // 单 key / 无 key：清预览态，免得上一次多 key 的预览残留。
+      batchPreviewKeys = null;
+      if (r.baseUrls.isNotEmpty) endpoints = merged;
+      if (r.apiKeys.length == 1) apiKey = r.apiKeys.first;
+    }
+
+    // 识别到过期时间就顺手把开关打开，否则 toggle 默认关着、字段藏起来，
+    // 用户会以为「没识别到过期时间」。
+    if (r.expiresAt > 0) {
+      expiresAt = r.expiresAt;
+      expiryEnabled = true;
+    }
+    // 弹窗可能从主列表直达（表单还没挂上），这里显式拉起表单展示已填字段。
+    showForm = true;
+    _notify();
+  }
+
   void _fillFrom(PlatformRow p) {
     name = p.name;
     protocol = p.platformType;
@@ -319,8 +420,9 @@ class PlatformFormController {
     expiresAt = p.expiresAt;
     expiryEnabled = p.expiresAt > 0;
     final brk = parsePlatformBreaker(p.extra);
-    breakerFailureThreshold =
-        brk.failureThreshold > 0 ? '${brk.failureThreshold}' : '';
+    breakerFailureThreshold = brk.failureThreshold > 0
+        ? '${brk.failureThreshold}'
+        : '';
     breakerOpenSecs = brk.openSecs > 0 ? '${brk.openSecs}' : '';
     breakerHalfOpenMax = brk.halfOpenMax > 0 ? '${brk.halfOpenMax}' : '';
     peak = parsePlatformPeak(p.extra);
@@ -360,12 +462,14 @@ class PlatformFormController {
 
   /// `usePlatformForm.ts:273::handleProtocolChange`。
   void handleProtocolChange(String newProtocol, {bool newCodingPlan = false}) {
-    final label = protocolLabelMap[newProtocol] ??
+    final label =
+        protocolLabelMap[newProtocol] ??
         kProtocolLabels[newProtocol] ??
         newProtocol;
     // 「name 仍是协议默认名」→ 切协议时自动覆盖。默认名集合 = 5 个请求格式协议
     // 的静态 label + 运行时拉到的全部平台 name（`constants.ts:55::DEFAULT_NAMES`）。
-    final isDefaultName = name.trim().isEmpty ||
+    final isDefaultName =
+        name.trim().isEmpty ||
         kProtocolLabels.values.contains(name) ||
         protocolLabelMap.values.contains(name);
     if (isDefaultName) name = label;
@@ -406,7 +510,8 @@ class PlatformFormController {
   /// `usePlatformForm.ts:253` 的 requires 初值回填 effect：为选中变体缺失的
   /// requires key 从 extra 读初值（嵌套优先）。**用户已输入的键不覆盖**。
   void _syncQuotaRequires() {
-    final sel = selectedQuotaVariant ??
+    final sel =
+        selectedQuotaVariant ??
         (quotaVariants.isNotEmpty ? quotaVariants.first : null);
     final keys = [...?sel?.requires.map((r) => r.key)];
     if (protocol == 'newapi' && !keys.contains('user_id')) keys.add('user_id');
@@ -716,9 +821,8 @@ class PlatformFormController {
   }
 
   /// 纯透传平台没有手动预算的概念（`usePlatformForm.ts:636`）。
-  List<Map<String, Object?>> get _budgetPayload => isPassthrough
-      ? const []
-      : [for (final b in manualBudgets) b.toJson()];
+  List<Map<String, Object?>> get _budgetPayload =>
+      isPassthrough ? const [] : [for (final b in manualBudgets) b.toJson()];
 
   /// `usePlatformForm.ts:680::handleSave`。多 key 预览态直接走批量创建。
   ///
