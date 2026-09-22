@@ -1330,6 +1330,65 @@ void main() {
       expect(find.text('${c.t('platform.rateLimit')} 20%'), findsOneWidget);
     });
 
+    // ── 余额行门控：六块各判各的，不共用「配额已到达」这一个条件 ──
+    //
+    // 回归的是这条 bug：整行曾锁在 `quotaCapable && quota.hasData` 之后，
+    // 于是「coding 已用 tokens」「速率余量」这些与配额无关、早就有数据的块
+    // 一起被挡住不显示。
+
+    testWidgets('不支持配额查询的平台：coding plan 已用 tokens 照样显示', (tester) async {
+      // glm_coding 在 registry 里没有 quota_scripts → quotaCapable=false。
+      final (_, c) = await mount(
+        tester,
+        cardFake(
+          platforms: [
+            platRow(
+              1,
+              'GLM',
+              type: 'glm_coding',
+              endpoints: [
+                {
+                  'protocol': 'glm_coding',
+                  'base_url': 'https://a/v4',
+                  'client_type': '',
+                  'coding_plan': true,
+                },
+              ],
+            ),
+          ],
+          usage: {'1': usageJson()},
+        ),
+      );
+      // 折叠态就该看见：已用 tokens + 预估金额（React 注释「折叠态亦可见」）。
+      expect(find.byTooltip(c.t('platform.codingUsedHint')), findsOneWidget);
+      expect(find.text('15.0K'), findsOneWidget); // 10000 + 5000
+      expect(find.text('\$1.50'), findsOneWidget);
+      // 没配额能力就没有刷新按钮（这条门控是对的，保持）。
+      expect(find.text(c.t('platform.quotaRefresh')), findsNothing);
+    });
+
+    testWidgets('配额查回来是空的：速率余量 chip 照样显示', (tester) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final k = cardFake(
+        platforms: [
+          platRow(
+            1,
+            'RL only',
+            rateLimit:
+                '{"vendor":"anthropic","requests_remaining":20,'
+                '"requests_limit":100,"observed_at":$now}',
+          ),
+        ],
+      );
+      // 查得通但没有 balance / coding_plan → quota.hasData=false。
+      k.responses['platform_query_quota'] = () => {
+        'success': true,
+        'queried_at': 1,
+      };
+      final (_, c) = await mount(tester, k);
+      expect(find.text('${c.t('platform.rateLimit')} 20%'), findsOneWidget);
+    });
+
     testWidgets('手动预算：token 单位显「剩余 / 总额 tok」', (tester) async {
       final (_, c) = await mount(
         tester,

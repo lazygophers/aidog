@@ -98,7 +98,6 @@ class PlatformCard extends StatelessWidget {
     );
     final mb = computeManualBudgetDisplay(p.manualBudgets);
     final quotaCapable = meta.hasQuotaScript(p.platformType, p.extra);
-    final showQuota = quotaCapable && q.hasData;
     final showQuotaSkeleton = quotaCapable && !q.hasData && quotaPending;
     final hasCodingEndpoint = p.endpoints.any((e) => e.codingPlan);
     // `PlatformCard.tsx:146`：显式配置优先；一个都没配但有 available_models 时
@@ -124,6 +123,20 @@ class PlatformCard extends StatelessWidget {
       if (parsed == null) return null;
       return now - parsed.observedAt > 300000 ? null : parsed;
     }();
+
+    // 余额行的显示条件 = 行内六块条件的**并集**，每块再各自判一次。
+    //
+    // 原先整行锁在 `quotaCapable && q.hasData` 之后（React `PlatformCard.tsx:430`
+    // 同款写法），后果是「速率余量」「coding 已用 tokens」「本周期折算」这三块明明
+    // 早有数据，却因为配额没查回来 / 该平台压根不支持配额查询而一起被挡住。
+    // 这三块与配额是互不相干的维度，不该共享同一个到达条件。
+    final showBalanceRow =
+        q.balanceRemaining != null ||
+        mb != null ||
+        q.tiers.isNotEmpty ||
+        (hasCodingEndpoint && usage != null) ||
+        (hasCodingEndpoint && p.codingWindowCost > 0) ||
+        rl != null;
 
     final card = Tile(
       live: p.status == 'enabled',
@@ -230,10 +243,7 @@ class PlatformCard extends StatelessWidget {
               ),
             ],
           ),
-          if (showQuota &&
-              (q.balanceRemaining != null ||
-                  mb != null ||
-                  q.tiers.isNotEmpty)) ...[
+          if (showBalanceRow) ...[
             const SizedBox(height: AidogSpace.ssm),
             _BalanceRow(
               platform: p,
