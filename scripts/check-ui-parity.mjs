@@ -58,12 +58,23 @@ function reactKeys() {
  *  宁可漏报也不要误报：护栏一旦开始喊狼来了，下一次真红就没人信了。 */
 function flutterLiterals() {
   const keys = new Set();
+  const prefixes = new Set();
   const re = /['"]([a-zA-Z][a-zA-Z0-9]*\.[a-zA-Z0-9.]+)['"]/g;
+  // 拼出来的 key：`t('unit.$o')` / `t('test.mode${suffix(m)}')`。
+  // 整条 key 在源码里根本不存在，只有前缀在。取前缀，按前缀放行整族
+  //（族内哪几个成员存在由那份枚举决定，脚本照不出来，也不该照）。
+  const dyn = /['"]([a-zA-Z][a-zA-Z0-9]*\.[a-zA-Z0-9.]*)\$[{a-zA-Z_]/g;
   for (const f of walk(join(root, FLUTTER_DIR), /\.dart$/)) {
     const src = readFileSync(f, "utf8");
     for (const m of src.matchAll(re)) keys.add(m[1]);
+    for (const m of src.matchAll(dyn)) {
+      // 前缀短到只剩顶层段（`stats.`）就会放行一整页的 key，那是误放行。
+      if (m[1].includes(".") && m[1].length >= 5) prefixes.add(m[1]);
+    }
   }
-  return keys;
+  return {
+    has: (k) => keys.has(k) || [...prefixes].some((p) => k.startsWith(p)),
+  };
 }
 
 /** 例外清单。格式不合规直接红——不卡死就会变成许愿池。 */
@@ -115,8 +126,11 @@ if (process.argv.includes("--report")) {
     (byPrefix[p] ??= []).push(k);
   }
   console.log(`React ${react.size} 个文案 key｜Flutter 命中 ${react.size - missing.length - allow.size}｜例外 ${allow.size}｜缺口 ${missing.length}`);
+  const verbose = process.argv.includes("--keys");
   for (const [p, ks] of Object.entries(byPrefix).sort((a, b) => b[1].length - a[1].length)) {
     console.log(`  ${p.padEnd(16)} ${ks.length}`);
+    // `--keys`：把缺口逐条列出来，补的时候直接照着清单走。
+    if (verbose) for (const k of ks.sort()) console.log(`    ${k}`);
   }
   process.exit(0);
 }
