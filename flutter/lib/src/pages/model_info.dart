@@ -12,6 +12,7 @@ import '../../utils/formatters.dart';
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
+import 'filter_dropdown.dart';
 import 'invoke.dart';
 import 'model_info_logic.dart';
 import 'ui_bits.dart';
@@ -174,14 +175,10 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
               ),
               SizedBox(
                 width: 80,
-                child: TextField(
+                child: KeptTextField(
                   key: const Key('fallback-input'),
-                  controller: TextEditingController(
-                    text: '${s.fallbackInputPrice}',
-                  ),
+                  value: '${s.fallbackInputPrice}',
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(isDense: true),
-                  style: AidogType.micro.copyWith(color: theme.c.fg),
                   // 负数被钳成 0（React 的 `Math.max(0, Number(...))`）。
                   onSubmitted: (v) => _c.updateSettings(
                     s.copyWith(fallbackInputPrice: _nonNegative(v)),
@@ -194,14 +191,10 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
               ),
               SizedBox(
                 width: 80,
-                child: TextField(
+                child: KeptTextField(
                   key: const Key('fallback-output'),
-                  controller: TextEditingController(
-                    text: '${s.fallbackOutputPrice}',
-                  ),
+                  value: '${s.fallbackOutputPrice}',
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(isDense: true),
-                  style: AidogType.micro.copyWith(color: theme.c.fg),
                   onSubmitted: (v) => _c.updateSettings(
                     s.copyWith(fallbackOutputPrice: _nonNegative(v)),
                   ),
@@ -275,17 +268,24 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
               onChanged: _c.setQuery,
             ),
           ),
-          SmallButton(
-            label: t.t('modelInfo.allPlatforms'),
-            active: _c.platformFilter.isEmpty,
-            onTap: () => _c.setPlatformFilter(''),
+          // 平台筛选走下拉，不是一排按钮。
+          //
+          // 原先是 `platformCodes.take(12)` 铺成按钮 —— registry 现在有 65 个协议，
+          // **第 13 个往后在界面上完全没有入口**，筛不到就是筛不到。
+          // React 是全量下拉（`ModelInfoTab.tsx:224-234`），这里照它做，
+          // 顺带拿到搜索框（65 项靠肉眼找也不现实）。
+          FilterDropdown(
+            width: 160,
+            value: _c.platformFilter,
+            onChanged: _c.setPlatformFilter,
+            allLabel: t.t('modelInfo.allPlatforms'),
+            searchPlaceholder: t.t('modelInfo.allPlatforms'),
+            emptyLabel: t.t('modelInfo.empty'),
+            options: [
+              for (final code in _c.platformCodes)
+                FilterOption(value: code, label: _c.platformLabel(code)),
+            ],
           ),
-          for (final code in _c.platformCodes.take(12))
-            SmallButton(
-              label: _c.platformLabel(code),
-              active: _c.platformFilter == code,
-              onTap: () => _c.setPlatformFilter(code),
-            ),
           SmallButton(
             label: t.t('modelInfo.allCapabilities'),
             active: _c.capabilityFilter.isEmpty,

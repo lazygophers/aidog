@@ -7,12 +7,12 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
-import '../../platform.dart' as native;
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'mcp_logic.dart';
+import 'share_panel.dart';
 import 'ui_bits.dart';
 
 class McpPage extends StatefulWidget {
@@ -254,24 +254,21 @@ class _McpPageState extends State<McpPage> {
           padding: const EdgeInsets.only(top: AidogSpace.sxs),
           child: Row(
             children: [
+              // key 只用下标，**不能把输入内容拼进去** —— 那样每敲一个字符 key
+              // 就变一次，State 跟着重建，等于没修。删掉某一行时下标会前移、
+              // State 被复用到新的那行上，靠 `didUpdateWidget` 里的值比对同步回来。
               Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: rows[i].k),
-                  decoration: const InputDecoration(isDense: true),
-                  style: AidogType.micro.copyWith(
-                    color: AidogTheme.of(context).c.fg,
-                  ),
+                child: KeptTextField(
+                  key: ValueKey('kv-k-$i'),
+                  value: rows[i].k,
                   onChanged: (v) => rows[i].k = v,
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
               Expanded(
-                child: TextField(
-                  controller: TextEditingController(text: rows[i].v),
-                  decoration: const InputDecoration(isDense: true),
-                  style: AidogType.micro.copyWith(
-                    color: AidogTheme.of(context).c.fg,
-                  ),
+                child: KeptTextField(
+                  key: ValueKey('kv-v-$i'),
+                  value: rows[i].v,
                   onChanged: (v) => rows[i].v = v,
                 ),
               ),
@@ -289,7 +286,6 @@ class _McpPageState extends State<McpPage> {
 
   Widget _editCard(I18nController t) {
     final f = _c.editForm;
-    final theme = AidogTheme.of(context);
     // React 是普通 `Dialog`（`McpModals.tsx:241`，maxWidth 560），点遮罩可关。
     return AidogModal(
       maxWidth: 560,
@@ -300,15 +296,10 @@ class _McpPageState extends State<McpPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(
+            KeptTextField(
               key: const Key('mcp-name'),
-              controller: TextEditingController(text: f.name)
-                ..selection = TextSelection.collapsed(offset: f.name.length),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: t.t('mcp.field.name'),
-              ),
-              style: AidogType.micro.copyWith(color: theme.c.fg),
+              value: f.name,
+              hint: t.t('mcp.field.name'),
               onChanged: (v) => f.name = v,
             ),
             const SizedBox(height: AidogSpace.ssm),
@@ -328,39 +319,27 @@ class _McpPageState extends State<McpPage> {
             const SizedBox(height: AidogSpace.ssm),
             // stdio 用 command + args；http / sse 用 url + headers。
             if (f.transport == 'stdio') ...[
-              TextField(
+              KeptTextField(
                 key: const Key('mcp-command'),
-                controller: TextEditingController(text: f.command),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: t.t('mcp.field.command'),
-                ),
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                value: f.command,
+                hint: t.t('mcp.field.command'),
                 onChanged: (v) => f.command = v,
               ),
               const SizedBox(height: AidogSpace.sxs),
-              TextField(
+              KeptTextField(
                 key: const Key('mcp-args'),
+                value: f.argsText,
                 maxLines: 3,
-                controller: TextEditingController(text: f.argsText),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: t.t('mcp.field.args'),
-                ),
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                hint: t.t('mcp.field.args'),
                 onChanged: (v) => f.argsText = v,
               ),
               const SizedBox(height: AidogSpace.ssm),
               _kvEditor(t, t.t('mcp.field.env'), f.envRows),
             ] else ...[
-              TextField(
+              KeptTextField(
                 key: const Key('mcp-url'),
-                controller: TextEditingController(text: f.url),
-                decoration: InputDecoration(
-                  isDense: true,
-                  hintText: t.t('mcp.field.url'),
-                ),
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                value: f.url,
+                hint: t.t('mcp.field.url'),
                 onChanged: (v) => f.url = v,
               ),
               const SizedBox(height: AidogSpace.ssm),
@@ -384,40 +363,20 @@ class _McpPageState extends State<McpPage> {
     );
   }
 
+  /// 分享面板复用平台那一套（React 也是同一个 `ShareModal`，
+  /// `McpModals.tsx:331-341`）：yaml / json / base64 / url 四格式 + 二维码。
+  ///
+  /// 原先这里自己画了一个只读框，复制出去的是 `Map.toString()` 的产物 ——
+  /// `{mcpServers: {x: {command: npx}}}` 这种**无引号串既不是 JSON 也不是 YAML**，
+  /// 接收端按哪种解析都会失败，等于分享功能整条是坏的。
   Widget _shareCard(I18nController t) {
     final data = _c.shareData!;
-    final text = data.share.toString();
-    // React 走同一个 `ShareModal`（maxWidth 560），点遮罩可关。
-    return AidogModal(
-      maxWidth: 560,
-      onBarrierTap: _c.closeShare,
-      child: Tile(
-        title: '${t.t('mcp.share.title')} · ${data.name}',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SelectableText(
-              text,
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg2,
-              ),
-            ),
-            const SizedBox(height: AidogSpace.ssm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SmallButton(
-                  label: t.t('mcp.share.copyUrl'),
-                  onTap: () => native.writeText(text),
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                SmallButton(label: t.t('action.close'), onTap: _c.closeShare),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return SharePanel(
+      share: data.share,
+      title: data.name,
+      urlScheme: 'aidog://mcp/import',
+      onToast: _c.showToast,
+      onClose: _c.closeShare,
     );
   }
 }
