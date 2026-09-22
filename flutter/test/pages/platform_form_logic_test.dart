@@ -9,6 +9,7 @@ import 'dart:convert';
 
 import 'package:aidog_flutter/src/pages/platform_extra.dart';
 import 'package:aidog_flutter/src/pages/platform_form_logic.dart';
+import 'package:aidog_flutter/src/pages/platform_paste_logic.dart';
 import 'package:aidog_flutter/src/pages/platforms_logic.dart';
 import 'package:aidog_flutter/src/pages/time_window.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -482,7 +483,8 @@ void main() {
           plat(
             1,
             'a',
-            extra: '{"breaker":{"failure_threshold":3,"open_secs":0,'
+            extra:
+                '{"breaker":{"failure_threshold":3,"open_secs":0,'
                 '"half_open_max":7}}',
           ),
         ],
@@ -496,11 +498,15 @@ void main() {
 
     test('保存时空 → 删 breaker 键；负值钳到 0', () async {
       final (_, f) = await boot(formFake());
-      expect(decodeExtraObject(f.buildExtraPayload()).containsKey('breaker'),
-          isFalse);
+      expect(
+        decodeExtraObject(f.buildExtraPayload()).containsKey('breaker'),
+        isFalse,
+      );
       f.setBreakerFailureThreshold('-9');
-      expect(decodeExtraObject(f.buildExtraPayload()).containsKey('breaker'),
-          isFalse);
+      expect(
+        decodeExtraObject(f.buildExtraPayload()).containsKey('breaker'),
+        isFalse,
+      );
       f.setBreakerFailureThreshold('4');
       expect(
         (decodeExtraObject(f.buildExtraPayload())['breaker']!
@@ -631,17 +637,23 @@ void main() {
     test('mock 配置只有 mock 协议才写', () async {
       final (_, f) = await boot(formFake());
       f.handleProtocolChange('openai');
-      expect(decodeExtraObject(f.buildExtraPayload()).containsKey('mock'),
-          isFalse);
+      expect(
+        decodeExtraObject(f.buildExtraPayload()).containsKey('mock'),
+        isFalse,
+      );
       f.handleProtocolChange('mock');
-      expect(decodeExtraObject(f.buildExtraPayload()).containsKey('mock'),
-          isTrue);
+      expect(
+        decodeExtraObject(f.buildExtraPayload()).containsKey('mock'),
+        isTrue,
+      );
     });
 
     test('quota 脚本序列化在 devin 之后（org_id 镜像写 extra.devin）', () async {
       final (_, f) = await boot(formFake());
       f.handleProtocolChange('devin');
-      f.setDevinConfig(const DevinConfig(devinTimeout: '300', devinMode: 'fast'));
+      f.setDevinConfig(
+        const DevinConfig(devinTimeout: '300', devinMode: 'fast'),
+      );
       f.setQuotaRequire('org_id', 'org-1');
       // devin 协议在夹具里没有 quota_scripts → 走 customOnly 分支，
       // 此时 requires 不落盘（React 同语义：custom 无元数据，不动 requires 键）。
@@ -809,6 +821,146 @@ void main() {
       expect(f.apiKey, 'sk-1');
       expect(f.models['default'], 'm1');
       expect(decodeExtraObject(f.buildExtraPayload())['mine'], 1);
+    });
+  });
+
+  // ── 智能识别灌表单（票 20；React: platformPasteApply.ts:78::applyPaste）──
+
+  group('applyPaste', () {
+    /// 弹窗识别出来的 anthropic（fixture 里它的默认端点是 api.anthropic.com）。
+    const anthropic = PasteMatch('anthropic', 'Anthropic');
+
+    test('命中平台 → 切协议 + 覆盖同一条端点的 base_url，client_type 保持派生值', () async {
+      final (_, f) = await boot(formFake());
+      f.openCreatePlatform();
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          platform: anthropic,
+          baseUrls: [
+            ParsedBaseUrl(
+              'https://relay.example.com/anthropic',
+              ParsedProtocol.anthropic,
+            ),
+          ],
+          apiKeys: ['sk-ant-abcdefghijklmnop1234'],
+        ),
+      );
+      expect(f.protocol, 'anthropic');
+      expect(f.name, 'Anthropic');
+      expect(f.apiKey, 'sk-ant-abcdefghijklmnop1234');
+      // host 对不上 → 退回「按协议去重」，覆盖那条 anthropic 端点而不是新增。
+      expect(f.endpoints, hasLength(1));
+      expect(f.endpoints.single.protocol, 'anthropic');
+      expect(f.endpoints.single.baseUrl, 'https://relay.example.com/anthropic');
+      expect(f.endpoints.single.clientType, isNotEmpty);
+      expect(f.batchPreviewKeys, isNull);
+      expect(f.showForm, isTrue);
+    });
+
+    test('没命中平台 → 不动协议，按协议新增端点', () async {
+      final (_, f) = await boot(formFake());
+      f.openCreatePlatform();
+      f.handleProtocolChange('openai');
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          baseUrls: [
+            ParsedBaseUrl('https://x.example.com/v1', ParsedProtocol.openai),
+            ParsedBaseUrl('https://y.example.com', ParsedProtocol.anthropic),
+          ],
+        ),
+      );
+      expect(f.protocol, 'openai');
+      // openai 那条被覆盖，anthropic 那条是新增的。
+      expect(f.endpoints.map((e) => e.protocol), ['openai', 'anthropic']);
+      expect(f.endpoints.first.baseUrl, 'https://x.example.com/v1');
+      expect(f.endpoints.last.baseUrl, 'https://y.example.com');
+    });
+
+    test('多 key → 灌成多行 + 置批量预览，但**不**立刻创建', () async {
+      final k = formFake();
+      final (_, f) = await boot(k);
+      f.openCreatePlatform();
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          platform: anthropic,
+          apiKeys: ['sk-ant-aaaa1111bbbb2222', 'sk-ant-cccc3333dddd4444'],
+        ),
+      );
+      expect(f.apiKey, 'sk-ant-aaaa1111bbbb2222\nsk-ant-cccc3333dddd4444');
+      expect(f.batchPreviewKeys, hasLength(2));
+      expect(f.isBatch, isTrue);
+      expect(k.commands.contains('platform_create'), isFalse);
+    });
+
+    test('识别到过期时间 → 顺手把 expiry 开关打开', () async {
+      final (_, f) = await boot(formFake());
+      f.openCreatePlatform();
+      expect(f.expiryEnabled, isFalse);
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          platform: anthropic,
+          apiKeys: ['sk-ant-aaaa1111bbbb2222'],
+          expiresAt: 1800000000000,
+        ),
+      );
+      expect(f.expiresAt, 1800000000000);
+      expect(f.expiryEnabled, isTrue);
+    });
+
+    test('fullShare → 整体灌表单，以新建态打开（editing 留空）', () async {
+      final (_, f) = await boot(formFake());
+      f.openCreatePlatform();
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          fullShare: {
+            'name': '从分享串来的',
+            'platform_type': 'anthropic',
+            'api_key': 'sk-shared',
+            'endpoints': [
+              {
+                'protocol': 'anthropic',
+                'base_url': 'https://shared.example.com',
+                'client_type': 'claude_code',
+                'coding_plan': true,
+              },
+            ],
+            'models': {'default': 'claude-opus-4'},
+            'available_models': ['claude-opus-4'],
+            'extra': '',
+          },
+        ),
+      );
+      expect(f.name, '从分享串来的');
+      expect(f.protocol, 'anthropic');
+      expect(f.apiKey, 'sk-shared');
+      expect(f.codingPlan, isTrue);
+      expect(f.models['default'], 'claude-opus-4');
+      expect(f.availableModels, ['claude-opus-4']);
+      expect(f.endpoints.single.baseUrl, 'https://shared.example.com');
+      // 新建态：保存才落库，不绑源平台 id。
+      expect(f.editing, isNull);
+      expect(f.showForm, isTrue);
+    });
+
+    test('上一次多 key 的预览态不残留到下一次单 key', () async {
+      final (_, f) = await boot(formFake());
+      f.openCreatePlatform();
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          platform: anthropic,
+          apiKeys: ['sk-ant-aaaa1111bbbb2222', 'sk-ant-cccc3333dddd4444'],
+        ),
+      );
+      expect(f.isBatch, isTrue);
+      f.applyPaste(
+        const SmartPasteApplyResult(
+          platform: anthropic,
+          apiKeys: ['sk-ant-eeee5555ffff6666'],
+        ),
+      );
+      expect(f.batchPreviewKeys, isNull);
+      expect(f.isBatch, isFalse);
+      expect(f.apiKey, 'sk-ant-eeee5555ffff6666');
     });
   });
 
