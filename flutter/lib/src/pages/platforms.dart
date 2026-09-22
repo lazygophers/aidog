@@ -361,9 +361,21 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   ),
           ),
         if (_c.deleteTarget != null)
+          // 原先借用的是分组场景那对 key，文案里写着「仅属此分组」——在平台列表里
+          // 不成立。换成平台自己的一对，React 同用（`PlatformListView.tsx` 的
+          // AlertDialog），两侧逐字一致。
           ConfirmCard(
-            title: t.t('group.deletePlatformAction'),
-            body: t.t('group.deletePlatformConfirm'),
+            title: t.t('platform.deleteTitle'),
+            body: t
+                .t('platform.deleteConfirm')
+                .replaceAll(
+                  '{{name}}',
+                  _c.platforms
+                      .where((p) => p.id == _c.deleteTarget)
+                      .map((p) => p.name)
+                      .firstOrNull ??
+                      '',
+                ),
             confirmLabel: t.t('action.delete'),
             onCancel: _c.cancelDelete,
             onConfirm: () => _c.deletePlatform(_c.deleteTarget!),

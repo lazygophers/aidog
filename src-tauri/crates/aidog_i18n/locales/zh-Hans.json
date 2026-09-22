@@ -996,6 +996,8 @@
   "platform.customTest": "自定义测试",
   "platform.days_of_week": "星期（0=周日…6=周六，缺省=每天）",
   "platform.deleteFail": "删除失败",
+  "platform.deleteTitle": "删除平台",
+  "platform.deleteConfirm": "「{{name}}」将被彻底删除，配置、密钥与所有分组关联一并移除，且无法撤销。确认删除？",
   "platform.disable": "禁用",
   "platform.disable_during_peak": "高峰期禁用",
   "platform.disable_during_peak_desc": "启用后，命中 peak 任一窗口时该平台从路由候选排除。不改 status 三态（临时闸门，关开关 / 出窗口即恢复）。",

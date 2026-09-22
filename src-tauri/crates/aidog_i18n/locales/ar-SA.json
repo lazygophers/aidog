@@ -1018,6 +1018,8 @@
   "platform.customTest": "اختبار مخصص",
   "platform.days_of_week": "أيام الأسبوع (0=أحد…6=سبت، فارغ=يومياً)",
   "platform.deleteFail": "فشل الحذف",
+  "platform.deleteTitle": "حذف المنصة",
+  "platform.deleteConfirm": "سيتم حذف «{{name}}» نهائيًا، ومعها إعداداتها ومفاتيحها وكل ارتباطاتها بالمجموعات. لا يمكن التراجع. هل تريد الحذف؟",
   "platform.disable": "تعطيل",
   "platform.disable_during_peak": "تعطيل أوقات الذروة",
   "platform.disable_during_peak_desc": "عند التفعيل، يُستثنى هذا النظام الأساسي من مرشحي التوجيه خلال ساعات الذروة (أي نافذة peak مطابقة). لا يغيّر status — بوابة مؤقتة؛ يتعافى عند إيقاف التبديل أو خارج النافذة.",

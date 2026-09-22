@@ -1018,6 +1018,8 @@
   "platform.customTest": "カスタムテスト",
   "platform.days_of_week": "曜日 (0=日…6=土, 空=毎日)",
   "platform.deleteFail": "削除失敗",
+  "platform.deleteTitle": "プラットフォームを削除",
+  "platform.deleteConfirm": "「{{name}}」を完全に削除します。設定・キー・すべてのグループ紐付けも一緒に消え、元に戻せません。削除しますか？",
   "platform.disable": "無効化",
   "platform.disable_during_peak": "ピーク時間帯は無効",
   "platform.disable_during_peak_desc": "オン時、ピーク時間帯（peak ウィンドウいずれかのヒット）にこのプラットフォームをルーティング候補から除外。status 三状態は変更しない — 一時ゲート、オフまたは帯外で復旧。",
