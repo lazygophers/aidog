@@ -386,7 +386,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // ── Enabled Plugins ──
-        const TileMeta('Enabled Plugins'),
+        const TileMeta('Enabled Plugins', icon: Icons.extension_outlined),
         Text(
           t.t('settings.plugins.enabledHint'),
           style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -449,7 +449,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
 
         // ── Extra Marketplaces ──
         const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Extra Marketplaces'),
+        const TileMeta('Extra Marketplaces', icon: Icons.folder_outlined),
         Text(
           t.t('settings.plugins.marketplacesHint'),
           style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -487,7 +487,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
 
         // ── Plugin Configs ──
         const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Plugin Configs'),
+        const TileMeta('Plugin Configs', icon: Icons.tune),
         Text(
           t.t('settings.plugins.configsHint'),
           style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -520,7 +520,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
 
         // ── Skipped ──
         const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Skipped'),
+        const TileMeta('Skipped', icon: Icons.delete_outline),
         Text(
           t.t('settings.plugins.skippedHint'),
           style: AidogType.micro.copyWith(color: theme.c.fg3),

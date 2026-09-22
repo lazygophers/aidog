@@ -339,7 +339,10 @@ class SandboxEditor extends StatelessWidget {
           ),
         if (_enabled) ...[
           // ── 文件系统隔离 ──
-          TileMeta(t.t('settings.sandbox.fsIsolation')),
+          TileMeta(
+            t.t('settings.sandbox.fsIsolation'),
+            icon: Icons.folder_outlined,
+          ),
           Text(
             t.t('settings.sandbox.fsIsolationDesc'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -372,7 +375,7 @@ class SandboxEditor extends StatelessWidget {
 
           // ── 网络隔离 ──
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.netIsolation')),
+          TileMeta(t.t('settings.sandbox.netIsolation'), icon: Icons.public),
           Text(
             t.t('settings.sandbox.netIsolationDesc'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -407,7 +410,7 @@ class SandboxEditor extends StatelessWidget {
 
           // ── 安全与策略 ──
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.safety')),
+          TileMeta(t.t('settings.sandbox.safety'), icon: Icons.shield_outlined),
           SwitchRow(
             key: const ValueKey('sandbox-fail-if-unavailable'),
             label: t.t('settings.sandbox.failIfUnavailable'),
@@ -463,7 +466,7 @@ class SandboxEditor extends StatelessWidget {
 
           // ── 排除命令 ──
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.excludedCommands')),
+          TileMeta(t.t('settings.sandbox.excludedCommands'), icon: Icons.block),
           Text(
             t.t('settings.sandbox.excludedCommandsDesc'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),

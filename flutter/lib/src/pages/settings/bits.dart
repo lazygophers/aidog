@@ -36,36 +36,46 @@ class SettingsCard extends StatelessWidget {
     this.title,
     this.meta,
     this.description,
+    this.dimmed = false,
     required this.children,
   });
 
   final String? title;
   final String? meta;
   final String? description;
+
+  /// 总开关关掉后压暗这张卡（React 四处 `opacity: 0.55 / 0.5`：
+  /// `SchedulingSettings.tsx:142`、`NotificationEventList.tsx:196`、
+  /// `NotificationSettings.tsx:313,352`、`MiddlewareRules.tsx:1246`）。
+  /// 只是**弱化**，不禁用 —— 禁用与否由各行自己的 `onChanged` 决定。
+  final bool dimmed;
   final List<Widget> children;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.smd),
-      child: Tile(
-        title: title,
-        meta: meta,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (description != null && description!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-                child: Text(
-                  description!,
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+    return Opacity(
+      opacity: dimmed ? 0.55 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AidogSpace.smd),
+        child: Tile(
+          title: title,
+          meta: meta,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (description != null && description!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                  child: Text(
+                    description!,
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
                 ),
-              ),
-            ...children,
-          ],
+              ...children,
+            ],
+          ),
         ),
       ),
     );
@@ -81,10 +91,14 @@ class SwitchRow extends StatelessWidget {
     required this.onChanged,
     this.description,
     this.hint,
+    this.labelIcon,
     this.trailing,
   });
 
   final String label;
+
+  /// 标签行首的图标（同 [TextRow.labelIcon]）。
+  final IconData? labelIcon;
   final String? description;
 
   /// 「落点」：这个开关到底改哪个文件的哪个键
@@ -111,10 +125,25 @@ class SwitchRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                HighlightedText(
-                  label,
-                  style: AidogType.label.copyWith(color: fg),
-                ),
+                if (labelIcon == null)
+                  HighlightedText(
+                    label,
+                    style: AidogType.label.copyWith(color: fg),
+                  )
+                else
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(labelIcon, size: 13, color: theme.c.fg3),
+                      const SizedBox(width: 5),
+                      Flexible(
+                        child: HighlightedText(
+                          label,
+                          style: AidogType.label.copyWith(color: fg),
+                        ),
+                      ),
+                    ],
+                  ),
                 if (description != null && description!.isNotEmpty)
                   Text(
                     description!,
@@ -153,6 +182,7 @@ class TextRow extends StatefulWidget {
   const TextRow({
     super.key,
     required this.label,
+    this.labelIcon,
     required this.value,
     this.onChanged,
     this.onSubmitted,
@@ -166,6 +196,10 @@ class TextRow extends StatefulWidget {
 
   /// 输入框右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
   final Widget? trailing;
+
+  /// 标签行首的图标。长表单里纯文字标题难扫读，React 各字段行都带一个
+  ///（`HooksSectionInline.tsx:227` 等的 `FieldRow icon=`）。
+  final IconData? labelIcon;
 
   final String label;
   final String? description;
@@ -233,7 +267,7 @@ class _TextRowState extends State<TextRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(widget.label),
+          TileMeta(widget.label, icon: widget.labelIcon),
           if (widget.description != null && widget.description!.isNotEmpty)
             Text(
               widget.description!,
@@ -282,6 +316,7 @@ class NumberRow extends StatelessWidget {
   const NumberRow({
     super.key,
     required this.label,
+    this.labelIcon,
     required this.value,
     required this.onChanged,
     this.description,
@@ -289,6 +324,9 @@ class NumberRow extends StatelessWidget {
   });
 
   final String label;
+
+  /// 标签行首的图标（同 [TextRow.labelIcon]）。
+  final IconData? labelIcon;
   final String? description;
   final int value;
   final ValueChanged<int>? onChanged;
@@ -297,6 +335,7 @@ class NumberRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) => TextRow(
     label: label,
+    labelIcon: labelIcon,
     description: description,
     value: '$value',
     onSubmitted: onChanged == null
@@ -365,6 +404,7 @@ class SelectRow extends StatelessWidget {
   const SelectRow({
     super.key,
     required this.label,
+    this.labelIcon,
     required this.options,
     required this.value,
     required this.onChanged,
@@ -375,6 +415,9 @@ class SelectRow extends StatelessWidget {
 
   /// 下拉右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
   final Widget? trailing;
+
+  /// 标签行首的图标（同 [TextRow.labelIcon]）。
+  final IconData? labelIcon;
 
   final String label;
   final String? description;
@@ -397,7 +440,7 @@ class SelectRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(label),
+          TileMeta(label, icon: labelIcon),
           if (description != null && description!.isNotEmpty)
             Text(
               description!,
@@ -723,7 +766,10 @@ class SettingsPageBody extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       PageHead(title: title, subtitle: subtitle, trailing: trailing),
-      ...children,
+      // 区块逐个错峰淡入（React 各设置页给每张卡传 `staggerMs`，
+      // 如 `CodingToolsSettings.tsx:376,384,394,408,420`）。这里在容器层统一
+      // 按下标错峰，页面不必逐张传值 —— 顺序就是下标，不会漏也不会重。
+      for (final (i, c) in children.indexed) Reveal(delayMs: i * 70, child: c),
     ],
   );
 }

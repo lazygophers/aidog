@@ -385,6 +385,69 @@ void main() {
     // 第二梯队 2026-09-22：两条 per-type 保留期原先只受总开关控制 ——
     // 关掉某类记录后，它的保留期还摆在那里可改，是改了也没用的旋钮
     //（`LogSettingsSection.tsx:145,166` 各自跟着自己那类的开关走）。
+    // 第三梯队 2026-09-22：0 = 永久保留时单位（小时/天）没有意义，
+    // React 把整组单位藏掉换成一行「永久保留」（`LogSettingsSection.tsx:155-162`）；
+    // 清理按钮置灰之外还要说清**为什么**（`:216` 的 title）。
+    testWidgets('保留期 90 天：单位在、清理按钮可点', (tester) async {
+      final (_, i18n) = await mount(tester);
+      expect(find.text(i18n.t('unit.day')), findsWidgets);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('cleanup-expired')))
+            .enabled,
+        isTrue,
+      );
+    });
+
+    testWidgets('保留期 0：藏掉单位、清理按钮带禁用原因', (tester) async {
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'proxy_log_settings_get': (_) => {
+          'enabled': true,
+          'retention_days': 0,
+          'retention_unit': 'day',
+          'log_user_request': true,
+          'log_upstream_request': true,
+          'user_request_retention_days': 7,
+          'user_request_retention_unit': 'day',
+          'upstream_request_retention_days': 7,
+          'upstream_request_retention_unit': 'day',
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SystemSettingsPage(
+            invoke: k.invoke,
+            appVersionFn: () async => '9.9.9',
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+
+      // 「永久保留」那条的单位按钮组不该还摆着（0 时选了也没用）。
+      expect(find.text(i18n.t('proxy.logRetentionForever')), findsOneWidget);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('cleanup-expired')))
+            .enabled,
+        isFalse,
+      );
+      expect(
+        find.ancestor(
+          of: find.byKey(const ValueKey('cleanup-expired')),
+          matching: find.byWidgetPredicate(
+            (w) =>
+                w is Tooltip &&
+                w.message == i18n.t('logs.cleanupDisabledHint'),
+          ),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('关掉「记录原始请求」→ 它的保留期一并收起', (tester) async {
       await mount(tester);
       expect(
@@ -803,6 +866,27 @@ void main() {
       expect(
         k.lastArgsOf('notification_settings_set')!['settings'],
         containsPair('inbox_retention_days', 7),
+      );
+    });
+
+    // 第三梯队 2026-09-22：总开关关掉后从属区块原先仍是正常亮度
+    //（React 四处 `opacity: 0.55 / 0.5`，这里验通知页那两处）。
+    testWidgets('通知总开关关掉 → 通道测试卡与事件列表压暗', (tester) async {
+      await mount(tester, enabled: false);
+      final dimmed = tester
+          .widgetList<SettingsCard>(find.byType(SettingsCard))
+          .where((c) => c.dimmed)
+          .length;
+      expect(dimmed, 2, reason: '通道测试卡 + 事件列表');
+    });
+
+    testWidgets('通知总开关开着 → 一张都不压暗', (tester) async {
+      await mount(tester);
+      expect(
+        tester
+            .widgetList<SettingsCard>(find.byType(SettingsCard))
+            .where((c) => c.dimmed),
+        isEmpty,
       );
     });
 

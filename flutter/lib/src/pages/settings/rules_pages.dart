@@ -98,6 +98,8 @@ class _SchedulingSettingsPageState extends State<SchedulingSettingsPage> {
           ],
         ),
         SettingsCard(
+          // 总开关关掉后整块压暗（`SchedulingSettings.tsx:142`）。
+          dimmed: !s.enabled,
           title: t.t('scheduling.breakerDefaults'),
           description: t.t('scheduling.breakerDefaultsDesc'),
           children: [
@@ -343,6 +345,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           ],
         ),
         SettingsCard(
+          // 同上（`MiddlewareRules.tsx:1246`）。
+          dimmed: !_c.settingsEnabled,
           title: t.t('middleware.globalRules'),
           description: t.t('middleware.globalRulesHint'),
           children: [
