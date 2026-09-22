@@ -201,11 +201,19 @@ class _LogsFilterBar extends StatelessWidget {
             value: f.platform,
             onChanged: (v) => controller.setFilters(f.copyWith(platform: v)),
             allLabel: t.t('logs.filterPlatform'),
-            searchPlaceholder: t.t('logs.filterPlatform'),
-            emptyLabel: t.t('logs.empty'),
+            searchPlaceholder: t.t('stats.searchPlatform'),
+            emptyLabel: t.t('stats.noMatch'),
             options: [
               for (final p in controller.platforms)
-                FilterOption(value: '${p.id}', label: p.name),
+                FilterOption(
+                  value: '${p.id}',
+                  label: p.name,
+                  searchTerms:
+                      controller.protocolTerms[p.platformType] ?? const [],
+                ),
+              // 隧道请求的 host 没命中任何平台 → `platform_id = 0`
+              //（`ListView.tsx:96`）。没有这一项就筛不出这批行。
+              FilterOption(value: '0', label: t.t('logs.noPlatform')),
             ],
           ),
           FilterDropdown(
@@ -213,11 +221,14 @@ class _LogsFilterBar extends StatelessWidget {
             value: f.group,
             onChanged: (v) => controller.setFilters(f.copyWith(group: v)),
             allLabel: t.t('logs.filterGroup'),
-            searchPlaceholder: t.t('logs.filterGroup'),
-            emptyLabel: t.t('logs.empty'),
+            searchPlaceholder: t.t('stats.searchGroup'),
+            emptyLabel: t.t('stats.noMatch'),
             options: [
               for (final g in controller.groups)
                 FilterOption(value: g.group.groupKey, label: g.group.name),
+              // 隧道请求没有 apikey → `group_key = ''`，用哨兵值表示
+              //（`ListView.tsx:110`，空串会被下拉当成「全部」）。
+              FilterOption(value: kNoGroupSentinel, label: t.t('logs.noGroup')),
             ],
           ),
           FilterDropdown(
@@ -245,17 +256,59 @@ class _LogsFilterBar extends StatelessWidget {
                 if (p != 'all') FilterOption(value: p, label: p),
             ],
           ),
+          // 中间件观察模式命中（票 04）：只看「规则命中但放行」的请求。
+          // 筛选逻辑早就在 `LogsFilterState.observed`，之前没有入口，点不到。
+          FilterDropdown(
+            width: 150,
+            value: f.observed,
+            onChanged: (v) => controller.setFilters(f.copyWith(observed: v)),
+            allLabel: t.t('logs.filterMiddleware'),
+            searchPlaceholder: t.t('logs.filterMiddleware'),
+            emptyLabel: t.t('stats.noMatch'),
+            options: [
+              FilterOption(
+                value: 'observed',
+                label: t.t('logs.observedOnly'),
+              ),
+            ],
+          ),
+          // 模型名按「实际发给上游的」还是「客户端原始请求的」匹配
+          //（`ListView.tsx:148-161`）。两者在有模型改写时不是一回事。
+          SmallButton(
+            label: t.t('logs.actualModel'),
+            active: f.modelType == 'actual',
+            ghost: f.modelType != 'actual',
+            onTap: () =>
+                controller.setFilters(f.copyWith(modelType: 'actual')),
+          ),
+          SmallButton(
+            label: t.t('logs.model'),
+            active: f.modelType == 'original',
+            ghost: f.modelType != 'original',
+            onTap: () =>
+                controller.setFilters(f.copyWith(modelType: 'original')),
+          ),
           FilterDropdown(
             width: 180,
             value: f.modelText,
             onChanged: (v) => controller.setFilters(f.copyWith(modelText: v)),
             allLabel: t.t('logs.filterModel'),
-            searchPlaceholder: t.t('logs.filterModel'),
-            emptyLabel: t.t('logs.empty'),
+            searchPlaceholder: t.t('stats.searchModel'),
+            emptyLabel: t.t('stats.noMatch'),
             options: [
               for (final m in controller.modelOptions)
                 FilterOption(value: m, label: m),
             ],
+          ),
+          // 路径搜索：对 request_url 做 LIKE 匹配（`ListView.tsx:174-180`）。
+          SizedBox(
+            width: 180,
+            child: KeptTextField(
+              key: const Key('logs-path'),
+              value: f.path,
+              hint: t.t('logs.filterPath'),
+              onChanged: (v) => controller.setFilters(f.copyWith(path: v)),
+            ),
           ),
           if (f.hasFilter)
             SmallButton(

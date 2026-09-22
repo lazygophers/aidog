@@ -162,6 +162,55 @@ void main() {
       expect(find.text('am'), findsWidgets);
     });
 
+    // 回归 2026-09-22：这三个筛选器的逻辑早就在 `LogsFilterState`
+    //（observed / modelType / path），但筛选条上一个入口都没有，点不到。
+    // 另外「无平台」`platform_id=0` 与「无分组」`group_key=''` 两个哨兵项也缺，
+    // 隧道请求那批行筛不出来（`ListView.tsx:96,110`）。
+    testWidgets('筛选条：中间件 / 模型类型 / 路径三个入口都在', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(LogsPage(invoke: logsFake().fn), c));
+      await settle(tester);
+      expect(find.text(c.t('logs.filterMiddleware')), findsOneWidget);
+      // 「实际模型」「原始模型」在表头也各有一份，这里只确认筛选条那份也在。
+      expect(find.text(c.t('logs.actualModel')), findsWidgets);
+      expect(find.text(c.t('logs.model')), findsWidgets);
+      expect(find.byKey(const Key('logs-path')), findsOneWidget);
+    });
+
+    testWidgets('路径搜索输进去 → 下一轮查询带上 path', (tester) async {
+      await useBigSurface(tester);
+      final k = logsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(LogsPage(invoke: k.fn), c));
+      await settle(tester);
+      await tester.enterText(
+        find.byKey(const Key('logs-path')),
+        '/v1/messages',
+      );
+      await settle(tester);
+      final args = k.callsTo('proxy_log_list_filtered').last;
+      final filter = args.args?['filter'] as Map<String, Object?>?;
+      expect(filter?['path'], '/v1/messages');
+    });
+
+    testWidgets('平台下拉有「无平台」，分组下拉有「无分组」', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(LogsPage(invoke: logsFake().fn), c));
+      await settle(tester);
+      // 「平台」表头也有一份，筛选条在上面，取 .first。
+      await tester.tap(find.text(c.t('logs.filterPlatform')).first);
+      await settle(tester);
+      expect(find.text(c.t('logs.noPlatform')), findsOneWidget);
+      // 关掉再开分组那个，两个下拉不叠在一起。
+      await tester.tap(find.text(c.t('logs.noPlatform')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('logs.filterGroup')).first);
+      await settle(tester);
+      expect(find.text(c.t('logs.noGroup')), findsOneWidget);
+    });
+
     testWidgets('空列表显示空态，不画假的表格', (tester) async {
       await useBigSurface(tester);
       final k = logsFake(items: const []);

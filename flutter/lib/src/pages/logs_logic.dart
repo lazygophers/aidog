@@ -13,6 +13,7 @@ library;
 import 'dart:convert';
 
 import '../../utils/formatters.dart';
+import 'filter_dropdown.dart' show loadProtocolTerms;
 import 'invoke.dart';
 import 'models.dart';
 import 'stats_logic.dart' show kNoGroupSentinel;
@@ -168,6 +169,9 @@ class LogsController {
   List<GroupDetail> groups = const [];
   List<String> modelOptions = const [];
 
+  /// 协议跨语言搜索词（平台下拉搜「智谱」「zhipu」「zp」都要命中）。
+  Map<String, List<String>> protocolTerms = const {};
+
   List<ProxyLogSummary> logs = const [];
   bool hasMore = false;
   int offset = 0;
@@ -208,7 +212,13 @@ class LogsController {
   /// mount 时跑一次：下拉数据源 + 首屏列表。
   /// 三条各自 catch —— 平台列表拉不到不该让日志列表也空着（React `:34-36` 同语义）。
   Future<void> init() async {
-    await Future.wait<void>([_loadPlatforms(), _loadGroups(), _loadModelOptions(), load()]);
+    await Future.wait<void>([
+      _loadPlatforms(),
+      _loadGroups(),
+      _loadModelOptions(),
+      _loadProtocolTerms(),
+      load(),
+    ]);
   }
 
   Future<void> _loadPlatforms() async {
@@ -222,6 +232,11 @@ class LogsController {
     } catch (_) {
       /* React: .catch(() => {}) */
     }
+  }
+
+  Future<void> _loadProtocolTerms() async {
+    protocolTerms = await loadProtocolTerms(_invoke);
+    _notify();
   }
 
   Future<void> _loadGroups() async {
