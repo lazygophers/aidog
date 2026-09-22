@@ -181,6 +181,17 @@ Finder findStripped(CommonFinders find, String needle) =>
       description: 'text stripped of bidi isolates "$needle"',
     );
 
+/// 某段文字被富文本切成了几段（没高亮时是普通 Text → 0 段）。
+int richSpanCount(WidgetTester tester, String plain) {
+  for (final w in tester.widgetList<Text>(find.byType(Text))) {
+    final span = w.textSpan;
+    if (span == null) continue;
+    if (span.toPlainText() != plain) continue;
+    return span is TextSpan ? (span.children?.length ?? 0) : 0;
+  }
+  return 0;
+}
+
 void main() {
   setUp(resetNavGuardForTest);
   tearDown(resetNavGuardForTest);
@@ -494,6 +505,102 @@ void main() {
       );
       await settle(tester);
       expect(find.byKey(const ValueKey('settings-anchor-nav')), findsNothing);
+    });
+
+    // 第二梯队 2026-09-22：字段级 JSON 早就换成 re_editor（高亮 / 行号 / 折叠 /
+    // 查找替换），整页 JSON 模式却还是个纯文本框（React 两处都是 JsonCodeEditor，
+    // `Settings.tsx:506`）。
+    // 第二梯队 2026-09-22：原先只按命中过滤 section / 字段，命中在**哪个词**
+    // 看不出来（`FieldRenderer.tsx:45-60` 把命中的那段加底色）。
+    testWidgets('搜索命中的那段文字被标出来', (tester) async {
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SchemaConfigPage(
+            kind: SchemaConfigKind.claude,
+            invoke: FakeKernel(baseResponses()).invoke,
+            bundleLoader: (_) async => fakeBundle(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      // 字段标签是翻译过的（fakeBundle 里 `model` → 「模型」），
+      // 搜的也得是用户看得见的那几个字 —— React 高亮的就是标签文本。
+      expect(richSpanCount(tester, '模型'), 0, reason: '搜之前是普通 Text');
+
+      await tester.enterText(
+        find.byKey(const ValueKey('settings-search')),
+        '模',
+      );
+      await settle(tester);
+      // 「模型」被切成 前段(空) + 命中段 + 余下段 三段。
+      expect(richSpanCount(tester, '模型'), 3);
+    });
+
+    testWidgets('搜索框有清除按钮，点一下把词和过滤一起清掉', (tester) async {
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SchemaConfigPage(
+            kind: SchemaConfigKind.claude,
+            invoke: FakeKernel(baseResponses()).invoke,
+            bundleLoader: (_) async => fakeBundle(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      expect(
+        find.byKey(const ValueKey('settings-search-clear')),
+        findsNothing,
+        reason: '没输入就不该占位',
+      );
+
+      await tester.enterText(
+        find.byKey(const ValueKey('settings-search')),
+        '搜不到这个词',
+      );
+      await settle(tester);
+      expect(
+        find.byKey(const ValueKey('settings-search-no-match')),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('settings-search-clear')));
+      await settle(tester);
+      expect(
+        find.byKey(const ValueKey('settings-search-no-match')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<TextField>(find.byKey(const ValueKey('settings-search')))
+            .controller!
+            .text,
+        isEmpty,
+      );
+    });
+
+    testWidgets('整页 JSON 模式用的是代码编辑器，不是纯文本框', (tester) async {
+      await mount(tester, SchemaConfigKind.claude);
+      final i18n = await makeI18n(tester);
+      expect(find.byKey(const ValueKey('page-json-editor')), findsNothing);
+
+      await tester.tap(
+        find.widgetWithText(SmallButton, i18n.t('settings.jsonMode')),
+      );
+      await settle(tester);
+      expect(find.byKey(const ValueKey('page-json-editor')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('page-json-editor')),
+          matching: find.byKey(const ValueKey('json-code-editor')),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('未改动时保存按钮点不动', (tester) async {
