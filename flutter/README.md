@@ -120,12 +120,22 @@ import 'package:aidog_flutter/pages.dart';
 
 首页 6 条、统计页 6 条、共用 2 条、并集 10 条。清单与每条的 React 侧出处写在那个文件抬头。
 
-### widget 测试的两个坑
+### widget 测试的四个坑
 
 - **别用 `pumpAndSettle`**：骨架的 `LiveDot` 是 3 秒无限循环呼吸动画，永远等不到静止。
   用 `test/pages/harness.dart` 的 `settle(tester)`（推几帧）。
 - **画布默认只有 800×600**，统计页一屏放不下，`tap()` 会判成「点不到」。
   交互测试先 `await useBigSurface(tester)`。
+- **拖拽重排的距离不是「越大越稳」**。`ReorderableListView` 的换位判据与卡片高度绑定：
+  超过大约一张卡的高度之后，松手反而落回原位，`onReorderEnd` 收到的下标与起点相同，
+  于是 `onReorderItem` 根本不触发。实测（分组卡高 136 逻辑像素）：120 过，144 / 170 / 200 全不过。
+
+  所以**改过卡片高度之后拖拽测试挂掉，先重新量距离，别急着当成「我把重排改坏了」**。
+  判别方法：把 `lib/` 那个文件临时换成 `git show HEAD:<path>` 的版本再跑同一条用例 ——
+  旧代码也挂就是距离问题，只有新代码挂才是回归。
+- **`AidogI18n` 在测试骨架里套在 `MaterialApp` 外面**（`wrapPage`），与 `main.dart:32` 的
+  `runApp(AidogI18n(child: AidogApp()))` 同一层级。套进 `home` 会让任何渲染到 Overlay 的
+  东西（拖拽代理、浮层候选）找不到这个祖先，测试里抛「找不到祖先 AidogI18n」而真机不会。
 
 ### 与 React 版的已知差异（写下来，不是漏的）
 
