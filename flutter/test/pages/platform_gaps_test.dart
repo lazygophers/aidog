@@ -32,8 +32,9 @@ String _t(String key) => const {
 
 /// 把 rows 归一成字符串再断言 —— Dart 的 record / List 直接比内容虽可行，
 /// 但失败信息难读，统一成 `label=value` 串。
-List<String> _flat(ParsedTestBody r) =>
-    [for (final row in r.rows) '${row.label}=${row.value}'];
+List<String> _flat(ParsedTestBody r) => [
+  for (final row in r.rows) '${row.label}=${row.value}',
+];
 
 Map<String, dynamic> _plat(int id, String name) => {
   'id': id,
@@ -131,7 +132,10 @@ void main() {
     });
 
     test('usage（anthropic 风格）→ input/output tokens', () {
-      final r = parseTestBody('{"usage":{"input_tokens":10,"output_tokens":5}}', _t);
+      final r = parseTestBody(
+        '{"usage":{"input_tokens":10,"output_tokens":5}}',
+        _t,
+      );
       expect(_flat(r), contains('输入 tokens=10'));
       expect(_flat(r), contains('输出 tokens=5'));
     });
@@ -174,7 +178,10 @@ void main() {
 
     // 本票新补的边界（React 未覆盖，但两侧行为必须一致）。
     test('model 单独成行；usage 子字段缺失就不出那一行', () {
-      final r = parseTestBody('{"model":"gpt-5","usage":{"input_tokens":4}}', _t);
+      final r = parseTestBody(
+        '{"model":"gpt-5","usage":{"input_tokens":4}}',
+        _t,
+      );
       expect(_flat(r), ['输入 tokens=4', '模型=gpt-5']);
     });
 
@@ -308,9 +315,15 @@ void main() {
   // ══ #8 未分组平台拖进分组 ════════════════════════════════════════
 
   group('#8 未分组平台拖进分组', () {
-    testWidgets('拖到分组卡上松手 → group_platform_move(fromGroupId=0)', (tester) async {
+    testWidgets('拖到分组卡上松手 → group_platform_move(fromGroupId=0)', (
+      tester,
+    ) async {
       final (k, _) = await _mountPage(tester, _pageFake());
-      final card = find.byType(PlatformCard);
+      // 票 24 起分组展开区也渲染 PlatformCard，`byType` 会同时命中两张。
+      // 拖拽测的是**未分组列表**那张，用 `draggable` 把它挑出来（组内那张是 false）。
+      final card = find.byWidgetPredicate(
+        (w) => w is PlatformCard && w.draggable,
+      );
       expect(card, findsOneWidget);
 
       final gesture = await tester.startGesture(tester.getCenter(card));
@@ -334,7 +347,11 @@ void main() {
 
     testWidgets('松手时不在任何分组卡上 → 不发命令', (tester) async {
       final (k, _) = await _mountPage(tester, _pageFake());
-      final card = find.byType(PlatformCard);
+      // 票 24 起分组展开区也渲染 PlatformCard，`byType` 会同时命中两张。
+      // 拖拽测的是**未分组列表**那张，用 `draggable` 把它挑出来（组内那张是 false）。
+      final card = find.byWidgetPredicate(
+        (w) => w is PlatformCard && w.draggable,
+      );
       final gesture = await tester.startGesture(tester.getCenter(card));
       await tester.pump(const Duration(milliseconds: 20));
       await gesture.moveBy(const Offset(0, 40));
@@ -357,7 +374,11 @@ void main() {
         ],
       );
       await _mountPage(tester, k);
-      final card = find.byType(PlatformCard);
+      // 票 24 起分组展开区也渲染 PlatformCard，`byType` 会同时命中两张。
+      // 拖拽测的是**未分组列表**那张，用 `draggable` 把它挑出来（组内那张是 false）。
+      final card = find.byWidgetPredicate(
+        (w) => w is PlatformCard && w.draggable,
+      );
       final gesture = await tester.startGesture(tester.getCenter(card));
       await tester.pump(const Duration(milliseconds: 20));
       await gesture.moveBy(const Offset(0, -20));

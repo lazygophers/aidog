@@ -145,6 +145,11 @@ FakeInvoke platformsFake() => FakeInvoke({
   'platform_query_quota': {'success': true, 'queried_at': 1},
 });
 
+/// 组内平台卡的替身。本文件测的是**分组行为**（改名、映射、批量、移组…），
+/// 不是卡片渲染：真卡片挂进来会把每个用例的断言都拖进 `PlatformCard` 的整棵子树。
+/// 卡片本体由 `platform_card_test.dart` 守，组内接线由 `groups_platform_card_test.dart` 守。
+Widget stubPlatformCard(PlatformRow p, int index) => Text(p.name);
+
 void main() {
   group('LogsPage', () {
     testWidgets('挂载就整查一遍并把行画出来（不等事件）', (tester) async {
@@ -245,10 +250,7 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          LogsPage(
-            invoke: k.fn,
-            copyText: (s) async => written.add(s),
-          ),
+          LogsPage(invoke: k.fn, copyText: (s) async => written.add(s)),
           c,
         ),
       );
@@ -336,7 +338,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       expect(find.text('G10'), findsOneWidget);
     });
@@ -345,7 +352,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake(page: const []);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       expect(find.text(c.t('group.empty')), findsOneWidget);
     });
@@ -354,7 +366,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.add')));
       await settle(tester);
@@ -370,7 +387,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.add')));
       await settle(tester);
@@ -393,7 +415,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.add')));
       await settle(tester);
@@ -412,7 +439,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('action.delete')).first);
@@ -429,7 +461,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -452,7 +489,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -470,7 +512,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       final before = k.callsTo('group_detail_list').length;
@@ -484,7 +531,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
@@ -509,7 +561,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
@@ -525,7 +582,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.testAll')).first);
       await settle(tester);
@@ -538,17 +600,19 @@ void main() {
         findsOneWidget,
       );
       // 面板抬头：标题带组名。
-      expect(
-        find.textContaining(c.t('group.testAllTitle')),
-        findsOneWidget,
-      );
+      expect(find.textContaining(c.t('group.testAllTitle')), findsOneWidget);
     });
 
     testWidgets('折叠分组 → 组内平台行消失，并落盘折叠态', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       expect(find.text('P1'), findsWidgets);
 
@@ -568,6 +632,7 @@ void main() {
         wrapPage(
           GroupsSection(
             invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
             onToast: (t, {required ok}) => toasts.add('$ok|$t'),
           ),
           c,
@@ -587,7 +652,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -610,7 +680,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -643,7 +718,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -653,7 +733,10 @@ void main() {
       await tester.tap(find.text(c.t('group.batchSetStatus')).last);
       await settle(tester);
       // 选中平台覆盖了本组全部 enabled 候选 → 要出无候选警告。
-      expect(find.text(c.t('group.batchSetStatusNoCandidateWarning')), findsOneWidget);
+      expect(
+        find.text(c.t('group.batchSetStatusNoCandidateWarning')),
+        findsOneWidget,
+      );
       // 待改平台清单 + 各自当前状态徽标（React `BatchSetStatusModal.tsx:110-140`）。
       final list = find.byKey(const ValueKey('batch-affected-list'));
       expect(list, findsOneWidget);
@@ -686,6 +769,7 @@ void main() {
         wrapPage(
           GroupsSection(
             invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
             copyText: (s) async => copied.add(s),
           ),
           c,
@@ -713,7 +797,11 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, copyText: (s) async => copied.add(s)),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            copyText: (s) async => copied.add(s),
+          ),
           c,
         ),
       );
@@ -723,11 +811,18 @@ void main() {
       expect(copied.single, 'http://127.0.0.1:9999/proxy');
     });
 
-    testWidgets('组内优先级步进器：加一档 → 发 group_platform_set_level_priority', (tester) async {
+    testWidgets('组内优先级步进器：加一档 → 发 group_platform_set_level_priority', (
+      tester,
+    ) async {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.byIcon(Icons.add).first);
@@ -743,7 +838,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text('+ ${c.t('mapping.add')}').first);
@@ -779,7 +879,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -803,7 +908,12 @@ void main() {
           '{"protocols":{"openai":{"name":{"en-US":"OpenAI"},'
           '"models":{"default":{"default":"gpt-x","sonnet":"gpt-s"}}}}}';
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -817,9 +927,9 @@ void main() {
       expect(find.text(c.t('group.batchOverrideAllEmptyHint')), findsOneWidget);
       final confirmText = c.t('group.batchOverrideConfirm', {'count': '1'});
       expect(
-        tester.widget<SmallButton>(
-          find.widgetWithText(SmallButton, confirmText),
-        ).enabled,
+        tester
+            .widget<SmallButton>(find.widgetWithText(SmallButton, confirmText))
+            .enabled,
         isFalse,
       );
 
@@ -843,7 +953,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -887,7 +1002,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -903,9 +1023,9 @@ void main() {
       });
       // 还没选目标组 → 点不动。
       expect(
-        tester.widget<SmallButton>(
-          find.widgetWithText(SmallButton, confirmText),
-        ).enabled,
+        tester
+            .widget<SmallButton>(find.widgetWithText(SmallButton, confirmText))
+            .enabled,
         isFalse,
       );
 
@@ -916,20 +1036,27 @@ void main() {
         find.textContaining(c.t('group.batchMoveGroupCurrent')).last,
       );
       await settle(tester);
-      expect(find.text(c.t('group.batchMoveGroupSameAsCurrent')), findsOneWidget);
+      expect(
+        find.text(c.t('group.batchMoveGroupSameAsCurrent')),
+        findsOneWidget,
+      );
 
       // 换到另一个组 + 切「加入」模式 → 可确认。
-      await tester.tap(find.textContaining(c.t('group.batchMoveGroupCurrent')).first);
+      await tester.tap(
+        find.textContaining(c.t('group.batchMoveGroupCurrent')).first,
+      );
       await settle(tester);
       await tester.tap(find.text('G11').last);
       await settle(tester);
       await tester.tap(find.text(c.t('group.batchMoveGroupModeAdd')));
       await settle(tester);
       await tester.tap(
-        find.text(c.t('group.batchMoveGroupConfirm', {
-          'count': '1',
-          'mode': c.t('group.batchMoveGroupModeAddShort'),
-        })),
+        find.text(
+          c.t('group.batchMoveGroupConfirm', {
+            'count': '1',
+            'mode': c.t('group.batchMoveGroupModeAddShort'),
+          }),
+        ),
       );
       await settle(tester);
       expect(k.lastCallTo('batch_move_group')!.args!['targetGroupId'], 11);
@@ -954,7 +1081,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -977,7 +1109,12 @@ void main() {
         '未匹配': {'total_requests': 7, 'success_count': 7},
       };
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       expect(find.text(c.t('group.unmatched')), findsOneWidget);
       expect(find.text(c.t('group.unmatchedHint')), findsOneWidget);
@@ -1002,7 +1139,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.byIcon(Icons.drive_file_move_outline).first);
@@ -1030,7 +1172,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       // 第一行的「上移」是禁用的，第一行的「下移」把它挪到第二位。
@@ -1064,18 +1211,21 @@ void main() {
         'error': 'boom',
       };
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.testAll')).first);
       await settle(tester);
       expect(find.text(c.t('group.testAllFail')), findsOneWidget);
       expect(find.text('boom'), findsOneWidget);
       expect(
-        find.text(c.t('group.testAllSummary', {
-          'ok': '0',
-          'fail': '1',
-          'total': '1',
-        })),
+        find.text(
+          c.t('group.testAllSummary', {'ok': '0', 'fail': '1', 'total': '1'}),
+        ),
         findsOneWidget,
       );
     });
@@ -1084,7 +1234,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.add')));
       await settle(tester);
@@ -1117,6 +1272,7 @@ void main() {
         wrapPage(
           GroupsSection(
             invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
             onPlatformDropped: (pid, gid) async => dropped.add('$pid→$gid'),
           ),
           c,
@@ -1174,7 +1330,11 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, copyText: (s) async => copied.add(s)),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            copyText: (s) async => copied.add(s),
+          ),
           c,
         ),
       );
@@ -1207,7 +1367,11 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, onPlatformsDeleted: removed.add),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            onPlatformsDeleted: removed.add,
+          ),
           c,
         ),
       );
@@ -1248,7 +1412,12 @@ void main() {
         plat(2, 'P2'),
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       expect(find.text(c.t('group.isDefault')), findsOneWidget);
@@ -1270,16 +1439,23 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.purgeDisabled')).first);
       await settle(tester);
       expect(find.text(c.t('platform.purgeDisabledNone')), findsOneWidget);
       expect(
-        tester.widget<SmallButton>(
-          find.widgetWithText(SmallButton, c.t('action.confirm')),
-        ).enabled,
+        tester
+            .widget<SmallButton>(
+              find.widgetWithText(SmallButton, c.t('action.confirm')),
+            )
+            .enabled,
         isFalse,
       );
       await tester.tap(find.text(c.t('action.cancel')).last);
@@ -1291,7 +1467,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       await tester.tap(find.text(c.t('group.batchOps')).first);
@@ -1321,7 +1502,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       expect(find.text('a → b'), findsOneWidget);
 
@@ -1348,7 +1534,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
 
       // 把第一张卡的把手往下拖过第二张卡。
@@ -1379,6 +1570,7 @@ void main() {
         wrapPage(
           GroupsSection(
             invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
             onToast: (t, {required ok}) => toasts.add(t),
           ),
           c,
@@ -1388,7 +1580,10 @@ void main() {
 
       await tester.tap(find.text(c.t('group.purgeDisabled')).first);
       await settle(tester);
-      expect(k.lastCallTo('platform_purge_disabled_preview')!.args!['groupId'], 10);
+      expect(
+        k.lastCallTo('platform_purge_disabled_preview')!.args!['groupId'],
+        10,
+      );
       expect(
         find.text(c.t('group.purgeDisabledConfirm', {'count': '1'})),
         findsOneWidget,
@@ -1414,6 +1609,7 @@ void main() {
         wrapPage(
           GroupsSection(
             invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
             onCreatePlatform: ({List<int>? presetGroupIds, int? lockGid}) =>
                 created.add('$presetGroupIds|$lockGid'),
             onNavigate: (id, {String? groupKey}) =>
@@ -1437,7 +1633,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -1469,7 +1670,12 @@ void main() {
         },
       ];
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -1500,7 +1706,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -1516,7 +1727,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -1546,7 +1762,12 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('action.edit')).first);
       await settle(tester);
@@ -1563,10 +1784,7 @@ void main() {
       final input =
           k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
       final envVars = input['env_vars']! as List;
-      expect(
-        envVars.any((e) => (e as Map)['key'] == 'MY_VAR'),
-        isTrue,
-      );
+      expect(envVars.any((e) => (e as Map)['key'] == 'MY_VAR'), isTrue);
     });
   });
 
@@ -1614,7 +1832,8 @@ void main() {
       await tester.tap(find.byTooltip(c.t('platform.disable')).first);
       await settle(tester);
       final input =
-          k.lastCallTo('platform_update')!.args!['input']! as Map<String, Object?>;
+          k.lastCallTo('platform_update')!.args!['input']!
+              as Map<String, Object?>;
       expect(input['status'], 'disabled');
       expect(find.byTooltip(c.t('platform.enable')), findsWidgets);
     });
