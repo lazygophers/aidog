@@ -1362,6 +1362,115 @@ void main() {
       return k;
     }
 
+    // 回归 2026-09-23：这里原先是 `(chosen) => chosen` —— 把 cc-switch 的原始
+    // provider map 直接当 payload 发出去。后端收的是已经转好的 Platform JSON，
+    // 缺字段一律写空串，于是导进去的是一串没有协议 / 没有 URL / 没有密钥的空壳。
+    testWidgets('cc-switch 导入：发出去的是转换过的 Platform JSON，不是原始 provider', (
+      tester,
+    ) async {
+      final k = await mount(
+        tester,
+        extra: {
+          'get_defaults_json': (_) =>
+              '{"protocols":{"glm":{"name":{"en-US":"Zhipu GLM"},'
+              '"keywords":["glm"],"endpoints":{"default":'
+              '[{"protocol":"glm","base_url":"https://open.bigmodel.cn/api/paas/v4"}]}}}}',
+          'ccswitch_detect': (_) => {
+            'found': true,
+            'path': '/tmp/cc',
+            'sourceType': 'json',
+            'providerCount': 1,
+          },
+          'ccswitch_read': (_) => {
+            'sourceType': 'json',
+            'path': '/tmp/cc',
+            'providers': [
+              {
+                'id': 'p1',
+                'appType': 'claude',
+                'name': 'GLM 主号',
+                'settingsConfig': {
+                  'env': {'ANTHROPIC_MODEL': 'claude-x'},
+                },
+                'detectedBaseUrl': 'https://open.bigmodel.cn/api/paas/v4',
+                'detectedApiKey': 'sk-test',
+              },
+            ],
+          },
+          'ccswitch_import': (_) => {'applied': <String, Object?>{}},
+          // autoGroup 默认开，导入完会接着建 / 取分组再刷一次列表。
+          'platform_ensure_auto_group': (_) => null,
+          'platform_list': (_) => <Object?>[],
+          'group_detail_list': (_) => <Object?>[],
+        },
+      );
+      // 「探测」这颗按钮自己接着读 providers。
+      await tester.tap(find.byKey(const ValueKey('ccswitch-detect')));
+      await settle(tester);
+      expect(findStripped(find, 'GLM 主号'), findsOneWidget);
+      // 匹配读数：协议名 + 命中方式徽标（导入前看得到匹配成了什么）。
+      expect(find.text('Zhipu GLM'), findsWidgets);
+
+      await tester.tap(find.byKey(const ValueKey('foreign-import-cc-switch')));
+      await settle(tester);
+      final args = k.lastArgsOf('ccswitch_import')!;
+      final payload = (args['platformPayload']! as List).single as Map;
+      expect(payload['platform_type'], 'glm');
+      expect(payload['base_url'], 'https://open.bigmodel.cn/api/paas/v4');
+      expect(payload['api_key'], 'sk-test');
+      expect((payload['models']! as Map)['default'], 'claude-x');
+      expect((payload['endpoints']! as List), isNotEmpty);
+    });
+
+    testWidgets('cc-switch：关掉密钥维度 → payload 里 api_key 是空串', (tester) async {
+      final k = await mount(
+        tester,
+        extra: {
+          'ccswitch_detect': (_) => {
+            'found': true,
+            'path': '/tmp/cc',
+            'sourceType': 'json',
+            'providerCount': 1,
+          },
+          'ccswitch_read': (_) => {
+            'sourceType': 'json',
+            'path': '/tmp/cc',
+            'providers': [
+              {
+                'id': 'p1',
+                'appType': 'claude',
+                'name': '某号',
+                'settingsConfig': const <String, Object?>{},
+                'detectedBaseUrl': 'https://x.test/v1',
+                'detectedApiKey': 'sk-test',
+              },
+            ],
+          },
+          'ccswitch_import': (_) => {'applied': <String, Object?>{}},
+          'platform_ensure_auto_group': (_) => null,
+          'platform_list': (_) => <Object?>[],
+          'group_detail_list': (_) => <Object?>[],
+        },
+      );
+      await tester.tap(find.byKey(const ValueKey('ccswitch-detect')));
+      await settle(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('cc-dim-apikey')),
+          matching: find.byType(Switch),
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('foreign-import-cc-switch')));
+      await settle(tester);
+      final payload =
+          ((k.lastArgsOf('ccswitch_import')!['platformPayload']! as List).single
+              as Map);
+      expect(payload['api_key'], '');
+      // 其余维度不受影响。
+      expect(payload['base_url'], 'https://x.test/v1');
+    });
+
     testWidgets('没预览过就不许导出', (tester) async {
       await mount(tester);
       expect(

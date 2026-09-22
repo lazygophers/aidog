@@ -20,8 +20,10 @@ import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
-import '../platform_card_bits.dart' show MiniBadge;
+import '../platform_card_bits.dart' show MiniBadge, ProtocolMetaTable;
+import '../platform_defaults.dart';
 import 'bits.dart';
+import 'ccswitch_match.dart';
 import 'foreign_import_logic.dart';
 import 'importexport_logic.dart';
 
@@ -66,15 +68,23 @@ class _ImportExportPageState extends State<ImportExportPage> {
   /// 有文件正悬在落区上方（拖拽高亮）。
   bool _dragActive = false;
 
+  /// registry 派生的两份元数据，异源导入的协议匹配要用
+  /// （关键词 / host / 默认端点全来自它们，代码里不写平台名）。
+  ProtocolMetaTable _meta = const ProtocolMetaTable();
+  PlatformDefaults _defaults = PlatformDefaults.empty;
+
+  /// cc-switch 的三个导入维度（`CcSwitchImport.tsx:311-331`）。
+  /// 平台类型那一维 React 锁定常开，这里同样不给关。
+  CcImportDims _dims = const CcImportDims();
+
   /// 点按钮选文件 → 校验扩展名 → 读预览。点击与拖入两条入口走同一段。
   Future<void> _pickImportFile() async {
     final p = await widget.pickPath();
     if (p == null || !mounted) return;
     if (pickAidogxPath([p]) == null) {
       setState(
-        () => _c.error = AidogI18n.of(
-          context,
-        ).t('importExport.error.notAidogx'),
+        () =>
+            _c.error = AidogI18n.of(context).t('importExport.error.notAidogx'),
       );
       return;
     }
@@ -115,6 +125,54 @@ class _ImportExportPageState extends State<ImportExportPage> {
     unawaited(_b.load());
   }
 
+  bool _metaRequested = false;
+
+  /// 语言要从 context 取，而 `initState` 里还够不着 InheritedWidget ——
+  /// 所以这一拉挂在 `didChangeDependencies` 上，并用标志位保证只拉一次。
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_metaRequested) return;
+    _metaRequested = true;
+    unawaited(_loadProtocolMeta());
+  }
+
+  /// 协议元数据是 best-effort：拉不到就回落空表，匹配退化成协议回退那一支，
+  /// 页面照常能用（与 TS 侧 `.catch` 同语义）。
+  Future<void> _loadProtocolMeta() async {
+    final locale = AidogI18n.of(context).locale;
+    String raw = '';
+    try {
+      raw = '${await widget.invoke('get_defaults_json') ?? ''}';
+    } catch (_) {
+      raw = '';
+    }
+    final defaults = await loadPlatformDefaults(widget.invoke, locale);
+    if (!mounted) return;
+    setState(() {
+      _meta = ProtocolMetaTable.parse(raw, locale);
+      _defaults = defaults;
+    });
+  }
+
+  /// 单个 provider 的匹配结果（行内读数与 payload 共用同一条链，不算两遍）。
+  CcMatchResult _matchOf(Map<String, Object?> p) =>
+      matchCcProvider(p, meta: _meta, defaults: _defaults);
+
+  /// 勾中的 provider → Platform JSON（`CcSwitchImport.tsx:176-190`）。
+  /// 原先这里是 `(chosen) => chosen` —— 原样把 cc-switch 的 provider map 发出去，
+  /// 后端缺字段一律写空串，导进去的是一串没有协议 / 没有 URL / 没有密钥的空壳。
+  List<Map<String, Object?>> _toPlatformPayload(
+    List<Map<String, Object?>> chosen,
+  ) => [
+    for (final p in chosen)
+      ccProviderToPlatformJson(
+        p,
+        matchCcProvider(p, meta: _meta, defaults: _defaults),
+        _dims,
+      ),
+  ];
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
@@ -127,6 +185,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
         _foreignCard(
           t,
           c: _cc,
+          showDims: true,
           title: t.t('importExport.ccswitch.title'),
           description: t.t('importExport.ccswitch.desc'),
           autoGroupLabel: t.t('importExport.ccswitch.autoGroup'),
@@ -211,6 +270,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         ? t.t('importExport.sub2api.parsing')
                         : t.t('importExport.sub2api.parsePaste'),
                     // 没内容就点不动（React 的 `emptyInput` 分支）。
+                    // 只禁不说等于把那句解释丢了，所以禁用时把它挂成悬浮提示。
+                    tooltip: _pasteText.trim().isEmpty
+                        ? t.t('importExport.sub2api.emptyInput')
+                        : null,
                     onTap: _sub.busy || _pasteText.trim().isEmpty
                         ? null
                         : () => _sub.parse(_pasteText),
@@ -516,23 +579,15 @@ class _ImportExportPageState extends State<ImportExportPage> {
           ],
         ),
         if (applied.isNotEmpty)
-          section(
-            t.t('importExport.applied'),
-            theme.c.ok,
-            [
-              for (final e in applied.entries)
-                '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
-            ],
-          ),
+          section(t.t('importExport.applied'), theme.c.ok, [
+            for (final e in applied.entries)
+              '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+          ]),
         if (skipped.isNotEmpty)
-          section(
-            t.t('importExport.skipped'),
-            theme.c.fg3,
-            [
-              for (final e in skipped.entries)
-                '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
-            ],
-          ),
+          section(t.t('importExport.skipped'), theme.c.fg3, [
+            for (final e in skipped.entries)
+              '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+          ]),
         // 错误原文逐条列出来 —— 这是导入失败时唯一能查的东西。
         if (errors.isNotEmpty)
           section(
@@ -742,6 +797,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
     required String description,
     required String autoGroupLabel,
     required Widget header,
+    bool showDims = false,
   }) {
     final theme = AidogTheme.of(context);
     final report = c.report;
@@ -756,6 +812,34 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: c.autoGroup,
           onChanged: c.setAutoGroup,
         ),
+        // 三个导入维度（`CcSwitchImport.tsx:311-331`）：它们直接决定 payload
+        // 里带什么字段，不是纯展示。平台类型那一维 React 锁定常开 ——
+        // 不带协议和 endpoints 的话导进来就是空壳，关掉没有意义。
+        if (showDims) ...[
+          SwitchRow(
+            label:
+                '${t.t('importExport.ccswitch.dimPlatformType')}'
+                '（${t.t('importExport.ccswitch.dimPlatformTypeHint')}）',
+            value: true,
+            onChanged: null,
+          ),
+          SwitchRow(
+            key: const ValueKey('cc-dim-models'),
+            label:
+                '${t.t('importExport.ccswitch.dimModels')}'
+                '（${t.t('importExport.ccswitch.dimModelsHint')}）',
+            value: _dims.d2,
+            onChanged: (v) => setState(() => _dims = _dims.copyWith(d2: v)),
+          ),
+          SwitchRow(
+            key: const ValueKey('cc-dim-apikey'),
+            label:
+                '${t.t('importExport.ccswitch.dimApiKey')}'
+                '（${t.t('importExport.ccswitch.dimApiKeyHint')}）',
+            value: _dims.d4,
+            onChanged: (v) => setState(() => _dims = _dims.copyWith(d4: v)),
+          ),
+        ],
         if (c.providers.isEmpty)
           CenteredNote(text: t.t('importExport.ccswitch.nothingSelected'))
         else ...[
@@ -782,14 +866,29 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         ),
                         const SizedBox(width: AidogSpace.sxs),
                         Expanded(
-                          child: Text(
-                            ltr('${p['name'] ?? p['id'] ?? i}'),
-                            overflow: TextOverflow.ellipsis,
-                            style: AidogType.micro.copyWith(color: theme.c.fg),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                ltr('${p['name'] ?? p['id'] ?? i}'),
+                                overflow: TextOverflow.ellipsis,
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.fg,
+                                ),
+                              ),
+                              // 匹配结果读数（`CcSwitchImport.tsx:543-551`）：
+                              // 匹配到哪个协议、凭什么匹配上的、最终用哪个
+                              // base_url —— 导入前得先看得到，否则是盲导。
+                              _MatchReadout(match: _matchOf(p)),
+                            ],
                           ),
                         ),
                         Text(
-                          (p['api_key'] ?? p['apiKey']) == null
+                          (p['api_key'] ??
+                                      p['apiKey'] ??
+                                      p['detectedApiKey']) ==
+                                  null
                               ? t.t('importExport.ccswitch.noKey')
                               : t.t('importExport.ccswitch.dimApiKey'),
                           style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -811,7 +910,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
               // 一项没选就点不动（`canImport`）。
               onTap: c.canImport
                   ? () async {
-                      await c.runImport((chosen) => chosen);
+                      await c.runImport(_toPlatformPayload);
                       if (!mounted || c.error.isNotEmpty) return;
                       if (c.autoGroup) {
                         // 导入后建 / 取自动分组，再刷一次平台列表。
@@ -928,6 +1027,58 @@ class _DropZone extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// provider 行里的匹配读数：协议名 + 命中方式徽标 + 实际 base_url。
+/// 对齐 `CcSwitchImport.tsx:50-58,543-551`：三种命中方式三种颜色 ——
+/// 关键词命中（accent）/ host 命中（ok）/ 回退（peak，提醒这条是猜的）。
+class _MatchReadout extends StatelessWidget {
+  const _MatchReadout({required this.match});
+
+  final CcMatchResult match;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final c = AidogTheme.of(context).c;
+    final (label, color) = switch (match.matchedBy) {
+      CcMatchedBy.presetKeyword => (
+        t.t('importExport.ccswitch.matched'),
+        c.accent,
+      ),
+      CcMatchedBy.baseUrlHost => (t.t('importExport.ccswitch.hostMatch'), c.ok),
+      CcMatchedBy.protocolFallback => (
+        t.t('importExport.ccswitch.fallback'),
+        c.peak,
+      ),
+    };
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Wrap(
+        spacing: AidogSpace.sxs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          Text(
+            match.matchedLabel ?? match.protocol,
+            style: AidogType.micro.copyWith(color: c.fg2),
+          ),
+          MiniBadge(text: label, color: color),
+          // `Wrap` 里不能用 `Flexible`（它只认 Flex 的 ParentData）——
+          // 长 URL 靠 ConstrainedBox 限宽 + 省略号收住。
+          if (match.baseUrl.isNotEmpty)
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                ltr(match.baseUrl),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.micro.copyWith(color: c.fg3),
+              ),
+            ),
+        ],
       ),
     );
   }
