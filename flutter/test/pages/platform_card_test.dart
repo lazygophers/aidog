@@ -2326,9 +2326,11 @@ void main() {
       // 按住第一张的手柄拖一段，停在半途（不松手）。
       final handle = find.byTooltip(c.t('platform.dragReorder')).first;
       final drag = await tester.startGesture(tester.getCenter(handle));
-      await tester.pump(kLongPressTimeout);
-      await drag.moveBy(const Offset(0, 60));
       await tester.pump();
+      for (var i = 0; i < 6; i++) {
+        await drag.moveBy(const Offset(0, 10));
+        await tester.pump();
+      }
 
       // 其余卡压暗：0.4 这个值直接来自 React。
       final dimmed = tester
