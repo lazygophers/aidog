@@ -298,8 +298,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _alignCard(I18nController t) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.smd),
+  // React 是普通 `Dialog`（`SkillModals.tsx:135`，maxWidth 400），点遮罩可关。
+  Widget _alignCard(I18nController t) => AidogModal(
+    maxWidth: 400,
+    onBarrierTap: _c.closeAlign,
     child: Tile(
       title: t.t('skills.alignTitle'),
       child: Column(
@@ -354,8 +356,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _pasteCard(I18nController t) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.smd),
+  // React 是普通 `Dialog`（`SkillModals.tsx:214`，maxWidth 560），点遮罩可关。
+  Widget _pasteCard(I18nController t) => AidogModal(
+    maxWidth: 560,
+    onBarrierTap: () => _c.setPasteOpen(false),
     child: Tile(
       title: t.t('skills.importFromShare'),
       child: Column(
@@ -389,8 +393,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     ),
   );
 
-  Widget _importCard(I18nController t) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.smd),
+  // React 是普通 `Dialog`（`SkillModals.tsx:248`，maxWidth 560）：装载中不许关。
+  Widget _importCard(I18nController t) => AidogModal(
+    maxWidth: 560,
+    onBarrierTap: _c.importBusy ? null : _c.cancelImport,
     child: Tile(
       title: t.t('skills.importConfirmTitle'),
       child: Column(
@@ -473,8 +479,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   Widget _shareCard(I18nController t) {
     final data = _c.shareData!;
     final text = data.skills.join('\n');
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 走同一个 `ShareModal`（`SkillModals.tsx:200`，maxWidth 560）。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: _c.closeShare,
       child: Tile(
         title: '${t.t('skills.share.title')} · ${data.name}',
         child: Column(

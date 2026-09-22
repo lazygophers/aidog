@@ -232,8 +232,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
 
   Widget _uvPrompt(I18nController t, NotificationTexts texts) {
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是普通 `Dialog`（`NotificationSettings.tsx:483`，maxWidth 420）：
+    // 安装中不许关。
+    return AidogModal(
+      onBarrierTap: _c.uvInstalling ? null : _c.cancelUvPrompt,
       child: Tile(
         title: t.t('notif.uvModalTitle'),
         child: Column(
