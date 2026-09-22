@@ -414,35 +414,90 @@ class PiUnsupportedNote extends StatelessWidget {
 
 /// 操作结果提示条。React 那边是浮层 toast，这里挂在页面底部 —— 同样 3 秒后消失，
 /// 由页面的计时器负责清掉。
-class ToastBar extends StatelessWidget {
+/// 操作结果提示：浮在**窗口顶部居中**，不参与页面滚动。
+///
+/// 对齐 `src/pages/platforms/PlatformListView.tsx:259-273`：React 是
+/// `createPortal` 到 body 的 `position: fixed; top: 24; left: 50%` 彩色胶囊，
+/// 带 ✓ / ✕ 图标。
+///
+/// 原先这里是页面内容里的一条整宽条，**跟着页面一起滚** —— 平台一多，
+/// 「已保存」「测试失败」这类提示直接落在屏幕外，用户根本看不到操作结果。
+/// 走 `OverlayPortal`（与 [AidogModal] 同一条路）把它抬到根 Overlay 上，
+/// 全仓的调用点一行不用改。
+///
+/// `IgnorePointer`：提示不挡下面的点击（React 那边是 `pointerEvents: none`）。
+class ToastBar extends StatefulWidget {
   const ToastBar({super.key, required this.text, required this.ok});
 
   final String text;
   final bool ok;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.ssm),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.smd,
-          vertical: AidogSpace.ssm,
-        ),
-        decoration: BoxDecoration(
-          color: theme.c.surface2,
-          border: Border.all(color: ok ? theme.c.ok : theme.c.bad),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        child: Text(
-          text,
-          style: AidogType.micro.copyWith(color: ok ? theme.c.ok : theme.c.bad),
-        ),
-      ),
-    );
+  State<ToastBar> createState() => _ToastBarState();
+}
+
+class _ToastBarState extends State<ToastBar> {
+  final _controller = OverlayPortalController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 这个 widget 只在「该显示」时才被挂进树，挂上即显示、拔掉即消失。
+    // 几秒后自动消失由各页自己的计时器负责（与 React 同），这里不管。
+    _controller.show();
   }
+
+  @override
+  Widget build(BuildContext context) => OverlayPortal(
+    controller: _controller,
+    overlayChildBuilder: (context) {
+      final theme = AidogTheme.of(context);
+      final bg = widget.ok ? theme.c.ok : theme.c.bad;
+      return Positioned(
+        top: 24,
+        left: 0,
+        right: 0,
+        child: IgnorePointer(
+          child: Align(
+            alignment: Alignment.topCenter,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AidogSpace.slg,
+                  vertical: AidogSpace.ssm,
+                ),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(AidogRadius.md),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.ok ? Icons.check : Icons.close,
+                      size: 14,
+                      // 彩底上的字与图标取浅色模式的 surface 当「白」，
+                      // 与 [AidogSwitch] 的圆点同一条路子：不写字面色值。
+                      color: AidogColors.light.surface,
+                    ),
+                    const SizedBox(width: AidogSpace.sxs),
+                    Text(
+                      widget.text,
+                      style: AidogType.micro.copyWith(
+                        color: AidogColors.light.surface,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
 }
 
 /// 输入框：控制器活在 State 里，不随每次 build 重建。
