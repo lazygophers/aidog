@@ -120,7 +120,7 @@ import 'package:aidog_flutter/pages.dart';
 
 首页 6 条、统计页 6 条、共用 2 条、并集 10 条。清单与每条的 React 侧出处写在那个文件抬头。
 
-### widget 测试的四个坑
+### widget 测试的五个坑
 
 - **别用 `pumpAndSettle`**：骨架的 `LiveDot` 是 3 秒无限循环呼吸动画，永远等不到静止。
   用 `test/pages/harness.dart` 的 `settle(tester)`（推几帧）。
@@ -136,6 +136,14 @@ import 'package:aidog_flutter/pages.dart';
 - **`AidogI18n` 在测试骨架里套在 `MaterialApp` 外面**（`wrapPage`），与 `main.dart:32` 的
   `runApp(AidogI18n(child: AidogApp()))` 同一层级。套进 `home` 会让任何渲染到 Overlay 的
   东西（拖拽代理、浮层候选）找不到这个祖先，测试里抛「找不到祖先 AidogI18n」而真机不会。
+- **分页的假数据每页要给不同的 id**。`FakeInvoke` 对同一个命令每次返回同一批数据，
+  分页测试追加第二页后，列表里就有两个 id 相同的行；`ReorderableListView` 的子项 key
+  取自这个 id，key 撞车后框架抛 `!childSemantics.renderObject._needsLayout`
+  （断言自己写着「请去 flutter 仓库提 issue」，别信，这不是框架缺陷）。
+  真后端的 group id 是主键不会重复，所以这个断言只会在测试里出现。
+  写法见 `test/pages/pages_b_widget_test.dart` 里「滚到底自动拉下一页」那条：
+  把 `k.responses['<命令>']` 换成一个**零参**闭包，每次调用换一批 id
+  （`fake_invoke.dart:43` 只对 `Object? Function()` 求值，带参数的闭包会被当成返回值本身）。
 
 ### 按钮没有水波？底色画错地方了
 

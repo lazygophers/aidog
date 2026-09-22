@@ -123,6 +123,42 @@ class _GroupsSectionState extends State<GroupsSection> {
     widget.onCreateGroupReady?.call(_c.openCreate);
   }
 
+  /// 触底自动加载（`GroupListView.tsx:277-285` 的 `IntersectionObserver`）。
+  ///
+  /// 监听的是**骨架那个 `CustomScrollView` 的 position**，不是列表里的哨兵 widget：
+  /// position 的通知发生在滚动活动里，不在布局 / 语义那一趟，所以往列表里追加
+  /// 下一页不会踩 `!childSemantics.renderObject._needsLayout`。
+  /// 同一条路子见 `settings/schema_config_page.dart` 的 `_onScroll`。
+  ///
+  /// **只在真的滚动时触发**：首帧不主动查。内容没占满一屏时根本没得滚，
+  /// 那种情况交给下面保留的「加载更多」按钮 —— 键盘用户和关了动效的用户也靠它。
+  ScrollPosition? _scrollPos;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (identical(pos, _scrollPos)) return;
+    _scrollPos?.removeListener(_onScroll);
+    _scrollPos = pos;
+    _scrollPos?.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollPos?.removeListener(_onScroll);
+    super.dispose();
+  }
+
+  void _onScroll() {
+    final pos = _scrollPos;
+    if (pos == null || !pos.hasContentDimensions) return;
+    if (!_c.hasMore || _c.loadingMore || _c.loading) return;
+    // 提前 300 逻辑像素就开始拉，滚到底时下一页已经在路上。
+    if (pos.extentAfter > 300) return;
+    unawaited(_c.loadMore());
+  }
+
   /// 父级搬完（后端已写）→ 分组区自己的 details 静默重拉，目标组里立刻出现那一行。
   Future<void> _acceptDrop(int pid, int gid) async {
     await widget.onPlatformDropped!(pid, gid);
@@ -292,23 +328,9 @@ class _GroupListView extends StatelessWidget {
             child: CenteredNote(text: t.t('status.loading')),
           )
         else if (c.hasMore)
-          // 🔴 这里**没有**做 React 的触底自动加载（`GroupListView.tsx:277-285`
-          // 的 `IntersectionObserver`）。卡在一条还没查清的断言上：
-          //
-          // 往这个列表里追加第二页（不论滚没滚过）会抛
-          // `!childSemantics.renderObject._needsLayout`。抛的那一刻 dirty 的是
-          // **刚追加进来的那个列表子项自己**的 `RenderIndexedSemantics`
-          // （creator 链：`IndexedSemantics ← KeepAlive ← KeyedSubtree
-          // ← SliverList ← SliverReorderableList ← ShrinkWrappingViewport`）。
-          //
-          // **已知它不是通用的框架问题**：同样形状的纯框架代码
-          // （`SingleChildScrollView` / `SliverToBoxAdapter` / 真 `SliverList`
-          // 各跑一遍，语义树开着）都不抛。所以触发条件里还有本页树里的某个东西，
-          // 具体是哪一层没查到。**别照着「这是 flutter 的 bug」去改**。
-          //
-          // 复现与诊断留在 `.scratch/flutter-ui-parity/`：
-          // `paging_probe_test.dart.txt`（本页的复现，跑它就能看到断言）、
-          // `groups-auto-paging.patch`（自动加载的实现，查清之后贴回来）。
+          // 滚到底会自动拉下一页（见 `_GroupsSectionState._onScroll`）。
+          // 这颗按钮**是有意保留的兜底**，React 也留着一颗：内容没占满一屏时
+          // 没得滚，键盘操作与关了动效的用户也需要一个显式入口。
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: Align(
