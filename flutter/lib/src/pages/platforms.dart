@@ -219,6 +219,11 @@ class _PlatformsPageState extends State<PlatformsPage> {
             },
             // 缺口 #8：未分组平台拖进分组。
             onPlatformDropped: _c.moveIntoGroup,
+            // 分组卡里的「在此分组添加平台」：打开同页创建表单并锁定归属分组。
+            onCreatePlatform: _form.openCreatePlatform,
+            // 分组卡里的「查看统计」：切到统计页（顶层导航无 payload 通道，
+            // 不带 groupKey 预筛，见 GroupsSection.onNavigate 的注释）。
+            onNavigate: (id) => widget.onNavigate?.call(id),
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
