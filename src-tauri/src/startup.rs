@@ -38,6 +38,19 @@ pub fn run() {
             {
                 crate::popover_window::close(&window.app_handle().clone());
             }
+            // 主窗口关闭 = 隐藏，不销毁。aidog 常驻托盘，关窗后进程照跑，
+            // 从托盘「显示窗口」秒回原页面 —— 与 Flutter 壳一致
+            //（`flutter/macos/Runner/MainFlutterWindow.swift:8-11` 同样是
+            // `windowShouldClose` 返回 false 再 `orderOut`）。
+            // 销毁会连 webview 一起拆掉：设置页改到一半的草稿、已建的连接全没，
+            // 正是 `Settings.tsx` 那层未保存拦截存在的原因；改成隐藏后不再需要它。
+            // popover 窗不走这条（它按需建、失焦即销毁，见上一段）。
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && window.label() == "main"
+            {
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![
