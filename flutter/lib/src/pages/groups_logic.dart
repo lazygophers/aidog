@@ -781,8 +781,12 @@ class GroupsController {
   /// 「创建」按钮的启用判据：`GroupCreateModal.tsx:55` 的 `disabled={!cName}`。
   bool get canCreate => createName.isNotEmpty;
 
-  /// 新建表单里可选的平台：`GroupCreateModal.tsx:33` 只列 **enabled** 的。
-  List<PlatformRow> get createPlatformOptions =>
+  /// 新建 / 编辑表单里可选的平台：只列 **enabled** 的
+  /// （`GroupCreateModal.tsx:33` / `GroupEditPanel.tsx:34` 同一口径）。
+  ///
+  /// 编辑表单原先直接用 `platforms` 全量，于是能把已禁用的平台加进分组 ——
+  /// 加进去它也不会被路由选中，等于埋一个「配了但不生效」的坑。
+  List<PlatformRow> get enabledPlatformOptions =>
       [for (final p in platforms) if (p.enabled) p];
 
   /// `Groups.tsx:567-583`。密钥留空 → 不传（后端自动生成 `gk_<32hex>`）。
@@ -1666,9 +1670,14 @@ class GroupsController {
   }
 
   /// 该目标平台的候选模型（五槽去重非空值）。未选目标平台 → 空。
-  List<String> get mAvailableModels {
-    final pid = mTargetPlatform;
-    if (pid == null) return const [];
+  List<String> get mAvailableModels => modelsOfPlatform(mTargetPlatform);
+
+  /// 某个平台的候选模型（五槽去重非空值）。平台 id 为 null / 0 / 找不到 → 空。
+  ///
+  /// 编辑面板的模型映射也要用它：原先那边的「目标模型」恒为文本框，
+  /// 打错模型名不报错（React 在有候选时给的是下拉，`GroupEditPanel.tsx:221-236`）。
+  List<String> modelsOfPlatform(int? pid) {
+    if (pid == null || pid == 0) return const [];
     for (final p in platforms) {
       if (p.id == pid) return allModelValues(p.models);
     }
