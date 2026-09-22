@@ -1815,8 +1815,10 @@ class WindowsEditorState extends State<WindowsEditor> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog`（`WindowsEditModal.tsx:123`，maxWidth 500），点遮罩可关。
+    return AidogModal(
+      maxWidth: 500,
+      onBarrierTap: widget.onCancel,
       child: Tile(
         title: t.t('platform.windows_edit_title'),
         child: Column(

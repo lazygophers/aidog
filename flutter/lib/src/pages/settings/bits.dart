@@ -463,8 +463,10 @@ class UnsavedChangesCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog` + createPortal（`UnsavedChangesModal.tsx:30`，
+    // maxWidth 420）：点遮罩等于「取消离开」，执行中不许关。
+    return AidogModal(
+      onBarrierTap: busy ? null : onCancel,
       child: Tile(
         title: t.t('settings.unsavedTitle'),
         child: Column(

@@ -99,8 +99,10 @@ class _SharePanelState extends State<SharePanel> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog`（`ShareModal.tsx:151`，maxWidth 560），点遮罩可关。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: widget.onClose,
       child: Tile(
         title: '${t.t('platform.share.title')} · ${widget.title}',
         child: Column(

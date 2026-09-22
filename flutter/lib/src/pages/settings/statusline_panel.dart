@@ -720,8 +720,9 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
                 )
               : null);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog`（`SegmentEditModal.tsx:49`，maxWidth 420），点遮罩可关。
+    return AidogModal(
+      onBarrierTap: widget.onCancel,
       child: Tile(
         title: segName(t, def),
         meta: segDesc(t, def),

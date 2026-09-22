@@ -969,8 +969,11 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final all = _allLeaves();
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是普通 `Dialog` + createPortal（`ImportDiff.tsx:361`，width 680），
+    // 点遮罩可关。
+    return AidogModal(
+      maxWidth: 680,
+      onBarrierTap: widget.onCancel,
       child: Tile(
         title: widget.pending.recommended
             ? t.t('settings.editor.recommendTitle')
