@@ -26,6 +26,8 @@ import 'hooks_editor.dart';
 import 'import_diff.dart';
 import 'path_input.dart';
 import 'permissions_editor.dart';
+import 'plugins_editor.dart';
+import 'sandbox_editor.dart';
 import 'schema_config_logic.dart';
 import 'statusline_panel.dart';
 
@@ -372,6 +374,31 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             onChanged: (v) => c.updateField('hooks', v),
             updateField: c.updateField,
             invoke: widget.invoke,
+          ),
+        ],
+      );
+    }
+    // 插件区：五个字段在 schema 里全是 skipGui，React 侧整节换成 PluginsSectionInline。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'plugins') {
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          PluginsEditor(config: c.config, updateField: c.updateField),
+        ],
+      );
+    }
+    // 沙箱区同理：schema 里是一个 skipGui 的 json 字段，React 侧整节换成
+    // SandboxSectionInline（文件系统 / 网络 / 安全策略 / 排除命令四块）。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'sandbox') {
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          SandboxEditor(
+            sandbox: c.config['sandbox'] is Map
+                ? Map<String, Object?>.from(c.config['sandbox'] as Map)
+                : const {},
+            invoke: widget.invoke,
+            onChanged: (v) => c.updateField('sandbox', v),
           ),
         ],
       );
