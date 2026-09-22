@@ -6,6 +6,7 @@
 // 与 Rust 侧 test_registry.rs 的漂移断言互补：那边锁清单一致性，这边锁字段形状。
 
 import { readFileSync, readdirSync, statSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import Ajv from "ajv";
@@ -275,6 +276,34 @@ for (const start of predByCanon.keys()) {
     seen.add(cur);
     cur = predByCanon.get(cur);
   }
+}
+
+// ⑨ 数值字面保真（2026-09-23 复盘）：对工作区有改动的 registry JSON，数值集合与 HEAD 完全相等
+// 但字面写法不同 = JSON round-trip 指纹（2e-06 被重写成 0.000002，值等字面漂移），硬错。
+// 批量改数据必须文本级插入/替换（同 bump-registry-last-updated.mjs 约束）。无 diff / 非 git 环境跳过。
+const NUMBER_RE = /-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g;
+function numericMultiset(text) {
+  return JSON.stringify((text.match(NUMBER_RE) ?? []).map(Number).sort((a, b) => a - b));
+}
+try {
+  const changed = execFileSync("git", ["diff", "--name-only", "--", registryDir], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+    .trim()
+    .split("\n")
+    .filter((f) => f && f.endsWith(".json"));
+  for (const rel of changed) {
+    const p = join(registryDir, rel.slice("src-tauri/defaults/registry/".length));
+    let head;
+    try {
+      head = execFileSync("git", ["show", `HEAD:${rel}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] });
+    } catch {
+      continue; // 新文件无基线
+    }
+    if (numericMultiset(readFileSync(p, "utf8")) === numericMultiset(head) && readFileSync(p, "utf8") !== head) {
+      failures.push([rel, "数值与 HEAD 完全相等但字面不同：JSON round-trip 指纹（科学计数法漂移），批量改数据须文本级编辑"]);
+    }
+  }
+} catch {
+  /* 非 git 环境（fixture 目录）跳过 */
 }
 
 if (failures.length) {
