@@ -170,16 +170,17 @@ class ReadoutTile extends StatelessWidget {
           if (delta != null)
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.ssm),
-              child: Ltr(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(delta!, style: numStyle(AidogType.numSm, deltaColor)),
-                    if (deltaNote != null) ...[
-                      const SizedBox(width: AidogSpace.sxs),
-                      Text(deltaNote!, style: numStyle(AidogType.numSm, t.c.fg3)),
-                    ],
-                  ],
+              // deltaNote 是**悬浮提示**，不是常驻文字。
+              // React 把它写在 `title=` 上（`Stats.tsx:965`），鼠标停上去才出现。
+              // 原先这里当成一行文字画出来，统计页八张卡就一起多出八行「对比上一周期」
+              // —— 每张卡都写着同一句话，全是噪声。
+              child: Tooltip(
+                message: deltaNote ?? '',
+                child: Ltr(
+                  child: Text(
+                    delta!,
+                    style: numStyle(AidogType.numSm, deltaColor),
+                  ),
                 ),
               ),
             ),
