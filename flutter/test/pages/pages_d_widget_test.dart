@@ -8,6 +8,7 @@ library;
 
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/src/updater.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -172,6 +173,28 @@ void main() {
       expect(find.text(c.t('skills.install.emptyHint')), findsOneWidget);
     });
 
+    // 回归 2026-09-22：React 分享 skill 复用的是泛化 `ShareModal`
+    //（`SkillModals.tsx:200-210`：4 格式 + 自动复制 + 深链二维码 + 警示语），
+    // Flutter 之前自画了一张只能干看 id 的卡。
+    testWidgets('分享：走 SharePanel，标题与警示语用 skills.share.*', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      // source 得是 catalog 来源，否则 `share()` 只提示不开面板。
+      final k = fake(items: [skill('git-flow', source: 'git-flow')]);
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('skills.share.title')).last);
+      await settle(tester);
+      expect(find.byType(SharePanel), findsOneWidget);
+      expect(find.text(c.t('skills.share.warning')), findsOneWidget);
+      // 标题是「<skills.share.title> · <skill 名>」，不能是「分享平台」。
+      expect(
+        find.text('${c.t('skills.share.title')} · git-flow'),
+        findsOneWidget,
+      );
+      expect(find.textContaining(c.t('platform.share.title')), findsNothing);
+    });
+
     testWidgets('点 skill 名进只读详情，并读出 SKILL.md', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
@@ -285,6 +308,23 @@ void main() {
       await settle(tester);
       expect(k.countOf('mcp_add'), 1);
       expect(k.countOf('mcp_list'), 2);
+    });
+
+    // 回归 2026-09-22：env / headers 列表回传的是**脱敏值**，用户照原样保存就把
+    // 字面 `***` 写进配置、原密钥丢失。React 把这句提示写在编辑器标题旁
+    //（`Mcp/primitives.tsx:220-225`），Flutter 之前只有标题 + 加一行。
+    testWidgets('env / headers 标题旁写明「未改值填 *** 保持原密钥」', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      expect(
+        find.textContaining(c.t('mcp.maskedHint')),
+        findsWidgets,
+        reason: 'stdio 表单至少有 env 一处',
+      );
     });
 
     testWidgets('切传输到 http：表单换成 url + headers', (tester) async {
@@ -431,6 +471,75 @@ void main() {
       await tester.tap(find.text(c.t('about.checkUpdate')));
       await settle(tester);
       expect(tapped, 1);
+    });
+
+    // 回归 2026-09-22：Sparkle 的原生窗只在「有新版本」时弹，「已是最新 / 检查失败」
+    // 全程静默 —— 页内没有状态行，用户点了就是没反应（`About.tsx:283-287` 有这一行）。
+    group('检查更新的页内状态行', () {
+      tearDown(() => updateStatus.value = (UpdateState.idle, ''));
+
+      Future<void> pumpAbout(WidgetTester tester, I18nController c) async {
+        await useBigSurface(tester);
+        await tester.pumpWidget(
+          wrapPage(
+            AboutPage(invoke: fake().invoke, onCheckUpdate: () async {}),
+            c,
+          ),
+        );
+        await settle(tester);
+      }
+
+      testWidgets('idle → 只有按钮，不占一行状态位', (tester) async {
+        final c = await makeI18n(tester);
+        await pumpAbout(tester, c);
+        expect(find.text(c.t('about.upToDate')), findsNothing);
+        expect(find.text(c.t('about.checking')), findsNothing);
+      });
+
+      testWidgets('checking → 状态行出现，按钮变灰点不动', (tester) async {
+        final c = await makeI18n(tester);
+        var tapped = 0;
+        await useBigSurface(tester);
+        await tester.pumpWidget(
+          wrapPage(
+            AboutPage(invoke: fake().invoke, onCheckUpdate: () async => tapped++),
+            c,
+          ),
+        );
+        await settle(tester);
+        updateStatus.value = (UpdateState.checking, '');
+        await settle(tester);
+        // 状态行和按钮文案此时是同一句「检查中…」，所以按出现两次判；
+        // 「检查更新」这时不该还挂在按钮上。
+        expect(find.text(c.t('about.checking')), findsNWidgets(2));
+        expect(find.text(c.t('about.checkUpdate')), findsNothing);
+        await tester.tap(
+          find.text(c.t('about.checking')).last,
+          warnIfMissed: false,
+        );
+        await settle(tester);
+        expect(tapped, 0);
+      });
+
+      testWidgets('upToDate → 「已是最新版本」', (tester) async {
+        final c = await makeI18n(tester);
+        await pumpAbout(tester, c);
+        updateStatus.value = (UpdateState.upToDate, '');
+        await settle(tester);
+        expect(find.text(c.t('about.upToDate')), findsOneWidget);
+        expect(find.text(c.t('about.checkUpdate')), findsOneWidget);
+      });
+
+      testWidgets('error → 带上错误原文，不吞掉', (tester) async {
+        final c = await makeI18n(tester);
+        await pumpAbout(tester, c);
+        updateStatus.value = (UpdateState.error, 'feed 404');
+        await settle(tester);
+        expect(
+          find.text('${c.t('about.updateError')}: feed 404'),
+          findsOneWidget,
+        );
+      });
     });
 
     testWidgets('未安装的工具给「安装」按钮，点了发 cli_install', (tester) async {

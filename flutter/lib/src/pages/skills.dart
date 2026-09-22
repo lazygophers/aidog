@@ -17,6 +17,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'platform_card_bits.dart' show MiniBadge;
+import 'share_panel.dart';
 import 'skills_logic.dart';
 import 'ui_bits.dart';
 
@@ -505,40 +506,19 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     ),
   );
 
+  /// React 复用的是同一个泛化 `ShareModal`（`SkillModals.tsx:200-210`）：
+  /// 4 种格式 + 自动复制 + `aidog://skill/import` 深链二维码。
+  /// 分享体是 `{skills: [catalogId]}`（`useSkillsData.ts:423`）。
   Widget _shareCard(I18nController t) {
     final data = _c.shareData!;
-    final text = data.skills.join('\n');
-    // React 走同一个 `ShareModal`（`SkillModals.tsx:200`，maxWidth 560）。
-    return AidogModal(
-      maxWidth: 560,
-      onBarrierTap: _c.closeShare,
-      child: Tile(
-        title: '${t.t('skills.share.title')} · ${data.name}',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SelectableText(
-              text,
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg2,
-              ),
-            ),
-            const SizedBox(height: AidogSpace.ssm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SmallButton(
-                  label: t.t('skills.share.copyUrl'),
-                  onTap: () => native.writeText(text),
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                SmallButton(label: t.t('action.close'), onTap: _c.closeShare),
-              ],
-            ),
-          ],
-        ),
-      ),
+    return SharePanel(
+      share: {'skills': data.skills},
+      title: data.name,
+      urlScheme: 'aidog://skill/import',
+      titleKey: 'skills.share.title',
+      warningKey: 'skills.share.warning',
+      onToast: (text, {required ok}) => _c.setMessage(text),
+      onClose: _c.closeShare,
     );
   }
 }

@@ -24,23 +24,42 @@ bool get desktopUpdaterSupported =>
     (Platform.isMacOS || Platform.isWindows) &&
     Platform.environment['FLUTTER_TEST'] == null;
 
+/// 关于页「软件更新」那块的状态。React 用四态在页内打一行字
+///（`About.tsx:82-95`：checking / uptodate / error + 原始错误串），Flutter 这边
+/// 状态只有 Sparkle 知道，所以由监听器广播出来给页面订阅。
+enum UpdateState { idle, checking, upToDate, error }
+
+/// `(状态, 错误原文)`。错误原文只在 [UpdateState.error] 时非空。
+final ValueNotifier<(UpdateState, String)> updateStatus =
+    ValueNotifier((UpdateState.idle, ''));
+
 /// Sparkle / WinSparkle 的回调只会走到监听器里：不挂监听器，feed 打不开、签名对不上、
 /// XML 解析失败全都是**静默无事发生**——这正是「检查更新点了没反应」这类报告没法查的原因。
 class _UpdaterLog with UpdaterListener {
   @override
-  void onUpdaterError(UpdaterError? error) => debugPrint('[updater] error: $error');
+  void onUpdaterError(UpdaterError? error) {
+    debugPrint('[updater] error: $error');
+    updateStatus.value = (UpdateState.error, '$error');
+  }
 
   @override
-  void onUpdaterCheckingForUpdate(Appcast? appcast) =>
-      debugPrint('[updater] checking: ${appcast?.items.length ?? 0} item(s)');
+  void onUpdaterCheckingForUpdate(Appcast? appcast) {
+    debugPrint('[updater] checking: ${appcast?.items.length ?? 0} item(s)');
+    updateStatus.value = (UpdateState.checking, '');
+  }
 
   @override
-  void onUpdaterUpdateAvailable(AppcastItem? item) =>
-      debugPrint('[updater] available: ${item?.displayVersionString}');
+  void onUpdaterUpdateAvailable(AppcastItem? item) {
+    debugPrint('[updater] available: ${item?.displayVersionString}');
+    // 有新版本时 Sparkle 自己弹原生窗接管后续，页内不再重复报一遍。
+    updateStatus.value = (UpdateState.idle, '');
+  }
 
   @override
-  void onUpdaterUpdateNotAvailable(UpdaterError? error) =>
-      debugPrint('[updater] up to date${error == null ? '' : ' ($error)'}');
+  void onUpdaterUpdateNotAvailable(UpdaterError? error) {
+    debugPrint('[updater] up to date${error == null ? '' : ' ($error)'}');
+    updateStatus.value = (UpdateState.upToDate, '');
+  }
 
   @override
   void onUpdaterUpdateDownloaded(AppcastItem? item) =>
@@ -66,5 +85,11 @@ Future<void> initDesktopUpdater() async {
 /// 关于页「检查更新」按钮：Sparkle 自己接管后续 UI（下载进度、安装并重启）。
 Future<void> checkForAppUpdates() async {
   if (!desktopUpdaterSupported) return;
-  await autoUpdater.checkForUpdates();
+  // 先置 checking：Sparkle 的 checking 回调不保证先于本行到达，按钮要当场变灰。
+  updateStatus.value = (UpdateState.checking, '');
+  try {
+    await autoUpdater.checkForUpdates();
+  } catch (e) {
+    updateStatus.value = (UpdateState.error, '$e');
+  }
 }
