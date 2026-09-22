@@ -20,6 +20,8 @@ import 'dart:convert';
 import '../utils/pinyin.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'platform_card_bits.dart' show allModelValues;
+import 'platform_defaults.dart' show PlatformDefaults;
 /// 调度策略的全表与短名已由票 I08 落在设置页逻辑层（同一份 `routing.ts` 的投影），
 /// 这里**转出去复用**，不抄第二份 —— 两页的下拉必须是同一个顺序同一套文案。
 export 'settings/scheduling_logic.dart' show kRoutingModeLabels, kRoutingModes;
@@ -59,6 +61,107 @@ const List<EnvVar> kPrivacyDefaultEnvVars = [
 
 /// `src/domains/groups/index.ts` 的批量测试并发上限。
 const int kBatchTestConcurrency = 4;
+
+// ── 启动命令构造（`src/domains/groups/commands.ts` 逐条翻译）────────────
+
+/// POSIX shell 单引号安全转义。`commands.ts:15::shellSquote`。
+String shellSquote(String s) => "'${s.replaceAll("'", "'\\''")}'";
+
+/// `commands.ts:4::buildClaudeCommand`。
+String buildClaudeCommand(String settingsName) =>
+    'claude --brief --dangerously-skip-permissions --settings '
+    '~/.aidog/settings.$settingsName.json';
+
+/// `commands.ts:28::buildCodexCommand`。用户 env 里的 `AIDOG_KEY` 会被丢弃
+/// （aidog 路由 token，同名会被 shell 后写覆盖，破坏路由）。
+String buildCodexCommand(String groupKey, [List<EnvVar>? envVars]) {
+  final g = shellSquote(groupKey);
+  final exports = [
+    for (final ev in envVars ?? const <EnvVar>[])
+      if (ev.key.trim().isNotEmpty && ev.value.isNotEmpty && ev.key != 'AIDOG_KEY')
+        'export ${ev.key}=${shellSquote(ev.value)};',
+  ];
+  return [
+    ...exports,
+    'AIDOG_KEY=$g',
+    'codex -p $g --dangerously-bypass-approvals-and-sandbox -a never',
+  ].join(' ');
+}
+
+/// aidog 为分组生成的 pi provider id 前缀。`commands.ts:46`。
+const String kPiProviderPrefix = 'aidog-';
+
+/// `commands.ts:54::buildPiCommand`。pi 的 token 已写进 provider 的 apiKey，
+/// 命令行不带任何路由 env。
+String buildPiCommand(String groupKey, [List<EnvVar>? envVars]) {
+  final exports = [
+    for (final ev in envVars ?? const <EnvVar>[])
+      if (ev.key.trim().isNotEmpty && ev.value.isNotEmpty)
+        'export ${ev.key}=${shellSquote(ev.value)};',
+  ];
+  return [
+    ...exports,
+    'pi --provider ${shellSquote('$kPiProviderPrefix$groupKey')}',
+  ].join(' ');
+}
+
+// ── pi 线路协议（`src/domains/groups/piApi.ts` 逐条翻译）────────────────
+
+/// 取值与 pi `models.json` 的 `api` 字段一致，也与 Rust `gateway::pi::PiApi` 对应。
+const List<String> kPiApis = [
+  'anthropic-messages',
+  'openai-completions',
+  'openai-responses',
+  'google-generative-ai',
+];
+
+/// 老分组无此配置时的取值。`piApi.ts:22`。
+const String kPiApiDefault = 'anthropic-messages';
+
+/// 从 `group.extra` JSON 读协议；缺失 / 非法 JSON / 未知值一律回落默认。
+String parseGroupPiApi(String extra) {
+  try {
+    final v = (jsonDecode(extra.isEmpty ? '{}' : extra) as Map)['pi_api'];
+    return kPiApis.contains(v) ? v as String : kPiApiDefault;
+  } catch (_) {
+    return kPiApiDefault;
+  }
+}
+
+const Map<String, String> _piApiFallback = {
+  'anthropic-messages': 'Anthropic Messages',
+  'openai-completions': 'OpenAI Chat Completions',
+  'openai-responses': 'OpenAI Responses',
+  'google-generative-ai': 'Google Generative AI',
+};
+
+/// `piApi.ts:34::piApiLabel`。取不到 i18n key 时回落英文字面量。
+String piApiLabel(String Function(String key) t, String api) {
+  final key = 'group.piApi.$api';
+  final s = t(key);
+  return s == key ? (_piApiFallback[api] ?? api) : s;
+}
+
+// ── 出站代理 env（`src/domains/groups/proxy-env.ts` 逐条翻译）───────────
+
+const List<String> kProxyEnvKeys = ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY'];
+
+/// 从 claude settings.json `env` 段读 4 个代理键（非空）。
+/// 读失败或键缺失返空数组（不抛错，调用方 fallback 到无代理命令）。`proxy-env.ts:16`。
+Future<List<EnvVar>> loadProxyEnvVars(InvokeFn invoke) async {
+  try {
+    final v = await invoke('settings_get', {'scope': 'global', 'key': 'claude_code'});
+    final env = (v as Map?)?['env'];
+    if (env is! Map) return const [];
+    return [
+      for (final k in kProxyEnvKeys)
+        if (env[k] is String && (env[k] as String).isNotEmpty)
+          EnvVar(key: k, value: env[k] as String),
+    ];
+  } catch (_) {
+    return const [];
+  }
+}
 
 /// 分组密钥输入过滤：`GroupCreateModal.tsx:78` 的 `replace(/[^\w-]/g, "")`。
 /// JS 的 `\w` = `[A-Za-z0-9_]`，所以允许的字符集是「字母数字下划线连字符」。
@@ -348,6 +451,23 @@ class GroupsController {
   /// 折叠的组 id（默认全展开，`Groups.tsx:125`）。
   Set<int> collapsedGroups = <int>{};
 
+  // ── per-group 多选模式（`GroupListItem.tsx:136-137`，本地态不持久化）──
+  Set<int> batchSelectGroups = <int>{};
+  Map<int, Set<int>> batchSelectedIds = <int, Set<int>>{};
+
+  // ── 列表页快捷添加映射表单（`Groups.tsx:85-88`）──
+  int? mappingGroupId;
+  String mSource = '';
+  int? mTargetPlatform;
+  String mTargetModel = '';
+
+  /// 出站代理 env（claude settings.json `env` 段），前置注入 codex/pi 启动命令。
+  List<EnvVar> proxyEnvVars = const [];
+
+  /// `get_defaults_json` 原始文档，供批量覆盖模型弹窗的 preset 来源取用。
+  String _defaultsRaw = '';
+  PlatformDefaults get defaults => PlatformDefaults.parse(_defaultsRaw, '');
+
   int _loadSeq = 0;
   int _nextOffset = 0;
   List<GroupDetail> _loadedDetails = const [];
@@ -368,7 +488,18 @@ class GroupsController {
   // ── 加载 ────────────────────────────────────────────────────────
 
   Future<void> init() async {
-    await Future.wait<void>([load(), _loadProxySettings(), _loadProtocolTerms()]);
+    await Future.wait<void>([
+      load(),
+      _loadProxySettings(),
+      _loadProtocolTerms(),
+      _loadProxyEnvVars(),
+    ]);
+  }
+
+  Future<void> _loadProxyEnvVars() async {
+    final v = await loadProxyEnvVars(_invoke);
+    proxyEnvVars = v;
+    _notify();
   }
 
   Future<void> _loadProxySettings() async {
@@ -390,7 +521,8 @@ class GroupsController {
   Future<void> _loadProtocolTerms() async {
     try {
       final raw = await _invoke('get_defaults_json');
-      protocolTerms = parseProtocolSearchTerms(raw as String? ?? '');
+      _defaultsRaw = raw as String? ?? '';
+      protocolTerms = parseProtocolSearchTerms(_defaultsRaw);
       _notify();
     } catch (_) {
       /* React: .catch(console.error)，搜索退化为不含协议词条 */
@@ -1073,6 +1205,7 @@ class GroupsController {
       });
       final report = BatchReport.fromJson((v as Map?)?.cast<String, dynamic>() ?? const {});
       batchDeleteTarget = null;
+      exitAllBatchSelect();
       await silentReload();
       _toast((doneText ?? (n) => '已删除 $n 个平台')(report.applied));
     } catch (e) {
@@ -1117,6 +1250,7 @@ class GroupsController {
       });
       final report = BatchReport.fromJson((v as Map?)?.cast<String, dynamic>() ?? const {});
       batchOverrideTarget = null;
+      exitAllBatchSelect();
       await silentReload();
       _toast((doneText ?? (n) => '已覆盖 $n 个平台的模型')(report.applied));
     } catch (e) {
@@ -1170,6 +1304,7 @@ class GroupsController {
       });
       final report = BatchReport.fromJson((v as Map?)?.cast<String, dynamic>() ?? const {});
       batchSetStatusTarget = null;
+      exitAllBatchSelect();
       await silentReload();
       _toast((doneText ?? (n) => '已改 $n 个平台状态')(report.applied));
     } catch (e) {
@@ -1216,6 +1351,7 @@ class GroupsController {
       });
       final report = BatchReport.fromJson((v as Map?)?.cast<String, dynamic>() ?? const {});
       batchMoveGroupTarget = null;
+      exitAllBatchSelect();
       await silentReload();
       _toast(
         (doneText ?? (n, m) => '已${m == 'move' ? '移动' : '加入'} $n 个平台')(
@@ -1427,6 +1563,114 @@ class GroupsController {
     } catch (_) {
       /* React: .catch(console.error) */
     }
+  }
+
+  // ── pi 线路协议（写 group.extra 即时生效）───────────────────────
+  // `piApi.ts:45::setGroupPiApi`：写完立刻重生成 pi 配置，否则要等下一次同步才落盘。
+  Future<void> setGroupPiApi(int groupId, String api) async {
+    try {
+      await _invoke('set_ui_extra', {
+        'target': 'group',
+        'id': groupId,
+        'key': 'pi_api',
+        'value': api,
+      });
+      await _invoke('sync_group_settings');
+    } catch (_) {
+      /* React: 无显式 catch，静默失败 */
+    }
+  }
+
+  // ── per-group 多选模式（`GroupListItem.tsx:136-179` 逐条翻译）──────
+
+  bool isBatchSelecting(int gid) => batchSelectGroups.contains(gid);
+
+  Set<int> selectedIdsOf(int gid) => batchSelectedIds[gid] ?? const <int>{};
+
+  void enterBatchSelect(int gid) {
+    batchSelectGroups = {...batchSelectGroups, gid};
+    batchSelectedIds = {...batchSelectedIds, gid: <int>{}};
+    _notify();
+  }
+
+  void exitBatchSelect(int gid) {
+    batchSelectGroups = {...batchSelectGroups}..remove(gid);
+    batchSelectedIds = {...batchSelectedIds}..remove(gid);
+    _notify();
+  }
+
+  void toggleSelected(int gid, int pid) {
+    final cur = {...selectedIdsOf(gid)};
+    cur.contains(pid) ? cur.remove(pid) : cur.add(pid);
+    batchSelectedIds = {...batchSelectedIds, gid: cur};
+    _notify();
+  }
+
+  void selectAll(int gid, List<int> ids) {
+    batchSelectedIds = {...batchSelectedIds, gid: ids.toSet()};
+    _notify();
+  }
+
+  /// 批量删除类操作完成后平台从 `gps` 消失会自动退出；非删除类（覆盖模型/改状态/
+  /// 移组 add 模式）平台仍存活，靠调用方在拿到 [confirmBatch*] 结果后手动调用本方法。
+  void exitAllBatchSelect() {
+    batchSelectGroups = <int>{};
+    batchSelectedIds = <int, Set<int>>{};
+    _notify();
+  }
+
+  // ── 列表页快捷添加映射表单（`Groups.tsx:612-642` 逐条翻译）─────────
+
+  void setMappingGroupId(int? id) {
+    mappingGroupId = id;
+    _notify();
+  }
+
+  void setMSource(String v) {
+    mSource = v;
+    _notify();
+  }
+
+  void setMTargetPlatform(int? v) {
+    mTargetPlatform = v;
+    mTargetModel = '';
+    _notify();
+  }
+
+  void setMTargetModel(String v) {
+    mTargetModel = v;
+    _notify();
+  }
+
+  /// 该目标平台的候选模型（五槽去重非空值）。未选目标平台 → 空。
+  List<String> get mAvailableModels {
+    final pid = mTargetPlatform;
+    if (pid == null) return const [];
+    for (final p in platforms) {
+      if (p.id == pid) return allModelValues(p.models);
+    }
+    return const [];
+  }
+
+  /// `Groups.tsx:613-642`：四个字段缺一不发；成功后清空表单并单组就地刷新。
+  Future<void> submitAddMapping({String failText = '添加映射失败'}) async {
+    final gid = mappingGroupId;
+    final pid = mTargetPlatform;
+    if (gid == null || mSource.isEmpty || pid == null || mTargetModel.isEmpty) {
+      return;
+    }
+    await addMapping(
+      groupId: gid,
+      sourceModel: mSource,
+      targetPlatformId: pid,
+      targetModel: mTargetModel,
+      failText: failText,
+    );
+    mSource = '';
+    mTargetPlatform = null;
+    mTargetModel = '';
+    mappingGroupId = null;
+    _notify();
   }
 }
 
