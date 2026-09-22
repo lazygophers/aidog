@@ -14,13 +14,14 @@ import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
+import '../../utils/color_level.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'groups_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
-import 'platform_card_bits.dart' show MiniBadge;
+import 'platform_card_bits.dart' show BalanceBar, MiniBadge, StatChip;
 import 'platform_defaults.dart' show kModelSlots;
 import 'ui_bits.dart';
 
@@ -508,31 +509,28 @@ class _GroupCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    Text(
-                      '${g.groupKey} · ${routingLabel(t, g.routingMode)}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    // 🔴 副标题里**不印 group_key**：它就是这个分组的 API Key，
+                    // 印在列表上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
+                    // React 只把它放在复制按钮和编辑页里（`GroupListItem.tsx:224-235`）。
+                    // 这里照 React 的副标题来：路由模式 badge + 「N 平台」。
+                    Row(
+                      children: [
+                        MiniBadge(
+                          text: routingLabel(t, g.routingMode),
+                          color: theme.c.fg3,
+                        ),
+                        if (detail.platforms.isNotEmpty) ...[
+                          const SizedBox(width: AidogSpace.sxs),
+                          Text(
+                            '${detail.platforms.length} ${t.t('group.platforms')}',
+                            style: AidogType.micro.copyWith(color: theme.c.fg3),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
               ),
-              if (stats != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: AidogSpace.ssm),
-                  child: Text(
-                    formatNumber(stats.totalRequests),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
-                  ),
-                ),
-              if (balance != null)
-                Padding(
-                  padding: const EdgeInsets.only(right: AidogSpace.ssm),
-                  child: Text(
-                    formatCostUsd(balance),
-                    style: AidogType.micro.copyWith(color: theme.c.fg2),
-                  ),
-                ),
               Wrap(
                 spacing: AidogSpace.sxs,
                 children: [
@@ -568,6 +566,56 @@ class _GroupCard extends StatelessWidget {
               ),
             ],
           ),
+          // 行 2：聚合统计 + 聚合余额（`GroupListItem.tsx:318-340`）。
+          // 原先这里只有一个没标签的请求总数裸数字和一个裸金额 —— tokens / 花费 /
+          // 成功率三个 chip 全丢了，余额也没有进度条和分级配色。
+          if (stats != null || balance != null) ...[
+            const SizedBox(height: AidogSpace.sxs),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 26),
+              child: Wrap(
+                spacing: AidogSpace.ssm,
+                runSpacing: AidogSpace.sxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (stats != null) ...[
+                    StatChip(
+                      icon: Icons.bolt,
+                      value: formatNumber(
+                        stats.totalInputTokens + stats.totalOutputTokens,
+                      ),
+                      label: 'tokens',
+                    ),
+                    StatChip(
+                      icon: Icons.attach_money,
+                      value: formatCostUsd(stats.totalCost),
+                      label: 'cost',
+                      level: costLevel(stats.totalCost),
+                    ),
+                    // 一次请求都没有时不画成功率（0% 会被读成「全失败」）。
+                    if (stats.totalRequests > 0)
+                      StatChip(
+                        icon: Icons.check_circle_outline,
+                        value: formatPercent(
+                          successRate(stats.successCount, stats.totalRequests),
+                          0,
+                        ),
+                        label: 'ok',
+                        level: successRateLevel(
+                          successRate(stats.successCount, stats.totalRequests),
+                          stats.totalRequests,
+                        ),
+                      ),
+                  ],
+                  if (balance != null)
+                    SizedBox(
+                      width: 90,
+                      child: BalanceBar(remaining: balance, showTotal: false),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: AidogSpace.sxs),
           // 行 1.5：复制启动命令 / 查看统计 / 分组内添加平台 / 清理失效 / 多选。
           Wrap(
