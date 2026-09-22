@@ -148,9 +148,25 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             t.t('mitm.manualInstallTitle'),
             style: AidogType.micro.copyWith(color: theme.c.fg2),
           ),
-          SelectableText(
-            manual.manualDisplay,
-            style: AidogType.numSm.copyWith(color: theme.c.fg),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('CA PEM: ', style: AidogType.micro.copyWith(color: theme.c.fg2)),
+              SelectableText(
+                manual.caPemPath,
+                style: AidogType.numSm.copyWith(color: theme.c.fg),
+              ),
+            ],
+          ),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(t.t('mitm.command'), style: AidogType.micro.copyWith(color: theme.c.fg2)),
+              SelectableText(
+                manual.manualDisplay,
+                style: AidogType.numSm.copyWith(color: theme.c.fg),
+              ),
+            ],
           ),
           Text(
             t.t('mitm.manualInstallHint'),
