@@ -276,10 +276,7 @@ class _LogsFilterBar extends StatelessWidget {
             searchPlaceholder: t.t('logs.filterMiddleware'),
             emptyLabel: t.t('stats.noMatch'),
             options: [
-              FilterOption(
-                value: 'observed',
-                label: t.t('logs.observedOnly'),
-              ),
+              FilterOption(value: 'observed', label: t.t('logs.observedOnly')),
             ],
           ),
           // 模型名按「实际发给上游的」还是「客户端原始请求的」匹配
@@ -288,8 +285,7 @@ class _LogsFilterBar extends StatelessWidget {
             label: t.t('logs.actualModel'),
             active: f.modelType == 'actual',
             ghost: f.modelType != 'actual',
-            onTap: () =>
-                controller.setFilters(f.copyWith(modelType: 'actual')),
+            onTap: () => controller.setFilters(f.copyWith(modelType: 'actual')),
           ),
           SmallButton(
             label: t.t('logs.model'),
@@ -766,7 +762,7 @@ class _Pager extends StatelessWidget {
 /// 详情抽屉。React 那边是 Radix Sheet（Portal 到 body），这里是页面内的一张大格子 ——
 /// Flutter 没有「祖先 transform 让 fixed 退化」那个问题（那是 CSS 的坑，项目
 /// CLAUDE.md 里记的 modal 居中铁律只对 Web 侧成立），所以不必绕 Portal。
-class _DetailPanel extends StatelessWidget {
+class _DetailPanel extends StatefulWidget {
   const _DetailPanel({
     required this.detail,
     required this.copied,
@@ -798,9 +794,28 @@ class _DetailPanel extends StatelessWidget {
   final void Function(String text) onCopy;
 
   @override
+  State<_DetailPanel> createState() => _DetailPanelState();
+}
+
+class _DetailPanelState extends State<_DetailPanel> {
+  /// 0 = 用户请求（Client → Proxy），1 = 上游请求（Proxy → Platform）。
+  /// React 这两段是 tab（`DetailPanel.tsx:263-288`）；原先两段顺序平铺，
+  /// 十块正文一次全展开，面板长到要滚很久才能看到上游那半。
+  int _tab = 0;
+
+  @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    final detail = widget.detail;
+    final groupName = widget.groupName;
+    final platformName = widget.platformName;
+    final protocolLabel = widget.protocolLabel;
+    final onClose = widget.onClose;
+    final onCopyAll = widget.onCopyAll;
+    final onCopy = widget.onCopy;
+    final onRefresh = widget.onRefresh;
+    final copied = widget.copied;
     // React 用的是 Radix `Sheet`（`Logs/DetailPanel.tsx:37`，右侧抽屉，width 900）。
     // 这里同为 Portal 浮层但居中，不做侧滑抽屉：Flutter 没有等价原语，
     // 自造一套抽屉动画换来的只是入场方向不同。
@@ -877,11 +892,7 @@ class _DetailPanel extends StatelessWidget {
               platformName(detail.platformId),
               copyText: platformName(detail.platformId),
             ),
-            _kv(
-              theme,
-              t.t('logs.time'),
-              formatDateTime(detail.createdAt),
-            ),
+            _kv(theme, t.t('logs.time'), formatDateTime(detail.createdAt)),
             _kv(theme, t.t('logs.model'), detail.model, copyText: detail.model),
             _kv(
               theme,
@@ -959,49 +970,75 @@ class _DetailPanel extends StatelessWidget {
             // （`log_user_request` / `log_upstream_request`，见项目 CLAUDE.md
             // 的「Proxy 日志」段）。合成一份会让人分不清关掉的是哪个开关。
             const SizedBox(height: AidogSpace.smd),
-            TileMeta(t.t('logs.userRequest')),
-            _section(t, theme, 'URL', detail.requestUrl),
-            _section(
-              t,
-              theme,
-              t.t('logs.requestHeaders'),
-              detail.requestHeaders,
+            // 两个 tab 的头：标题 + 协议 + 方向 + 该侧状态码
+            //（`DetailPanel.tsx:263-288`）。
+            Row(
+              children: [
+                _tabButton(
+                  t,
+                  theme,
+                  index: 0,
+                  title: t.t('logs.userRequest'),
+                  subtitle: 'Client → Proxy',
+                  protocol: protocolLabel(detail.sourceProtocol),
+                  statusCode: detail.statusCode,
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                _tabButton(
+                  t,
+                  theme,
+                  index: 1,
+                  title: t.t('logs.upstreamRequest'),
+                  subtitle: 'Proxy → Platform',
+                  protocol: protocolLabel(detail.targetProtocol),
+                  statusCode: detail.upstreamStatusCode,
+                ),
+              ],
             ),
-            _section(t, theme, t.t('logs.requestBody'), detail.requestBody),
-            _section(
-              t,
-              theme,
-              t.t('logs.responseHeaders'),
-              detail.userResponseHeaders,
-            ),
-            _section(
-              t,
-              theme,
-              t.t('logs.responseBody'),
-              detail.userResponseBody,
-            ),
-            const SizedBox(height: AidogSpace.smd),
-            TileMeta(t.t('logs.upstreamRequest')),
-            _section(t, theme, 'URL', detail.upstreamRequestUrl),
-            _section(
-              t,
-              theme,
-              t.t('logs.requestHeaders'),
-              detail.upstreamRequestHeaders,
-            ),
-            _section(
-              t,
-              theme,
-              t.t('logs.requestBody'),
-              detail.upstreamRequestBody,
-            ),
-            _section(
-              t,
-              theme,
-              t.t('logs.responseHeaders'),
-              detail.upstreamResponseHeaders,
-            ),
-            _section(t, theme, t.t('logs.responseBody'), detail.responseBody),
+            const SizedBox(height: AidogSpace.ssm),
+            if (_tab == 0) ...[
+              _section(t, theme, 'URL', detail.requestUrl),
+              _section(
+                t,
+                theme,
+                t.t('logs.requestHeaders'),
+                detail.requestHeaders,
+              ),
+              _section(t, theme, t.t('logs.requestBody'), detail.requestBody),
+              _section(
+                t,
+                theme,
+                t.t('logs.responseHeaders'),
+                detail.userResponseHeaders,
+              ),
+              _section(
+                t,
+                theme,
+                t.t('logs.responseBody'),
+                detail.userResponseBody,
+              ),
+            ] else ...[
+              _section(t, theme, 'URL', detail.upstreamRequestUrl),
+              _section(
+                t,
+                theme,
+                t.t('logs.requestHeaders'),
+                detail.upstreamRequestHeaders,
+              ),
+              _section(
+                t,
+                theme,
+                t.t('logs.requestBody'),
+                detail.upstreamRequestBody,
+              ),
+              _section(
+                t,
+                theme,
+                t.t('logs.responseHeaders'),
+                detail.upstreamResponseHeaders,
+              ),
+              _section(t, theme, t.t('logs.responseBody'), detail.responseBody),
+            ],
           ],
         ),
       ),
@@ -1024,14 +1061,14 @@ class _DetailPanel extends StatelessWidget {
             MiniBadge(
               text: t
                   .t('logs.attemptCount')
-                  .replaceAll('{{n}}', '${detail.attempts.length}'),
+                  .replaceAll('{{n}}', '${widget.detail.attempts.length}'),
               color: theme.c.peak,
             ),
           ],
         ),
         const SizedBox(height: AidogSpace.sxs),
-        for (var i = 0; i < detail.attempts.length; i++)
-          _attemptRow(t, theme, i, detail.attempts[i]),
+        for (var i = 0; i < widget.detail.attempts.length; i++)
+          _attemptRow(t, theme, i, widget.detail.attempts[i]),
       ],
     ),
   );
@@ -1120,9 +1157,81 @@ class _DetailPanel extends StatelessWidget {
               visualDensity: VisualDensity.compact,
               tooltip: t.t('logs.copy'),
               icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
-              onPressed: () => onCopy(summary),
+              onPressed: () => widget.onCopy(summary),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  /// 一个 tab 头：标题 + 协议 + 方向副标题 + 该侧状态码。
+  Widget _tabButton(
+    I18nController t,
+    AidogTheme theme, {
+    required int index,
+    required String title,
+    required String subtitle,
+    required String protocol,
+    required int statusCode,
+  }) {
+    final active = _tab == index;
+    // 上游侧状态码 0 = 没捕获到，不是一个真的 HTTP 码。
+    final statusText = statusCode == 0
+        ? t.t('logs.notCaptured')
+        : switch (statusCode) {
+            499 => t.t('logs.statusInterrupted'),
+            _ => '$statusCode',
+          };
+    return Expanded(
+      child: InkWell(
+        key: ValueKey('detail-tab-$index'),
+        onTap: () => setState(() => _tab = index),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.ssm,
+            vertical: AidogSpace.sxs,
+          ),
+          decoration: BoxDecoration(
+            color: active ? theme.c.accentWash : null,
+            border: Border.all(color: active ? theme.c.accent : theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Flexible(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.label.copyWith(
+                        color: active ? theme.c.accentText : theme.c.fg2,
+                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                  if (protocol.isNotEmpty) ...[
+                    const SizedBox(width: AidogSpace.sxs),
+                    MiniBadge(text: protocol, color: theme.c.fg3),
+                  ],
+                ],
+              ),
+              Text(
+                '${ltr(subtitle)} · $statusText',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.micro.copyWith(
+                  color: statusCode >= 200 && statusCode < 300
+                      ? theme.c.ok
+                      : theme.c.fg3,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1161,7 +1270,7 @@ class _DetailPanel extends StatelessWidget {
               iconSize: 12,
               color: theme.c.fg3,
               icon: const Icon(Icons.copy_outlined),
-              onPressed: () => onCopy(copyText),
+              onPressed: () => widget.onCopy(copyText),
             ),
           ),
       ],
@@ -1204,7 +1313,7 @@ class _DetailPanel extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                   tooltip: t.t('logs.copy'),
                   icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
-                  onPressed: () => onCopy(text),
+                  onPressed: () => widget.onCopy(text),
                 ),
             ],
           ),
