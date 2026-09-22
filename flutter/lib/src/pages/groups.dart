@@ -1002,8 +1002,8 @@ class _RemovePlatformConfirm extends StatelessWidget {
     final target = controller.removeTarget!;
     // 属多个组 → 标题/正文/主按钮都换一套措辞（`GroupListView.tsx:313-347`）。
     final multi = !target.onlyInThisGroup;
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是 `AlertDialog`（`GroupListView.tsx:314`，maxWidth 420）：点遮罩不关。
+    return AidogModal(
       child: Tile(
         title: multi
             ? t.t('group.deletePlatformMultiTitle')
@@ -1149,6 +1149,8 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
           ? t.t('group.batchOverrideApplying')
           : t.t('group.batchOverrideConfirm', {'count': '${target.length}'}),
       busy: c.batchOverrideBusy,
+      // React 是普通 `Dialog`（`BatchOverrideModelsModal.tsx:123`），执行中不许关。
+      dismissOnBarrier: true,
       onCancel: c.cancelBatchOverrideModels,
       onConfirm: (c.batchOverrideBusy || allEmpty)
           ? null
@@ -1306,6 +1308,8 @@ class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
           ? t.t('group.batchSetStatusApplying')
           : t.t('group.batchSetStatusConfirm', {'count': '${target.platforms.length}'}),
       busy: c.batchSetStatusBusy,
+      // React 是普通 `Dialog`（`BatchSetStatusModal.tsx:68`），执行中不许关。
+      dismissOnBarrier: true,
       onCancel: c.cancelBatchSetStatus,
       onConfirm: c.batchSetStatusBusy
           ? null
@@ -1380,6 +1384,8 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
                   : t.t('group.batchMoveGroupModeAddShort'),
             }),
       busy: c.batchMoveGroupBusy,
+      // React 是普通 `Dialog`（`BatchMoveGroupModal.tsx:80`），执行中不许关。
+      dismissOnBarrier: true,
       onCancel: c.cancelBatchMoveGroup,
       onConfirm: (c.batchMoveGroupBusy || !canConfirm)
           ? null
@@ -1466,8 +1472,11 @@ class _GroupTestPanel extends StatelessWidget {
         t.t('group.testAllOk') + (r.durationMs == null ? '' : ' ${r.durationMs}ms'),
       _ => t.t('group.testAllFail'),
     };
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是 createPortal 的手写遮罩（`GroupTestPanel.tsx:53`，width 560）：
+    // 点遮罩即关（`onClick={onClose}` 挂在遮罩上）。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: controller.closeGroupTest,
       child: Tile(
         title: '${t.t('group.testAllTitle')}：${gt.groupName}',
         meta: gt.running
