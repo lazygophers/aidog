@@ -718,72 +718,65 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         for (var i = 0; i < c.endpoints.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
+            // 一条端点 = 一行五个控件（`formSectionsEndpoints.tsx:68-176`）。
+            // 原先拆成上下两行，多端点时整张表单被拉得很长。
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    FormDropdown(
-                      width: 150,
-                      value: c.endpoints[i].protocol,
-                      options: [for (final p in kEndpointProtocols) p.value],
-                      labelOf: (v) {
-                        for (final p in kEndpointProtocols) {
-                          if (p.value == v) return p.label;
-                        }
-                        return v;
-                      },
-                      onChanged: locked
-                          ? null
-                          : (v) => c.setEndpointProtocol(i, v),
-                    ),
-                    const SizedBox(width: AidogSpace.ssm),
-                    Expanded(
-                      child: PlatformField(
-                        value: c.endpoints[i].baseUrl,
-                        hint: 'Endpoint Base URL',
-                        enabled: !locked,
-                        onChanged: (v) => c.setEndpointBaseUrl(i, v),
-                      ),
-                    ),
-                  ],
+                FormDropdown(
+                  width: 120,
+                  value: c.endpoints[i].protocol,
+                  options: [for (final p in kEndpointProtocols) p.value],
+                  labelOf: (v) {
+                    for (final p in kEndpointProtocols) {
+                      if (p.value == v) return p.label;
+                    }
+                    return v;
+                  },
+                  onChanged: locked ? null : (v) => c.setEndpointProtocol(i, v),
                 ),
-                const SizedBox(height: AidogSpace.sxs),
-                Row(
-                  children: [
-                    Expanded(
-                      child: FormDropdown(
-                        label: t.t('platform.clientType'),
-                        value: c.endpoints[i].clientType.isEmpty
-                            ? 'default'
-                            : c.endpoints[i].clientType,
-                        options: ctValues,
-                        labelOf: ctLabel,
-                        onChanged: locked
-                            ? null
-                            : (v) => c.setEndpointClientType(i, v),
-                      ),
-                    ),
-                    const SizedBox(width: AidogSpace.ssm),
-                    // Coding Plan 开关（React 是那个方块 "C" 按钮）。
-                    SmallButton(
-                      label: 'C',
-                      active: c.endpoints[i].codingPlan,
-                      onTap: locked
-                          ? null
-                          : () => c.toggleEndpointCodingPlan(i),
-                    ),
-                    if (!locked) ...[
-                      const SizedBox(width: AidogSpace.sxs),
-                      SmallButton(
-                        label: t.t('action.delete'),
-                        danger: true,
-                        onTap: () => c.removeEndpoint(i),
-                      ),
-                    ],
-                  ],
+                const SizedBox(width: AidogSpace.sxs),
+                Expanded(
+                  child: PlatformField(
+                    value: c.endpoints[i].baseUrl,
+                    hint: 'Endpoint Base URL',
+                    enabled: !locked,
+                    onChanged: (v) => c.setEndpointBaseUrl(i, v),
+                  ),
                 ),
+                const SizedBox(width: AidogSpace.sxs),
+                FormDropdown(
+                  width: 140,
+                  value: c.endpoints[i].clientType.isEmpty
+                      ? 'default'
+                      : c.endpoints[i].clientType,
+                  options: ctValues,
+                  labelOf: ctLabel,
+                  onChanged: locked
+                      ? null
+                      : (v) => c.setEndpointClientType(i, v),
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                // Coding Plan 开关。开启时绿色，因为绿 = 走 coding 套餐
+                //（`formSectionsEndpoints.tsx:140-162`），通用高亮色讲不出这层语义。
+                Tooltip(
+                  message: c.endpoints[i].codingPlan
+                      ? 'Coding Plan ON'
+                      : 'Coding Plan',
+                  child: SmallButton(
+                    label: 'C',
+                    active: c.endpoints[i].codingPlan,
+                    activeTone: AidogTheme.of(context).c.ok,
+                    onTap: locked ? null : () => c.toggleEndpointCodingPlan(i),
+                  ),
+                ),
+                if (!locked) ...[
+                  const SizedBox(width: AidogSpace.sxs),
+                  SmallButton(
+                    label: t.t('action.delete'),
+                    danger: true,
+                    onTap: () => c.removeEndpoint(i),
+                  ),
+                ],
               ],
             ),
           ),
@@ -798,13 +791,45 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final keys = c.batchPreviewKeys!;
     final names = c.previewNames;
     final baseUrl = _primaryBaseUrlOf(c.protocol);
-    return FormSection(
-      title: t.t('platform.batch.previewTitle', {'count': keys.length}),
-      desc: t.t('platform.batch.previewHint', {'base': '{base}'}),
-      children: [
+    // 批量创建前的确认区要显眼（`MultiKeyPreview.tsx:34-76`）：accent 描边强调，
+    // 每行自带底色，协议是徽标而不是一串裸字。走普通 FormSection 的话，
+    // 它和上面十几个分区长得一模一样，用户容易直接点提交。
+    return Container(
+      margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+      padding: const EdgeInsets.all(AidogSpace.smd),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        border: Border.all(color: theme.c.accent),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+        Text(
+          t.t('platform.batch.previewTitle', {'count': keys.length}),
+          style: AidogType.label.copyWith(
+            color: theme.c.fg,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          t.t('platform.batch.previewHint', {'base': '{base}'}),
+          style: AidogType.caption.copyWith(color: theme.c.fg3),
+        ),
+        const SizedBox(height: AidogSpace.ssm),
         for (var i = 0; i < keys.length; i++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 2),
+          Container(
+            margin: const EdgeInsets.only(bottom: 4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AidogSpace.ssm,
+              vertical: 6,
+            ),
+            decoration: BoxDecoration(
+              color: theme.c.bg,
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
             child: Row(
               children: [
                 SizedBox(
@@ -824,10 +849,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 ),
                 Expanded(
                   flex: 2,
-                  child: Text(
-                    c.protocol.toUpperCase(),
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.micro.copyWith(color: theme.c.fg2),
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: MiniBadge(
+                      text: c.protocol.toUpperCase(),
+                      color: theme.c.fg2,
+                    ),
                   ),
                 ),
                 Expanded(
@@ -849,7 +876,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               ],
             ),
           ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1522,10 +1550,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             runSpacing: AidogSpace.sxs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // chip 本体 + 内嵌 ✕（`formSections.tsx:931-952`）：
+              // 整颗都可点的话，想看看名字就把它删了。
               for (var mi = 0; mi < (w.models?.length ?? 0); mi++)
-                SmallButton(
-                  label: '${w.models![mi]} ✕',
-                  onTap: () {
+                _ModelChip(
+                  label: w.models![mi],
+                  removeTooltip: t.t('action.delete'),
+                  onRemove: () {
                     final next = [
                       for (var j = 0; j < w.models!.length; j++)
                         if (j != mi) w.models![j],
@@ -2307,4 +2338,48 @@ class _BreakerRow extends StatelessWidget {
       ],
     ),
   );
+}
+
+/// 已选模型的 chip：名字本体不可点，只有内嵌的 ✕ 删。
+/// 对齐 `formSections.tsx:931-952` —— 整颗都可点的话误触即删，没有后悔路。
+class _ModelChip extends StatelessWidget {
+  const _ModelChip({
+    required this.label,
+    required this.onRemove,
+    required this.removeTooltip,
+  });
+
+  final String label;
+  final VoidCallback onRemove;
+  final String removeTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.only(left: AidogSpace.ssm, right: 3),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label, style: AidogType.micro.copyWith(color: theme.c.fg2)),
+          const SizedBox(width: 3),
+          Tooltip(
+            message: removeTooltip,
+            child: InkWell(
+              onTap: onRemove,
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+              child: Padding(
+                padding: const EdgeInsets.all(2),
+                child: Icon(Icons.close, size: 11, color: theme.c.fg3),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

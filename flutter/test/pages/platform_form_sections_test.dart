@@ -780,7 +780,14 @@ void main() {
       await settle(tester);
       expect(f.peak.single.models, ['glm-5.2*']);
 
-      await tester.tap(find.widgetWithText(SmallButton, 'glm-5.2* ✕'));
+      // chip 本体不再可点，删只认内嵌那颗 ✕（误触即删已改掉）。
+      final chip = find.ancestor(
+        of: find.text('glm-5.2*'),
+        matching: find.byType(Row),
+      );
+      await tester.tap(
+        find.descendant(of: chip.first, matching: find.byIcon(Icons.close)),
+      );
       await settle(tester);
       expect(f.peak.single.models, isNull);
     });
@@ -1546,6 +1553,100 @@ void main() {
       // 时 / 分也是数字输入（弹数字键盘，不是纯文本框）。
       final hour = inputOf(find.byKey(const ValueKey('peak-0-start-hour')));
       expect(tester.widget<TextField>(hour).keyboardType, isNot(TextInputType.text));
+    });
+
+    testWidgets('端点一条是单行五控件，Coding Plan「C」开启时走绿色语义', (tester) async {
+      await boot(tester, edit: true);
+      await tester.tap(find.text('+ ${t.t('platform.addEndpoint')}'));
+      await settle(tester);
+
+      // 协议下拉 / base_url / 客户端模拟 / C / 删除，五个都在同一行。
+      final url = fieldWithHint('Endpoint Base URL').first;
+      final row = find.ancestor(of: url, matching: find.byType(Row)).first;
+      final proto = find
+          .descendant(of: row, matching: find.byType(FormDropdown))
+          .first;
+      final codeBtn = find.descendant(
+        of: row,
+        matching: find.widgetWithText(SmallButton, 'C'),
+      );
+      final ys = [
+        tester.getCenter(proto).dy,
+        tester.getCenter(url).dy,
+        tester.getCenter(codeBtn).dy,
+      ];
+      for (final y in ys) {
+        expect((y - ys.first).abs(), lessThan(12), reason: '五个控件要在同一行');
+      }
+
+      // C 开启前后用的不是同一个高亮色：开启时是绿（= 走 coding 套餐）。
+      final before = tester.widget<SmallButton>(codeBtn);
+      expect(before.active, isFalse);
+      await tester.tap(codeBtn);
+      await settle(tester);
+      final after = tester.widget<SmallButton>(codeBtn);
+      expect(after.active, isTrue);
+      expect(after.activeTone, isNotNull, reason: '绿色语义不能丢');
+    });
+
+    testWidgets('受影响模型 chip：点名字不删，只有 ✕ 删', (tester) async {
+      await boot(tester, edit: true);
+      await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
+      await settle(tester);
+      final scope = find.byWidgetPredicate(
+        (w) =>
+            w is TextField &&
+            w.decoration?.hintText == t.t('platform.peak_model_placeholder'),
+      );
+      await tester.enterText(scope, 'm-1');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(f.peak.single.models, ['m-1']);
+
+      // 点名字本体：什么都不该发生。
+      await tester.tap(find.text('m-1'));
+      await settle(tester);
+      expect(f.peak.single.models, ['m-1'], reason: '误触名字不该删掉它');
+
+      final chip = find.ancestor(
+        of: find.text('m-1'),
+        matching: find.byType(Row),
+      );
+      await tester.tap(
+        find.descendant(of: chip.first, matching: find.byIcon(Icons.close)),
+      );
+      await settle(tester);
+      expect(f.peak.single.models, isNull);
+    });
+
+    testWidgets('多 key 预览是一张 accent 描边的卡，协议是徽标', (tester) async {
+      await boot(tester);
+      await tester.enterText(
+        inputOf(fieldWithHint(t.t('platform.tokenPlaceholder'))),
+        'a\nb',
+      );
+      await settle(tester);
+      expect(f.batchPreviewKeys, ['a', 'b']);
+
+      final title = find.text(t.t('platform.batch.previewTitle', {'count': 2}));
+      expect(title, findsOneWidget);
+      // 卡片本体：accent 描边把这块与其它分区分开。
+      final card = tester
+          .widgetList<Container>(
+            find.ancestor(of: title, matching: find.byType(Container)),
+          )
+          .where((w) {
+            final d = w.decoration;
+            return d is BoxDecoration && d.border != null;
+          });
+      expect(card, isNotEmpty);
+      // 协议是徽标不是裸字。
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is MiniBadge && w.text == 'OPENAI',
+        ),
+        findsNWidgets(2),
+      );
     });
 
     testWidgets('分组归属是胶囊形', (tester) async {
