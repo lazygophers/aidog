@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import '../../i18n.dart';
 import '../../utils/color_level.dart';
 import '../../utils/formatters.dart';
+import '../../utils/hex_color.dart';
 import '../shell/theme.dart';
 import 'models.dart';
 import 'platform_paste_logic.dart';
@@ -564,6 +565,7 @@ class ProtocolMetaTable {
     this.keywords = const {},
     this.hosts = const {},
     this.keyPrefixes = const {},
+    this.colors = const {},
     this.loaded = false,
   });
 
@@ -590,6 +592,7 @@ class ProtocolMetaTable {
     final keywords = <String, List<String>>{};
     final hosts = <String, List<String>>{};
     final keyPrefixes = <String, List<String>>{};
+    final colors = <String, Color>{};
     protocols.forEach((key, entry) {
       final code = '$key';
       if (entry is! Map) return;
@@ -623,6 +626,11 @@ class ProtocolMetaTable {
       if (name is Map) {
         final v = name[locale] ?? name['en-US'];
         if (v is String && v.isNotEmpty) labels[code] = v;
+      }
+      final col = entry['color'];
+      if (col is String) {
+        final c = parseHexColor(col);
+        if (c != null) colors[code] = c;
       }
       final hp = entry['homepage'];
       if (hp is String && hp.isNotEmpty) homepages[code] = hp;
@@ -668,6 +676,7 @@ class ProtocolMetaTable {
       keywords: keywords,
       hosts: hosts,
       keyPrefixes: keyPrefixes,
+      colors: colors,
       loaded: true,
     );
   }
@@ -690,6 +699,11 @@ class ProtocolMetaTable {
 
   /// registry `platform.json` 的 `key_prefixes`（智能识别的优先级 2）。
   final Map<String, List<String>> keyPrefixes;
+
+  /// 协议品牌色（registry `platform.json` 的 `color`）。
+  /// 缺省 = 该协议没登记颜色，调用方回落主题的 accent（React 同口径，
+  /// `useProtocolMeta.ts:94` 的 `?? var(--accent)`）。
+  final Map<String, Color> colors;
 
   /// 文档是否已到手。false = registry 未就绪，调用方按旧启发式回落。
   final bool loaded;
@@ -1024,10 +1038,18 @@ class MiniBadge extends StatelessWidget {
     this.tooltip,
     this.icon,
     this.onTap,
+    this.accentText,
+    this.accentColor,
   });
 
   final String text;
   final Color color;
+
+  /// 跟在 [text] 后面、用 [accentColor] 单独上色的一小段（端点徽标的 `Code` 角标）。
+  /// 整枚徽标不变色——变色会让人分不清它是端点名的一部分还是角标
+  ///（`PlatformCard.tsx:697-700` 同形态）。
+  final String? accentText;
+  final Color? accentColor;
   final String? tooltip;
   final IconData? icon;
 
@@ -1054,8 +1076,21 @@ class MiniBadge extends StatelessWidget {
             const SizedBox(width: 3),
           ],
           Flexible(
-            child: Text(
-              text,
+            child: Text.rich(
+              TextSpan(
+                text: text,
+                children: accentText == null
+                    ? null
+                    : [
+                        TextSpan(
+                          text: ' $accentText',
+                          style: TextStyle(
+                            color: accentColor ?? color,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
@@ -1309,17 +1344,34 @@ class QuotaTierBlock extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          Text(
-            '${tierLabel(tier.name)}${countdown.isEmpty ? '' : ' ·$countdown'}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          // 档位名 · 倒计时 · 重置时刻同一行，倒计时前一枚时钟图标
+          //（`PlatformCard.tsx:650-657`）。原先重置时刻另起一行、没有图标。
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  tierLabel(tier.name),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                ),
+              ),
+              if (countdown.isNotEmpty) ...[
+                const SizedBox(width: 3),
+                Icon(Icons.schedule, size: 11, color: theme.c.fg3),
+                const SizedBox(width: 2),
+                Flexible(
+                  child: Text(
+                    resetClock.isEmpty ? countdown : '$countdown · $resetClock',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ),
+              ],
+            ],
           ),
-          if (resetClock.isNotEmpty)
-            Text(
-              resetClock,
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
         ],
       ),
     );
