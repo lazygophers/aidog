@@ -343,31 +343,12 @@ export function Settings() {
     return unregister;
   }, [dirty]);
 
-  // ── Tauri window close-requested: warn on unsaved changes ──
-  useEffect(() => {
-    if (!dirty) return;
-    let unlisten: (() => void) | undefined;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { getCurrentWindow } = await import("@tauri-apps/api/window");
-        const win = getCurrentWindow();
-        const stop = await win.onCloseRequested((event) => {
-          // Block the close and surface the in-app confirm modal.
-          event.preventDefault();
-          setPendingNav({ proceed: () => void win.destroy() });
-        });
-        if (cancelled) stop();
-        else unlisten = stop;
-      } catch {
-        // Non-Tauri context or API unavailable → silently skip.
-      }
-    })();
-    return () => {
-      cancelled = true;
-      unlisten?.();
-    };
-  }, [dirty]);
+  // 关窗不再拦截：主窗口关闭在 Rust 侧改成了隐藏而非销毁
+  // （`src-tauri/src/startup.rs` 的 `WindowEvent::CloseRequested`），webview 照活，
+  // 改到一半的草稿原样留着，从托盘「显示窗口」回来还在这一页。
+  // 原先这里挂 `onCloseRequested` + `win.destroy()`，那是窗口真会被销毁时的必要拦截；
+  // 现在留着只会弹一个警告「不会发生的事」的框，而且「丢弃」那条路会真把窗口销毁掉。
+  // 页内导航的未保存拦截（`registerNavGuard`）不受影响，仍在上面。
 
   // ── Resolve a pending navigation from the unsaved-changes modal ──
   const handleSaveAndLeave = useCallback(async () => {
