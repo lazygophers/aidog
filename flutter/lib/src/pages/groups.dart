@@ -215,7 +215,7 @@ class _GroupListView extends StatelessWidget {
             body: t.t('group.deleteConfirm'),
             confirmLabel: t.t('action.delete'),
             onCancel: c.cancelDeleteGroup,
-            onConfirm: c.confirmDeleteGroup,
+            onConfirm: () => c.confirmDeleteGroup(failText: t.t('group.deleteFailed')),
           ),
         if (c.removeTarget != null)
           _RemovePlatformConfirm(
@@ -243,7 +243,12 @@ class _GroupListView extends StatelessWidget {
             onCancel: c.cancelBatchDelete,
             onConfirm: () {
               final ids = [for (final p in c.batchDeleteTarget!.platforms) p.id];
-              c.confirmBatchDelete().then((_) => onPlatformsDeleted?.call(ids));
+              c
+                  .confirmBatchDelete(
+                    doneText: (n) => t.t('group.batchDeleteDone', {'count': '$n'}),
+                    failText: t.t('group.batchDeleteFailed'),
+                  )
+                  .then((_) => onPlatformsDeleted?.call(ids));
             },
           ),
         if (c.batchOverrideTarget != null)
@@ -268,6 +273,7 @@ class _GroupListView extends StatelessWidget {
                       'group.purgeDisabledDone',
                       {'deleted': '$deleted', 'unassigned': '$unassigned'},
                     ),
+                    failText: t.t('group.purgeDisabled'),
                   ),
             onCancel: c.cancelPurgeDisabled,
           ),
@@ -458,7 +464,7 @@ class _GroupCard extends StatelessWidget {
                     label: g.isDefault
                         ? t.t('group.unsetDefault')
                         : t.t('group.setAsDefault'),
-                    onTap: () => c.toggleDefault(g),
+                    onTap: () => c.toggleDefault(g, failText: t.t('group.setDefaultFailed')),
                   ),
                   SmallButton(
                     label: t.t('action.edit'),
@@ -701,7 +707,7 @@ class _PlatformRow extends StatelessWidget {
               tooltip: t.t('group.levelPriorityDown'),
               onPressed: gp.levelPriority <= 1
                   ? null
-                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority - 1),
+                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority - 1, failText: t.t('group.levelPriorityFailed')),
               icon: const Icon(Icons.remove),
             ),
             SizedBox(
@@ -719,7 +725,7 @@ class _PlatformRow extends StatelessWidget {
               tooltip: t.t('group.levelPriorityUp'),
               onPressed: gp.levelPriority >= 10
                   ? null
-                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority + 1),
+                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority + 1, failText: t.t('group.levelPriorityFailed')),
               icon: const Icon(Icons.add),
             ),
             const SizedBox(width: AidogSpace.ssm),
@@ -785,7 +791,11 @@ class _MappingsSection extends StatelessWidget {
                     constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
                     iconSize: 14,
                     icon: const Icon(Icons.close),
-                    onPressed: () => c.deleteMapping(gid, i),
+                    onPressed: () => c.deleteMapping(
+                      gid,
+                      i,
+                      failText: t.t('group.deleteMappingFailed'),
+                    ),
                   ),
                 ],
               ),
@@ -849,7 +859,7 @@ class _MappingsSection extends StatelessWidget {
                   label: t.t('action.create'),
                   onTap: (c.mSource.isEmpty || c.mTargetPlatform == null || c.mTargetModel.isEmpty)
                       ? null
-                      : c.submitAddMapping,
+                      : () => c.submitAddMapping(failText: t.t('group.addMappingFailed')),
                 ),
               ],
             ),
@@ -1015,6 +1025,8 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                 haiku: _slots['haiku'],
                 gpt: _slots['gpt'],
               ),
+              doneText: (n) => t.t('group.batchOverrideModelsDone', {'count': '$n'}),
+              failText: t.t('group.batchOverrideModelsFailed'),
             ),
       extra: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
