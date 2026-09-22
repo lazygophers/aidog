@@ -596,6 +596,10 @@ class _AutoToastState extends State<AutoToast> {
 
 /// 无标签的受控文本框（编辑器内部的行用，如权限规则 pattern、hooks 命令）。
 /// 与 [TextRow] 同一套同步规则：外部值变了才写回 controller，不打断正在编辑的光标。
+///
+/// `maxLines: null` = **随内容自增高**（对齐 React 的 `AutoTextarea`）。长正则和
+/// 多行值靠它才看得全。自增高做在这里而不是给每处各写一个组件：中间件那边
+/// 光条件树 pattern + 动作链 replacement / value / override body 就有 9 处。
 class PlainTextField extends StatefulWidget {
   const PlainTextField({
     super.key,
@@ -611,7 +615,9 @@ class PlainTextField extends StatefulWidget {
   final String? hint;
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
-  final int maxLines;
+
+  /// `null` = 自增高，不封顶。
+  final int? maxLines;
   final bool enabled;
 
   @override
@@ -658,6 +664,12 @@ class _PlainTextFieldState extends State<PlainTextField> {
       focusNode: _focus,
       enabled: widget.enabled,
       maxLines: widget.maxLines,
+      // 自增高那条路要给 minLines，否则首帧就按 1 行高度画完再跳。
+      minLines: widget.maxLines == 1 ? null : 1,
+      // 单行时回车提交；多行时回车是换行，提交交给失焦（上面的 FocusNode 监听）。
+      keyboardType: widget.maxLines == 1
+          ? TextInputType.text
+          : TextInputType.multiline,
       style: AidogType.micro.copyWith(
         color: widget.enabled ? theme.c.fg : theme.c.fg3,
       ),

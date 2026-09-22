@@ -197,6 +197,8 @@ class _LeafEditor extends StatelessWidget {
           if (_leafHasField(target))
             Expanded(
               child: PlainTextField(
+                // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                maxLines: null,
                 key: const ValueKey('cond-leaf-field'),
                 value: '${node['field'] ?? ''}',
                 hint: tOr(t, 'middleware.fieldHint', '字段（空=整体 / JSON path / header 名）'),
@@ -214,6 +216,8 @@ class _LeafEditor extends StatelessWidget {
           Expanded(
             flex: 2,
             child: PlainTextField(
+              // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+              maxLines: null,
               key: const ValueKey('cond-leaf-pattern'),
               value: '${node['pattern'] ?? ''}',
               hint: tOr(t, 'middleware.pattern', '匹配模式'),
@@ -415,6 +419,8 @@ class ActionChainEditor extends StatelessWidget {
             row([
               Expanded(
                 child: PlainTextField(
+                  // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                  maxLines: null,
                   key: ValueKey('mw-action-$i-replacement'),
                   value: '${params['replacement'] ?? '****'}',
                   hint: 'replacement（默认 ****，regex 支持 \$1）',
@@ -469,6 +475,8 @@ class ActionChainEditor extends StatelessWidget {
                 const SizedBox(width: AidogSpace.sxs),
                 Expanded(
                   child: PlainTextField(
+                    // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                    maxLines: null,
                     value: '${params['target'] ?? ''}',
                     hint: 'target JSON key',
                     onSubmitted: (v) => setParams({...params, 'target': v}),
@@ -479,6 +487,8 @@ class ActionChainEditor extends StatelessWidget {
               Expanded(
                 flex: 2,
                 child: PlainTextField(
+                  // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                  maxLines: null,
                   key: ValueKey('mw-action-$i-value'),
                   value: '${params['value'] ?? ''}',
                   hint: 'value',
@@ -519,6 +529,8 @@ class ActionChainEditor extends StatelessWidget {
             row([
               Expanded(
                 child: PlainTextField(
+                  // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                  maxLines: null,
                   key: ValueKey('mw-action-$i-category'),
                   value: '${params['category'] ?? ''}',
                   hint: 'category',
@@ -526,10 +538,18 @@ class ActionChainEditor extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
-              SwitchRow(
-                label: 'retryable',
-                value: params['retryable'] != false,
-                onChanged: (v) => setParams({...params, 'retryable': v}),
+              // 必须限宽：SwitchRow 内部是一个带 Expanded 的 Row，直接当 Row 的
+              // 非 flex 子项会拿到无限宽约束，performLayout 当场抛
+              // 「RenderFlex children have non-zero flex but incoming width
+              // constraints are unbounded」——「分类」动作的编辑行一画就炸。
+              // 这条与本票的自增高改造无关，是顺手修掉的既有问题。
+              SizedBox(
+                width: 150,
+                child: SwitchRow(
+                  label: 'retryable',
+                  value: params['retryable'] != false,
+                  onChanged: (v) => setParams({...params, 'retryable': v}),
+                ),
               ),
               const SizedBox(width: AidogSpace.sxs),
               SizedBox(
@@ -548,6 +568,8 @@ class ActionChainEditor extends StatelessWidget {
               const SizedBox(width: AidogSpace.sxs),
               Expanded(
                 child: PlainTextField(
+                  // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+                  maxLines: null,
                   value: params['override_body'] == null
                       ? ''
                       : '${params['override_body']}',
@@ -666,6 +688,8 @@ class AppliesToEditor extends StatelessWidget {
         ),
         const SizedBox(height: AidogSpace.sxs),
         PlainTextField(
+          // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
+          maxLines: null,
           key: const ValueKey('mw-applies-models'),
           value: ((value['models'] as List? ?? const [])).join(','),
           onSubmitted: (v) => onChanged({
