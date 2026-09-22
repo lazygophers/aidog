@@ -341,19 +341,32 @@ class _HooksEditorState extends State<HooksEditor> {
       child: Row(
         children: [
           Expanded(
-            child: Text(
-              injected
-                  ? tOr(
-                      t,
-                      'settings.hooksNotifyInjected',
-                      '已注入 Claude Code 完成/等待通知 hook，保存后对全部分组生效。',
-                    )
-                  : tOr(
-                      t,
-                      'settings.hooksQuickDesc',
-                      '一键填入 Claude Code 完成/等待通知 hook，保存后对全部分组与 Codex 生效。',
-                    ),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tOr(t, 'settings.hooksQuickTitle', '通知 hook'),
+                  style: AidogType.label.copyWith(
+                    color: theme.c.fg,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  injected
+                      ? tOr(
+                          t,
+                          'settings.hooksNotifyInjected',
+                          '已注入 Claude Code 完成/等待通知 hook，保存后对全部分组生效。',
+                        )
+                      : tOr(
+                          t,
+                          'settings.hooksQuickDesc',
+                          '一键填入 Claude Code 完成/等待通知 hook，保存后对全部分组与 Codex 生效。',
+                        ),
+                  style: AidogType.micro.copyWith(color: theme.c.fg2),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: AidogSpace.ssm),
