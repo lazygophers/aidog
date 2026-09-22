@@ -19,6 +19,7 @@ import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import '../utils/pinyin.dart';
 import '../shell/tiles.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_defaults.dart';
 import 'platform_extra.dart';
 import 'platform_form_bits.dart';
@@ -1221,10 +1222,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               onChanged: (v) => update(b.copyWith(windowUnit: v)),
             ),
           ],
-          SmallButton(
+          // 复选框而不是高亮按钮（`formSections.tsx:530-536`）：选中与否
+          // 只靠描边色的话，一排按钮里根本看不出哪几条启用了。
+          _CheckRow(
             label: t.t('platform.manualBudgetEnabled'),
-            active: b.enabled,
-            onTap: () => update(b.copyWith(enabled: !b.enabled)),
+            value: b.enabled,
+            onChanged: (v) => update(b.copyWith(enabled: v)),
           ),
           SmallButton(
             label: t.t('action.delete'),
@@ -1249,20 +1252,26 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     return FormSection(
       title: t.t('platform.breakerTitle'),
       desc: t.t('platform.breakerDesc'),
+      // 标签左、输入右、三行对齐（`formSections.tsx:568-590` 的
+      // `grid-template-columns: auto 1fr`）。原先标签在上输入在下，
+      // 高度翻倍且三项不成列。输入一律数字型（同处 `type="number" min=0`）。
       children: [
-        PlatformField(
+        _BreakerRow(
+          fieldKey: const ValueKey('breaker-failure'),
           label: t.t('platform.breakerFailureThreshold'),
           hint: hintOf(d?.failureThreshold),
           value: c.breakerFailureThreshold,
           onChanged: c.setBreakerFailureThreshold,
         ),
-        PlatformField(
+        _BreakerRow(
+          fieldKey: const ValueKey('breaker-open-secs'),
           label: t.t('platform.breakerOpenSecs'),
           hint: hintOf(d?.openSecs),
           value: c.breakerOpenSecs,
           onChanged: c.setBreakerOpenSecs,
         ),
-        PlatformField(
+        _BreakerRow(
+          fieldKey: const ValueKey('breaker-half-open-max'),
           label: t.t('platform.breakerHalfOpenMax'),
           hint: hintOf(d?.halfOpenMax),
           value: c.breakerHalfOpenMax,
@@ -1315,20 +1324,22 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         // 高峰禁用开关 + 实时态。
         Row(
           children: [
-            SmallButton(
+            // 同上：复选框（`formSections.tsx:760-767`）。
+            _CheckRow(
               label: t.t('platform.disable_during_peak'),
-              active: c.disableDuringPeak,
-              onTap: () => c.setDisableDuringPeak(!c.disableDuringPeak),
+              value: c.disableDuringPeak,
+              onChanged: c.setDisableDuringPeak,
+              bold: true,
             ),
             if (c.disableDuringPeak) ...[
               const SizedBox(width: AidogSpace.ssm),
-              Text(
-                nowPeak
+              // 实时态是徽标不是裸字（`formSections.tsx:769-786`）：
+              // 命中高峰时红底红边，一眼看得到。
+              MiniBadge(
+                text: nowPeak
                     ? t.t('platform.currently_peak')
                     : t.t('platform.currently_off_peak'),
-                style: AidogType.micro.copyWith(
-                  color: nowPeak ? theme.c.bad : theme.c.fg3,
-                ),
+                color: nowPeak ? theme.c.bad : theme.c.fg3,
               ),
             ],
           ],
@@ -1378,11 +1389,22 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final startDisp = toDisp(w.startHour, w.startMinute ?? 0);
     final endDisp = toDisp(w.endHour, w.endMinute ?? 0);
 
-    Widget numBox(double width, int value, ValueChanged<String> onChanged) =>
-        SizedBox(
-          width: width,
-          child: PlatformField(value: '$value', onChanged: onChanged),
-        );
+    // 时 / 分 / 倍率都是数字（`formSections.tsx:813-860` 的 `type="number"`）：
+    // 数字键盘 + 上下步进，不再是裸文本框。
+    Widget numBox(
+      double width,
+      int value,
+      ValueChanged<String> onChanged, {
+      required int max,
+      required String slot,
+    }) => NumberField(
+      key: ValueKey('peak-$idx-$slot'),
+      width: width,
+      value: '$value',
+      min: 0,
+      max: max,
+      onChanged: onChanged,
+    );
 
     return Container(
       margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
@@ -1405,11 +1427,11 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 t.t('platform.start_hour'),
                 style: AidogType.label.copyWith(color: theme.c.fg2),
               ),
-              numBox(64, startDisp.hour, (v) {
+              numBox(slot: 'start-hour', max: 23, 88, startDisp.hour, (v) {
                 final u = fromDisp(clampInt(v, 0, 23), startDisp.minute);
                 update(update0(w, startHour: u.hour, startMinute: u.minute));
               }),
-              numBox(64, startDisp.minute, (v) {
+              numBox(slot: 'start-minute', max: 59, 88, startDisp.minute, (v) {
                 final u = fromDisp(startDisp.hour, clampInt(v, 0, 59));
                 update(update0(w, startHour: u.hour, startMinute: u.minute));
               }),
@@ -1417,11 +1439,11 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 t.t('platform.end_hour'),
                 style: AidogType.label.copyWith(color: theme.c.fg2),
               ),
-              numBox(64, endDisp.hour, (v) {
+              numBox(slot: 'end-hour', max: 24, 88, endDisp.hour, (v) {
                 final u = fromDisp(clampInt(v, 0, 24), endDisp.minute);
                 update(update0(w, endHour: u.hour, endMinute: u.minute));
               }),
-              numBox(64, endDisp.minute, (v) {
+              numBox(slot: 'end-minute', max: 59, 88, endDisp.minute, (v) {
                 final u = fromDisp(endDisp.hour, clampInt(v, 0, 59));
                 update(update0(w, endHour: u.hour, endMinute: u.minute));
               }),
@@ -1429,13 +1451,14 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 t.t('platform.multiplier'),
                 style: AidogType.label.copyWith(color: theme.c.fg2),
               ),
-              SizedBox(
-                width: 84,
-                child: PlatformField(
-                  value: '${w.multiplier}',
-                  onChanged: (v) => update(
-                    w.copyWith(multiplier: double.tryParse(v.trim()) ?? 1),
-                  ),
+              NumberField(
+                key: ValueKey('peak-$idx-multiplier'),
+                width: 108,
+                value: '${w.multiplier}',
+                min: 0,
+                step: 0.1,
+                onChanged: (v) => update(
+                  w.copyWith(multiplier: double.tryParse(v.trim()) ?? 1),
                 ),
               ),
               FormDropdown(
@@ -1640,6 +1663,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                     gd.group.autoFromPlatform != '${c.editing!.id}')
                   SmallButton(
                     label: gd.group.name,
+                    pill: true,
                     active: c.joinGroupIds.contains(gd.group.id),
                     onTap: () => c.toggleJoinGroup(gd.group.id),
                   ),
@@ -2193,4 +2217,94 @@ class WindowsEditorState extends State<WindowsEditor> {
       ),
     );
   }
+}
+
+/// 复选框 + 文字标签。对齐 React 表单里那几处 `<Checkbox>` + `<label>`
+/// （`formSections.tsx:530-536,760-767`）：选中与否看得见勾，不靠描边色猜。
+class _CheckRow extends StatelessWidget {
+  const _CheckRow({
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.bold = false,
+  });
+
+  final String label;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool bold;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    // React 那边勾和字包在同一个 `<label>` 里，点字也切。这里照做。
+    return InkWell(
+      onTap: () => onChanged(!value),
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: value,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            activeColor: theme.c.accent,
+            onChanged: (v) => onChanged(v == true),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+          Text(
+            label,
+            style: AidogType.label.copyWith(
+              color: bold ? theme.c.fg : theme.c.fg2,
+              fontWeight: bold ? FontWeight.w600 : null,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 熔断三项的一行：标签左、输入右，三行靠固定标签宽对齐。
+class _BreakerRow extends StatelessWidget {
+  const _BreakerRow({
+    required this.fieldKey,
+    required this.label,
+    required this.hint,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final Key fieldKey;
+  final String label;
+  final String hint;
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: AidogType.label.copyWith(
+              color: AidogTheme.of(context).c.fg2,
+            ),
+          ),
+        ),
+        const SizedBox(width: AidogSpace.ssm),
+        NumberField(
+          key: fieldKey,
+          width: 140,
+          value: value,
+          hint: hint,
+          min: 0,
+          onChanged: onChanged,
+        ),
+      ],
+    ),
+  );
 }
