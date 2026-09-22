@@ -553,11 +553,13 @@ class _GroupCard extends StatelessWidget {
                 style: AidogType.micro.copyWith(color: theme.c.fg3),
               )
             else
-              for (final gp in detail.platforms)
+              for (var i = 0; i < detail.platforms.length; i++)
                 _PlatformRow(
                   controller: c,
                   group: g,
-                  gp: gp,
+                  gp: detail.platforms[i],
+                  index: i,
+                  total: detail.platforms.length,
                   allGroups: c.allGroups,
                   selecting: selecting,
                 ),
@@ -677,6 +679,8 @@ class _PlatformRow extends StatelessWidget {
     required this.controller,
     required this.group,
     required this.gp,
+    required this.index,
+    required this.total,
     required this.allGroups,
     required this.selecting,
   });
@@ -684,6 +688,10 @@ class _PlatformRow extends StatelessWidget {
   final GroupsController controller;
   final GroupRow group;
   final GroupPlatform gp;
+
+  /// 组内位次（0 起）与本组平台总数：决定上下移按钮的可用性。
+  final int index;
+  final int total;
   final List<({int id, String name})> allGroups;
   final bool selecting;
 
@@ -724,6 +732,28 @@ class _PlatformRow extends StatelessWidget {
             ),
           ),
           if (!selecting) ...[
+            // 组内位次（= 路由优先级顺序）。React 那边是拖拽把手，这里用上下移：
+            // 分组卡本身已经在一个 ReorderableListView 里，卡内再套一个会抢手势。
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 14,
+              tooltip: t.t('group.dragToReorder'),
+              onPressed: index == 0
+                  ? null
+                  : () => c.movePlatformWithinGroup(group.id, index, index - 1),
+              icon: const Icon(Icons.arrow_upward),
+            ),
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 14,
+              tooltip: t.t('group.dragToReorder'),
+              onPressed: index >= total - 1
+                  ? null
+                  : () => c.movePlatformWithinGroup(group.id, index, index + 1),
+              icon: const Icon(Icons.arrow_downward),
+            ),
             // per-group 优先级（1~10，10 最高）。就地改，乐观更新 + 失败回滚。
             // `PlatformCard.tsx:895-961::LevelPriorityControl` 逐条翻译。
             Tooltip(

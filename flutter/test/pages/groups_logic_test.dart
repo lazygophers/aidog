@@ -1267,6 +1267,47 @@ void main() {
     });
   });
 
+  group('组内平台换位（usePlatformDrag.ts:70-87 的组内重排分支）', () {
+    FakeInvoke twoPlatformGroup() => groupsFake(
+      page: [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': platformJson(1, 'A')},
+            {'platform': platformJson(2, 'B')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ],
+    );
+
+    test('往上挪一位 → 本地顺序立刻变，并把整串新 id 发给后端', () async {
+      final k = twoPlatformGroup();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      await c.movePlatformWithinGroup(10, 1, 0);
+      expect(
+        [for (final gp in c.details.single.platforms) gp.platform.id],
+        [2, 1],
+      );
+      expect(k.lastCallTo('group_platform_reorder')!.args, {
+        'groupId': 10,
+        'orderedIds': [2, 1],
+      });
+    });
+
+    test('越界 / 原地不动 → 不发命令', () async {
+      final k = twoPlatformGroup();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      await c.movePlatformWithinGroup(10, 0, 0);
+      await c.movePlatformWithinGroup(10, 0, 5);
+      await c.movePlatformWithinGroup(10, -1, 0);
+      await c.movePlatformWithinGroup(999, 0, 1); // 组不存在
+      expect(k.commands.contains('group_platform_reorder'), isFalse);
+    });
+  });
+
   group('列表页快捷添加映射表单（Groups.tsx:612-642）', () {
     test('四个字段缺一就不发命令', () async {
       final k = groupsFake();
