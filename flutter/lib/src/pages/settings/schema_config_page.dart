@@ -755,22 +755,86 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     );
   }
 
+  /// React `nodeState`：组内叶子全选 = on，全不选 = off，介于两者 = partial。
+  String _nodeState(DiffNode n) {
+    final leaves = <String>[];
+    n.collectLeafPaths(leaves);
+    final on = leaves.where(_selected.contains).length;
+    if (on == 0) return 'off';
+    if (on == leaves.length) return 'on';
+    return 'partial';
+  }
+
+  /// React `toggleNode`：组内叶子全选中就全部取消，否则全部选上。
+  void _toggleNode(DiffNode n) {
+    final leaves = <String>[];
+    n.collectLeafPaths(leaves);
+    final allOn = leaves.every(_selected.contains);
+    setState(() {
+      final next = {..._selected};
+      for (final p in leaves) {
+        if (allOn) {
+          next.remove(p);
+        } else {
+          next.add(p);
+        }
+      }
+      _selected = next;
+    });
+  }
+
   List<Widget> _nodeRows(I18nController t, DiffNode n, int depth) {
     final theme = AidogTheme.of(context);
     final children = n.children;
     if (children != null && children.isNotEmpty) {
+      final state = _nodeState(n);
+      final badgeColor = state == 'partial' ? theme.c.peak : theme.c.accent;
+      final badgeText = state == 'partial'
+          ? t.t('settings.editor.diffPartial')
+          : t.t('settings.editor.diffObject');
       return [
-        Padding(
-          padding: EdgeInsets.only(left: depth * 12.0, top: AidogSpace.sxs),
-          child: Text(
-            n.label,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+        InkWell(
+          key: ValueKey('diff-group-${n.path}'),
+          onTap: () => _toggleNode(n),
+          child: Padding(
+            padding: EdgeInsets.only(left: depth * 12.0, top: AidogSpace.sxs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  state == 'off' ? Icons.check_box_outline_blank : Icons.check_box,
+                  size: 14,
+                  color: state == 'off' ? theme.c.fg3 : theme.c.accent,
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                Text(
+                  n.label,
+                  style: AidogType.micro.copyWith(color: theme.c.fg2, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                Text(
+                  badgeText,
+                  style: AidogType.micro.copyWith(color: badgeColor, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
           ),
         ),
         for (final ch in children) ..._nodeRows(t, ch, depth + 1),
       ];
     }
     final on = _selected.contains(n.path);
+    final changeType = _changeType(n);
+    final labelColor = switch (changeType) {
+      'added' => theme.c.ok,
+      'removed' => theme.c.bad,
+      _ => theme.c.accent,
+    };
+    final changeLabel = switch (changeType) {
+      'added' => t.t('settings.editor.diffAdded'),
+      'removed' => t.t('settings.editor.diffRemoved'),
+      _ => t.t('settings.editor.diffChanged'),
+    };
     return [
       InkWell(
         key: ValueKey('diff-${n.path}'),
@@ -795,9 +859,21 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      n.label,
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                    Row(
+                      children: [
+                        Text(
+                          n.label,
+                          style: AidogType.micro.copyWith(color: theme.c.fg),
+                        ),
+                        const SizedBox(width: AidogSpace.sxs),
+                        Text(
+                          changeLabel,
+                          style: AidogType.micro.copyWith(
+                            color: labelColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       '${_short(n.current, t)} → ${_short(n.incoming, t)}',
@@ -811,6 +887,15 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
         ),
       ),
     ];
+  }
+
+  /// React `getChangeType`：`current == null` → 新增，`incoming == null` → 删除，
+  /// 否则变更。JSON 没有 JS 的 `undefined`，null 就是它在 Dart 侧唯一的投影
+  /// （`import_diff.dart` 顶部注释已写明这处已知语义差，实际取不到）。
+  static String _changeType(DiffNode n) {
+    if (n.current == null) return 'added';
+    if (n.incoming == null) return 'removed';
+    return 'changed';
   }
 
   /// 值预览：对象只写「对象」二字，不把整棵树摊进一行（React 同规则）。
