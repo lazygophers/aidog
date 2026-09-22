@@ -374,3 +374,18 @@ class ScheduledBackupController {
   static Map<String, Object?> _map(Object? v) =>
       v is Map ? Map<String, Object?>.from(v) : <String, Object?>{};
 }
+
+/// 拖进来的一串路径里挑出要导入的那个。
+///
+/// 与 React 的 drop 分支逐条对齐（`ImportExportTab.tsx:288-296`）：
+///   - 有 `.aidogx` → 取**第一个**（拖一堆文件进来也只导一个，不批量）
+///   - 一个都没有但确实拖了东西 → 返回 null，调用方报 `error.notAidogx`
+///   - 什么都没拖到 → 同样 null，调用方什么都不做（靠 [paths] 是否为空区分）
+///
+/// 大小写不敏感：macOS 的文件系统默认不区分大小写，`.AIDOGX` 也是合法文件名。
+String? pickAidogxPath(List<String> paths) {
+  for (final p in paths) {
+    if (p.toLowerCase().endsWith('.aidogx')) return p;
+  }
+  return null;
+}
