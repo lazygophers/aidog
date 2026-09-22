@@ -531,6 +531,20 @@ void main() {
       expect(segsOf(host).single.options.containsKey('format'), isFalse);
     });
 
+    // 第二梯队 2026-09-22：原先只有 hex 文本框，挑颜色只能手打十六进制
+    //（React 那边是 `<input type="color">`，`SegmentEditModal.tsx:110-124`）。
+    testWidgets('色块点开色板，选一个就写进 color', (tester) async {
+      final (host, _) = await mount(tester, config: oneSeg('model'));
+      await tapKey(tester, 'sl-statusline-edit-a');
+      expect(find.byKey(const ValueKey('seg-edit-swatch')), findsOneWidget);
+
+      await tapKey(tester, 'seg-edit-swatch');
+      await tester.tap(find.byKey(const ValueKey('swatch-#7EE787')));
+      await settle(tester);
+      await tapKey(tester, 'seg-edit-save');
+      expect(segsOf(host).single.color, '#7EE787');
+    });
+
     testWidgets('合法 hex 才写 color；非法值当没填', (tester) async {
       final (host, _) = await mount(tester, config: oneSeg('model'));
       await tapKey(tester, 'sl-statusline-edit-a');
