@@ -168,13 +168,18 @@ function RequestSectionContent({
     );
   }
 
+  // 2026-09-22：各块的 `maxHeight` 全部去掉，正文整段铺开，由详情面板那一层滚动承接。
+  //
+  // 方向是 React 跟 Flutter（用户在 ask-ui 选「保持铺开」并注明「react 对齐」）。
+  // Flutter 那边做不到「块内滚到底自动接着滚外层」——浏览器会，Flutter 不会，
+  // 十个小框叠起来就成了「滚一下卡一下」。所以两侧统一成铺开。
   return (
     <>
       {url && (
         <div>
           <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>URL</div>
           <div style={{ position: "relative" }}>
-            <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
+            <pre className="code-block" style={{ wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
             <CopyButton text={url} title={copyTitle} />
           </div>
         </div>
@@ -184,7 +189,7 @@ function RequestSectionContent({
           {t("logs.requestHeaders", "请求头")}
         </div>
         <div style={{ position: "relative" }}>
-          <JsonCodeEditor value={headersText(reqHeaders)} maxHeight={200} minHeight={60} />
+          <JsonCodeEditor value={headersText(reqHeaders)} minHeight={60} />
           {!headersEmpty(reqHeaders) && <CopyButton text={headersText(reqHeaders)} title={copyTitle} />}
         </div>
       </div>
@@ -195,7 +200,7 @@ function RequestSectionContent({
         {reqBody
           ? (
             <div style={{ position: "relative" }}>
-              <JsonCodeEditor value={bodyStr(reqBody)} maxHeight={300} minHeight={60} />
+              <JsonCodeEditor value={bodyStr(reqBody)} minHeight={60} />
               {!isPlaceholder(bodyStr(reqBody)) && <CopyButton text={bodyStr(reqBody)} title={copyTitle} />}
             </div>
           )
@@ -207,7 +212,7 @@ function RequestSectionContent({
           {t("logs.responseHeaders", "响应头")}
         </div>
         <div style={{ position: "relative" }}>
-          <JsonCodeEditor value={headersText(respHeaders)} maxHeight={200} minHeight={60} />
+          <JsonCodeEditor value={headersText(respHeaders)} minHeight={60} />
           {!headersEmpty(respHeaders) && <CopyButton text={headersText(respHeaders)} title={copyTitle} />}
         </div>
       </div>
@@ -216,7 +221,7 @@ function RequestSectionContent({
           {t("logs.responseBody", "响应体")}
         </div>
         <div style={{ position: "relative" }}>
-          <JsonCodeEditor value={bodyStr(respBody)} maxHeight={400} minHeight={60} />
+          <JsonCodeEditor value={bodyStr(respBody)} minHeight={60} />
           {!isPlaceholder(bodyStr(respBody)) && <CopyButton text={bodyStr(respBody)} title={copyTitle} />}
         </div>
       </div>
