@@ -293,22 +293,22 @@ class _GroupListView extends StatelessWidget {
           )
         else if (c.hasMore)
           // 🔴 这里**没有**做 React 的触底自动加载（`GroupListView.tsx:277-285`
-          // 的 `IntersectionObserver`）。原因不在这个列表，也不在这一页：
+          // 的 `IntersectionObserver`）。卡在一条还没查清的断言上：
           //
-          // 「视口滚动过 + 内容变高 + 语义树开着」三者同时成立时，框架自己会抛
-          // `!childSemantics.renderObject._needsLayout`（断言正文写着「请去 flutter
-          // 仓库提 issue」）。40 行纯框架代码就能复现 ——
-          // `SingleChildScrollView` / `SliverToBoxAdapter` / 真 `SliverList`
-          // 三种视口全中，关掉 `addSemanticIndexes` / `addAutomaticKeepAlives`
-          // 也没用。所以换 sliver 列表、换触发时机都绕不开。
+          // 往这个列表里追加第二页（不论滚没滚过）会抛
+          // `!childSemantics.renderObject._needsLayout`。抛的那一刻 dirty 的是
+          // **刚追加进来的那个列表子项自己**的 `RenderIndexedSemantics`
+          // （creator 链：`IndexedSemantics ← KeepAlive ← KeyedSubtree
+          // ← SliverList ← SliverReorderableList ← ShrinkWrappingViewport`）。
+          //
+          // **已知它不是通用的框架问题**：同样形状的纯框架代码
+          // （`SingleChildScrollView` / `SliverToBoxAdapter` / 真 `SliverList`
+          // 各跑一遍，语义树开着）都不抛。所以触发条件里还有本页树里的某个东西，
+          // 具体是哪一层没查到。**别照着「这是 flutter 的 bug」去改**。
           //
           // 复现与诊断留在 `.scratch/flutter-ui-parity/`：
-          // `flutter-issue-draft.md`（最小复现 + 三种视口对照）、
-          // `paging_probe_test.dart.txt`（本页的 A/B 复现）、
-          // `groups-auto-paging.patch`（自动加载的实现，等上游修了再贴回来）。
-          //
-          // 这颗按钮之所以「看起来没事」，只是因为手点它之前用户已经停住了滚动 ——
-          // 先滚一下再点，同样抛。它不是解法，是现状。
+          // `paging_probe_test.dart.txt`（本页的复现，跑它就能看到断言）、
+          // `groups-auto-paging.patch`（自动加载的实现，查清之后贴回来）。
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: Align(
