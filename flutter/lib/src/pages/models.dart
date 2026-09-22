@@ -864,6 +864,39 @@ class ProxyLogSummary {
 }
 
 /// `manual.ts::ProxyLogDetail`（`proxy_log_get` 返回，未命中是 null）。
+/// `proxy_log.attempts` 数组的一项：一次平台尝试的快照。
+/// 字段照 `aidog_db/src/models/platform.rs:10::ProxyAttempt`。
+class ProxyAttempt {
+  const ProxyAttempt({
+    required this.platformId,
+    required this.platformName,
+    required this.statusCode,
+    required this.error,
+    required this.durationMs,
+    required this.ts,
+  });
+
+  factory ProxyAttempt.fromJson(Map<String, dynamic> j) => ProxyAttempt(
+    platformId: (j['platform_id'] as num?)?.toInt() ?? 0,
+    platformName: (j['platform_name'] as String?) ?? '',
+    // 上游返回的状态码；连接失败 / 超时是 0。
+    statusCode: (j['status_code'] as num?)?.toInt() ?? 0,
+    error: (j['error'] as String?) ?? '',
+    durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
+    ts: (j['ts'] as num?)?.toInt() ?? 0,
+  );
+
+  final int platformId;
+  final String platformName;
+  final int statusCode;
+  final String error;
+  final int durationMs;
+  final int ts;
+
+  /// 2xx 才算成功（`DetailPanel.tsx:229` 同判据）。
+  bool get ok => statusCode >= 200 && statusCode < 300;
+}
+
 class ProxyLogDetail {
   const ProxyLogDetail({
     required this.id,
@@ -890,6 +923,7 @@ class ProxyLogDetail {
     required this.outputTokens,
     required this.cacheTokens,
     required this.createdAt,
+    this.attempts = const [],
   });
 
   factory ProxyLogDetail.fromJson(Map<String, dynamic> j) => ProxyLogDetail(
@@ -917,6 +951,10 @@ class ProxyLogDetail {
     outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
     cacheTokens: (j['cache_tokens'] as num?)?.toInt() ?? 0,
     createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
+    attempts: [
+      for (final e in (j['attempts'] as List? ?? const []))
+        if (e is Map) ProxyAttempt.fromJson(e.cast<String, dynamic>()),
+    ],
   );
 
   final String id;
@@ -943,4 +981,7 @@ class ProxyLogDetail {
   final int outputTokens;
   final int cacheTokens;
   final int createdAt;
+
+  /// 每次平台尝试的快照；单平台一次成功时长度 1，重试过就是多条。
+  final List<ProxyAttempt> attempts;
 }
