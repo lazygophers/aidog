@@ -454,8 +454,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   }
 }
 
-/// json / object / kv 字段：一个两空格缩进的 JSON 编辑框 + 解析错误提示。
-class _JsonField extends StatelessWidget {
+/// json / object / kv 字段：一个两空格缩进的 JSON 编辑框 + 格式化按钮 + 搜索/替换
+/// （React `JsonCodeEditor.tsx` 的精简对应：多行文本域没有 CodeMirror 的语法高亮，
+/// 但格式化、查找下一个/上一个、全部替换三个动作是真实可用的，不是摆设文案）。
+class _JsonField extends StatefulWidget {
   const _JsonField({
     super.key,
     required this.label,
@@ -472,22 +474,179 @@ class _JsonField extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      TextRow(
-        label: label,
-        description: description,
-        value: value == null
-            ? ''
-            : const JsonEncoder.withIndent('  ').convert(value),
-        maxLines: 6,
-        onSubmitted: onSubmitted,
+  State<_JsonField> createState() => _JsonFieldState();
+}
+
+class _JsonFieldState extends State<_JsonField> {
+  late final TextEditingController _ctrl = TextEditingController(text: _initialText());
+  final FocusNode _focus = FocusNode();
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _replaceCtrl = TextEditingController();
+  bool _showSearch = false;
+  bool _showReplace = false;
+
+  String _initialText() =>
+      widget.value == null ? '' : const JsonEncoder.withIndent('  ').convert(widget.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) widget.onSubmitted(_ctrl.text);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_JsonField old) {
+    super.didUpdateWidget(old);
+    final v = _initialText();
+    if (v != _ctrl.text && !_focus.hasFocus) {
+      _ctrl.value = TextEditingValue(text: v, selection: TextSelection.collapsed(offset: v.length));
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _ctrl.dispose();
+    _searchCtrl.dispose();
+    _replaceCtrl.dispose();
+    super.dispose();
+  }
+
+  void _format() {
+    try {
+      final pretty = const JsonEncoder.withIndent('  ').convert(jsonDecode(_ctrl.text));
+      _ctrl.value = TextEditingValue(text: pretty, selection: TextSelection.collapsed(offset: pretty.length));
+      widget.onSubmitted(pretty);
+    } catch (_) {
+      // 非法 JSON：不动文本，外层的错误提示已经在说明原因。
+    }
+  }
+
+  void _findNext({bool backward = false}) {
+    final q = _searchCtrl.text;
+    if (q.isEmpty) return;
+    final text = _ctrl.text;
+    final from = _ctrl.selection.isValid ? _ctrl.selection.extentOffset : 0;
+    int idx;
+    if (backward) {
+      final upTo = (from - q.length - 1).clamp(0, text.length);
+      idx = text.lastIndexOf(q, upTo);
+      if (idx < 0) idx = text.lastIndexOf(q);
+    } else {
+      idx = text.indexOf(q, from);
+      if (idx < 0) idx = text.indexOf(q);
+    }
+    if (idx < 0) return;
+    setState(() {
+      _ctrl.selection = TextSelection(baseOffset: idx, extentOffset: idx + q.length);
+    });
+    _focus.requestFocus();
+  }
+
+  void _replaceAll() {
+    final q = _searchCtrl.text;
+    if (q.isEmpty) return;
+    final next = _ctrl.text.replaceAll(q, _replaceCtrl.text);
+    _ctrl.value = TextEditingValue(text: next, selection: TextSelection.collapsed(offset: next.length));
+    widget.onSubmitted(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
+            setState(() { _showSearch = true; _showReplace = false; }),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () =>
+            setState(() { _showSearch = true; _showReplace = false; }),
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true, alt: true): () =>
+            setState(() { _showSearch = true; _showReplace = true; }),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true, alt: true): () =>
+            setState(() { _showSearch = true; _showReplace = true; }),
+      },
+      child: Focus(
+        canRequestFocus: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TileMeta(widget.label),
+            if (widget.description != null && widget.description!.isNotEmpty)
+              Text(widget.description!, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+            Row(
+              children: [
+                SmallButton(label: t.t('jsonEditor.format'), onTap: _format),
+                const SizedBox(width: AidogSpace.ssm),
+                Expanded(
+                  child: Text(
+                    t.t('jsonEditor.searchHint'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            if (_showSearch) ...[
+              const SizedBox(height: AidogSpace.sxs),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('json-search'),
+                      controller: _searchCtrl,
+                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      decoration: const InputDecoration(isDense: true),
+                      onSubmitted: (_) => _findNext(),
+                    ),
+                  ),
+                  SmallButton(label: '↑', onTap: () => _findNext(backward: true)),
+                  const SizedBox(width: AidogSpace.sxs),
+                  SmallButton(label: '↓', onTap: () => _findNext()),
+                  const SizedBox(width: AidogSpace.sxs),
+                  SmallButton(
+                    label: '×',
+                    onTap: () => setState(() { _showSearch = false; _showReplace = false; }),
+                  ),
+                ],
+              ),
+              if (_showReplace) ...[
+                const SizedBox(height: AidogSpace.sxs),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('json-replace'),
+                        controller: _replaceCtrl,
+                        style: AidogType.micro.copyWith(color: theme.c.fg),
+                        decoration: const InputDecoration(isDense: true),
+                      ),
+                    ),
+                    // React 侧的替换按钮文案来自 CodeMirror 内建搜索面板，本身不接 i18n
+                    // （@codemirror/search 的默认 keymap 硬编码英文），这里照抄同一处理。
+                    SmallButton(key: const ValueKey('json-replace-all'), label: 'Replace All', onTap: _replaceAll),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AidogSpace.sxs),
+            ],
+            TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              maxLines: 6,
+              style: AidogType.micro.copyWith(color: theme.c.fg),
+              decoration: const InputDecoration(isDense: true),
+              onSubmitted: widget.onSubmitted,
+            ),
+            if (widget.error != null) ErrorNote(text: widget.error!),
+          ],
+        ),
       ),
-      if (error != null) ErrorNote(text: error!),
-    ],
-  );
+    );
+  }
 }
 
 // ── 导入差异弹窗 ──────────────────────────────────────────────
