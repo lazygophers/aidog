@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../shell/theme.dart';
+import '../../shell/tiles.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'middleware_dsl.dart';
@@ -471,6 +472,16 @@ class ActionChainEditor extends StatelessWidget {
               ),
               if (kind == 'mask') ...[
                 const SizedBox(width: AidogSpace.sxs),
+                // 一个都不勾 = 两个字段全脱敏。这条默认语义光看两颗按钮看不出来
+                //（`MiddlewareRules.tsx:471` 把它写成多选框的空态文案）。
+                if ((params['fields'] as List? ?? const []).isEmpty)
+                  TileMeta(
+                    tOr(
+                      t,
+                      'middleware.maskFieldsAll',
+                      '全部字段（messages + system）',
+                    ),
+                  ),
                 for (final f in kMwMaskFields)
                   Padding(
                     padding: const EdgeInsets.only(left: AidogSpace.sxs),

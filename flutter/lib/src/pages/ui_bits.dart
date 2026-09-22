@@ -484,10 +484,20 @@ class PiUnsupportedNote extends StatelessWidget {
 ///
 /// `IgnorePointer`：提示不挡下面的点击（React 那边是 `pointerEvents: none`）。
 class ToastBar extends StatefulWidget {
-  const ToastBar({super.key, required this.text, required this.ok});
+  const ToastBar({
+    super.key,
+    required this.text,
+    required this.ok,
+    this.onDismiss,
+  });
 
   final String text;
   final bool ok;
+
+  /// 手动关掉这条提示。给了才画 ✕（React 技能页的提示条带这颗按钮，
+  /// `SkillsView.tsx:181-196`）：长文案在屏幕上挡着内容时得有办法关掉，
+  /// 不能只等几秒后的自动消失。
+  final VoidCallback? onDismiss;
 
   @override
   State<ToastBar> createState() => _ToastBarState();
@@ -515,6 +525,8 @@ class _ToastBarState extends State<ToastBar> {
         left: 0,
         right: 0,
         child: IgnorePointer(
+          // 有关闭按钮时不能挡指针，否则那颗 ✕ 点不到。
+          ignoring: widget.onDismiss == null,
           child: Align(
             alignment: Alignment.topCenter,
             child: Material(
@@ -546,6 +558,25 @@ class _ToastBarState extends State<ToastBar> {
                         fontWeight: FontWeight.w600,
                       ),
                     ),
+                    if (widget.onDismiss != null) ...[
+                      const SizedBox(width: AidogSpace.ssm),
+                      IconButton(
+                        key: const ValueKey('toast-dismiss'),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        iconSize: 13,
+                        visualDensity: VisualDensity.compact,
+                        tooltip: AidogI18n.of(context).t('action.dismiss'),
+                        icon: Icon(
+                          Icons.close,
+                          color: AidogColors.light.surface,
+                        ),
+                        onPressed: widget.onDismiss,
+                      ),
+                    ],
                   ],
                 ),
               ),

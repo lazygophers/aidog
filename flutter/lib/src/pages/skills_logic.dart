@@ -282,6 +282,14 @@ class SkillsController {
   String? message;
   Timer? _messageTimer;
 
+  /// 手动关掉提示条（提示条上的 ✕）。自动消失的计时器一并取消，
+  /// 否则它晚一步再清一次、白白多一次重建。
+  void clearMessage() {
+    _messageTimer?.cancel();
+    message = null;
+    onChanged();
+  }
+
   bool confirmUninstall = false;
   SkillInfo? uninstallTarget;
   final Set<String> selectedNames = <String>{};
@@ -930,6 +938,12 @@ class SkillInstallController {
   /// 正在装的条目 id；`__batch__` = 批量安装中。非 null 时禁并发。
   String? busyId;
   String? message;
+
+  /// 同 [SkillsController.clearMessage]：提示条上的 ✕。
+  void clearMessage() {
+    message = null;
+    onChanged();
+  }
 
   Timer? _debounceTimer;
 

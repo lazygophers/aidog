@@ -269,7 +269,8 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                     'count': _c.selectedNames.length,
                   }),
           ),
-        if (_c.message != null) ToastBar(text: _c.message!, ok: true),
+        if (_c.message != null)
+          ToastBar(text: _c.message!, ok: true, onDismiss: _c.clearMessage),
       ],
     );
   }
@@ -465,6 +466,14 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 原先只列 id，不说这一步会跑 `npx skills add`、要联网
+          //（`SkillModals.tsx:258`）。装不上的时候用户根本不知道该查网络。
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+            child: TileMeta(
+              t.t('skills.importConfirmDesc', {'count': _c.importIds!.length}),
+            ),
+          ),
           for (final id in _c.importIds!)
             Text(
               id,
@@ -477,12 +486,16 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // 这一排按钮混着「目标 agent」和「范围」两件事，没有标签分不出来
+              //（React 各自有一行标签，`SkillModals.tsx:268,295`）。
+              TileMeta(t.t('skills.importAgents')),
               for (final a in kSkillAgents)
                 SmallButton(
                   label: t.t('skills.agent.$a'),
                   active: _c.importAgents.contains(a),
                   onTap: () => _c.toggleImportAgent(a),
                 ),
+              TileMeta(t.t('skills.scope')),
               SmallButton(
                 label: t.t('skills.scopeGlobal'),
                 active: _c.importScopeKind == 'global',
@@ -855,7 +868,8 @@ class _SkillInstallViewState extends State<SkillInstallView> {
           onChanged: _c.setKeyword,
         ),
         const SizedBox(height: AidogSpace.ssm),
-        if (_c.message != null) ToastBar(text: _c.message!, ok: true),
+        if (_c.message != null)
+          ToastBar(text: _c.message!, ok: true, onDismiss: _c.clearMessage),
         if (_c.error != null)
           ToastBar(
             text: '${t.t('skills.install.loadFailed')}: ${_c.error}',

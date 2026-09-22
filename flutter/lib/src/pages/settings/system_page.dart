@@ -113,6 +113,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   : 'proxy.startFailedOther',
               {'port': _c.proxyStartError!.port},
             ),
+            action: SmallButton(
+              key: const ValueKey('proxy-retry'),
+              label: t.t('proxy.retry'),
+              onTap: () => _c.startProxy(),
+            ),
           ),
         if (_c.message.isNotEmpty) ToastBar(text: _c.message, ok: true),
       ],
@@ -421,9 +426,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           const SizedBox(width: AidogSpace.ssm),
           SmallButton(
             key: const ValueKey('clear-logs'),
-            label: _c.logMaintBusy
-                ? t.t('logs.cleaning')
-                : t.t('logs.clear'),
+            label: _c.logMaintBusy ? t.t('logs.cleaning') : t.t('logs.clear'),
             danger: true,
             onTap: _c.logMaintBusy
                 ? null

@@ -192,6 +192,12 @@
       "type": "intentional",
       "reason": "同 updater.foundTitle：更新失败由 Sparkle 的 onUpdaterError 走原生窗报出；应用侧只把它记进关于页的状态行。",
       "evidence": "flutter/lib/src/updater.dart:43"
+    },
+    {
+      "key": "common.delete",
+      "type": "synonym",
+      "reason": "删除图标按钮的无障碍标签。Flutter 全应用只有一句「删除」，用 action.delete；React 这边 MitmConfig 与托盘卡片编辑器另起了 common.delete 这个同义 key。",
+      "evidence": "flutter/lib/src/pages/settings/tray_pages.dart:639"
     }
   ]
 }
