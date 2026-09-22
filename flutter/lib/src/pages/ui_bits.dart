@@ -28,6 +28,7 @@ class SmallButton extends StatelessWidget {
     this.ghost = false,
     this.pill = false,
     this.activeTone,
+    this.tooltip,
   });
 
   final String label;
@@ -49,10 +50,22 @@ class SmallButton extends StatelessWidget {
   /// 端点的 Coding Plan「C」用绿，因为绿 = 走 coding 套餐，通用高亮色说不出这层意思。
   final Color? activeTone;
 
+  /// 悬浮解释，对应 React 挂在按钮 `title=` 上的那句。
+  /// 按钮**被禁用**时尤其不能省：只禁不解释，用户不知道还差什么。
+  final String? tooltip;
+
   bool get enabled => onTap != null;
 
   @override
   Widget build(BuildContext context) {
+    final tip = tooltip;
+    if (tip != null && tip.isNotEmpty) {
+      return Tooltip(message: tip, child: _button(context));
+    }
+    return _button(context);
+  }
+
+  Widget _button(BuildContext context) {
     final theme = AidogTheme.of(context);
     final fg = onTap == null
         ? theme.c.fg3
@@ -224,30 +237,30 @@ class _AidogModalState extends State<AidogModal> {
       return _EscapeScope(
         onEscape: widget.onEscape ?? barrier,
         child: Material(
-        type: MaterialType.transparency,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: barrier,
-                // 遮罩色不进 token 表：React 那边是写死的 `bg-black/80`，
-                // 深浅两套都一样。取深色模式的底色 token 当「黑」，不写字面色值。
-                child: ColoredBox(
-                  color: AidogColors.dark.bg.withValues(alpha: 0.72),
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: barrier,
+                  // 遮罩色不进 token 表：React 那边是写死的 `bg-black/80`，
+                  // 深浅两套都一样。取深色模式的底色 token 当「黑」，不写字面色值。
+                  child: ColoredBox(
+                    color: AidogColors.dark.bg.withValues(alpha: 0.72),
+                  ),
                 ),
               ),
-            ),
-            Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: widget.maxWidth),
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.all(AidogSpace.s_2xl),
-                  child: widget.child,
+              Center(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: widget.maxWidth),
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(AidogSpace.s_2xl),
+                    child: widget.child,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         ),
       );
     },

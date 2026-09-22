@@ -15,45 +15,57 @@ import 'bits.dart';
 import 'middleware_dsl.dart';
 
 const List<String> kMwTargets = [
-  'request_body', 'request_headers', 'response_body', 'response_headers',
-  'status', 'model',
+  'request_body',
+  'request_headers',
+  'response_body',
+  'response_headers',
+  'status',
+  'model',
 ];
 const List<String> kMwMatchTypes = ['contains', 'regex', 'exact'];
 const List<String> kMwActionKinds = [
-  'mask', 'block', 'warn', 'inject', 'override', 'classify', 'budget_gate',
+  'mask',
+  'block',
+  'warn',
+  'inject',
+  'override',
+  'classify',
+  'budget_gate',
 ];
+
 /// mask 的 fields 是闭集：Rust 侧 inbound.rs 只认 messages / system。
 const List<String> kMwMaskFields = ['messages', 'system'];
+
 /// 终结性动作（block/classify/budget_gate 之后停止执行）。
 const Set<String> kMwTerminalKinds = {'block', 'classify', 'budget_gate'};
 
 Map<String, Object?> get emptyLeaf => {
-      'kind': 'leaf',
-      'target': 'request_body',
-      'field': '',
-      'match_type': 'contains',
-      'pattern': '',
-      'validator': '',
-    };
+  'kind': 'leaf',
+  'target': 'request_body',
+  'field': '',
+  'match_type': 'contains',
+  'pattern': '',
+  'validator': '',
+};
 
 /// ActionParams 前端默认值（与 Rust serde default 对齐）。
 Map<String, Object?> defaultActionParams() => {
-      'replacement': '****',
-      'fields': <String>[],
-      'inject_mode': '',
-      'target': '',
-      'value': '',
-      'category': '',
-      'retryable': true,
-      'override_status': null,
-      'override_body': null,
-      'observe': false,
-      'budget_usd': 0,
-    };
+  'replacement': '****',
+  'fields': <String>[],
+  'inject_mode': '',
+  'target': '',
+  'value': '',
+  'category': '',
+  'retryable': true,
+  'override_status': null,
+  'override_body': null,
+  'observe': false,
+  'budget_usd': 0,
+};
 
 /// 叶子的 field 输入只在四个 body/header 侧 target 有意义。
-bool _leafHasField(String target) => target.contains('body') ||
-    target.contains('headers');
+bool _leafHasField(String target) =>
+    target.contains('body') || target.contains('headers');
 
 // ── 条件树编辑器 ────────────────────────────────────────
 
@@ -77,7 +89,14 @@ class ConditionTreeEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if ('${node['kind']}' == 'leaf') return _LeafEditor(node: node, onChanged: onChanged, onRemove: onRemove, removeLabel: removeLabel);
+    if ('${node['kind']}' == 'leaf') {
+      return _LeafEditor(
+        node: node,
+        onChanged: onChanged,
+        onRemove: onRemove,
+        removeLabel: removeLabel,
+      );
+    }
     final theme = AidogTheme.of(context);
     final t = AidogI18n.of(context);
     final isNot = '${node['kind']}' == 'not';
@@ -87,9 +106,11 @@ class ConditionTreeEditor extends StatelessWidget {
             for (final c in (node['children'] as List? ?? const []))
               Map<String, Object?>.from(c as Map),
           ];
-    void write(List<Map<String, Object?>> cs) => onChanged(isNot
-        ? {'kind': 'not', 'child': cs.isEmpty ? emptyLeaf : cs[0]}
-        : {...node, 'children': cs});
+    void write(List<Map<String, Object?>> cs) => onChanged(
+      isNot
+          ? {'kind': 'not', 'child': cs.isEmpty ? emptyLeaf : cs[0]}
+          : {...node, 'children': cs},
+    );
     return Container(
       margin: EdgeInsets.only(left: depth * 12.0),
       padding: const EdgeInsets.all(AidogSpace.ssm),
@@ -113,12 +134,14 @@ class ConditionTreeEditor extends StatelessWidget {
                   'any' => tOr(t, 'middleware.node.any', 'OR (任一满足)'),
                   _ => tOr(t, 'middleware.node.not', 'NOT (取反)'),
                 },
-                onChanged: (v) => onChanged(v == 'not'
-                    ? {
-                        'kind': 'not',
-                        'child': children.isEmpty ? emptyLeaf : children[0],
-                      }
-                    : {'kind': v, 'children': children}),
+                onChanged: (v) => onChanged(
+                  v == 'not'
+                      ? {
+                          'kind': 'not',
+                          'child': children.isEmpty ? emptyLeaf : children[0],
+                        }
+                      : {'kind': v, 'children': children},
+                ),
               ),
               const Spacer(),
               if (!isNot) ...[
@@ -131,7 +154,10 @@ class ConditionTreeEditor extends StatelessWidget {
                   label: '+ ${tOr(t, 'middleware.addGroup', '子组')}',
                   onTap: () => write([
                     ...children,
-                    {'kind': 'any', 'children': [emptyLeaf]},
+                    {
+                      'kind': 'any',
+                      'children': [emptyLeaf],
+                    },
                   ]),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
@@ -154,9 +180,9 @@ class ConditionTreeEditor extends StatelessWidget {
               onRemove: isNot
                   ? null
                   : () => write([
-                        for (var j = 0; j < children.length; j++)
-                          if (j != i) children[j],
-                      ]),
+                      for (var j = 0; j < children.length; j++)
+                        if (j != i) children[j],
+                    ]),
               depth: depth + 1,
             ),
         ],
@@ -201,7 +227,11 @@ class _LeafEditor extends StatelessWidget {
                 maxLines: null,
                 key: const ValueKey('cond-leaf-field'),
                 value: '${node['field'] ?? ''}',
-                hint: tOr(t, 'middleware.fieldHint', '字段（空=整体 / JSON path / header 名）'),
+                hint: tOr(
+                  t,
+                  'middleware.fieldHint',
+                  '字段（空=整体 / JSON path / header 名）',
+                ),
                 onSubmitted: (v) => onChanged({...node, 'field': v}),
               ),
             ),
@@ -226,22 +256,29 @@ class _LeafEditor extends StatelessWidget {
           ),
           if ('${node['match_type']}' == 'regex') ...[
             const SizedBox(width: AidogSpace.sxs),
-            _smallDropdown(
-              context,
-              value: '${node['validator'] ?? ''}'.isEmpty
-                  ? 'none'
-                  : '${node['validator']}',
-              options: ['none', ...kDslValidators],
-              labelOf: (v) => switch (v) {
-                'luhn' => tOr(t, 'middleware.checksum.luhn', 'Luhn (银行卡)'),
-                'iban' => tOr(t, 'middleware.checksum.iban', 'IBAN'),
-                'cn_id' => tOr(t, 'middleware.checksum.cn_id', '中国身份证'),
-                _ => tOr(t, 'middleware.checksum.none', '无校验位'),
-              },
-              onChanged: (v) => onChanged({
-                ...node,
-                'validator': v == 'none' ? '' : v,
-              }),
+            // 「校验位」这一列光看下拉看不出是干嘛的，解释写在悬浮提示里
+            //（`MiddlewareRules.tsx:299` 的 `title=`）。
+            Tooltip(
+              message: tOr(
+                t,
+                'middleware.checksumHint',
+                '正则命中后再跑校验位，校验不过的不算命中',
+              ),
+              child: _smallDropdown(
+                context,
+                value: '${node['validator'] ?? ''}'.isEmpty
+                    ? 'none'
+                    : '${node['validator']}',
+                options: ['none', ...kDslValidators],
+                labelOf: (v) => switch (v) {
+                  'luhn' => tOr(t, 'middleware.checksum.luhn', 'Luhn (银行卡)'),
+                  'iban' => tOr(t, 'middleware.checksum.iban', 'IBAN'),
+                  'cn_id' => tOr(t, 'middleware.checksum.cn_id', '中国身份证'),
+                  _ => tOr(t, 'middleware.checksum.none', '无校验位'),
+                },
+                onChanged: (v) =>
+                    onChanged({...node, 'validator': v == 'none' ? '' : v}),
+              ),
             ),
           ],
           if (onRemove != null) ...[
@@ -258,16 +295,18 @@ class _LeafEditor extends StatelessWidget {
 }
 
 String _targetLabel(I18nController t, String v) => switch (v) {
-      'request_body' => tOr(t, 'middleware.target.request_body', '请求 body'),
-      'request_headers' =>
-        tOr(t, 'middleware.target.request_headers', '请求 header'),
-      'response_body' => tOr(t, 'middleware.target.response_body', '响应 body'),
-      'response_headers' =>
-        tOr(t, 'middleware.target.response_headers', '响应 header'),
-      'status' => tOr(t, 'middleware.target.status', '状态码'),
-      'model' => tOr(t, 'middleware.target.model', '模型'),
-      _ => v,
-    };
+  'request_body' => tOr(t, 'middleware.target.request_body', '请求 body'),
+  'request_headers' => tOr(t, 'middleware.target.request_headers', '请求 header'),
+  'response_body' => tOr(t, 'middleware.target.response_body', '响应 body'),
+  'response_headers' => tOr(
+    t,
+    'middleware.target.response_headers',
+    '响应 header',
+  ),
+  'status' => tOr(t, 'middleware.target.status', '状态码'),
+  'model' => tOr(t, 'middleware.target.model', '模型'),
+  _ => v,
+};
 
 Widget _smallDropdown(
   BuildContext context, {
@@ -346,13 +385,13 @@ class ActionChainEditor extends StatelessWidget {
         ? Map<String, Object?>.from(st['params'] as Map)
         : <String, Object?>{};
     void setStep(Map<String, Object?> next) => onChanged([
-          for (var j = 0; j < steps.length; j++) j == i ? next : steps[j],
-        ]);
+      for (var j = 0; j < steps.length; j++) j == i ? next : steps[j],
+    ]);
     void setParams(Map<String, Object?> p) => setStep({...st, 'params': p});
     Widget row(List<Widget> children) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
-          child: Row(children: children),
-        );
+      padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
+      child: Row(children: children),
+    );
     return Container(
       key: ValueKey('mw-action-$i'),
       margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
@@ -368,14 +407,17 @@ class ActionChainEditor extends StatelessWidget {
         children: [
           Row(
             children: [
-              Text('${i + 1}',
-                  style: AidogType.micro.copyWith(color: theme.c.fg3)),
+              Text(
+                '${i + 1}',
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
               const SizedBox(width: AidogSpace.ssm),
               _smallDropdown(
                 context,
                 value: kind,
                 options: kMwActionKinds,
-                labelOf: (v) => '${_actionLabel(t, v)}'
+                labelOf: (v) =>
+                    '${_actionLabel(t, v)}'
                     '${kMwTerminalKinds.contains(v) ? ' ⏹' : ''}',
                 onChanged: (v) => setStep({...st, 'kind': v}),
               ),
@@ -435,9 +477,12 @@ class ActionChainEditor extends StatelessWidget {
                     child: SmallButton(
                       key: ValueKey('mw-action-$i-field-$f'),
                       label: f,
-                      active: (params['fields'] as List? ?? const []).contains(f),
+                      active: (params['fields'] as List? ?? const []).contains(
+                        f,
+                      ),
                       onTap: () {
-                        final cur = (params['fields'] as List? ?? const []).toList();
+                        final cur = (params['fields'] as List? ?? const [])
+                            .toList();
                         setParams({
                           ...params,
                           'fields': cur.contains(f)
@@ -561,7 +606,9 @@ class ActionChainEditor extends StatelessWidget {
                   hint: 'override status',
                   onSubmitted: (v) => setParams({
                     ...params,
-                    'override_status': v.isEmpty ? null : (int.tryParse(v) ?? 0),
+                    'override_status': v.isEmpty
+                        ? null
+                        : (int.tryParse(v) ?? 0),
                   }),
                 ),
               ),
@@ -588,15 +635,15 @@ class ActionChainEditor extends StatelessWidget {
 }
 
 String _actionLabel(I18nController t, String k) => switch (k) {
-      'mask' => tOr(t, 'middleware.action.mask', '脱敏'),
-      'block' => tOr(t, 'middleware.action.block', '拦截'),
-      'warn' => tOr(t, 'middleware.action.warn', '告警'),
-      'inject' => tOr(t, 'middleware.action.inject', '注入'),
-      'override' => tOr(t, 'middleware.action.override', '改写'),
-      'classify' => tOr(t, 'middleware.action.classify', '分类'),
-      'budget_gate' => tOr(t, 'middleware.action.budgetGate', '预算闸门'),
-      _ => k,
-    };
+  'mask' => tOr(t, 'middleware.action.mask', '脱敏'),
+  'block' => tOr(t, 'middleware.action.block', '拦截'),
+  'warn' => tOr(t, 'middleware.action.warn', '告警'),
+  'inject' => tOr(t, 'middleware.action.inject', '注入'),
+  'override' => tOr(t, 'middleware.action.override', '改写'),
+  'classify' => tOr(t, 'middleware.action.classify', '分类'),
+  'budget_gate' => tOr(t, 'middleware.action.budgetGate', '预算闸门'),
+  _ => k,
+};
 
 // ── 应用范围编辑器 ──────────────────────────────────────
 
@@ -637,33 +684,34 @@ class AppliesToEditor extends StatelessWidget {
       String key,
       String label,
       List<({Object value, String label})> opts,
-    ) =>
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
-            const SizedBox(height: AidogSpace.sxs),
-            if (opts.isEmpty)
-              Text(tOr(t, 'middleware.appliesAll', '全部'),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3))
-            else
-              Wrap(
-                spacing: AidogSpace.sxs,
-                runSpacing: AidogSpace.sxs,
-                children: [
-                  for (final o in opts)
-                    SmallButton(
-                      key: ValueKey('$key-${o.value}'),
-                      label: o.label,
-                      active: (value[key] as List? ?? const []).contains(o.value),
-                      onTap: () => _toggle(key, o.value),
-                    ),
-                ],
-              ),
-            const SizedBox(height: AidogSpace.ssm),
-          ],
-        );
+    ) => Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+        const SizedBox(height: AidogSpace.sxs),
+        if (opts.isEmpty)
+          Text(
+            tOr(t, 'middleware.appliesAll', '全部'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          )
+        else
+          Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              for (final o in opts)
+                SmallButton(
+                  key: ValueKey('$key-${o.value}'),
+                  label: o.label,
+                  active: (value[key] as List? ?? const []).contains(o.value),
+                  onTap: () => _toggle(key, o.value),
+                ),
+            ],
+          ),
+        const SizedBox(height: AidogSpace.ssm),
+      ],
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -671,17 +719,11 @@ class AppliesToEditor extends StatelessWidget {
         chips(
           'platforms',
           tOr(t, 'middleware.appliesPlatforms', '平台（空 = 全部）'),
-          [
-            for (final p in platforms) (value: p.id, label: p.name),
-          ],
+          [for (final p in platforms) (value: p.id, label: p.name)],
         ),
-        chips(
-          'groups',
-          tOr(t, 'middleware.appliesGroups', '分组（空 = 全部）'),
-          [
-            for (final g in groups) (value: g.groupKey, label: g.name),
-          ],
-        ),
+        chips('groups', tOr(t, 'middleware.appliesGroups', '分组（空 = 全部）'), [
+          for (final g in groups) (value: g.groupKey, label: g.name),
+        ]),
         Text(
           tOr(t, 'middleware.appliesModels', '模型（逗号分隔，空 = 全部）'),
           style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -728,8 +770,9 @@ String conditionsSummary(Map<String, Object?> node) {
       _ => '${node['target']}',
     };
     final field = '${node['field'] ?? ''}'.isEmpty ? '' : '.${node['field']}';
-    final checksum =
-        '${node['validator'] ?? ''}'.isEmpty ? '' : ' +${node['validator']}';
+    final checksum = '${node['validator'] ?? ''}'.isEmpty
+        ? ''
+        : ' +${node['validator']}';
     return '$tgt$field ${node['match_type']} /${node['pattern']}/$checksum';
   }
   if (kind == 'not') {
@@ -743,17 +786,17 @@ String conditionsSummary(Map<String, Object?> node) {
 }
 
 /// 动作链摘要：`脱敏 → 拦截`。
-String actionsSummary(I18nController t, List<Object?> steps) => [
-      for (final s in steps.whereType<Map>())
-        _actionLabel(t, '${s['kind']}'),
-    ].join(' → ');
+String actionsSummary(I18nController t, List<Object?> steps) =>
+    [for (final s in steps.whereType<Map>()) _actionLabel(t, '${s['kind']}')]
+        .join(' → ');
 
 /// 是否存在观察模式的 block 动作（列表徽标用）。
 bool hasObserveAction(List<Object?> steps) => steps.whereType<Map>().any(
-      (s) => '${s['kind']}' == 'block' &&
-          s['params'] is Map &&
-          (s['params'] as Map)['observe'] == true,
-    );
+  (s) =>
+      '${s['kind']}' == 'block' &&
+      s['params'] is Map &&
+      (s['params'] as Map)['observe'] == true,
+);
 
 /// 应用范围摘要：`p:1,2 g:dev m:glm-4`。
 String appliesSummary(Map<String, Object?>? at) {

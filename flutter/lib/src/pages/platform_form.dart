@@ -178,38 +178,38 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     // 从列表切到表单是整页替换，没有过渡会「啪」地换掉一屏。
     return Reveal(
       child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _header(t),
-        const SizedBox(height: AidogSpace.smd),
-        _basicSection(t),
-        if (c.isMock) _mockSection(t),
-        if (!c.isMock && !c.isPassthrough) _quotaScriptSection(t),
-        if (c.protocol == 'devin') _devinSection(t),
-        if (c.isPassthrough) _passthroughSection(t),
-        if (!c.isMock && !c.isPassthrough) ...[
-          _endpointsSection(t),
-          _authSection(t),
-          if (c.isBatch && !c.keyOptional) _multiKeyPreview(t),
-          _modelsMatrixSection(t),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _header(t),
+          const SizedBox(height: AidogSpace.smd),
+          _basicSection(t),
+          if (c.isMock) _mockSection(t),
+          if (!c.isMock && !c.isPassthrough) _quotaScriptSection(t),
+          if (c.protocol == 'devin') _devinSection(t),
+          if (c.isPassthrough) _passthroughSection(t),
+          if (!c.isMock && !c.isPassthrough) ...[
+            _endpointsSection(t),
+            _authSection(t),
+            if (c.isBatch && !c.keyOptional) _multiKeyPreview(t),
+            _modelsMatrixSection(t),
+          ],
+          if (!c.isPassthrough) _manualBudgetsSection(t),
+          if (c.editing != null && !c.isPassthrough) _breakerSection(t),
+          if (c.editing != null && !c.isPassthrough) _peakSection(t),
+          if (!c.isPassthrough) _groupAssignSection(t),
+          _expirySection(t),
+          if (c.saveError.isNotEmpty) ToastBar(text: c.saveError, ok: false),
+          // 智能识别弹窗（票 20）。浮层由 AidogModal 画，所以挂在树里哪一层都行。
+          if (_showPaste)
+            SmartPasteModal(
+              presets: c.list.protocolMeta.pastePresets,
+              protocolLabels: c.protocolLabelMap,
+              invoke: c.invoke,
+              onApply: c.applyPaste,
+              onClose: () => setState(() => _showPaste = false),
+            ),
         ],
-        if (!c.isPassthrough) _manualBudgetsSection(t),
-        if (c.editing != null && !c.isPassthrough) _breakerSection(t),
-        if (c.editing != null && !c.isPassthrough) _peakSection(t),
-        if (!c.isPassthrough) _groupAssignSection(t),
-        _expirySection(t),
-        if (c.saveError.isNotEmpty) ToastBar(text: c.saveError, ok: false),
-        // 智能识别弹窗（票 20）。浮层由 AidogModal 画，所以挂在树里哪一层都行。
-        if (_showPaste)
-          SmartPasteModal(
-            presets: c.list.protocolMeta.pastePresets,
-            protocolLabels: c.protocolLabelMap,
-            invoke: c.invoke,
-            onApply: c.applyPaste,
-            onClose: () => setState(() => _showPaste = false),
-          ),
-      ],
       ),
     );
   }
@@ -750,16 +750,21 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                   ),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
-                FormDropdown(
-                  width: 140,
-                  value: c.endpoints[i].clientType.isEmpty
-                      ? 'default'
-                      : c.endpoints[i].clientType,
-                  options: ctValues,
-                  labelOf: ctLabel,
-                  onChanged: locked
-                      ? null
-                      : (v) => c.setEndpointClientType(i, v),
+                // 下拉本身没有标签，「这一列是干嘛的」只写在悬浮提示里
+                //（`formSectionsEndpoints.tsx:109` 的 `title=`）。
+                Tooltip(
+                  message: t.t('platform.clientType'),
+                  child: FormDropdown(
+                    width: 140,
+                    value: c.endpoints[i].clientType.isEmpty
+                        ? 'default'
+                        : c.endpoints[i].clientType,
+                    options: ctValues,
+                    labelOf: ctLabel,
+                    onChanged: locked
+                        ? null
+                        : (v) => c.setEndpointClientType(i, v),
+                  ),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 // Coding Plan 开关。开启时绿色，因为绿 = 走 coding 套餐
@@ -804,89 +809,89 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     // 这张卡是粘了多把 key 之后凭空出现的，直接闪出来容易被当成误操作。
     return Reveal(
       child: Container(
-      margin: const EdgeInsets.only(bottom: AidogSpace.smd),
-      padding: const EdgeInsets.all(AidogSpace.smd),
-      decoration: BoxDecoration(
-        color: theme.c.surface2,
-        border: Border.all(color: theme.c.accent),
-        borderRadius: BorderRadius.circular(AidogRadius.md),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-        Text(
-          t.t('platform.batch.previewTitle', {'count': keys.length}),
-          style: AidogType.label.copyWith(
-            color: theme.c.fg,
-            fontWeight: FontWeight.w600,
-          ),
+        margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+        padding: const EdgeInsets.all(AidogSpace.smd),
+        decoration: BoxDecoration(
+          color: theme.c.surface2,
+          border: Border.all(color: theme.c.accent),
+          borderRadius: BorderRadius.circular(AidogRadius.md),
         ),
-        const SizedBox(height: 2),
-        Text(
-          t.t('platform.batch.previewHint', {'base': '{base}'}),
-          style: AidogType.caption.copyWith(color: theme.c.fg3),
-        ),
-        const SizedBox(height: AidogSpace.ssm),
-        for (var i = 0; i < keys.length; i++)
-          Container(
-            margin: const EdgeInsets.only(bottom: 4),
-            padding: const EdgeInsets.symmetric(
-              horizontal: AidogSpace.ssm,
-              vertical: 6,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.t('platform.batch.previewTitle', {'count': keys.length}),
+              style: AidogType.label.copyWith(
+                color: theme.c.fg,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            decoration: BoxDecoration(
-              color: theme.c.bg,
-              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            const SizedBox(height: 2),
+            Text(
+              t.t('platform.batch.previewHint', {'base': '{base}'}),
+              style: AidogType.caption.copyWith(color: theme.c.fg3),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 28,
-                  child: Text(
-                    '#${i + 1}',
-                    style: AidogType.caption.copyWith(color: theme.c.fg3),
-                  ),
+            const SizedBox(height: AidogSpace.ssm),
+            for (var i = 0; i < keys.length; i++)
+              Container(
+                margin: const EdgeInsets.only(bottom: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AidogSpace.ssm,
+                  vertical: 6,
                 ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    i < names.length ? names[i] : '',
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.label.copyWith(color: theme.c.fg),
-                  ),
+                decoration: BoxDecoration(
+                  color: theme.c.bg,
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
                 ),
-                Expanded(
-                  flex: 2,
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: MiniBadge(
-                      text: c.protocol.toUpperCase(),
-                      color: theme.c.fg2,
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 28,
+                      child: Text(
+                        '#${i + 1}',
+                        style: AidogType.caption.copyWith(color: theme.c.fg3),
+                      ),
                     ),
-                  ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        i < names.length ? names[i] : '',
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.label.copyWith(color: theme.c.fg),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: MiniBadge(
+                          text: c.protocol.toUpperCase(),
+                          color: theme.c.fg2,
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 3,
+                      child: Text(
+                        baseUrl.isEmpty ? '—' : baseUrl,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.caption.copyWith(color: theme.c.fg2),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Text(
+                        maskTail(keys[i]),
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                      ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    baseUrl.isEmpty ? '—' : baseUrl,
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.caption.copyWith(color: theme.c.fg2),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Text(
-                    maskTail(keys[i]),
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.numSm.copyWith(color: theme.c.fg3),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -1006,13 +1011,18 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // 三颗按钮只有符号没有文字，解释全靠悬浮提示
+                              //（React `ModelsMatrixSection.tsx:364/374/384`
+                              // 的 `title=`）。
                               SmallButton(
                                 label: '↑',
+                                tooltip: t.t('action.moveUp'),
                                 onTap: ri == 0 ? null : () => _moveRule(ri, -1),
                               ),
                               const SizedBox(width: 2),
                               SmallButton(
                                 label: '↓',
+                                tooltip: t.t('action.moveDown'),
                                 onTap: ri == rules.length - 1
                                     ? null
                                     : () => _moveRule(ri, 1),
@@ -1021,6 +1031,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                               SmallButton(
                                 label: '×',
                                 danger: true,
+                                tooltip: t.t('action.delete'),
                                 onTap: () => _removeRule(ri),
                               ),
                             ],
