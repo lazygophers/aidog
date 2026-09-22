@@ -1001,6 +1001,48 @@ class GroupsController {
     await reorderPlatformsInGroup(gid, [for (final gp in gps) gp.platform.id]);
   }
 
+  /// 组内拖放的插入位提示（`usePlatformDrag.ts:31` 的 `dropIndicator`）：
+  /// 哪个组、插在第几位。null = 当前没有拖拽在进行。
+  ({int gid, int idx})? platDropIndicator;
+
+  void setPlatDropIndicator(({int gid, int idx})? next) {
+    if (next == platDropIndicator) return;
+    platDropIndicator = next;
+    _notify();
+  }
+
+  /// 把 [pid] 放进 [gid] 的第 [idx] 位（`usePlatformDrag.ts:71-99::commitPlatDrop`）。
+  /// 已经在本组 → 组内重排；不在 → 跨组移动。
+  Future<void> dropPlatformAt(int pid, int gid, int idx) async {
+    setPlatDropIndicator(null);
+    GroupDetail? detail;
+    for (final d in details) {
+      if (d.group.id == gid) detail = d;
+    }
+    if (detail == null) return;
+    final ids = [for (final gp in detail.platforms) gp.platform.id];
+    final from = ids.indexOf(pid);
+    if (from < 0) {
+      // 跨组（或从未分组区）：先落进这个组，再按目标位次排一次。
+      await movePlatform(pid, 0, gid);
+      for (final d in details) {
+        if (d.group.id != gid) continue;
+        final now = [for (final gp in d.platforms) gp.platform.id];
+        if (!now.contains(pid)) return;
+        now.remove(pid);
+        now.insert(idx.clamp(0, now.length), pid);
+        await reorderPlatformsInGroup(gid, now);
+      }
+      await silentReload();
+      return;
+    }
+    // 组内：摘掉自己之后目标位次左移一格（`usePlatformDrag.ts:78`）。
+    var target = idx;
+    if (from < idx) target = idx - 1;
+    if (target == from) return;
+    await movePlatformWithinGroup(gid, from, target);
+  }
+
   /// 组内平台排序（`usePlatformDrag.ts:87`）。
   Future<void> reorderPlatformsInGroup(int gid, List<int> orderedIds) async {
     try {

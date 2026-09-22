@@ -848,6 +848,10 @@ class _GroupCard extends StatelessWidget {
                     selecting: selecting,
                     buildPlatformCard: buildPlatformCard,
                   ),
+              // 末位插入线（`GroupListItem.tsx:470-472`）：拖到最后一张下面时画在这儿。
+              if (c.platDropIndicator?.gid == g.id &&
+                  c.platDropIndicator?.idx == detail.platforms.length)
+                const _DropLine(),
             _MappingsSection(controller: c, detail: detail),
           ],
         ],
@@ -1028,7 +1032,8 @@ class _PlatformRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = controller;
     final pid = gp.platform.id;
-    return Padding(
+    final t = AidogI18n.of(context);
+    final row = Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1041,6 +1046,30 @@ class _PlatformRow extends StatelessWidget {
               child: Checkbox(
                 value: c.selectedIdsOf(group.id).contains(pid),
                 onChanged: (_) => c.toggleSelected(group.id, pid),
+              ),
+            )
+          else
+            // 组内拖拽把手（`GroupListItem.tsx:437-444`）。
+            // 与分组卡自己的排序把手是**两个不同的节点**，所以两套拖拽不打架 ——
+            // React 的 `usePlatformDrag.ts` 抬头写的就是这件事。
+            Padding(
+              padding: const EdgeInsets.only(right: AidogSpace.sxs, top: 6),
+              child: Draggable<int>(
+                data: pid,
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                feedback: _GroupDragLabel(name: gp.platform.name),
+                onDragEnd: (_) => c.setPlatDropIndicator(null),
+                child: Tooltip(
+                  message: t.t('group.dragPlatform'),
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: Icon(
+                      Icons.drag_indicator,
+                      size: 14,
+                      color: AidogTheme.of(context).c.fg3,
+                    ),
+                  ),
+                ),
               ),
             ),
           Expanded(child: buildPlatformCard(gp.platform, index)),
@@ -1057,7 +1086,64 @@ class _PlatformRow extends StatelessWidget {
         ],
       ),
     );
+    // 每一行自己就是一个落点：指针落在上半 → 插在我前面，下半 → 插在我后面
+    //（`usePlatformDrag.ts:43-50::computeDropIdx` 的 `clientY < top + height/2`）。
+    return DragTarget<int>(
+      // 拖自己也接：落在别的位次上就是组内重排。
+      onWillAcceptWithDetails: (_) => true,
+      onMove: (d) {
+        final box = context.findRenderObject() as RenderBox?;
+        if (box == null || !box.hasSize) return;
+        final localY = box.globalToLocal(d.offset).dy;
+        c.setPlatDropIndicator((
+          gid: group.id,
+          idx: localY < box.size.height / 2 ? index : index + 1,
+        ));
+      },
+      onLeave: (_) {
+        final ind = c.platDropIndicator;
+        if (ind != null &&
+            ind.gid == group.id &&
+            (ind.idx == index || ind.idx == index + 1)) {
+          c.setPlatDropIndicator(null);
+        }
+      },
+      onAcceptWithDetails: (d) {
+        final ind = c.platDropIndicator;
+        final idx = (ind != null && ind.gid == group.id) ? ind.idx : index;
+        unawaited(c.dropPlatformAt(d.data, group.id, idx));
+      },
+      builder: (context, candidate, _) => Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 插入线画在被指向的那一行上方（`GroupListItem.tsx:419-421`）。
+          if (c.platDropIndicator?.gid == group.id &&
+              c.platDropIndicator?.idx == index)
+            const _DropLine(),
+          row,
+        ],
+      ),
+    );
   }
+}
+
+/// 拖放插入位的 2px accent 线（`GroupListItem.tsx:419-421`）。
+class _DropLine extends StatelessWidget {
+  const _DropLine();
+
+  @override
+  Widget build(BuildContext context) => Opacity(
+    opacity: 0.7,
+    child: Container(
+      height: 2,
+      margin: const EdgeInsets.symmetric(vertical: 1),
+      decoration: BoxDecoration(
+        color: AidogTheme.of(context).c.accent,
+        borderRadius: BorderRadius.circular(1),
+      ),
+    ),
+  );
 }
 
 /// 「这个平台在这个分组里」的那几个控件：上下移 / 优先级 / 移组 / 移除。
@@ -1096,8 +1182,8 @@ class _GroupPlatformControls extends StatelessWidget {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (!selecting) ...[
-            // 组内位次（= 路由优先级顺序）。React 那边是拖拽把手，这里用上下移：
-            // 分组卡本身已经在一个 ReorderableListView 里，卡内再套一个会抢手势。
+            // 组内位次（= 路由优先级顺序）。拖拽把手在行首（见 `_PlatformRow`），
+            // 这两颗**是键盘可达的那条路**，不因为有了拖拽就删。
             IconButton(
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
