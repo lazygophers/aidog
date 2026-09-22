@@ -620,6 +620,16 @@ void main() {
       await settle(tester);
       expect(find.text(c.t('group.batchDeleteTitle')), findsOneWidget);
       expect(k.commands.contains('batch_delete_platforms'), isFalse);
+      // 不可逆操作，确认前必须列出**全部**待删平台（React `BatchDeleteModal.tsx:90-128`）。
+      // 原先只列跨组的那几个，删几个、删哪几个在确认前根本看不到。
+      expect(find.byKey(const ValueKey('batch-affected-list')), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('batch-affected-list')),
+          matching: find.text('P1'),
+        ),
+        findsOneWidget,
+      );
 
       await tester.tap(
         find.textContaining(c.t('group.batchDeleteConfirm', {'count': '1'})),
@@ -643,6 +653,21 @@ void main() {
       await settle(tester);
       // 选中平台覆盖了本组全部 enabled 候选 → 要出无候选警告。
       expect(find.text(c.t('group.batchSetStatusNoCandidateWarning')), findsOneWidget);
+      // 待改平台清单 + 各自当前状态徽标（React `BatchSetStatusModal.tsx:110-140`）。
+      final list = find.byKey(const ValueKey('batch-affected-list'));
+      expect(list, findsOneWidget);
+      expect(
+        find.descendant(of: list, matching: find.text('P1')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: list,
+          matching: find.text(c.t('platform.statusEnabled')),
+        ),
+        findsOneWidget,
+        reason: 'P1 当前是启用态，改状态前要看得出来',
+      );
 
       await tester.tap(
         find.textContaining(c.t('group.batchSetStatusConfirm', {'count': '1'})),

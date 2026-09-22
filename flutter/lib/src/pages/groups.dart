@@ -20,6 +20,7 @@ import '../shell/tiles.dart';
 import 'groups_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_defaults.dart' show kModelSlots;
 import 'ui_bits.dart';
 
@@ -263,10 +264,19 @@ class _GroupListView extends StatelessWidget {
                     {'count': '${c.batchDeleteTarget!.platforms.length}'},
                   ),
             busy: c.batchDeleteBusy,
-            extra: c.batchDeleteTarget!.hasCrossGroup
-                // 跨组警告：删掉就是从所有组里消失，不只是本组。
-                ? _CrossGroupWarning(target: c.batchDeleteTarget!)
-                : null,
+            // React 先列**全部**待删平台，再单独警告其中跨组的那几个
+            // （`BatchDeleteModal.tsx:90-128`）。原先这里只列跨组的，
+            // 于是「一共要删几个、删的是哪几个」在确认前看不到。
+            extra: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (c.batchDeleteTarget!.hasCrossGroup)
+                  // 跨组警告：删掉就是从所有组里消失，不只是本组。
+                  _CrossGroupWarning(target: c.batchDeleteTarget!),
+                BatchAffectedList(platforms: c.batchDeleteTarget!.platforms),
+              ],
+            ),
             onCancel: c.cancelBatchDelete,
             onConfirm: () {
               final ids = [for (final p in c.batchDeleteTarget!.platforms) p.id];
@@ -1348,6 +1358,8 @@ class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
                 style: AidogType.micro.copyWith(color: theme.c.bad),
               ),
             ),
+          // 要改的是哪些平台、它们现在各是什么状态（`BatchSetStatusModal.tsx:110-140`）。
+          BatchAffectedList(platforms: target.platforms, statusBadge: true),
         ],
       ),
     );
@@ -1437,6 +1449,8 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
                 style: AidogType.micro.copyWith(color: theme.c.bad),
               ),
             ),
+          // 要移的是哪些平台（`BatchMoveGroupModal.tsx:138-157`）。
+          BatchAffectedList(platforms: target.platforms),
           const SizedBox(height: AidogSpace.sxs),
           Wrap(
             spacing: AidogSpace.sxs,
@@ -2242,4 +2256,90 @@ String routingDesc(I18nController t, String mode) {
   if (e == null) return '';
   final s = t.t(e.$1);
   return s == e.$1 ? e.$2 : s;
+}
+
+/// 批量操作弹窗里的「要动哪些平台」清单。
+///
+/// 三个批量弹窗（改状态 / 移组 / 删除）确认前都得先让人看见影响范围 ——
+/// 这是不可逆操作，不是观感。React 三处各写了一遍同样的滚动清单
+/// （`BatchSetStatusModal.tsx:110-140` / `BatchMoveGroupModal.tsx:138-157` /
+/// `BatchDeleteModal.tsx:90-128`），这里合成一个。
+///
+/// [statusBadge] = true 时每行前面带该平台的当前状态徽标（只有改状态那个弹窗要，
+/// 因为「把已经禁用的再禁用一遍」需要看得出来）。
+class BatchAffectedList extends StatelessWidget {
+  const BatchAffectedList({
+    super.key,
+    required this.platforms,
+    this.statusBadge = false,
+    this.maxHeight = 220,
+  });
+
+  final List<PlatformRow> platforms;
+  final bool statusBadge;
+
+  /// React 用的是 `32vh` / `28vh`，这里取一个固定值：弹窗本身已经能整体滚动
+  /// （`AidogModal` 里套了 `SingleChildScrollView`），清单再按视口比例算会嵌套两层滚动。
+  final double maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    if (platforms.isEmpty) return const SizedBox.shrink();
+    return Container(
+      key: const ValueKey('batch-affected-list'),
+      constraints: BoxConstraints(maxHeight: maxHeight),
+      margin: const EdgeInsets.only(top: AidogSpace.ssm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.ssm,
+        vertical: AidogSpace.sxs,
+      ),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: platforms.length,
+        itemBuilder: (context, i) {
+          final p = platforms[i];
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 3),
+            child: Row(
+              children: [
+                if (statusBadge) ...[
+                  MiniBadge(
+                    text: switch (p.status) {
+                      'enabled' => t.t('platform.statusEnabled'),
+                      'auto_disabled' => t.t('platform.statusAutoDisabled'),
+                      _ => t.t('platform.statusDisabled'),
+                    },
+                    color: switch (p.status) {
+                      'enabled' => theme.c.ok,
+                      'auto_disabled' => theme.c.peak,
+                      _ => theme.c.fg3,
+                    },
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                ] else ...[
+                  Icon(Icons.arrow_forward, size: 12, color: theme.c.fg3),
+                  const SizedBox(width: AidogSpace.sxs),
+                ],
+                Expanded(
+                  child: Text(
+                    p.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidogType.micro.copyWith(color: theme.c.fg),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
 }
