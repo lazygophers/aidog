@@ -64,30 +64,41 @@ class SmallButton extends StatelessWidget {
         ? theme.c.fg3
         : theme.c.fg2;
     final radius = BorderRadius.circular(pill ? 999 : AidogRadius.sm);
-    return InkWell(
-      onTap: onTap,
-      borderRadius: radius,
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          horizontal: pill ? 12 : 10,
-          vertical: pill ? 4 : 5,
+    final bg = active
+        ? (activeTone?.withValues(alpha: 0.08) ?? theme.c.accentWash)
+        : Colors.transparent;
+    final borderColor = ghost
+        ? Colors.transparent
+        : active && activeTone != null
+        ? activeTone!.withValues(alpha: 0.25)
+        : pill && active
+        ? theme.c.accent
+        : theme.c.line;
+    // 底色与描边交给 `Material` 自己插值（它的 `animationDuration` 管 color /
+    // shape），水波画在同一张 `Material` 上 —— 这样「有过渡」和「有水波」能同时成立。
+    //
+    // 🔴 别改回 `Container` / `AnimatedContainer` 包一层：`InkWell` 的水波画在
+    // 祖先 Material 上，外面再盖一层不透明底色就把它整个遮住了 —— 那正是之前
+    // 「按钮没有水波」的原因，不是没挂 InkWell。
+    return Material(
+      color: bg,
+      animationDuration: pill
+          ? const Duration(milliseconds: 200)
+          : Duration.zero,
+      shape: RoundedRectangleBorder(
+        side: BorderSide(color: borderColor),
+        borderRadius: radius,
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: EdgeInsets.symmetric(
+            horizontal: pill ? 12 : 10,
+            vertical: pill ? 4 : 5,
+          ),
+          child: Text(label, style: AidogType.micro.copyWith(color: fg)),
         ),
-        decoration: BoxDecoration(
-          color: active
-              ? (activeTone?.withValues(alpha: 0.08) ?? theme.c.accentWash)
-              : null,
-          border: ghost
-              ? null
-              : Border.all(
-                  color: active && activeTone != null
-                      ? activeTone!.withValues(alpha: 0.25)
-                      : pill && active
-                      ? theme.c.accent
-                      : theme.c.line,
-                ),
-          borderRadius: radius,
-        ),
-        child: Text(label, style: AidogType.micro.copyWith(color: fg)),
       ),
     );
   }
@@ -697,4 +708,38 @@ class _HoverLiftState extends State<HoverLift> {
       ),
     );
   }
+}
+
+/// 虚线圆角框。Flutter 没有 `border-style: dashed`，自己描一圈。
+class DashedBorder extends CustomPainter {
+  const DashedBorder({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    const dash = 6.0;
+    const gap = 4.0;
+    for (final metric in (Path()..addRRect(rect)).computeMetrics()) {
+      var at = 0.0;
+      while (at < metric.length) {
+        final end = (at + dash).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(at, end), paint);
+        at = end + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(DashedBorder old) =>
+      old.color != color || old.radius != radius;
 }

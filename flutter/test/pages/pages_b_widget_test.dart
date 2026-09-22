@@ -972,9 +972,10 @@ void main() {
       await settle(tester);
       await tester.tap(find.byTooltip(c.t('action.edit')).first);
       await settle(tester);
+      // 字段现在是「标签左、输入右」的两列，所以从标签往上找那一行。
       final field = find.ancestor(
         of: find.text(c.t('group.maxRetries')),
-        matching: find.byType(Column),
+        matching: find.byType(Row),
       );
       await tester.enterText(
         find.descendant(of: field.first, matching: find.byType(TextField)),

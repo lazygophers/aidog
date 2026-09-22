@@ -240,9 +240,13 @@ class _GroupListView extends StatelessWidget {
             buildDefaultDragHandles: false,
             // 拖起来的那一份画在 Overlay 里，够不着 AidogI18n / 主题的 InheritedWidget
             // （整张卡在那儿重建会直接断言失败），所以只画一个名字标签。
-            proxyDecorator: (child, i, animation) => _GroupDragLabel(
-              name: rows[i.clamp(0, rows.length - 1)].group.name,
-            ),
+            // 拖起整张分组卡（`GroupListView.tsx:203-205` 的 SortableList）。
+            // 老注释说 Overlay 里够不着 `AidogI18n` / 主题 —— 那是测试骨架把
+            // `AidogI18n` 套在 `MaterialApp.home` 里造成的假象；真机是
+            // `runApp(AidogI18n(child: AidogApp()))`（`main.dart:32`），
+            // 祖先在 Navigator 之上，Overlay 够得着。骨架已经改成同一层级。
+            proxyDecorator: (child, i, animation) =>
+                Material(color: Colors.transparent, child: child),
             itemCount: rows.length,
             onReorderItem: (o, n) {
               // 搜索态下顺序是过滤后的子集，拖了会把没显示的组一起重排 —— 不接受。
@@ -256,6 +260,10 @@ class _GroupListView extends StatelessWidget {
               return Padding(
                 key: ValueKey(d.group.id),
                 padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                // 逐卡错峰淡入 + 悬停抬升（React 列表行的既定约定：`index * 60`）。
+                child: Reveal(
+                  delayMs: i * 60,
+                  child: HoverLift(
                 child: _GroupCard(
                   controller: c,
                   detail: d,
@@ -272,6 +280,8 @@ class _GroupListView extends StatelessWidget {
                   onNavigate: onNavigate,
                   copyText: copyText,
                   buildPlatformCard: buildPlatformCard,
+                ),
+                  ),
                 ),
               );
             },
@@ -444,7 +454,16 @@ class _UnmatchedBucketCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Tile(
+    // 虚线边框 + 0.85 透明度（`GroupListView.tsx:446-449`）：
+    // 它不是真分组（MITM fallback 直通的统计桶），长得和真分组卡一样会让人去点编辑。
+    return Opacity(
+      opacity: 0.85,
+      child: CustomPaint(
+        painter: DashedBorder(
+          color: AidogTheme.of(context).c.line,
+          radius: AidogRadius.md,
+        ),
+        child: Tile(
       title: t.t('group.unmatched'),
       meta: t.t('group.unmatchedBadge'),
       child: Column(
@@ -461,6 +480,8 @@ class _UnmatchedBucketCard extends StatelessWidget {
             style: AidogType.micro.copyWith(color: theme.c.fg2),
           ),
         ],
+      ),
+        ),
       ),
     );
   }
@@ -2178,7 +2199,10 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
     final hasReserved = e.envVars.any((ev) => kReservedEnvKeys.contains(ev.key));
     return Tile(
       title: t.t('group.edit'),
-      meta: g.groupKey,
+      // 副标题是 `#<id>`（`GroupEditPanel.tsx:61`）。
+      // 🔴 这里**不印 group_key**：它就是这个分组的 API Key，
+      // 印在标题栏上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
+      meta: '#${g.id}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -2324,11 +2348,15 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           _NumField(
             label: t.t('group.reqTimeout'),
             value: e.reqTimeout,
+            blankWhenZero: true,
+            hint: t.t('group.reqTimeout'),
             onChanged: (v) => c.patchEdit(e.patch(reqTimeout: v)),
           ),
           _NumField(
             label: t.t('group.connTimeout'),
             value: e.connTimeout,
+            blankWhenZero: true,
+            hint: t.t('group.connTimeout'),
             onChanged: (v) => c.patchEdit(e.patch(connTimeout: v)),
           ),
           Text(
@@ -2647,28 +2675,40 @@ class _FieldState extends State<_Field> {
     super.dispose();
   }
 
+  Widget _input(AidogTheme theme) => TextField(
+    controller: _ctrl,
+    style: AidogType.micro.copyWith(color: theme.c.fg),
+    decoration: InputDecoration(
+      isDense: true,
+      hintText: widget.hint,
+      hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+    ),
+    onChanged: widget.onChanged,
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (widget.label != null) TileMeta(widget.label!),
-          TextField(
-            controller: _ctrl,
-            style: AidogType.micro.copyWith(color: theme.c.fg),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: widget.hint,
-              hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+      // 有标签时走两列：标签左、输入右（`GroupEditPanel.tsx:76` 起各字段的
+      // `grid-template-columns: auto 1fr`）。原先标签在上输入在下，同样的表单高一倍。
+      child: widget.label == null
+          ? _input(theme)
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 96,
+                  child: Text(
+                    widget.label!,
+                    style: AidogType.micro.copyWith(color: theme.c.fg2),
+                  ),
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+                Expanded(child: _input(theme)),
+              ],
             ),
-            onChanged: widget.onChanged,
-          ),
-        ],
-      ),
     );
   }
 }
@@ -2679,6 +2719,8 @@ class _NumField extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.max,
+    this.blankWhenZero = false,
+    this.hint,
   });
 
   final String label;
@@ -2688,10 +2730,17 @@ class _NumField extends StatelessWidget {
   /// 上限（对齐 React 那边 `<Input type="number" max=...>`）。null = 不封顶。
   final int? max;
 
+  /// 0 显示成空 + placeholder（`GroupEditPanel.tsx:131-136` 的
+  /// `value={editReqTimeout || ""}`）。超时那两个格子「0」的意思是「系统默认」，
+  /// 印个 `0` 在那儿会被当成「我设成了 0 秒」。
+  final bool blankWhenZero;
+  final String? hint;
+
   @override
   Widget build(BuildContext context) => _Field(
     label: label,
-    value: '$value',
+    hint: hint,
+    value: blankWhenZero && value == 0 ? '' : '$value',
     // 非数字 / 空 → 0，与 React 那边 `Number(v) || 0` 同语义。
     onChanged: (v) {
       var n = int.tryParse(v.trim()) ?? 0;

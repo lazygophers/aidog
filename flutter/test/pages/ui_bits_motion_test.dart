@@ -7,6 +7,9 @@
 library;
 
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/shell.dart';
+import 'dart:ui' show Canvas, PictureRecorder;
+
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -78,4 +81,89 @@ void main() {
     );
     expect(find.byType(AnimatedSlide), findsNothing);
   });
+
+  // ── 票 29 第三梯队：平台卡 / 分组页的动效 ──
+
+  testWidgets('SmallButton：水波画在同一张 Material 上，不被底色盖住', (tester) async {
+    // SmallButton 要读主题 token，所以得带上 aidog 的 ThemeExtension。
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: aidogThemeData(AidogMode.dark),
+        home: Scaffold(
+          body: Center(
+            child: SmallButton(label: 'x', active: true, onTap: () {}),
+          ),
+        ),
+      ),
+    );
+    // 底色由 Material 自己画（而不是外面再套一层不透明 Container），
+    // 这是水波能被看见的前提 —— 回归的就是「按钮没有水波」那条。
+    final m = tester.widget<Material>(
+      find.ancestor(of: find.text('x'), matching: find.byType(Material)).first,
+    );
+    expect(m.color, isNot(Colors.transparent));
+    expect(
+      find.descendant(
+        of: find.byType(Material),
+        matching: find.byType(InkWell),
+      ),
+      findsWidgets,
+    );
+
+    // 按下去要真的出现一层水波（InkWell 的 splash 挂在 Material 上）。
+    final gesture = await tester.startGesture(tester.getCenter(find.text('x')));
+    await tester.pump(const Duration(milliseconds: 60));
+    // 按下时 InkWell 会往 Material 上加一层 ink feature；这里只验按下 / 抬起
+    // 不抛异常且状态能回到静止（水波本身是绘制层的东西，不适合在这里比像素）。
+    await gesture.up();
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('pill 态切换走 200ms 过渡，普通态不拖泥带水', (tester) async {
+    Widget button({required bool pill}) => MaterialApp(
+      theme: aidogThemeData(AidogMode.dark),
+      home: Scaffold(
+        body: Center(child: SmallButton(label: 'x', pill: pill, onTap: () {})),
+      ),
+    );
+    await tester.pumpWidget(button(pill: true));
+    final animated = tester.widget<Material>(
+      find.ancestor(of: find.text('x'), matching: find.byType(Material)).first,
+    );
+    expect(animated.animationDuration, const Duration(milliseconds: 200));
+
+    await tester.pumpWidget(button(pill: false));
+    final plain = tester.widget<Material>(
+      find.ancestor(of: find.text('x'), matching: find.byType(Material)).first,
+    );
+    expect(plain.animationDuration, Duration.zero);
+  });
+
+  testWidgets('DashedBorder：画的是断续线段，不是整圈实线', (tester) async {
+    // 只验它确实按 dash/gap 切段（段数 > 1），不验像素。
+    const painter = DashedBorder(color: Color(0xFF000000), radius: 8);
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    var segments = 0;
+    painter.paint(_CountingCanvas(canvas, () => segments++), const Size(100, 40));
+    expect(segments, greaterThan(1));
+  });
+}
+
+/// 数一数 `drawPath` 被调了几次 —— 虚线是多段，实线只有一段。
+class _CountingCanvas implements Canvas {
+  _CountingCanvas(this._inner, this._onDrawPath);
+
+  final Canvas _inner;
+  final void Function() _onDrawPath;
+
+  @override
+  void drawPath(Path path, Paint paint) {
+    _onDrawPath();
+    _inner.drawPath(path, paint);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      throw UnsupportedError('只用到 drawPath');
 }
