@@ -28,6 +28,8 @@ class SharePanel extends StatefulWidget {
     required this.onToast,
     required this.onClose,
     this.urlScheme,
+    this.titleKey = 'platform.share.title',
+    this.warningKey = 'platform.share.warning',
     this.copy = native.writeText,
   });
 
@@ -41,6 +43,11 @@ class SharePanel extends StatefulWidget {
 
   /// 给了就多一个 URL 格式（深链 `aidog://platform/import?data=<base64>`）并默认选中。
   final String? urlScheme;
+
+  /// 标题 / 警示语的文案 key。平台以外的调用点各自传自己的
+  /// （`ShareModal.tsx:36,38`：mcp 传 `mcp.share.*`，skill 传 `skills.share.*`）。
+  final String titleKey;
+  final String warningKey;
 
   /// 写剪贴板。测试注入假实现（真写会动用户的剪贴板）。
   final Future<void> Function(String text) copy;
@@ -104,7 +111,7 @@ class _SharePanelState extends State<SharePanel> {
       maxWidth: 560,
       onBarrierTap: widget.onClose,
       child: Tile(
-        title: '${t.t('platform.share.title')} · ${widget.title}',
+        title: '${t.t(widget.titleKey)} · ${widget.title}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -120,7 +127,7 @@ class _SharePanelState extends State<SharePanel> {
                 borderRadius: BorderRadius.circular(AidogRadius.sm),
               ),
               child: Text(
-                t.t('platform.share.warning'),
+                t.t(widget.warningKey),
                 style: AidogType.caption.copyWith(color: theme.c.bad),
               ),
             ),

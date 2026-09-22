@@ -2305,6 +2305,47 @@ void main() {
       await settle(tester);
       expect(find.byTooltip(c.t('platform.dragReorder')), findsNWidgets(2));
     });
+
+    testWidgets('拖起来：那张换成虚线 ghost，其余压到 0.4', (tester) async {
+      await useBigSurface(tester);
+      final k = cardFake(platforms: [platRow(1, 'a'), platRow(2, 'b')]);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text('a'), findsOneWidget);
+
+      // 按住第一张的手柄拖一段，停在半途（不松手）。
+      final handle = find.byTooltip(c.t('platform.dragReorder')).first;
+      final drag = await tester.startGesture(tester.getCenter(handle));
+      await tester.pump(kLongPressTimeout);
+      await drag.moveBy(const Offset(0, 60));
+      await tester.pump();
+
+      // 其余卡压暗：0.4 这个值直接来自 React。
+      final dimmed = tester
+          .widgetList<Opacity>(find.byType(Opacity))
+          .where((w) => w.opacity == 0.4);
+      expect(dimmed, isNotEmpty, reason: '拖拽时其余卡要压暗');
+
+      await drag.up();
+      await settle(tester);
+      // 松手后一切复原。
+      expect(
+        tester
+            .widgetList<Opacity>(find.byType(Opacity))
+            .where((w) => w.opacity == 0.4),
+        isEmpty,
+      );
+    });
   });
 
   group('切语言 → 重解析协议元数据', () {

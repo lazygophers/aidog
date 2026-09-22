@@ -10,6 +10,7 @@ import '../../utils/formatters.dart';
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
+import '../updater.dart';
 import 'about_logic.dart';
 import 'invoke.dart';
 import 'ui_bits.dart';
@@ -137,9 +138,44 @@ class _AboutPageState extends State<AboutPage> {
                   t.t('about.updateDesktopOnly'),
                   style: AidogType.micro.copyWith(color: theme.c.fg3),
                 )
-              : SmallButton(
-                  label: t.t('about.checkUpdate'),
-                  onTap: widget.onCheckUpdate,
+              : ValueListenableBuilder<(UpdateState, String)>(
+                  valueListenable: updateStatus,
+                  builder: (context, s, _) {
+                    final (state, err) = s;
+                    final busy = state == UpdateState.checking;
+                    // 页内状态行（`About.tsx:283-287`）：Sparkle 的原生窗只在
+                    // 「有新版本」时出现，「已是最新 / 检查失败」不弹窗，
+                    // 没有这一行就等于点了没反应。
+                    final status = switch (state) {
+                      UpdateState.checking => t.t('about.checking'),
+                      UpdateState.upToDate => t.t('about.upToDate'),
+                      UpdateState.error => '${t.t('about.updateError')}: $err',
+                      UpdateState.idle => '',
+                    };
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (status.isNotEmpty) ...[
+                          Text(
+                            status,
+                            style: AidogType.micro.copyWith(
+                              color: state == UpdateState.error
+                                  ? theme.c.bad
+                                  : theme.c.fg2,
+                            ),
+                          ),
+                          const SizedBox(height: AidogSpace.sxs),
+                        ],
+                        SmallButton(
+                          label: busy
+                              ? t.t('about.checking')
+                              : t.t('about.checkUpdate'),
+                          onTap: busy ? null : widget.onCheckUpdate,
+                        ),
+                      ],
+                    );
+                  },
                 ),
         ),
         const SizedBox(height: AidogSpace.ssm),

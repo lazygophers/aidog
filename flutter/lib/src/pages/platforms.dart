@@ -84,6 +84,10 @@ class _PlatformsPageState extends State<PlatformsPage> {
   /// （React 的 `openCreateGroupRef`，`PlatformListView.tsx:104-106`）。
   VoidCallback? _openCreateGroup;
 
+  /// 正在被拖的那张卡的下标。非 null = 拖拽进行中：那张换成虚线 ghost，
+  /// 其余压暗（`PlatformListView.tsx:159-171,203-221`）。
+  int? _dragIdx;
+
   @override
   void initState() {
     super.initState();
@@ -293,8 +297,17 @@ class _PlatformsPageState extends State<PlatformsPage> {
             buildDefaultDragHandles: false,
             itemCount: _c.standalonePlatforms.length,
             onReorderItem: (o, n) => unawaited(_c.reorderStandalone(o, n)),
+            // 拖拽上下文（`PlatformListView.tsx:159-171,203-221`）：
+            // 被拖的那张在原位换成虚线 ghost（协议色圆点 + 名称 + 协议徽标），
+            // 其余卡压到 0.4。没有这层反馈，拖起来看不出会落在哪。
+            onReorderStart: (i) => setState(() => _dragIdx = i),
+            onReorderEnd: (_) => setState(() => _dragIdx = null),
+            // 跟着指针飞的那张仍然是整张卡，只是抬起来。
+            proxyDecorator: (child, i, anim) =>
+                Material(color: Colors.transparent, child: child),
             itemBuilder: (context, i) {
               final p = _c.standalonePlatforms[i];
+              final dragging = _dragIdx != null;
               return Padding(
                 key: ValueKey(p.id),
                 padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
@@ -305,7 +318,18 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   data: p.id,
                   dragAnchorStrategy: pointerDragAnchorStrategy,
                   feedback: _DragLabel(name: p.name),
-                  child: platformCard(p, i),
+                  child: dragging && _dragIdx == i
+                      ? _GhostCard(
+                          name: p.name,
+                          label: _c.protocolMeta.label(p.platformType),
+                          color:
+                              _c.protocolMeta.colors[p.platformType] ??
+                              AidogTheme.of(context).c.accent,
+                        )
+                      : Opacity(
+                          opacity: dragging ? 0.4 : 1,
+                          child: platformCard(p, i),
+                        ),
                 ),
               );
             },
@@ -463,4 +487,95 @@ class _DragLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// 拖拽时留在原位的虚线预览卡：协议色圆点 + 平台名 + 协议徽标。
+/// 对齐 `PlatformListView.tsx:159-171`，让人看得出「松手会落在这儿」。
+class _GhostCard extends StatelessWidget {
+  const _GhostCard({
+    required this.name,
+    required this.label,
+    required this.color,
+  });
+
+  final String name;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Opacity(
+      opacity: 0.5,
+      child: CustomPaint(
+        painter: _DashedBorder(
+          color: theme.c.accent,
+          radius: AidogRadius.md,
+        ),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.smd,
+            vertical: AidogSpace.ssm,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 10,
+                height: 10,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: AidogSpace.smd),
+              Flexible(
+                child: Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.label.copyWith(
+                    color: theme.c.fg,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              MiniBadge(text: label, color: theme.c.fg3),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 虚线圆角框。Flutter 没有 `border-style: dashed`，自己描一圈。
+class _DashedBorder extends CustomPainter {
+  const _DashedBorder({required this.color, required this.radius});
+
+  final Color color;
+  final double radius;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = RRect.fromRectAndRadius(
+      Offset.zero & size,
+      Radius.circular(radius),
+    );
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    const dash = 6.0;
+    const gap = 4.0;
+    for (final metric in (Path()..addRRect(rect)).computeMetrics()) {
+      var at = 0.0;
+      while (at < metric.length) {
+        final end = (at + dash).clamp(0.0, metric.length);
+        canvas.drawPath(metric.extractPath(at, end), paint);
+        at = end + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedBorder old) =>
+      old.color != color || old.radius != radius;
 }

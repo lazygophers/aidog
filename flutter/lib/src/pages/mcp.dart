@@ -242,7 +242,9 @@ class _McpPageState extends State<McpPage> {
     children: [
       Row(
         children: [
-          Expanded(child: TileMeta(label)),
+          // 列表回传的是**脱敏值**（`***`），用户照原样保存就把字面 `***` 写进
+          // 配置、原密钥丢失。React 把这句提示写在标题旁（`Mcp/primitives.tsx:220-225`）。
+          Expanded(child: TileMeta('$label（${t.t('mcp.maskedHint')}）')),
           SmallButton(
             label: t.t('mcp.addRow'),
             onTap: () => setState(() => rows.add(KvRow('', ''))),
@@ -375,6 +377,8 @@ class _McpPageState extends State<McpPage> {
       share: data.share,
       title: data.name,
       urlScheme: 'aidog://mcp/import',
+      titleKey: 'mcp.share.title',
+      warningKey: 'mcp.share.warning',
       onToast: _c.showToast,
       onClose: _c.closeShare,
     );
