@@ -53,8 +53,10 @@ class PlatformsPage extends StatefulWidget {
   /// 「有新请求日志」流；缺省 500ms 防抖。收到只做轻量统计刷新（不重拉整表）。
   final Stream<void>? logUpdates;
 
-  /// 侧栏切页（平台卡「查看日志」用）。
-  final void Function(String id, {int? platformId})? onNavigate;
+  /// 侧栏切页，可带跨页预筛参数（平台卡「查看日志」带 platformId，
+  /// 分组卡「查看统计」带 groupKey）。宿主把它们包进 `NavContext` 交给 `navigate`。
+  final void Function(String id, {int? platformId, String? groupKey})?
+  onNavigate;
 
   /// 关掉可以单独渲染「未分组平台」那一半，widget 测试用它把两页拆开测。
   final bool showGroups;
@@ -221,9 +223,10 @@ class _PlatformsPageState extends State<PlatformsPage> {
             onPlatformDropped: _c.moveIntoGroup,
             // 分组卡里的「在此分组添加平台」：打开同页创建表单并锁定归属分组。
             onCreatePlatform: _form.openCreatePlatform,
-            // 分组卡里的「查看统计」：切到统计页（顶层导航无 payload 通道，
-            // 不带 groupKey 预筛，见 GroupsSection.onNavigate 的注释）。
-            onNavigate: (id) => widget.onNavigate?.call(id),
+            // 分组卡里的「查看统计」/「查看日志」：切页并带上分组名预筛
+            // （React `Groups.tsx` 走同一条 NavContext.groupKey）。
+            onNavigate: (id, {String? groupKey}) =>
+                widget.onNavigate?.call(id, groupKey: groupKey),
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
