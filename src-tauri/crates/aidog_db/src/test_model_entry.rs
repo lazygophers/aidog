@@ -96,20 +96,26 @@ async fn list_filters_by_platform_and_orders_stably() {
     .unwrap();
 
     let all = list_model_entries(&db, None).await.unwrap();
-    assert_eq!(
-        all.iter()
-            .map(|e| (e.platform_code.as_str(), e.model_id.as_str()))
-            .collect::<Vec<_>>(),
-        vec![
-            ("aihubmix", "glm-4.6"),
-            ("glm", "glm-4.5"),
-            ("glm", "glm-4.6")
-        ]
-    );
+    assert_eq!(all.len(), bundled_model_entries().len());
+    let keys = all
+        .iter()
+        .map(|e| (e.platform_code.as_str(), e.model_id.as_str()))
+        .collect::<Vec<_>>();
+    assert!(keys.windows(2).all(|pair| pair[0] <= pair[1]));
+    assert!(keys.contains(&("aihubmix", "glm-4.6")));
+    assert!(keys.contains(&("glm", "glm-4.5")));
+    assert!(keys.contains(&("glm", "glm-4.6")));
 
     let one = list_model_entries(&db, Some("glm")).await.unwrap();
-    assert_eq!(one.len(), 2);
-    // 表非空但该平台无条目 → 照实返回空，不回落 bundled。
+    assert_eq!(
+        one.len(),
+        bundled_model_entries()
+            .iter()
+            .filter(|e| e.platform_code == "glm")
+            .count()
+    );
+    assert!(one.iter().all(|e| e.platform_code == "glm"));
+    // 不存在的平台没有 bundled 基线 → 返回空。
     assert!(
         list_model_entries(&db, Some("no-such-platform"))
             .await
@@ -256,17 +262,37 @@ async fn bundled_fallback_serves_empty_db() {
 }
 
 #[tokio::test]
-async fn db_rows_win_over_bundled() {
+async fn db_rows_override_same_key_and_preserve_bundled_missing_rows() {
     let db = test_db().await;
-    upsert_model_entries(&db, vec![entry("glm", "glm-4.6", "glm-4.6", true)])
-        .await
-        .unwrap();
+    let bundled = bundled_model_entries();
+    let db_row = &bundled[0];
+    let missing_row = &bundled[1];
+    let mut override_row = db_row.clone();
+    override_row.family = "db-override".to_string();
+
+    upsert_model_entries(&db, vec![override_row]).await.unwrap();
+
     let all = list_model_entries(&db, None).await.unwrap();
-    assert_eq!(all.len(), 1, "DB 非空即完全接管，不与 bundled 合并");
+    assert_eq!(all.len(), bundled.len());
+    assert_eq!(
+        all.iter()
+            .find(|e| e.platform_code == db_row.platform_code && e.model_id == db_row.model_id)
+            .unwrap()
+            .family,
+        "db-override"
+    );
+    assert!(all.iter().any(|e| {
+        e.platform_code == missing_row.platform_code && e.model_id == missing_row.model_id
+    }));
 
     let snap = model_info_snapshot(&db).await.unwrap();
-    assert!(!snap.bundled);
-    assert_eq!(snap.groups.len(), 1);
+    assert!(snap.bundled, "部分 DB 同步仍包含 bundled 条目");
+    let expected_groups = bundled
+        .iter()
+        .map(|e| e.canonical_model.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    assert_eq!(snap.groups.len(), expected_groups);
     // 平台预设表仍为空 → 该维度独立回落 bundled。
     assert_eq!(snap.platforms.len(), bundled_platform_presets().len());
 }
@@ -613,5 +639,13 @@ async fn select_returns_raw_display_name_for_export() {
     let raw = select_model_entries(&db, Some("glm")).await.unwrap();
     assert_eq!(raw[0].display_name, "", "裸行保留空串 = 无展示名");
     let shown = list_model_entries(&db, Some("glm")).await.unwrap();
-    assert_eq!(shown[0].display_name, "glm-4.5", "面向 UI 的读取入口才回落");
+    assert_eq!(
+        shown
+            .iter()
+            .find(|e| e.model_id == "glm-4.5")
+            .unwrap()
+            .display_name,
+        "glm-4.5",
+        "面向 UI 的读取入口才回落"
+    );
 }

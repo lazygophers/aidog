@@ -421,26 +421,24 @@ pub fn select_model_entries<'a>(
     }
 }
 
-/// 列模型条目：`platform_code` 为 None 即全量。DB 无任何条目 → 回落 bundled registry。
-/// 本函数不带 `#[track_caller]`（DB 访问在 `select_model_entries` / `count_model_entries`
-/// 内各自记 caller），故用 `async fn` 而非本模块其余处的 `impl Future` idiom。
+/// 列模型条目：`platform_code` 为 None 即全量。bundled registry 提供完整基线，DB 行按主键覆盖。
+/// DB 无任何条目时等价于完整回落 bundled registry。
 pub async fn list_model_entries(
     db: &Db,
     platform_code: Option<&str>,
 ) -> Result<Vec<ModelEntry>, String> {
     let rows = select_model_entries(db, platform_code).await?;
-    if !rows.is_empty() {
-        return Ok(rows.into_iter().map(ui_entry).collect());
+    let mut merged: std::collections::BTreeMap<(String, String), ModelEntry> =
+        bundled_model_entries()
+            .iter()
+            .filter(|e| platform_code.is_none_or(|c| e.platform_code == c))
+            .cloned()
+            .map(|e| ((e.platform_code.clone(), e.model_id.clone()), e))
+            .collect();
+    for entry in rows.into_iter().map(ui_entry) {
+        merged.insert((entry.platform_code.clone(), entry.model_id.clone()), entry);
     }
-    // 空结果分两种：DB 整表空（未同步）→ bundled 兜底；表非空只是该平台没有 → 照实返回空。
-    if count_model_entries(db).await? > 0 {
-        return Ok(Vec::new());
-    }
-    Ok(bundled_model_entries()
-        .iter()
-        .filter(|e| platform_code.is_none_or(|c| e.platform_code == c))
-        .cloned()
-        .collect())
+    Ok(merged.into_values().collect())
 }
 
 /// bundled 快照里按主键找一条（切片已按 `(platform_code, model_id)` 升序，二分即可）。
@@ -635,10 +633,17 @@ pub async fn refresh_presets_cache(db: &Db) -> Result<(), String> {
 }
 
 /// 模型信息页一次性数据源：模型维度聚合行 + 全部平台预设（含品牌字段）。
-/// `bundled = true` 表示模型条目来自编译期内置 registry（DB 尚未同步）。
+/// `bundled = true` 表示返回结果含有 DB 尚未同步的 bundled 条目。
 pub async fn model_info_snapshot(db: &Db) -> Result<ModelInfoSnapshot, String> {
-    let bundled = count_model_entries(db).await? == 0;
+    let db_entries = select_model_entries(db, None).await?;
+    let db_keys: std::collections::HashSet<(&str, &str)> = db_entries
+        .iter()
+        .map(|e| (e.platform_code.as_str(), e.model_id.as_str()))
+        .collect();
     let entries = list_model_entries(db, None).await?;
+    let bundled = entries
+        .iter()
+        .any(|e| !db_keys.contains(&(e.platform_code.as_str(), e.model_id.as_str())));
     let platforms = list_platform_presets(db).await?;
     // 有模型条目却没有 platform.json 的 code = `index.json` 的 pricing_only 来源
     // （litellm / meta / mistral），是比价参考而非可选平台。
