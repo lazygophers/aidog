@@ -1,7 +1,7 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790084258,
   "model_id": "nex-agi/nex-n2-pro",
-  "canonical_model": "nex-n2-pro",
+  "canonical_model": "Nex-N2-Pro",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

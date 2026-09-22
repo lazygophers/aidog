@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790084258,
   "model_id": "meta/llama-4-maverick-17b-128e-instruct-maas",
-  "canonical_model": "meta/llama-4-maverick-17b-128e-instruct-maas",
+  "canonical_model": "llama-4-maverick-17b-128e-instruct-maas",
   "capabilities": [
     "text"
   ],

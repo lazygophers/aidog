@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790084258,
   "model_id": "xai/grok-4-6-maas",
-  "canonical_model": "xai/grok-4-6-maas",
+  "canonical_model": "grok-4-6-maas",
   "display_name": "Grok 4.6 (Preview)",
   "capabilities": [
     "text",

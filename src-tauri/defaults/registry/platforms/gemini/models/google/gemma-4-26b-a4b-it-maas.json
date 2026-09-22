@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790084258,
   "model_id": "google/gemma-4-26b-a4b-it-maas",
-  "canonical_model": "google/gemma-4-26b-a4b-it-maas",
+  "canonical_model": "gemma-4-26b-a4b-it-maas",
   "capabilities": [
     "text"
   ],

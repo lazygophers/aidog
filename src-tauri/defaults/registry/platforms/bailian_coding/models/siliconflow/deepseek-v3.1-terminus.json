@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788184022,
+  "last_updated": 1790084258,
   "model_id": "siliconflow/deepseek-v3.1-terminus",
-  "canonical_model": "deepseek-v3.1-terminus",
+  "canonical_model": "DeepSeek-V3.1-Terminus",
   "capabilities": [
     "text"
   ],

@@ -8,7 +8,7 @@
 |---|---|---|
 | `index.schema.json` | `index.json` | 平台清单 + 远程同步逐文件拉取清单（漏登记 = 线上永远同步不下来） |
 | `platform.schema.json` | `platforms/<code>/platform.json` | 平台预设（端点 / 模型映射 / 品牌 / 高峰窗口），65 个 |
-| `model.schema.json` | `platforms/<code>/models/<model>.json` | 模型条目（能力 / 限额 / 计价分档），1010 条 |
+| `model.schema.json` | `platforms/<code>/models/<model>.json` | 模型条目（能力 / 限额 / 计价分档），4570 条 |
 
 三个 schema 均 `additionalProperties: false`：新字段必须先改 schema + 加代码适配，再写数据。这是「所有字段都在 app 代码里适配」的强制闸门——schema 里没有的字段写进 JSON 会直接校验失败。
 
@@ -24,6 +24,25 @@ yarn check:registry
 
 1. **index 清单零差集（硬错）**：`index.json` 声明的 `models[]` 文件必须存在于 `models_dir`；磁盘上多出的未登记文件也是错。
 2. **引用完整性**：`platform.json` 里 `models.*` 分支值 + `model_list.*` 条目引用的每个 model id 必须有对应 `models/<id>.json`（vendor 子目录路径 = id）。平台已带 models 目录（自建价目）时为**硬错**；完全没目录的中转平台降为 warning——`AIDOG_REGISTRY_STRICT=1` 时全部按错处理。
+3. **canonical 身份折叠组唯一（硬错）**：见下「canonical_model 归一规范」——同一折叠组内出现多个不同字面 canonical 即身份冲突，lint 失败。
+4. **predecessor 引用与无环（硬错）**：`predecessor` 指向 canonical_model；指向的 canonical 必须在全库存在，且全库 predecessor 链不得成环。
+
+## canonical_model 归一规范（2026-09-22 票 03 拍板）
+
+`canonical_model` 是跨平台聚合键，不是展示名。规则：
+
+1. **官方拼写**：取该模型官方（如 Anthropic、智谱）发布的原始命名，保留官方大小写与分隔符（`claude-3.5-haiku` 不改写成 `claude-3-5-haiku`）。
+2. **去 vendor 路由前缀**：`zai-org/glm-4.6`、`Qwen/QwQ-32B` 这类 vendor 前缀不进 canonical，取 `/` 后的主体（`QwQ-32B`）。
+3. **部署变体加后缀分开**：同一模型的量化/快照/微调变体用后缀区分（如 `qwen3-32b-int4` ≠ `qwen3-32b`），区分度信息写 `display_name`。
+4. **折叠组唯一**：折叠键 = 去 vendor 前缀 + 小写 + `.`/`_` 折叠成 `-`。同一折叠键下所有条目的 canonical 字面必须完全一致——组内分裂即身份冲突（如 `glm-5.2` 与 `GLM-5.2`），`yarn check:registry` 硬错。修冲突时全组统一取官方拼写。
+5. `model_id` 永远是平台真实请求名，不受本规范影响；计费按 `model_id` 路由。
+
+`predecessor` 指向 canonical_model（如 `glm-4.6` 的 predecessor 写 `glm-4.5`），全库可解析、无环。`family` 取小写家族名（`glm`、`claude`），`version` 用官方数字（`4.6`、`3.5`）；有官方明确版本号才填，没有保持缺省（缺省 = 未知，不是不支持）。
+
+## 数据来源与未知字段（2026-09-22 票 02/03 拍板）
+
+- 模型级不加来源字段：价格本身记录在对应模型条目，来源追溯依托平台级 `source_urls`。
+- 无法从批准来源（官方优先）确认的字段保持缺省；`false` 只表示确认不支持，缺省表示未知。未知字段随交付列未知清单：字段、缺口原因、已查来源、来源缺口。
 
 ## 目录结构约定
 

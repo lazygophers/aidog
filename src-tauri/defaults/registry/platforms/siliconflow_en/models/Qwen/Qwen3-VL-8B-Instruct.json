@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788147245,
+  "last_updated": 1790084258,
   "model_id": "Qwen/Qwen3-VL-8B-Instruct",
-  "canonical_model": "Qwen3-VL-8B-Instruct",
+  "canonical_model": "qwen3-vl-8b-instruct",
   "capabilities": [
     "text",
     "vision"

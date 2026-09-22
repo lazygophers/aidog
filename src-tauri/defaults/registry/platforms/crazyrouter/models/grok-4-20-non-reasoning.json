@@ -1,7 +1,7 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790084258,
   "model_id": "grok-4-20-non-reasoning",
-  "canonical_model": "grok-4-20-non-reasoning",
+  "canonical_model": "grok-4.20-non-reasoning",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

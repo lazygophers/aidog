@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790084258,
   "model_id": "meta/llama-3.3-70b-instruct-maas",
-  "canonical_model": "meta/llama-3.3-70b-instruct-maas",
+  "canonical_model": "llama-3.3-70b-instruct-maas",
   "display_name": "Llama 3.3 70B (MaaS)",
   "capabilities": [
     "text"
