@@ -22,6 +22,7 @@ import 'filter_dropdown.dart';
 import 'invoke.dart';
 import 'logs_logic.dart';
 import 'models.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'ui_bits.dart';
 
 // ── Logs 主页 ──────────────────────────────────────────────────────
@@ -70,11 +71,10 @@ class _LogsPageState extends State<LogsPage> {
       ),
     );
     _c.init();
-    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated())).listen((
-      _,
-    ) {
-      _c.refreshFromEvent();
-    });
+    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated()))
+        .listen((_) {
+          _c.refreshFromEvent();
+        });
   }
 
   @override
@@ -115,9 +115,8 @@ class _LogsPageState extends State<LogsPage> {
                 ),
               SmallButton(
                 label: t.t('logs.cleanupExpired'),
-                onTap: () => _c.cleanupExpired(
-                  doneText: t.t('logs.cleanupExpiredDone'),
-                ),
+                onTap: () =>
+                    _c.cleanupExpired(doneText: t.t('logs.cleanupExpiredDone')),
               ),
               SmallButton(
                 label: t.t('logs.clear'),
@@ -169,6 +168,10 @@ class _LogsPageState extends State<LogsPage> {
             onClose: _c.closeDetail,
             onCopyAll: () {
               _c.copyDetail(_c.detail!, widget.copyText);
+              _flashCopied();
+            },
+            onCopy: (text) {
+              widget.copyText(text);
               _flashCopied();
             },
           ),
@@ -297,11 +300,10 @@ class _RequestLogPageState extends State<RequestLogPage> {
       },
     );
     _c.init();
-    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated())).listen((
-      _,
-    ) {
-      _c.refreshFromEvent();
-    });
+    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated()))
+        .listen((_) {
+          _c.refreshFromEvent();
+        });
   }
 
   @override
@@ -349,7 +351,10 @@ class _RequestLogPageState extends State<RequestLogPage> {
                 searchPlaceholder: t.t('requestLog.filterType'),
                 emptyLabel: t.t('requestLog.empty'),
                 options: [
-                  FilterOption(value: 'test', label: t.t('requestLog.typeTest')),
+                  FilterOption(
+                    value: 'test',
+                    label: t.t('requestLog.typeTest'),
+                  ),
                   FilterOption(
                     value: 'quota',
                     label: t.t('requestLog.typeQuota'),
@@ -439,6 +444,10 @@ class _RequestLogPageState extends State<RequestLogPage> {
               _c.copyDetail(_c.detail!, widget.copyText);
               _flashCopied();
             },
+            onCopy: (text) {
+              widget.copyText(text);
+              _flashCopied();
+            },
           ),
       ],
     );
@@ -517,8 +526,7 @@ class _LogTable extends StatelessWidget {
                           // 2xx 绿、其余一律红 —— 包括 0。
                           // 原先把 0 画成灰色，与 React 相反：流式跑到一半没落终态
                           // 通常就是出事了，灰色会让人以为「正常，只是还没结束」。
-                          color:
-                              log.statusCode >= 200 && log.statusCode < 300
+                          color: log.statusCode >= 200 && log.statusCode < 300
                               ? theme.c.ok
                               : theme.c.bad,
                         ),
@@ -634,12 +642,16 @@ class _DetailPanel extends StatelessWidget {
     required this.copied,
     required this.onClose,
     required this.onCopyAll,
+    required this.onCopy,
   });
 
   final ProxyLogDetail detail;
   final bool copied;
   final VoidCallback onClose;
   final VoidCallback onCopyAll;
+
+  /// 单个区块的复制（React 每块自带一个 `CopyButton`，不是整页一个）。
+  final void Function(String text) onCopy;
 
   @override
   Widget build(BuildContext context) {
@@ -680,21 +692,188 @@ class _DetailPanel extends StatelessWidget {
               t.t('logs.duration'),
               formatDurationMs(detail.durationMs.toDouble()),
             ),
-            _kv(theme, t.t('logs.inputTokens'), formatNumber(detail.inputTokens)),
+            _kv(
+              theme,
+              t.t('logs.inputTokens'),
+              formatNumber(detail.inputTokens),
+            ),
             _kv(
               theme,
               t.t('logs.outputTokens'),
               formatNumber(detail.outputTokens),
             ),
-            _kv(theme, t.t('logs.cacheTokens'), formatNumber(detail.cacheTokens)),
-            const SizedBox(height: AidogSpace.ssm),
-            _section(theme, t.t('logs.requestBody'), detail.requestBody),
+            _kv(
+              theme,
+              t.t('logs.cacheTokens'),
+              formatNumber(detail.cacheTokens),
+            ),
+            if (detail.attempts.isNotEmpty) _attempts(t, theme),
+            // 用户侧与上游侧**分开列**：两边受不同开关控制
+            // （`log_user_request` / `log_upstream_request`，见项目 CLAUDE.md
+            // 的「Proxy 日志」段）。合成一份会让人分不清关掉的是哪个开关。
+            const SizedBox(height: AidogSpace.smd),
+            TileMeta(t.t('logs.userRequest')),
+            _section(t, theme, 'URL', detail.requestUrl),
             _section(
+              t,
+              theme,
+              t.t('logs.requestHeaders'),
+              detail.requestHeaders,
+            ),
+            _section(t, theme, t.t('logs.requestBody'), detail.requestBody),
+            _section(
+              t,
+              theme,
+              t.t('logs.responseHeaders'),
+              detail.userResponseHeaders,
+            ),
+            _section(
+              t,
               theme,
               t.t('logs.responseBody'),
-              detail.userResponseBody.isNotEmpty
-                  ? detail.userResponseBody
-                  : detail.responseBody,
+              detail.userResponseBody,
+            ),
+            const SizedBox(height: AidogSpace.smd),
+            TileMeta(t.t('logs.upstreamRequest')),
+            _section(t, theme, 'URL', detail.upstreamRequestUrl),
+            _section(
+              t,
+              theme,
+              t.t('logs.requestHeaders'),
+              detail.upstreamRequestHeaders,
+            ),
+            _section(
+              t,
+              theme,
+              t.t('logs.requestBody'),
+              detail.upstreamRequestBody,
+            ),
+            _section(
+              t,
+              theme,
+              t.t('logs.responseHeaders'),
+              detail.upstreamResponseHeaders,
+            ),
+            _section(t, theme, t.t('logs.responseBody'), detail.responseBody),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 尝试记录（`DetailPanel.tsx:218-261`）：多平台重试时逐次列出平台 / 状态码 /
+  /// 耗时 / 错误原文。**失败排障时最关键的一块** —— 没有它只知道「失败了」，
+  /// 不知道试了哪几个平台、各自怎么失败的。
+  Widget _attempts(I18nController t, AidogTheme theme) => Padding(
+    padding: const EdgeInsets.only(top: AidogSpace.smd),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            TileMeta(t.t('logs.attempts')),
+            const SizedBox(width: AidogSpace.sxs),
+            MiniBadge(
+              text: t
+                  .t('logs.attemptCount')
+                  .replaceAll('{{n}}', '${detail.attempts.length}'),
+              color: theme.c.peak,
+            ),
+          ],
+        ),
+        const SizedBox(height: AidogSpace.sxs),
+        for (var i = 0; i < detail.attempts.length; i++)
+          _attemptRow(t, theme, i, detail.attempts[i]),
+      ],
+    ),
+  );
+
+  Widget _attemptRow(
+    I18nController t,
+    AidogTheme theme,
+    int i,
+    ProxyAttempt a,
+  ) {
+    final tone = a.ok ? theme.c.ok : theme.c.bad;
+    final name = a.platformName.isNotEmpty
+        ? a.platformName
+        : '#${a.platformId}';
+    final status = a.statusCode == 0
+        ? t.t('logs.connFailed')
+        : '${a.statusCode}';
+    // 摘要串照 React：平台名 | 状态码 | 耗时ms | 错误（有才拼）。
+    final summary = [
+      name,
+      status,
+      '${a.durationMs}ms',
+      if (a.error.isNotEmpty) a.error,
+    ].join(' | ');
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+      child: Container(
+        key: ValueKey('attempt-$i'),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AidogSpace.ssm,
+          vertical: AidogSpace.sxs,
+        ),
+        decoration: BoxDecoration(
+          border: Border.all(color: tone),
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 24,
+              child: Text(
+                '#${i + 1}',
+                style: AidogType.numSm.copyWith(color: theme.c.fg3),
+              ),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidogType.micro.copyWith(color: theme.c.fg),
+                  ),
+                  if (a.error.isNotEmpty)
+                    Text(
+                      a.error,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.micro.copyWith(color: theme.c.bad),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AidogSpace.ssm),
+            Text(
+              status,
+              style: AidogType.micro.copyWith(
+                color: tone,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: AidogSpace.ssm),
+            Text(
+              '${a.durationMs}ms',
+              style: AidogType.numSm.copyWith(color: theme.c.fg3),
+            ),
+            IconButton(
+              key: ValueKey('attempt-copy-$i'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 13,
+              visualDensity: VisualDensity.compact,
+              tooltip: t.t('logs.copy'),
+              icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
+              onPressed: () => onCopy(summary),
             ),
           ],
         ),
@@ -709,10 +888,7 @@ class _DetailPanel extends StatelessWidget {
       children: [
         SizedBox(
           width: 110,
-          child: Text(
-            k,
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
+          child: Text(k, style: AidogType.micro.copyWith(color: theme.c.fg3)),
         ),
         Expanded(
           child: Text(
@@ -724,30 +900,63 @@ class _DetailPanel extends StatelessWidget {
     ),
   );
 
-  Widget _section(AidogTheme theme, String title, String body) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.ssm),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TileMeta(title),
-        const SizedBox(height: 4),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(AidogSpace.ssm),
-          decoration: BoxDecoration(
-            color: theme.c.surface2,
-            borderRadius: BorderRadius.circular(AidogRadius.sm),
+  /// 一个正文区块：小标题 + 正文 + **本块自己的**复制按钮。
+  ///
+  /// 不再 `maxLines: 14` 封顶：一个正常大小的请求体就看不全，也滚不动。
+  /// 正文整段铺开，由面板自己那层滚动承接 —— 区块内不再套第二层滚动条
+  /// （套了之后手势会被内层吃掉，滚到底也接不上外层）。
+  Widget _section(
+    I18nController t,
+    AidogTheme theme,
+    String title,
+    String body,
+  ) {
+    final empty = body.trim().isEmpty;
+    final text = empty ? t.t('logs.noUpstream') : prettyJsonOrRaw(body);
+    return Padding(
+      padding: const EdgeInsets.only(top: AidogSpace.ssm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              TileMeta(title),
+              const Spacer(),
+              // 空块没什么可复制的，不画按钮（React：占位串不给复制）。
+              if (!empty)
+                IconButton(
+                  key: ValueKey('sec-copy-$title-${body.hashCode}'),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 22,
+                    minHeight: 22,
+                  ),
+                  iconSize: 13,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: t.t('logs.copy'),
+                  icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
+                  onPressed: () => onCopy(text),
+                ),
+            ],
           ),
-          child: SelectableText(
-            body.isEmpty ? '(streaming, not captured)' : prettyJsonOrRaw(body),
-            maxLines: 14,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          const SizedBox(height: 4),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AidogSpace.ssm),
+            decoration: BoxDecoration(
+              color: theme.c.surface2,
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: SelectableText(
+              text,
+              style: AidogType.micro.copyWith(
+                color: empty ? theme.c.fg3 : theme.c.fg2,
+              ),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+  }
 }
-
-
