@@ -71,12 +71,9 @@ void main() {
     testWidgets('切「周几」: 七个星期 toggle 出现，选中态不弹回', (tester) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
-      await pumpWindowsEditor(
-        tester,
-        i18n,
-        const [TimeWindow(startHour: 0, endHour: 24, multiplier: 1)],
-        onSave: (_) {},
-      );
+      await pumpWindowsEditor(tester, i18n, const [
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
+      ], onSave: (_) {});
       await tester.tap(find.byKey(const ValueKey('dim-0-week')));
       await settle(tester);
       expect(dimButton(tester, 0, 'week').active, isTrue);
@@ -84,24 +81,20 @@ void main() {
       expect(monthButtonCount(tester), 0);
     });
 
-    testWidgets('切回「每天」: 两个选择器收起, 保存后 days_of_week/days_of_month 均 undefined',
-        (tester) async {
+    testWidgets('切回「每天」: 两个选择器收起, 保存后 days_of_week/days_of_month 均 undefined', (
+      tester,
+    ) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
       List<TimeWindow>? saved;
-      await pumpWindowsEditor(
-        tester,
-        i18n,
-        const [
-          TimeWindow(
-            startHour: 0,
-            endHour: 24,
-            multiplier: 1,
-            daysOfWeek: [1, 2],
-          ),
-        ],
-        onSave: (w) => saved = w,
-      );
+      await pumpWindowsEditor(tester, i18n, const [
+        TimeWindow(
+          startHour: 0,
+          endHour: 24,
+          multiplier: 1,
+          daysOfWeek: [1, 2],
+        ),
+      ], onSave: (w) => saved = w);
       await tester.tap(find.byKey(const ValueKey('dim-0-none')));
       await settle(tester);
       expect(weekGroups(), findsNothing);
@@ -118,12 +111,9 @@ void main() {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
       List<TimeWindow>? saved;
-      await pumpWindowsEditor(
-        tester,
-        i18n,
-        const [TimeWindow(startHour: 0, endHour: 24, multiplier: 1)],
-        onSave: (w) => saved = w,
-      );
+      await pumpWindowsEditor(tester, i18n, const [
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
+      ], onSave: (w) => saved = w);
       await tester.tap(find.byKey(const ValueKey('dim-0-week')));
       await settle(tester);
       expect(weekGroups(), findsOneWidget); // 选择器已露出、未勾选任何一天
@@ -137,15 +127,10 @@ void main() {
     testWidgets('多窗口: 切其中一个的维度不影响其他窗口', (tester) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
-      await pumpWindowsEditor(
-        tester,
-        i18n,
-        const [
-          TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
-          TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
-        ],
-        onSave: (_) {},
-      );
+      await pumpWindowsEditor(tester, i18n, const [
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
+      ], onSave: (_) {});
       await tester.tap(find.byKey(const ValueKey('dim-0-week')));
       await settle(tester);
 
@@ -157,8 +142,7 @@ void main() {
       expect(weekGroups(), findsOneWidget);
     });
 
-    testWidgets('关闭再重开: uiDim 按 windows 数据重算, 周/月/都无三种形态选中态都对',
-        (tester) async {
+    testWidgets('关闭再重开: uiDim 按 windows 数据重算, 周/月/都无三种形态选中态都对', (tester) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
       const windows = [
@@ -168,12 +152,7 @@ void main() {
           multiplier: 1,
           daysOfWeek: [1, 2],
         ),
-        TimeWindow(
-          startHour: 0,
-          endHour: 24,
-          multiplier: 1,
-          daysOfMonth: [5],
-        ),
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1, daysOfMonth: [5]),
         TimeWindow(startHour: 0, endHour: 24, multiplier: 1),
       ];
       // 「关闭再重开」在页内格子的形态下 = 整个编辑器被销毁后重建
@@ -191,26 +170,21 @@ void main() {
     testWidgets('删中间窗口: 剩余窗口的选中态各自不变（不因数组前移而错位）', (tester) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
-      await pumpWindowsEditor(
-        tester,
-        i18n,
-        const [
-          TimeWindow(startHour: 0, endHour: 24, multiplier: 1), // widx0: none
-          TimeWindow(
-            startHour: 0,
-            endHour: 24,
-            multiplier: 1,
-            daysOfWeek: [3],
-          ), // widx1: week
-          TimeWindow(
-            startHour: 0,
-            endHour: 24,
-            multiplier: 1,
-            daysOfMonth: [9],
-          ), // widx2: month
-        ],
-        onSave: (_) {},
-      );
+      await pumpWindowsEditor(tester, i18n, const [
+        TimeWindow(startHour: 0, endHour: 24, multiplier: 1), // widx0: none
+        TimeWindow(
+          startHour: 0,
+          endHour: 24,
+          multiplier: 1,
+          daysOfWeek: [3],
+        ), // widx1: week
+        TimeWindow(
+          startHour: 0,
+          endHour: 24,
+          multiplier: 1,
+          daysOfMonth: [9],
+        ), // widx2: month
+      ], onSave: (_) {});
       // 删除按钮以符号 "×" 标识（非文案，跨语言不变），结构上按序对应各窗口。
       final removes = find.widgetWithText(SmallButton, '×');
       expect(removes, findsNWidgets(3));
@@ -361,8 +335,14 @@ void main() {
       f.handleProtocolChange('devin'); // 夹具里 devin 没有 quota_scripts
       await pumpForm(tester, i18n, f);
       expect(find.text(i18n.t('platform.quotaScript.title')), findsOneWidget);
-      expect(find.text(i18n.t('platform.quotaScript.noBuiltin')), findsOneWidget);
-      expect(find.text(i18n.t('platform.quotaScript.customLabel')), findsOneWidget);
+      expect(
+        find.text(i18n.t('platform.quotaScript.noBuiltin')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(i18n.t('platform.quotaScript.customLabel')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('有内置变体且未选自定义：显示变体下拉，不显示脚本编辑器', (tester) async {
@@ -373,7 +353,10 @@ void main() {
       f.handleProtocolChange('openai');
       await pumpForm(tester, i18n, f);
       expect(find.text(i18n.t('platform.quotaScript.variant')), findsOneWidget);
-      expect(find.text(i18n.t('platform.quotaScript.customLabel')), findsNothing);
+      expect(
+        find.text(i18n.t('platform.quotaScript.customLabel')),
+        findsNothing,
+      );
     });
 
     testWidgets('有内置变体但选中自定义：显示脚本编辑器', (tester) async {
@@ -384,7 +367,10 @@ void main() {
       f.handleProtocolChange('openai');
       f.handleQuotaVariantChange(kQuotaCustomVariant);
       await pumpForm(tester, i18n, f);
-      expect(find.text(i18n.t('platform.quotaScript.customLabel')), findsOneWidget);
+      expect(
+        find.text(i18n.t('platform.quotaScript.customLabel')),
+        findsOneWidget,
+      );
     });
   });
 
@@ -399,8 +385,8 @@ void main() {
       await pumpForm(tester, i18n, f);
 
       SmallButton saveBtn() => tester.widget<SmallButton>(
-            find.widgetWithText(SmallButton, i18n.t('action.create')),
-          );
+        find.widgetWithText(SmallButton, i18n.t('action.create')),
+      );
       expect(saveBtn().enabled, isFalse);
       f.setName('n');
       await settle(tester);
@@ -457,7 +443,9 @@ void main() {
       await pumpForm(tester, i18n, f);
       expect(find.byType(ToastBar), findsNothing);
 
-      await tester.tap(find.widgetWithText(SmallButton, i18n.t('action.create')));
+      await tester.tap(
+        find.widgetWithText(SmallButton, i18n.t('action.create')),
+      );
       await settle(tester);
       expect(f.showForm, isTrue);
       expect(find.byType(ToastBar), findsOneWidget);
@@ -526,7 +514,11 @@ void main() {
       final k = pageFake();
       await tester.pumpWidget(
         wrapPage(
-          PlatformsPage(invoke: k.fn, showGroups: false, logUpdates: const Stream.empty()),
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream.empty(),
+          ),
           i18n,
         ),
       );
@@ -544,13 +536,57 @@ void main() {
       expect(find.text(i18n.t('platform.sectionBasic')), findsNothing);
     });
 
+    testWidgets('新建表单页头有「智能识别」，点开出弹窗；编辑态没有这颗按钮（票 20）', (tester) async {
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      final k = pageFake();
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream.empty(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+
+      // 新建态：按钮在，点开出弹窗。
+      await tester.tap(find.text('+ ${i18n.t('platform.add')}'));
+      await settle(tester);
+      expect(find.text(i18n.t('platform.paste.title')), findsOneWidget);
+      await tester.tap(find.text(i18n.t('platform.paste.title')));
+      await settle(tester);
+      expect(find.byType(SmartPasteModal), findsOneWidget);
+      expect(find.text(i18n.t('platform.paste.placeholder')), findsOneWidget);
+
+      // 取消关窗，再退回列表。
+      await tester.tap(
+        find.widgetWithText(SmallButton, i18n.t('action.cancel')).first,
+      );
+      await settle(tester);
+      expect(find.byType(SmartPasteModal), findsNothing);
+      await tester.tap(find.text('← ${i18n.t('action.back')}'));
+      await settle(tester);
+
+      // 编辑态：整段灌入会冲掉用户改过的字段，所以这颗按钮不该出现。
+      await tester.tap(find.byTooltip(i18n.t('action.edit')));
+      await settle(tester);
+      expect(find.text(i18n.t('platform.paste.title')), findsNothing);
+    });
+
     testWidgets('卡片「编辑」打开编辑表单并带上该平台的名字', (tester) async {
       await useBigSurface(tester);
       final i18n = await makeI18n(tester);
       final k = pageFake();
       await tester.pumpWidget(
         wrapPage(
-          PlatformsPage(invoke: k.fn, showGroups: false, logUpdates: const Stream.empty()),
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream.empty(),
+          ),
           i18n,
         ),
       );
@@ -569,7 +605,11 @@ void main() {
       final k = pageFake();
       await tester.pumpWidget(
         wrapPage(
-          PlatformsPage(invoke: k.fn, showGroups: false, logUpdates: const Stream.empty()),
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream.empty(),
+          ),
           i18n,
         ),
       );
