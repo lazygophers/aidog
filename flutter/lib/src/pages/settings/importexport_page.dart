@@ -20,6 +20,7 @@ import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
+import '../platform_card_bits.dart' show MiniBadge;
 import 'bits.dart';
 import 'foreign_import_logic.dart';
 import 'importexport_logic.dart';
@@ -409,11 +410,22 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           'importExport.rename',
                         ),
                       },
-                      active: _c.decisions[k] == d,
+                      active: _c.decisions[k]?.kind == d,
                       onTap: () => _c.decide(k, d),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
                   ],
+                  // 选了「重命名」才出新名输入框（`ConflictRow.tsx:62-67`）。
+                  // 没有它的话这个选项等于发一个空 key 过去。
+                  if (_c.decisions[k]?.kind == ConflictDecisionKind.keepBoth)
+                    SizedBox(
+                      width: 220,
+                      child: KeptTextField(
+                        key: ValueKey('rename-$k'),
+                        value: _c.decisions[k]!.newKey,
+                        onChanged: (v) => _c.setRenameKey(k, v),
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -439,11 +451,95 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ],
           ),
         ],
-        if (report != null) ...[
-          TileMetaLine(t.t('importExport.reportTitle')),
-          for (final e in report.entries)
-            InfoRow(label: e.key, value: '${e.value}'),
+        // 导入结果：三个计数 + 三个分区 + 错误原文逐条（`ReportView.tsx:24-61`）。
+        // 原先是把整个 map 直接 `InfoRow(key, '$value')` 铺开，屏幕上出现的是
+        // `applied → {platform: 3}` 这种 Dart toString —— 错误原文读不出来。
+        if (report != null) _report(t, report),
+      ],
+    );
+  }
+
+  /// 导入结果报告（`ImportReport`：applied / skipped 两张计数表 + errors 数组，
+  /// `gateway/import_export/mod.rs:198-203`）。
+  Widget _report(I18nController t, Map<String, Object?> report) {
+    final theme = AidogTheme.of(context);
+    Map<String, int> counts(String key) {
+      final v = report[key];
+      if (v is! Map) return const {};
+      return {
+        for (final e in v.entries) '${e.key}': (e.value as num?)?.toInt() ?? 0,
+      };
+    }
+
+    final applied = counts('applied');
+    final skipped = counts('skipped');
+    final errors = [
+      for (final e in (report['errors'] as List? ?? const [])) '$e',
+    ];
+    int total(Map<String, int> m) => m.values.fold(0, (a, b) => a + b);
+
+    Widget section(String title, Color color, List<String> rows) => Padding(
+      padding: const EdgeInsets.only(top: AidogSpace.ssm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(title, style: AidogType.micro.copyWith(color: color)),
+          for (final r in rows)
+            Text(r, style: AidogType.caption.copyWith(color: theme.c.fg2)),
         ],
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TileMetaLine(t.t('importExport.reportTitle')),
+        Wrap(
+          spacing: AidogSpace.ssm,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            MiniBadge(
+              text: '${t.t('importExport.applied')} ${total(applied)}',
+              color: theme.c.ok,
+            ),
+            MiniBadge(
+              text: '${t.t('importExport.skipped')} ${total(skipped)}',
+              color: theme.c.fg3,
+            ),
+            if (errors.isNotEmpty)
+              MiniBadge(
+                text: '${t.t('importExport.errorsLabel')} ${errors.length}',
+                color: theme.c.bad,
+              ),
+          ],
+        ),
+        if (applied.isNotEmpty)
+          section(
+            t.t('importExport.applied'),
+            theme.c.ok,
+            [
+              for (final e in applied.entries)
+                '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+            ],
+          ),
+        if (skipped.isNotEmpty)
+          section(
+            t.t('importExport.skipped'),
+            theme.c.fg3,
+            [
+              for (final e in skipped.entries)
+                '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+            ],
+          ),
+        // 错误原文逐条列出来 —— 这是导入失败时唯一能查的东西。
+        if (errors.isNotEmpty)
+          section(
+            t.t('importExport.errors', {'n': '${errors.length}'}),
+            theme.c.bad,
+            errors,
+          ),
       ],
     );
   }
