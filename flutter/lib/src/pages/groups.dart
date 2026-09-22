@@ -104,7 +104,9 @@ class _GroupsSectionState extends State<GroupsSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (_c.edit.target != null) return _GroupEditPanel(controller: _c);
+    if (_c.edit.target != null) {
+      return _GroupEditPanel(controller: _c, copyText: widget.copyText);
+    }
     if (_c.showCreate) return _GroupCreatePanel(controller: _c);
     return _GroupListView(
       controller: _c,
@@ -149,6 +151,25 @@ class _GroupListView extends StatelessWidget {
           children: [
             TileMeta(t.t('page.groups')),
             const Spacer(),
+            Flexible(
+              child: Text(
+                c.proxyBaseUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.micro.copyWith(
+                  color: AidogTheme.of(context).c.fg3,
+                ),
+              ),
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            Tooltip(
+              message: t.t('group.copyBaseUrlTitle'),
+              child: SmallButton(
+                label: t.t('group.copyBaseUrl'),
+                onTap: () => copyText(c.proxyBaseUrl),
+              ),
+            ),
+            const SizedBox(width: AidogSpace.sxs),
             SmallButton(label: t.t('group.add'), onTap: c.openCreate),
           ],
         ),
@@ -383,6 +404,7 @@ class _GroupCard extends StatelessWidget {
                 constraints: const BoxConstraints(),
                 iconSize: 16,
                 color: theme.c.fg3,
+                tooltip: t.t('group.toggleDetails'),
                 icon: Icon(
                   collapsed ? Icons.chevron_right : Icons.expand_more,
                 ),
@@ -460,11 +482,20 @@ class _GroupCard extends StatelessWidget {
                     label: t.t('group.testAll'),
                     onTap: () => c.testGroup(g, detail.platforms),
                   ),
-                  SmallButton(
-                    label: g.isDefault
+                  Tooltip(
+                    message: g.isDefault
                         ? t.t('group.unsetDefault')
                         : t.t('group.setAsDefault'),
-                    onTap: () => c.toggleDefault(g, failText: t.t('group.setDefaultFailed')),
+                    child: SmallButton(
+                      label: g.isDefault
+                          ? t.t('group.defaultConfigWritten')
+                          : t.t('group.setAsDefault'),
+                      active: g.isDefault,
+                      onTap: () => c.toggleDefault(
+                        g,
+                        failText: t.t('group.setDefaultFailed'),
+                      ),
+                    ),
                   ),
                   SmallButton(
                     label: t.t('action.edit'),
@@ -556,7 +587,9 @@ class _CopyCommandMenu extends StatelessWidget {
     final t = AidogI18n.of(context);
     final envVars = [...group.envVars, ...proxyEnvVars];
     return PopupMenuButton<String>(
-      tooltip: t.t('group.copyCommand'),
+      // 平时显示「复制启动命令」，悬浮提示「复制密钥」——与 React 的 CopyButton
+      // defaultLabel / hoverLabel 一致（`GroupListItem.tsx:227-229`）。
+      tooltip: t.t('group.copyKeyLabel'),
       onSelected: (key) {
         final text = switch (key) {
           'key' => group.groupKey,
@@ -727,6 +760,10 @@ class _PlatformRow extends StatelessWidget {
                   ? null
                   : () => c.setLevelPriority(group.id, pid, gp.levelPriority + 1, failText: t.t('group.levelPriorityFailed')),
               icon: const Icon(Icons.add),
+            ),
+            Text(
+              t.t('group.levelPriorityMax'),
+              style: AidogType.micro.copyWith(color: theme.c.fg3),
             ),
             const SizedBox(width: AidogSpace.ssm),
             // 移动到另一分组：`usePlatformDrag.ts` 的跨组拖拽等价功能（不同交互形态，
@@ -957,17 +994,29 @@ class _CrossGroupWarning extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    final cross = [
+      for (final p in target.platforms)
+        if ((target.groupNamesByPlatform[p.id] ?? const []).length > 1) p,
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        for (final p in target.platforms)
-          if ((target.groupNamesByPlatform[p.id] ?? const []).length > 1)
-            Text(
-              '${p.name}: ${target.groupNamesByPlatform[p.id]!.join(' / ')}',
-              style: AidogType.micro.copyWith(color: theme.c.bad),
-            ),
+        Text(
+          t.t('group.batchDeleteCrossGroupWarning', {'count': '${cross.length}'}),
+          style: AidogType.micro.copyWith(color: theme.c.bad),
+        ),
+        for (final p in cross)
+          Text(
+            '${p.name} · '
+            '${t.t('group.batchDeleteCrossGroupItem', {
+              'count': '${target.groupNamesByPlatform[p.id]!.length}',
+              'groups': target.groupNamesByPlatform[p.id]!.join('、'),
+            })}',
+            style: AidogType.micro.copyWith(color: theme.c.bad),
+          ),
       ],
     );
   }
@@ -1429,6 +1478,8 @@ class _GroupCreatePanel extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          TileMeta(t.t('group.basicInfo')),
+          const SizedBox(height: AidogSpace.sxs),
           _Field(
             label: t.t('group.name'),
             hint: t.t('group.nameHint'),
@@ -1465,23 +1516,16 @@ class _GroupCreatePanel extends StatelessWidget {
           ),
           const SizedBox(height: AidogSpace.ssm),
           TileMeta(t.t('group.platforms')),
+          Text(
+            t.t('group.platformsHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
           const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              // 只列 enabled 的平台（与 React 的 createPlatformOptions 同口径）。
-              for (final p in c.createPlatformOptions)
-                SmallButton(
-                  label: p.name,
-                  active: c.createPlatformIds.contains(p.id),
-                  onTap: () {
-                    final next = [...c.createPlatformIds];
-                    next.contains(p.id) ? next.remove(p.id) : next.add(p.id);
-                    c.setCreatePlatformIds(next);
-                  },
-                ),
-            ],
+          // 只列 enabled 的平台（与 React 的 createPlatformOptions 同口径）。
+          _PlatformPicker(
+            platformIds: c.createPlatformIds,
+            options: c.createPlatformOptions,
+            onChange: c.setCreatePlatformIds,
           ),
           const SizedBox(height: AidogSpace.smd),
           Row(
@@ -1492,7 +1536,9 @@ class _GroupCreatePanel extends StatelessWidget {
               // 名字为空就点不动 —— React 的 `disabled={!cName}`。
               SmallButton(
                 label: t.t('action.create'),
-                onTap: c.canCreate ? c.createGroup : null,
+                onTap: c.canCreate
+                    ? () => c.createGroup(failText: t.t('group.createFailed'))
+                    : null,
               ),
             ],
           ),
@@ -1502,30 +1548,202 @@ class _GroupCreatePanel extends StatelessWidget {
   }
 }
 
-// ── 编辑态 ────────────────────────────────────────────────────────
+/// 关联平台选择器（`src/domains/groups/PlatformPicker.tsx`）：
+/// 已选平台按顺序排（顺序 = 优先级），可拖拽重排、可移除；下拉添加未选平台。
+class _PlatformPicker extends StatelessWidget {
+  const _PlatformPicker({
+    required this.platformIds,
+    required this.options,
+    required this.onChange,
+  });
 
-class _GroupEditPanel extends StatelessWidget {
-  const _GroupEditPanel({required this.controller});
-
-  final GroupsController controller;
+  final List<int> platformIds;
+  final List<PlatformRow> options;
+  final ValueChanged<List<int>> onChange;
 
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    final c = controller;
+    final remaining = [
+      for (final p in options)
+        if (!platformIds.contains(p.id)) p,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (platformIds.isNotEmpty)
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: platformIds.length,
+            onReorderItem: (o, n) {
+              final next = [...platformIds];
+              next.insert(n, next.removeAt(o));
+              onChange(next);
+            },
+            itemBuilder: (context, i) {
+              final pid = platformIds[i];
+              PlatformRow? p;
+              for (final o in options) {
+                if (o.id == pid) p = o;
+              }
+              return Padding(
+                key: ValueKey(pid),
+                padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+                child: Row(
+                  children: [
+                    Tooltip(
+                      message: t.t('group.dragToReorder'),
+                      child: Icon(Icons.drag_handle, size: 14, color: theme.c.fg3),
+                    ),
+                    const SizedBox(width: AidogSpace.sxs),
+                    Text(
+                      '${i + 1}',
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    ),
+                    const SizedBox(width: AidogSpace.sxs),
+                    Expanded(
+                      child: Text(
+                        p?.name ?? '#$pid',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.micro.copyWith(color: theme.c.fg2),
+                      ),
+                    ),
+                    IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                      iconSize: 14,
+                      icon: const Icon(Icons.close),
+                      onPressed: () => onChange([
+                        for (final id in platformIds)
+                          if (id != pid) id,
+                      ]),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        if (remaining.isNotEmpty)
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              isExpanded: true,
+              hint: Text(t.t('group.addPlatform')),
+              value: null,
+              items: [
+                for (final p in remaining)
+                  DropdownMenuItem(value: p.id, child: Text(p.name)),
+              ],
+              onChanged: (v) {
+                if (v != null) onChange([...platformIds, v]);
+              },
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+// ── 编辑态 ────────────────────────────────────────────────────────
+
+class _GroupEditPanel extends StatefulWidget {
+  const _GroupEditPanel({
+    required this.controller,
+    this.copyText = native.writeText,
+  });
+
+  final GroupsController controller;
+  final Future<void> Function(String text) copyText;
+
+  @override
+  State<_GroupEditPanel> createState() => _GroupEditPanelState();
+}
+
+class _GroupEditPanelState extends State<_GroupEditPanel> {
+  /// pi 线路协议存 `group.extra`，不在 UpdateGroup 字段集里 → 本地态 + 选中即写
+  /// （`GroupEditPanel.tsx:41`）。
+  late String _piApi = parseGroupPiApi(
+    widget.controller.edit.target?.group.extra ?? '',
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = widget.controller;
     final e = c.edit;
+    final g = e.target!.group;
+    final envVars = [...e.envVars, ...c.proxyEnvVars];
+    final hasReserved = e.envVars.any(
+      (ev) =>
+          ev.key == 'ANTHROPIC_BASE_URL' ||
+          ev.key == 'ANTHROPIC_AUTH_TOKEN' ||
+          ev.key == 'AIDOG_KEY',
+    );
     return Tile(
       title: t.t('group.edit'),
-      meta: e.target!.group.groupKey,
+      meta: g.groupKey,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 头部复制按钮组（`GroupEditPanel.tsx:63-66`）。
+          Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              Tooltip(
+                message: t.t('group.copyApiKeyTitle'),
+                child: SmallButton(
+                  label: t.t('group.apiKey'),
+                  onTap: () => widget.copyText(g.groupKey),
+                ),
+              ),
+              Tooltip(
+                message: t.t('group.copyCommand'),
+                child: SmallButton(
+                  label: 'Claude',
+                  onTap: () => widget.copyText(buildClaudeCommand(g.groupKey)),
+                ),
+              ),
+              Tooltip(
+                message: t.t('group.copyCodexCommand'),
+                child: SmallButton(
+                  label: 'Codex',
+                  onTap: () =>
+                      widget.copyText(buildCodexCommand(g.groupKey, envVars)),
+                ),
+              ),
+              Tooltip(
+                message: t.t('group.copyPiCommand'),
+                child: SmallButton(
+                  label: 'pi',
+                  onTap: () =>
+                      widget.copyText(buildPiCommand(g.groupKey, envVars)),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AidogSpace.ssm),
+          TileMeta(t.t('group.basicInfo')),
+          const SizedBox(height: AidogSpace.sxs),
           _Field(
             label: t.t('group.name'),
             value: e.name,
             onChanged: (v) => c.patchEdit(e.patch(name: v)),
+          ),
+          // 分组密钥：创建后锁定不可改（只读展示 + 说明）。
+          TileMeta(t.t('group.groupKey')),
+          Text(
+            g.groupKey,
+            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          ),
+          Text(
+            t.t('group.groupKeyLocked'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.ssm),
           TileMeta(t.t('group.routingMode')),
@@ -1549,11 +1767,40 @@ class _GroupEditPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: AidogSpace.ssm),
+          // pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集）。
+          TileMeta(t.t('group.piApiLabel')),
+          const SizedBox(height: AidogSpace.sxs),
+          Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              for (final api in kPiApis)
+                SmallButton(
+                  label: piApiLabel(t.t, api),
+                  active: _piApi == api,
+                  onTap: () {
+                    setState(() => _piApi = api);
+                    unawaited(c.setGroupPiApi(g.id, api));
+                  },
+                ),
+            ],
+          ),
+          Text(
+            t.t('group.piApiHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          const SizedBox(height: AidogSpace.ssm),
           _NumField(
             label: t.t('group.maxRetries'),
             value: e.maxRetries,
             onChanged: (v) => c.patchEdit(e.patch(maxRetries: v)),
           ),
+          Text(
+            t.t('group.maxRetriesHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
+          TileMeta(t.t('group.timeout')),
           _NumField(
             label: t.t('group.reqTimeout'),
             value: e.reqTimeout,
@@ -1564,37 +1811,102 @@ class _GroupEditPanel extends StatelessWidget {
             value: e.connTimeout,
             onChanged: (v) => c.patchEdit(e.patch(connTimeout: v)),
           ),
+          Text(
+            t.t('group.timeoutDefault'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          // 自动建组的说明（`GroupEditPanel.tsx:154-159`）。
+          if (g.autoFromPlatform.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AidogSpace.sxs),
+              child: Text(
+                t.t('group.autoFromPlatform'),
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            ),
           const SizedBox(height: AidogSpace.ssm),
           TileMeta(t.t('group.platforms')),
+          Text(
+            t.t('group.platformsHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
           const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              for (final p in c.platforms)
-                SmallButton(
-                  label: p.name,
-                  active: e.platformIds.contains(p.id),
-                  onTap: () {
-                    final next = [...e.platformIds];
-                    next.contains(p.id) ? next.remove(p.id) : next.add(p.id);
-                    c.patchEdit(e.patch(platformIds: next));
-                  },
-                ),
-            ],
+          _PlatformPicker(
+            platformIds: e.platformIds,
+            options: c.platforms,
+            onChange: (ids) => c.patchEdit(e.patch(platformIds: ids)),
           ),
           const SizedBox(height: AidogSpace.ssm),
-          // 模型映射：列表页的快捷删除（添加走列表卡里的表单）。
+          // 模型映射：逐行可编辑 + 删除 + 新增一行空映射。
           TileMeta(t.t('group.modelMappings')),
+          Text(
+            t.t('group.mappingsHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
           for (var i = 0; i < e.mappings.length; i++)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(
                 children: [
+                  SizedBox(
+                    width: 130,
+                    child: _Field(
+                      label: t.t('mapping.source'),
+                      value: e.mappings[i].sourceModel,
+                      onChanged: (v) {
+                        final next = [...e.mappings];
+                        next[i] = ModelMapping(
+                          sourceModel: v,
+                          targetPlatformId: next[i].targetPlatformId,
+                          targetModel: next[i].targetModel,
+                          requestTimeoutSecs: next[i].requestTimeoutSecs,
+                          connectTimeoutSecs: next[i].connectTimeoutSecs,
+                        );
+                        c.patchEdit(e.patch(mappings: next));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<int>(
+                      hint: Text(t.t('mapping.targetPlatform')),
+                      value: e.mappings[i].targetPlatformId == 0
+                          ? null
+                          : e.mappings[i].targetPlatformId,
+                      items: [
+                        for (final p in c.platforms)
+                          if (p.enabled)
+                            DropdownMenuItem(value: p.id, child: Text(p.name)),
+                      ],
+                      onChanged: (v) {
+                        final next = [...e.mappings];
+                        next[i] = ModelMapping(
+                          sourceModel: next[i].sourceModel,
+                          targetPlatformId: v ?? 0,
+                          targetModel: '',
+                          requestTimeoutSecs: next[i].requestTimeoutSecs,
+                          connectTimeoutSecs: next[i].connectTimeoutSecs,
+                        );
+                        c.patchEdit(e.patch(mappings: next));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
                   Expanded(
-                    child: Text(
-                      '${e.mappings[i].sourceModel} → ${e.mappings[i].targetModel}',
-                      style: AidogType.micro.copyWith(color: theme.c.fg2),
+                    child: _Field(
+                      label: t.t('mapping.target'),
+                      value: e.mappings[i].targetModel,
+                      onChanged: (v) {
+                        final next = [...e.mappings];
+                        next[i] = ModelMapping(
+                          sourceModel: next[i].sourceModel,
+                          targetPlatformId: next[i].targetPlatformId,
+                          targetModel: v,
+                          requestTimeoutSecs: next[i].requestTimeoutSecs,
+                          connectTimeoutSecs: next[i].connectTimeoutSecs,
+                        );
+                        c.patchEdit(e.patch(mappings: next));
+                      },
                     ),
                   ),
                   SmallButton(
@@ -1608,6 +1920,89 @@ class _GroupEditPanel extends StatelessWidget {
                 ],
               ),
             ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SmallButton(
+              label: '+ ${t.t('mapping.add')}',
+              onTap: () => c.patchEdit(
+                e.patch(
+                  mappings: [
+                    ...e.mappings,
+                    const ModelMapping(
+                      sourceModel: '',
+                      targetPlatformId: 0,
+                      targetModel: '',
+                      requestTimeoutSecs: 0,
+                      connectTimeoutSecs: 0,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: AidogSpace.ssm),
+          // 分组维度环境变量：sync 注入 Claude settings.env，复制 Codex 命令时前置 export。
+          TileMeta(t.t('group.envVars')),
+          Text(
+            t.t('group.envVarsHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          for (var i = 0; i < e.envVars.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 190,
+                    child: _Field(
+                      label: t.t('group.envVarKey'),
+                      value: e.envVars[i].key,
+                      onChanged: (v) {
+                        final next = [...e.envVars];
+                        next[i] = EnvVar(key: v, value: next[i].value);
+                        c.patchEdit(e.patch(envVars: next));
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  Expanded(
+                    child: _Field(
+                      label: t.t('group.envVarValue'),
+                      value: e.envVars[i].value,
+                      onChanged: (v) {
+                        final next = [...e.envVars];
+                        next[i] = EnvVar(key: next[i].key, value: v);
+                        c.patchEdit(e.patch(envVars: next));
+                      },
+                    ),
+                  ),
+                  SmallButton(
+                    label: t.t('action.delete'),
+                    danger: true,
+                    onTap: () {
+                      final next = [...e.envVars]..removeAt(i);
+                      c.patchEdit(e.patch(envVars: next));
+                    },
+                  ),
+                ],
+              ),
+            ),
+          if (hasReserved)
+            Text(
+              t.t('group.envVarReservedHint'),
+              style: AidogType.micro.copyWith(color: theme.c.bad),
+            ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: SmallButton(
+              label: '+ ${t.t('group.addEnvVar')}',
+              onTap: () => c.patchEdit(
+                e.patch(
+                  envVars: [...e.envVars, const EnvVar(key: '', value: '')],
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: AidogSpace.smd),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
@@ -1617,7 +2012,9 @@ class _GroupEditPanel extends StatelessWidget {
               // 名字为空就点不动 —— React 的 `disabled={!editName}`。
               SmallButton(
                 label: t.t('action.save'),
-                onTap: e.canSave ? c.saveEdit : null,
+                onTap: e.canSave
+                    ? () => c.saveEdit(failText: t.t('group.saveFailed'))
+                    : null,
               ),
             ],
           ),
