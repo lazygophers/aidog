@@ -504,12 +504,21 @@ class _LogTable extends StatelessWidget {
                     Expanded(
                       flex: 1,
                       child: Text(
-                        '${log.statusCode}',
+                        // 两个状态码有专门的说法，不显示裸数字
+                        //（`Logs/primitives.tsx:310-314`）：
+                        //   0   = 还没有终态（流式在跑）→「未完成」
+                        //   499 = 客户端提前断开 → 「已中断」
+                        switch (log.statusCode) {
+                          0 => t.t('logs.statusIncomplete'),
+                          499 => t.t('logs.statusInterrupted'),
+                          _ => '${log.statusCode}',
+                        },
                         style: AidogType.micro.copyWith(
-                          // 2xx 绿、其余红；0 = 还没有终态（流式在跑）。
-                          color: log.statusCode == 0
-                              ? theme.c.fg3
-                              : (log.statusCode >= 200 && log.statusCode < 300)
+                          // 2xx 绿、其余一律红 —— 包括 0。
+                          // 原先把 0 画成灰色，与 React 相反：流式跑到一半没落终态
+                          // 通常就是出事了，灰色会让人以为「正常，只是还没结束」。
+                          color:
+                              log.statusCode >= 200 && log.statusCode < 300
                               ? theme.c.ok
                               : theme.c.bad,
                         ),
