@@ -248,10 +248,13 @@ void main() {
     expect(find.text(c.t('logs.noUpstream')), findsNothing);
     expect(panelCopies(c), findsNWidgets(5));
 
-    // 切到上游侧：五块全空 → 五条「(未捕获)」，一个复制按钮都没有。
+    // 切到上游侧：五块全空 → 一个复制按钮都没有。
+    // 其中响应正文那一块写的是「流式响应，内容未记录」而不是「未捕获」：
+    // 空的原因不一样，写成一句话会让人以为日志坏了（`DetailPanel.tsx:100`）。
     await tester.tap(find.byKey(const ValueKey('detail-tab-1')));
     await settle(tester);
-    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(5));
+    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(4));
+    expect(find.text(c.t('logs.streamResponse')), findsOneWidget);
     expect(panelCopies(c), findsNothing);
   });
 
