@@ -371,6 +371,78 @@ void main() {
       return k;
     }
 
+    /// 两节的 schema：锚点 chip 条只在多于一节时才有意义。
+    SchemaBundle twoSectionBundle() => SchemaBundle(
+      sections: [
+        SchemaSection({
+          'id': 'core',
+          'labelKey': 'settings.sectionCore',
+          'fields': [
+            {'key': 'model', 'label': 'Model', 'type': 'string'},
+          ],
+        }),
+        SchemaSection({
+          'id': 'perm',
+          'labelKey': 'settings.sectionPermissions',
+          'fields': [
+            {'key': 'verbose', 'label': 'Verbose', 'type': 'boolean'},
+          ],
+        }),
+      ],
+      recommended: const {},
+    );
+
+    // 回归 2026-09-22：claude 页十几个 section，原先只能一路滚 ——
+    // 没有 chip 条、没有滚动联动（`SectionAnchorNav.tsx:19-68`）。
+    testWidgets('claude 页有 section 锚点 chip，点一下高亮它', (tester) async {
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SchemaConfigPage(
+            kind: SchemaConfigKind.claude,
+            invoke: FakeKernel(baseResponses()).invoke,
+            bundleLoader: (_) async => twoSectionBundle(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      expect(
+        find.byKey(const ValueKey('settings-anchor-nav')),
+        findsOneWidget,
+      );
+      final chip = find.descendant(
+        of: find.byKey(const ValueKey('settings-anchor-nav')),
+        matching: find.widgetWithText(
+          SmallButton,
+          i18n.t('settings.sectionPermissions'),
+        ),
+      );
+      expect(chip, findsOneWidget);
+      expect(tester.widget<SmallButton>(chip).active, isFalse);
+      await tester.tap(chip);
+      await settle(tester);
+      expect(tester.widget<SmallButton>(chip).active, isTrue);
+    });
+
+    testWidgets('codex 页没有 chip 条（搜索与锚点都是 claude 页独有）', (tester) async {
+      await useBigSurface(tester);
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SchemaConfigPage(
+            kind: SchemaConfigKind.codex,
+            invoke: FakeKernel(baseResponses()).invoke,
+            bundleLoader: (_) async => twoSectionBundle(),
+          ),
+          i18n,
+        ),
+      );
+      await settle(tester);
+      expect(find.byKey(const ValueKey('settings-anchor-nav')), findsNothing);
+    });
+
     testWidgets('未改动时保存按钮点不动', (tester) async {
       final i18n = await makeI18n(tester);
       await mount(tester, SchemaConfigKind.claude);
