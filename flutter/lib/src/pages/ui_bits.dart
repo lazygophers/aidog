@@ -153,6 +153,70 @@ class CenteredNote extends StatelessWidget {
   );
 }
 
+/// 「这个维度 pi 不支持」的说明条 —— 对齐
+/// `src/components/shared/PiUnsupportedNote.tsx`。
+///
+/// 用在 MCP / 通知 hook / cc-switch 导入三处：那里对 Claude Code 与 Codex 有内容、
+/// 对 pi 永远是空的。不写一句就像 aidog 坏了。刻意做成中性提示（不是错误态、
+/// 也不是空状态），因为这是产品决定，不是缺陷 ——
+/// 见 `docs/adr/0002-no-mcp-hooks-or-statusline-for-pi.md`。
+///
+/// [reasonKey] 由调用方给，三处各不相同，不能在这里写死。
+class PiUnsupportedNote extends StatelessWidget {
+  const PiUnsupportedNote({
+    super.key,
+    required this.reasonKey,
+    required this.reasonFallback,
+  });
+
+  final String reasonKey;
+  final String reasonFallback;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final reason = t.t(reasonKey);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.smd,
+        vertical: AidogSpace.ssm,
+      ),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // React 那边是 pi.svg 的 <img>；这里没有这份资产，用同尺寸的占位图标。
+          Icon(Icons.extension_outlined, size: 16, color: theme.c.fg2),
+          const SizedBox(width: AidogSpace.ssm),
+          Expanded(
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: t.t('pi.unsupportedTitle'),
+                    style: AidogType.micro.copyWith(
+                      color: theme.c.fg,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const TextSpan(text: ' — '),
+                  TextSpan(text: reason == reasonKey ? reasonFallback : reason),
+                ],
+              ),
+              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// 操作结果提示条。React 那边是浮层 toast，这里挂在页面底部 —— 同样 3 秒后消失，
 /// 由页面的计时器负责清掉。
 class ToastBar extends StatelessWidget {

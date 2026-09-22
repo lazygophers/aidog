@@ -190,6 +190,14 @@ class _NotificationsSettingsPageState
             ),
           ],
         ),
+        const Padding(
+          padding: EdgeInsets.only(bottom: AidogSpace.smd),
+          child: PiUnsupportedNote(
+            reasonKey: 'pi.unsupportedHooks',
+            reasonFallback:
+                'pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。',
+          ),
+        ),
         _eventList(t, s),
         if (_c.uvPrompt != null) _uvPrompt(t, texts),
         if (_c.error.isNotEmpty) ErrorNote(text: _c.error),

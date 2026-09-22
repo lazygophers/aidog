@@ -42,12 +42,16 @@ enum SchemaConfigKind {
   codex(
     wiring: SchemaConfigWiring.codex,
     schemaKey: 'codex',
-    titleKey: 'appSettings.codexTab',
+    // 页内标题用 `codex.title`（「Codex 配置」），不是侧栏的 tab 标签
+    // （`appSettings.codexTab` = 「Codex」，仍由 nav.dart 用）——
+    // 与 React `CodexSettings.tsx:167` 的页内标题栏一致。
+    titleKey: 'codex.title',
   ),
   pi(
     wiring: SchemaConfigWiring.pi,
     schemaKey: 'pi',
-    titleKey: 'appSettings.piTab',
+    // 同上：页内标题 `pi.title`（「pi 配置」），对齐 `PiSettings.tsx:169`。
+    titleKey: 'pi.title',
   );
 
   const SchemaConfigKind({
