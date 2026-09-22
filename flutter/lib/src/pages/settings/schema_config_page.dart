@@ -23,6 +23,7 @@ import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'env_editor.dart';
+import 'field_editors.dart';
 import 'hooks_editor.dart';
 import 'import_diff.dart';
 import 'path_input.dart';
@@ -82,6 +83,19 @@ class SchemaField {
   String? get pathType => raw['pathType'] as String?;
   List<String> get options =>
       (raw['options'] as List? ?? const []).map((e) => '$e').toList();
+
+  /// kv / kv-select 新增行那一格的引导语（React `FieldRenderer.tsx:117`）。
+  String? get keyPlaceholder => raw['keyPlaceholder'] as String?;
+
+  /// kv-select 值那一格的候选。
+  List<String> get valueOptions =>
+      (raw['valueOptions'] as List? ?? const []).map((e) => '$e').toList();
+
+  /// object 字段的子字段清单：`{key, label, type, options?, placeholder?}`。
+  List<Map<String, Object?>> get objectFields => [
+    for (final e in (raw['objectFields'] as List? ?? const []))
+      if (e is Map) Map<String, Object?>.from(e),
+  ];
 }
 
 class SchemaSection {
@@ -588,6 +602,13 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     );
   }
 
+  /// kv / kv-select 的值：只认「对象」，数组和标量当没配过。
+  /// 对应 React 的 `typeof value === "object" && !Array.isArray(value)`
+  /// —— JSON 数组在 Dart 侧解成 `List`，`is Map` 天然把它挡在外面。
+  static Map<String, String> _asStringMap(Object? v) => v is Map
+      ? {for (final e in v.entries) '${e.key}': '${e.value}'}
+      : const {};
+
   Widget _fieldContent(
     I18nController t,
     SchemaConfigController c,
@@ -642,29 +663,57 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           onSubmitted: (v) => c.updateField(f.key, v.trim()),
         );
       case 'string[]':
-        final list = value is List ? value.map((e) => '$e').join('\n') : '';
-        return TextRow(
+        return FieldShell(
           key: ValueKey('field-${f.key}'),
           label: label,
           description: f.description,
-          // React 的 StringListEditor 是逐条 add/remove；这里是一行一项的多行文本框——
-          // 同一份数据的不同交互形态，占位符沿用同一句「添加规则」引导语。
-          hint: f.placeholder ?? t.t('settings.addRule'),
-          value: list,
-          maxLines: 4,
-          onSubmitted: (v) {
-            final items = v
-                .split('\n')
-                .map((e) => e.trim())
-                .where((e) => e.isNotEmpty)
-                .toList();
-            c.updateField(f.key, items.isEmpty ? null : items);
-          },
+          child: StringListEditor(
+            idPrefix: 'field-${f.key}',
+            items: value is List ? value.map((e) => '$e').toList() : const [],
+            addLabel: f.placeholder ?? t.t('settings.addRule'),
+            onChanged: (list) => c.updateField(f.key, list),
+          ),
+        );
+      case 'kv':
+        return FieldShell(
+          key: ValueKey('field-${f.key}'),
+          label: label,
+          description: f.description,
+          child: KvEditor(
+            idPrefix: 'field-${f.key}',
+            items: _asStringMap(value),
+            keyPlaceholder: f.keyPlaceholder ?? 'KEY',
+            onChanged: (kv) => c.updateField(f.key, kv),
+          ),
+        );
+      case 'kv-select':
+        return FieldShell(
+          key: ValueKey('field-${f.key}'),
+          label: label,
+          description: f.description,
+          child: KvSelectEditor(
+            idPrefix: 'field-${f.key}',
+            items: _asStringMap(value),
+            valueOptions: f.valueOptions,
+            keyPlaceholder: f.keyPlaceholder ?? 'KEY',
+            onChanged: (kv) => c.updateField(f.key, kv),
+          ),
+        );
+      case 'object':
+        return FieldShell(
+          key: ValueKey('field-${f.key}'),
+          label: label,
+          description: f.description,
+          child: ObjectEditor(
+            idPrefix: 'field-${f.key}',
+            value: value is Map ? Map<String, Object?>.from(value) : const {},
+            fields: f.objectFields,
+            addLabel: t.t('settings.addRule'),
+            onChanged: (v) => c.updateField(f.key, v),
+          ),
         );
       default:
-        // json / object / kv / kv-select：统一走 JSON 编辑框。
-        // React 侧另有可视化编辑器（权限矩阵、hooks 构建器），本票未搬 ——
-        // 见 flutter/README.md 的「I16 未对齐」清单。
+        // 剩下的 json 类型走 JSON 编辑框。权限矩阵、hooks 构建器另有专用编辑器。
         return _JsonField(
           key: ValueKey('field-${f.key}'),
           label: label,
