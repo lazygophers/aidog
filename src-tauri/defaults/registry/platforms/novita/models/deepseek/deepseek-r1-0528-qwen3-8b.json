@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790084258,
   "model_id": "deepseek/deepseek-r1-0528-qwen3-8b",
-  "canonical_model": "deepseek-r1-0528-qwen3-8b",
+  "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
   "capabilities": [
     "text"
   ],

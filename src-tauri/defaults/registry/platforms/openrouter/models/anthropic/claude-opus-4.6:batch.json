@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1790084258,
   "model_id": "anthropic/claude-opus-4.6:batch",
-  "canonical_model": "claude-opus-4.6",
+  "canonical_model": "claude-opus-4-6",
   "capabilities": [
     "text",
     "vision",

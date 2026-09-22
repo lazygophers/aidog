@@ -44,6 +44,8 @@ function validate(kind, rel, raw) {
 // out = 相对路径（index.json 登记用），ids = 文件内 model_id（platform.json 引用用）。
 // 两者通常相同；macOS 文件系统不分大小写，装不下只差大小写的两个 id（如 atlascloud
 // `Qwen/...` 与 `qwen/...`），这种条目路径退化成小写、真值仍是文件内的 model_id。
+// modelMeta 收集全库 canonical / predecessor，供 ⑥⑦ 跨文件不变量检查。
+const modelMeta = [];
 function walkModels(dir, baseRel, rel, out, ids) {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
@@ -51,11 +53,14 @@ function walkModels(dir, baseRel, rel, out, ids) {
       walkModels(p, baseRel, rel === "" ? name : `${rel}/${name}`, out, ids);
     } else if (name.endsWith(".json")) {
       const raw = readFileSync(p, "utf8");
-      validate("model", `${baseRel}/${rel === "" ? name : `${rel}/${name}`}`, raw);
+      const relFile = `${baseRel}/${rel === "" ? name : `${rel}/${name}`}`;
+      validate("model", relFile, raw);
       out.push(rel === "" ? name.replace(/\.json$/, "") : `${rel}/${name.replace(/\.json$/, "")}`);
       if (ids) {
         try {
-          ids.push(JSON.parse(raw).model_id);
+          const doc = JSON.parse(raw);
+          ids.push(doc.model_id);
+          modelMeta.push({ file: relFile, canon: doc.canonical_model ?? null, pred: doc.predecessor ?? null });
         } catch {
           /* schema 校验已经报过错，这里不重复 */
         }
@@ -203,6 +208,47 @@ for (const f of ["index.schema.json", "platform.schema.json", "model.schema.json
   };
   walk(doc, "");
   for (const [m, msg] of miss) failures.push([`schema/${f}`, `字段 ${m} ${msg}`]);
+}
+
+// ⑥ canonical 身份折叠组唯一（2026-09-22 registry-data-governance 票 02/03）：
+// 折叠键 = 去 vendor 前缀（`/` 后主体）+ 小写 + `.`/`_` 折叠成 `-`。
+// 同一折叠组内出现多个不同字面 canonical = 身份冲突（如 glm-5.2 / GLM-5.2），
+// 硬错；修冲突时全组统一取官方拼写（规范见 schema/README.md「canonical_model 归一规范」）。
+const foldKey = (c) => c.slice(c.lastIndexOf("/") + 1).toLowerCase().replaceAll(".", "-").replaceAll("_", "-");
+const foldGroups = new Map();
+for (const m of modelMeta) {
+  if (!m.canon) continue;
+  const k = foldKey(m.canon);
+  if (!foldGroups.has(k)) foldGroups.set(k, new Map());
+  const g = foldGroups.get(k);
+  g.set(m.canon, (g.get(m.canon) ?? 0) + 1);
+}
+for (const [k, g] of foldGroups) {
+  if (g.size > 1) {
+    failures.push([`canonical:${k}`, `身份冲突：${g.size} 种拼写并存 ${[...g.keys()].join(" | ")}，应统一为官方拼写`]);
+  }
+}
+
+// ⑦ predecessor 指向 canonical_model（票 03）：必须全库可解析，且链不得成环。
+const canonSet = new Set(modelMeta.filter((m) => m.canon).map((m) => m.canon));
+const predByCanon = new Map();
+for (const m of modelMeta) {
+  if (m.canon && m.pred && !predByCanon.has(m.canon)) predByCanon.set(m.canon, m.pred);
+}
+for (const m of modelMeta) {
+  if (m.pred && !canonSet.has(m.pred)) failures.push([m.file, `predecessor "${m.pred}" 不是全库任何 canonical_model`]);
+}
+for (const start of predByCanon.keys()) {
+  const seen = new Set([start]);
+  let cur = predByCanon.get(start);
+  while (cur && predByCanon.has(cur)) {
+    if (seen.has(cur)) {
+      failures.push([`predecessor:${start}`, `版本链成环：${start} → … → ${cur}`]);
+      break;
+    }
+    seen.add(cur);
+    cur = predByCanon.get(cur);
+  }
 }
 
 if (failures.length) {

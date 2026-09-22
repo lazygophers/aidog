@@ -1,7 +1,7 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790084258,
   "model_id": "Qwen/Qwen2.5-VL-32B-Instruct",
-  "canonical_model": "Qwen/Qwen2.5-VL-32B-Instruct",
+  "canonical_model": "Qwen2.5-VL-32B-Instruct",
   "capabilities": [],
   "official": false,
   "price": {

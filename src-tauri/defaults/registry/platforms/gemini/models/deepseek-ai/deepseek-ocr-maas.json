@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788072476,
+  "last_updated": 1790084258,
   "model_id": "deepseek-ai/deepseek-ocr-maas",
-  "canonical_model": "deepseek-ai/deepseek-ocr-maas",
+  "canonical_model": "deepseek-ocr-maas",
   "capabilities": [
     "text",
     "vision"

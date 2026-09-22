@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790084258,
   "model_id": "THUDM/GLM-4-32B-0414",
-  "canonical_model": "GLM-4-32B-0414",
+  "canonical_model": "glm-4-32b-0414",
   "capabilities": [
     "text"
   ],

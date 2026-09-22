@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790084258,
   "model_id": "qwen/qwen3-coder-480b-a35b-instruct-maas",
-  "canonical_model": "qwen/qwen3-coder-480b-a35b-instruct-maas",
+  "canonical_model": "qwen3-coder-480b-a35b-instruct-maas",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790084258,
   "model_id": "tencent/hunyuan-a13b-instruct",
-  "canonical_model": "hunyuan-a13b-instruct",
+  "canonical_model": "Hunyuan-A13B-Instruct",
   "capabilities": [
     "text"
   ],

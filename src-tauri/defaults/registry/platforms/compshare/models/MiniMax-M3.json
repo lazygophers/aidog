@@ -1,7 +1,7 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790084258,
   "model_id": "MiniMax-M3",
-  "canonical_model": "minimax-m3",
+  "canonical_model": "MiniMax-M3",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

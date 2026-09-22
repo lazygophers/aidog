@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790084258,
   "model_id": "MiniMax-H3",
-  "canonical_model": "minimax-h3",
+  "canonical_model": "MiniMax-H3",
   "capabilities": [
     "text_to_video"
   ],

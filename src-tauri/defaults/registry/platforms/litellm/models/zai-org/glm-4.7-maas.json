@@ -1,7 +1,7 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790084258,
   "model_id": "zai-org/glm-4.7-maas",
-  "canonical_model": "zai-org/glm-4.7-maas",
+  "canonical_model": "glm-4.7-maas",
   "capabilities": [
     "text"
   ],
