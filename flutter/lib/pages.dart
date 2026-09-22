@@ -46,7 +46,15 @@ export 'src/pages/notifications.dart'
     show NotificationItem, NotificationsPage, notifTypeLabel;
 export 'src/pages/platform_card_bits.dart';
 export 'src/pages/platform_paste_logic.dart';
-export 'src/pages/platform_card_view.dart' show PlatformCard, decodeLogoDataUrl, logoWidget;
+export 'src/pages/platform_card_view.dart' show PlatformCard;
+export 'src/pages/platform_logo.dart'
+    show
+        bundledLogoAsset,
+        decodeLogoDataUrl,
+        extractPngFromIco,
+        faviconUrl,
+        logoWidget,
+        platformLogo;
 export 'src/pages/platforms.dart' show PlatformsPage;
 export 'src/pages/share_panel.dart' show SharePanel;
 export 'src/pages/smart_paste_modal.dart' show SmartPasteModal;

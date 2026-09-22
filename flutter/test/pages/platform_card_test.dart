@@ -1520,9 +1520,22 @@ void main() {
       expect(find.text('OP'), findsNothing);
     });
 
-    testWidgets('logo 缓存 miss → 首字母兜底（协议名前两位大写）', (tester) async {
+    testWidgets('logo 缓存 miss 但有内置 svg → 画内置图，不掉成字母块', (tester) async {
+      // 2026-09-22 之前这条断言的是「缓存 miss 就显 OP 两个字母」——
+      // 那是把缺陷当成了规格。React 有四级回退，openai 属于 16 个内置图之一，
+      // 缓存没同步下来也该画出真 logo（`platform_logo.dart::platformLogo`）。
       await mount(tester, cardFake());
-      expect(find.text('OP'), findsOneWidget);
+      expect(find.text('OP'), findsNothing);
+      expect(find.byType(SvgPicture), findsWidgets);
+    });
+
+    testWidgets('四级全落空（无内置图、无 base_url）才画字母块', (tester) async {
+      final k = cardFake();
+      k.responses['platform_list'] = [
+        platRow(1, 'Test Platform', type: 'zz')..['base_url'] = '',
+      ];
+      await mount(tester, k);
+      expect(find.text('ZZ'), findsOneWidget);
     });
 
     testWidgets('所属分组 badge 列在名称下面', (tester) async {
@@ -2086,37 +2099,7 @@ void main() {
       expect(k.commands.contains('get_protocol_logo_path'), isFalse);
     });
 
-    test('decodeLogoDataUrl：非 data URL / 坏 base64 → null，认得出 mime', () {
-      expect(decodeLogoDataUrl(null), isNull);
-      expect(decodeLogoDataUrl(''), isNull);
-      expect(decodeLogoDataUrl('/tmp/x.png'), isNull);
-      expect(decodeLogoDataUrl('data:image/png;base64,!!!'), isNull);
-      expect(decodeLogoDataUrl('data:image/png;base64,AAAA')?.mime, 'image/png');
-      expect(
-        decodeLogoDataUrl('data:image/svg+xml;base64,AAAA')?.mime,
-        'image/svg+xml',
-      );
-    });
-
-    test('logoWidget：ICO 不认（回落字母块），SVG 与 PNG 各走各的渲染器', () {
-      // 回归 2026-09-22：`~/.aidog/logos/` 里真实躺着 `.svg` 和 `.ico`
-      //（`defaults.rs:64` 按扩展名派生 mime）。原先无差别喂给 `Image.memory`，
-      // 结果是每张平台卡刷一条
-      // `EXCEPTION CAUGHT BY IMAGE RESOURCE SERVICE: Invalid image data`。
-      expect(logoWidget(null), isNull);
-      expect(
-        logoWidget(decodeLogoDataUrl('data:image/x-icon;base64,AAAA')),
-        isNull,
-        reason: 'dart:ui 解不了 ICO，必须回落到字母块而不是抛异常',
-      );
-      expect(
-        logoWidget(decodeLogoDataUrl('data:image/png;base64,AAAA')),
-        isA<Image>(),
-      );
-      expect(
-        logoWidget(decodeLogoDataUrl('data:image/svg+xml;base64,AAAA')),
-        isA<SvgPicture>(),
-      );
-    });
+    // logo 的四级回退（含 mime 分流、ICO 抠 PNG）单独放
+    // `test/pages/platform_logo_test.dart`，那边一起测四级串联。
   });
 }
