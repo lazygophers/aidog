@@ -444,3 +444,88 @@ class ToastBar extends StatelessWidget {
     );
   }
 }
+
+/// 输入框：控制器活在 State 里，不随每次 build 重建。
+///
+/// 这个 widget 存在的唯一理由是修一类反复出现的 bug：
+/// 直接写 `TextField(controller: TextEditingController(text: x))`，
+/// **每次 build 都造一个新控制器**，于是任何一次外部重建（同页别的东西变了、
+/// 列表里增删一行、定时刷新到了）都会把正在输入的内容打回上一次提交的值。
+/// MCP 的 KV 编辑器最明显：增删任意一行就会触发。
+///
+/// 正确做法就是这里的：控制器 `late final` 在 State 里，只有**外部值真的变了**
+/// 才同步回输入框（并把光标放到末尾），值没变就不碰，免得打断用户正在选的那一段。
+class KeptTextField extends StatefulWidget {
+  const KeptTextField({
+    super.key,
+    required this.value,
+    this.onChanged,
+    this.onSubmitted,
+    this.hint,
+    this.keyboardType,
+    this.textAlign = TextAlign.start,
+    this.maxLines = 1,
+  });
+
+  final String value;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+  final String? hint;
+  final TextInputType? keyboardType;
+  final TextAlign textAlign;
+  final int? maxLines;
+
+  @override
+  State<KeptTextField> createState() => _KeptTextFieldState();
+}
+
+class _KeptTextFieldState extends State<KeptTextField> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void didUpdateWidget(KeptTextField old) {
+    super.didUpdateWidget(old);
+    // 🔴 `!_focus.hasFocus` 这道闸缺不得。
+    //
+    // 调用方大多把 `onChanged` 写进一个普通字段（`f.name = v`）**而不触发重建**，
+    // 所以用户打字时 `widget.value` 仍停在旧值。只比 `widget.value != _ctrl.text`
+    // 的话，下一次外部重建就会拿旧值把用户刚打的字盖掉 —— 换了个形式的同一个 bug。
+    // `settings/bits.dart:180` 的 TextRow 早就是这么写的，这里照抄。
+    if (widget.value != _ctrl.text && !_focus.hasFocus) {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return TextField(
+      controller: _ctrl,
+      focusNode: _focus,
+      keyboardType: widget.keyboardType,
+      textAlign: widget.textAlign,
+      maxLines: widget.maxLines,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: widget.hint,
+        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+      ),
+      style: AidogType.micro.copyWith(color: theme.c.fg),
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+    );
+  }
+}

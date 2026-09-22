@@ -309,6 +309,12 @@ class McpController {
     onChanged();
   }
 
+  /// 给分享面板用的 toast 入口（`McpModals.tsx:339` 的 `onToast`）。
+  void showToast(String text, {required bool ok}) {
+    message = (ok: ok, text: text);
+    onChanged();
+  }
+
   /// `useMcpData.ts:64::refresh`。**失败也要把 loading 落下来**（finally）。
   Future<void> refresh() async {
     try {

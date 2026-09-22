@@ -67,6 +67,11 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     super.dispose();
   }
 
+  /// 能不能动技能：没装 node / 项目路径没填 / 正在跑别的活，都不能。
+  /// 与 `SkillsView.tsx:66` 的 `!writeReady || scopeInvalid || busyKey` 同口径。
+  bool get _ready =>
+      _c.writeReady && !_c.scopeInvalid && _c.busyKey == null;
+
   Future<void> _pickProjectDir() async {
     final selected = await native.pickPath(
       const native.PickPathOptions(directory: true),
@@ -108,32 +113,39 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
+              // 这一排按钮的禁用条件照 `SkillsView.tsx:66-132`：
+              // 没装 node（`!writeReady`）/ 项目路径没填（`scopeInvalid`）/
+              // 正在跑别的活（`busyKey != null`），三者任一成立就点不动。
+              // 原先只有「全部更新」判了，其余四颗无条件可点 —— 点下去必然失败。
               SmallButton(
                 label: t.t('skills.install.addBtn'),
-                onTap: () => _c.setSubView('install'),
+                onTap: _ready ? () => _c.setSubView('install') : null,
               ),
               SmallButton(
                 label: t.t('skills.updateAll'),
-                onTap: _c.busyKey == null && _c.writeReady && !_c.scopeInvalid
-                    ? _c.updateAll
-                    : null,
+                onTap: _ready ? _c.updateAll : null,
               ),
-              SmallButton(label: t.t('skills.alignTitle'), onTap: _c.openAlign),
+              SmallButton(
+                label: t.t('skills.alignTitle'),
+                onTap: _ready ? _c.openAlign : null,
+              ),
               SmallButton(
                 label: t.t('skills.importFromShare'),
-                onTap: () => _c.setPasteOpen(true),
+                onTap: _ready ? () => _c.setPasteOpen(true) : null,
               ),
               SmallButton(
                 label: t.t('skills.uninstallSelected', {
                   'count': _c.selectedNames.length,
                 }),
                 danger: true,
-                onTap: _c.selectedNames.isEmpty ? null : _c.askUninstallBatch,
+                onTap: (_ready && _c.selectedNames.isNotEmpty)
+                    ? _c.askUninstallBatch
+                    : null,
               ),
               SmallButton(
                 label: t.t('skills.uninstallAll'),
                 danger: true,
-                onTap: _c.askUninstallAll,
+                onTap: _ready ? _c.askUninstallAll : null,
               ),
             ],
           ),
@@ -238,19 +250,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
         if (_c.scopeKind == 'project') ...[
           SizedBox(
             width: 280,
-            child: TextField(
+            child: KeptTextField(
               key: const Key('skills-project-path'),
-              controller: TextEditingController(text: _c.projectPath)
-                ..selection = TextSelection.collapsed(
-                  offset: _c.projectPath.length,
-                ),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: t.t('skills.chooseProjectDir'),
-              ),
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg,
-              ),
+              value: _c.projectPath,
+              hint: t.t('skills.chooseProjectDir'),
               onSubmitted: _c.setProjectPath,
             ),
           ),
@@ -288,9 +291,20 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             onChanged: _c.setSearchQuery,
           ),
         ),
-        for (final f in const ['all', 'enabled', 'disabled'])
+        // 三颗筛选按钮的 key 直接写死，不拼。
+        //
+        // 原先写的是 `'skills.filter\${f[0].toUpperCase()}...'` —— **单引号串里
+        // `\$` 是字面美元符**，于是三颗按钮拿到的是同一个不存在的 key
+        // `skills.filter\${f[0].toUpperCase()}\${f.substring(1)}`，界面上直接显这串裸 key。
+        // 换成双引号插值也能修，但拼出来的 key 会让 `check-ui-parity.mjs`
+        // 这类扫字面量的工具照不出来 —— 写死更好。
+        for (final (f, key) in const [
+          ('all', 'skills.filterAll'),
+          ('enabled', 'skills.filterEnabled'),
+          ('disabled', 'skills.filterDisabled'),
+        ])
           SmallButton(
-            label: t.t('skills.filter\${f[0].toUpperCase()}\${f.substring(1)}'),
+            label: t.t(key),
             active: _c.enabledFilter == f,
             onTap: () => _c.setEnabledFilter(f),
           ),

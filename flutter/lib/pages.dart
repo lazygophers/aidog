@@ -95,6 +95,7 @@ export 'src/pages/stats_logic.dart';
 export 'src/pages/ui_bits.dart'
     show
         AidogModal,
+        KeptTextField,
         AidogSwitch,
         CenteredNote,
         ConfirmCard,
