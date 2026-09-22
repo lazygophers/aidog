@@ -210,6 +210,10 @@ class SystemSettingsController {
   ProxyStartError? proxyStartError;
   String appVersion = '';
   bool dbCompacting = false;
+
+  /// 日志清理 / 清空执行中。确认卡按这个变灰并显示「清理中…」，
+  /// 对齐 `LogSettingsSection.tsx:313-343` 的 busy 态。
+  bool logMaintBusy = false;
   int statsRetention = 365;
   bool statsRebuilding = false;
   bool autoUpdateEnabled = true;
@@ -536,10 +540,23 @@ class SystemSettingsController {
   /// 只读预估：超期行数 + 这些行 body 字节总和 + log.db 当前大小。
   Future<Map<String, Object?>> cleanupEstimate() async => _map(await _invoke('proxy_log_cleanup_estimate'));
 
-  Future<void> cleanupExpired() => _invoke('proxy_log_cleanup_expired').then((_) {});
+  Future<void> cleanupExpired() => _logMaint('proxy_log_cleanup_expired');
 
   /// **破坏性**：清空全部代理日志，调用方必须先确认。
-  Future<void> clearLogs() => _invoke('proxy_log_clear').then((_) {});
+  Future<void> clearLogs() => _logMaint('proxy_log_clear');
+
+  /// 两条日志维护命令共用的执行中态。失败也要把标记收回来，
+  /// 否则确认卡会永远卡在「清理中…」。
+  Future<void> _logMaint(String cmd) async {
+    logMaintBusy = true;
+    _notify();
+    try {
+      await _invoke(cmd);
+    } finally {
+      logMaintBusy = false;
+      _notify();
+    }
+  }
 
   static Map<String, Object?> _map(Object? v) =>
       v is Map ? Map<String, Object?>.from(v) : <String, Object?>{};

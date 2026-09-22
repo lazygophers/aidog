@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import '../../../i18n.dart';
 import '../../../platform.dart' as native;
 import '../../../utils/formatters.dart';
+import '../../shell/app_shell.dart' show LiveDot;
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
@@ -122,8 +123,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
 
   Widget _startup(I18nController t) => SettingsCard(
     title: t.t('proxy.start'),
-    meta: _c.running ? t.t('proxy.running') : t.t('proxy.stopped'),
     children: [
+      // 状态灯 + 状态字 + 运行中的监听地址（`ProxyStatusSection.tsx:29-53`）。
+      // 原先只有卡片 meta 上一行「运行中 / 已停止」文字：没有状态灯，
+      // 也看不到代理到底监听在哪个地址上。
+      _ProxyStatusRow(running: _c.running, port: _c.proxyPort),
       Row(
         children: [
           Expanded(
@@ -328,21 +332,24 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             _c.updateLogSettings({'log_user_request': v});
           },
         ),
-        _retentionRow(
-          t,
-          keyId: 'user-req-retention',
-          label: t.t('proxy.userReqRetention'),
-          days: _c.userReqRetention,
-          unit: _c.userReqRetentionUnit,
-          onDays: (v) {
-            setState(() => _c.userReqRetention = v);
-            _c.updateLogSettings({'user_request_retention_days': v});
-          },
-          onUnit: (u) {
-            setState(() => _c.userReqRetentionUnit = u);
-            _c.updateLogSettings({'user_request_retention_unit': u.wire});
-          },
-        ),
+        // 保留期跟着它那一类的开关走（`LogSettingsSection.tsx:145`）：
+        // 关掉这类记录后，它的保留期还摆着可改，是改了也没用的旋钮。
+        if (_c.logUserReq)
+          _retentionRow(
+            t,
+            keyId: 'user-req-retention',
+            label: t.t('proxy.userReqRetention'),
+            days: _c.userReqRetention,
+            unit: _c.userReqRetentionUnit,
+            onDays: (v) {
+              setState(() => _c.userReqRetention = v);
+              _c.updateLogSettings({'user_request_retention_days': v});
+            },
+            onUnit: (u) {
+              setState(() => _c.userReqRetentionUnit = u);
+              _c.updateLogSettings({'user_request_retention_unit': u.wire});
+            },
+          ),
         SwitchRow(
           key: const ValueKey('log-upstream-req'),
           label: t.t('proxy.logUpstreamReq'),
@@ -353,21 +360,23 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             _c.updateLogSettings({'log_upstream_request': v});
           },
         ),
-        _retentionRow(
-          t,
-          keyId: 'upstream-req-retention',
-          label: t.t('proxy.upstreamReqRetention'),
-          days: _c.upstreamReqRetention,
-          unit: _c.upstreamReqRetentionUnit,
-          onDays: (v) {
-            setState(() => _c.upstreamReqRetention = v);
-            _c.updateLogSettings({'upstream_request_retention_days': v});
-          },
-          onUnit: (u) {
-            setState(() => _c.upstreamReqRetentionUnit = u);
-            _c.updateLogSettings({'upstream_request_retention_unit': u.wire});
-          },
-        ),
+        // 同上，`LogSettingsSection.tsx:166`。
+        if (_c.logUpstreamReq)
+          _retentionRow(
+            t,
+            keyId: 'upstream-req-retention',
+            label: t.t('proxy.upstreamReqRetention'),
+            days: _c.upstreamReqRetention,
+            unit: _c.upstreamReqRetentionUnit,
+            onDays: (v) {
+              setState(() => _c.upstreamReqRetention = v);
+              _c.updateLogSettings({'upstream_request_retention_days': v});
+            },
+            onUnit: (u) {
+              setState(() => _c.upstreamReqRetentionUnit = u);
+              _c.updateLogSettings({'upstream_request_retention_unit': u.wire});
+            },
+          ),
         _retentionRow(
           t,
           keyId: 'log-retention',
@@ -414,19 +423,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         _estimate == null
             ? t.t('logs.cleanupEstimateLoading')
             : t.t('logs.cleanupEstimate', {
-                'rows': formatNumber(
-                  (_estimate!['overdue_rows'] as num?) ?? 0,
-                ),
+                'rows': formatNumber((_estimate!['overdue_rows'] as num?) ?? 0),
                 'bytes': formatBytes(
                   (_estimate!['overdue_body_bytes'] as num?) ?? 0,
                 ),
-                'size': formatBytes(
-                  (_estimate!['db_size_bytes'] as num?) ?? 0,
-                ),
+                'size': formatBytes((_estimate!['db_size_bytes'] as num?) ?? 0),
               }),
-        style: AidogType.micro.copyWith(
-          color: AidogTheme.of(context).c.fg3,
-        ),
+        style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
       ),
     ],
   );
@@ -575,30 +578,39 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       _Confirm.compactDb => ConfirmCard(
         title: t.t('settings.dbCompact'),
         body: t.t('settings.dbCompactHint'),
-        confirmLabel: t.t('action.confirm'),
+        confirmLabel: _c.dbCompacting
+            ? t.t('common.loading')
+            : t.t('action.confirm'),
+        // 执行中把卡留在屏幕上并变灰：原先是先关卡再跑命令，命令还在跑
+        // 但界面上什么都没有了（React 那边一直开着显示「清理中...」）。
         busy: _c.dbCompacting,
         onCancel: () => setState(() => _confirm = null),
-        onConfirm: () {
-          setState(() => _confirm = null);
-          _c.compactDb(
+        onConfirm: () async {
+          await _c.compactDb(
             (before, after, pct) => t.t('settings.dbCompactDone', {
               'before': before,
               'after': after,
               'pct': pct,
             }),
           );
+          if (mounted) setState(() => _confirm = null);
         },
       ),
       _Confirm.clearLogs => ConfirmCard(
         title: t.t('logs.clearConfirmTitle'),
         body: t.t('logs.clearConfirm'),
-        confirmLabel: t.t('logs.clear'),
+        confirmLabel: _c.logMaintBusy
+            ? t.t('common.loading')
+            : t.t('logs.clear'),
+        busy: _c.logMaintBusy,
         onCancel: () => setState(() => _confirm = null),
         onConfirm: () async {
-          setState(() => _confirm = null);
           await _c.clearLogs();
           if (!mounted) return;
-          setState(() => _c.message = t.t('logs.clearDone'));
+          setState(() {
+            _confirm = null;
+            _c.message = t.t('logs.clearDone');
+          });
           await _loadEstimate();
         },
       ),
@@ -608,21 +620,81 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             ? t.t('logs.cleanupConfirmNoEstimate')
             : t.t('logs.cleanupConfirm', {
                 'rows': formatNumber((e['overdue_rows'] as num?) ?? 0),
-                'bytes': formatBytes(
-                  (e['overdue_body_bytes'] as num?) ?? 0,
-                ),
+                'bytes': formatBytes((e['overdue_body_bytes'] as num?) ?? 0),
                 'size': formatBytes((e['db_size_bytes'] as num?) ?? 0),
               }),
-        confirmLabel: t.t('logs.cleanupExpired'),
+        confirmLabel: _c.logMaintBusy
+            ? t.t('common.loading')
+            : t.t('logs.cleanupExpired'),
+        busy: _c.logMaintBusy,
         onCancel: () => setState(() => _confirm = null),
         onConfirm: () async {
-          setState(() => _confirm = null);
           await _c.cleanupExpired();
           if (!mounted) return;
-          setState(() => _c.message = t.t('logs.cleanupExpiredDone'));
+          setState(() {
+            _confirm = null;
+            _c.message = t.t('logs.cleanupExpiredDone');
+          });
           await _loadEstimate();
         },
       ),
     };
+  }
+}
+
+/// 代理状态行：44px 圆形状态灯 + 状态字 + 运行中的 `localhost:<port>`。
+/// 对齐 `src/pages/AppSettings/ProxyStatusSection.tsx:29-53`。
+class _ProxyStatusRow extends StatelessWidget {
+  const _ProxyStatusRow({required this.running, required this.port});
+
+  final bool running;
+  final int port;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      child: Row(
+        children: [
+          Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: running ? theme.c.liveFill : theme.c.surface2,
+              border: Border.all(
+                color: running ? theme.c.liveEdge : theme.c.line,
+              ),
+              // 「只有活着的东西才发光」：停着的时候没有外发光。
+              boxShadow: running ? theme.liveHalo : const [],
+            ),
+            child: LiveDot(on: running, size: 16),
+          ),
+          const SizedBox(width: AidogSpace.smd),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                running ? t.t('proxy.running') : t.t('proxy.stopped'),
+                style: AidogType.label.copyWith(
+                  color: theme.c.fg,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              if (running)
+                Text(
+                  // 地址是标识串，RTL 下不该被重排。
+                  ltr('localhost:$port'),
+                  style: AidogType.numSm.copyWith(color: theme.c.fg2),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }

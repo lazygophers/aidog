@@ -405,106 +405,106 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     return Padding(
       key: ValueKey('rule-${r.id}'),
       padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Flexible(
-                      child: Text(
-                        r.name,
-                        overflow: TextOverflow.ellipsis,
-                        style: AidogType.label.copyWith(color: theme.c.fg),
-                      ),
-                    ),
-                    if (r.isBuiltin)
-                      Padding(
-                        padding: const EdgeInsets.only(left: AidogSpace.sxs),
+      // 停用的规则整行弱化（`MiddlewareRules.tsx:1007-1011` 的 opacity 0.55）：
+      // 原先停用与启用长得一模一样，一屏规则里分不出哪几条其实没在跑。
+      child: Opacity(
+        opacity: r.enabled ? 1 : 0.55,
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
                         child: Text(
-                          t.t('middleware.builtin'),
-                          style: AidogType.micro.copyWith(color: theme.c.fg3),
+                          r.name,
+                          overflow: TextOverflow.ellipsis,
+                          style: AidogType.label.copyWith(color: theme.c.fg),
                         ),
                       ),
-                    // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
-                    // 引擎跳过它，用户该做的是删掉重建，不是继续改。
-                    if (r.failed)
-                      Padding(
-                        padding: const EdgeInsets.only(left: AidogSpace.sxs),
-                        child: MiniBadge(
-                          text: t.t('middleware.failed'),
-                          color: theme.c.bad,
+                      if (r.isBuiltin)
+                        Padding(
+                          padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                          child: Text(
+                            t.t('middleware.builtin'),
+                            style: AidogType.micro.copyWith(color: theme.c.fg3),
+                          ),
                         ),
-                      ),
-                  ],
-                ),
-                if (r.description.isNotEmpty)
-                  Text(
-                    r.description,
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                      // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
+                      // 引擎跳过它，用户该做的是删掉重建，不是继续改。
+                      if (r.failed)
+                        Padding(
+                          padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                          child: MiniBadge(
+                            text: t.t('middleware.failed'),
+                            color: theme.c.bad,
+                          ),
+                        ),
+                    ],
                   ),
-                // 条件 / 动作 / 应用范围摘要（React RuleRow 的徽标行）。
-                // 失效规则不显摘要（`MiddlewareRules.tsx:950`）：那份条件引擎
-                // 已经翻译不了，照着念只会误导。
-                if (!r.failed)
-                  Text(
-                    conditionsSummary(
-                      r.raw['conditions'] is Map
-                          ? Map<String, Object?>.from(
-                              r.raw['conditions'] as Map,
-                            )
-                          : emptyLeaf,
+                  if (r.description.isNotEmpty)
+                    Text(
+                      r.description,
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
                     ),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
-                  ),
-                Text(
-                  actionsSummary(t, r.raw['actions'] as List? ?? const []),
-                  style: AidogType.micro.copyWith(color: theme.c.accent),
-                ),
-                if (hasObserveAction(r.raw['actions'] as List? ?? const []))
+                  // 条件 / 动作 / 应用范围摘要（React RuleRow 的徽标行）。
+                  // 失效规则不显摘要（`MiddlewareRules.tsx:950`）：那份条件引擎
+                  // 已经翻译不了，照着念只会误导。
+                  if (!r.failed)
+                    Text(
+                      conditionsSummary(
+                        r.raw['conditions'] is Map
+                            ? Map<String, Object?>.from(
+                                r.raw['conditions'] as Map,
+                              )
+                            : emptyLeaf,
+                      ),
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    ),
                   Text(
-                    '${tOr(t, 'middleware.observe', '观察模式')} · '
-                    '${appliesSummary(r.raw['applies_to'] is Map ? Map<String, Object?>.from(r.raw['applies_to'] as Map) : null)}',
-                    style: AidogType.micro.copyWith(color: theme.c.peak),
+                    actionsSummary(t, r.raw['actions'] as List? ?? const []),
+                    style: AidogType.micro.copyWith(color: theme.c.accent),
                   ),
-                if (budget != null) _BudgetLine(budget: budget),
-              ],
+                  if (hasObserveAction(r.raw['actions'] as List? ?? const []))
+                    Text(
+                      '${tOr(t, 'middleware.observe', '观察模式')} · '
+                      '${appliesSummary(r.raw['applies_to'] is Map ? Map<String, Object?>.from(r.raw['applies_to'] as Map) : null)}',
+                      style: AidogType.micro.copyWith(color: theme.c.peak),
+                    ),
+                  if (budget != null) _BudgetLine(budget: budget),
+                ],
+              ),
             ),
-          ),
-          SmallButton(
-            label: r.enabled
-                ? t.t('middleware.enabled')
-                : t.t('settings.perm.disableAuto'),
-            active: r.enabled,
-            onTap: () => _c.toggleRule(r),
-          ),
-          const SizedBox(width: AidogSpace.sxs),
-          SmallButton(
-            // 内置规则只可启停，内容不可修改。
-            // 失效规则也不给编辑入口（`MiddlewareRules.tsx:1013-1019`）：
-            // 引擎翻译不了那份条件，改它没有任何意义，该做的是删掉重建。
-            label: r.isBuiltin
-                ? t.t('middleware.viewRule')
-                : t.t('action.edit'),
-            onTap: (r.isBuiltin || r.failed)
-                ? null
-                : () {
-                    _c.openEdit(r);
-                    _openForm(_RuleDraft.fromRule(r));
-                  },
-          ),
-          const SizedBox(width: AidogSpace.sxs),
-          SmallButton(
-            label: t.t('action.delete'),
-            danger: true,
-            onTap: r.isBuiltin
-                ? null
-                : () => setState(() => _deleteTarget = r.id),
-          ),
-        ],
+            // 开关而不是按钮（`MiddlewareRules.tsx:917`）。
+            AidogSwitch(value: r.enabled, onChanged: () => _c.toggleRule(r)),
+            const SizedBox(width: AidogSpace.sxs),
+            SmallButton(
+              // 内置规则只可启停，内容不可修改。
+              // 失效规则也不给编辑入口（`MiddlewareRules.tsx:1013-1019`）：
+              // 引擎翻译不了那份条件，改它没有任何意义，该做的是删掉重建。
+              label: r.isBuiltin
+                  ? t.t('middleware.viewRule')
+                  : t.t('action.edit'),
+              onTap: (r.isBuiltin || r.failed)
+                  ? null
+                  : () {
+                      _c.openEdit(r);
+                      _openForm(_RuleDraft.fromRule(r));
+                    },
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            SmallButton(
+              label: t.t('action.delete'),
+              danger: true,
+              onTap: r.isBuiltin
+                  ? null
+                  : () => setState(() => _deleteTarget = r.id),
+            ),
+          ],
+        ),
       ),
     );
   }
