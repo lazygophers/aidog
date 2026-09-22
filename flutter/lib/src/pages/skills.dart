@@ -18,6 +18,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'platform_card_bits.dart' show MiniBadge;
+import 'platform_logo.dart' show AgentIconButton;
 import 'share_panel.dart';
 import 'skills_logic.dart';
 import 'ui_bits.dart';
@@ -626,20 +627,20 @@ class _SkillRow extends StatelessWidget {
                 // 不是 agent 名 —— 只写 agent 名的话，开没开全靠底色猜
                 //（`SkillsView.tsx:530`）。agent 名挪进 tooltip。
                 for (final a in kSkillAgents)
-                  Tooltip(
-                    message: skill.enabledAgents.contains(a)
-                        ? t.t('skills.disableAgent')
-                        : t.t('skills.enableAgent'),
-                    child: SmallButton(
-                      label: busy
-                          ? t.t('skills.toggling')
-                          : '${t.t('skills.agent.$a')} · '
-                                '${skill.enabledAgents.contains(a) ? t.t('skills.on') : t.t('skills.off')}',
-                      active: skill.enabledAgents.contains(a),
-                      onTap: busy || !writeReady
-                          ? null
-                          : () => onToggleAgent(a),
-                    ),
+                  AgentIconButton(
+                    agent: a,
+                    enabled: skill.enabledAgents.contains(a),
+                    supported: true,
+                    // agent 名进 tooltip（React 的 `alt`），按钮上写的是**状态**。
+                    tooltip:
+                        '${t.t('skills.agent.$a')} · '
+                        '${skill.enabledAgents.contains(a) ? t.t('skills.disableAgent') : t.t('skills.enableAgent')}',
+                    label: busy
+                        ? t.t('skills.toggling')
+                        : skill.enabledAgents.contains(a)
+                        ? t.t('skills.on')
+                        : t.t('skills.off'),
+                    onTap: busy || !writeReady ? null : () => onToggleAgent(a),
                   ),
                 // pi 是静态徽标不是开关：pi 原生扫公共 skill 目录，没有 per-skill
                 // 启停概念，做成可点开关就是在骗用户（`SkillsView.tsx:536-537` 原注释）。

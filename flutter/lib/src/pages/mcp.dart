@@ -12,6 +12,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'mcp_logic.dart';
+import 'platform_logo.dart' show AgentIconButton;
 import 'platform_card_bits.dart' show MiniBadge;
 import 'share_panel.dart';
 import 'ui_bits.dart';
@@ -516,20 +517,21 @@ class _McpRow extends StatelessWidget {
             children: [
               // codex 只支持 stdio。不支持的组合直接禁用并把原因写进 tooltip
               //（`Mcp/primitives.tsx:95-114`）——原先恒可点，点下去才弹错误。
+              // 30×30 图标按钮（`Mcp/primitives.tsx:95-125`）：原先是文字按钮，
+              // 行尾被两段文案撑得很宽。
               for (final a in kMcpAgents)
-                Tooltip(
-                  message: mcpAgentSupported(server.transport, a)
+                AgentIconButton(
+                  agent: a,
+                  enabled: server.enabledAgents.contains(a),
+                  supported: mcpAgentSupported(server.transport, a),
+                  tooltip: mcpAgentSupported(server.transport, a)
                       ? t.t('mcp.agent.$a')
                       : t.t('mcp.unsupportedTransportTip', {
                           'transport': server.transport,
                         }),
-                  child: SmallButton(
-                    label: t.t('mcp.agent.$a'),
-                    active: server.enabledAgents.contains(a),
-                    onTap: (busy || !mcpAgentSupported(server.transport, a))
-                        ? null
-                        : () => onToggleAgent(a),
-                  ),
+                  onTap: (busy || !mcpAgentSupported(server.transport, a))
+                      ? null
+                      : () => onToggleAgent(a),
                 ),
               SmallButton(label: t.t('action.edit'), onTap: onEdit),
               SmallButton(label: t.t('mcp.share'), onTap: onShare),

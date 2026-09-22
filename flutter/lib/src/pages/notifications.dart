@@ -12,6 +12,7 @@ import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'ui_bits.dart';
 
 /// `types/generated/Notification.ts`。
@@ -135,36 +136,70 @@ class _NotificationsPageState extends State<NotificationsPage> {
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final item in _items)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-                  child: Tile(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          // 有标题就「标题 · 类型」，没有就只有类型（React 同）。
-                          item.title.isNotEmpty
-                              ? '${item.title} · ${notifTypeLabel(item.notifType, t.t)}'
-                              : notifTypeLabel(item.notifType, t.t),
-                          style: AidogType.body.copyWith(color: theme.c.fg),
-                        ),
-                        if (item.body.isNotEmpty)
-                          Text(
-                            item.body,
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
+              // 入场错峰 index*60 + 悬停抬升（`Notifications.tsx:21,25`）。
+              for (final (i, item) in _items.indexed)
+                Reveal(
+                  delayMs: i * 60,
+                  child: HoverLift(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                      child: Container(
+                        // 整条左侧 2px accent 竖条（`Notifications.tsx:31`）。
+                        decoration: BoxDecoration(
+                          border: BorderDirectional(
+                            start: BorderSide(color: theme.c.accent, width: 2),
                           ),
-                        Text(
-                          // 时间戳缺省时 React 渲染 "-"。
-                          ltr(
-                            formatDateTime(item.createdAt).isEmpty
-                                ? '-'
-                                : formatDateTime(item.createdAt),
-                          ),
-                          style: AidogType.micro.copyWith(color: theme.c.fg3),
                         ),
-                      ],
+                        child: Tile(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      // 有标题就「标题 · 类型」，没有就只有类型（React 同）。
+                                      item.title.isNotEmpty
+                                          ? '${item.title} · ${notifTypeLabel(item.notifType, t.t)}'
+                                          : notifTypeLabel(item.notifType, t.t),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AidogType.body.copyWith(
+                                        color: theme.c.fg,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AidogSpace.sxs),
+                                  // 类型徽标（`Notifications.tsx:41-51`）。
+                                  MiniBadge(
+                                    text: notifTypeLabel(item.notifType, t.t),
+                                    color: theme.c.accentText,
+                                  ),
+                                ],
+                              ),
+                              if (item.body.isNotEmpty)
+                                Text(
+                                  item.body,
+                                  style: AidogType.micro.copyWith(
+                                    color: theme.c.fg2,
+                                  ),
+                                ),
+                              Text(
+                                // 时间戳缺省时 React 渲染 "-"。
+                                ltr(
+                                  formatDateTime(item.createdAt).isEmpty
+                                      ? '-'
+                                      : formatDateTime(item.createdAt),
+                                ),
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.fg3,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     ),
                   ),
                 ),

@@ -49,6 +49,7 @@ export 'src/pages/platform_paste_logic.dart';
 export 'src/pages/platform_card_view.dart' show PlatformCard;
 export 'src/pages/platform_logo.dart'
     show
+        AgentIconButton,
         bundledLogoAsset,
         decodeLogoDataUrl,
         extractPngFromIco,
@@ -109,5 +110,6 @@ export 'src/pages/ui_bits.dart'
         Reveal,
         CenteredNote,
         ConfirmCard,
+        DashedBorder,
         SmallButton,
         ToastBar;
