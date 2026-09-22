@@ -130,7 +130,15 @@ void main() {
       )));
       expect(find.text('费用'), findsOneWidget);
       expect(find.text(r'$2.5000'), findsOneWidget);
-      expect(find.text('较昨日'), findsOneWidget);
+      // deltaNote 是悬浮提示不是常驻文字（React `Stats.tsx:965` 写在 title= 上）。
+      // 当成文字画出来的话，统计页八张卡会一起多出八行同样的字。
+      expect(find.text('较昨日'), findsNothing);
+      expect(
+        tester.widget<Tooltip>(
+          find.ancestor(of: find.text('+6.1%'), matching: find.byType(Tooltip)),
+        ).message,
+        '较昨日',
+      );
 
       final up = tester.widget<Text>(find.text('+6.1%'));
       expect(up.style!.color, AidogColors.dark.ok);
