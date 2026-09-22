@@ -22,6 +22,7 @@ import '../../../utils/formatters.dart';
 import '../../shell/nav_guard.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
+import '../platform_card_bits.dart' show MiniBadge;
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'middleware_dsl.dart';
@@ -37,8 +38,7 @@ class SchedulingSettingsPage extends StatefulWidget {
   final InvokeFn invoke;
 
   @override
-  State<SchedulingSettingsPage> createState() =>
-      _SchedulingSettingsPageState();
+  State<SchedulingSettingsPage> createState() => _SchedulingSettingsPageState();
 }
 
 class _SchedulingSettingsPageState extends State<SchedulingSettingsPage> {
@@ -138,8 +138,7 @@ class MiddlewareSettingsPage extends StatefulWidget {
   final InvokeFn invoke;
 
   @override
-  State<MiddlewareSettingsPage> createState() =>
-      _MiddlewareSettingsPageState();
+  State<MiddlewareSettingsPage> createState() => _MiddlewareSettingsPageState();
 }
 
 class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
@@ -430,6 +429,16 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                           style: AidogType.micro.copyWith(color: theme.c.fg3),
                         ),
                       ),
+                    // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
+                    // 引擎跳过它，用户该做的是删掉重建，不是继续改。
+                    if (r.failed)
+                      Padding(
+                        padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                        child: MiniBadge(
+                          text: t.t('middleware.failed'),
+                          color: theme.c.bad,
+                        ),
+                      ),
                   ],
                 ),
                 if (r.description.isNotEmpty)
@@ -438,19 +447,21 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                     style: AidogType.micro.copyWith(color: theme.c.fg3),
                   ),
                 // 条件 / 动作 / 应用范围摘要（React RuleRow 的徽标行）。
-                Text(
-                  conditionsSummary(
-                    r.raw['conditions'] is Map
-                        ? Map<String, Object?>.from(r.raw['conditions'] as Map)
-                        : emptyLeaf,
+                // 失效规则不显摘要（`MiddlewareRules.tsx:950`）：那份条件引擎
+                // 已经翻译不了，照着念只会误导。
+                if (!r.failed)
+                  Text(
+                    conditionsSummary(
+                      r.raw['conditions'] is Map
+                          ? Map<String, Object?>.from(
+                              r.raw['conditions'] as Map,
+                            )
+                          : emptyLeaf,
+                    ),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
                   ),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
-                ),
                 Text(
-                  actionsSummary(
-                    t,
-                    r.raw['actions'] as List? ?? const [],
-                  ),
+                  actionsSummary(t, r.raw['actions'] as List? ?? const []),
                   style: AidogType.micro.copyWith(color: theme.c.accent),
                 ),
                 if (hasObserveAction(r.raw['actions'] as List? ?? const []))
@@ -459,21 +470,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                     '${appliesSummary(r.raw['applies_to'] is Map ? Map<String, Object?>.from(r.raw['applies_to'] as Map) : null)}',
                     style: AidogType.micro.copyWith(color: theme.c.peak),
                   ),
-                if (budget != null)
-                  Text(
-                    '${t.t('middleware.budgetUsed')} '
-                    '${formatCostUsd((budget['spent_usd'] as num?)?.toDouble() ?? 0)} · '
-                    '${t.t('middleware.budgetRemaining')} '
-                    '${formatCostUsd((budget['remaining_usd'] as num?)?.toDouble() ?? 0)}',
-                    style: AidogType.micro.copyWith(
-                      color:
-                          ((budget['remaining_usd'] as num?)?.toDouble() ??
-                                  0) <
-                              0
-                          ? theme.c.bad
-                          : theme.c.fg3,
-                    ),
-                  ),
+                if (budget != null) _BudgetLine(budget: budget),
               ],
             ),
           ),
@@ -487,10 +484,12 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           const SizedBox(width: AidogSpace.sxs),
           SmallButton(
             // 内置规则只可启停，内容不可修改。
+            // 失效规则也不给编辑入口（`MiddlewareRules.tsx:1013-1019`）：
+            // 引擎翻译不了那份条件，改它没有任何意义，该做的是删掉重建。
             label: r.isBuiltin
                 ? t.t('middleware.viewRule')
                 : t.t('action.edit'),
-            onTap: r.isBuiltin
+            onTap: (r.isBuiltin || r.failed)
                 ? null
                 : () {
                     _c.openEdit(r);
@@ -541,9 +540,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         children: [
           Text(
             t.t('middleware.conditions'),
-            style: AidogType.label.copyWith(
-              color: AidogTheme.of(context).c.fg,
-            ),
+            style: AidogType.label.copyWith(color: AidogTheme.of(context).c.fg),
           ),
           const Spacer(),
           SmallButton(
@@ -590,8 +587,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           },
         ),
         if (_dslError != null) ErrorNote(text: _dslError!),
-      ]
-      else
+      ] else
         TextRow(
           key: const ValueKey('rule-conditions'),
           label: t.t('middleware.conditions'),
@@ -750,4 +746,66 @@ class _RuleDraft {
     'enabled': enabled,
     'is_builtin': false,
   };
+}
+
+/// 预算闸门的当前窗口状态（`MiddlewareRules.tsx:966-1005`）：
+/// 进度条 + 「本月已用 X / 上限 Y」+ 超限时换成「已超预算，请求被拒绝」。
+///
+/// 原先只画「已用 X · 剩余 Y」，`budget_usd` 这个字段**后端一直在发、这边从没取用**
+/// （`generated/MiddlewareBudgetStatus.ts:7-11`）。后果是看不到上限是多少，
+/// 超限时也只是数字变红 —— 看不出请求已经被拦下了。
+class _BudgetLine extends StatelessWidget {
+  const _BudgetLine({required this.budget});
+
+  final Map<String, Object?> budget;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final limit = (budget['budget_usd'] as num?)?.toDouble() ?? 0;
+    final spent = (budget['spent_usd'] as num?)?.toDouble() ?? 0;
+    final remaining = (budget['remaining_usd'] as num?)?.toDouble() ?? 0;
+    final over = remaining <= 0;
+    // 上限为 0（没配预算）时不画进度条，否则除零。
+    final ratio = limit <= 0 ? 0.0 : (spent / limit).clamp(0.0, 1.0);
+    return Padding(
+      padding: const EdgeInsets.only(top: AidogSpace.sxs),
+      child: Wrap(
+        spacing: AidogSpace.ssm,
+        runSpacing: AidogSpace.sxs,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (limit > 0)
+            SizedBox(
+              width: 140,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(2),
+                child: LinearProgressIndicator(
+                  value: ratio,
+                  minHeight: 4,
+                  backgroundColor: theme.c.line,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    over ? theme.c.bad : theme.c.accent,
+                  ),
+                ),
+              ),
+            ),
+          Text(
+            '${t.t('middleware.budgetUsed')} ${formatCostUsd(spent)}'
+            '${limit > 0 ? ' / ${formatCostUsd(limit)}' : ''}',
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          Text(
+            over
+                ? t.t('middleware.budgetExceeded')
+                : '${t.t('middleware.budgetRemaining')} ${formatCostUsd(remaining)}',
+            style: AidogType.micro.copyWith(
+              color: over ? theme.c.bad : theme.c.fg3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
