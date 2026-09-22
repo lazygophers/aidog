@@ -32,7 +32,9 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    await tester.pumpWidget(host(nav: ShellController(), theme: ThemeController()));
+    await tester.pumpWidget(
+      host(nav: ShellController(), theme: ThemeController()),
+    );
     await tester.pumpAndSettle();
     expect(railWidth(tester), AidogLayout.railW);
     expect(AidogLayout.railW, 200);
@@ -57,11 +59,18 @@ void main() {
   testWidgets('侧栏是格子盘的第 0 列：无圆角、无阴影，只有一条 end 边', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(host(nav: ShellController(), theme: ThemeController()));
+    await tester.pumpWidget(
+      host(nav: ShellController(), theme: ThemeController()),
+    );
     await tester.pumpAndSettle();
 
     final box = tester.widget<AnimatedContainer>(
-      find.descendant(of: find.byType(Rail), matching: find.byType(AnimatedContainer)).first,
+      find
+          .descendant(
+            of: find.byType(Rail),
+            matching: find.byType(AnimatedContainer),
+          )
+          .first,
     );
     final deco = box.decoration! as BoxDecoration;
     expect(deco.borderRadius, isNull, reason: '第 0 列不是独立面板，不能有自己的圆角');
@@ -116,7 +125,12 @@ void main() {
     expect(find.text('theme.light'), findsOneWidget);
 
     final shell = tester.widget<ColoredBox>(
-      find.descendant(of: find.byType(AppShell), matching: find.byType(ColoredBox)).first,
+      find
+          .descendant(
+            of: find.byType(AppShell),
+            matching: find.byType(ColoredBox),
+          )
+          .first,
     );
     expect(shell.color, AidogColors.light.bg);
   });
@@ -127,13 +141,14 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final nav = ShellController();
-      await tester.pumpWidget(host(
-        nav: nav,
-        theme: ThemeController(),
-        page: (context, id) => id == 'home'
-            ? const _DirtyFormPage()
-            : Text('page:$id'),
-      ));
+      await tester.pumpWidget(
+        host(
+          nav: nav,
+          theme: ThemeController(),
+          page: (context, id) =>
+              id == 'home' ? const _DirtyFormPage() : Text('page:$id'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       // 表单变脏 → 注册 guard。
@@ -168,12 +183,14 @@ void main() {
       addTearDown(() => tester.binding.setSurfaceSize(null));
 
       final nav = ShellController();
-      await tester.pumpWidget(host(
-        nav: nav,
-        theme: ThemeController(),
-        page: (context, id) =>
-            id == 'home' ? const _DirtyFormPage() : Text('page:$id'),
-      ));
+      await tester.pumpWidget(
+        host(
+          nav: nav,
+          theme: ThemeController(),
+          page: (context, id) =>
+              id == 'home' ? const _DirtyFormPage() : Text('page:$id'),
+        ),
+      );
       await tester.pumpAndSettle();
       expect(hasNavGuard, isFalse);
 
@@ -200,6 +217,52 @@ void main() {
       var proceeded = false;
       requestNavigation(() => proceeded = true);
       expect(proceeded, isTrue);
+    });
+  });
+
+  // 票 29（用户 2026-09-22 定「现在就做，改滚动结构」）：页面要能往视口顶部挂一条
+  // **滚动时钉住**的横条（设置页的 section 跳转条）。骨架的滚动容器为此从
+  // SingleChildScrollView 换成了 CustomScrollView。
+  group('粘顶横条', () {
+    testWidgets('页面挂上横条 → 滚动后它仍在原位', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        host(
+          nav: ShellController(),
+          theme: ThemeController(),
+          page: (context, id) => const _StickyProbe(),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('sticky-bar'), findsOneWidget);
+      final before = tester.getTopLeft(find.text('sticky-bar')).dy;
+      final contentBefore = tester.getTopLeft(find.text('filler-0')).dy;
+
+      await tester.drag(find.text('filler-0'), const Offset(0, -400));
+      await tester.pumpAndSettle();
+
+      // 钉住 = 滚过之后纵坐标不变；没钉住的话它早跟着内容滚出视口了。
+      expect(find.text('sticky-bar'), findsOneWidget);
+      expect(tester.getTopLeft(find.text('sticky-bar')).dy, before);
+      // 内容确实滚动过 —— 否则上面那条断言是白过的。
+      // 用坐标不用 findsNothing：整页装在一个 SliverToBoxAdapter 里，
+      // 滚出视口的部分仍挂在树上，find 照样找得到。
+      expect(
+        tester.getTopLeft(find.text('filler-0')).dy,
+        lessThan(contentBefore - 300),
+      );
+    });
+
+    testWidgets('没有页面挂横条时不占位', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        host(nav: ShellController(), theme: ThemeController()),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(SliverPersistentHeader), findsNothing);
     });
   });
 }
@@ -254,4 +317,39 @@ class _DirtyFormPageState extends State<_DirtyFormPage> {
       ],
     );
   }
+}
+
+/// 挂一条横条 + 一屏装不下的内容，用来验「滚动后横条还在原位」。
+class _StickyProbe extends StatefulWidget {
+  const _StickyProbe();
+
+  @override
+  State<_StickyProbe> createState() => _StickyProbeState();
+}
+
+class _StickyProbeState extends State<_StickyProbe> {
+  ValueNotifier<Widget?>? _slot;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _slot = PageStickyHeader.maybeOf(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _slot?.value = const Text('sticky-bar');
+    });
+  }
+
+  @override
+  void dispose() {
+    _slot?.value = null;
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      for (var i = 0; i < 40; i++)
+        SizedBox(height: 60, child: Text('filler-$i')),
+    ],
+  );
 }

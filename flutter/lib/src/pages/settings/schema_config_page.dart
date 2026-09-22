@@ -19,6 +19,7 @@ import 'package:re_editor/re_editor.dart';
 import 'package:re_highlight/languages/json.dart';
 
 import '../../../i18n.dart';
+import '../../shell/app_shell.dart' show PageStickyHeader;
 import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
 import '../invoke.dart';
@@ -223,6 +224,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// ScrollNotification 是往上冒泡的，在滚动内容里面挂 listener 收不到。
   ScrollPosition? _scrollPos;
 
+  /// 骨架的粘顶横条插槽（`PageStickyHeader`）。null = 没有骨架（widget 测试）。
+  ValueNotifier<Widget?>? _stickySlot;
+
   @override
   void initState() {
     super.initState();
@@ -232,6 +236,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    _stickySlot = PageStickyHeader.maybeOf(context);
     final pos = Scrollable.maybeOf(context)?.position;
     if (identical(pos, _scrollPos)) return;
     _scrollPos?.removeListener(_onScroll);
@@ -254,6 +259,27 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       setState(() => _activeSection = found);
     }
   }
+
+  /// 锚点横条本体。两种挂法（骨架粘顶 / 页内一行）共用它。
+  Widget _anchorBar(I18nController t, List<SchemaSection> sections) =>
+      SingleChildScrollView(
+        key: const ValueKey('settings-anchor-nav'),
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final s in sections)
+              Padding(
+                padding: const EdgeInsets.only(right: AidogSpace.sxs),
+                child: SmallButton(
+                  label: t.t(s.labelKey),
+                  pill: true,
+                  active: _activeSection == s.id,
+                  onTap: () => _jumpToSection(s.id),
+                ),
+              ),
+          ],
+        ),
+      );
 
   /// 点 chip / 搜索命中后滚过去（`Settings.tsx:316-321`）。
   void _jumpToSection(String id) {
@@ -290,6 +316,8 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
 
   @override
   void dispose() {
+    // 离页时把横条摘掉，否则下一页顶上还挂着上一页的 chip 条。
+    _stickySlot?.value = null;
     _scrollPos?.removeListener(_onScroll);
     _c?.dispose();
     super.dispose();
@@ -343,6 +371,19 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     final visibleSections = search == null
         ? bundle.sections
         : bundle.sections.where((s) => search.containsKey(s.id)).toList();
+
+    // 有骨架就把横条挂到粘顶插槽上。不能在 build 里直接写 notifier
+    // （会在构建期触发骨架重建），推到本帧之后。
+    final slot = _stickySlot;
+    if (slot != null) {
+      final bar =
+          isClaude && c.mode == EditorMode.gui && visibleSections.length > 1
+          ? _anchorBar(t, visibleSections)
+          : null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) slot.value = bar;
+      });
+    }
 
     final body = SettingsPageBody(
       title: t.t(widget.kind.titleKey),
@@ -436,27 +477,13 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           // section 锚点 chip 条（`SectionAnchorNav.tsx:19-68`）：十几节的长页面
           // 原先只能一路滚。React 那条是 sticky 的，这里的滚动视口在壳层、
           // 拿不到 sliver，先做成页内一行（跳转与联动高亮都在）。
-          if (isClaude && visibleSections.length > 1)
+          // 骨架能接粘顶横条时交给它（滚动时钉在视口顶部，对齐 React 的
+          // `position: sticky`）；接不住（widget 测试单独挂页面，没有骨架）
+          // 就退回页内一行 —— 跳转与高亮两种形态下都一样。
+          if (isClaude && visibleSections.length > 1 && _stickySlot == null)
             Padding(
-              key: const ValueKey('settings-anchor-nav'),
               padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final s in visibleSections)
-                      Padding(
-                        padding: const EdgeInsets.only(right: AidogSpace.sxs),
-                        child: SmallButton(
-                          label: t.t(s.labelKey),
-                          pill: true,
-                          active: _activeSection == s.id,
-                          onTap: () => _jumpToSection(s.id),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+              child: _anchorBar(t, visibleSections),
             ),
           for (final s in visibleSections)
             KeyedSubtree(

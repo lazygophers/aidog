@@ -24,7 +24,7 @@
 library;
 
 export 'src/shell/app_shell.dart'
-    show AidogShellApp, AppShell, LiveDot, PageHead, Titlebar;
+    show AidogShellApp, AppShell, LiveDot, PageHead, PageStickyHeader, Titlebar;
 export 'src/shell/nav.dart'
     show NavChild, NavContext, NavItem, ShellController, groupAdjacent, kBaseNav;
 export 'src/shell/nav_guard.dart'
