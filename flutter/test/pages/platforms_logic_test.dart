@@ -5,6 +5,7 @@
 /// **数据与期望值一字不改**：三个平台 a/b/c，删 id=2，断言 epoch++ 与派生集合。
 library;
 
+import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/src/pages/models.dart';
 import 'package:aidog_flutter/src/pages/platforms_logic.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,6 +76,13 @@ FakeInvoke platformsFake() => FakeInvoke({
 });
 
 void main() {
+  // 提示文案由控制器自己查全局 i18n（`trFallback`），所以逻辑测试也要把它 init 起来，
+  // 否则断言看到的是裸 key 而不是用户真会读到的那句话。
+  setUpAll(() async {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    await i18n.init(initial: 'zh-Hans');
+  });
+
   group(
     'usePlatformsState — refreshPlatforms（React: usePlatformsState.test.ts 逐条翻译）',
     () {
@@ -474,7 +482,7 @@ void main() {
       expect(k.callsTo('platform_fetch_models').length, 2);
     });
 
-    test('全部端点都返空 → 报「未获取到模型」', () async {
+    test('全部端点都返空 → 报「未获取到可用模型」', () async {
       final k = platformsFake();
       final c = PlatformsController(invoke: k.fn);
       final (models, err) = await c.fetchModels(
@@ -483,7 +491,7 @@ void main() {
         endpoints: eps,
       );
       expect(models, isEmpty);
-      expect(err, '未获取到模型');
+      expect(err, '未获取到可用模型');
     });
 
     test('端点按 (协议, URL) 去重，同一个不试两遍', () async {

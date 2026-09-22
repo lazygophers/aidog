@@ -699,7 +699,7 @@ class PlatformFormController {
       protocol: protocol,
       apiKey: apiKey,
       endpoints: endpoints,
-      emptyText: emptyText ?? '',
+      emptyText: emptyText,
       authText: authText,
     );
     if (ids.isNotEmpty) {
