@@ -1742,7 +1742,8 @@ void main() {
             invoke: k.fn,
             showGroups: false,
             logUpdates: const Stream<void>.empty(),
-            onNavigate: (id, {int? platformId}) => nav.add('$id:$platformId'),
+            onNavigate: (id, {int? platformId, String? groupKey}) =>
+                nav.add('$id:$platformId'),
           ),
           c,
         ),
