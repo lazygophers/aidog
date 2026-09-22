@@ -251,7 +251,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         if (p.enabled) ...[
           ChoiceRow(
             label: t.t('proxy.proxyType'),
-            options: const ['socks5', 'http'],
+            // 三个协议，少一个 HTTPS 就没法接走 HTTPS 的上游代理
+            // （`ProxyStatusSection.tsx:142-144`）。
+            options: const ['socks5', 'http', 'https'],
             value: p.proxyType,
             onChanged: (v) => _c.updateProxyClient(p.copyWith(proxyType: v)),
           ),
@@ -279,13 +281,17 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             obscure: true,
             onSubmitted: (v) => _c.updateProxyClient(p.copyWith(password: v)),
           ),
-          SwitchRow(
-            label: t.t('proxy.dnsOverProxy'),
-            description: t.t('proxy.dnsOverProxyDesc'),
-            value: p.dnsOverProxy,
-            onChanged: (v) =>
-                _c.updateProxyClient(p.copyWith(dnsOverProxy: v)),
-          ),
+          // 只有 SOCKS5 才谈得上「DNS 走代理」（`ProxyStatusSection.tsx:195`）：
+          // HTTP / HTTPS 代理本来就是把域名整个交给代理去解析，这个开关在那两种
+          // 模式下摆出来只会让人以为它起作用。
+          if (p.proxyType == 'socks5')
+            SwitchRow(
+              label: t.t('proxy.dnsOverProxy'),
+              description: t.t('proxy.dnsOverProxyDesc'),
+              value: p.dnsOverProxy,
+              onChanged: (v) =>
+                  _c.updateProxyClient(p.copyWith(dnsOverProxy: v)),
+            ),
           TextRow(
             label: t.t('proxy.noProxy'),
             description: t.t('proxy.noProxyDesc'),

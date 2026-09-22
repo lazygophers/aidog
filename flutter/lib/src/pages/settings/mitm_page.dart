@@ -75,14 +75,20 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             ),
           ],
         ),
-        SettingsCard(
-          title: t.t('mitm.riskTitle'),
-          description: t.t('mitm.riskDesc'),
-          children: const [],
-        ),
-        _caCard(t),
-        _whitelistCard(t),
-        _testCard(t),
+        // 关掉总开关就整块收起，与 React 一致（`MitmConfig.tsx:272` / `:291` / `:386`
+        // 三处都是 `{enabled && ...}`，URL 命中测试在白名单那块里面）。
+        // 原先这四张卡无条件渲染：开关关着照样能装 CA、改白名单、跑命中测试，
+        // 改完却一条都不生效，也没人告诉你为什么。
+        if (_c.enabled) ...[
+          SettingsCard(
+            title: t.t('mitm.riskTitle'),
+            description: t.t('mitm.riskDesc'),
+            children: const [],
+          ),
+          _caCard(t),
+          _whitelistCard(t),
+          _testCard(t),
+        ],
         if (_c.showClearConfirm)
           ConfirmCard(
             title: t.t('mitm.clear'),
