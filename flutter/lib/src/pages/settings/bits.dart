@@ -132,6 +132,7 @@ class TextRow extends StatefulWidget {
     required this.value,
     this.onChanged,
     this.onSubmitted,
+    this.onEnter,
     this.description,
     this.hint,
     this.maxLines = 1,
@@ -146,6 +147,11 @@ class TextRow extends StatefulWidget {
 
   /// 失焦或回车时调用（React 的 `onBlur`）。
   final ValueChanged<String>? onSubmitted;
+
+  /// **只有按回车**才调用（React 的 `onKeyDown` + `e.key === "Enter"`）。
+  /// 与 [onSubmitted] 分开是因为后者失焦也会触发 —— 「点到别处就把这条规则加进去」
+  /// 不是 React 的行为，也不是用户想要的。
+  final ValueChanged<String>? onEnter;
   final int maxLines;
   final bool obscure;
 
@@ -189,7 +195,10 @@ class _TextRowState extends State<TextRow> {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    final enabled = widget.onChanged != null || widget.onSubmitted != null;
+    final enabled =
+        widget.onChanged != null ||
+        widget.onSubmitted != null ||
+        widget.onEnter != null;
     return Padding(
       padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
       child: Column(
@@ -217,7 +226,10 @@ class _TextRowState extends State<TextRow> {
               hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
             ),
             onChanged: widget.onChanged,
-            onSubmitted: widget.onSubmitted,
+            onSubmitted: (v) {
+              widget.onSubmitted?.call(v);
+              widget.onEnter?.call(v);
+            },
           ),
         ],
       ),
@@ -425,10 +437,7 @@ class ErrorNote extends StatelessWidget {
           border: Border.all(color: theme.c.bad),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
-        child: Text(
-          text,
-          style: AidogType.micro.copyWith(color: theme.c.bad),
-        ),
+        child: Text(text, style: AidogType.micro.copyWith(color: theme.c.bad)),
       ),
     );
   }

@@ -26,10 +26,10 @@ enum ConflictDecisionKind { keepLocal, useIncoming, keepBoth }
 
 extension ConflictDecisionWire on ConflictDecisionKind {
   String get wire => switch (this) {
-        ConflictDecisionKind.keepLocal => 'keep_local',
-        ConflictDecisionKind.useIncoming => 'use_incoming',
-        ConflictDecisionKind.keepBoth => 'keep_both',
-      };
+    ConflictDecisionKind.keepLocal => 'keep_local',
+    ConflictDecisionKind.useIncoming => 'use_incoming',
+    ConflictDecisionKind.keepBoth => 'keep_both',
+  };
 }
 
 /// 定时备份设置（`types/manual.ts::BackupSettings`）。
@@ -59,51 +59,57 @@ class BackupSettings {
   final String lastBackupError;
 
   factory BackupSettings.fromJson(Map<String, Object?> j) => BackupSettings(
-        enabled: j['enabled'] as bool? ?? false,
-        intervalHours: (j['interval_hours'] as num?)?.toInt() ?? 24,
-        retentionDays: (j['retention_days'] as num?)?.toInt() ?? 7,
-        dir: j['dir'] as String? ?? '',
-        lastBackupAt: (j['last_backup_at'] as num?)?.toInt() ?? 0,
-        lastBackupError: j['last_backup_error'] as String? ?? '',
-      );
+    enabled: j['enabled'] as bool? ?? false,
+    intervalHours: (j['interval_hours'] as num?)?.toInt() ?? 24,
+    retentionDays: (j['retention_days'] as num?)?.toInt() ?? 7,
+    dir: j['dir'] as String? ?? '',
+    lastBackupAt: (j['last_backup_at'] as num?)?.toInt() ?? 0,
+    lastBackupError: j['last_backup_error'] as String? ?? '',
+  );
 
   Map<String, Object?> toJson() => {
-        'enabled': enabled,
-        'interval_hours': intervalHours,
-        'retention_days': retentionDays,
-        'dir': dir,
-        'last_backup_at': lastBackupAt,
-        'last_backup_error': lastBackupError,
-      };
+    'enabled': enabled,
+    'interval_hours': intervalHours,
+    'retention_days': retentionDays,
+    'dir': dir,
+    'last_backup_at': lastBackupAt,
+    'last_backup_error': lastBackupError,
+  };
 
   /// 下次预计备份时刻（epoch 毫秒）。0 = 没开或从未备份过 → 界面上不显示这一行。
   /// 与 React `ScheduledBackupSection.tsx:84` 同算法。
-  int get nextBackupAt =>
-      enabled && lastBackupAt > 0 ? lastBackupAt + intervalHours * 3600 * 1000 : 0;
+  int get nextBackupAt => enabled && lastBackupAt > 0
+      ? lastBackupAt + intervalHours * 3600 * 1000
+      : 0;
 
   /// 前端先 clamp 一次，后端还会再 clamp。两边都做是为了输入框当场看到被纠正的值。
   BackupSettings clamped() => BackupSettings(
-        enabled: enabled,
-        intervalHours: intervalHours < 1 ? 1 : intervalHours,
-        retentionDays: retentionDays.clamp(1, 90),
-        dir: dir,
-        lastBackupAt: lastBackupAt,
-        lastBackupError: lastBackupError,
-      );
+    enabled: enabled,
+    intervalHours: intervalHours < 1 ? 1 : intervalHours,
+    retentionDays: retentionDays.clamp(1, 90),
+    dir: dir,
+    lastBackupAt: lastBackupAt,
+    lastBackupError: lastBackupError,
+  );
 
-  BackupSettings copyWith({bool? enabled, int? intervalHours, int? retentionDays, String? dir}) =>
-      BackupSettings(
-        enabled: enabled ?? this.enabled,
-        intervalHours: intervalHours ?? this.intervalHours,
-        retentionDays: retentionDays ?? this.retentionDays,
-        dir: dir ?? this.dir,
-        lastBackupAt: lastBackupAt,
-        lastBackupError: lastBackupError,
-      );
+  BackupSettings copyWith({
+    bool? enabled,
+    int? intervalHours,
+    int? retentionDays,
+    String? dir,
+  }) => BackupSettings(
+    enabled: enabled ?? this.enabled,
+    intervalHours: intervalHours ?? this.intervalHours,
+    retentionDays: retentionDays ?? this.retentionDays,
+    dir: dir ?? this.dir,
+    lastBackupAt: lastBackupAt,
+    lastBackupError: lastBackupError,
+  );
 }
 
 class ImportExportController {
-  ImportExportController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  ImportExportController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -135,7 +141,9 @@ class ImportExportController {
     error = '';
     _notify();
     try {
-      preview = _map(await _invoke('export_preview', {'scopes': scopes.toList()}));
+      preview = _map(
+        await _invoke('export_preview', {'scopes': scopes.toList()}),
+      );
       // 默认全选，与 React 的初始状态一致。
       selected = _allItemKeys(preview!);
     } catch (e) {
@@ -198,7 +206,8 @@ class ImportExportController {
   /// 每个冲突都定了决策才能应用。
   bool get allConflictsDecided => conflictKeys.every(decisions.containsKey);
 
-  bool get canApplyImport => !busy && preview != null && allConflictsDecided && selected.isNotEmpty;
+  bool get canApplyImport =>
+      !busy && preview != null && allConflictsDecided && selected.isNotEmpty;
 
   void decide(String conflictKey, ConflictDecisionKind kind) {
     decisions = {...decisions, conflictKey: kind};
@@ -234,18 +243,20 @@ class ImportExportController {
     error = '';
     _notify();
     try {
-      report = _map(await _invoke('import_apply', {
-        'path': path,
-        'decisions': [
-          for (final e in decisions.entries)
-            {
-              'scope': _splitKey(e.key)[0],
-              'key': _splitKey(e.key)[1],
-              'decision': e.value.wire,
-            },
-        ],
-        'selection': selected.map(_splitKey).toList(),
-      }));
+      report = _map(
+        await _invoke('import_apply', {
+          'path': path,
+          'decisions': [
+            for (final e in decisions.entries)
+              {
+                'scope': _splitKey(e.key)[0],
+                'key': _splitKey(e.key)[1],
+                'decision': e.value.wire,
+              },
+          ],
+          'selection': selected.map(_splitKey).toList(),
+        }),
+      );
     } catch (e) {
       error = '$e';
     } finally {
@@ -271,12 +282,17 @@ class ImportExportController {
 
 /// 定时备份。
 class ScheduledBackupController {
-  ScheduledBackupController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  ScheduledBackupController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
 
-  BackupSettings settings = const BackupSettings(enabled: false, intervalHours: 24, retentionDays: 7);
+  BackupSettings settings = const BackupSettings(
+    enabled: false,
+    intervalHours: 24,
+    retentionDays: 7,
+  );
   bool busy = false;
   String error = '';
   String message = '';
@@ -289,8 +305,12 @@ class ScheduledBackupController {
 
   Future<void> load() async {
     try {
-      settings = BackupSettings.fromJson(_map(await _invoke('backup_settings_get')));
-    } catch (_) {/* 后端默认 */}
+      settings = BackupSettings.fromJson(
+        _map(await _invoke('backup_settings_get')),
+      );
+    } catch (_) {
+      /* 后端默认 */
+    }
     _notify();
   }
 
@@ -301,7 +321,9 @@ class ScheduledBackupController {
     error = '';
     _notify();
     try {
-      final r = _map(await _invoke('backup_settings_set', {'settings': settings.toJson()}));
+      final r = _map(
+        await _invoke('backup_settings_set', {'settings': settings.toJson()}),
+      );
       if (r.isNotEmpty) settings = BackupSettings.fromJson(r);
     } catch (e) {
       error = '$e';
@@ -334,8 +356,12 @@ class ScheduledBackupController {
         final p = r['path'];
         lastResultPath = (p is String && p.isNotEmpty) ? p : null;
         try {
-          settings = BackupSettings.fromJson(_map(await _invoke('backup_settings_get')));
-        } catch (_) {/* 刷新失败不影响这次备份本身 */}
+          settings = BackupSettings.fromJson(
+            _map(await _invoke('backup_settings_get')),
+          );
+        } catch (_) {
+          /* 刷新失败不影响这次备份本身 */
+        }
       }
     } catch (e) {
       error = '$e';

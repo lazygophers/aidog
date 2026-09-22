@@ -38,8 +38,7 @@ class NotificationsSettingsPage extends StatefulWidget {
       _NotificationsSettingsPageState();
 }
 
-class _NotificationsSettingsPageState
-    extends State<NotificationsSettingsPage> {
+class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   late final NotificationsController _c;
 
   @override
@@ -194,8 +193,7 @@ class _NotificationsSettingsPageState
           padding: EdgeInsets.only(bottom: AidogSpace.smd),
           child: PiUnsupportedNote(
             reasonKey: 'pi.unsupportedHooks',
-            reasonFallback:
-                'pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。',
+            reasonFallback: 'pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。',
           ),
         ),
         _eventList(t, s),

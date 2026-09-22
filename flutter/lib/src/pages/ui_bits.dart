@@ -102,10 +102,7 @@ class ConfirmCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              body,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
+            Text(body, style: AidogType.micro.copyWith(color: theme.c.fg2)),
             if (extra != null) ...[
               const SizedBox(height: AidogSpace.ssm),
               extra!,

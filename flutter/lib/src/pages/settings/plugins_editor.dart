@@ -60,14 +60,27 @@ const _sourceFields = <String, List<(String, String, String, bool)>>{
     ('path', 'Subdirectory', 'marketplace', false),
   ],
   'url': [
-    ('url', 'Marketplace JSON URL', 'https://plugins.example.com/marketplace.json', true),
+    (
+      'url',
+      'Marketplace JSON URL',
+      'https://plugins.example.com/marketplace.json',
+      true,
+    ),
   ],
   'npm': [('package', 'NPM Package', '@acme-corp/claude-plugins', true)],
-  'file': [('path', 'File Path', '/usr/local/share/claude/marketplace.json', true)],
-  'directory': [('path', 'Directory Path', '/usr/local/share/claude/plugins', true)],
+  'file': [
+    ('path', 'File Path', '/usr/local/share/claude/marketplace.json', true),
+  ],
+  'directory': [
+    ('path', 'Directory Path', '/usr/local/share/claude/plugins', true),
+  ],
   'settings': [('name', 'Marketplace Name', 'team-tools', true)],
-  'hostPattern': [('hostPattern', 'Host Pattern (regex)', r'^github\.example\.com$', true)],
-  'pathPattern': [('pathPattern', 'Path Pattern (regex)', '^/opt/approved/', true)],
+  'hostPattern': [
+    ('hostPattern', 'Host Pattern (regex)', r'^github\.example\.com$', true),
+  ],
+  'pathPattern': [
+    ('pathPattern', 'Path Pattern (regex)', '^/opt/approved/', true),
+  ],
 };
 
 /// 一个市场来源的编辑器（类型下拉 + 类型专属字段 + skipLfs / autoUpdate 开关）。
@@ -134,13 +147,17 @@ class MarketplaceSourceEditor extends StatelessWidget {
             key: ValueKey('$idPrefix-headers'),
             label: 'Headers',
             hint: '{"Authorization": "Bearer \${TOKEN}"}',
-            value: source['headers'] == null ? '' : jsonEncode(source['headers']),
+            value: source['headers'] == null
+                ? ''
+                : jsonEncode(source['headers']),
             // 非法 JSON 保持原值不写（React：`catch { /* keep as-is */ }`）。
             onSubmitted: (v) {
               if (v.trim().isEmpty) return;
               try {
                 _setField('headers', jsonDecode(v));
-              } catch (_) {/* 保持原值 */}
+              } catch (_) {
+                /* 保持原值 */
+              }
             },
           ),
         SwitchRow(
@@ -188,8 +205,11 @@ class _PluginsEditorState extends State<PluginsEditor> {
       ? Map<String, Object?>.from(widget.config['enabledPlugins'] as Map)
       : <String, Object?>{};
 
-  Map<String, Object?> get _markets => widget.config['extraKnownMarketplaces'] is Map
-      ? Map<String, Object?>.from(widget.config['extraKnownMarketplaces'] as Map)
+  Map<String, Object?> get _markets =>
+      widget.config['extraKnownMarketplaces'] is Map
+      ? Map<String, Object?>.from(
+          widget.config['extraKnownMarketplaces'] as Map,
+        )
       : <String, Object?>{};
 
   List<String> _strList(String key) => widget.config[key] is List
@@ -298,7 +318,11 @@ class _PluginsEditorState extends State<PluginsEditor> {
               ),
             ),
             const SizedBox(width: AidogSpace.sxs),
-            SmallButton(key: const ValueKey('plugin-add'), label: '+', onTap: _addPlugin),
+            SmallButton(
+              key: const ValueKey('plugin-add'),
+              label: '+',
+              onTap: _addPlugin,
+            ),
           ],
         ),
 
@@ -311,7 +335,12 @@ class _PluginsEditorState extends State<PluginsEditor> {
         ),
         const SizedBox(height: AidogSpace.sxs),
         for (final e in markets.entries)
-          _marketCard(t, theme, e.key, e.value is Map ? Map<String, Object?>.from(e.value as Map) : {}),
+          _marketCard(
+            t,
+            theme,
+            e.key,
+            e.value is Map ? Map<String, Object?>.from(e.value as Map) : {},
+          ),
         Row(
           children: [
             Expanded(
@@ -327,7 +356,11 @@ class _PluginsEditorState extends State<PluginsEditor> {
               ),
             ),
             const SizedBox(width: AidogSpace.sxs),
-            SmallButton(key: const ValueKey('market-add'), label: '+', onTap: _addMarket),
+            SmallButton(
+              key: const ValueKey('market-add'),
+              label: '+',
+              onTap: _addMarket,
+            ),
           ],
         ),
 
@@ -343,7 +376,8 @@ class _PluginsEditorState extends State<PluginsEditor> {
           label: 'pluginConfigs',
           value: widget.config['pluginConfigs'] == null
               ? ''
-              : const JsonEncoder.withIndent('  ').convert(widget.config['pluginConfigs']),
+              : const JsonEncoder.withIndent('  ')
+                    .convert(widget.config['pluginConfigs']),
           maxLines: 6,
           onSubmitted: (text) {
             final raw = text.trim();
@@ -376,7 +410,8 @@ class _PluginsEditorState extends State<PluginsEditor> {
           key: const ValueKey('skipped-plugins'),
           items: _strList('skippedPlugins'),
           hint: 'plugin-name@marketplace',
-          onChanged: (v) => widget.updateField('skippedPlugins', v.isEmpty ? null : v),
+          onChanged: (v) =>
+              widget.updateField('skippedPlugins', v.isEmpty ? null : v),
         ),
         const SizedBox(height: AidogSpace.sxs),
         const TileMeta('skippedMarketplaces'),
@@ -384,7 +419,8 @@ class _PluginsEditorState extends State<PluginsEditor> {
           key: const ValueKey('skipped-marketplaces'),
           items: _strList('skippedMarketplaces'),
           hint: 'marketplace-name',
-          onChanged: (v) => widget.updateField('skippedMarketplaces', v.isEmpty ? null : v),
+          onChanged: (v) =>
+              widget.updateField('skippedMarketplaces', v.isEmpty ? null : v),
         ),
       ],
     );
@@ -395,63 +431,62 @@ class _PluginsEditorState extends State<PluginsEditor> {
     AidogTheme theme,
     String name,
     Map<String, Object?> cfg,
-  ) =>
-      Container(
-        key: ValueKey('market-$name'),
-        margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-        padding: const EdgeInsets.all(AidogSpace.ssm),
-        decoration: BoxDecoration(
-          color: theme.c.surface2,
-          border: Border.all(color: theme.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
+  ) => Container(
+    key: ValueKey('market-$name'),
+    margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    padding: const EdgeInsets.all(AidogSpace.ssm),
+    decoration: BoxDecoration(
+      color: theme.c.surface2,
+      border: Border.all(color: theme.c.line),
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    name,
-                    style: AidogType.numSm.copyWith(color: theme.c.accent),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                Tooltip(
-                  message: t.t('settings.plugins.removeMarketplace'),
-                  child: SmallButton(
-                    key: ValueKey('market-del-$name'),
-                    label: '×',
-                    danger: true,
-                    onTap: () => _removeMarket(name),
-                  ),
-                ),
-              ],
+            Expanded(
+              child: Text(
+                name,
+                style: AidogType.numSm.copyWith(color: theme.c.accent),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-            MarketplaceSourceEditor(
-              idPrefix: 'market-$name',
-              source: cfg['source'] is Map
-                  ? Map<String, Object?>.from(cfg['source'] as Map)
-                  : {'source': 'github'},
-              onChanged: (s) => _updateMarket(name, {...cfg, 'source': s}),
-            ),
-            TextRow(
-              key: ValueKey('market-path-$name'),
-              label: 'Path',
-              hint: t.t('settings.plugins.localPathPh'),
-              value: '${cfg['path'] ?? ''}',
-              onSubmitted: (v) {
-                final next = {...cfg};
-                if (v.trim().isEmpty) {
-                  next.remove('path');
-                } else {
-                  next['path'] = v.trim();
-                }
-                _updateMarket(name, next);
-              },
+            Tooltip(
+              message: t.t('settings.plugins.removeMarketplace'),
+              child: SmallButton(
+                key: ValueKey('market-del-$name'),
+                label: '×',
+                danger: true,
+                onTap: () => _removeMarket(name),
+              ),
             ),
           ],
         ),
-      );
+        MarketplaceSourceEditor(
+          idPrefix: 'market-$name',
+          source: cfg['source'] is Map
+              ? Map<String, Object?>.from(cfg['source'] as Map)
+              : {'source': 'github'},
+          onChanged: (s) => _updateMarket(name, {...cfg, 'source': s}),
+        ),
+        TextRow(
+          key: ValueKey('market-path-$name'),
+          label: 'Path',
+          hint: t.t('settings.plugins.localPathPh'),
+          value: '${cfg['path'] ?? ''}',
+          onSubmitted: (v) {
+            final next = {...cfg};
+            if (v.trim().isEmpty) {
+              next.remove('path');
+            } else {
+              next['path'] = v.trim();
+            }
+            _updateMarket(name, next);
+          },
+        ),
+      ],
+    ),
+  );
 }
