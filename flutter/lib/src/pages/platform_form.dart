@@ -21,6 +21,7 @@ import 'platform_defaults.dart';
 import 'platform_extra.dart';
 import 'platform_form_bits.dart';
 import 'platform_form_logic.dart';
+import 'smart_paste_modal.dart';
 import 'time_window.dart';
 import 'ui_bits.dart';
 
@@ -75,7 +76,8 @@ String formatWindowPreview(TimeWindow w, TzMode tzMode, I18nController t) {
 
   final startStr = '${pad(startDisplay.hour)}:${pad(startDisplay.minute)}:00';
   final endStr = '${pad(endDisplay.hour)}:${pad(endDisplay.minute)}:59';
-  final tzLabel = w.timezone ??
+  final tzLabel =
+      w.timezone ??
       (tzMode == TzMode.local
           ? t.t('platform.timezone_local')
           : t.t('platform.timezone_utc'));
@@ -86,7 +88,8 @@ String formatWindowPreview(TimeWindow w, TzMode tzMode, I18nController t) {
 
 /// 单窗口的紧凑描述（`ModelsMatrixSection.tsx:40::describeWindow`）。
 String describeWindow(TimeWindow w, TzMode tzMode, I18nController t) {
-  final isFullDay = w.startHour == 0 &&
+  final isFullDay =
+      w.startHour == 0 &&
       w.endHour == 24 &&
       (w.startMinute ?? 0) == 0 &&
       (w.endMinute ?? 0) == 0 &&
@@ -99,7 +102,7 @@ String describeWindow(TimeWindow w, TzMode tzMode, I18nController t) {
   final timePart = hourOnly
       ? '${start.hour}-${end.hour}'
       : '${pad(start.hour)}:${pad(start.minute)}-'
-          '${pad(end.hour)}:${pad(end.minute)}';
+            '${pad(end.hour)}:${pad(end.minute)}';
   var dayPart = '';
   if (w.daysOfWeek != null && w.daysOfWeek!.isNotEmpty) {
     dayPart =
@@ -151,6 +154,9 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
   /// 「导入默认高峰配置」的确认卡开合（React 的 `modalOpen`）。
   bool _overwritePeakOpen = false;
 
+  /// 智能识别弹窗开合（React 的 `showPaste`，`PlatformEditForm.tsx:129`）。
+  bool _showPaste = false;
+
   PlatformFormController get c => widget.controller;
 
   @override
@@ -178,8 +184,16 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         if (c.editing != null && !c.isPassthrough) _peakSection(t),
         if (!c.isPassthrough) _groupAssignSection(t),
         _expirySection(t),
-        if (c.saveError.isNotEmpty)
-          ToastBar(text: c.saveError, ok: false),
+        if (c.saveError.isNotEmpty) ToastBar(text: c.saveError, ok: false),
+        // 智能识别弹窗（票 20）。浮层由 AidogModal 画，所以挂在树里哪一层都行。
+        if (_showPaste)
+          SmartPasteModal(
+            presets: c.list.protocolMeta.pastePresets,
+            protocolLabels: c.protocolLabelMap,
+            invoke: c.invoke,
+            onApply: c.applyPaste,
+            onClose: () => setState(() => _showPaste = false),
+          ),
       ],
     );
   }
@@ -192,8 +206,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final saveLabel = editing != null
         ? t.t('action.save')
         : (c.isBatch
-            ? t.t('platform.batch.createN', {'n': c.batchPreviewKeys!.length})
-            : t.t('action.create'));
+              ? t.t('platform.batch.createN', {'n': c.batchPreviewKeys!.length})
+              : t.t('action.create'));
     return Row(
       children: [
         SmallButton(label: '← ${t.t('action.back')}', onTap: c.resetForm),
@@ -216,6 +230,15 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             ],
           ),
         ),
+        // 「智能识别」只在**新建**态出现（`PlatformEditForm.tsx:109`）：
+        // 编辑已有平台时整段灌入会把用户改过的字段冲掉。
+        if (editing == null) ...[
+          SmallButton(
+            label: t.t('platform.paste.title'),
+            onTap: () => setState(() => _showPaste = true),
+          ),
+          const SizedBox(width: AidogSpace.ssm),
+        ],
         SmallButton(label: t.t('action.cancel'), onTap: c.resetForm),
         const SizedBox(width: AidogSpace.ssm),
         SmallButton(
@@ -489,10 +512,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           FormDropdown(
             label: t.t('platform.quotaScript.variant'),
             value: selection.isEmpty ? kQuotaCustomVariant : selection,
-            options: [
-              for (final v in variants) v.id,
-              kQuotaCustomVariant,
-            ],
+            options: [for (final v in variants) v.id, kQuotaCustomVariant],
             labelOf: (id) => id == kQuotaCustomVariant
                 ? t.t('platform.quotaScript.custom')
                 : quotaVariantLabel(
@@ -548,7 +568,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         label: t.t('platform.devinTimeout'),
         hint: t.t('platform.devinTimeoutPlaceholder'),
         value: c.devinConfig.devinTimeout,
-        onChanged: (v) => c.setDevinConfig(c.devinConfig.copyWith(devinTimeout: v)),
+        onChanged: (v) =>
+            c.setDevinConfig(c.devinConfig.copyWith(devinTimeout: v)),
       ),
       const SizedBox(height: AidogSpace.sxs),
       FormDropdown(
@@ -597,9 +618,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             value: c.apiKey,
             hint: hint,
             mono: multiline,
-            maxLines: multiline
-                ? c.apiKey.split('\n').length.clamp(2, 6)
-                : 1,
+            maxLines: multiline ? c.apiKey.split('\n').length.clamp(2, 6) : 1,
             obscure: !multiline && !c.showKey,
             onChanged: c.setApiKey,
           ),
@@ -682,9 +701,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                     FormDropdown(
                       width: 150,
                       value: c.endpoints[i].protocol,
-                      options: [
-                        for (final p in kEndpointProtocols) p.value,
-                      ],
+                      options: [for (final p in kEndpointProtocols) p.value],
                       labelOf: (v) {
                         for (final p in kEndpointProtocols) {
                           if (p.value == v) return p.label;
@@ -727,7 +744,9 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                     SmallButton(
                       label: 'C',
                       active: c.endpoints[i].codingPlan,
-                      onTap: locked ? null : () => c.toggleEndpointCodingPlan(i),
+                      onTap: locked
+                          ? null
+                          : () => c.toggleEndpointCodingPlan(i),
                     ),
                     if (!locked) ...[
                       const SizedBox(width: AidogSpace.sxs),
@@ -851,10 +870,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             onTap: (c.apiKeyMissing || c.endpoints.isEmpty || c.fetching)
                 ? null
                 : () => c.handleFetchModels(
-                      emptyText: t.t('platform.fetchEmpty'),
-                      authText: (code) =>
-                          t.t('platform.fetchAuthError', {'code': code}),
-                    ),
+                    emptyText: t.t('platform.fetchEmpty'),
+                    authText: (code) =>
+                        t.t('platform.fetchAuthError', {'code': code}),
+                  ),
           ),
           Tooltip(
             message: c.peak.isEmpty ? t.t('platform.time_windows_no_peak') : '',
@@ -867,8 +886,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           ),
           SmallButton(
             label: '+ ${t.t('platform.time_windows_add_rule')}',
-            onTap: () =>
-                c.setTimeModels([...rules, const TimeModelRule(windows: [], models: {})]),
+            onTap: () => c.setTimeModels([
+              ...rules,
+              const TimeModelRule(windows: [], models: {}),
+            ]),
           ),
         ],
       ),
@@ -908,8 +929,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                                 c.windowsTz,
                                 t,
                               ),
-                              onTap: () =>
-                                  setState(() => _editingRuleIdx = ri),
+                              onTap: () => setState(() => _editingRuleIdx = ri),
                             ),
                           ),
                           const SizedBox(height: 2),
@@ -1061,8 +1081,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               width: 120,
               value: selectedTier?.id ?? '',
               options: [for (final x in tiers) x.id],
-              labelOf: (id) =>
-                  tiers.firstWhere((x) => x.id == id).name,
+              labelOf: (id) => tiers.firstWhere((x) => x.id == id).name,
               onChanged: c.setPlanTierId,
             ),
           if (tiers.isNotEmpty)
@@ -1075,8 +1094,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 onTap: selectedTier == null
                     ? null
                     : () => c.setManualBudgets(
-                          PlatformFormController.tierToBudgets(selectedTier),
-                        ),
+                        PlatformFormController.tierToBudgets(selectedTier),
+                      ),
               ),
             ),
           SmallButton(
@@ -1122,7 +1141,9 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               final willNeed = kind == 'rolling' || kind == 'fixed';
               // 切到 rolling/fixed 且尚无窗口配置 → 给合理默认（7 天）。
               if (willNeed && (b.windowHours == null || b.windowHours! <= 0)) {
-                update(b.copyWith(kind: kind, windowHours: 7, windowUnit: 'day'));
+                update(
+                  b.copyWith(kind: kind, windowHours: 7, windowUnit: 'day'),
+                );
               } else {
                 update(b.copyWith(kind: kind));
               }
@@ -1232,7 +1253,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final theme = AidogTheme.of(context);
     final presetPeak = c.presetPeak;
     // 实时算（基于当前 windows + now）。无窗口 → 视为非高峰。
-    final nowPeak = isCurrentlyPeak(c.peak, DateTime.now().millisecondsSinceEpoch);
+    final nowPeak = isCurrentlyPeak(
+      c.peak,
+      DateTime.now().millisecondsSinceEpoch,
+    );
     return FormSection(
       title: t.t('platform.peak'),
       desc: t.t('platform.peak_desc'),
@@ -1660,9 +1684,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final inDay = c.expiresAt - nowMs < 86400000;
     final txt = formatDateTime(c.expiresAt);
     final shown = txt.isEmpty ? '-' : txt;
-    return inDay
-        ? t.t('platform.expiresAtSoon', {'time': shown})
-        : shown;
+    return inDay ? t.t('platform.expiresAtSoon', {'time': shown}) : shown;
   }
 }
 
@@ -1777,7 +1799,9 @@ WindowDimension dimensionOf(TimeWindow w) {
 }
 
 class WindowsEditorState extends State<WindowsEditor> {
-  late final List<TimeWindow> _local = [for (final w in widget.initial) w.clone()];
+  late final List<TimeWindow> _local = [
+    for (final w in widget.initial) w.clone(),
+  ];
   late final List<WindowDimension> _uiDim = [
     for (final w in widget.initial) dimensionOf(w),
   ];
@@ -1804,8 +1828,10 @@ class WindowsEditorState extends State<WindowsEditor> {
           clearDaysOfMonth: w.daysOfMonth == null || w.daysOfMonth!.isEmpty,
           clearDaysOfWeek: true,
         ),
-        WindowDimension.none =>
-          w.copyWith(clearDaysOfWeek: true, clearDaysOfMonth: true),
+        WindowDimension.none => w.copyWith(
+          clearDaysOfWeek: true,
+          clearDaysOfMonth: true,
+        ),
       };
       _uiDim[widx] = dim;
     });
@@ -1874,9 +1900,7 @@ class WindowsEditorState extends State<WindowsEditor> {
                     for (final w in _local)
                       // multiplier 不在本编辑器里改；time_windows 的窗口默认 1.0，
                       // 保留传入值兼容旧数据。
-                      w.multiplier > 0
-                          ? w
-                          : w.copyWith(multiplier: 1.0),
+                      w.multiplier > 0 ? w : w.copyWith(multiplier: 1.0),
                   ]),
                 ),
               ],

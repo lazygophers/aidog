@@ -17,6 +17,9 @@ library;
 
 import 'dart:convert';
 
+import 'models.dart';
+import 'platform_defaults.dart' show defaultClientForProtocol;
+
 // ── 类型 ──────────────────────────────────────────────────────────
 
 /// base_url 的协议倾向（仅用于展示分组 / 排序，不是平台类型）。
@@ -307,6 +310,146 @@ RegExp _prefixTokenRe(List<String> prefixes) => _prefixTokenCache.putIfAbsent(
     unicode: true,
   ),
 );
+
+// ── 确认之后要灌进表单的结果 ────────────────────────────────────────
+
+/// 弹窗点「填入表单」时交出去的东西。`SmartPasteModal.tsx:30::SmartPasteApplyResult`。
+class SmartPasteApplyResult {
+  const SmartPasteApplyResult({
+    this.platform,
+    this.baseUrls = const [],
+    this.apiKeys = const [],
+    this.fullShare,
+    this.expiresAt = 0,
+  });
+
+  final PasteMatch? platform;
+
+  /// 选中的 base_url（按协议各选一个）。每项 → 一个 endpoint。
+  final List<ParsedBaseUrl> baseUrls;
+
+  /// 选中的 apikey。长度 1 = 单平台旧路径，>1 = 批量创建 N 个平台。
+  final List<String> apiKeys;
+
+  /// 命中 aidog 分享串时带上完整配置对象，调用方整体灌表单，
+  /// **优先于**上面那几个零散字段。
+  final Map<String, Object?>? fullShare;
+
+  /// 识别到的过期时间（毫秒；0 = 未识别）。
+  final int expiresAt;
+}
+
+/// URL → `host` 或 `host+path`（小写、去 `www.` 与尾斜杠）。
+/// `platformPasteApply.ts:151` 的 `norm`；解析不出来就原样小写，与 React 的 catch 同义。
+String _normHostPath(String s) {
+  final u = Uri.tryParse(s);
+  if (u == null || u.host.isEmpty) return s.toLowerCase();
+  final host = u.host.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
+  final path = u.path.replaceFirst(RegExp(r'/+$'), '').toLowerCase();
+  return path.isNotEmpty && path != '/' ? '$host$path' : host;
+}
+
+/// 把选中的 base_url 合进现有 endpoints。`platformPasteApply.ts:141::computeEndpoints`。
+///
+/// 命中内置平台时 [prev] 已经是该平台的默认 endpoints，于是按 **host+path 最长前缀**
+/// 把每条粘来的 base_url 映射到对应的默认 endpoint 去覆盖它的 base_url，保留那条
+/// endpoint 原有的 protocol / client_type。这样一个平台的多个端点各落各位、不塌缩成一条，
+/// 也不必靠协议猜测去区分（同一个 openai 协议下的两种端点形态猜不出来）。
+/// 同一条 base_url 同时映射到多个 endpoint 时**全部覆盖**，保住双协议端点。
+///
+/// 没有 host+path 命中（粘的是裸 host 无版本段，或 preset 与分享的 host 对不上），
+/// 以及压根没命中平台时，都退回「按协议去重」：同协议就覆盖，没有就新增一条。
+List<PlatformEndpoint> computePastedEndpoints(
+  List<PlatformEndpoint> prev,
+  List<ParsedBaseUrl> baseUrls, {
+  required bool platformMatched,
+}) {
+  final eps = [...prev];
+  if (baseUrls.isEmpty) return eps;
+
+  void overwriteByProtocol(ParsedBaseUrl b) {
+    final proto = b.protocol == ParsedProtocol.unknown
+        ? 'openai'
+        : b.protocol.name;
+    final idx = eps.indexWhere((e) => e.protocol == proto);
+    if (idx >= 0) {
+      eps[idx] = PlatformEndpoint(
+        protocol: eps[idx].protocol,
+        baseUrl: b.url,
+        clientType: eps[idx].clientType,
+        codingPlan: eps[idx].codingPlan,
+      );
+    } else {
+      eps.add(
+        PlatformEndpoint(
+          protocol: proto,
+          baseUrl: b.url,
+          clientType: defaultClientForProtocol(proto),
+          codingPlan: false,
+        ),
+      );
+    }
+  }
+
+  if (!platformMatched) {
+    for (final b in baseUrls) {
+      overwriteByProtocol(b);
+    }
+    return eps;
+  }
+
+  for (final b in baseUrls) {
+    final bn = _normHostPath(b.url);
+    var bestLen = -1;
+    final targets = <int>[];
+    for (var i = 0; i < eps.length; i++) {
+      final en = _normHostPath(eps[i].baseUrl);
+      // en 必须是 bn 的**路径边界**前缀（粘来的 url 比默认 endpoint 更具体或相等），
+      // 否则 `codingX` 会误命中 `coding`。
+      if (bn == en || bn.startsWith('$en/')) {
+        if (en.length > bestLen) {
+          bestLen = en.length;
+          targets
+            ..clear()
+            ..add(i);
+        } else if (en.length == bestLen) {
+          targets.add(i);
+        }
+      }
+    }
+    if (targets.isEmpty) {
+      overwriteByProtocol(b);
+      continue;
+    }
+    for (final i in targets) {
+      eps[i] = PlatformEndpoint(
+        protocol: eps[i].protocol,
+        baseUrl: b.url,
+        clientType: eps[i].clientType,
+        codingPlan: eps[i].codingPlan,
+      );
+    }
+  }
+  return eps;
+}
+
+/// 由 preset 的 default 端点派生 host（或 host+path）子串。
+/// `defaults.ts:455::deriveProtocolHosts`。
+///
+/// 带上 path 才能区分同 host 的分裂 preset（同一个域名下 coding 与普通版各一条）。
+/// 非法 URL 跳过，与 React 侧的 try/catch 同义。
+List<String> deriveProtocolHosts(List<String> baseUrls) {
+  final hosts = <String>{};
+  for (final raw in baseUrls) {
+    final u = Uri.tryParse(raw);
+    if (u == null) continue;
+    final host = u.host.replaceFirst(RegExp(r'^www\.'), '').toLowerCase();
+    if (host.isEmpty) continue;
+    final path = u.path.replaceFirst(RegExp(r'/+$'), '').toLowerCase();
+    hosts.add(path.isNotEmpty && path != '/' ? '$host$path' : host);
+  }
+  return hosts.toList();
+}
 
 // ── 抽取：apikey ──────────────────────────────────────────────────
 
