@@ -173,6 +173,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// json / object / kv 字段的解析错误（key → 错误串）。
   final Map<String, String> _fieldErrors = {};
 
+  /// 全局搜索（R8，只有 claude 页有——`Settings.tsx` 独有，Codex / pi 页没有）。
+  /// 空串 = 未过滤。
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -204,6 +208,32 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     super.dispose();
   }
 
+  /// R8 全局搜索：section 标签命中 → 整节显示；否则按字段 label/key/description 命中
+  /// → 只留命中的字段。返回值：section.id → 命中字段集合（`null` = 整节命中，show all）。
+  /// 与 React `Settings.tsx` 的 `search` useMemo 同算法。
+  Map<String, Set<String>?>? _computeSearch(I18nController t, SchemaBundle bundle) {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return null;
+    final matched = <String, Set<String>?>{};
+    for (final s in bundle.sections) {
+      final sectionLabel = t.t(s.labelKey).toLowerCase();
+      if (sectionLabel.contains(q)) {
+        matched[s.id] = null;
+        continue;
+      }
+      final hits = <String>{};
+      for (final f in s.fields) {
+        final label = tOr(t, 'settings.f_${f.key}', f.label).toLowerCase();
+        final desc = (f.description ?? '').toLowerCase();
+        if (label.contains(q) || f.key.toLowerCase().contains(q) || desc.contains(q)) {
+          hits.add(f.key);
+        }
+      }
+      if (hits.isNotEmpty) matched[s.id] = hits;
+    }
+    return matched;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
@@ -216,13 +246,29 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       );
     }
 
+    final isClaude = widget.kind == SchemaConfigKind.claude;
+    final search = isClaude ? _computeSearch(t, bundle) : null;
+    final visibleSections =
+        search == null ? bundle.sections : bundle.sections.where((s) => search.containsKey(s.id)).toList();
+
     final body = SettingsPageBody(
       title: t.t(widget.kind.titleKey),
-      subtitle: c.dirty ? t.t('settings.unsavedChanges') : null,
+      // React 三页都有这条持久提示（不只是保存后的一次性 toast）：脏 → 未保存更改，
+      // 干净 → 已保存（`SettingsHeader.tsx:157` / `CodexSettings.tsx:216`）。
+      subtitle: c.dirty ? t.t('settings.unsavedChanges') : t.t('settings.allSaved'),
       trailing: Wrap(
         spacing: AidogSpace.sxs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (isClaude)
+            SizedBox(
+              width: 200,
+              child: TextField(
+                key: const ValueKey('settings-search'),
+                decoration: InputDecoration(isDense: true, hintText: t.t('settings.search')),
+                onChanged: (v) => setState(() => _searchQuery = v),
+              ),
+            ),
           SmallButton(
             label: t.t('settings.guiMode'),
             active: c.mode == EditorMode.gui,
@@ -267,8 +313,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               ),
             ],
           )
+        else if (search != null && visibleSections.isEmpty)
+          CenteredNote(key: const ValueKey('settings-search-no-match'), text: t.t('settings.searchNoMatch'))
         else
-          for (final s in bundle.sections) _section(t, c, s),
+          for (final s in visibleSections) _section(t, c, s, fieldFilter: search?[s.id]),
         if (c.saveError.isNotEmpty) ErrorNote(text: c.saveError),
         if (c.importDiff != null)
           ImportDiffCard(
@@ -307,8 +355,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   Widget _section(
     I18nController t,
     SchemaConfigController c,
-    SchemaSection s,
-  ) {
+    SchemaSection s, {
+    /// R8 搜索命中的字段集合。`null` = 未过滤或整节命中（显示全部字段）。
+    Set<String>? fieldFilter,
+  }) {
     // hooks 区在 schema 里标了 skipGui（通用行渲染器画不了树），但 React 侧
     // 给它配了专用构建器（HooksSectionInline）—— 这里同样走专用编辑器。
     if (widget.kind == SchemaConfigKind.claude && s.id == 'hooks') {
@@ -341,10 +391,48 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     }
     for (final f in s.fields) {
       if (f.skipGui) continue;
+      if (fieldFilter != null && !fieldFilter.contains(f.key)) continue;
       rows.add(_field(t, c, f));
     }
     if (widget.kind == SchemaConfigKind.claude && s.id == 'status') {
       rows.add(const StatusLineDataRef(key: ValueKey('section-status-dataref')));
+    }
+    // Attribution 固定编辑器（commit + pr 两个子字段）：`attribution` 是 skipGui 的
+    // json 字段，React 侧在「advanced」节末尾单独铺开两个文本框，搜索命中具体字段时隐藏
+    // （`fieldFilter instanceof Set` 那条件的镜像：这里是 fieldFilter != null）。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'advanced' && fieldFilter == null) {
+      final attr = c.config['attribution'] is Map
+          ? Map<String, Object?>.from(c.config['attribution'] as Map)
+          : <String, Object?>{};
+      void setAttr(String field, String v) {
+        final next = {...attr, field: v};
+        c.updateField('attribution', next.values.any((x) => (x as String?)?.isNotEmpty == true) ? next : null);
+      }
+      rows.add(
+        Padding(
+          key: const ValueKey('field-attribution'),
+          padding: const EdgeInsets.only(top: AidogSpace.smd),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TileMeta(tOr(t, 'settings.f_attribution', 'Attribution')),
+              TextRow(
+                key: const ValueKey('field-attribution-commit'),
+                label: t.t('settings.attribution.commit'),
+                value: '${attr['commit'] ?? ''}',
+                onSubmitted: (v) => setAttr('commit', v),
+              ),
+              TextRow(
+                key: const ValueKey('field-attribution-pr'),
+                label: t.t('settings.attribution.pr'),
+                value: '${attr['pr'] ?? ''}',
+                onSubmitted: (v) => setAttr('pr', v),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     if (rows.isEmpty) return const SizedBox.shrink();
     return SettingsCard(title: t.t(s.labelKey), children: rows);
