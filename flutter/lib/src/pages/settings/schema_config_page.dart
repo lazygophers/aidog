@@ -511,10 +511,16 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     final label = tOr(t, 'settings.f_${f.key}', f.label);
     // 带 pathType 的字段走带补全的路径输入（React `FieldRenderer.tsx:174`）。
     if (f.pathType != null) {
+      // fileSuggestion 在 React 侧是 StatusLineSection.tsx 就地构造的字段对象，
+      // description 直接来自 t("statusline.fileSuggestionDesc", ...) 而不是 schema.ts
+      // 里的静态字符串（schema.json 里那份是同一句中文的字面量副本，非 8 语言联动）。
+      final description = f.key == 'fileSuggestion'
+          ? tOr(t, 'statusline.fileSuggestionDesc', f.description ?? '')
+          : f.description;
       return PathInputRow(
         key: ValueKey('field-${f.key}'),
         label: label,
-        description: f.description,
+        description: description,
         hint: f.placeholder,
         value: value == null ? null : '$value',
         pathType: f.pathType!,

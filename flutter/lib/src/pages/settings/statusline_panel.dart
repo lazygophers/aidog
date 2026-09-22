@@ -295,10 +295,13 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
     ),
     Row(
       children: [
-        SmallButton(
-          key: ValueKey('sl-${widget.scriptType}-reset-layout'),
-          label: t.t('statusline.resetLayout'),
-          onTap: _resetToDefaultLayout,
+        Tooltip(
+          message: t.t('statusline.resetLayoutHint'),
+          child: SmallButton(
+            key: ValueKey('sl-${widget.scriptType}-reset-layout'),
+            label: t.t('statusline.resetLayout'),
+            onTap: _resetToDefaultLayout,
+          ),
         ),
         const Spacer(),
         SmallButton(
@@ -559,11 +562,14 @@ class _SegmentList extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    SmallButton(
-                      key: ValueKey('sl-$scriptType-nl-${seg.id}'),
-                      label: '↵',
-                      active: seg.newline,
-                      onTap: () => onToggleNewline(seg.id),
+                    Tooltip(
+                      message: t.t('statusline.toggleNewline'),
+                      child: SmallButton(
+                        key: ValueKey('sl-$scriptType-nl-${seg.id}'),
+                        label: '↵',
+                        active: seg.newline,
+                        onTap: () => onToggleNewline(seg.id),
+                      ),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
                     SmallButton(
