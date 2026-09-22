@@ -1675,10 +1675,10 @@ class _GroupCreatePanel extends StatelessWidget {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.sxs),
-          // 只列 enabled 的平台（与 React 的 createPlatformOptions 同口径）。
+          // 只列 enabled 的平台（与 React 的 `GroupCreateModal.tsx:33` 同口径）。
           _PlatformPicker(
             platformIds: c.createPlatformIds,
-            options: c.createPlatformOptions,
+            options: c.enabledPlatformOptions,
             onChange: c.setCreatePlatformIds,
           ),
           const SizedBox(height: AidogSpace.smd),
@@ -2004,9 +2004,10 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.sxs),
+          // 只列 enabled 的（`GroupEditPanel.tsx:34`）——原先是全量 `c.platforms`。
           _PlatformPicker(
             platformIds: e.platformIds,
-            options: c.platforms,
+            options: c.enabledPlatformOptions,
             onChange: (ids) => c.patchEdit(e.patch(platformIds: ids)),
           ),
           const SizedBox(height: AidogSpace.ssm),
@@ -2065,20 +2066,48 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                     ),
                   ),
                   const SizedBox(width: AidogSpace.sxs),
+                  // 目标模型：目标平台配过模型就给下拉，没配才退回文本框
+                  // （`GroupEditPanel.tsx:221-239` 的两条分支）。原先恒为文本框，
+                  // 模型名打错了当场没有任何提示，要等真发请求才失败。
                   Expanded(
-                    child: _Field(
-                      hint: t.t('mapping.target'),
-                      value: e.mappings[i].targetModel,
-                      onChanged: (v) {
-                        final next = [...e.mappings];
-                        next[i] = ModelMapping(
-                          sourceModel: next[i].sourceModel,
-                          targetPlatformId: next[i].targetPlatformId,
-                          targetModel: v,
-                          requestTimeoutSecs: next[i].requestTimeoutSecs,
-                          connectTimeoutSecs: next[i].connectTimeoutSecs,
+                    child: Builder(
+                      builder: (context) {
+                        final models = c.modelsOfPlatform(
+                          e.mappings[i].targetPlatformId,
                         );
-                        c.patchEdit(e.patch(mappings: next));
+                        void setTarget(String v) {
+                          final next = [...e.mappings];
+                          next[i] = ModelMapping(
+                            sourceModel: next[i].sourceModel,
+                            targetPlatformId: next[i].targetPlatformId,
+                            targetModel: v,
+                            requestTimeoutSecs: next[i].requestTimeoutSecs,
+                            connectTimeoutSecs: next[i].connectTimeoutSecs,
+                          );
+                          c.patchEdit(e.patch(mappings: next));
+                        }
+
+                        if (models.isEmpty) {
+                          return _Field(
+                            hint: t.t('mapping.target'),
+                            value: e.mappings[i].targetModel,
+                            onChanged: setTarget,
+                          );
+                        }
+                        return DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            isExpanded: true,
+                            hint: Text(t.t('mapping.target')),
+                            value: models.contains(e.mappings[i].targetModel)
+                                ? e.mappings[i].targetModel
+                                : null,
+                            items: [
+                              for (final m in models)
+                                DropdownMenuItem(value: m, child: Text(m)),
+                            ],
+                            onChanged: (v) => setTarget(v ?? ''),
+                          ),
+                        );
                       },
                     ),
                   ),

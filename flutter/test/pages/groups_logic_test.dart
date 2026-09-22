@@ -386,7 +386,42 @@ void main() {
       });
       final c = GroupsController(invoke: k.fn);
       await c.load();
-      expect(c.createPlatformOptions.map((p) => p.name), ['on']);
+      expect(c.enabledPlatformOptions.map((p) => p.name), ['on']);
+    });
+
+    test('编辑表单的关联平台候选也只列 enabled（原先用的是全量 platforms）', () async {
+      // 已禁用的平台加进分组也不会被路由选中，等于埋一个「配了但不生效」的坑。
+      // React 两处都过滤（`GroupCreateModal.tsx:33` / `GroupEditPanel.tsx:34`）。
+      // 同上一条：组页留空，否则 loadMore 的 upsert 会盖掉 platform_list 那份。
+      final k = FakeInvoke({
+        ...groupsFake(page: const []).responses,
+        'platform_list': [
+          platformJson(1, 'on'),
+          platformJson(2, 'off', status: 'disabled', enabled: false),
+        ],
+      });
+      final c = GroupsController(invoke: k.fn);
+      await c.load();
+      expect(c.platforms.length, 2, reason: '全量里两个都在');
+      expect(c.enabledPlatformOptions.map((p) => p.id), [1]);
+    });
+
+    test('modelsOfPlatform：给出该平台五槽去重值；平台 id 为 0 / null / 不存在时为空', () async {
+      final k = FakeInvoke({
+        ...groupsFake(page: const []).responses,
+        'platform_list': [
+          {
+            ...platformJson(1, 'on'),
+            'models': {'default': 'm1', 'opus': 'm2'},
+          },
+        ],
+      });
+      final c = GroupsController(invoke: k.fn);
+      await c.load();
+      expect(c.modelsOfPlatform(1), ['m1', 'm2']);
+      expect(c.modelsOfPlatform(0), isEmpty, reason: '0 = 还没选目标平台');
+      expect(c.modelsOfPlatform(null), isEmpty);
+      expect(c.modelsOfPlatform(999), isEmpty, reason: '找不到的平台不该抛');
     });
 
     test('关闭新建表单把四个字段清回初值（mode 回 failover，照搬 React）', () {
