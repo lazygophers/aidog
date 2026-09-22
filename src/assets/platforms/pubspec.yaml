@@ -1,0 +1,22 @@
+# Flutter 资产包装。内置平台 logo 的真值源是同目录的 *.svg —— React（Vite 直接
+# import）与 Flutter（本包）读的是同一份文件，不存在第二份拷贝，也就不会漂移。
+#
+# 与 `src-tauri/crates/aidog_i18n/pubspec.yaml` 同一条路子：
+# Flutter 的 assets 必须落在包目录内，所以用一个只有资产的包把这个目录挂进来，
+# 而不是把 svg 拷进 flutter/assets/。
+# https://docs.flutter.dev/ui/assets/assets-and-images#from-packages
+name: aidog_platform_logos
+description: aidog 内置平台 logo（svg），供 Flutter 侧按资产读取。
+version: 0.0.0
+publish_to: "none"
+
+environment:
+  sdk: ^3.13.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+flutter:
+  assets:
+    - ./

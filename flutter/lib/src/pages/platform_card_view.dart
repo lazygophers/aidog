@@ -10,11 +10,7 @@
 /// 独立文件而不是塞回 `platforms.dart`：那边是页面编排，这里是一张卡的渲染。
 library;
 
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -24,6 +20,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'models.dart';
 import 'platform_card_bits.dart';
+import 'platform_logo.dart';
 import 'platforms_logic.dart';
 import 'ui_bits.dart';
 
@@ -88,7 +85,8 @@ class PlatformCard extends StatelessWidget {
     final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
     final meta = c.protocolMeta;
 
-    // logo 三级回退的第一级：本地缓存路径 → data URL（miss 会后台补拉，见控制器）。
+    // logo 四级回退的第一级：本地缓存路径 → data URL（miss 会后台补拉，见控制器）。
+    // 其余三级（内置 svg / favicon / 字母块）在 `platform_logo.dart`。
     c.ensureProtocolLogo(p.platformType);
 
     final q = computeQuotaDisplay(
@@ -173,6 +171,9 @@ class PlatformCard extends StatelessWidget {
                 _LogoDot(
                   protocol: p.platformType,
                   logoSrc: c.protocolLogos[p.platformType],
+                  baseUrl: getPrimaryBaseUrl(p.platformType, p.endpoints).isEmpty
+                      ? p.baseUrl
+                      : getPrimaryBaseUrl(p.platformType, p.endpoints),
                   health: deriveHealth(
                     status: p.status,
                     lastError: p.lastError,
@@ -516,11 +517,12 @@ class _SegmentHalf extends StatelessWidget {
 
 // ── 行 1：身份区 ──────────────────────────────────────────────────
 
-/// logo（缓存图 → 协议首两字母）+ 右上角健康点。
+/// logo（四级回退，见 [platformLogo]）+ 右上角健康点。
 class _LogoDot extends StatelessWidget {
   const _LogoDot({
     required this.protocol,
     required this.logoSrc,
+    required this.baseUrl,
     required this.health,
     required this.lastError,
     required this.lastErrorAt,
@@ -528,6 +530,9 @@ class _LogoDot extends StatelessWidget {
 
   final String protocol;
   final String? logoSrc;
+
+  /// favicon 那一级要从它取 origin。
+  final String baseUrl;
   final HealthStatus health;
   final String lastError;
   final int lastErrorAt;
@@ -537,7 +542,11 @@ class _LogoDot extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final color = healthColor(health, theme.c);
-    final logo = logoWidget(decodeLogoDataUrl(logoSrc));
+    final logo = platformLogo(
+      protocol: protocol,
+      cachedDataUrl: logoSrc,
+      baseUrl: baseUrl,
+    );
     return Tooltip(
       message: lastError.isEmpty
           ? ''
@@ -591,63 +600,6 @@ class _LogoDot extends StatelessWidget {
       ),
     );
   }
-}
-
-/// `data:<mime>;base64,...` → (mime, 字节)；不是 data URL（或解不开）→ null。
-///
-/// **必须把 mime 一起带出来**：`~/.aidog/logos/` 里躺着的不只有 PNG，还有 `.svg`
-/// 和 `.ico`（`defaults.rs:64` 按扩展名派生 mime）。`Image.memory` 这两种都解不开，
-/// 直接喂进去就是满屏
-/// `EXCEPTION CAUGHT BY IMAGE RESOURCE SERVICE: Invalid image data` ——
-/// 一个平台卡报一次。React 那边是 `<img src=...>`，浏览器什么都认，所以没这个问题。
-({String mime, Uint8List bytes})? decodeLogoDataUrl(String? src) {
-  if (src == null || src.isEmpty) return null;
-  final i = src.indexOf('base64,');
-  if (i < 0) return null;
-  // `data:image/svg+xml;base64,` → `image/svg+xml`；取不到就当空串。
-  final head = src.substring(0, i);
-  final colon = head.indexOf(':');
-  final semi = head.indexOf(';');
-  final mime = (colon >= 0 && semi > colon)
-      ? head.substring(colon + 1, semi)
-      : '';
-  try {
-    return (mime: mime, bytes: base64Decode(src.substring(i + 7)));
-  } catch (_) {
-    return null;
-  }
-}
-
-/// 按 mime 选渲染方式；认不出的一律返回 null，由调用方回落到字母块。
-///
-/// - `image/svg+xml` → `flutter_svg`（dart:ui 不认 SVG）
-/// - `image/png` / `jpeg` / `gif` / `webp` / `bmp` → `Image.memory`
-/// - `image/x-icon`（`.ico`）→ **不认**。dart:ui 解不了 ICO，`image` 那类纯 Dart
-///   解码器要再引一个包，而 ICO 在缓存里只占少数 —— 回落到字母块，不值得为它引包。
-Widget? logoWidget(({String mime, Uint8List bytes})? logo) {
-  if (logo == null) return null;
-  if (logo.mime == 'image/svg+xml') {
-    return SvgPicture.memory(
-      logo.bytes,
-      fit: BoxFit.contain,
-      // SVG 本身解析失败（截断 / 不是真 SVG）时别抛，画空占位让字母块那层兜住。
-      placeholderBuilder: (_) => const SizedBox.shrink(),
-    );
-  }
-  const raster = {
-    'image/png',
-    'image/jpeg',
-    'image/gif',
-    'image/webp',
-    'image/bmp',
-  };
-  if (!raster.contains(logo.mime)) return null;
-  return Image.memory(
-    logo.bytes,
-    fit: BoxFit.contain,
-    // 兜底：mime 说是 PNG 但内容坏了（下载截断）也不许抛到 image resource service。
-    errorBuilder: (_, _, _) => const SizedBox.shrink(),
-  );
 }
 
 /// 名称 + 协议·base_url + 一串状态徽标（`PlatformCard.tsx:255-411`）。

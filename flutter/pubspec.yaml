@@ -68,6 +68,11 @@ dependencies:
   # 仓库里没有第二份拷贝（理由见 README「文案是怎么进来的」）。
   aidog_i18n_locales:
     path: ../src-tauri/crates/aidog_i18n
+
+  # 内置平台 logo。与 React 读同一份 svg（`src/assets/platforms/`），
+  # 不拷贝第二份 —— 与上面的文案包同一条路子。
+  aidog_platform_logos:
+    path: ../src/assets/platforms
   desktop_drop: ^0.8.4
   flutter_svg: ^2.3.0
   re_editor: ^0.10.0

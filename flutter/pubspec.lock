@@ -8,6 +8,13 @@ packages:
       relative: true
     source: path
     version: "0.0.0"
+  aidog_platform_logos:
+    dependency: "direct main"
+    description:
+      path: "../src/assets/platforms"
+      relative: true
+    source: path
+    version: "0.0.0"
   aidog_tokens:
     dependency: "direct main"
     description:
