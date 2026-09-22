@@ -127,12 +127,19 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                 label: t.t('skills.install.addBtn'),
                 onTap: _ready ? () => _c.setSubView('install') : null,
               ),
+              // 这几颗按钮跑起来要几秒（都在写外部配置文件），忙碌时换文案，
+              // 否则点下去界面一动不动，用户只会再点一次
+              //（`SkillsView.tsx:102/111/121/131` 逐颗照抄）。
               SmallButton(
-                label: t.t('skills.updateAll'),
+                label: _c.busyKey == '__update__'
+                    ? t.t('skills.updating')
+                    : t.t('skills.updateAll'),
                 onTap: _ready ? _c.updateAll : null,
               ),
               SmallButton(
-                label: t.t('skills.alignTitle'),
+                label: _c.busyKey == '__align__'
+                    ? t.t('skills.aligning')
+                    : t.t('skills.alignTitle'),
                 onTap: _ready ? _c.openAlign : null,
               ),
               SmallButton(
@@ -140,16 +147,20 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                 onTap: _ready ? () => _c.setPasteOpen(true) : null,
               ),
               SmallButton(
-                label: t.t('skills.uninstallSelected', {
-                  'count': _c.selectedNames.length,
-                }),
+                label: _c.busyKey == '__uninstall_batch__'
+                    ? t.t('skills.uninstalling')
+                    : t.t('skills.uninstallSelected', {
+                        'count': _c.selectedNames.length,
+                      }),
                 danger: true,
                 onTap: (_ready && _c.selectedNames.isNotEmpty)
                     ? _c.askUninstallBatch
                     : null,
               ),
               SmallButton(
-                label: t.t('skills.uninstallAll'),
+                label: _c.busyKey == '__uninstall__'
+                    ? t.t('skills.uninstalling')
+                    : t.t('skills.uninstallAll'),
                 danger: true,
                 onTap: _ready ? _c.askUninstallAll : null,
               ),

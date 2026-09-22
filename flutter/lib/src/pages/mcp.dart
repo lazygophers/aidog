@@ -432,7 +432,9 @@ class _McpPageState extends State<McpPage> {
                 SmallButton(label: t.t('action.cancel'), onTap: _c.closeEdit),
                 const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
-                  label: t.t('action.save'),
+                  label: _c.busyKey != null
+                      ? t.t('mcp.saving')
+                      : t.t('action.save'),
                   onTap: _c.busyKey != null ? null : _c.saveEdit,
                 ),
               ],

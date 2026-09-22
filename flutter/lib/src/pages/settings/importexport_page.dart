@@ -365,7 +365,13 @@ class _ImportExportPageState extends State<ImportExportPage> {
           const SizedBox(width: AidogSpace.ssm),
           SmallButton(
             key: const ValueKey('export-run'),
-            label: t.t('importExport.exportBtn'),
+            // 三态照抄 `ImportExportTab.tsx:467-473`：跑着的时候说「导出中」，
+            // 预览出来之后按钮上直接带上会导几项 —— 光写「导出」看不出导什么。
+            label: _c.busy
+                ? t.t('importExport.exporting')
+                : _c.preview != null
+                ? t.t('importExport.exportN', {'n': _c.selected.length})
+                : t.t('importExport.exportBtn'),
             // 没勾任何条目不许导出 —— 会写出一个空备份覆盖掉用户以为还在的文件。
             onTap: _c.canExport
                 ? () async {
