@@ -1040,6 +1040,7 @@ class MiniBadge extends StatelessWidget {
     this.onTap,
     this.accentText,
     this.accentColor,
+    this.solid = false,
   });
 
   final String text;
@@ -1050,6 +1051,11 @@ class MiniBadge extends StatelessWidget {
   ///（`PlatformCard.tsx:697-700` 同形态）。
   final String? accentText;
   final Color? accentColor;
+
+  /// 实心徽标：[color] 当底色，文字用页面底色反白。
+  /// 用在「这是当前生效的那一个」这种需要一眼认出的标记上（分组页的默认分组徽标，
+  /// `GroupListItem.tsx:207-209` 的 primary 底 + 反色字）。
+  final bool solid;
   final String? tooltip;
   final IconData? icon;
 
@@ -1058,21 +1064,24 @@ class MiniBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme0 = AidogTheme.of(context);
     final body = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AidogSpace.ssm,
         vertical: 1,
       ),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        border: Border.all(color: color.withValues(alpha: 0.30)),
+        color: solid ? color : color.withValues(alpha: 0.12),
+        border: Border.all(
+          color: solid ? color : color.withValues(alpha: 0.30),
+        ),
         borderRadius: BorderRadius.circular(5),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 10, color: color),
+            Icon(icon, size: 10, color: solid ? theme0.c.bg : color),
             const SizedBox(width: 3),
           ],
           Flexible(
@@ -1094,7 +1103,7 @@ class MiniBadge extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
-                color: color,
+                color: solid ? theme0.c.bg : color,
                 fontWeight: FontWeight.w600,
               ),
             ),
