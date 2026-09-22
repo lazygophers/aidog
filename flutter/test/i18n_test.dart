@@ -68,9 +68,16 @@ void main() {
       final base = all[kFallbackLocale]!.entries.keys.toSet();
       // 2826（I03 落地时）+ 8（票 I07 给分组 / 平台 / 日志三页补的新词条）
       // + 4（票 I15 托盘三段：keptDisabled / pickAtMost / segment.peak / segment.routed）
-      // + 1（nav.collapse —— 侧栏「收起」按钮的文案，8 个 locale 里原先全缺，界面上直接显裸 key）。
+      // + 1（nav.collapse —— 侧栏「收起」按钮的文案，8 个 locale 里原先全缺，界面上直接显裸 key）
+      // + 2（platform.deleteTitle / platform.deleteConfirm —— 删平台的二次确认，
+      //      2026-09-22 两侧同用；此前 Flutter 借用 group.deletePlatformConfirm，
+      //      那条文案写着「仅属此分组」，在平台列表里根本不成立）。
       // 这个数是故意写死的：加 key 必须 8 个 locale 一起加，改这一行时就会想起来。
-      expect(base, hasLength(2839));
+      //
+      // 数的是 [Translations.flatten] **之后**的键数，不是 JSON 顶层键数 ——
+      // `group` / `logs` 在 JSON 里是嵌套对象，拍平后会展开成多条。拿
+      // `len(json.load(f))` 去对这个数一定对不上，别那样核。
+      expect(base, hasLength(2841));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');

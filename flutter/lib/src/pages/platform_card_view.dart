@@ -14,6 +14,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -536,7 +537,7 @@ class _LogoDot extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final color = healthColor(health, theme.c);
-    final bytes = decodeLogoDataUrl(logoSrc);
+    final logo = logoWidget(decodeLogoDataUrl(logoSrc));
     return Tooltip(
       message: lastError.isEmpty
           ? ''
@@ -559,9 +560,8 @@ class _LogoDot extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AidogRadius.sm),
               ),
               clipBehavior: Clip.antiAlias,
-              child: bytes != null
-                  ? Image.memory(bytes, fit: BoxFit.contain)
-                  : Text(
+              child: logo ??
+                  Text(
                       protocol.isEmpty
                           ? '?'
                           : protocol
@@ -593,16 +593,61 @@ class _LogoDot extends StatelessWidget {
   }
 }
 
-/// `data:image/png;base64,...` → 字节；不是 data URL（或解不开）→ null。
-Uint8List? decodeLogoDataUrl(String? src) {
+/// `data:<mime>;base64,...` → (mime, 字节)；不是 data URL（或解不开）→ null。
+///
+/// **必须把 mime 一起带出来**：`~/.aidog/logos/` 里躺着的不只有 PNG，还有 `.svg`
+/// 和 `.ico`（`defaults.rs:64` 按扩展名派生 mime）。`Image.memory` 这两种都解不开，
+/// 直接喂进去就是满屏
+/// `EXCEPTION CAUGHT BY IMAGE RESOURCE SERVICE: Invalid image data` ——
+/// 一个平台卡报一次。React 那边是 `<img src=...>`，浏览器什么都认，所以没这个问题。
+({String mime, Uint8List bytes})? decodeLogoDataUrl(String? src) {
   if (src == null || src.isEmpty) return null;
   final i = src.indexOf('base64,');
   if (i < 0) return null;
+  // `data:image/svg+xml;base64,` → `image/svg+xml`；取不到就当空串。
+  final head = src.substring(0, i);
+  final colon = head.indexOf(':');
+  final semi = head.indexOf(';');
+  final mime = (colon >= 0 && semi > colon)
+      ? head.substring(colon + 1, semi)
+      : '';
   try {
-    return base64Decode(src.substring(i + 7));
+    return (mime: mime, bytes: base64Decode(src.substring(i + 7)));
   } catch (_) {
     return null;
   }
+}
+
+/// 按 mime 选渲染方式；认不出的一律返回 null，由调用方回落到字母块。
+///
+/// - `image/svg+xml` → `flutter_svg`（dart:ui 不认 SVG）
+/// - `image/png` / `jpeg` / `gif` / `webp` / `bmp` → `Image.memory`
+/// - `image/x-icon`（`.ico`）→ **不认**。dart:ui 解不了 ICO，`image` 那类纯 Dart
+///   解码器要再引一个包，而 ICO 在缓存里只占少数 —— 回落到字母块，不值得为它引包。
+Widget? logoWidget(({String mime, Uint8List bytes})? logo) {
+  if (logo == null) return null;
+  if (logo.mime == 'image/svg+xml') {
+    return SvgPicture.memory(
+      logo.bytes,
+      fit: BoxFit.contain,
+      // SVG 本身解析失败（截断 / 不是真 SVG）时别抛，画空占位让字母块那层兜住。
+      placeholderBuilder: (_) => const SizedBox.shrink(),
+    );
+  }
+  const raster = {
+    'image/png',
+    'image/jpeg',
+    'image/gif',
+    'image/webp',
+    'image/bmp',
+  };
+  if (!raster.contains(logo.mime)) return null;
+  return Image.memory(
+    logo.bytes,
+    fit: BoxFit.contain,
+    // 兜底：mime 说是 PNG 但内容坏了（下载截断）也不许抛到 image resource service。
+    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+  );
 }
 
 /// 名称 + 协议·base_url + 一串状态徽标（`PlatformCard.tsx:255-411`）。
