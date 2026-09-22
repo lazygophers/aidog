@@ -529,7 +529,18 @@ void main() {
       await tester.tap(find.text(c.t('group.testAll')).first);
       await settle(tester);
       expect(k.callsTo('model_test').length, 1);
-      expect(find.text('ok'), findsOneWidget);
+      // 行状态是本地化文案 + 耗时（`GroupTestPanel.tsx:50` 的
+      // `t("group.testAllOk") + " {ms}ms"`），不是裸的 `ok`；
+      // 摘要行同样含「成功」，所以这里按「成功 + 空格 + 毫秒」认那一行。
+      expect(
+        find.textContaining(RegExp('${c.t('group.testAllOk')} \\d+ms')),
+        findsOneWidget,
+      );
+      // 面板抬头：标题带组名。
+      expect(
+        find.textContaining(c.t('group.testAllTitle')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('折叠分组 → 组内平台行消失，并落盘折叠态', (tester) async {
@@ -567,6 +578,959 @@ void main() {
       await tester.tap(find.text(c.t('action.delete')).last);
       await settle(tester);
       expect(toasts.single, startsWith('false|'));
+    });
+
+    // ── 界面对齐票 04 补的那批（批量操作 / 复制命令 / 优先级 / 映射 / 环境变量）──
+
+    testWidgets('多选：进入后出工具栏，选中前四个批量按钮都点不动', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      expect(find.text(c.t('group.selectAll')), findsOneWidget);
+      for (final key in const [
+        'group.batchDelete',
+        'group.batchOverrideModels',
+        'group.batchSetStatus',
+        'group.batchMoveGroup',
+      ]) {
+        final b = tester.widget<SmallButton>(
+          find.widgetWithText(SmallButton, c.t(key)).last,
+        );
+        expect(b.enabled, isFalse, reason: '$key 没选中平台时必须禁用');
+      }
+    });
+
+    testWidgets('多选：全选 → 批量删除要先确认，确认才发 batch_delete_platforms', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchDelete')).last);
+      await settle(tester);
+      expect(find.text(c.t('group.batchDeleteTitle')), findsOneWidget);
+      expect(k.commands.contains('batch_delete_platforms'), isFalse);
+
+      await tester.tap(
+        find.textContaining(c.t('group.batchDeleteConfirm', {'count': '1'})),
+      );
+      await settle(tester);
+      expect(k.lastCallTo('batch_delete_platforms')!.args!['ids'], [1]);
+    });
+
+    testWidgets('多选：批量改状态弹窗默认「禁用」，确认发 batch_set_status', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchSetStatus')).last);
+      await settle(tester);
+      // 选中平台覆盖了本组全部 enabled 候选 → 要出无候选警告。
+      expect(find.text(c.t('group.batchSetStatusNoCandidateWarning')), findsOneWidget);
+
+      await tester.tap(
+        find.textContaining(c.t('group.batchSetStatusConfirm', {'count': '1'})),
+      );
+      await settle(tester);
+      expect(k.lastCallTo('batch_set_status')!.args!['status'], 'disabled');
+    });
+
+    testWidgets('复制启动命令菜单：四项各复制各自的文本', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final copied = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: k.fn,
+            copyText: (s) async => copied.add(s),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.copyCommand')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.menuCopyClaude')));
+      await settle(tester);
+      expect(copied.single, contains('~/.aidog/settings.gk10.json'));
+
+      await tester.tap(find.text(c.t('group.copyCommand')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.menuCopyPi')));
+      await settle(tester);
+      expect(copied.last, "pi --provider 'aidog-gk10'");
+    });
+
+    testWidgets('代理地址复制按钮复制的是 proxyBaseUrl', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final copied = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, copyText: (s) async => copied.add(s)),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.copyBaseUrl')));
+      await settle(tester);
+      expect(copied.single, 'http://127.0.0.1:9999/proxy');
+    });
+
+    testWidgets('组内优先级步进器：加一档 → 发 group_platform_set_level_priority', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.byIcon(Icons.add).first);
+      await settle(tester);
+      expect(k.lastCallTo('group_platform_set_level_priority')!.args, {
+        'groupId': 10,
+        'platformId': 1,
+        'levelPriority': 6,
+      });
+    });
+
+    testWidgets('列表卡快捷添加映射：填齐才可点，点了发 group_update', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text('+ ${c.t('mapping.add')}').first);
+      await settle(tester);
+      var create = tester.widget<SmallButton>(
+        find.widgetWithText(SmallButton, c.t('action.create')),
+      );
+      expect(create.enabled, isFalse);
+
+      await tester.enterText(find.byType(TextField).first, 'src');
+      await settle(tester);
+      await tester.tap(find.text(c.t('mapping.targetPlatform')).first);
+      await settle(tester);
+      await tester.tap(find.text('P1').last);
+      await settle(tester);
+      await tester.tap(find.text(c.t('mapping.target')).first);
+      await settle(tester);
+      await tester.tap(find.text('m').last);
+      await settle(tester);
+
+      create = tester.widget<SmallButton>(
+        find.widgetWithText(SmallButton, c.t('action.create')),
+      );
+      expect(create.enabled, isTrue);
+      await tester.tap(find.text(c.t('action.create')));
+      await settle(tester);
+      final input =
+          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
+      expect((input['model_mappings']! as List).length, 1);
+    });
+
+    testWidgets('编辑态：环境变量、pi 线路协议、锁定的分组密钥都在', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      expect(find.text(c.t('group.groupKeyLocked')), findsOneWidget);
+      expect(find.text(c.t('group.envVarsHint')), findsOneWidget);
+      expect(find.text(c.t('group.piApiHint')), findsOneWidget);
+      expect(find.text(c.t('group.timeoutDefault')), findsOneWidget);
+
+      // 切 pi 线路协议 → 立刻写 extra 并重生成 pi 配置。
+      await tester.tap(find.text('OpenAI Responses'));
+      await settle(tester);
+      expect(k.lastCallTo('set_ui_extra')!.args!['key'], 'pi_api');
+      expect(k.commands.contains('sync_group_settings'), isTrue);
+    });
+
+    testWidgets('多选：批量覆盖模型 —— 槽位全空点不动，preset 灌进来后可确认', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['get_defaults_json'] =
+          '{"protocols":{"openai":{"name":{"en-US":"OpenAI"},'
+          '"models":{"default":{"default":"gpt-x","sonnet":"gpt-s"}}}}}';
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchOverrideModels')).last);
+      await settle(tester);
+
+      // 全空 → 提示 + 确认禁用。
+      expect(find.text(c.t('group.batchOverrideAllEmptyHint')), findsOneWidget);
+      final confirmText = c.t('group.batchOverrideConfirm', {'count': '1'});
+      expect(
+        tester.widget<SmallButton>(
+          find.widgetWithText(SmallButton, confirmText),
+        ).enabled,
+        isFalse,
+      );
+
+      // 换到 preset 来源，选协议 → 槽位被灌满 → 可确认。
+      await tester.tap(find.text(c.t('group.batchOverrideSourcePreset')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchOverridePresetSelect')));
+      await settle(tester);
+      await tester.tap(find.text('OpenAI').last);
+      await settle(tester);
+      await tester.tap(find.text(confirmText));
+      await settle(tester);
+      final models =
+          k.lastCallTo('batch_override_models')!.args!['models']!
+              as Map<String, Object?>;
+      expect(models['default'], 'gpt-x');
+      expect(models['sonnet'], 'gpt-s');
+    });
+
+    testWidgets('多选：批量覆盖模型 —— 从别的平台复制五槽', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchOverrideModels')).last);
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOverrideSourceCopy')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchOverrideCopySelect')));
+      await settle(tester);
+      await tester.tap(find.text('P2').last);
+      await settle(tester);
+      await tester.tap(
+        find.text(c.t('group.batchOverrideConfirm', {'count': '1'})),
+      );
+      await settle(tester);
+      final models =
+          k.lastCallTo('batch_override_models')!.args!['models']!
+              as Map<String, Object?>;
+      expect(models['default'], 'm');
+    });
+
+    testWidgets('多选：批量移组 —— 目标=当前组时不让确认，换一个组才发命令', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+        {
+          'group': {'id': 11, 'name': 'G11', 'group_key': 'gk11'},
+          'platforms': <Object?>[],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchMoveGroup')).last);
+      await settle(tester);
+
+      final confirmText = c.t('group.batchMoveGroupConfirm', {
+        'count': '1',
+        'mode': c.t('group.batchMoveGroupModeMoveShort'),
+      });
+      // 还没选目标组 → 点不动。
+      expect(
+        tester.widget<SmallButton>(
+          find.widgetWithText(SmallButton, confirmText),
+        ).enabled,
+        isFalse,
+      );
+
+      // 选当前组 → 提示「与当前分组相同」，仍点不动。
+      await tester.tap(find.text(c.t('group.batchMoveGroupSelect')));
+      await settle(tester);
+      await tester.tap(
+        find.textContaining(c.t('group.batchMoveGroupCurrent')).last,
+      );
+      await settle(tester);
+      expect(find.text(c.t('group.batchMoveGroupSameAsCurrent')), findsOneWidget);
+
+      // 换到另一个组 + 切「加入」模式 → 可确认。
+      await tester.tap(find.textContaining(c.t('group.batchMoveGroupCurrent')).first);
+      await settle(tester);
+      await tester.tap(find.text('G11').last);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchMoveGroupModeAdd')));
+      await settle(tester);
+      await tester.tap(
+        find.text(c.t('group.batchMoveGroupConfirm', {
+          'count': '1',
+          'mode': c.t('group.batchMoveGroupModeAddShort'),
+        })),
+      );
+      await settle(tester);
+      expect(k.lastCallTo('batch_move_group')!.args!['targetGroupId'], 11);
+      expect(k.lastCallTo('batch_move_group')!.args!['mode'], 'add');
+    });
+
+    testWidgets('批量删除：跨组平台要在弹窗里被点名', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list'] = [
+        {
+          'group': {'id': 10, 'name': 'G10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+          ],
+        },
+        {
+          'group': {'id': 11, 'name': 'G11'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+          ],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchDelete')).last);
+      await settle(tester);
+      expect(
+        find.text(c.t('group.batchDeleteCrossGroupWarning', {'count': '1'})),
+        findsOneWidget,
+      );
+      expect(find.textContaining('G10、G11'), findsOneWidget);
+    });
+
+    testWidgets('未匹配虚拟桶：有请求才画那张只读卡', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['all_group_usage_stats'] = {
+        '未匹配': {'total_requests': 7, 'success_count': 7},
+      };
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      expect(find.text(c.t('group.unmatched')), findsOneWidget);
+      expect(find.text(c.t('group.unmatchedHint')), findsOneWidget);
+      expect(find.text('7'), findsOneWidget);
+    });
+
+    testWidgets('把平台移到另一个分组 → group_platform_move', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+        {
+          'group': {'id': 11, 'name': 'G11', 'group_key': 'gk11'},
+          'platforms': <Object?>[],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.byIcon(Icons.drive_file_move_outline).first);
+      await settle(tester);
+      await tester.tap(find.text('G11').last);
+      await settle(tester);
+      expect(k.lastCallTo('group_platform_move')!.args, {
+        'platformId': 1,
+        'fromGroupId': 10,
+        'toGroupId': 11,
+      });
+    });
+
+    testWidgets('组内平台上下移 → group_platform_reorder', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+            {'platform': plat(2, 'P2')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      // 第一行的「上移」是禁用的，第一行的「下移」把它挪到第二位。
+      expect(
+        tester
+            .widget<IconButton>(
+              find
+                  .ancestor(
+                    of: find.byIcon(Icons.arrow_upward).first,
+                    matching: find.byType(IconButton),
+                  )
+                  .first,
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.byIcon(Icons.arrow_downward).first);
+      await settle(tester);
+      expect(k.lastCallTo('group_platform_reorder')!.args, {
+        'groupId': 10,
+        'orderedIds': [2, 1],
+      });
+    });
+
+    testWidgets('一键测试：失败的行显示「失败」+ 错误文案，摘要按成功/失败计数', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['model_test'] = {
+        'success': false,
+        'duration_ms': 3,
+        'error': 'boom',
+      };
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.testAll')).first);
+      await settle(tester);
+      expect(find.text(c.t('group.testAllFail')), findsOneWidget);
+      expect(find.text('boom'), findsOneWidget);
+      expect(
+        find.text(c.t('group.testAllSummary', {
+          'ok': '0',
+          'fail': '1',
+          'total': '1',
+        })),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('新建态：选调度策略 + 用选择器挑平台 → 建完再关联一次', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.add')));
+      await settle(tester);
+
+      await tester.enterText(find.byType(TextField).first, '新组');
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.loadBalance')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.addPlatform')));
+      await settle(tester);
+      await tester.tap(find.text('P1').last);
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.create')));
+      await settle(tester);
+
+      final input =
+          k.lastCallTo('group_create')!.args!['input']! as Map<String, Object?>;
+      expect(input['routing_mode'], 'load_balance');
+      expect(k.lastCallTo('group_set_platforms')!.args!['platforms'], [
+        {'platform_id': 1, 'priority': 1, 'weight': 1},
+      ]);
+    });
+
+    testWidgets('未分组平台拖进分组卡 → 交给父级搬，然后静默重拉', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final dropped = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: k.fn,
+            onPlatformDropped: (pid, gid) async => dropped.add('$pid→$gid'),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      final before = k.callsTo('group_detail_list_paged').length;
+      final target = tester.firstWidget<DragTarget<int>>(
+        find.byType(DragTarget<int>),
+      );
+      // 本组已有 P1，拖它进来应当被拒；P2 不在组里，接受。
+      expect(
+        target.onWillAcceptWithDetails!(
+          DragTargetDetails<int>(data: 1, offset: Offset.zero),
+        ),
+        isFalse,
+      );
+      expect(
+        target.onWillAcceptWithDetails!(
+          DragTargetDetails<int>(data: 2, offset: Offset.zero),
+        ),
+        isTrue,
+      );
+      target.onAcceptWithDetails!(
+        DragTargetDetails<int>(data: 2, offset: Offset.zero),
+      );
+      await settle(tester);
+      expect(dropped.single, '2→10');
+      expect(
+        k.callsTo('group_detail_list_paged').length,
+        greaterThan(before),
+        reason: '父级搬完之后分组区要自己静默重拉',
+      );
+    });
+
+    testWidgets('编辑态：四个复制按钮各复制各自的文本（含 env 前置 export）', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {
+            'id': 10,
+            'name': 'G10',
+            'group_key': 'gk10',
+            'env_vars': [
+              {'key': 'MY_VAR', 'value': 'v'},
+            ],
+          },
+          'platforms': <Object?>[],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final copied = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, copyText: (s) async => copied.add(s)),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.apiKey')));
+      await settle(tester);
+      expect(copied.last, 'gk10');
+
+      await tester.tap(find.text('Claude'));
+      await settle(tester);
+      expect(copied.last, contains('settings.gk10.json'));
+
+      await tester.tap(find.text('Codex'));
+      await settle(tester);
+      expect(copied.last, startsWith("export MY_VAR='v';"));
+      expect(copied.last, contains("AIDOG_KEY='gk10'"));
+
+      await tester.tap(find.text('pi'));
+      await settle(tester);
+      expect(copied.last, endsWith("pi --provider 'aidog-gk10'"));
+    });
+
+    testWidgets('单组平台：确认删除 → platform_delete，并回传给父级局部移除', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final removed = <List<int>>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, onPlatformsDeleted: removed.add),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
+      await settle(tester);
+      // 「删除平台」这串文案同时是行内按钮、弹窗标题和确认按钮，取最后一个（确认）。
+      await tester.tap(find.text(c.t('group.deletePlatformAction')).last);
+      await settle(tester);
+      expect(k.lastCallTo('platform_delete')!.args!['id'], 1);
+      expect(removed.single, [1]);
+    });
+
+    testWidgets('默认分组：徽标 + 「默认配置已写入」按钮，再点一次取消默认', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {
+            'id': 10,
+            'name': 'G10',
+            'group_key': 'gk10',
+            'is_default': true,
+          },
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      // 统计与余额两条分支也在这张卡上画。
+      k.responses['all_group_usage_stats'] = {
+        'gk10': {'total_requests': 12, 'success_count': 12},
+      };
+      k.responses['platform_list'] = [
+        plat(1, 'P1')..['est_balance_remaining'] = 3.5,
+        plat(2, 'P2'),
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      expect(find.text(c.t('group.isDefault')), findsOneWidget);
+      expect(find.text('12'), findsOneWidget);
+      await tester.tap(find.text(c.t('group.defaultConfigWritten')));
+      await settle(tester);
+      // 已是默认 → 再点一次传 null（取消默认）。
+      expect(k.lastCallTo('group_set_default')!.args!['id'], isNull);
+    });
+
+    testWidgets('清理失效：没有候选时确认按钮点不动', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await settle(tester);
+      expect(find.text(c.t('platform.purgeDisabledNone')), findsOneWidget);
+      expect(
+        tester.widget<SmallButton>(
+          find.widgetWithText(SmallButton, c.t('action.confirm')),
+        ).enabled,
+        isFalse,
+      );
+      await tester.tap(find.text(c.t('action.cancel')).last);
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsNothing);
+    });
+
+    testWidgets('多选：取消按钮退出多选，工具栏消失', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      expect(find.text(c.t('group.selectAll')), findsOneWidget);
+      await tester.tap(find.text(c.t('action.cancel')).first);
+      await settle(tester);
+      expect(find.text(c.t('group.selectAll')), findsNothing);
+    });
+
+    testWidgets('列表卡里删一条模型映射 → group_update 把它去掉', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': <Object?>[],
+          'model_mappings': [
+            {
+              'source_model': 'a',
+              'target_platform_id': 1,
+              'target_model': 'b',
+              'request_timeout_secs': 0,
+              'connect_timeout_secs': 0,
+            },
+          ],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      expect(find.text('a → b'), findsOneWidget);
+
+      await tester.tap(find.byIcon(Icons.close).first);
+      await settle(tester);
+      final input =
+          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
+      expect(input['model_mappings'], isEmpty);
+    });
+
+    testWidgets('拖分组卡的把手 → group_reorder 按新顺序发整串 id', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': <Object?>[],
+          'model_mappings': <Object?>[],
+        },
+        {
+          'group': {'id': 11, 'name': 'G11', 'group_key': 'gk11'},
+          'platforms': <Object?>[],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+
+      // 把第一张卡的把手往下拖过第二张卡。
+      final handle = find.byIcon(Icons.drag_handle).first;
+      final from = tester.getCenter(handle);
+      final gesture = await tester.startGesture(from);
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.moveBy(const Offset(0, 160));
+      await tester.pump(const Duration(milliseconds: 200));
+      await gesture.up();
+      await settle(tester);
+      expect(k.lastCallTo('group_reorder')!.args!['orderedIds'], [11, 10]);
+    });
+
+    testWidgets('分组卡的「清理失效」：先预览再确认，命令带上本组 id', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['platform_purge_disabled_preview'] = [
+        {'id': 1, 'name': 'P1', 'reason': 'auth_failed', 'action': 'delete'},
+      ];
+      k.responses['platform_purge_disabled'] = {
+        'deletedIds': [1],
+        'unassignedIds': <Object?>[],
+      };
+      final toasts = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: k.fn,
+            onToast: (t, {required ok}) => toasts.add(t),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await settle(tester);
+      expect(k.lastCallTo('platform_purge_disabled_preview')!.args!['groupId'], 10);
+      expect(
+        find.text(c.t('group.purgeDisabledConfirm', {'count': '1'})),
+        findsOneWidget,
+      );
+      expect(k.commands.contains('platform_purge_disabled'), isFalse);
+
+      await tester.tap(find.text(c.t('action.confirm')));
+      await settle(tester);
+      expect(k.lastCallTo('platform_purge_disabled')!.args!['groupId'], 10);
+      expect(
+        toasts.single,
+        c.t('group.purgeDisabledDone', {'deleted': '1', 'unassigned': '0'}),
+      );
+    });
+
+    testWidgets('「在此分组添加平台」「查看统计」把回调带上分组信息', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final created = <String>[];
+      final navs = <String>[];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: k.fn,
+            onCreatePlatform: ({List<int>? presetGroupIds, int? lockGid}) =>
+                created.add('$presetGroupIds|$lockGid'),
+            onNavigate: navs.add,
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.addPlatformToGroup')));
+      await settle(tester);
+      expect(created.single, '[10]|10');
+      await tester.tap(find.text(c.t('group.viewStats')));
+      await settle(tester);
+      expect(navs.single, 'stats');
+    });
+
+    testWidgets('编辑态：关联平台选择器可加、可删，保存时按顺序发优先级', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      // 下拉里只剩没被选中的 P2；选它 → 排在 P1 后面。
+      await tester.tap(find.text(c.t('group.addPlatform')));
+      await settle(tester);
+      await tester.tap(find.text('P2').last);
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.lastCallTo('group_set_platforms')!.args!['platforms'], [
+        {'platform_id': 1, 'priority': 1, 'weight': 1},
+        {'platform_id': 2, 'priority': 2, 'weight': 1},
+      ]);
+    });
+
+    testWidgets('编辑态：关联平台可拖拽重排，顺序即优先级', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+            {'platform': plat(2, 'P2')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      // 选择器里第一行（P1）往下拖过第二行：分几步挪，让 reorderable 跟得上。
+      final handles = find.byIcon(Icons.drag_handle);
+      final start = tester.getCenter(handles.first);
+      final target = tester.getCenter(handles.at(1));
+      final gesture = await tester.startGesture(start);
+      await tester.pump(const Duration(milliseconds: 200));
+      final step = (target.dy - start.dy) / 4 + 4;
+      for (var i = 0; i < 5; i++) {
+        await gesture.moveBy(Offset(0, step));
+        await tester.pump(const Duration(milliseconds: 60));
+      }
+      await gesture.up();
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.lastCallTo('group_set_platforms')!.args!['platforms'], [
+        {'platform_id': 2, 'priority': 1, 'weight': 1},
+        {'platform_id': 1, 'priority': 2, 'weight': 1},
+      ]);
+    });
+
+    testWidgets('编辑态：从选择器里移除一个平台 → 保存时不再带它', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      await tester.tap(find.byIcon(Icons.close).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.lastCallTo('group_set_platforms')!.args!['platforms'], isEmpty);
+    });
+
+    testWidgets('编辑态：加一条模型映射 → 保存时带上它', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      await tester.tap(find.text('+ ${c.t('mapping.add')}'));
+      await settle(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, c.t('mapping.source')),
+        'src',
+      );
+      await settle(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, c.t('mapping.target')),
+        'dst',
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      final input =
+          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
+      final maps = input['model_mappings']! as List;
+      expect((maps.single as Map)['source_model'], 'src');
+      expect((maps.single as Map)['target_model'], 'dst');
+    });
+
+    testWidgets('编辑态：加一条环境变量 → 保存时带上它', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(GroupsSection(invoke: k.fn), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.edit')).first);
+      await settle(tester);
+
+      await tester.tap(find.text('+ ${c.t('group.addEnvVar')}'));
+      await settle(tester);
+      await tester.enterText(
+        find.widgetWithText(TextField, c.t('group.envVarKey')).last,
+        'MY_VAR',
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      final input =
+          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
+      final envVars = input['env_vars']! as List;
+      expect(
+        envVars.any((e) => (e as Map)['key'] == 'MY_VAR'),
+        isTrue,
+      );
     });
   });
 

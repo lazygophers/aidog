@@ -1121,4 +1121,238 @@ void main() {
       expect(t.containsKey('x'), isFalse);
     });
   });
+
+  group('启动命令（React: src/domains/groups/commands.test.ts 逐条翻译）', () {
+    test('selects the aidog provider for the group', () {
+      expect(buildPiCommand('teamA'), "pi --provider 'aidog-teamA'");
+    });
+
+    test('carries no routing env — token lives in models.json apiKey', () {
+      expect(buildPiCommand('teamA').contains('AIDOG_KEY'), isFalse);
+      expect(buildPiCommand('teamA').contains('ANTHROPIC_'), isFalse);
+    });
+
+    test('exports user env vars ahead of the command', () {
+      final cmd = buildPiCommand('g', const [
+        EnvVar(key: 'HTTP_PROXY', value: 'http://127.0.0.1:7890'),
+        EnvVar(key: 'EMPTY', value: ''),
+      ]);
+      expect(
+        cmd,
+        "export HTTP_PROXY='http://127.0.0.1:7890'; pi --provider 'aidog-g'",
+      );
+    });
+
+    test('quotes a group key containing shell metacharacters', () {
+      // 分组名是用户自由输入，未加引号的 `;` 会把后半段当成第二条命令执行。
+      expect(
+        buildPiCommand("a'b; rm -rf /"),
+        "pi --provider 'aidog-a'\\''b; rm -rf /'",
+      );
+    });
+
+    test('claude 命令指向该组的 settings 文件（commands.ts:4）', () {
+      expect(
+        buildClaudeCommand('teamA'),
+        'claude --brief --dangerously-skip-permissions '
+        '--settings ~/.aidog/settings.teamA.json',
+      );
+    });
+
+    test('codex 命令带 AIDOG_KEY 路由 token，并丢掉用户同名变量', () {
+      final cmd = buildCodexCommand('g', const [
+        EnvVar(key: 'AIDOG_KEY', value: 'hacked'),
+        EnvVar(key: 'HTTP_PROXY', value: 'http://p'),
+      ]);
+      expect(cmd.contains("export AIDOG_KEY="), isFalse);
+      expect(cmd.contains("export HTTP_PROXY='http://p';"), isTrue);
+      expect(cmd.contains("AIDOG_KEY='g' codex -p 'g'"), isTrue);
+    });
+  });
+
+  group('pi 线路协议（React: src/domains/groups/piApi.test.ts 逐条翻译）', () {
+    test('reads the stored protocol', () {
+      expect(parseGroupPiApi('{"pi_api":"openai-responses"}'), 'openai-responses');
+    });
+
+    test('falls back for old groups with no value, junk, or an unknown protocol', () {
+      expect(parseGroupPiApi(''), kPiApiDefault);
+      expect(parseGroupPiApi('{"_ui_collapsed":true}'), kPiApiDefault);
+      expect(parseGroupPiApi('not json'), kPiApiDefault);
+      expect(parseGroupPiApi('{"pi_api":"nonsense"}'), kPiApiDefault);
+    });
+
+    test('label 取不到 i18n key 时回落英文字面量', () {
+      expect(piApiLabel((k) => k, 'openai-responses'), 'OpenAI Responses');
+      expect(piApiLabel((k) => '译文', 'openai-responses'), '译文');
+    });
+
+    test('选中即写 group.extra 并立刻重生成 pi 配置', () async {
+      final k = FakeInvoke({'set_ui_extra': null, 'sync_group_settings': null});
+      await GroupsController(invoke: k.fn).setGroupPiApi(7, 'openai-responses');
+      expect(k.lastCallTo('set_ui_extra')!.args, {
+        'target': 'group',
+        'id': 7,
+        'key': 'pi_api',
+        'value': 'openai-responses',
+      });
+      expect(k.commands.contains('sync_group_settings'), isTrue);
+    });
+  });
+
+  group('出站代理 env（React: src/domains/groups/proxy-env.ts）', () {
+    test('只取四个代理键里非空的那些', () async {
+      final k = FakeInvoke({
+        'settings_get': {
+          'env': {
+            'HTTP_PROXY': 'http://p',
+            'HTTPS_PROXY': '',
+            'UNRELATED': 'x',
+          },
+        },
+      });
+      // EnvVar 没有 `==`，按字段比（Dart 的默认相等是身份相等）。
+      final got = await loadProxyEnvVars(k.fn);
+      expect([for (final e in got) '${e.key}=${e.value}'], [
+        'HTTP_PROXY=http://p',
+      ]);
+      expect(k.lastCallTo('settings_get')!.args, {
+        'scope': 'global',
+        'key': 'claude_code',
+      });
+    });
+
+    test('读不到 / 没有 env 段 → 空数组，不抛', () async {
+      final bad = FakeInvoke();
+      bad.errors['settings_get'] = StateError('boom');
+      expect(await loadProxyEnvVars(bad.fn), isEmpty);
+      expect(await loadProxyEnvVars(FakeInvoke({'settings_get': {}}).fn), isEmpty);
+    });
+  });
+
+  group('per-group 多选模式（GroupListItem.tsx:136-179）', () {
+    test('进入 / 退出多选：选中集随之建立与清空', () {
+      final c = GroupsController(invoke: FakeInvoke().fn);
+      expect(c.isBatchSelecting(10), isFalse);
+      c.enterBatchSelect(10);
+      expect(c.isBatchSelecting(10), isTrue);
+      expect(c.selectedIdsOf(10), isEmpty);
+      c.toggleSelected(10, 1);
+      expect(c.selectedIdsOf(10), {1});
+      c.toggleSelected(10, 1);
+      expect(c.selectedIdsOf(10), isEmpty);
+      c.exitBatchSelect(10);
+      expect(c.isBatchSelecting(10), isFalse);
+    });
+
+    test('全选收下整串 id；各组的选中集互不干扰', () {
+      final c = GroupsController(invoke: FakeInvoke().fn);
+      c.enterBatchSelect(10);
+      c.enterBatchSelect(11);
+      c.selectAll(10, [1, 2, 3]);
+      expect(c.selectedIdsOf(10), {1, 2, 3});
+      expect(c.selectedIdsOf(11), isEmpty);
+    });
+
+    test('非删除类批量成功后统一退出多选（React 的 batchDoneSignal）', () async {
+      final k = groupsFake();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      c.enterBatchSelect(10);
+      c.selectAll(10, [1]);
+      c.askBatchSetStatus([1], 10);
+      await c.confirmBatchSetStatus('disabled');
+      expect(c.isBatchSelecting(10), isFalse);
+      expect(c.selectedIdsOf(10), isEmpty);
+    });
+  });
+
+  group('组内平台换位（usePlatformDrag.ts:70-87 的组内重排分支）', () {
+    FakeInvoke twoPlatformGroup() => groupsFake(
+      page: [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': platformJson(1, 'A')},
+            {'platform': platformJson(2, 'B')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ],
+    );
+
+    test('往上挪一位 → 本地顺序立刻变，并把整串新 id 发给后端', () async {
+      final k = twoPlatformGroup();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      await c.movePlatformWithinGroup(10, 1, 0);
+      expect(
+        [for (final gp in c.details.single.platforms) gp.platform.id],
+        [2, 1],
+      );
+      expect(k.lastCallTo('group_platform_reorder')!.args, {
+        'groupId': 10,
+        'orderedIds': [2, 1],
+      });
+    });
+
+    test('越界 / 原地不动 → 不发命令', () async {
+      final k = twoPlatformGroup();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      await c.movePlatformWithinGroup(10, 0, 0);
+      await c.movePlatformWithinGroup(10, 0, 5);
+      await c.movePlatformWithinGroup(10, -1, 0);
+      await c.movePlatformWithinGroup(999, 0, 1); // 组不存在
+      expect(k.commands.contains('group_platform_reorder'), isFalse);
+    });
+  });
+
+  group('列表页快捷添加映射表单（Groups.tsx:612-642）', () {
+    test('四个字段缺一就不发命令', () async {
+      final k = groupsFake();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      c.setMappingGroupId(10);
+      c.setMSource('src');
+      // 目标平台与目标模型都没选
+      await c.submitAddMapping();
+      expect(k.commands.contains('group_update'), isFalse);
+    });
+
+    test('填齐 → 发 group_update，成功后清空表单并收起', () async {
+      final k = groupsFake();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      c.setMappingGroupId(10);
+      c.setMSource('src');
+      c.setMTargetPlatform(1);
+      c.setMTargetModel('m');
+      await c.submitAddMapping();
+      final input =
+          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
+      expect(input['id'], 10);
+      expect((input['model_mappings']! as List).length, 1);
+      expect(c.mSource, '');
+      expect(c.mTargetPlatform, isNull);
+      expect(c.mTargetModel, '');
+      expect(c.mappingGroupId, isNull);
+    });
+
+    test('换目标平台会清掉已选模型（避免留着上一个平台的模型名）', () {
+      final c = GroupsController(invoke: FakeInvoke().fn);
+      c.setMTargetModel('old');
+      c.setMTargetPlatform(2);
+      expect(c.mTargetModel, '');
+    });
+
+    test('候选模型取该平台五槽去重值；未选平台时为空', () async {
+      final k = groupsFake();
+      final c = GroupsController(invoke: k.fn);
+      await c.init();
+      expect(c.mAvailableModels, isEmpty);
+      c.setMTargetPlatform(1);
+      expect(c.mAvailableModels, isNotEmpty);
+    });
+  });
 }
