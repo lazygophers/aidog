@@ -1170,10 +1170,14 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
                         ),
                       ],
                     ),
-                    Text(
-                      '${_short(n.current, t)} → ${_short(n.incoming, t)}',
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
-                    ),
+                    // 收起时给一行截断摘要当索引；展开后换成下面的完整两栏，
+                    // 免得同一个值以截断和完整两种形态并排出现。
+                    if (!on)
+                      Text(
+                        '${_short(n.current, t)} → ${_short(n.incoming, t)}',
+                        style: AidogType.micro.copyWith(color: theme.c.fg3),
+                      ),
+                    if (on) _valuePanes(t, theme, n),
                   ],
                 ),
               ),
@@ -1182,6 +1186,83 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
         ),
       ),
     ];
+  }
+
+  /// 选中即展开的「当前 / 导入」两栏（`ImportDiff.tsx:329-352`）。
+  ///
+  /// **导入是覆盖操作**，一行 60 字符的摘要（对象干脆只写「对象」二字）看不出
+  /// 要把什么覆盖成什么，按不下去。这里给完整值，超高就在栏内滚。
+  Widget _valuePanes(I18nController t, AidogTheme theme, DiffNode n) => Padding(
+    padding: const EdgeInsets.only(top: AidogSpace.sxs),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _valuePane(
+            t,
+            theme,
+            keyName: 'diff-current-${n.path}',
+            label: t.t('settings.editor.diffCurrent'),
+            value: n.current,
+          ),
+        ),
+        const SizedBox(width: AidogSpace.ssm),
+        Expanded(
+          child: _valuePane(
+            t,
+            theme,
+            keyName: 'diff-incoming-${n.path}',
+            label: t.t('settings.editor.diffIncoming'),
+            value: n.incoming,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _valuePane(
+    I18nController t,
+    AidogTheme theme, {
+    required String keyName,
+    required String label,
+    required Object? value,
+  }) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+      const SizedBox(height: 2),
+      Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(maxHeight: 120),
+        padding: const EdgeInsets.all(AidogSpace.ssm),
+        decoration: BoxDecoration(
+          color: theme.c.surface2,
+          border: Border.all(color: theme.c.line),
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+        ),
+        child: SingleChildScrollView(
+          child: SelectableText(
+            _formatValue(value, t),
+            key: ValueKey(keyName),
+            style: AidogType.numSm.copyWith(
+              // 没有值的那一侧压暗，与 React 的 `text-tertiary` 同义。
+              color: value == null ? theme.c.fg3 : theme.c.fg,
+            ),
+          ),
+        ),
+      ),
+    ],
+  );
+
+  /// `ImportDiff.tsx:280::formatValue`：无值写「(无)」，对象 / 数组缩进两格
+  /// 序列化，其余直接转字符串（**不截断** —— 这一栏的全部意义就是看全）。
+  static String _formatValue(Object? v, I18nController t) {
+    if (v == null) return t.t('settings.editor.none');
+    if (v is Map || v is List) {
+      return const JsonEncoder.withIndent('  ').convert(v);
+    }
+    return '$v';
   }
 
   /// React `getChangeType`：`current == null` → 新增，`incoming == null` → 删除，
