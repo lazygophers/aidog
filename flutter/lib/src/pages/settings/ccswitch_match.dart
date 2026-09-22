@@ -259,3 +259,67 @@ Map<String, Object?> ccProviderToPlatformJson(
   'sort_order': 0,
   'manual_budgets': <Object?>[],
 };
+
+// ── sub2api ────────────────────────────────────────────────────────
+// `src/utils/sub2apiMatch.ts` 的 Dart 版。放同一个文件是因为它和上面共用
+// 「preset 骨架 + 实际 base_url 覆盖同协议端点」这套构造，拆开就得抄两份。
+
+/// sub2api 的 `platform` 字段 → aidog Protocol。
+///
+/// 这里的三个字面量是**协议 serde 值**（`models.rs:5-16`），不是平台品牌名 ——
+/// sub2api 自己就用这三个词，所以是直映射，不是在代码里认平台。
+/// 未识别一律兜底 openai，并把 `recognized: false` 报上去让界面说清楚。
+({String protocol, bool recognized}) mapSub2apiPlatform(String platform) {
+  const table = {
+    'anthropic': 'anthropic',
+    'openai': 'openai',
+    'gemini': 'gemini',
+  };
+  final hit = table[platform.trim().toLowerCase()];
+  return hit == null
+      ? (protocol: 'openai', recognized: false)
+      : (protocol: hit, recognized: true);
+}
+
+/// sub2api account + 选定协议 → Platform JSON。
+///
+/// 与 [ccProviderToPlatformJson] 字段一一对齐（后端是同一条 `apply::apply`）。
+/// [protocolOverride] 是预览行里用户手改的协议，缺省走 [mapSub2apiPlatform]。
+Map<String, Object?> sub2apiAccountToPlatformJson(
+  Map<String, Object?> account, {
+  required PlatformDefaults defaults,
+  String? protocolOverride,
+}) {
+  final protocol =
+      protocolOverride ?? mapSub2apiPlatform(_str(account['platform'])).protocol;
+  final provided = _str(account['baseUrl'] ?? account['base_url']);
+  final match = _buildMatch(
+    protocol,
+    CcMatchedBy.protocolFallback,
+    provided,
+    defaults,
+  );
+  return {
+    'name': _str(account['name']),
+    'platform_type': protocol,
+    // base_url 缺失时取 preset 默认，否则导进来的平台没有地址可用。
+    'base_url': provided.isEmpty ? match.baseUrl : provided,
+    'api_key': _str(account['apiKey'] ?? account['api_key']),
+    'extra': '',
+    'models': <String, Object?>{},
+    'available_models': <Object?>[],
+    'endpoints': [for (final ep in match.endpoints) ep.toJson()],
+    'enabled': true,
+    'status': 'enabled',
+    'auto_disabled_until': 0,
+    'auto_disable_strikes': 0,
+    'est_balance_remaining': 0,
+    'est_coding_plan': '',
+    'last_real_query_at': 0,
+    'estimate_count': 0,
+    'show_in_tray': false,
+    'tray_display': '',
+    'sort_order': 0,
+    'manual_budgets': <Object?>[],
+  };
+}
