@@ -191,8 +191,8 @@ void main() {
       expect((v['sandbox']! as Map).containsKey('excludedCommands'), isFalse);
     });
 
-    testWidgets('「禁止逃逸」是反向开关，且与 React 一样写不进去（上游 bug，照搬）', (tester) async {
-      final (k, _) = await mount(
+    testWidgets('「禁止逃逸」是反向开关，存得进去', (tester) async {
+      final (k, t) = await mount(
         tester,
         stored: const {
           'sandbox': {'enabled': true},
@@ -200,12 +200,14 @@ void main() {
       );
       await tapSwitch(tester, 'sandbox-no-escape');
       await settle(tester);
-      // 🔴 这里断言的是「没有变化」，不是笔误：
-      // 开关的 ON 态 = `allowUnsandboxedCommands === false`，而 React 的 sync
-      // （`SandboxSection.tsx:145`）会把任何 false 顶层值删掉 —— 于是这个开关
-      // 在 React 里就写不进去，点完自己弹回去。本票口径是「与 React 现状零差」，
-      // 所以照搬；要修得先改 React 侧（另开票）。
-      expect(k.lastArgsOf('settings_set'), isNull, reason: '没有产生改动就不该能保存');
+      // 开关的 ON 态 = `allowUnsandboxedCommands == false`。这个 false 是用户的
+      // 选择（该字段默认 true），不是「与默认值相同」，所以两侧的 sync 都把它
+      // 排除在删除之外（`SandboxSection.tsx:128` / `sandbox_editor.dart:248`）。
+      //
+      // 2026-09-22 之前这条断言写的是「没有变化」——那时两侧都会把 false 删掉，
+      // 开关点完自己弹回去。用户在 ask-ui 里定了两侧一起修，所以改成断言存得进去。
+      final v = await saveAndRead(tester, k, t);
+      expect((v['sandbox']! as Map)['allowUnsandboxedCommands'], isFalse);
     });
 
     testWidgets('端口：合法值写进 network，非法值原样不写', (tester) async {

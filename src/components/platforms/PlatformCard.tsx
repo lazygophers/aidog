@@ -16,7 +16,7 @@ import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
-import { parseDisableDuringPeak, parsePlatformPeak } from "../../services/api";
+import { parseDisableDuringPeak } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -140,7 +140,7 @@ export const PlatformCard = memo(function PlatformCard({
   // 协议元数据聚合 hook（替代 5 个独立 async effect：colorMap / isCp / models+peak /
   //   homepage / label+labelMap）。docPromise 单例缓存 → 单次 Promise.all 聚合 →
   //   100 卡 = 100 次 then（不再 600+ 链）；每卡仅一次 setState。
-  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap } =
+  const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows } =
     useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
@@ -156,6 +156,19 @@ export const PlatformCard = memo(function PlatformCard({
   const showQuotaSkeleton = quotaCapable && !quota.hasData && quotaPending;
   const mb = computeManualBudgetDisplay(p.manual_budgets);
   const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
+  // 余额行的显示条件 = 行内六块条件的**并集**，每块再各自判一次。
+  //
+  // 原先整行锁在 `showQuota`（= quotaCapable && quota.hasData）之后，后果是
+  // 「速率余量」「coding 已用 tokens」「本周期折算」这三块明明早有数据，却因为配额没查
+  // 回来 / 该平台压根不支持配额查询而一起被挡住。这三块与配额是互不相干的维度，
+  // 不该共享同一个到达条件。与 `platform_card_view.dart:133` 的 showBalanceRow 对齐。
+  const showBalanceRow =
+    quota.balanceRemaining != null ||
+    !!(mb && mb.hasData) ||
+    quota.tiers.length > 0 ||
+    (hasCodingEndpoint && !!u) ||
+    (hasCodingEndpoint && p.coding_window_cost > 0) ||
+    rateLimit != null;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
   // 健康点派生（health.ts::deriveHealth）：401/403 / last_error / status / manual / 成功率
@@ -174,11 +187,12 @@ export const PlatformCard = memo(function PlatformCard({
   const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
   const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
-  // p.extra 单次解析（原 parseDisableDuringPeak/parsePlatformPeak 各在渲染体内被调 2 次，
-  //   均内含独立 JSON.parse(extra)）。两函数已各自做好容错（非法/缺失 JSON → false / []），此处
-  //   仅去重调用次数，不改其内部解析逻辑。
+  // p.extra 单次解析（原本在渲染体内被调 2 次，每次都内含独立 JSON.parse(extra)）。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
-  const peakWindows = parsePlatformPeak(p.extra ?? "");
+  // peakWindows 来自 useProtocolMeta：`extra.peak` ?? preset 默认。
+  // 此前这里只读 `parsePlatformPeak(p.extra)`，不回落 preset，于是 glm_coding /
+  // deepseek 这类自带预设高峰的平台在窗口内也不显徽标 —— 与 CLAUDE.md 写明的
+  // 「用户配置 ?? 预设默认」口径不符。
 
   return (
     <div
@@ -427,7 +441,7 @@ export const PlatformCard = memo(function PlatformCard({
               />
             )}
             {/* ── 行 2：余额 / 预算 / coding tiers ── */}
-            {showQuota && (quota.balanceRemaining != null || (mb && mb.hasData) || (quota.balanceRemaining == null && quota.tiers.length > 0)) && (
+            {showBalanceRow && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 24 }}>
                 {/* 余额 */}
                 {quota.balanceRemaining != null && (() => {

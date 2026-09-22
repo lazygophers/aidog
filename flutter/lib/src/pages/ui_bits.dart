@@ -59,6 +59,71 @@ class SmallButton extends StatelessWidget {
   }
 }
 
+/// 开关滑块，对齐 React `src/styles/globals.css:507-540` 的 `.toggle`：
+/// 40×22 轨道 + 16 圆点，开态轨道填 accent、圆点右移 18，250ms 过渡。
+///
+/// Flutter 自带的 `Switch` 长得是 Material 的样子（尺寸、水波纹、拇指阴影都对不上），
+/// 要调到这个形状得覆盖七八个属性，不如直接画两个盒子。
+class AidogSwitch extends StatelessWidget {
+  const AidogSwitch({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.tooltip,
+  });
+
+  final bool value;
+
+  /// null = 只读（点不动）。
+  final VoidCallback? onChanged;
+  final String? tooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Tooltip(
+      message: tooltip ?? '',
+      child: MouseRegion(
+        cursor: onChanged == null
+            ? SystemMouseCursors.basic
+            : SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: onChanged,
+          child: AnimatedContainer(
+            duration: AidogMotion.slow,
+            curve: AidogMotion.easeStandard,
+            width: 40,
+            height: 22,
+            decoration: BoxDecoration(
+              color: value ? c.accent : c.surface2,
+              border: Border.all(color: value ? c.accent : c.line),
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: AnimatedAlign(
+              duration: AidogMotion.slow,
+              curve: AidogMotion.easeStandard,
+              alignment: value
+                  ? AlignmentDirectional.centerEnd
+                  : AlignmentDirectional.centerStart,
+              child: Container(
+                margin: const EdgeInsets.symmetric(horizontal: 2),
+                width: 16,
+                height: 16,
+                // React 写死 `#fff`，深浅两套一样。取浅色模式的 surface 当「白」，
+                // 与 [AidogModal] 拿 `AidogColors.dark.bg` 当「黑」同一条路子：不写字面色值。
+                decoration: BoxDecoration(
+                  color: AidogColors.light.surface,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 真浮层弹窗：把 [child] 画进根 Overlay，覆盖整窗、居中、带遮罩。
 ///
 /// 用 `OverlayPortal` 而不是 `showDialog`（用户 2026-09-22 拍板要浮层，票 11）：

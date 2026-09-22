@@ -144,104 +144,82 @@ class PlatformCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              if (draggable) ...[
-                ReorderableDragStartListener(
-                  index: index,
-                  child: Tooltip(
-                    message: t.t('platform.dragReorder'),
-                    child: MouseRegion(
-                      cursor: SystemMouseCursors.grab,
-                      child: Icon(
-                        Icons.drag_indicator,
-                        size: 16,
-                        color: theme.c.fg3,
+          // 点头部整体切换展开态（`PlatformCard.tsx:194` 的 `CompactCard.onToggle`）。
+          // 里面的按钮 / 徽章各自带手势，会先吃掉落在自己身上的点击。
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: hasDetail ? () => c.toggleExpanded(p.id, !expanded) : null,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                if (draggable) ...[
+                  ReorderableDragStartListener(
+                    index: index,
+                    child: Tooltip(
+                      message: t.t('platform.dragReorder'),
+                      child: MouseRegion(
+                        cursor: SystemMouseCursors.grab,
+                        child: Icon(
+                          Icons.drag_indicator,
+                          size: 16,
+                          color: theme.c.fg3,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-              ],
-              _LogoDot(
-                protocol: p.platformType,
-                logoSrc: c.protocolLogos[p.platformType],
-                health: deriveHealth(
-                  status: p.status,
-                  lastError: p.lastError,
-                  manual: c.testResults[p.id],
-                  recentTotal: usage?.recentTotal,
-                  recentFailures: usage?.recentFailures,
-                ),
-                lastError: p.lastError,
-                lastErrorAt: p.lastErrorAt,
-              ),
-              const SizedBox(width: AidogSpace.smd),
-              Expanded(
-                child: _Identity(
-                  platform: p,
-                  meta: meta,
-                  lastTest: lastTest,
-                  membership: c.membership[p.id],
-                  nowMs: now,
-                ),
-              ),
-              if (hasDetail)
-                IconButton(
-                  iconSize: 16,
-                  visualDensity: VisualDensity.compact,
-                  tooltip: t.t('platform.toggleDetail'),
-                  icon: Icon(
-                    expanded ? Icons.expand_less : Icons.expand_more,
-                    color: theme.c.fg3,
-                  ),
-                  onPressed: () => c.toggleExpanded(p.id, !expanded),
-                ),
-              Wrap(
-                spacing: AidogSpace.sxs,
-                runSpacing: AidogSpace.sxs,
-                children: [
-                  SmallButton(
-                    label: testing
-                        ? t.t('status.loading')
-                        : t.t('platform.quickTest'),
-                    onTap: testing ? null : onTest,
-                  ),
-                  SmallButton(label: t.t('test.title'), onTap: onModelTest),
-                  if (quotaCapable)
-                    SmallButton(
-                      label: t.t('platform.quotaRefresh'),
-                      onTap: quotaRefreshing ? null : onRefreshQuota,
-                    ),
-                  SmallButton(
-                    label: p.status == 'enabled'
-                        ? t.t('platform.disable')
-                        : p.status == 'auto_disabled'
-                        ? t.t('platform.reenable')
-                        : t.t('platform.enable'),
-                    onTap: onToggle,
-                  ),
-                  SmallButton(label: t.t('page.logs'), onTap: onViewLogs),
-                  if (onEdit != null)
-                    SmallButton(label: t.t('action.edit'), onTap: onEdit),
-                  SmallButton(
-                    label: t.t('platform.share.button'),
-                    onTap: onShare,
-                  ),
-                  if (onDuplicate != null)
-                    SmallButton(
-                      label: t.t('platform.duplicate'),
-                      onTap: onDuplicate,
-                    ),
-                  SmallButton(
-                    label: t.t('action.delete'),
-                    danger: true,
-                    onTap: onDelete,
-                  ),
+                  const SizedBox(width: AidogSpace.ssm),
                 ],
-              ),
-            ],
+                _LogoDot(
+                  protocol: p.platformType,
+                  logoSrc: c.protocolLogos[p.platformType],
+                  health: deriveHealth(
+                    status: p.status,
+                    lastError: p.lastError,
+                    manual: c.testResults[p.id],
+                    recentTotal: usage?.recentTotal,
+                    recentFailures: usage?.recentFailures,
+                  ),
+                  lastError: p.lastError,
+                  lastErrorAt: p.lastErrorAt,
+                ),
+                const SizedBox(width: AidogSpace.smd),
+                Expanded(
+                  child: _Identity(
+                    platform: p,
+                    meta: meta,
+                    lastTest: lastTest,
+                    membership: c.membership[p.id],
+                    nowMs: now,
+                  ),
+                ),
+                if (hasDetail)
+                  IconButton(
+                    iconSize: 16,
+                    visualDensity: VisualDensity.compact,
+                    tooltip: t.t('platform.toggleDetail'),
+                    icon: Icon(
+                      expanded ? Icons.expand_less : Icons.expand_more,
+                      color: theme.c.fg3,
+                    ),
+                    onPressed: () => c.toggleExpanded(p.id, !expanded),
+                  ),
+                _QuickActions(
+                  testing: testing,
+                  quotaCapable: quotaCapable,
+                  quotaRefreshing: quotaRefreshing,
+                  status: p.status,
+                  onToggle: onToggle,
+                  onTest: onTest,
+                  onModelTest: onModelTest,
+                  onRefreshQuota: onRefreshQuota,
+                  onViewLogs: onViewLogs,
+                  onEdit: onEdit,
+                  onShare: onShare,
+                  onDuplicate: onDuplicate,
+                  onDelete: onDelete,
+                ),
+              ],
+            ),
           ),
           if (showBalanceRow) ...[
             const SizedBox(height: AidogSpace.ssm),
@@ -284,6 +262,254 @@ class PlatformCard extends StatelessWidget {
     );
     // 停用态整卡压暗（`PlatformCard.tsx:188`：`p.enabled ? 1 : 0.5`）。
     return Opacity(opacity: p.enabled ? 1 : 0.5, child: card);
+  }
+}
+
+// ── 行 1：快操作区 ────────────────────────────────────────────────
+
+/// 卡片右上角的快操作，对齐 `PlatformCard.tsx:760-858::PlatformActionButtons`：
+/// 刷新额度图标 → 启停开关 → 快测/自定义测试分段按钮 → 日志/编辑/分享/复制/删除图标。
+///
+/// 从九颗文字按钮改成图标：文字按钮平铺会把名称列和徽标挤到换行，整张卡的版式就散了。
+/// 原来的文案 key 一个没删，全部挪进 `tooltip`。
+class _QuickActions extends StatelessWidget {
+  const _QuickActions({
+    required this.testing,
+    required this.quotaCapable,
+    required this.quotaRefreshing,
+    required this.status,
+    required this.onToggle,
+    required this.onTest,
+    required this.onModelTest,
+    required this.onRefreshQuota,
+    required this.onViewLogs,
+    required this.onEdit,
+    required this.onShare,
+    required this.onDuplicate,
+    required this.onDelete,
+  });
+
+  final bool testing;
+  final bool quotaCapable;
+  final bool quotaRefreshing;
+  final String status;
+  final VoidCallback onToggle;
+  final VoidCallback onTest;
+  final VoidCallback onModelTest;
+  final VoidCallback onRefreshQuota;
+  final VoidCallback onViewLogs;
+  final VoidCallback? onEdit;
+  final VoidCallback onShare;
+  final VoidCallback? onDuplicate;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (quotaCapable)
+          _IconAction(
+            icon: Icons.refresh,
+            tooltip: t.t('platform.quotaRefresh'),
+            spinning: quotaRefreshing,
+            onTap: quotaRefreshing ? null : onRefreshQuota,
+          ),
+        AidogSwitch(
+          value: status == 'enabled',
+          onChanged: onToggle,
+          tooltip: status == 'enabled'
+              ? t.t('platform.disable')
+              : status == 'auto_disabled'
+              ? t.t('platform.reenable')
+              : t.t('platform.enable'),
+        ),
+        const SizedBox(width: AidogSpace.sxs),
+        _TestSegment(
+          testing: testing,
+          onTest: onTest,
+          onModelTest: onModelTest,
+          quickLabel: testing
+              ? t.t('status.loading')
+              : t.t('platform.quickTest'),
+          customLabel: t.t('test.title'),
+        ),
+        _IconAction(
+          icon: Icons.description_outlined,
+          tooltip: t.t('page.logs'),
+          onTap: onViewLogs,
+        ),
+        if (onEdit != null)
+          _IconAction(
+            icon: Icons.edit_outlined,
+            tooltip: t.t('action.edit'),
+            onTap: onEdit,
+          ),
+        _IconAction(
+          icon: Icons.share_outlined,
+          tooltip: t.t('platform.share.button'),
+          onTap: onShare,
+        ),
+        if (onDuplicate != null)
+          _IconAction(
+            icon: Icons.content_copy_outlined,
+            tooltip: t.t('platform.duplicate'),
+            onTap: onDuplicate,
+          ),
+        _IconAction(
+          icon: Icons.delete_outline,
+          tooltip: t.t('action.delete'),
+          danger: true,
+          onTap: onDelete,
+        ),
+      ],
+    );
+  }
+}
+
+/// 快操作里的一颗图标按钮。`onTap` 为 null = 禁用（与 [SmallButton] 同一条约定）。
+class _IconAction extends StatelessWidget {
+  const _IconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.danger = false,
+    this.spinning = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  /// 刷新中转圈，对齐 React 的 `.spin`（`PlatformCard.tsx:787`）。
+  final bool spinning;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    final color = onTap == null && !spinning
+        ? c.fg3
+        : danger
+        ? c.bad
+        : c.fg2;
+    final glyph = Icon(icon, size: 14, color: color);
+    return IconButton(
+      iconSize: 14,
+      padding: const EdgeInsets.all(AidogSpace.sxs),
+      constraints: const BoxConstraints(),
+      visualDensity: VisualDensity.compact,
+      tooltip: tooltip,
+      icon: spinning ? _Spin(child: glyph) : glyph,
+      onPressed: onTap,
+    );
+  }
+}
+
+/// 匀速转圈的包装层。用 `..repeat()` 而不是一次性动画：进行中状态不知道会持续多久。
+class _Spin extends StatefulWidget {
+  const _Spin({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_Spin> createState() => _SpinState();
+}
+
+class _SpinState extends State<_Spin> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) =>
+      RotationTransition(turns: _c, child: widget.child);
+}
+
+/// 快测 + 自定义测试的分段按钮（`PlatformCard.tsx:803-825`）：
+/// 闪电 + 下拉箭头拼成一颗，中间 1px 分隔线，左右两半各占一侧圆角。
+class _TestSegment extends StatelessWidget {
+  const _TestSegment({
+    required this.testing,
+    required this.onTest,
+    required this.onModelTest,
+    required this.quickLabel,
+    required this.customLabel,
+  });
+
+  final bool testing;
+  final VoidCallback onTest;
+  final VoidCallback onModelTest;
+  final String quickLabel;
+  final String customLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    const r = Radius.circular(AidogRadius.sm);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AidogSpace.sxs),
+      decoration: BoxDecoration(
+        border: Border.all(color: c.line),
+        borderRadius: const BorderRadius.all(r),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _SegmentHalf(
+            icon: Icons.bolt,
+            tooltip: quickLabel,
+            onTap: testing ? null : onTest,
+            radius: const BorderRadius.only(topLeft: r, bottomLeft: r),
+          ),
+          Container(width: 1, height: 18, color: c.line),
+          _SegmentHalf(
+            icon: Icons.arrow_drop_down,
+            tooltip: customLabel,
+            onTap: onModelTest,
+            radius: const BorderRadius.only(topRight: r, bottomRight: r),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SegmentHalf extends StatelessWidget {
+  const _SegmentHalf({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    required this.radius,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final BorderRadius radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: Icon(icon, size: 14, color: onTap == null ? c.fg3 : c.fg2),
+        ),
+      ),
+    );
   }
 }
 
@@ -722,10 +948,7 @@ class _BalanceRow extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text(
-                'tok',
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
-              ),
+              Text('tok', style: AidogType.micro.copyWith(color: theme.c.fg3)),
               const SizedBox(width: AidogSpace.ssm),
               Icon(Icons.attach_money, size: 12, color: theme.c.fg2),
               Text(
