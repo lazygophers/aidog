@@ -90,6 +90,7 @@ class MarketplaceSourceEditor extends StatelessWidget {
     required this.source,
     required this.onChanged,
     this.idPrefix = 'mkt',
+    this.compact = false,
   });
 
   final Map<String, Object?> source;
@@ -97,6 +98,30 @@ class MarketplaceSourceEditor extends StatelessWidget {
 
   /// widget key 前缀，嵌套的 inline plugins 用得上。
   final String idPrefix;
+
+  /// 嵌在别人里面时用（React 的 `compact`）：省掉末尾那条分隔线，
+  /// 否则每个内联插件下面都会多一条横杠。
+  final bool compact;
+
+  /// `settings` 源的内联插件清单。
+  List<Map<String, Object?>> get _plugins => [
+    for (final e in (source['plugins'] as List? ?? const []))
+      if (e is Map) Map<String, Object?>.from(e),
+  ];
+
+  /// 写回插件清单：空清单删键（React 的 `plugs.length > 0 ? plugs : undefined`）。
+  ///
+  /// 不走 [_setField]：那条会把所有空串 / false 的键一并清掉，对整棵 plugins
+  /// 子树不适用（内联插件的 name 允许暂时为空，用户刚点「+ Plugin」时就是空的）。
+  void _setPlugins(List<Map<String, Object?>> next) {
+    final map = {...source};
+    if (next.isEmpty) {
+      map.remove('plugins');
+    } else {
+      map['plugins'] = next;
+    }
+    onChanged(map);
+  }
 
   String get _type => '${source['source'] ?? 'github'}';
 
@@ -160,6 +185,39 @@ class MarketplaceSourceEditor extends StatelessWidget {
               }
             },
           ),
+        // `settings` 源可以在一条来源里内联定义多个插件，每个插件自己又是一个
+        // 完整的来源编辑器（递归嵌套）。`PluginsSection.tsx:139-176`。
+        if (_type == 'settings') ...[
+          for (var pi = 0; pi < _plugins.length; pi++)
+            _InlinePluginRow(
+              key: ValueKey('$idPrefix-plugin-$pi'),
+              idPrefix: '$idPrefix-plugin-$pi',
+              plugin: _plugins[pi],
+              onChanged: (next) {
+                final plugs = _plugins;
+                plugs[pi] = next;
+                _setPlugins(plugs);
+              },
+              onRemove: () {
+                final plugs = _plugins..removeAt(pi);
+                _setPlugins(plugs);
+              },
+            ),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SmallButton(
+              key: ValueKey('$idPrefix-plugin-add'),
+              label: '+ Plugin',
+              onTap: () => _setPlugins([
+                ..._plugins,
+                {
+                  'name': '',
+                  'source': {'source': 'github'},
+                },
+              ]),
+            ),
+          ),
+        ],
         SwitchRow(
           key: ValueKey('$idPrefix-auto-update'),
           label: 'auto',
@@ -167,8 +225,71 @@ class MarketplaceSourceEditor extends StatelessWidget {
           value: source['autoUpdate'] == true,
           onChanged: (v) => _setField('autoUpdate', v),
         ),
-        Divider(height: AidogSpace.smd, color: theme.c.line),
+        if (!compact) Divider(height: AidogSpace.smd, color: theme.c.line),
       ],
+    );
+  }
+}
+
+/// 一条内联插件：名字 + 它自己的来源编辑器（递归）+ 移除。
+/// `PluginsSection.tsx:141-168`。
+class _InlinePluginRow extends StatelessWidget {
+  const _InlinePluginRow({
+    super.key,
+    required this.idPrefix,
+    required this.plugin,
+    required this.onChanged,
+    required this.onRemove,
+  });
+
+  final String idPrefix;
+  final Map<String, Object?> plugin;
+  final ValueChanged<Map<String, Object?>> onChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final src = plugin['source'];
+    return Container(
+      margin: const EdgeInsets.only(left: AidogSpace.ssm, top: AidogSpace.sxs),
+      padding: const EdgeInsets.all(AidogSpace.ssm),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextRow(
+            key: ValueKey('$idPrefix-name'),
+            label: 'name',
+            hint: 'plugin-name',
+            value: '${plugin['name'] ?? ''}',
+            onSubmitted: (v) => onChanged({...plugin, 'name': v.trim()}),
+            trailing: IconButton(
+              key: ValueKey('$idPrefix-remove'),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 14,
+              visualDensity: VisualDensity.compact,
+              tooltip: t.t('action.remove'),
+              icon: Icon(Icons.close, color: theme.c.fg3),
+              onPressed: onRemove,
+            ),
+          ),
+          MarketplaceSourceEditor(
+            idPrefix: '$idPrefix-src',
+            compact: true,
+            source: src is Map
+                ? Map<String, Object?>.from(src)
+                : const {'source': 'github'},
+            onChanged: (s) => onChanged({...plugin, 'source': s}),
+          ),
+        ],
+      ),
     );
   }
 }
