@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/shell.dart' show AidogMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -423,5 +424,66 @@ void main() {
     expect(q['granularity'], 'hourly');
     expect(q['end'], 1_700_000_000_000);
     expect((q['end']! as int) - (q['start']! as int), 24 * 3600 * 1000);
+  });
+
+  // 第二梯队 2026-09-22：首页原先是 Bento 栅格里一堆各自独立、跟随主题的 Tile；
+  // React 那边是**单块固定深色命令面板** + 顶部琥珀渐变眉条
+  //（`Home.tsx:272-284`、`:273`）。
+  group('命令面板形态', () {
+    /// 面板本体：固定深色底 + 14 圆角。
+    Finder panel() => find.byWidgetPredicate((w) {
+      if (w is! Container) return false;
+      final d = w.decoration;
+      return d is BoxDecoration &&
+          d.color == const Color(0xFF0E0E0E) &&
+          d.borderRadius == BorderRadius.circular(14);
+    });
+
+    /// 眉条：琥珀三段渐变。
+    Finder eyebrow() => find.byWidgetPredicate((w) {
+      if (w is! Container) return false;
+      final d = w.decoration;
+      return d is BoxDecoration &&
+          d.gradient is LinearGradient &&
+          (d.gradient! as LinearGradient).colors.first ==
+              const Color(0xFF64521D);
+    });
+
+    testWidgets('单块深色面板 + 琥珀眉条都在，五个区块在同一块里', (tester) async {
+      final k = FakeKernel(homeResponses());
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      );
+      await settle(tester);
+      expect(panel(), findsOneWidget);
+      expect(eyebrow(), findsOneWidget);
+      // 面板不是栅格：所有区块都在这一块里面。
+      expect(
+        find.descendant(of: panel(), matching: find.text(c.t('home.trend24h'))),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: panel(),
+          matching: find.text(c.t('home.topPlatforms')),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('面板配色写死，浅色主题下也保持深色', (tester) async {
+      final k = FakeKernel(homeResponses());
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          HomePage(onNavigate: (_) {}, invoke: k.invoke),
+          c,
+          mode: AidogMode.light,
+        ),
+      );
+      await settle(tester);
+      expect(panel(), findsOneWidget);
+    });
   });
 }
