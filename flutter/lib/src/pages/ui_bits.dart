@@ -25,6 +25,7 @@ class SmallButton extends StatelessWidget {
     this.active = false,
     this.ghost = false,
     this.pill = false,
+    this.activeTone,
   });
 
   final String label;
@@ -42,6 +43,10 @@ class SmallButton extends StatelessWidget {
   /// 标签上（分组归属），对齐 `formSections.tsx:1083-1102` 的 pill。
   final bool pill;
 
+  /// [active] 时改用这个色（文字 / 底 / 描边）。给的是**语义色**：
+  /// 端点的 Coding Plan「C」用绿，因为绿 = 走 coding 套餐，通用高亮色说不出这层意思。
+  final Color? activeTone;
+
   bool get enabled => onTap != null;
 
   @override
@@ -52,7 +57,7 @@ class SmallButton extends StatelessWidget {
         : danger
         ? theme.c.bad
         : active
-        ? theme.c.accentText
+        ? (activeTone ?? theme.c.accentText)
         : ghost
         ? theme.c.fg3
         : theme.c.fg2;
@@ -66,11 +71,17 @@ class SmallButton extends StatelessWidget {
           vertical: pill ? 4 : 5,
         ),
         decoration: BoxDecoration(
-          color: active ? theme.c.accentWash : null,
+          color: active
+              ? (activeTone?.withValues(alpha: 0.08) ?? theme.c.accentWash)
+              : null,
           border: ghost
               ? null
               : Border.all(
-                  color: pill && active ? theme.c.accent : theme.c.line,
+                  color: active && activeTone != null
+                      ? activeTone!.withValues(alpha: 0.25)
+                      : pill && active
+                      ? theme.c.accent
+                      : theme.c.line,
                 ),
           borderRadius: radius,
         ),
