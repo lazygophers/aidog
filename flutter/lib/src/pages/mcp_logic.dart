@@ -415,6 +415,21 @@ class McpController {
     onChanged();
   }
 
+  /// 全选 / 反选（`McpModals.tsx:63-81`）：已导入的不参与 —— 它们本来就勾不动。
+  /// 当前「可选的都选上了」就清空，否则全选。
+  void toggleSelectAll() {
+    final selectable = [
+      for (final it in scanItems)
+        if (!it.alreadyImported) it.name,
+    ];
+    final allOn =
+        selectable.isNotEmpty && selectable.every(selected.contains);
+    selected.clear();
+    if (!allOn) selected.addAll(selectable);
+    onChanged();
+  }
+
+
   String _importText(McpImportReport report) {
     final skipped = report.skipped.length;
     return skipped > 0

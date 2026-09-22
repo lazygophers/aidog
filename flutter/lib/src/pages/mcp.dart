@@ -12,6 +12,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'mcp_logic.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'share_panel.dart';
 import 'ui_bits.dart';
 
@@ -130,6 +131,18 @@ class _McpPageState extends State<McpPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 全选 / 反选（`McpModals.tsx:63-81`）：十几条一条条点太慢。
+          // 已导入的不参与（它们本来就勾不动）。扫描中 / 导入中禁用。
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: SmallButton(
+              label: t.t('mcp.toggleAll'),
+              onTap: (_c.scanning || _c.importing || _c.scanItems.isEmpty)
+                  ? null
+                  : _c.toggleSelectAll,
+            ),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
           if (_c.scanning)
             Text(
               t.t('status.loading'),
@@ -146,26 +159,82 @@ class _McpPageState extends State<McpPage> {
             )
           else
             for (final it in _c.scanItems)
-              Row(
-                children: [
-                  Checkbox(
-                    value: _c.selected.contains(it.name),
-                    onChanged: _c.importing
-                        ? null
-                        : (_) => _c.toggleSelect(it.name),
-                  ),
-                  Expanded(
-                    child: Text(
-                      '${it.name} · ${it.transport}'
-                      '${it.alreadyImported ? ' · ${t.t('mcp.alreadyImported')}' : ''}',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(
-                        color: AidogTheme.of(context).c.fg2,
+              // 已导入的那几条：勾选框禁用 + 整行压暗（`McpModals.tsx:100-112`）。
+              // 勾了也没用的东西不该还能勾。
+              Opacity(
+                opacity: it.alreadyImported ? 0.5 : 1,
+                child: Padding(
+                  padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value:
+                            it.alreadyImported ||
+                            _c.selected.contains(it.name),
+                        visualDensity: VisualDensity.compact,
+                        onChanged: (_c.importing || it.alreadyImported)
+                            ? null
+                            : (_) => _c.toggleSelect(it.name),
                       ),
-                    ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // 第一行：名字 + 传输 + 来源 agent 徽标 + 已导入
+                            //（`McpModals.tsx:118-144`）。`foundInAgents` 早就解析
+                            // 进来了，之前只是没上屏。
+                            Wrap(
+                              spacing: AidogSpace.sxs,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              children: [
+                                Text(
+                                  it.name,
+                                  style: AidogType.label.copyWith(
+                                    color: AidogTheme.of(context).c.fg,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                MiniBadge(
+                                  text: it.transport,
+                                  color: AidogTheme.of(context).c.fg3,
+                                ),
+                                for (final a in it.foundInAgents)
+                                  MiniBadge(
+                                    text: t.t('mcp.agent.$a'),
+                                    color: AidogTheme.of(context).c.fg3,
+                                  ),
+                                if (it.alreadyImported)
+                                  Text(
+                                    t.t('mcp.alreadyImported'),
+                                    style: AidogType.micro.copyWith(
+                                      color: AidogTheme.of(context).c.ok,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            // 第二行：跑的是什么（stdio 显命令 + 首参，
+                            // http / sse 显 url）。勾之前得看得出这条 MCP 是什么。
+                            Text(
+                              mcpSummaryOf(
+                                transport: it.transport,
+                                command: it.command,
+                                args: it.args,
+                                url: it.url,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AidogType.micro.copyWith(
+                                color: AidogTheme.of(context).c.fg3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
           const SizedBox(height: AidogSpace.ssm),
           Row(
@@ -298,6 +367,9 @@ class _McpPageState extends State<McpPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 标签独立成行，不塞在 hint 里（`Mcp/primitives.tsx` 的 McpForm）：
+            // hint 一旦填了内容就没了，回头看不出这格是什么字段。
+            TileMeta(t.t('mcp.field.name')),
             KeptTextField(
               key: const Key('mcp-name'),
               value: f.name,
@@ -321,6 +393,7 @@ class _McpPageState extends State<McpPage> {
             const SizedBox(height: AidogSpace.ssm),
             // stdio 用 command + args；http / sse 用 url + headers。
             if (f.transport == 'stdio') ...[
+              TileMeta(t.t('mcp.field.command')),
               KeptTextField(
                 key: const Key('mcp-command'),
                 value: f.command,
@@ -328,6 +401,7 @@ class _McpPageState extends State<McpPage> {
                 onChanged: (v) => f.command = v,
               ),
               const SizedBox(height: AidogSpace.sxs),
+              TileMeta(t.t('mcp.field.args')),
               KeptTextField(
                 key: const Key('mcp-args'),
                 value: f.argsText,
@@ -338,6 +412,7 @@ class _McpPageState extends State<McpPage> {
               const SizedBox(height: AidogSpace.ssm),
               _kvEditor(t, t.t('mcp.field.env'), f.envRows),
             ] else ...[
+              TileMeta(t.t('mcp.field.url')),
               KeptTextField(
                 key: const Key('mcp-url'),
                 value: f.url,
@@ -439,12 +514,22 @@ class _McpRow extends StatelessWidget {
           Wrap(
             spacing: AidogSpace.sxs,
             children: [
-              // codex 只支持 stdio：不支持的组合点下去会得到一条错误提示（不是静默）。
+              // codex 只支持 stdio。不支持的组合直接禁用并把原因写进 tooltip
+              //（`Mcp/primitives.tsx:95-114`）——原先恒可点，点下去才弹错误。
               for (final a in kMcpAgents)
-                SmallButton(
-                  label: t.t('mcp.agent.$a'),
-                  active: server.enabledAgents.contains(a),
-                  onTap: busy ? null : () => onToggleAgent(a),
+                Tooltip(
+                  message: mcpAgentSupported(server.transport, a)
+                      ? t.t('mcp.agent.$a')
+                      : t.t('mcp.unsupportedTransportTip', {
+                          'transport': server.transport,
+                        }),
+                  child: SmallButton(
+                    label: t.t('mcp.agent.$a'),
+                    active: server.enabledAgents.contains(a),
+                    onTap: (busy || !mcpAgentSupported(server.transport, a))
+                        ? null
+                        : () => onToggleAgent(a),
+                  ),
                 ),
               SmallButton(label: t.t('action.edit'), onTap: onEdit),
               SmallButton(label: t.t('mcp.share'), onTap: onShare),

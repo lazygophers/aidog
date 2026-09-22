@@ -13,6 +13,7 @@ import '../shell/tiles.dart';
 import '../updater.dart';
 import 'about_logic.dart';
 import 'invoke.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'ui_bits.dart';
 
 class AboutPage extends StatefulWidget {
@@ -332,36 +333,95 @@ class _CliToolRow extends StatelessWidget {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           if (conflict != null && conflict!.installations.isNotEmpty)
+            // 冲突诊断（`About.tsx:464-537`）：整块有警示边框与底色，
+            // 每条安装里 source 是徽标、「已损坏」红、「PATH 默认」绿。
+            // 原先一整行同色小字，哪条坏了、哪条是 PATH 默认要逐字读。
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.sxs),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    t.t('about.localEnv.installations', {
-                      'count': conflict!.installations.length,
-                    }),
-                    style: AidogType.micro.copyWith(
-                      color: conflict!.isConflicting
-                          ? theme.c.peak
-                          : theme.c.fg2,
-                    ),
+              child: Container(
+                padding: const EdgeInsets.all(AidogSpace.ssm),
+                decoration: BoxDecoration(
+                  color: conflict!.isConflicting
+                      ? theme.c.peak.withValues(alpha: 0.08)
+                      : theme.c.surface2,
+                  border: Border.all(
+                    color: conflict!.isConflicting ? theme.c.peak : theme.c.line,
                   ),
-                  for (final inst in conflict!.installations)
-                    Text(
-                      '${inst.path} · ${inst.source}'
-                      '${inst.version != null ? ' · v${inst.version}' : ''}'
-                      '${inst.runnable ? '' : ' · ${t.t('about.localEnv.broken')}'}'
-                      '${inst.isPathDefault ? ' · ${t.t('about.localEnv.pathDefault')}' : ''}',
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          t.t('about.localEnv.installations', {
+                            'count': conflict!.installations.length,
+                          }),
+                          style: AidogType.micro.copyWith(
+                            color: theme.c.fg,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (conflict!.isConflicting) ...[
+                          const SizedBox(width: AidogSpace.sxs),
+                          Text(
+                            t.t('about.localEnv.conflict'),
+                            style: AidogType.micro.copyWith(color: theme.c.peak),
+                          ),
+                        ],
+                      ],
                     ),
-                  if (conflict!.suggestion.isNotEmpty)
-                    Text(
-                      '${t.t('about.localEnv.suggestion')}: ${conflict!.suggestion}',
-                      style: AidogType.micro.copyWith(color: theme.c.fg2),
-                    ),
-                ],
+                    for (final inst in conflict!.installations)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Wrap(
+                          spacing: AidogSpace.ssm,
+                          runSpacing: 2,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Text(
+                              inst.path,
+                              style: AidogType.numSm.copyWith(
+                                color: theme.c.fg2,
+                              ),
+                            ),
+                            MiniBadge(text: inst.source, color: theme.c.fg3),
+                            if (inst.version != null)
+                              Text(
+                                'v${inst.version}',
+                                style: AidogType.numSm.copyWith(
+                                  color: theme.c.fg2,
+                                ),
+                              ),
+                            if (!inst.runnable)
+                              Text(
+                                t.t('about.localEnv.broken'),
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.bad,
+                                ),
+                              ),
+                            if (inst.isPathDefault)
+                              Text(
+                                t.t('about.localEnv.pathDefault'),
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.ok,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    if (conflict!.suggestion.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '${t.t('about.localEnv.suggestion')}: ${conflict!.suggestion}',
+                          style: AidogType.micro.copyWith(color: theme.c.fg2),
+                        ),
+                      ),
+                  ],
+                ),
               ),
             ),
         ],

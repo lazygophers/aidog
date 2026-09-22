@@ -94,14 +94,6 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
         onInstalled: _c.refreshInstalled,
       );
     }
-    final detail = _c.detailTarget;
-    if (detail != null) {
-      return SkillDetailView(
-        invoke: widget.invoke,
-        skill: detail,
-        onClose: () => _c.setDetailTarget(null),
-      );
-    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -242,6 +234,29 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
         if (_c.pasteOpen) _pasteCard(t),
         if (_c.importIds != null) _importCard(t),
         if (_c.shareData != null) _shareCard(t),
+        // 详情是浮层，列表连同筛选状态留在背后（React 是 Radix `Dialog`，
+        // `SkillModals.tsx:194-196`）。原先整页替换，关掉详情回来筛选全没了。
+        if (_c.detailTarget != null)
+          AidogModal(
+            maxWidth: 720,
+            onBarrierTap: () => _c.setDetailTarget(null),
+            child: SkillDetailView(
+              invoke: widget.invoke,
+              skill: _c.detailTarget!,
+              onClose: () => _c.setDetailTarget(null),
+            ),
+          ),
+        // 批量卸载 / 批量安装期间的全页遮罩（`SkillsView.tsx:34-53`）：
+        // 这两件事要跑好几秒，没有遮罩时页面看不出在忙，用户会重复点。
+        if (_c.busyKey == '__uninstall__' ||
+            _c.busyKey == '__uninstall_batch__')
+          _BusyOverlay(
+            text: _c.busyKey == '__uninstall__'
+                ? t.t('skills.uninstallAll')
+                : t.t('skills.uninstallSelected', {
+                    'count': _c.selectedNames.length,
+                  }),
+          ),
         if (_c.message != null) ToastBar(text: _c.message!, ok: true),
       ],
     );
@@ -1183,4 +1198,41 @@ MarkdownStyleSheet markdownStyle(AidogTheme theme) {
       border: Border(top: BorderSide(color: theme.c.line)),
     ),
   );
+}
+
+/// 长耗时操作期间的全页遮罩（`SkillsView.tsx:34-53`）：转圈 + 一句在做什么。
+/// 盖住整页是故意的 —— 批量卸载跑到一半再点别的按钮，结果不可预期。
+class _BusyOverlay extends StatelessWidget {
+  const _BusyOverlay({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return AidogModal(
+      child: Tile(
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: theme.c.accent,
+              ),
+            ),
+            const SizedBox(width: AidogSpace.ssm),
+            Flexible(
+              child: Text(
+                text,
+                style: AidogType.label.copyWith(color: theme.c.fg2),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
