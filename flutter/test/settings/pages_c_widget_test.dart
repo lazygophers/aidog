@@ -289,6 +289,47 @@ void main() {
       );
     });
 
+    testWidgets('上游代理：三个协议都在；DNS 走代理只在 SOCKS5 下出现', (tester) async {
+      // React `ProxyStatusSection.tsx:142-144` 给三个协议，`:195` 把
+      // dns_over_proxy 锁在 socks5 分支里 —— HTTP/HTTPS 代理本来就是把域名
+      // 整个交给代理解析，那个开关摆出来只会让人以为它起作用。
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'proxy_client_get_settings': (_) => {
+          'enabled': true,
+          'proxy_type': 'http',
+          'host': '127.0.0.1',
+          'port': 7890,
+          'username': '',
+          'password': '',
+          'dns_over_proxy': true,
+          'no_proxy': '',
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          i18n,
+        ),
+      );
+      await settle(tester);
+
+      final row = tester.widget<ChoiceRow>(
+        find.ancestor(
+          of: find.text(i18n.t('proxy.proxyType')),
+          matching: find.byType(ChoiceRow),
+        ),
+      );
+      expect(row.options, ['socks5', 'http', 'https']);
+      expect(
+        find.text(i18n.t('proxy.dnsOverProxy')),
+        findsNothing,
+        reason: 'http 模式下不该出现',
+      );
+    });
+
     testWidgets('清空日志：取消后不发命令，确认后才发', (tester) async {
       final (k, _) = await mount(tester);
       await tester.tap(find.byKey(const ValueKey('clear-logs')));
@@ -693,15 +734,19 @@ void main() {
   // ── MITM 页 ───────────────────────────────────────────
 
   group('MITM 页', () {
+    /// [enabled] 默认 true：关掉总开关时风险卡 / CA 卡 / 白名单卡 / 命中测试卡
+    /// 整块不渲染（与 React `MitmConfig.tsx:272,291,386` 一致），
+    /// 所以除了专门验门控的那条用例，其余都要开着才有东西可点。
     Future<FakeKernel> mount(
       WidgetTester tester, {
       List<Object?> whitelist = const [],
+      bool enabled = true,
     }) async {
       await useBigSurface(tester);
       final k = FakeKernel({
         ...baseResponses(),
         'mitm_status': (_) => {
-          'enabled': false,
+          'enabled': enabled,
           'ca_present': true,
           'ca_installed': false,
           'ca_fingerprint': 'AA:BB',
@@ -718,6 +763,16 @@ void main() {
       await settle(tester);
       return k;
     }
+
+    testWidgets('总开关关着时，CA / 白名单 / 命中测试整块不渲染', (tester) async {
+      // 原先这几张卡无条件渲染：开关关着照样能装 CA、改白名单、跑命中测试，
+      // 改完一条都不生效。React 三处都是 `{enabled && ...}`。
+      await mount(tester, enabled: false);
+      expect(find.byKey(const ValueKey('mitm-master')), findsOneWidget);
+      expect(find.byKey(const ValueKey('mitm-add')), findsNothing);
+      expect(find.byKey(const ValueKey('mitm-clear')), findsNothing);
+      expect(find.byKey(const ValueKey('mitm-new-pattern')), findsNothing);
+    });
 
     testWidgets('输入为空时「添加」点不动，白名单为空时「清空」点不动', (tester) async {
       await mount(tester);
