@@ -7,6 +7,7 @@ import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/shell.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'harness.dart';
@@ -104,5 +105,91 @@ void main() {
     await tester.tapAt(const Offset(20, 20));
     await settle(tester);
     expect(cancelled, 1, reason: '执行中点遮罩不许关');
+  });
+
+  testWidgets('破坏性确认点遮罩不关，但按 Esc 关（Radix AlertDialog 口径）', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final c = await makeI18n(tester);
+    var cancelled = 0;
+
+    await tester.pumpWidget(
+      _offsetHost(
+        ConfirmCard(
+          title: '删除',
+          body: '确定删除？',
+          confirmLabel: '删除',
+          onCancel: () => cancelled++,
+          onConfirm: () {},
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(cancelled, 1);
+  });
+
+  testWidgets('焦点在浮层里的输入框上，按 Esc 照样关得掉', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final c = await makeI18n(tester);
+    var closed = 0;
+
+    await tester.pumpWidget(
+      _offsetHost(
+        AidogModal(
+          onBarrierTap: () => closed++,
+          child: const Material(child: TextField()),
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    // 先把焦点交给输入框 —— 这正是「加一行绑 Esc」会失手的情形：
+    // 键盘事件先到 EditableText，没冒泡上来就关不掉。
+    await tester.tap(find.byType(TextField));
+    await settle(tester);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)),
+      isNotNull,
+      reason: '前置条件：输入框在浮层里',
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(closed, 1);
+  });
+
+  testWidgets('两层浮层叠着，Esc 只关最上面那层', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final c = await makeI18n(tester);
+    var outer = 0;
+    var inner = 0;
+
+    await tester.pumpWidget(
+      _offsetHost(
+        AidogModal(
+          onBarrierTap: () => outer++,
+          child: Material(
+            child: AidogModal(
+              onBarrierTap: () => inner++,
+              child: const Material(child: Text('里层')),
+            ),
+          ),
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await settle(tester);
+    expect(inner, 1);
+    expect(outer, 0, reason: '一次 Esc 不许把两层一起关掉');
   });
 }
