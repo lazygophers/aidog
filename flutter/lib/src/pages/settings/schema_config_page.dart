@@ -24,6 +24,7 @@ import '../ui_bits.dart';
 import 'bits.dart';
 import 'env_editor.dart';
 import 'field_editors.dart';
+import 'json_text.dart';
 import 'hooks_editor.dart';
 import 'import_diff.dart';
 import 'path_input.dart';
@@ -727,13 +728,15 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               c.updateField(f.key, null);
               return;
             }
-            try {
-              final decoded = jsonDecode(raw);
-              setState(() => _fieldErrors.remove(f.key));
-              c.updateField(f.key, decoded);
-            } catch (e) {
-              setState(() => _fieldErrors[f.key] = '$e');
+            // 解析失败时**指出第几行第几列**，不再只说「格式错误」——
+            // 一份几十行的配置里，「哪一行」才是能直接去改的那条信息。
+            final err = locateJsonError(raw);
+            if (err != null) {
+              setState(() => _fieldErrors[f.key] = err.label);
+              return;
             }
+            setState(() => _fieldErrors.remove(f.key));
+            c.updateField(f.key, jsonDecode(raw));
           },
         );
     }
@@ -764,9 +767,23 @@ class _JsonField extends StatefulWidget {
 }
 
 class _JsonFieldState extends State<_JsonField> {
-  late final TextEditingController _ctrl = TextEditingController(
+  // 语法高亮做在 controller 的 `buildTextSpan` 里：输入控件仍是原来那个
+  // `TextField`，光标 / 选区 / 输入法预编辑全照旧，只改「这段文字用什么颜色画」。
+  late final JsonHighlightController _ctrl = JsonHighlightController(
     text: _initialText(),
+    palette: _fallbackPalette,
   );
+
+  /// 首帧还拿不到 context，先摆一套中性色；`build` 里每帧按主题刷新。
+  static const _fallbackPalette = JsonPalette(
+    key: Color(0xFF8A91E8),
+    string: Color(0xFF8A91E8),
+    number: Color(0xFF8A91E8),
+    literal: Color(0xFF8A91E8),
+    punct: Color(0xFF8A91E8),
+    plain: Color(0xFF8A91E8),
+  );
+
   final FocusNode _focus = FocusNode();
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _replaceCtrl = TextEditingController();
@@ -859,6 +876,15 @@ class _JsonFieldState extends State<_JsonField> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    // 每帧按当前主题刷新配色（切深浅色要跟着变）。色值全部来自 token。
+    _ctrl.palette = JsonPalette(
+      key: theme.c.accentText,
+      string: theme.c.ok,
+      number: theme.c.peak,
+      literal: theme.c.bad,
+      punct: theme.c.fg3,
+      plain: theme.c.fg,
+    );
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
@@ -969,8 +995,12 @@ class _JsonFieldState extends State<_JsonField> {
             TextField(
               controller: _ctrl,
               focusNode: _focus,
-              maxLines: 6,
-              style: AidogType.micro.copyWith(color: theme.c.fg),
+              // 随内容长高（React 的 JsonCodeEditor 也是占满高度），
+              // 起步 6 行免得空字段塌成一条缝。
+              maxLines: null,
+              minLines: 6,
+              keyboardType: TextInputType.multiline,
+              style: AidogType.numSm.copyWith(color: theme.c.fg),
               decoration: const InputDecoration(isDense: true),
               onSubmitted: widget.onSubmitted,
             ),
