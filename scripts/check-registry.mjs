@@ -60,7 +60,13 @@ function walkModels(dir, baseRel, rel, out, ids) {
         try {
           const doc = JSON.parse(raw);
           ids.push(doc.model_id);
-          modelMeta.push({ file: relFile, canon: doc.canonical_model ?? null, pred: doc.predecessor ?? null });
+          modelMeta.push({
+            file: relFile,
+            canon: doc.canonical_model ?? null,
+            pred: doc.predecessor ?? null,
+            family: doc.family ?? null,
+            version: doc.version ?? null
+          });
         } catch {
           /* schema 校验已经报过错，这里不重复 */
         }
@@ -229,7 +235,27 @@ for (const [k, g] of foldGroups) {
   }
 }
 
-// ⑦ predecessor 指向 canonical_model（票 03）：必须全库可解析，且链不得成环。
+// ⑦ 同 canonical 的 family/version 必须一致（票 04）：canonical 是跨平台聚合键，
+// 同一 canonical 的元数据分裂即身份漂移（如 glm 条目一处 family=glm、另一处 family=zhipu）。
+const metaByCanon = new Map();
+for (const m of modelMeta) {
+  if (!m.canon) continue;
+  if (!metaByCanon.has(m.canon)) metaByCanon.set(m.canon, new Map());
+  const g = metaByCanon.get(m.canon);
+  for (const key of ["family", "version"]) {
+    const v = m[key];
+    if (v === null) continue;
+    if (!g.has(key)) g.set(key, v);
+    else if (g.get(key) !== v) {
+      failures.push([
+        m.file,
+        `canonical "${m.canon}" 的 ${key} 分裂：${JSON.stringify(g.get(key))} vs ${JSON.stringify(v)}`
+      ]);
+    }
+  }
+}
+
+// ⑧ predecessor 指向 canonical_model（票 03）：必须全库可解析，且链不得成环。
 const canonSet = new Set(modelMeta.filter((m) => m.canon).map((m) => m.canon));
 const predByCanon = new Map();
 for (const m of modelMeta) {

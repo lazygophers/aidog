@@ -19,6 +19,7 @@
     "autoInstallIdeExtension": true,
     "skipDangerousModePermissionPrompt": true,
     "spinnerTipsEnabled": true,
+    "crossSessionInbound": "accept",
     "spinnerTipsOverride": {
         "excludeDefault": true,
         "tips": [
@@ -348,18 +349,12 @@
             "Bash(git push -f:*)",
             "Bash(git push origin --delete:*)",
             "Bash(git reset:*)",
-            "Bash(git clean:*)",
-            "Bash(git rebase:*)",
             "Bash(npm publish:*)",
             "Bash(yarn publish:*)",
             "Bash(pnpm publish:*)",
             "Bash(cargo publish:*)",
             "Bash(gh release:*)",
             "Bash(docker push:*)",
-            "Bash(rm:*)",
-            "Bash(sudo:*)",
-            "Bash(chmod:*)",
-            "Bash(chown:*)",
             "Bash(gh auth:*)",
             "Bash(glab auth:*)"
         ]
