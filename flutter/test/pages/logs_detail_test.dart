@@ -165,23 +165,34 @@ void main() {
     expect(find.text(c.t('logs.attempts')), findsNothing);
   });
 
-  testWidgets('用户侧与上游侧各自成段，两边的头 / 体 / URL 都看得到', (tester) async {
+  // 2026-09-22 起两侧改成 tab（`DetailPanel.tsx:263-288`）：原先两段顺序平铺，
+  // 十块正文一次全展开，面板长到要滚很久才看得到上游那半。
+  testWidgets('两侧是 tab：默认看用户侧，切过去才看上游侧，值互不串', (tester) async {
     final (_, c, _) = await openDetail(tester);
 
     expect(find.text(c.t('logs.userRequest')), findsOneWidget);
     expect(find.text(c.t('logs.upstreamRequest')), findsOneWidget);
-    // 两侧各一个 URL / 请求头 / 请求体 / 响应头 / 响应体。
-    expect(find.text('URL'), findsNWidgets(2));
-    expect(find.text(c.t('logs.requestHeaders')), findsNWidgets(2));
-    expect(find.text(c.t('logs.requestBody')), findsNWidgets(2));
-    expect(find.text(c.t('logs.responseHeaders')), findsNWidgets(2));
-    expect(find.text(c.t('logs.responseBody')), findsNWidgets(2));
-
-    // 两侧的值互不串：上游 URL 与用户 URL 各显各的。
+    // 当前 tab 只画自己那五块。
+    expect(find.text('URL'), findsOneWidget);
+    expect(find.text(c.t('logs.requestHeaders')), findsOneWidget);
+    expect(find.text(c.t('logs.requestBody')), findsOneWidget);
+    expect(find.text(c.t('logs.responseHeaders')), findsOneWidget);
+    expect(find.text(c.t('logs.responseBody')), findsOneWidget);
     expect(find.textContaining('https://local/v1/chat'), findsOneWidget);
+    expect(find.textContaining('https://api.example.com'), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('detail-tab-1')));
+    await settle(tester);
     expect(find.textContaining('https://api.example.com'), findsOneWidget);
+    expect(find.textContaining('https://local/v1/chat'), findsNothing);
     // 响应体两边分开——改造前是「用户侧非空就用用户侧，否则上游侧」合成一份。
     expect(find.textContaining('"ok": true'), findsOneWidget);
+  });
+
+  testWidgets('tab 头带方向与该侧状态码', (tester) async {
+    final (_, _, _) = await openDetail(tester);
+    expect(find.textContaining('Client → Proxy'), findsOneWidget);
+    expect(find.textContaining('Proxy → Platform'), findsOneWidget);
   });
 
   testWidgets('长正文整段铺开，不再 14 行封顶', (tester) async {
@@ -196,11 +207,13 @@ void main() {
 
   testWidgets('每个区块各带一个复制按钮，点它只复制本块', (tester) async {
     final (_, c, written) = await openDetail(tester);
-    // 十个区块（两侧各五块）都有值，所以十个复制按钮。
+    // 当前 tab 的五块都有值，所以五个复制按钮（另一侧要切过去才画）。
     final copies = panelCopies(c);
-    expect(copies, findsNWidgets(10));
+    expect(copies, findsNWidgets(5));
 
-    // 点上游请求体那块，复制到的是上游的值而不是用户的。
+    // 切到上游侧，点它的请求体那块，复制到的是上游的值而不是用户的。
+    await tester.tap(find.byKey(const ValueKey('detail-tab-1')));
+    await settle(tester);
     final upstreamBody = find.ancestor(
       of: find.textContaining('"from": "upstream"'),
       matching: find.byType(Column),
@@ -231,9 +244,15 @@ void main() {
     await tester.tap(find.text('am').first);
     await settle(tester);
 
-    // 上游五块全空 → 五条「(未捕获)」，复制按钮只剩用户侧那五个。
-    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(5));
+    // 用户侧五块都有值 → 五个复制按钮，没有「(未捕获)」。
+    expect(find.text(c.t('logs.noUpstream')), findsNothing);
     expect(panelCopies(c), findsNWidgets(5));
+
+    // 切到上游侧：五块全空 → 五条「(未捕获)」，一个复制按钮都没有。
+    await tester.tap(find.byKey(const ValueKey('detail-tab-1')));
+    await settle(tester);
+    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(5));
+    expect(panelCopies(c), findsNothing);
   });
 
   // 第二梯队 2026-09-22：元信息区缺平台与时间、状态码是裸数字不上色、
