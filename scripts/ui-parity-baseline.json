@@ -1,4 +1,3 @@
 {
-  "$comment": "界面对齐缺口的棘轮基线，被 scripts/check-ui-parity.mjs 读取。只许降不许升：补完一批缺口就把 maxGaps 调到新的实测值，护栏会盯着它不再回弹。护栏挂进 make lint 那天是 379 条。",
-  "maxGaps": 174
+  "maxGaps": 171
 }
