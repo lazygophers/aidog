@@ -214,10 +214,58 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// 空串 = 未过滤。
   String _searchQuery = '';
 
+  /// 锚点导航（`SectionAnchorNav.tsx` + `Settings.tsx:283-321`）：
+  /// 每个 section 一个 key 用来滚过去，`_activeSection` 是滚动联动高亮的当前节。
+  final Map<String, GlobalKey> _sectionKeys = {};
+  String _activeSection = '';
+
+  /// 壳层那个 `SingleChildScrollView` 的位置对象。滚动联动挂在它上面 ——
+  /// ScrollNotification 是往上冒泡的，在滚动内容里面挂 listener 收不到。
+  ScrollPosition? _scrollPos;
+
   @override
   void initState() {
     super.initState();
     _boot();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final pos = Scrollable.maybeOf(context)?.position;
+    if (identical(pos, _scrollPos)) return;
+    _scrollPos?.removeListener(_onScroll);
+    _scrollPos = pos;
+    _scrollPos?.addListener(_onScroll);
+  }
+
+  GlobalKey _keyFor(String id) => _sectionKeys.putIfAbsent(id, GlobalKey.new);
+
+  /// 滚动联动：取「还没滚出视口顶部」的最后一节当作当前节。
+  /// React 用 IntersectionObserver 取可见比例最高的那节，判据不同但落点一样。
+  void _onScroll() {
+    String found = '';
+    for (final e in _sectionKeys.entries) {
+      final box = e.value.currentContext?.findRenderObject() as RenderBox?;
+      if (box == null || !box.attached) continue;
+      if (box.localToGlobal(Offset.zero).dy <= 120) found = e.key;
+    }
+    if (found.isNotEmpty && found != _activeSection) {
+      setState(() => _activeSection = found);
+    }
+  }
+
+  /// 点 chip / 搜索命中后滚过去（`Settings.tsx:316-321`）。
+  void _jumpToSection(String id) {
+    final ctx = _sectionKeys[id]?.currentContext;
+    if (ctx == null) return;
+    setState(() => _activeSection = id);
+    Scrollable.ensureVisible(
+      ctx,
+      duration: AidogMotion.slow,
+      curve: AidogMotion.easeStandard,
+      alignment: 0,
+    );
   }
 
   Future<void> _boot() async {
@@ -242,6 +290,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
 
   @override
   void dispose() {
+    _scrollPos?.removeListener(_onScroll);
     _c?.dispose();
     super.dispose();
   }
@@ -315,7 +364,21 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
                   isDense: true,
                   hintText: t.t('settings.search'),
                 ),
-                onChanged: (v) => setState(() => _searchQuery = v),
+                onChanged: (v) {
+                  setState(() => _searchQuery = v);
+                  // 搜完滚到第一个命中的 section（`Settings.tsx:307-315`）；
+                  // 清空搜索时保持当前位置，不跳回顶部。
+                  if (v.trim().isEmpty) return;
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    final hit = _computeSearch(t, bundle);
+                    final first = hit == null
+                        ? null
+                        : bundle.sections
+                              .where((s) => hit.containsKey(s.id))
+                              .firstOrNull;
+                    if (first != null) _jumpToSection(first.id);
+                  });
+                },
               ),
             ),
           SmallButton(
@@ -369,9 +432,38 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             key: const ValueKey('settings-search-no-match'),
             text: t.t('settings.searchNoMatch'),
           )
-        else
+        else ...[
+          // section 锚点 chip 条（`SectionAnchorNav.tsx:19-68`）：十几节的长页面
+          // 原先只能一路滚。React 那条是 sticky 的，这里的滚动视口在壳层、
+          // 拿不到 sliver，先做成页内一行（跳转与联动高亮都在）。
+          if (isClaude && visibleSections.length > 1)
+            Padding(
+              key: const ValueKey('settings-anchor-nav'),
+              padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final s in visibleSections)
+                      Padding(
+                        padding: const EdgeInsets.only(right: AidogSpace.sxs),
+                        child: SmallButton(
+                          label: t.t(s.labelKey),
+                          pill: true,
+                          active: _activeSection == s.id,
+                          onTap: () => _jumpToSection(s.id),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
           for (final s in visibleSections)
-            _section(t, c, s, fieldFilter: search?[s.id]),
+            KeyedSubtree(
+              key: _keyFor(s.id),
+              child: _section(t, c, s, fieldFilter: search?[s.id]),
+            ),
+        ],
         if (c.saveError.isNotEmpty) ErrorNote(text: c.saveError),
         if (c.importDiff != null)
           ImportDiffCard(
