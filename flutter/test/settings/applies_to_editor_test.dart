@@ -9,7 +9,6 @@
 /// `groups` / `models` 在后端是 `Vec<String>`，继续传字符串是对的，这里一并钉住。
 library;
 
-import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/pages/settings/middleware_editor.dart'
     show AppliesToEditor;
 import 'package:flutter/material.dart';
