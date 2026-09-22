@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../../platform.dart' as native;
+import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
@@ -497,6 +498,15 @@ class _ImportExportPageState extends State<ImportExportPage> {
 
   // ── 定时备份 ────────────────────────────────────────────
 
+  /// 备份时刻：0 = 从未。格式照 React `ScheduledBackupSection.tsx::formatBackupTime`
+  /// 的 `YYYY-MM-DD HH:MM:SS`（不是 `formatters.dart::formatDateTime` 的斜杠形态）。
+  static String _backupTime(I18nController t, int ms) {
+    if (ms <= 0) return t.t('settings.backup.never');
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.year}-${pad(d.month)}-${pad(d.day)} '
+        '${pad(d.hour)}:${pad(d.minute)}:${pad(d.second)}';
+  }
+
   Widget _backupCard(I18nController t) {
     final s = _b.settings;
     return SettingsCard(
@@ -525,8 +535,28 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: s.retentionDays,
           onChanged: (v) => _b.persist(s.copyWith(retentionDays: v)),
         ),
-        if (s.dir.isNotEmpty)
-          InfoRow(label: t.t('settings.backup.location'), value: ltr(s.dir)),
+        if (s.enabled) ...[
+          InfoRow(
+            key: const ValueKey('backup-last'),
+            label: t.t('settings.backup.lastBackup'),
+            value: _backupTime(t, s.lastBackupAt),
+          ),
+          if (s.nextBackupAt > 0)
+            InfoRow(
+              key: const ValueKey('backup-next'),
+              label: t.t('settings.backup.nextBackup'),
+              value: _backupTime(t, s.nextBackupAt),
+            ),
+          InfoRow(
+            label: t.t('settings.backup.location'),
+            value: ltr(s.dir.isEmpty ? '~/.aidog/backups/' : s.dir),
+          ),
+          if (s.lastBackupError.isNotEmpty)
+            ErrorNote(
+              key: const ValueKey('backup-last-error'),
+              text: '${t.t('settings.backup.lastError')}: ${s.lastBackupError}',
+            ),
+        ],
         Row(
           children: [
             SmallButton(
@@ -540,13 +570,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       (r) =>
                           '${t.t('settings.backup.success')}'
                           '${r['path'] == null ? '' : '：${r['path']}'}',
+                      failedText: t.t('settings.backup.failed'),
                     ),
             ),
-            if (s.dir.isNotEmpty) ...[
+            if (_b.lastResultPath != null) ...[
               const SizedBox(width: AidogSpace.ssm),
               SmallButton(
-                label: t.t('settings.backup.reveal'),
-                onTap: () => native.revealItemInDir(s.dir),
+                key: const ValueKey('backup-reveal'),
+                // 没有「在文件管理器里定位」命令的系统上 revealItemInDir 退化成
+                // 复制路径（`platform.dart:89`），按钮文案跟着换 —— 说「在文件夹显示」
+                // 却只复制了路径就是骗人（React `ScheduledBackupSection.tsx:212` 同理）。
+                label: native.canRevealItemInDir()
+                    ? t.t('settings.backup.reveal')
+                    : t.t('settings.backup.copyPath'),
+                onTap: () => native.revealItemInDir(_b.lastResultPath!),
               ),
             ],
           ],
