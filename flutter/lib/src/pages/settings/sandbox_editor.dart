@@ -245,11 +245,18 @@ class SandboxEditor extends StatelessWidget {
   static List<String> _list(Map<String, Object?> m, String k) =>
       m[k] is List ? (m[k] as List).map((e) => '$e').toList() : const [];
 
-  /// React `sync`（`SandboxSection.tsx:140`）的逐行镜像。
+  /// 这些 key 的默认值是 true，所以存 `false` 有意义，不能当「与默认值相同」删掉。
+  /// 与 React 的 `FALSE_IS_MEANINGFUL`（`SandboxSection.tsx:128`）同一份名单。
+  static const _falseIsMeaningful = {'allowUnsandboxedCommands'};
+
+  /// React `sync`（`SandboxSection.tsx:143`）的逐行镜像。
   void _sync(Map<String, Object?> patch) {
     final next = {...sandbox, ...patch};
     next.removeWhere(
-      (_, v) => (v is List && v.isEmpty) || v == false || v == null,
+      (k, v) =>
+          (v is List && v.isEmpty) ||
+          v == null ||
+          (v == false && !_falseIsMeaningful.contains(k)),
     );
     if (next['filesystem'] is Map) {
       final fso = Map<String, Object?>.from(next['filesystem'] as Map)

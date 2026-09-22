@@ -9,6 +9,7 @@ import {
   getProtocolLabelMap,
   getProtocolSourceUrls,
   isCodingPlanProtocol,
+  type TimeWindow,
 } from "./defaults";
 import { allModelValues } from "./health";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
@@ -35,7 +36,8 @@ import { parsePlatformPeak } from "../../services/api";
  *  - homepage: 协议官网 URL（未配置返空串）
  *  - sourceUrls: registry `source_urls` 的文档 / 定价页外链（未配置各返空串）
  *  - protocolLabel: 当前协议本地化名（fallback PROTOCOL_LABELS → key）
- *  - labelMap: 全协议 label 映射（endpoint badge 覆盖所有 ep.protocol） */
+ *  - labelMap: 全协议 label 映射（endpoint badge 覆盖所有 ep.protocol）
+ *  - peakWindows: 生效的高峰时段（`extra.peak` ?? preset 默认），供徽标判定复用 */
 export interface ProtocolMeta {
   color: string;
   isCpProtocol: boolean;
@@ -44,6 +46,10 @@ export interface ProtocolMeta {
   sourceUrls: { docs: string; pricing: string };
   protocolLabel: string;
   labelMap: Record<string, string>;
+  /** 生效的高峰时段 = 用户 `extra.peak` 优先 → preset 默认（CLAUDE.md 的混合源口径）。
+   *  此前 PlatformCard 只读用户侧，导致 glm_coding / deepseek 这类自带预设 peak 的
+   *  平台不显高峰徽标。 */
+  peakWindows: TimeWindow[];
 }
 
 const INITIAL: ProtocolMeta = {
@@ -54,6 +60,7 @@ const INITIAL: ProtocolMeta = {
   sourceUrls: { docs: "", pricing: "" },
   protocolLabel: "",
   labelMap: {},
+  peakWindows: [],
 };
 
 export function useProtocolMeta(
@@ -91,6 +98,7 @@ export function useProtocolMeta(
         sourceUrls,
         protocolLabel,
         labelMap,
+        peakWindows: phWindows,
       });
     })();
     return () => { cancelled = true; };

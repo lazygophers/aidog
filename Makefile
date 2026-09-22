@@ -38,6 +38,15 @@ build: ## Build frontend (tsc && vite build)
 	@printf "$(CYAN)▶ Building frontend...$(RESET)\n"
 	yarn build
 
+.PHONY: build-flutter
+build-flutter: ## Build Flutter app (debug) —— 编译期自检，比 release 快得多
+	@printf "$(CYAN)▶ Building Flutter app (debug)...$(RESET)\n"
+	cd $(FLUTTER_DIR) && flutter build macos --debug
+	@printf "$(CYAN)✔ App → $(FLUTTER_DIR)/build/macos/Build/Products/Debug/$(APP_NAME).app$(RESET)\n"
+
+.PHONY: build-all
+build-all: build build-flutter ## 两个壳都编一遍（并存期用）
+
 .PHONY: release
 release: ## Build local installer for current platform → $(TAURI_DIR)/target/release/bundle/
 	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))...$(RESET)\n"
@@ -51,10 +60,18 @@ release-debug: ## Build installer with debug symbols (faster, larger)
 	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/debug/bundle/$(RESET)\n"
 
 .PHONY: release-flutter
-release-flutter: ## Build Flutter release app → $(FLUTTER_BUNDLE)
+release-flutter: ## Build Flutter release app + 可分发 zip → $(FLUTTER_BUNDLE)
 	@printf "$(GREEN)▶ Building Flutter release app...$(RESET)\n"
 	cd $(FLUTTER_DIR) && flutter build macos --release
+	@test -d "$(FLUTTER_BUNDLE)" || { printf "$(BOLD)❌ build 产物缺失: $(FLUTTER_BUNDLE)$(RESET)\n"; exit 1; }
+	@# 与 release.yml 的打包方式**逐字一致**：Sparkle 只认 ditto 打的 zip
+	@# （`--sequesterRsrc --keepParent`），换成 zip(1) 会丢资源分叉导致校验失败。
+	@# 本地出包与 CI 出包不一致的话，本地验过的东西不代表线上那份。
+	@cd $(FLUTTER_DIR)/build/macos/Build/Products/Release && \
+		ditto -c -k --sequesterRsrc --keepParent $(APP_NAME).app \
+		"$(APP_NAME)-Flutter-v$$(tr -d '[:space:]' < $(CURDIR)/.version)-macos.zip"
 	@printf "$(GREEN)✔ App → $(FLUTTER_BUNDLE)$(RESET)\n"
+	@printf "$(GREEN)✔ Zip → $(FLUTTER_DIR)/build/macos/Build/Products/Release/$(APP_NAME)-Flutter-v$$(tr -d '[:space:]' < .version)-macos.zip$(RESET)\n"
 
 ##@ Maintenance
 

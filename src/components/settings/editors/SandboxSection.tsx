@@ -124,6 +124,9 @@ function PathList({
   );
 }
 
+/** 这些 key 的默认值是 true，所以存 `false` 有意义，不能当「与默认值相同」删掉。 */
+const FALSE_IS_MEANINGFUL = new Set(["allowUnsandboxedCommands"]);
+
 function SandboxEditor({
   sandboxValue,
   updateField,
@@ -139,10 +142,15 @@ function SandboxEditor({
 
   const sync = (patch: Record<string, any>) => {
     const next = { ...sb, ...patch };
-    // Remove empty arrays and falsy booleans at top level
+    // Remove empty arrays and falsy booleans at top level.
+    // 例外：`allowUnsandboxedCommands` 的默认值是 true，`false` 才是用户的选择
+    //（界面上叫「禁止逃逸」，读的是 `=== false`）。跟着别的 key 一起删掉，就等于
+    // 这个开关点了存不进去、自己弹回来。其余 boolean 都用 `!!x` 读，默认 false，
+    // 删掉 false 只是省掉一个与默认值相同的字段，是对的。
     for (const k of Object.keys(next)) {
       if (Array.isArray(next[k]) && next[k].length === 0) delete next[k];
-      if (next[k] === false || next[k] === undefined) delete next[k];
+      if (next[k] === undefined) delete next[k];
+      if (next[k] === false && !FALSE_IS_MEANINGFUL.has(k)) delete next[k];
     }
     // Clean empty sub-objects
     if (next.filesystem) {

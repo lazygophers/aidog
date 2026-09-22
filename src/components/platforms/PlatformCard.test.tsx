@@ -4,6 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "../../test/render";
 import { PlatformCard } from "./PlatformCard";
 import type { Platform, PlatformQuota, PlatformUsageStats, LastTestResult } from "../../services/api";
+import { platformHasQuotaScript } from "../../domains/platforms/defaults";
+import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 
 // Mock Tauri invoke
 vi.mock("@tauri-apps/api/core", () => ({
@@ -45,6 +47,7 @@ vi.mock("../../domains/platforms/useProtocolMeta", () => ({
     sourceUrls: { docs: "", pricing: "" },
     protocolLabel: "Anthropic",
     labelMap: {},
+    peakWindows: [],
   }),
 }));
 
@@ -229,6 +232,52 @@ describe("PlatformCard", () => {
     expect(mockActions.onQuickTest).toHaveBeenCalledWith(basePlatform);
     fireEvent.click(screen.getByTitle("platform.customTest"));
     expect(mockActions.onCustomTest).toHaveBeenCalledWith(basePlatform);
+  });
+
+  it("余额行门控: 平台不支持配额查询，coding 已用 tokens 仍然显示", () => {
+    // 回归 2026-09-22：原先整行锁在 `showQuota = quotaCapable && quota.hasData` 之后，
+    // 于是「coding 已用 tokens」这块明明有数据也被一起挡住。它与配额是两个维度。
+    vi.mocked(platformHasQuotaScript).mockReturnValueOnce(false);
+    render(
+      <PlatformCard
+        {...baseProps}
+        platform={{
+          ...basePlatform,
+          endpoints: [{ protocol: "anthropic", base_url: "https://x", coding_plan: true }],
+        } as Platform}
+        usage={{
+          total_requests: 10,
+          success_count: 10,
+          total_input_tokens: 7000,
+          total_output_tokens: 3000,
+          total_cost: 2,
+          today_tokens: 100,
+          today_cost: 0.1,
+          recent_total: 1,
+          recent_failures: 0,
+        } as PlatformUsageStats}
+      />,
+    );
+    // 10000 tokens 经 formatNumber → "10K"（与 React/Flutter 同一份格式化口径）
+    expect(screen.getByTitle("platform.codingUsedHint")).toBeInTheDocument();
+  });
+
+  it("高峰徽标: 时段来自 preset 默认（用户没自配也要显）", () => {
+    // 回归 2026-09-22：原先只读 `parsePlatformPeak(p.extra)`，不回落 preset，
+    // glm_coding / deepseek 这类自带预设高峰的平台在窗口内也不显徽标。
+    // start_hour == end_hour → 退化为全天命中，断言不随运行时刻波动。
+    vi.mocked(useProtocolMeta).mockReturnValueOnce({
+      color: "var(--accent)",
+      isCpProtocol: false,
+      defaultModels: [],
+      homepage: "",
+      sourceUrls: { docs: "", pricing: "" },
+      protocolLabel: "Anthropic",
+      labelMap: {},
+      peakWindows: [{ start_hour: 0, end_hour: 0, multiplier: 2 }],
+    });
+    render(<PlatformCard {...baseProps} />);
+    expect(screen.getByText("platform.peak_badge")).toBeInTheDocument();
   });
 
   it("高峰态: lastTest success 渲染 ✓ 徽标 + 时长", () => {
