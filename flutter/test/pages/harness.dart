@@ -146,11 +146,15 @@ Future<I18nController> makeI18n(
 
 /// 把页面挂进「主题 + Material + i18n + 足够宽的内容区」里，与真骨架同形。
 Widget wrapPage(Widget page, I18nController c, {AidogMode mode = AidogMode.dark}) {
-  return MaterialApp(
-    theme: aidogThemeData(mode),
-    home: AidogI18n(
-      controller: c,
-      child: Scaffold(
+  // i18n 套在 MaterialApp **外面**，与 `main.dart:32` 的
+  // `runApp(const AidogI18n(child: AidogApp()))` 同一层级。套在 `home` 里的话，
+  // 任何渲染到 Overlay 的东西（拖拽代理、浮层候选）都找不到这个祖先，
+  // 测试里会炸「AidogI18n.of() 找不到祖先」而真机不会 —— 假红。
+  return AidogI18n(
+    controller: c,
+    child: MaterialApp(
+      theme: aidogThemeData(mode),
+      home: Scaffold(
         body: SingleChildScrollView(
           child: SizedBox(width: 1280, child: Material(type: MaterialType.transparency, child: page)),
         ),
