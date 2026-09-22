@@ -8,15 +8,19 @@
 /// [GroupsController]（`groups_logic.dart`），这里把它们接到按钮上。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
+import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'groups_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'platform_defaults.dart' show kModelSlots;
 import 'ui_bits.dart';
 
 /// 分组区。内嵌在平台页里（与 React 的 `GroupsEmbedded` 同位置），
@@ -29,6 +33,9 @@ class GroupsSection extends StatefulWidget {
     this.onPlatformsDeleted,
     this.onCreateGroupReady,
     this.onPlatformDropped,
+    this.onCreatePlatform,
+    this.onNavigate,
+    this.copyText = native.writeText,
   });
 
   final InvokeFn invoke;
@@ -46,6 +53,20 @@ class GroupsSection extends StatefulWidget {
   /// 真正的搬迁由父级做（它持有平台列表控制器，要顺带刷 membership），
   /// 这里只在它 await 完之后把分组区自己的数据静默重拉一遍。
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
+
+  /// 「在此分组添加平台」（`Groups.tsx:245-251`）：父级(Platforms)打开同页创建表单，
+  /// 预绑并锁定归属分组。父级 `openCreatePlatform(presetGroupIds:, lockGid:)`。
+  final void Function({List<int>? presetGroupIds, int? lockGid})?
+  onCreatePlatform;
+
+  /// 「查看统计」（`Groups.tsx:237`）跳转 stats 页。**已知简化**：React 侧带
+  /// `{groupId, groupKey}` context 预筛该组，Dart 侧顶层导航目前只按页面 id 切换
+  /// （`main.dart::_nav.navigate` 无 payload 通道），跳过去后落在总览态，
+  /// 不预筛 —— 文案 key 与跳转动作都在，只是没带上下文。
+  final void Function(String pageId)? onNavigate;
+
+  /// 复制到剪贴板，测试可注入假实现。
+  final Future<void> Function(String text) copyText;
 
   @override
   State<GroupsSection> createState() => _GroupsSectionState();
@@ -89,6 +110,9 @@ class _GroupsSectionState extends State<GroupsSection> {
       controller: _c,
       onPlatformsDeleted: widget.onPlatformsDeleted,
       onPlatformDropped: widget.onPlatformDropped == null ? null : _acceptDrop,
+      onCreatePlatform: widget.onCreatePlatform,
+      onNavigate: widget.onNavigate,
+      copyText: widget.copyText,
     );
   }
 }
@@ -100,11 +124,18 @@ class _GroupListView extends StatelessWidget {
     required this.controller,
     this.onPlatformsDeleted,
     this.onPlatformDropped,
+    this.onCreatePlatform,
+    this.onNavigate,
+    this.copyText = native.writeText,
   });
 
   final GroupsController controller;
   final void Function(List<int> ids)? onPlatformsDeleted;
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
+  final void Function({List<int>? presetGroupIds, int? lockGid})?
+  onCreatePlatform;
+  final void Function(String pageId)? onNavigate;
+  final Future<void> Function(String text) copyText;
 
   @override
   Widget build(BuildContext context) {
@@ -127,16 +158,35 @@ class _GroupListView extends StatelessWidget {
         else if (c.details.isEmpty)
           CenteredNote(text: t.t('group.empty'))
         else
-          for (final d in c.details)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-              child: _GroupCard(
-                controller: c,
-                detail: d,
-                collapsed: c.collapsedGroups.contains(d.group.id),
-                onPlatformDropped: onPlatformDropped,
-              ),
-            ),
+          // 分组列表拖拽排序（`Groups.tsx:517-524` 的 SortableList）：
+          // 搜索态在本页尚未接入（无搜索入口），故不设 no-op 分支。
+          ReorderableListView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            buildDefaultDragHandles: false,
+            itemCount: c.details.length,
+            onReorderItem: (o, n) {
+              final next = [...c.details];
+              next.insert(n, next.removeAt(o));
+              unawaited(c.reorderGroups(next));
+            },
+            itemBuilder: (context, i) {
+              final d = c.details[i];
+              return Padding(
+                key: ValueKey(d.group.id),
+                padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                child: _GroupCard(
+                  controller: c,
+                  detail: d,
+                  collapsed: c.collapsedGroups.contains(d.group.id),
+                  onPlatformDropped: onPlatformDropped,
+                  onCreatePlatform: onCreatePlatform,
+                  onNavigate: onNavigate,
+                  copyText: copyText,
+                ),
+              );
+            },
+          ),
         if (c.loadingMore)
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
@@ -152,7 +202,13 @@ class _GroupListView extends StatelessWidget {
               ),
             ),
           ),
-        // ── 破坏性确认：四个互斥，同一时刻最多一个 ──
+        // 虚拟桶「未匹配」（MITM fallback 直通）：`GroupListView.tsx:276-279`。
+        if (c.unmatchedStat != null && c.unmatchedStat!.totalRequests > 0)
+          Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.ssm),
+            child: _UnmatchedBucketCard(stat: c.unmatchedStat!),
+          ),
+        // ── 破坏性确认：互斥，同一时刻最多一个 ──
         if (c.deleteGroupTarget != null)
           ConfirmCard(
             title: t.t('group.delete'),
@@ -168,9 +224,17 @@ class _GroupListView extends StatelessWidget {
           ),
         if (c.batchDeleteTarget != null)
           ConfirmCard(
-            title: t.t('group.batchDelete'),
-            body: '${c.batchDeleteTarget!.platforms.length}',
-            confirmLabel: t.t('action.delete'),
+            title: t.t('group.batchDeleteTitle'),
+            body: t.t(
+              'group.batchDeleteDesc',
+              {'count': '${c.batchDeleteTarget!.platforms.length}'},
+            ),
+            confirmLabel: c.batchDeleteBusy
+                ? t.t('group.batchDeleting')
+                : t.t(
+                    'group.batchDeleteConfirm',
+                    {'count': '${c.batchDeleteTarget!.platforms.length}'},
+                  ),
             busy: c.batchDeleteBusy,
             extra: c.batchDeleteTarget!.hasCrossGroup
                 // 跨组警告：删掉就是从所有组里消失，不只是本组。
@@ -182,20 +246,66 @@ class _GroupListView extends StatelessWidget {
               c.confirmBatchDelete().then((_) => onPlatformsDeleted?.call(ids));
             },
           ),
+        if (c.batchOverrideTarget != null)
+          _BatchOverrideModelsCard(controller: c),
+        if (c.batchSetStatusTarget != null) _BatchSetStatusCard(controller: c),
+        if (c.batchMoveGroupTarget != null) _BatchMoveGroupCard(controller: c),
         if (c.purgeTarget != null)
           ConfirmCard(
             title: t.t('group.purgeDisabled'),
             body: c.purgeTarget!.candidates.isEmpty
                 ? t.t('platform.purgeDisabledNone')
-                : '${c.purgeTarget!.candidates.length}',
+                : t.t(
+                    'group.purgeDisabledConfirm',
+                    {'count': '${c.purgeTarget!.candidates.length}'},
+                  ),
             confirmLabel: t.t('action.confirm'),
+            onConfirm: c.purgeTarget!.candidates.isEmpty
+                ? null
+                : () => c.confirmPurgeDisabled(
+                    noneText: t.t('platform.purgeDisabledNone'),
+                    doneText: (deleted, unassigned) => t.t(
+                      'group.purgeDisabledDone',
+                      {'deleted': '$deleted', 'unassigned': '$unassigned'},
+                    ),
+                  ),
             onCancel: c.cancelPurgeDisabled,
-            onConfirm: () => c.confirmPurgeDisabled(
-              noneText: t.t('platform.purgeDisabledNone'),
-            ),
           ),
         if (c.groupTest != null) _GroupTestPanel(controller: c),
       ],
+    );
+  }
+}
+
+/// `GroupListView.tsx:401-434` 的只读虚拟桶卡片：MITM 解密非 API 流量 fallback
+/// 直通的统计，无平台/余额/编辑。
+class _UnmatchedBucketCard extends StatelessWidget {
+  const _UnmatchedBucketCard({required this.stat});
+
+  final UsageStats stat;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return Tile(
+      title: t.t('group.unmatched'),
+      meta: t.t('group.unmatchedBadge'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            t.t('group.unmatchedHint'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
+          Text(
+            formatNumber(stat.totalRequests),
+            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -206,12 +316,19 @@ class _GroupCard extends StatelessWidget {
     required this.detail,
     required this.collapsed,
     this.onPlatformDropped,
+    this.onCreatePlatform,
+    this.onNavigate,
+    this.copyText = native.writeText,
   });
 
   final GroupsController controller;
   final GroupDetail detail;
   final bool collapsed;
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
+  final void Function({List<int>? presetGroupIds, int? lockGid})?
+  onCreatePlatform;
+  final void Function(String pageId)? onNavigate;
+  final Future<void> Function(String text) copyText;
 
   @override
   Widget build(BuildContext context) {
@@ -247,6 +364,7 @@ class _GroupCard extends StatelessWidget {
     final g = detail.group;
     final stats = c.groupStats[g.groupKey];
     final balance = c.groupBalance[g.id];
+    final selecting = c.isBatchSelecting(g.id);
     return Tile(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -268,6 +386,12 @@ class _GroupCard extends StatelessWidget {
                 },
               ),
               const SizedBox(width: AidogSpace.sxs),
+              // 分组排序拖拽把手（`Groups.tsx:186-195` 的 drag-handle）。
+              Tooltip(
+                message: t.t('group.dragToReorder'),
+                child: const Icon(Icons.drag_handle, size: 16),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,10 +410,13 @@ class _GroupCard extends StatelessWidget {
                         if (g.isDefault)
                           Padding(
                             padding: const EdgeInsets.only(left: AidogSpace.sxs),
-                            child: Text(
-                              t.t('group.isDefault'),
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.accentText,
+                            child: Tooltip(
+                              message: t.t('group.isDefaultTitle'),
+                              child: Text(
+                                t.t('group.isDefault'),
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.accentText,
+                                ),
                               ),
                             ),
                           ),
@@ -346,8 +473,43 @@ class _GroupCard extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: AidogSpace.sxs),
+          // 行 1.5：复制启动命令 / 查看统计 / 分组内添加平台 / 清理失效 / 多选。
+          Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              _CopyCommandMenu(group: g, proxyEnvVars: c.proxyEnvVars, copyText: copyText),
+              if (onNavigate != null)
+                SmallButton(
+                  label: t.t('group.viewStats'),
+                  onTap: () => onNavigate!.call('stats'),
+                ),
+              if (onCreatePlatform != null)
+                SmallButton(
+                  label: t.t('group.addPlatformToGroup'),
+                  onTap: () => onCreatePlatform!.call(
+                    presetGroupIds: [g.id],
+                    lockGid: g.id,
+                  ),
+                ),
+              SmallButton(
+                label: t.t('group.purgeDisabled'),
+                onTap: () => c.askPurgeDisabled(g.id),
+              ),
+              if (detail.platforms.isNotEmpty)
+                SmallButton(
+                  label: t.t('group.batchOps'),
+                  active: selecting,
+                  onTap: () => selecting
+                      ? c.exitBatchSelect(g.id)
+                      : c.enterBatchSelect(g.id),
+                ),
+            ],
+          ),
           if (!collapsed) ...[
             const SizedBox(height: AidogSpace.ssm),
+            if (selecting) _BatchToolbar(controller: c, gid: g.id, platforms: detail.platforms),
             if (detail.platforms.isEmpty)
               Text(
                 t.t('group.noPlatforms'),
@@ -355,45 +517,344 @@ class _GroupCard extends StatelessWidget {
               )
             else
               for (final gp in detail.platforms)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 3),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 6,
-                        height: 6,
-                        margin: const EdgeInsets.only(right: AidogSpace.ssm),
-                        decoration: BoxDecoration(
-                          color: gp.platform.status == 'enabled'
-                              ? theme.c.ok
-                              : theme.c.fg3,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          gp.platform.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AidogType.micro.copyWith(color: theme.c.fg2),
-                        ),
-                      ),
-                      // per-group 优先级（1~10，10 最高）。就地改，乐观更新 + 失败回滚。
-                      Text(
-                        'P${gp.levelPriority}',
-                        style: AidogType.micro.copyWith(color: theme.c.fg3),
-                      ),
-                      const SizedBox(width: AidogSpace.ssm),
-                      SmallButton(
-                        label: t.t('group.deletePlatformTitle'),
-                        onTap: () => c.askRemovePlatform(gp.platform, g.id),
-                      ),
-                    ],
-                  ),
+                _PlatformRow(
+                  controller: c,
+                  group: g,
+                  gp: gp,
+                  allGroups: c.allGroups,
+                  selecting: selecting,
                 ),
+            _MappingsSection(controller: c, detail: detail),
           ],
         ],
       ),
+    );
+  }
+}
+
+/// 复制启动命令菜单：`group.copyCommand` 主按钮 + 悬浮/点击展开
+/// key / Claude / Codex / pi 四项（`GroupListItem.tsx:224-236`）。
+class _CopyCommandMenu extends StatelessWidget {
+  const _CopyCommandMenu({
+    required this.group,
+    required this.proxyEnvVars,
+    required this.copyText,
+  });
+
+  final GroupRow group;
+  final List<EnvVar> proxyEnvVars;
+  final Future<void> Function(String text) copyText;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final envVars = [...group.envVars, ...proxyEnvVars];
+    return PopupMenuButton<String>(
+      tooltip: t.t('group.copyCommand'),
+      onSelected: (key) {
+        final text = switch (key) {
+          'key' => group.groupKey,
+          'claude' => buildClaudeCommand(group.groupKey),
+          'codex' => buildCodexCommand(group.groupKey, envVars),
+          'pi' => buildPiCommand(group.groupKey, envVars),
+          _ => '',
+        };
+        copyText(text);
+      },
+      itemBuilder: (context) => [
+        PopupMenuItem(value: 'key', child: Text(t.t('group.menuCopyKey'))),
+        PopupMenuItem(value: 'claude', child: Text(t.t('group.menuCopyClaude'))),
+        PopupMenuItem(value: 'codex', child: Text(t.t('group.menuCopyCodex'))),
+        PopupMenuItem(value: 'pi', child: Text(t.t('group.menuCopyPi'))),
+      ],
+      child: IgnorePointer(
+        child: SmallButton(label: t.t('group.copyCommand')),
+      ),
+    );
+  }
+}
+
+/// per-group 多选工具栏（`GroupListItem.tsx:374-413`）：全选 / 计数 / 四个批量操作。
+class _BatchToolbar extends StatelessWidget {
+  const _BatchToolbar({
+    required this.controller,
+    required this.gid,
+    required this.platforms,
+  });
+
+  final GroupsController controller;
+  final int gid;
+  final List<GroupPlatform> platforms;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final selected = c.selectedIdsOf(gid);
+    final hasSelection = selected.isNotEmpty;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AidogSpace.sxs,
+        runSpacing: AidogSpace.sxs,
+        children: [
+          SmallButton(label: t.t('action.cancel'), onTap: () => c.exitBatchSelect(gid)),
+          SmallButton(
+            label: t.t('group.selectAll'),
+            onTap: () => c.selectAll(gid, [for (final gp in platforms) gp.platform.id]),
+          ),
+          Text(
+            t.t('group.selectedCount', {'count': '${selected.length}'}),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          SmallButton(
+            label: t.t('group.batchDelete'),
+            danger: true,
+            onTap: hasSelection ? () => c.askBatchDelete(selected.toList()) : null,
+          ),
+          SmallButton(
+            label: t.t('group.batchOverrideModels'),
+            onTap: hasSelection ? () => c.askBatchOverrideModels(selected.toList()) : null,
+          ),
+          SmallButton(
+            label: t.t('group.batchSetStatus'),
+            onTap: hasSelection ? () => c.askBatchSetStatus(selected.toList(), gid) : null,
+          ),
+          SmallButton(
+            label: t.t('group.batchMoveGroup'),
+            onTap: hasSelection ? () => c.askBatchMoveGroup(selected.toList(), gid) : null,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 单个分组内平台行：多选态给 checkbox，非多选态给优先级步进器 + 移组下拉 + 移除。
+class _PlatformRow extends StatelessWidget {
+  const _PlatformRow({
+    required this.controller,
+    required this.group,
+    required this.gp,
+    required this.allGroups,
+    required this.selecting,
+  });
+
+  final GroupsController controller;
+  final GroupRow group;
+  final GroupPlatform gp;
+  final List<({int id, String name})> allGroups;
+  final bool selecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final pid = gp.platform.id;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          if (selecting)
+            Padding(
+              padding: const EdgeInsets.only(right: AidogSpace.sxs),
+              child: Checkbox(
+                value: c.selectedIdsOf(group.id).contains(pid),
+                onChanged: (_) => c.toggleSelected(group.id, pid),
+              ),
+            )
+          else
+            Container(
+              width: 6,
+              height: 6,
+              margin: const EdgeInsets.only(right: AidogSpace.ssm),
+              decoration: BoxDecoration(
+                color: gp.platform.status == 'enabled' ? theme.c.ok : theme.c.fg3,
+                shape: BoxShape.circle,
+              ),
+            ),
+          Expanded(
+            child: Text(
+              gp.platform.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
+          ),
+          if (!selecting) ...[
+            // per-group 优先级（1~10，10 最高）。就地改，乐观更新 + 失败回滚。
+            // `PlatformCard.tsx:895-961::LevelPriorityControl` 逐条翻译。
+            Tooltip(
+              message: t.t('group.levelPriorityHint'),
+              child: Text(
+                t.t('group.levelPriority'),
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            ),
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 14,
+              tooltip: t.t('group.levelPriorityDown'),
+              onPressed: gp.levelPriority <= 1
+                  ? null
+                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority - 1),
+              icon: const Icon(Icons.remove),
+            ),
+            SizedBox(
+              width: 18,
+              child: Text(
+                '${gp.levelPriority}',
+                textAlign: TextAlign.center,
+                style: AidogType.micro.copyWith(color: theme.c.fg),
+              ),
+            ),
+            IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+              iconSize: 14,
+              tooltip: t.t('group.levelPriorityUp'),
+              onPressed: gp.levelPriority >= 10
+                  ? null
+                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority + 1),
+              icon: const Icon(Icons.add),
+            ),
+            const SizedBox(width: AidogSpace.ssm),
+            // 移动到另一分组：`usePlatformDrag.ts` 的跨组拖拽等价功能（不同交互形态，
+            // 同一后端命令 `group_platform_move`）——嵌套 `ReorderableListView`
+            // 手势冲突，改下拉选目标组。
+            if (allGroups.length > 1)
+              PopupMenuButton<int>(
+                tooltip: t.t('group.dragPlatform'),
+                icon: Icon(Icons.drive_file_move_outline, size: 14, color: theme.c.fg3),
+                onSelected: (targetGid) =>
+                    c.movePlatform(pid, group.id, targetGid),
+                itemBuilder: (context) => [
+                  for (final og in allGroups)
+                    if (og.id != group.id)
+                      PopupMenuItem(value: og.id, child: Text(og.name)),
+                ],
+              ),
+          ],
+          SmallButton(
+            label: t.t('group.deletePlatformTitle'),
+            onTap: () => c.askRemovePlatform(gp.platform, group.id),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 模型映射列表 + 列表页快捷添加表单（`GroupListItem.tsx:476-553` 逐条翻译）。
+class _MappingsSection extends StatelessWidget {
+  const _MappingsSection({required this.controller, required this.detail});
+
+  final GroupsController controller;
+  final GroupDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final gid = detail.group.id;
+    final showForm = c.mappingGroupId == gid;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (detail.modelMappings.isNotEmpty)
+          for (var i = 0; i < detail.modelMappings.length; i++)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${detail.modelMappings[i].sourceModel} → '
+                      '${detail.modelMappings[i].targetModel}',
+                      style: AidogType.micro.copyWith(color: theme.c.fg2),
+                    ),
+                  ),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                    iconSize: 14,
+                    icon: const Icon(Icons.close),
+                    onPressed: () => c.deleteMapping(gid, i),
+                  ),
+                ],
+              ),
+            ),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: SmallButton(
+            label: '+ ${t.t('mapping.add')}',
+            onTap: () => c.setMappingGroupId(showForm ? null : gid),
+          ),
+        ),
+        if (showForm)
+          Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.sxs),
+            child: Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                SizedBox(
+                  width: 140,
+                  child: TextField(
+                    decoration: InputDecoration(hintText: t.t('mapping.source')),
+                    style: AidogType.micro.copyWith(color: theme.c.fg),
+                    onChanged: c.setMSource,
+                  ),
+                ),
+                DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    hint: Text(t.t('mapping.targetPlatform')),
+                    value: c.mTargetPlatform,
+                    items: [
+                      for (final p in c.platforms)
+                        DropdownMenuItem(value: p.id, child: Text(p.name)),
+                    ],
+                    onChanged: c.setMTargetPlatform,
+                  ),
+                ),
+                if (c.mAvailableModels.isNotEmpty)
+                  DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      hint: Text(t.t('mapping.target')),
+                      value: c.mTargetModel.isEmpty ? null : c.mTargetModel,
+                      items: [
+                        for (final m in c.mAvailableModels)
+                          DropdownMenuItem(value: m, child: Text(m)),
+                      ],
+                      onChanged: (v) => c.setMTargetModel(v ?? ''),
+                    ),
+                  )
+                else
+                  SizedBox(
+                    width: 120,
+                    child: TextField(
+                      decoration: InputDecoration(hintText: t.t('mapping.target')),
+                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      onChanged: c.setMTargetModel,
+                    ),
+                  ),
+                SmallButton(
+                  label: t.t('action.create'),
+                  onTap: (c.mSource.isEmpty || c.mTargetPlatform == null || c.mTargetModel.isEmpty)
+                      ? null
+                      : c.submitAddMapping,
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
@@ -490,6 +951,328 @@ class _CrossGroupWarning extends StatelessWidget {
               style: AidogType.micro.copyWith(color: theme.c.bad),
             ),
       ],
+    );
+  }
+}
+
+/// 批量覆盖模型弹窗（`BatchOverrideModelsModal.tsx`）：三来源 radio（手输 / preset /
+/// 从别平台复制）+ 全 diff 预览，确认时整体覆盖五槽（不是合并）。
+class _BatchOverrideModelsCard extends StatefulWidget {
+  const _BatchOverrideModelsCard({required this.controller});
+
+  final GroupsController controller;
+
+  @override
+  State<_BatchOverrideModelsCard> createState() => _BatchOverrideModelsCardState();
+}
+
+class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
+  String _source = 'manual';
+  String _presetProtocol = '';
+  int? _copyPlatformId;
+  Map<String, String> _slots = const {};
+
+  Map<String, String> _modelsOf(PlatformModels m) => {
+    'default': m.defaultModel ?? '',
+    'sonnet': m.sonnet ?? '',
+    'opus': m.opus ?? '',
+    'haiku': m.haiku ?? '',
+    'gpt': m.gpt ?? '',
+  };
+
+  void _setSource(String v) {
+    setState(() {
+      _source = v;
+      _presetProtocol = '';
+      _copyPlatformId = null;
+      _slots = const {};
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = widget.controller;
+    final target = c.batchOverrideTarget;
+    if (target == null) return const SizedBox.shrink();
+    final allEmpty = kModelSlots.every((s) => (_slots[s.key] ?? '').trim().isEmpty);
+    return ConfirmCard(
+      title: t.t('group.batchOverrideModelsTitle'),
+      body: t.t('group.batchOverrideModelsDesc', {'count': '${target.length}'}),
+      confirmLabel: c.batchOverrideBusy
+          ? t.t('group.batchOverrideApplying')
+          : t.t('group.batchOverrideConfirm', {'count': '${target.length}'}),
+      busy: c.batchOverrideBusy,
+      onCancel: c.cancelBatchOverrideModels,
+      onConfirm: (c.batchOverrideBusy || allEmpty)
+          ? null
+          : () => c.confirmBatchOverrideModels(
+              PlatformModels(
+                defaultModel: _slots['default'],
+                sonnet: _slots['sonnet'],
+                opus: _slots['opus'],
+                haiku: _slots['haiku'],
+                gpt: _slots['gpt'],
+              ),
+            ),
+      extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: AidogSpace.sxs,
+            children: [
+              for (final s in const ['manual', 'preset', 'copy'])
+                SmallButton(
+                  label: switch (s) {
+                    'manual' => t.t('group.batchOverrideSourceManual'),
+                    'preset' => t.t('group.batchOverrideSourcePreset'),
+                    _ => t.t('group.batchOverrideSourceCopy'),
+                  },
+                  active: _source == s,
+                  onTap: () => _setSource(s),
+                ),
+            ],
+          ),
+          if (_source == 'preset')
+            DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                isExpanded: true,
+                hint: Text(t.t('group.batchOverridePresetSelect')),
+                value: _presetProtocol.isEmpty ? null : _presetProtocol,
+                items: [
+                  for (final o in c.defaults.protocolOptions())
+                    DropdownMenuItem(value: o.value, child: Text(o.label)),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  setState(() {
+                    _presetProtocol = v;
+                    _slots = c.defaults.defaultModels(v);
+                  });
+                },
+              ),
+            ),
+          if (_source == 'copy')
+            DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                hint: Text(t.t('group.batchOverrideCopySelect')),
+                value: _copyPlatformId,
+                items: [
+                  for (final p in c.platforms)
+                    DropdownMenuItem(value: p.id, child: Text(p.name)),
+                ],
+                onChanged: (v) {
+                  if (v == null) return;
+                  PlatformRow? src;
+                  for (final p in c.platforms) {
+                    if (p.id == v) src = p;
+                  }
+                  setState(() {
+                    _copyPlatformId = v;
+                    if (src != null) _slots = _modelsOf(src.models);
+                  });
+                },
+              ),
+            ),
+          const SizedBox(height: AidogSpace.ssm),
+          for (final s in kModelSlots)
+            Padding(
+              padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 70,
+                    child: Text(t.t(s.labelKey), style: AidogType.micro.copyWith(color: theme.c.fg3)),
+                  ),
+                  Expanded(
+                    child: TextField(
+                      controller: TextEditingController(text: _slots[s.key] ?? '')
+                        ..selection = TextSelection.collapsed(offset: (_slots[s.key] ?? '').length),
+                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      onChanged: (v) => setState(() => _slots = {..._slots, s.key: v}),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          Text(
+            t.t('group.batchOverrideDiffTitle'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          for (final p in target)
+            for (final s in kModelSlots)
+              if ((p.models.toJson()[s.key] as String? ?? '').isNotEmpty ||
+                  (_slots[s.key] ?? '').isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: AidogSpace.ssm, bottom: 1),
+                  child: Text(
+                    '${p.name} · ${t.t(s.labelKey)}: '
+                    '${(p.models.toJson()[s.key] as String?) ?? t.t('group.batchOverrideEmpty')} → '
+                    '${(_slots[s.key]?.isNotEmpty ?? false) ? _slots[s.key] : t.t('group.batchOverrideEmpty')}',
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 批量改状态弹窗（`BatchSetStatusModal.tsx`）：启用/禁用 radio +
+/// 「整组将无候选」警告。
+class _BatchSetStatusCard extends StatefulWidget {
+  const _BatchSetStatusCard({required this.controller});
+
+  final GroupsController controller;
+
+  @override
+  State<_BatchSetStatusCard> createState() => _BatchSetStatusCardState();
+}
+
+class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
+  String _status = 'disabled';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = widget.controller;
+    final target = c.batchSetStatusTarget;
+    if (target == null) return const SizedBox.shrink();
+    final selectedIds = {for (final p in target.platforms) p.id};
+    final willEmpty = _status == 'disabled' &&
+        c.batchSetStatusGroupEnabledIds.isNotEmpty &&
+        c.batchSetStatusGroupEnabledIds.every(selectedIds.contains);
+    return ConfirmCard(
+      title: t.t('group.batchSetStatusTitle'),
+      body: t.t('group.batchSetStatusDesc', {'count': '${target.platforms.length}'}),
+      confirmLabel: c.batchSetStatusBusy
+          ? t.t('group.batchSetStatusApplying')
+          : t.t('group.batchSetStatusConfirm', {'count': '${target.platforms.length}'}),
+      busy: c.batchSetStatusBusy,
+      onCancel: c.cancelBatchSetStatus,
+      onConfirm: c.batchSetStatusBusy ? null : () => c.confirmBatchSetStatus(_status),
+      extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: AidogSpace.sxs,
+            children: [
+              for (final s in const ['disabled', 'enabled'])
+                SmallButton(
+                  label: s == 'enabled'
+                      ? t.t('group.batchSetStatusEnabled')
+                      : t.t('group.batchSetStatusDisabled'),
+                  active: _status == s,
+                  onTap: () => setState(() => _status = s),
+                ),
+            ],
+          ),
+          if (willEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AidogSpace.sxs),
+              child: Text(
+                t.t('group.batchSetStatusNoCandidateWarning'),
+                style: AidogType.micro.copyWith(color: theme.c.bad),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 批量移组弹窗（`BatchMoveGroupModal.tsx`）：目标组下拉 + move/add radio。
+class _BatchMoveGroupCard extends StatefulWidget {
+  const _BatchMoveGroupCard({required this.controller});
+
+  final GroupsController controller;
+
+  @override
+  State<_BatchMoveGroupCard> createState() => _BatchMoveGroupCardState();
+}
+
+class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
+  int? _targetGroupId;
+  String _mode = 'move';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = widget.controller;
+    final target = c.batchMoveGroupTarget;
+    if (target == null) return const SizedBox.shrink();
+    final isCurrentGroup = _targetGroupId == target.groupId;
+    final canConfirm = _targetGroupId != null && !isCurrentGroup;
+    return ConfirmCard(
+      title: t.t('group.batchMoveGroupTitle'),
+      body: t.t('group.batchMoveGroupDesc', {'count': '${target.platforms.length}'}),
+      confirmLabel: c.batchMoveGroupBusy
+          ? t.t('group.batchMoveGroupApplying')
+          : t.t('group.batchMoveGroupConfirm', {
+              'count': '${target.platforms.length}',
+              'mode': _mode == 'move'
+                  ? t.t('group.batchMoveGroupModeMoveShort')
+                  : t.t('group.batchMoveGroupModeAddShort'),
+            }),
+      busy: c.batchMoveGroupBusy,
+      onCancel: c.cancelBatchMoveGroup,
+      onConfirm: (c.batchMoveGroupBusy || !canConfirm)
+          ? null
+          : () => c.confirmBatchMoveGroup(_targetGroupId!, _mode),
+      extra: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(t.t('group.batchMoveGroupTarget'), style: AidogType.micro.copyWith(color: theme.c.fg3)),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<int>(
+              isExpanded: true,
+              hint: Text(t.t('group.batchMoveGroupSelect')),
+              value: _targetGroupId,
+              items: [
+                for (final og in c.allGroups)
+                  DropdownMenuItem(
+                    value: og.id,
+                    child: Text(
+                      og.id == target.groupId
+                          ? '${og.name} (${t.t('group.batchMoveGroupCurrent')})'
+                          : og.name,
+                    ),
+                  ),
+              ],
+              onChanged: (v) => setState(() => _targetGroupId = v),
+            ),
+          ),
+          if (isCurrentGroup)
+            Padding(
+              padding: const EdgeInsets.only(top: AidogSpace.sxs),
+              child: Text(
+                t.t('group.batchMoveGroupSameAsCurrent'),
+                style: AidogType.micro.copyWith(color: theme.c.bad),
+              ),
+            ),
+          const SizedBox(height: AidogSpace.sxs),
+          Wrap(
+            spacing: AidogSpace.sxs,
+            children: [
+              for (final m in const ['move', 'add'])
+                SmallButton(
+                  label: m == 'move'
+                      ? t.t('group.batchMoveGroupModeMove')
+                      : t.t('group.batchMoveGroupModeAdd'),
+                  active: _mode == m,
+                  onTap: () => setState(() => _mode = m),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
