@@ -973,11 +973,11 @@ void main() {
     testWidgets('折叠态：渲染平台名 + 操作按钮；展开区默认收着', (tester) async {
       final (k, c) = await mount(tester, cardFake());
       expect(find.text('Test Platform'), findsOneWidget);
-      expect(find.text(c.t('page.logs')), findsOneWidget);
-      expect(find.text(c.t('platform.share.button')), findsOneWidget);
+      expect(find.byTooltip(c.t('page.logs')), findsOneWidget);
+      expect(find.byTooltip(c.t('platform.share.button')), findsOneWidget);
       // 编辑 / 复制无条件渲染，与 `PlatformCard.tsx:832-850` 一致：宿主页没传回调时
       // 由页面自带的表单控制器接手（`platforms.dart` 的 `?? _form.handleDuplicate`）。
-      expect(find.text(c.t('platform.duplicate')), findsOneWidget);
+      expect(find.byTooltip(c.t('platform.duplicate')), findsOneWidget);
       // registry 给了默认模型 → hasDetail=true → 有展开控件，但内容默认收着。
       expect(find.byTooltip(c.t('platform.toggleDetail')), findsOneWidget);
       expect(find.text(c.t('platform.models')), findsNothing);
@@ -1001,19 +1001,83 @@ void main() {
         onEdit: (p) => edited.add(p.id),
         onDuplicate: (p) => duplicated.add(p.id),
       );
-      await tester.tap(find.text(c.t('action.edit')));
-      await tester.tap(find.text(c.t('platform.duplicate')));
+      await tester.tap(find.byTooltip(c.t('action.edit')));
+      await tester.tap(find.byTooltip(c.t('platform.duplicate')));
       await settle(tester);
       expect(edited, [1]);
       expect(duplicated, [1]);
     });
 
-    testWidgets('启停开关：三态文案 + 点击发 platform_update', (tester) async {
+    testWidgets('启停开关：真滑块 + 三态文案 + 点击发 platform_update', (tester) async {
       final (k, c) = await mount(tester, cardFake());
-      expect(find.text(c.t('platform.disable')), findsOneWidget);
-      await tester.tap(find.text(c.t('platform.disable')));
+      // 票 13：文字按钮换成滑块，enabled 平台呈开态。
+      expect(tester.widget<AidogSwitch>(find.byType(AidogSwitch)).value, isTrue);
+      expect(find.byTooltip(c.t('platform.disable')), findsOneWidget);
+      await tester.tap(find.byTooltip(c.t('platform.disable')));
       await settle(tester);
       expect(k.lastCallTo('platform_update')!.args!['input'], isNotNull);
+    });
+
+    testWidgets('停用平台 → 开关呈关态', (tester) async {
+      await mount(
+        tester,
+        cardFake(
+          platforms: [
+            platRow(1, 'Test Platform', status: 'disabled', enabled: false),
+          ],
+        ),
+      );
+      expect(
+        tester.widget<AidogSwitch>(find.byType(AidogSwitch)).value,
+        isFalse,
+      );
+    });
+
+    testWidgets('六颗快操作各有图标按钮，按 tooltip 点得动', (tester) async {
+      final edited = <int>[];
+      final duplicated = <int>[];
+      final nav = <String>[];
+      final (k, c) = await mount(
+        tester,
+        cardFake(),
+        onEdit: (p) => edited.add(p.id),
+        onDuplicate: (p) => duplicated.add(p.id),
+      );
+      // 刷新额度 / 日志 / 编辑 / 分享 / 复制 / 删除：文案 key 全在 tooltip 上。
+      for (final key in [
+        'platform.quotaRefresh',
+        'page.logs',
+        'action.edit',
+        'platform.share.button',
+        'platform.duplicate',
+        'action.delete',
+      ]) {
+        expect(find.byTooltip(c.t(key)), findsOneWidget, reason: key);
+      }
+      final before = k.callsTo('platform_query_quota').length;
+      await tester.tap(find.byTooltip(c.t('platform.quotaRefresh')));
+      await settle(tester);
+      expect(k.callsTo('platform_query_quota').length, before + 1);
+      await tester.tap(find.byTooltip(c.t('action.edit')));
+      await tester.tap(find.byTooltip(c.t('platform.duplicate')));
+      await settle(tester);
+      expect(edited, [1]);
+      expect(duplicated, [1]);
+      await tester.tap(find.byTooltip(c.t('action.delete')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget);
+      expect(nav, isEmpty);
+    });
+
+    testWidgets('点卡片头部切换展开态', (tester) async {
+      final (_, c) = await mount(tester, cardFake());
+      expect(find.text(c.t('platform.models')), findsNothing);
+      await tester.tap(find.text('Test Platform'));
+      await settle(tester);
+      expect(find.text(c.t('platform.models')), findsOneWidget);
+      await tester.tap(find.text('Test Platform'));
+      await settle(tester);
+      expect(find.text(c.t('platform.models')), findsNothing);
     });
 
     testWidgets('auto_disabled → 「重新启用」文案 + 自动禁用徽标', (tester) async {
@@ -1034,7 +1098,7 @@ void main() {
         ),
       );
       expect(find.text(c.t('platform.autoDisabled')), findsOneWidget);
-      expect(find.text(c.t('platform.reenable')), findsOneWidget);
+      expect(find.byTooltip(c.t('platform.reenable')), findsOneWidget);
     });
 
     testWidgets('停用态整卡半透明（opacity 0.5）', (tester) async {
@@ -1061,9 +1125,9 @@ void main() {
       final gate = Completer<Object?>();
       k.responses['model_test'] = () => gate.future;
       final (_, c) = await mount(tester, k);
-      await tester.tap(find.text(c.t('platform.quickTest')));
+      await tester.tap(find.byTooltip(c.t('platform.quickTest')));
       await settle(tester);
-      expect(find.text(c.t('platform.quickTest')), findsNothing);
+      expect(find.byTooltip(c.t('platform.quickTest')), findsNothing);
       expect(k.callsTo('model_test').length, 1);
       gate.complete({'success': true, 'duration_ms': 7, 'error': ''});
       await settle(tester);
@@ -1072,7 +1136,7 @@ void main() {
     testWidgets('可查配额的平台才有「刷新额度」按钮；点它发 platform_query_quota', (tester) async {
       final (k, c) = await mount(tester, cardFake());
       final before = k.callsTo('platform_query_quota').length;
-      await tester.tap(find.text(c.t('platform.quotaRefresh')));
+      await tester.tap(find.byTooltip(c.t('platform.quotaRefresh')));
       await settle(tester);
       expect(k.callsTo('platform_query_quota').length, before + 1);
     });
@@ -1082,7 +1146,7 @@ void main() {
         tester,
         cardFake(platforms: [platRow(1, 'Test Platform', type: 'glm_coding')]),
       );
-      expect(find.text(c.t('platform.quotaRefresh')), findsNothing);
+      expect(find.byTooltip(c.t('platform.quotaRefresh')), findsNothing);
       expect(k.commands.contains('platform_query_quota'), isFalse);
     });
 
@@ -1364,7 +1428,7 @@ void main() {
       expect(find.text('15.0K'), findsOneWidget); // 10000 + 5000
       expect(find.text('\$1.50'), findsOneWidget);
       // 没配额能力就没有刷新按钮（这条门控是对的，保持）。
-      expect(find.text(c.t('platform.quotaRefresh')), findsNothing);
+      expect(find.byTooltip(c.t('platform.quotaRefresh')), findsNothing);
     });
 
     testWidgets('配额查回来是空的：速率余量 chip 照样显示', (tester) async {
@@ -1624,7 +1688,7 @@ void main() {
 
     testWidgets('删除必须先确认：点删除只出确认卡，不发命令', (tester) async {
       final (k, c) = await mount(tester, cardFake());
-      await tester.tap(find.text(c.t('action.delete')));
+      await tester.tap(find.byTooltip(c.t('action.delete')));
       await settle(tester);
       expect(find.byType(ConfirmCard), findsOneWidget);
       expect(k.commands.contains('platform_delete'), isFalse);
@@ -1637,14 +1701,14 @@ void main() {
       final k = cardFake();
       k.responses['platform_list'] = [platRow(1, 'Test Platform')];
       final (_, c) = await mount(tester, k);
-      await tester.tap(find.text(c.t('test.title')));
+      await tester.tap(find.byTooltip(c.t('test.title')));
       await settle(tester);
       expect(find.byType(ModelTestPanel), findsOneWidget);
     });
 
     testWidgets('分享面板点关闭就收起', (tester) async {
       final (_, c) = await mount(tester, cardFake());
-      await tester.tap(find.text(c.t('platform.share.button')));
+      await tester.tap(find.byTooltip(c.t('platform.share.button')));
       await settle(tester);
       expect(find.byType(SharePanel), findsOneWidget);
       await tester.tap(find.text(c.t('action.close')));
@@ -1656,7 +1720,7 @@ void main() {
       final k = cardFake();
       k.errors['platform_share_export'] = StateError('boom');
       final (_, c) = await mount(tester, k);
-      await tester.tap(find.text(c.t('platform.share.button')));
+      await tester.tap(find.byTooltip(c.t('platform.share.button')));
       await settle(tester);
       expect(find.byType(SharePanel), findsNothing);
       expect(find.byType(ToastBar), findsOneWidget);
@@ -1684,7 +1748,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('page.logs')));
+      await tester.tap(find.byTooltip(c.t('page.logs')));
       await settle(tester);
       expect(nav, ['logs:1']);
     });
@@ -1797,7 +1861,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('platform.share.button')));
+      await tester.tap(find.byTooltip(c.t('platform.share.button')));
       await settle(tester);
       expect(k.lastCallTo('platform_share_export')!.args!['platformId'], 1);
       expect(find.byType(SharePanel), findsOneWidget);

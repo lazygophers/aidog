@@ -556,7 +556,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(i18n.t('action.edit')));
+      await tester.tap(find.byTooltip(i18n.t('action.edit')));
       await settle(tester);
       expect(find.text(i18n.t('platform.protocolLocked')), findsOneWidget);
       // 页头标题用的是平台名（React `PlatformEditForm.tsx:104`）。
