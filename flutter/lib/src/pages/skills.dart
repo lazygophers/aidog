@@ -1,8 +1,9 @@
 /// 技能页界面（票 I09），对应 `src/pages/Skills.tsx` 的三个子视图。
 ///
 /// 结构与 React 同：一个顶层页面，内部 `subView` 在 `list` / `install` 之间切；
-/// 详情与七个弹窗是**页面 state 的一部分**（不是 route），widget 测试
-/// `find.byType(ConfirmCard)` / `find.text(...)` 就能断言 —— 沿用票 I07 的做法。
+/// 详情与七个弹窗的开合是**页面 state 的一部分**（不是 route），浮层本身由
+/// [AidogModal] 画进根 Overlay；widget 测试 `find.byType(ConfirmCard)` /
+/// `find.text(...)` 照常断言。
 ///
 /// 色值一律 `AidogTheme.of(context).c.*`，本文件零硬编码颜色。
 library;
