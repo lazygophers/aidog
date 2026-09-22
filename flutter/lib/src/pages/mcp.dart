@@ -69,6 +69,9 @@ class _McpPageState extends State<McpPage> {
               ),
               SmallButton(
                 label: t.t('mcp.resync'),
+                // 这颗按钮会重写所有已启用 agent 的配置文件，解释尤其不能省
+                //（`Mcp/McpView.tsx:49` 的 `title=`）。
+                tooltip: t.t('mcp.resyncHint'),
                 onTap: _c.busyKey == null ? _c.resync : null,
               ),
             ],
@@ -171,8 +174,7 @@ class _McpPageState extends State<McpPage> {
                     children: [
                       Checkbox(
                         value:
-                            it.alreadyImported ||
-                            _c.selected.contains(it.name),
+                            it.alreadyImported || _c.selected.contains(it.name),
                         visualDensity: VisualDensity.compact,
                         onChanged: (_c.importing || it.alreadyImported)
                             ? null

@@ -394,6 +394,10 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
               SmallButton(
                 label: t.t('action.confirm'),
                 // 同一个 agent 对齐自己是空操作，按钮直接禁掉。
+                // 光禁不说原因等于把解释丢了，提示语照抄 React 的 `title=`。
+                tooltip: _c.alignFrom == _c.alignTo
+                    ? t.t('skills.alignSameAgent')
+                    : null,
                 onTap: _c.alignFrom == _c.alignTo ? null : _c.align,
               ),
             ],
@@ -575,31 +579,36 @@ class _SkillRow extends StatelessWidget {
           Checkbox(value: checked, onChanged: busy ? null : (_) => onCheck()),
           Expanded(
             flex: 3,
-            child: InkWell(
-              onTap: onOpen,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    skill.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.body.copyWith(color: theme.c.fg),
-                  ),
-                  if ((skill.description ?? '').isNotEmpty)
+            child: Tooltip(
+              // 点名字开详情这件事本身看不出来，React 把它写在 `title=` 上
+              //（`SkillsView.tsx:400`）。
+              message: t.t('skills.detail.view'),
+              child: InkWell(
+                onTap: onOpen,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      skill.description!,
+                      skill.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                      style: AidogType.body.copyWith(color: theme.c.fg),
                     ),
-                  // 元信息行（`SkillsView.tsx:432-490`）：来源类型 / plugin 来源 /
-                  // 更新时间 / 安装于 · 内容 hash 前 7 位。
-                  // 原先这一整块在 Flutter 侧没有 —— 装了什么、从哪来、什么时候装的，
-                  // 一条都看不到。
-                  _SkillMeta(skill: skill),
-                ],
+                    if ((skill.description ?? '').isNotEmpty)
+                      Text(
+                        skill.description!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.micro.copyWith(color: theme.c.fg3),
+                      ),
+                    // 元信息行（`SkillsView.tsx:432-490`）：来源类型 / plugin 来源 /
+                    // 更新时间 / 安装于 · 内容 hash 前 7 位。
+                    // 原先这一整块在 Flutter 侧没有 —— 装了什么、从哪来、什么时候装的，
+                    // 一条都看不到。
+                    _SkillMeta(skill: skill),
+                  ],
+                ),
               ),
             ),
           ),
@@ -966,6 +975,9 @@ class _CatalogRow extends StatelessWidget {
                     : already
                     ? t.t('skills.install.installed')
                     : t.t('skills.install.install'),
+                // 只在「别的安装还没完」时给解释，与 React 的 `title=` 同条件
+                //（`SkillInstallView.tsx:426-434`）。
+                tooltip: otherBusy ? t.t('skills.install.busyOther') : null,
                 onTap: disabled ? null : onInstall,
               ),
             ],
