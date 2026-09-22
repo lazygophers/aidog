@@ -152,6 +152,9 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   /// 表单草稿。表单没开时为 null。
   _RuleDraft? _draft;
 
+  /// 只读态（内置规则）：表单照常渲染，但控件点不动、不给保存。
+  bool _readOnly = false;
+
   /// 条件区模式：cards（默认）/ dsl / json；动作区：cards / json。
   /// DSL 与 JSON 只是同一份结构化草稿的文本视图，切换时互转。
   String _condMode = 'cards';
@@ -197,8 +200,12 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     }
   }
 
-  void _openForm(_RuleDraft d) {
+  /// [readOnly] = 内置规则：表单照开，但所有控件点不动，顶上说明为什么
+  ///（`MiddlewareRules.tsx:721-727`）。原先内置规则的「查看规则」直接禁用，
+  /// 它的条件和动作在界面上根本打不开看。
+  void _openForm(_RuleDraft d, {bool readOnly = false}) {
     setState(() {
+      _readOnly = readOnly;
       _draft = d;
       _condMode = 'cards';
       _actionsMode = 'cards';
@@ -208,7 +215,10 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   }
 
   void _closeForm() {
-    setState(() => _draft = null);
+    setState(() {
+      _draft = null;
+      _readOnly = false;
+    });
     _c.closeForm();
     _syncGuard();
   }
@@ -492,11 +502,13 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
               label: r.isBuiltin
                   ? t.t('middleware.viewRule')
                   : t.t('action.edit'),
-              onTap: (r.isBuiltin || r.failed)
+              onTap: r.failed
                   ? null
                   : () {
-                      _c.openEdit(r);
-                      _openForm(_RuleDraft.fromRule(r));
+                      // 内置规则只读打开：看得到条件 / 动作，改不动
+                      //（React 同一颗按钮走的也是只读表单）。
+                      if (!r.isBuiltin) _c.openEdit(r);
+                      _openForm(_RuleDraft.fromRule(r), readOnly: r.isBuiltin);
                     },
             ),
             const SizedBox(width: AidogSpace.sxs),
@@ -513,10 +525,40 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     );
   }
 
-  Widget _form(I18nController t, _RuleDraft d) => SettingsCard(
-    title: _c.editingRule != null
+  Widget _form(I18nController t, _RuleDraft d) {
+    final card = _formCard(t, d);
+    if (!_readOnly) return card;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 文本仍可选中复制，只是所有控件点不动（React 用 `pointerEvents: none`
+        // 达到同样效果，`MiddlewareRules.tsx:729`）。
+        IgnorePointer(child: card),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SmallButton(
+              key: const ValueKey('rule-readonly-close'),
+              label: t.t('action.close'),
+              onTap: _closeForm,
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _formCard(I18nController t, _RuleDraft d) => SettingsCard(
+    title: _readOnly
+        ? t.t('middleware.viewRule')
+        : _c.editingRule != null
         ? t.t('middleware.editRule')
         : t.t('middleware.addRule'),
+    // 只读时先说清为什么点不动，否则用户会以为表单坏了。
+    description: _readOnly
+        ? tOr(t, 'middleware.builtinReadonlyHint', '内置规则只可启停，内容不可修改')
+        : null,
     children: [
       TextRow(
         key: const ValueKey('rule-name'),
@@ -650,25 +692,27 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         platforms: _c.platforms,
         groups: _c.groups,
       ),
-      Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          SmallButton(label: t.t('action.cancel'), onTap: _closeForm),
-          const SizedBox(width: AidogSpace.ssm),
-          SmallButton(
-            key: const ValueKey('rule-save'),
-            label: t.t('action.save'),
-            // 名字为空、条件 / 动作在当前模式下解析不了、或混阶段，就点不动。
-            onTap: _draftValid()
-                ? () async {
-                    _syncDraftFromText();
-                    await _c.save(_draft!.toInput());
-                    if (mounted) _closeForm();
-                  }
-                : null,
-          ),
-        ],
-      ),
+      // 只读时整张卡被 IgnorePointer 罩住，按钮放在卡外面才点得动。
+      if (!_readOnly)
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            SmallButton(label: t.t('action.cancel'), onTap: _closeForm),
+            const SizedBox(width: AidogSpace.ssm),
+            SmallButton(
+              key: const ValueKey('rule-save'),
+              label: t.t('action.save'),
+              // 名字为空、条件 / 动作在当前模式下解析不了、或混阶段，就点不动。
+              onTap: _draftValid()
+                  ? () async {
+                      _syncDraftFromText();
+                      await _c.save(_draft!.toInput());
+                      if (mounted) _closeForm();
+                    }
+                  : null,
+            ),
+          ],
+        ),
     ],
   );
 }

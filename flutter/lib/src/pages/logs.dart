@@ -101,9 +101,13 @@ class _LogsPageState extends State<LogsPage> {
       children: [
         PageHead(
           title: t.t('page.logs'),
+          // 后端为了省开销不再跑精确 COUNT(*)（logs-query-ipc-slimming s2），
+          // 手上只有**当前页**的条数。原先把它当总数写成「N 条」——
+          // 翻到第二页数字还是 20，读起来像「一共就这么多」。React 同样只说
+          // 「日志列表」（`ListView.tsx:63`），不编一个总数出来。
           subtitle: _c.logs.isEmpty
               ? t.t('logs.empty')
-              : '${_c.logs.length} ${t.t('logs.total')}',
+              : t.t('logs.totalUnknown'),
           trailing: Wrap(
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -1038,7 +1042,10 @@ class _DetailPanelState extends State<_DetailPanel> {
                 t,
                 theme,
                 t.t('logs.responseBody'),
-                detail.userResponseBody,
+                detail.userResponseBody.trim().isEmpty
+                    ? detail.responseBody
+                    : detail.userResponseBody,
+                emptyText: t.t('logs.streamResponse'),
               ),
             ] else ...[
               _section(t, theme, 'URL', detail.upstreamRequestUrl),
@@ -1060,7 +1067,13 @@ class _DetailPanelState extends State<_DetailPanel> {
                 t.t('logs.responseHeaders'),
                 detail.upstreamResponseHeaders,
               ),
-              _section(t, theme, t.t('logs.responseBody'), detail.responseBody),
+              _section(
+                t,
+                theme,
+                t.t('logs.responseBody'),
+                detail.responseBody,
+                emptyText: t.t('logs.streamResponse'),
+              ),
             ],
           ],
         ),
@@ -1309,10 +1322,15 @@ class _DetailPanelState extends State<_DetailPanel> {
     I18nController t,
     AidogTheme theme,
     String title,
-    String body,
-  ) {
+    String body, {
+    /// 空块的占位说明。响应正文为空的原因和请求正文不一样 —— 流式响应本来就
+    /// 不落正文，写「未捕获」会让人以为日志坏了（`DetailPanel.tsx:100-107`）。
+    String? emptyText,
+  }) {
     final empty = body.trim().isEmpty;
-    final text = empty ? t.t('logs.noUpstream') : prettyJsonOrRaw(body);
+    final text = empty
+        ? (emptyText ?? t.t('logs.noUpstream'))
+        : prettyJsonOrRaw(body);
     return Padding(
       padding: const EdgeInsets.only(top: AidogSpace.ssm),
       child: Column(

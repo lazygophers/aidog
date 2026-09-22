@@ -18,7 +18,11 @@ import 'package:flutter_test/flutter_test.dart';
 import '../pages/harness.dart';
 import 'pages_c_widget_test.dart' show baseResponses;
 
-Map<String, Object?> _rule({required bool failed, bool enabled = true}) => {
+Map<String, Object?> _rule({
+  required bool failed,
+  bool enabled = true,
+  bool builtin = false,
+}) => {
   'id': 1,
   'name': '旧规则',
   'description': '',
@@ -27,7 +31,7 @@ Map<String, Object?> _rule({required bool failed, bool enabled = true}) => {
   'applies_to': <String, Object?>{},
   'priority': 0,
   'enabled': enabled,
-  'is_builtin': false,
+  'is_builtin': builtin,
   'failed': failed,
 };
 
@@ -35,12 +39,15 @@ Future<(FakeKernel, I18nController)> _mount(
   WidgetTester tester, {
   required bool failed,
   bool enabled = true,
+  bool builtin = false,
   List<Object?> budget = const [],
 }) async {
   await useBigSurface(tester);
   final k = FakeKernel({
     ...baseResponses(),
-    'middleware_list_rules': (_) => [_rule(failed: failed, enabled: enabled)],
+    'middleware_list_rules': (_) => [
+      _rule(failed: failed, enabled: enabled, builtin: builtin),
+    ],
     'middleware_budget_status': (_) => budget,
   });
   final i18n = await makeI18n(tester);
@@ -149,5 +156,26 @@ void main() {
     expect(find.text(t.t('middleware.budgetExceeded')), findsOneWidget);
     // 超限时不该再显「剩余 -2」这种读不懂的数。
     expect(find.textContaining(t.t('middleware.budgetRemaining')), findsNothing);
+  });
+
+  testWidgets('内置规则：「查看规则」点得动，开出来是只读表单', (tester) async {
+    final (_, t) = await _mount(tester, failed: false, builtin: true);
+    final view = find.widgetWithText(SmallButton, t.t('middleware.viewRule'));
+    // 原先这颗按钮是禁用的 —— 内置规则的条件和动作在界面上根本打不开看。
+    expect(tester.widget<SmallButton>(view).enabled, isTrue);
+
+    await tester.tap(view);
+    await settle(tester);
+
+    // 开出来要说清为什么改不动，并且没有保存入口。
+    expect(find.text(t.t('middleware.builtinReadonlyHint')), findsOneWidget);
+    expect(find.byKey(const ValueKey('rule-save')), findsNothing);
+    expect(find.byKey(const ValueKey('rule-readonly-close')), findsOneWidget);
+    // 规则内容本身要看得见。
+    expect(find.text(t.t('middleware.conditions')), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('rule-readonly-close')));
+    await settle(tester);
+    expect(find.text(t.t('middleware.builtinReadonlyHint')), findsNothing);
   });
 }
