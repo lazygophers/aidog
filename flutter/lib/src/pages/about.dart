@@ -17,11 +17,7 @@ import 'platform_card_bits.dart' show MiniBadge;
 import 'ui_bits.dart';
 
 class AboutPage extends StatefulWidget {
-  const AboutPage({
-    super.key,
-    this.invoke = kernelInvoke,
-    this.onCheckUpdate,
-  });
+  const AboutPage({super.key, this.invoke = kernelInvoke, this.onCheckUpdate});
 
   final InvokeFn invoke;
 
@@ -88,43 +84,49 @@ class _AboutPageState extends State<AboutPage> {
         PageHead(title: t.t('about.title'), subtitle: t.t('about.subtitle')),
 
         // ── 版本信息 ──
-        Tile(
-          child: rows.isEmpty
-              ? Text(
-                  t.t('status.loading'),
-                  style: AidogType.micro.copyWith(color: theme.c.fg2),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final r in rows)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Text(
-                              r.label,
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.fg,
-                              ),
-                            ),
-                            const Spacer(),
-                            // 版本号 / commit / 架构都是标识串，RTL 下不该被重排。
-                            Flexible(
-                              child: Text(
-                                ltr(r.value),
-                                textAlign: TextAlign.end,
-                                style: AidogType.micro.copyWith(
-                                  color: theme.c.fg2,
+        // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
+        Reveal(
+          delayMs: 0,
+          child: HoverLift(
+            child: Tile(
+              child: rows.isEmpty
+                  ? Text(
+                      t.t('status.loading'),
+                      style: AidogType.micro.copyWith(color: theme.c.fg2),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final r in rows)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4),
+                            child: Row(
+                              children: [
+                                Text(
+                                  r.label,
+                                  style: AidogType.micro.copyWith(
+                                    color: theme.c.fg,
+                                  ),
                                 ),
-                              ),
+                                const Spacer(),
+                                // 版本号 / commit / 架构都是标识串，RTL 下不该被重排。
+                                Flexible(
+                                  child: Text(
+                                    ltr(r.value),
+                                    textAlign: TextAlign.end,
+                                    style: AidogType.micro.copyWith(
+                                      color: theme.c.fg2,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
-                        ),
-                      ),
-                  ],
-                ),
+                          ),
+                      ],
+                    ),
+            ),
+          ),
         ),
         const SizedBox(height: AidogSpace.ssm),
 
@@ -132,115 +134,135 @@ class _AboutPageState extends State<AboutPage> {
         // React 在 `About.tsx:291` 按 `isTauri()` 分两条分支；Flutter 壳对应的是
         // `onCheckUpdate` 有没有（票 I13 的 auto_updater，仅 macOS / Windows）：
         // 有 → 检查按钮，后续 UI（下载/安装/重启）Sparkle 自己接管；没有 → 一句说明。
-        Tile(
-          title: t.t('about.updateTitle'),
-          child: widget.onCheckUpdate == null
-              ? Text(
-                  t.t('about.updateDesktopOnly'),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
-                )
-              : ValueListenableBuilder<(UpdateState, String)>(
-                  valueListenable: updateStatus,
-                  builder: (context, s, _) {
-                    final (state, err) = s;
-                    final busy = state == UpdateState.checking;
-                    // 页内状态行（`About.tsx:283-287`）：Sparkle 的原生窗只在
-                    // 「有新版本」时出现，「已是最新 / 检查失败」不弹窗，
-                    // 没有这一行就等于点了没反应。
-                    final status = switch (state) {
-                      UpdateState.checking => t.t('about.checking'),
-                      UpdateState.upToDate => t.t('about.upToDate'),
-                      UpdateState.error => '${t.t('about.updateError')}: $err',
-                      UpdateState.idle => '',
-                    };
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        if (status.isNotEmpty) ...[
-                          Text(
-                            status,
-                            style: AidogType.micro.copyWith(
-                              color: state == UpdateState.error
-                                  ? theme.c.bad
-                                  : theme.c.fg2,
+        // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
+        Reveal(
+          delayMs: 80,
+          child: HoverLift(
+            child: Tile(
+              title: t.t('about.updateTitle'),
+              child: widget.onCheckUpdate == null
+                  ? Text(
+                      t.t('about.updateDesktopOnly'),
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    )
+                  : ValueListenableBuilder<(UpdateState, String)>(
+                      valueListenable: updateStatus,
+                      builder: (context, s, _) {
+                        final (state, err) = s;
+                        final busy = state == UpdateState.checking;
+                        // 页内状态行（`About.tsx:283-287`）：Sparkle 的原生窗只在
+                        // 「有新版本」时出现，「已是最新 / 检查失败」不弹窗，
+                        // 没有这一行就等于点了没反应。
+                        final status = switch (state) {
+                          UpdateState.checking => t.t('about.checking'),
+                          UpdateState.upToDate => t.t('about.upToDate'),
+                          UpdateState.error =>
+                            '${t.t('about.updateError')}: $err',
+                          UpdateState.idle => '',
+                        };
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (status.isNotEmpty) ...[
+                              Text(
+                                status,
+                                style: AidogType.micro.copyWith(
+                                  color: state == UpdateState.error
+                                      ? theme.c.bad
+                                      : theme.c.fg2,
+                                ),
+                              ),
+                              const SizedBox(height: AidogSpace.sxs),
+                            ],
+                            SmallButton(
+                              label: busy
+                                  ? t.t('about.checking')
+                                  : t.t('about.checkUpdate'),
+                              onTap: busy ? null : widget.onCheckUpdate,
                             ),
-                          ),
-                          const SizedBox(height: AidogSpace.sxs),
-                        ],
-                        SmallButton(
-                          label: busy
-                              ? t.t('about.checking')
-                              : t.t('about.checkUpdate'),
-                          onTap: busy ? null : widget.onCheckUpdate,
-                        ),
-                      ],
-                    );
-                  },
-                ),
+                          ],
+                        );
+                      },
+                    ),
+            ),
+          ),
         ),
         const SizedBox(height: AidogSpace.ssm),
 
         // ── GitHub 链接 ──
-        Tile(
-          title: t.t('about.githubTitle'),
-          meta: ltr(kGithubRepo),
-          child: Wrap(
-            spacing: AidogSpace.ssm,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              for (final b in const [
-                ('repo', 'about.repo'),
-                ('releases', 'about.releases'),
-                ('issues', 'about.issues'),
-                ('reportIssue', 'about.reportIssue'),
-              ])
-                SmallButton(
-                  label: t.t(b.$2),
-                  onTap: () => native.openUrl(kGithubLinks[b.$1]!),
-                ),
-            ],
+        // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
+        Reveal(
+          delayMs: 160,
+          child: HoverLift(
+            child: Tile(
+              title: t.t('about.githubTitle'),
+              meta: ltr(kGithubRepo),
+              child: Wrap(
+                spacing: AidogSpace.ssm,
+                runSpacing: AidogSpace.sxs,
+                children: [
+                  for (final b in const [
+                    ('repo', 'about.repo'),
+                    ('releases', 'about.releases'),
+                    ('issues', 'about.issues'),
+                    ('reportIssue', 'about.reportIssue'),
+                  ])
+                    SmallButton(
+                      label: t.t(b.$2),
+                      onTap: () => native.openUrl(kGithubLinks[b.$1]!),
+                    ),
+                ],
+              ),
+            ),
           ),
         ),
         const SizedBox(height: AidogSpace.ssm),
 
         // ── 本地环境 ──
-        Tile(
-          title: t.t('about.localEnv.title'),
-          meta: t.t('about.localEnv.subtitle'),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Wrap(
-                spacing: AidogSpace.ssm,
+        // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
+        Reveal(
+          delayMs: 240,
+          child: HoverLift(
+            child: Tile(
+              title: t.t('about.localEnv.title'),
+              meta: t.t('about.localEnv.subtitle'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SmallButton(
-                    label: _c.cliBusy == 'check'
-                        ? t.t('about.localEnv.checking')
-                        : t.t('about.localEnv.check'),
-                    onTap: _c.cliBusy.isEmpty ? _c.checkCli : null,
+                  Wrap(
+                    spacing: AidogSpace.ssm,
+                    children: [
+                      SmallButton(
+                        label: _c.cliBusy == 'check'
+                            ? t.t('about.localEnv.checking')
+                            : t.t('about.localEnv.check'),
+                        onTap: _c.cliBusy.isEmpty ? _c.checkCli : null,
+                      ),
+                      SmallButton(
+                        label: _c.cliBusy == 'diagnose'
+                            ? t.t('about.localEnv.diagnosing')
+                            : t.t('about.localEnv.diagnose'),
+                        onTap: _c.cliBusy.isEmpty ? _c.diagnoseCli : null,
+                      ),
+                    ],
                   ),
-                  SmallButton(
-                    label: _c.cliBusy == 'diagnose'
-                        ? t.t('about.localEnv.diagnosing')
-                        : t.t('about.localEnv.diagnose'),
-                    onTap: _c.cliBusy.isEmpty ? _c.diagnoseCli : null,
-                  ),
+                  for (final s in _c.cliTools)
+                    _CliToolRow(
+                      status: s,
+                      conflict: _c.conflictFor(s.name),
+                      busy: _c.cliBusy,
+                      pending: _c.cliPendingTool == s.name,
+                      onInstall: () => _c.installCli(s.name),
+                      onUpgrade: () => _c.upgradeCli(s.name),
+                    ),
+                  if (_c.cliMsg.isNotEmpty) ToastBar(text: _c.cliMsg, ok: true),
+                  if (_c.cliErr.isNotEmpty)
+                    ToastBar(text: _c.cliErr, ok: false),
                 ],
               ),
-              for (final s in _c.cliTools)
-                _CliToolRow(
-                  status: s,
-                  conflict: _c.conflictFor(s.name),
-                  busy: _c.cliBusy,
-                  pending: _c.cliPendingTool == s.name,
-                  onInstall: () => _c.installCli(s.name),
-                  onUpgrade: () => _c.upgradeCli(s.name),
-                ),
-              if (_c.cliMsg.isNotEmpty) ToastBar(text: _c.cliMsg, ok: true),
-              if (_c.cliErr.isNotEmpty) ToastBar(text: _c.cliErr, ok: false),
-            ],
+            ),
           ),
         ),
       ],
@@ -345,7 +367,9 @@ class _CliToolRow extends StatelessWidget {
                       ? theme.c.peak.withValues(alpha: 0.08)
                       : theme.c.surface2,
                   border: Border.all(
-                    color: conflict!.isConflicting ? theme.c.peak : theme.c.line,
+                    color: conflict!.isConflicting
+                        ? theme.c.peak
+                        : theme.c.line,
                   ),
                   borderRadius: BorderRadius.circular(AidogRadius.sm),
                 ),
@@ -368,7 +392,9 @@ class _CliToolRow extends StatelessWidget {
                           const SizedBox(width: AidogSpace.sxs),
                           Text(
                             t.t('about.localEnv.conflict'),
-                            style: AidogType.micro.copyWith(color: theme.c.peak),
+                            style: AidogType.micro.copyWith(
+                              color: theme.c.peak,
+                            ),
                           ),
                         ],
                       ],

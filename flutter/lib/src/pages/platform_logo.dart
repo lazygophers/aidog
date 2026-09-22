@@ -17,6 +17,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../shell/theme.dart';
+
 /// 别名表：逐条照抄 `src/assets/platforms/index.ts:11-22`。
 /// 变体协议（`_en` / `_coding`）共用主协议的图。
 const Map<String, String> kLogoAliases = {
@@ -200,4 +202,107 @@ Widget? platformLogo({
     );
   }
   return null;
+}
+
+/// agent（claude / codex）的图标按钮。30×30，图标 18×18，
+/// 对齐 `src/pages/Mcp/primitives.tsx:95-125`：
+/// 不支持 → 整体 0.3 且点不动；支持但没启用 → 0.55 + 去色；启用 → 全色。
+///
+/// 图标就是 React 用的那两个文件（`assets/platforms/claude_code.svg` /
+/// `openai.svg`），经 `aidog_platform_logos` 资产包读同一份，不拷第二份。
+class AgentIconButton extends StatelessWidget {
+  const AgentIconButton({
+    super.key,
+    required this.agent,
+    required this.enabled,
+    required this.supported,
+    required this.tooltip,
+    required this.onTap,
+    this.label,
+  });
+
+  /// 图标右边的状态字（技能行是「启用 / 未启用」，`SkillsView.tsx:529-531`）。
+  /// 不给就是纯图标按钮（MCP 行，`Mcp/primitives.tsx:95-125`）。
+  final String? label;
+
+  /// `claude` / `claude-code` / `codex` 都认。
+  final String agent;
+  final bool enabled;
+  final bool supported;
+  final String tooltip;
+  final VoidCallback? onTap;
+
+  /// agent slug → 资产。MCP 侧是 `claude-code`，技能侧是 `claude`，两边都收。
+  static String? assetFor(String agent) => switch (agent) {
+    'claude' ||
+    'claude-code' => 'packages/aidog_platform_logos/claude_code.svg',
+    'codex' => 'packages/aidog_platform_logos/openai.svg',
+    _ => null,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final asset = assetFor(agent);
+    final icon = asset == null
+        ? Icon(Icons.smart_toy_outlined, size: 18, color: theme.c.fg2)
+        : SvgPicture.asset(asset, width: 18, height: 18);
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: !supported
+            ? 0.3
+            : enabled
+            ? 1
+            : 0.55,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          child: Container(
+            width: label == null ? 30 : null,
+            height: 30,
+            alignment: Alignment.center,
+            padding: label == null
+                ? null
+                : const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(
+              color: enabled ? theme.c.accentWash : null,
+              border: Border.all(
+                color: enabled ? theme.c.accent : theme.c.line,
+              ),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // 没启用时去色（React 的 `filter: grayscale(1)`）。
+                if (enabled)
+                  icon
+                else
+                  ColorFiltered(
+                    colorFilter: const ColorFilter.matrix(<double>[
+                      0.2126, 0.7152, 0.0722, 0, 0, //
+                      0.2126, 0.7152, 0.0722, 0, 0, //
+                      0.2126, 0.7152, 0.0722, 0, 0, //
+                      0, 0, 0, 1, 0, //
+                    ]),
+                    child: icon,
+                  ),
+                if (label case final l?) ...[
+                  const SizedBox(width: 6),
+                  Text(
+                    l,
+                    style: AidogType.micro.copyWith(
+                      color: enabled ? theme.c.accentText : theme.c.fg2,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

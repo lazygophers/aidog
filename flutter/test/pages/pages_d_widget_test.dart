@@ -109,9 +109,15 @@ void main() {
       final k = fake(extra: {'skills_disable': (_) => opOk()});
       await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
       await settle(tester);
-      // 行内的 claude 开关。按钮文案是「<agent> · <状态>」，不是纯 agent 名，
-      // 所以用 textContaining；页头那串统计里也有 agent 名，取 .last 拿行内那个。
-      await tester.tap(find.textContaining(c.t('skills.agent.claude')).last);
+      // 2026-09-22 起 agent 开关是「图标 + 状态字」（`SkillsView.tsx:523-531`），
+      // agent 名挪进了 tooltip，所以按 tooltip 定位这颗按钮。
+      await tester.tap(
+        find
+            .byTooltip(
+              '${c.t('skills.agent.claude')} · ${c.t('skills.disableAgent')}',
+            )
+            .last,
+      );
       await settle(tester);
       expect(k.countOf('skills_disable'), 1);
     });
@@ -458,15 +464,21 @@ void main() {
       await settle(tester);
       // 不支持的组合直接禁用，并把原因写进 tooltip（`Mcp/primitives.tsx:95-114`）。
       // 原先恒可点，点下去才弹一条错误 —— 那时用户已经以为自己改成功了。
-      final codexBtn = tester.widget<SmallButton>(
-        find.widgetWithText(SmallButton, c.t('mcp.agent.codex')),
+      // 2026-09-22 起是 30×30 图标按钮（`Mcp/primitives.tsx:95-125`），
+      // agent 名与不支持的原因都在 tooltip 里。
+      final unsupported = find.byTooltip(
+        c.t('mcp.unsupportedTransportTip', {'transport': 'http'}),
       );
-      expect(codexBtn.enabled, isFalse);
+      expect(unsupported, findsOneWidget);
       expect(
-        find.byTooltip(c.t('mcp.unsupportedTransportTip', {'transport': 'http'})),
-        findsOneWidget,
+        tester.widget<AgentIconButton>(
+          // tooltip 在 AgentIconButton **里面**，所以按钮是它的祖先不是后代。
+          find.ancestor(of: unsupported, matching: find.byType(AgentIconButton)),
+        ).onTap,
+        isNull,
+        reason: '不支持的组合点不动',
       );
-      await tester.tap(find.text(c.t('mcp.agent.codex')));
+      await tester.tap(unsupported, warnIfMissed: false);
       await settle(tester);
       expect(k.countOf('mcp_set_agent'), 0);
       expect(find.byType(ToastBar), findsNothing, reason: '点不动就不该再弹错误');
@@ -795,8 +807,41 @@ void main() {
         find.text('任务好了 · ${c.t('notif.type.task_complete')}'),
         findsOneWidget,
       );
-      expect(find.text(c.t('notif.type.error')), findsOneWidget);
+      // 2026-09-22 起每条右侧多一枚类型徽标（`Notifications.tsx:41-51`），
+      // 所以没标题那条的类型文字出现两次：标题位一次、徽标一次。
+      expect(find.text(c.t('notif.type.error')), findsNWidgets(2));
       expect(find.text('b'), findsOneWidget);
+      // 有标题那条：标题里带类型，徽标再写一次。
+      expect(
+        find.text(c.t('notif.type.task_complete')),
+        findsOneWidget,
+        reason: '徽标',
+      );
+    });
+
+    // 第三梯队 2026-09-22：每条原先是纯 Tile，类型只在标题里出现一次，
+    // 既没徽标也没左侧色条（`Notifications.tsx:31,41-51`）。
+    testWidgets('每条带类型徽标与左侧 accent 竖条', (tester) async {
+      final c = await makeI18n(tester);
+      final k = FakeKernel({
+        'notification_inbox_list': (_) => [notif(1, title: 't')],
+        'notification_clear': (_) => null,
+      });
+      await tester.pumpWidget(
+        wrapPage(NotificationsPage(invoke: k.invoke), c),
+      );
+      await settle(tester);
+      expect(find.byType(MiniBadge), findsOneWidget);
+      // 左侧 2px accent 竖条。
+      final bar = tester.widgetList<Container>(find.byType(Container)).where((
+        w,
+      ) {
+        final d = w.decoration;
+        return d is BoxDecoration &&
+            d.border is BorderDirectional &&
+            (d.border! as BorderDirectional).start.width == 2;
+      });
+      expect(bar, hasLength(1));
     });
 
     testWidgets('清空：发命令并重查一遍', (tester) async {
@@ -849,7 +894,8 @@ void main() {
         wrapPage(NotificationsPage(invoke: k.invoke), c),
       );
       await settle(tester);
-      expect(find.text('brand_new'), findsOneWidget);
+      // 标题位 + 徽标各一次。
+      expect(find.text('brand_new'), findsNWidgets(2));
     });
   });
 
