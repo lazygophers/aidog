@@ -11,6 +11,8 @@
 /// 不必去 dialog 的 route 里捞。
 library;
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
@@ -887,8 +889,14 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     final theme = AidogTheme.of(context);
     final rules = c.timeModels;
     final candidates = c.modelDropdownSource;
-    const cellW = 200.0;
     const labelW = 64.0;
+    // 列宽随窗口自适应：默认列 + 各时段档列平分剩余宽度，软下限 80
+    //（`ModelsMatrixSection.tsx:266-271` 的 `flex:1` + `minWidth:80`）。
+    // 原先恒 200，窄窗口下时段档列被推出可视区，必须横向拖才看得到。
+    final cols = 1 + rules.length;
+    final avail =
+        MediaQuery.sizeOf(context).width - labelW - 2 * AidogSpace.s_2xl;
+    final cellW = math.max(80.0, avail / cols);
 
     Widget cell(String value, ValueChanged<String> onChanged) => SizedBox(
       width: cellW,

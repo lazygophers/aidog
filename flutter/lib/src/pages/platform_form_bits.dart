@@ -280,6 +280,12 @@ class ModelCell extends StatefulWidget {
 }
 
 class _ModelCellState extends State<ModelCell> {
+  /// 候选是**浮层**，盖在下方内容上（`ModelsMatrixSection.tsx:195-262` 的
+  /// Radix Popover）。原先是行内展开的容器，一打开就把下面的行整体顶下去，
+  /// 整张表单跟着跳。浮层与锚点的对齐走 `filter_dropdown.dart` 同一套
+  /// `LayerLink` + `OverlayEntry`。
+  final _link = LayerLink();
+  OverlayEntry? _entry;
   bool _open = false;
 
   /// 聚焦即弹候选（票 31 ⑥，对齐 `ModelsMatrixSection.tsx:207` 的 `onFocus`）。
@@ -290,14 +296,57 @@ class _ModelCellState extends State<ModelCell> {
   void initState() {
     super.initState();
     _focus.addListener(() {
-      if (_focus.hasFocus) setState(() => _open = true);
+      if (_focus.hasFocus) _show();
     });
   }
 
   @override
   void dispose() {
+    _entry?.remove();
+    _entry = null;
     _focus.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(ModelCell old) {
+    super.didUpdateWidget(old);
+    // 值 / 候选变了，浮层里的清单要跟着重算（候选被过滤空了就收起来）。
+    if (_entry != null) _scheduleSync();
+  }
+
+  void _show() => _setOpen(true);
+
+  void _hide() => _setOpen(false);
+
+  /// 开合只记状态，真正动 Overlay 延到帧末。
+  /// 焦点回调可能落在 build 期间，当场 insert / setState 会直接抛
+  /// 「setState() called during build」。
+  void _setOpen(bool v) {
+    if (_open == v) return;
+    _open = v;
+    _scheduleSync();
+  }
+
+  void _scheduleSync() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _sync();
+    });
+  }
+
+  void _sync() {
+    final want = _open && _filtered.isNotEmpty;
+    if (want && _entry == null) {
+      _entry = OverlayEntry(builder: _panel);
+      Overlay.of(context).insert(_entry!);
+      setState(() {});
+    } else if (!want && _entry != null) {
+      _entry!.remove();
+      _entry = null;
+      setState(() {});
+    } else {
+      _entry?.markNeedsBuild();
+    }
   }
 
   List<String> get _filtered {
@@ -309,88 +358,120 @@ class _ModelCellState extends State<ModelCell> {
     ];
   }
 
+  Widget _panel(BuildContext overlayContext) {
+    final theme = AidogTheme.of(context);
+    final filtered = _filtered;
+    if (filtered.isEmpty) return const SizedBox.shrink();
+    final box = context.findRenderObject() as RenderBox?;
+    final width = box?.size.width ?? 200;
+    return Stack(
+      children: [
+        // 浮层外任意点击即关。用 Listener 不用 GestureDetector：
+        // 后者会把这一下点击吃掉，用户得点两次才能按到下面的按钮。
+        // React 的 Popover 是 `modal=false`，点外面既关浮层又照常触发下面的控件。
+        Positioned.fill(
+          child: Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: (_) => _hide(),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: _link,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: const Offset(0, 2),
+          child: Align(
+            alignment: AlignmentDirectional.topStart,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Container(
+                width: width,
+                constraints: const BoxConstraints(maxHeight: 200),
+                decoration: BoxDecoration(
+                  color: theme.c.surface2,
+                  border: Border.all(color: theme.c.line),
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  boxShadow: theme.shadowFloat,
+                ),
+                child: ListView(
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(2),
+                  children: [
+                    for (final m in filtered)
+                      InkWell(
+                        onTap: () {
+                          widget.onChanged(m);
+                          _hide();
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AidogSpace.ssm,
+                            vertical: AidogSpace.sxs,
+                          ),
+                          child: Text(
+                            m,
+                            style: AidogType.label.copyWith(
+                              color: m == widget.value
+                                  ? theme.c.accentText
+                                  : theme.c.fg,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     final hasDropdown = widget.candidates.isNotEmpty;
-    final filtered = _filtered;
-    final open = _open && filtered.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: PlatformField(
-                focusNode: _focus,
-                value: widget.value,
-                hint: widget.hint,
-                // 输入即弹（`ModelsMatrixSection.tsx:203` 的 onChange 同款）。
-                onChanged: (v) {
-                  if (widget.candidates.isNotEmpty && !_open) _open = true;
-                  widget.onChanged(v);
-                },
-              ),
-            ),
-            if (hasDropdown)
-              Tooltip(
-                message: widget.pickTooltip,
-                child: IconButton(
-                  iconSize: 14,
-                  visualDensity: VisualDensity.compact,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 22,
-                    minHeight: 22,
-                  ),
-                  color: theme.c.fg3,
-                  icon: Icon(
-                    open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                  ),
-                  onPressed: () => setState(() => _open = !_open),
-                ),
-              ),
-          ],
-        ),
-        if (open)
-          Container(
-            constraints: const BoxConstraints(maxHeight: 200),
-            margin: const EdgeInsets.only(top: 2),
-            decoration: BoxDecoration(
-              color: theme.c.surface2,
-              border: Border.all(color: theme.c.line),
-              borderRadius: BorderRadius.circular(AidogRadius.sm),
-            ),
-            child: ListView(
-              shrinkWrap: true,
-              padding: const EdgeInsets.all(2),
-              children: [
-                for (final m in filtered)
-                  InkWell(
-                    onTap: () {
-                      widget.onChanged(m);
-                      setState(() => _open = false);
-                    },
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AidogSpace.ssm,
-                        vertical: AidogSpace.sxs,
-                      ),
-                      child: Text(
-                        m,
-                        style: AidogType.label.copyWith(
-                          color: m == widget.value
-                              ? theme.c.accentText
-                              : theme.c.fg,
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
+    return CompositedTransformTarget(
+      link: _link,
+      child: Row(
+        children: [
+          Expanded(
+            child: PlatformField(
+              focusNode: _focus,
+              value: widget.value,
+              hint: widget.hint,
+              // 输入即弹（`ModelsMatrixSection.tsx:203` 的 onChange 同款）。
+              onChanged: (v) {
+                widget.onChanged(v);
+                if (_open) {
+                  _scheduleSync();
+                } else {
+                  _show();
+                }
+              },
             ),
           ),
-      ],
+          if (hasDropdown)
+            Tooltip(
+              message: widget.pickTooltip,
+              child: IconButton(
+                iconSize: 14,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(
+                  minWidth: 22,
+                  minHeight: 22,
+                ),
+                color: theme.c.fg3,
+                icon: Icon(
+                  _open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                ),
+                onPressed: () => _open ? _hide() : _show(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }
