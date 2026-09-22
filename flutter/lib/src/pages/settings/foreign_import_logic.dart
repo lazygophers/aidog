@@ -10,7 +10,7 @@
 library;
 
 import '../invoke.dart';
-import 'importexport_logic.dart' show ConflictDecisionKind, ConflictDecisionWire;
+import 'importexport_logic.dart' show ConflictDecision, ConflictDecisionKind;
 
 /// 两个异源的接线差异，只有命令名和分组名。
 class ForeignSource {
@@ -67,7 +67,7 @@ class ForeignImportController {
   /// 勾中的 provider 下标。默认全选。
   Set<int> selected = {};
 
-  Map<String, ConflictDecisionKind> decisions = {};
+  Map<String, ConflictDecision> decisions = {};
 
   /// 导入后建 / 加入对应分组。**默认开**。
   bool autoGroup = true;
@@ -172,7 +172,20 @@ class ForeignImportController {
   }
 
   void decide(String key, ConflictDecisionKind kind) {
-    decisions = {...decisions, key: kind};
+    decisions = {
+      ...decisions,
+      key: ConflictDecision(
+        kind,
+        newKey: kind == ConflictDecisionKind.keepBoth ? '$key-imported' : '',
+      ),
+    };
+    _notify();
+  }
+
+  void setRenameKey(String key, String newKey) {
+    final cur = decisions[key];
+    if (cur == null) return;
+    decisions = {...decisions, key: cur.withNewKey(newKey)};
     _notify();
   }
 
@@ -192,8 +205,17 @@ class ForeignImportController {
       ];
       report = _map(await _invoke(source.importCmd, {
         'platformPayload': toPlatformPayload(chosen),
+        // 后端收的是 `Vec<ConflictDecision>`，**三个字段都必填**
+        //（`gateway/import_export/mod.rs:190-195`）：原先漏了 `scope`，
+        // 且 `decision` 发的是裸字符串，两处都会让反序列化失败。
+        // 异源导入进来的都是平台，scope 固定 `platform`（`mod.rs:31`，单数）。
         'decisions': [
-          for (final e in decisions.entries) {'key': e.key, 'decision': e.value.wire},
+          for (final e in decisions.entries)
+            {
+              'scope': 'platform',
+              'key': e.key,
+              'decision': e.value.toWire(),
+            },
         ],
         'autoGroup': autoGroup,
       }));

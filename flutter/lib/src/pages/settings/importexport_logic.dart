@@ -21,14 +21,32 @@ const List<String> kImportExportScopes = [
   'mcp',
 ];
 
-/// 冲突决策：保留本地 / 用导入的 / 两者都留（重命名）。
+/// 冲突决策：保留本地（跳过） / 用导入的（覆盖） / 两者都留（重命名）。
+///
+/// 🔴 **wire 形状由后端的 `Decision` 定**（`gateway/import_export/mod.rs:182-188`）：
+/// `#[serde(tag = "kind", rename_all = "snake_case")]` 的**对象**，
+/// 取值只有 `overwrite` / `skip` / `rename`，且 `rename` 必须带 `new_key`。
+/// 这里原先发的是裸字符串 `'keep_local'` —— 形状和取值都不对，
+/// 于是**备份里只要有一条冲突，`import_apply` 必定反序列化失败**，
+/// 而 `canApplyImport` 又要求冲突全决策完才放行，等于带冲突的导入整条是坏的。
 enum ConflictDecisionKind { keepLocal, useIncoming, keepBoth }
 
-extension ConflictDecisionWire on ConflictDecisionKind {
-  String get wire => switch (this) {
-    ConflictDecisionKind.keepLocal => 'keep_local',
-    ConflictDecisionKind.useIncoming => 'use_incoming',
-    ConflictDecisionKind.keepBoth => 'keep_both',
+/// 一条决策：种类 + 重命名时的新 key。
+class ConflictDecision {
+  const ConflictDecision(this.kind, {this.newKey = ''});
+
+  final ConflictDecisionKind kind;
+
+  /// 只有 [ConflictDecisionKind.keepBoth] 用得上。
+  final String newKey;
+
+  ConflictDecision withNewKey(String v) => ConflictDecision(kind, newKey: v);
+
+  /// 后端 `Decision` 的 JSON 形状。
+  Map<String, Object?> toWire() => switch (kind) {
+    ConflictDecisionKind.keepLocal => const {'kind': 'skip'},
+    ConflictDecisionKind.useIncoming => const {'kind': 'overwrite'},
+    ConflictDecisionKind.keepBoth => {'kind': 'rename', 'new_key': newKey},
   };
 }
 
@@ -124,7 +142,7 @@ class ImportExportController {
   Set<String> selected = {};
 
   /// 冲突 key → 决策。
-  Map<String, ConflictDecisionKind> decisions = {};
+  Map<String, ConflictDecision> decisions = {};
 
   /// `import_apply` 的报告。
   Map<String, Object?>? report;
@@ -204,13 +222,35 @@ class ImportExportController {
   }
 
   /// 每个冲突都定了决策才能应用。
-  bool get allConflictsDecided => conflictKeys.every(decisions.containsKey);
+  /// 每个冲突都定了决策才能应用；选了「两者都留」还得真填了新 key。
+  bool get allConflictsDecided => conflictKeys.every((k) {
+    final d = decisions[k];
+    if (d == null) return false;
+    return d.kind != ConflictDecisionKind.keepBoth || d.newKey.trim().isNotEmpty;
+  });
 
   bool get canApplyImport =>
       !busy && preview != null && allConflictsDecided && selected.isNotEmpty;
 
+  /// 选「两者都留」时预填一个新 key（`ConflictRow.tsx:56` 的
+  /// `item.key + "-imported"`），否则后端拿到空 key 会建一条没名字的行。
   void decide(String conflictKey, ConflictDecisionKind kind) {
-    decisions = {...decisions, conflictKey: kind};
+    final key = _splitKey(conflictKey)[1];
+    decisions = {
+      ...decisions,
+      conflictKey: ConflictDecision(
+        kind,
+        newKey: kind == ConflictDecisionKind.keepBoth ? '$key-imported' : '',
+      ),
+    };
+    _notify();
+  }
+
+  /// 改重命名的新 key（`ConflictRow.tsx:62-67` 的输入框）。
+  void setRenameKey(String conflictKey, String newKey) {
+    final cur = decisions[conflictKey];
+    if (cur == null) return;
+    decisions = {...decisions, conflictKey: cur.withNewKey(newKey)};
     _notify();
   }
 
@@ -251,7 +291,7 @@ class ImportExportController {
               {
                 'scope': _splitKey(e.key)[0],
                 'key': _splitKey(e.key)[1],
-                'decision': e.value.wire,
+                'decision': e.value.toWire(),
               },
           ],
           'selection': selected.map(_splitKey).toList(),
