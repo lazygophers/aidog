@@ -105,6 +105,12 @@ class _EnvEditorState extends State<EnvEditor> {
     super.dispose();
   }
 
+  /// 显式移除一条变量（React 的 `removeBtn` → `onChange(undefined)`）。
+  ///
+  /// 与「把值清成空串」是两件事：清空串只是**碰巧**也走到删键，而 boolean 变量
+  /// 关到 `"0"` 仍是已设置态，没有空串可清 —— 那条路根本删不掉它。
+  void _remove(String key) => _update(key, null);
+
   /// 空值 = 删键（React 的 `updateEnv`：`value !== undefined && value !== ""`）。
   void _update(String key, String? value) {
     final next = {...widget.env};
@@ -208,6 +214,7 @@ class _EnvEditorState extends State<EnvEditor> {
               label: e.key,
               value: e.value,
               onSubmitted: (v) => _update(e.key, v),
+              trailing: _removeBtn(t, theme, e.key),
             ),
         ],
         // 搜索态下不显示「添加」（React：`{!search && ...}`）——过滤中加变量会立刻被滤掉。
@@ -349,8 +356,23 @@ class _EnvEditorState extends State<EnvEditor> {
     ),
   );
 
+  /// 「移除」×。只在该变量**已设置**时出现（React 的 `isSet` 同判据）。
+  Widget _removeBtn(I18nController t, AidogTheme theme, String key) =>
+      IconButton(
+        key: ValueKey('env-remove-$key'),
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+        iconSize: 14,
+        visualDensity: VisualDensity.compact,
+        tooltip: t.t('action.remove'),
+        icon: Icon(Icons.close, color: theme.c.fg3),
+        onPressed: () => _remove(key),
+      );
+
   Widget _row(I18nController t, AidogTheme theme, EnvVarDef d) {
     final value = widget.env[d.key];
+    // React `EnvEditor.tsx:34`：`value !== undefined && value !== ""`。
+    final isSet = value != null && value.isNotEmpty;
     final desc = _descOf(t, d);
     // key 在 React 里是 label 下面的小字（等宽），这里并进 description 一起显示。
     final description = desc.isEmpty ? d.key : '${d.key} · $desc';
@@ -362,6 +384,7 @@ class _EnvEditorState extends State<EnvEditor> {
           description: description,
           value: envBool(value),
           onChanged: (v) => _update(d.key, v ? '1' : '0'),
+          trailing: isSet ? _removeBtn(t, theme, d.key) : null,
         );
       case 'select':
         return SelectRow(
@@ -371,6 +394,7 @@ class _EnvEditorState extends State<EnvEditor> {
           options: d.options,
           value: value ?? '',
           onChanged: (v) => _update(d.key, v),
+          trailing: isSet ? _removeBtn(t, theme, d.key) : null,
         );
       case 'password':
         return TextRow(
@@ -381,6 +405,7 @@ class _EnvEditorState extends State<EnvEditor> {
           value: value ?? '',
           obscure: true,
           onSubmitted: (v) => _update(d.key, v),
+          trailing: isSet ? _removeBtn(t, theme, d.key) : null,
         );
       default:
         // number / string 共用文本框：number 的 min/max 由 Claude Code 自己校验，
@@ -392,6 +417,7 @@ class _EnvEditorState extends State<EnvEditor> {
           hint: d.placeholder,
           value: value ?? '',
           onSubmitted: (v) => _update(d.key, v),
+          trailing: isSet ? _removeBtn(t, theme, d.key) : null,
         );
     }
   }
