@@ -137,6 +137,26 @@ import 'package:aidog_flutter/pages.dart';
   `runApp(AidogI18n(child: AidogApp()))` 同一层级。套进 `home` 会让任何渲染到 Overlay 的
   东西（拖拽代理、浮层候选）找不到这个祖先，测试里抛「找不到祖先 AidogI18n」而真机不会。
 
+### 按钮没有水波？底色画错地方了
+
+`InkWell` 的水波**画在祖先 `Material` 上**，不是画在自己身上。所以只要在它和
+`Material` 之间垫一层不透明底色，水波就永远被盖住 —— 它其实一直在画，只是看不见。
+
+```dart
+// ✗ 有 InkWell，但没有水波：Container 的底色盖在墨层上面
+InkWell(onTap: f, child: Container(decoration: BoxDecoration(color: bg), child: ...))
+
+// ✓ 底色交给 Material 自己画，InkWell 直接包内容
+Material(color: bg, child: InkWell(onTap: f, child: Padding(...)))
+```
+
+**非显然的那一半**：换成 `AnimatedContainer` 想「既有过渡又有水波」是行不通的，
+它同样是一层不透明底色，照样盖住墨层。要过渡就用 `Material` 自己的
+`animationDuration`（它会插值 `color` 与 `shape`，描边也算在 `shape` 里），
+`SmallButton`（`lib/src/pages/ui_bits.dart`）就是这么做的，pill 的 200ms 切换也出自这里。
+
+同一个坑对本仓库里任何「自带底色的可点组件」都成立，不止按钮。
+
 ### 与 React 版的已知差异（写下来，不是漏的）
 
 | 处 | React | 这里 | 为什么 |
