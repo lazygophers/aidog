@@ -79,12 +79,9 @@ void main() {
       'get_client_types_json':
           '端点的「客户端形态」下拉。registry 已删 client_type 字段，'
           '形态按 protocol 派生（CLAUDE.md 的 derive_client_type），本层不读这份表。',
-      'settings_get':
-          '被 domains/groups/proxy-env.ts 调，用来拼分组的环境变量预览文本。'
-          '本层不做那个预览面板。',
-      'sync_group_settings':
-          '把分组配置写进 ~/.claude/settings.{group}.json。属「一键同步」按钮，'
-          '不是分组 CRUD 的一部分；未随本票交付。',
+      // settings_get / sync_group_settings 已于「分组区界面对齐」票补上：
+      // 前者读 claude settings.json 的代理 env（拼 codex/pi 启动命令），
+      // 后者在切 pi 线路协议后立刻重生成 pi 配置。
     };
 
     final realMissing = [

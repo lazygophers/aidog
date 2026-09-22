@@ -1851,7 +1851,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                   SizedBox(
                     width: 130,
                     child: _Field(
-                      label: t.t('mapping.source'),
+                      hint: t.t('mapping.source'),
                       value: e.mappings[i].sourceModel,
                       onChanged: (v) {
                         final next = [...e.mappings];
@@ -1894,7 +1894,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                   const SizedBox(width: AidogSpace.sxs),
                   Expanded(
                     child: _Field(
-                      label: t.t('mapping.target'),
+                      hint: t.t('mapping.target'),
                       value: e.mappings[i].targetModel,
                       onChanged: (v) {
                         final next = [...e.mappings];
@@ -1955,7 +1955,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                   SizedBox(
                     width: 190,
                     child: _Field(
-                      label: t.t('group.envVarKey'),
+                      hint: t.t('group.envVarKey'),
                       value: e.envVars[i].key,
                       onChanged: (v) {
                         final next = [...e.envVars];
@@ -1967,7 +1967,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                   const SizedBox(width: AidogSpace.sxs),
                   Expanded(
                     child: _Field(
-                      label: t.t('group.envVarValue'),
+                      hint: t.t('group.envVarValue'),
                       value: e.envVars[i].value,
                       onChanged: (v) {
                         final next = [...e.envVars];
@@ -2031,13 +2031,14 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
 /// 每帧都是新实例 —— 光标每次输入都跳回开头，而且旧实例从不 dispose。
 class _Field extends StatefulWidget {
   const _Field({
-    required this.label,
     required this.value,
     required this.onChanged,
+    this.label,
     this.hint,
   });
 
-  final String label;
+  /// null = 不画标题行（映射 / 环境变量这种行内小框，React 那边也只有 placeholder）。
+  final String? label;
   final String value;
   final String? hint;
   final ValueChanged<String> onChanged;
@@ -2079,7 +2080,7 @@ class _FieldState extends State<_Field> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(widget.label),
+          if (widget.label != null) TileMeta(widget.label!),
           TextField(
             controller: _ctrl,
             style: AidogType.micro.copyWith(color: theme.c.fg),
