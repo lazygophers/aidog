@@ -162,6 +162,12 @@ FakeInvoke platformsFake() => FakeInvoke({
 /// 卡片本体由 `platform_card_test.dart` 守，组内接线由 `groups_platform_card_test.dart` 守。
 Widget stubPlatformCard(PlatformRow p, int index) => Text(p.name);
 
+/// 组内拖放的插入线：2px 高、accent 底色的小条（私有 widget，按形状认）。
+bool _isDropLine(Widget w) =>
+    w is Container &&
+    w.constraints?.maxHeight == 2 &&
+    w.decoration is BoxDecoration;
+
 void main() {
   group('LogsPage', () {
     testWidgets('挂载就整查一遍并把行画出来（不等事件）', (tester) async {
@@ -902,6 +908,60 @@ void main() {
       );
       await settle(tester);
       expect(find.text('1 ${c.t('nav.groups')}'), findsOneWidget);
+    });
+
+    testWidgets('组内拖拽：拖到另一行上方 → 画插入线 → 松手发新顺序', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake(
+        page: [
+          {
+            'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+            'platforms': [
+              {'platform': plat(1, 'P1')},
+              {'platform': plat(2, 'P2')},
+            ],
+            'model_mappings': <Object?>[],
+          },
+        ],
+      );
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      // 上下移按钮仍在：它是键盘可达的那条路，不能因为有了拖拽就删掉。
+      expect(find.byIcon(Icons.arrow_upward), findsWidgets);
+      expect(find.byIcon(Icons.arrow_downward), findsWidgets);
+
+      // 按住第二行的把手，拖到第一行的上半部分。
+      final handles = find.byTooltip(c.t('group.dragPlatform'));
+      expect(handles, findsNWidgets(2));
+      final firstRowTop = tester.getTopLeft(find.text('P1')).dy;
+      final gesture = await tester.startGesture(
+        tester.getCenter(handles.last),
+      );
+      await tester.pump(const Duration(milliseconds: 150));
+      await gesture.moveTo(
+        Offset(tester.getCenter(find.text('P1')).dx, firstRowTop + 4),
+      );
+      await tester.pump();
+      // 指针停在第一行上半 → 插入线画在它上面。
+      expect(
+        find.byWidgetPredicate(_isDropLine),
+        findsOneWidget,
+        reason: '指针停在第一行上半 → 线画在它上面',
+      );
+
+      await gesture.up();
+      await settle(tester);
+      expect(
+        k.lastCallTo('group_platform_reorder')!.args!['orderedIds'],
+        [2, 1],
+      );
+      expect(find.byWidgetPredicate(_isDropLine), findsNothing, reason: '松手后线要收掉');
     });
 
     testWidgets('复制命令菜单四项各带图标', (tester) async {
