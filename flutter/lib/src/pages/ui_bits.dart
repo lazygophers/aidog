@@ -8,6 +8,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../i18n.dart';
 import '../shell/theme.dart';
@@ -138,6 +139,7 @@ class AidogModal extends StatefulWidget {
     super.key,
     required this.child,
     this.onBarrierTap,
+    this.onEscape,
     this.maxWidth = 420,
   });
 
@@ -145,6 +147,13 @@ class AidogModal extends StatefulWidget {
 
   /// null = 点遮罩不关闭，对齐 React 的 `AlertDialog`（破坏性确认不许误触关掉）。
   final VoidCallback? onBarrierTap;
+
+  /// 按 Esc 关闭。**不传就跟随 [onBarrierTap]** —— 十八处调用点里有十七处两者
+  /// 就是同一个关闭函数，默认跟随省掉十七行重复。
+  ///
+  /// 要单独传的只有一种情形：点遮罩不关、但按 Esc 要关。Radix 的 `AlertDialog`
+  /// 正是这样（`onEscapeKeyDown` 不拦就关，外部点击一律不关），[ConfirmCard] 照此传。
+  final VoidCallback? onEscape;
 
   /// 面板最大宽度，对齐 React 各弹窗的 `maxWidth`。
   final double maxWidth;
@@ -168,7 +177,9 @@ class _AidogModalState extends State<AidogModal> {
     controller: _controller,
     overlayChildBuilder: (context) {
       final barrier = widget.onBarrierTap;
-      return Material(
+      return _EscapeScope(
+        onEscape: widget.onEscape ?? barrier,
+        child: Material(
         type: MaterialType.transparency,
         child: Stack(
           children: [
@@ -193,9 +204,48 @@ class _AidogModalState extends State<AidogModal> {
             ),
           ],
         ),
+        ),
       );
     },
   );
+}
+
+/// 让 Esc 关掉浮层。
+///
+/// 为什么不靠 Flutter 默认的 Escape→`DismissIntent`：浮层里有输入框时焦点在
+/// `EditableText` 上，键盘事件先到它那儿；默认那条链在部分平台会被输入框自己消费掉。
+/// 这里显式写一条 `Shortcuts`，并且把它放在 [FocusScope] **外面** —— 事件从焦点
+/// 节点往祖先冒泡，输入框没处理的 Escape 一定会走到这里。
+///
+/// 两层浮层叠着时只关最上面一层：每层浮层各自是 Overlay 的一个孩子，互不为祖先，
+/// 冒泡只会走到**当前有焦点的那一层**的 `Shortcuts`，下面那层收不到。
+class _EscapeScope extends StatelessWidget {
+  const _EscapeScope({required this.child, this.onEscape});
+
+  final Widget child;
+  final VoidCallback? onEscape;
+
+  @override
+  Widget build(BuildContext context) {
+    final onEscape = this.onEscape;
+    if (onEscape == null) return child;
+    return Shortcuts(
+      shortcuts: const {
+        SingleActivator(LogicalKeyboardKey.escape): DismissIntent(),
+      },
+      child: Actions(
+        actions: {
+          DismissIntent: CallbackAction<DismissIntent>(
+            onInvoke: (_) {
+              onEscape();
+              return null;
+            },
+          ),
+        },
+        child: FocusScope(autofocus: true, child: child),
+      ),
+    );
+  }
 }
 
 /// 破坏性操作的确认弹窗。
@@ -241,6 +291,9 @@ class ConfirmCard extends StatelessWidget {
     final theme = AidogTheme.of(context);
     return AidogModal(
       onBarrierTap: dismissOnBarrier && !busy ? onCancel : null,
+      // 点遮罩关不关由 dismissOnBarrier 说了算，但 Esc 一律关（除非正忙）——
+      // 与 Radix `AlertDialog` 同口径：外部点击不关，Escape 关。
+      onEscape: busy ? null : onCancel,
       child: Tile(
         title: title,
         child: Column(

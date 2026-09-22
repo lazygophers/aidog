@@ -1005,8 +1005,10 @@ class _RemovePlatformConfirm extends StatelessWidget {
     final target = controller.removeTarget!;
     // 属多个组 → 标题/正文/主按钮都换一套措辞（`GroupListView.tsx:313-347`）。
     final multi = !target.onlyInThisGroup;
-    // React 是 `AlertDialog`（`GroupListView.tsx:314`，maxWidth 420）：点遮罩不关。
+    // React 是 `AlertDialog`（`GroupListView.tsx:314`，maxWidth 420）：点遮罩不关，
+    // 但按 Esc 关（Radix `AlertDialog` 的默认行为）。
     return AidogModal(
+      onEscape: controller.cancelRemovePlatform,
       child: Tile(
         title: multi
             ? t.t('group.deletePlatformMultiTitle')
