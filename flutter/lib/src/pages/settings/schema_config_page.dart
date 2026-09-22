@@ -22,6 +22,7 @@ import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'env_editor.dart';
 import 'hooks_editor.dart';
 import 'import_diff.dart';
 import 'path_input.dart';
@@ -93,10 +94,17 @@ class SchemaSection {
 
 /// 一份 schema + 它的推荐配置。
 class SchemaBundle {
-  const SchemaBundle({required this.sections, required this.recommended});
+  const SchemaBundle({
+    required this.sections,
+    required this.recommended,
+    this.envCatalog = EnvVarCatalog.empty,
+  });
 
   final List<SchemaSection> sections;
   final Map<String, Object?> recommended;
+
+  /// 已知环境变量清单（只有 claude 有；codex / pi 留空）。
+  final EnvVarCatalog envCatalog;
 }
 
 /// 资产只解一次（121 KB JSON，每次进页面重解会在切页时掉帧）。
@@ -132,7 +140,13 @@ Future<SchemaBundle> loadSchemaBundle(
       (part['recommended'] as Map?) ?? const {},
     );
   }
-  return SchemaBundle(sections: sections, recommended: recommended);
+  return SchemaBundle(
+    sections: sections,
+    recommended: recommended,
+    envCatalog: kind == SchemaConfigKind.claude
+        ? EnvVarCatalog.fromSchema(part)
+        : EnvVarCatalog.empty,
+  );
 }
 
 /// Claude Code 的语言清单（`claude-settings-schema.ts::LANGUAGE_GROUPS` 拍平）。
@@ -374,6 +388,24 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             onChanged: (v) => c.updateField('hooks', v),
             updateField: c.updateField,
             invoke: widget.invoke,
+          ),
+        ],
+      );
+    }
+    // 环境变量区：React 侧整节换成 EnvEditor（339 条已知变量分组 + 搜索 + 自定义）。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'env') {
+      final env = c.config['env'] is Map
+          ? {
+              for (final e in (c.config['env'] as Map).entries) '${e.key}': '${e.value}',
+            }
+          : <String, String>{};
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          EnvEditor(
+            env: env,
+            catalog: _bundle?.envCatalog ?? EnvVarCatalog.empty,
+            onChanged: (v) => c.updateField('env', v),
           ),
         ],
       );
