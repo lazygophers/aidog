@@ -172,6 +172,13 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
               ),
             ],
           ),
+          // 装 CA 失败的真实诊断（`MitmConfig.tsx:362-375`）：exit / program /
+          // stderr / stdout 直接摆出来，用户复现不必开控制台。
+          //
+          // 这块数据 `mitm_logic.dart:249` 早就存进控制器了，**一直没有渲染点** ——
+          // 装不上时用户只看得到「照着这条命令手动装」，看不到为什么自动装失败。
+          if (_c.installResult != null)
+            _CaInstallDiagnostics(out: _c.installResult!),
           Text(
             t.t('mitm.manualInstallHint'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -297,9 +304,12 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                   ),
                   const SizedBox(width: AidogSpace.ssm),
                   SmallButton(
+                    // 手动停用 ≠ 失效。原先关闭态复用了 `middleware.failed`
+                    // （「失效」），用户自己关掉的白名单会显示成「失效」，
+                    // 像是出了故障。
                     label: e.enabled
                         ? t.t('middleware.enabled')
-                        : t.t('middleware.failed'),
+                        : t.t('settings.perm.disableAuto'),
                     active: e.enabled,
                     onTap: () => _c.toggleEntry(e.hostPattern, !e.enabled),
                   ),
@@ -366,6 +376,39 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             ),
         ],
       ],
+    );
+  }
+}
+
+/// 装 CA 失败时的诊断块（`MitmConfig.tsx:362-375`）：等宽、可选中、能整段复制走。
+class _CaInstallDiagnostics extends StatelessWidget {
+  const _CaInstallDiagnostics({required this.out});
+
+  final CaInstallOutcome out;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final text =
+        'exit=${out.code} program=${out.program}\n'
+        'stderr: ${out.stderr.isEmpty ? '(empty)' : out.stderr}\n'
+        'stdout: ${out.stdout.isEmpty ? '(empty)' : out.stdout}';
+    return Padding(
+      padding: const EdgeInsets.only(top: AidogSpace.sxs),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(AidogSpace.ssm),
+        decoration: BoxDecoration(
+          color: theme.c.surface2,
+          border: Border.all(color: theme.c.bad),
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+        ),
+        child: SelectableText(
+          text,
+          key: const ValueKey('mitm-install-diagnostics'),
+          style: AidogType.numSm.copyWith(color: theme.c.fg2),
+        ),
+      ),
     );
   }
 }

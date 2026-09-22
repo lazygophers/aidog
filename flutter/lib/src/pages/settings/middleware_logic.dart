@@ -25,6 +25,13 @@ class MiddlewareRule {
   bool get isBuiltin => raw['is_builtin'] == true;
   int get priority => (raw['priority'] as num?)?.toInt() ?? 0;
 
+  /// 旧模型残留、引擎**翻译不了也不执行**的规则
+  /// （`generated/MiddlewareRule.ts:12-16`：「前端展示失败态引导手删」）。
+  ///
+  /// 后端一直在发这个字段，Flutter 这边原先没解析 —— 后果是失效规则长得和正常规则
+  /// 一模一样，用户还能点进一个引擎根本不跑的编辑表单去改，改完当然也不生效。
+  bool get failed => raw['failed'] == true;
+
   /// 全量覆盖用的入参（字段集与 React `handleToggle` 逐条一致）。
   Map<String, Object?> toUpdateInput({bool? enabled}) => {
         'id': raw['id'],
