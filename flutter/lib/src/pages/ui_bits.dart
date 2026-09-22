@@ -59,11 +59,85 @@ class SmallButton extends StatelessWidget {
   }
 }
 
-/// 破坏性操作的确认卡。
+/// 真浮层弹窗：把 [child] 画进根 Overlay，覆盖整窗、居中、带遮罩。
 ///
-/// **故意不是 `showDialog`**：确认态是页面 state 的一部分，widget 测试里
-/// `find.byType(ConfirmCard)` 就能断言它在不在，不必去 dialog 的 route 里捞。
-/// （项目 CLAUDE.md 里那条「弹窗必须 createPortal」是 CSS 的坑，只对 Web 侧成立。）
+/// 用 `OverlayPortal` 而不是 `showDialog`（用户 2026-09-22 拍板要浮层，票 11）：
+/// 全应用 20 多处弹窗的开合都是页面 state 的一个字段（`if (x != null) XxxCard(...)`），
+/// `showDialog` 要把它们全改成命令式的 `await`，还得各自处理 `mounted`；
+/// `OverlayPortal` 保留声明式写法，同时**元素树祖先不变** —— `AidogTheme.of` /
+/// `AidogI18n.of` / `Material` 全部照常向上找得到，`find.byType` 也照常命中。
+/// 对齐的是 React 那边 Radix 的 Portal：浮在页面之上、按窗口居中、点遮罩的行为
+/// 由调用方按 React 的 `Dialog`（可关）/ `AlertDialog`（不可关）逐个决定。
+class AidogModal extends StatefulWidget {
+  const AidogModal({
+    super.key,
+    required this.child,
+    this.onBarrierTap,
+    this.maxWidth = 420,
+  });
+
+  final Widget child;
+
+  /// null = 点遮罩不关闭，对齐 React 的 `AlertDialog`（破坏性确认不许误触关掉）。
+  final VoidCallback? onBarrierTap;
+
+  /// 面板最大宽度，对齐 React 各弹窗的 `maxWidth`。
+  final double maxWidth;
+
+  @override
+  State<AidogModal> createState() => _AidogModalState();
+}
+
+class _AidogModalState extends State<AidogModal> {
+  final _controller = OverlayPortalController();
+
+  @override
+  void initState() {
+    super.initState();
+    // 这个 widget 只在「该显示」时才被挂进树，所以挂上即显示、拔掉即消失。
+    _controller.show();
+  }
+
+  @override
+  Widget build(BuildContext context) => OverlayPortal(
+    controller: _controller,
+    overlayChildBuilder: (context) {
+      final barrier = widget.onBarrierTap;
+      return Material(
+        type: MaterialType.transparency,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: GestureDetector(
+                onTap: barrier,
+                // 遮罩色不进 token 表：React 那边是写死的 `bg-black/80`，
+                // 深浅两套都一样。取深色模式的底色 token 当「黑」，不写字面色值。
+                child: ColoredBox(
+                  color: AidogColors.dark.bg.withValues(alpha: 0.72),
+                ),
+              ),
+            ),
+            Center(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: widget.maxWidth),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(AidogSpace.s_2xl),
+                  child: widget.child,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
+/// 破坏性操作的确认弹窗。
+///
+/// 浮层由 [AidogModal] 提供，卡片本体沿用 [Tile] 的长相（与 React 那边
+/// `AlertDialogContent` 挂 `glass-elevated` 同路）。`find.byType(ConfirmCard)`
+/// 仍然命中 —— `OverlayPortal` 的浮层子树仍在同一棵元素树里。
 class ConfirmCard extends StatelessWidget {
   const ConfirmCard({
     super.key,
@@ -74,6 +148,7 @@ class ConfirmCard extends StatelessWidget {
     required this.onConfirm,
     this.busy = false,
     this.extra,
+    this.dismissOnBarrier = false,
   });
 
   final String title;
@@ -90,12 +165,17 @@ class ConfirmCard extends StatelessWidget {
   /// 标题与按钮之间的额外内容（跨组警告清单、单选项之类）。
   final Widget? extra;
 
+  /// 点遮罩关不关。缺省 false = React 的 `AlertDialog` 语义（破坏性确认不许误触关掉）；
+  /// React 侧用普通 `Dialog` 的那几处传 true。执行中（[busy]）一律不关，同 React
+  /// 的 `onPointerDownOutside` busy 守卫。
+  final bool dismissOnBarrier;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    return AidogModal(
+      onBarrierTap: dismissOnBarrier && !busy ? onCancel : null,
       child: Tile(
         title: title,
         child: Column(

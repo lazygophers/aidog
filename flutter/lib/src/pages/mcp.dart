@@ -120,8 +120,10 @@ class _McpPageState extends State<McpPage> {
     );
   }
 
-  Widget _scanCard(I18nController t) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.smd),
+  // React 是普通 `Dialog`（`McpModals.tsx:54`，maxWidth 560）：导入中不许关。
+  Widget _scanCard(I18nController t) => AidogModal(
+    maxWidth: 560,
+    onBarrierTap: _c.importing ? null : _c.closeScan,
     child: Tile(
       title: t.t('mcp.scanTitle'),
       child: Column(
@@ -190,8 +192,10 @@ class _McpPageState extends State<McpPage> {
     ),
   );
 
-  Widget _pasteCard(I18nController t) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.smd),
+  // React 是普通 `Dialog`（`McpModals.tsx:174`，maxWidth 560）：导入中不许关。
+  Widget _pasteCard(I18nController t) => AidogModal(
+    maxWidth: 560,
+    onBarrierTap: _c.pasteBusy ? null : () => _c.setPasteOpen(false),
     child: Tile(
       title: t.t('mcp.pasteImport'),
       child: Column(
@@ -286,8 +290,10 @@ class _McpPageState extends State<McpPage> {
   Widget _editCard(I18nController t) {
     final f = _c.editForm;
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是普通 `Dialog`（`McpModals.tsx:241`，maxWidth 560），点遮罩可关。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: _c.closeEdit,
       child: Tile(
         title: _c.editTarget == null ? t.t('mcp.add') : t.t('mcp.edit'),
         child: Column(
@@ -381,8 +387,10 @@ class _McpPageState extends State<McpPage> {
   Widget _shareCard(I18nController t) {
     final data = _c.shareData!;
     final text = data.share.toString();
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 走同一个 `ShareModal`（maxWidth 560），点遮罩可关。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: _c.closeShare,
       child: Tile(
         title: '${t.t('mcp.share.title')} · ${data.name}',
         child: Column(

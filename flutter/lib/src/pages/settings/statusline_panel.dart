@@ -8,10 +8,9 @@
 ///
 /// 纯计算（段列表的增删改 / 分行 / 上色）全在 [statusline_model.dart]，本文件只画界面。
 ///
-/// 两处与 React 的形态差异（与本仓库既有约定一致，不是遗漏）：
-/// 1. 段编辑器是**页面内的卡片**而不是 Portal 弹窗 —— 与 `ImportDiffCard` /
-///    `UnsavedChangesCard` 同一条规矩（`ui_bits.dart:64` 写明理由）。
-/// 2. 排序用 [ReorderableListView] 的长按手柄，而不是 dnd-kit 的自定义 handle。
+/// 一处与 React 的形态差异（与本仓库既有约定一致，不是遗漏）：
+/// 排序用 [ReorderableListView] 的长按手柄，而不是 dnd-kit 的自定义 handle。
+/// 段编辑器已是真浮层弹窗（[AidogModal]，票 11）。
 library;
 
 import 'dart:async';
@@ -720,8 +719,9 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
                 )
               : null);
 
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog`（`SegmentEditModal.tsx:49`，maxWidth 420），点遮罩可关。
+    return AidogModal(
+      onBarrierTap: widget.onCancel,
       child: Tile(
         title: segName(t, def),
         meta: segDesc(t, def),
