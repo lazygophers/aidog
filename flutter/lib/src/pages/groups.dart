@@ -63,7 +63,7 @@ class GroupsSection extends StatefulWidget {
   /// `{groupId, groupKey}` context 预筛该组，Dart 侧顶层导航目前只按页面 id 切换
   /// （`main.dart::_nav.navigate` 无 payload 通道），跳过去后落在总览态，
   /// 不预筛 —— 文案 key 与跳转动作都在，只是没带上下文。
-  final void Function(String pageId)? onNavigate;
+  final void Function(String pageId, {String? groupKey})? onNavigate;
 
   /// 复制到剪贴板，测试可注入假实现。
   final Future<void> Function(String text) copyText;
@@ -136,7 +136,7 @@ class _GroupListView extends StatelessWidget {
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
   final void Function({List<int>? presetGroupIds, int? lockGid})?
   onCreatePlatform;
-  final void Function(String pageId)? onNavigate;
+  final void Function(String pageId, {String? groupKey})? onNavigate;
   final Future<void> Function(String text) copyText;
 
   @override
@@ -397,7 +397,7 @@ class _GroupCard extends StatelessWidget {
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
   final void Function({List<int>? presetGroupIds, int? lockGid})?
   onCreatePlatform;
-  final void Function(String pageId)? onNavigate;
+  final void Function(String pageId, {String? groupKey})? onNavigate;
   final Future<void> Function(String text) copyText;
 
   @override
@@ -568,7 +568,10 @@ class _GroupCard extends StatelessWidget {
               if (onNavigate != null)
                 SmallButton(
                   label: t.t('group.viewStats'),
-                  onTap: () => onNavigate!.call('stats'),
+                  // 带上 group_key 预筛统计页（React `GroupListItem.tsx:236`
+                  // 传的是 `{ groupId, groupKey }`；统计页只读 groupKey，
+                  // 见 `Stats.tsx:255`，所以这里只传它）。
+                  onTap: () => onNavigate!.call('stats', groupKey: g.groupKey),
                 ),
               if (onCreatePlatform != null)
                 SmallButton(

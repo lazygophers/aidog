@@ -1383,7 +1383,8 @@ void main() {
             invoke: k.fn,
             onCreatePlatform: ({List<int>? presetGroupIds, int? lockGid}) =>
                 created.add('$presetGroupIds|$lockGid'),
-            onNavigate: navs.add,
+            onNavigate: (id, {String? groupKey}) =>
+                navs.add(groupKey == null ? id : '$id:$groupKey'),
           ),
           c,
         ),
@@ -1394,7 +1395,9 @@ void main() {
       expect(created.single, '[10]|10');
       await tester.tap(find.text(c.t('group.viewStats')));
       await settle(tester);
-      expect(navs.single, 'stats');
+      // 必须带上 group_key：统计页靠它预筛该分组（React `GroupListItem.tsx:236`
+      // → `Stats.tsx:255`）。只传 'stats' 的话跳过去是空筛选，按钮价值减半。
+      expect(navs.single, 'stats:gk10');
     });
 
     testWidgets('编辑态：关联平台选择器可加、可删，保存时按顺序发优先级', (tester) async {

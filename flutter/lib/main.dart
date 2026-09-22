@@ -100,12 +100,25 @@ class _AidogAppState extends State<AidogApp> {
   /// 那一页落地前仍走占位。
   Widget _page(BuildContext context, String id) => switch (id) {
     'home' => HomePage(onNavigate: _nav.navigate),
-    'stats' => const StatsPage(),
+    // 跨页预筛（React `App.tsx:224-228` 的 `initialFilter={navContext}`）：
+    // 平台卡「查看日志」带 platformId，分组卡「查看统计」带 groupKey。
+    // `navigate` 每次都会把 _context 重置成空（`nav.dart:174`），所以从侧栏正常
+    // 切页不会把上一次的筛选带回来，不需要另做「消费后清空」。
+    'stats' => StatsPage(
+      initialPlatformId: _nav.context.platformId,
+      initialGroupKey: _nav.context.groupKey,
+    ),
     // 票 I07：平台页内嵌分组区（与 React 的 GroupsEmbedded 同结构）。
     'platforms' => PlatformsPage(
-      onNavigate: (to, {int? platformId}) => _nav.navigate(to),
+      onNavigate: (to, {int? platformId, String? groupKey}) => _nav.navigate(
+        to,
+        NavContext(platformId: platformId, groupKey: groupKey),
+      ),
     ),
-    'logs' => const LogsPage(),
+    'logs' => LogsPage(
+      initialPlatformId: _nav.context.platformId,
+      initialGroupKey: _nav.context.groupKey,
+    ),
     'request-log' => const RequestLogPage(),
     // 裸 `settings` 回退 system，与 `nav.dart::settingsTab` 同规则。
     'settings' || 'settings/system' => const SystemSettingsPage(),
