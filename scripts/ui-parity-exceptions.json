@@ -18,6 +18,180 @@
       "type": "intentional",
       "reason": "同 pathPicker.openHint：「浏览器里没有系统『保存到』对话框」的降级提示。Flutter 的 pickPath(save:true) 直接调 getSaveLocation 开原生保存面板，不存在需要用户手敲完整路径的形态。",
       "evidence": "flutter/lib/platform.dart:154"
+    },
+    {
+      "key": "mcp.addTitle",
+      "type": "synonym",
+      "reason": "新增 MCP 弹窗的标题，Flutter 用同一句 mcp.add（「新增」），标题与按钮共用一个词。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:368"
+    },
+    {
+      "key": "mcp.editTitle",
+      "type": "synonym",
+      "reason": "编辑 MCP 弹窗的标题，Flutter 用同一句 mcp.edit。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:368"
+    },
+    {
+      "key": "mcp.pasteTitle",
+      "type": "synonym",
+      "reason": "粘贴导入弹窗的标题，Flutter 复用入口按钮的 mcp.pasteImport。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:270"
+    },
+    {
+      "key": "mcp.save",
+      "type": "synonym",
+      "reason": "弹窗的保存按钮，Flutter 用全应用统一的 action.save。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:437"
+    },
+    {
+      "key": "mcp.scanning",
+      "type": "synonym",
+      "reason": "扫描导入弹窗的「扫描中…」，Flutter 用统一的 status.loading。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:152"
+    },
+    {
+      "key": "mcp.subtitle",
+      "type": "synonym",
+      "reason": "页头的「{{count}} 个」，Flutter 只印裸计数（数字一样，量词没了）。",
+      "evidence": "flutter/lib/src/pages/mcp.dart:59"
+    },
+    {
+      "key": "platform.customTest",
+      "type": "synonym",
+      "reason": "自定义测试按钮的悬浮提示，Flutter 直接用同一颗按钮的标签 test.title。",
+      "evidence": "flutter/lib/src/pages/platform_card_view.dart:366"
+    },
+    {
+      "key": "platform.viewLogs",
+      "type": "synonym",
+      "reason": "「查看日志」按钮的悬浮提示，Flutter 用侧栏同名的 page.logs。",
+      "evidence": "flutter/lib/src/pages/platform_card_view.dart:370"
+    },
+    {
+      "key": "logs.cancel",
+      "type": "synonym",
+      "reason": "清空日志确认框的取消按钮，Flutter 走通用 ConfirmCard 的 action.cancel。",
+      "evidence": "flutter/lib/src/pages/ui_bits.dart:118"
+    },
+    {
+      "key": "skills.browse",
+      "type": "synonym",
+      "reason": "项目目录的「浏览…」按钮，Flutter 用同一颗按钮上的 skills.chooseProjectDir。",
+      "evidence": "flutter/lib/src/pages/skills.dart:305"
+    },
+    {
+      "key": "skills.projectPathPlaceholder",
+      "type": "synonym",
+      "reason": "项目路径输入框的占位符，Flutter 同样用 skills.chooseProjectDir。",
+      "evidence": "flutter/lib/src/pages/skills.dart:300"
+    },
+    {
+      "key": "skills.enabling",
+      "type": "synonym",
+      "reason": "agent 开关切换中的「启用中…」，Flutter 用 skills.toggling。",
+      "evidence": "flutter/lib/src/pages/skills.dart:659"
+    },
+    {
+      "key": "skills.share",
+      "type": "synonym",
+      "reason": "技能行的分享按钮，Flutter 用分享面板标题同一句 skills.share.title。",
+      "evidence": "flutter/lib/src/pages/skills.dart:673"
+    },
+    {
+      "key": "skills.piAlwaysOnDesc",
+      "type": "synonym",
+      "reason": "pi 常开徽标的说明，Flutter 用 skills.piAlwaysOnHint。",
+      "evidence": "flutter/lib/src/pages/skills.dart:671"
+    },
+    {
+      "key": "skills.pasteTitle",
+      "type": "synonym",
+      "reason": "粘贴导入弹窗的标题，Flutter 复用入口按钮的 skills.importFromShare。",
+      "evidence": "flutter/lib/src/pages/skills.dart:426"
+    },
+    {
+      "key": "skills.importBtn",
+      "type": "synonym",
+      "reason": "批量导入弹窗的「导入」按钮，Flutter 用通用 action.confirm。",
+      "evidence": "flutter/lib/src/pages/skills.dart:524"
+    },
+    {
+      "key": "skills.installing",
+      "type": "synonym",
+      "reason": "批量导入按钮的「导入中…」，Flutter 用统一的 status.loading。",
+      "evidence": "flutter/lib/src/pages/skills.dart:523"
+    },
+    {
+      "key": "importExport.sub2api.accountList",
+      "type": "synonym",
+      "reason": "sub2api 账号清单的标题，Flutter 两个异源卡共用同一段，用 importExport.ccswitch.providerList。",
+      "evidence": "flutter/lib/src/pages/settings/importexport_page.dart:853"
+    },
+    {
+      "key": "importExport.sub2api.importBtn",
+      "type": "synonym",
+      "reason": "sub2api 的导入按钮，与 cc-switch 共用 importExport.ccswitch.importBtn。",
+      "evidence": "flutter/lib/src/pages/settings/importexport_page.dart:913"
+    },
+    {
+      "key": "importExport.sub2api.noKey",
+      "type": "synonym",
+      "reason": "「无密钥」徽标，与 cc-switch 共用 importExport.ccswitch.noKey。",
+      "evidence": "flutter/lib/src/pages/settings/importexport_page.dart:898"
+    },
+    {
+      "key": "importExport.sub2api.nothingSelected",
+      "type": "synonym",
+      "reason": "一条都没勾时的空态，与 cc-switch 共用 importExport.ccswitch.nothingSelected。",
+      "evidence": "flutter/lib/src/pages/settings/importexport_page.dart:850"
+    },
+    {
+      "key": "importExport.dropUnsupportedInBrowser",
+      "type": "intentional",
+      "reason": "「浏览器里拖入文件取不到完整路径」——只在 React 的浏览器形态下出现。Flutter 外壳的拖拽落区拿得到真实路径，写出这句话是假的。同 pathPicker.openHint。",
+      "evidence": "flutter/lib/src/pages/settings/importexport_page.dart:81"
+    },
+    {
+      "key": "importExport.pickHintBrowser",
+      "type": "intentional",
+      "reason": "浏览器形态下「手敲 .aidogx 完整路径」的降级提示，Flutter 一律走原生文件面板。同 pathPicker.openHint。",
+      "evidence": "flutter/lib/platform.dart:151"
+    },
+    {
+      "key": "updater.foundTitle",
+      "type": "intentional",
+      "reason": "发现新版本的弹窗在 Flutter 由 Sparkle / WinSparkle 自己弹原生窗接管，整套文案来自系统框架而不是应用，应用侧再画一个就成了两个更新窗。",
+      "evidence": "flutter/lib/src/updater.dart:55"
+    },
+    {
+      "key": "updater.releaseNotes",
+      "type": "intentional",
+      "reason": "同 updater.foundTitle：更新内容由 Sparkle 的原生窗展示。",
+      "evidence": "flutter/lib/src/updater.dart:55"
+    },
+    {
+      "key": "updater.later",
+      "type": "intentional",
+      "reason": "同 updater.foundTitle：「稍后」是 Sparkle 原生窗自带的按钮。",
+      "evidence": "flutter/lib/src/updater.dart:55"
+    },
+    {
+      "key": "updater.updateNow",
+      "type": "intentional",
+      "reason": "同 updater.foundTitle：「立即更新」是 Sparkle 原生窗自带的按钮。",
+      "evidence": "flutter/lib/src/updater.dart:55"
+    },
+    {
+      "key": "updater.updating",
+      "type": "intentional",
+      "reason": "同 updater.foundTitle：下载进度由 Sparkle 原生窗展示。",
+      "evidence": "flutter/lib/src/updater.dart:62"
+    },
+    {
+      "key": "updater.updateFailed",
+      "type": "intentional",
+      "reason": "同 updater.foundTitle：更新失败由 Sparkle 的 onUpdaterError 走原生窗报出；应用侧只把它记进关于页的状态行。",
+      "evidence": "flutter/lib/src/updater.dart:43"
     }
   ]
 }
