@@ -917,6 +917,29 @@ class GroupsController {
     }
   }
 
+  /// 组内平台换位（`usePlatformDrag.ts:70-87` 的组内重排分支）：先乐观改本地顺序，
+  /// 再把整串新 id 发给后端。越界的下标直接忽略，不发命令。
+  Future<void> movePlatformWithinGroup(int gid, int from, int to) async {
+    GroupDetail? detail;
+    for (final d in details) {
+      if (d.group.id == gid) detail = d;
+    }
+    if (detail == null) return;
+    final gps = [...detail.platforms];
+    if (from < 0 || to < 0 || from >= gps.length || to >= gps.length || from == to) {
+      return;
+    }
+    gps.insert(to, gps.removeAt(from));
+    List<GroupDetail> apply(List<GroupDetail> list) => [
+      for (final d in list)
+        if (d.group.id == gid) d.copyWith(platforms: gps) else d,
+    ];
+    details = apply(details);
+    _loadedDetails = apply(_loadedDetails);
+    _notify();
+    await reorderPlatformsInGroup(gid, [for (final gp in gps) gp.platform.id]);
+  }
+
   /// 组内平台排序（`usePlatformDrag.ts:87`）。
   Future<void> reorderPlatformsInGroup(int gid, List<int> orderedIds) async {
     try {
