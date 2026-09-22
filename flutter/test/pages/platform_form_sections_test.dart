@@ -1649,6 +1649,42 @@ void main() {
       );
     });
 
+    testWidgets('模型候选是浮层：打开不把下面的行顶下去', (tester) async {
+      await boot(tester);
+      final cell = find.byType(ModelCell).first;
+      final below = find.byType(ModelCell).at(1);
+      final beforeY = tester.getTopLeft(below).dy;
+
+      await tester.tap(
+        find.descendant(of: cell, matching: find.byType(TextField)),
+      );
+      await settle(tester);
+      expect(find.text('gpt-5-mini'), findsWidgets, reason: '候选出来了');
+      expect(
+        tester.getTopLeft(below).dy,
+        beforeY,
+        reason: '候选是盖上去的浮层，下面的行不该被顶走',
+      );
+      // 候选不再是单元格的子节点，它挂在 Overlay 上。
+      expect(
+        find.descendant(of: cell, matching: find.text('gpt-5-mini')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('模型矩阵列宽随窗口分，不再恒 200', (tester) async {
+      await boot(tester);
+      final one = tester.getSize(find.byType(ModelCell).first).width;
+      // 加两个时段档列：同样的宽度要被三列分掉。
+      await tester.tap(find.text('+ ${t.t('platform.time_windows_add_rule')}'));
+      await settle(tester);
+      await tester.tap(find.text('+ ${t.t('platform.time_windows_add_rule')}'));
+      await settle(tester);
+      final three = tester.getSize(find.byType(ModelCell).first).width;
+      expect(three, lessThan(one), reason: '列多了每列就该变窄，而不是推出可视区');
+      expect(three, greaterThanOrEqualTo(80), reason: '软下限 80');
+    });
+
     testWidgets('分组归属是胶囊形', (tester) async {
       await boot(
         tester,
