@@ -23,7 +23,7 @@ Future<void> _mount(WidgetTester tester, String query, dynamic c) async {
   final k = groupsFake(
     page: [
       {
-        'group': {'id': 10, 'name': '主力组', 'group_key': 'gk10'},
+        'group': {'id': 10, 'name': '主力分组', 'group_key': 'gk10'},
         'platforms': [
           {'platform': plat(1, 'Alpha')},
           {'platform': plat(2, 'Beta')},
@@ -56,7 +56,7 @@ void main() {
   testWidgets('无搜索：两个组都在', (tester) async {
     final c = await makeI18n(tester);
     await _mount(tester, '', c);
-    expect(find.text('主力组'), findsOneWidget);
+    expect(find.text('主力分组'), findsOneWidget);
     expect(find.text('备用组'), findsOneWidget);
   });
 
@@ -64,7 +64,7 @@ void main() {
     final c = await makeI18n(tester);
     await _mount(tester, '备用', c);
     expect(find.text('备用组'), findsOneWidget);
-    expect(find.text('主力组'), findsNothing, reason: '零命中的组整组不渲染');
+    expect(find.text('主力分组'), findsNothing, reason: '零命中的组整组不渲染');
     // 强制展开：不用再点一下就看得见组内的卡。
     expect(find.text('卡:Gamma'), findsOneWidget);
   });
@@ -72,7 +72,7 @@ void main() {
   testWidgets('只命中组内某个平台 → 只渲染命中的那张卡', (tester) async {
     final c = await makeI18n(tester);
     await _mount(tester, 'Alpha', c);
-    expect(find.text('主力组'), findsOneWidget);
+    expect(find.text('主力分组'), findsOneWidget);
     expect(find.text('备用组'), findsNothing);
     expect(find.text('卡:Alpha'), findsOneWidget);
     expect(find.text('卡:Beta'), findsNothing, reason: '同组里没命中的不该画出来');
@@ -81,7 +81,7 @@ void main() {
   testWidgets('一个都搜不到 → 走「没有匹配」空态，不显「还没有分组」', (tester) async {
     final c = await makeI18n(tester);
     await _mount(tester, '这个词谁也不匹配', c);
-    expect(find.text('主力组'), findsNothing);
+    expect(find.text('主力分组'), findsNothing);
     expect(find.text('备用组'), findsNothing);
     expect(
       find.text(c.t('group.empty')),

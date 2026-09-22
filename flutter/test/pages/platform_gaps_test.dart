@@ -331,7 +331,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
       await gesture.moveBy(const Offset(0, -20));
       await tester.pump();
-      await gesture.moveTo(tester.getCenter(find.text('G10')));
+      await gesture.moveTo(tester.getCenter(find.text('G10').last));
       await tester.pump();
       await gesture.up();
       await settle(tester);
@@ -383,7 +383,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
       await gesture.moveBy(const Offset(0, -20));
       await tester.pump();
-      await gesture.moveTo(tester.getCenter(find.text('G10')));
+      await gesture.moveTo(tester.getCenter(find.text('G10').last));
       await tester.pump();
       await gesture.up();
       await settle(tester);

@@ -554,6 +554,26 @@ void main() {
       return k;
     }
 
+    // 回归 2026-09-22：原先只有一个天数框，「不清理」得用户自己猜出要填 0
+    //（`NotificationSettings.tsx:409-419`：关 → 写 0，开 → 回 7 天，关了藏天数框）。
+    testWidgets('通知历史自动清理：关掉写 0 并藏天数框，开回来写 7', (tester) async {
+      final k = await mount(tester);
+      expect(find.byKey(const ValueKey('inbox-retention')), findsOneWidget);
+
+      await tapSwitch(tester, 'inbox-retention-on');
+      expect(
+        k.lastArgsOf('notification_settings_set')!['settings'],
+        containsPair('inbox_retention_days', 0),
+      );
+      expect(find.byKey(const ValueKey('inbox-retention')), findsNothing);
+
+      await tapSwitch(tester, 'inbox-retention-on');
+      expect(
+        k.lastArgsOf('notification_settings_set')!['settings'],
+        containsPair('inbox_retention_days', 7),
+      );
+    });
+
     testWidgets('总开关关掉时「默认注入 hook」点不动', (tester) async {
       await mount(tester, enabled: false);
       final sw = tester.widget<SwitchRow>(

@@ -161,14 +161,23 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           title: t.t('notif.retentionTitle'),
           description: t.t('notif.retentionDesc'),
           children: [
-            NumberRow(
-              key: const ValueKey('inbox-retention'),
-              label:
-                  '${t.t('notif.retentionDaysLabel')} '
-                  '(${t.t('notif.retentionDaysUnit')})',
-              value: s.inboxRetentionDays,
-              onChanged: (v) => _c.setInboxRetentionDays(v < 0 ? 0 : v),
+            // 「不清理」= 天数 0。没有这个开关的话，用户得自己猜出「填 0」
+            //（`NotificationSettings.tsx:409-419`：关 → 写 0，开 → 回 7 天）。
+            SwitchRow(
+              key: const ValueKey('inbox-retention-on'),
+              label: t.t('notif.retentionTitle'),
+              value: s.inboxRetentionDays > 0,
+              onChanged: (on) => _c.setInboxRetentionDays(on ? 7 : 0),
             ),
+            if (s.inboxRetentionDays > 0)
+              NumberRow(
+                key: const ValueKey('inbox-retention'),
+                label:
+                    '${t.t('notif.retentionDaysLabel')} '
+                    '(${t.t('notif.retentionDaysUnit')})',
+                value: s.inboxRetentionDays,
+                onChanged: (v) => _c.setInboxRetentionDays(v < 0 ? 0 : v),
+              ),
           ],
         ),
         SettingsCard(

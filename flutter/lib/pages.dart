@@ -32,7 +32,7 @@ export 'src/pages/invoke.dart'
         kProxyLogUpdatedEvent,
         kernelInvoke,
         kernelProxyLogUpdated;
-export 'src/pages/groups.dart' show GroupsSection;
+export 'src/pages/groups.dart' show GroupIcon, GroupsSection;
 export 'src/pages/logs.dart' show LogsPage, RequestLogPage;
 export 'src/pages/logs_logic.dart';
 export 'src/pages/mcp.dart' show McpPage;
