@@ -1240,15 +1240,15 @@ void main() {
     //（票 I11 起预览与托盘小窗共用同一份渲染，所以空态也长一样）。
     expect(find.text(i18n.t('popover.empty')), findsNWidgets(2));
 
+    // 「添加项」现在是按钮 + 菜单（不再是一排平铺按钮），先点开再选。
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('popover-add')),
-        matching: find.widgetWithText(
-          SmallButton,
-          i18n.t('popover.itemProxyStatus'),
-        ),
+        matching: find.byType(SmallButton),
       ),
     );
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('popover-add-proxy_status')));
     await settle(tester);
     final cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     expect((cfg['items']! as List).length, 1);

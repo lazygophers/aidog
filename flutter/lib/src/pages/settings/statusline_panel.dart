@@ -754,6 +754,16 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
               ),
             Row(
               children: [
+                // 色块（`SegmentEditModal.tsx:110-124` 的 `<input type="color">`）：
+                // Flutter 没有原生取色控件，点开是一张预设色板 —— 任意色仍可在
+                // 右边的 hex 框里手打。原先只有 hex 框，挑颜色只能凭记忆写十六进制。
+                _ColorSwatchButton(
+                  key: const ValueKey('seg-edit-swatch'),
+                  hex: _color,
+                  enabled: !(_autoColor && canAutoColor),
+                  onPicked: (v) => setState(() => _color = v),
+                ),
+                const SizedBox(width: AidogSpace.ssm),
                 Expanded(
                   child: TextRow(
                     key: const ValueKey('seg-edit-color'),
@@ -958,6 +968,104 @@ class _StatusLineDataRefState extends State<StatusLineDataRef> {
           ],
         ],
       ],
+    );
+  }
+}
+
+/// 状态栏段落的取色色块。React 那边是 `<input type="color">`（调系统取色器），
+/// Flutter 没有等价控件，这里点开一张预设色板；任意颜色仍由旁边的 hex 框承担。
+class _ColorSwatchButton extends StatelessWidget {
+  const _ColorSwatchButton({
+    super.key,
+    required this.hex,
+    required this.enabled,
+    required this.onPicked,
+  });
+
+  final String hex;
+  final bool enabled;
+  final ValueChanged<String> onPicked;
+
+  /// 预设色板：终端 16 色的常见取值，状态栏配色基本都落在这几档里。
+  static const List<String> palette = [
+    '#4A9EFF',
+    '#5BC8AF',
+    '#7EE787',
+    '#D2A8FF',
+    '#FFA657',
+    '#FF7B72',
+    '#F0883E',
+    '#E3B341',
+    '#79C0FF',
+    '#56D4DD',
+    '#A5D6FF',
+    '#FFB3BA',
+    '#8B949E',
+    '#C9D1D9',
+    '#6E7681',
+    '#FFFFFF',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final current = parseHexColor(hex);
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: GestureDetector(
+        onTap: enabled ? () => _open(context) : null,
+        child: Container(
+          width: 36,
+          height: 30,
+          decoration: BoxDecoration(
+            color: current ?? theme.c.surface2,
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _open(BuildContext context) {
+    final t = AidogI18n.of(context);
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AidogModal(
+        maxWidth: 260,
+        onBarrierTap: () => Navigator.of(ctx).pop(),
+        child: Tile(
+          title: t.t('statusline.color'),
+          child: Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              for (final c in palette)
+                GestureDetector(
+                  key: ValueKey('swatch-$c'),
+                  onTap: () {
+                    onPicked(c);
+                    Navigator.of(ctx).pop();
+                  },
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      color: parseHexColor(c),
+                      border: Border.all(
+                        color: c.toLowerCase() == hex.toLowerCase()
+                            ? AidogTheme.of(ctx).c.accent
+                            : AidogTheme.of(ctx).c.line,
+                        width: c.toLowerCase() == hex.toLowerCase() ? 2 : 1,
+                      ),
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

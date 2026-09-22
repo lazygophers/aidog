@@ -20,6 +20,7 @@ import '../../../i18n.dart';
 import '../../../popover.dart';
 import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
+import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
@@ -396,20 +397,21 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         SettingsCard(
           title: t.t('popover.items'),
           children: [
-            ChoiceRow(
+            // 一颗「添加项」按钮 + 点开的菜单（`PopoverLayout.tsx:85-107`）。
+            // 原先是把 14 个类型全平铺成一排按钮，占掉整张卡。
+            // 单实例类型加过一次就不再出现在菜单里。
+            _AddItemMenu(
               key: const ValueKey('popover-add'),
               label: t.t('popover.addItem'),
-              options: kPopoverItemTypes
-                  // 单实例类型加过一次就不再出现在菜单里。
+              types: kPopoverItemTypes
                   .where(
                     (ty) =>
                         kPopoverMultiInstanceTypes.contains(ty) ||
                         !items.any((e) => e['item_type'] == ty),
                   )
                   .toList(),
-              value: '',
               labelOf: _typeLabel(t),
-              onChanged: _addItem,
+              onPick: _addItem,
             ),
           ],
         ),
@@ -709,12 +711,9 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
             onChanged: (v) => patch({
               'scope': v,
               'scope_ref': switch (v) {
-                'platform' => _c.platforms.isEmpty
-                    ? null
-                    : '${_c.platforms.first.id}',
-                'group' => _c.groups.isEmpty
-                    ? null
-                    : _c.groups.first.groupKey,
+                'platform' =>
+                  _c.platforms.isEmpty ? null : '${_c.platforms.first.id}',
+                'group' => _c.groups.isEmpty ? null : _c.groups.first.groupKey,
                 _ => null,
               },
             }),
@@ -736,32 +735,43 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
             labelOf: (w) => t.t('popover.trendWindow_$w'),
             onChanged: (v) => patch({'time_window': v}),
           ),
+        // 分组 / 平台候选是**不定长**的：平铺成一排按钮，平台一多就铺满屏
+        // （React 这两处是 Select，`ScopeConfig.tsx:83-114`）。
+        // 候选为空时 ChoiceRow 整行什么都不画，这里给一句空态。
         if (scope == 'group' || kPopoverGroupTypes.contains(ty))
-          ChoiceRow(
-            label: t.t('popover.trendScopeGroup'),
-            options: _c.groups.map((g) => g.groupKey).toList(),
-            value: '${it['scope_ref'] ?? ''}',
-            labelOf: (k) => _c.groups
-                .firstWhere(
-                  (g) => g.groupKey == k,
-                  orElse: () => (id: -1, name: k, groupKey: k),
-                )
-                .name,
-            onChanged: (v) => patch({'scope': 'group', 'scope_ref': v}),
-          ),
+          _c.groups.isEmpty
+              ? _ScopeEmptyNote(label: t.t('popover.trendScopeGroup'))
+              : SelectRow(
+                  key: const ValueKey('popover-scope-group'),
+                  label: t.t('popover.trendScopeGroup'),
+                  options: _c.groups.map((g) => g.groupKey).toList(),
+                  value: '${it['scope_ref'] ?? ''}',
+                  labelOf: (k) => _c.groups
+                      .firstWhere(
+                        (g) => g.groupKey == k,
+                        orElse: () => (id: -1, name: k, groupKey: k),
+                      )
+                      .name,
+                  onChanged: (v) =>
+                      patch({'scope': 'group', 'scope_ref': v ?? ''}),
+                ),
         if (scope == 'platform' || ty == 'platform_metric')
-          ChoiceRow(
-            label: t.t('popover.trendScopePlatform'),
-            options: _c.platforms.map((p) => '${p.id}').toList(),
-            value: '${it['scope_ref'] ?? ''}',
-            labelOf: (id) => _c.platforms
-                .firstWhere(
-                  (p) => '${p.id}' == id,
-                  orElse: () => (id: -1, name: id),
-                )
-                .name,
-            onChanged: (v) => patch({'scope': 'platform', 'scope_ref': v}),
-          ),
+          _c.platforms.isEmpty
+              ? _ScopeEmptyNote(label: t.t('popover.trendScopePlatform'))
+              : SelectRow(
+                  key: const ValueKey('popover-scope-platform'),
+                  label: t.t('popover.trendScopePlatform'),
+                  options: _c.platforms.map((p) => '${p.id}').toList(),
+                  value: '${it['scope_ref'] ?? ''}',
+                  labelOf: (id) => _c.platforms
+                      .firstWhere(
+                        (p) => '${p.id}' == id,
+                        orElse: () => (id: -1, name: id),
+                      )
+                      .name,
+                  onChanged: (v) =>
+                      patch({'scope': 'platform', 'scope_ref': v ?? ''}),
+                ),
       ],
     );
   }
@@ -964,4 +974,75 @@ class _HexFieldState extends State<_HexField> {
 
 extension _FirstOrNull<T> on Iterable<T> {
   T? get firstOrNull => isEmpty ? null : first;
+}
+
+/// 分组 / 平台候选为空时的一行说明。原先候选为空整行什么都不画，
+/// 用户只看到一张配好了「按分组」却挑不了分组的卡。
+class _ScopeEmptyNote extends StatelessWidget {
+  const _ScopeEmptyNote({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TileMeta(label),
+          Text(
+            t.t('stats.noMatch'),
+            style: AidogType.micro.copyWith(
+              color: AidogTheme.of(context).c.fg3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「添加项」按钮：点开一列候选类型，选一个就加进布局。
+/// 对齐 `PopoverLayout.tsx:85-107` 的按钮 + 浮层菜单；候选为空时按钮点不动。
+class _AddItemMenu extends StatelessWidget {
+  const _AddItemMenu({
+    super.key,
+    required this.label,
+    required this.types,
+    required this.labelOf,
+    required this.onPick,
+  });
+
+  final String label;
+  final List<String> types;
+  final String Function(String) labelOf;
+  final ValueChanged<String> onPick;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    child: Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: MenuAnchor(
+        menuChildren: [
+          for (final ty in types)
+            MenuItemButton(
+              key: ValueKey('popover-add-$ty'),
+              onPressed: () => onPick(ty),
+              child: Text(labelOf(ty)),
+            ),
+        ],
+        builder: (context, controller, _) => SmallButton(
+          label: '+ $label',
+          onTap: types.isEmpty
+              ? null
+              : () =>
+                    controller.isOpen ? controller.close() : controller.open(),
+        ),
+      ),
+    ),
+  );
 }

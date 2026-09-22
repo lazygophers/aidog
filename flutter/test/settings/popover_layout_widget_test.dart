@@ -114,12 +114,15 @@ void main() {
         ],
       },
     );
+    // 「添加项」现在是按钮 + 菜单（不再是一排平铺按钮），先点开再选。
     await tester.tap(
       find.descendant(
         of: find.byKey(const ValueKey('popover-add')),
-        matching: find.byType(SmallButton).at(1), // 第 2 项 today_cache_rate
+        matching: find.byType(SmallButton),
       ),
     );
+    await settle(tester);
+    await tester.tap(find.byKey(const ValueKey('popover-add-today_cache_rate')));
     await settle(tester);
     final cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     final items = (cfg['items']! as List).cast<Map>();
