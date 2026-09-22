@@ -15,6 +15,7 @@ import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/utils/color_level.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../settings/fake_invoke.dart';
@@ -2085,12 +2086,37 @@ void main() {
       expect(k.commands.contains('get_protocol_logo_path'), isFalse);
     });
 
-    test('decodeLogoDataUrl：非 data URL / 坏 base64 → null', () {
+    test('decodeLogoDataUrl：非 data URL / 坏 base64 → null，认得出 mime', () {
       expect(decodeLogoDataUrl(null), isNull);
       expect(decodeLogoDataUrl(''), isNull);
       expect(decodeLogoDataUrl('/tmp/x.png'), isNull);
       expect(decodeLogoDataUrl('data:image/png;base64,!!!'), isNull);
-      expect(decodeLogoDataUrl('data:image/png;base64,AAAA'), isNotNull);
+      expect(decodeLogoDataUrl('data:image/png;base64,AAAA')?.mime, 'image/png');
+      expect(
+        decodeLogoDataUrl('data:image/svg+xml;base64,AAAA')?.mime,
+        'image/svg+xml',
+      );
+    });
+
+    test('logoWidget：ICO 不认（回落字母块），SVG 与 PNG 各走各的渲染器', () {
+      // 回归 2026-09-22：`~/.aidog/logos/` 里真实躺着 `.svg` 和 `.ico`
+      //（`defaults.rs:64` 按扩展名派生 mime）。原先无差别喂给 `Image.memory`，
+      // 结果是每张平台卡刷一条
+      // `EXCEPTION CAUGHT BY IMAGE RESOURCE SERVICE: Invalid image data`。
+      expect(logoWidget(null), isNull);
+      expect(
+        logoWidget(decodeLogoDataUrl('data:image/x-icon;base64,AAAA')),
+        isNull,
+        reason: 'dart:ui 解不了 ICO，必须回落到字母块而不是抛异常',
+      );
+      expect(
+        logoWidget(decodeLogoDataUrl('data:image/png;base64,AAAA')),
+        isA<Image>(),
+      );
+      expect(
+        logoWidget(decodeLogoDataUrl('data:image/svg+xml;base64,AAAA')),
+        isA<SvgPicture>(),
+      );
     });
   });
 }

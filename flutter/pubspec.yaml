@@ -69,6 +69,7 @@ dependencies:
   aidog_i18n_locales:
     path: ../src-tauri/crates/aidog_i18n
   desktop_drop: ^0.8.4
+  flutter_svg: ^2.3.0
 
 dev_dependencies:
   flutter_test:
