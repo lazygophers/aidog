@@ -10,11 +10,20 @@ library;
 
 import 'dart:async';
 
+import '../i18n/controller.dart' show i18n;
 import '../utils/pinyin.dart';
 import 'groups_logic.dart' show parseProtocolSearchTerms;
 import 'invoke.dart';
 import 'models.dart';
 import 'platform_card_bits.dart';
+
+/// 提示文案兜底：调用方没传就查当前语言的文案。
+///
+/// 这些提示原先把中文写成命名参数的**默认值**，而调用方一个都没传 —— 结果 8 种语言
+/// 下永远是中文。默认值必须是常量，查不了词，所以改成 `null` 再在这里查。
+/// 逻辑单测不起全局 i18n（没 `init()`），那时回落成 key 本身，不抛也不写死中文。
+String trFallback(String? given, String key, [Map<String, Object?>? args]) =>
+    given ?? (i18n.ready ? i18n.t(key, args) : key);
 
 /// quota 查询的并发上限（`src/domains/platforms` 的 `QUOTA_CONCURRENCY`）。
 /// 这些是真出网的 HTTP，不是本地查询，所以上限比列表渲染那类要低。
@@ -477,7 +486,7 @@ class PlatformsController {
 
   /// `usePlatformsState.ts:475-511`：乐观从列表移除 → 调删除 → 失败**插回原位**。
   /// 插回原位（不是追加到末尾）很重要，否则用户看到的是「删除失败，顺便还被挪到了最后」。
-  Future<void> deletePlatform(int id, {String failText = '删除失败'}) async {
+  Future<void> deletePlatform(int id, {String? failText}) async {
     deleteTarget = null;
     final removedIndex = platforms.indexWhere((x) => x.id == id);
     final removed = removedIndex >= 0 ? platforms[removedIndex] : null;
@@ -499,7 +508,7 @@ class PlatformsController {
         next.insert(at, removed);
         platforms = next;
       }
-      _toast(failText, ok: false);
+      _toast(trFallback(failText, 'platform.deleteFail'), ok: false);
       _notify();
     }
   }
@@ -507,7 +516,7 @@ class PlatformsController {
   /// 三态启停：`enabled → disabled`，其余（含 auto_disabled）→ `enabled`。
   /// 乐观翻转 → 用后端写回值校正那一行 → 失败回滚那一行。
   /// 状态切换**不改分组归属**，所以不刷 groupDetails（`usePlatformsState.ts:517-518`）。
-  Future<void> togglePlatform(PlatformRow p, {String failText = '切换失败'}) async {
+  Future<void> togglePlatform(PlatformRow p, {String? failText}) async {
     final nextStatus = p.status == 'enabled' ? 'disabled' : 'enabled';
     platforms = [
       for (final x in platforms) x.id == p.id ? x.withStatus(nextStatus) : x,
@@ -525,7 +534,10 @@ class PlatformsController {
       platforms = [
         for (final x in platforms) x.id == p.id ? p : x,
       ];
-      _toast('${p.name}: $failText', ok: false);
+      _toast(
+        '${p.name}: ${trFallback(failText, 'platform.toggleFail')}',
+        ok: false,
+      );
     }
     _notify();
   }
@@ -534,8 +546,8 @@ class PlatformsController {
   /// `usePlatformsState.ts:534-554`。
   Future<void> quickTest(
     PlatformRow p, {
-    String okText = '测试成功',
-    String failText = '测试失败',
+    String? okText,
+    String? failText,
   }) async {
     testingId = p.id;
     _notify();
@@ -552,8 +564,10 @@ class PlatformsController {
       testResults = {...testResults, p.id: r.success ? 'ok' : 'fail'};
       _toast(
         r.success
-            ? '${p.name}: $okText${r.durationMs > 0 ? ' (${r.durationMs}ms)' : ''}'
-            : '${p.name}: ${r.error.isEmpty ? failText : r.error}',
+            ? '${p.name}: ${trFallback(okText, 'platform.testOk')}'
+                  '${r.durationMs > 0 ? ' (${r.durationMs}ms)' : ''}'
+            : '${p.name}: '
+                  '${r.error.isEmpty ? trFallback(failText, 'platform.testFail') : r.error}',
         ok: r.success,
       );
     } catch (e) {
@@ -569,13 +583,16 @@ class PlatformsController {
   /// `usePlatformsState.ts:569-578`。
   Future<Map<String, Object?>?> shareExport(
     PlatformRow p, {
-    String failText = '生成分享内容失败',
+    String? failText,
   }) async {
     try {
       final v = await _invoke('platform_share_export', {'platformId': p.id});
       return (v as Map?)?.cast<String, Object?>();
     } catch (_) {
-      _toast('${p.name}: $failText', ok: false);
+      _toast(
+        '${p.name}: ${trFallback(failText, 'platform.share.exportFail')}',
+        ok: false,
+      );
       return null;
     }
   }
@@ -678,9 +695,9 @@ class PlatformsController {
   /// `usePlatformsState.ts:582-608`：删完按 `deletedIds` 局部移除（不整页 load），
   /// `unassignedIds`（只解除了分组关联、平台还在）交给 groupDetails 重建 membership。
   Future<void> confirmPurgeDisabled({
-    String noneText = '暂无失效平台',
+    String? noneText,
     String Function(int count)? doneText,
-    String failText = '清理失效平台',
+    String? failText,
   }) async {
     purging = true;
     _notify();
@@ -690,9 +707,16 @@ class PlatformsController {
         (v as Map?)?.cast<String, dynamic>() ?? const {},
       );
       if (r.deletedIds.isEmpty) {
-        _toast(noneText);
+        _toast(trFallback(noneText, 'platform.purgeDisabledNone'));
       } else {
-        _toast((doneText ?? (n) => '已删除 $n 个失效平台')(r.deletedIds.length));
+        final n = r.deletedIds.length;
+        _toast(
+          doneText != null
+              ? doneText(n)
+              : (i18n.ready
+                    ? i18n.t('platform.purgeDisabledDone', {'count': n})
+                    : 'platform.purgeDisabledDone'),
+        );
         final del = r.deletedIds.toSet();
         epoch++;
         platforms = [
@@ -702,7 +726,10 @@ class PlatformsController {
       }
       await _loadGroupDetails();
     } catch (e) {
-      _toast('$failText: $e', ok: false);
+      _toast(
+        '${trFallback(failText, 'platform.purgeDisabled')}: $e',
+        ok: false,
+      );
     } finally {
       purging = false;
       purgeCandidates = null;
@@ -799,11 +826,14 @@ class PlatformsController {
   /// `usePlatformQuota.ts:125-156`。
   Future<void> refreshQuota(
     PlatformRow p, {
-    String noKeyText = '缺少 Token',
-    String failText = '刷新额度失败',
+    String? noKeyText,
+    String? failText,
   }) async {
     if (p.apiKey.isEmpty) {
-      _toast('${p.name}: $noKeyText', ok: false);
+      _toast(
+        '${p.name}: ${trFallback(noKeyText, 'platform.quotaNoKey')}',
+        ok: false,
+      );
       return;
     }
     final pend = {...quotaPending}..remove(p.id);
@@ -818,10 +848,16 @@ class PlatformsController {
         quotaRealIds = {...quotaRealIds, p.id: true};
       } else {
         final err = q?.error;
-        _toast('${p.name}: ${err == null || err.isEmpty ? failText : err}', ok: false);
+        final msg = err == null || err.isEmpty
+            ? trFallback(failText, 'platform.quotaRefreshFail')
+            : err;
+        _toast('${p.name}: $msg', ok: false);
       }
     } catch (_) {
-      _toast('${p.name}: $failText', ok: false);
+      _toast(
+        '${p.name}: ${trFallback(failText, 'platform.quotaRefreshFail')}',
+        ok: false,
+      );
     }
     quotaRefreshing = {...quotaRefreshing, p.id: false};
     _notify();
@@ -840,7 +876,7 @@ class PlatformsController {
     required String protocol,
     required String apiKey,
     required List<PlatformEndpoint> endpoints,
-    String emptyText = '未获取到模型',
+    String? emptyText,
     String Function(int code)? authText,
   }) async {
     if (apiKeyMissing(protocol, apiKey)) return (const <String>[], null);
@@ -886,13 +922,18 @@ class PlatformsController {
           final code = (m?['code'] as num?)?.toInt() ?? 0;
           return (
             const <String>[],
-            authText != null ? authText(code) : '鉴权失败（$code）',
+            authText != null
+                ? authText(code)
+                : trFallback(null, 'platform.fetchAuthError', {'code': code}),
           );
         }
         lastError = (m?['message'] as String?) ?? '$e';
       }
     }
-    return (const <String>[], lastError ?? emptyText);
+    return (
+      const <String>[],
+      lastError ?? trFallback(emptyText, 'platform.fetchEmpty'),
+    );
   }
 
   /// `platform_create` / `platform_update`。
@@ -913,7 +954,7 @@ class PlatformsController {
     List<Map<String, Object?>> manualBudgets = const [],
     bool autoGroup = true,
     int? editingId,
-    String failText = '保存失败',
+    String? failText,
     /// 批量创建时由调用方统一汇总失败，逐条 toast 会刷屏 —— 置 true 就不单独提示。
     bool silent = false,
     /// 失败原因原文，供表单底部的错误条展示（React `setSaveError(msg)`）。
@@ -976,7 +1017,9 @@ class PlatformsController {
       return saved;
     } catch (e) {
       onError?.call('$e');
-      if (!silent) _toast('$failText: $e', ok: false);
+      if (!silent) {
+        _toast('${trFallback(failText, 'platform.saveFail')}: $e', ok: false);
+      }
       return null;
     }
   }
