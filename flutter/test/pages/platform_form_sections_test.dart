@@ -20,13 +20,11 @@ import '../settings/fake_invoke.dart';
 import 'harness.dart';
 import 'platform_form_logic_test.dart' show formFake, plat;
 
-Finder fieldWithHint(String hint) => find.byWidgetPredicate(
-  (w) => w is PlatformField && w.hint == hint,
-);
+Finder fieldWithHint(String hint) =>
+    find.byWidgetPredicate((w) => w is PlatformField && w.hint == hint);
 
-Finder fieldWithLabel(String label) => find.byWidgetPredicate(
-  (w) => w is PlatformField && w.label == label,
-);
+Finder fieldWithLabel(String label) =>
+    find.byWidgetPredicate((w) => w is PlatformField && w.label == label);
 
 Finder inputOf(Finder field) =>
     find.descendant(of: field, matching: find.byType(TextField));
@@ -45,6 +43,9 @@ void main() {
   late PlatformFormController f;
   late I18nController t;
 
+  /// 注入的假剪贴板：票 31 ① 的复制按钮往这里写。
+  late List<String> copied;
+
   Future<void> boot(
     WidgetTester tester, {
     String protocol = 'openai',
@@ -53,6 +54,7 @@ void main() {
   }) async {
     await useBigSurface(tester);
     t = await makeI18n(tester);
+    copied = <String>[];
     k = fake ?? formFake();
     final list = PlatformsController(invoke: k.fn);
     f = PlatformFormController(list: list, invoke: k.fn);
@@ -71,7 +73,10 @@ void main() {
         StatefulBuilder(
           builder: (context, setState) {
             f.onChanged = () => setState(() {});
-            return PlatformEditForm(controller: f);
+            return PlatformEditForm(
+              controller: f,
+              copyText: (v) async => copied.add(v),
+            );
           },
         ),
         t,
@@ -139,7 +144,9 @@ void main() {
       await boot(tester, protocol: 'mock');
 
       await tester.enterText(
-        inputOf(fieldWithLabel('${t.t('platform.mockResponseText')}（response_text）')),
+        inputOf(
+          fieldWithLabel('${t.t('platform.mockResponseText')}（response_text）'),
+        ),
         'hi',
       );
       await settle(tester);
@@ -150,7 +157,9 @@ void main() {
       expect(f.mockConfig.finishReason, 'stop');
 
       await tester.enterText(
-        inputOf(fieldWithLabel('${t.t('platform.mockStatusCode')}（status_code）')),
+        inputOf(
+          fieldWithLabel('${t.t('platform.mockStatusCode')}（status_code）'),
+        ),
         '500',
       );
       await settle(tester);
@@ -211,7 +220,9 @@ void main() {
       expect(f.mockConfig.interChunkMs, isNull);
 
       // error_rate 上下限都钳。
-      final rate = fieldWithLabel('${t.t('platform.mockErrorRate')}（error_rate）');
+      final rate = fieldWithLabel(
+        '${t.t('platform.mockErrorRate')}（error_rate）',
+      );
       await tester.enterText(inputOf(rate), '5');
       await settle(tester);
       expect(f.mockConfig.errorRate, 1);
@@ -238,8 +249,9 @@ void main() {
   group('F3 配额脚本', () {
     testWidgets('变体下拉切到自定义 → 出编辑器；写脚本写回控制器', (tester) async {
       await boot(tester);
-      dropdownWithOption(tester, kQuotaCustomVariant)
-          .onChanged!(kQuotaCustomVariant);
+      dropdownWithOption(tester, kQuotaCustomVariant).onChanged!(
+        kQuotaCustomVariant,
+      );
       await settle(tester);
       await tester.enterText(
         inputOf(fieldWithLabel(t.t('platform.quotaScript.customLabel'))),
@@ -384,11 +396,8 @@ void main() {
       await settle(tester);
       expect(f.models['default'], 'gpt');
 
-      // 候选来自 registry 的 model_list；按输入过滤后选一条。
-      await tester.tap(
-        find.descendant(of: cells.first, matching: find.byType(IconButton)),
-      );
-      await settle(tester);
+      // 票 31 ⑥：输入即弹候选，不必再点箭头（改造前不点就不知道有候选）。
+      // 候选来自 registry 的 model_list，已按输入过滤。
       await tester.tap(find.text('gpt-5-mini').last);
       await settle(tester);
       expect(f.models['default'], 'gpt-5-mini');
@@ -526,7 +535,10 @@ void main() {
     testWidgets('从高峰时段导入：无高峰点不动；有高峰则确认后加一档', (tester) async {
       await boot(tester);
       expect(
-        buttonWithLabel(tester, t.t('platform.time_windows_import_peak')).enabled,
+        buttonWithLabel(
+          tester,
+          t.t('platform.time_windows_import_peak'),
+        ).enabled,
         isFalse,
       );
       f.setPeak(const [TimeWindow(startHour: 9, endHour: 12, multiplier: 2)]);
@@ -618,9 +630,7 @@ void main() {
       f.setManualBudgets(const []);
       await settle(tester);
       await tester.tap(
-        find.text(
-          t.t('platform.manualBudgetUseTier', {'tier': 'Pro'}),
-        ),
+        find.text(t.t('platform.manualBudgetUseTier', {'tier': 'Pro'})),
       );
       await settle(tester);
       expect(f.manualBudgets.single.amount, 300);
@@ -698,9 +708,11 @@ void main() {
         matching: find.byType(TextField),
       );
       // 窗口行的前四个数字框依次是 起时 / 起分 / 止时 / 止分。
-      Finder boxAt(int i) => find.byWidgetPredicate(
-        (w) => w is PlatformField && w.hint == null && w.label == null,
-      ).at(i);
+      Finder boxAt(int i) => find
+          .byWidgetPredicate(
+            (w) => w is PlatformField && w.hint == null && w.label == null,
+          )
+          .at(i);
       expect(nums, findsWidgets);
 
       await tester.enterText(inputOf(boxAt(0)), '9');
@@ -751,12 +763,15 @@ void main() {
       await boot(tester, edit: true);
       await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
       await settle(tester);
-      expect(find.text(' · ${t.t('platform.peak_model_scope_all')}'),
-          findsOneWidget);
+      expect(
+        find.text(' · ${t.t('platform.peak_model_scope_all')}'),
+        findsOneWidget,
+      );
 
       final scope = find.byWidgetPredicate(
-        (w) => w is TextField && w.decoration?.hintText ==
-            t.t('platform.peak_model_placeholder'),
+        (w) =>
+            w is TextField &&
+            w.decoration?.hintText == t.t('platform.peak_model_placeholder'),
       );
       await tester.enterText(scope, 'glm-5.2*');
       await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -787,7 +802,16 @@ void main() {
       await tester.enterText(inputOf(endAt), '2026-02-05T10:00');
       await settle(tester);
       expect(f.peak.single.endAt, isNotNull);
+      // 票 31 ③：手打非法格式**不再静默丢弃**——旧值留着，下面出红字提示。
+      // 改造前这里会把 endAt 清成 null，用户既丢了值又不知道为什么。
+      final before = f.peak.single.endAt;
       await tester.enterText(inputOf(endAt), 'nope');
+      await settle(tester);
+      expect(f.peak.single.endAt, before, reason: '非法输入不动已存的值');
+      expect(find.text(t.t('platform.dateTimeInvalid')), findsOneWidget);
+
+      // 清空仍然是「取消设置」，与非法格式两回事。
+      await tester.enterText(inputOf(endAt), '');
       await settle(tester);
       expect(f.peak.single.endAt, isNull);
     });
@@ -924,8 +948,9 @@ void main() {
     testWidgets('24 小时内到期显示「临近过期」', (tester) async {
       await boot(tester);
       f.setExpiryEnabled(true);
-      final soon =
-          DateTime.now().add(const Duration(hours: 1)).millisecondsSinceEpoch;
+      final soon = DateTime.now()
+          .add(const Duration(hours: 1))
+          .millisecondsSinceEpoch;
       f.setExpiresAt(soon);
       await settle(tester);
       expect(
@@ -1059,8 +1084,9 @@ void main() {
   });
 
   group('窗口描述与预览', () {
-    testWidgets('describeWindows：全天 / 时分精度 / 周几 / 每月几日 / 多窗口 +N',
-        (tester) async {
+    testWidgets('describeWindows：全天 / 时分精度 / 周几 / 每月几日 / 多窗口 +N', (
+      tester,
+    ) async {
       final i18n = await makeI18n(tester);
       expect(
         describeWindows(
@@ -1152,8 +1178,9 @@ void main() {
       );
     });
 
-    testWidgets('formatWindowPreview：半开区间右端显示 end-1:59；带时区直接显示 tz 名',
-        (tester) async {
+    testWidgets('formatWindowPreview：半开区间右端显示 end-1:59；带时区直接显示 tz 名', (
+      tester,
+    ) async {
       final i18n = await makeI18n(tester);
       expect(
         formatWindowPreview(
@@ -1266,6 +1293,155 @@ void main() {
           ),
         ),
         WindowDimension.none,
+      );
+    });
+  });
+  // ── 票 31：第一梯队六条（操作做不了 / 做了不生效还不报错）────────────
+
+  group('票 31 ① 编辑态 Token 复制', () {
+    testWidgets('编辑态且有值才给复制按钮，点了写进剪贴板', (tester) async {
+      await boot(tester, edit: true);
+      expect(find.byKey(const ValueKey('token-copy')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('token-copy')));
+      await settle(tester);
+      expect(copied, [f.apiKey]);
+      expect(f.apiKey, isNotEmpty);
+    });
+
+    testWidgets('新建态没有复制按钮（没值可复制）', (tester) async {
+      await boot(tester);
+      expect(find.byKey(const ValueKey('token-copy')), findsNothing);
+    });
+  });
+
+  group('票 31 ②③ 日期时间选择器', () {
+    testWidgets('过期时间：手打合法写进字段，非法出红字且不动旧值', (tester) async {
+      await boot(tester);
+      await tester.tap(find.byType(Switch).last);
+      await settle(tester);
+
+      final input = find.descendant(
+        of: find.byKey(const ValueKey('expires-at-input')),
+        matching: find.byType(TextField),
+      );
+      await tester.enterText(input, '2026-03-04T05:06');
+      await settle(tester);
+      expect(
+        f.expiresAt,
+        DateTime.parse('2026-03-04T05:06').millisecondsSinceEpoch,
+      );
+
+      final before = f.expiresAt;
+      await tester.enterText(input, '3 月 4 号');
+      await settle(tester);
+      expect(f.expiresAt, before, reason: '非法格式不动旧值');
+      expect(
+        find.byKey(const ValueKey('expires-at-invalid')),
+        findsOneWidget,
+        reason: '要可见提示，不能静默丢弃',
+      );
+    });
+
+    testWidgets('两处用的是同一个组件，且都带开选择器的按钮', (tester) async {
+      await boot(tester, edit: true);
+      await tester.tap(find.byType(Switch).last);
+      await settle(tester);
+      await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
+      await settle(tester);
+
+      // 过期时间 1 个 + 高峰窗口起止 2 个 = 3 个 DateTimeField。
+      expect(find.byType(DateTimeField), findsNWidgets(3));
+      expect(find.byKey(const ValueKey('expires-at-pick')), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('peak-0-start-at-pick')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('peak-0-end-at-pick')), findsOneWidget);
+    });
+  });
+
+  group('票 31 ④⑤ 受影响模型', () {
+    Future<void> openWindow(WidgetTester tester) async {
+      await boot(tester, edit: true);
+      await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
+      await settle(tester);
+    }
+
+    testWidgets('聚焦即出候选，候选来自 preset 的 model_list', (tester) async {
+      await openWindow(tester);
+      expect(
+        find.byKey(const ValueKey('model-scope-candidates')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('model-scope-input')));
+      await settle(tester);
+      expect(
+        find.byKey(const ValueKey('model-scope-candidates')),
+        findsOneWidget,
+      );
+      // 候选走 `modelDropdownSource`：拉到过的 available_models 优先，
+      // 没有才回落 preset 的 model_list。编辑态这台平台的 available 是 m1。
+      expect(find.byKey(const ValueKey('model-scope-opt-m1')), findsWidgets);
+    });
+
+    testWidgets('敲逗号提交成一条，逗号不进模型名', (tester) async {
+      await openWindow(tester);
+      await tester.enterText(
+        find.byKey(const ValueKey('model-scope-input')),
+        'gpt-5,',
+      );
+      await settle(tester);
+      expect(f.peak.single.models, ['gpt-5']);
+
+      // 连着再敲一条，仍然各自成条。
+      await tester.enterText(
+        find.byKey(const ValueKey('model-scope-input')),
+        'gpt-4o,',
+      );
+      await settle(tester);
+      expect(f.peak.single.models, ['gpt-5', 'gpt-4o']);
+      for (final m in f.peak.single.models!) {
+        expect(m.contains(','), isFalse, reason: '逗号不该进模型名');
+      }
+    });
+
+    testWidgets('点候选直接成一条', (tester) async {
+      await openWindow(tester);
+      await tester.tap(find.byKey(const ValueKey('model-scope-input')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('model-scope-opt-m1')));
+      await settle(tester);
+      expect(f.peak.single.models, ['m1']);
+    });
+  });
+
+  group('票 31 ⑥ 模型单元格候选', () {
+    testWidgets('聚焦即弹，不必点箭头', (tester) async {
+      await boot(tester);
+      final cell = find.byType(ModelCell).first;
+      expect(find.text('gpt-5-mini'), findsNothing);
+
+      await tester.tap(
+        find.descendant(of: cell, matching: find.byType(TextField)),
+      );
+      await settle(tester);
+      expect(find.text('gpt-5-mini'), findsWidgets, reason: '聚焦即出候选');
+    });
+
+    testWidgets('输入即按拼音 / 子串过滤（两侧同一个 pinyinMatch）', (tester) async {
+      await boot(tester);
+      final cell = find.byType(ModelCell).first;
+      await tester.enterText(
+        find.descendant(of: cell, matching: find.byType(TextField)),
+        'mini',
+      );
+      await settle(tester);
+      expect(find.text('gpt-5-mini'), findsWidgets);
+      // 只剩命中的那条：`gpt-5` 不含 mini。
+      expect(
+        find.descendant(of: cell, matching: find.text('gpt-5')),
+        findsNothing,
       );
     });
   });

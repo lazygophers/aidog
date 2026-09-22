@@ -14,8 +14,10 @@ library;
 import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
+import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
+import '../utils/pinyin.dart';
 import '../shell/tiles.dart';
 import 'platform_defaults.dart';
 import 'platform_extra.dart';
@@ -136,9 +138,16 @@ String maskTail(String k) =>
 // ═══════════════════════════════════════════════════════════════════════
 
 class PlatformEditForm extends StatefulWidget {
-  const PlatformEditForm({super.key, required this.controller});
+  const PlatformEditForm({
+    super.key,
+    required this.controller,
+    this.copyText = native.writeText,
+  });
 
   final PlatformFormController controller;
+
+  /// 复制到剪贴板（编辑态 Token 那颗按钮）。抽成参数是为了测试能注入假实现。
+  final Future<void> Function(String text) copyText;
 
   @override
   State<PlatformEditForm> createState() => _PlatformEditFormState();
@@ -624,6 +633,22 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           ),
         ),
         if (!multiline) ...[
+          // 编辑态且有值才给复制（`formSections.tsx:132-144` 同判据）。
+          // 输入框默认密文，不给这颗按钮就只能手选——密文状态下连选都选不准。
+          if (c.editing != null && c.apiKey.isNotEmpty) ...[
+            const SizedBox(width: AidogSpace.sxs),
+            IconButton(
+              key: const ValueKey('token-copy'),
+              iconSize: 14,
+              visualDensity: VisualDensity.compact,
+              tooltip: t.t('action.copy'),
+              icon: Icon(
+                Icons.copy_outlined,
+                color: AidogTheme.of(context).c.fg3,
+              ),
+              onPressed: () => widget.copyText(c.apiKey),
+            ),
+          ],
           const SizedBox(width: AidogSpace.sxs),
           IconButton(
             iconSize: 14,
@@ -1492,6 +1517,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               SizedBox(
                 width: 180,
                 child: _ModelScopeInput(
+                  candidates: c.modelDropdownSource,
                   hint: t.t('platform.peak_model_placeholder'),
                   onSubmit: (raw) {
                     final v = raw.trim();
@@ -1511,10 +1537,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 200,
-                child: PlatformField(
+                width: 230,
+                child: DateTimeField(
+                  idPrefix: 'peak-$idx-start-at',
                   label: t.t('platform.peak_start_at'),
                   value: secToLocalInput(w.startAt),
+                  invalidText: t.t('platform.dateTimeInvalid'),
+                  pickTooltip: t.t('platform.pickDateTime'),
                   onChanged: (v) {
                     final sec = localInputToSec(v);
                     update(
@@ -1526,10 +1555,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 ),
               ),
               SizedBox(
-                width: 200,
-                child: PlatformField(
+                width: 230,
+                child: DateTimeField(
+                  idPrefix: 'peak-$idx-end-at',
                   label: t.t('platform.peak_end_at'),
                   value: secToLocalInput(w.endAt),
+                  invalidText: t.t('platform.dateTimeInvalid'),
+                  pickTooltip: t.t('platform.pickDateTime'),
                   onChanged: (v) {
                     final sec = localInputToSec(v);
                     update(
@@ -1647,17 +1679,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           Row(
             children: [
               Expanded(
-                child: PlatformField(
+                child: DateTimeField(
+                  idPrefix: 'expires-at',
                   value: c.expiresAt > 0 ? toDatetimeLocal(c.expiresAt) : '',
-                  hint: 'YYYY-MM-DDTHH:MM',
-                  onChanged: (v) {
-                    if (v.trim().isEmpty) {
-                      c.setExpiresAt(0);
-                      return;
-                    }
-                    final ms = datetimeLocalToMs(v);
-                    if (ms != null) c.setExpiresAt(ms);
-                  },
+                  invalidText: t.t('platform.dateTimeInvalid'),
+                  pickTooltip: t.t('platform.pickDateTime'),
+                  onChanged: (v) =>
+                      c.setExpiresAt(v.isEmpty ? 0 : datetimeLocalToMs(v) ?? 0),
                 ),
               ),
               if (c.expiresAt > 0) ...[
@@ -1703,12 +1731,24 @@ TimeWindow update0(
   endMinute: endMinute,
 );
 
-/// 「受影响模型」的自由输入：回车 / 失焦提交成 chip，然后清空自己。
+/// 「受影响模型」的自由输入：回车 / **逗号** / 失焦提交成 chip，然后清空自己。
+///
+/// 逗号那条是票 31 ⑤：React 那边 Enter 与逗号都提交
+/// （`formSections.tsx:960-973`）。改造前只认 Enter 和失焦，敲逗号会把逗号
+/// 打进模型名，落出一个永远匹配不上的名字。
+///
+/// [candidates] 是票 31 ④：preset 的 `model_list`，取自已有的
+/// `PlatformFormController.modelDropdownSource`，不新开取数。
 class _ModelScopeInput extends StatefulWidget {
-  const _ModelScopeInput({required this.hint, required this.onSubmit});
+  const _ModelScopeInput({
+    required this.hint,
+    required this.onSubmit,
+    this.candidates = const [],
+  });
 
   final String hint;
   final ValueChanged<String> onSubmit;
+  final List<String> candidates;
 
   @override
   State<_ModelScopeInput> createState() => _ModelScopeInputState();
@@ -1717,20 +1757,47 @@ class _ModelScopeInput extends StatefulWidget {
 class _ModelScopeInputState extends State<_ModelScopeInput> {
   final TextEditingController _ctrl = TextEditingController();
   final FocusNode _focus = FocusNode();
+  bool _open = false;
 
   @override
   void initState() {
     super.initState();
     _focus.addListener(() {
+      // 聚焦即出候选（票 31 ④：改造前用户根本不知道能填什么）。
+      setState(() => _open = _focus.hasFocus);
       if (!_focus.hasFocus) _submit();
     });
   }
 
-  void _submit() {
-    final v = _ctrl.text.trim();
+  /// 已输入的前缀过滤候选，与模型单元格同一条 `pinyinMatch`。
+  List<String> get _filtered {
+    final q = _ctrl.text.trim();
+    if (q.isEmpty) return widget.candidates;
+    return [
+      for (final m in widget.candidates)
+        if (pinyinMatch(q, m)) m,
+    ];
+  }
+
+  void _submit([String? explicit]) {
+    final v = (explicit ?? _ctrl.text).trim();
     if (v.isEmpty) return;
     widget.onSubmit(v);
     _ctrl.clear();
+    setState(() {});
+  }
+
+  /// 逗号即提交：把逗号前的那截交出去，逗号本身不进模型名。
+  void _onChanged(String v) {
+    if (v.contains(',') || v.contains('，')) {
+      final parts = v.split(RegExp('[,，]'));
+      for (final part in parts.take(parts.length - 1)) {
+        if (part.trim().isNotEmpty) widget.onSubmit(part.trim());
+      }
+      _ctrl.text = parts.last;
+      _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    }
+    setState(() {});
   }
 
   @override
@@ -1743,16 +1810,57 @@ class _ModelScopeInputState extends State<_ModelScopeInput> {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return TextField(
-      controller: _ctrl,
-      focusNode: _focus,
-      style: AidogType.label.copyWith(color: theme.c.fg),
-      decoration: InputDecoration(
-        isDense: true,
-        hintText: widget.hint,
-        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
-      ),
-      onSubmitted: (_) => _submit(),
+    final filtered = _filtered;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TextField(
+          key: const ValueKey('model-scope-input'),
+          controller: _ctrl,
+          focusNode: _focus,
+          style: AidogType.label.copyWith(color: theme.c.fg),
+          decoration: InputDecoration(
+            isDense: true,
+            hintText: widget.hint,
+            hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
+          ),
+          onChanged: _onChanged,
+          onSubmitted: (_) => _submit(),
+        ),
+        if (_open && filtered.isNotEmpty)
+          Container(
+            key: const ValueKey('model-scope-candidates'),
+            constraints: const BoxConstraints(maxHeight: 160),
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: theme.c.surface2,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              padding: const EdgeInsets.all(2),
+              children: [
+                for (final m in filtered)
+                  InkWell(
+                    key: ValueKey('model-scope-opt-$m'),
+                    onTap: () => _submit(m),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AidogSpace.ssm,
+                        vertical: AidogSpace.sxs,
+                      ),
+                      child: Text(
+                        m,
+                        style: AidogType.micro.copyWith(color: theme.c.fg),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }
