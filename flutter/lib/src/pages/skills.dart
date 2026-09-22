@@ -9,6 +9,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -1112,12 +1113,24 @@ class _SkillDetailViewState extends State<SkillDetailView> {
                             t.t('skills.detail.truncated'),
                             style: AidogType.micro.copyWith(color: theme.c.fg3),
                           ),
-                        // Markdown 与纯文本都按等宽原文渲染：React 用 react-markdown，
-                        // 这里不引 markdown 依赖（差异见 README）。
-                        SelectableText(
-                          content.content!,
-                          style: AidogType.micro.copyWith(color: theme.c.fg),
-                        ),
+                        // `*.md` 渲染成 Markdown，其余按原文等宽
+                        //（`SkillDetailView.tsx:281-291` 同一条判据 `/\.md$/i`）。
+                        // SKILL.md 几乎全是标题 + 列表 + 代码块，不渲染就是一堵
+                        // 带 `#` 和 `-` 的字墙。
+                        if (isMarkdownPath(_c.selected ?? ''))
+                          MarkdownBody(
+                            data: content.content!,
+                            selectable: true,
+                            onTapLink: (_, href, _) {
+                              if (href != null) native.openUrl(href);
+                            },
+                            styleSheet: markdownStyle(theme),
+                          )
+                        else
+                          SelectableText(
+                            content.content!,
+                            style: AidogType.micro.copyWith(color: theme.c.fg),
+                          ),
                       ],
                     ],
                   ],
@@ -1129,4 +1142,45 @@ class _SkillDetailViewState extends State<SkillDetailView> {
       ],
     );
   }
+}
+
+/// SKILL.md 的 Markdown 皮肤。React 那边是 `.markdown-body`（13px / 1.6，
+/// `SkillDetailView.tsx:282`），字号行高照抄，颜色接主题 token。
+MarkdownStyleSheet markdownStyle(AidogTheme theme) {
+  final body = AidogType.label.copyWith(color: theme.c.fg, height: 1.6);
+  TextStyle heading(double size) => AidogType.label.copyWith(
+    color: theme.c.fg,
+    fontSize: size,
+    fontWeight: FontWeight.w600,
+    height: 1.4,
+  );
+  return MarkdownStyleSheet(
+    p: body,
+    listBullet: body,
+    tableBody: body,
+    tableHead: body.copyWith(fontWeight: FontWeight.w600),
+    a: body.copyWith(color: theme.c.accent),
+    h1: heading(19),
+    h2: heading(17),
+    h3: heading(15),
+    h4: heading(14),
+    h5: heading(13.5),
+    h6: heading(13.5),
+    code: AidogType.numSm.copyWith(color: theme.c.fg),
+    codeblockPadding: const EdgeInsets.all(AidogSpace.ssm),
+    codeblockDecoration: BoxDecoration(
+      color: theme.c.surface2,
+      border: Border.all(color: theme.c.line),
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+    ),
+    blockquote: body.copyWith(color: theme.c.fg2),
+    blockquotePadding: const EdgeInsets.only(left: AidogSpace.ssm),
+    blockquoteDecoration: BoxDecoration(
+      border: Border(left: BorderSide(color: theme.c.line, width: 3)),
+    ),
+    tableBorder: TableBorder.all(color: theme.c.line),
+    horizontalRuleDecoration: BoxDecoration(
+      border: Border(top: BorderSide(color: theme.c.line)),
+    ),
+  );
 }

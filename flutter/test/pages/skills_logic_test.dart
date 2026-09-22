@@ -271,11 +271,11 @@ void main() {
       final k = fakeSkills(
         overrides: {
           'skills_list_installed': (_) => cached([
-            skillJson('alpha', description: 'Deploy helper'),
+            skillJson('alpha', description: '部署助手'),
             skillJson('beta', source: 'ACME/tools'),
           ]),
           'skills_list_refresh': (_) => cached([
-            skillJson('alpha', description: 'Deploy helper'),
+            skillJson('alpha', description: '部署助手'),
             skillJson('beta', source: 'ACME/tools'),
           ]),
         },
@@ -283,13 +283,16 @@ void main() {
       final c = await bootedSkills(k);
       c.setSearchQuery('ALPHA');
       expect([for (final s in c.filteredInstalled) s.name], ['alpha']);
-      c.setSearchQuery('deploy');
+      c.setSearchQuery('部署');
       expect([for (final s in c.filteredInstalled) s.name], ['alpha']);
       c.setSearchQuery('acme');
       expect([for (final s in c.filteredInstalled) s.name], ['beta']);
-      // **与 React 的已知差异**：这里是子串，不是 pinyinMatch。
-      // 哪天引了拼音字典，下面这条会红，那时正好回来改 README 的差异表。
-      c.setSearchQuery('af');
+      // 中文描述打拼音 / 首字母也要搜得到（`useSkillsData.ts:88-90` 走 pinyinMatch）。
+      c.setSearchQuery('bushu');
+      expect([for (final s in c.filteredInstalled) s.name], ['alpha']);
+      c.setSearchQuery('bsz');
+      expect([for (final s in c.filteredInstalled) s.name], ['alpha']);
+      c.setSearchQuery('没这个词');
       expect(c.filteredInstalled, isEmpty);
     });
 
