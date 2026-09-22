@@ -316,6 +316,62 @@ void main() {
       expect(v.containsKey('env'), isFalse);
     });
 
+    testWidgets('已知变量有「移除」×，点了键就不在落盘结果里（票 28 ①）', (tester) async {
+      final (k, t) = await mount(
+        tester,
+        stored: const {
+          'env': {
+            'CLAUDE_CODE_MAX_OUTPUT_TOKENS': '16384',
+            'DISABLE_TELEMETRY': '0',
+          },
+        },
+      );
+      // 已设置的变量才有 ×（React `EnvEditor.tsx:34` 的 isSet 同判据）。
+      expect(
+        find.byKey(const ValueKey('env-remove-CLAUDE_CODE_MAX_OUTPUT_TOKENS')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('env-remove-CLAUDE_CODE_MAX_OUTPUT_TOKENS')),
+      );
+      await settle(tester);
+      final v = await saveAndRead(tester, k, t);
+      expect(v['env'], {'DISABLE_TELEMETRY': '0'});
+    });
+
+    testWidgets('关成 "0" 的开关型变量也删得掉 —— 清空串那条路删不掉它（票 28 ①）', (tester) async {
+      final (k, t) = await mount(
+        tester,
+        stored: const {
+          'env': {'DISABLE_TELEMETRY': '0'},
+        },
+      );
+      // 开关关着仍是「已设置」，所以 × 在；而它压根没有空串可清。
+      expect(
+        find.byKey(const ValueKey('env-remove-DISABLE_TELEMETRY')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('env-remove-DISABLE_TELEMETRY')),
+      );
+      await settle(tester);
+      final v = await saveAndRead(tester, k, t);
+      expect(v.containsKey('env'), isFalse);
+    });
+
+    testWidgets('自定义变量也有「移除」×（票 28 ①）', (tester) async {
+      final (k, t) = await mount(
+        tester,
+        stored: const {
+          'env': {'MY_OWN': 'x', 'OTHER': 'y'},
+        },
+      );
+      await tester.tap(find.byKey(const ValueKey('env-remove-MY_OWN')));
+      await settle(tester);
+      final v = await saveAndRead(tester, k, t);
+      expect(v['env'], {'OTHER': 'y'});
+    });
+
     testWidgets('未知键归到自定义组；「+ 自定义」加一条', (tester) async {
       final (k, t) = await mount(
         tester,

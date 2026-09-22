@@ -80,12 +80,16 @@ class SwitchRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.description,
+    this.trailing,
   });
 
   final String label;
   final String? description;
   final bool value;
   final ValueChanged<bool>? onChanged;
+
+  /// 控件右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
+  final Widget? trailing;
 
   @override
   Widget build(BuildContext context) {
@@ -111,6 +115,8 @@ class SwitchRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AidogSpace.ssm),
+          // React 把 × 放在开关**左边**（`EnvEditor.tsx:48`），这里照做。
+          ?trailing,
           Switch(
             value: value,
             onChanged: onChanged,
@@ -137,7 +143,11 @@ class TextRow extends StatefulWidget {
     this.hint,
     this.maxLines = 1,
     this.obscure = false,
+    this.trailing,
   });
+
+  /// 输入框右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
+  final Widget? trailing;
 
   final String label;
   final String? description;
@@ -211,25 +221,37 @@ class _TextRowState extends State<TextRow> {
               widget.description!,
               style: AidogType.micro.copyWith(color: theme.c.fg3),
             ),
-          TextField(
-            controller: _ctrl,
-            focusNode: _focus,
-            enabled: enabled,
-            maxLines: widget.obscure ? 1 : widget.maxLines,
-            obscureText: widget.obscure,
-            style: AidogType.micro.copyWith(
-              color: enabled ? theme.c.fg : theme.c.fg3,
-            ),
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: widget.hint,
-              hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
-            onChanged: widget.onChanged,
-            onSubmitted: (v) {
-              widget.onSubmitted?.call(v);
-              widget.onEnter?.call(v);
-            },
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focus,
+                  enabled: enabled,
+                  maxLines: widget.obscure ? 1 : widget.maxLines,
+                  minLines: widget.maxLines == 1 ? null : 1,
+                  obscureText: widget.obscure,
+                  style: AidogType.micro.copyWith(
+                    color: enabled ? theme.c.fg : theme.c.fg3,
+                  ),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    hintText: widget.hint,
+                    hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                  onChanged: widget.onChanged,
+                  onSubmitted: (v) {
+                    widget.onSubmitted?.call(v);
+                    widget.onEnter?.call(v);
+                  },
+                ),
+              ),
+              if (widget.trailing != null) ...[
+                const SizedBox(width: AidogSpace.sxs),
+                widget.trailing!,
+              ],
+            ],
           ),
         ],
       ),
@@ -330,7 +352,11 @@ class SelectRow extends StatelessWidget {
     required this.onChanged,
     this.labelOf,
     this.description,
+    this.trailing,
   });
+
+  /// 下拉右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
+  final Widget? trailing;
 
   final String label;
   final String? description;
@@ -359,25 +385,35 @@ class SelectRow extends StatelessWidget {
               description!,
               style: AidogType.micro.copyWith(color: theme.c.fg3),
             ),
-          DropdownButton<String>(
-            value: value.isEmpty ? null : value,
-            // Material 默认在下拉底下画一条横线，与本项目的描边风格冲突。
-            underline: const SizedBox.shrink(),
-            isDense: true,
-            isExpanded: true,
-            dropdownColor: theme.c.surface2,
-            style: AidogType.micro.copyWith(color: theme.c.fg),
-            hint: Text(
-              '—',
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
-            onChanged: onChanged,
-            items: [
-              for (final o in items)
-                DropdownMenuItem<String>(
-                  value: o,
-                  child: Text(labelOf?.call(o) ?? o),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButton<String>(
+                  value: value.isEmpty ? null : value,
+                  // Material 默认在下拉底下画一条横线，与本项目的描边风格冲突。
+                  underline: const SizedBox.shrink(),
+                  isDense: true,
+                  isExpanded: true,
+                  dropdownColor: theme.c.surface2,
+                  style: AidogType.micro.copyWith(color: theme.c.fg),
+                  hint: Text(
+                    '—',
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                  onChanged: onChanged,
+                  items: [
+                    for (final o in items)
+                      DropdownMenuItem<String>(
+                        value: o,
+                        child: Text(labelOf?.call(o) ?? o),
+                      ),
+                  ],
                 ),
+              ),
+              if (trailing != null) ...[
+                const SizedBox(width: AidogSpace.sxs),
+                trailing!,
+              ],
             ],
           ),
         ],
