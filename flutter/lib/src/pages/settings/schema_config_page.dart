@@ -15,6 +15,8 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:re_editor/re_editor.dart';
+import 'package:re_highlight/languages/json.dart';
 
 import '../../../i18n.dart';
 import '../../shell/theme.dart';
@@ -766,23 +768,25 @@ class _JsonField extends StatefulWidget {
   State<_JsonField> createState() => _JsonFieldState();
 }
 
-class _JsonFieldState extends State<_JsonField> {
-  // 语法高亮做在 controller 的 `buildTextSpan` 里：输入控件仍是原来那个
-  // `TextField`，光标 / 选区 / 输入法预编辑全照旧，只改「这段文字用什么颜色画」。
-  late final JsonHighlightController _ctrl = JsonHighlightController(
-    text: _initialText(),
-    palette: _fallbackPalette,
-  );
+/// 本项目 token → re_highlight 的着色表。
+///
+/// 不直接用 re_highlight 自带的 `atomOneDarkTheme` 之类：那些主题自带背景色与
+/// 一整套与本项目无关的色板，深浅两套切换时会和 AidogTheme 打架。这里只给
+/// JSON 用得到的几类 scope 上色，全部取自 token。
+Map<String, TextStyle> _highlightTheme(AidogTheme theme) => {
+  'attr': TextStyle(color: theme.c.accentText),
+  'string': TextStyle(color: theme.c.ok),
+  'number': TextStyle(color: theme.c.peak),
+  'literal': TextStyle(color: theme.c.bad),
+  'keyword': TextStyle(color: theme.c.bad),
+  'punctuation': TextStyle(color: theme.c.fg3),
+};
 
-  /// 首帧还拿不到 context，先摆一套中性色；`build` 里每帧按主题刷新。
-  static const _fallbackPalette = JsonPalette(
-    key: Color(0xFF8A91E8),
-    string: Color(0xFF8A91E8),
-    number: Color(0xFF8A91E8),
-    literal: Color(0xFF8A91E8),
-    punct: Color(0xFF8A91E8),
-    plain: Color(0xFF8A91E8),
-  );
+class _JsonFieldState extends State<_JsonField> {
+  // 票 27 第 2 步（折叠）：换成 re_editor 的 CodeEditor。语法高亮、行号、
+  // 折叠标记、折叠检测全部由它提供 —— 自己那套分词高亮随之删掉，不留两份。
+  late final CodeLineEditingController _ctrl =
+      CodeLineEditingController.fromText(_initialText());
 
   final FocusNode _focus = FocusNode();
   final TextEditingController _searchCtrl = TextEditingController();
@@ -806,12 +810,7 @@ class _JsonFieldState extends State<_JsonField> {
   void didUpdateWidget(_JsonField old) {
     super.didUpdateWidget(old);
     final v = _initialText();
-    if (v != _ctrl.text && !_focus.hasFocus) {
-      _ctrl.value = TextEditingValue(
-        text: v,
-        selection: TextSelection.collapsed(offset: v.length),
-      );
-    }
+    if (v != _ctrl.text && !_focus.hasFocus) _ctrl.text = v;
   }
 
   @override
@@ -827,21 +826,32 @@ class _JsonFieldState extends State<_JsonField> {
     try {
       final pretty = const JsonEncoder.withIndent('  ')
           .convert(jsonDecode(_ctrl.text));
-      _ctrl.value = TextEditingValue(
-        text: pretty,
-        selection: TextSelection.collapsed(offset: pretty.length),
-      );
+      _ctrl.text = pretty;
       widget.onSubmitted(pretty);
     } catch (_) {
       // 非法 JSON：不动文本，外层的错误提示已经在说明原因。
     }
   }
 
+  /// 光标所在的「行 + 列」换算回整段文本的字符偏移。
+  int _offsetOfSelection(String text) {
+    final sel = _ctrl.selection;
+    final lines = text.split('\n');
+    if (sel.extentIndex < 0 || sel.extentIndex >= lines.length) return 0;
+    var off = 0;
+    for (var i = 0; i < sel.extentIndex; i++) {
+      off += lines[i].length + 1; // +1 = 换行符
+    }
+    return off + sel.extentOffset;
+  }
+
   void _findNext({bool backward = false}) {
     final q = _searchCtrl.text;
     if (q.isEmpty) return;
     final text = _ctrl.text;
-    final from = _ctrl.selection.isValid ? _ctrl.selection.extentOffset : 0;
+    // CodeLineSelection 是「第几行 + 行内第几列」，而查找按整段文本的字符偏移
+    // 算更简单，所以两边各转一次（转换函数就是行内报错那套 lineColumnAt 的反向）。
+    final from = _offsetOfSelection(text);
     int idx;
     if (backward) {
       final upTo = (from - q.length - 1).clamp(0, text.length);
@@ -852,10 +862,14 @@ class _JsonFieldState extends State<_JsonField> {
       if (idx < 0) idx = text.indexOf(q);
     }
     if (idx < 0) return;
+    final start = lineColumnAt(text, idx);
+    final end = lineColumnAt(text, idx + q.length);
     setState(() {
-      _ctrl.selection = TextSelection(
-        baseOffset: idx,
-        extentOffset: idx + q.length,
+      _ctrl.selection = CodeLineSelection(
+        baseIndex: start.line - 1,
+        baseOffset: start.column - 1,
+        extentIndex: end.line - 1,
+        extentOffset: end.column - 1,
       );
     });
     _focus.requestFocus();
@@ -865,10 +879,7 @@ class _JsonFieldState extends State<_JsonField> {
     final q = _searchCtrl.text;
     if (q.isEmpty) return;
     final next = _ctrl.text.replaceAll(q, _replaceCtrl.text);
-    _ctrl.value = TextEditingValue(
-      text: next,
-      selection: TextSelection.collapsed(offset: next.length),
-    );
+    _ctrl.text = next;
     widget.onSubmitted(next);
   }
 
@@ -876,15 +887,6 @@ class _JsonFieldState extends State<_JsonField> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    // 每帧按当前主题刷新配色（切深浅色要跟着变）。色值全部来自 token。
-    _ctrl.palette = JsonPalette(
-      key: theme.c.accentText,
-      string: theme.c.ok,
-      number: theme.c.peak,
-      literal: theme.c.bad,
-      punct: theme.c.fg3,
-      plain: theme.c.fg,
-    );
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
@@ -992,17 +994,55 @@ class _JsonFieldState extends State<_JsonField> {
               ],
               const SizedBox(height: AidogSpace.sxs),
             ],
-            TextField(
-              controller: _ctrl,
-              focusNode: _focus,
-              // 随内容长高（React 的 JsonCodeEditor 也是占满高度），
-              // 起步 6 行免得空字段塌成一条缝。
-              maxLines: null,
-              minLines: 6,
-              keyboardType: TextInputType.multiline,
-              style: AidogType.numSm.copyWith(color: theme.c.fg),
-              decoration: const InputDecoration(isDense: true),
-              onSubmitted: widget.onSubmitted,
+            // 固定高度：CodeEditor 自带视口（折叠、行号、横向滚动都靠它），
+            // 不能像 TextField 那样随内容长高 —— 那样折叠就没有意义了。
+            // React 的 JsonCodeEditor 同样是 maxHeight + 内部滚动。
+            SizedBox(
+              height: 260,
+              child: CodeEditor(
+                key: const ValueKey('json-code-editor'),
+                controller: _ctrl,
+                focusNode: _focus,
+                padding: const EdgeInsets.all(AidogSpace.ssm),
+                border: Border.all(color: theme.c.line),
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+                // `{}` / `[]` 自动识别折叠区间。
+                chunkAnalyzer: const DefaultCodeChunkAnalyzer(),
+                style: CodeEditorStyle(
+                  fontSize: AidogType.numSm.fontSize,
+                  fontFamily: AidogType.familyMono,
+                  textColor: theme.c.fg,
+                  backgroundColor: theme.c.surface2,
+                  cursorColor: theme.c.accent,
+                  selectionColor: theme.c.accentWash,
+                  codeTheme: CodeHighlightTheme(
+                    languages: {'json': CodeHighlightThemeMode(mode: langJson)},
+                    theme: _highlightTheme(theme),
+                  ),
+                ),
+                indicatorBuilder:
+                    (context, editingController, chunkController, notifier) =>
+                        Row(
+                          children: [
+                            DefaultCodeLineNumber(
+                              controller: editingController,
+                              notifier: notifier,
+                              textStyle: AidogType.numSm.copyWith(
+                                color: theme.c.fg3,
+                              ),
+                            ),
+                            DefaultCodeChunkIndicator(
+                              width: 20,
+                              controller: chunkController,
+                              notifier: notifier,
+                            ),
+                          ],
+                        ),
+                // **不接 onChanged**：CodeEditor 每敲一个键都会通知，而回写要走
+                // 父级 setState —— 在 build 期间触发就是
+                // 「setState() called during build」。何况边打字边校验会在写到
+                // 一半时刷一串报错。提交仍由上面那个失焦监听负责，与换包前一致。
+              ),
             ),
             if (widget.error != null) ErrorNote(text: widget.error!),
           ],

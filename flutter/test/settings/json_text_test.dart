@@ -1,17 +1,11 @@
-/// 票 27 第 2 步的护栏：JSON 解析失败要指到**第几行第几列**，分词器要能把
-/// 键 / 字符串 / 数字 / 字面量 / 标点分开（高亮就建在它上面）。
+/// 票 27 第 2 步的护栏：JSON 解析失败要指到**第几行第几列**。
 ///
-/// 这两件都是纯函数，直接喂文本断言，不必挂界面。
+/// 语法高亮 / 行号 / 折叠换成 `re_editor` 之后由包负责，只有报错定位仍是自己的。
+/// 纯函数，直接喂文本断言，不必挂界面。
 library;
 
 import 'package:aidog_flutter/src/pages/settings/json_text.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-/// 取某一类 token 对应的原文，方便逐条断言。
-List<String> textsOf(String src, JsonTokenKind kind) => [
-  for (final t in tokenizeJson(src))
-    if (t.kind == kind) src.substring(t.start, t.end),
-];
 
 void main() {
   group('locateJsonError', () {
@@ -66,55 +60,6 @@ void main() {
 
     test('越界偏移被夹到文本末尾，不抛', () {
       expect(lineColumnAt('ab', 999).line, 1);
-    });
-  });
-
-  group('tokenizeJson', () {
-    test('键与普通字符串分开：跟冒号的才是键', () {
-      const src = '{"a": "b"}';
-      expect(textsOf(src, JsonTokenKind.key), ['"a"']);
-      expect(textsOf(src, JsonTokenKind.string), ['"b"']);
-    });
-
-    test('数组里的字符串都不是键', () {
-      const src = '["a", "b"]';
-      expect(textsOf(src, JsonTokenKind.key), isEmpty);
-      expect(textsOf(src, JsonTokenKind.string), ['"a"', '"b"']);
-    });
-
-    test('数字含负号 / 小数 / 指数', () {
-      const src = '[-1, 2.5, 3e10]';
-      expect(textsOf(src, JsonTokenKind.number), ['-1', '2.5', '3e10']);
-    });
-
-    test('true / false / null 归字面量，别的词归 plain', () {
-      const src = '[true, false, null, nope]';
-      expect(textsOf(src, JsonTokenKind.literal), ['true', 'false', 'null']);
-      expect(textsOf(src, JsonTokenKind.plain), contains('nope'));
-    });
-
-    test('字符串里的转义引号不截断 token', () {
-      const src = r'{"a": "x\"y"}';
-      expect(textsOf(src, JsonTokenKind.string), [r'"x\"y"']);
-    });
-
-    test('半成品文本照样切得动（用户正在打字）', () {
-      // 未闭合的字符串、悬空的冒号：不抛，剩下的部分照常分类。
-      expect(() => tokenizeJson('{"a": "unclosed'), returnsNormally);
-      expect(() => tokenizeJson('{'), returnsNormally);
-      expect(textsOf('{"a": "unclosed', JsonTokenKind.key), ['"a"']);
-    });
-
-    test('token 连续覆盖全文，不漏字不重叠', () {
-      const src = '{\n  "a": [1, true],\n  "b": "c"\n}';
-      final tokens = tokenizeJson(src);
-      var cursor = 0;
-      for (final t in tokens) {
-        expect(t.start, greaterThanOrEqualTo(cursor));
-        expect(t.end, greaterThan(t.start));
-        cursor = t.end;
-      }
-      expect(cursor, src.length);
     });
   });
 }
