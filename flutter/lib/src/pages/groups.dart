@@ -185,6 +185,11 @@ class _GroupListView extends StatelessWidget {
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             buildDefaultDragHandles: false,
+            // 拖起来的那一份画在 Overlay 里，够不着 AidogI18n / 主题的 InheritedWidget
+            // （整张卡在那儿重建会直接断言失败），所以只画一个名字标签。
+            proxyDecorator: (child, i, animation) => _GroupDragLabel(
+              name: c.details[i.clamp(0, c.details.length - 1)].group.name,
+            ),
             itemCount: c.details.length,
             onReorderItem: (o, n) {
               final next = [...c.details];
@@ -199,6 +204,7 @@ class _GroupListView extends StatelessWidget {
                 child: _GroupCard(
                   controller: c,
                   detail: d,
+                  index: i,
                   collapsed: c.collapsedGroups.contains(d.group.id),
                   onPlatformDropped: onPlatformDropped,
                   onCreatePlatform: onCreatePlatform,
@@ -304,6 +310,39 @@ class _GroupListView extends StatelessWidget {
   }
 }
 
+/// 拖动分组时跟着指针走的那张小标签（对齐 `platforms.dart::_DragLabel` 的形状）。
+/// 只用字面量色值以外的 token，不碰 i18n —— 它活在 Overlay 里，取不到页面的
+/// InheritedWidget。
+class _GroupDragLabel extends StatelessWidget {
+  const _GroupDragLabel({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.smd,
+        vertical: AidogSpace.sxs,
+      ),
+      decoration: BoxDecoration(
+        color: AidogTheme.of(context).c.accentWash,
+        border: Border.all(color: AidogTheme.of(context).c.accent),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Text(
+        name,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AidogType.micro.copyWith(
+          color: AidogTheme.of(context).c.accentText,
+        ),
+      ),
+    ),
+  );
+}
+
 /// `GroupListView.tsx:401-434` 的只读虚拟桶卡片：MITM 解密非 API 流量 fallback
 /// 直通的统计，无平台/余额/编辑。
 class _UnmatchedBucketCard extends StatelessWidget {
@@ -341,6 +380,7 @@ class _GroupCard extends StatelessWidget {
   const _GroupCard({
     required this.controller,
     required this.detail,
+    required this.index,
     required this.collapsed,
     this.onPlatformDropped,
     this.onCreatePlatform,
@@ -350,6 +390,9 @@ class _GroupCard extends StatelessWidget {
 
   final GroupsController controller;
   final GroupDetail detail;
+
+  /// 在分组列表里的下标 —— 拖拽把手要靠它告诉 `ReorderableListView` 拖的是哪一项。
+  final int index;
   final bool collapsed;
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
   final void Function({List<int>? presetGroupIds, int? lockGid})?
@@ -415,9 +458,14 @@ class _GroupCard extends StatelessWidget {
               ),
               const SizedBox(width: AidogSpace.sxs),
               // 分组排序拖拽把手（`Groups.tsx:186-195` 的 drag-handle）。
-              Tooltip(
-                message: t.t('group.dragToReorder'),
-                child: const Icon(Icons.drag_handle, size: 16),
+              // 卡片整体不可拖（`buildDefaultDragHandles: false`），只有这个把手能起拖，
+              // 否则卡内的按钮会被拖拽手势吃掉。
+              ReorderableDragStartListener(
+                index: index,
+                child: Tooltip(
+                  message: t.t('group.dragToReorder'),
+                  child: const Icon(Icons.drag_handle, size: 16),
+                ),
               ),
               const SizedBox(width: AidogSpace.sxs),
               Expanded(
@@ -1591,6 +1639,13 @@ class _PlatformPicker extends StatelessWidget {
   final List<PlatformRow> options;
   final ValueChanged<List<int>> onChange;
 
+  String _nameOf(int pid) {
+    for (final p in options) {
+      if (p.id == pid) return p.name;
+    }
+    return '#$pid';
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
@@ -1607,6 +1662,11 @@ class _PlatformPicker extends StatelessWidget {
           ReorderableListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
+            // 只有把手能起拖（同分组列表），整行可拖会把移除按钮的点击吃掉。
+            buildDefaultDragHandles: false,
+            proxyDecorator: (child, i, animation) => _GroupDragLabel(
+              name: _nameOf(platformIds[i.clamp(0, platformIds.length - 1)]),
+            ),
             itemCount: platformIds.length,
             onReorderItem: (o, n) {
               final next = [...platformIds];
@@ -1624,9 +1684,16 @@ class _PlatformPicker extends StatelessWidget {
                 padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
                 child: Row(
                   children: [
-                    Tooltip(
-                      message: t.t('group.dragToReorder'),
-                      child: Icon(Icons.drag_handle, size: 14, color: theme.c.fg3),
+                    ReorderableDragStartListener(
+                      index: i,
+                      child: Tooltip(
+                        message: t.t('group.dragToReorder'),
+                        child: Icon(
+                          Icons.drag_handle,
+                          size: 14,
+                          color: theme.c.fg3,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
                     Text(
