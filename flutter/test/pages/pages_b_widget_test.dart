@@ -1603,6 +1603,135 @@ void main() {
       expect(k.lastCallTo('group_reorder')!.args!['orderedIds'], [11, 10]);
     });
 
+    // 回归 2026-09-22：确认卡正文只有一个数量，而 `purgeTarget.candidates` 里
+    // 名字和 action 都在。不可逆删除之前看不到删的是谁（`GroupListItem.tsx:566-598`）。
+    testWidgets('清理失效确认卡：按「删除 / 移出」分两段列出平台名与失效原因', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['platform_purge_disabled_preview'] = [
+        {'id': 1, 'name': 'P1', 'reason': 'auth_failed', 'action': 'delete'},
+        {'id': 2, 'name': 'P2', 'reason': 'expired', 'action': 'unassign'},
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await settle(tester);
+      expect(
+        find.text(c.t('platform.purgeDisabledActionDelete')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(c.t('platform.purgeDisabledActionUnassign')),
+        findsOneWidget,
+      );
+      expect(find.text('P1'), findsWidgets);
+      expect(find.text('P2'), findsWidgets);
+      expect(
+        find.text(c.t('platform.purgeDisabledReasonAuthFailed')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(c.t('platform.purgeDisabledReasonExpired')),
+        findsOneWidget,
+      );
+    });
+
+    // 自动建组：组名旁要有 auto 徽标，且只要还有平台就不给删除按钮
+    //（`GroupListItem.tsx:210-212,309`）—— 删了下次还会自动建出来。
+    testWidgets('自动建组：auto 徽标在，删除按钮不渲染', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake(
+        page: [
+          {
+            'group': {
+              'id': 10,
+              'name': 'G10',
+              'group_key': 'gk10',
+              'auto_from_platform': '1',
+            },
+            'platforms': [
+              {'platform': plat(1, 'P1')},
+            ],
+            'model_mappings': <Object?>[],
+          },
+        ],
+      );
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text('auto'), findsOneWidget);
+      expect(find.text(c.t('action.delete')), findsNothing);
+    });
+
+    testWidgets('手建组：没有 auto 徽标，删除按钮照常在', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: groupsFake().fn,
+            buildPlatformCard: stubPlatformCard,
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text('auto'), findsNothing);
+      expect(find.text(c.t('action.delete')), findsWidgets);
+    });
+
+    testWidgets('分组图标：单平台组挂 GroupIcon', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(
+            invoke: groupsFake().fn,
+            buildPlatformCard: stubPlatformCard,
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.byType(GroupIcon), findsOneWidget);
+    });
+
+    testWidgets('分组图标：多平台组不跟 logo，画组名前三个字', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake(
+        page: [
+          {
+            'group': {'id': 10, 'name': '生产分组', 'group_key': 'gk10'},
+            'platforms': [
+              {'platform': plat(1, 'P1')},
+              {'platform': plat(2, 'P2')},
+            ],
+            'model_mappings': <Object?>[],
+          },
+        ],
+      );
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(find.text('生产分'), findsOneWidget);
+    });
+
     testWidgets('分组卡的「清理失效」：先预览再确认，命令带上本组 id', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();

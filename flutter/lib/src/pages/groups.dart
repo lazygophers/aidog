@@ -22,6 +22,7 @@ import 'groups_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
 import 'platform_card_bits.dart' show BalanceBar, MiniBadge, StatChip;
+import 'platform_logo.dart';
 import 'platform_defaults.dart' show kModelSlots;
 import 'ui_bits.dart';
 
@@ -349,6 +350,14 @@ class _GroupListView extends StatelessWidget {
                     'count': '${c.purgeTarget!.candidates.length}',
                   }),
             confirmLabel: t.t('action.confirm'),
+            // 不可逆删除之前要看得见删的是谁（`GroupListItem.tsx:566-598`）：
+            // 按 action 分「将永久删除」/「将移出本分组」两段，每行平台名 + 失效原因。
+            // 名字和 action 本来就在 `purgeTarget.candidates` 里，之前只渲染了个数量。
+            extra: c.purgeTarget!.candidates.isEmpty
+                ? null
+                : _PurgeCandidateList(
+                    candidates: c.purgeTarget!.candidates,
+                  ),
             onConfirm: c.purgeTarget!.candidates.isEmpty
                 ? null
                 : () => c.confirmPurgeDisabled(
@@ -530,6 +539,9 @@ class _GroupCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
+              // 组图标（`GroupListItem.tsx:197`）：单平台组跟随该平台 logo。
+              GroupIcon(detail: detail),
+              const SizedBox(width: AidogSpace.ssm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -558,6 +570,19 @@ class _GroupCard extends StatelessWidget {
                                   color: theme.c.accentText,
                                 ),
                               ),
+                            ),
+                          ),
+                        // 自动建组的 `auto` 徽标（`GroupListItem.tsx:210-212`）。
+                        // 没有它就看不出这个组是跟着某个平台自动生成的，
+                        // 而下面的删除按钮守卫正是按这个条件走。
+                        if (g.autoFromPlatform.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: AidogSpace.sxs,
+                            ),
+                            child: MiniBadge(
+                              text: 'auto',
+                              color: theme.c.fg3,
                             ),
                           ),
                       ],
@@ -610,11 +635,15 @@ class _GroupCard extends StatelessWidget {
                     label: t.t('action.edit'),
                     onTap: () => c.openEdit(detail),
                   ),
-                  SmallButton(
-                    label: t.t('action.delete'),
-                    danger: true,
-                    onTap: () => c.askDeleteGroup(g.id),
-                  ),
+                  // 自动建组只要还有平台就不给删除按钮
+                  //（`GroupListItem.tsx:309` 的 `!auto_from_platform || gps.length === 0`）：
+                  // 它是跟着平台自动生成的，删了下次还会再建出来。
+                  if (g.autoFromPlatform.isEmpty || detail.platforms.isEmpty)
+                    SmallButton(
+                      label: t.t('action.delete'),
+                      danger: true,
+                      onTap: () => c.askDeleteGroup(g.id),
+                    ),
                 ],
               ),
             ],
@@ -2595,6 +2624,135 @@ class BatchAffectedList extends StatelessWidget {
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// 清理失效的影响清单（`GroupListItem.tsx:566-598`）：按 action 分两段，
+/// 「将永久删除」在前、「将移出本分组」在后，每行是平台名 + 失效原因徽标。
+/// 候选多时自己滚，不把确认卡撑长（React 同处 `maxHeight: 240`）。
+class _PurgeCandidateList extends StatelessWidget {
+  const _PurgeCandidateList({required this.candidates});
+
+  final List<Map<String, Object?>> candidates;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    Widget section(String action, String titleKey) {
+      final items = [
+        for (final c in candidates)
+          if (c['action'] == action) c,
+      ];
+      if (items.isEmpty) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            t.t(titleKey),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
+          for (final c in items)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      (c['name'] as String?) ?? '',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.caption.copyWith(color: theme.c.fg2),
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.ssm),
+                  MiniBadge(
+                    text: c['reason'] == 'auth_failed'
+                        ? t.t('platform.purgeDisabledReasonAuthFailed')
+                        : t.t('platform.purgeDisabledReasonExpired'),
+                    color: theme.c.fg3,
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: AidogSpace.sxs),
+        ],
+      );
+    }
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxHeight: 240),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            section('delete', 'platform.purgeDisabledActionDelete'),
+            section('unassign', 'platform.purgeDisabledActionUnassign'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 分组图标（`src/domains/groups/GroupIcon.tsx`）：组里只有一个平台（或只有一个
+/// 启用中的平台）就跟随那个平台的 logo，否则画组名前三个字的方块。
+/// 自动建组的方块用弱化配色，与手建组一眼可分。
+class GroupIcon extends StatelessWidget {
+  const GroupIcon({super.key, required this.detail});
+
+  final GroupDetail detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final gps = detail.platforms;
+    final enabled = [
+      for (final gp in gps)
+        if (gp.platform.status == 'enabled') gp,
+    ];
+    final single = gps.length == 1
+        ? gps.first.platform
+        : enabled.length == 1
+        ? enabled.first.platform
+        : null;
+    // React 这里只走内置图 + favicon（不读缓存图），照抄，不多接一层。
+    final logo = single == null
+        ? null
+        : platformLogo(
+            protocol: single.platformType,
+            cachedDataUrl: null,
+            baseUrl: single.baseUrl,
+          );
+    if (logo != null) {
+      return SizedBox(
+        width: 32,
+        height: 32,
+        child: Padding(padding: const EdgeInsets.all(4), child: logo),
+      );
+    }
+    final auto = detail.group.autoFromPlatform.isNotEmpty;
+    return Container(
+      width: 32,
+      height: 32,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: auto ? theme.c.surface2 : theme.c.accentWash,
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Text(
+        detail.group.name.characters.take(3).toString(),
+        maxLines: 1,
+        overflow: TextOverflow.clip,
+        style: AidogType.caption.copyWith(
+          color: auto ? theme.c.fg2 : theme.c.accentText,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
