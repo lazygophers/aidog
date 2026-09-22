@@ -92,7 +92,11 @@ class PlatformField extends StatefulWidget {
     this.obscure = false,
     this.enabled = true,
     this.mono = false,
+    this.focusNode,
   });
+
+  /// 调用方要监听聚焦时传（模型单元格靠它做「聚焦即弹候选」）。
+  final FocusNode? focusNode;
 
   final String value;
   final ValueChanged<String>? onChanged;
@@ -140,6 +144,7 @@ class _PlatformFieldState extends State<PlatformField> {
     );
     final field = TextField(
       controller: _ctrl,
+      focusNode: widget.focusNode,
       enabled: on,
       maxLines: widget.obscure ? 1 : widget.maxLines,
       obscureText: widget.obscure,
@@ -206,10 +211,7 @@ class FormDropdown extends StatelessWidget {
         for (final o in items)
           DropdownMenuItem<String>(
             value: o,
-            child: Text(
-              labelOf?.call(o) ?? o,
-              overflow: TextOverflow.ellipsis,
-            ),
+            child: Text(labelOf?.call(o) ?? o, overflow: TextOverflow.ellipsis),
           ),
       ],
     );
@@ -272,6 +274,24 @@ class ModelCell extends StatefulWidget {
 class _ModelCellState extends State<ModelCell> {
   bool _open = false;
 
+  /// 聚焦即弹候选（票 31 ⑥，对齐 `ModelsMatrixSection.tsx:207` 的 `onFocus`）。
+  /// 改造前必须点右边那颗箭头，不点就不知道有候选可选。
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (_focus.hasFocus) setState(() => _open = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
   List<String> get _filtered {
     final q = widget.value.trim().toLowerCase();
     if (q.isEmpty) return widget.candidates;
@@ -295,9 +315,14 @@ class _ModelCellState extends State<ModelCell> {
           children: [
             Expanded(
               child: PlatformField(
+                focusNode: _focus,
                 value: widget.value,
                 hint: widget.hint,
-                onChanged: widget.onChanged,
+                // 输入即弹（`ModelsMatrixSection.tsx:203` 的 onChange 同款）。
+                onChanged: (v) {
+                  if (widget.candidates.isNotEmpty && !_open) _open = true;
+                  widget.onChanged(v);
+                },
               ),
             ),
             if (hasDropdown)
@@ -381,8 +406,10 @@ class ProtocolPicker extends StatefulWidget {
   final bool codingPlan;
 
   /// (value, label, codingPlan, searchTerms) 四元组，来自 registry 派生层。
-  final List<({String value, String label, bool codingPlan, List<String> terms})>
-      options;
+  final List<
+    ({String value, String label, bool codingPlan, List<String> terms})
+  >
+  options;
   final void Function(String protocol, bool codingPlan) onChanged;
   final String searchHint;
   final String noMatchText;
@@ -397,9 +424,7 @@ class _ProtocolPickerState extends State<ProtocolPicker> {
 
   /// `SearchableProtocolSelect.tsx:61::labelOf` —— label 不含 Coding 字样时补后缀。
   String _labelOf(String base, bool cp) =>
-      cp && !base.toLowerCase().contains('coding')
-          ? '$base Coding Plan'
-          : base;
+      cp && !base.toLowerCase().contains('coding') ? '$base Coding Plan' : base;
 
   @override
   Widget build(BuildContext context) {
@@ -557,4 +582,143 @@ class WeekdayToggles extends StatelessWidget {
         ),
     ],
   );
+}
+
+/// 日期时间输入（票 31 ②③）：**手打仍然是主入口**（React 的
+/// `datetime-local` 本来就能手打），旁边多一颗按钮开系统选择器。
+///
+/// 改造前两处都是裸文本框，要用户自己敲 `YYYY-MM-DDTHH:MM`：
+/// 过期时间那处敲错**静默不生效**（用户以为设好了），高峰窗口那两处
+/// 连格式提示都没有。所以这里三件事一起给：选择器、占位提示、**手打非法格式
+/// 当场红字**——不再默默丢弃。
+///
+/// 两处共用这一个组件（票面硬要求：别各写一套）。
+class DateTimeField extends StatefulWidget {
+  const DateTimeField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.invalidText,
+    required this.pickTooltip,
+    this.label,
+    this.idPrefix = 'dt',
+  });
+
+  /// `YYYY-MM-DDTHH:MM`；空串 = 未设置。
+  final String value;
+
+  /// 合法值或空串。**非法值不回调** —— 但会在下面显示红字，不是静默吞掉。
+  final ValueChanged<String> onChanged;
+
+  /// 手打非法格式时的提示文案。
+  final String invalidText;
+  final String pickTooltip;
+  final String? label;
+  final String idPrefix;
+
+  @override
+  State<DateTimeField> createState() => _DateTimeFieldState();
+}
+
+class _DateTimeFieldState extends State<DateTimeField> {
+  /// 手打出来的非法串；null = 当前没有格式问题。
+  String? _invalid;
+
+  /// `YYYY-MM-DDTHH:MM` → DateTime；解不出来返回 null。
+  static DateTime? parse(String v) =>
+      v.trim().isEmpty ? null : DateTime.tryParse(v.trim());
+
+  static String format(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${d.year}-${two(d.month)}-${two(d.day)}'
+        'T${two(d.hour)}:${two(d.minute)}';
+  }
+
+  Future<void> _pick() async {
+    final now = DateTime.now();
+    final seed = parse(widget.value) ?? now;
+    final date = await showDatePicker(
+      context: context,
+      initialDate: seed,
+      // 过期时间与高峰窗口都可能设在过去（补登记）或较远的未来，窗口给宽些。
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 10),
+    );
+    if (date == null || !mounted) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: seed.hour, minute: seed.minute),
+    );
+    if (!mounted) return;
+    final picked = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time?.hour ?? seed.hour,
+      time?.minute ?? seed.minute,
+    );
+    setState(() => _invalid = null);
+    widget.onChanged(format(picked));
+  }
+
+  void _onTyped(String v) {
+    if (v.trim().isEmpty) {
+      setState(() => _invalid = null);
+      widget.onChanged('');
+      return;
+    }
+    if (parse(v) == null) {
+      // 关键差别：改造前这里直接 return，值被默默丢掉。
+      setState(() => _invalid = v);
+      return;
+    }
+    setState(() => _invalid = null);
+    widget.onChanged(v.trim());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: PlatformField(
+                key: ValueKey('${widget.idPrefix}-input'),
+                label: widget.label,
+                value: widget.value,
+                hint: 'YYYY-MM-DDTHH:MM',
+                onChanged: _onTyped,
+              ),
+            ),
+            Tooltip(
+              message: widget.pickTooltip,
+              child: IconButton(
+                key: ValueKey('${widget.idPrefix}-pick'),
+                iconSize: 14,
+                visualDensity: VisualDensity.compact,
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                color: theme.c.fg3,
+                icon: const Icon(Icons.event),
+                onPressed: _pick,
+              ),
+            ),
+          ],
+        ),
+        if (_invalid != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              widget.invalidText,
+              key: ValueKey('${widget.idPrefix}-invalid'),
+              style: AidogType.caption.copyWith(color: theme.c.bad),
+            ),
+          ),
+      ],
+    );
+  }
 }

@@ -77,7 +77,7 @@ void main() {
       // 数的是 [Translations.flatten] **之后**的键数，不是 JSON 顶层键数 ——
       // `group` / `logs` 在 JSON 里是嵌套对象，拍平后会展开成多条。拿
       // `len(json.load(f))` 去对这个数一定对不上，别那样核。
-      expect(base, hasLength(2841));
+      expect(base, hasLength(2844));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');
