@@ -39,6 +39,8 @@ class BackupSettings {
     required this.intervalHours,
     required this.retentionDays,
     this.dir = '',
+    this.lastBackupAt = 0,
+    this.lastBackupError = '',
   });
 
   final bool enabled;
@@ -50,11 +52,19 @@ class BackupSettings {
   final int retentionDays;
   final String dir;
 
+  /// 上次成功备份的 epoch 毫秒（0 = 从未），由后端写（`aidog_backup/src/lib.rs:73`）。
+  final int lastBackupAt;
+
+  /// 上次备份的错误信息（空 = 成功），由后端写（`aidog_backup/src/lib.rs:76`）。
+  final String lastBackupError;
+
   factory BackupSettings.fromJson(Map<String, Object?> j) => BackupSettings(
         enabled: j['enabled'] as bool? ?? false,
         intervalHours: (j['interval_hours'] as num?)?.toInt() ?? 24,
         retentionDays: (j['retention_days'] as num?)?.toInt() ?? 7,
         dir: j['dir'] as String? ?? '',
+        lastBackupAt: (j['last_backup_at'] as num?)?.toInt() ?? 0,
+        lastBackupError: j['last_backup_error'] as String? ?? '',
       );
 
   Map<String, Object?> toJson() => {
@@ -62,7 +72,14 @@ class BackupSettings {
         'interval_hours': intervalHours,
         'retention_days': retentionDays,
         'dir': dir,
+        'last_backup_at': lastBackupAt,
+        'last_backup_error': lastBackupError,
       };
+
+  /// 下次预计备份时刻（epoch 毫秒）。0 = 没开或从未备份过 → 界面上不显示这一行。
+  /// 与 React `ScheduledBackupSection.tsx:84` 同算法。
+  int get nextBackupAt =>
+      enabled && lastBackupAt > 0 ? lastBackupAt + intervalHours * 3600 * 1000 : 0;
 
   /// 前端先 clamp 一次，后端还会再 clamp。两边都做是为了输入框当场看到被纠正的值。
   BackupSettings clamped() => BackupSettings(
@@ -70,6 +87,8 @@ class BackupSettings {
         intervalHours: intervalHours < 1 ? 1 : intervalHours,
         retentionDays: retentionDays.clamp(1, 90),
         dir: dir,
+        lastBackupAt: lastBackupAt,
+        lastBackupError: lastBackupError,
       );
 
   BackupSettings copyWith({bool? enabled, int? intervalHours, int? retentionDays, String? dir}) =>
@@ -78,6 +97,8 @@ class BackupSettings {
         intervalHours: intervalHours ?? this.intervalHours,
         retentionDays: retentionDays ?? this.retentionDays,
         dir: dir ?? this.dir,
+        lastBackupAt: lastBackupAt,
+        lastBackupError: lastBackupError,
       );
 }
 
@@ -260,6 +281,10 @@ class ScheduledBackupController {
   String error = '';
   String message = '';
 
+  /// 最近一次「立即备份」写出的文件路径。null = 还没成功备份过（本次会话内）。
+  /// 「在文件夹显示 / 复制路径」按钮据此出现，与 React 的 `lastResultPath` 同语义。
+  String? lastResultPath;
+
   void _notify() => onChanged?.call();
 
   Future<void> load() async {
@@ -285,13 +310,33 @@ class ScheduledBackupController {
   }
 
   /// 立即备份一次（忽略 throttle）。
-  Future<void> runNow(String Function(Map<String, Object?> result) doneText) async {
+  ///
+  /// `backup_run_now` **不会抛错**：失败也返回 `{ok:false, error}`（`commands.rs:87`）。
+  /// 所以 `ok == false` 必须单独判 —— 只 catch 异常会把失败显示成成功
+  /// （React `ScheduledBackupSection.tsx:74` 同一判定）。成功后重读一次设置，
+  /// 把 `last_backup_at` 刷新到界面上。
+  Future<void> runNow(
+    String Function(Map<String, Object?> result) doneText, {
+    String failedText = '',
+  }) async {
     busy = true;
     error = '';
     message = '';
+    lastResultPath = null;
     _notify();
     try {
-      message = doneText(_map(await _invoke('backup_run_now')));
+      final r = _map(await _invoke('backup_run_now'));
+      if (r['ok'] == false) {
+        final e = r['error'];
+        error = (e is String && e.isNotEmpty) ? e : failedText;
+      } else {
+        message = doneText(r);
+        final p = r['path'];
+        lastResultPath = (p is String && p.isNotEmpty) ? p : null;
+        try {
+          settings = BackupSettings.fromJson(_map(await _invoke('backup_settings_get')));
+        } catch (_) {/* 刷新失败不影响这次备份本身 */}
+      }
     } catch (e) {
       error = '$e';
     } finally {
