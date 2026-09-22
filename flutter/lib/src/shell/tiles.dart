@@ -28,22 +28,35 @@ class Ltr extends StatelessWidget {
 
 /// 等宽 + tabular figures。列对齐靠这条，不靠手调宽度（规则 5）。
 TextStyle numStyle(TextStyle base, Color color) => base.copyWith(
-      color: color,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+  color: color,
+  fontFeatures: const [FontFeature.tabularFigures()],
+);
 
 /// 格子右上角的元信息：micro 字阶 / 全大写 / fg-3。
 class TileMeta extends StatelessWidget {
-  const TileMeta(this.text, {super.key});
+  const TileMeta(this.text, {super.key, this.icon});
 
   final String text;
+
+  /// 行首图标。长表单里纯文字标题难扫读，React 各分区标题都带一个
+  /// （`SandboxSection.tsx:234,280,333,379` 等的 `SvgIcon`）。
+  final IconData? icon;
 
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
-    return HighlightedText(
+    final label = HighlightedText(
       text.toUpperCase(),
       style: AidogType.micro.copyWith(color: t.c.fg3),
+    );
+    if (icon == null) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: t.c.fg3),
+        const SizedBox(width: 5),
+        Flexible(child: label),
+      ],
     );
   }
 }
@@ -148,7 +161,8 @@ class Tile extends StatelessWidget {
     return AnimatedContainer(
       duration: AidogMotion.base,
       curve: AidogMotion.easeStandard,
-      padding: padding ??
+      padding:
+          padding ??
           const EdgeInsets.symmetric(
             horizontal: AidogLayout.tilePadX,
             vertical: AidogLayout.tilePadY,
@@ -285,7 +299,9 @@ class SeriesTile extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           // 时间轴永远从左到右，RTL 下也不镜像。
-          Ltr(child: SizedBox(height: chartHeight, child: chart)),
+          Ltr(
+            child: SizedBox(height: chartHeight, child: chart),
+          ),
           if (legend.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.ssm),
@@ -306,7 +322,10 @@ class SeriesTile extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 5),
-                        Text(l.label, style: AidogType.caption.copyWith(color: t.c.fg2)),
+                        Text(
+                          l.label,
+                          style: AidogType.caption.copyWith(color: t.c.fg2),
+                        ),
                       ],
                     ),
                 ],
@@ -331,8 +350,8 @@ class ListingTile extends StatelessWidget {
     required this.rows,
     this.footer,
     this.live = false,
-  })  : columns = null,
-        cells = null;
+  }) : columns = null,
+       cells = null;
 
   /// 表格形态：表头 micro 全大写，首列 start 对齐、其余 end 对齐（数字列）。
   const ListingTile.table({
@@ -381,21 +400,21 @@ class ListingTile extends StatelessWidget {
   }
 
   Widget _rowList(AidogTheme t) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (var i = 0; i < rows.length; i++)
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: AidogLayout.rowH),
-              decoration: BoxDecoration(
-                border: i == rows.length - 1
-                    ? null
-                    : Border(bottom: BorderSide(color: t.c.line)),
-              ),
-              child: rows[i],
-            ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (var i = 0; i < rows.length; i++)
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: AidogLayout.rowH),
+          decoration: BoxDecoration(
+            border: i == rows.length - 1
+                ? null
+                : Border(bottom: BorderSide(color: t.c.line)),
+          ),
+          child: rows[i],
+        ),
+    ],
+  );
 
   Widget _table(AidogTheme t) {
     final cols = columns!;
@@ -441,7 +460,9 @@ class ListingTile extends StatelessWidget {
                     alignment: i == 0
                         ? AlignmentDirectional.centerStart
                         : AlignmentDirectional.centerEnd,
-                    child: i < cells![r].length ? cells![r][i] : const SizedBox.shrink(),
+                    child: i < cells![r].length
+                        ? cells![r][i]
+                        : const SizedBox.shrink(),
                   ),
                 ),
             ],
@@ -524,10 +545,16 @@ class ActionTile extends StatelessWidget {
 @immutable
 class BentoCell {
   const BentoCell({required this.span, required this.child})
-      : assert(
-          span == 3 || span == 4 || span == 5 || span == 6 || span == 7 || span == 8 || span == 12,
-          '格子宽度只取 3 / 4 / 5 / 6 / 7 / 8 / 12 列（票 10 布局规则第 2 条）',
-        );
+    : assert(
+        span == 3 ||
+            span == 4 ||
+            span == 5 ||
+            span == 6 ||
+            span == 7 ||
+            span == 8 ||
+            span == 12,
+        '格子宽度只取 3 / 4 / 5 / 6 / 7 / 8 / 12 列（票 10 布局规则第 2 条）',
+      );
 
   final int span;
   final Widget child;
@@ -585,7 +612,10 @@ class Bento extends StatelessWidget {
                     children: [
                       for (var i = 0; i < rows[r].length; i++) ...[
                         if (i > 0) const SizedBox(width: gap),
-                        SizedBox(width: widthFor(rows[r][i].span), child: rows[r][i].child),
+                        SizedBox(
+                          width: widthFor(rows[r][i].span),
+                          child: rows[r][i].child,
+                        ),
                       ],
                     ],
                   ),

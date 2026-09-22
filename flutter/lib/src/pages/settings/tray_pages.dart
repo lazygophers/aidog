@@ -141,13 +141,8 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
   }
 
   Widget _preview(I18nController t, List<TrayItem> selected) {
-    final theme = AidogTheme.of(context);
-    if (selected.isEmpty) {
-      return SettingsCard(
-        title: t.t('tray.preview'),
-        children: [CenteredNote(text: t.t('tray.previewEmpty'))],
-      );
-    }
+    // 空态不再早退：深色条本身要在，里面换一句斜体「暂无展示项」——
+    // React 同样是「条常驻、内容换文案」（`TrayConfigTab.tsx:216-219`）。
     final parts = <String>[];
     for (final it in selected) {
       final p = _c.platforms.where((p) => p.id == it.platformId).firstOrNull;
@@ -164,9 +159,32 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
     return SettingsCard(
       title: t.t('tray.preview'),
       children: [
-        Text(
-          ltr(parts.join(_c.separator)),
-          style: AidogType.numSm.copyWith(color: theme.c.fg),
+        // 深色圆角条模拟 macOS 菜单栏外观（`TrayConfigTab.tsx:209-218`）。
+        // 这几个色值是**菜单栏模拟色，不跟随 app 主题**，所以写死不取 token。
+        Container(
+          constraints: const BoxConstraints(minHeight: 26),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+          alignment: AlignmentDirectional.centerStart,
+          decoration: BoxDecoration(
+            color: const Color(0xF21E1E1E), // rgba(30,30,30,.95)
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: parts.isEmpty
+              // 空时原先拼出一串空字符串，看着像渲染坏了。
+              ? Text(
+                  t.t('tray.previewEmpty'),
+                  style: AidogType.label.copyWith(
+                    color: const Color(0x59FFFFFF), // rgba(255,255,255,.35)
+                    fontStyle: FontStyle.italic,
+                  ),
+                )
+              : Text(
+                  ltr(parts.join(_c.separator)),
+                  style: AidogType.numSm.copyWith(
+                    color: const Color(0xD9FFFFFF), // rgba(255,255,255,.85)
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
         ),
       ],
     );
@@ -386,10 +404,17 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         SettingsCard(
           description: t.t('popover.descGrid'),
           children: [
-            Text(
-              t.t('popover.layoutHint'),
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg3,
+            // 说明改成按钮，点了才把那段提示发成 toast
+            //（`PopoverLayout.tsx:169-175` + `usePopoverConfig.ts:202-204`）。
+            // 原先常驻一行小字，功能没丢但一直占屏。
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SmallButton(
+                key: const ValueKey('popover-layout-hint'),
+                label: t.t('popover.rowHintBtn'),
+                ghost: true,
+                onTap: () =>
+                    setState(() => _c.message = t.t('popover.layoutHint')),
               ),
             ),
           ],

@@ -762,6 +762,7 @@ class _HooksEditorState extends State<HooksEditor> {
             TextRow(
               key: ValueKey('hooks-cmd-$eventId-$gi-$hi'),
               label: tOr(t, 'settings.hooks.fieldCommand', '命令'),
+              labelIcon: Icons.bolt,
               value: '${h['command'] ?? ''}',
               maxLines: 3,
               hint: tOr(t, 'settings.hooks.commandPh', '命令或脚本路径'),
@@ -771,6 +772,7 @@ class _HooksEditorState extends State<HooksEditor> {
             ),
             SelectRow(
               label: 'Shell',
+              labelIcon: Icons.terminal,
               options: const ['', 'powershell'],
               value: '${h['shell'] ?? ''}',
               onChanged: (v) => _patchHandler(eventId, gi, hi, {
@@ -782,6 +784,7 @@ class _HooksEditorState extends State<HooksEditor> {
           if (type == 'http')
             TextRow(
               label: 'URL',
+              labelIcon: Icons.public,
               value: '${h['url'] ?? ''}',
               hint: tOr(t, 'settings.hooks.urlPh', 'HTTP URL'),
               onSubmitted: (v) =>
@@ -790,6 +793,7 @@ class _HooksEditorState extends State<HooksEditor> {
           if (type == 'mcp_tool') ...[
             TextRow(
               label: tOr(t, 'settings.hooks.fieldServer', '服务器'),
+              labelIcon: Icons.public,
               value: '${h['server'] ?? ''}',
               hint: tOr(t, 'settings.hooks.serverPh', 'MCP 服务器名称'),
               onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
@@ -798,6 +802,7 @@ class _HooksEditorState extends State<HooksEditor> {
             ),
             TextRow(
               label: tOr(t, 'settings.hooks.fieldTool', '工具'),
+              labelIcon: Icons.terminal,
               value: '${h['tool'] ?? ''}',
               hint: tOr(t, 'settings.hooks.toolPh', '工具名称'),
               onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
@@ -808,6 +813,7 @@ class _HooksEditorState extends State<HooksEditor> {
           if (type == 'prompt' || type == 'agent')
             TextRow(
               label: tOr(t, 'settings.hooks.fieldPrompt', '提示'),
+              labelIcon: Icons.chat_bubble_outline,
               value: '${h['prompt'] ?? ''}',
               maxLines: 3,
               hint: tOr(
@@ -822,6 +828,7 @@ class _HooksEditorState extends State<HooksEditor> {
           if (meta != null && meta.hasMatcher)
             TextRow(
               label: tOr(t, 'settings.hooks.fieldIf', '条件 if'),
+              labelIcon: Icons.rule,
               value: '${h['if'] ?? ''}',
               hint: tOr(t, 'settings.hooks.ifPh', '匹配条件，如 Bash(rm *)'),
               onSubmitted: (v) =>
@@ -829,6 +836,7 @@ class _HooksEditorState extends State<HooksEditor> {
             ),
           NumberRow(
             label: tOr(t, 'settings.hooks.fieldTimeout', '超时'),
+            labelIcon: Icons.timer_outlined,
             value: (h['timeout'] as num?)?.toInt() ?? 0,
             onChanged: (v) =>
                 _patchHandler(eventId, gi, hi, {'timeout': v == 0 ? null : v}),
@@ -836,6 +844,7 @@ class _HooksEditorState extends State<HooksEditor> {
           ),
           if (type == 'command')
             SwitchRow(
+              labelIcon: Icons.settings_ethernet,
               label: 'async',
               description: tOr(t, 'settings.hooks.asyncDesc', '后台运行（不阻塞主流程）'),
               value: h['async'] == true,
@@ -844,6 +853,7 @@ class _HooksEditorState extends State<HooksEditor> {
             ),
           TextRow(
             label: tOr(t, 'settings.hooks.fieldStatus', '状态'),
+            labelIcon: Icons.info_outline,
             value: '${h['statusMessage'] ?? ''}',
             hint: tOr(t, 'settings.hooks.statusPh', '运行时显示的状态消息'),
             onSubmitted: (v) => _patchHandler(eventId, gi, hi, {

@@ -42,27 +42,44 @@ class ToolGroup {
 
 const List<ToolGroup> kToolGroups = [
   ToolGroup('Bash', 'Bash / Shell', 'Bash(cmd) / Bash(prefix *) / Bash', [
-    'Bash(npm run build)', 'Bash(npm run *)', 'Bash(git commit *)',
-    'Bash(git * main)', 'Bash(docker *)', 'Bash(* --version)', 'Bash',
+    'Bash(npm run build)',
+    'Bash(npm run *)',
+    'Bash(git commit *)',
+    'Bash(git * main)',
+    'Bash(docker *)',
+    'Bash(* --version)',
+    'Bash',
   ]),
-  ToolGroup('PowerShell', 'PowerShell', 'PowerShell(cmd) / PowerShell(prefix *) / PowerShell', [
-    'PowerShell(Get-ChildItem *)', 'PowerShell(git commit *)', 'PowerShell',
-  ]),
+  ToolGroup(
+    'PowerShell',
+    'PowerShell',
+    'PowerShell(cmd) / PowerShell(prefix *) / PowerShell',
+    ['PowerShell(Get-ChildItem *)', 'PowerShell(git commit *)', 'PowerShell'],
+  ),
   ToolGroup('Read', 'Read', 'Read(path) — //绝对 / ~/主目录 / /项目根 / ./当前', [
-    'Read(./.env)', 'Read(//**/*.key)', 'Read(~/.ssh/**)', 'Read(src/**)',
+    'Read(./.env)',
+    'Read(//**/*.key)',
+    'Read(~/.ssh/**)',
+    'Read(src/**)',
     'Read(**/.env)',
   ]),
   ToolGroup('Edit', 'Edit / Write', 'Edit(path) — 同 Read 路径规则', [
-    'Edit(/src/**/*.ts)', 'Edit(./config.json)', 'Edit(/docs/**)',
+    'Edit(/src/**/*.ts)',
+    'Edit(./config.json)',
+    'Edit(/docs/**)',
   ]),
   ToolGroup('WebFetch', 'WebFetch', 'WebFetch(domain:host) / WebFetch', [
-    'WebFetch(domain:example.com)', 'WebFetch',
+    'WebFetch(domain:example.com)',
+    'WebFetch',
   ]),
   ToolGroup('mcp__', 'MCP', 'mcp__server__tool / mcp__server__*', [
-    'mcp__puppeteer__*', 'mcp__puppeteer__puppeteer_navigate',
+    'mcp__puppeteer__*',
+    'mcp__puppeteer__puppeteer_navigate',
   ]),
   ToolGroup('Agent', 'Agent (子代理)', 'Agent(name)', [
-    'Agent(Explore)', 'Agent(Plan)', 'Agent(my-custom-agent)',
+    'Agent(Explore)',
+    'Agent(Plan)',
+    'Agent(my-custom-agent)',
   ]),
 ];
 
@@ -101,10 +118,9 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
 
   /// allow / ask / deny 拍平成统一规则清单（React `rules` 同构）。
   List<(String pattern, String mode)> get _rules => [
-        for (final m in kRuleModes)
-          for (final p in (widget.perms[m] as List? ?? const []))
-            ('$p', m),
-      ];
+    for (final m in kRuleModes)
+      for (final p in (widget.perms[m] as List? ?? const [])) ('$p', m),
+  ];
 
   /// 写回整份 permissions（`syncRules`：保留 defaultMode / 安全开关，删空键）。
   void _syncRules(List<(String, String)> updated) {
@@ -162,8 +178,8 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
               onTap: () {
                 setState(() {
                   _jsonMode = true;
-                  _jsonText =
-                      const JsonEncoder.withIndent('  ').convert(widget.perms);
+                  _jsonText = const JsonEncoder.withIndent('  ')
+                      .convert(widget.perms);
                   _jsonError = null;
                 });
               },
@@ -191,8 +207,7 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
             try {
               final decoded = raw.isEmpty ? null : jsonDecode(raw);
               setState(() => _jsonError = null);
-              if (decoded == null ||
-                  (decoded is Map && decoded.isEmpty)) {
+              if (decoded == null || (decoded is Map && decoded.isEmpty)) {
                 widget.onChanged(null);
               } else if (decoded is Map) {
                 widget.onChanged(Map<String, Object?>.from(decoded));
@@ -226,10 +241,10 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
         if (ruleToolGroup(rules[i].$1) == active.tool) (i, rules[i]),
     ];
     Color modeColor(String m) => switch (m) {
-          'deny' => theme.c.bad,
-          'ask' => theme.c.peak,
-          _ => theme.c.ok,
-        };
+      'deny' => theme.c.bad,
+      'ask' => theme.c.peak,
+      _ => theme.c.ok,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -239,6 +254,7 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
         SelectRow(
           key: const ValueKey('perm-default-mode'),
           label: t.t('settings.permissionsDefaultMode'),
+          labelIcon: Icons.rule,
           options: [for (final m in kPermissionModes) m.$1],
           value: '${widget.perms['defaultMode'] ?? ''}',
           onChanged: (v) =>
@@ -280,10 +296,9 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
             for (final g in kToolGroups)
               SmallButton(
                 key: ValueKey('perm-tab-${g.tool}'),
-                label: tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label) +
-                    ((grouped[g.tool] ?? 0) > 0
-                        ? ' ${grouped[g.tool]}'
-                        : ''),
+                label:
+                    tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label) +
+                    ((grouped[g.tool] ?? 0) > 0 ? ' ${grouped[g.tool]}' : ''),
                 active: _activeTool == g.tool,
                 onTap: () => setState(() {
                   _activeTool = g.tool;
@@ -335,7 +350,9 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
                   _ModeSelect(
                     value: r.$2,
                     color: modeColor(r.$2),
-                    labelOf: (m) => t.t('settings.permissions${m[0].toUpperCase()}${m.substring(1)}'),
+                    labelOf: (m) => t.t(
+                      'settings.permissions${m[0].toUpperCase()}${m.substring(1)}',
+                    ),
                     onChanged: (m) {
                       final next = [...rules];
                       next[idx] = (r.$1, m);
@@ -346,8 +363,7 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
                   SmallButton(
                     key: ValueKey('perm-rule-$idx-del'),
                     label: '×',
-                    onTap: () =>
-                        _syncRules([...rules]..removeAt(idx)),
+                    onTap: () => _syncRules([...rules]..removeAt(idx)),
                   ),
                 ],
               ),
@@ -368,7 +384,9 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
             _ModeSelect(
               value: _draftMode,
               color: modeColor(_draftMode),
-              labelOf: (m) => t.t('settings.permissions${m[0].toUpperCase()}${m.substring(1)}'),
+              labelOf: (m) => t.t(
+                'settings.permissions${m[0].toUpperCase()}${m.substring(1)}',
+              ),
               onChanged: (m) => setState(() => _draftMode = m),
             ),
             const SizedBox(width: AidogSpace.sxs),

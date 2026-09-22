@@ -127,6 +127,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           ],
         ),
         SettingsCard(
+          // 同上（`NotificationSettings.tsx:352`）。
+          dimmed: !s.enabled,
           title: t.t('notif.testChannels'),
           children: [
             Wrap(
@@ -220,6 +222,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   Widget _eventList(I18nController t, NotificationSettings s) {
     final disabled = !s.enabled;
     return SettingsCard(
+      // 总开关关掉后整块压暗（`NotificationEventList.tsx:196`）。
+      dimmed: disabled,
       title: t.t('notif.eventListTitle'),
       description: disabled
           ? '${t.t('notif.eventListDesc')} · '

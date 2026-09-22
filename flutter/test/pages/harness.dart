@@ -154,6 +154,14 @@ Widget wrapPage(Widget page, I18nController c, {AidogMode mode = AidogMode.dark}
     controller: c,
     child: MaterialApp(
       theme: aidogThemeData(mode),
+      // 关掉动画（`Reveal` / `HoverLift` 见此标记即直接给 child）。
+      // 入场错峰会在动画期间**挪动控件位置**，`settle()` 只推 240ms，
+      // 点击会落在控件还没到位的旧坐标上 —— 那是测试时序问题，不是产品缺陷。
+      // 动画本身由 `test/pages/ui_bits_motion_test.dart` 单独守。
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(context).copyWith(disableAnimations: true),
+        child: child!,
+      ),
       home: Scaffold(
         body: SingleChildScrollView(
           child: SizedBox(width: 1280, child: Material(type: MaterialType.transparency, child: page)),

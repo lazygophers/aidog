@@ -401,13 +401,19 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       const SizedBox(height: AidogSpace.ssm),
       Row(
         children: [
-          SmallButton(
-            key: const ValueKey('cleanup-expired'),
-            label: t.t('logs.cleanupExpired'),
-            // 永久保留（0）时没有过期日志可清。
-            onTap: _c.logRetention == 0
-                ? null
-                : () => setState(() => _confirm = _Confirm.cleanupExpired),
+          // 永久保留（0）时没有过期日志可清。按钮置灰之外还要说清**为什么**
+          //（`LogSettingsSection.tsx:216` 的 title），否则用户只看到一个点不动的按钮。
+          Tooltip(
+            message: _c.logRetention == 0
+                ? t.t('logs.cleanupDisabledHint')
+                : '',
+            child: SmallButton(
+              key: const ValueKey('cleanup-expired'),
+              label: t.t('logs.cleanupExpired'),
+              onTap: _c.logRetention == 0
+                  ? null
+                  : () => setState(() => _confirm = _Confirm.cleanupExpired),
+            ),
           ),
           const SizedBox(width: AidogSpace.ssm),
           SmallButton(
@@ -449,20 +455,27 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     mainAxisSize: MainAxisSize.min,
     children: [
       NumberRow(
-        label: days == 0
-            ? '$label (${t.t('proxy.logRetentionForever')})'
-            : label,
+        label: label,
         description: description,
         value: days,
         onChanged: (v) => onDays(v < 0 ? 0 : v),
       ),
-      ChoiceRow(
-        label: '',
-        options: _kUnits.map((e) => e.wire).toList(),
-        value: unit.wire,
-        labelOf: (o) => t.t('unit.$o'),
-        onChanged: (v) => onUnit(RetentionUnit.parse(v)),
-      ),
+      // 0 = 永久保留：这时单位（小时/天）没有意义，React 把整组单位藏掉、
+      // 换成一行「永久保留」（`LogSettingsSection.tsx:155-162`）。
+      // 原先把「永久保留」并进标签括号里，单位按钮组仍摆着可选 —— 选了也没用。
+      if (days == 0)
+        Text(
+          t.t('proxy.logRetentionForever'),
+          style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
+        )
+      else
+        ChoiceRow(
+          label: '',
+          options: _kUnits.map((e) => e.wire).toList(),
+          value: unit.wire,
+          labelOf: (o) => t.t('unit.$o'),
+          onChanged: (v) => onUnit(RetentionUnit.parse(v)),
+        ),
     ],
   );
 
