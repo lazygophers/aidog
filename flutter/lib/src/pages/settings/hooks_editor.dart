@@ -16,6 +16,7 @@ import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+
 import 'package:flutter/material.dart';
 
 /// 事件元数据（`HOOK_EVENTS` 逐条镜像）。hasMatcher 决定处理器里有没有「条件 if」。
@@ -36,55 +37,115 @@ class HookEvent {
 }
 
 const List<HookEvent> kHookEvents = [
-  HookEvent('SessionStart', '会话启动或恢复时触发',
-      hasMatcher: true,
-      matcherOptions: ['startup', 'resume', 'clear', 'compact'],
-      matcherFreeform: false),
-  HookEvent('UserPromptSubmit', '用户提交提示时触发',
-      hasMatcher: false, matcherFreeform: false),
-  HookEvent('PreToolUse', '工具调用前触发，可阻止',
-      hasMatcher: true,
-      matcherOptions: [
-        'Bash', 'Edit', 'Write', 'Read', 'Glob', 'Grep', 'WebFetch', 'Agent',
-      ],
-      matcherFreeform: true),
-  HookEvent('PostToolUse', '工具调用成功后触发',
-      hasMatcher: true,
-      matcherOptions: [
-        'Bash', 'Edit', 'Write', 'Read', 'Glob', 'Grep', 'WebFetch', 'Agent',
-      ],
-      matcherFreeform: true),
-  HookEvent('Notification', '发送通知时触发',
-      hasMatcher: true,
-      matcherOptions: [
-        'permission_prompt', 'idle_prompt', 'auth_success', 'elicitation_dialog',
-      ],
-      matcherFreeform: false),
-  HookEvent('Stop', 'Claude 完成响应时触发',
-      hasMatcher: false, matcherFreeform: false),
-  HookEvent('SubagentStop', '子代理完成时触发',
-      hasMatcher: true,
-      matcherOptions: ['general-purpose', 'Explore', 'Plan'],
-      matcherFreeform: true),
-  HookEvent('ConfigChange', '配置文件变更时触发',
-      hasMatcher: true,
-      matcherOptions: [
-        'user_settings', 'project_settings', 'local_settings',
-        'policy_settings', 'skills',
-      ],
-      matcherFreeform: false),
-  HookEvent('FileChanged', '监视文件变更时触发',
-      hasMatcher: true, matcherFreeform: true),
-  HookEvent('CwdChanged', '工作目录切换时触发',
-      hasMatcher: false, matcherFreeform: false),
-  HookEvent('PreCompact', '上下文压缩前触发',
-      hasMatcher: true,
-      matcherOptions: ['manual', 'auto'],
-      matcherFreeform: false),
-  HookEvent('SessionEnd', '会话结束时触发',
-      hasMatcher: true,
-      matcherOptions: ['clear', 'resume', 'logout', 'prompt_input_exit', 'other'],
-      matcherFreeform: false),
+  HookEvent(
+    'SessionStart',
+    '会话启动或恢复时触发',
+    hasMatcher: true,
+    matcherOptions: ['startup', 'resume', 'clear', 'compact'],
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'UserPromptSubmit',
+    '用户提交提示时触发',
+    hasMatcher: false,
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'PreToolUse',
+    '工具调用前触发，可阻止',
+    hasMatcher: true,
+    matcherOptions: [
+      'Bash',
+      'Edit',
+      'Write',
+      'Read',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'Agent',
+    ],
+    matcherFreeform: true,
+  ),
+  HookEvent(
+    'PostToolUse',
+    '工具调用成功后触发',
+    hasMatcher: true,
+    matcherOptions: [
+      'Bash',
+      'Edit',
+      'Write',
+      'Read',
+      'Glob',
+      'Grep',
+      'WebFetch',
+      'Agent',
+    ],
+    matcherFreeform: true,
+  ),
+  HookEvent(
+    'Notification',
+    '发送通知时触发',
+    hasMatcher: true,
+    matcherOptions: [
+      'permission_prompt',
+      'idle_prompt',
+      'auth_success',
+      'elicitation_dialog',
+    ],
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'Stop',
+    'Claude 完成响应时触发',
+    hasMatcher: false,
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'SubagentStop',
+    '子代理完成时触发',
+    hasMatcher: true,
+    matcherOptions: ['general-purpose', 'Explore', 'Plan'],
+    matcherFreeform: true,
+  ),
+  HookEvent(
+    'ConfigChange',
+    '配置文件变更时触发',
+    hasMatcher: true,
+    matcherOptions: [
+      'user_settings',
+      'project_settings',
+      'local_settings',
+      'policy_settings',
+      'skills',
+    ],
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'FileChanged',
+    '监视文件变更时触发',
+    hasMatcher: true,
+    matcherFreeform: true,
+  ),
+  HookEvent(
+    'CwdChanged',
+    '工作目录切换时触发',
+    hasMatcher: false,
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'PreCompact',
+    '上下文压缩前触发',
+    hasMatcher: true,
+    matcherOptions: ['manual', 'auto'],
+    matcherFreeform: false,
+  ),
+  HookEvent(
+    'SessionEnd',
+    '会话结束时触发',
+    hasMatcher: true,
+    matcherOptions: ['clear', 'resume', 'logout', 'prompt_input_exit', 'other'],
+    matcherFreeform: false,
+  ),
 ];
 
 HookEvent? _eventMeta(String id) {
@@ -109,7 +170,10 @@ String _handlerLabel(I18nController t, String ty) {
 }
 
 /// aidog notify 项的识别标记（后端 `gateway::hooks` 同约定）。
-const List<String> _aidogNotifyMarkers = ['aidog-notify-complete', 'aidog-notify-waiting'];
+const List<String> _aidogNotifyMarkers = [
+  'aidog-notify-complete',
+  'aidog-notify-waiting',
+];
 
 bool _isAidogNotifyHandler(Map<String, Object?> h) {
   final cmd = '${h['command'] ?? ''}';
@@ -125,7 +189,6 @@ bool _hasNotifyHooks(Map<String, Object?> hooks) {
     }
   }
   return false;
-
 }
 
 /// hooks → 清洗后的 hooks；空 → null（`syncHooks`）。
@@ -177,8 +240,13 @@ Map<String, Object?> _mergeNotifyHooks(
           .map((h) => {...h, 'type': '${h['type'] ?? 'command'}'})
           .toList();
       if (handlers.isEmpty) continue;
-      final existing = (merged[e.key] as List? ?? const []).whereType<Map>().toList();
-      merged[e.key] = [...existing, {'matcher': '', 'hooks': handlers}];
+      final existing = (merged[e.key] as List? ?? const [])
+          .whereType<Map>()
+          .toList();
+      merged[e.key] = [
+        ...existing,
+        {'matcher': '', 'hooks': handlers},
+      ];
     }
   }
   return merged;
@@ -447,9 +515,8 @@ class _HooksEditorState extends State<HooksEditor> {
           Row(
             children: [
               InkWell(
-                onTap: () => setState(
-                  () => _collapsed[eventId] = expanded,
-                ),                child: Icon(
+                onTap: () => setState(() => _collapsed[eventId] = expanded),
+                child: Icon(
                   expanded ? Icons.expand_less : Icons.expand_more,
                   size: 16,
                   color: theme.c.fg3,
@@ -546,19 +613,18 @@ class _HooksEditorState extends State<HooksEditor> {
                     if (meta != null && meta.matcherOptions.isNotEmpty)
                       for (final opt in meta.matcherOptions)
                         SmallButton(
-                          key: ValueKey(
-                            'hooks-matcher-$eventId-$gi-$opt',
-                          ),
+                          key: ValueKey('hooks-matcher-$eventId-$gi-$opt'),
                           label: opt,
                           active: tags.contains(opt),
                           onTap: () {
                             final next = tags.contains(opt)
                                 ? tags.where((x) => x != opt).toList()
                                 : [...tags, opt];
-                            _patchGroup(eventId, gi, (g) => {
-                                  ...g,
-                                  'matcher': next.join('|'),
-                                });
+                            _patchGroup(
+                              eventId,
+                              gi,
+                              (g) => {...g, 'matcher': next.join('|')},
+                            );
                           },
                         )
                     else if (meta != null && meta.matcherFreeform)
@@ -567,10 +633,16 @@ class _HooksEditorState extends State<HooksEditor> {
                         child: PlainTextField(
                           value: matcher,
                           hint: eventId == 'FileChanged'
-                              ? tOr(t, 'settings.hooks.matcherFilePh',
-                                  '文件名，如 .envrc|.env')
-                              : tOr(t, 'settings.hooks.matcherToolPh',
-                                  '工具名称或正则，多个用 | 分隔'),
+                              ? tOr(
+                                  t,
+                                  'settings.hooks.matcherFilePh',
+                                  '文件名，如 .envrc|.env',
+                                )
+                              : tOr(
+                                  t,
+                                  'settings.hooks.matcherToolPh',
+                                  '工具名称或正则，多个用 | 分隔',
+                                ),
                           onSubmitted: (v) => _patchGroup(
                             eventId,
                             gi,
@@ -589,8 +661,10 @@ class _HooksEditorState extends State<HooksEditor> {
               SmallButton(
                 key: ValueKey('hooks-del-group-$eventId-$gi'),
                 label: '×',
-                onTap: () =>
-                    _writeGroups(eventId, [..._groupsOf(eventId)]..removeAt(gi)),
+                onTap: () => _writeGroups(
+                  eventId,
+                  [..._groupsOf(eventId)]..removeAt(gi),
+                ),
               ),
             ],
           ),
@@ -601,13 +675,17 @@ class _HooksEditorState extends State<HooksEditor> {
             child: SmallButton(
               key: ValueKey('hooks-add-handler-$eventId-$gi'),
               label: tOr(t, 'settings.hooks.addHandler', '+ 处理器'),
-              onTap: () => _patchGroup(eventId, gi, (g) => {
-                    ...g,
-                    'hooks': [
-                      ..._handlersOf(eventId, gi),
-                      {'type': 'command', 'command': ''},
-                    ],
-                  }),
+              onTap: () => _patchGroup(
+                eventId,
+                gi,
+                (g) => {
+                  ...g,
+                  'hooks': [
+                    ..._handlersOf(eventId, gi),
+                    {'type': 'command', 'command': ''},
+                  ],
+                },
+              ),
             ),
           ),
         ],
@@ -669,10 +747,14 @@ class _HooksEditorState extends State<HooksEditor> {
               SmallButton(
                 key: ValueKey('hooks-del-handler-$eventId-$gi-$hi'),
                 label: '×',
-                onTap: () => _patchGroup(eventId, gi, (g) => {
-                      ...g,
-                      'hooks': [..._handlersOf(eventId, gi)]..removeAt(hi),
-                    }),
+                onTap: () => _patchGroup(
+                  eventId,
+                  gi,
+                  (g) => {
+                    ...g,
+                    'hooks': [..._handlersOf(eventId, gi)]..removeAt(hi),
+                  },
+                ),
               ),
             ],
           ),
@@ -683,19 +765,17 @@ class _HooksEditorState extends State<HooksEditor> {
               value: '${h['command'] ?? ''}',
               maxLines: 3,
               hint: tOr(t, 'settings.hooks.commandPh', '命令或脚本路径'),
-              onSubmitted: (v) =>
-                  _patchHandler(eventId, gi, hi, {'command': v.isEmpty ? null : v}),
+              onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
+                'command': v.isEmpty ? null : v,
+              }),
             ),
             SelectRow(
               label: 'Shell',
               options: const ['', 'powershell'],
               value: '${h['shell'] ?? ''}',
-              onChanged: (v) => _patchHandler(
-                eventId,
-                gi,
-                hi,
-                {'shell': v == null || v.isEmpty ? null : v},
-              ),
+              onChanged: (v) => _patchHandler(eventId, gi, hi, {
+                'shell': v == null || v.isEmpty ? null : v,
+              }),
               labelOf: (v) => v.isEmpty ? 'Bash' : 'PowerShell',
             ),
           ],
@@ -712,15 +792,17 @@ class _HooksEditorState extends State<HooksEditor> {
               label: tOr(t, 'settings.hooks.fieldServer', '服务器'),
               value: '${h['server'] ?? ''}',
               hint: tOr(t, 'settings.hooks.serverPh', 'MCP 服务器名称'),
-              onSubmitted: (v) => _patchHandler(
-                eventId, gi, hi, {'server': v.isEmpty ? null : v}),
+              onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
+                'server': v.isEmpty ? null : v,
+              }),
             ),
             TextRow(
               label: tOr(t, 'settings.hooks.fieldTool', '工具'),
               value: '${h['tool'] ?? ''}',
               hint: tOr(t, 'settings.hooks.toolPh', '工具名称'),
-              onSubmitted: (v) =>
-                  _patchHandler(eventId, gi, hi, {'tool': v.isEmpty ? null : v}),
+              onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
+                'tool': v.isEmpty ? null : v,
+              }),
             ),
           ],
           if (type == 'prompt' || type == 'agent')
@@ -728,9 +810,14 @@ class _HooksEditorState extends State<HooksEditor> {
               label: tOr(t, 'settings.hooks.fieldPrompt', '提示'),
               value: '${h['prompt'] ?? ''}',
               maxLines: 3,
-              hint: tOr(t, 'settings.hooks.promptPh', '提示文本，用 \$ARGUMENTS 插入 hook 输入数据'),
-              onSubmitted: (v) => _patchHandler(
-                eventId, gi, hi, {'prompt': v.isEmpty ? null : v}),
+              hint: tOr(
+                t,
+                'settings.hooks.promptPh',
+                '提示文本，用 \$ARGUMENTS 插入 hook 输入数据',
+              ),
+              onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
+                'prompt': v.isEmpty ? null : v,
+              }),
             ),
           if (meta != null && meta.hasMatcher)
             TextRow(
@@ -743,12 +830,8 @@ class _HooksEditorState extends State<HooksEditor> {
           NumberRow(
             label: tOr(t, 'settings.hooks.fieldTimeout', '超时'),
             value: (h['timeout'] as num?)?.toInt() ?? 0,
-            onChanged: (v) => _patchHandler(
-              eventId,
-              gi,
-              hi,
-              {'timeout': v == 0 ? null : v},
-            ),
+            onChanged: (v) =>
+                _patchHandler(eventId, gi, hi, {'timeout': v == 0 ? null : v}),
             description: tOr(t, 'settings.hooks.seconds', '秒'),
           ),
           if (type == 'command')
@@ -763,8 +846,9 @@ class _HooksEditorState extends State<HooksEditor> {
             label: tOr(t, 'settings.hooks.fieldStatus', '状态'),
             value: '${h['statusMessage'] ?? ''}',
             hint: tOr(t, 'settings.hooks.statusPh', '运行时显示的状态消息'),
-            onSubmitted: (v) => _patchHandler(
-              eventId, gi, hi, {'statusMessage': v.isEmpty ? null : v}),
+            onSubmitted: (v) => _patchHandler(eventId, gi, hi, {
+              'statusMessage': v.isEmpty ? null : v,
+            }),
           ),
         ],
       ),

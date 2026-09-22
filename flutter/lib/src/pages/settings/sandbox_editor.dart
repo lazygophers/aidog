@@ -98,7 +98,10 @@ class _SandboxTagListState extends State<SandboxTagList> {
               child: TextField(
                 controller: _draft,
                 style: AidogType.micro.copyWith(color: theme.c.fg),
-                decoration: InputDecoration(isDense: true, hintText: widget.hint),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: widget.hint,
+                ),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _add(),
               ),
@@ -245,8 +248,9 @@ class SandboxEditor extends StatelessWidget {
   /// React `sync`（`SandboxSection.tsx:140`）的逐行镜像。
   void _sync(Map<String, Object?> patch) {
     final next = {...sandbox, ...patch};
-    next.removeWhere((_, v) =>
-        (v is List && v.isEmpty) || v == false || v == null);
+    next.removeWhere(
+      (_, v) => (v is List && v.isEmpty) || v == false || v == null,
+    );
     if (next['filesystem'] is Map) {
       final fso = Map<String, Object?>.from(next['filesystem'] as Map)
         ..removeWhere((_, v) => v is List && v.isEmpty);
@@ -258,7 +262,9 @@ class SandboxEditor extends StatelessWidget {
     }
     if (next['network'] is Map) {
       final no = Map<String, Object?>.from(next['network'] as Map)
-        ..removeWhere((_, v) => (v is List && v.isEmpty) || v == false || v == null);
+        ..removeWhere(
+          (_, v) => (v is List && v.isEmpty) || v == false || v == null,
+        );
       if (no.isEmpty) {
         next.remove('network');
       } else {
@@ -268,22 +274,28 @@ class SandboxEditor extends StatelessWidget {
     onChanged(next.isEmpty ? null : next);
   }
 
-  void _setFs(String key, List<String> arr) =>
-      _sync({'filesystem': {..._fs, key: arr}});
+  void _setFs(String key, List<String> arr) => _sync({
+    'filesystem': {..._fs, key: arr},
+  });
 
-  void _setNet(String key, List<String> arr) =>
-      _sync({'network': {..._net, key: arr}});
+  void _setNet(String key, List<String> arr) => _sync({
+    'network': {..._net, key: arr},
+  });
 
   /// 端口：非法值（非数字 / 越界）直接不写，保持原值 —— React 的 `setNetPort`
   /// 在 `isNaN || <0 || >65535` 时直接 `return`，不是写回 undefined。
   void _setPort(String key, String raw) {
     if (raw.isEmpty) {
-      _sync({'network': {..._net, key: null}});
+      _sync({
+        'network': {..._net, key: null},
+      });
       return;
     }
     final port = int.tryParse(raw);
     if (port == null || port < 0 || port > 65535) return;
-    _sync({'network': {..._net, key: port}});
+    _sync({
+      'network': {..._net, key: port},
+    });
   }
 
   @override
@@ -326,10 +338,30 @@ class SandboxEditor extends StatelessWidget {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.sxs),
-          _pathField(t, 'allowWrite', 'settings.sandbox.allowWrite', 'settings.sandbox.allowWritePh'),
-          _pathField(t, 'denyWrite', 'settings.sandbox.denyWrite', 'settings.sandbox.denyWritePh'),
-          _pathField(t, 'allowRead', 'settings.sandbox.allowRead', 'settings.sandbox.allowReadPh'),
-          _pathField(t, 'denyRead', 'settings.sandbox.denyRead', 'settings.sandbox.denyReadPh'),
+          _pathField(
+            t,
+            'allowWrite',
+            'settings.sandbox.allowWrite',
+            'settings.sandbox.allowWritePh',
+          ),
+          _pathField(
+            t,
+            'denyWrite',
+            'settings.sandbox.denyWrite',
+            'settings.sandbox.denyWritePh',
+          ),
+          _pathField(
+            t,
+            'allowRead',
+            'settings.sandbox.allowRead',
+            'settings.sandbox.allowReadPh',
+          ),
+          _pathField(
+            t,
+            'denyRead',
+            'settings.sandbox.denyRead',
+            'settings.sandbox.denyReadPh',
+          ),
 
           // ── 网络隔离 ──
           const SizedBox(height: AidogSpace.ssm),
@@ -339,10 +371,18 @@ class SandboxEditor extends StatelessWidget {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.sxs),
-          _tagField(t, 'allowedDomains', 'settings.sandbox.allowedDomains',
-              'settings.sandbox.allowedDomainsPh'),
-          _tagField(t, 'deniedDomains', 'settings.sandbox.deniedDomains',
-              'settings.sandbox.deniedDomainsPh'),
+          _tagField(
+            t,
+            'allowedDomains',
+            'settings.sandbox.allowedDomains',
+            'settings.sandbox.allowedDomainsPh',
+          ),
+          _tagField(
+            t,
+            'deniedDomains',
+            'settings.sandbox.deniedDomains',
+            'settings.sandbox.deniedDomainsPh',
+          ),
           TextRow(
             key: const ValueKey('sandbox-http-proxy'),
             label: t.t('settings.sandbox.httpProxy'),
@@ -381,7 +421,9 @@ class SandboxEditor extends StatelessWidget {
             label: t.t('settings.sandbox.lockDomains'),
             description: t.t('settings.sandbox.lockDomainsDesc'),
             value: _net['allowManagedDomainsOnly'] == true,
-            onChanged: (v) => _sync({'network': {..._net, 'allowManagedDomainsOnly': v}}),
+            onChanged: (v) => _sync({
+              'network': {..._net, 'allowManagedDomainsOnly': v},
+            }),
           ),
           SwitchRow(
             key: const ValueKey('sandbox-lock-read-paths'),
@@ -431,39 +473,49 @@ class SandboxEditor extends StatelessWidget {
     );
   }
 
-  Widget _pathField(I18nController t, String key, String labelKey, String hintKey) => Padding(
-        padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TileMeta(t.t(labelKey)),
-            SandboxPathList(
-              key: ValueKey('sandbox-fs-$key'),
-              items: _list(_fs, key),
-              hint: t.t(hintKey),
-              invoke: invoke,
-              showPicker: showPicker,
-              onChanged: (v) => _setFs(key, v),
-            ),
-          ],
+  Widget _pathField(
+    I18nController t,
+    String key,
+    String labelKey,
+    String hintKey,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TileMeta(t.t(labelKey)),
+        SandboxPathList(
+          key: ValueKey('sandbox-fs-$key'),
+          items: _list(_fs, key),
+          hint: t.t(hintKey),
+          invoke: invoke,
+          showPicker: showPicker,
+          onChanged: (v) => _setFs(key, v),
         ),
-      );
+      ],
+    ),
+  );
 
-  Widget _tagField(I18nController t, String key, String labelKey, String hintKey) => Padding(
-        padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TileMeta(t.t(labelKey)),
-            SandboxTagList(
-              key: ValueKey('sandbox-net-$key'),
-              items: _list(_net, key),
-              hint: t.t(hintKey),
-              onChanged: (v) => _setNet(key, v),
-            ),
-          ],
+  Widget _tagField(
+    I18nController t,
+    String key,
+    String labelKey,
+    String hintKey,
+  ) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TileMeta(t.t(labelKey)),
+        SandboxTagList(
+          key: ValueKey('sandbox-net-$key'),
+          items: _list(_net, key),
+          hint: t.t(hintKey),
+          onChanged: (v) => _setNet(key, v),
         ),
-      );
+      ],
+    ),
+  );
 }

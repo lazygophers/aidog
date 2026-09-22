@@ -204,8 +204,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   }
 
   Future<void> _boot() async {
-    final bundle = await (widget.bundleLoader?.call(widget.kind) ??
-        loadSchemaBundle(widget.kind, locale: i18n.locale));
+    final bundle =
+        await (widget.bundleLoader?.call(widget.kind) ??
+            loadSchemaBundle(widget.kind, locale: i18n.locale));
     if (!mounted) return;
     final c = SchemaConfigController(
       wiring: widget.kind.wiring,
@@ -231,7 +232,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// R8 全局搜索：section 标签命中 → 整节显示；否则按字段 label/key/description 命中
   /// → 只留命中的字段。返回值：section.id → 命中字段集合（`null` = 整节命中，show all）。
   /// 与 React `Settings.tsx` 的 `search` useMemo 同算法。
-  Map<String, Set<String>?>? _computeSearch(I18nController t, SchemaBundle bundle) {
+  Map<String, Set<String>?>? _computeSearch(
+    I18nController t,
+    SchemaBundle bundle,
+  ) {
     final q = _searchQuery.trim().toLowerCase();
     if (q.isEmpty) return null;
     final matched = <String, Set<String>?>{};
@@ -245,7 +249,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       for (final f in s.fields) {
         final label = tOr(t, 'settings.f_${f.key}', f.label).toLowerCase();
         final desc = (f.description ?? '').toLowerCase();
-        if (label.contains(q) || f.key.toLowerCase().contains(q) || desc.contains(q)) {
+        if (label.contains(q) ||
+            f.key.toLowerCase().contains(q) ||
+            desc.contains(q)) {
           hits.add(f.key);
         }
       }
@@ -268,14 +274,17 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
 
     final isClaude = widget.kind == SchemaConfigKind.claude;
     final search = isClaude ? _computeSearch(t, bundle) : null;
-    final visibleSections =
-        search == null ? bundle.sections : bundle.sections.where((s) => search.containsKey(s.id)).toList();
+    final visibleSections = search == null
+        ? bundle.sections
+        : bundle.sections.where((s) => search.containsKey(s.id)).toList();
 
     final body = SettingsPageBody(
       title: t.t(widget.kind.titleKey),
       // React 三页都有这条持久提示（不只是保存后的一次性 toast）：脏 → 未保存更改，
       // 干净 → 已保存（`SettingsHeader.tsx:157` / `CodexSettings.tsx:216`）。
-      subtitle: c.dirty ? t.t('settings.unsavedChanges') : t.t('settings.allSaved'),
+      subtitle: c.dirty
+          ? t.t('settings.unsavedChanges')
+          : t.t('settings.allSaved'),
       trailing: Wrap(
         spacing: AidogSpace.sxs,
         crossAxisAlignment: WrapCrossAlignment.center,
@@ -285,7 +294,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               width: 200,
               child: TextField(
                 key: const ValueKey('settings-search'),
-                decoration: InputDecoration(isDense: true, hintText: t.t('settings.search')),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: t.t('settings.search'),
+                ),
                 onChanged: (v) => setState(() => _searchQuery = v),
               ),
             ),
@@ -316,7 +328,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             ),
           SmallButton(
             label: c.saving ? t.t('status.loading') : t.t('action.save'),
-            onTap: c.canSave ? () => c.save(savedText: t.t('settings.saved')) : null,
+            onTap: c.canSave
+                ? () => c.save(savedText: t.t('settings.saved'))
+                : null,
           ),
         ],
       ),
@@ -334,9 +348,13 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             ],
           )
         else if (search != null && visibleSections.isEmpty)
-          CenteredNote(key: const ValueKey('settings-search-no-match'), text: t.t('settings.searchNoMatch'))
+          CenteredNote(
+            key: const ValueKey('settings-search-no-match'),
+            text: t.t('settings.searchNoMatch'),
+          )
         else
-          for (final s in visibleSections) _section(t, c, s, fieldFilter: search?[s.id]),
+          for (final s in visibleSections)
+            _section(t, c, s, fieldFilter: search?[s.id]),
         if (c.saveError.isNotEmpty) ErrorNote(text: c.saveError),
         if (c.importDiff != null)
           ImportDiffCard(
@@ -352,8 +370,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             onDiscard: c.discardAndLeave,
             onCancel: c.cancelLeave,
           ),
-        if (c.toast.isNotEmpty)
-          AutoToast(text: c.toast, onDone: c.clearToast),
+        if (c.toast.isNotEmpty) AutoToast(text: c.toast, onDone: c.clearToast),
       ],
     );
 
@@ -376,6 +393,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     I18nController t,
     SchemaConfigController c,
     SchemaSection s, {
+
     /// R8 搜索命中的字段集合。`null` = 未过滤或整节命中（显示全部字段）。
     Set<String>? fieldFilter,
   }) {
@@ -400,7 +418,8 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     if (widget.kind == SchemaConfigKind.claude && s.id == 'env') {
       final env = c.config['env'] is Map
           ? {
-              for (final e in (c.config['env'] as Map).entries) '${e.key}': '${e.value}',
+              for (final e in (c.config['env'] as Map).entries)
+                '${e.key}': '${e.value}',
             }
           : <String, String>{};
       return SettingsCard(
@@ -418,9 +437,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     if (widget.kind == SchemaConfigKind.claude && s.id == 'plugins') {
       return SettingsCard(
         title: t.t(s.labelKey),
-        children: [
-          PluginsEditor(config: c.config, updateField: c.updateField),
-        ],
+        children: [PluginsEditor(config: c.config, updateField: c.updateField)],
       );
     }
     // 沙箱区同理：schema 里是一个 skipGui 的 json 字段，React 侧整节换成
@@ -458,19 +475,29 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       rows.add(_field(t, c, f));
     }
     if (widget.kind == SchemaConfigKind.claude && s.id == 'status') {
-      rows.add(const StatusLineDataRef(key: ValueKey('section-status-dataref')));
+      rows.add(
+        const StatusLineDataRef(key: ValueKey('section-status-dataref')),
+      );
     }
     // Attribution 固定编辑器（commit + pr 两个子字段）：`attribution` 是 skipGui 的
     // json 字段，React 侧在「advanced」节末尾单独铺开两个文本框，搜索命中具体字段时隐藏
     // （`fieldFilter instanceof Set` 那条件的镜像：这里是 fieldFilter != null）。
-    if (widget.kind == SchemaConfigKind.claude && s.id == 'advanced' && fieldFilter == null) {
+    if (widget.kind == SchemaConfigKind.claude &&
+        s.id == 'advanced' &&
+        fieldFilter == null) {
       final attr = c.config['attribution'] is Map
           ? Map<String, Object?>.from(c.config['attribution'] as Map)
           : <String, Object?>{};
       void setAttr(String field, String v) {
         final next = {...attr, field: v};
-        c.updateField('attribution', next.values.any((x) => (x as String?)?.isNotEmpty == true) ? next : null);
+        c.updateField(
+          'attribution',
+          next.values.any((x) => (x as String?)?.isNotEmpty == true)
+              ? next
+              : null,
+        );
       }
+
       rows.add(
         Padding(
           key: const ValueKey('field-attribution'),
@@ -522,11 +549,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     return a == b;
   }
 
-  Widget _field(
-    I18nController t,
-    SchemaConfigController c,
-    SchemaField f,
-  ) {
+  Widget _field(I18nController t, SchemaConfigController c, SchemaField f) {
     final value = c.config[f.key];
     // 权限矩阵：React 侧是专用可视化编辑器（PermissionsSectionInline），
     // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢；权限矩阵在
@@ -692,15 +715,18 @@ class _JsonField extends StatefulWidget {
 }
 
 class _JsonFieldState extends State<_JsonField> {
-  late final TextEditingController _ctrl = TextEditingController(text: _initialText());
+  late final TextEditingController _ctrl = TextEditingController(
+    text: _initialText(),
+  );
   final FocusNode _focus = FocusNode();
   final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _replaceCtrl = TextEditingController();
   bool _showSearch = false;
   bool _showReplace = false;
 
-  String _initialText() =>
-      widget.value == null ? '' : const JsonEncoder.withIndent('  ').convert(widget.value);
+  String _initialText() => widget.value == null
+      ? ''
+      : const JsonEncoder.withIndent('  ').convert(widget.value);
 
   @override
   void initState() {
@@ -715,7 +741,10 @@ class _JsonFieldState extends State<_JsonField> {
     super.didUpdateWidget(old);
     final v = _initialText();
     if (v != _ctrl.text && !_focus.hasFocus) {
-      _ctrl.value = TextEditingValue(text: v, selection: TextSelection.collapsed(offset: v.length));
+      _ctrl.value = TextEditingValue(
+        text: v,
+        selection: TextSelection.collapsed(offset: v.length),
+      );
     }
   }
 
@@ -730,8 +759,12 @@ class _JsonFieldState extends State<_JsonField> {
 
   void _format() {
     try {
-      final pretty = const JsonEncoder.withIndent('  ').convert(jsonDecode(_ctrl.text));
-      _ctrl.value = TextEditingValue(text: pretty, selection: TextSelection.collapsed(offset: pretty.length));
+      final pretty = const JsonEncoder.withIndent('  ')
+          .convert(jsonDecode(_ctrl.text));
+      _ctrl.value = TextEditingValue(
+        text: pretty,
+        selection: TextSelection.collapsed(offset: pretty.length),
+      );
       widget.onSubmitted(pretty);
     } catch (_) {
       // 非法 JSON：不动文本，外层的错误提示已经在说明原因。
@@ -754,7 +787,10 @@ class _JsonFieldState extends State<_JsonField> {
     }
     if (idx < 0) return;
     setState(() {
-      _ctrl.selection = TextSelection(baseOffset: idx, extentOffset: idx + q.length);
+      _ctrl.selection = TextSelection(
+        baseOffset: idx,
+        extentOffset: idx + q.length,
+      );
     });
     _focus.requestFocus();
   }
@@ -763,7 +799,10 @@ class _JsonFieldState extends State<_JsonField> {
     final q = _searchCtrl.text;
     if (q.isEmpty) return;
     final next = _ctrl.text.replaceAll(q, _replaceCtrl.text);
-    _ctrl.value = TextEditingValue(text: next, selection: TextSelection.collapsed(offset: next.length));
+    _ctrl.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
     widget.onSubmitted(next);
   }
 
@@ -774,13 +813,31 @@ class _JsonFieldState extends State<_JsonField> {
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
-            setState(() { _showSearch = true; _showReplace = false; }),
+            setState(() {
+              _showSearch = true;
+              _showReplace = false;
+            }),
         const SingleActivator(LogicalKeyboardKey.keyF, control: true): () =>
-            setState(() { _showSearch = true; _showReplace = false; }),
-        const SingleActivator(LogicalKeyboardKey.keyF, meta: true, alt: true): () =>
-            setState(() { _showSearch = true; _showReplace = true; }),
-        const SingleActivator(LogicalKeyboardKey.keyF, control: true, alt: true): () =>
-            setState(() { _showSearch = true; _showReplace = true; }),
+            setState(() {
+              _showSearch = true;
+              _showReplace = false;
+            }),
+        const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          meta: true,
+          alt: true,
+        ): () => setState(() {
+          _showSearch = true;
+          _showReplace = true;
+        }),
+        const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: true,
+          alt: true,
+        ): () => setState(() {
+          _showSearch = true;
+          _showReplace = true;
+        }),
       },
       child: Focus(
         canRequestFocus: false,
@@ -790,7 +847,10 @@ class _JsonFieldState extends State<_JsonField> {
           children: [
             TileMeta(widget.label),
             if (widget.description != null && widget.description!.isNotEmpty)
-              Text(widget.description!, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+              Text(
+                widget.description!,
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
             Row(
               children: [
                 SmallButton(label: t.t('jsonEditor.format'), onTap: _format),
@@ -817,13 +877,19 @@ class _JsonFieldState extends State<_JsonField> {
                       onSubmitted: (_) => _findNext(),
                     ),
                   ),
-                  SmallButton(label: '↑', onTap: () => _findNext(backward: true)),
+                  SmallButton(
+                    label: '↑',
+                    onTap: () => _findNext(backward: true),
+                  ),
                   const SizedBox(width: AidogSpace.sxs),
                   SmallButton(label: '↓', onTap: () => _findNext()),
                   const SizedBox(width: AidogSpace.sxs),
                   SmallButton(
                     label: '×',
-                    onTap: () => setState(() { _showSearch = false; _showReplace = false; }),
+                    onTap: () => setState(() {
+                      _showSearch = false;
+                      _showReplace = false;
+                    }),
                   ),
                 ],
               ),
@@ -841,7 +907,11 @@ class _JsonFieldState extends State<_JsonField> {
                     ),
                     // React 侧的替换按钮文案来自 CodeMirror 内建搜索面板，本身不接 i18n
                     // （@codemirror/search 的默认 keymap 硬编码英文），这里照抄同一处理。
-                    SmallButton(key: const ValueKey('json-replace-all'), label: 'Replace All', onTap: _replaceAll),
+                    SmallButton(
+                      key: const ValueKey('json-replace-all'),
+                      label: 'Replace All',
+                      onTap: _replaceAll,
+                    ),
                   ],
                 ),
               ],
@@ -1016,19 +1086,27 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Icon(
-                  state == 'off' ? Icons.check_box_outline_blank : Icons.check_box,
+                  state == 'off'
+                      ? Icons.check_box_outline_blank
+                      : Icons.check_box,
                   size: 14,
                   color: state == 'off' ? theme.c.fg3 : theme.c.accent,
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 Text(
                   n.label,
-                  style: AidogType.micro.copyWith(color: theme.c.fg2, fontWeight: FontWeight.w600),
+                  style: AidogType.micro.copyWith(
+                    color: theme.c.fg2,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 Text(
                   badgeText,
-                  style: AidogType.micro.copyWith(color: badgeColor, fontWeight: FontWeight.w600),
+                  style: AidogType.micro.copyWith(
+                    color: badgeColor,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ],
             ),

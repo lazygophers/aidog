@@ -84,8 +84,9 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
 
   bool get _enabled => _stored['enabled'] == true;
   String get _mode => _stored['mode'] == 'custom' ? 'custom' : 'builtin';
-  String get _customCommand =>
-      _stored['customCommand'] is String ? _stored['customCommand']! as String : '';
+  String get _customCommand => _stored['customCommand'] is String
+      ? _stored['customCommand']! as String
+      : '';
 
   List<StatusLineSegment> get _defaultSegments =>
       _isMain ? kDefaultSegments : kDefaultSubagentSegments;
@@ -150,9 +151,7 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
   void _addRow() => _addSegment('model', newline: _segments.isNotEmpty);
 
   void _resetToDefaultLayout() {
-    _setStored({
-      'segments': _defaultSegments.map((s) => s.toJson()).toList(),
-    });
+    _setStored({'segments': _defaultSegments.map((s) => s.toJson()).toList()});
   }
 
   /// 脚本预览由 Rust 渲染（与落盘时是同一个生成器），所以看到的就是磁盘上的那份。
@@ -643,7 +642,9 @@ class _AddSegmentMenu extends StatelessWidget {
                           Flexible(
                             child: Text(
                               segDesc(t, def),
-                              style: AidogType.micro.copyWith(color: theme.c.fg3),
+                              style: AidogType.micro.copyWith(
+                                color: theme.c.fg3,
+                              ),
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
@@ -706,16 +707,18 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
     final validHex = hexToRgb(_color) != null;
     final effective = _autoColor && canAutoColor
         ? levelColor(autoColorPreviewLevel(widget.segment.type), theme.c)
-        : (validHex ? previewColor(
-            StatusLineSegment(
-              id: widget.segment.id,
-              type: widget.segment.type,
-              enabled: true,
-              newline: false,
-              color: _color,
-            ),
-            theme.c,
-          ) : null);
+        : (validHex
+              ? previewColor(
+                  StatusLineSegment(
+                    id: widget.segment.id,
+                    type: widget.segment.type,
+                    enabled: true,
+                    newline: false,
+                    color: _color,
+                  ),
+                  theme.c,
+                )
+              : null);
 
     return Padding(
       padding: const EdgeInsets.only(top: AidogSpace.smd),
@@ -823,7 +826,8 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
           key: key,
           label: label,
           options: f.options,
-          value: '${_opts[f.key] ?? (f.options.isEmpty ? '' : f.options.first)}',
+          value:
+              '${_opts[f.key] ?? (f.options.isEmpty ? '' : f.options.first)}',
           onChanged: (v) => setState(() => _opts = {..._opts, f.key: v}),
         );
       case 'number':

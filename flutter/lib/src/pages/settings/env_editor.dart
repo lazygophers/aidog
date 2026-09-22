@@ -41,20 +41,27 @@ class EnvVarCatalog {
     required this.groupLabelKeys,
   });
 
-  static const empty = EnvVarCatalog(defs: [], groupOrder: [], groupLabelKeys: {});
+  static const empty = EnvVarCatalog(
+    defs: [],
+    groupOrder: [],
+    groupLabelKeys: {},
+  );
 
   final List<EnvVarDef> defs;
   final List<String> groupOrder;
   final Map<String, String> groupLabelKeys;
 
-  factory EnvVarCatalog.fromSchema(Map<String, Object?> claude) => EnvVarCatalog(
+  factory EnvVarCatalog.fromSchema(Map<String, Object?> claude) =>
+      EnvVarCatalog(
         defs: (claude['envVarDefs'] as List? ?? const [])
             .map((e) => EnvVarDef(Map<String, Object?>.from(e as Map)))
             .toList(),
-        groupOrder:
-            (claude['envVarGroupOrder'] as List? ?? const []).map((e) => '$e').toList(),
+        groupOrder: (claude['envVarGroupOrder'] as List? ?? const [])
+            .map((e) => '$e')
+            .toList(),
         groupLabelKeys: {
-          for (final e in (claude['envVarGroupLabelKeys'] as Map? ?? const {}).entries)
+          for (final e
+              in (claude['envVarGroupLabelKeys'] as Map? ?? const {}).entries)
             '${e.key}': '${e.value}',
         },
       );
@@ -109,7 +116,8 @@ class _EnvEditorState extends State<EnvEditor> {
     widget.onChanged(next.isEmpty ? null : next);
   }
 
-  String _labelOf(I18nController t, EnvVarDef d) => tOr(t, 'env.${d.key}', d.label);
+  String _labelOf(I18nController t, EnvVarDef d) =>
+      tOr(t, 'env.${d.key}', d.label);
   String _descOf(I18nController t, EnvVarDef d) =>
       tOr(t, 'env.${d.key}.desc', d.description ?? '');
 
@@ -130,14 +138,22 @@ class _EnvEditorState extends State<EnvEditor> {
 
     final present = defs.where((d) => widget.env.containsKey(d.key)).toList();
     final addable = defs.where((d) => !widget.env.containsKey(d.key)).toList();
-    final custom = widget.env.entries.where((e) => !knownKeys.contains(e.key)).where((e) =>
-        q.isEmpty || e.key.toLowerCase().contains(q) || e.value.toLowerCase().contains(q));
+    final custom = widget.env.entries
+        .where((e) => !knownKeys.contains(e.key))
+        .where(
+          (e) =>
+              q.isEmpty ||
+              e.key.toLowerCase().contains(q) ||
+              e.value.toLowerCase().contains(q),
+        );
 
     final groups = [
       for (final g in widget.catalog.groupOrder)
         (
           g,
-          present.where((d) => d.group == g && (q.isEmpty || _matches(t, d, q))).toList(),
+          present
+              .where((d) => d.group == g && (q.isEmpty || _matches(t, d, q)))
+              .toList(),
         ),
     ].where((e) => e.$2.isNotEmpty).toList();
 
@@ -178,7 +194,9 @@ class _EnvEditorState extends State<EnvEditor> {
           ),
         for (final (group, list) in groups) ...[
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t(widget.catalog.groupLabelKeys[group] ?? 'env.group.$group')),
+          TileMeta(
+            t.t(widget.catalog.groupLabelKeys[group] ?? 'env.group.$group'),
+          ),
           for (final d in list) _row(t, theme, d),
         ],
         if (custom.isNotEmpty) ...[
@@ -202,7 +220,10 @@ class _EnvEditorState extends State<EnvEditor> {
                   key: const ValueKey('env-custom-key'),
                   controller: _customKey,
                   style: AidogType.micro.copyWith(color: theme.c.fg),
-                  decoration: const InputDecoration(isDense: true, hintText: 'KEY'),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'KEY',
+                  ),
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
@@ -211,7 +232,10 @@ class _EnvEditorState extends State<EnvEditor> {
                   key: const ValueKey('env-custom-value'),
                   controller: _customVal,
                   style: AidogType.micro.copyWith(color: theme.c.fg),
-                  decoration: const InputDecoration(isDense: true, hintText: 'VALUE'),
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'VALUE',
+                  ),
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
@@ -246,74 +270,84 @@ class _EnvEditorState extends State<EnvEditor> {
 
   /// 「添加已知变量」下拉：按组分节，点一条就按类型填一个默认值
   /// （boolean → "1"，select → 第一个选项，其余 → "1"，与 React 同一行表达式）。
-  Widget _addMenu(I18nController t, AidogTheme theme, List<EnvVarDef> addable) => Container(
-        key: const ValueKey('env-add-menu'),
-        margin: const EdgeInsets.only(top: AidogSpace.sxs),
-        constraints: const BoxConstraints(maxHeight: 360),
-        decoration: BoxDecoration(
-          color: theme.c.surface2,
-          border: Border.all(color: theme.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              for (final g in widget.catalog.groupOrder)
-                if (addable.any((d) => d.group == g)) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        AidogSpace.ssm, AidogSpace.sxs, AidogSpace.ssm, 0),
-                    child: Text(
-                      t.t(widget.catalog.groupLabelKeys[g] ?? 'env.group.$g'),
-                      style: AidogType.micro.copyWith(
-                        color: theme.c.fg3,
-                        fontWeight: FontWeight.w600,
-                      ),
+  Widget _addMenu(
+    I18nController t,
+    AidogTheme theme,
+    List<EnvVarDef> addable,
+  ) => Container(
+    key: const ValueKey('env-add-menu'),
+    margin: const EdgeInsets.only(top: AidogSpace.sxs),
+    constraints: const BoxConstraints(maxHeight: 360),
+    decoration: BoxDecoration(
+      color: theme.c.surface2,
+      border: Border.all(color: theme.c.line),
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+    ),
+    child: SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final g in widget.catalog.groupOrder)
+            if (addable.any((d) => d.group == g)) ...[
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AidogSpace.ssm,
+                  AidogSpace.sxs,
+                  AidogSpace.ssm,
+                  0,
+                ),
+                child: Text(
+                  t.t(widget.catalog.groupLabelKeys[g] ?? 'env.group.$g'),
+                  style: AidogType.micro.copyWith(
+                    color: theme.c.fg3,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              for (final d in addable.where((d) => d.group == g))
+                InkWell(
+                  key: ValueKey('env-add-${d.key}'),
+                  onTap: () {
+                    final def = switch (d.type) {
+                      'boolean' => '1',
+                      'select' => d.options.isEmpty ? '1' : d.options.first,
+                      _ => '1',
+                    };
+                    _update(d.key, def);
+                    setState(() => _showAddMenu = false);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AidogSpace.ssm,
+                      vertical: AidogSpace.sxs,
+                    ),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            _labelOf(t, d),
+                            style: AidogType.micro.copyWith(color: theme.c.fg),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: AidogSpace.sxs),
+                        Flexible(
+                          child: Text(
+                            d.key,
+                            style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  for (final d in addable.where((d) => d.group == g))
-                    InkWell(
-                      key: ValueKey('env-add-${d.key}'),
-                      onTap: () {
-                        final def = switch (d.type) {
-                          'boolean' => '1',
-                          'select' => d.options.isEmpty ? '1' : d.options.first,
-                          _ => '1',
-                        };
-                        _update(d.key, def);
-                        setState(() => _showAddMenu = false);
-                      },
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: AidogSpace.ssm, vertical: AidogSpace.sxs),
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                _labelOf(t, d),
-                                style: AidogType.micro.copyWith(color: theme.c.fg),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: AidogSpace.sxs),
-                            Flexible(
-                              child: Text(
-                                d.key,
-                                style: AidogType.numSm.copyWith(color: theme.c.fg3),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                ],
+                ),
             ],
-          ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 
   Widget _row(I18nController t, AidogTheme theme, EnvVarDef d) {
     final value = widget.env[d.key];
