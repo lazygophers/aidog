@@ -215,6 +215,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// 空串 = 未过滤。
   String _searchQuery = '';
 
+  /// 搜索框的文本控制器。清除 × 要能把框里的字真的抹掉，光改 `_searchQuery`
+  /// 只会让状态与框里显示的内容对不上。
+  final TextEditingController _searchCtrl = TextEditingController();
+
   /// 锚点导航（`SectionAnchorNav.tsx` + `Settings.tsx:283-321`）：
   /// 每个 section 一个 key 用来滚过去，`_activeSection` 是滚动联动高亮的当前节。
   final Map<String, GlobalKey> _sectionKeys = {};
@@ -318,6 +322,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   void dispose() {
     // 离页时把横条摘掉，否则下一页顶上还挂着上一页的 chip 条。
     _stickySlot?.value = null;
+    _searchCtrl.dispose();
     _scrollPos?.removeListener(_onScroll);
     _c?.dispose();
     super.dispose();
@@ -401,9 +406,30 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               width: 200,
               child: TextField(
                 key: const ValueKey('settings-search'),
+                controller: _searchCtrl,
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: t.t('settings.search'),
+                  // 放大镜 + 清除 ×（`SettingsHeader.tsx:91-113`）：
+                  // 原先是个光秃秃的输入框，搜完要一个个删字符才能清空。
+                  prefixIcon: const Icon(Icons.search, size: 14),
+                  prefixIconConstraints: const BoxConstraints(
+                    minWidth: 28,
+                    minHeight: 0,
+                  ),
+                  suffixIcon: _searchQuery.isEmpty
+                      ? null
+                      : IconButton(
+                          key: const ValueKey('settings-search-clear'),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          iconSize: 14,
+                          icon: const Icon(Icons.close),
+                          onPressed: () {
+                            _searchCtrl.clear();
+                            setState(() => _searchQuery = '');
+                          },
+                        ),
                 ),
                 onChanged: (v) {
                   setState(() => _searchQuery = v);
@@ -432,6 +458,14 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             active: c.mode == EditorMode.json,
             onTap: () => c.setMode(EditorMode.json),
           ),
+          // 竖分隔线：左边是「看什么」（模式 / 搜索），右边是「做什么」
+          // （`SettingsHeader.tsx:117`）。
+          Container(
+            width: 1,
+            height: 20,
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            color: AidogTheme.of(context).c.line,
+          ),
           SmallButton(
             label: t.t('settings.loadRecommended'),
             onTap: () => c.loadRecommended(
@@ -447,8 +481,40 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
                 failedText: (e) => e,
               ),
             ),
+          // 脏状态圆点 + 文字（`SettingsHeader.tsx:138-161`）。副标题那行也写着
+          // 同一句，但顶栏这颗点才是保存按钮旁边一眼能看到的那个。
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 7,
+                height: 7,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: c.dirty
+                      ? AidogTheme.of(context).c.peak
+                      : AidogTheme.of(context).c.fg3,
+                ),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              Text(
+                c.dirty
+                    ? t.t('settings.unsavedChanges')
+                    : t.t('settings.allSaved'),
+                style: AidogType.micro.copyWith(
+                  color: c.dirty
+                      ? AidogTheme.of(context).c.peak
+                      : AidogTheme.of(context).c.fg3,
+                ),
+              ),
+            ],
+          ),
           SmallButton(
             label: c.saving ? t.t('status.loading') : t.t('action.save'),
+            // 有改动时是主按钮样式（React `variant={dirty ? "default" : "ghost"}`）：
+            // 原先保存按钮始终一个样，看不出「现在有东西要保存」。
+            active: c.dirty,
+            ghost: !c.dirty,
             onTap: c.canSave
                 ? () => c.save(savedText: t.t('settings.saved'))
                 : null,
@@ -460,11 +526,16 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           SettingsCard(
             title: t.t('settings.jsonMode'),
             children: [
-              TextRow(
+              // 整页 JSON 模式用的是字段级同一个编辑器（语法高亮 + 行号 +
+              // 折叠 + 查找替换），原先是个纯文本框 `TextRow(maxLines: 24)`
+              // —— 字段级早就换成 re_editor 了，整页模式没跟上
+              //（React 两处都是 `JsonCodeEditor`，`Settings.tsx:506`）。
+              _JsonField(
+                key: const ValueKey('page-json-editor'),
                 label: t.t('settings.editInJson'),
-                value: c.editJson,
-                maxLines: 24,
-                onChanged: c.setEditJson,
+                text: c.editJson,
+                height: 420,
+                onSubmitted: c.setEditJson,
               ),
             ],
           )
@@ -488,7 +559,12 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           for (final s in visibleSections)
             KeyedSubtree(
               key: _keyFor(s.id),
-              child: _section(t, c, s, fieldFilter: search?[s.id]),
+              // 命中的那几个字被标出来（`FieldRenderer.tsx:45-60`）：
+              // 原先只按命中过滤 section / 字段，命中在哪个词看不出来。
+              child: TextHighlight(
+                query: _searchQuery,
+                child: _section(t, c, s, fieldFilter: search?[s.id]),
+              ),
             ),
         ],
         if (c.saveError.isNotEmpty) ErrorNote(text: c.saveError),
@@ -871,16 +947,25 @@ class _JsonField extends StatefulWidget {
   const _JsonField({
     super.key,
     required this.label,
-    required this.value,
+    this.value,
     required this.onSubmitted,
     this.description,
     this.error,
+    this.text,
+    this.height = 260,
   });
 
   final String label;
   final String? description;
   final Object? value;
   final String? error;
+
+  /// 直接给整段文本（整页 JSON 模式用：那边手上就是一串 JSON 文本，
+  /// 没有已解码的对象）。给了就忽略 [value]。
+  final String? text;
+
+  /// 编辑区高度。整页模式比字段级的高。
+  final double height;
   final ValueChanged<String> onSubmitted;
 
   @override
@@ -913,9 +998,11 @@ class _JsonFieldState extends State<_JsonField> {
   bool _showSearch = false;
   bool _showReplace = false;
 
-  String _initialText() => widget.value == null
-      ? ''
-      : const JsonEncoder.withIndent('  ').convert(widget.value);
+  String _initialText() =>
+      widget.text ??
+      (widget.value == null
+          ? ''
+          : const JsonEncoder.withIndent('  ').convert(widget.value));
 
   @override
   void initState() {
@@ -1117,7 +1204,7 @@ class _JsonFieldState extends State<_JsonField> {
             // 不能像 TextField 那样随内容长高 —— 那样折叠就没有意义了。
             // React 的 JsonCodeEditor 同样是 maxHeight + 内部滚动。
             SizedBox(
-              height: 260,
+              height: widget.height,
               child: CodeEditor(
                 key: const ValueKey('json-code-editor'),
                 controller: _ctrl,

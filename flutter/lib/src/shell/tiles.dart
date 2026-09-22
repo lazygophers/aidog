@@ -41,7 +41,60 @@ class TileMeta extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
-    return Text(text.toUpperCase(), style: AidogType.micro.copyWith(color: t.c.fg3));
+    return HighlightedText(
+      text.toUpperCase(),
+      style: AidogType.micro.copyWith(color: t.c.fg3),
+    );
+  }
+}
+
+/// 往子树里放一个「要高亮的搜索词」。设置页搜索时套在 section 外面，
+/// 下面所有 [HighlightedText]（字段标签走的就是它）自动把命中的那段标出来。
+/// 对齐 React 的 `Highlighted`（`editors/_shared.tsx:101-114`）：
+/// 只标**第一处**、大小写不敏感。
+class TextHighlight extends InheritedWidget {
+  const TextHighlight({super.key, required this.query, required super.child});
+
+  final String query;
+
+  static String queryOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<TextHighlight>()?.query ?? '';
+
+  @override
+  bool updateShouldNotify(TextHighlight oldWidget) => query != oldWidget.query;
+}
+
+/// 普通 [Text]，但若祖先有 [TextHighlight] 且本段文字命中，就把命中那段
+/// 加底色标出来。没有祖先 / 没命中时与 [Text] 完全一样。
+class HighlightedText extends StatelessWidget {
+  const HighlightedText(this.text, {super.key, this.style});
+
+  final String text;
+  final TextStyle? style;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = TextHighlight.queryOf(context).trim();
+    if (q.isEmpty) return Text(text, style: style);
+    final i = text.toLowerCase().indexOf(q.toLowerCase());
+    if (i < 0) return Text(text, style: style);
+    final theme = AidogTheme.of(context);
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(text: text.substring(0, i)),
+          TextSpan(
+            text: text.substring(i, i + q.length),
+            style: TextStyle(
+              backgroundColor: theme.c.accent,
+              color: theme.c.accentText,
+            ),
+          ),
+          TextSpan(text: text.substring(i + q.length)),
+        ],
+      ),
+      style: style,
+    );
   }
 }
 

@@ -111,7 +111,10 @@ class SwitchRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(label, style: AidogType.label.copyWith(color: fg)),
+                HighlightedText(
+                  label,
+                  style: AidogType.label.copyWith(color: fg),
+                ),
                 if (description != null && description!.isNotEmpty)
                   Text(
                     description!,
