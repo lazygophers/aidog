@@ -9,6 +9,7 @@
 library;
 
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -1251,7 +1252,14 @@ void main() {
       await settle(tester);
 
       expect(find.text(c.t('group.isDefault')), findsOneWidget);
-      expect(find.text('12'), findsOneWidget);
+      // 聚合统计是三个带标签的 chip（React `GroupListItem.tsx:323-328`），
+      // 不是一个没标签的请求总数裸数字 —— 裸数字读不出它是请求数还是 token 数。
+      expect(find.text('tokens'), findsOneWidget);
+      expect(find.text('cost'), findsOneWidget);
+      expect(find.text('ok'), findsOneWidget);
+      expect(find.text(formatPercent(100, 0)), findsOneWidget);
+      // 🔴 group_key 就是这个分组的 API Key，列表上不许出现明文。
+      expect(find.textContaining('gk10'), findsNothing);
       await tester.tap(find.text(c.t('group.defaultConfigWritten')));
       await settle(tester);
       // 已是默认 → 再点一次传 null（取消默认）。
