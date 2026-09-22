@@ -71,10 +71,8 @@ class _HomePageState extends State<HomePage> {
   void initState() {
     super.initState();
     _load();
-    _logSub =
-        (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated())).listen((
-          _,
-        ) {
+    _logSub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated()))
+        .listen((_) {
           _load();
         });
     HardwareKeyboard.instance.addHandler(_onKey);
@@ -227,7 +225,6 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
     final tr = AidogI18n.of(context);
-    final palette = ChartPalette.of(context);
 
     final today = _today;
     final has = hasTodayData(today);
@@ -242,162 +239,261 @@ class _HomePageState extends State<HomePage> {
     // 加载完仍无数据才显示「今日暂无请求」。
     final emptyText = _loading ? '' : tr.t('home.noToday');
 
+    final kpis = has && today != null
+        ? <({String label, String value, Widget? spark})>[
+            (
+              label: tr.t('home.cost'),
+              value: formatCostUsd(today.cost),
+              spark: _Spark(values: s.cost, color: _panelAccent),
+            ),
+            (
+              label: tr.t('home.tokens'),
+              value: formatNumber(today.tokens),
+              spark: _Spark(values: s.tokens, color: _panelMuted),
+            ),
+            (
+              label: tr.t('home.requests'),
+              value: formatNumber(today.totalRequests),
+              spark: _Spark(values: s.requests, color: _panelMuted),
+            ),
+            (
+              label: tr.t('home.cacheRate'),
+              value: formatPercent(today.cacheRate),
+              spark: _Spark(values: s.cache, color: _panelMuted),
+            ),
+          ]
+        : const <({String label, String value, Widget? spark})>[];
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         PageHead(title: tr.t('page.home'), subtitle: tr.t('home.desc')),
-        Bento(
-          children: [
-            BentoCell(span: 12, child: _statusTile(t, tr)),
-            if (has && today != null) ...[
-              BentoCell(
-                span: 3,
-                child: ReadoutTile(
-                  label: tr.t('home.cost'),
-                  value: formatCostUsd(today.cost),
-                  spark: _Spark(values: s.cost, color: palette.series(0)),
-                ),
+        // 琥珀渐变眉条（`Home.tsx:273`）。
+        Container(
+          height: 3,
+          margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF64521D), Color(0xFFE8C547), Color(0xFFF2DC8A)],
+              stops: [0, 0.55, 1],
+            ),
+          ),
+        ),
+        // 命令面板单块（`Home.tsx:276-284`）：五个区块在同一块里，
+        // **固定深色**不跟随主题 —— 它模仿的是命令行工具的样子，
+        // 浅色主题下也保持深色（React 侧同样是写死的 PANEL 常量）。
+        // 原先这里是 Bento 栅格里一堆各自独立、跟随主题的 Tile。
+        Container(
+          decoration: BoxDecoration(
+            color: _panelS1,
+            border: Border.all(color: _panelLine),
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x99000000),
+                blurRadius: 32,
+                offset: Offset(0, 8),
               ),
-              BentoCell(
-                span: 3,
-                child: ReadoutTile(
-                  label: tr.t('home.tokens'),
-                  value: formatNumber(today.tokens),
-                  spark: _Spark(values: s.tokens, color: palette.series(1)),
-                ),
-              ),
-              BentoCell(
-                span: 3,
-                child: ReadoutTile(
-                  label: tr.t('home.requests'),
-                  value: formatNumber(today.totalRequests),
-                  spark: _Spark(values: s.requests, color: palette.series(1)),
-                ),
-              ),
-              BentoCell(
-                span: 3,
-                child: ReadoutTile(
-                  label: tr.t('home.cacheRate'),
-                  value: formatPercent(today.cacheRate),
-                  spark: _Spark(values: s.cache, color: palette.series(1)),
-                ),
-              ),
-            ] else
-              BentoCell(
-                span: 12,
-                child: Tile(
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ① 搜索栏式状态行
+              _statusTile(t, tr),
+              const _PanelDivider(),
+              // ② 四个 KPI 紧凑格，格间竖线
+              if (kpis.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Text(
                     emptyText,
-                    style: AidogType.caption.copyWith(color: t.c.fg3),
+                    style: AidogType.caption.copyWith(color: _panelMuted),
                   ),
-                ),
-              ),
-            BentoCell(
-              span: 6,
-              child: SeriesTile(
-                title: tr.t('home.trend24h'),
-                meta: trendOk
-                    ? 'HOURLY · ${tr.t('home.trendPeak')} ${formatNumber(peak)}'
-                    : 'HOURLY',
-                chartHeight: 110,
-                legend: [
-                  (color: palette.series(0), label: tr.t('home.trendRequests')),
-                  (color: palette.series(1), label: tr.t('home.trendCost')),
-                ],
-                chart: trendOk
-                    ? Column(
-                        children: [
-                          Expanded(
-                            child: AidogLineChart(
-                              mini: true,
-                              area: true,
-                              series: [
-                                ChartSeries(
-                                  key: 'req',
-                                  label: tr.t('home.trendRequests'),
-                                  color: palette.series(0),
-                                  points: [
-                                    for (final b in _trend)
-                                      ChartPoint(
-                                        bucketMs(b.timeBucket),
-                                        b.totalRequests.toDouble(),
-                                      ),
-                                  ],
-                                  format: formatNumber,
-                                ),
-                                ChartSeries(
-                                  key: 'cost',
-                                  label: tr.t('home.trendCost'),
-                                  color: palette.series(1),
-                                  points: [
-                                    for (final b in _trend)
-                                      ChartPoint(
-                                        bucketMs(b.timeBucket),
-                                        b.totalCost,
-                                      ),
-                                  ],
-                                  format: formatCostUsd,
-                                  dashed: true,
-                                  rightAxis: true,
-                                ),
-                              ],
-                            ),
-                          ),
-                          SizedBox(height: 12, child: _HourAxis(buckets: _trend)),
-                        ],
-                      )
-                    : ChartEmpty(emptyText),
-              ),
-            ),
-            BentoCell(
-              span: 6,
-              child: top.isEmpty
-                  ? Tile(
-                      title: tr.t('home.topPlatforms'),
-                      meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
-                      child: Text(
-                        emptyText,
-                        style: AidogType.caption.copyWith(color: t.c.fg3),
-                      ),
-                    )
-                  : ListingTile(
-                      title: tr.t('home.topPlatforms'),
-                      meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
-                      rows: [
-                        for (final p in top)
-                          _platformRow(t, palette, p, maxCost, costSum),
-                      ],
-                    ),
-            ),
-            if (balance > 0)
-              BentoCell(
-                span: 12,
-                child: ReadoutTile(
-                  label: tr.t('home.totalBalance'),
-                  value: formatCostUsd(balance),
-                ),
-              ),
-            BentoCell(
-              span: 12,
-              child: ActionTile(
-                fields: [
-                  Wrap(
-                    spacing: AidogSpace.ssm,
-                    runSpacing: AidogSpace.ssm,
+                )
+              else
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (final c in _chips(tr))
-                        _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
+                      for (var i = 0; i < kpis.length; i++) ...[
+                        Expanded(
+                          child: _KpiCell(
+                            label: kpis[i].label,
+                            value: kpis[i].value,
+                            spark: kpis[i].spark,
+                          ),
+                        ),
+                        if (i < kpis.length - 1)
+                          const VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: _panelLine,
+                          ),
+                      ],
                     ],
                   ),
-                ],
+                ),
+              const _PanelDivider(),
+              // ③+④ 趋势与平台并排，中间一条竖线
+              IntrinsicHeight(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(
+                      child: _PanelSection(
+                        title: tr.t('home.trend24h'),
+                        meta: trendOk
+                            ? 'HOURLY · ${tr.t('home.trendPeak')} '
+                                  '${formatNumber(peak)}'
+                            : 'HOURLY',
+                        child: trendOk
+                            ? SizedBox(
+                                height: 122,
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: AidogLineChart(
+                                        mini: true,
+                                        area: true,
+                                        series: [
+                                          ChartSeries(
+                                            key: 'req',
+                                            label: tr.t('home.trendRequests'),
+                                            color: _panelAccent,
+                                            points: [
+                                              for (final b in _trend)
+                                                ChartPoint(
+                                                  bucketMs(b.timeBucket),
+                                                  b.totalRequests.toDouble(),
+                                                ),
+                                            ],
+                                            format: formatNumber,
+                                          ),
+                                          ChartSeries(
+                                            key: 'cost',
+                                            label: tr.t('home.trendCost'),
+                                            color: _panelMuted,
+                                            points: [
+                                              for (final b in _trend)
+                                                ChartPoint(
+                                                  bucketMs(b.timeBucket),
+                                                  b.totalCost,
+                                                ),
+                                            ],
+                                            format: formatCostUsd,
+                                            dashed: true,
+                                            rightAxis: true,
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      height: 12,
+                                      child: _HourAxis(buckets: _trend),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : Text(
+                                emptyText,
+                                style: AidogType.caption.copyWith(
+                                  color: _panelMuted,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const VerticalDivider(
+                      width: 1,
+                      thickness: 1,
+                      color: _panelLine,
+                    ),
+                    Expanded(
+                      child: _PanelSection(
+                        title: tr.t('home.topPlatforms'),
+                        meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
+                        child: top.isEmpty
+                            ? Text(
+                                emptyText,
+                                style: AidogType.caption.copyWith(
+                                  color: _panelMuted,
+                                ),
+                              )
+                            : Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  for (final p in top)
+                                    Padding(
+                                      padding: const EdgeInsets.only(
+                                        bottom: AidogSpace.sxs,
+                                      ),
+                                      child: _platformRow(p, maxCost, costSum),
+                                    ),
+                                ],
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              const _PanelDivider(),
+              // ⑤ 总余额行
+              if (balance > 0) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.baseline,
+                    textBaseline: TextBaseline.alphabetic,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          tr.t('home.totalBalance'),
+                          style: AidogType.caption.copyWith(color: _panelMuted),
+                        ),
+                      ),
+                      Ltr(
+                        child: Text(
+                          formatCostUsd(balance),
+                          style: numStyle(AidogType.numLg, _panelFg),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const _PanelDivider(),
+              ],
+              // ⑥ 快捷键 footer
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                child: Wrap(
+                  spacing: AidogSpace.ssm,
+                  runSpacing: AidogSpace.ssm,
+                  children: [
+                    for (final c in _chips(tr))
+                      _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
   }
 
+  /// ① 搜索栏式状态行（`Home.tsx:285-315`）：运行态点 + 端口 + ⌘C 复制地址。
   Widget _statusTile(AidogTheme t, I18nController tr) {
     final running = _running;
     final statusText = running == null
@@ -405,11 +501,28 @@ class _HomePageState extends State<HomePage> {
         : running
         ? tr.t('home.statusRunning')
         : tr.t('home.statusStopped');
-    return Tile(
-      live: running ?? false,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          LiveDot(on: running ?? false),
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: (running ?? false) ? t.c.ok : _panelMuted,
+              // 只有活着的东西才发光。
+              boxShadow: (running ?? false)
+                  ? [
+                      BoxShadow(
+                        color: t.c.ok.withValues(alpha: 0.14),
+                        blurRadius: 0,
+                        spreadRadius: 4,
+                      ),
+                    ]
+                  : const [],
+            ),
+          ),
           const SizedBox(width: AidogSpace.smd),
           Expanded(
             child: Ltr(
@@ -418,7 +531,7 @@ class _HomePageState extends State<HomePage> {
                 '${tr.t('home.port')} $_port',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AidogType.body.copyWith(color: t.c.fg),
+                style: AidogType.body.copyWith(color: _panelFg),
               ),
             ),
           ),
@@ -436,13 +549,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _platformRow(
-    AidogTheme t,
-    ChartPalette palette,
-    TodayPlatformStat p,
-    double maxCost,
-    double costSum,
-  ) {
+  /// ④ 平台 Top：迷你环形（花费占比）+ 行内占比条 + 等宽数字。
+  Widget _platformRow(TodayPlatformStat p, double maxCost, double costSum) {
     return Row(
       children: [
         SizedBox(
@@ -451,8 +559,8 @@ class _HomePageState extends State<HomePage> {
           child: CustomPaint(
             painter: _RingPainter(
               share: costSum > 0 ? p.cost / costSum : 0,
-              track: t.c.line,
-              arc: palette.series(0),
+              track: _panelLine,
+              arc: _panelAccent,
             ),
           ),
         ),
@@ -463,7 +571,7 @@ class _HomePageState extends State<HomePage> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AidogType.label.copyWith(
-              color: t.c.fg,
+              color: _panelFg,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -475,8 +583,8 @@ class _HomePageState extends State<HomePage> {
             child: LinearProgressIndicator(
               value: maxCost > 0 ? (p.cost / maxCost).clamp(0.0, 1.0) : 0,
               minHeight: 3,
-              backgroundColor: t.c.line,
-              valueColor: AlwaysStoppedAnimation<Color>(palette.series(0)),
+              backgroundColor: _panelLine,
+              valueColor: const AlwaysStoppedAnimation<Color>(_panelAccent),
             ),
           ),
         ),
@@ -484,19 +592,117 @@ class _HomePageState extends State<HomePage> {
         Ltr(
           child: Text(
             '${formatNumber(p.requests)} · ${formatNumber(p.tokens)}',
-            style: numStyle(AidogType.numSm, t.c.fg3),
+            style: numStyle(AidogType.numSm, _panelMuted),
           ),
         ),
         const SizedBox(width: AidogSpace.smd),
         Ltr(
           child: Text(
             formatCostUsd(p.cost),
-            style: numStyle(AidogType.numMd, palette.series(0)),
+            style: numStyle(AidogType.numMd, _panelAccent),
           ),
         ),
       ],
     );
   }
+}
+
+// ── 命令面板的固定配色（`Home.tsx:32-41` 的 PANEL 常量）─────────────
+//
+// **写死不跟随主题**：这一块模仿的是命令行工具的样子，浅色主题下也保持深色。
+// React 侧同样是常量，不取 CSS 变量。
+const Color _panelFg = Color(0xFFF5F5F0);
+const Color _panelMuted = Color(0xFF8A8580);
+const Color _panelS1 = Color(0xFF0E0E0E);
+const Color _panelLine = Color(0x12FFFFFF); // rgba(255,255,255,.07)
+const Color _panelAccent = Color(0xFFE8C547);
+
+/// 面板内的一条横分隔线。
+class _PanelDivider extends StatelessWidget {
+  const _PanelDivider();
+
+  @override
+  Widget build(BuildContext context) =>
+      const Divider(height: 1, thickness: 1, color: _panelLine);
+}
+
+/// 面板里的一格 KPI：标签 + 大数 + 行内 sparkline。
+class _KpiCell extends StatelessWidget {
+  const _KpiCell({required this.label, required this.value, this.spark});
+
+  final String label;
+  final String value;
+  final Widget? spark;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AidogType.micro.copyWith(color: _panelMuted),
+        ),
+        const SizedBox(height: 2),
+        Ltr(child: Text(value, style: numStyle(AidogType.numLg, _panelFg))),
+        if (spark case final sp?) ...[const SizedBox(height: 4), sp],
+      ],
+    ),
+  );
+}
+
+/// 面板里的一个区块：小标题 + 右侧等宽 meta + 正文。
+class _PanelSection extends StatelessWidget {
+  const _PanelSection({
+    required this.title,
+    required this.meta,
+    required this.child,
+  });
+
+  final String title;
+  final String meta;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.label.copyWith(
+                  color: _panelFg,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: AidogSpace.ssm),
+            Ltr(
+              child: Text(
+                meta,
+                style: AidogType.numSm.copyWith(color: _panelMuted),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AidogSpace.sxs),
+        child,
+      ],
+    ),
+  );
 }
 
 /// KPI 格行内 sparkline：走 [normPoints] 的 min-max 归一化（与 React 版同一函数）。
@@ -510,7 +716,9 @@ class _Spark extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (values.length < 2) return const SizedBox.shrink();
-    return CustomPaint(painter: _SparkPainter(values: values, color: color));
+    return CustomPaint(
+      painter: _SparkPainter(values: values, color: color),
+    );
   }
 }
 
@@ -648,9 +856,7 @@ class _Chip extends StatelessWidget {
           children: [
             Text(label, style: AidogType.caption.copyWith(color: t.c.fg)),
             const SizedBox(width: AidogSpace.ssm),
-            Ltr(
-              child: Text(kbd, style: numStyle(AidogType.numSm, t.c.fg3)),
-            ),
+            Ltr(child: Text(kbd, style: numStyle(AidogType.numSm, t.c.fg3))),
           ],
         ),
       ),
