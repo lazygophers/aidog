@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 
+import 'package:desktop_drop/desktop_drop.dart';
 import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
@@ -60,6 +61,29 @@ class _ImportExportPageState extends State<ImportExportPage> {
 
   /// 已选中的 .aidogx 路径（导入流程用）。
   String? _importPath;
+
+  /// 有文件正悬在落区上方（拖拽高亮）。
+  bool _dragActive = false;
+
+  /// 点按钮选文件 → 校验扩展名 → 读预览。点击与拖入两条入口走同一段。
+  Future<void> _pickImportFile() async {
+    final p = await widget.pickPath();
+    if (p == null || !mounted) return;
+    if (pickAidogxPath([p]) == null) {
+      setState(
+        () => _c.error = AidogI18n.of(
+          context,
+        ).t('importExport.error.notAidogx'),
+      );
+      return;
+    }
+    await _loadImportFile(p);
+  }
+
+  Future<void> _loadImportFile(String path) async {
+    setState(() => _importPath = path);
+    await _c.readImportFile(path);
+  }
 
   /// sub2api 的粘贴文本。
   String _pasteText = '';
@@ -308,26 +332,31 @@ class _ImportExportPageState extends State<ImportExportPage> {
       title: t.t('importExport.importTitle'),
       description: t.t('importExport.importDesc'),
       children: [
+        _DropZone(
+          active: _dragActive,
+          hint: t.t('importExport.dropHint'),
+          title: t.t('importExport.pickFile'),
+          onTap: _c.busy ? null : _pickImportFile,
+          onDragEntered: () => setState(() => _dragActive = true),
+          onDragExited: () => setState(() => _dragActive = false),
+          onDropped: (paths) {
+            setState(() => _dragActive = false);
+            if (paths.isEmpty) return;
+            final target = pickAidogxPath(paths);
+            if (target == null) {
+              setState(() => _c.error = t.t('importExport.error.notAidogx'));
+              return;
+            }
+            unawaited(_loadImportFile(target));
+          },
+        ),
+        const SizedBox(height: AidogSpace.ssm),
         Row(
           children: [
             SmallButton(
               key: const ValueKey('import-pick'),
               label: t.t('importExport.pickFile'),
-              onTap: _c.busy
-                  ? null
-                  : () async {
-                      final p = await widget.pickPath();
-                      if (p == null || !mounted) return;
-                      // 只收 .aidogx（React 的 `error.notAidogx`）。
-                      if (!p.endsWith('.aidogx')) {
-                        setState(
-                          () => _c.error = t.t('importExport.error.notAidogx'),
-                        );
-                        return;
-                      }
-                      setState(() => _importPath = p);
-                      await _c.readImportFile(p);
-                    },
+              onTap: _c.busy ? null : _pickImportFile,
             ),
             const SizedBox(width: AidogSpace.ssm),
             SmallButton(
@@ -722,4 +751,88 @@ class TileMetaLine extends StatelessWidget {
       style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
     ),
   );
+}
+
+/// 导入落区（`ImportExportTab.tsx:487-503` 的 `DropZone` + 外层拖放容器）。
+///
+/// 拖放走 `desktop_drop`：选它是因为 Flutter 自带的 `Draggable` / `DragTarget`
+/// 只认应用内部发起的拖拽，**收不到从 Finder / 资源管理器拖进来的系统文件**。
+/// 该包 Apache-2.0，与本仓库兼容；macOS / Windows / Linux 三端都有实现。
+///
+/// 与 React 的一处**有意偏离**：React 在 dragenter 时会看拖的是不是 `.aidogx`，
+/// 不是就不高亮（`ImportExportTab.tsx:288`）。`desktop_drop` 的
+/// `DropEventDetails` 只带坐标不带文件列表（`drop_target.dart:49`），
+/// 进入阶段拿不到路径，所以这里一律高亮，到 drop 才判扩展名。
+class _DropZone extends StatelessWidget {
+  const _DropZone({
+    required this.active,
+    required this.title,
+    required this.hint,
+    required this.onTap,
+    required this.onDragEntered,
+    required this.onDragExited,
+    required this.onDropped,
+  });
+
+  final bool active;
+  final String title;
+  final String hint;
+  final VoidCallback? onTap;
+  final VoidCallback onDragEntered;
+  final VoidCallback onDragExited;
+  final void Function(List<String> paths) onDropped;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return DropTarget(
+      onDragEntered: (_) => onDragEntered(),
+      onDragExited: (_) => onDragExited(),
+      onDragDone: (d) => onDropped([for (final f in d.files) f.path]),
+      child: InkWell(
+        key: const ValueKey('import-dropzone'),
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.smd,
+            vertical: AidogSpace.slg,
+          ),
+          decoration: BoxDecoration(
+            color: active ? theme.c.surface2 : null,
+            border: Border.all(
+              color: active ? theme.c.accentText : theme.c.line,
+            ),
+            borderRadius: BorderRadius.circular(AidogRadius.md),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.file_upload_outlined,
+                size: 20,
+                color: active ? theme.c.accentText : theme.c.fg3,
+              ),
+              const SizedBox(height: AidogSpace.sxs),
+              Text(
+                title,
+                textAlign: TextAlign.center,
+                style: AidogType.body.copyWith(
+                  color: theme.c.fg,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                hint,
+                textAlign: TextAlign.center,
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

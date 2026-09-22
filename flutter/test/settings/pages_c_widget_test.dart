@@ -912,6 +912,14 @@ void main() {
       expect(find.text(i18n.t('importExport.error.notAidogx')), findsOneWidget);
     });
 
+    testWidgets('拖拽落区在导入卡里，点它等同于点「选择文件」', (tester) async {
+      final k = await mount(tester, pick: '/tmp/x.aidogx');
+      expect(find.byKey(const ValueKey('import-dropzone')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
+      await settle(tester);
+      expect(k.countOf('import_read_file'), 1);
+    });
+
     testWidgets('冲突没定完不许应用', (tester) async {
       final k = await mount(
         tester,
