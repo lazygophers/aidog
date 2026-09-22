@@ -60,22 +60,36 @@ class ChartSeries {
   final bool rightAxis;
 
   /// 本序列 y 值之和（堆叠 / 排序用）。
-  double get total => points.fold(0, (s, p) => s + p.y);
+  double get total =>
+      points.fold(0, (s, p) => p.missing ? s : s + p.y);
 }
 
 /// 一个数据点。x 一般是毫秒时间戳（走 `charts/ticks.dart::xNum` 归一）。
 @immutable
 class ChartPoint {
-  const ChartPoint(this.x, this.y);
+  const ChartPoint(this.x, this.y, {this.missing = false});
+
+  /// 「这个 x 上这条线没有数据」。宽表是稀疏的（某平台某时段没流量，那一行
+  /// 就没有它的键），各系列又必须共用同一批 x，所以缺口只能占位。
+  ///
+  /// 占位成 0 与占位成「缺」是两件事：请求数为 0 是一条落到底的线，
+  /// 没有数据是一段**断开**的线。React 那边 recharts 默认 `connectNulls={false}`
+  /// 就是后者（`LineChart.tsx:201`）；这里用本标记表达同一件事。
+  const ChartPoint.missing(this.x) : y = 0, missing = true;
+
   final double x;
   final double y;
+  final bool missing;
 
   @override
   bool operator ==(Object other) =>
-      other is ChartPoint && other.x == x && other.y == y;
+      other is ChartPoint &&
+      other.x == x &&
+      other.y == y &&
+      other.missing == missing;
 
   @override
-  int get hashCode => Object.hash(x, y);
+  int get hashCode => Object.hash(x, y, missing);
 
   @override
   String toString() => 'ChartPoint($x, $y)';

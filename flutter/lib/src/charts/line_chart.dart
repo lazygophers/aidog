@@ -83,10 +83,16 @@ class AidogLineChart extends StatelessWidget {
         LineChartBarData(
           spots: [
             for (final p in s.points)
-              FlSpot(
-                p.x,
-                s.rightAxis ? mapToLeft(p.y, rightAxis, leftAxis) : p.y,
-              ),
+              // 缺值画成 `nullSpot`：fl_chart 在这里断线，与 recharts 的
+              // `connectNulls={false}` 同行为（`LineChart.tsx:201`）。
+              // 落到 0 会把「那个时段没有数据」画成「那个时段是 0」。
+              if (p.missing)
+                FlSpot.nullSpot
+              else
+                FlSpot(
+                  p.x,
+                  s.rightAxis ? mapToLeft(p.y, rightAxis, leftAxis) : p.y,
+                ),
           ],
           isCurved: true,
           preventCurveOverShooting: true,

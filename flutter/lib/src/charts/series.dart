@@ -18,6 +18,21 @@ import 'tooltip.dart';
 /// - [yOf] 缺省 = 第一条序列的 y（对齐 React `LineChart` 的 `seriesKeys[0]`）；
 ///   堆叠图传行总量（对齐 React `StackedAreaChart` 的 `rowTotal`）
 /// - 各序列点数必须一致（宽表语义），不一致直接 [ArgumentError]，不静默补零
+/// 降采样后还剩几个点；没触发降采样返回 null。
+///
+/// 图表内部照常自己跑 [downsampleAligned]，这里只是给调用方一个「要不要提示」
+/// 的答案 —— React 把这句写在图的副标题里（`LineChart.tsx:111-115`），
+/// 不说的话用户看到的是抽样曲线而不自知。
+int? downsampledPointCount(
+  List<ChartSeries> series, {
+  double Function(int rowIndex)? yOf,
+  int threshold = lttbThreshold,
+}) {
+  final rows = downsampleAligned(series, yOf: yOf, threshold: threshold);
+  if (identical(rows, series) || rows.isEmpty) return null;
+  return rows.first.points.length;
+}
+
 List<ChartSeries> downsampleAligned(
   List<ChartSeries> series, {
   double Function(int rowIndex)? yOf,
@@ -60,7 +75,10 @@ List<ChartSeries> downsampleAligned(
 
 /// 行总量取形函数（堆叠图用）：第 i 行各系列 y 之和。
 double Function(int) rowTotalOf(List<ChartSeries> series) =>
-    (i) => series.fold<double>(0, (s, e) => s + e.points[i].y);
+    (i) => series.fold<double>(
+      0,
+      (s, e) => e.points[i].missing ? s : s + e.points[i].y,
+    );
 
 /// 横轴数据域。空序列 / 全空点集 → null（调用方走空态，不画假轴）。
 ({double min, double max})? xDomain(List<ChartSeries> series) {
@@ -82,7 +100,8 @@ double Function(int) rowTotalOf(List<ChartSeries> series) =>
   var hi = double.negativeInfinity;
   for (final s in series) {
     for (final p in s.points) {
-      if (!p.y.isFinite) continue;
+      // 缺值不参与取值域：它不是 0，只是没有数据。
+      if (p.missing || !p.y.isFinite) continue;
       lo = math.min(lo, p.y);
       hi = math.max(hi, p.y);
     }

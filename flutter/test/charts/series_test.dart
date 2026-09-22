@@ -147,4 +147,64 @@ void main() {
     final s = [mk('a', [1]), mk('b', [1])];
     expect(legendOf(s).map((l) => l.label).toList(), ['a', 'b']);
   });
+
+  // 第二梯队 2026-09-22：缺值原先一律填 0，「那个时段没有这个平台的数据」被画成
+  // 「那个时段是 0 次请求」，走势看起来与 React 不同
+  //（recharts 默认 connectNulls={false}，`LineChart.tsx:201`）。
+  group('缺值（ChartPoint.missing）', () {
+    test('不参与取值域：全缺的一条不会把上界拉到 0', () {
+      final s = ChartSeries(
+        key: 'a',
+        label: 'a',
+        color: _black,
+        format: (v) => '$v',
+        points: [
+          const ChartPoint(0, 5),
+          const ChartPoint.missing(1),
+          const ChartPoint(2, 9),
+        ],
+      );
+      final d = yDomain([s]);
+      expect(d.max, 9);
+      expect(d.min, 0);
+    });
+
+    test('堆叠累加跳过缺值，不把它当 0 之外的东西', () {
+      final a = ChartSeries(
+        key: 'a',
+        label: 'a',
+        color: _black,
+        format: (v) => '$v',
+        points: [const ChartPoint(0, 3), const ChartPoint.missing(1)],
+      );
+      final b = ChartSeries(
+        key: 'b',
+        label: 'b',
+        color: _black,
+        format: (v) => '$v',
+        points: [const ChartPoint(0, 4), const ChartPoint(1, 2)],
+      );
+      final total = rowTotalOf([a, b]);
+      expect(total(0), 7);
+      expect(total(1), 2);
+    });
+
+    test('缺值点与 y=0 的点不相等 —— 两者语义不同', () {
+      expect(const ChartPoint.missing(1) == const ChartPoint(1, 0), isFalse);
+    });
+  });
+
+  group('降采样提示', () {
+    test('点数没超阈值 → null（不提示）', () {
+      expect(downsampledPointCount([mk('a', List.filled(10, 1))]), isNull);
+    });
+
+    test('点数超阈值 → 返回降采样后还剩几个点', () {
+      final n = downsampledPointCount([
+        mk('a', List.generate(lttbThreshold * 2, (i) => i.toDouble())),
+      ]);
+      expect(n, isNotNull);
+      expect(n, lessThanOrEqualTo(lttbThreshold));
+    });
+  });
 }

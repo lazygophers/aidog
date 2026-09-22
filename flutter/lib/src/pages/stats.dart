@@ -655,15 +655,19 @@ class _StatsPageState extends State<StatsPage> {
               // 否则各系列点数不等，`downsampleAligned` 会按契约抛
               //「宽表语义要求各系列共用同一批 x」——真实数据一进来就崩。
               //
-              // 缺值填 0 而不是断线：这一列是请求数，「那个时段没有流量」就是 0。
-              // 与 React 的唯一差别是 recharts 默认 `connectNulls={false}` 会在缺口处断线，
-              // 这边画成落到 0；信息量不减，且避免了为「可空 y」改造整条绘制链。
+              // 缺口画成**断线**，不是落到 0：这一列是请求数，
+              // 「那个时段没有这个平台的数据」与「那个时段是 0 次请求」不是一回事。
+              // recharts 默认 `connectNulls={false}`（`LineChart.tsx:201`）就是断线，
+              // 这里用 `ChartPoint.missing` 表达同一件事（堆叠图仍按 0 堆，同 React）。
               points: [
                 for (final row in trend.rows)
-                  ChartPoint(
-                    row['x']!.toDouble(),
-                    (row[keys[i]] ?? 0).toDouble(),
-                  ),
+                  if (row[keys[i]] == null)
+                    ChartPoint.missing(row['x']!.toDouble())
+                  else
+                    ChartPoint(
+                      row['x']!.toDouble(),
+                      row[keys[i]]!.toDouble(),
+                    ),
               ],
               format: formatNumber,
             ),
@@ -671,6 +675,15 @@ class _StatsPageState extends State<StatsPage> {
         var meta = '${tr.t('stats.granularityLabel')}: ${_granLabel(tr)}';
         if (isFineGranularity(_effectiveGran)) {
           meta = '$meta ${tr.t('stats.fineGranBadge')}';
+        }
+        // 点太多时图会降采样。不写出来的话，用户看到的是抽样曲线而不自知
+        //（`LineChart.tsx:111-115` 把这句写在副标题里）。
+        final kept = downsampledPointCount(
+          chartSeries,
+          yOf: _trendStacked && trend.multi ? rowTotalOf(chartSeries) : null,
+        );
+        if (kept != null) {
+          meta = '$meta · ${tr.t('charts.downsampled', {'count': '$kept'})}';
         }
         return [
           if (trend.multi)
