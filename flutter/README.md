@@ -190,7 +190,6 @@ I06 的 `debounceStream`（500 ms 尾沿）+ 控制器内的 `_inFlight`（在�
 | 分享弹窗的二维码 | URL 格式下画一张二维码（`qrcode` 包） | 同样画（`pretty_qr_code`，MIT） | 超 2900 字的深链两侧都降级成「内容过长」提示 |
 | 卡片「编辑 / 复制平台」 | 打开预填的表单 | 回调没接上就不渲染这两颗按钮 | 表单是另一张票；画一颗点了没反应的按钮比没有这颗按钮更糟。接口留在 `PlatformsPage(onEditPlatform:, onDuplicatePlatform:)` |
 | 跨组件通知 | `window` 上三个自定义事件（`aidog-groups-changed` 等） | 父子回调 | 分组区在 Flutter 这边是平台页的**子 widget**，不是兄弟页，不需要事件总线 |
-| 详情 / 确认弹窗 | Radix Sheet / AlertDialog（Portal 到 body） | 页面内的一张格子 | 项目 CLAUDE.md 那条「弹窗必须 createPortal」是 CSS 的坑（祖先 `transform` 让 `fixed` 退化），只对 Web 侧成立。做成页面 state 的一部分，widget 测试 `find.byType(ConfirmCard)` 就能断言 |
 | `formatDateTime` | `toLocaleString()`，跟浏览器 locale 走 | 固定 `YYYY/M/D HH:MM:SS` | 跟 locale 走要先 `initializeDateFormatting()`，漏调会在非英文 locale 抛 `LocaleDataException` —— 与 I06 不用 `DateFormat.E` 同一个理由 |
 
 ### 平台新增 / 编辑表单（I18 补齐）
@@ -519,11 +518,9 @@ NUL 在编辑器里不可见、会让 grep / diff / 测试里的字符串字面�
 
 ### 与 React 的未对齐（照实列）
 
-1. **段编辑器是页面内卡片，不是 Portal 弹窗** —— 与 `ImportDiffCard` /
-   `UnsavedChangesCard` 同一条既有约定（`ui_bits.dart:64`）。
-2. **排序用 `ReorderableListView` 的长按手柄**，不是 dnd-kit 的自定义 handle；
+1. **排序用 `ReorderableListView` 的长按手柄**，不是 dnd-kit 的自定义 handle；
    行为（拖动改顺序、改完重新推导行）一致。
-3. **颜色选择只有 hex 文本框，没有系统取色器**（React 那边是 `<input type="color">`）。
+2. **颜色选择只有 hex 文本框，没有系统取色器**（React 那边是 `<input type="color">`）。
    Flutter 没有等价的原生控件，引一个取色器包为一个字段不划算。
 4. `SandboxSection` 里的路径列表在 Flutter 侧仍是 JSON 编辑框（I16 既有缺口，
    不属于本票范围），所以那几个路径输入还没有补全。
