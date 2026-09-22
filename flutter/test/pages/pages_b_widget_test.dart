@@ -964,33 +964,25 @@ void main() {
       expect(find.byWidgetPredicate(_isDropLine), findsNothing, reason: '松手后线要收掉');
     });
 
-    // 🔴 这条用例**只测现状**，而且现在是 skip 的。
-    //
-    // React 那边是触底自动加载（`GroupListView.tsx:277-285`），我们这里还是
-    // 一颗按钮，因为往这个列表里追加第二页会抛
-    // `!childSemantics.renderObject._needsLayout` —— 连「按钮能用」都测不了。
-    //
-    // 触发条件**还没查清**：同样形状的纯框架代码不抛（`SingleChildScrollView` /
-    // `SliverToBoxAdapter` / 真 `SliverList` 三种视口各试过，语义树开着也不抛），
-    // 所以本页树里还有别的东西掺在里面。抛的那一刻 dirty 的是刚追加进来的
-    // 那个列表子项自己的 `RenderIndexedSemantics`。
-    // 诊断材料：`.scratch/flutter-ui-parity/paging_probe_test.dart.txt`。
-    //
-    // 整个分组页从来没有一条用例真的追加过第二页 —— 这个洞就是这么留下来的。
-    // 查清之后：去掉 skip，再把 `groups-auto-paging.patch` 贴回去。
-    // （`testWidgets` 的 skip 只收 bool，理由只能写在这里。）
-    testWidgets('还有下一页时给一颗「加载更多」，点了就拉下一页', skip: true, (tester) async {
-      await useBigSurface(tester);
-      final k = groupsFake(
-        page: [
+    testWidgets('滚到底自动拉下一页，「加载更多」按钮作为兜底仍在', (tester) async {
+      // 一屏放不下才有得滚：给一块矮画布 + 满一页（12 条）的数据。
+      await tester.binding.setSurfaceSize(const Size(1400, 700));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      // 每页一批**不同** id。同一个 id 在列表里出现两次会让子项 key 撞车，
+      // 触发 `!childSemantics.renderObject._needsLayout`；真后端 id 是主键，不会重复。
+      var pageNo = 0;
+      final k = groupsFake(page: const []);
+      k.responses['group_detail_list_paged'] = () {
+        final base = 100 + pageNo++ * 12;
+        return [
           for (var i = 0; i < 12; i++)
             {
-              'group': {'id': 100 + i, 'name': 'G$i', 'group_key': 'gk$i'},
+              'group': {'id': base + i, 'name': 'G${base + i}', 'group_key': 'gk${base + i}'},
               'platforms': <Object?>[],
               'model_mappings': <Object?>[],
             },
-        ],
-      );
+        ];
+      };
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
@@ -999,10 +991,17 @@ void main() {
         ),
       );
       await settle(tester);
-      expect(k.callsTo('group_detail_list_paged').length, 1);
-      await tester.tap(find.text(c.t('logs.hasMore')));
+      expect(k.callsTo('group_detail_list_paged').length, 1, reason: '首帧不乱拉');
+      // 兜底按钮还在：内容没占满一屏时没得滚，键盘用户也要有显式入口。
+      expect(find.text(c.t('logs.hasMore')), findsOneWidget);
+
+      await tester.drag(find.text('G100').first, const Offset(0, -2000));
       await settle(tester);
-      expect(k.callsTo('group_detail_list_paged').length, 2);
+      expect(
+        k.callsTo('group_detail_list_paged').length,
+        greaterThan(1),
+        reason: '滚到底就该自己接着拉',
+      );
     });
 
     testWidgets('复制命令菜单四项各带图标', (tester) async {
