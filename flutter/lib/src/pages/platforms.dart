@@ -249,6 +249,9 @@ class _PlatformsPageState extends State<PlatformsPage> {
           GroupsSection(
             invoke: widget.invoke,
             onToast: _showToast,
+            // 搜索框就在这一屏顶部，但原先只过滤未分组平台 ——
+            // 已归组的平台一个都搜不到（`groups.dart` 旧注释自述「尚未接入」）。
+            searchQuery: _c.searchQuery,
             // 分组区删平台之后，主列表要把那几行局部移掉（不整页重拉）。
             onPlatformsDeleted: _c.removePlatformsByIds,
             // 分组区是子 widget，`openCreate` 在它 initState 里才拿得到；

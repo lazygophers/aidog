@@ -12,7 +12,6 @@ import 'package:aidog_flutter/shell.dart';
 import 'package:aidog_flutter/utils/formatters.dart';
 import 'package:aidog_flutter/src/pages/settings/middleware_logic.dart'
     show MiddlewareRule;
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../pages/harness.dart';

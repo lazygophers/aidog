@@ -411,6 +411,54 @@ class GroupsController {
   UsageStats? unmatchedStat;
   Map<String, List<String>> protocolTerms = const {};
 
+  /// 搜索串，由宿主页（平台页顶部那个搜索框）下发。
+  ///
+  /// 原先 `GroupsSection` 压根没有这个入参，源码里自述「搜索态在本页尚未接入」——
+  /// 而搜索框就在同一屏顶部。后果是**已归组的平台一个都搜不到**，
+  /// 用户看到的却是一个能正常打字的搜索框。
+  String searchQuery = '';
+
+  void setSearchQuery(String q) {
+    if (q == searchQuery) return;
+    searchQuery = q;
+    _notify();
+  }
+
+  /// per-group 搜索结果（`Groups.tsx:688-704` 的 `groupSearch`）：
+  ///   - 命中组名 / 组密钥 → value 为 null，表示**整组都要显示**；
+  ///   - 否则 → 组内命中的平台 id 集合（非空才进 map）；
+  ///   - 整组零命中 → 不进 map，列表里直接不渲染这个组。
+  ///
+  /// 没有搜索串时返回 null（= 不过滤），与 React 的 `if (!sq) return null` 同义。
+  Map<int, Set<int>?>? get groupSearch {
+    final q = searchQuery.trim();
+    if (q.isEmpty) return null;
+    final byId = {for (final p in platforms) p.id: p};
+    final out = <int, Set<int>?>{};
+    for (final d in details) {
+      if (groupMatchesQuery(d.group, q)) {
+        out[d.group.id] = null;
+        continue;
+      }
+      final matched = <int>{};
+      for (final gp in d.platforms) {
+        final p = byId[gp.platform.id];
+        if (p != null && platformMatchesQuery(p, q, protocolTerms)) {
+          matched.add(p.id);
+        }
+      }
+      if (matched.isNotEmpty) out[d.group.id] = matched;
+    }
+    return out;
+  }
+
+  /// 搜索态下过滤掉零命中的组（`Groups.tsx:706-711` 的 `groupRows`）。
+  List<GroupDetail> get visibleDetails {
+    final gs = groupSearch;
+    if (gs == null) return details;
+    return [for (final d in details) if (gs.containsKey(d.group.id)) d];
+  }
+
   bool loading = true;
   bool loadingMore = false;
   bool hasMore = true;
