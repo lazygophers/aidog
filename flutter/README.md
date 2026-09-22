@@ -524,3 +524,86 @@ NUL 在编辑器里不可见、会让 grep / diff / 测试里的字符串字面�
    Flutter 没有等价的原生控件，引一个取色器包为一个字段不划算。
 4. `SandboxSection` 里的路径列表在 Flutter 侧仍是 JSON 编辑框（I16 既有缺口，
    不属于本票范围），所以那几个路径输入还没有补全。
+
+## I20 定下的（2026-09-22）：平台卡与 React 的逐块比对
+
+修的根因：余额行（行 2）整行曾写成 `showQuota && (...)`，其中
+`showQuota = quotaCapable && quota.hasData`。行内六块里有三块（coding plan 已用
+tokens、本周期折算、上游速率余量）与配额是互不相干的维度，却被这一道门一起挡住 ——
+平台不支持配额查询、或配额还没查回来时，这三块明明早有数据也不显示。
+
+改法：整行的显示条件 = 六块条件的**并集**（`lib/src/pages/platform_card_view.dart:133`），
+每块仍按自己的条件独立渲染。`showQuota` 这个中间变量随之删掉，`quotaCapable` 只剩
+两个用处（刷新按钮、骨架屏）。
+
+**React 那边是同一处写法，同样会挡住这三块**（`src/components/platforms/PlatformCard.tsx:430`）。
+本票不改 React，因此 Flutter 在这一行上比 React 多显示信息，是有意为之。
+
+### 逐块比对
+
+`PlatformCard.tsx` 里每个会渲染出东西的分支，对应到 `platform_card_view.dart`：
+
+| 块 | React 条件 | Flutter 条件 | 一致 |
+|---|---|---|---|
+| 拖拽手柄 | `draggable`:203 | `draggable`:150 | 是 |
+| logo + 健康点 | 无条件:216 | 无条件:167 | 否（见下 1） |
+| 名称 | 无条件:256 | 无条件:535 | 是 |
+| Coding Plan 徽标 | `isCpProtocol`:258 | `meta.isCodingPlan`:411 | 是（位置见下 2） |
+| 协议 · base_url | 无条件:272 | 无条件:544 | 是 |
+| 自动禁用徽标 | `status==='auto_disabled'`:275 | 同:421 | 是 |
+| 高峰禁用中徽标 | `disableDuringPeak && isCurrentlyPeak(用户 extra.peak)`:295 | 同式，窗口回落 preset.peak:439 | 否（见下 3） |
+| 高峰徽标 | `!disableDuringPeak && isCurrentlyPeak(...)`:312 | 同:447 | 否（见下 3） |
+| 过期徽标 / 到期小字 | `expires_at > 0`:344 | 同:472 | 是 |
+| 所属分组徽标 | membership 非空:379 | 同:502 | 是 |
+| 最近测试徽章 | `lastTest`:389 | `lt != null`:507 | 是 |
+| 最近错误徽标 | `last_error` 非空:391 | 同:511 | 是 |
+| 快操作按钮组 | :414 / :760 | :204 | 是（形态见下 4） |
+| per-group 优先级 stepper | `onLevelPriorityChange`:423 | 不在卡内，`groups.dart:806` | 否（见下 5） |
+| **余额行整行** | `showQuota && (余额 或 预算 或 档位)`:430 | 六块条件并集:246 | 否（本票有意放宽） |
+| 余额进度条（含 ACU） | `balanceRemaining != null`:433 | 同:664 | 是 |
+| 手动预算 | `mb && mb.hasData`:449 | `mb != null`:682 | 是（非 null 时 hasData 恒真） |
+| coding 已用 tokens + 金额 | `hasCodingEndpoint && u`:475 | 同:710 | 是 |
+| 本周期折算 + 套餐价 | `hasCodingEndpoint && coding_window_cost > 0`:489 | 同:745 | 是 |
+| 配额档位（紧凑态） | `balanceRemaining == null && tiers.length > 0`:496 | 同:757 | 是 |
+| 上游速率余量 | `rateLimit`:541 | `rl != null`:779 | 是 |
+| 余额区骨架 | `quotaCapable && !hasData && quotaPending`:555 | 同:101 / :259 | 是 |
+| 展开控件 | `hasDetail`:194 | 同:190 | 是 |
+| 品牌外链 | homepage / docs / pricing 任一:566 | `links.isNotEmpty`:922 | 是 |
+| 已使用三 chip | `usage`:725 | `u != null`:956 | 是 |
+| 今日两 chip | `usage`:735 | 同:956 | 是 |
+| 用量骨架 | `!usage && usagePending`:744 | 同:956 的 else 分支 | 是 |
+| 配额档位（展开态） | `showQuota && tiers.length > 0`:604 | `quota.tiers.isNotEmpty`:1015 | 否（与余额行同向放宽） |
+| 端点 badge | endpoints 非空:678 | 同:1031 | 是 |
+| 模型 badge | `configuredModels.length > 0`:691 | 同:1047 | 是 |
+
+数字格式、单位、颜色分级也逐块核对过，用的是同一套口径：`formatNumber` /
+`formatCostUsd` / `formatPercent`（`lib/utils/formatters.dart`）、`costLevel` /
+`successRateLevel` / `usageLevelToColor` / `codingTierLevel`
+（`lib/utils/color_level.dart` 与 `platform_card_bits.dart`）。`relativeTimeShort`
+（`platform_card_bits.dart:784`）与 React 的本地 `relativeTime`（`PlatformCard.tsx:867`）
+逐行相同；`BalanceBar` 的 currency 默认 `$`，与 React 显式传的 `"$"` 等价。
+
+### 仍未对齐的五处（照实列）
+
+1. **logo 回退链短两级**：React 是 缓存图 → 内置 SVG → favicon → 协议前两字母，
+   Flutter 只有 缓存图 → 协议前两字母；logo 方框在 React 带协议主色底纹与描边，
+   Flutter 用中性边框。
+2. **Coding Plan 徽标位置**：React 在名称与 base_url 行之间，Flutter 在下方的徽标行内。
+   文案与 tooltip 一致。
+3. **高峰两个徽标的窗口来源**：React 只读用户级 `platform.extra.peak`，Flutter 还会
+   回落 preset 的 `peak`。于是 glm_coding / deepseek 这类 preset 自带高峰窗口的平台，
+   Flutter 显徽标、React 不显。Flutter 这侧与根 `CLAUDE.md` 写的
+   「`isPeak = isCurrentlyPeak(userPh ?? preset default)`」一致，故保留，未按 React 收窄。
+4. **快操作是文字按钮**，React 是图标按钮（刷新带 spin 动画、启用态是 toggle 开关）。
+   九个动作一个不少。
+5. **per-group 优先级编辑画在分组页**（`groups.dart:806`）而不是平台卡里；
+   Flutter 只有 ± 两颗按钮，没有 React 的直接输入框。
+
+### 同类门控问题的排查结果
+
+「把几块独立的东西锁在同一个数据到达条件下」这个写法，下面几处查过，**没有第二处**：
+
+- 分组卡（`groups.dart:510` 与 `:518`）：请求数与余额各判各的 `!= null`。
+- 首页 KPI（`home.dart:252` 的 `has && today != null`）：四块 KPI 同源于 `today`
+  一个对象，单一来源的门是对的，React `Home.tsx:226` 同式。
+- 统计页（`stats.dart`）：没有跨块共享的到达条件。
