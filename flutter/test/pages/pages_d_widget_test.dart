@@ -75,9 +75,12 @@ void main() {
       await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
       await settle(tester);
       expect(find.text('git-flow'), findsOneWidget);
-      // 两个 agent 各一个开关（skills.agent.claude / codex 的文案）
-      expect(find.text(c.t('skills.agent.claude')), findsWidgets);
-      expect(find.text(c.t('skills.agent.codex')), findsWidgets);
+      // 两个 agent 各一个开关。按钮上写的是**当前状态**不是 agent 名
+      // （`SkillsView.tsx:530`）：只写 agent 名的话，开没开全靠底色猜。
+      expect(find.textContaining(c.t('skills.agent.claude')), findsWidgets);
+      expect(find.textContaining(c.t('skills.agent.codex')), findsWidgets);
+      expect(find.textContaining(c.t('skills.on')), findsWidgets);
+      expect(find.textContaining(c.t('skills.off')), findsWidgets);
     });
 
     testWidgets('空列表给空态文案', (tester) async {
@@ -102,8 +105,9 @@ void main() {
       final k = fake(extra: {'skills_disable': (_) => opOk()});
       await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
       await settle(tester);
-      // 行内的 claude 开关（PageHead 里没有同名按钮）
-      await tester.tap(find.text(c.t('skills.agent.claude')).last);
+      // 行内的 claude 开关。按钮文案是「<agent> · <状态>」，不是纯 agent 名，
+      // 所以用 textContaining；页头那串统计里也有 agent 名，取 .last 拿行内那个。
+      await tester.tap(find.textContaining(c.t('skills.agent.claude')).last);
       await settle(tester);
       expect(k.countOf('skills_disable'), 1);
     });

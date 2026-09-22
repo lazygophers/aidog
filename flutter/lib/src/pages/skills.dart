@@ -16,6 +16,7 @@ import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
+import 'platform_card_bits.dart' show MiniBadge;
 import 'skills_logic.dart';
 import 'ui_bits.dart';
 
@@ -69,8 +70,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
 
   /// 能不能动技能：没装 node / 项目路径没填 / 正在跑别的活，都不能。
   /// 与 `SkillsView.tsx:66` 的 `!writeReady || scopeInvalid || busyKey` 同口径。
-  bool get _ready =>
-      _c.writeReady && !_c.scopeInvalid && _c.busyKey == null;
+  bool get _ready => _c.writeReady && !_c.scopeInvalid && _c.busyKey == null;
 
   Future<void> _pickProjectDir() async {
     final selected = await native.pickPath(
@@ -106,9 +106,12 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
       children: [
         PageHead(
           title: t.t('skills.title'),
-          subtitle: ltr(
-            '${_c.total} · claude ${_c.agentCounts['claude']} · codex ${_c.agentCounts['codex']}',
-          ),
+          // 数字要带标签，否则一串裸数字读不出是什么
+          //（`SkillsView.tsx:215-233` 每个数字下面都有一行说明）。
+          subtitle:
+              '${t.t('skills.total')} ${_c.total}'
+              ' · ${t.t('skills.agent.claude')} ${_c.agentCounts['claude']}'
+              ' · ${t.t('skills.agent.codex')} ${_c.agentCounts['codex']}',
           trailing: Wrap(
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -117,6 +120,14 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
               // 没装 node（`!writeReady`）/ 项目路径没填（`scopeInvalid`）/
               // 正在跑别的活（`busyKey != null`），三者任一成立就点不动。
               // 原先只有「全部更新」判了，其余四颗无条件可点 —— 点下去必然失败。
+              // 刷新按钮（`SkillsView.tsx:88-94`）。原先整个页头没有它，
+              // 装完 / 改完只能切页再切回来才看得到新状态。
+              SmallButton(
+                label: _c.refreshing
+                    ? t.t('skills.refreshing')
+                    : t.t('skills.refresh'),
+                onTap: _c.refreshing ? null : _c.refreshInstalled,
+              ),
               SmallButton(
                 label: t.t('skills.install.addBtn'),
                 onTap: _ready ? () => _c.setSubView('install') : null,
@@ -163,8 +174,12 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
           CenteredNote(text: t.t('skills.chooseProjectDir'))
         else if (_c.installedLoading)
           CenteredNote(text: t.t('status.loading'))
-        else if (_c.filteredInstalled.isEmpty)
+        // 两种空态分开（`SkillsView.tsx:315-322`）：一个都没装 vs 搜不到。
+        // 原先都显「暂无已安装」—— 搜了个不存在的词，用户会以为技能全没了。
+        else if (_c.installed.isEmpty)
           CenteredNote(text: t.t('skills.installedEmpty'))
+        else if (_c.filteredInstalled.isEmpty)
+          CenteredNote(text: t.t('skills.searchEmpty'))
         else
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -582,6 +597,11 @@ class _SkillRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AidogType.micro.copyWith(color: theme.c.fg3),
                     ),
+                  // 元信息行（`SkillsView.tsx:432-490`）：来源类型 / plugin 来源 /
+                  // 更新时间 / 安装于 · 内容 hash 前 7 位。
+                  // 原先这一整块在 Flutter 侧没有 —— 装了什么、从哪来、什么时候装的，
+                  // 一条都看不到。
+                  _SkillMeta(skill: skill),
                 ],
               ),
             ),
@@ -595,26 +615,130 @@ class _SkillRow extends StatelessWidget {
               style: AidogType.micro.copyWith(color: theme.c.fg3),
             ),
           ),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            children: [
-              // 每个 agent 一个开关：亮 = 已启用。禁写（无 npx）时点不动。
-              for (final a in kSkillAgents)
-                SmallButton(
-                  label: t.t('skills.agent.$a'),
-                  active: skill.enabledAgents.contains(a),
-                  onTap: busy || !writeReady ? null : () => onToggleAgent(a),
+          // 操作区要能换行：agent 开关的文案带上状态之后变长了，窄窗下一行放不下，
+          // 裸 `Wrap` 在 `Row` 里拿到的是无限宽约束，永远不换行 —— 必须给它
+          // 一个有界宽度（`Flexible`），`Wrap` 才会真的折行。
+          Flexible(
+            flex: 4,
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                // 每个 agent 一个开关：亮 = 已启用。禁写（无 npx）时点不动。
+                // agent 开关：按钮上写的是**当前状态**（启用 / 未启用 / …），
+                // 不是 agent 名 —— 只写 agent 名的话，开没开全靠底色猜
+                //（`SkillsView.tsx:530`）。agent 名挪进 tooltip。
+                for (final a in kSkillAgents)
+                  Tooltip(
+                    message: skill.enabledAgents.contains(a)
+                        ? t.t('skills.disableAgent')
+                        : t.t('skills.enableAgent'),
+                    child: SmallButton(
+                      label: busy
+                          ? t.t('skills.toggling')
+                          : '${t.t('skills.agent.$a')} · '
+                                '${skill.enabledAgents.contains(a) ? t.t('skills.on') : t.t('skills.off')}',
+                      active: skill.enabledAgents.contains(a),
+                      onTap: busy || !writeReady
+                          ? null
+                          : () => onToggleAgent(a),
+                    ),
+                  ),
+                // pi 是静态徽标不是开关：pi 原生扫公共 skill 目录，没有 per-skill
+                // 启停概念，做成可点开关就是在骗用户（`SkillsView.tsx:536-537` 原注释）。
+                MiniBadge(
+                  text:
+                      '${t.t('skills.agent.pi')} · ${t.t('skills.piAlwaysOn')}',
+                  color: theme.c.fg3,
+                  tooltip: t.t('skills.piAlwaysOnHint'),
                 ),
-              SmallButton(label: t.t('skills.share.title'), onTap: onShare),
-              SmallButton(
-                label: t.t('action.delete'),
-                danger: true,
-                onTap: onUninstall,
-              ),
-            ],
+                SmallButton(label: t.t('skills.share.title'), onTap: onShare),
+                SmallButton(
+                  label: t.t('action.delete'),
+                  danger: true,
+                  onTap: onUninstall,
+                ),
+              ],
+            ),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 技能行的元信息（`SkillsView.tsx:432-490`）：来源类型 / plugin 来源 /
+/// 更新时间 / 安装于 · 内容 hash 前 7 位。字段为空的不渲染。
+class _SkillMeta extends StatelessWidget {
+  const _SkillMeta({required this.skill});
+
+  final SkillInfo skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final chips = <Widget>[
+      if ((skill.sourceType ?? '').isNotEmpty)
+        MiniBadge(
+          text: skill.sourceType!.toUpperCase(),
+          color: theme.c.fg3,
+          tooltip: t.t('skills.sourceType'),
+        ),
+      if ((skill.pluginName ?? '').isNotEmpty)
+        MiniBadge(
+          text: 'plugin: ${skill.pluginName}',
+          color: theme.c.fg3,
+          tooltip: t.t('skills.pluginName'),
+        ),
+    ];
+    // 安装时间那行：「安装于 <时间> · <hash 前 7 位>」。
+    final installedAt = skill.installedAt ?? '';
+    final hash = skill.skillFolderHash ?? '';
+    final second = <String>[
+      if (installedAt.isNotEmpty) '${t.t('skills.installedAt')}: $installedAt',
+      if (hash.isNotEmpty) hash.substring(0, hash.length < 7 ? hash.length : 7),
+    ].join(' · ');
+    final updatedAt = skill.updatedAt ?? '';
+    if (chips.isEmpty && second.isEmpty && updatedAt.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (chips.isNotEmpty || updatedAt.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: 2,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                ...chips,
+                if (updatedAt.isNotEmpty)
+                  Tooltip(
+                    message: '${t.t('skills.updatedAt')}: $updatedAt',
+                    child: Text(
+                      updatedAt,
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        if (second.isNotEmpty)
+          Tooltip(
+            message: hash.isEmpty ? '' : t.t('skills.hash'),
+            child: Text(
+              second,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.micro.copyWith(color: theme.c.fg3),
+            ),
+          ),
+      ],
     );
   }
 }
