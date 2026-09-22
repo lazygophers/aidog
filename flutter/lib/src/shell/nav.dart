@@ -6,7 +6,7 @@
 /// React 侧加一个设置子页而这里没跟，测试当场红。
 library;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 
 import 'nav_guard.dart';
 
@@ -169,6 +169,16 @@ class ShellController extends ChangeNotifier {
   /// 切页。**一律经 [requestNavigation]** —— 脏表单在这里被拦下。
   void navigate(String id, [NavContext? context]) {
     if (id == _activeId && context == null) return;
+    // 切页前先收掉键盘焦点。
+    //
+    // 设置页的输入框是**失焦即提交**（`settings/bits.dart:171-173` 的
+    // TextRow / NumberRow，全仓 60 处）。点侧栏切页时输入框不会自己失焦，
+    // 而是连着整页一起被销毁 —— 用户刚改的值就这么静默没了，没有任何提示。
+    //
+    // 在这里收一次焦点，失焦回调照常跑，值落盘之后再换页。改这一处盖住全部 60 个框，
+    // 不用改提交时机（改成逐字符提交会让「3」改成「30」的中间态也真的落库），
+    // 也不用动 navGuard（同一时刻只允许一个 guard，输入框去抢会把页面自己的挤掉）。
+    FocusManager.instance.primaryFocus?.unfocus();
     requestNavigation(() {
       _activeId = id;
       _context = context ?? const NavContext();
