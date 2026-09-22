@@ -438,15 +438,36 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     return SettingsCard(title: t.t(s.labelKey), children: rows);
   }
 
+  /// R10：字段当前值与推荐默认值不同 → 显示重置徽标。深比较不认键序
+  /// （`FieldRenderer.tsx::stableEq` 的镜像，用 jsonEncode 排序键做等价替代）。
+  static bool _stableEq(Object? a, Object? b) {
+    if (a == null || b == null) return a == b;
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_stableEq(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final k in a.keys) {
+        if (!b.containsKey(k) || !_stableEq(a[k], b[k])) return false;
+      }
+      return true;
+    }
+    return a == b;
+  }
+
   Widget _field(
     I18nController t,
     SchemaConfigController c,
     SchemaField f,
   ) {
-    final label = tOr(t, 'settings.f_${f.key}', f.label);
     final value = c.config[f.key];
     // 权限矩阵：React 侧是专用可视化编辑器（PermissionsSectionInline），
-    // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢。
+    // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢；权限矩阵在
+    // React 里整节 bypass FieldRenderer，同样没有重置徽标。
     if (widget.kind == SchemaConfigKind.claude && f.key == 'permissions') {
       return PermissionsEditor(
         key: const ValueKey('field-permissions'),
@@ -454,6 +475,40 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         onChanged: (v) => c.updateField(f.key, v),
       );
     }
+    final recommended = _bundle?.recommended ?? const {};
+    final hasDefault = recommended.containsKey(f.key);
+    final defaultValue = hasDefault ? recommended[f.key] : null;
+    final nonDefault = hasDefault && !_stableEq(value, defaultValue);
+    final content = _fieldContent(t, c, f, value);
+    if (!nonDefault) return content;
+    return Column(
+      key: ValueKey('field-wrap-${f.key}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        content,
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Tooltip(
+            message: t.t('settings.resetToDefault'),
+            child: SmallButton(
+              key: ValueKey('field-reset-${f.key}'),
+              label: t.t('settings.reset'),
+              onTap: () => c.updateField(f.key, defaultValue),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fieldContent(
+    I18nController t,
+    SchemaConfigController c,
+    SchemaField f,
+    Object? value,
+  ) {
+    final label = tOr(t, 'settings.f_${f.key}', f.label);
     // 带 pathType 的字段走带补全的路径输入（React `FieldRenderer.tsx:174`）。
     if (f.pathType != null) {
       return PathInputRow(
@@ -500,7 +555,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           key: ValueKey('field-${f.key}'),
           label: label,
           description: f.description,
-          hint: f.placeholder,
+          // React 的 StringListEditor 是逐条 add/remove；这里是一行一项的多行文本框——
+          // 同一份数据的不同交互形态，占位符沿用同一句「添加规则」引导语。
+          hint: f.placeholder ?? t.t('settings.addRule'),
           value: list,
           maxLines: 4,
           onSubmitted: (v) {
