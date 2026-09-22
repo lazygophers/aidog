@@ -105,6 +105,8 @@ export 'src/pages/ui_bits.dart'
         AidogModal,
         KeptTextField,
         AidogSwitch,
+        HoverLift,
+        Reveal,
         CenteredNote,
         ConfirmCard,
         SmallButton,

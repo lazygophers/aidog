@@ -7,6 +7,8 @@
 /// 色值一律 `AidogTheme.of(context).c.*`，本文件零硬编码颜色。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -612,6 +614,87 @@ class _KeptTextFieldState extends State<KeptTextField> {
       style: AidogType.micro.copyWith(color: theme.c.fg),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
+    );
+  }
+}
+
+/// 入场错峰淡入（React 的 `useReveal(delayMs)` + `.reveal` / `.reveal.in`，
+/// `globals.css:969-975`）：起始 opacity 0 + 下移 20px，600ms 缓动到位。
+///
+/// [delayMs] 是这一项相对整批的错峰量（React 侧通常是 `index * 60`）。
+/// 系统开了「减少动态效果」时直接到位不动画 —— 与 React 的
+/// `@media (prefers-reduced-motion)` 同一条判据（`globals.css:1033`）。
+class Reveal extends StatefulWidget {
+  const Reveal({super.key, required this.child, this.delayMs = 0});
+
+  final Widget child;
+  final int delayMs;
+
+  @override
+  State<Reveal> createState() => _RevealState();
+}
+
+class _RevealState extends State<Reveal> {
+  bool _in = false;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer(Duration(milliseconds: widget.delayMs), () {
+      if (mounted) setState(() => _in = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return AnimatedSlide(
+      offset: _in ? Offset.zero : const Offset(0, 0.25),
+      duration: const Duration(milliseconds: 600),
+      curve: AidogMotion.easeStandard,
+      child: AnimatedOpacity(
+        opacity: _in ? 1 : 0,
+        duration: const Duration(milliseconds: 600),
+        curve: AidogMotion.easeStandard,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// 悬停抬升 2px（React 的 `.hover-lift`，`globals.css:1004-1008`）。
+/// 触屏没有 hover，这个包装在那里是无害的空转。
+class HoverLift extends StatefulWidget {
+  const HoverLift({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  State<HoverLift> createState() => _HoverLiftState();
+}
+
+class _HoverLiftState extends State<HoverLift> {
+  bool _over = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (MediaQuery.disableAnimationsOf(context)) return widget.child;
+    return MouseRegion(
+      onEnter: (_) => setState(() => _over = true),
+      onExit: (_) => setState(() => _over = false),
+      child: AnimatedSlide(
+        offset: _over ? const Offset(0, -0.04) : Offset.zero,
+        duration: const Duration(milliseconds: 250),
+        curve: AidogMotion.easeStandard,
+        child: widget.child,
+      ),
     );
   }
 }

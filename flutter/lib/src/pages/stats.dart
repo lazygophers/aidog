@@ -26,6 +26,7 @@ import '../shell/tiles.dart';
 import 'filter_dropdown.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'ui_bits.dart' show HoverLift;
 import 'stats_logic.dart';
 
 class StatsPage extends StatefulWidget {
@@ -96,10 +97,8 @@ class _StatsPageState extends State<StatsPage> {
     _load();
     _loadFilterOptions();
     _loadProtocolTerms();
-    _logSub =
-        (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated())).listen((
-          _,
-        ) {
+    _logSub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated()))
+        .listen((_) {
           _load(silent: true);
         });
   }
@@ -622,9 +621,8 @@ class _StatsPageState extends State<StatsPage> {
         : base;
   }
 
-  String _byLabel(I18nController tr) => tr.t(
-    'stats.by${_groupBy[0].toUpperCase()}${_groupBy.substring(1)}',
-  );
+  String _byLabel(I18nController tr) =>
+      tr.t('stats.by${_groupBy[0].toUpperCase()}${_groupBy.substring(1)}');
 
   List<BentoCell> _tabContent(
     AidogTheme t,
@@ -664,10 +662,7 @@ class _StatsPageState extends State<StatsPage> {
                   if (row[keys[i]] == null)
                     ChartPoint.missing(row['x']!.toDouble())
                   else
-                    ChartPoint(
-                      row['x']!.toDouble(),
-                      row[keys[i]]!.toDouble(),
-                    ),
+                    ChartPoint(row['x']!.toDouble(), row[keys[i]]!.toDouble()),
               ],
               format: formatNumber,
             ),
@@ -718,8 +713,7 @@ class _StatsPageState extends State<StatsPage> {
                 meta: meta,
                 chartHeight: 260,
                 legend: [
-                  for (final s in chartSeries)
-                    (color: s.color, label: s.label),
+                  for (final s in chartSeries) (color: s.color, label: s.label),
                 ],
                 chart: _trendStacked && trend.multi
                     ? AidogStackedAreaChart(
@@ -811,7 +805,9 @@ class _StatsPageState extends State<StatsPage> {
                     chartHeight: 260,
                     chart: HourHeatmap(
                       data: [
-                        for (final c in buildHeatCells(_heatBuckets ?? const []))
+                        for (final c in buildHeatCells(
+                          _heatBuckets ?? const [],
+                        ))
                           (day: c.day, hour: c.hour, value: c.value.toDouble()),
                       ],
                       dayLabel: (d) => weekdayShort(context, d),
@@ -871,23 +867,27 @@ class _StatsPageState extends State<StatsPage> {
                 runSpacing: AidogSpace.smd,
                 children: [
                   for (final g in gauges)
-                    GaugeChart(
-                      value: g.current,
-                      max: g.peak,
-                      formatValue: formatCostUsd,
-                      label:
-                          _platforms
-                              .where((p) => p.id == g.platformId)
-                              .firstOrNull
-                              ?.name ??
-                          '#${g.platformId}',
-                      trend: [
-                        for (final p in g.trend)
-                          GaugeTrendPoint(
-                            at: p.at.toDouble(),
-                            fraction: p.fraction,
-                          ),
-                      ],
+                    // 平台名画在环**上方**（`Stats.tsx:853-860` 的 `title`），
+                    // 不是塞进环心；整块带悬停抬升（同处 `className="hover-lift"`）。
+                    HoverLift(
+                      child: GaugeChart(
+                        value: g.current,
+                        max: g.peak,
+                        formatValue: formatCostUsd,
+                        title:
+                            _platforms
+                                .where((p) => p.id == g.platformId)
+                                .firstOrNull
+                                ?.name ??
+                            '#${g.platformId}',
+                        trend: [
+                          for (final p in g.trend)
+                            GaugeTrendPoint(
+                              at: p.at.toDouble(),
+                              fraction: p.fraction,
+                            ),
+                        ],
+                      ),
                     ),
                 ],
               ),
@@ -937,15 +937,34 @@ class _StatsPageState extends State<StatsPage> {
           rows: [
             Row(
               children: [
-                Expanded(flex: 3, child: head(tr.t('stats.dimName'), SortKey.name)),
-                Expanded(child: head(tr.t('stats.requests'), SortKey.totalRequests)),
-                Expanded(child: head(tr.t('stats.success'), SortKey.successCount)),
-                Expanded(child: head(tr.t('stats.inputTokens'), SortKey.inputTokens)),
-                Expanded(child: head(tr.t('stats.outputTokens'), SortKey.outputTokens)),
-                Expanded(child: head(tr.t('stats.cacheTokens'), SortKey.cacheTokens)),
-                Expanded(child: head(tr.t('stats.cacheRate'), SortKey.cacheRate)),
-                Expanded(child: head(tr.t('stats.avgMs'), SortKey.avgDurationMs)),
-                Expanded(child: head(tr.t('stats.totalCost'), SortKey.totalCost)),
+                Expanded(
+                  flex: 3,
+                  child: head(tr.t('stats.dimName'), SortKey.name),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.requests'), SortKey.totalRequests),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.success'), SortKey.successCount),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.inputTokens'), SortKey.inputTokens),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.outputTokens'), SortKey.outputTokens),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.cacheTokens'), SortKey.cacheTokens),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.cacheRate'), SortKey.cacheRate),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.avgMs'), SortKey.avgDurationMs),
+                ),
+                Expanded(
+                  child: head(tr.t('stats.totalCost'), SortKey.totalCost),
+                ),
               ],
             ),
             for (final d in pg.rows) _dimRow(t, d),

@@ -563,74 +563,97 @@ class _LogTable extends StatelessWidget {
               ],
             ),
           ),
-          for (final log in rows)
-            InkWell(
-              onTap: () => onOpen(log.id),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 5),
-                child: Row(
-                  children: [
-                    _Cell(formatDateTime(log.createdAt), flex: 3),
-                    _Cell(groupName(log.groupKey), flex: 2),
-                    // 重试徽标 ↻N（`primitives.tsx:296-300`）：`retryCount` 早就
-                    // 解析出来了，只是没画 —— 列表上分不出哪些请求重试过。
-                    _CellWithBadge(
-                      text: platformName(log.platformId),
-                      flex: 2,
-                      badge: log.retryCount > 0 ? '↻${log.retryCount}' : null,
-                      badgeTooltip: t.t('logs.retriedHint', {
-                        'n': '${log.retryCount}',
-                      }),
-                    ),
-                    // 流式徽标 SSE（`primitives.tsx:304-306`），同上。
-                    _CellWithBadge(
-                      text: log.model.isEmpty ? '-' : log.model,
-                      flex: 3,
-                      badge: log.isStream ? 'SSE' : null,
-                      badgeTooltip: t.t('logs.streaming'),
-                    ),
-                    _Cell(
-                      log.actualModel.isEmpty ? '-' : log.actualModel,
-                      flex: 3,
-                    ),
-                    Expanded(
-                      flex: 1,
-                      child: Text(
-                        // 两个状态码有专门的说法，不显示裸数字
-                        //（`Logs/primitives.tsx:310-314`）：
-                        //   0   = 还没有终态（流式在跑）→「未完成」
-                        //   499 = 客户端提前断开 → 「已中断」
-                        switch (log.statusCode) {
-                          0 => t.t('logs.statusIncomplete'),
-                          499 => t.t('logs.statusInterrupted'),
-                          _ => '${log.statusCode}',
-                        },
-                        style: AidogType.micro.copyWith(
-                          // 2xx 绿、其余一律红 —— 包括 0。
-                          // 原先把 0 画成灰色，与 React 相反：流式跑到一半没落终态
-                          // 通常就是出事了，灰色会让人以为「正常，只是还没结束」。
-                          color: log.statusCode >= 200 && log.statusCode < 300
-                              ? theme.c.ok
-                              : theme.c.bad,
+          // 入场错峰 + 悬停抬升（`primitives.tsx:284-290` 的
+          // `useReveal(idx*60)` + `hover-lift`）：原先只有 InkWell 的水波。
+          for (final (i, log) in rows.indexed)
+            Reveal(
+              delayMs: i * 60,
+              child: HoverLift(
+                child: InkWell(
+                  onTap: () => onOpen(log.id),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        _Cell(formatDateTime(log.createdAt), flex: 3),
+                        // 分组名画成 accent 徽标（`primitives.tsx:293`），不是纯文字。
+                        Expanded(
+                          flex: 2,
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: MiniBadge(
+                              text: groupName(log.groupKey),
+                              color: theme.c.accentText,
+                            ),
+                          ),
                         ),
-                      ),
+                        // 重试徽标 ↻N（`primitives.tsx:296-300`）：`retryCount` 早就
+                        // 解析出来了，只是没画 —— 列表上分不出哪些请求重试过。
+                        _CellWithBadge(
+                          text: platformName(log.platformId),
+                          flex: 2,
+                          badge: log.retryCount > 0
+                              ? '↻${log.retryCount}'
+                              : null,
+                          badgeTooltip: t.t('logs.retriedHint', {
+                            'n': '${log.retryCount}',
+                          }),
+                        ),
+                        // 流式徽标 SSE（`primitives.tsx:304-306`），同上。
+                        _CellWithBadge(
+                          text: log.model.isEmpty ? '-' : log.model,
+                          flex: 3,
+                          badge: log.isStream ? 'SSE' : null,
+                          badgeTooltip: t.t('logs.streaming'),
+                        ),
+                        _Cell(
+                          log.actualModel.isEmpty ? '-' : log.actualModel,
+                          flex: 3,
+                        ),
+                        Expanded(
+                          flex: 1,
+                          child: Text(
+                            // 两个状态码有专门的说法，不显示裸数字
+                            //（`Logs/primitives.tsx:310-314`）：
+                            //   0   = 还没有终态（流式在跑）→「未完成」
+                            //   499 = 客户端提前断开 → 「已中断」
+                            switch (log.statusCode) {
+                              0 => t.t('logs.statusIncomplete'),
+                              499 => t.t('logs.statusInterrupted'),
+                              _ => '${log.statusCode}',
+                            },
+                            style: AidogType.micro.copyWith(
+                              // 2xx 绿、其余一律红 —— 包括 0。
+                              // 原先把 0 画成灰色，与 React 相反：流式跑到一半没落终态
+                              // 通常就是出事了，灰色会让人以为「正常，只是还没结束」。
+                              color:
+                                  log.statusCode >= 200 && log.statusCode < 300
+                                  ? theme.c.ok
+                                  : theme.c.bad,
+                            ),
+                          ),
+                        ),
+                        _Cell(
+                          formatDurationMs(log.durationMs.toDouble()),
+                          flex: 2,
+                        ),
+                        _Cell(formatNumber(log.inputTokens), flex: 2),
+                        _Cell(formatNumber(log.outputTokens), flex: 2),
+                        SizedBox(
+                          width: 28,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            iconSize: 14,
+                            tooltip: t.t('logs.copy'),
+                            color: theme.c.fg3,
+                            icon: const Icon(Icons.copy_outlined),
+                            onPressed: () => onCopy(log.id),
+                          ),
+                        ),
+                      ],
                     ),
-                    _Cell(formatDurationMs(log.durationMs.toDouble()), flex: 2),
-                    _Cell(formatNumber(log.inputTokens), flex: 2),
-                    _Cell(formatNumber(log.outputTokens), flex: 2),
-                    SizedBox(
-                      width: 28,
-                      child: IconButton(
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                        iconSize: 14,
-                        tooltip: t.t('logs.copy'),
-                        color: theme.c.fg3,
-                        icon: const Icon(Icons.copy_outlined),
-                        onPressed: () => onCopy(log.id),
-                      ),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

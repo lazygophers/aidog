@@ -28,6 +28,7 @@ class GaugeChart extends StatelessWidget {
     required this.value,
     required this.formatValue,
     this.max = 1,
+    this.title,
     this.label,
     this.size = 160,
     this.trend,
@@ -41,7 +42,11 @@ class GaugeChart extends StatelessWidget {
   final double max;
   final String Function(double) formatValue;
 
-  /// 说明字（如平台名）。
+  /// 标题（如平台名），画在**环的上方**。React 那边 `GaugeChart` 的 `title`
+  /// 由 `ChartCard` 渲染在图上方（`Stats.tsx:853-860` 传的就是平台名）。
+  final String? title;
+
+  /// 说明字，画在环心。
   final String? label;
   final double size;
 
@@ -61,6 +66,23 @@ class GaugeChart extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (title case final tt?)
+          SizedBox(
+            width: size,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                tt,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.label.copyWith(
+                  color: t.c.fg,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
         Semantics(
           value: '${(fraction * 100).round()}%',
           child: SizedBox(
@@ -115,7 +137,10 @@ class GaugeChart extends StatelessWidget {
               width: size,
               height: kSparklineHeight,
               child: CustomPaint(
-                painter: SparklinePainter(points: trend!, color: palette.primary),
+                painter: SparklinePainter(
+                  points: trend!,
+                  color: palette.primary,
+                ),
               ),
             ),
           ),
@@ -144,8 +169,12 @@ class GaugeRingPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final rect = Rect.fromLTWH(0, 0, size.width, size.height)
-        .deflate(ringWidth / 2);
+    final rect = Rect.fromLTWH(
+      0,
+      0,
+      size.width,
+      size.height,
+    ).deflate(ringWidth / 2);
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = ringWidth
@@ -181,7 +210,8 @@ class SparklinePainter extends CustomPainter {
     final t0 = points.first.at;
     final span = math.max(1e-9, points.last.at - t0);
     return Offset(
-      kSparklinePad + (points[i].at - t0) / span * (size.width - kSparklinePad * 2),
+      kSparklinePad +
+          (points[i].at - t0) / span * (size.width - kSparklinePad * 2),
       kSparklinePad +
           (1 - clamp(points[i].fraction, 0, 1)) *
               (size.height - kSparklinePad * 2),
