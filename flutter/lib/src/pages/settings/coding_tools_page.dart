@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../shell/nav_guard.dart';
+import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
@@ -32,8 +33,7 @@ class CodingToolsPage extends StatefulWidget {
   final InvokeFn invoke;
 
   /// widget 测试塞一份短清单，避免每个用例都解 121 KB 资产。
-  final Future<List<({String value, String label})>> Function()?
-  languageLoader;
+  final Future<List<({String value, String label})>> Function()? languageLoader;
 
   @override
   State<CodingToolsPage> createState() => _CodingToolsPageState();
@@ -64,8 +64,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
   }
 
   Future<void> _loadLanguages() async {
-    final l = await (widget.languageLoader?.call() ??
-        loadClaudeLanguageOptions());
+    final l =
+        await (widget.languageLoader?.call() ?? loadClaudeLanguageOptions());
     if (mounted) setState(() => _languages = l);
   }
 
@@ -116,6 +116,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               key: const ValueKey('apply-to-claude-plugin'),
               label: t.t('codingTools.applyPlugin.title'),
               description: t.t('codingTools.applyPlugin.desc'),
+              hint: '~/.claude/config.json · primaryApiKey="any"',
               value: _c.applyToClaudePlugin,
               onChanged: _c.busy
                   ? null
@@ -125,6 +126,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               key: const ValueKey('skip-onboarding'),
               label: t.t('codingTools.skipOnboarding.title'),
               description: t.t('codingTools.skipOnboarding.desc'),
+              hint: '~/.claude.json · hasCompletedOnboarding=true',
               value: _c.skipClaudeOnboarding,
               onChanged: _c.busy
                   ? null
@@ -134,6 +136,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               key: const ValueKey('date-rewrite'),
               label: t.t('codingTools.dateRewrite.title'),
               description: t.t('codingTools.dateRewrite.desc'),
+              hint: 'middleware · redaction · YYYY/MM/DD → YYYY-MM-DD',
               value: _c.dateRewriteEnabled == true,
               // 规则还没读到 / 不存在 → 开关不响应（`dateRewriteDisabled`）。
               onChanged: _c.dateRewriteDisabled
@@ -144,6 +147,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               key: const ValueKey('btc-global'),
               label: t.t('proxy.btcGlobal'),
               description: t.t('proxy.btcGlobalDesc'),
+              hint: 'settings · proxy · builtin_tool_compat',
               value: _c.btcGlobal,
               onChanged: _c.busy ? null : (v) => _c.toggleBtcGlobal(v, texts),
             ),
@@ -164,9 +168,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                   )
                   .label,
               value: _c.language,
-              onChanged: _c.busy
-                  ? null
-                  : (v) => _c.setLanguage(v ?? '', texts),
+              onChanged: _c.busy ? null : (v) => _c.setLanguage(v ?? '', texts),
             ),
           ],
         ),
@@ -174,6 +176,12 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           title: t.t('codingTools.effort.title'),
           description: t.t('codingTools.effort.desc'),
           children: [
+            // 「落点」等宽小字：这张卡改的是哪几个键
+            // （`CodingToolsSettings.tsx:465`）。开关会动哪个文件、哪个键，
+            // 原先界面上完全看不到。
+            _LandingHint(
+              'claude · effortLevel · codex · model_reasoning_effort',
+            ),
             ChoiceRow(
               key: const ValueKey('cli-effort'),
               label: t.t('settings.f_effortLevel'),
@@ -187,6 +195,10 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           title: t.t('codingTools.proxy.title'),
           description: t.t('codingTools.proxy.desc'),
           children: [
+            // `CodingToolsSettings.tsx:494`。
+            _LandingHint(
+              'claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY · NO_PROXY',
+            ),
             ChoiceRow(
               label: t.t('proxy.upstreamProxy'),
               options: kProxyUrlPresets,
@@ -253,4 +265,22 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
       ],
     );
   }
+}
+
+/// 卡片里的「落点」一行：等宽、弱化，写明这张卡改的是哪个文件的哪个键。
+/// 开关行上的同名信息走 `SwitchRow.hint`。
+class _LandingHint extends StatelessWidget {
+  const _LandingHint(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+    child: Text(
+      // 路径与键名是标识串，RTL 下不该被重排。
+      ltr(text),
+      style: AidogType.numSm.copyWith(color: AidogTheme.of(context).c.fg3),
+    ),
+  );
 }

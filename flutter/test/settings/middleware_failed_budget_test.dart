@@ -12,12 +12,13 @@ import 'package:aidog_flutter/shell.dart';
 import 'package:aidog_flutter/utils/formatters.dart';
 import 'package:aidog_flutter/src/pages/settings/middleware_logic.dart'
     show MiddlewareRule;
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../pages/harness.dart';
 import 'pages_c_widget_test.dart' show baseResponses;
 
-Map<String, Object?> _rule({required bool failed}) => {
+Map<String, Object?> _rule({required bool failed, bool enabled = true}) => {
   'id': 1,
   'name': '旧规则',
   'description': '',
@@ -25,7 +26,7 @@ Map<String, Object?> _rule({required bool failed}) => {
   'actions': <Object?>[],
   'applies_to': <String, Object?>{},
   'priority': 0,
-  'enabled': true,
+  'enabled': enabled,
   'is_builtin': false,
   'failed': failed,
 };
@@ -33,12 +34,13 @@ Map<String, Object?> _rule({required bool failed}) => {
 Future<(FakeKernel, I18nController)> _mount(
   WidgetTester tester, {
   required bool failed,
+  bool enabled = true,
   List<Object?> budget = const [],
 }) async {
   await useBigSurface(tester);
   final k = FakeKernel({
     ...baseResponses(),
-    'middleware_list_rules': (_) => [_rule(failed: failed)],
+    'middleware_list_rules': (_) => [_rule(failed: failed, enabled: enabled)],
     'middleware_budget_status': (_) => budget,
   });
   final i18n = await makeI18n(tester);
@@ -60,6 +62,45 @@ void main() {
     final noField = Map<String, Object?>.from(_rule(failed: false))
       ..remove('failed');
     expect(MiddlewareRule(noField).failed, isFalse);
+  });
+
+  // 第二梯队 2026-09-22：启停原先是个 SmallButton，按钮上写的到底是「现在的
+  // 状态」还是「点了会变成什么」本身就有歧义；停用的规则整行也没有任何弱化，
+  // 一屏规则里看不出哪几条其实没在跑（`MiddlewareRules.tsx:917,1007-1011`）。
+  testWidgets('启停是开关，不是按钮；点一下发 middleware_update_rule', (tester) async {
+    final (k, _) = await _mount(tester, failed: false);
+    final sw = find.byType(AidogSwitch);
+    expect(sw, findsOneWidget);
+    expect(tester.widget<AidogSwitch>(sw).value, isTrue);
+    await tester.tap(sw);
+    await settle(tester);
+    expect(k.calls, contains('middleware_update_rule'));
+  });
+
+  testWidgets('停用的规则整行弱化到 0.55', (tester) async {
+    await _mount(tester, failed: false, enabled: false);
+    final op = tester.widget<Opacity>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('rule-1')),
+            matching: find.byType(Opacity),
+          )
+          .first,
+    );
+    expect(op.opacity, 0.55);
+  });
+
+  testWidgets('启用的规则不弱化', (tester) async {
+    await _mount(tester, failed: false);
+    final op = tester.widget<Opacity>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey('rule-1')),
+            matching: find.byType(Opacity),
+          )
+          .first,
+    );
+    expect(op.opacity, 1);
   });
 
   testWidgets('失效规则：出「失效」徽标，且编辑按钮点不动', (tester) async {

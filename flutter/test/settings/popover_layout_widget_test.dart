@@ -12,13 +12,13 @@ import '../pages/harness.dart';
 import 'pages_c_widget_test.dart' show baseResponses;
 
 Map<String, Object?> _item(String id, String ty, int row, int order) => {
-      'id': id,
-      'item_type': ty,
-      'visible': true,
-      'order': order,
-      'row': row,
-      'size': 'm',
-    };
+  'id': id,
+  'item_type': ty,
+  'visible': true,
+  'order': order,
+  'row': row,
+  'size': 'm',
+};
 
 void main() {
   Future<(FakeKernel, I18nController)> mount(
@@ -94,8 +94,7 @@ void main() {
 
     final cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     final byId = {
-      for (final i in (cfg['items']! as List).whereType<Map>())
-        '${i['id']}': i,
+      for (final i in (cfg['items']! as List).whereType<Map>()) '${i['id']}': i,
     };
     // 拖过去后两卡同排、a 在 b 前。行号本身会被规整重编（原行空了就前移），
     // 断言落在「同排 + 次序」上，与渲染层 `popoverRows` 的读取口径一致。
@@ -153,5 +152,68 @@ void main() {
     final items = (cfg['items']! as List).cast<Map>();
     expect(items.map((i) => '${i['id']}'), ['b']);
     expect(items[0]['order'], 0); // 重排
+  });
+
+  // 第二梯队 2026-09-22：切到 platform / group 原先一律把 scope_ref 清成 null，
+  // 切完这张卡是空的，还得再点一次选具体对象（`ScopeConfig.tsx:29-37` 是预填第一个）。
+  testWidgets('趋势卡切范围：切到平台预填第一个平台，切回总体清空', (tester) async {
+    await useBigSurface(tester);
+    final k = FakeKernel({
+      ...baseResponses(),
+      'popover_config_get': (_) => {
+        'items': [_item('a', 'cost_trend', 0, 0)],
+        'rows': [
+          {'cols': 1},
+        ],
+      },
+      'popover_config_set': (_) => null,
+      'platform_list': (_) => [
+        {'id': 7, 'name': 'P7', 'platform_type': 'openai'},
+        {'id': 8, 'name': 'P8', 'platform_type': 'openai'},
+      ],
+      // 这一页的分组来自 group_list（`popover_logic.dart:135`），
+      // 不是 group_detail_list。
+      'group_list': (_) => [
+        {'id': 1, 'group_key': 'gk1', 'name': 'G1'},
+      ],
+    });
+    final i18n = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(PopoverSettingsPage(invoke: k.invoke), i18n),
+    );
+    await settle(tester);
+
+    // 用按钮定位而不是裸文本：选中某个范围后会多出一个同名标签的
+    // 选择器行，裸 find.text 会打在那行标签上。
+    await tester.tap(
+      find
+          .widgetWithText(SmallButton, i18n.t('popover.trendScopePlatform'))
+          .first,
+    );
+    await settle(tester);
+    var cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
+    var item = (cfg['items']! as List).first as Map;
+    expect(item['scope'], 'platform');
+    expect(item['scope_ref'], '7', reason: '预填第一个平台，不是留空');
+
+    await tester.tap(
+      find.widgetWithText(SmallButton, i18n.t('popover.trendScopeGroup')).first,
+    );
+    await settle(tester);
+    cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
+    item = (cfg['items']! as List).first as Map;
+    expect(item['scope'], 'group');
+    expect(item['scope_ref'], 'gk1');
+
+    await tester.tap(
+      find
+          .widgetWithText(SmallButton, i18n.t('popover.trendScopeOverall'))
+          .first,
+    );
+    await settle(tester);
+    cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
+    item = (cfg['items']! as List).first as Map;
+    expect(item['scope'], 'overall');
+    expect(item['scope_ref'], isNull, reason: '总体范围没有具体对象');
   });
 }

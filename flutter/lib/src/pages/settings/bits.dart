@@ -80,11 +80,17 @@ class SwitchRow extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.description,
+    this.hint,
     this.trailing,
   });
 
   final String label;
   final String? description;
+
+  /// 「落点」：这个开关到底改哪个文件的哪个键
+  /// （`CodingToolsSettings.tsx` 的 `ToggleCard hint`，等宽小字）。
+  /// 不写就不占位。
+  final String? hint;
   final bool value;
   final ValueChanged<bool>? onChanged;
 
@@ -110,6 +116,15 @@ class SwitchRow extends StatelessWidget {
                   Text(
                     description!,
                     style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                if (hint != null && hint!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      // 路径与键名是标识串，RTL 下不该被重排。
+                      ltr(hint!),
+                      style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                    ),
                   ),
               ],
             ),

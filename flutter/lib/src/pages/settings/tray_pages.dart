@@ -704,7 +704,20 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
               'platform' => t.t('popover.trendScopePlatform'),
               _ => t.t('popover.trendScopeOverall'),
             },
-            onChanged: (v) => patch({'scope': v, 'scope_ref': null}),
+            // 切到 platform / group 就预填第一个（`ScopeConfig.tsx:29-37`）：
+            // 原先一律清成 null，切完这张卡是空的，还得再点一次选具体对象。
+            onChanged: (v) => patch({
+              'scope': v,
+              'scope_ref': switch (v) {
+                'platform' => _c.platforms.isEmpty
+                    ? null
+                    : '${_c.platforms.first.id}',
+                'group' => _c.groups.isEmpty
+                    ? null
+                    : _c.groups.first.groupKey,
+                _ => null,
+              },
+            }),
           ),
           ChoiceRow(
             label: t.t('popover.previewTrend', {'window': ''}),

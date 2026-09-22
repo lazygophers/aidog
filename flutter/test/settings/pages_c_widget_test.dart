@@ -173,6 +173,14 @@ SchemaBundle fakeBundle() => SchemaBundle(
   recommended: const {'model': 'sonnet'},
 );
 
+/// 数字 / 地址类文本被 `ltr()` 包进了 bidi 隔离字符（U+2066/U+2069），
+/// `find.text` 是裸等值比较，对不上。这个查找器两边都剥。
+Finder findStripped(CommonFinders find, String needle) =>
+    find.byWidgetPredicate(
+      (w) => w is Text && stripIsolates(w.data ?? '') == needle,
+      description: 'text stripped of bidi isolates "$needle"',
+    );
+
 void main() {
   setUp(resetNavGuardForTest);
   tearDown(resetNavGuardForTest);
@@ -330,6 +338,20 @@ void main() {
       );
     });
 
+    // 第二梯队 2026-09-22：原先只有卡片 meta 上一行「运行中 / 已停止」文字，
+    // 没有状态灯，也看不到代理监听在哪个地址上（`ProxyStatusSection.tsx:29-53`）。
+    testWidgets('代理状态：停着时没有监听地址，跑起来才显示 localhost:<port>', (tester) async {
+      final (k, i18n) = await mount(tester);
+      expect(find.text(i18n.t('proxy.stopped')), findsWidgets);
+      expect(findStripped(find, 'localhost:9890'), findsNothing);
+
+      k.responses['proxy_status'] = (_) => true;
+      await tester.tap(find.byKey(const ValueKey('proxy-toggle')));
+      await settle(tester);
+      expect(find.text(i18n.t('proxy.running')), findsWidgets);
+      expect(findStripped(find, 'localhost:9890'), findsOneWidget);
+    });
+
     testWidgets('清空日志：取消后不发命令，确认后才发', (tester) async {
       final (k, _) = await mount(tester);
       await tester.tap(find.byKey(const ValueKey('clear-logs')));
@@ -347,6 +369,37 @@ void main() {
       await settle(tester);
       expect(find.byType(ConfirmCard), findsNothing);
       expect(k.countOf('proxy_log_clear'), 0);
+    });
+
+    // 第二梯队 2026-09-22：两条 per-type 保留期原先只受总开关控制 ——
+    // 关掉某类记录后，它的保留期还摆在那里可改，是改了也没用的旋钮
+    //（`LogSettingsSection.tsx:145,166` 各自跟着自己那类的开关走）。
+    testWidgets('关掉「记录原始请求」→ 它的保留期一并收起', (tester) async {
+      await mount(tester);
+      expect(
+        find.byKey(const ValueKey('user-req-retention')),
+        findsOneWidget,
+      );
+      await tapSwitch(tester, 'log-user-req');
+      expect(find.byKey(const ValueKey('user-req-retention')), findsNothing);
+      // 上游那条不受影响，各管各的。
+      expect(
+        find.byKey(const ValueKey('upstream-req-retention')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('关掉「记录上游请求」→ 它的保留期一并收起', (tester) async {
+      await mount(tester);
+      await tapSwitch(tester, 'log-upstream-req');
+      expect(
+        find.byKey(const ValueKey('upstream-req-retention')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('user-req-retention')),
+        findsOneWidget,
+      );
     });
   });
 
@@ -864,6 +917,67 @@ void main() {
       expect(find.byKey(const ValueKey('mitm-add')), findsNothing);
       expect(find.byKey(const ValueKey('mitm-clear')), findsNothing);
       expect(find.byKey(const ValueKey('mitm-new-pattern')), findsNothing);
+    });
+
+    // 第二梯队 2026-09-22：同一条 host 写成域名 / 后缀 / 关键字 / IP 段，
+    // 命中范围差很远，列表里原先分不出来（`MitmConfig.tsx:560-579`）；
+    // 启停也从按钮换成开关（`:580-584`）。
+    testWidgets('白名单每行带规则类型徽标，启停是开关', (tester) async {
+      final k = await mount(
+        tester,
+        whitelist: [
+          {
+            'host_pattern': 'a.example.com',
+            'enabled': true,
+            'source': 'user',
+            'rule_type': 'domain',
+          },
+          {
+            'host_pattern': 'example.org',
+            'enabled': false,
+            'source': 'default',
+            'rule_type': 'keyword',
+          },
+        ],
+      );
+      final i18n = await makeI18n(tester);
+      // 只看列表行里的徽标 —— 新增表单上方那排类型选择按钮用的是同一批文案。
+      Finder inRow(String host, String key) => find.descendant(
+        of: find.byKey(ValueKey('wl-$host')),
+        matching: find.text(i18n.t(key)),
+      );
+      expect(inRow('a.example.com', 'mitm.ruleDomain'), findsOneWidget);
+      expect(inRow('example.org', 'mitm.ruleKeyword'), findsOneWidget);
+      // 手动停用 ≠ 失效：那条关掉的不该写「失效」。
+      expect(find.text(i18n.t('middleware.failed')), findsNothing);
+
+
+      final switches = find.descendant(
+        of: find.byKey(const ValueKey('wl-a.example.com')),
+        matching: find.byType(AidogSwitch),
+      );
+      expect(switches, findsOneWidget);
+      expect(tester.widget<AidogSwitch>(switches).value, isTrue);
+      await tester.tap(switches);
+      await settle(tester);
+      expect(k.calls, contains('mitm_whitelist_toggle'));
+    });
+
+    testWidgets('rule_type 缺失时按后缀算，不留空白徽标', (tester) async {
+      await mount(
+        tester,
+        whitelist: [
+          {'host_pattern': 'a.example.com', 'enabled': true, 'source': 'user'},
+        ],
+      );
+      final i18n = await makeI18n(tester);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('wl-a.example.com')),
+          matching: find.text(i18n.t('mitm.ruleSuffix')),
+        ),
+        findsOneWidget,
+      );
     });
 
     testWidgets('输入为空时「添加」点不动，白名单为空时「清空」点不动', (tester) async {

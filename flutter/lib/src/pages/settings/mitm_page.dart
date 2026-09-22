@@ -14,6 +14,7 @@ import '../../../platform.dart' as native;
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
+import '../platform_card_bits.dart' show MiniBadge;
 import 'bits.dart';
 import 'mitm_logic.dart';
 
@@ -302,16 +303,20 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                         : t.t('mitm.sourceUser'),
                     style: AidogType.micro.copyWith(color: theme.c.fg3),
                   ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  // 规则类型徽标（`MitmConfig.tsx:560-579`）：同一条 host 写成
+                  // 域名 / 后缀 / 关键字 / IP 段，命中范围差很远，列表里必须分得出。
+                  MiniBadge(
+                    text: _ruleTypeLabel(t, e.ruleType),
+                    color: theme.c.ok,
+                  ),
                   const SizedBox(width: AidogSpace.ssm),
-                  SmallButton(
-                    // 手动停用 ≠ 失效。原先关闭态复用了 `middleware.failed`
-                    // （「失效」），用户自己关掉的白名单会显示成「失效」，
-                    // 像是出了故障。
-                    label: e.enabled
-                        ? t.t('middleware.enabled')
-                        : t.t('settings.perm.disableAuto'),
-                    active: e.enabled,
-                    onTap: () => _c.toggleEntry(e.hostPattern, !e.enabled),
+                  // 开关而不是按钮（`MitmConfig.tsx:580-584`）：按钮上写的是
+                  // 「当前是什么状态」还是「点了会变成什么」，本身就有歧义。
+                  AidogSwitch(
+                    value: e.enabled,
+                    onChanged: () =>
+                        _c.toggleEntry(e.hostPattern, !e.enabled),
                   ),
                   const SizedBox(width: AidogSpace.sxs),
                   SmallButton(
@@ -325,6 +330,16 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
       ],
     );
   }
+
+  /// 规则类型 → 文案。解析层已把认不出的值归到 `suffix`
+  /// （`mitm_logic.dart:29-30`，与 `MitmConfig.tsx:561` 同缺省）。
+  String _ruleTypeLabel(I18nController t, WhitelistRuleType ruleType) =>
+      switch (ruleType) {
+        WhitelistRuleType.domain => t.t('mitm.ruleDomain'),
+        WhitelistRuleType.suffix => t.t('mitm.ruleSuffix'),
+        WhitelistRuleType.keyword => t.t('mitm.ruleKeyword'),
+        WhitelistRuleType.ipcidr => t.t('mitm.ruleIpcidr'),
+      };
 
   // ── URL 命中测试 ────────────────────────────────────────
 
