@@ -127,12 +127,44 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-if (missing.length > 0) {
-  console.error(`[ui-parity] React 有、Flutter 没有的文案 key ${missing.length} 条：`);
+// 棘轮：缺口只许降不许升。
+//
+// 对齐是分批做的（一张票补一个前缀），护栏挂进 `make lint` 的那天还剩 379 条。
+// 让它一直飘红，结果就是没人再看 lint —— 这正是票 01 里点名要避开的「喊狼来了」。
+// 所以判据不是「缺口为 0」，而是「不比基线更差」，基线随每张票的完成手动下调。
+//
+// 降到基线以下也报红：不强制下调，基线就会停在高位，棘轮失去棘齿。
+const baselineFile = join(root, "scripts/ui-parity-baseline.json");
+let baseline = 0;
+try {
+  baseline = JSON.parse(readFileSync(baselineFile, "utf8")).maxGaps ?? 0;
+} catch (e) {
+  if (e.code !== "ENOENT") {
+    console.error(`[ui-parity] ${baselineFile} 读不了: ${e.message}`);
+    process.exit(1);
+  }
+}
+
+if (missing.length > baseline) {
+  console.error(
+    `[ui-parity] 缺口 ${missing.length} 条，超过基线 ${baseline} 条 —— 新增了 ${missing.length - baseline} 条：`,
+  );
   for (const k of missing.slice(0, 40)) console.error(`  ${k}`);
-  if (missing.length > 40) console.error(`  …另有 ${missing.length - 40} 条，跑 --report 看分布`);
+  if (missing.length > 40) console.error(`  …共 ${missing.length} 条，跑 --report 看分布`);
   console.error("\n补上，或按 scripts/ui-parity-exceptions.json 的格式登记为例外（要带 file:line 出处）。");
   process.exit(1);
 }
 
-console.log(`[ui-parity] ok（React ${react.size} 个 key 全部命中，例外 ${allow.size} 条）`);
+if (missing.length < baseline) {
+  console.error(
+    `[ui-parity] 缺口降到 ${missing.length} 条（基线还写着 ${baseline}）。` +
+      `把 ${baselineFile.replace(root, "")} 的 maxGaps 改成 ${missing.length}，锁住这次的进展。`,
+  );
+  process.exit(1);
+}
+
+console.log(
+  missing.length === 0
+    ? `[ui-parity] ok（React ${react.size} 个 key 全部命中，例外 ${allow.size} 条）`
+    : `[ui-parity] ok（缺口 ${missing.length} 条，与基线持平；例外 ${allow.size} 条）`,
+);
