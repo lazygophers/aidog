@@ -1345,10 +1345,18 @@ void main() {
       WidgetTester tester, {
       String? pick,
       Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
+      // 窄窗与 RTL 只有画出来才看得出挤没挤爆，所以这两样做成入参。
+      Size? surface,
+      String locale = 'zh-Hans',
     }) async {
-      await useBigSurface(tester);
+      if (surface == null) {
+        await useBigSurface(tester);
+      } else {
+        await tester.binding.setSurfaceSize(surface);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+      }
       final k = FakeKernel({...baseResponses(), ...extra});
-      final i18n = await makeI18n(tester);
+      final i18n = await makeI18n(tester, locale: locale);
       await tester.pumpWidget(
         wrapPage(
           ImportExportPage(
@@ -1588,6 +1596,56 @@ void main() {
         findsOneWidget,
       );
     });
+
+    // 这一页新加的三块（sub2api 行内协议下拉、导入概要卡的计数徽标、
+    // cc-switch 行的匹配读数）都是「一行里塞好几个控件」，窄窗和 RTL 下
+    // 挤爆只会在画出来的时候露头：Flutter 的 overflow 是一条 FlutterError，
+    // 跑到就让用例红，所以这里不断言像素，只要求这两种环境下画得出来。
+    for (final env in const [
+      (name: '窄窗 700 逻辑像素', locale: 'zh-Hans', w: 700.0),
+      (name: '阿拉伯语 RTL', locale: 'ar-SA', w: 1400.0),
+    ]) {
+      testWidgets('sub2api 行在${env.name}下不挤爆', (tester) async {
+        await mount(
+          tester,
+          surface: Size(env.w, 3000),
+          locale: env.locale,
+          extra: {
+            'get_defaults_json': (_) =>
+                '{"protocols":{"anthropic":{"name":{"en-US":"Anthropic"},'
+                '"endpoints":{"default":[{"protocol":"anthropic",'
+                '"base_url":"https://api.anthropic.com"}]}},'
+                '"openai":{"name":{"en-US":"OpenAI"},"endpoints":{"default":'
+                '[{"protocol":"openai","base_url":"https://api.openai.com/v1"}]}}}}',
+            'sub2api_parse': (_) => {
+              'accounts': [
+                {
+                  'name': '一个相当长的账号名字用来把这一行撑开',
+                  'platform': 'nobody-knows-this',
+                  'baseUrl': 'https://very-long-host.example.test/v1/chat',
+                  'apiKey': 'sk-sub',
+                },
+              ],
+            },
+            'platform_list': (_) => <Object?>[],
+            'group_detail_list': (_) => <Object?>[],
+          },
+        );
+        await tester.enterText(
+          find.descendant(
+            of: find.byKey(const ValueKey('sub2api-paste')),
+            matching: find.byType(TextField),
+          ),
+          '{"accounts":[]}',
+        );
+        await settle(tester);
+        await tester.tap(find.byKey(const ValueKey('sub2api-parse')));
+        await settle(tester);
+
+        expect(tester.takeException(), isNull);
+        expect(find.byKey(const ValueKey('sub2api-protocol-0')), findsOneWidget);
+      });
+    }
 
     testWidgets('没预览过就不许导出', (tester) async {
       await mount(tester);
