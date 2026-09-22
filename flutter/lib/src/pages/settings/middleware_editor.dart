@@ -605,10 +605,16 @@ class AppliesToEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    // 🔴 `value` 是 `Object` 不是 `String`：`applies_to.platforms` 在后端是
+    // `Vec<i64>`（`aidog_db/src/models/middleware.rs:250`），这里写成字符串
+    // 会让整条规则存不进去（serde 反序列化失败），或者平台限定被 `#[serde(default)]`
+    // 吞成空数组 —— 规则看着存住了，限定却不生效。React 传的就是数字
+    // （`MiddlewareRules.tsx:605`）。groups / models 那两维在后端是 `Vec<String>`，
+    // 继续传字符串是对的。
     Widget chips(
       String key,
       String label,
-      List<({String value, String label})> opts,
+      List<({Object value, String label})> opts,
     ) =>
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,7 +650,7 @@ class AppliesToEditor extends StatelessWidget {
           'platforms',
           tOr(t, 'middleware.appliesPlatforms', '平台（空 = 全部）'),
           [
-            for (final p in platforms) (value: '${p.id}', label: p.name),
+            for (final p in platforms) (value: p.id, label: p.name),
           ],
         ),
         chips(
