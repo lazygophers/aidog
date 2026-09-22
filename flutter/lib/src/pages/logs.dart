@@ -772,6 +772,9 @@ class _Pager extends StatelessWidget {
           onTap: hasMore ? () => onPage(currentPage + 1) : null,
         ),
         const Spacer(),
+        // 三个裸数字看不出是什么，React 在它们前面写着「每页」
+        //（`primitives.tsx:371`）。
+        TileMeta(t.t('logs.pageSize')),
         for (final size in const [20, 50, 100])
           Padding(
             padding: const EdgeInsets.only(left: 4),
@@ -876,6 +879,7 @@ class _DetailPanelState extends State<_DetailPanel> {
                 SmallButton(
                   key: const ValueKey('detail-copy-id'),
                   label: t.t('logs.copy'),
+                  tooltip: t.t('logs.copyRequestId'),
                   onTap: () => onCopy('request_id=${detail.id}'),
                 ),
               ],
@@ -1323,6 +1327,7 @@ class _DetailPanelState extends State<_DetailPanel> {
     AidogTheme theme,
     String title,
     String body, {
+
     /// 空块的占位说明。响应正文为空的原因和请求正文不一样 —— 流式响应本来就
     /// 不落正文，写「未捕获」会让人以为日志坏了（`DetailPanel.tsx:100-107`）。
     String? emptyText,

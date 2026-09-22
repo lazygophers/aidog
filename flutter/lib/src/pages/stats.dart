@@ -685,20 +685,26 @@ class _StatsPageState extends State<StatsPage> {
             BentoCell(
               span: 12,
               child: Tile(
-                child: Wrap(
-                  spacing: AidogSpace.sxs,
-                  children: [
-                    _Pill(
-                      label: tr.t('stats.viewLine'),
-                      active: !_trendStacked,
-                      onTap: () => setState(() => _trendStacked = false),
-                    ),
-                    _Pill(
-                      label: tr.t('stats.viewStacked'),
-                      active: _trendStacked,
-                      onTap: () => setState(() => _trendStacked = true),
-                    ),
-                  ],
+                // 这两颗按钮是一组「视图」开关，读屏要读得出这一组是什么
+                //（React 挂在 `role="group"` 上的 aria-label，`Stats.tsx:688`）。
+                child: Semantics(
+                  label: tr.t('stats.viewMode'),
+                  container: true,
+                  child: Wrap(
+                    spacing: AidogSpace.sxs,
+                    children: [
+                      _Pill(
+                        label: tr.t('stats.viewLine'),
+                        active: !_trendStacked,
+                        onTap: () => setState(() => _trendStacked = false),
+                      ),
+                      _Pill(
+                        label: tr.t('stats.viewStacked'),
+                        active: _trendStacked,
+                        onTap: () => setState(() => _trendStacked = true),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

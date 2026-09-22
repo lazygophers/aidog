@@ -340,6 +340,8 @@ class _CliToolRow extends StatelessWidget {
                   label: busy == 'upgrade' && pending
                       ? t.t('about.localEnv.upgrading')
                       : t.t('about.localEnv.repair'),
+                  // 「修复」到底修什么，解释写在悬浮提示里（`About.tsx:434`）。
+                  tooltip: t.t('about.localEnv.brokenHint'),
                   onTap: disabled ? null : onUpgrade,
                 ),
             ],

@@ -153,6 +153,9 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                 style: AidogType.micro.copyWith(color: theme.c.fg),
               ),
               // 间隔只在自动同步打开时才出现（React 的条件渲染）。
+              // 一排裸时长读不出是什么，React 在它们前面写着「间隔」
+              //（`SyncStatusCard.tsx:83`）。
+              if (s.autoSyncEnabled) TileMeta(t.t('modelInfo.interval')),
               if (s.autoSyncEnabled)
                 for (final secs in kSyncIntervalOptions)
                   SmallButton(

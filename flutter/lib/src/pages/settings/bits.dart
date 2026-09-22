@@ -514,9 +514,13 @@ class InfoRow extends StatelessWidget {
 
 /// 常驻错误条（写失败之类，不自动消失）。与 [ToastBar] 的区别是它不带计时器。
 class ErrorNote extends StatelessWidget {
-  const ErrorNote({super.key, required this.text});
+  const ErrorNote({super.key, required this.text, this.action});
 
   final String text;
+
+  /// 右侧的补救动作（如代理起不来时的「重试」）。报了错却没有出口，
+  /// 用户只能去别处找按钮（`ProxyStatusSection.tsx:97-99`）。
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -534,7 +538,20 @@ class ErrorNote extends StatelessWidget {
           border: Border.all(color: theme.c.bad),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
-        child: Text(text, style: AidogType.micro.copyWith(color: theme.c.bad)),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text,
+                style: AidogType.micro.copyWith(color: theme.c.bad),
+              ),
+            ),
+            if (action != null) ...[
+              const SizedBox(width: AidogSpace.ssm),
+              action!,
+            ],
+          ],
+        ),
       ),
     );
   }

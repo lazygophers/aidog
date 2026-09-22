@@ -765,7 +765,10 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         // 候选为空时 ChoiceRow 整行什么都不画，这里给一句空态。
         if (scope == 'group' || kPopoverGroupTypes.contains(ty))
           _c.groups.isEmpty
-              ? _ScopeEmptyNote(label: t.t('popover.trendScopeGroup'))
+              ? _ScopeEmptyNote(
+                  label: t.t('popover.trendScopeGroup'),
+                  emptyText: t.t('popover.trendNoGroup'),
+                )
               : SelectRow(
                   key: const ValueKey('popover-scope-group'),
                   label: t.t('popover.trendScopeGroup'),
@@ -782,7 +785,10 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                 ),
         if (scope == 'platform' || ty == 'platform_metric')
           _c.platforms.isEmpty
-              ? _ScopeEmptyNote(label: t.t('popover.trendScopePlatform'))
+              ? _ScopeEmptyNote(
+                  label: t.t('popover.trendScopePlatform'),
+                  emptyText: t.t('popover.trendNoPlatform'),
+                )
               : SelectRow(
                   key: const ValueKey('popover-scope-platform'),
                   label: t.t('popover.trendScopePlatform'),
@@ -971,7 +977,7 @@ class _HexFieldState extends State<_HexField> {
       style: AidogType.micro.copyWith(color: theme.c.fg),
       decoration: InputDecoration(
         isDense: true,
-        hintText: 'RRGGBB',
+        hintText: AidogI18n.of(context).t('popover.colorHex'),
         hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AidogSpace.sxs,
@@ -1004,13 +1010,16 @@ extension _FirstOrNull<T> on Iterable<T> {
 /// 分组 / 平台候选为空时的一行说明。原先候选为空整行什么都不画，
 /// 用户只看到一张配好了「按分组」却挑不了分组的卡。
 class _ScopeEmptyNote extends StatelessWidget {
-  const _ScopeEmptyNote({required this.label});
+  const _ScopeEmptyNote({required this.label, required this.emptyText});
 
   final String label;
 
+  /// 「一个都没有」的说法按维度分开：无分组 / 无平台。原先两边都写「没有匹配」，
+  /// 那是搜索搜不到的说法，与「你还没有平台」不是一回事（`ScopeConfig.tsx:91,110`）。
+  final String emptyText;
+
   @override
   Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
       child: Column(
@@ -1019,7 +1028,7 @@ class _ScopeEmptyNote extends StatelessWidget {
         children: [
           TileMeta(label),
           Text(
-            t.t('stats.noMatch'),
+            emptyText,
             style: AidogType.micro.copyWith(
               color: AidogTheme.of(context).c.fg3,
             ),

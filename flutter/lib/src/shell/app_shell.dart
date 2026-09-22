@@ -177,7 +177,7 @@ class AppShell extends StatefulWidget {
     required this.theme,
     required this.pageBuilder,
     this.t = _identity,
-    this.appTitle = 'aidog',
+    this.appTitle = '',
     this.status,
     this.live = false,
     this.localeLabel = '',
@@ -189,6 +189,9 @@ class AppShell extends StatefulWidget {
   final ThemeController theme;
   final Widget Function(BuildContext context, String activeId) pageBuilder;
   final String Function(String key) t;
+
+  /// 标题栏上的应用名。留空 = 取文案里的 `app.title`（八种语言都是 `AiDog`，
+  /// 与 React 侧栏同一句）。原先写死小写 `aidog`，与产品名不一致。
   final String appTitle;
   final String? status;
   final bool live;
@@ -282,7 +285,9 @@ class _AppShellState extends State<AppShell> {
               child: Column(
                 children: [
                   Titlebar(
-                    title: widget.appTitle,
+                    title: widget.appTitle.isEmpty
+                        ? widget.t('app.title')
+                        : widget.appTitle,
                     status: widget.status,
                     live: widget.live,
                   ),
