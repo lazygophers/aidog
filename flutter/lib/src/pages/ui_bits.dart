@@ -24,6 +24,7 @@ class SmallButton extends StatelessWidget {
     this.danger = false,
     this.active = false,
     this.ghost = false,
+    this.pill = false,
   });
 
   final String label;
@@ -36,6 +37,10 @@ class SmallButton extends StatelessWidget {
   /// 弱化样式：去掉描边、文字用 fg3。对齐 React 的 `<Button variant="ghost">`，
   /// 用在「排在主动作旁边、但不该抢视线」的次要动作上（如清理失效平台）。
   final bool ghost;
+
+  /// 胶囊形（圆角 999）+ 选中时描边也换成 accent。用在「一排里挑几个」的多选
+  /// 标签上（分组归属），对齐 `formSections.tsx:1083-1102` 的 pill。
+  final bool pill;
 
   bool get enabled => onTap != null;
 
@@ -51,15 +56,23 @@ class SmallButton extends StatelessWidget {
         : ghost
         ? theme.c.fg3
         : theme.c.fg2;
+    final radius = BorderRadius.circular(pill ? 999 : AidogRadius.sm);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      borderRadius: radius,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: EdgeInsets.symmetric(
+          horizontal: pill ? 12 : 10,
+          vertical: pill ? 4 : 5,
+        ),
         decoration: BoxDecoration(
           color: active ? theme.c.accentWash : null,
-          border: ghost ? null : Border.all(color: theme.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          border: ghost
+              ? null
+              : Border.all(
+                  color: pill && active ? theme.c.accent : theme.c.line,
+                ),
+          borderRadius: radius,
         ),
         child: Text(label, style: AidogType.micro.copyWith(color: fg)),
       ),

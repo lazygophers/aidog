@@ -93,7 +93,12 @@ class PlatformField extends StatefulWidget {
     this.enabled = true,
     this.mono = false,
     this.focusNode,
+    this.numeric = false,
   });
+
+  /// 数字输入：弹数字键盘，与 React 的 `<Input type="number">` 同口径。
+  /// 值仍是字符串（调用方自己 clamp），只影响输入法。
+  final bool numeric;
 
   /// 调用方要监听聚焦时传（模型单元格靠它做「聚焦即弹候选」）。
   final FocusNode? focusNode;
@@ -146,6 +151,9 @@ class _PlatformFieldState extends State<PlatformField> {
       controller: _ctrl,
       focusNode: widget.focusNode,
       enabled: on,
+      keyboardType: widget.numeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
       maxLines: widget.obscure ? 1 : widget.maxLines,
       obscureText: widget.obscure,
       style: style,
@@ -721,4 +729,100 @@ class _DateTimeFieldState extends State<DateTimeField> {
       ],
     );
   }
+}
+
+/// 数字输入 + 上下步进。对齐 React 的 `<Input type="number" min max step>`
+/// （`formSections.tsx:570-588,813-860`）：Flutter 没有原生 spinner，
+/// 这里自己画两颗箭头，键盘也切成数字键盘。
+///
+/// 值进出都是字符串：空串 = 未填（走继承默认值那条路），调用方照旧自己 clamp。
+class NumberField extends StatelessWidget {
+  const NumberField({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.min,
+    this.max,
+    this.step = 1,
+    this.hint,
+    this.label,
+    this.width,
+  });
+
+  final String value;
+  final ValueChanged<String> onChanged;
+  final num? min;
+  final num? max;
+  final num step;
+  final String? hint;
+  final String? label;
+  final double? width;
+
+  /// 步进一格。空串从 [min]（没有就 0）起步，结果夹在 [min]..[max] 内。
+  void _bump(num delta) {
+    final cur = num.tryParse(value.trim()) ?? min ?? 0;
+    var next = cur + delta;
+    if (min != null && next < min!) next = min!;
+    if (max != null && next > max!) next = max!;
+    final isInt = step is int && next == next.roundToDouble();
+    onChanged(isInt ? '${next.round()}' : '$next');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final field = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Expanded(
+          child: PlatformField(
+            value: value,
+            hint: hint,
+            numeric: true,
+            onChanged: onChanged,
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _Step(
+              icon: Icons.keyboard_arrow_up,
+              color: theme.c.fg3,
+              onTap: () => _bump(step),
+            ),
+            _Step(
+              icon: Icons.keyboard_arrow_down,
+              color: theme.c.fg3,
+              onTap: () => _bump(-step),
+            ),
+          ],
+        ),
+      ],
+    );
+    final sized = width == null ? field : SizedBox(width: width, child: field);
+    if (label == null) return sized;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [TileMeta(label!), sized],
+    );
+  }
+}
+
+class _Step extends StatelessWidget {
+  const _Step({required this.icon, required this.color, required this.onTap});
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: SizedBox(
+      height: 12,
+      width: 16,
+      child: Icon(icon, size: 12, color: color),
+    ),
+  );
 }

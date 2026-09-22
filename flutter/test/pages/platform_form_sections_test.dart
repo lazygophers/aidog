@@ -6,6 +6,7 @@
 library;
 
 import 'package:aidog_flutter/i18n.dart';
+import 'package:aidog_flutter/src/pages/platform_card_bits.dart' show MiniBadge;
 import 'package:aidog_flutter/src/pages/platform_extra.dart';
 import 'package:aidog_flutter/src/pages/platform_form.dart';
 import 'package:aidog_flutter/src/pages/platform_form_bits.dart';
@@ -662,20 +663,21 @@ void main() {
         find.text(t.t('platform.breakerInherit', {'n': 5})),
         findsOneWidget,
       );
+      // 熔断三项现在是「标签左、输入右」，label 不在 PlatformField 上，按 key 定位。
       await tester.enterText(
-        inputOf(fieldWithLabel(t.t('platform.breakerFailureThreshold'))),
+        inputOf(find.byKey(const ValueKey('breaker-failure'))),
         '9',
       );
       await settle(tester);
       expect(f.breakerFailureThreshold, '9');
       await tester.enterText(
-        inputOf(fieldWithLabel(t.t('platform.breakerOpenSecs'))),
+        inputOf(find.byKey(const ValueKey('breaker-open-secs'))),
         '30',
       );
       await settle(tester);
       expect(f.breakerOpenSecs, '30');
       await tester.enterText(
-        inputOf(fieldWithLabel(t.t('platform.breakerHalfOpenMax'))),
+        inputOf(find.byKey(const ValueKey('breaker-half-open-max'))),
         '1',
       );
       await settle(tester);
@@ -1443,6 +1445,132 @@ void main() {
         find.descendant(of: cell, matching: find.text('gpt-5')),
         findsNothing,
       );
+    });
+  });
+
+  // ══ 票 14 第二梯队 · 控件族对齐 ═════════════════════════════════
+
+  group('控件族（React: formSections.tsx）', () {
+    testWidgets('手动预算「启用」是复选框，点文字也切', (tester) async {
+      await boot(tester, edit: true);
+      f.setManualBudgets(const []);
+      await settle(tester);
+      await tester.tap(find.text(t.t('platform.manualBudgetAdd')));
+      await settle(tester);
+      expect(f.manualBudgets.single.enabled, isTrue);
+
+      final row = find.ancestor(
+        of: find.text(t.t('platform.manualBudgetEnabled')),
+        matching: find.byType(InkWell),
+      );
+      expect(
+        find.descendant(of: row.last, matching: find.byType(Checkbox)),
+        findsOneWidget,
+        reason: '高亮按钮换成了真复选框',
+      );
+      await tester.tap(find.text(t.t('platform.manualBudgetEnabled')));
+      await settle(tester);
+      expect(f.manualBudgets.single.enabled, isFalse);
+    });
+
+    testWidgets('「高峰期禁用」是复选框，实时态是徽标不是裸字', (tester) async {
+      await boot(tester, edit: true);
+      final label = find.text(t.t('platform.disable_during_peak'));
+      expect(
+        find.descendant(
+          of: find.ancestor(of: label, matching: find.byType(InkWell)).last,
+          matching: find.byType(Checkbox),
+        ),
+        findsOneWidget,
+      );
+      await tester.tap(label);
+      await settle(tester);
+      expect(f.disableDuringPeak, isTrue);
+      // 开了才有实时态，且它是一枚 MiniBadge。
+      final now = find.byWidgetPredicate(
+        (w) =>
+            w is MiniBadge &&
+            (w.text == t.t('platform.currently_peak') ||
+                w.text == t.t('platform.currently_off_peak')),
+      );
+      expect(now, findsOneWidget);
+    });
+
+    testWidgets('熔断三项：标签左输入右，三行左边缘对齐，输入是数字型', (tester) async {
+      await boot(tester, edit: true);
+      final keys = [
+        'breaker-failure',
+        'breaker-open-secs',
+        'breaker-half-open-max',
+      ];
+      final xs = <double>[];
+      for (final key in keys) {
+        final field = find.byKey(ValueKey(key));
+        expect(field, findsOneWidget);
+        xs.add(tester.getTopLeft(field).dx);
+        final input = tester.widget<TextField>(inputOf(field));
+        expect(input.keyboardType, isNot(TextInputType.text));
+      }
+      expect(xs.toSet(), hasLength(1), reason: '三行输入框左边缘要对齐');
+      // 标签在输入左边，不在上面。
+      final labelY = tester
+          .getCenter(find.text(t.t('platform.breakerFailureThreshold')))
+          .dy;
+      final fieldY = tester
+          .getCenter(find.byKey(const ValueKey('breaker-failure')))
+          .dy;
+      expect((labelY - fieldY).abs(), lessThan(12));
+    });
+
+    testWidgets('高峰窗口的时 / 分 / 倍率带步进，点一下加一格且夹在范围内', (tester) async {
+      await boot(tester, edit: true);
+      await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
+      await settle(tester);
+      // 时 / 分要过时区换算（本地 ↔ UTC），拿倍率这一格验步进本身：
+      // 它直进直出，没有换算掺进来。熔断那几项也有步进，所以按 key 定位。
+      final mul = find.byKey(const ValueKey('peak-0-multiplier'));
+      Finder arrow(IconData icon) =>
+          find.descendant(of: mul, matching: find.byIcon(icon));
+      expect(f.peak.single.multiplier, 1.0);
+      await tester.tap(arrow(Icons.keyboard_arrow_up));
+      await settle(tester);
+      expect(f.peak.single.multiplier, closeTo(1.1, 1e-9));
+
+      // 一路往下点：到 0 就被 min 夹住，不会变成负数。
+      for (var i = 0; i < 15; i++) {
+        await tester.tap(arrow(Icons.keyboard_arrow_down));
+        await settle(tester);
+      }
+      expect(f.peak.single.multiplier, 0);
+
+      // 时 / 分也是数字输入（弹数字键盘，不是纯文本框）。
+      final hour = inputOf(find.byKey(const ValueKey('peak-0-start-hour')));
+      expect(tester.widget<TextField>(hour).keyboardType, isNot(TextInputType.text));
+    });
+
+    testWidgets('分组归属是胶囊形', (tester) async {
+      await boot(
+        tester,
+        edit: true,
+        fake: formFake(
+          groups: [
+            {
+              'group': {
+                'id': 1,
+                'name': 'G1',
+                'group_key': 'g1',
+                'auto_from_platform': '',
+              },
+              'platforms': <Object?>[],
+            },
+          ],
+        ),
+      );
+      final pill = tester
+          .widgetList<SmallButton>(find.byType(SmallButton))
+          .where((b) => b.pill)
+          .toList();
+      expect(pill, isNotEmpty, reason: '分组标签走 pill 形态');
     });
   });
 }
