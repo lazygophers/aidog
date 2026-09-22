@@ -494,6 +494,15 @@ class GroupsController {
   /// 清理失效平台：先拉预览清单给用户看，确认后才真删。
   ({int? groupId, List<Map<String, Object?>> candidates})? purgeTarget;
 
+  /// 预览拉取中 / 执行中。两段都要在弹窗上看得到
+  /// （`GroupListItem.tsx:568-570,596-604`）：拉取时写 `status.loading`，
+  /// 执行时确认按钮换文案、取消一并禁掉，完成或失败才关。
+  bool purgePreviewLoading = false;
+  bool purging = false;
+
+  /// 拉预览时的目标组（弹窗此刻还没有 `purgeTarget`，标题得知道清的是哪个组）。
+  int? purgePreviewGroupId;
+
   GroupTestState? groupTest;
 
   /// 折叠的组 id（默认全展开，`Groups.tsx:125`）。
@@ -1448,6 +1457,10 @@ class GroupsController {
   /// 先只读预览会被处理的候选（`GroupListItem.tsx:149`），给用户看清单再确认。
   /// [groupId] 为空 = 全局清理；非空 = 只清这个组。
   Future<void> askPurgeDisabled(int? groupId) async {
+    purgeTarget = null;
+    purgePreviewLoading = true;
+    purgePreviewGroupId = groupId;
+    _notify();
     try {
       final v = await _invoke('platform_purge_disabled_preview', {
         'groupId': groupId,
@@ -1459,15 +1472,17 @@ class GroupsController {
             (e as Map).cast<String, Object?>(),
         ],
       );
-      _notify();
     } catch (_) {
       purgeTarget = (groupId: groupId, candidates: const []);
-      _notify();
     }
+    purgePreviewLoading = false;
+    _notify();
   }
 
   void cancelPurgeDisabled() {
+    if (purging) return;
     purgeTarget = null;
+    purgePreviewLoading = false;
     _notify();
   }
 
@@ -1480,7 +1495,7 @@ class GroupsController {
   }) async {
     final t = purgeTarget;
     if (t == null) return;
-    purgeTarget = null;
+    purging = true;
     _notify();
     try {
       final v = await _invoke('platform_purge_disabled', {'groupId': t.groupId});
@@ -1498,6 +1513,10 @@ class GroupsController {
       await silentReload();
     } catch (e) {
       _toast('$failText: $e', ok: false);
+    } finally {
+      purging = false;
+      purgeTarget = null;
+      _notify();
     }
   }
 

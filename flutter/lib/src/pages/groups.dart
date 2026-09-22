@@ -11,6 +11,7 @@ library;
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -189,6 +190,16 @@ class _GroupListView extends StatelessWidget {
         Row(
           children: [
             TileMeta(t.t('page.groups')),
+            // 分组计数（`GroupListView.tsx:163-167`）：有组才显，没有组时那行留白。
+            if (c.details.isNotEmpty) ...[
+              const SizedBox(width: AidogSpace.ssm),
+              Text(
+                '${c.details.length} ${t.t('nav.groups')}',
+                style: AidogType.micro.copyWith(
+                  color: AidogTheme.of(context).c.fg3,
+                ),
+              ),
+            ],
             const Spacer(),
             Flexible(
               child: Text(
@@ -271,6 +282,13 @@ class _GroupListView extends StatelessWidget {
             child: CenteredNote(text: t.t('status.loading')),
           )
         else if (c.hasMore)
+          // 🔴 这里**没有**做 React 的触底自动加载（`GroupListView.tsx:277-285`
+          // 的 `IntersectionObserver`）。试过了：只要在滚动 / 布局那一趟里把第二页
+          // 追加进这个 `ReorderableListView(shrinkWrap: true)`，框架就抛
+          // `!childSemantics.renderObject._needsLayout`（断言自己写着「请去
+          // flutter 仓库提 issue」）。推到帧末、推到下一个事件循环都一样。
+          // 手点这颗按钮时用户已经停止滚动，同样的追加就不触发。
+          // 要做自动加载得先把这个列表换掉（sliver + 自管拖拽），不是一行的事。
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: Align(
@@ -341,24 +359,30 @@ class _GroupListView extends StatelessWidget {
           _BatchOverrideModelsCard(controller: c),
         if (c.batchSetStatusTarget != null) _BatchSetStatusCard(controller: c),
         if (c.batchMoveGroupTarget != null) _BatchMoveGroupCard(controller: c),
-        if (c.purgeTarget != null)
+        if (c.purgeTarget != null || c.purgePreviewLoading)
           ConfirmCard(
             title: t.t('group.purgeDisabled'),
-            body: c.purgeTarget!.candidates.isEmpty
+            body: c.purgePreviewLoading
+                ? t.t('status.loading')
+                : c.purgeTarget!.candidates.isEmpty
                 ? t.t('platform.purgeDisabledNone')
                 : t.t('group.purgeDisabledConfirm', {
                     'count': '${c.purgeTarget!.candidates.length}',
                   }),
-            confirmLabel: t.t('action.confirm'),
+            // 执行中：按钮文案换「处理中…」，两颗按钮都禁掉，弹窗留在原地
+            //（`GroupListItem.tsx:596-604`）。
+            confirmLabel: c.purging
+                ? t.t('status.loading')
+                : t.t('action.confirm'),
+            busy: c.purging,
             // 不可逆删除之前要看得见删的是谁（`GroupListItem.tsx:566-598`）：
             // 按 action 分「将永久删除」/「将移出本分组」两段，每行平台名 + 失效原因。
             // 名字和 action 本来就在 `purgeTarget.candidates` 里，之前只渲染了个数量。
-            extra: c.purgeTarget!.candidates.isEmpty
+            extra: c.purgePreviewLoading || c.purgeTarget!.candidates.isEmpty
                 ? null
-                : _PurgeCandidateList(
-                    candidates: c.purgeTarget!.candidates,
-                  ),
-            onConfirm: c.purgeTarget!.candidates.isEmpty
+                : _PurgeCandidateList(candidates: c.purgeTarget!.candidates),
+            onConfirm:
+                c.purgePreviewLoading || c.purgeTarget!.candidates.isEmpty
                 ? null
                 : () => c.confirmPurgeDisabled(
                     noneText: t.t('platform.purgeDisabledNone'),
@@ -508,6 +532,10 @@ class _GroupCard extends StatelessWidget {
     final stats = c.groupStats[g.groupKey];
     final balance = c.groupBalance[g.id];
     final selecting = c.isBatchSelecting(g.id);
+    // 多选态强制展开（`GroupListItem.tsx:357-359` 的
+    // `expanded = forceExpanded || isExpanded || mode === "select"`）：
+    // 折叠着进多选，要选的平台一个都看不到。
+    final folded = collapsed && !selecting;
     return Tile(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -521,11 +549,14 @@ class _GroupCard extends StatelessWidget {
                 iconSize: 16,
                 color: theme.c.fg3,
                 tooltip: t.t('group.toggleDetails'),
-                icon: Icon(collapsed ? Icons.chevron_right : Icons.expand_more),
-                onPressed: () {
-                  final next = c.toggleGroupCollapsed(g.id);
-                  c.persistGroupCollapsed(g.id, next);
-                },
+                icon: Icon(folded ? Icons.chevron_right : Icons.expand_more),
+                // 多选时不许折叠（React 同处：`mode === "select"` 压过展开态）。
+                onPressed: selecting
+                    ? null
+                    : () {
+                        final next = c.toggleGroupCollapsed(g.id);
+                        c.persistGroupCollapsed(g.id, next);
+                      },
               ),
               const SizedBox(width: AidogSpace.sxs),
               // 分组排序拖拽把手（`Groups.tsx:186-195` 的 drag-handle）。
@@ -542,80 +573,144 @@ class _GroupCard extends StatelessWidget {
               // 组图标（`GroupListItem.tsx:197`）：单平台组跟随该平台 logo。
               GroupIcon(detail: detail),
               const SizedBox(width: AidogSpace.ssm),
+              // 点组名区域整块切换展开（`GroupListItem.tsx:199-201`）：
+              // 原先只有最左那颗 chevron 能切，点名字没反应。
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
-                      children: [
-                        Flexible(
-                          child: Text(
-                            g.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AidogType.body.copyWith(color: theme.c.fg),
-                          ),
-                        ),
-                        if (g.isDefault)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: AidogSpace.sxs,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: selecting
+                      ? null
+                      : () {
+                          final next = c.toggleGroupCollapsed(g.id);
+                          c.persistGroupCollapsed(g.id, next);
+                        },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              g.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AidogType.body.copyWith(color: theme.c.fg),
                             ),
-                            child: Tooltip(
-                              message: t.t('group.isDefaultTitle'),
-                              child: Text(
-                                t.t('group.isDefault'),
-                                style: AidogType.micro.copyWith(
-                                  color: theme.c.accentText,
+                          ),
+                          if (g.isDefault)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: AidogSpace.sxs,
+                              ),
+                              // 实心徽标（`GroupListItem.tsx:207-209`）：
+                              // 「哪个是默认组」要一眼认出来，裸字混在组名旁边看不见。
+                              child: Tooltip(
+                                message: t.t('group.isDefaultTitle'),
+                                child: MiniBadge(
+                                  text: t.t('group.isDefault'),
+                                  color: theme.c.accent,
+                                  solid: true,
                                 ),
                               ),
                             ),
-                          ),
-                        // 自动建组的 `auto` 徽标（`GroupListItem.tsx:210-212`）。
-                        // 没有它就看不出这个组是跟着某个平台自动生成的，
-                        // 而下面的删除按钮守卫正是按这个条件走。
-                        if (g.autoFromPlatform.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: AidogSpace.sxs,
+                          // 自动建组的 `auto` 徽标（`GroupListItem.tsx:210-212`）。
+                          // 没有它就看不出这个组是跟着某个平台自动生成的，
+                          // 而下面的删除按钮守卫正是按这个条件走。
+                          if (g.autoFromPlatform.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                left: AidogSpace.sxs,
+                              ),
+                              child: MiniBadge(
+                                text: 'auto',
+                                color: theme.c.fg3,
+                              ),
                             ),
-                            child: MiniBadge(
-                              text: 'auto',
-                              color: theme.c.fg3,
-                            ),
-                          ),
-                      ],
-                    ),
-                    // 🔴 副标题里**不印 group_key**：它就是这个分组的 API Key，
-                    // 印在列表上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
-                    // React 只把它放在复制按钮和编辑页里（`GroupListItem.tsx:224-235`）。
-                    // 这里照 React 的副标题来：路由模式 badge + 「N 平台」。
-                    Row(
-                      children: [
-                        MiniBadge(
-                          text: routingLabel(t, g.routingMode),
-                          color: theme.c.fg3,
-                        ),
-                        if (detail.platforms.isNotEmpty) ...[
-                          const SizedBox(width: AidogSpace.sxs),
-                          Text(
-                            '${detail.platforms.length} ${t.t('group.platforms')}',
-                            style: AidogType.micro.copyWith(color: theme.c.fg3),
-                          ),
                         ],
-                      ],
-                    ),
-                  ],
+                      ),
+                      // 🔴 副标题里**不印 group_key**：它就是这个分组的 API Key，
+                      // 印在列表上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
+                      // React 只把它放在复制按钮和编辑页里（`GroupListItem.tsx:224-235`）。
+                      // 这里照 React 的副标题来：路由模式 badge + 「N 平台」。
+                      Row(
+                        children: [
+                          MiniBadge(
+                            text: routingLabel(t, g.routingMode),
+                            color: theme.c.fg3,
+                          ),
+                          if (detail.platforms.isNotEmpty) ...[
+                            const SizedBox(width: AidogSpace.sxs),
+                            Text(
+                              '${detail.platforms.length} ${t.t('group.platforms')}',
+                              style: AidogType.micro.copyWith(
+                                color: theme.c.fg3,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
+              // 快捷操作全在标题行右侧一排（`GroupListItem.tsx:236-315`）：
+              // 哪几颗是图标、哪几颗留文字，逐颗对齐 React —— 原先拆成上下两行，
+              // 一张卡的头部占两倍高。文案 key 全部进了 tooltip，一个都没删。
               Wrap(
                 spacing: AidogSpace.sxs,
+                runSpacing: AidogSpace.sxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  SmallButton(
-                    label: t.t('group.testAll'),
-                    onTap: () => c.testGroup(g, detail.platforms),
+                  _CopyCommandMenu(
+                    group: g,
+                    proxyEnvVars: c.proxyEnvVars,
+                    copyText: copyText,
                   ),
+                  if (onNavigate != null)
+                    _GroupIconAction(
+                      icon: Icons.bar_chart,
+                      tooltip: t.t('group.viewStats'),
+                      // 带上 group_key 预筛统计页（React `GroupListItem.tsx:236`
+                      // 传的是 `{ groupId, groupKey }`；统计页只读 groupKey，
+                      // 见 `Stats.tsx:255`，所以这里只传它）。
+                      onTap: () =>
+                          onNavigate!.call('stats', groupKey: g.groupKey),
+                    ),
+                  // 禁用条件（`GroupListItem.tsx:241`）：组内一个启用平台都没有，
+                  // 或者已经有一轮测试在跑。原先空组也能点、还能重复并发触发。
+                  _GroupIconAction(
+                    icon: Icons.bolt,
+                    tooltip: t.t('group.testAll'),
+                    onTap:
+                        (c.groupTest != null ||
+                            !detail.platforms.any(
+                              (gp) => gp.platform.status == 'enabled',
+                            ))
+                        ? null
+                        : () => c.testGroup(g, detail.platforms),
+                  ),
+                  if (onCreatePlatform != null)
+                    _GroupIconAction(
+                      icon: Icons.add,
+                      tooltip: t.t('group.addPlatformToGroup'),
+                      onTap: () => onCreatePlatform!.call(
+                        presetGroupIds: [g.id],
+                        lockGid: g.id,
+                      ),
+                    ),
+                  SmallButton(
+                    label: t.t('group.purgeDisabled'),
+                    onTap: () => c.askPurgeDisabled(g.id),
+                  ),
+                  if (detail.platforms.isNotEmpty)
+                    SmallButton(
+                      label: t.t('group.batchOps'),
+                      active: selecting,
+                      onTap: () => selecting
+                          ? c.exitBatchSelect(g.id)
+                          : c.enterBatchSelect(g.id),
+                    ),
                   Tooltip(
                     message: g.isDefault
                         ? t.t('group.unsetDefault')
@@ -631,16 +726,18 @@ class _GroupCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  SmallButton(
-                    label: t.t('action.edit'),
+                  _GroupIconAction(
+                    icon: Icons.edit_outlined,
+                    tooltip: t.t('action.edit'),
                     onTap: () => c.openEdit(detail),
                   ),
                   // 自动建组只要还有平台就不给删除按钮
                   //（`GroupListItem.tsx:309` 的 `!auto_from_platform || gps.length === 0`）：
                   // 它是跟着平台自动生成的，删了下次还会再建出来。
                   if (g.autoFromPlatform.isEmpty || detail.platforms.isEmpty)
-                    SmallButton(
-                      label: t.t('action.delete'),
+                    _GroupIconAction(
+                      icon: Icons.delete_outline,
+                      tooltip: t.t('action.delete'),
                       danger: true,
                       onTap: () => c.askDeleteGroup(g.id),
                     ),
@@ -698,48 +795,7 @@ class _GroupCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: AidogSpace.sxs),
-          // 行 1.5：复制启动命令 / 查看统计 / 分组内添加平台 / 清理失效 / 多选。
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              _CopyCommandMenu(
-                group: g,
-                proxyEnvVars: c.proxyEnvVars,
-                copyText: copyText,
-              ),
-              if (onNavigate != null)
-                SmallButton(
-                  label: t.t('group.viewStats'),
-                  // 带上 group_key 预筛统计页（React `GroupListItem.tsx:236`
-                  // 传的是 `{ groupId, groupKey }`；统计页只读 groupKey，
-                  // 见 `Stats.tsx:255`，所以这里只传它）。
-                  onTap: () => onNavigate!.call('stats', groupKey: g.groupKey),
-                ),
-              if (onCreatePlatform != null)
-                SmallButton(
-                  label: t.t('group.addPlatformToGroup'),
-                  onTap: () => onCreatePlatform!.call(
-                    presetGroupIds: [g.id],
-                    lockGid: g.id,
-                  ),
-                ),
-              SmallButton(
-                label: t.t('group.purgeDisabled'),
-                onTap: () => c.askPurgeDisabled(g.id),
-              ),
-              if (detail.platforms.isNotEmpty)
-                SmallButton(
-                  label: t.t('group.batchOps'),
-                  active: selecting,
-                  onTap: () => selecting
-                      ? c.exitBatchSelect(g.id)
-                      : c.enterBatchSelect(g.id),
-                ),
-            ],
-          ),
-          if (!collapsed) ...[
+          if (!folded) ...[
             const SizedBox(height: AidogSpace.ssm),
             if (selecting)
               _BatchToolbar(
@@ -810,14 +866,37 @@ class _CopyCommandMenu extends StatelessWidget {
         };
         copyText(text);
       },
+      // 四项各带图标（`GroupListItem.tsx:230-233`）：三颗用的就是 React 那三份
+      // 同名 svg（`assets/platforms/` 是两侧共用的真值源），密钥那项用钥匙图标。
       itemBuilder: (context) => [
-        PopupMenuItem(value: 'key', child: Text(t.t('group.menuCopyKey'))),
+        PopupMenuItem(
+          value: 'key',
+          child: _CopyMenuRow(
+            icon: const Icon(Icons.key, size: 14),
+            label: t.t('group.menuCopyKey'),
+          ),
+        ),
         PopupMenuItem(
           value: 'claude',
-          child: Text(t.t('group.menuCopyClaude')),
+          child: _CopyMenuRow(
+            icon: _logoIcon('claude_code'),
+            label: t.t('group.menuCopyClaude'),
+          ),
         ),
-        PopupMenuItem(value: 'codex', child: Text(t.t('group.menuCopyCodex'))),
-        PopupMenuItem(value: 'pi', child: Text(t.t('group.menuCopyPi'))),
+        PopupMenuItem(
+          value: 'codex',
+          child: _CopyMenuRow(
+            icon: _logoIcon('openai'),
+            label: t.t('group.menuCopyCodex'),
+          ),
+        ),
+        PopupMenuItem(
+          value: 'pi',
+          child: _CopyMenuRow(
+            icon: _logoIcon('pi'),
+            label: t.t('group.menuCopyPi'),
+          ),
+        ),
       ],
       child: IgnorePointer(child: SmallButton(label: t.t('group.copyCommand'))),
     );
@@ -1120,14 +1199,48 @@ class _MappingsSection extends StatelessWidget {
       children: [
         if (detail.modelMappings.isNotEmpty)
           for (var i = 0; i < detail.modelMappings.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+            // 每条映射是一张小卡：玻璃底 + 描边，源模型 accent 高亮，中间一个箭头
+            //（`GroupListItem.tsx:478-497`）。原先是一行裸字 `源 → 目标`，
+            // 连行与行的边界都看不出来。
+            Container(
+              margin: const EdgeInsets.only(bottom: 3),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.ssm,
+                vertical: 3,
+              ),
+              decoration: BoxDecoration(
+                color: theme.c.surface2,
+                border: Border.all(color: theme.c.line),
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+              ),
               child: Row(
                 children: [
+                  Flexible(
+                    child: Text(
+                      detail.modelMappings[i].sourceModel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.micro.copyWith(
+                        color: theme.c.accentText,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AidogSpace.sxs,
+                    ),
+                    child: Icon(
+                      Icons.arrow_forward,
+                      size: 12,
+                      color: theme.c.fg3,
+                    ),
+                  ),
                   Expanded(
                     child: Text(
-                      '${detail.modelMappings[i].sourceModel} → '
-                      '${detail.modelMappings[i].targetModel}',
+                      detail.modelMappings[i].targetModel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: AidogType.micro.copyWith(color: theme.c.fg2),
                     ),
                   ),
@@ -1420,13 +1533,15 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
             spacing: AidogSpace.sxs,
             children: [
               for (final s in const ['manual', 'preset', 'copy'])
-                SmallButton(
+                // radio 组（`BatchOverrideModelsModal.tsx`）：三选一是互斥语义，
+                // 一排高亮按钮看不出「只能选一个」。
+                _RadioChoice(
                   label: switch (s) {
                     'manual' => t.t('group.batchOverrideSourceManual'),
                     'preset' => t.t('group.batchOverrideSourcePreset'),
                     _ => t.t('group.batchOverrideSourceCopy'),
                   },
-                  active: _source == s,
+                  selected: _source == s,
                   onTap: () => _setSource(s),
                 ),
             ],
@@ -1588,11 +1703,12 @@ class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
             spacing: AidogSpace.sxs,
             children: [
               for (final s in const ['disabled', 'enabled'])
-                SmallButton(
+                // 同上（`BatchSetStatusModal.tsx`）。
+                _RadioChoice(
                   label: s == 'enabled'
                       ? t.t('group.batchSetStatusEnabled')
                       : t.t('group.batchSetStatusDisabled'),
-                  active: _status == s,
+                  selected: _status == s,
                   onTap: () => setState(() => _status = s),
                 ),
             ],
@@ -1708,11 +1824,12 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
             spacing: AidogSpace.sxs,
             children: [
               for (final m in const ['move', 'add'])
-                SmallButton(
+                // 同上（`BatchMoveGroupModal.tsx`）。
+                _RadioChoice(
                   label: m == 'move'
                       ? t.t('group.batchMoveGroupModeMove')
                       : t.t('group.batchMoveGroupModeAdd'),
-                  active: _mode == m,
+                  selected: _mode == m,
                   onTap: () => setState(() => _mode = m),
                 ),
             ],
@@ -2058,12 +2175,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
     final e = c.edit;
     final g = e.target!.group;
     final envVars = [...e.envVars, ...c.proxyEnvVars];
-    final hasReserved = e.envVars.any(
-      (ev) =>
-          ev.key == 'ANTHROPIC_BASE_URL' ||
-          ev.key == 'ANTHROPIC_AUTH_TOKEN' ||
-          ev.key == 'AIDOG_KEY',
-    );
+    final hasReserved = e.envVars.any((ev) => kReservedEnvKeys.contains(ev.key));
     return Tile(
       title: t.t('group.edit'),
       meta: g.groupKey,
@@ -2076,35 +2188,34 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             spacing: AidogSpace.sxs,
             runSpacing: AidogSpace.sxs,
             children: [
-              Tooltip(
-                message: t.t('group.copyApiKeyTitle'),
-                child: SmallButton(
-                  label: t.t('group.apiKey'),
-                  onTap: () => widget.copyText(g.groupKey),
-                ),
+              // 三颗命令按钮用的就是 React 那三份同名 svg，且点完给「已复制」反馈
+              //（`GroupEditPanel.tsx:63-66` 的 CopyButton）。
+              _CopyChip(
+                tooltip: t.t('group.copyApiKeyTitle'),
+                label: t.t('group.apiKey'),
+                copyText: widget.copyText,
+                textOf: () => g.groupKey,
               ),
-              Tooltip(
-                message: t.t('group.copyCommand'),
-                child: SmallButton(
-                  label: 'Claude',
-                  onTap: () => widget.copyText(buildClaudeCommand(g.groupKey)),
-                ),
+              _CopyChip(
+                tooltip: t.t('group.copyCommand'),
+                label: 'Claude',
+                icon: _logoIcon('claude_code'),
+                copyText: widget.copyText,
+                textOf: () => buildClaudeCommand(g.groupKey),
               ),
-              Tooltip(
-                message: t.t('group.copyCodexCommand'),
-                child: SmallButton(
-                  label: 'Codex',
-                  onTap: () =>
-                      widget.copyText(buildCodexCommand(g.groupKey, envVars)),
-                ),
+              _CopyChip(
+                tooltip: t.t('group.copyCodexCommand'),
+                label: 'Codex',
+                icon: _logoIcon('openai'),
+                copyText: widget.copyText,
+                textOf: () => buildCodexCommand(g.groupKey, envVars),
               ),
-              Tooltip(
-                message: t.t('group.copyPiCommand'),
-                child: SmallButton(
-                  label: 'pi',
-                  onTap: () =>
-                      widget.copyText(buildPiCommand(g.groupKey, envVars)),
-                ),
+              _CopyChip(
+                tooltip: t.t('group.copyPiCommand'),
+                label: 'pi',
+                icon: _logoIcon('pi'),
+                copyText: widget.copyText,
+                textOf: () => buildPiCommand(g.groupKey, envVars),
               ),
             ],
           ),
@@ -2118,7 +2229,27 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           ),
           // 分组密钥：创建后锁定不可改（只读展示 + 说明）。
           TileMeta(t.t('group.groupKey')),
-          Text(g.groupKey, style: AidogType.micro.copyWith(color: theme.c.fg2)),
+          // 密钥旁边就要有复制（`GroupEditPanel.tsx:85-90`）：
+          // 只读一行字没法选，之前得滚回页头那颗 API Key 按钮。
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  g.groupKey,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.micro.copyWith(color: theme.c.fg2),
+                ),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              _CopyChip(
+                tooltip: t.t('group.copyApiKeyTitle'),
+                label: t.t('action.copy'),
+                copyText: widget.copyText,
+                textOf: () => g.groupKey,
+              ),
+            ],
+          ),
           Text(
             t.t('group.groupKeyLocked'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -2126,16 +2257,20 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           const SizedBox(height: AidogSpace.ssm),
           TileMeta(t.t('group.routingMode')),
           const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            children: [
-              for (final m in kRoutingModes)
-                SmallButton(
-                  label: routingLabel(t, m),
-                  active: e.mode == m,
-                  onTap: () => c.patchEdit(e.patch(mode: m)),
-                ),
-            ],
+          // 下拉而不是一排互斥按钮（`GroupEditPanel.tsx:97-106`）：
+          // 平铺会把选项全堆在表单里，当前选的是哪个反而要扫一遍才看出来。
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: e.mode,
+              items: [
+                for (final m in kRoutingModes)
+                  DropdownMenuItem(value: m, child: Text(routingLabel(t, m))),
+              ],
+              onChanged: (v) {
+                if (v != null) c.patchEdit(e.patch(mode: v));
+              },
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.sxs),
@@ -2148,20 +2283,24 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           // pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集）。
           TileMeta(t.t('group.piApiLabel')),
           const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              for (final api in kPiApis)
-                SmallButton(
-                  label: piApiLabel(t.t, api),
-                  active: _piApi == api,
-                  onTap: () {
-                    setState(() => _piApi = api);
-                    unawaited(c.setGroupPiApi(g.id, api));
-                  },
-                ),
-            ],
+          // 同上（`GroupEditPanel.tsx:115-122`）。
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              isExpanded: true,
+              value: _piApi,
+              items: [
+                for (final api in kPiApis)
+                  DropdownMenuItem(
+                    value: api,
+                    child: Text(piApiLabel(t.t, api)),
+                  ),
+              ],
+              onChanged: (v) {
+                if (v == null) return;
+                setState(() => _piApi = v);
+                unawaited(c.setGroupPiApi(g.id, v));
+              },
+            ),
           ),
           Text(
             t.t('group.piApiHint'),
@@ -2171,6 +2310,9 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           _NumField(
             label: t.t('group.maxRetries'),
             value: e.maxRetries,
+            // 上限 10（`GroupEditPanel.tsx:145-148` 的 `max={10}`）：
+            // 没有上限时填个 999 会让一次失败重试到天荒地老。
+            max: 10,
             onChanged: (v) => c.patchEdit(e.patch(maxRetries: v)),
           ),
           Text(
@@ -2197,9 +2339,19 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           if (g.autoFromPlatform.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.sxs),
-              child: Text(
-                t.t('group.autoFromPlatform'),
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              // 说明前挂一枚 auto 徽标（`GroupEditPanel.tsx:154-159`），
+              // 与列表卡上的那枚同一个标识。
+              child: Row(
+                children: [
+                  MiniBadge(text: 'auto', color: theme.c.fg3),
+                  const SizedBox(width: AidogSpace.sxs),
+                  Flexible(
+                    child: Text(
+                      t.t('group.autoFromPlatform'),
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    ),
+                  ),
+                ],
               ),
             ),
           const SizedBox(height: AidogSpace.ssm),
@@ -2223,8 +2375,9 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           for (var i = 0; i < e.mappings.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+            // 一行一张小卡（`GroupEditPanel.tsx:189-193`）：裸 Row 只隔 2px，
+            // 三四行挤在一起分不清哪个输入属于哪条映射。
+            _RowCard(
               child: Row(
                 children: [
                   SizedBox(
@@ -2252,7 +2405,13 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                       value: e.mappings[i].targetPlatformId == 0
                           ? null
                           : e.mappings[i].targetPlatformId,
+                      // 0 号占位项 = 清回未选（`GroupEditPanel.tsx:217` 的
+                      // `__none__`）。没有它，选错了只能删掉整行重建。
                       items: [
+                        DropdownMenuItem(
+                          value: 0,
+                          child: Text(t.t('mapping.targetPlatform')),
+                        ),
                         for (final p in c.platforms)
                           if (p.enabled)
                             DropdownMenuItem(value: p.id, child: Text(p.name)),
@@ -2306,7 +2465,12 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                             value: models.contains(e.mappings[i].targetModel)
                                 ? e.mappings[i].targetModel
                                 : null,
+                            // 空串占位项 = 清回未选（`GroupEditPanel.tsx:233`）。
                             items: [
+                              DropdownMenuItem(
+                                value: '',
+                                child: Text(t.t('mapping.target')),
+                              ),
                               for (final m in models)
                                 DropdownMenuItem(value: m, child: Text(m)),
                             ],
@@ -2355,8 +2519,10 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           for (var i = 0; i < e.envVars.length; i++)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 2),
+            // 同上 + 保留字那几行整行描边换 warning 色
+            //（`GroupEditPanel.tsx:270-276`）：底下那句全局红字说不清是哪一行。
+            _RowCard(
+              warn: kReservedEnvKeys.contains(e.envVars[i].key),
               child: Row(
                 children: [
                   SizedBox(
@@ -2512,19 +2678,131 @@ class _NumField extends StatelessWidget {
     required this.label,
     required this.value,
     required this.onChanged,
+    this.max,
   });
 
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
 
+  /// 上限（对齐 React 那边 `<Input type="number" max=...>`）。null = 不封顶。
+  final int? max;
+
   @override
   Widget build(BuildContext context) => _Field(
     label: label,
     value: '$value',
     // 非数字 / 空 → 0，与 React 那边 `Number(v) || 0` 同语义。
-    onChanged: (v) => onChanged(int.tryParse(v.trim()) ?? 0),
+    onChanged: (v) {
+      var n = int.tryParse(v.trim()) ?? 0;
+      if (n < 0) n = 0;
+      if (max != null && n > max!) n = max!;
+      onChanged(n);
+    },
   );
+}
+
+/// 分组环境变量里的保留字：这几个键由 aidog 自己注入，用户再写一遍会互相覆盖。
+/// 判定与提示同源，别在两处各抄一份（`GroupEditPanel.tsx:270`）。
+const kReservedEnvKeys = {
+  'ANTHROPIC_BASE_URL',
+  'ANTHROPIC_AUTH_TOKEN',
+  'AIDOG_KEY',
+};
+
+/// 编辑页里「一行就是一条记录」的容器：玻璃底 + 描边小卡
+/// （`GroupEditPanel.tsx:189-193,272-276`）。[warn] 时描边换 warning 色。
+class _RowCard extends StatelessWidget {
+  const _RowCard({required this.child, this.warn = false});
+
+  final Widget child;
+  final bool warn;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.ssm,
+        vertical: 4,
+      ),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        border: Border.all(color: warn ? theme.c.peak : theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: child,
+    );
+  }
+}
+
+/// 复制按钮：图标（可选）+ 文案，点完 1.2 秒内显示「已复制」
+/// （React 的 `CopyButton`，全页共用一颗）。
+class _CopyChip extends StatefulWidget {
+  const _CopyChip({
+    required this.tooltip,
+    required this.label,
+    required this.copyText,
+    required this.textOf,
+    this.icon,
+  });
+
+  final String tooltip;
+  final String label;
+  final Widget? icon;
+  final Future<void> Function(String text) copyText;
+
+  /// 延迟取值：命令要按当前的环境变量现拼。
+  final String Function() textOf;
+
+  @override
+  State<_CopyChip> createState() => _CopyChipState();
+}
+
+class _CopyChipState extends State<_CopyChip> {
+  bool _done = false;
+  Timer? _reset;
+
+  @override
+  void dispose() {
+    _reset?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _copy() async {
+    await widget.copyText(widget.textOf());
+    if (!mounted) return;
+    setState(() => _done = true);
+    _reset?.cancel();
+    _reset = Timer(const Duration(milliseconds: 1200), () {
+      if (mounted) setState(() => _done = false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final button = SmallButton(
+      label: _done ? t.t('logs.copied') : widget.label,
+      active: _done,
+      onTap: () => unawaited(_copy()),
+    );
+    if (widget.icon == null) {
+      return Tooltip(message: widget.tooltip, child: button);
+    }
+    return Tooltip(
+      message: widget.tooltip,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 14, height: 14, child: widget.icon),
+          const SizedBox(width: 3),
+          button,
+        ],
+      ),
+    );
+  }
 }
 
 /// 策略短名：优先 i18n，取不到回落 mode 字面量（与 `routing.ts` 的 `?? mode` 一致）。
@@ -2753,6 +3031,119 @@ class GroupIcon extends StatelessWidget {
           color: auto ? theme.c.fg2 : theme.c.accentText,
           fontWeight: FontWeight.w700,
         ),
+      ),
+    );
+  }
+}
+
+/// 复制菜单的一项：图标 + 文案。
+class _CopyMenuRow extends StatelessWidget {
+  const _CopyMenuRow({required this.icon, required this.label});
+
+  final Widget icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(width: 14, height: 14, child: icon),
+      const SizedBox(width: AidogSpace.ssm),
+      Text(label),
+    ],
+  );
+}
+
+/// 内置平台 svg 当小图标。协议没有内置图就留空白（不画占位方块）。
+Widget _logoIcon(String protocol) {
+  final asset = bundledLogoAsset(protocol);
+  if (asset == null) return const SizedBox.shrink();
+  return SvgPicture.asset(
+    asset,
+    fit: BoxFit.contain,
+    placeholderBuilder: (_) => const SizedBox.shrink(),
+  );
+}
+
+/// 分组卡标题行的图标操作。文案不删，挪进 tooltip。
+class _GroupIconAction extends StatelessWidget {
+  const _GroupIconAction({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: Icon(
+            icon,
+            size: 14,
+            color: onTap == null
+                ? c.fg3
+                : danger
+                ? c.bad
+                : c.fg2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 单选项：radio 圆点 + 文案，整块可点。
+/// 批量弹窗里的「来源 / 模式」是互斥选择，一排高亮按钮讲不出这层语义
+/// （React 三个批量弹窗用的都是 radio 组）。
+class _RadioChoice extends StatelessWidget {
+  const _RadioChoice({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 自己画圆点而不是用 Material 的 `Radio`：后者的 `groupValue` /
+          // `onChanged` 在 3.32 之后要求外层套 `RadioGroup`，为一个单选项
+          // 拉一层祖先不值当。
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_off,
+            size: 14,
+            color: selected ? theme.c.accent : theme.c.fg3,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: AidogType.micro.copyWith(
+              color: selected ? theme.c.fg : theme.c.fg2,
+            ),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+        ],
       ),
     );
   }
