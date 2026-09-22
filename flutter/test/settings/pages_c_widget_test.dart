@@ -1576,5 +1576,56 @@ void main() {
       expect(find.byType(ConfirmCard), findsOneWidget);
       expect(k.countOf('import_apply'), 0);
     });
+
+    testWidgets('导入预览给出来源机器 / 导出时间 / 各范围条数，冲突条目带徽标', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'manifest': {
+              'source_machine': 'mac-studio',
+              'created_at': '2026-09-20 10:00:00',
+            },
+            'counts': {'platform': 3},
+            'items': [
+              {
+                'scope': 'platform',
+                'key': 'p1',
+                'label': '智谱',
+                'conflict': true,
+              },
+              {'scope': 'platform', 'key': 'p2', 'label': 'Kimi'},
+            ],
+            'conflicts': <Object?>[],
+          },
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+      expect(k.countOf('import_read_file'), 1);
+
+      expect(findStripped(find, 'mac-studio'), findsOneWidget);
+      expect(findStripped(find, '2026-09-20 10:00:00'), findsOneWidget);
+      expect(find.text(i18n.t('importExport.sourceMachine')), findsOneWidget);
+      expect(find.text(i18n.t('importExport.createdAt')), findsOneWidget);
+      // 范围条数：「平台 3」这类徽标，光有路径看不出导进来会动多少东西。
+      expect(
+        find.textContaining('3'),
+        findsWidgets,
+        reason: 'counts 要画出来',
+      );
+
+      // 勾选器：标题 + 「已选 n / 共 m」+ 人话标签 + 冲突徽标。
+      expect(find.text(i18n.t('importExport.selectItems')), findsOneWidget);
+      expect(
+        find.text('${i18n.t('importExport.selectedLabel')} 2 / 2'),
+        findsOneWidget,
+      );
+      expect(findStripped(find, '智谱'), findsOneWidget);
+      expect(findStripped(find, 'Kimi'), findsOneWidget);
+      expect(find.text(i18n.t('importExport.conflictTag')), findsOneWidget);
+    });
   });
 }

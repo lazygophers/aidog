@@ -138,6 +138,11 @@ class ImportExportController {
   /// `export_preview` / `import_read_file` 的结果。null = 还没预览过。
   Map<String, Object?>? preview;
 
+  /// 这份 [preview] 是导入那条路来的（true）还是导出那条路来的（false）。
+  /// 两条路共用同一个字段，页面要靠它决定把勾选器画在哪张卡上 —— 否则读了
+  /// 一份 .aidogx 之后，导出卡上也会冒出一份导入清单。
+  bool previewIsImport = false;
+
   /// 预览里被勾中的条目（`[scope, key]` 对）。
   Set<String> selected = {};
 
@@ -162,6 +167,7 @@ class ImportExportController {
       preview = _map(
         await _invoke('export_preview', {'scopes': scopes.toList()}),
       );
+      previewIsImport = false;
       // 默认全选，与 React 的初始状态一致。
       selected = _allItemKeys(preview!);
     } catch (e) {
@@ -204,6 +210,7 @@ class ImportExportController {
     _notify();
     try {
       preview = _map(await _invoke('import_read_file', {'path': path}));
+      previewIsImport = true;
       selected = _allItemKeys(preview!);
       decisions = {};
     } catch (e) {
