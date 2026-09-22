@@ -11,17 +11,21 @@ import { getProtocolLabel } from "../../domains/platforms/defaults";
 import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 /**
  * 日志详情视图（自原 Logs.tsx L265-453 外迁）。
- * 以 shadcn Sheet（Radix Portal 侧抽屉）叠加在列表之上；open = detail 非空。
+ * 以 shadcn Dialog（Radix Portal 居中浮层）叠加在列表之上；open = detail 非空。
  * 接 hook 提供的 detail/copy/openDetail 及 platform/group 映射，业务逻辑零改。
+ *
+ * 2026-09-22 由右侧抽屉（Sheet, side="right"）改为居中浮层：Flutter 侧是居中，
+ * 用户在 ask-ui 里定「保持居中，同步修改 react 的对齐」，所以方向是 React 跟 Flutter。
+ * 只换外壳，面板里的每一项信息和每一颗按钮一条没动。
  */
 /** DetailPanel 消费的字段：detail 段 + platformMap/groupName（list/detail 共用，来自 filters 段）。 */
 export type DetailPanelData = LogsDetailData & {
@@ -33,15 +37,16 @@ export function DetailPanel({ d }: { d: DetailPanelData }) {
   const { detail, t, copied, copiedId, setCopiedId, openDetail, copyDetail, platformMap, groupName, setDetail } = d;
 
   return (
-    <Sheet open={detail !== null} onOpenChange={(o) => { if (!o) setDetail(null); }}>
-      <SheetContent
-        side="right"
+    <Dialog open={detail !== null} onOpenChange={(o) => { if (!o) setDetail(null); }}>
+      <DialogContent
         className="glass-elevated"
         // ponytail: 详情面板内容多（meta grid + attempts + 请求 tabs），需超宽 + 内部纵向滚动；
-        // 覆盖 shadcn 默认 sm:max-w-sm 与 p-6。
+        // 覆盖 shadcn 默认 max-w-lg 与 p-6。高度封顶 85vh，超出部分面板内部滚动，
+        // 不让浮层顶到窗口边缘外面去。
         style={{
           width: "min(900px, 90vw)",
           maxWidth: "min(900px, 90vw)",
+          maxHeight: "85vh",
           padding: 20,
           gap: 16,
           overflowY: "auto",
@@ -49,10 +54,10 @@ export function DetailPanel({ d }: { d: DetailPanelData }) {
           flexDirection: "column",
         }}
       >
-        <SheetHeader>
-          <SheetTitle className="sr-only">{t("logs.detail", "请求详情")}</SheetTitle>
-          <SheetDescription className="sr-only">{detail?.id ?? ""}</SheetDescription>
-        </SheetHeader>
+        <DialogHeader>
+          <DialogTitle className="sr-only">{t("logs.detail", "请求详情")}</DialogTitle>
+          <DialogDescription className="sr-only">{detail?.id ?? ""}</DialogDescription>
+        </DialogHeader>
 
         {!detail ? null : <DetailBody
           detail={detail}
@@ -65,8 +70,8 @@ export function DetailPanel({ d }: { d: DetailPanelData }) {
           platformMap={platformMap}
           groupName={groupName}
         />}
-      </SheetContent>
-    </Sheet>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -121,7 +126,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
 
   return (
     <>
-      {/* Header（自定义工具栏：刷新/复制；返回由 Sheet 右上角 X 关闭承担） */}
+      {/* Header（自定义工具栏：刷新/复制；返回由浮层右上角 X 关闭承担） */}
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
         <Button variant="ghost" className="btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
           <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
