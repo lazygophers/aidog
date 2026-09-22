@@ -107,11 +107,10 @@ class _PlatformsPageState extends State<PlatformsPage> {
       // 平台列表到手之后再后台查余额 —— 查余额是真出网的 HTTP，不能挡首屏。
       if (mounted) _c.pumpQuota();
     });
-    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated())).listen((
-      _,
-    ) {
-      _c.refreshStats();
-    });
+    _sub = (widget.logUpdates ?? debounceStream(kernelProxyLogUpdated()))
+        .listen((_) {
+          _c.refreshStats();
+        });
   }
 
   @override
@@ -134,6 +133,42 @@ class _PlatformsPageState extends State<PlatformsPage> {
     if (!mounted || share == null) return;
     setState(() => _shareData = (share: share, name: p.name));
   }
+
+  /// 一张平台卡的完整接线。抽出来是因为它有**两个**渲染位置：本页的未分组列表，
+  /// 以及分组区展开后的组内列表（票 24）。十六个入参里有一半是本页自己的东西
+  /// （模型测试面板、分享面板、表单控制器、跨页跳转），抄第二份必然漂移。
+  ///
+  /// 分组区拿到的是这个闭包而不是 [PlatformsController]：
+  /// 卡片要的余额 / 用量 / logo / 测试结果全在本页这一份控制器里，已经取过数了，
+  /// 传闭包等于让分组区**共用本页这一份实时数据**，不多发一轮命令、不出第二份缓存。
+  Widget platformCard(PlatformRow p, int index, {bool draggable = true}) =>
+      PlatformCard(
+        c: _c,
+        platform: p,
+        index: index,
+        draggable: draggable,
+        usage: _c.usageMap[p.id],
+        quota: _c.quotaMap[p.id],
+        quotaPending: _c.quotaPending[p.id] == true,
+        quotaRefreshing: _c.quotaRefreshing[p.id] == true,
+        lastTest: _c.lastTestMap[p.id],
+        testing: _c.testingId == p.id,
+        onToggle: () => _c.togglePlatform(p),
+        onTest: () => _c.quickTest(p),
+        // 票 I09：完整的模型测试面板（六种模式），对应 React 的 `ModelTestPanel`。
+        // 上面的 onTest 是平台卡自带的一键快测，两者并存。
+        onModelTest: () => setState(() => _testPanelTarget = p),
+        onRefreshQuota: () => _c.refreshQuota(p),
+        onDelete: () => _c.askDelete(p.id),
+        onViewLogs: () => widget.onNavigate?.call('logs', platformId: p.id),
+        onShare: () => _openShare(p),
+        // 缺口 #3 / #4：两颗按钮都由本页自带的表单控制器接管
+        // （`platform_form_logic.dart:263 handleEdit` / `:279 handleDuplicate`）。
+        // 外部若另传了回调就优先用外部的，便于宿主页覆盖跳转行为。
+        onEdit: () => (widget.onEditPlatform ?? _form.handleEdit)(p),
+        onDuplicate: () =>
+            (widget.onDuplicatePlatform ?? _form.handleDuplicate)(p),
+      );
 
   void _showToast(String text, {required bool ok}) {
     if (!mounted) return;
@@ -227,6 +262,9 @@ class _PlatformsPageState extends State<PlatformsPage> {
             // （React `Groups.tsx` 走同一条 NavContext.groupKey）。
             onNavigate: (id, {String? groupKey}) =>
                 widget.onNavigate?.call(id, groupKey: groupKey),
+            // 票 24：组内渲染与本页同一张平台卡，只是不给拖拽手柄
+            //（分组卡本身已在一个 ReorderableListView 里，卡内再套一个会抢手势）。
+            buildPlatformCard: (p, i) => platformCard(p, i, draggable: false),
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
@@ -257,34 +295,7 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   data: p.id,
                   dragAnchorStrategy: pointerDragAnchorStrategy,
                   feedback: _DragLabel(name: p.name),
-                  child: PlatformCard(
-                  c: _c,
-                  platform: p,
-                  index: i,
-                  usage: _c.usageMap[p.id],
-                  quota: _c.quotaMap[p.id],
-                  quotaPending: _c.quotaPending[p.id] == true,
-                  quotaRefreshing: _c.quotaRefreshing[p.id] == true,
-                  lastTest: _c.lastTestMap[p.id],
-                  testing: _c.testingId == p.id,
-                  onToggle: () => _c.togglePlatform(p),
-                  onTest: () => _c.quickTest(p),
-                  // 票 I09：完整的模型测试面板（六种模式），对应 React 的
-                  // `ModelTestPanel`。上面的 onTest 是平台卡自带的一键快测，两者并存。
-                  onModelTest: () => setState(() => _testPanelTarget = p),
-                  onRefreshQuota: () => _c.refreshQuota(p),
-                  onDelete: () => _c.askDelete(p.id),
-                  onViewLogs: () =>
-                      widget.onNavigate?.call('logs', platformId: p.id),
-                  onShare: () => _openShare(p),
-                  // 缺口 #3 / #4：两颗按钮都由本页自带的表单控制器接管
-                  // （`platform_form_logic.dart:263 handleEdit` / `:279 handleDuplicate`）。
-                  // 外部若另传了回调就优先用外部的，便于宿主页覆盖跳转行为。
-                  onEdit: () =>
-                      (widget.onEditPlatform ?? _form.handleEdit)(p),
-                  onDuplicate: () =>
-                      (widget.onDuplicatePlatform ?? _form.handleDuplicate)(p),
-                  ),
+                  child: platformCard(p, i),
                 ),
               );
             },
@@ -338,7 +349,9 @@ class _PlatformsPageState extends State<PlatformsPage> {
                                     ? t.t(
                                         'platform.purgeDisabledReasonAuthFailed',
                                       )
-                                    : t.t('platform.purgeDisabledReasonExpired'),
+                                    : t.t(
+                                        'platform.purgeDisabledReasonExpired',
+                                      ),
                                 color: AidogTheme.of(context).c.fg3,
                               ),
                             ],
@@ -415,4 +428,3 @@ class _DragLabel extends StatelessWidget {
     );
   }
 }
-

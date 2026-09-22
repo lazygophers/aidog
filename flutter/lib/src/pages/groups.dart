@@ -27,6 +27,10 @@ import 'ui_bits.dart';
 
 /// 分组区。内嵌在平台页里（与 React 的 `GroupsEmbedded` 同位置），
 /// 也可以单独渲染（widget 测试就是这么用的）。
+/// 组内渲染一张平台卡。由宿主页（`platforms.dart::platformCard`）注入 ——
+/// 理由见 [GroupsSection.buildPlatformCard]。
+typedef PlatformCardBuilder = Widget Function(PlatformRow platform, int index);
+
 class GroupsSection extends StatefulWidget {
   const GroupsSection({
     super.key,
@@ -38,7 +42,17 @@ class GroupsSection extends StatefulWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    required this.buildPlatformCard,
   });
+
+  /// 组内那张平台卡怎么画（票 24）。
+  ///
+  /// **为什么是闭包，不是一个 `PlatformsController`**：卡片要的余额 / 用量 / logo /
+  /// 最近测试结果全挂在平台页那一份控制器上，那份已经取过数了。分组区自己再起一份
+  /// 就要多发一轮 `platform_list` + 统计 + 配额，还会出现两份缓存各自过期、同一个平台
+  /// 在页面上下两处显示不同余额。传闭包 = 复用那一份实时数据，零额外取数、单一缓存，
+  /// 而且分组区不必认识 `PlatformsController` 这个类型。
+  final PlatformCardBuilder buildPlatformCard;
 
   final InvokeFn invoke;
   final void Function(String text, {required bool ok})? onToast;
@@ -117,6 +131,7 @@ class _GroupsSectionState extends State<GroupsSection> {
       onCreatePlatform: widget.onCreatePlatform,
       onNavigate: widget.onNavigate,
       copyText: widget.copyText,
+      buildPlatformCard: widget.buildPlatformCard,
     );
   }
 }
@@ -131,8 +146,10 @@ class _GroupListView extends StatelessWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    required this.buildPlatformCard,
   });
 
+  final PlatformCardBuilder buildPlatformCard;
   final GroupsController controller;
   final void Function(List<int> ids)? onPlatformsDeleted;
   final Future<void> Function(int platformId, int groupId)? onPlatformDropped;
@@ -212,6 +229,7 @@ class _GroupListView extends StatelessWidget {
                   onCreatePlatform: onCreatePlatform,
                   onNavigate: onNavigate,
                   copyText: copyText,
+                  buildPlatformCard: buildPlatformCard,
                 ),
               );
             },
@@ -225,10 +243,7 @@ class _GroupListView extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: Align(
-              child: SmallButton(
-                label: t.t('logs.hasMore'),
-                onTap: c.loadMore,
-              ),
+              child: SmallButton(label: t.t('logs.hasMore'), onTap: c.loadMore),
             ),
           ),
         // 虚拟桶「未匹配」（MITM fallback 直通）：`GroupListView.tsx:276-279`。
@@ -244,7 +259,8 @@ class _GroupListView extends StatelessWidget {
             body: t.t('group.deleteConfirm'),
             confirmLabel: t.t('action.delete'),
             onCancel: c.cancelDeleteGroup,
-            onConfirm: () => c.confirmDeleteGroup(failText: t.t('group.deleteFailed')),
+            onConfirm: () =>
+                c.confirmDeleteGroup(failText: t.t('group.deleteFailed')),
           ),
         if (c.removeTarget != null)
           _RemovePlatformConfirm(
@@ -254,16 +270,14 @@ class _GroupListView extends StatelessWidget {
         if (c.batchDeleteTarget != null)
           ConfirmCard(
             title: t.t('group.batchDeleteTitle'),
-            body: t.t(
-              'group.batchDeleteDesc',
-              {'count': '${c.batchDeleteTarget!.platforms.length}'},
-            ),
+            body: t.t('group.batchDeleteDesc', {
+              'count': '${c.batchDeleteTarget!.platforms.length}',
+            }),
             confirmLabel: c.batchDeleteBusy
                 ? t.t('group.batchDeleting')
-                : t.t(
-                    'group.batchDeleteConfirm',
-                    {'count': '${c.batchDeleteTarget!.platforms.length}'},
-                  ),
+                : t.t('group.batchDeleteConfirm', {
+                    'count': '${c.batchDeleteTarget!.platforms.length}',
+                  }),
             busy: c.batchDeleteBusy,
             // React 先列**全部**待删平台，再单独警告其中跨组的那几个
             // （`BatchDeleteModal.tsx:90-128`）。原先这里只列跨组的，
@@ -280,10 +294,13 @@ class _GroupListView extends StatelessWidget {
             ),
             onCancel: c.cancelBatchDelete,
             onConfirm: () {
-              final ids = [for (final p in c.batchDeleteTarget!.platforms) p.id];
+              final ids = [
+                for (final p in c.batchDeleteTarget!.platforms) p.id,
+              ];
               c
                   .confirmBatchDelete(
-                    doneText: (n) => t.t('group.batchDeleteDone', {'count': '$n'}),
+                    doneText: (n) =>
+                        t.t('group.batchDeleteDone', {'count': '$n'}),
                     failText: t.t('group.batchDeleteFailed'),
                   )
                   .then((_) => onPlatformsDeleted?.call(ids));
@@ -298,10 +315,9 @@ class _GroupListView extends StatelessWidget {
             title: t.t('group.purgeDisabled'),
             body: c.purgeTarget!.candidates.isEmpty
                 ? t.t('platform.purgeDisabledNone')
-                : t.t(
-                    'group.purgeDisabledConfirm',
-                    {'count': '${c.purgeTarget!.candidates.length}'},
-                  ),
+                : t.t('group.purgeDisabledConfirm', {
+                    'count': '${c.purgeTarget!.candidates.length}',
+                  }),
             confirmLabel: t.t('action.confirm'),
             onConfirm: c.purgeTarget!.candidates.isEmpty
                 ? null
@@ -397,8 +413,10 @@ class _GroupCard extends StatelessWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    required this.buildPlatformCard,
   });
 
+  final PlatformCardBuilder buildPlatformCard;
   final GroupsController controller;
   final GroupDetail detail;
 
@@ -459,9 +477,7 @@ class _GroupCard extends StatelessWidget {
                 iconSize: 16,
                 color: theme.c.fg3,
                 tooltip: t.t('group.toggleDetails'),
-                icon: Icon(
-                  collapsed ? Icons.chevron_right : Icons.expand_more,
-                ),
+                icon: Icon(collapsed ? Icons.chevron_right : Icons.expand_more),
                 onPressed: () {
                   final next = c.toggleGroupCollapsed(g.id);
                   c.persistGroupCollapsed(g.id, next);
@@ -496,7 +512,9 @@ class _GroupCard extends StatelessWidget {
                         ),
                         if (g.isDefault)
                           Padding(
-                            padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                            padding: const EdgeInsets.only(
+                              left: AidogSpace.sxs,
+                            ),
                             child: Tooltip(
                               message: t.t('group.isDefaultTitle'),
                               child: Text(
@@ -622,7 +640,11 @@ class _GroupCard extends StatelessWidget {
             spacing: AidogSpace.sxs,
             runSpacing: AidogSpace.sxs,
             children: [
-              _CopyCommandMenu(group: g, proxyEnvVars: c.proxyEnvVars, copyText: copyText),
+              _CopyCommandMenu(
+                group: g,
+                proxyEnvVars: c.proxyEnvVars,
+                copyText: copyText,
+              ),
               if (onNavigate != null)
                 SmallButton(
                   label: t.t('group.viewStats'),
@@ -655,7 +677,12 @@ class _GroupCard extends StatelessWidget {
           ),
           if (!collapsed) ...[
             const SizedBox(height: AidogSpace.ssm),
-            if (selecting) _BatchToolbar(controller: c, gid: g.id, platforms: detail.platforms),
+            if (selecting)
+              _BatchToolbar(
+                controller: c,
+                gid: g.id,
+                platforms: detail.platforms,
+              ),
             if (detail.platforms.isEmpty)
               Text(
                 t.t('group.noPlatforms'),
@@ -671,6 +698,7 @@ class _GroupCard extends StatelessWidget {
                   total: detail.platforms.length,
                   allGroups: c.allGroups,
                   selecting: selecting,
+                  buildPlatformCard: buildPlatformCard,
                 ),
             _MappingsSection(controller: c, detail: detail),
           ],
@@ -713,13 +741,14 @@ class _CopyCommandMenu extends StatelessWidget {
       },
       itemBuilder: (context) => [
         PopupMenuItem(value: 'key', child: Text(t.t('group.menuCopyKey'))),
-        PopupMenuItem(value: 'claude', child: Text(t.t('group.menuCopyClaude'))),
+        PopupMenuItem(
+          value: 'claude',
+          child: Text(t.t('group.menuCopyClaude')),
+        ),
         PopupMenuItem(value: 'codex', child: Text(t.t('group.menuCopyCodex'))),
         PopupMenuItem(value: 'pi', child: Text(t.t('group.menuCopyPi'))),
       ],
-      child: IgnorePointer(
-        child: SmallButton(label: t.t('group.copyCommand')),
-      ),
+      child: IgnorePointer(child: SmallButton(label: t.t('group.copyCommand'))),
     );
   }
 }
@@ -750,10 +779,14 @@ class _BatchToolbar extends StatelessWidget {
         spacing: AidogSpace.sxs,
         runSpacing: AidogSpace.sxs,
         children: [
-          SmallButton(label: t.t('action.cancel'), onTap: () => c.exitBatchSelect(gid)),
+          SmallButton(
+            label: t.t('action.cancel'),
+            onTap: () => c.exitBatchSelect(gid),
+          ),
           SmallButton(
             label: t.t('group.selectAll'),
-            onTap: () => c.selectAll(gid, [for (final gp in platforms) gp.platform.id]),
+            onTap: () =>
+                c.selectAll(gid, [for (final gp in platforms) gp.platform.id]),
           ),
           Text(
             t.t('group.selectedCount', {'count': '${selected.length}'}),
@@ -762,19 +795,27 @@ class _BatchToolbar extends StatelessWidget {
           SmallButton(
             label: t.t('group.batchDelete'),
             danger: true,
-            onTap: hasSelection ? () => c.askBatchDelete(selected.toList()) : null,
+            onTap: hasSelection
+                ? () => c.askBatchDelete(selected.toList())
+                : null,
           ),
           SmallButton(
             label: t.t('group.batchOverrideModels'),
-            onTap: hasSelection ? () => c.askBatchOverrideModels(selected.toList()) : null,
+            onTap: hasSelection
+                ? () => c.askBatchOverrideModels(selected.toList())
+                : null,
           ),
           SmallButton(
             label: t.t('group.batchSetStatus'),
-            onTap: hasSelection ? () => c.askBatchSetStatus(selected.toList(), gid) : null,
+            onTap: hasSelection
+                ? () => c.askBatchSetStatus(selected.toList(), gid)
+                : null,
           ),
           SmallButton(
             label: t.t('group.batchMoveGroup'),
-            onTap: hasSelection ? () => c.askBatchMoveGroup(selected.toList(), gid) : null,
+            onTap: hasSelection
+                ? () => c.askBatchMoveGroup(selected.toList(), gid)
+                : null,
           ),
         ],
       ),
@@ -782,7 +823,12 @@ class _BatchToolbar extends StatelessWidget {
   }
 }
 
-/// 单个分组内平台行：多选态给 checkbox，非多选态给优先级步进器 + 移组下拉 + 移除。
+/// 单个分组内平台行（票 24）：左侧多选勾选框 + 中间**完整平台卡** +
+/// 右侧组内控件（上下移 / 优先级 / 移组 / 移除）。
+///
+/// 中间那张卡与平台页用的是同一张（`platform_card_view.dart::PlatformCard`），
+/// 经 [buildPlatformCard] 注入，只是不给拖拽手柄。组内控件留在卡**外面**：
+/// 它们是「这个平台在这个分组里」的属性，不属于平台本身，卡片也不认识分组。
 class _PlatformRow extends StatelessWidget {
   const _PlatformRow({
     required this.controller,
@@ -792,7 +838,10 @@ class _PlatformRow extends StatelessWidget {
     required this.total,
     required this.allGroups,
     required this.selecting,
+    required this.buildPlatformCard,
   });
+
+  final PlatformCardBuilder buildPlatformCard;
 
   final GroupsController controller;
   final GroupRow group;
@@ -806,14 +855,15 @@ class _PlatformRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
-    final theme = AidogTheme.of(context);
     final c = controller;
     final pid = gp.platform.id;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 多选态的勾选框（`GroupListItem.tsx:425-434`）。非多选态不再画状态小圆点 ——
+          // 卡片 logo 右上角那颗健康点信息更全，画两颗只会互相打架。
           if (selecting)
             Padding(
               padding: const EdgeInsets.only(right: AidogSpace.sxs),
@@ -821,25 +871,59 @@ class _PlatformRow extends StatelessWidget {
                 value: c.selectedIdsOf(group.id).contains(pid),
                 onChanged: (_) => c.toggleSelected(group.id, pid),
               ),
-            )
-          else
-            Container(
-              width: 6,
-              height: 6,
-              margin: const EdgeInsets.only(right: AidogSpace.ssm),
-              decoration: BoxDecoration(
-                color: gp.platform.status == 'enabled' ? theme.c.ok : theme.c.fg3,
-                shape: BoxShape.circle,
-              ),
             ),
-          Expanded(
-            child: Text(
-              gp.platform.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
+          Expanded(child: buildPlatformCard(gp.platform, index)),
+          const SizedBox(width: AidogSpace.sxs),
+          _GroupPlatformControls(
+            controller: c,
+            group: group,
+            gp: gp,
+            index: index,
+            total: total,
+            allGroups: allGroups,
+            selecting: selecting,
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 「这个平台在这个分组里」的那几个控件：上下移 / 优先级 / 移组 / 移除。
+///
+/// 从 [_PlatformRow] 拆出来，是因为它现在要和一张整卡并排 —— 横向塞不下一长条，
+/// 用 [Wrap] 限宽换行。
+class _GroupPlatformControls extends StatelessWidget {
+  const _GroupPlatformControls({
+    required this.controller,
+    required this.group,
+    required this.gp,
+    required this.index,
+    required this.total,
+    required this.allGroups,
+    required this.selecting,
+  });
+
+  final GroupsController controller;
+  final GroupRow group;
+  final GroupPlatform gp;
+  final int index;
+  final int total;
+  final List<({int id, String name})> allGroups;
+  final bool selecting;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final pid = gp.platform.id;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 190),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
           if (!selecting) ...[
             // 组内位次（= 路由优先级顺序）。React 那边是拖拽把手，这里用上下移：
             // 分组卡本身已经在一个 ReorderableListView 里，卡内再套一个会抢手势。
@@ -879,7 +963,12 @@ class _PlatformRow extends StatelessWidget {
               tooltip: t.t('group.levelPriorityDown'),
               onPressed: gp.levelPriority <= 1
                   ? null
-                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority - 1, failText: t.t('group.levelPriorityFailed')),
+                  : () => c.setLevelPriority(
+                      group.id,
+                      pid,
+                      gp.levelPriority - 1,
+                      failText: t.t('group.levelPriorityFailed'),
+                    ),
               icon: const Icon(Icons.remove),
             ),
             SizedBox(
@@ -897,7 +986,12 @@ class _PlatformRow extends StatelessWidget {
               tooltip: t.t('group.levelPriorityUp'),
               onPressed: gp.levelPriority >= 10
                   ? null
-                  : () => c.setLevelPriority(group.id, pid, gp.levelPriority + 1, failText: t.t('group.levelPriorityFailed')),
+                  : () => c.setLevelPriority(
+                      group.id,
+                      pid,
+                      gp.levelPriority + 1,
+                      failText: t.t('group.levelPriorityFailed'),
+                    ),
               icon: const Icon(Icons.add),
             ),
             Text(
@@ -911,7 +1005,11 @@ class _PlatformRow extends StatelessWidget {
             if (allGroups.length > 1)
               PopupMenuButton<int>(
                 tooltip: t.t('group.dragPlatform'),
-                icon: Icon(Icons.drive_file_move_outline, size: 14, color: theme.c.fg3),
+                icon: Icon(
+                  Icons.drive_file_move_outline,
+                  size: 14,
+                  color: theme.c.fg3,
+                ),
                 onSelected: (targetGid) =>
                     c.movePlatform(pid, group.id, targetGid),
                 itemBuilder: (context) => [
@@ -964,7 +1062,10 @@ class _MappingsSection extends StatelessWidget {
                   ),
                   IconButton(
                     padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                    constraints: const BoxConstraints(
+                      minWidth: 22,
+                      minHeight: 22,
+                    ),
                     iconSize: 14,
                     icon: const Icon(Icons.close),
                     onPressed: () => c.deleteMapping(
@@ -994,7 +1095,9 @@ class _MappingsSection extends StatelessWidget {
                 SizedBox(
                   width: 140,
                   child: TextField(
-                    decoration: InputDecoration(hintText: t.t('mapping.source')),
+                    decoration: InputDecoration(
+                      hintText: t.t('mapping.source'),
+                    ),
                     style: AidogType.micro.copyWith(color: theme.c.fg),
                     onChanged: c.setMSource,
                   ),
@@ -1026,16 +1129,23 @@ class _MappingsSection extends StatelessWidget {
                   SizedBox(
                     width: 120,
                     child: TextField(
-                      decoration: InputDecoration(hintText: t.t('mapping.target')),
+                      decoration: InputDecoration(
+                        hintText: t.t('mapping.target'),
+                      ),
                       style: AidogType.micro.copyWith(color: theme.c.fg),
                       onChanged: c.setMTargetModel,
                     ),
                   ),
                 SmallButton(
                   label: t.t('action.create'),
-                  onTap: (c.mSource.isEmpty || c.mTargetPlatform == null || c.mTargetModel.isEmpty)
+                  onTap:
+                      (c.mSource.isEmpty ||
+                          c.mTargetPlatform == null ||
+                          c.mTargetModel.isEmpty)
                       ? null
-                      : () => c.submitAddMapping(failText: t.t('group.addMappingFailed')),
+                      : () => c.submitAddMapping(
+                          failText: t.t('group.addMappingFailed'),
+                        ),
                 ),
               ],
             ),
@@ -1146,16 +1256,15 @@ class _CrossGroupWarning extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
-          t.t('group.batchDeleteCrossGroupWarning', {'count': '${cross.length}'}),
+          t.t('group.batchDeleteCrossGroupWarning', {
+            'count': '${cross.length}',
+          }),
           style: AidogType.micro.copyWith(color: theme.c.bad),
         ),
         for (final p in cross)
           Text(
             '${p.name} · '
-            '${t.t('group.batchDeleteCrossGroupItem', {
-              'count': '${target.groupNamesByPlatform[p.id]!.length}',
-              'groups': target.groupNamesByPlatform[p.id]!.join('、'),
-            })}',
+            '${t.t('group.batchDeleteCrossGroupItem', {'count': '${target.groupNamesByPlatform[p.id]!.length}', 'groups': target.groupNamesByPlatform[p.id]!.join('、')})}',
             style: AidogType.micro.copyWith(color: theme.c.bad),
           ),
       ],
@@ -1171,7 +1280,8 @@ class _BatchOverrideModelsCard extends StatefulWidget {
   final GroupsController controller;
 
   @override
-  State<_BatchOverrideModelsCard> createState() => _BatchOverrideModelsCardState();
+  State<_BatchOverrideModelsCard> createState() =>
+      _BatchOverrideModelsCardState();
 }
 
 class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
@@ -1204,7 +1314,9 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
     final c = widget.controller;
     final target = c.batchOverrideTarget;
     if (target == null) return const SizedBox.shrink();
-    final allEmpty = kModelSlots.every((s) => (_slots[s.key] ?? '').trim().isEmpty);
+    final allEmpty = kModelSlots.every(
+      (s) => (_slots[s.key] ?? '').trim().isEmpty,
+    );
     return ConfirmCard(
       title: t.t('group.batchOverrideModelsTitle'),
       body: t.t('group.batchOverrideModelsDesc', {'count': '${target.length}'}),
@@ -1225,7 +1337,8 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                 haiku: _slots['haiku'],
                 gpt: _slots['gpt'],
               ),
-              doneText: (n) => t.t('group.batchOverrideModelsDone', {'count': '$n'}),
+              doneText: (n) =>
+                  t.t('group.batchOverrideModelsDone', {'count': '$n'}),
               failText: t.t('group.batchOverrideModelsFailed'),
             ),
       extra: Column(
@@ -1297,14 +1410,21 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                 children: [
                   SizedBox(
                     width: 70,
-                    child: Text(t.t(s.labelKey), style: AidogType.micro.copyWith(color: theme.c.fg3)),
+                    child: Text(
+                      t.t(s.labelKey),
+                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    ),
                   ),
                   Expanded(
                     child: TextField(
-                      controller: TextEditingController(text: _slots[s.key] ?? '')
-                        ..selection = TextSelection.collapsed(offset: (_slots[s.key] ?? '').length),
+                      controller:
+                          TextEditingController(text: _slots[s.key] ?? '')
+                            ..selection = TextSelection.collapsed(
+                              offset: (_slots[s.key] ?? '').length,
+                            ),
                       style: AidogType.micro.copyWith(color: theme.c.fg),
-                      onChanged: (v) => setState(() => _slots = {..._slots, s.key: v}),
+                      onChanged: (v) =>
+                          setState(() => _slots = {..._slots, s.key: v}),
                     ),
                   ),
                 ],
@@ -1325,7 +1445,10 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
               if ((p.models.toJson()[s.key] as String? ?? '').isNotEmpty ||
                   (_slots[s.key] ?? '').isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(left: AidogSpace.ssm, bottom: 1),
+                  padding: const EdgeInsets.only(
+                    left: AidogSpace.ssm,
+                    bottom: 1,
+                  ),
                   child: Text(
                     '${p.name} · ${t.t(s.labelKey)}: '
                     '${(p.models.toJson()[s.key] as String?) ?? t.t('group.batchOverrideEmpty')} → '
@@ -1361,15 +1484,20 @@ class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
     final target = c.batchSetStatusTarget;
     if (target == null) return const SizedBox.shrink();
     final selectedIds = {for (final p in target.platforms) p.id};
-    final willEmpty = _status == 'disabled' &&
+    final willEmpty =
+        _status == 'disabled' &&
         c.batchSetStatusGroupEnabledIds.isNotEmpty &&
         c.batchSetStatusGroupEnabledIds.every(selectedIds.contains);
     return ConfirmCard(
       title: t.t('group.batchSetStatusTitle'),
-      body: t.t('group.batchSetStatusDesc', {'count': '${target.platforms.length}'}),
+      body: t.t('group.batchSetStatusDesc', {
+        'count': '${target.platforms.length}',
+      }),
       confirmLabel: c.batchSetStatusBusy
           ? t.t('group.batchSetStatusApplying')
-          : t.t('group.batchSetStatusConfirm', {'count': '${target.platforms.length}'}),
+          : t.t('group.batchSetStatusConfirm', {
+              'count': '${target.platforms.length}',
+            }),
       busy: c.batchSetStatusBusy,
       // React 是普通 `Dialog`（`BatchSetStatusModal.tsx:68`），执行中不许关。
       dismissOnBarrier: true,
@@ -1439,7 +1567,9 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
     final canConfirm = _targetGroupId != null && !isCurrentGroup;
     return ConfirmCard(
       title: t.t('group.batchMoveGroupTitle'),
-      body: t.t('group.batchMoveGroupDesc', {'count': '${target.platforms.length}'}),
+      body: t.t('group.batchMoveGroupDesc', {
+        'count': '${target.platforms.length}',
+      }),
       confirmLabel: c.batchMoveGroupBusy
           ? t.t('group.batchMoveGroupApplying')
           : t.t('group.batchMoveGroupConfirm', {
@@ -1469,7 +1599,10 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(t.t('group.batchMoveGroupTarget'), style: AidogType.micro.copyWith(color: theme.c.fg3)),
+          Text(
+            t.t('group.batchMoveGroupTarget'),
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               isExpanded: true,
@@ -1536,7 +1669,8 @@ class _GroupTestPanel extends StatelessWidget {
       'testing' => '…',
       'pending' => t.t('group.testAllPending'),
       'ok' =>
-        t.t('group.testAllOk') + (r.durationMs == null ? '' : ' ${r.durationMs}ms'),
+        t.t('group.testAllOk') +
+            (r.durationMs == null ? '' : ' ${r.durationMs}ms'),
       _ => t.t('group.testAllFail'),
     };
     // React 是 createPortal 的手写遮罩（`GroupTestPanel.tsx:53`，width 560）：
@@ -1787,7 +1921,10 @@ class _PlatformPicker extends StatelessWidget {
                     ),
                     IconButton(
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                      constraints: const BoxConstraints(
+                        minWidth: 22,
+                        minHeight: 22,
+                      ),
                       iconSize: 14,
                       icon: const Icon(Icons.close),
                       onPressed: () => onChange([
@@ -1910,10 +2047,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           ),
           // 分组密钥：创建后锁定不可改（只读展示 + 说明）。
           TileMeta(t.t('group.groupKey')),
-          Text(
-            g.groupKey,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
-          ),
+          Text(g.groupKey, style: AidogType.micro.copyWith(color: theme.c.fg2)),
           Text(
             t.t('group.groupKeyLocked'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -2200,7 +2334,10 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
               label: '+ ${t.t('group.addEnvVar')}',
               onTap: () => c.patchEdit(
                 e.patch(
-                  envVars: [...e.envVars, const EnvVar(key: '', value: '')],
+                  envVars: [
+                    ...e.envVars,
+                    const EnvVar(key: '', value: ''),
+                  ],
                 ),
               ),
             ),
