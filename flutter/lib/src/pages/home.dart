@@ -23,6 +23,7 @@ import '../shell/tiles.dart';
 import 'home_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
+import 'ui_bits.dart' show Reveal;
 
 class HomePage extends StatefulWidget {
   const HomePage({
@@ -302,188 +303,207 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 五个区块入场错峰 0/70/140/210/280ms（`Home.tsx:219-223`）。
               // ① 搜索栏式状态行
-              _statusTile(t, tr),
+              Reveal(child: _statusTile(t, tr)),
               const _PanelDivider(),
               // ② 四个 KPI 紧凑格，格间竖线
-              if (kpis.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  child: Text(
-                    emptyText,
-                    style: AidogType.caption.copyWith(color: _panelMuted),
-                  ),
-                )
-              else
-                IntrinsicHeight(
+              Reveal(
+                delayMs: 70,
+                child: kpis.isEmpty
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 14,
+                        ),
+                        child: Text(
+                          emptyText,
+                          style: AidogType.caption.copyWith(color: _panelMuted),
+                        ),
+                      )
+                    : IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (var i = 0; i < kpis.length; i++) ...[
+                              Expanded(
+                                child: _KpiCell(
+                                  label: kpis[i].label,
+                                  value: kpis[i].value,
+                                  spark: kpis[i].spark,
+                                ),
+                              ),
+                              if (i < kpis.length - 1)
+                                const VerticalDivider(
+                                  width: 1,
+                                  thickness: 1,
+                                  color: _panelLine,
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
+              ),
+              const _PanelDivider(),
+              // ③+④ 趋势与平台并排，中间一条竖线
+              Reveal(
+                delayMs: 140,
+                child: IntrinsicHeight(
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      for (var i = 0; i < kpis.length; i++) ...[
-                        Expanded(
-                          child: _KpiCell(
-                            label: kpis[i].label,
-                            value: kpis[i].value,
-                            spark: kpis[i].spark,
-                          ),
-                        ),
-                        if (i < kpis.length - 1)
-                          const VerticalDivider(
-                            width: 1,
-                            thickness: 1,
-                            color: _panelLine,
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              const _PanelDivider(),
-              // ③+④ 趋势与平台并排，中间一条竖线
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _PanelSection(
-                        title: tr.t('home.trend24h'),
-                        meta: trendOk
-                            ? 'HOURLY · ${tr.t('home.trendPeak')} '
-                                  '${formatNumber(peak)}'
-                            : 'HOURLY',
-                        child: trendOk
-                            ? SizedBox(
-                                height: 122,
-                                child: Column(
-                                  children: [
-                                    Expanded(
-                                      child: AidogLineChart(
-                                        mini: true,
-                                        area: true,
-                                        series: [
-                                          ChartSeries(
-                                            key: 'req',
-                                            label: tr.t('home.trendRequests'),
-                                            color: _panelAccent,
-                                            points: [
-                                              for (final b in _trend)
-                                                ChartPoint(
-                                                  bucketMs(b.timeBucket),
-                                                  b.totalRequests.toDouble(),
-                                                ),
-                                            ],
-                                            format: formatNumber,
-                                          ),
-                                          ChartSeries(
-                                            key: 'cost',
-                                            label: tr.t('home.trendCost'),
-                                            color: _panelMuted,
-                                            points: [
-                                              for (final b in _trend)
-                                                ChartPoint(
-                                                  bucketMs(b.timeBucket),
-                                                  b.totalCost,
-                                                ),
-                                            ],
-                                            format: formatCostUsd,
-                                            dashed: true,
-                                            rightAxis: true,
-                                          ),
-                                        ],
+                      Expanded(
+                        child: _PanelSection(
+                          title: tr.t('home.trend24h'),
+                          meta: trendOk
+                              ? 'HOURLY · ${tr.t('home.trendPeak')} '
+                                    '${formatNumber(peak)}'
+                              : 'HOURLY',
+                          child: trendOk
+                              ? SizedBox(
+                                  height: 122,
+                                  child: Column(
+                                    children: [
+                                      Expanded(
+                                        child: AidogLineChart(
+                                          mini: true,
+                                          area: true,
+                                          series: [
+                                            ChartSeries(
+                                              key: 'req',
+                                              label: tr.t('home.trendRequests'),
+                                              color: _panelAccent,
+                                              points: [
+                                                for (final b in _trend)
+                                                  ChartPoint(
+                                                    bucketMs(b.timeBucket),
+                                                    b.totalRequests.toDouble(),
+                                                  ),
+                                              ],
+                                              format: formatNumber,
+                                            ),
+                                            ChartSeries(
+                                              key: 'cost',
+                                              label: tr.t('home.trendCost'),
+                                              color: _panelMuted,
+                                              points: [
+                                                for (final b in _trend)
+                                                  ChartPoint(
+                                                    bucketMs(b.timeBucket),
+                                                    b.totalCost,
+                                                  ),
+                                              ],
+                                              format: formatCostUsd,
+                                              dashed: true,
+                                              rightAxis: true,
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(
-                                      height: 12,
-                                      child: _HourAxis(buckets: _trend),
-                                    ),
+                                      SizedBox(
+                                        height: 12,
+                                        child: _HourAxis(buckets: _trend),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              : Text(
+                                  emptyText,
+                                  style: AidogType.caption.copyWith(
+                                    color: _panelMuted,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: _panelLine,
+                      ),
+                      Expanded(
+                        child: _PanelSection(
+                          title: tr.t('home.topPlatforms'),
+                          meta:
+                              'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
+                          child: top.isEmpty
+                              ? Text(
+                                  emptyText,
+                                  style: AidogType.caption.copyWith(
+                                    color: _panelMuted,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    for (final p in top)
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: AidogSpace.sxs,
+                                        ),
+                                        child: _platformRow(
+                                          p,
+                                          maxCost,
+                                          costSum,
+                                        ),
+                                      ),
                                   ],
                                 ),
-                              )
-                            : Text(
-                                emptyText,
-                                style: AidogType.caption.copyWith(
-                                  color: _panelMuted,
-                                ),
-                              ),
+                        ),
                       ),
-                    ),
-                    const VerticalDivider(
-                      width: 1,
-                      thickness: 1,
-                      color: _panelLine,
-                    ),
-                    Expanded(
-                      child: _PanelSection(
-                        title: tr.t('home.topPlatforms'),
-                        meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
-                        child: top.isEmpty
-                            ? Text(
-                                emptyText,
-                                style: AidogType.caption.copyWith(
-                                  color: _panelMuted,
-                                ),
-                              )
-                            : Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  for (final p in top)
-                                    Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: AidogSpace.sxs,
-                                      ),
-                                      child: _platformRow(p, maxCost, costSum),
-                                    ),
-                                ],
-                              ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
               const _PanelDivider(),
               // ⑤ 总余额行
               if (balance > 0) ...[
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.baseline,
-                    textBaseline: TextBaseline.alphabetic,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          tr.t('home.totalBalance'),
-                          style: AidogType.caption.copyWith(color: _panelMuted),
+                Reveal(
+                  delayMs: 210,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            tr.t('home.totalBalance'),
+                            style: AidogType.caption.copyWith(
+                              color: _panelMuted,
+                            ),
+                          ),
                         ),
-                      ),
-                      Ltr(
-                        child: Text(
-                          formatCostUsd(balance),
-                          style: numStyle(AidogType.numLg, _panelFg),
+                        Ltr(
+                          child: Text(
+                            formatCostUsd(balance),
+                            style: numStyle(AidogType.numLg, _panelFg),
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 const _PanelDivider(),
               ],
               // ⑥ 快捷键 footer
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-                child: Wrap(
-                  spacing: AidogSpace.ssm,
-                  runSpacing: AidogSpace.ssm,
-                  children: [
-                    for (final c in _chips(tr))
-                      _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
-                  ],
+              Reveal(
+                delayMs: 280,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Wrap(
+                    spacing: AidogSpace.ssm,
+                    runSpacing: AidogSpace.ssm,
+                    children: [
+                      for (final c in _chips(tr))
+                        _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
+                    ],
+                  ),
                 ),
               ),
             ],

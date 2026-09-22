@@ -346,6 +346,34 @@ void main() {
       expect(find.text('glm'), findsOneWidget);
     });
 
+    // 第三梯队 2026-09-22：平台名原先塞在环心里当说明字，React 那边是
+    // 画在环**上方**的标题（`Stats.tsx:853-860` 传的就是平台名）。
+    testWidgets('title 画在环上方，与环心的 label 各是各的', (tester) async {
+      await tester.pumpWidget(host(GaugeChart(
+        value: 30,
+        max: 120,
+        formatValue: (n) => '${n.toInt()}h',
+        title: 'GLM 平台',
+        label: 'glm',
+      )));
+      expect(find.text('GLM 平台'), findsOneWidget);
+      expect(find.text('glm'), findsOneWidget);
+      // 标题在百分比上方。
+      expect(
+        tester.getTopLeft(find.text('GLM 平台')).dy,
+        lessThan(tester.getTopLeft(find.text('25%')).dy),
+      );
+    });
+
+    testWidgets('没给 title 就不占位', (tester) async {
+      await tester.pumpWidget(host(GaugeChart(
+        value: 30,
+        max: 120,
+        formatValue: (n) => '${n.toInt()}h',
+      )));
+      expect(find.text('25%'), findsOneWidget);
+    });
+
     testWidgets('max ≤ 0 → 诚实空态', (tester) async {
       await tester.pumpWidget(host(GaugeChart(
         value: 5,
