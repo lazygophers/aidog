@@ -541,8 +541,10 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
     final title = nameParts(g.displayName, g.canonicalModel);
     final active = _c.activeDetailEntry(g);
     if (active == null) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 是普通 `Dialog`（`ModelDetailDialog.tsx:43`，maxWidth 720），点遮罩可关。
+    return AidogModal(
+      maxWidth: 720,
+      onBarrierTap: () => _c.select(null),
       child: Tile(
         title: title.primary,
         meta: title.secondary == null

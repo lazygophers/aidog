@@ -636,8 +636,12 @@ class _DetailPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 用的是 Radix `Sheet`（`Logs/DetailPanel.tsx:37`，右侧抽屉，width 900）。
+    // 这里同为 Portal 浮层但居中，不做侧滑抽屉：Flutter 没有等价原语，
+    // 自造一套抽屉动画换来的只是入场方向不同。
+    return AidogModal(
+      maxWidth: 900,
+      onBarrierTap: onClose,
       child: Tile(
         title: t.t('logs.detail'),
         meta: detail.id,
