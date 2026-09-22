@@ -242,6 +242,53 @@ void main() {
       expect(k.countOf('db_compact'), 1);
     });
 
+    testWidgets('关掉日志记录后，清理按钮仍然点得到（库里旧日志还得清）', (tester) async {
+      // React 在 `LogSettingsSection.tsx:210` 特意把清理动作放在 logEnabled 之外，
+      // 注释原文「关闭记录后仍需可清已存日志」。Flutter 原先包进了 if (logEnabled)，
+      // 后果是关掉记录就再也清不掉已经攒下的旧日志。
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'proxy_log_settings_get': (_) => {
+          'enabled': false,
+          'retention_days': 90,
+          'retention_unit': 'day',
+          'log_user_request': false,
+          'log_upstream_request': false,
+          'user_request_retention_days': 7,
+          'user_request_retention_unit': 'day',
+          'upstream_request_retention_days': 7,
+          'upstream_request_retention_unit': 'day',
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          i18n,
+        ),
+      );
+      await settle(tester);
+
+      expect(find.byKey(const ValueKey('clear-logs')), findsOneWidget);
+      expect(find.byKey(const ValueKey('cleanup-expired')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('clear-logs')));
+      await settle(tester);
+      expect(find.byType(ConfirmCard), findsOneWidget, reason: '点得动才算数');
+    });
+
+    testWidgets('内核访问令牌是遮挡输入（拿到它就能直连内核）', (tester) async {
+      final (_, _) = await mount(tester);
+      final field = tester.widget<TextRow>(
+        find.byKey(const ValueKey('kernel-token')),
+      );
+      expect(
+        field.obscure,
+        isTrue,
+        reason: 'React 是 <input type="password">（KernelSection.tsx:72）',
+      );
+    });
+
     testWidgets('清空日志：取消后不发命令，确认后才发', (tester) async {
       final (k, _) = await mount(tester);
       await tester.tap(find.byKey(const ValueKey('clear-logs')));

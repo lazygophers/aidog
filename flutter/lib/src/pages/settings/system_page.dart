@@ -199,6 +199,10 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           label: t.t('kernel.authToken'),
           description: t.t('kernel.authTokenDesc'),
           hint: t.t('kernel.authTokenPlaceholder'),
+          // 🔴 这是内核管理面的访问令牌，拿到就能直连内核。React 是
+          // `<input type="password">`（`KernelSection.tsx:72`），这边漏了遮挡，
+          // 令牌明文显示在屏幕上，截图 / 投屏 / 旁人一眼就能看见。
+          obscure: true,
           value: _k.token,
           onChanged: _k.setToken,
           onSubmitted: (_) => _k.commitToken(t.t('kernel.saved')),
@@ -374,45 +378,50 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             _c.updateLogSettings({'retention_unit': u.wire});
           },
         ),
-        Text(
-          _estimate == null
-              ? t.t('logs.cleanupEstimateLoading')
-              : t.t('logs.cleanupEstimate', {
-                  'rows': formatNumber(
-                    (_estimate!['overdue_rows'] as num?) ?? 0,
-                  ),
-                  'bytes': formatBytes(
-                    (_estimate!['overdue_body_bytes'] as num?) ?? 0,
-                  ),
-                  'size': formatBytes(
-                    (_estimate!['db_size_bytes'] as num?) ?? 0,
-                  ),
-                }),
-          style: AidogType.micro.copyWith(
-            color: AidogTheme.of(context).c.fg3,
-          ),
-        ),
-        const SizedBox(height: AidogSpace.ssm),
-        Row(
-          children: [
-            SmallButton(
-              key: const ValueKey('cleanup-expired'),
-              label: t.t('logs.cleanupExpired'),
-              // 永久保留（0）时没有过期日志可清。
-              onTap: _c.logRetention == 0
-                  ? null
-                  : () => setState(() => _confirm = _Confirm.cleanupExpired),
-            ),
-            const SizedBox(width: AidogSpace.ssm),
-            SmallButton(
-              key: const ValueKey('clear-logs'),
-              label: t.t('logs.clear'),
-              danger: true,
-              onTap: () => setState(() => _confirm = _Confirm.clearLogs),
-            ),
-          ],
-        ),
       ],
+      // 🔴 清理按钮**独立于记录开关**，不能包进 `if (_c.logEnabled)`。
+      // React 在 `LogSettingsSection.tsx:210` 特意写了注释说明理由：
+      // 「关闭记录后仍需可清已存日志」。包进去的后果是关掉日志记录以后，
+      // 库里已经攒下的旧日志再也清不掉 —— 越想省空间越清不了。
+      const SizedBox(height: AidogSpace.ssm),
+      Row(
+        children: [
+          SmallButton(
+            key: const ValueKey('cleanup-expired'),
+            label: t.t('logs.cleanupExpired'),
+            // 永久保留（0）时没有过期日志可清。
+            onTap: _c.logRetention == 0
+                ? null
+                : () => setState(() => _confirm = _Confirm.cleanupExpired),
+          ),
+          const SizedBox(width: AidogSpace.ssm),
+          SmallButton(
+            key: const ValueKey('clear-logs'),
+            label: t.t('logs.clear'),
+            danger: true,
+            onTap: () => setState(() => _confirm = _Confirm.clearLogs),
+          ),
+        ],
+      ),
+      // 预估三个数：超期行数 / 可回收 body 体积 / 库总大小。按钮下面常驻。
+      Text(
+        _estimate == null
+            ? t.t('logs.cleanupEstimateLoading')
+            : t.t('logs.cleanupEstimate', {
+                'rows': formatNumber(
+                  (_estimate!['overdue_rows'] as num?) ?? 0,
+                ),
+                'bytes': formatBytes(
+                  (_estimate!['overdue_body_bytes'] as num?) ?? 0,
+                ),
+                'size': formatBytes(
+                  (_estimate!['db_size_bytes'] as num?) ?? 0,
+                ),
+              }),
+        style: AidogType.micro.copyWith(
+          color: AidogTheme.of(context).c.fg3,
+        ),
+      ),
     ],
   );
 
