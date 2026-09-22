@@ -42,8 +42,17 @@ class GroupsSection extends StatefulWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    this.searchQuery = '',
     required this.buildPlatformCard,
   });
+
+  /// 宿主页顶部那个搜索框的当前内容。
+  ///
+  /// 原先这里没有这个入参，源码自述「搜索态在本页尚未接入」—— 而搜索框就在同一屏
+  /// 顶部。后果是**已归组的平台一个都搜不到**，用户看到的却是一个能正常打字的框。
+  /// 语义照 `Groups.tsx:688-711`：命中组名整组展开、只命中组内几个平台就只渲染
+  /// 命中的那几张并强制展开、整组零命中就整组不渲染。
+  final String searchQuery;
 
   /// 组内那张平台卡怎么画（票 24）。
   ///
@@ -124,8 +133,11 @@ class _GroupsSectionState extends State<GroupsSection> {
       return _GroupEditPanel(controller: _c, copyText: widget.copyText);
     }
     if (_c.showCreate) return _GroupCreatePanel(controller: _c);
+    // 搜索串每帧推给控制器 —— 它是纯派生的来源，不存第二份。
+    _c.setSearchQuery(widget.searchQuery);
     return _GroupListView(
       controller: _c,
+      searchQuery: widget.searchQuery,
       onPlatformsDeleted: widget.onPlatformsDeleted,
       onPlatformDropped: widget.onPlatformDropped == null ? null : _acceptDrop,
       onCreatePlatform: widget.onCreatePlatform,
@@ -146,8 +158,12 @@ class _GroupListView extends StatelessWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    this.searchQuery = '',
     required this.buildPlatformCard,
   });
+
+  /// 见 [GroupsSection.searchQuery]。
+  final String searchQuery;
 
   final PlatformCardBuilder buildPlatformCard;
   final GroupsController controller;
@@ -162,6 +178,9 @@ class _GroupListView extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final c = controller;
+    final searching = searchQuery.trim().isNotEmpty;
+    final gs = c.groupSearch;
+    final rows = c.visibleDetails;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -197,6 +216,9 @@ class _GroupListView extends StatelessWidget {
           CenteredNote(text: t.t('status.loading'))
         else if (c.details.isEmpty)
           CenteredNote(text: t.t('group.empty'))
+        // 搜了但一个组都没命中：不能显「还没有分组」，那会让人以为分组全没了。
+        else if (rows.isEmpty)
+          CenteredNote(text: t.t('logs.empty'))
         else
           // 分组列表拖拽排序（`Groups.tsx:517-524` 的 SortableList）：
           // 搜索态在本页尚未接入（无搜索入口），故不设 no-op 分支。
@@ -207,16 +229,18 @@ class _GroupListView extends StatelessWidget {
             // 拖起来的那一份画在 Overlay 里，够不着 AidogI18n / 主题的 InheritedWidget
             // （整张卡在那儿重建会直接断言失败），所以只画一个名字标签。
             proxyDecorator: (child, i, animation) => _GroupDragLabel(
-              name: c.details[i.clamp(0, c.details.length - 1)].group.name,
+              name: rows[i.clamp(0, rows.length - 1)].group.name,
             ),
-            itemCount: c.details.length,
+            itemCount: rows.length,
             onReorderItem: (o, n) {
+              // 搜索态下顺序是过滤后的子集，拖了会把没显示的组一起重排 —— 不接受。
+              if (searching) return;
               final next = [...c.details];
               next.insert(n, next.removeAt(o));
               unawaited(c.reorderGroups(next));
             },
             itemBuilder: (context, i) {
-              final d = c.details[i];
+              final d = rows[i];
               return Padding(
                 key: ValueKey(d.group.id),
                 padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
@@ -224,7 +248,13 @@ class _GroupListView extends StatelessWidget {
                   controller: c,
                   detail: d,
                   index: i,
-                  collapsed: c.collapsedGroups.contains(d.group.id),
+                  // 搜索命中的组强制展开（`GroupListView.tsx:245` 的 forceExpanded），
+                  // 否则搜到了还得再点一下才看得见。
+                  collapsed: searching
+                      ? false
+                      : c.collapsedGroups.contains(d.group.id),
+                  // null = 不过滤；非 null = 只渲染这几张卡。
+                  visiblePlatformIds: gs?[d.group.id],
                   onPlatformDropped: onPlatformDropped,
                   onCreatePlatform: onCreatePlatform,
                   onNavigate: onNavigate,
@@ -413,8 +443,13 @@ class _GroupCard extends StatelessWidget {
     this.onCreatePlatform,
     this.onNavigate,
     this.copyText = native.writeText,
+    this.visiblePlatformIds,
     required this.buildPlatformCard,
   });
+
+  /// 搜索命中的平台 id 集合。null = 不过滤（无搜索，或整组命中组名）。
+  /// 对应 `GroupListItem.tsx:344-346` 的 `visiblePlatformIds`。
+  final Set<int>? visiblePlatformIds;
 
   final PlatformCardBuilder buildPlatformCard;
   final GroupsController controller;
@@ -689,17 +724,24 @@ class _GroupCard extends StatelessWidget {
                 style: AidogType.micro.copyWith(color: theme.c.fg3),
               )
             else
+              // 搜索命中过滤：只渲染命中的那几张（`GroupListItem.tsx:344-346`）。
+              // **index / total 仍按全量算** —— 它们决定上下移按钮的可用性，
+              // 按过滤后的算会让「上移」把平台挪到错的位置上。
               for (var i = 0; i < detail.platforms.length; i++)
-                _PlatformRow(
-                  controller: c,
-                  group: g,
-                  gp: detail.platforms[i],
-                  index: i,
-                  total: detail.platforms.length,
-                  allGroups: c.allGroups,
-                  selecting: selecting,
-                  buildPlatformCard: buildPlatformCard,
-                ),
+                if (visiblePlatformIds == null ||
+                    visiblePlatformIds!.contains(
+                      detail.platforms[i].platform.id,
+                    ))
+                  _PlatformRow(
+                    controller: c,
+                    group: g,
+                    gp: detail.platforms[i],
+                    index: i,
+                    total: detail.platforms.length,
+                    allGroups: c.allGroups,
+                    selecting: selecting,
+                    buildPlatformCard: buildPlatformCard,
+                  ),
             _MappingsSection(controller: c, detail: detail),
           ],
         ],
