@@ -22,10 +22,13 @@ import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'env_editor.dart';
 import 'hooks_editor.dart';
 import 'import_diff.dart';
 import 'path_input.dart';
 import 'permissions_editor.dart';
+import 'plugins_editor.dart';
+import 'sandbox_editor.dart';
 import 'schema_config_logic.dart';
 import 'statusline_panel.dart';
 
@@ -39,12 +42,16 @@ enum SchemaConfigKind {
   codex(
     wiring: SchemaConfigWiring.codex,
     schemaKey: 'codex',
-    titleKey: 'appSettings.codexTab',
+    // 页内标题用 `codex.title`（「Codex 配置」），不是侧栏的 tab 标签
+    // （`appSettings.codexTab` = 「Codex」，仍由 nav.dart 用）——
+    // 与 React `CodexSettings.tsx:167` 的页内标题栏一致。
+    titleKey: 'codex.title',
   ),
   pi(
     wiring: SchemaConfigWiring.pi,
     schemaKey: 'pi',
-    titleKey: 'appSettings.piTab',
+    // 同上：页内标题 `pi.title`（「pi 配置」），对齐 `PiSettings.tsx:169`。
+    titleKey: 'pi.title',
   );
 
   const SchemaConfigKind({
@@ -91,10 +98,17 @@ class SchemaSection {
 
 /// 一份 schema + 它的推荐配置。
 class SchemaBundle {
-  const SchemaBundle({required this.sections, required this.recommended});
+  const SchemaBundle({
+    required this.sections,
+    required this.recommended,
+    this.envCatalog = EnvVarCatalog.empty,
+  });
 
   final List<SchemaSection> sections;
   final Map<String, Object?> recommended;
+
+  /// 已知环境变量清单（只有 claude 有；codex / pi 留空）。
+  final EnvVarCatalog envCatalog;
 }
 
 /// 资产只解一次（121 KB JSON，每次进页面重解会在切页时掉帧）。
@@ -130,7 +144,13 @@ Future<SchemaBundle> loadSchemaBundle(
       (part['recommended'] as Map?) ?? const {},
     );
   }
-  return SchemaBundle(sections: sections, recommended: recommended);
+  return SchemaBundle(
+    sections: sections,
+    recommended: recommended,
+    envCatalog: kind == SchemaConfigKind.claude
+        ? EnvVarCatalog.fromSchema(part)
+        : EnvVarCatalog.empty,
+  );
 }
 
 /// Claude Code 的语言清单（`claude-settings-schema.ts::LANGUAGE_GROUPS` 拍平）。
@@ -173,6 +193,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   /// json / object / kv 字段的解析错误（key → 错误串）。
   final Map<String, String> _fieldErrors = {};
 
+  /// 全局搜索（R8，只有 claude 页有——`Settings.tsx` 独有，Codex / pi 页没有）。
+  /// 空串 = 未过滤。
+  String _searchQuery = '';
+
   @override
   void initState() {
     super.initState();
@@ -180,8 +204,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   }
 
   Future<void> _boot() async {
-    final bundle = await (widget.bundleLoader?.call(widget.kind) ??
-        loadSchemaBundle(widget.kind, locale: i18n.locale));
+    final bundle =
+        await (widget.bundleLoader?.call(widget.kind) ??
+            loadSchemaBundle(widget.kind, locale: i18n.locale));
     if (!mounted) return;
     final c = SchemaConfigController(
       wiring: widget.kind.wiring,
@@ -204,6 +229,37 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     super.dispose();
   }
 
+  /// R8 全局搜索：section 标签命中 → 整节显示；否则按字段 label/key/description 命中
+  /// → 只留命中的字段。返回值：section.id → 命中字段集合（`null` = 整节命中，show all）。
+  /// 与 React `Settings.tsx` 的 `search` useMemo 同算法。
+  Map<String, Set<String>?>? _computeSearch(
+    I18nController t,
+    SchemaBundle bundle,
+  ) {
+    final q = _searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return null;
+    final matched = <String, Set<String>?>{};
+    for (final s in bundle.sections) {
+      final sectionLabel = t.t(s.labelKey).toLowerCase();
+      if (sectionLabel.contains(q)) {
+        matched[s.id] = null;
+        continue;
+      }
+      final hits = <String>{};
+      for (final f in s.fields) {
+        final label = tOr(t, 'settings.f_${f.key}', f.label).toLowerCase();
+        final desc = (f.description ?? '').toLowerCase();
+        if (label.contains(q) ||
+            f.key.toLowerCase().contains(q) ||
+            desc.contains(q)) {
+          hits.add(f.key);
+        }
+      }
+      if (hits.isNotEmpty) matched[s.id] = hits;
+    }
+    return matched;
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
@@ -216,13 +272,35 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
       );
     }
 
+    final isClaude = widget.kind == SchemaConfigKind.claude;
+    final search = isClaude ? _computeSearch(t, bundle) : null;
+    final visibleSections = search == null
+        ? bundle.sections
+        : bundle.sections.where((s) => search.containsKey(s.id)).toList();
+
     final body = SettingsPageBody(
       title: t.t(widget.kind.titleKey),
-      subtitle: c.dirty ? t.t('settings.unsavedChanges') : null,
+      // React 三页都有这条持久提示（不只是保存后的一次性 toast）：脏 → 未保存更改，
+      // 干净 → 已保存（`SettingsHeader.tsx:157` / `CodexSettings.tsx:216`）。
+      subtitle: c.dirty
+          ? t.t('settings.unsavedChanges')
+          : t.t('settings.allSaved'),
       trailing: Wrap(
         spacing: AidogSpace.sxs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (isClaude)
+            SizedBox(
+              width: 200,
+              child: TextField(
+                key: const ValueKey('settings-search'),
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: t.t('settings.search'),
+                ),
+                onChanged: (v) => setState(() => _searchQuery = v),
+              ),
+            ),
           SmallButton(
             label: t.t('settings.guiMode'),
             active: c.mode == EditorMode.gui,
@@ -250,7 +328,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             ),
           SmallButton(
             label: c.saving ? t.t('status.loading') : t.t('action.save'),
-            onTap: c.canSave ? () => c.save(savedText: t.t('settings.saved')) : null,
+            onTap: c.canSave
+                ? () => c.save(savedText: t.t('settings.saved'))
+                : null,
           ),
         ],
       ),
@@ -267,8 +347,14 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               ),
             ],
           )
+        else if (search != null && visibleSections.isEmpty)
+          CenteredNote(
+            key: const ValueKey('settings-search-no-match'),
+            text: t.t('settings.searchNoMatch'),
+          )
         else
-          for (final s in bundle.sections) _section(t, c, s),
+          for (final s in visibleSections)
+            _section(t, c, s, fieldFilter: search?[s.id]),
         if (c.saveError.isNotEmpty) ErrorNote(text: c.saveError),
         if (c.importDiff != null)
           ImportDiffCard(
@@ -284,8 +370,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             onDiscard: c.discardAndLeave,
             onCancel: c.cancelLeave,
           ),
-        if (c.toast.isNotEmpty)
-          AutoToast(text: c.toast, onDone: c.clearToast),
+        if (c.toast.isNotEmpty) AutoToast(text: c.toast, onDone: c.clearToast),
       ],
     );
 
@@ -307,8 +392,11 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   Widget _section(
     I18nController t,
     SchemaConfigController c,
-    SchemaSection s,
-  ) {
+    SchemaSection s, {
+
+    /// R8 搜索命中的字段集合。`null` = 未过滤或整节命中（显示全部字段）。
+    Set<String>? fieldFilter,
+  }) {
     // hooks 区在 schema 里标了 skipGui（通用行渲染器画不了树），但 React 侧
     // 给它配了专用构建器（HooksSectionInline）—— 这里同样走专用编辑器。
     if (widget.kind == SchemaConfigKind.claude && s.id == 'hooks') {
@@ -322,6 +410,48 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
             onChanged: (v) => c.updateField('hooks', v),
             updateField: c.updateField,
             invoke: widget.invoke,
+          ),
+        ],
+      );
+    }
+    // 环境变量区：React 侧整节换成 EnvEditor（339 条已知变量分组 + 搜索 + 自定义）。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'env') {
+      final env = c.config['env'] is Map
+          ? {
+              for (final e in (c.config['env'] as Map).entries)
+                '${e.key}': '${e.value}',
+            }
+          : <String, String>{};
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          EnvEditor(
+            env: env,
+            catalog: _bundle?.envCatalog ?? EnvVarCatalog.empty,
+            onChanged: (v) => c.updateField('env', v),
+          ),
+        ],
+      );
+    }
+    // 插件区：五个字段在 schema 里全是 skipGui，React 侧整节换成 PluginsSectionInline。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'plugins') {
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [PluginsEditor(config: c.config, updateField: c.updateField)],
+      );
+    }
+    // 沙箱区同理：schema 里是一个 skipGui 的 json 字段，React 侧整节换成
+    // SandboxSectionInline（文件系统 / 网络 / 安全策略 / 排除命令四块）。
+    if (widget.kind == SchemaConfigKind.claude && s.id == 'sandbox') {
+      return SettingsCard(
+        title: t.t(s.labelKey),
+        children: [
+          SandboxEditor(
+            sandbox: c.config['sandbox'] is Map
+                ? Map<String, Object?>.from(c.config['sandbox'] as Map)
+                : const {},
+            invoke: widget.invoke,
+            onChanged: (v) => c.updateField('sandbox', v),
           ),
         ],
       );
@@ -341,24 +471,89 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     }
     for (final f in s.fields) {
       if (f.skipGui) continue;
+      if (fieldFilter != null && !fieldFilter.contains(f.key)) continue;
       rows.add(_field(t, c, f));
     }
     if (widget.kind == SchemaConfigKind.claude && s.id == 'status') {
-      rows.add(const StatusLineDataRef(key: ValueKey('section-status-dataref')));
+      rows.add(
+        const StatusLineDataRef(key: ValueKey('section-status-dataref')),
+      );
+    }
+    // Attribution 固定编辑器（commit + pr 两个子字段）：`attribution` 是 skipGui 的
+    // json 字段，React 侧在「advanced」节末尾单独铺开两个文本框，搜索命中具体字段时隐藏
+    // （`fieldFilter instanceof Set` 那条件的镜像：这里是 fieldFilter != null）。
+    if (widget.kind == SchemaConfigKind.claude &&
+        s.id == 'advanced' &&
+        fieldFilter == null) {
+      final attr = c.config['attribution'] is Map
+          ? Map<String, Object?>.from(c.config['attribution'] as Map)
+          : <String, Object?>{};
+      void setAttr(String field, String v) {
+        final next = {...attr, field: v};
+        c.updateField(
+          'attribution',
+          next.values.any((x) => (x as String?)?.isNotEmpty == true)
+              ? next
+              : null,
+        );
+      }
+
+      rows.add(
+        Padding(
+          key: const ValueKey('field-attribution'),
+          padding: const EdgeInsets.only(top: AidogSpace.smd),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TileMeta(tOr(t, 'settings.f_attribution', 'Attribution')),
+              TextRow(
+                key: const ValueKey('field-attribution-commit'),
+                label: t.t('settings.attribution.commit'),
+                value: '${attr['commit'] ?? ''}',
+                onSubmitted: (v) => setAttr('commit', v),
+              ),
+              TextRow(
+                key: const ValueKey('field-attribution-pr'),
+                label: t.t('settings.attribution.pr'),
+                value: '${attr['pr'] ?? ''}',
+                onSubmitted: (v) => setAttr('pr', v),
+              ),
+            ],
+          ),
+        ),
+      );
     }
     if (rows.isEmpty) return const SizedBox.shrink();
     return SettingsCard(title: t.t(s.labelKey), children: rows);
   }
 
-  Widget _field(
-    I18nController t,
-    SchemaConfigController c,
-    SchemaField f,
-  ) {
-    final label = tOr(t, 'settings.f_${f.key}', f.label);
+  /// R10：字段当前值与推荐默认值不同 → 显示重置徽标。深比较不认键序
+  /// （`FieldRenderer.tsx::stableEq` 的镜像，用 jsonEncode 排序键做等价替代）。
+  static bool _stableEq(Object? a, Object? b) {
+    if (a == null || b == null) return a == b;
+    if (a is List && b is List) {
+      if (a.length != b.length) return false;
+      for (var i = 0; i < a.length; i++) {
+        if (!_stableEq(a[i], b[i])) return false;
+      }
+      return true;
+    }
+    if (a is Map && b is Map) {
+      if (a.length != b.length) return false;
+      for (final k in a.keys) {
+        if (!b.containsKey(k) || !_stableEq(a[k], b[k])) return false;
+      }
+      return true;
+    }
+    return a == b;
+  }
+
+  Widget _field(I18nController t, SchemaConfigController c, SchemaField f) {
     final value = c.config[f.key];
     // 权限矩阵：React 侧是专用可视化编辑器（PermissionsSectionInline），
-    // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢。
+    // 这里对齐 —— 编辑器自带「可视化 ↔ JSON」双模式，裸 JSON 没有丢；权限矩阵在
+    // React 里整节 bypass FieldRenderer，同样没有重置徽标。
     if (widget.kind == SchemaConfigKind.claude && f.key == 'permissions') {
       return PermissionsEditor(
         key: const ValueKey('field-permissions'),
@@ -366,12 +561,52 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         onChanged: (v) => c.updateField(f.key, v),
       );
     }
+    final recommended = _bundle?.recommended ?? const {};
+    final hasDefault = recommended.containsKey(f.key);
+    final defaultValue = hasDefault ? recommended[f.key] : null;
+    final nonDefault = hasDefault && !_stableEq(value, defaultValue);
+    final content = _fieldContent(t, c, f, value);
+    if (!nonDefault) return content;
+    return Column(
+      key: ValueKey('field-wrap-${f.key}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        content,
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: Tooltip(
+            message: t.t('settings.resetToDefault'),
+            child: SmallButton(
+              key: ValueKey('field-reset-${f.key}'),
+              label: t.t('settings.reset'),
+              onTap: () => c.updateField(f.key, defaultValue),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _fieldContent(
+    I18nController t,
+    SchemaConfigController c,
+    SchemaField f,
+    Object? value,
+  ) {
+    final label = tOr(t, 'settings.f_${f.key}', f.label);
     // 带 pathType 的字段走带补全的路径输入（React `FieldRenderer.tsx:174`）。
     if (f.pathType != null) {
+      // fileSuggestion 在 React 侧是 StatusLineSection.tsx 就地构造的字段对象，
+      // description 直接来自 t("statusline.fileSuggestionDesc", ...) 而不是 schema.ts
+      // 里的静态字符串（schema.json 里那份是同一句中文的字面量副本，非 8 语言联动）。
+      final description = f.key == 'fileSuggestion'
+          ? tOr(t, 'statusline.fileSuggestionDesc', f.description ?? '')
+          : f.description;
       return PathInputRow(
         key: ValueKey('field-${f.key}'),
         label: label,
-        description: f.description,
+        description: description,
         hint: f.placeholder,
         value: value == null ? null : '$value',
         pathType: f.pathType!,
@@ -412,7 +647,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           key: ValueKey('field-${f.key}'),
           label: label,
           description: f.description,
-          hint: f.placeholder,
+          // React 的 StringListEditor 是逐条 add/remove；这里是一行一项的多行文本框——
+          // 同一份数据的不同交互形态，占位符沿用同一句「添加规则」引导语。
+          hint: f.placeholder ?? t.t('settings.addRule'),
           value: list,
           maxLines: 4,
           onSubmitted: (v) {
@@ -454,8 +691,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
   }
 }
 
-/// json / object / kv 字段：一个两空格缩进的 JSON 编辑框 + 解析错误提示。
-class _JsonField extends StatelessWidget {
+/// json / object / kv 字段：一个两空格缩进的 JSON 编辑框 + 格式化按钮 + 搜索/替换
+/// （React `JsonCodeEditor.tsx` 的精简对应：多行文本域没有 CodeMirror 的语法高亮，
+/// 但格式化、查找下一个/上一个、全部替换三个动作是真实可用的，不是摆设文案）。
+class _JsonField extends StatefulWidget {
   const _JsonField({
     super.key,
     required this.label,
@@ -472,22 +711,226 @@ class _JsonField extends StatelessWidget {
   final ValueChanged<String> onSubmitted;
 
   @override
-  Widget build(BuildContext context) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      TextRow(
-        label: label,
-        description: description,
-        value: value == null
-            ? ''
-            : const JsonEncoder.withIndent('  ').convert(value),
-        maxLines: 6,
-        onSubmitted: onSubmitted,
-      ),
-      if (error != null) ErrorNote(text: error!),
-    ],
+  State<_JsonField> createState() => _JsonFieldState();
+}
+
+class _JsonFieldState extends State<_JsonField> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: _initialText(),
   );
+  final FocusNode _focus = FocusNode();
+  final TextEditingController _searchCtrl = TextEditingController();
+  final TextEditingController _replaceCtrl = TextEditingController();
+  bool _showSearch = false;
+  bool _showReplace = false;
+
+  String _initialText() => widget.value == null
+      ? ''
+      : const JsonEncoder.withIndent('  ').convert(widget.value);
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) widget.onSubmitted(_ctrl.text);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_JsonField old) {
+    super.didUpdateWidget(old);
+    final v = _initialText();
+    if (v != _ctrl.text && !_focus.hasFocus) {
+      _ctrl.value = TextEditingValue(
+        text: v,
+        selection: TextSelection.collapsed(offset: v.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _ctrl.dispose();
+    _searchCtrl.dispose();
+    _replaceCtrl.dispose();
+    super.dispose();
+  }
+
+  void _format() {
+    try {
+      final pretty = const JsonEncoder.withIndent('  ')
+          .convert(jsonDecode(_ctrl.text));
+      _ctrl.value = TextEditingValue(
+        text: pretty,
+        selection: TextSelection.collapsed(offset: pretty.length),
+      );
+      widget.onSubmitted(pretty);
+    } catch (_) {
+      // 非法 JSON：不动文本，外层的错误提示已经在说明原因。
+    }
+  }
+
+  void _findNext({bool backward = false}) {
+    final q = _searchCtrl.text;
+    if (q.isEmpty) return;
+    final text = _ctrl.text;
+    final from = _ctrl.selection.isValid ? _ctrl.selection.extentOffset : 0;
+    int idx;
+    if (backward) {
+      final upTo = (from - q.length - 1).clamp(0, text.length);
+      idx = text.lastIndexOf(q, upTo);
+      if (idx < 0) idx = text.lastIndexOf(q);
+    } else {
+      idx = text.indexOf(q, from);
+      if (idx < 0) idx = text.indexOf(q);
+    }
+    if (idx < 0) return;
+    setState(() {
+      _ctrl.selection = TextSelection(
+        baseOffset: idx,
+        extentOffset: idx + q.length,
+      );
+    });
+    _focus.requestFocus();
+  }
+
+  void _replaceAll() {
+    final q = _searchCtrl.text;
+    if (q.isEmpty) return;
+    final next = _ctrl.text.replaceAll(q, _replaceCtrl.text);
+    _ctrl.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+    widget.onSubmitted(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return CallbackShortcuts(
+      bindings: {
+        const SingleActivator(LogicalKeyboardKey.keyF, meta: true): () =>
+            setState(() {
+              _showSearch = true;
+              _showReplace = false;
+            }),
+        const SingleActivator(LogicalKeyboardKey.keyF, control: true): () =>
+            setState(() {
+              _showSearch = true;
+              _showReplace = false;
+            }),
+        const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          meta: true,
+          alt: true,
+        ): () => setState(() {
+          _showSearch = true;
+          _showReplace = true;
+        }),
+        const SingleActivator(
+          LogicalKeyboardKey.keyF,
+          control: true,
+          alt: true,
+        ): () => setState(() {
+          _showSearch = true;
+          _showReplace = true;
+        }),
+      },
+      child: Focus(
+        canRequestFocus: false,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TileMeta(widget.label),
+            if (widget.description != null && widget.description!.isNotEmpty)
+              Text(
+                widget.description!,
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            Row(
+              children: [
+                SmallButton(label: t.t('jsonEditor.format'), onTap: _format),
+                const SizedBox(width: AidogSpace.ssm),
+                Expanded(
+                  child: Text(
+                    t.t('jsonEditor.searchHint'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+            if (_showSearch) ...[
+              const SizedBox(height: AidogSpace.sxs),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      key: const ValueKey('json-search'),
+                      controller: _searchCtrl,
+                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      decoration: const InputDecoration(isDense: true),
+                      onSubmitted: (_) => _findNext(),
+                    ),
+                  ),
+                  SmallButton(
+                    label: '↑',
+                    onTap: () => _findNext(backward: true),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  SmallButton(label: '↓', onTap: () => _findNext()),
+                  const SizedBox(width: AidogSpace.sxs),
+                  SmallButton(
+                    label: '×',
+                    onTap: () => setState(() {
+                      _showSearch = false;
+                      _showReplace = false;
+                    }),
+                  ),
+                ],
+              ),
+              if (_showReplace) ...[
+                const SizedBox(height: AidogSpace.sxs),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        key: const ValueKey('json-replace'),
+                        controller: _replaceCtrl,
+                        style: AidogType.micro.copyWith(color: theme.c.fg),
+                        decoration: const InputDecoration(isDense: true),
+                      ),
+                    ),
+                    // React 侧的替换按钮文案来自 CodeMirror 内建搜索面板，本身不接 i18n
+                    // （@codemirror/search 的默认 keymap 硬编码英文），这里照抄同一处理。
+                    SmallButton(
+                      key: const ValueKey('json-replace-all'),
+                      label: 'Replace All',
+                      onTap: _replaceAll,
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: AidogSpace.sxs),
+            ],
+            TextField(
+              controller: _ctrl,
+              focusNode: _focus,
+              maxLines: 6,
+              style: AidogType.micro.copyWith(color: theme.c.fg),
+              decoration: const InputDecoration(isDense: true),
+              onSubmitted: widget.onSubmitted,
+            ),
+            if (widget.error != null) ErrorNote(text: widget.error!),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── 导入差异弹窗 ──────────────────────────────────────────────
@@ -596,22 +1039,94 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     );
   }
 
+  /// React `nodeState`：组内叶子全选 = on，全不选 = off，介于两者 = partial。
+  String _nodeState(DiffNode n) {
+    final leaves = <String>[];
+    n.collectLeafPaths(leaves);
+    final on = leaves.where(_selected.contains).length;
+    if (on == 0) return 'off';
+    if (on == leaves.length) return 'on';
+    return 'partial';
+  }
+
+  /// React `toggleNode`：组内叶子全选中就全部取消，否则全部选上。
+  void _toggleNode(DiffNode n) {
+    final leaves = <String>[];
+    n.collectLeafPaths(leaves);
+    final allOn = leaves.every(_selected.contains);
+    setState(() {
+      final next = {..._selected};
+      for (final p in leaves) {
+        if (allOn) {
+          next.remove(p);
+        } else {
+          next.add(p);
+        }
+      }
+      _selected = next;
+    });
+  }
+
   List<Widget> _nodeRows(I18nController t, DiffNode n, int depth) {
     final theme = AidogTheme.of(context);
     final children = n.children;
     if (children != null && children.isNotEmpty) {
+      final state = _nodeState(n);
+      final badgeColor = state == 'partial' ? theme.c.peak : theme.c.accent;
+      final badgeText = state == 'partial'
+          ? t.t('settings.editor.diffPartial')
+          : t.t('settings.editor.diffObject');
       return [
-        Padding(
-          padding: EdgeInsets.only(left: depth * 12.0, top: AidogSpace.sxs),
-          child: Text(
-            n.label,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+        InkWell(
+          key: ValueKey('diff-group-${n.path}'),
+          onTap: () => _toggleNode(n),
+          child: Padding(
+            padding: EdgeInsets.only(left: depth * 12.0, top: AidogSpace.sxs),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Icon(
+                  state == 'off'
+                      ? Icons.check_box_outline_blank
+                      : Icons.check_box,
+                  size: 14,
+                  color: state == 'off' ? theme.c.fg3 : theme.c.accent,
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                Text(
+                  n.label,
+                  style: AidogType.micro.copyWith(
+                    color: theme.c.fg2,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: AidogSpace.sxs),
+                Text(
+                  badgeText,
+                  style: AidogType.micro.copyWith(
+                    color: badgeColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         for (final ch in children) ..._nodeRows(t, ch, depth + 1),
       ];
     }
     final on = _selected.contains(n.path);
+    final changeType = _changeType(n);
+    final labelColor = switch (changeType) {
+      'added' => theme.c.ok,
+      'removed' => theme.c.bad,
+      _ => theme.c.accent,
+    };
+    final changeLabel = switch (changeType) {
+      'added' => t.t('settings.editor.diffAdded'),
+      'removed' => t.t('settings.editor.diffRemoved'),
+      _ => t.t('settings.editor.diffChanged'),
+    };
     return [
       InkWell(
         key: ValueKey('diff-${n.path}'),
@@ -636,9 +1151,21 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      n.label,
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                    Row(
+                      children: [
+                        Text(
+                          n.label,
+                          style: AidogType.micro.copyWith(color: theme.c.fg),
+                        ),
+                        const SizedBox(width: AidogSpace.sxs),
+                        Text(
+                          changeLabel,
+                          style: AidogType.micro.copyWith(
+                            color: labelColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                     Text(
                       '${_short(n.current, t)} → ${_short(n.incoming, t)}',
@@ -652,6 +1179,15 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
         ),
       ),
     ];
+  }
+
+  /// React `getChangeType`：`current == null` → 新增，`incoming == null` → 删除，
+  /// 否则变更。JSON 没有 JS 的 `undefined`，null 就是它在 Dart 侧唯一的投影
+  /// （`import_diff.dart` 顶部注释已写明这处已知语义差，实际取不到）。
+  static String _changeType(DiffNode n) {
+    if (n.current == null) return 'added';
+    if (n.incoming == null) return 'removed';
+    return 'changed';
   }
 
   /// 值预览：对象只写「对象」二字，不把整棵树摊进一行（React 同规则）。

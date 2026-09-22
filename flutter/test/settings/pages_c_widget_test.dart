@@ -265,10 +265,7 @@ void main() {
   // ── claude / codex / pi 三页 ──────────────────────────
 
   group('schema 配置页', () {
-    Future<FakeKernel> mount(
-      WidgetTester tester,
-      SchemaConfigKind kind,
-    ) async {
+    Future<FakeKernel> mount(WidgetTester tester, SchemaConfigKind kind) async {
       await useBigSurface(tester);
       final k = FakeKernel(baseResponses());
       final i18n = await makeI18n(tester);
@@ -303,9 +300,7 @@ void main() {
       expect(hasNavGuard, isTrue, reason: '脏了就该挂守卫');
 
       final i18n = await makeI18n(tester);
-      await tester.tap(
-        find.widgetWithText(SmallButton, i18n.t('action.save')),
-      );
+      await tester.tap(find.widgetWithText(SmallButton, i18n.t('action.save')));
       await settle(tester);
       expect(k.countOf('settings_set'), 1);
       // claude 页保存后 best-effort 同步分组设置。
@@ -361,7 +356,10 @@ void main() {
   // ── CLI 集成页 ────────────────────────────────────────
 
   group('CLI 集成页', () {
-    Future<FakeKernel> mount(WidgetTester tester, {List<Object?>? rules}) async {
+    Future<FakeKernel> mount(
+      WidgetTester tester, {
+      List<Object?>? rules,
+    }) async {
       await useBigSurface(tester);
       final k = FakeKernel({
         ...baseResponses(),
@@ -535,15 +533,17 @@ void main() {
       find.widgetWithText(SmallButton, i18n.t('group.failover')),
     );
     await settle(tester);
-    final args =
-        k.lastArgsOf('scheduling_settings_set')!['settings']! as Map;
+    final args = k.lastArgsOf('scheduling_settings_set')!['settings']! as Map;
     expect(args['default_routing_mode'], 'failover');
   });
 
   // ── 中间件页 ──────────────────────────────────────────
 
   group('中间件页', () {
-    Future<FakeKernel> mount(WidgetTester tester, {List<Object?>? rules}) async {
+    Future<FakeKernel> mount(
+      WidgetTester tester, {
+      List<Object?>? rules,
+    }) async {
       await useBigSurface(tester);
       final k = FakeKernel({
         ...baseResponses(),
@@ -582,7 +582,10 @@ void main() {
         find
             .descendant(
               of: find.byKey(const ValueKey('rule-3')),
-              matching: find.widgetWithText(SmallButton, i18n.t('action.delete')),
+              matching: find.widgetWithText(
+                SmallButton,
+                i18n.t('action.delete'),
+              ),
             )
             .first,
       );
@@ -660,7 +663,10 @@ void main() {
       });
       final i18n = await makeI18n(tester);
       await tester.pumpWidget(
-        wrapPage(MitmSettingsPage(invoke: k.invoke, copyFn: (_) async {}), i18n),
+        wrapPage(
+          MitmSettingsPage(invoke: k.invoke, copyFn: (_) async {}),
+          i18n,
+        ),
       );
       await settle(tester);
       return k;
@@ -698,6 +704,42 @@ void main() {
             .enabled,
         isTrue,
       );
+    });
+
+    // React `MitmConfig.tsx:444`：白名单输入框里按回车 = 点「添加」。
+    testWidgets('白名单输入框按回车直接添加', (tester) async {
+      final k = await mount(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('mitm-new-pattern')),
+          matching: find.byType(TextField),
+        ),
+        '*.example.com',
+      );
+      await settle(tester);
+      expect(k.countOf('mitm_whitelist_add'), 0, reason: '光打字不该发请求');
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(k.countOf('mitm_whitelist_add'), 1);
+    });
+
+    // React `MitmConfig.tsx:477`：测试 URL 输入框里按回车 = 点「测试」。
+    testWidgets('测试 URL 输入框按回车直接测试', (tester) async {
+      final k = await mount(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('mitm-test-url')),
+          matching: find.byType(TextField),
+        ),
+        'https://api.example.com/v1',
+      );
+      await settle(tester);
+      expect(k.countOf('mitm_whitelist_test_url'), 0);
+
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(k.countOf('mitm_whitelist_test_url'), 1);
     });
 
     testWidgets('清空先确认，确认后才发 mitm_whitelist_clear', (tester) async {

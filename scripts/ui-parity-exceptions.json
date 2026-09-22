@@ -1,4 +1,23 @@
 {
   "$comment": "界面对齐的例外清单，被 scripts/check-ui-parity.mjs 读取。加一条 = 把一个缺口洗白，提交信息里必须写明理由。type 只能是 synonym（两侧都实现、key 取名不同）或 intentional（明知有、决定不做）。evidence 必填且必须是 file:line。判定规则见 .scratch/flutter-ui-parity/issues/02-what-counts-as-gap.md。",
-  "exceptions": []
+  "exceptions": [
+    {
+      "key": "mitm.cancel",
+      "type": "synonym",
+      "reason": "MITM 清空白名单的确认框在 Flutter 走通用 ConfirmCard，取消按钮用全应用统一的 action.cancel（同样是「取消」）。React 的 MitmConfig.tsx 自己开 Dialog 才另起了 mitm.cancel 这个同义 key。两侧都有这个按钮，只是 key 取名不同。",
+      "evidence": "flutter/lib/src/pages/ui_bits.dart:118"
+    },
+    {
+      "key": "pathPicker.openHint",
+      "type": "intentional",
+      "reason": "这句是「浏览器里没有系统文件对话框，请直接输入路径」——只在 React 的浏览器形态下出现（PathPickerHost 是给 Web 壳用的页内替代弹窗）。Flutter 外壳一律走 file_selector 的真原生面板，没有这条降级路径，写出这句话是假的。",
+      "evidence": "flutter/lib/platform.dart:151"
+    },
+    {
+      "key": "pathPicker.saveHint",
+      "type": "intentional",
+      "reason": "同 pathPicker.openHint：「浏览器里没有系统『保存到』对话框」的降级提示。Flutter 的 pickPath(save:true) 直接调 getSaveLocation 开原生保存面板，不存在需要用户手敲完整路径的形态。",
+      "evidence": "flutter/lib/platform.dart:154"
+    }
+  ]
 }

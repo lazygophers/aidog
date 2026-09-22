@@ -18,11 +18,7 @@ import 'bits.dart';
 import 'mitm_logic.dart';
 
 class MitmSettingsPage extends StatefulWidget {
-  const MitmSettingsPage({
-    super.key,
-    this.invoke = kernelInvoke,
-    this.copyFn,
-  });
+  const MitmSettingsPage({super.key, this.invoke = kernelInvoke, this.copyFn});
 
   final InvokeFn invoke;
 
@@ -94,9 +90,8 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             confirmLabel: t.t('mitm.clear'),
             busy: _c.busy,
             onCancel: _c.closeClearConfirm,
-            onConfirm: () => _c.confirmClear(
-              (n) => t.t('mitm.clearDone', {'n': n}),
-            ),
+            onConfirm: () =>
+                _c.confirmClear((n) => t.t('mitm.clearDone', {'n': n})),
           ),
         if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
         if (_c.message.isNotEmpty)
@@ -123,15 +118,10 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
         ),
         InfoRow(
           label: t.t('mitm.caInstalled'),
-          value: _c.caInstalled
-              ? t.t('mitm.installedHint')
-              : t.t('common.no'),
+          value: _c.caInstalled ? t.t('mitm.installedHint') : t.t('common.no'),
         ),
         if (_c.fingerprint.isNotEmpty)
-          InfoRow(
-            label: t.t('mitm.fingerprint'),
-            value: ltr(_c.fingerprint),
-          ),
+          InfoRow(label: t.t('mitm.fingerprint'), value: ltr(_c.fingerprint)),
         const SizedBox(height: AidogSpace.ssm),
         Align(
           alignment: AlignmentDirectional.centerStart,
@@ -148,9 +138,31 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             t.t('mitm.manualInstallTitle'),
             style: AidogType.micro.copyWith(color: theme.c.fg2),
           ),
-          SelectableText(
-            manual.manualDisplay,
-            style: AidogType.numSm.copyWith(color: theme.c.fg),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                'CA PEM: ',
+                style: AidogType.micro.copyWith(color: theme.c.fg2),
+              ),
+              SelectableText(
+                manual.caPemPath,
+                style: AidogType.numSm.copyWith(color: theme.c.fg),
+              ),
+            ],
+          ),
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                t.t('mitm.command'),
+                style: AidogType.micro.copyWith(color: theme.c.fg2),
+              ),
+              SelectableText(
+                manual.manualDisplay,
+                style: AidogType.numSm.copyWith(color: theme.c.fg),
+              ),
+            ],
           ),
           Text(
             t.t('mitm.manualInstallHint'),
@@ -201,6 +213,10 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                 hint: t.t('mitm.addPlaceholder'),
                 value: _c.newPattern,
                 onChanged: _c.setNewPattern,
+                // React `MitmConfig.tsx:444`：回车 = 点「添加」。
+                onEnter: (_) {
+                  if (_c.canAdd) _c.addRule();
+                },
               ),
             ),
             const SizedBox(width: AidogSpace.ssm),
@@ -222,10 +238,10 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
               onTap: _c.busy
                   ? null
                   : () => _c.importDefaults(
-                      (imported, skipped) => t.t(
-                        'mitm.importDefaultsDone',
-                        {'imported': imported, 'skipped': skipped},
-                      ),
+                      (imported, skipped) => t.t('mitm.importDefaultsDone', {
+                        'imported': imported,
+                        'skipped': skipped,
+                      }),
                     ),
             ),
             const SizedBox(width: AidogSpace.ssm),
@@ -310,6 +326,10 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                 hint: t.t('mitm.testUrlPlaceholder'),
                 value: _c.testUrl,
                 onChanged: _c.setTestUrl,
+                // React `MitmConfig.tsx:477`：回车 = 点「测试」。
+                onEnter: (_) {
+                  if (_c.canTest) _c.runUrlTest();
+                },
               ),
             ),
             const SizedBox(width: AidogSpace.ssm),

@@ -72,6 +72,14 @@ class _McpPageState extends State<McpPage> {
             ],
           ),
         ),
+        const Padding(
+          padding: EdgeInsets.only(bottom: AidogSpace.ssm),
+          child: PiUnsupportedNote(
+            reasonKey: 'pi.unsupportedMcp',
+            reasonFallback:
+                'pi 刻意不内置 MCP，能力靠 extension 直接写 TypeScript 提供，没有可写入的 MCP 配置文件。',
+          ),
+        ),
         if (_c.loading)
           CenteredNote(text: t.t('status.loading'))
         else if (_c.servers.isEmpty)

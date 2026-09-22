@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../../platform.dart' as native;
+import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
@@ -104,45 +105,58 @@ class _ImportExportPageState extends State<ImportExportPage> {
           title: t.t('importExport.ccswitch.title'),
           description: t.t('importExport.ccswitch.desc'),
           autoGroupLabel: t.t('importExport.ccswitch.autoGroup'),
-          header: Row(
+          header: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SmallButton(
-                key: const ValueKey('ccswitch-detect'),
-                label: _cc.busy
-                    ? t.t('importExport.ccswitch.detecting')
-                    : t.t('importExport.ccswitch.detectBtn'),
-                onTap: _cc.busy
-                    ? null
-                    : () async {
-                        await _cc.detect();
-                        if (mounted) await _cc.read();
-                      },
-              ),
-              const SizedBox(width: AidogSpace.ssm),
-              SmallButton(
-                key: const ValueKey('ccswitch-pick-dir'),
-                label: t.t('importExport.ccswitch.selectDir'),
-                onTap: _cc.busy
-                    ? null
-                    : () async {
-                        final dir = await native.pickPath(
-                          const native.PickPathOptions(directory: true),
-                        );
-                        if (dir == null || !mounted) return;
-                        await _cc.detect(overridePath: dir);
-                        if (mounted) await _cc.read(path: dir);
-                      },
-              ),
-              const SizedBox(width: AidogSpace.ssm),
-              if (_cc.detection != null)
-                Text(
-                  _cc.detection!.isEmpty
-                      ? t.t('importExport.ccswitch.notDetected')
-                      : t.t('importExport.ccswitch.detected'),
-                  style: AidogType.micro.copyWith(
-                    color: AidogTheme.of(context).c.fg3,
-                  ),
+              const Padding(
+                padding: EdgeInsets.only(bottom: AidogSpace.ssm),
+                child: PiUnsupportedNote(
+                  reasonKey: 'pi.unsupportedCcSwitch',
+                  reasonFallback: '上游 cc-switch 只管 claude 与 codex provider，本身不认识 pi，没有可导入的 pi 数据。',
                 ),
+              ),
+              Row(
+                children: [
+                  SmallButton(
+                    key: const ValueKey('ccswitch-detect'),
+                    label: _cc.busy
+                        ? t.t('importExport.ccswitch.detecting')
+                        : t.t('importExport.ccswitch.detectBtn'),
+                    onTap: _cc.busy
+                        ? null
+                        : () async {
+                            await _cc.detect();
+                            if (mounted) await _cc.read();
+                          },
+                  ),
+                  const SizedBox(width: AidogSpace.ssm),
+                  SmallButton(
+                    key: const ValueKey('ccswitch-pick-dir'),
+                    label: t.t('importExport.ccswitch.selectDir'),
+                    onTap: _cc.busy
+                        ? null
+                        : () async {
+                            final dir = await native.pickPath(
+                              const native.PickPathOptions(directory: true),
+                            );
+                            if (dir == null || !mounted) return;
+                            await _cc.detect(overridePath: dir);
+                            if (mounted) await _cc.read(path: dir);
+                          },
+                  ),
+                  const SizedBox(width: AidogSpace.ssm),
+                  if (_cc.detection != null)
+                    Text(
+                      _cc.detection!.isEmpty
+                          ? t.t('importExport.ccswitch.notDetected')
+                          : t.t('importExport.ccswitch.detected'),
+                      style: AidogType.micro.copyWith(
+                        color: AidogTheme.of(context).c.fg3,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
         ),
@@ -206,10 +220,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           ConfirmCard(
             title: t.t('importExport.applyBtn'),
             body: t.t('importExport.importDesc'),
-            confirmLabel: t.t(
-              'importExport.applyN',
-              {'n': _c.selected.length},
-            ),
+            confirmLabel: t.t('importExport.applyN', {'n': _c.selected.length}),
             busy: _c.busy,
             onCancel: () => setState(() => _confirmApply = false),
             onConfirm: () {
@@ -284,8 +295,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           ),
         ],
       ),
-      if (_c.scopes.isEmpty)
-        ErrorNote(text: t.t('importExport.error.noScope')),
+      if (_c.scopes.isEmpty) ErrorNote(text: t.t('importExport.error.noScope')),
       if (_c.preview != null) _itemPicker(t),
     ],
   );
@@ -311,9 +321,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       // 只收 .aidogx（React 的 `error.notAidogx`）。
                       if (!p.endsWith('.aidogx')) {
                         setState(
-                          () => _c.error = t.t(
-                            'importExport.error.notAidogx',
-                          ),
+                          () => _c.error = t.t('importExport.error.notAidogx'),
                         );
                         return;
                       }
@@ -335,7 +343,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
           ],
         ),
         if (_importPath != null)
-          InfoRow(label: t.t('importExport.pickFile'), value: ltr(_importPath!)),
+          InfoRow(
+            label: t.t('importExport.pickFile'),
+            value: ltr(_importPath!),
+          ),
         if (_c.conflictKeys.isNotEmpty) ...[
           TileMetaLine(
             t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
@@ -497,6 +508,15 @@ class _ImportExportPageState extends State<ImportExportPage> {
 
   // ── 定时备份 ────────────────────────────────────────────
 
+  /// 备份时刻：0 = 从未。格式照 React `ScheduledBackupSection.tsx::formatBackupTime`
+  /// 的 `YYYY-MM-DD HH:MM:SS`（不是 `formatters.dart::formatDateTime` 的斜杠形态）。
+  static String _backupTime(I18nController t, int ms) {
+    if (ms <= 0) return t.t('settings.backup.never');
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return '${d.year}-${pad(d.month)}-${pad(d.day)} '
+        '${pad(d.hour)}:${pad(d.minute)}:${pad(d.second)}';
+  }
+
   Widget _backupCard(I18nController t) {
     final s = _b.settings;
     return SettingsCard(
@@ -525,8 +545,28 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: s.retentionDays,
           onChanged: (v) => _b.persist(s.copyWith(retentionDays: v)),
         ),
-        if (s.dir.isNotEmpty)
-          InfoRow(label: t.t('settings.backup.location'), value: ltr(s.dir)),
+        if (s.enabled) ...[
+          InfoRow(
+            key: const ValueKey('backup-last'),
+            label: t.t('settings.backup.lastBackup'),
+            value: _backupTime(t, s.lastBackupAt),
+          ),
+          if (s.nextBackupAt > 0)
+            InfoRow(
+              key: const ValueKey('backup-next'),
+              label: t.t('settings.backup.nextBackup'),
+              value: _backupTime(t, s.nextBackupAt),
+            ),
+          InfoRow(
+            label: t.t('settings.backup.location'),
+            value: ltr(s.dir.isEmpty ? '~/.aidog/backups/' : s.dir),
+          ),
+          if (s.lastBackupError.isNotEmpty)
+            ErrorNote(
+              key: const ValueKey('backup-last-error'),
+              text: '${t.t('settings.backup.lastError')}: ${s.lastBackupError}',
+            ),
+        ],
         Row(
           children: [
             SmallButton(
@@ -540,13 +580,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       (r) =>
                           '${t.t('settings.backup.success')}'
                           '${r['path'] == null ? '' : '：${r['path']}'}',
+                      failedText: t.t('settings.backup.failed'),
                     ),
             ),
-            if (s.dir.isNotEmpty) ...[
+            if (_b.lastResultPath != null) ...[
               const SizedBox(width: AidogSpace.ssm),
               SmallButton(
-                label: t.t('settings.backup.reveal'),
-                onTap: () => native.revealItemInDir(s.dir),
+                key: const ValueKey('backup-reveal'),
+                // 没有「在文件管理器里定位」命令的系统上 revealItemInDir 退化成
+                // 复制路径（`platform.dart:89`），按钮文案跟着换 —— 说「在文件夹显示」
+                // 却只复制了路径就是骗人（React `ScheduledBackupSection.tsx:212` 同理）。
+                label: native.canRevealItemInDir()
+                    ? t.t('settings.backup.reveal')
+                    : t.t('settings.backup.copyPath'),
+                onTap: () => native.revealItemInDir(_b.lastResultPath!),
               ),
             ],
           ],
@@ -633,10 +680,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
             alignment: AlignmentDirectional.centerStart,
             child: SmallButton(
               key: ValueKey('foreign-import-${c.source.autoGroupName}'),
-              label: t.t(
-                'importExport.ccswitch.importBtn',
-                {'n': c.selected.length},
-              ),
+              label: t.t('importExport.ccswitch.importBtn', {
+                'n': c.selected.length,
+              }),
               // 一项没选就点不动（`canImport`）。
               onTap: c.canImport
                   ? () async {
