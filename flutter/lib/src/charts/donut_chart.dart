@@ -56,7 +56,7 @@ List<DonutSlice> donutSlices(
   ];
 }
 
-class AidogDonutChart extends StatelessWidget {
+class AidogDonutChart extends StatefulWidget {
   const AidogDonutChart({
     super.key,
     required this.data,
@@ -89,8 +89,28 @@ class AidogDonutChart extends StatelessWidget {
   final bool showLegend;
 
   @override
+  State<AidogDonutChart> createState() => _AidogDonutChartState();
+}
+
+class _AidogDonutChartState extends State<AidogDonutChart> {
+  /// 指针所在扇区。-1 = 没碰到。碰到时中央的总值换成那块的名称 / 值 / 占比 ——
+  /// React 那边是跟随指针的 tooltip（`DonutChart.tsx`），信息一样，
+  /// 落点换成环心：Flutter 这版是桌面 + 触屏通用，跟随指针的浮层在触屏上够不着。
+  int _touched = -1;
+
+  @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
+    final data = widget.data;
+    final restLabel = widget.restLabel;
+    final formatValue = widget.formatValue;
+    final topN = widget.topN;
+    final centerLabel = widget.centerLabel;
+    final size = widget.size;
+    final emptyText = widget.emptyText;
+    final emptyHint = widget.emptyHint;
+    final mini = widget.mini;
+    final showLegend = widget.showLegend;
     final slices = donutSlices(
       data,
       ChartPalette(t.c),
@@ -118,35 +138,81 @@ class AidogDonutChart extends StatelessWidget {
                   sectionsSpace: 2,
                   centerSpaceRadius: size * 0.31, // 内径 62% 直径的一半
                   startDegreeOffset: -90,
-                  pieTouchData: PieTouchData(enabled: true),
+                  // 原先只写了 `enabled: true` 却没给 touchCallback ——
+                  // 等于开了个没人接的开关，碰扇区什么都不出。
+                  pieTouchData: PieTouchData(
+                    enabled: true,
+                    touchCallback: (event, response) {
+                      final i =
+                          response?.touchedSection?.touchedSectionIndex ?? -1;
+                      // 抬手 / 移出即复位，否则中央会一直停在最后碰过的那块。
+                      final next = event is FlPointerExitEvent ||
+                              event is FlTapUpEvent ||
+                              event is FlLongPressEnd ||
+                              event is FlPanEndEvent
+                          ? -1
+                          : i;
+                      if (next != _touched) setState(() => _touched = next);
+                    },
+                  ),
                   sections: [
-                    for (final d in slices)
+                    for (var i = 0; i < slices.length; i++)
                       PieChartSectionData(
-                        value: d.value,
-                        color: d.color,
-                        radius: size * 0.13, // 外径 88% → 环宽 (88-62)/2 = 13%
+                        value: slices[i].value,
+                        color: slices[i].color,
+                        // 碰到的那块鼓出来一点，指哪块一眼可见。
+                        radius: size * (i == _touched ? 0.155 : 0.13),
                         showTitle: false,
                       ),
                   ],
                 ),
               ),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    formatValue(total),
-                    style: (mini ? AidogType.numSm : AidogType.numMd).copyWith(
-                      color: t.c.fg,
-                      fontWeight: FontWeight.w600,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (centerLabel != null)
-                    Text(
-                      centerLabel!,
-                      style: AidogType.micro.copyWith(color: t.c.fg3),
-                    ),
-                ],
+              // 碰到某块时中央换成「名称 / 值 / 占比」，松手回到总值。
+              Builder(
+                builder: (context) {
+                  final hit = _touched >= 0 && _touched < slices.length
+                      ? slices[_touched]
+                      : null;
+                  final pct = hit == null || total <= 0
+                      ? ''
+                      : '${(hit.value / total * 100).toStringAsFixed(1)}%';
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        formatValue(hit?.value ?? total),
+                        style: (mini ? AidogType.numSm : AidogType.numMd)
+                            .copyWith(
+                              color: t.c.fg,
+                              fontWeight: FontWeight.w600,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                      ),
+                      if (hit != null) ...[
+                        SizedBox(
+                          width: size * 0.5,
+                          child: Text(
+                            hit.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.center,
+                            style: AidogType.micro.copyWith(color: t.c.fg2),
+                          ),
+                        ),
+                        Text(
+                          pct,
+                          style: AidogType.micro.copyWith(color: t.c.fg3),
+                        ),
+                      ] else if (centerLabel != null)
+                        Text(
+                          centerLabel,
+                          style: AidogType.micro.copyWith(color: t.c.fg3),
+                        ),
+                    ],
+                  );
+                },
               ),
             ],
           ),

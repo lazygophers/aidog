@@ -68,6 +68,8 @@ FakeInvoke detailFake({List<Object?> attempts = const []}) => FakeInvoke({
   },
   'proxy_log_get': {
     ...logRow('a1'),
+    'source_protocol': 'openai',
+    'target_protocol': 'openai',
     // 用户侧
     'request_url': 'https://local/v1/chat',
     'request_headers': '{"x-user":"1"}',
@@ -84,6 +86,10 @@ FakeInvoke detailFake({List<Object?> attempts = const []}) => FakeInvoke({
   },
   'proxy_log_clear': null,
   'proxy_log_cleanup_expired': null,
+  // 协议本地化名的数据源（`DetailPanel.tsx:175-176` 的 sourceLabel）。
+  'get_defaults_json':
+      '{"protocols":{"openai":{"name":{"zh-Hans":"OpenAI 兼容"}}}}',
+  'get_client_types_json': '{}',
 });
 
 Map<String, Object?> attempt(
@@ -228,5 +234,60 @@ void main() {
     // 上游五块全空 → 五条「(未捕获)」，复制按钮只剩用户侧那五个。
     expect(find.text(c.t('logs.noUpstream')), findsNWidgets(5));
     expect(panelCopies(c), findsNWidgets(5));
+  });
+
+  // 第二梯队 2026-09-22：元信息区缺平台与时间、状态码是裸数字不上色、
+  // 协议印裸枚举值、请求 ID 复制不了、每格没有复制按钮、没有刷新
+  //（`DetailPanel.tsx:131-214`）。
+  group('元信息区', () {
+    testWidgets('平台与时间各占一行', (tester) async {
+      final (_, c, _) = await openDetail(tester);
+      final panel = find.byType(AidogModal);
+      expect(
+        find.descendant(of: panel, matching: find.text(c.t('logs.platform'))),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: panel, matching: find.text(c.t('logs.time'))),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: panel, matching: find.text('P1')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('协议印本地化名，裸枚举值只进复制内容', (tester) async {
+      final (_, _, written) = await openDetail(tester);
+      final panel = find.byType(AidogModal);
+      expect(
+        find.descendant(of: panel, matching: find.text('OpenAI 兼容')),
+        findsWidgets,
+      );
+      expect(
+        find.descendant(of: panel, matching: find.text('openai')),
+        findsNothing,
+        reason: '裸枚举值不该印在脸上',
+      );
+      // 该行的复制按钮复制的仍是裸值（审计用）。
+      await tester.tap(panelCopies(await makeI18n(tester)).first);
+      await settle(tester);
+      expect(written, isNotEmpty);
+    });
+
+    testWidgets('请求 ID 独占一行，复制成 request_id=<id>', (tester) async {
+      final (_, _, written) = await openDetail(tester);
+      await tester.tap(find.byKey(const ValueKey('detail-copy-id')));
+      await settle(tester);
+      expect(written, contains('request_id=a1'));
+    });
+
+    testWidgets('刷新按钮重新拉这一条详情', (tester) async {
+      final (k, _, _) = await openDetail(tester);
+      final before = k.callsTo('proxy_log_get').length;
+      await tester.tap(find.byKey(const ValueKey('detail-refresh')));
+      await settle(tester);
+      expect(k.callsTo('proxy_log_get').length, before + 1);
+    });
   });
 }

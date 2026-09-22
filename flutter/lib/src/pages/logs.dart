@@ -113,6 +113,13 @@ class _LogsPageState extends State<LogsPage> {
                   _c.cleanupMessage,
                   style: AidogType.micro.copyWith(color: theme.c.ok),
                 ),
+              // 刷新按钮（`ListView.tsx:70-72`）：原先主日志页只能等事件流推送，
+              // 想立刻看一眼最新的没有任何入口。载入中禁用，防止连点堆查询。
+              SmallButton(
+                key: const ValueKey('logs-refresh'),
+                label: t.t('logs.refresh'),
+                onTap: _c.loading ? null : () => _c.load(),
+              ),
               SmallButton(
                 label: t.t('logs.cleanupExpired'),
                 onTap: () =>
@@ -165,6 +172,9 @@ class _LogsPageState extends State<LogsPage> {
           _DetailPanel(
             detail: _c.detail!,
             groupName: _c.groupName,
+            platformName: _c.platformName,
+            protocolLabel: (code) => _c.protocolLabel(code, t.locale),
+            onRefresh: _c.refreshDetail,
             copied: _c.copied,
             onClose: _c.closeDetail,
             onCopyAll: () {
@@ -493,6 +503,9 @@ class _RequestLogPageState extends State<RequestLogPage> {
           _DetailPanel(
             detail: _c.detail!,
             groupName: _c.groupName,
+            platformName: _c.platformName,
+            protocolLabel: (code) => _c.protocolLabel(code, t.locale),
+            onRefresh: _c.refreshDetail,
             copied: _c.copied,
             onClose: _c.closeDetail,
             onCopyAll: () {
@@ -542,6 +555,9 @@ class _LogTable extends StatelessWidget {
                 _Cell(t.t('logs.time'), flex: 3, header: true),
                 _Cell(t.t('logs.group'), flex: 2, header: true),
                 _Cell(t.t('logs.platform'), flex: 2, header: true),
+                // 「原始模型」列：发生模型改写时，不写出来就看不出客户端
+                // 原本请求的是哪个模型（`ListView.tsx:202-211` 是十列）。
+                _Cell(t.t('logs.model'), flex: 3, header: true),
                 _Cell(t.t('logs.actualModel'), flex: 3, header: true),
                 _Cell(t.t('logs.status'), flex: 1, header: true),
                 _Cell(t.t('logs.duration'), flex: 2, header: true),
@@ -560,7 +576,23 @@ class _LogTable extends StatelessWidget {
                   children: [
                     _Cell(formatDateTime(log.createdAt), flex: 3),
                     _Cell(groupName(log.groupKey), flex: 2),
-                    _Cell(platformName(log.platformId), flex: 2),
+                    // 重试徽标 ↻N（`primitives.tsx:296-300`）：`retryCount` 早就
+                    // 解析出来了，只是没画 —— 列表上分不出哪些请求重试过。
+                    _CellWithBadge(
+                      text: platformName(log.platformId),
+                      flex: 2,
+                      badge: log.retryCount > 0 ? '↻${log.retryCount}' : null,
+                      badgeTooltip: t.t('logs.retriedHint', {
+                        'n': '${log.retryCount}',
+                      }),
+                    ),
+                    // 流式徽标 SSE（`primitives.tsx:304-306`），同上。
+                    _CellWithBadge(
+                      text: log.model.isEmpty ? '-' : log.model,
+                      flex: 3,
+                      badge: log.isStream ? 'SSE' : null,
+                      badgeTooltip: t.t('logs.streaming'),
+                    ),
                     _Cell(
                       log.actualModel.isEmpty ? '-' : log.actualModel,
                       flex: 3,
@@ -606,6 +638,49 @@ class _LogTable extends StatelessWidget {
                 ),
               ),
             ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 一格文字 + 可选的行内徽标（重试 ↻N / 流式 SSE）。
+/// 徽标为 null 时与 [_Cell] 完全一样。
+class _CellWithBadge extends StatelessWidget {
+  const _CellWithBadge({
+    required this.text,
+    required this.flex,
+    required this.badge,
+    required this.badgeTooltip,
+  });
+
+  final String text;
+  final int flex;
+  final String? badge;
+  final String badgeTooltip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Expanded(
+      flex: flex,
+      child: Row(
+        children: [
+          Flexible(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
+          ),
+          if (badge case final b?) ...[
+            const SizedBox(width: AidogSpace.sxs),
+            Tooltip(
+              message: badgeTooltip,
+              child: MiniBadge(text: b, color: theme.c.fg3),
+            ),
+          ],
         ],
       ),
     );
@@ -699,10 +774,20 @@ class _DetailPanel extends StatelessWidget {
     required this.onCopyAll,
     required this.onCopy,
     required this.groupName,
+    required this.platformName,
+    required this.protocolLabel,
+    this.onRefresh,
   });
 
   /// group_key → 分组名。详情里显名字，密钥只作复制内容 —— 那串是 API Key。
   final String Function(String) groupName;
+
+  /// platform_id → 平台名；协议 code → 本地化协议名。
+  final String Function(int) platformName;
+  final String Function(String) protocolLabel;
+
+  /// 重新拉这一条详情。null = 该页不提供刷新。
+  final VoidCallback? onRefresh;
 
   final ProxyLogDetail detail;
   final bool copied;
@@ -729,12 +814,46 @@ class _DetailPanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 请求 ID 独占一行：等宽 + 复制成 `request_id=<id>`
+            //（`DetailPanel.tsx:146-167`）。原先只作标题旁的小字，复制不了。
+            Row(
+              children: [
+                SizedBox(
+                  width: 110,
+                  child: Text(
+                    t.t('logs.requestId'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ),
+                Expanded(
+                  child: SelectableText(
+                    ltr(detail.id),
+                    style: AidogType.numSm.copyWith(color: theme.c.fg),
+                  ),
+                ),
+                SmallButton(
+                  key: const ValueKey('detail-copy-id'),
+                  label: t.t('logs.copy'),
+                  onTap: () => onCopy('request_id=${detail.id}'),
+                ),
+              ],
+            ),
+            const SizedBox(height: AidogSpace.ssm),
             Row(
               children: [
                 SmallButton(
                   label: copied ? t.t('logs.copied') : t.t('logs.copyAll'),
                   onTap: onCopyAll,
                 ),
+                const SizedBox(width: AidogSpace.ssm),
+                // 重新拉这一条详情（`DetailPanel.tsx:131-133`）：
+                // 流式请求还在跑时，原先只能关掉重开才能看到新状态。
+                if (onRefresh != null)
+                  SmallButton(
+                    key: const ValueKey('detail-refresh'),
+                    label: t.t('logs.refresh'),
+                    onTap: onRefresh,
+                  ),
                 const Spacer(),
                 SmallButton(label: t.t('action.close'), onTap: onClose),
               ],
@@ -743,12 +862,61 @@ class _DetailPanel extends StatelessWidget {
             // 显**分组名**，不显 group_key —— 那串正好是该分组的 API Key，
             // 分组卡已经因为这个理由不印它了（`groups.dart:530-533`），
             // 详情面板这处原先还留着。React 同样只显名字（`DetailPanel.tsx:171`）。
-            _kv(theme, t.t('logs.group'), groupName(detail.groupKey)),
-            _kv(theme, t.t('logs.model'), detail.model),
-            _kv(theme, t.t('logs.actualModel'), detail.actualModel),
-            _kv(theme, t.t('logs.sourceProtocol'), detail.sourceProtocol),
-            _kv(theme, t.t('logs.targetProtocol'), detail.targetProtocol),
-            _kv(theme, t.t('logs.status'), '${detail.statusCode}'),
+            _kv(
+              theme,
+              t.t('logs.group'),
+              groupName(detail.groupKey),
+              // 复制的是原始 group_key（审计用），显示的是名字。
+              copyText: detail.groupKey,
+            ),
+            // 平台与时间原先整个没有：面板里看不出这条请求什么时候发生、打到哪
+            //（`DetailPanel.tsx:172,214`）。
+            _kv(
+              theme,
+              t.t('logs.platform'),
+              platformName(detail.platformId),
+              copyText: platformName(detail.platformId),
+            ),
+            _kv(
+              theme,
+              t.t('logs.time'),
+              formatDateTime(detail.createdAt),
+            ),
+            _kv(theme, t.t('logs.model'), detail.model, copyText: detail.model),
+            _kv(
+              theme,
+              t.t('logs.actualModel'),
+              detail.actualModel,
+              copyText: detail.actualModel,
+            ),
+            // 协议印本地化名，裸枚举值只留在复制内容里供审计
+            //（`DetailPanel.tsx:175-176`）。
+            _kv(
+              theme,
+              t.t('logs.sourceProtocol'),
+              protocolLabel(detail.sourceProtocol),
+              copyText: detail.sourceProtocol,
+            ),
+            _kv(
+              theme,
+              t.t('logs.targetProtocol'),
+              protocolLabel(detail.targetProtocol),
+              copyText: detail.targetProtocol,
+            ),
+            // 状态码与列表同口径：0 →「未完成」、499 →「已中断」，2xx 绿其余红
+            //（`DetailPanel.tsx:179-186`）。详情里原先是裸数字且不上色。
+            _kv(
+              theme,
+              t.t('logs.status'),
+              switch (detail.statusCode) {
+                0 => t.t('logs.statusIncomplete'),
+                499 => t.t('logs.statusInterrupted'),
+                _ => '${detail.statusCode}',
+              },
+              color: detail.statusCode >= 200 && detail.statusCode < 300
+                  ? theme.c.ok
+                  : theme.c.bad,
+            ),
             // 上游状态码：0 / 缺失 = 没捕获到（`DetailPanel.tsx:190-208`）。
             // 这个字段早就解析进来了，详情区就是没这一项。
             _kv(
@@ -960,7 +1128,16 @@ class _DetailPanel extends StatelessWidget {
     );
   }
 
-  Widget _kv(AidogTheme theme, String k, String v) => Padding(
+  /// 元信息一行。[copyText] 非空时行尾挂一颗复制按钮
+  /// （React 的 `MetaItem` 每格都自带，`DetailPanel.tsx:171-214`）；
+  /// [color] 用于状态码那行的绿 / 红。
+  Widget _kv(
+    AidogTheme theme,
+    String k,
+    String v, {
+    String? copyText,
+    Color? color,
+  }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: 2),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -972,9 +1149,21 @@ class _DetailPanel extends StatelessWidget {
         Expanded(
           child: Text(
             v.isEmpty ? '-' : v,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+            style: AidogType.micro.copyWith(color: color ?? theme.c.fg2),
           ),
         ),
+        if (copyText != null && copyText.isNotEmpty)
+          SizedBox(
+            width: 22,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              iconSize: 12,
+              color: theme.c.fg3,
+              icon: const Icon(Icons.copy_outlined),
+              onPressed: () => onCopy(copyText),
+            ),
+          ),
       ],
     ),
   );

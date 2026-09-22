@@ -14,6 +14,7 @@ import 'dart:convert';
 
 import '../../utils/formatters.dart';
 import 'filter_dropdown.dart' show loadProtocolTerms;
+import 'platform_defaults.dart' show PlatformDefaults, loadPlatformDefaults;
 import 'invoke.dart';
 import 'models.dart';
 import 'stats_logic.dart' show kNoGroupSentinel;
@@ -172,6 +173,16 @@ class LogsController {
   /// 协议跨语言搜索词（平台下拉搜「智谱」「zhipu」「zp」都要命中）。
   Map<String, List<String>> protocolTerms = const {};
 
+  /// registry 的协议元数据。详情面板的协议名从这里取本地化展示名，
+  /// 而不是印 `anthropic` 这类裸枚举（`DetailPanel.tsx:175-176`）。
+  PlatformDefaults? defaults;
+
+  /// 协议 code → 本地化展示名；取不到回落 code 本身
+  /// （React 那边 `sourceLabel || source_protocol`）。
+  /// **locale 由调用方传**：控制器不持有界面语言，切语言时不用重拉。
+  String protocolLabel(String code, [String? locale]) =>
+      code.isEmpty ? '' : (defaults?.protocolLabel(code, locale) ?? code);
+
   List<ProxyLogSummary> logs = const [];
   bool hasMore = false;
   int offset = 0;
@@ -236,6 +247,11 @@ class LogsController {
 
   Future<void> _loadProtocolTerms() async {
     protocolTerms = await loadProtocolTerms(_invoke);
+    try {
+      defaults = await loadPlatformDefaults(_invoke);
+    } catch (_) {
+      /* 取不到就回落 code 本身，详情照常能开 */
+    }
     _notify();
   }
 
@@ -588,8 +604,23 @@ class RequestLogController {
   /// 所以 group 列直接显示 group_key，空则 `-`。
   String groupName(String key) => key.isEmpty ? '-' : key;
 
+  /// 同主日志页：协议 code → 本地化展示名，取不到回落 code 本身。
+  PlatformDefaults? defaults;
+
+  String protocolLabel(String code, [String? locale]) =>
+      code.isEmpty ? '' : (defaults?.protocolLabel(code, locale) ?? code);
+
   Future<void> init() async {
-    await Future.wait<void>([_loadPlatforms(), load()]);
+    await Future.wait<void>([_loadPlatforms(), _loadProtocolLabels(), load()]);
+  }
+
+  Future<void> _loadProtocolLabels() async {
+    try {
+      defaults = await loadPlatformDefaults(_invoke);
+      _notify();
+    } catch (_) {
+      /* 取不到就回落 code 本身，详情照常能开 */
+    }
   }
 
   Future<void> _loadPlatforms() async {
