@@ -964,6 +964,52 @@ void main() {
       expect(find.byWidgetPredicate(_isDropLine), findsNothing, reason: '松手后线要收掉');
     });
 
+    // 🔴 这条用例**只测现状**，不测我们想要的形态。
+    //
+    // React 那边是触底自动加载（`GroupListView.tsx:277-285`），我们这里还是
+    // 一颗按钮。差的不是代码，是框架：「视口滚动过 + 内容变高 + 语义树开着」
+    // 三者同时成立就抛 `!childSemantics.renderObject._needsLayout`，
+    // 40 行纯框架代码可复现，三种视口（`SingleChildScrollView` /
+    // `SliverToBoxAdapter` / 真 `SliverList`）全中。
+    //
+    // **所以别照着这条用例的样子去写「滚到底自动加载」的测试** —— 它会红，
+    // 而且红的不是你的代码。先看 `.scratch/flutter-ui-parity/flutter-issue-draft.md`。
+    //
+    // 这条用例**现在是 skip 的**，而且 skip 的理由就是上面那条框架断言：
+    // 往这个列表里追加子项（不论滚没滚过）都会抛，所以连「按钮能用」都测不了。
+    // 整个分组页从来没有一条用例真的追加过第二页 —— 这个洞就是这么留下来的。
+    // 上游修好之后：去掉 skip，再把
+    // `.scratch/flutter-ui-parity/groups-auto-paging.patch` 贴回去。
+    // skip 的理由（`testWidgets` 的 skip 只收 bool，写不下，放这儿）：
+    // 框架断言 `!childSemantics.renderObject._needsLayout` —— 往可滚动列表里
+    // 追加子项 + 语义树开着就抛。纯框架 40 行可复现，见
+    // `.scratch/flutter-ui-parity/flutter-issue-draft.md`。
+    testWidgets('还有下一页时给一颗「加载更多」，点了就拉下一页', skip: true, (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake(
+        page: [
+          for (var i = 0; i < 12; i++)
+            {
+              'group': {'id': 100 + i, 'name': 'G$i', 'group_key': 'gk$i'},
+              'platforms': <Object?>[],
+              'model_mappings': <Object?>[],
+            },
+        ],
+      );
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(k.callsTo('group_detail_list_paged').length, 1);
+      await tester.tap(find.text(c.t('logs.hasMore')));
+      await settle(tester);
+      expect(k.callsTo('group_detail_list_paged').length, 2);
+    });
+
     testWidgets('复制命令菜单四项各带图标', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
