@@ -922,6 +922,7 @@ class ProxyLogDetail {
     required this.inputTokens,
     required this.outputTokens,
     required this.cacheTokens,
+    required this.isStream,
     required this.createdAt,
     this.attempts = const [],
   });
@@ -946,6 +947,10 @@ class ProxyLogDetail {
     userResponseHeaders: (j['user_response_headers'] as String?) ?? '',
     userResponseBody: (j['user_response_body'] as String?) ?? '',
     statusCode: (j['status_code'] as num?)?.toInt() ?? 0,
+    // 传输方式（`types/manual.ts:649`）。后端一直在发，这边原先没解析 ——
+    // 与 `attempts` / `MiddlewareRule.failed` 同一类「模型层丢字段」的问题：
+    // 逐元素比对表照不出来，因为它比的是渲染出来的东西。
+    isStream: j['is_stream'] == true,
     durationMs: (j['duration_ms'] as num?)?.toInt() ?? 0,
     inputTokens: (j['input_tokens'] as num?)?.toInt() ?? 0,
     outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
@@ -973,6 +978,9 @@ class ProxyLogDetail {
   final String upstreamRequestUrl;
   final String upstreamResponseHeaders;
   final int upstreamStatusCode;
+
+  /// 流式 / 非流式（React 详情里的「传输」那一行）。
+  final bool isStream;
   final String userResponseHeaders;
   final String userResponseBody;
   final int statusCode;

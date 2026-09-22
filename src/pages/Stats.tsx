@@ -1034,7 +1034,10 @@ function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
         {t("stats.prevPage", "上一页")}
       </Button>
       <span style={{ color: "var(--text-secondary)" }}>
-        {t("stats.pageOf", "{{page}} / {{total}}", { page: page + 1, total: pageCount })}
+        {/* 插值键必须是 current：翻译串写的是「第 {{current}} / {{total}} 页」
+            （aidog_i18n/locales/zh-Hans.json:1894，en-US 同）。原先传的是 page，
+            于是 {{current}} 原样印在界面上。Flutter 侧传的就是 current。 */}
+        {t("stats.pageOf", "{{current}} / {{total}}", { current: page + 1, total: pageCount })}
       </span>
       <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
         {t("stats.nextPage", "下一页")}

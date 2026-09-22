@@ -164,6 +164,7 @@ class _LogsPageState extends State<LogsPage> {
         if (_c.detail != null)
           _DetailPanel(
             detail: _c.detail!,
+            groupName: _c.groupName,
             copied: _c.copied,
             onClose: _c.closeDetail,
             onCopyAll: () {
@@ -438,6 +439,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
         if (_c.detail != null)
           _DetailPanel(
             detail: _c.detail!,
+            groupName: _c.groupName,
             copied: _c.copied,
             onClose: _c.closeDetail,
             onCopyAll: () {
@@ -643,7 +645,11 @@ class _DetailPanel extends StatelessWidget {
     required this.onClose,
     required this.onCopyAll,
     required this.onCopy,
+    required this.groupName,
   });
+
+  /// group_key → 分组名。详情里显名字，密钥只作复制内容 —— 那串是 API Key。
+  final String Function(String) groupName;
 
   final ProxyLogDetail detail;
   final bool copied;
@@ -681,12 +687,32 @@ class _DetailPanel extends StatelessWidget {
               ],
             ),
             const SizedBox(height: AidogSpace.ssm),
-            _kv(theme, t.t('logs.group'), detail.groupKey),
+            // 显**分组名**，不显 group_key —— 那串正好是该分组的 API Key，
+            // 分组卡已经因为这个理由不印它了（`groups.dart:530-533`），
+            // 详情面板这处原先还留着。React 同样只显名字（`DetailPanel.tsx:171`）。
+            _kv(theme, t.t('logs.group'), groupName(detail.groupKey)),
             _kv(theme, t.t('logs.model'), detail.model),
             _kv(theme, t.t('logs.actualModel'), detail.actualModel),
             _kv(theme, t.t('logs.sourceProtocol'), detail.sourceProtocol),
             _kv(theme, t.t('logs.targetProtocol'), detail.targetProtocol),
             _kv(theme, t.t('logs.status'), '${detail.statusCode}'),
+            // 上游状态码：0 / 缺失 = 没捕获到（`DetailPanel.tsx:190-208`）。
+            // 这个字段早就解析进来了，详情区就是没这一项。
+            _kv(
+              theme,
+              t.t('logs.upstreamStatus'),
+              detail.upstreamStatusCode == 0
+                  ? t.t('logs.notCaptured')
+                  : '${detail.upstreamStatusCode}',
+            ),
+            // 传输方式（`DetailPanel.tsx:209`）。模型层原先没接这个字段。
+            _kv(
+              theme,
+              t.t('logs.stream'),
+              detail.isStream
+                  ? t.t('logs.streaming')
+                  : t.t('logs.nonStreaming'),
+            ),
             _kv(
               theme,
               t.t('logs.duration'),
