@@ -409,8 +409,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 : '',
             child: SmallButton(
               key: const ValueKey('cleanup-expired'),
-              label: t.t('logs.cleanupExpired'),
-              onTap: _c.logRetention == 0
+              // 清理跑起来要几秒，按钮上要看得出来（`LogSettingsSection.tsx:219`）。
+              label: _c.logMaintBusy
+                  ? t.t('logs.cleaning')
+                  : t.t('logs.cleanupExpired'),
+              onTap: (_c.logRetention == 0 || _c.logMaintBusy)
                   ? null
                   : () => setState(() => _confirm = _Confirm.cleanupExpired),
             ),
@@ -418,9 +421,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           const SizedBox(width: AidogSpace.ssm),
           SmallButton(
             key: const ValueKey('clear-logs'),
-            label: t.t('logs.clear'),
+            label: _c.logMaintBusy
+                ? t.t('logs.cleaning')
+                : t.t('logs.clear'),
             danger: true,
-            onTap: () => setState(() => _confirm = _Confirm.clearLogs),
+            onTap: _c.logMaintBusy
+                ? null
+                : () => setState(() => _confirm = _Confirm.clearLogs),
           ),
         ],
       ),
@@ -613,7 +620,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         title: t.t('logs.clearConfirmTitle'),
         body: t.t('logs.clearConfirm'),
         confirmLabel: _c.logMaintBusy
-            ? t.t('common.loading')
+            ? t.t('logs.cleaning')
             : t.t('logs.clear'),
         busy: _c.logMaintBusy,
         onCancel: () => setState(() => _confirm = null),
@@ -637,7 +644,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 'size': formatBytes((e['db_size_bytes'] as num?) ?? 0),
               }),
         confirmLabel: _c.logMaintBusy
-            ? t.t('common.loading')
+            ? t.t('logs.cleaning')
             : t.t('logs.cleanupExpired'),
         busy: _c.logMaintBusy,
         onCancel: () => setState(() => _confirm = null),
