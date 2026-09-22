@@ -23,6 +23,7 @@ class SmallButton extends StatelessWidget {
     this.onTap,
     this.danger = false,
     this.active = false,
+    this.ghost = false,
   });
 
   final String label;
@@ -31,6 +32,10 @@ class SmallButton extends StatelessWidget {
   /// 破坏性动作（删除 / 清空）：用 bad 色，让它和旁边的按钮长得不一样。
   final bool danger;
   final bool active;
+
+  /// 弱化样式：去掉描边、文字用 fg3。对齐 React 的 `<Button variant="ghost">`，
+  /// 用在「排在主动作旁边、但不该抢视线」的次要动作上（如清理失效平台）。
+  final bool ghost;
 
   bool get enabled => onTap != null;
 
@@ -43,6 +48,8 @@ class SmallButton extends StatelessWidget {
         ? theme.c.bad
         : active
         ? theme.c.accentText
+        : ghost
+        ? theme.c.fg3
         : theme.c.fg2;
     return InkWell(
       onTap: onTap,
@@ -51,7 +58,7 @@ class SmallButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
         decoration: BoxDecoration(
           color: active ? theme.c.accentWash : null,
-          border: Border.all(color: theme.c.line),
+          border: ghost ? null : Border.all(color: theme.c.line),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: Text(label, style: AidogType.micro.copyWith(color: fg)),

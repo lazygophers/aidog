@@ -17,6 +17,11 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../../../utils/color_level.dart';
+import '../../../utils/hex_color.dart';
+
+// hexToRgb 原先住在本文件，平台卡的协议品牌色也要用它，故提到 `utils/hex_color.dart`
+// 只留一份。这里转发，原有调用方与测试不必各加一行 import。
+export '../../../utils/hex_color.dart' show hexToRgb, parseHexColor;
 import '../../shell/theme.dart';
 
 /// 行对齐。
@@ -866,19 +871,6 @@ const kStatuslineDataFields = <DataFieldGroup>[
 ];
 
 // ── 纯函数 ────────────────────────────────────────────────
-
-/// `#RRGGBB` / `#RGB` → `[r,g,b]`（0–255），非法返回 null。
-List<int>? hexToRgb(String? hex) {
-  if (hex == null || hex.isEmpty) return null;
-  var h = hex.trim().replaceFirst(RegExp(r'^#'), '');
-  if (h.length == 3) h = h.split('').map((c) => '$c$c').join();
-  if (!RegExp(r'^[0-9a-fA-F]{6}$').hasMatch(h)) return null;
-  return [
-    int.parse(h.substring(0, 2), radix: 16),
-    int.parse(h.substring(2, 4), radix: 16),
-    int.parse(h.substring(4, 6), radix: 16),
-  ];
-}
 
 /// 一行：对齐方式 + 段。
 class SegmentRow {

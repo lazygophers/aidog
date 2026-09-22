@@ -170,6 +170,7 @@ class PlatformCard extends StatelessWidget {
                 ],
                 _LogoDot(
                   protocol: p.platformType,
+                  brand: meta.colors[p.platformType],
                   logoSrc: c.protocolLogos[p.platformType],
                   baseUrl: getPrimaryBaseUrl(p.platformType, p.endpoints).isEmpty
                       ? p.baseUrl
@@ -257,6 +258,7 @@ class PlatformCard extends StatelessWidget {
               usagePending: usagePending,
               configuredModels: configuredModels,
               nowMs: now,
+              quotaCapable: quotaCapable,
             ),
           ],
         ],
@@ -526,10 +528,14 @@ class _LogoDot extends StatelessWidget {
     required this.health,
     required this.lastError,
     required this.lastErrorAt,
+    required this.brand,
   });
 
   final String protocol;
   final String? logoSrc;
+
+  /// 协议品牌色（registry `color`）。null = 该协议没登记颜色，回落 accent。
+  final Color? brand;
 
   /// favicon 那一级要从它取 origin。
   final String baseUrl;
@@ -542,6 +548,7 @@ class _LogoDot extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final color = healthColor(health, theme.c);
+    final brandColor = brand ?? theme.c.accentText;
     final logo = platformLogo(
       protocol: protocol,
       cachedDataUrl: logoSrc,
@@ -560,12 +567,20 @@ class _LogoDot extends StatelessWidget {
         child: Stack(
           clipBehavior: Clip.none,
           children: [
+            // logo 框走协议品牌色（`PlatformCard.tsx:231-237`）：底 15/255、
+            // 边 30/255、字母用本色。一屏平台卡靠颜色能分得开谁是谁。
+            // 有图时底色透明，只留描边——图自己就是品牌标识。
             Container(
               width: 36,
               height: 36,
               alignment: Alignment.center,
               decoration: BoxDecoration(
-                border: Border.all(color: theme.c.line),
+                color: logo != null
+                    ? null
+                    : brandColor.withValues(alpha: 0x15 / 255),
+                border: Border.all(
+                  color: brandColor.withValues(alpha: 0x30 / 255),
+                ),
                 borderRadius: BorderRadius.circular(AidogRadius.sm),
               ),
               clipBehavior: Clip.antiAlias,
@@ -577,7 +592,7 @@ class _LogoDot extends StatelessWidget {
                                 .substring(0, protocol.length < 2 ? 1 : 2)
                                 .toUpperCase(),
                       style: AidogType.micro.copyWith(
-                        color: theme.c.accentText,
+                        color: brandColor,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1110,11 +1125,15 @@ class _DetailSection extends StatelessWidget {
     required this.usagePending,
     required this.configuredModels,
     required this.nowMs,
+    required this.quotaCapable,
   });
 
   final PlatformRow platform;
   final ProtocolMetaTable meta;
   final QuotaDisplay quota;
+
+  /// 该协议支持配额查询（registry 有脚本，或用户配了自定义脚本）。
+  final bool quotaCapable;
   final UsageStats? usage;
   final bool usagePending;
   final List<String> configuredModels;
@@ -1231,8 +1250,10 @@ class _DetailSection extends StatelessWidget {
               const SkeletonBox(width: 60, height: 24),
             ],
           ),
-        // 配额各档明细（展开态大号版）。
-        if (quota.tiers.isNotEmpty) ...[
+        // 配额各档明细（展开态大号版）。判据与 React 一致
+        //（`PlatformCard.tsx:154,618`：`showQuota = quotaCapable && hasData`）：
+        // 不支持配额查询的平台，哪怕留着历史 est 档位也不展开显示。
+        if (quotaCapable && quota.hasData && quota.tiers.isNotEmpty) ...[
           const SizedBox(height: AidogSpace.ssm),
           _LabeledChips(
             label: t.t('platform.quotaLabel'),
@@ -1255,10 +1276,12 @@ class _DetailSection extends StatelessWidget {
             chips: [
               for (final ep in p.endpoints)
                 MiniBadge(
-                  text: ep.codingPlan
-                      ? '${meta.label(ep.protocol)} Code'
-                      : meta.label(ep.protocol),
-                  color: ep.codingPlan ? theme.c.ok : theme.c.fg3,
+                  text: meta.label(ep.protocol),
+                  color: theme.c.fg3,
+                  // `Code` 是角标，只有它变绿；整枚徽标保持中性
+                  //（`PlatformCard.tsx:697-700`）。
+                  accentText: ep.codingPlan ? 'Code' : null,
+                  accentColor: theme.c.ok,
                 ),
             ],
           ),

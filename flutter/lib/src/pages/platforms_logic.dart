@@ -116,6 +116,14 @@ class PlatformsController {
   /// 清理失效平台：先预览再确认（与分组页同一形态）。
   List<PurgeCandidate>? purgeCandidates;
 
+  /// 预览拉取中。弹窗**先开再拉**，拉取期间显示 `status.loading`
+  /// （`PlatformListView.tsx:285-286`）——原先是拉完才开弹窗，点了按钮没反应。
+  bool purgePreviewLoading = false;
+
+  /// 执行中。弹窗留在原地、两颗按钮禁掉、确认按钮文案换成「处理中…」
+  /// （`PlatformListView.tsx:277,305-307`）。
+  bool purging = false;
+
   /// 删除平台的确认态。React 的列表卡直接调 `handleDelete`（删除按钮自带
   /// AlertDialog），这里把「待删的是谁」显式记下来，让确认与执行分成两步。
   int? deleteTarget;
@@ -642,6 +650,9 @@ class PlatformsController {
   // ── 清理失效平台（全局）────────────────────────────────────────
 
   Future<void> askPurgeDisabled() async {
+    purgeCandidates = null;
+    purgePreviewLoading = true;
+    _notify();
     try {
       final v = await _invoke('platform_purge_disabled_preview', {
         'groupId': null,
@@ -653,11 +664,14 @@ class PlatformsController {
     } catch (_) {
       purgeCandidates = const [];
     }
+    purgePreviewLoading = false;
     _notify();
   }
 
   void cancelPurgeDisabled() {
+    if (purging) return;
     purgeCandidates = null;
+    purgePreviewLoading = false;
     _notify();
   }
 
@@ -668,7 +682,7 @@ class PlatformsController {
     String Function(int count)? doneText,
     String failText = '清理失效平台',
   }) async {
-    purgeCandidates = null;
+    purging = true;
     _notify();
     try {
       final v = await _invoke('platform_purge_disabled', {'groupId': null});
@@ -687,9 +701,12 @@ class PlatformsController {
         ];
       }
       await _loadGroupDetails();
-      _notify();
     } catch (e) {
       _toast('$failText: $e', ok: false);
+    } finally {
+      purging = false;
+      purgeCandidates = null;
+      _notify();
     }
   }
 

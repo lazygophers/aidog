@@ -134,7 +134,11 @@ const String kDefaultsJson =
     '"pricing":"https://p.test"},"quota_scripts":[{"id":"v1"}],'
     '"models":{"default":{"default":"gpt-5"},"peak":{"default":"gpt-5-mini"}}},'
     '"glm_coding":{"name":{"zh-Hans":"智谱编码"},"is_coding_plan":true,'
-    '"peak":[{"start_hour":0,"end_hour":24,"multiplier":2}]}}}';
+    '"peak":[{"start_hour":0,"end_hour":24,"multiplier":2}]},'
+    // bare_proto 登记了品牌色但没有内置 logo → 画字母块，颜色看得见；
+    // nocolor_proto 两样都没有 → 回落主题 accent。
+    '"bare_proto":{"name":{"en-US":"Bare"},"color":"#10A37F"},'
+    '"nocolor_proto":{"name":{"en-US":"NoColor"}}}}';
 
 FakeInvoke cardFake({
   List<Object?>? platforms,
@@ -1326,6 +1330,14 @@ void main() {
       expect(find.text('开放人工智能 Code'), findsOneWidget);
       expect(find.text('gpt-5'), findsOneWidget);
       expect(find.text('o1'), findsOneWidget);
+
+      // `Code` 是角标：只有它一段换色，协议名那段保持中性
+      //（整枚徽标变绿会让人分不清它是端点名的一部分还是角标）。
+      final badge = tester.widget<Text>(find.text('开放人工智能 Code'));
+      final span = badge.textSpan! as TextSpan;
+      final code = span.children!.single as TextSpan;
+      expect(code.toPlainText().trim(), 'Code');
+      expect(code.style!.color, isNot(badge.style!.color));
     });
 
     testWidgets('展开态落盘走防抖：300ms 之后才发 set_ui_extra', (tester) async {
@@ -1365,6 +1377,57 @@ void main() {
       );
       expect(find.text('60%${c.t('platform.quotaRemainSuffix')}'), findsOneWidget);
       expect(find.textContaining('5h'), findsWidgets);
+    });
+
+    testWidgets('展开区配额各档：不支持配额查询的平台，有历史档位也不显示', (tester) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      // bare_proto 没登记 quota_scripts → quotaCapable=false。
+      final (_, c) = await mount(
+        tester,
+        cardFake(
+          platforms: [
+            platRow(
+              1,
+              'NoQuotaScript',
+              type: 'bare_proto',
+              estCodingPlan:
+                  '{"tiers":[{"name":"five_hour","est_utilization":40,'
+                  '"window_start":${now - 3600000}}]}',
+            ),
+          ],
+          usage: {'1': usageJson()},
+        ),
+      );
+      await tester.tap(find.byTooltip(c.t('platform.toggleDetail')));
+      await settle(tester);
+      expect(find.text(c.t('platform.usageLabel')), findsOneWidget);
+      expect(find.text(c.t('platform.quotaLabel')), findsNothing);
+    });
+
+    testWidgets('配额档位块：倒计时与重置时刻同一行，前面一枚时钟图标', (tester) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await mount(
+        tester,
+        cardFake(
+          platforms: [
+            platRow(
+              1,
+              'Tiers',
+              estCodingPlan:
+                  '{"tiers":[{"name":"five_hour","est_utilization":40,'
+                  '"window_start":${now - 3600000}}]}',
+            ),
+          ],
+        ),
+      );
+      final clock = find.byIcon(Icons.schedule);
+      expect(clock, findsOneWidget);
+      // 同一行 = 图标与倒计时文本的纵向中心对得上。
+      final clockY = tester.getCenter(clock).dy;
+      final textY = tester
+          .getCenter(find.textContaining('·', findRichText: true).last)
+          .dy;
+      expect((clockY - textY).abs(), lessThan(4));
     });
 
     testWidgets('上游速率限制：5 分钟内的快照才画，过期的不画', (tester) async {
@@ -1855,6 +1918,213 @@ void main() {
       await tester.tap(find.text(c.t('action.confirm')));
       await settle(tester);
       expect(k.commands.contains('platform_purge_disabled'), isTrue);
+    });
+
+    testWidgets('清单多到装不下时自己滚，不把弹窗撑长', (tester) async {
+      await useBigSurface(tester);
+      final k = cardFake();
+      k.responses['platform_purge_disabled_preview'] = [
+        for (var i = 0; i < 40; i++)
+          {'id': i + 2, 'name': '坏平台$i', 'reason': 'expired', 'action': 'delete'},
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('platform.purgeDisabled')));
+      await settle(tester);
+      final list = find.ancestor(
+        of: find.text(c.t('platform.purgeDisabledListTitle')),
+        matching: find.byType(SingleChildScrollView),
+      );
+      expect(list, findsWidgets);
+      expect(tester.getSize(list.first).height, lessThanOrEqualTo(240));
+      // 确认按钮没被挤出屏幕：清单滚了，弹窗本身还是那么高。
+      expect(find.text(c.t('action.confirm')), findsOneWidget);
+    });
+
+    testWidgets('预览拉取中先开弹窗写「处理中」，此时确认点不动', (tester) async {
+      await useBigSurface(tester);
+      final k = cardFake();
+      final gate = Completer<List<Object?>>();
+      k.responses['platform_purge_disabled_preview'] = () => gate.future;
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('platform.purgeDisabled')));
+      await tester.pump();
+      expect(find.text(c.t('status.loading')), findsOneWidget);
+      await tester.tap(find.text(c.t('action.confirm')));
+      await tester.pump();
+      expect(k.commands.contains('platform_purge_disabled'), isFalse);
+
+      gate.complete([
+        {'id': 2, 'name': '坏平台', 'reason': 'expired', 'action': 'delete'},
+      ]);
+      await settle(tester);
+      expect(find.text('坏平台'), findsOneWidget);
+    });
+
+    testWidgets('执行中弹窗不关：确认按钮变「处理中」且两颗按钮都禁掉', (tester) async {
+      await useBigSurface(tester);
+      final k = cardFake();
+      k.responses['platform_purge_disabled_preview'] = [
+        {'id': 2, 'name': '坏平台', 'reason': 'expired', 'action': 'delete'},
+      ];
+      final gate = Completer<Map<String, Object?>>();
+      k.responses['platform_purge_disabled'] = () => gate.future;
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('platform.purgeDisabled')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.confirm')));
+      await tester.pump();
+
+      // 弹窗还在（清单还看得到），确认按钮换成进行中文案。
+      expect(find.text('坏平台'), findsOneWidget);
+      expect(find.text(c.t('status.loading')), findsOneWidget);
+      // 这时点取消不该把弹窗关掉。
+      await tester.tap(find.text(c.t('action.cancel')));
+      await tester.pump();
+      expect(find.text('坏平台'), findsOneWidget);
+
+      gate.complete({'deletedIds': <Object?>[2], 'unassignedIds': <Object?>[]});
+      await settle(tester);
+      expect(find.text('坏平台'), findsNothing);
+    });
+  });
+
+  // ══ 页头与未分组区（票 14 第二梯队）═══════════════════════════════
+
+  group('卡片 logo 的协议品牌色（React: PlatformCard.tsx:231-237）', () {
+    Future<void> mount(WidgetTester tester, FakeInvoke k) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+    }
+
+    /// logo 框的描边色。36×36 那一枚在卡片里是唯一尺寸，按尺寸认。
+    Color logoBorder(WidgetTester tester) {
+      final box = tester.widgetList<Container>(find.byType(Container)).firstWhere(
+        (w) =>
+            w.constraints?.maxWidth == 36 &&
+            w.decoration is BoxDecoration &&
+            (w.decoration! as BoxDecoration).border != null,
+      );
+      return ((box.decoration! as BoxDecoration).border! as Border).top.color;
+    }
+
+    testWidgets('registry 登记了颜色 → logo 框用品牌色描边', (tester) async {
+      await mount(
+        tester,
+        cardFake(platforms: [platRow(1, 'Bare', type: 'bare_proto')]),
+      );
+      expect(
+        logoBorder(tester),
+        const Color(0xFF10A37F).withValues(alpha: 0x30 / 255),
+      );
+    });
+
+    testWidgets('registry 没登记颜色 → 回落主题色，不拿别家的品牌色顶替', (tester) async {
+      await mount(
+        tester,
+        cardFake(platforms: [platRow(1, 'NoColor', type: 'nocolor_proto')]),
+      );
+      expect(
+        logoBorder(tester),
+        isNot(const Color(0xFF10A37F).withValues(alpha: 0x30 / 255)),
+      );
+    });
+  });
+
+  group('页头与未分组区（React: PlatformListView.tsx:106-147）', () {
+    Future<I18nController> mountPage(WidgetTester tester, FakeInvoke k) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          PlatformsPage(
+            invoke: k.fn,
+            showGroups: false,
+            logUpdates: const Stream<void>.empty(),
+          ),
+          c,
+        ),
+      );
+      await settle(tester);
+      return c;
+    }
+
+    testWidgets('破坏性的「清理失效」排在两颗「添加」之后', (tester) async {
+      final c = await mountPage(tester, cardFake());
+      final addX = tester
+          .getTopLeft(find.text('+ ${c.t('platform.add')}'))
+          .dx;
+      final purgeX = tester
+          .getTopLeft(find.text(c.t('platform.purgeDisabled')))
+          .dx;
+      expect(purgeX, greaterThan(addX));
+    });
+
+    testWidgets('副标题：有平台写「启用数 / 总数 active」，一个都没有写空态文案', (tester) async {
+      final c = await mountPage(tester, cardFake());
+      expect(find.text('1 / 1 active'), findsOneWidget);
+
+      await tester.pumpWidget(const SizedBox.shrink());
+      final empty = cardFake(platforms: <Object?>[]);
+      await mountPage(tester, empty);
+      expect(find.textContaining('active'), findsNothing);
+      expect(find.text(c.t('platform.empty')), findsWidgets);
+    });
+
+    testWidgets('未分组区没有标题行', (tester) async {
+      final c = await mountPage(tester, cardFake());
+      expect(find.text(c.t('platform.ungrouped')), findsNothing);
+    });
+
+    testWidgets('搜索筛空只是列表空着，不写「暂无平台」（空态看的是全部平台）', (tester) async {
+      final c = await mountPage(tester, cardFake());
+      await tester.enterText(find.byType(TextField).first, '匹配不上的词');
+      await settle(tester);
+      expect(find.text('Test Platform'), findsNothing);
+      expect(find.text(c.t('platform.empty')), findsNothing);
     });
   });
 

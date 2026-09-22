@@ -16,7 +16,6 @@ import 'package:flutter/material.dart';
 import '../../i18n.dart';
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
-import '../shell/tiles.dart';
 import 'groups.dart';
 import 'invoke.dart';
 import 'model_test.dart';
@@ -199,7 +198,11 @@ class _PlatformsPageState extends State<PlatformsPage> {
       children: [
         PageHead(
           title: t.t('page.platforms'),
-          subtitle: '${_c.enabledCount} / ${_c.platforms.length}',
+          // `PlatformListView.tsx:106-108`：有平台时「启用数 / 总数 active」，
+          // 一个平台都没有时整句换成空态文案。
+          subtitle: _c.platforms.isEmpty
+              ? t.t('platform.empty')
+              : '${_c.enabledCount} / ${_c.platforms.length} active',
           trailing: Wrap(
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -220,10 +223,6 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   onChanged: _c.setSearchQuery,
                 ),
               ),
-              SmallButton(
-                label: t.t('platform.purgeDisabled'),
-                onTap: _c.askPurgeDisabled,
-              ),
               // 缺口清单「平台页缺口」#37：页头「+ 添加分组」。分组区没渲染
               //（`showGroups: false` 的单页测试）时按钮不出现。
               if (widget.showGroups)
@@ -235,6 +234,13 @@ class _PlatformsPageState extends State<PlatformsPage> {
               SmallButton(
                 label: '+ ${t.t('platform.add')}',
                 onTap: () => _form.openCreatePlatform(),
+              ),
+              // 破坏性动作排在两颗「添加」之后，并且弱化成 ghost
+              //（`PlatformListView.tsx:125-131`）：它不该和主动作抢同一档视觉重量。
+              SmallButton(
+                label: t.t('platform.purgeDisabled'),
+                ghost: true,
+                onTap: _c.askPurgeDisabled,
               ),
             ],
           ),
@@ -268,11 +274,12 @@ class _PlatformsPageState extends State<PlatformsPage> {
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
-        TileMeta(t.t('platform.ungrouped')),
-        const SizedBox(height: AidogSpace.ssm),
+        // 未分组区没有标题，只有上面那条分隔线（`PlatformListView.tsx:140`）。
         if (_c.loading)
           CenteredNote(text: t.t('status.loading'))
-        else if (_c.standalonePlatforms.isEmpty)
+        // 空态看的是**全部**平台（`PlatformListView.tsx:147`）：平台都归好组之后
+        // 这里不该常驻一句「暂无平台」，那时列表只是空着。
+        else if (_c.platforms.isEmpty)
           CenteredNote(text: t.t('platform.empty'))
         else
           // 拖拽排序（`usePlatformsState.ts:251::reorder`）：手柄在卡片最左侧，
@@ -300,64 +307,78 @@ class _PlatformsPageState extends State<PlatformsPage> {
               );
             },
           ),
-        if (_c.purgeCandidates != null)
+        if (_c.purgeCandidates != null || _c.purgePreviewLoading)
           ConfirmCard(
             title: t.t('platform.purgeDisabled'),
-            body: _c.purgeCandidates!.isEmpty
+            body: _c.purgePreviewLoading
+                ? t.t('status.loading')
+                : _c.purgeCandidates!.isEmpty
                 ? t.t('platform.purgeDisabledNone')
                 : t.t('platform.purgeDisabledConfirm'),
-            confirmLabel: t.t('action.confirm'),
+            // 执行中确认按钮换文案（`PlatformListView.tsx:305-307`）。
+            confirmLabel: _c.purging
+                ? t.t('status.loading')
+                : t.t('action.confirm'),
+            busy: _c.purging,
             onCancel: _c.cancelPurgeDisabled,
-            // 候选为空时确认按钮不可点（React `PlatformListView.tsx:291` 的 disabled 同判据）。
-            onConfirm: _c.purgeCandidates!.isEmpty
+            // 候选为空、或还在拉取，确认按钮都不可点
+            //（React `PlatformListView.tsx:306` 的 disabled 同判据）。
+            onConfirm:
+                _c.purgePreviewLoading || _c.purgeCandidates!.isEmpty
                 ? null
                 : () => _c.confirmPurgeDisabled(
                     noneText: t.t('platform.purgeDisabledNone'),
                   ),
             // 清单 + 失效原因 badge（`PlatformListView.tsx:270-288`）。
-            extra: _c.purgeCandidates!.isEmpty
+            // 候选多时清单自己滚，不把弹窗撑长（React 同处 `maxHeight: 240`）。
+            extra: _c.purgePreviewLoading || _c.purgeCandidates!.isEmpty
                 ? null
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.t('platform.purgeDisabledListTitle'),
-                        style: AidogType.micro.copyWith(
-                          color: AidogTheme.of(context).c.fg3,
-                        ),
-                      ),
-                      const SizedBox(height: AidogSpace.sxs),
-                      for (final cand in _c.purgeCandidates!)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 3),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  cand.name,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AidogType.caption.copyWith(
-                                    color: AidogTheme.of(context).c.fg2,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: AidogSpace.ssm),
-                              MiniBadge(
-                                text: cand.reason == 'auth_failed'
-                                    ? t.t(
-                                        'platform.purgeDisabledReasonAuthFailed',
-                                      )
-                                    : t.t(
-                                        'platform.purgeDisabledReasonExpired',
-                                      ),
-                                color: AidogTheme.of(context).c.fg3,
-                              ),
-                            ],
+                : ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            t.t('platform.purgeDisabledListTitle'),
+                            style: AidogType.micro.copyWith(
+                              color: AidogTheme.of(context).c.fg3,
+                            ),
                           ),
-                        ),
-                    ],
+                          const SizedBox(height: AidogSpace.sxs),
+                          for (final cand in _c.purgeCandidates!)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 3),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      cand.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AidogType.caption.copyWith(
+                                        color: AidogTheme.of(context).c.fg2,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: AidogSpace.ssm),
+                                  MiniBadge(
+                                    text: cand.reason == 'auth_failed'
+                                        ? t.t(
+                                            'platform.purgeDisabledReasonAuthFailed',
+                                          )
+                                        : t.t(
+                                            'platform.purgeDisabledReasonExpired',
+                                          ),
+                                    color: AidogTheme.of(context).c.fg3,
+                                  ),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   ),
           ),
         if (_c.deleteTarget != null)
