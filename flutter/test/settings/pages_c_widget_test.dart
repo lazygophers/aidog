@@ -1471,6 +1471,124 @@ void main() {
       expect(payload['base_url'], 'https://x.test/v1');
     });
 
+    testWidgets('sub2api 导入：认不出的 platform 标出来，协议可当场手改并进 payload', (
+      tester,
+    ) async {
+      final k = await mount(
+        tester,
+        extra: {
+          'get_defaults_json': (_) =>
+              '{"protocols":{"anthropic":{"name":{"en-US":"Anthropic"},'
+              '"endpoints":{"default":[{"protocol":"anthropic",'
+              '"base_url":"https://api.anthropic.com"}]}},'
+              '"openai":{"name":{"en-US":"OpenAI"},"endpoints":{"default":'
+              '[{"protocol":"openai","base_url":"https://api.openai.com/v1"}]}}}}',
+          'sub2api_parse': (_) => {
+            'accounts': [
+              {
+                'name': 'A 号',
+                'platform': 'nobody-knows-this',
+                'baseUrl': 'https://x.test/v1',
+                'apiKey': 'sk-sub',
+              },
+            ],
+          },
+          'sub2api_import': (_) => {'applied': <String, Object?>{}},
+          'platform_ensure_auto_group': (_) => null,
+          'platform_list': (_) => <Object?>[],
+          'group_detail_list': (_) => <Object?>[],
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byKey(const ValueKey('sub2api-paste')),
+          matching: find.byType(TextField),
+        ),
+        '{"accounts":[]}',
+      );
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('sub2api-parse')));
+      await settle(tester);
+
+      // 认不出来 → 兜底 openai，并且说出来。
+      expect(
+        find.text(i18n.t('importExport.sub2api.unrecognized')),
+        findsOneWidget,
+      );
+
+      // 手改协议 → 徽标收掉，payload 里带改后的协议。
+      await tester.tap(find.byKey(const ValueKey('sub2api-protocol-0')));
+      await settle(tester);
+      await tester.tap(find.text('Anthropic').last);
+      await settle(tester);
+      expect(
+        find.text(i18n.t('importExport.sub2api.unrecognized')),
+        findsNothing,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('foreign-import-sub2api')));
+      await settle(tester);
+      final payload =
+          ((k.lastArgsOf('sub2api_import')!['platformPayload']! as List).single
+              as Map);
+      expect(payload['platform_type'], 'anthropic');
+      expect(payload['base_url'], 'https://x.test/v1');
+      expect(payload['api_key'], 'sk-sub');
+      expect(payload['endpoints'] as List, isNotEmpty);
+    });
+
+    testWidgets('cc-switch「预览冲突」：与本地重名的 provider 标出来', (tester) async {
+      await mount(
+        tester,
+        extra: {
+          'ccswitch_detect': (_) => {
+            'found': true,
+            'path': '/tmp/cc',
+            'sourceType': 'json',
+            'providerCount': 1,
+          },
+          'ccswitch_read': (_) => {
+            'sourceType': 'json',
+            'path': '/tmp/cc',
+            'providers': [
+              {
+                'id': 'p1',
+                'appType': 'claude',
+                'name': '重名的',
+                'detectedBaseUrl': 'https://x.test/v1',
+                'detectedApiKey': 'sk-test',
+              },
+            ],
+          },
+          'platform_list': (_) => [
+            {'id': 1, 'name': '重名的'},
+          ],
+          'group_detail_list': (_) => <Object?>[],
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('ccswitch-detect')));
+      await settle(tester);
+      expect(
+        find.text(i18n.t('importExport.ccswitch.conflict')),
+        findsNothing,
+        reason: '没点预览之前不报冲突',
+      );
+
+      await tester.tap(find.byKey(const ValueKey('ccswitch-preview')));
+      await settle(tester);
+      expect(
+        find.text(i18n.t('importExport.ccswitch.conflict')),
+        findsOneWidget,
+      );
+      // 批量分组那段说明：这个开关作用于全部已导入平台，不是某一行。
+      expect(
+        find.text(i18n.t('importExport.ccswitch.groupAssignHint')),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('没预览过就不许导出', (tester) async {
       await mount(tester);
       expect(

@@ -155,6 +155,117 @@ class _ImportExportPageState extends State<ImportExportPage> {
     });
   }
 
+  /// sub2api 预览行里用户手改的协议（下标 → 协议）。没改过的走
+  /// [mapSub2apiPlatform] 的映射。
+  final Map<int, String> _subProtocolOverrides = {};
+
+  /// sub2api 账号 → Platform JSON（`sub2apiMatch.ts:60`）。
+  ///
+  /// 这里和 cc-switch 用的**不是**同一个转换器：sub2api 的字段是
+  /// `platform` / `baseUrl` / `apiKey`，拿 cc-switch 那套 `appType` /
+  /// `detectedBaseUrl` 去读只会读到空，导进来又是一批空壳平台。
+  List<Map<String, Object?>> _toSubPayload(List<Map<String, Object?>> chosen) {
+    final out = <Map<String, Object?>>[];
+    for (final a in chosen) {
+      final i = _sub.providers.indexOf(a);
+      out.add(
+        sub2apiAccountToPlatformJson(
+          a,
+          defaults: _defaults,
+          protocolOverride: _subProtocolOverrides[i],
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// 下拉里可选的协议（coding 套餐是独立协议，不进这个列表 ——
+  /// 与 React `Sub2ApiImport.tsx:269` 的 `filter(p => !p.codingPlan)` 同）。
+  List<String> get _protocolOptions => [
+    for (final code in _meta.labels.keys)
+      if (!_meta.codingPlanProtocols.contains(code)) code,
+  ];
+
+  /// sub2api 预览行右侧：协议下拉 + 「未识别·已兜底」徽标
+  /// （`Sub2ApiImport.tsx:260-275`）。
+  ///
+  /// 协议必须能当场手改：sub2api 只给 `platform` 一个词，认不出来就兜底成
+  /// openai，导完才发现协议不对的话，那条平台是废的。
+  Widget _subRowExtra(int i, Map<String, Object?> row) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final mapped = mapSub2apiPlatform('${row['platform'] ?? ''}');
+    final current = _subProtocolOverrides[i] ?? mapped.protocol;
+    final options = _protocolOptions;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        DropdownButton<String>(
+          key: ValueKey('sub2api-protocol-$i'),
+          value: options.contains(current) ? current : null,
+          hint: Text(
+            current,
+            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          ),
+          underline: const SizedBox.shrink(),
+          isDense: true,
+          dropdownColor: theme.c.surface2,
+          style: AidogType.micro.copyWith(color: theme.c.fg),
+          items: [
+            for (final o in options)
+              DropdownMenuItem<String>(
+                value: o,
+                child: Text(_meta.labels[o] ?? o),
+              ),
+          ],
+          onChanged: (v) {
+            if (v == null) return;
+            setState(() => _subProtocolOverrides[i] = v);
+          },
+        ),
+        // 手改过就不再提「未识别」——那条提示说的是自动映射的结果。
+        if (!mapped.recognized && !_subProtocolOverrides.containsKey(i)) ...[
+          const SizedBox(width: AidogSpace.sxs),
+          MiniBadge(
+            text: t.t('importExport.sub2api.unrecognized'),
+            color: theme.c.peak,
+          ),
+        ],
+        const SizedBox(width: AidogSpace.sxs),
+      ],
+    );
+  }
+
+  /// 点过「预览冲突」之后，与本地已有平台重名的 provider 名字。
+  Set<String> _ccConflictNames = const {};
+
+  /// 「预览冲突」：拉一次本地平台列表，把重名的 provider 标出来。
+  ///
+  /// 平台名没有唯一约束，导入永远是新建一行，所以这不是「会覆盖」而是
+  /// 「会多出一条同名的」—— 不先说，用户回到平台页只会看到两个一模一样的名字。
+  /// （React 那边这颗按钮只清空错误与决策，不查重：`CcSwitchImport.tsx:166-170`。）
+  Future<void> _previewCcConflicts() async {
+    final existing = <String>{};
+    try {
+      final rows = await _followUp.listPlatforms();
+      if (rows is List) {
+        for (final r in rows.whereType<Map>()) {
+          final n = '${r['name'] ?? ''}';
+          if (n.isNotEmpty) existing.add(n);
+        }
+      }
+    } catch (_) {
+      // 拉不到就当作查不出重名：不拦导入，也不谎报「没有冲突」。
+    }
+    if (!mounted) return;
+    setState(() {
+      _ccConflictNames = {
+        for (final p in _cc.providers)
+          if (existing.contains('${p['name'] ?? ''}')) '${p['name']}',
+      };
+    });
+  }
+
   /// 单个 provider 的匹配结果（行内读数与 payload 共用同一条链，不算两遍）。
   CcMatchResult _matchOf(Map<String, Object?> p) =>
       matchCcProvider(p, meta: _meta, defaults: _defaults);
@@ -186,6 +297,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
           t,
           c: _cc,
           showDims: true,
+          toPayload: _toPlatformPayload,
+          groupAssignHint: t.t('importExport.ccswitch.groupAssignHint'),
+          conflictNames: _ccConflictNames,
+          onPreviewConflicts: _previewCcConflicts,
           title: t.t('importExport.ccswitch.title'),
           description: t.t('importExport.ccswitch.desc'),
           autoGroupLabel: t.t('importExport.ccswitch.autoGroup'),
@@ -247,6 +362,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
         _foreignCard(
           t,
           c: _sub,
+          toPayload: _toSubPayload,
+          rowExtra: _subRowExtra,
           title: t.t('importExport.sub2api.title'),
           description: t.t('importExport.sub2api.desc'),
           autoGroupLabel: t.t('importExport.sub2api.autoGroup'),
@@ -868,6 +985,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
     required String autoGroupLabel,
     required Widget header,
     bool showDims = false,
+    String groupAssignHint = '',
+    Set<String> conflictNames = const {},
+    VoidCallback? onPreviewConflicts,
+    Widget Function(int index, Map<String, Object?> row)? rowExtra,
+    required List<Map<String, Object?>> Function(List<Map<String, Object?>>)
+    toPayload,
   }) {
     final theme = AidogTheme.of(context);
     final report = c.report;
@@ -877,6 +1000,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
       children: [
         header,
         const SizedBox(height: AidogSpace.ssm),
+        // 这个开关是**批量**的：作用于本次导入的全部平台，不是当前这一条。
+        // 不写这句，用户会以为它跟着某一行走（`CcSwitchImport.tsx:357-361`）。
+        if (groupAssignHint.isNotEmpty) TileMetaLine(groupAssignHint),
         SwitchRow(
           label: autoGroupLabel,
           value: c.autoGroup,
@@ -954,6 +1080,16 @@ class _ImportExportPageState extends State<ImportExportPage> {
                             ],
                           ),
                         ),
+                        if (rowExtra != null) rowExtra(i, p),
+                        // 本地已经有同名平台：导入会再建一条，列表里出现两个同名。
+                        // 点过「预览冲突」才有这份名单。
+                        if (conflictNames.contains('${p['name'] ?? ''}')) ...[
+                          MiniBadge(
+                            text: t.t('importExport.ccswitch.conflict'),
+                            color: theme.c.bad,
+                          ),
+                          const SizedBox(width: AidogSpace.sxs),
+                        ],
                         Text(
                           (p['api_key'] ??
                                       p['apiKey'] ??
@@ -970,9 +1106,18 @@ class _ImportExportPageState extends State<ImportExportPage> {
               },
             ),
           const SizedBox(height: AidogSpace.ssm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SmallButton(
+          Row(
+            children: [
+              if (onPreviewConflicts != null) ...[
+                SmallButton(
+                  key: const ValueKey('ccswitch-preview'),
+                  label: t.t('importExport.ccswitch.preview'),
+                  // 一项没选就没什么可查的（与导入按钮同一条禁用线）。
+                  onTap: c.canImport ? onPreviewConflicts : null,
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+              ],
+              SmallButton(
               key: ValueKey('foreign-import-${c.source.autoGroupName}'),
               label: t.t('importExport.ccswitch.importBtn', {
                 'n': c.selected.length,
@@ -980,7 +1125,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
               // 一项没选就点不动（`canImport`）。
               onTap: c.canImport
                   ? () async {
-                      await c.runImport(_toPlatformPayload);
+                      await c.runImport(toPayload);
                       if (!mounted || c.error.isNotEmpty) return;
                       if (c.autoGroup) {
                         // 导入后建 / 取自动分组，再刷一次平台列表。
@@ -990,7 +1135,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       }
                     }
                   : null,
-            ),
+              ),
+            ],
           ),
         ],
         if (report != null)
