@@ -91,4 +91,4 @@ export 'src/pages/skills_logic.dart';
 export 'src/pages/stats.dart' show StatsPage;
 export 'src/pages/stats_logic.dart';
 export 'src/pages/ui_bits.dart'
-    show CenteredNote, ConfirmCard, SmallButton, ToastBar;
+    show AidogModal, CenteredNote, ConfirmCard, SmallButton, ToastBar;

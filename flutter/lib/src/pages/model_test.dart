@@ -51,8 +51,11 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+    // React 侧是普通 `Dialog`（`ModelTestPanel.tsx:145`，width 560）。跑测试中
+    // 关闭按钮本就禁用，遮罩同步不可关。
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: _c.running ? null : widget.onClose,
       child: Tile(
         title: t.t('test.title'),
         meta: '${widget.platform.name} · ${widget.platform.platformType}',
