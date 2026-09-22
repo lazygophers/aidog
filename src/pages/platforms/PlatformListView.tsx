@@ -2,7 +2,7 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state/handlers 经 props 从 usePlatformsState 传入。
 //   渲染：页头（搜索 + 添加分组 + 添加平台 + 清理失效）+ GroupsEmbedded（分组段）+ 未分组平台列表 +
 //   ModelTestPanel overlay + groupDrag portal + ShareModal + toast portal。
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -76,6 +76,20 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
   // ponytail: ModelTestPanel onResult 写 list.testResults（form 经 listDeps 注入拿到同源 setter），
   //   本视图直接读 list.testResults 渲染，二者闭环；为可读性别名 setTestResults = list.setTestResults。
   const { setTestResults } = s.list;
+  // 删单个平台也要先确认（2026-09-22 用户在 ask-ui 定）。
+  //
+  // 此前这里点了直接删，而同页其它破坏性操作（清理失效、批量删除）都有确认 ——
+  // 单平台删除是唯一的例外，看着是当初漏了。删掉就得重填 base_url / key / 模型映射，
+  // 一次手滑的代价远大于多点一下。Flutter 侧本来就有确认（`platforms.dart:347-354`）。
+  const [deleteId, setDeleteId] = useState<number | null>(null);
+  const deleteTarget = platforms.find((p) => p.id === deleteId) ?? null;
+  // 只替换 onDelete；`setDeleteId` 是稳定引用，所以整个对象仍只在 cardActions 变时重建，
+  // PlatformCard 的 memo 不会因此失效。
+  const actions = useMemo<PlatformCardActions>(
+    () => ({ ...cardActions, onDelete: (id: number) => setDeleteId(id) }),
+    [cardActions],
+  );
+
   // ponytail: purge 确认在 AlertDialog Action 触发（busy 期间禁按钮防双击）
   const onPurgeConfirm = async () => {
     setPurging(true);
@@ -178,7 +192,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                   manualResult={testResults[p.id]}
                   testing={testingId === p.id}
                   faviconFailed={faviconFailed.has(p.id)}
-                  actions={cardActions}
+                  actions={actions}
                   platformMembership={platformMembership.get(p.id)}
                   lastTest={lastTestMap[p.id]}
                 />
@@ -294,6 +308,34 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      )}
+      {/* 删单个平台的二次确认（2026-09-22 起两侧都有）。
+          用 AlertDialog 不用 Dialog：点遮罩不许关，破坏性操作不接受误触。 */}
+      {createPortal(
+        <AlertDialog open={deleteId !== null} onOpenChange={(next) => { if (!next) setDeleteId(null); }}>
+          <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("platform.deleteTitle", "删除平台")}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t("platform.deleteConfirm", "「{{name}}」将被彻底删除，配置、密钥与所有分组关联一并移除，且无法撤销。确认删除？")
+                  .replace("{{name}}", deleteTarget?.name ?? "")}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const id = deleteId;
+                  setDeleteId(null);
+                  if (id !== null) void cardActions.onDelete(id);
+                }}
+              >
+                {t("action.delete", "删除")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>,
+        document.body,
       )}
     </>
   );

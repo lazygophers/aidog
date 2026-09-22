@@ -996,6 +996,8 @@
   "platform.customTest": "Custom Test",
   "platform.days_of_week": "Days of week (0=Sun…6=Sat, empty=every day)",
   "platform.deleteFail": "Delete failed",
+  "platform.deleteTitle": "Delete platform",
+  "platform.deleteConfirm": "“{{name}}” will be permanently deleted — its config, keys and all group links go with it. This cannot be undone. Delete it?",
   "platform.disable": "Disable",
   "platform.disable_during_peak": "Disable during peak",
   "platform.disable_during_peak_desc": "When on, this platform is excluded from routing candidates during peak hours (any peak window hit). Does not change status — temporary gate; recovers when toggled off or outside the window.",

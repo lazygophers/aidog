@@ -996,6 +996,8 @@
   "platform.customTest": "Test personalizado",
   "platform.days_of_week": "Días de la semana (0=Dom…6=Sáb, vacío=todos)",
   "platform.deleteFail": "Error al eliminar",
+  "platform.deleteTitle": "Eliminar plataforma",
+  "platform.deleteConfirm": "«{{name}}» se eliminará definitivamente, junto con su configuración, sus claves y todos sus vínculos de grupo. No se puede deshacer. ¿Eliminar?",
   "platform.disable": "Desactivar",
   "platform.disable_during_peak": "Desactivar en horas pico",
   "platform.disable_during_peak_desc": "Cuando está activado, esta plataforma se excluye de los candidatos de enrutamiento durante las horas pico (cualquier ventana de peak coincidente). No cambia el status — barrera temporal; se recupera al apagar o fuera de la ventana.",

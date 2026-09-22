@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { TFunction } from "i18next";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
 import type { PlatformCardActions } from "../../components/platforms/PlatformCard";
@@ -145,6 +146,15 @@ export function GroupListView(props: GroupListViewProps) {
     allGroups,
   } = props;
 
+  // 删分组也要先确认（2026-09-22 用户在 ask-ui 定）。
+  //
+  // 此前点了直接调 `groupApi.delete`，而分组一删，它的路由配置、模型映射、
+  // 环境变量、优先级全部跟着没，客户端那头还在用这个 group_key 发请求。
+  // Flutter 侧本来就有确认（`groups.dart:239-246`）。
+  const [deleteGroupId, setDeleteGroupId] = useState<number | null>(null);
+  const deleteGroupName =
+    details.find((d) => d.group.id === deleteGroupId)?.group.name ?? "";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 子区块标题 + 操作栏 */}
@@ -240,7 +250,7 @@ export function GroupListView(props: GroupListViewProps) {
                 onToggleExpanded={toggleGroupExpanded}
                 onSetCollapsed={setCollapsedGroups}
                 onEdit={openEdit}
-                onDelete={handleDeleteGroup}
+                onDelete={setDeleteGroupId}
                 onToggleDefault={handleToggleDefault}
                 onTestGroup={handleTestGroup}
                 onCreatePlatform={onCreatePlatform}
@@ -393,6 +403,35 @@ export function GroupListView(props: GroupListViewProps) {
         busy={batchMoveGroupBusy}
         t={t}
       />
+      {/* 删分组的二次确认。AlertDialog 而非 Dialog：点遮罩不许关。 */}
+      <AlertDialog
+        open={deleteGroupId !== null}
+        onOpenChange={(next) => { if (!next) setDeleteGroupId(null); }}
+      >
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 420, padding: "20px 22px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {t("group.delete", "删除分组")}
+              {deleteGroupName && `：${deleteGroupName}`}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("group.deleteConfirm", "删除后该分组的路由配置将一并失效，且无法撤销。确认删除？")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const id = deleteGroupId;
+                setDeleteGroupId(null);
+                if (id !== null) handleDeleteGroup(id);
+              }}
+            >
+              {t("action.delete", "删除")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

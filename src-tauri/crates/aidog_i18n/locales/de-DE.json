@@ -1018,6 +1018,8 @@
   "platform.customTest": "Benutzerdefinierter Test",
   "platform.days_of_week": "Wochentage (0=So…6=Sa, leer=täglich)",
   "platform.deleteFail": "Löschen fehlgeschlagen",
+  "platform.deleteTitle": "Plattform löschen",
+  "platform.deleteConfirm": "„{{name}}“ wird endgültig gelöscht – samt Konfiguration, Schlüsseln und allen Gruppenzuordnungen. Das lässt sich nicht rückgängig machen. Wirklich löschen?",
   "platform.disable": "Deaktivieren",
   "platform.disable_during_peak": "Während Spitzenzeit deaktivieren",
   "platform.disable_during_peak_desc": "Wenn aktiviert, wird diese Plattform während der Spitzenzeiten (Treffer in einem peak-Fenster) aus den Routingkandidaten ausgeschlossen. Ändert nicht den Status — temporäres Gatter; erholt sich beim Ausschalten oder außerhalb des Fensters.",
