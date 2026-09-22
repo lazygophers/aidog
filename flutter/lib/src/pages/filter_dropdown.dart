@@ -9,10 +9,13 @@
 /// [searchTerms]（registry 协议词条）仍是纯子串 —— 拼音与首字母已作为字面数据存着。
 library;
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../shell/theme.dart';
 import '../utils/pinyin.dart';
+import 'invoke.dart';
 
 /// 一个可选项。[searchTerms] 是 label 之外的跨语言搜索词（registry 协议词条）。
 @immutable
@@ -278,5 +281,37 @@ class _FilterDropdownState extends State<FilterDropdown> {
         ),
       ),
     );
+  }
+}
+
+/// 协议跨语言搜索词（registry 的 8 locale name + keywords）。
+/// 对应 React 版 `defaults.ts::getProtocolSearchTermsMap`；统计页与日志页共用一份，
+/// 拉不到就返回空表（下拉退回只按 label 搜，不该连页面一起垮）。
+Future<Map<String, List<String>>> loadProtocolTerms(InvokeFn invoke) async {
+  try {
+    final raw = await invoke('get_defaults_json');
+    final doc = jsonDecode(raw! as String) as Map<String, dynamic>;
+    final protocols = (doc['protocols'] as Map<String, dynamic>?) ?? const {};
+    final out = <String, List<String>>{};
+    for (final entry in protocols.entries) {
+      final e = entry.value as Map<String, dynamic>?;
+      if (e == null) continue;
+      final names = (e['name'] as Map<String, dynamic>?) ?? const {};
+      final terms = <String>{
+        for (final v in names.values)
+          if (v is String && v.trim().isNotEmpty) v,
+        for (final k in (e['keywords'] as List?) ?? const [])
+          if (k is String) k,
+      };
+      // resolveName 的三层回落：没有任何可用名字时落到协议 code 本身。
+      if (names.values.whereType<String>().every((v) => v.trim().isEmpty)) {
+        terms.add(entry.key);
+      }
+      out[entry.key] = terms.toList(growable: false);
+    }
+    return out;
+  } catch (e) {
+    debugPrint('get_defaults_json failed: $e');
+    return const {};
   }
 }

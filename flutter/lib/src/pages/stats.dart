@@ -9,7 +9,6 @@
 library;
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
@@ -218,34 +217,11 @@ class _StatsPageState extends State<StatsPage> {
     }
   }
 
-  /// 协议跨语言搜索词（registry 的 8 locale name + keywords）。
-  /// 对应 React 版 `defaults.ts::getProtocolSearchTermsMap`。
+  /// 协议跨语言搜索词。实现挪到 `filter_dropdown.dart`，日志页那边的平台下拉
+  /// 要同一份（两处各抄一遍必然漂移）。
   Future<void> _loadProtocolTerms() async {
-    try {
-      final raw = await widget.invoke('get_defaults_json');
-      final doc = jsonDecode(raw! as String) as Map<String, dynamic>;
-      final protocols = (doc['protocols'] as Map<String, dynamic>?) ?? const {};
-      final out = <String, List<String>>{};
-      for (final entry in protocols.entries) {
-        final e = entry.value as Map<String, dynamic>?;
-        if (e == null) continue;
-        final names = (e['name'] as Map<String, dynamic>?) ?? const {};
-        final terms = <String>{
-          for (final v in names.values)
-            if (v is String && v.trim().isNotEmpty) v,
-          for (final k in (e['keywords'] as List?) ?? const [])
-            if (k is String) k,
-        };
-        // resolveName 的三层回落：没有任何可用名字时落到协议 code 本身。
-        if (names.values.whereType<String>().every((v) => v.trim().isEmpty)) {
-          terms.add(entry.key);
-        }
-        out[entry.key] = terms.toList(growable: false);
-      }
-      if (mounted) setState(() => _protocolTerms = out);
-    } catch (e) {
-      debugPrint('get_defaults_json failed: $e');
-    }
+    final out = await loadProtocolTerms(widget.invoke);
+    if (mounted) setState(() => _protocolTerms = out);
   }
 
   /// 密度 tab 按需拉 hourly 桶：粒度选择是主查询概念，热力图需要小时信息，固定 hourly。
