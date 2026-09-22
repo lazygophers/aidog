@@ -45,7 +45,10 @@ class Titlebar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          if (leading != null) ...[leading!, const SizedBox(width: AidogSpace.smd)],
+          if (leading != null) ...[
+            leading!,
+            const SizedBox(width: AidogSpace.smd),
+          ],
           // 品牌标，对应 React `Sidebar.tsx:268-277` 的 `<img src="/logo.svg">`。
           // 资产由 `node scripts/gen-flutter-icons.mjs` 从 `src-tauri/icons/` 同步，
           // 与 Tauri 壳同一个真值源；漂了 `--check` 会红。
@@ -65,10 +68,7 @@ class Titlebar extends StatelessWidget {
             LiveDot(on: live),
             const SizedBox(width: 7),
             Ltr(
-              child: Text(
-                status!,
-                style: numStyle(AidogType.numSm, t.c.fg2),
-              ),
+              child: Text(status!, style: numStyle(AidogType.numSm, t.c.fg2)),
             ),
           ],
         ],
@@ -123,7 +123,12 @@ class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
 
 /// 页头：大标题 + 一句话副标题 + 右侧的时间/维度切换。
 class PageHead extends StatelessWidget {
-  const PageHead({super.key, required this.title, this.subtitle, this.trailing});
+  const PageHead({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+  });
 
   final String title;
   final String? subtitle;
@@ -199,8 +204,64 @@ class AppShell extends StatefulWidget {
   State<AppShell> createState() => _AppShellState();
 }
 
+/// 页面往骨架的滚动视口顶部挂一条**粘顶**的横条（设置页的 section 跳转条就是它）。
+///
+/// 为什么要骨架出面：滚动视口在骨架里（下面那个 [CustomScrollView]），粘顶只能由
+/// 视口自己的 sliver 实现，页面在视口内部做不到。页面把要粘的 widget 写进这个
+/// notifier，骨架把它渲染成 `SliverPersistentHeader(pinned: true)`。
+///
+/// 拿不到（widget 测试里单独挂页面、没有骨架）→ `maybeOf` 返回 null，
+/// 页面自行退回「页内一行」的形态。
+class PageStickyHeader extends InheritedWidget {
+  const PageStickyHeader({super.key, required this.slot, required super.child});
+
+  final ValueNotifier<Widget?> slot;
+
+  static ValueNotifier<Widget?>? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<PageStickyHeader>()?.slot;
+
+  @override
+  bool updateShouldNotify(PageStickyHeader oldWidget) =>
+      !identical(slot, oldWidget.slot);
+}
+
+/// 粘顶横条的高度。固定值而不是量内容：`SliverPersistentHeader` 要求先给高度，
+/// 而这条横条只装一行 pill 按钮，高度本来就是定的。
+const double kStickyHeaderH = 46;
+
+class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
+  _StickyHeaderDelegate({required this.child, required this.background});
+
+  final Widget child;
+  final Color background;
+
+  @override
+  double get minExtent => kStickyHeaderH;
+
+  @override
+  double get maxExtent => kStickyHeaderH;
+
+  @override
+  Widget build(BuildContext context, double shrinkOffset, bool overlaps) =>
+      // 不透明底色是必需的：内容会从它底下滚过去，透明的话两层字会叠在一起。
+      ColoredBox(color: background, child: child);
+
+  @override
+  bool shouldRebuild(_StickyHeaderDelegate old) =>
+      old.child != child || old.background != background;
+}
+
 class _AppShellState extends State<AppShell> {
   late bool _collapsed = widget.initialCollapsed;
+
+  /// 当前页挂上来的粘顶横条（没有就是 null）。
+  final ValueNotifier<Widget?> _sticky = ValueNotifier(null);
+
+  @override
+  void dispose() {
+    _sticky.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,58 +275,95 @@ class _AppShellState extends State<AppShell> {
           // 少了它，顶栏与侧栏的每一行文字都会被 Flutter 画上「缺 Material 祖先」的黄色下划线
           // —— 页面区之前单独包过一层，所以只有那一块是干净的，看起来像设计差异，其实是缺层。
           // 透明色：底色仍由上面的 bg token 决定，Material 只负责提供墨层与默认文字样式。
-          child: Material(
-            type: MaterialType.transparency,
-            child: Column(
-            children: [
-              Titlebar(
-                title: widget.appTitle,
-                status: widget.status,
-                live: widget.live,
-              ),
-              Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Rail(
-                      items: widget.controller.items,
-                      activeId: widget.controller.activeId,
-                      onNavigate: widget.controller.navigate,
-                      collapsed: _collapsed,
-                      onToggleCollapsed: () =>
-                          setState(() => _collapsed = !_collapsed),
-                      isDark: widget.theme.isDark,
-                      onToggleTheme: widget.theme.toggle,
-                      localeLabel: widget.localeLabel,
-                      onPickLocale: widget.onPickLocale ?? () {},
-                      t: widget.t,
-                    ),
-                    Expanded(
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.fromLTRB(
-                          AidogLayout.pagePad,
-                          AidogLayout.pagePad,
-                          AidogLayout.pagePad,
-                          40,
+          child: PageStickyHeader(
+            slot: _sticky,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Column(
+                children: [
+                  Titlebar(
+                    title: widget.appTitle,
+                    status: widget.status,
+                    live: widget.live,
+                  ),
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Rail(
+                          items: widget.controller.items,
+                          activeId: widget.controller.activeId,
+                          onNavigate: widget.controller.navigate,
+                          collapsed: _collapsed,
+                          onToggleCollapsed: () =>
+                              setState(() => _collapsed = !_collapsed),
+                          isDark: widget.theme.isDark,
+                          onToggleTheme: widget.theme.toggle,
+                          localeLabel: widget.localeLabel,
+                          onPickLocale: widget.onPickLocale ?? () {},
+                          t: widget.t,
                         ),
-                        child: Center(
-                          child: ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxWidth: AidogLayout.contentMax,
-                            ),
-                            // Material 已由骨架根部统一提供（见上），这里不再包第二层。
-                            child: widget.pageBuilder(
-                              context,
-                              widget.controller.activeId,
+                        Expanded(
+                          // 从 SingleChildScrollView 换成 CustomScrollView：页面仍是
+                          // 一整个 box（装在 SliverToBoxAdapter 里，写页面的方式不变），
+                          // 换的目的只有一个 —— 让页面能往视口顶部挂一条粘住的横条。
+                          child: ValueListenableBuilder<Widget?>(
+                            valueListenable: _sticky,
+                            builder: (context, sticky, _) => CustomScrollView(
+                              slivers: [
+                                if (sticky != null)
+                                  SliverPersistentHeader(
+                                    pinned: true,
+                                    delegate: _StickyHeaderDelegate(
+                                      background: t.c.bg,
+                                      child: Center(
+                                        child: ConstrainedBox(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: AidogLayout.contentMax,
+                                          ),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: AidogLayout.pagePad,
+                                            ),
+                                            child: sticky,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                SliverPadding(
+                                  padding: EdgeInsets.fromLTRB(
+                                    AidogLayout.pagePad,
+                                    // 横条在时它自己占掉了顶部留白。
+                                    sticky == null ? AidogLayout.pagePad : 0,
+                                    AidogLayout.pagePad,
+                                    40,
+                                  ),
+                                  sliver: SliverToBoxAdapter(
+                                    child: Center(
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: AidogLayout.contentMax,
+                                        ),
+                                        // Material 已由骨架根部统一提供（见上），
+                                        // 这里不再包第二层。
+                                        child: widget.pageBuilder(
+                                          context,
+                                          widget.controller.activeId,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
             ),
           ),
         );
