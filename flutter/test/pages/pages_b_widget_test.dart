@@ -1575,12 +1575,12 @@ void main() {
         wrapPage(PlatformsPage(invoke: k.fn, showGroups: false), c),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('platform.disable')).first);
+      await tester.tap(find.byTooltip(c.t('platform.disable')).first);
       await settle(tester);
       final input =
           k.lastCallTo('platform_update')!.args!['input']! as Map<String, Object?>;
       expect(input['status'], 'disabled');
-      expect(find.text(c.t('platform.enable')), findsWidgets);
+      expect(find.byTooltip(c.t('platform.enable')), findsWidgets);
     });
 
     testWidgets('快速测试 → model_test，结果进 toast', (tester) async {
@@ -1591,7 +1591,7 @@ void main() {
         wrapPage(PlatformsPage(invoke: k.fn, showGroups: false), c),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('platform.quickTest')).first);
+      await tester.tap(find.byTooltip(c.t('platform.quickTest')).first);
       await settle(tester);
       expect(k.callsTo('model_test').length, 1);
       expect(find.byType(ToastBar), findsOneWidget);
@@ -1605,7 +1605,7 @@ void main() {
         wrapPage(PlatformsPage(invoke: k.fn, showGroups: false), c),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('action.delete')).first);
+      await tester.tap(find.byTooltip(c.t('action.delete')).first);
       await settle(tester);
       expect(find.byType(ConfirmCard), findsOneWidget);
       expect(k.commands.contains('platform_delete'), isFalse);
