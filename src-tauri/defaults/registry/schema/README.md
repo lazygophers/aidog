@@ -26,6 +26,7 @@ yarn check:registry
 2. **引用完整性**：`platform.json` 里 `models.*` 分支值 + `model_list.*` 条目引用的每个 model id 必须有对应 `models/<id>.json`（vendor 子目录路径 = id）。平台已带 models 目录（自建价目）时为**硬错**；完全没目录的中转平台降为 warning——`AIDOG_REGISTRY_STRICT=1` 时全部按错处理。
 3. **canonical 身份折叠组唯一（硬错）**：见下「canonical_model 归一规范」——同一折叠组内出现多个不同字面 canonical 即身份冲突，lint 失败。
 4. **predecessor 引用与无环（硬错）**：`predecessor` 指向 canonical_model；指向的 canonical 必须在全库存在，且全库 predecessor 链不得成环。
+5. **同 canonical 元数据一致（硬错）**：同一 `canonical_model` 的所有条目 `family` / `version` 必须相同——聚合键下的元数据分裂即身份漂移，lint 失败。
 
 ## canonical_model 归一规范（2026-09-22 票 03 拍板）
 
