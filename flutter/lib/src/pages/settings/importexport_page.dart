@@ -390,7 +390,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
         ],
       ),
       if (_c.scopes.isEmpty) ErrorNote(text: t.t('importExport.error.noScope')),
-      if (_c.preview != null) _itemPicker(t),
+      if (_c.preview != null && !_c.previewIsImport) _itemPicker(t),
     ],
   );
 
@@ -446,6 +446,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
             label: t.t('importExport.pickFile'),
             value: ltr(_importPath!),
           ),
+        // 概要卡 + 逐项勾选（`ImportExportTab.tsx:506-537`）：光有一条文件路径
+        // 看不出这份备份是谁、什么时候、导进来会动多少东西。
+        if (_c.preview != null && _c.previewIsImport) ...[
+          _previewSummary(t),
+          _itemPicker(t),
+        ],
         if (_c.conflictKeys.isNotEmpty) ...[
           TileMetaLine(
             t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
@@ -605,6 +611,47 @@ class _ImportExportPageState extends State<ImportExportPage> {
     );
   }
 
+  /// 导入预览的概要卡（`ImportExportTab.tsx:506-523`）：来源机器 + 导出时间
+  /// + 每个范围各几条。回答的是「这份备份是谁的、导进来会动哪些东西」。
+  Widget _previewSummary(I18nController t) {
+    final theme = AidogTheme.of(context);
+    final manifest = _c.preview!['manifest'];
+    final counts = _c.preview!['counts'];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (manifest is Map) ...[
+          InfoRow(
+            label: t.t('importExport.sourceMachine'),
+            value: ltr('${manifest['source_machine'] ?? ''}'),
+          ),
+          InfoRow(
+            label: t.t('importExport.createdAt'),
+            value: ltr('${manifest['created_at'] ?? ''}'),
+          ),
+        ],
+        if (counts is Map && counts.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.sxs),
+            child: Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                for (final e in counts.entries)
+                  MiniBadge(
+                    text:
+                        '${tOr(t, 'importExport.scope.${e.key}', '${e.key}')} '
+                        '${e.value}',
+                    color: theme.c.fg3,
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
   /// 预览里的可勾选条目（导出与导入共用同一份 `items`）。
   Widget _itemPicker(I18nController t) {
     final items = (_c.preview!['items'] as List? ?? const [])
@@ -617,8 +664,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 标题 + 「已选 n / 共 m」（`ItemSelector.tsx:63-72`）：只报已选数看不出
+        // 还剩多少没勾。
+        TileMetaLine(t.t('importExport.selectItems')),
         TileMetaLine(
-          '${t.t('importExport.selectedLabel')} ${_c.selected.length}',
+          '${t.t('importExport.selectedLabel')} '
+          '${_c.selected.length} / ${items.length}',
         ),
         Row(
           children: [
@@ -671,13 +722,26 @@ class _ImportExportPageState extends State<ImportExportPage> {
                               const SizedBox(width: AidogSpace.sxs),
                               Expanded(
                                 child: Text(
-                                  ltr(k),
+                                  // 后端给了人话标签（平台名 / 分组名 / 文件名），
+                                  // 只画 `scope key` 的话用户认不出这条是什么。
+                                  ltr('${e['label'] ?? ''}'.isEmpty
+                                      ? k
+                                      : '${e['label']}'),
                                   overflow: TextOverflow.ellipsis,
                                   style: AidogType.micro.copyWith(
                                     color: AidogTheme.of(context).c.fg2,
                                   ),
                                 ),
                               ),
+                              // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名
+                              // 条目，导入时要在上面的冲突区逐条定夺。
+                              if (e['conflict'] == true) ...[
+                                const SizedBox(width: AidogSpace.sxs),
+                                MiniBadge(
+                                  text: t.t('importExport.conflictTag'),
+                                  color: AidogTheme.of(context).c.peak,
+                                ),
+                              ],
                             ],
                           ),
                         ),
