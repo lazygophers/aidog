@@ -885,26 +885,30 @@ class _RemovePlatformConfirm extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final target = controller.removeTarget!;
+    // 属多个组 → 标题/正文/主按钮都换一套措辞（`GroupListView.tsx:313-347`）。
+    final multi = !target.onlyInThisGroup;
     return Padding(
       padding: const EdgeInsets.only(top: AidogSpace.smd),
       child: Tile(
-        title: t.t('group.deletePlatformTitle'),
+        title: multi
+            ? t.t('group.deletePlatformMultiTitle')
+            : t.t('group.deletePlatformTitle'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              target.platform.name,
+              multi
+                  ? t.t('group.deletePlatformMultiDesc', {
+                      'name': target.platform.name,
+                      'count': '${target.groupCount}',
+                      'groups': target.groupNames.join('、'),
+                    })
+                  : t.t('group.deletePlatformConfirm', {
+                      'name': target.platform.name,
+                    }),
               style: AidogType.micro.copyWith(color: theme.c.fg2),
             ),
-            if (!target.onlyInThisGroup)
-              Padding(
-                padding: const EdgeInsets.only(top: AidogSpace.sxs),
-                child: Text(
-                  target.groupNames.join(' / '),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
-                ),
-              ),
             const SizedBox(height: AidogSpace.ssm),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -916,15 +920,19 @@ class _RemovePlatformConfirm extends StatelessWidget {
                 const SizedBox(width: AidogSpace.ssm),
                 // 属多个组才给「仅移出本组」—— 只属本组时这个选项没有意义
                 // （移出去它就变成一个谁也不管的未分组平台）。
-                if (!target.onlyInThisGroup) ...[
+                if (multi) ...[
                   SmallButton(
                     label: t.t('group.removeFromGroupAction'),
-                    onTap: controller.removePlatformFromGroup,
+                    onTap: () => controller.removePlatformFromGroup(
+                      failText: t.t('group.removeFromGroupFailed'),
+                    ),
                   ),
                   const SizedBox(width: AidogSpace.ssm),
                 ],
                 SmallButton(
-                  label: t.t('group.deletePlatformAction'),
+                  label: multi
+                      ? t.t('group.deleteFromAllGroupsAction')
+                      : t.t('group.deletePlatformAction'),
                   danger: true,
                   onTap: () {
                     final id = target.platform.id;
@@ -1110,6 +1118,12 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                 ],
               ),
             ),
+          // 全空 → 确认按钮禁用，把原因写出来（React 是按钮 title，这里是一行提示）。
+          if (allEmpty)
+            Text(
+              t.t('group.batchOverrideAllEmptyHint'),
+              style: AidogType.micro.copyWith(color: theme.c.bad),
+            ),
           Text(
             t.t('group.batchOverrideDiffTitle'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
@@ -1166,7 +1180,13 @@ class _BatchSetStatusCardState extends State<_BatchSetStatusCard> {
           : t.t('group.batchSetStatusConfirm', {'count': '${target.platforms.length}'}),
       busy: c.batchSetStatusBusy,
       onCancel: c.cancelBatchSetStatus,
-      onConfirm: c.batchSetStatusBusy ? null : () => c.confirmBatchSetStatus(_status),
+      onConfirm: c.batchSetStatusBusy
+          ? null
+          : () => c.confirmBatchSetStatus(
+              _status,
+              doneText: (n) => t.t('group.batchSetStatusDone', {'count': '$n'}),
+              failText: t.t('group.batchSetStatusFailed'),
+            ),
       extra: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -1236,7 +1256,17 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
       onCancel: c.cancelBatchMoveGroup,
       onConfirm: (c.batchMoveGroupBusy || !canConfirm)
           ? null
-          : () => c.confirmBatchMoveGroup(_targetGroupId!, _mode),
+          : () => c.confirmBatchMoveGroup(
+              _targetGroupId!,
+              _mode,
+              doneText: (n, m) => t.t('group.batchMoveGroupDone', {
+                'count': '$n',
+                'mode': m == 'move'
+                    ? t.t('group.batchMoveGroupModeMoveShort')
+                    : t.t('group.batchMoveGroupModeAddShort'),
+              }),
+              failText: t.t('group.batchMoveGroupFailed'),
+            ),
       extra: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -1299,11 +1329,30 @@ class _GroupTestPanel extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final gt = controller.groupTest!;
+    // 行状态文案逐条对齐 `GroupTestPanel.tsx:47-52`：ok 带耗时，testing 是省略号。
+    final ok = gt.rows.where((r) => r.status == 'ok').length;
+    final fail = gt.rows.where((r) => r.status == 'fail').length;
+    String statusText(GroupTestRow r) => switch (r.status) {
+      'testing' => '…',
+      'pending' => t.t('group.testAllPending'),
+      'ok' =>
+        t.t('group.testAllOk') + (r.durationMs == null ? '' : ' ${r.durationMs}ms'),
+      _ => t.t('group.testAllFail'),
+    };
     return Padding(
       padding: const EdgeInsets.only(top: AidogSpace.smd),
       child: Tile(
-        title: gt.groupName,
-        meta: gt.running ? t.t('status.loading') : t.t('status.done'),
+        title: '${t.t('group.testAllTitle')}：${gt.groupName}',
+        meta: gt.running
+            ? t.t('group.testAllProgress', {
+                'done': '${ok + fail}',
+                'total': '${gt.rows.length}',
+              })
+            : t.t('group.testAllSummary', {
+                'ok': '$ok',
+                'fail': '$fail',
+                'total': '${gt.rows.length}',
+              }),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -1311,31 +1360,39 @@ class _GroupTestPanel extends StatelessWidget {
             for (final r in gt.rows)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Row(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      child: Text(
-                        r.name,
-                        style: AidogType.micro.copyWith(color: theme.c.fg2),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            r.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AidogType.micro.copyWith(color: theme.c.fg2),
+                          ),
+                        ),
+                        Text(
+                          statusText(r),
+                          style: AidogType.micro.copyWith(
+                            color: switch (r.status) {
+                              'ok' => theme.c.ok,
+                              'fail' => theme.c.bad,
+                              _ => theme.c.fg3,
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (r.status == 'fail' && (r.error ?? '').isNotEmpty)
+                      Text(
+                        r.error!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.micro.copyWith(color: theme.c.bad),
                       ),
-                    ),
-                    Text(
-                      r.durationMs == null
-                          ? ''
-                          : formatDurationMs(r.durationMs!.toDouble()),
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
-                    ),
-                    const SizedBox(width: AidogSpace.ssm),
-                    Text(
-                      r.status,
-                      style: AidogType.micro.copyWith(
-                        color: switch (r.status) {
-                          'ok' => theme.c.ok,
-                          'fail' => theme.c.bad,
-                          _ => theme.c.fg3,
-                        },
-                      ),
-                    ),
                   ],
                 ),
               ),
