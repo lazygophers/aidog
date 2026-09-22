@@ -89,6 +89,8 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             body: t.t('mitm.clearConfirm', {'n': _c.whitelist.length}),
             confirmLabel: t.t('mitm.clear'),
             busy: _c.busy,
+            // React 这处用的是普通 `Dialog`（`MitmConfig.tsx:610`），点遮罩可关。
+            dismissOnBarrier: true,
             onCancel: _c.closeClearConfirm,
             onConfirm: () =>
                 _c.confirmClear((n) => t.t('mitm.clearDone', {'n': n})),
