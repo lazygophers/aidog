@@ -293,12 +293,22 @@ class _GroupListView extends StatelessWidget {
           )
         else if (c.hasMore)
           // 🔴 这里**没有**做 React 的触底自动加载（`GroupListView.tsx:277-285`
-          // 的 `IntersectionObserver`）。试过了：只要在滚动 / 布局那一趟里把第二页
-          // 追加进这个 `ReorderableListView(shrinkWrap: true)`，框架就抛
-          // `!childSemantics.renderObject._needsLayout`（断言自己写着「请去
-          // flutter 仓库提 issue」）。推到帧末、推到下一个事件循环都一样。
-          // 手点这颗按钮时用户已经停止滚动，同样的追加就不触发。
-          // 要做自动加载得先把这个列表换掉（sliver + 自管拖拽），不是一行的事。
+          // 的 `IntersectionObserver`）。原因不在这个列表，也不在这一页：
+          //
+          // 「视口滚动过 + 内容变高 + 语义树开着」三者同时成立时，框架自己会抛
+          // `!childSemantics.renderObject._needsLayout`（断言正文写着「请去 flutter
+          // 仓库提 issue」）。40 行纯框架代码就能复现 ——
+          // `SingleChildScrollView` / `SliverToBoxAdapter` / 真 `SliverList`
+          // 三种视口全中，关掉 `addSemanticIndexes` / `addAutomaticKeepAlives`
+          // 也没用。所以换 sliver 列表、换触发时机都绕不开。
+          //
+          // 复现与诊断留在 `.scratch/flutter-ui-parity/`：
+          // `flutter-issue-draft.md`（最小复现 + 三种视口对照）、
+          // `paging_probe_test.dart.txt`（本页的 A/B 复现）、
+          // `groups-auto-paging.patch`（自动加载的实现，等上游修了再贴回来）。
+          //
+          // 这颗按钮之所以「看起来没事」，只是因为手点它之前用户已经停住了滚动 ——
+          // 先滚一下再点，同样抛。它不是解法，是现状。
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: Align(
