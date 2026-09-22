@@ -6,6 +6,8 @@
 
 library;
 
+import 'dart:async';
+
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/updater.dart';
@@ -219,6 +221,27 @@ void main() {
       await settle(tester);
       expect(find.byType(SkillDetailView), findsOneWidget);
       expect(find.text('hello skill'), findsOneWidget);
+      // 详情是浮层，列表还在背后（React 是 Radix `Dialog`）：
+      // 原先整页替换，关掉详情回来筛选状态全没了。
+      expect(find.byType(AidogModal), findsOneWidget);
+      expect(find.byKey(const Key('skills-search')), findsOneWidget);
+    });
+
+    testWidgets('批量卸载期间盖一层遮罩，页面看得出在忙', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final gate = Completer<Map<String, Object?>>();
+      final k = fake(extra: {'skills_uninstall_all': (_) => gate.future});
+      await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('skills.uninstallAll')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.confirm')).last);
+      await tester.pump();
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      gate.complete(opOk());
+      await settle(tester);
+      expect(find.byType(CircularProgressIndicator), findsNothing);
     });
 
     // 回归 2026-09-22：SKILL.md 几乎全是标题 + 列表 + 代码块，按原文等宽渲染
@@ -414,7 +437,11 @@ void main() {
       await settle(tester);
       await tester.tap(find.text(c.t('mcp.scanImport')));
       await settle(tester);
-      expect(find.text('a · stdio'), findsOneWidget);
+      // 一条两行：名字 + 传输徽标 + 来源 agent 徽标，第二行是它跑什么。
+      expect(find.text('a'), findsOneWidget);
+      expect(find.text('stdio'), findsWidgets);
+      expect(find.text(c.t('mcp.agent.claude-code')), findsWidgets);
+      expect(find.text('npx'), findsOneWidget);
       await tester.tap(find.text(c.t('mcp.import', {'count': 1})));
       await settle(tester);
       expect(k.countOf('mcp_import'), 1);
@@ -429,10 +456,64 @@ void main() {
       );
       await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
       await settle(tester);
+      // 不支持的组合直接禁用，并把原因写进 tooltip（`Mcp/primitives.tsx:95-114`）。
+      // 原先恒可点，点下去才弹一条错误 —— 那时用户已经以为自己改成功了。
+      final codexBtn = tester.widget<SmallButton>(
+        find.widgetWithText(SmallButton, c.t('mcp.agent.codex')),
+      );
+      expect(codexBtn.enabled, isFalse);
+      expect(
+        find.byTooltip(c.t('mcp.unsupportedTransportTip', {'transport': 'http'})),
+        findsOneWidget,
+      );
       await tester.tap(find.text(c.t('mcp.agent.codex')));
       await settle(tester);
       expect(k.countOf('mcp_set_agent'), 0);
-      expect(find.byType(ToastBar), findsOneWidget);
+      expect(find.byType(ToastBar), findsNothing, reason: '点不动就不该再弹错误');
+    });
+
+    testWidgets('扫描弹窗：全选 / 反选一次点完，已导入的不参与也勾不动', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      Map<String, Object?> item(String name, {bool imported = false}) => {
+        'name': name,
+        'transport': 'stdio',
+        'command': 'npx',
+        'args': const <String>[],
+        'env': const <String, String>{},
+        'url': '',
+        'headers': const <String, String>{},
+        'foundInAgents': const ['claude-code'],
+        'alreadyImported': imported,
+      };
+      final k = fake(
+        extra: {
+          'mcp_scan': (_) => [
+            item('a'),
+            item('b'),
+            item('done', imported: true),
+          ],
+        },
+      );
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.scanImport')));
+      await settle(tester);
+
+      // 已导入那条：勾选框恒勾且点不动。
+      final boxes = tester.widgetList<Checkbox>(find.byType(Checkbox)).toList();
+      expect(boxes.last.value, isTrue);
+      expect(boxes.last.onChanged, isNull);
+
+      // 打开时未导入的两条已经预选上了，所以第一下是「反选」。
+      expect(find.text(c.t('mcp.import', {'count': 2})), findsOneWidget);
+      await tester.tap(find.text(c.t('mcp.toggleAll')));
+      await settle(tester);
+      expect(find.text(c.t('mcp.import', {'count': 0})), findsOneWidget);
+      // 再点一次 → 两条可选的全回来，已导入那条始终不算在内。
+      await tester.tap(find.text(c.t('mcp.toggleAll')));
+      await settle(tester);
+      expect(find.text(c.t('mcp.import', {'count': 2})), findsOneWidget);
     });
   });
 
@@ -596,6 +677,61 @@ void main() {
       await tester.tap(find.text(c.t('about.localEnv.install')));
       await settle(tester);
       expect(k.lastArgsOf('cli_install'), {'tool': 'claude'});
+    });
+
+    testWidgets('冲突诊断：source 是徽标，「已损坏」红字、「PATH 默认」绿字', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          // 命令返回的是**数组**（每个工具一条）。
+          'cli_diagnose_conflicts': (_) => [
+            {
+              'tool': 'claude',
+              'is_conflicting': true,
+              'suggestion': '删掉其中一处',
+              'installations': [
+                {
+                  'path': '/usr/local/bin/claude',
+                  'source': 'npm',
+                  'version': '1.2.3',
+                  'runnable': true,
+                  'is_path_default': true,
+                },
+                {
+                  'path': '/opt/claude',
+                  'source': 'brew',
+                  'version': null,
+                  'runnable': false,
+                  'is_path_default': false,
+                },
+              ],
+            },
+          ],
+        },
+      );
+      await tester.pumpWidget(wrapPage(AboutPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('about.localEnv.diagnose')));
+      await settle(tester);
+
+      // source 是徽标不是一串同色小字。
+      expect(
+        find.byWidgetPredicate((w) => w is MiniBadge && w.text == 'npm'),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate((w) => w is MiniBadge && w.text == 'brew'),
+        findsOneWidget,
+      );
+      // 「已损坏」与「PATH 默认」各自有语义色，不是同色小字里的两个词。
+      final broken = tester.widget<Text>(
+        find.text(c.t('about.localEnv.broken')),
+      );
+      final pathDefault = tester.widget<Text>(
+        find.text(c.t('about.localEnv.pathDefault')),
+      );
+      expect(broken.style!.color, isNot(pathDefault.style!.color));
     });
 
     testWidgets('诊断失败 → 错误条可见', (tester) async {
@@ -775,6 +911,19 @@ void main() {
       expect(findStripped(find, '131.1K'), findsOneWidget);
       expect(findStripped(find, '\$1.10'), findsOneWidget);
       expect(findStripped(find, '\$4.20'), findsOneWidget);
+    });
+
+    testWidgets('能力筛选是一个下拉，不是十几颗平铺按钮', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+      // 收起态只有一个触发器写着「全部能力」，各能力名都收在弹层里。
+      expect(find.text(c.t('modelInfo.allCapabilities')), findsOneWidget);
+      expect(
+        find.widgetWithText(SmallButton, capabilityLabel(c.t, kCapabilities.first)),
+        findsNothing,
+      );
     });
 
     testWidgets('点一行开详情，再点关闭收起', (tester) async {

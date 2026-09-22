@@ -286,17 +286,20 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                 FilterOption(value: code, label: _c.platformLabel(code)),
             ],
           ),
-          SmallButton(
-            label: t.t('modelInfo.allCapabilities'),
-            active: _c.capabilityFilter.isEmpty,
-            onTap: () => _c.setCapabilityFilter(''),
+          // 一个下拉而不是十几颗平铺按钮（`ModelInfoTab.tsx:235-237`）：
+          // 平铺会把筛选栏撑成好几行，真正在筛什么反而看不出来。
+          FilterDropdown(
+            width: 160,
+            value: _c.capabilityFilter,
+            onChanged: _c.setCapabilityFilter,
+            allLabel: t.t('modelInfo.allCapabilities'),
+            searchPlaceholder: t.t('modelInfo.allCapabilities'),
+            emptyLabel: t.t('modelInfo.empty'),
+            options: [
+              for (final cap in kCapabilities)
+                FilterOption(value: cap, label: capabilityLabel(t.t, cap)),
+            ],
           ),
-          for (final cap in kCapabilities)
-            SmallButton(
-              label: capabilityLabel(t.t, cap),
-              active: _c.capabilityFilter == cap,
-              onTap: () => _c.setCapabilityFilter(cap),
-            ),
           Switch(value: _c.officialOnly, onChanged: _c.setOfficialOnly),
           Text(
             t.t('modelInfo.officialOnly'),
