@@ -9,6 +9,7 @@ library;
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/updater.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -218,6 +219,49 @@ void main() {
       await settle(tester);
       expect(find.byType(SkillDetailView), findsOneWidget);
       expect(find.text('hello skill'), findsOneWidget);
+    });
+
+    // 回归 2026-09-22：SKILL.md 几乎全是标题 + 列表 + 代码块，按原文等宽渲染
+    // 就是一堵带 `#` 和 `-` 的字墙。React 走 react-markdown（`SkillDetailView.tsx:281`）。
+    FakeKernel withFile(String rel, String body) => fake(
+      extra: {
+        'skill_detail': (_) => {
+          'files': [
+            {'rel_path': rel, 'size': body.length, 'is_text': true},
+          ],
+        },
+        'skill_read_file': (_) => {
+          'content': body,
+          'truncated': false,
+          'size': body.length,
+        },
+      },
+    );
+
+    testWidgets('`*.md` 渲染成 Markdown，字面 # 不再露出来', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(SkillsPage(invoke: withFile('SKILL.md', '# 标题').invoke), c),
+      );
+      await settle(tester);
+      await tester.tap(find.text('git-flow'));
+      await settle(tester);
+      expect(find.byType(MarkdownBody), findsOneWidget);
+      expect(find.textContaining('# 标题'), findsNothing);
+    });
+
+    testWidgets('非 md 文件仍按原文等宽渲染', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(SkillsPage(invoke: withFile('run.sh', '# 标题').invoke), c),
+      );
+      await settle(tester);
+      await tester.tap(find.text('git-flow'));
+      await settle(tester);
+      expect(find.byType(MarkdownBody), findsNothing);
+      expect(find.text('# 标题'), findsOneWidget);
     });
   });
 

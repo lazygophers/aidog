@@ -15,6 +15,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart' show VoidCallback;
 
+import '../utils/pinyin.dart';
 import 'invoke.dart';
 
 /// 目标 agent。与 MCP 的 `claude-code` **不是同一套 slug**，各留各的
@@ -332,16 +333,18 @@ class SkillsController {
   /// 与 React 的唯一差异：搜索是不分大小写子串，不是 `pinyinMatch`
   /// —— 同 I06 / I07 已记的取舍（见 flutter/README.md）。
   List<SkillInfo> get filteredInstalled {
-    final q = searchQuery.trim().toLowerCase();
+    final q = searchQuery.trim();
     return installed.where((s) {
       if (enabledFilter == 'enabled' && s.enabledAgents.isEmpty) return false;
       if (enabledFilter == 'disabled' && s.enabledAgents.isNotEmpty) {
         return false;
       }
       if (q.isEmpty) return true;
-      return s.name.toLowerCase().contains(q) ||
-          (s.description ?? '').toLowerCase().contains(q) ||
-          (s.source ?? '').toLowerCase().contains(q);
+      // 走 pinyinMatch 而不是 contains（`useSkillsData.ts:88-90`）：
+      // 中文描述打拼音也要搜得到，裸 contains 只能整字匹配。
+      return pinyinMatch(q, s.name) ||
+          pinyinMatch(q, s.description ?? '') ||
+          pinyinMatch(q, s.source ?? '');
     }).toList();
   }
 

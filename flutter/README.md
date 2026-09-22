@@ -218,7 +218,7 @@ import 'package:aidog_flutter/src/pages/platform_form_logic.dart'; // PlatformFo
 
 ### 拼音搜索（I17 补齐）
 
-平台 / 分组 / 筛选下拉的中文模糊搜索走 `lib/src/utils/pinyin.dart::pinyinMatch`，
+平台 / 分组 / 技能 / 筛选下拉的中文模糊搜索走 `lib/src/utils/pinyin.dart::pinyinMatch`，
 匹配语义与 React 的 `pinyin-pro` 版一致（直接子串 / 全拼子串 / query 中文转拼音 /
 首字母串）。词典是**自建**的 3500 常用字表（`scripts/pinyin_3500.txt`，《现代汉语
 常用字表》），读音由 pinyin-pro 生成、入库为 `lib/src/utils/pinyin_data.dart`
