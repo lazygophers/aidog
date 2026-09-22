@@ -27,6 +27,7 @@ yarn check:registry
 3. **canonical 身份折叠组唯一（硬错）**：见下「canonical_model 归一规范」——同一折叠组内出现多个不同字面 canonical 即身份冲突，lint 失败。
 4. **predecessor 引用与无环（硬错）**：`predecessor` 指向 canonical_model；指向的 canonical 必须在全库存在，且全库 predecessor 链不得成环。
 5. **同 canonical 元数据一致（硬错）**：同一 `canonical_model` 的所有条目 `family` / `version` 必须相同——聚合键下的元数据分裂即身份漂移，lint 失败。
+6. **数值字面保真（硬错）**：工作区改动文件数值与 HEAD 完全相等但字面不同（`2e-06`→`0.000002`）= JSON round-trip 指纹，lint 失败。
 
 ## canonical_model 归一规范（2026-09-22 票 03 拍板）
 
@@ -44,6 +45,11 @@ yarn check:registry
 
 - 模型级不加来源字段：价格本身记录在对应模型条目，来源追溯依托平台级 `source_urls`。
 - 无法从批准来源（官方优先）确认的字段保持缺省；`false` 只表示确认不支持，缺省表示未知。未知字段随交付列未知清单：字段、缺口原因、已查来源、来源缺口。
+
+## 批量改数据两铁律（2026-09-23 复盘沉淀）
+
+- **`family` / `version` / `display_name` 只写官方一手来源核验过的值**：禁从 canonical 字符串正则提取、禁从平台目录名/平台主家族推断。正则派生曾把 149 个非 DeepSeek 模型标成 `family: "deepseek"`，全量回滚才清掉（2026-09-22）。
+- **禁 JSON round-trip 全文件重写**：改字段用文本级插入/替换，与 `bump-registry-last-updated.mjs` 同约束——round-trip 会把 `2e-06` 重写成 `0.000002`，数值相等但字面漂移（1860 文件中招过）。check-registry 的字面保真检查会拦（见检查清单第 6 条）。
 
 ## 目录结构约定
 
