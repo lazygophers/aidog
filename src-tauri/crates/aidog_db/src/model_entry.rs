@@ -40,10 +40,10 @@ fn row_to_model_entry(row: &rusqlite::Row) -> SqlResult<ModelEntry> {
         platform_code: row.get(0)?,
         display_name: row.get(14)?,
         model_id,
-        canonical_model: row.get(2)?,
+        canonical_model: row.get::<_, String>(2)?.to_lowercase(),
         family: row.get(3)?,
         version: row.get(4)?,
-        predecessor: row.get(5)?,
+        predecessor: row.get::<_, String>(5)?.to_lowercase(),
         capabilities: json_str_array(&row.get::<_, String>(6)?),
         builtin_tools_excluded: json_str_array(&row.get::<_, String>(7)?),
         max_input_tokens: row.get(8)?,
@@ -100,8 +100,8 @@ pub fn model_entry_from_json(platform_code: &str, raw: &str) -> Option<ModelEntr
             .unwrap_or_default()
     };
     let canonical_model = match text("canonical_model") {
-        s if s.is_empty() => model_id.clone(),
-        s => s,
+        s if s.is_empty() => model_id.to_lowercase(),
+        s => s.to_lowercase(),
     };
     Some(ModelEntry {
         platform_code: platform_code.to_string(),
@@ -110,7 +110,7 @@ pub fn model_entry_from_json(platform_code: &str, raw: &str) -> Option<ModelEntr
         canonical_model,
         family: text("family"),
         version: text("version"),
-        predecessor: text("predecessor"),
+        predecessor: text("predecessor").to_lowercase(),
         capabilities: list("capabilities"),
         builtin_tools_excluded: list("builtin_tools_excluded"),
         max_input_tokens: v.get("max_input_tokens").and_then(|x| x.as_i64()),
