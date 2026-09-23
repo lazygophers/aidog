@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "llama-4-maverick",
   "canonical_model": "llama-4-maverick",
+  "display_name": "Llama 4 Maverick",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 16384,
+  "max_output_tokens": 32000,
   "context_window": 1048576,
   "official": false,
   "price": {

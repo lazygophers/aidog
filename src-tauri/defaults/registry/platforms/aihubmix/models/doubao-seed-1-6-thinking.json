@@ -1,15 +1,18 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "doubao-seed-1-6-thinking",
   "canonical_model": "doubao-seed-1-6-thinking",
+  "display_name": "Doubao Seed 1.6 Thinking",
+  "max_output_tokens": 32000,
+  "context_window": 256000,
   "capabilities": [],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.0959e-7,
-    "output": 0.0000010959,
-    "cache_read": 2.1918e-8,
+    "input": 1.8e-07,
+    "output": 1.8000000000000001e-06,
+    "cache_read": 3.6e-08,
     "context_tiers": [
       {
         "min_tokens": 32001,

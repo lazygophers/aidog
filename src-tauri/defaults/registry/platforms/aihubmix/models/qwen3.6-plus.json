@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "qwen3.6-plus",
   "canonical_model": "qwen3.6-plus",
+  "display_name": "Qwen3.6 Plus",
+  "thinking_supported": true,
   "capabilities": [
     "text",
     "vision"
@@ -14,6 +16,7 @@
     "input": 2.82e-7,
     "output": 0.000001692,
     "cache_read": 2.82e-8,
+  "cache_write": 3.5249999999999996e-07,
     "context_tiers": [
       {
         "min_tokens": 1,

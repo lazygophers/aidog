@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790182696,
   "model_id": "inclusionAI/Ling-1T",
   "canonical_model": "Ling-1T",
+  "display_name": "Ling 1t",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "qwen-plus-2025-04-28",
   "canonical_model": "qwen-plus",
+  "display_name": "Qwen Plus 2025 04-28",
   "capabilities": [
     "text"
   ],
@@ -13,6 +14,7 @@
     "input": 1.126e-7,
     "output": 0.000001126,
     "cache_read": 2.252e-8,
+  "cache_write": 1.4074999999999999e-07,
     "context_tiers": [
       {
         "min_tokens": 1,

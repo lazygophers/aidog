@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790182696,
+  "model_id": "cc-kimi-k2-thinking",
+  "canonical_model": "kimi-k2-thinking",
+  "display_name": "CC Kimi K2 Thinking",
+  "capabilities": ["text"],
+  "context_window": 262144,
+  "thinking_supported": false,
+  "official": false,
+  "price": {
+    "input": 5.480000000000001e-07,
+    "output": 2.1920000000000004e-06
+  }
+}

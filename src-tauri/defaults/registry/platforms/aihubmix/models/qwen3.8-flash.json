@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
+  "max_output_tokens": 131072,
   "family": "qwen",
   "display_name": "Qwen3.8-Flash",
   "capabilities": [
@@ -16,6 +17,7 @@
   "price": {
     "input": 1.126e-7,
     "output": 3.80025e-7,
-    "cache_read": 1.4075e-8
+    "cache_read": 1.4075e-8,
+"cache_write": 1.7593700000000002e-07
   }
 }

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "o3-pro",
   "canonical_model": "o3-pro",
+  "display_name": "O3 Pro",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -11,6 +13,7 @@
   "official": false,
   "price": {
     "input": 0.00002,
-    "output": 0.00008
+    "output": 0.00008,
+"cache_read": 2e-05
   }
 }

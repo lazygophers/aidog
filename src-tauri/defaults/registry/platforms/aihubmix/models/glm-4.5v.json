@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "glm-4.5v",
   "canonical_model": "glm-4.5v",
+  "display_name": "GLM 4.5 Vision",
   "family": "glm",
   "version": "4.5",
   "thinking_supported": true,
@@ -13,12 +14,12 @@
     "reasoning"
   ],
   "max_input_tokens": 65536,
-  "max_output_tokens": 32000,
+  "max_output_tokens": 16384,
   "context_window": 65536,
   "official": false,
   "price": {
     "input": 2.74e-7,
-    "output": 0.000001096,
+    "output": 8.219999999999999e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,

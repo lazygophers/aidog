@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "ahm-Phi-3-5-vision-instruct",
   "canonical_model": "ahm-Phi-3-5-vision-instruct",
+  "display_name": "Ahm Phi 3.5 Vision Instruct",
   "capabilities": [],
   "official": false,
   "price": {

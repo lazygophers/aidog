@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1790182696,
   "model_id": "gpt-4o-transcribe-diarize",
   "canonical_model": "gpt-4o-transcribe-diarize",
+  "thinking_supported": true,
+  "max_output_tokens": 2000,
+  "context_window": 16000,
   "display_name": "GPT-4o Transcribe Diarize",
   "capabilities": [
     "audio"

@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gpt-4.1",
   "canonical_model": "gpt-4.1",
+  "display_name": "GPT 4.1",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1047576,
-  "max_output_tokens": 33000,
+  "max_output_tokens": 32768,
   "context_window": 1047576,
   "official": false,
   "price": {

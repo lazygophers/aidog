@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "grok-4.5",
   "canonical_model": "grok-4.5",
+  "display_name": "Grok 4.5",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
@@ -9,13 +10,13 @@
     "vision"
   ],
   "max_input_tokens": 2000000,
-  "max_output_tokens": 66000,
+  "max_output_tokens": 500000,
   "context_window": 500000,
   "official": false,
   "price": {
-    "input": 0.0000022,
-    "output": 0.0000066,
-    "cache_read": 5.5e-7,
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 5e-07,
     "context_tiers": [
       {
         "min_tokens": 200001,

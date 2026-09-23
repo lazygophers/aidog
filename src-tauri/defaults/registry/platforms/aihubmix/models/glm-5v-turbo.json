@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "glm-5v-turbo",
   "canonical_model": "glm-5v-turbo",
+  "display_name": "GLM 5 Vision Turbo",
   "family": "glm",
   "version": "5",
   "thinking_supported": true,
@@ -14,7 +15,7 @@
   ],
   "max_input_tokens": 204800,
   "max_output_tokens": 131072,
-  "context_window": 204800,
+  "context_window": 200000,
   "official": false,
   "price": {
     "input": 7.042e-7,

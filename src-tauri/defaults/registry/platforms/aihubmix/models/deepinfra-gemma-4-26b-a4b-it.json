@@ -1,15 +1,16 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "deepinfra-gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
+  "display_name": "Deepinfra Gemma 4 26B A4B It",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
-  "max_output_tokens": 131072,
-  "context_window": 262144,
+  "max_output_tokens": 131100,
+  "context_window": 262100,
   "official": false,
   "price": {
     "input": 8.8e-8,

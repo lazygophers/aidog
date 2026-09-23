@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "qwen3.5-27b",
   "canonical_model": "qwen3.5-27b",
+  "display_name": "Qwen3.5 27B",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

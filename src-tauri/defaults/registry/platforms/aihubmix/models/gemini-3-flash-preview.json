@@ -1,15 +1,16 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "gemini-3-flash-preview",
   "canonical_model": "gemini-3-flash-preview",
+  "display_name": "Gemini 3 Flash Preview",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65535,
-  "context_window": 65535,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
   "official": false,
   "price": {
     "input": 5e-07,

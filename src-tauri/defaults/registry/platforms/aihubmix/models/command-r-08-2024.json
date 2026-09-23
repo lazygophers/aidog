@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "command-r-08-2024",
   "canonical_model": "command-r-08-2024",
+  "display_name": "Command R 08 2024",
   "context_window": 128000,
   "capabilities": [
     "text"

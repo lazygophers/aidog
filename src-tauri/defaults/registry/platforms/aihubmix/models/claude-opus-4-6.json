@@ -1,18 +1,20 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "claude-opus-4-6",
   "canonical_model": "claude-opus-4-6",
+  "display_name": "Claude Opus 4.6",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000000,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 128000,
   "context_window": 1000000,
   "official": false,
   "thinking_supported": true,
   "price": {
     "input": 0.000005,
     "output": 0.000025,
-    "cache_read": 5e-7
+    "cache_read": 5e-7,
+    "cache_write": 6.25e-06
   }
 }

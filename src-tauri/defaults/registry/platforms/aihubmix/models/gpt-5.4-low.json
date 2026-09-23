@@ -1,7 +1,11 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "gpt-5.4-low",
   "canonical_model": "gpt-5.4-low",
+  "display_name": "GPT 5.4 Low",
+  "thinking_supported": true,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
   "capabilities": [],
   "official": false,
   "price": {

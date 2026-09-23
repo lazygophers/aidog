@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790182696,
+  "model_id": "mimo-v2.6-flash",
+  "canonical_model": "mimo-v2.6-flash",
+  "display_name": "MiMo V2.6 Flash",
+  "capabilities": ["text", "vision", "reasoning"],
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 1.55e-07,
+    "output": 3.1e-07,
+    "cache_read": 3.1e-09
+  }
+}

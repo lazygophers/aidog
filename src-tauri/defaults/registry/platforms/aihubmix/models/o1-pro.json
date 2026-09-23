@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "o1-pro",
   "canonical_model": "o1-pro",
+  "display_name": "O1 Pro",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -10,7 +12,8 @@
   "context_window": 200000,
   "official": false,
   "price": {
-    "input": 0.00015,
-    "output": 0.0006
+    "input": 0.00017,
+    "output": 0.00068,
+"cache_read": 0.00017
   }
 }

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790182696,
+  "model_id": "claude-opus-5-5",
+  "canonical_model": "claude-opus-5-5",
+  "display_name": "Claude Opus 5.5",
+  "capabilities": ["text", "vision", "reasoning"],
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 4e-06,
+    "output": 2e-05,
+    "cache_read": 2.0000000000000002e-07,
+    "cache_write": 5e-06
+  }
+}

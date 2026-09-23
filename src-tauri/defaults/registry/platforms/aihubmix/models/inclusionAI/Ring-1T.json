@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790182696,
   "model_id": "inclusionAI/Ring-1T",
   "canonical_model": "Ring-1T",
+  "display_name": "Ring 1t",
+  "thinking_supported": true,
   "capabilities": [],
   "official": false,
   "price": {

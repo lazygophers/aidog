@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gpt-4o",
   "canonical_model": "gpt-4o",
+  "display_name": "GPT 4o",
   "capabilities": [
     "text"
   ],

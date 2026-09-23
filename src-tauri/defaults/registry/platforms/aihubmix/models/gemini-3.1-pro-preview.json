@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790182696,
   "model_id": "gemini-3.1-pro-preview",
   "canonical_model": "gemini-3.1-pro-preview",
   "thinking_supported": true,
@@ -25,5 +25,5 @@
       }
     ]
   },
-  "context_window": 1000000
+  "context_window": 1048576
 }

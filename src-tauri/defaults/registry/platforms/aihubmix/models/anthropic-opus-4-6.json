@@ -1,12 +1,17 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "anthropic-opus-4-6",
   "canonical_model": "anthropic-opus-4-6",
+  "display_name": "Anthropic Opus 4.6",
+  "thinking_supported": true,
+  "max_output_tokens": 32000,
+  "context_window": 200000,
   "capabilities": [],
   "official": false,
   "price": {
     "input": 0.000005,
     "output": 0.000025,
-    "cache_read": 5e-7
+    "cache_read": 5e-7,
+"cache_write": 6.25e-06
   }
 }

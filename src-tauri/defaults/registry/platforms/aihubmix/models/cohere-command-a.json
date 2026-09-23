@@ -1,7 +1,10 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "cohere-command-a",
   "canonical_model": "cohere-command-a",
+  "display_name": "Cohere Command A",
+  "max_output_tokens": 8000,
+  "context_window": 256000,
   "capabilities": [],
   "official": false,
   "price": {

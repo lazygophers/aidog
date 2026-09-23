@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790182696,
+  "model_id": "glm-5.3-flashx",
+  "canonical_model": "glm-5.3-flashx",
+  "display_name": "GLM 5.3 Flashx",
+  "capabilities": ["text", "vision"],
+  "context_window": 1000000,
+  "thinking_supported": false,
+  "official": false,
+  "price": {
+    "input": 3.7e-07,
+    "output": 1.2500080000000001e-06,
+    "cache_read": 7.4999e-08
+  }
+}

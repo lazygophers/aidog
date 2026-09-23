@@ -1,13 +1,14 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790182696,
   "model_id": "deepseek-v3.2",
   "canonical_model": "DeepSeek-V3.2",
+  "display_name": "DeepSeek V3.2",
   "family": "deepseek",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 163840,
-  "max_output_tokens": 163840,
+  "max_output_tokens": 64000,
   "context_window": 163840,
   "official": false,
   "thinking_supported": true,

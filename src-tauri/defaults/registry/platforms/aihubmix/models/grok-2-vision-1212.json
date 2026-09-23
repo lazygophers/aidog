@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "grok-2-vision-1212",
   "canonical_model": "grok-2-vision-1212",
+  "display_name": "Grok 2 Vision 1212",
   "capabilities": [],
   "official": false,
   "price": {

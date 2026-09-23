@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "inclusionAI/Ling-mini-2.0",
   "canonical_model": "Ling-mini-2.0",
+  "display_name": "Ling Mini 2.0",
   "capabilities": [
     "text"
   ],

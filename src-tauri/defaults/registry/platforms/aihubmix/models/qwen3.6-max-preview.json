@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "qwen3.6-max-preview",
   "canonical_model": "qwen3.6-max-preview",
+  "display_name": "Qwen3.6 Max Preview",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -13,6 +15,7 @@
     "input": 0.000001268,
     "output": 0.000007608,
     "cache_read": 1.268e-7,
+  "cache_write": 1.5849999999999999e-06,
     "context_tiers": [
       {
         "min_tokens": 1,

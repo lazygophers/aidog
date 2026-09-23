@@ -1,7 +1,11 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "ernie-x1-turbo",
   "canonical_model": "ernie-x1-turbo",
+  "display_name": "ERNIE X1 Turbo",
+  "thinking_supported": true,
+  "max_output_tokens": 28000,
+  "context_window": 50500,
   "capabilities": [],
   "official": false,
   "price": {

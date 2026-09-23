@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "ling-3.0-tiny-free",
   "canonical_model": "ling-3.0-tiny-free",
+  "display_name": "Ling 3.0 Tiny (free)",
+  "context_window": 262144,
   "capabilities": [],
   "official": false,
   "price": {
