@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790180315,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2517,6 +2517,7 @@
         "glm-5.1.json",
         "glm-5.2.json",
         "glm-5.3-flash.json",
+        "glm-5.3-flashx.json",
         "glm-5.3.json",
         "glm-5.json",
         "glm-5v-turbo.json",
