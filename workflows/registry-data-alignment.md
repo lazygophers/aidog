@@ -81,5 +81,12 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条（旧代 gpt-3.5/4、
   embedding/image/video 类）要不要全量镜像；② 官方 discount 限时优惠与
   context_tiers 分档要不要进 registry（现无此维度）。
+- 2026-09-24 第 5 轮 openrouter `c23dacd`（287 文件，官方 models API 全量对齐）：
+  299 条目修正（价格 103 系含 qwen/z-ai/deepseek 大面积旧价、窗口三连错）；删 33 条
+  官方下架（含 claude-opus-4、:batch/:free 变体、~openai/gpt-latest alias）；
+  新增 21 个（claude-opus-5.5、gpt-6 四系、grok-4.7、deepseek-v4.1-flash、
+  glm-5.3-flashx、mimo-v2.6 三档等）。openrouter/* 元路由 5 条官方价为负（返点）
+  schema 不收，保持原值。NO_OFFICIAL_CHANNEL +2（anthropic/claude-opus-4、
+  kwaipilot/kat-coder-pro-v2：官方渠道已下架仅剩镜像）。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
