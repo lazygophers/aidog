@@ -702,10 +702,14 @@ class _GroupCard extends StatelessWidget {
                           ),
                           if (detail.platforms.isNotEmpty) ...[
                             const SizedBox(width: AidogSpace.sxs),
-                            Text(
-                              '${detail.platforms.length} ${t.t('group.platforms')}',
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.fg3,
+                            Flexible(
+                              child: Text(
+                                '${detail.platforms.length} ${t.t('group.platforms')}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.fg3,
+                                ),
                               ),
                             ),
                           ],
@@ -718,11 +722,14 @@ class _GroupCard extends StatelessWidget {
               // 快捷操作全在标题行右侧一排（`GroupListItem.tsx:236-315`）：
               // 哪几颗是图标、哪几颗留文字，逐颗对齐 React —— 原先拆成上下两行，
               // 一张卡的头部占两倍高。文案 key 全部进了 tooltip，一个都没删。
-              Wrap(
-                spacing: AidogSpace.sxs,
-                runSpacing: AidogSpace.sxs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
+              // Flexible：窗口窄时按钮区收窄换行，别把左边组名列挤到 0
+              //（`Wrap` 本身会换行，只需给它参与 flex 分配的机会）。
+              Flexible(
+                child: Wrap(
+                  spacing: AidogSpace.sxs,
+                  runSpacing: AidogSpace.sxs,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
                   _CopyCommandMenu(
                     group: g,
                     proxyEnvVars: c.proxyEnvVars,
@@ -803,6 +810,7 @@ class _GroupCard extends StatelessWidget {
                       onTap: () => c.askDeleteGroup(g.id),
                     ),
                 ],
+                ),
               ),
             ],
           ),
