@@ -239,7 +239,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             <Button variant="outline" key={g.tool} type="button"
               style={{
                 padding: "6px 12px", fontSize: F.small, fontWeight: active ? 600 : 400,
-                color: active ? "var(--primary)" : "var(--text-secondary)",
+                color: active ? "var(--accent)" : "var(--text-secondary)",
                 background: "transparent", border: "none", borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
                 cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
                 transition: "all 150ms ease",
@@ -330,7 +330,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               width: 24, height: 24, minWidth: 24, padding: 0,
-              color: showTemplates ? "var(--primary)" : "var(--text-tertiary)",
+              color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
             }}
             onClick={() => setShowTemplates(!showTemplates)}
             title={t("settings.perm.ruleTemplates", "规则模板")}

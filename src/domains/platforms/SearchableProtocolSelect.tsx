@@ -232,7 +232,7 @@ export function SearchableProtocolSelect({
                     padding: "7px 12px", fontSize: 13, height: "auto",
                     // 萤火虫选中态: accent-subtle 底 + primary 文 + font-medium (memory firefly-active-state-idiom)
                     fontWeight: isActive ? 500 : 400,
-                    color: isActive ? "var(--primary)" : "var(--text-primary)",
+                    color: isActive ? "var(--accent)" : "var(--text-primary)",
                     background: isActive
                       ? "var(--accent-subtle)"
                       : isHighlighted ? "var(--accent)" : "transparent",

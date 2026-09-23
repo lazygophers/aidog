@@ -20,8 +20,8 @@ function ModeTab({ active, onClick, children }: { active: boolean; onClick: () =
         padding: S.btnPad,
         position: "relative",
         background: active ? "var(--accent-subtle)" : "transparent",
-        color: active ? "var(--primary)" : "var(--text-secondary)",
-        boxShadow: active ? "inset 0 -2px 0 0 var(--primary), 0 0 6px var(--accent-subtle)" : "none",
+        color: active ? "var(--accent)" : "var(--text-secondary)",
+        boxShadow: active ? "inset 0 -2px 0 0 var(--accent-edge), 0 0 6px var(--accent-subtle)" : "none",
         transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
       onClick={(e) => { makeRipple(e); onClick(); }}

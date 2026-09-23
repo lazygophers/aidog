@@ -496,8 +496,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                 ...(preset === p
                   ? {
                       background: "var(--accent-subtle)",
-                      color: "var(--primary)",
-                      borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                      color: "var(--accent)",
+                      borderColor: "color-mix(in srgb, var(--accent-edge) 40%, var(--border))",
                     }
                   : {}),
               }}
@@ -668,8 +668,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                   ...(activeTab === id
                     ? {
                         background: "var(--accent-subtle)",
-                        color: "var(--primary)",
-                        borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                        color: "var(--accent)",
+                        borderColor: "color-mix(in srgb, var(--accent-edge) 40%, var(--border))",
                       }
                     : {}),
                 }}
@@ -694,8 +694,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       ...(!trendStacked
                         ? {
                             background: "var(--accent-subtle)",
-                            color: "var(--primary)",
-                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                            color: "var(--accent)",
+                            borderColor: "color-mix(in srgb, var(--accent-edge) 40%, var(--border))",
                           }
                         : {}),
                     }}
@@ -711,8 +711,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       ...(trendStacked
                         ? {
                             background: "var(--accent-subtle)",
-                            color: "var(--primary)",
-                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                            color: "var(--accent)",
+                            borderColor: "color-mix(in srgb, var(--accent-edge) 40%, var(--border))",
                           }
                         : {}),
                     }}
@@ -801,8 +801,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                       ...(densityView === v
                         ? {
                             background: "var(--accent-subtle)",
-                            color: "var(--primary)",
-                            borderColor: "color-mix(in srgb, var(--primary) 40%, var(--border))",
+                            color: "var(--accent)",
+                            borderColor: "color-mix(in srgb, var(--accent-edge) 40%, var(--border))",
                           }
                         : {}),
                     }}
@@ -1006,7 +1006,7 @@ function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: S
         fontWeight: 600,
         cursor: "pointer",
         userSelect: "none",
-        color: active ? "var(--primary)" : "var(--text-primary)",
+        color: active ? "var(--accent)" : "var(--text-primary)",
         whiteSpace: "nowrap",
       }}
     >

@@ -120,7 +120,7 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         justifyContent: "flex-start",
         // 萤火虫选中态: accent-subtle 底 + primary 文 + font-medium (memory firefly-active-state-idiom)
         background: active ? "var(--accent-subtle)" : "transparent",
-        color: active ? "var(--primary)" : "var(--text-primary)",
+        color: active ? "var(--accent)" : "var(--text-primary)",
         fontWeight: active ? 500 : 400,
         padding: "6px 10px",
         borderRadius: "var(--radius-sm)",

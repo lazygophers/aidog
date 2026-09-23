@@ -236,7 +236,7 @@ export function Sub2ApiImportSection({
                   className="glass-surface"
                   style={{
                     padding: 12, borderRadius: "var(--radius-md)",
-                    border: `1px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                    border: `1px solid ${isSelected ? "var(--accent-edge)" : "var(--border)"}`,
                     background: isSelected ? "var(--accent-subtle)" : "transparent",
                     display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
                   }}
@@ -249,7 +249,7 @@ export function Sub2ApiImportSection({
                     style={{
                       width: 18, height: 18, borderRadius: "50%", cursor: "pointer",
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      border: `1px solid ${isSelected ? "var(--primary)" : "var(--border)"}`,
+                      border: `1px solid ${isSelected ? "var(--accent-edge)" : "var(--border)"}`,
                       background: isSelected ? "var(--primary)" : "transparent", flexShrink: 0,
                     }}
                   >

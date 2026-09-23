@@ -205,7 +205,7 @@ export const GroupListItem = memo(function GroupListItem({
           <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
             {group.name}
             {group.is_default && (
-              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "none" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
+              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
             )}
             {group.auto_from_platform && (
               <Badge variant="secondary" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
