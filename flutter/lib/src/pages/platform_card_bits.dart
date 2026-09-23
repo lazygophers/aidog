@@ -1029,6 +1029,15 @@ class StatChip extends StatelessWidget {
   }
 }
 
+/// 两色对比度（WCAG 相对亮度公式）。判「看不看得见」用它，不靠眼估。
+double _contrastRatio(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  final hi = la > lb ? la : lb;
+  final lo = la > lb ? lb : la;
+  return (hi + 0.05) / (lo + 0.05);
+}
+
 /// 小徽标（自动禁用 / 高峰 / 已过期 / 最近错误 / Coding Plan / 分组名 …）。
 class MiniBadge extends StatelessWidget {
   const MiniBadge({
@@ -1065,6 +1074,16 @@ class MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme0 = AidogTheme.of(context);
+    // 实心徽标的文字色按**底色亮度**挑，不能写死成页面底色：
+    // 深色主题的 accent 是近黑（#101012），原先的「文字用 theme.c.bg」
+    // 会得到近黑字 + 近黑底，整枚徽标读不出来。
+    final onSolid = color.computeLuminance() > 0.5
+        ? AidogColors.dark.bg
+        : AidogColors.light.surface;
+    // 底色与卡片表面差得太近时（同上那种近黑 accent），再用底色当描边等于没有
+    // 描边，徽标与背景糊成一片 —— 这时借一条 lineStrong 把边缘划出来。
+    final needsEdge =
+        solid && _contrastRatio(color, theme0.c.surface) < 1.5;
     final body = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AidogSpace.ssm,
@@ -1073,7 +1092,11 @@ class MiniBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: solid ? color : color.withValues(alpha: 0.12),
         border: Border.all(
-          color: solid ? color : color.withValues(alpha: 0.30),
+          color: needsEdge
+              ? theme0.c.lineStrong
+              : solid
+              ? color
+              : color.withValues(alpha: 0.30),
         ),
         borderRadius: BorderRadius.circular(5),
       ),
@@ -1081,7 +1104,7 @@ class MiniBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 10, color: solid ? theme0.c.bg : color),
+            Icon(icon, size: 10, color: solid ? onSolid : color),
             const SizedBox(width: 3),
           ],
           Flexible(
@@ -1103,7 +1126,7 @@ class MiniBadge extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
-                color: solid ? theme0.c.bg : color,
+                color: solid ? onSolid : color,
                 fontWeight: FontWeight.w600,
               ),
             ),
