@@ -32,7 +32,7 @@ Loop：用户实机发现 Flutter 与 React(Tauri) 界面不一致 → 报差异
 
 ## 偏离清零（待办，2026-09-23 拍板全部抹平）
 
-1. 组内平台排序：上下移按钮+移组下拉 → 真拖拽（React `usePlatformDrag`）。方案：分组列表 `SliverReorderableList`（AppShell 已有 SliverPage 插槽路径，见 `.scratch/memory/2026-09-23.md`），组内嵌套手势冲突用 sliver 化解决。做完后「组内拖放指示线」（第三梯队）一并落地。
+1. ~~组内平台排序：上下移按钮+移组下拉 → 真拖拽~~ **已修**：df5f60d9 落地拖拽排序 + 插入指示线（`Draggable`/`DragTarget` 形态，对应 React `usePlatformDrag.ts` 的 pointer 方案；分组排序把手与平台把手是不同节点，无嵌套 `ReorderableListView`，sliver 化前提不成立）；3874291 删上移/下移按钮与移组下拉并同步测试。
 2. ~~导入导出「应用导入」前的二次确认卡~~ ✅ 已修 `7b5f012a`（2026-09-24）：删确认卡直接执行，按钮文案对齐 `applying`/`applyN`。
 3. ~~拖入文件阶段不判扩展名~~ ✅ 已核框架不可达（2026-09-24）：desktop_drop 0.8.4 进入事件无文件列表（`drop_target.dart:50-58`），保持落下判，源码注释已标「框架不可达偏离」。终态。
 4. 关窗拦截：两侧已是同行为（都隐藏不弹），无事可做，从偏离清单删除。

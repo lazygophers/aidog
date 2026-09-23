@@ -2,6 +2,24 @@
   "$comment": "界面对齐的例外清单，被 scripts/check-ui-parity.mjs 读取。加一条 = 把一个缺口洗白，提交信息里必须写明理由。type 只能是 synonym（两侧都实现、key 取名不同）或 intentional（明知有、决定不做）。evidence 必填且必须是 file:line。判定规则见 .scratch/flutter-ui-parity/issues/02-what-counts-as-gap.md。",
   "exceptions": [
     {
+      "key": "group.defaultConfigWritten",
+      "type": "intentional",
+      "reason": "React 的「设为默认」文字按钮在已是默认组时把标签换成这句；Flutter 2026-09-23 用户拍板分组卡文字按钮全部图标化，标签位没了，状态由实心勾图标 + tooltip（group.unsetDefault）承担。孤儿 key 随 928fe38a 产生。",
+      "evidence": "flutter/README.md:670"
+    },
+    {
+      "key": "group.addMappingFailed",
+      "type": "intentional",
+      "reason": "React 列表态的映射快捷添加失败 toast；Flutter 2026-09-23 用户拍板「添加模型映射不要在列表页出现」，增删只在分组编辑表单，保存失败走编辑表单自己的失败文案。孤儿 key 随 928fe38a 产生。",
+      "evidence": "flutter/README.md:674"
+    },
+    {
+      "key": "group.deleteMappingFailed",
+      "type": "intentional",
+      "reason": "同 group.addMappingFailed：React 列表态删映射的失败 toast，Flutter 列表态映射 UI 已删，删除失败文案只在编辑表单语境出现。",
+      "evidence": "flutter/README.md:674"
+    },
+    {
       "key": "mitm.cancel",
       "type": "synonym",
       "reason": "MITM 清空白名单的确认框在 Flutter 走通用 ConfirmCard，取消按钮用全应用统一的 action.cancel（同样是「取消」）。React 的 MitmConfig.tsx 自己开 Dialog 才另起了 mitm.cancel 这个同义 key。两侧都有这个按钮，只是 key 取名不同。",
