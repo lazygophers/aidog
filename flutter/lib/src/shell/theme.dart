@@ -133,7 +133,10 @@ List<Gradient> bgOverlays(AidogColors c) {
         // CSS 的百分比位置（0%~100%）映射到 Flutter 的 Alignment（-1~1）。
         center: Alignment(x * 2 - 1, y * 2 - 1),
         radius: rx,
-        colors: [c.accent.withValues(alpha: a), c.accent.withValues(alpha: 0)],
+        // 色源是 `glow` 而不是 `accent`：两者曾经是同一个值，直到深色强调色
+        // 改成近黑（`#101012`，用户 2026-09-23 定）—— 跟着 accent 走的光晕压在
+        // 窗口底上只有 1.006:1，等于没画。光晕的亮度和强调色的色相本来就是两件事。
+        colors: [c.glow.withValues(alpha: a), c.glow.withValues(alpha: 0)],
         stops: [0, stop],
         transform: _EllipseY(ry / rx),
       ),

@@ -13,8 +13,10 @@ void main() {
   final p = ChartPalette(AidogColors.dark);
 
   group('series', () {
+    // 主系列色读的是 `dataPrimary` 不是 `accent`：深色强调色是近黑
+    // （用户 2026-09-23 定），近黑折线画在卡片上 1.01:1，数据本身看不见。
     test('index 0 与负数 → 主色', () {
-      expect(p.series(0), AidogColors.dark.accent);
+      expect(p.series(0), AidogColors.dark.dataPrimary);
       expect(p.series(-3), p.primary);
     });
 
@@ -83,7 +85,7 @@ void main() {
 
   test('浅色模式取浅色 token，不写死一套色值', () {
     final light = ChartPalette(AidogColors.light);
-    expect(light.primary, AidogColors.light.accent);
+    expect(light.primary, AidogColors.light.dataPrimary);
     expect(light.primary, isNot(p.primary));
   });
 }

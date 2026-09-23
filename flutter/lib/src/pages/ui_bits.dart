@@ -100,7 +100,10 @@ class SmallButton extends StatelessWidget {
         ? (activeTone?.withValues(alpha: 0.08) ?? theme.c.accentWash)
         : Colors.transparent;
     final borderColor = filled
-        ? Colors.transparent
+        // 实心态也要描边：深色下 accent 是近黑（`#101012`），面本身对窗口底
+        // 只有 1.05:1，轮廓全靠这圈亮边（压在 accent 上 3.22:1）。
+        // danger 是 bad 红，自身对底够亮，不再叠边。
+        ? (danger ? Colors.transparent : theme.c.accentEdge)
         : ghost
         ? Colors.transparent
         : active && activeTone != null
@@ -175,7 +178,9 @@ class AidogSwitch extends StatelessWidget {
             height: 22,
             decoration: BoxDecoration(
               color: value ? c.accent : c.surface2,
-              border: Border.all(color: value ? c.accent : c.line),
+              // 开态轨道的边用 accentEdge：近黑 accent 对关态 surface2 只有
+              // 1.06:1，光看轨道颜色分不出开没开，边界得自己发声。
+              border: Border.all(color: value ? c.accentEdge : c.line),
               borderRadius: BorderRadius.circular(11),
             ),
             child: AnimatedAlign(

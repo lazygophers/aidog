@@ -15,8 +15,11 @@ class AidogColors {
   final Color fg2;
   final Color fg3;
   final Color accent;
+  final Color accentEdge;
   final Color accentText;
   final Color accentWash;
+  final Color glow;
+  final Color dataPrimary;
   final Color ok;
   final Color peak;
   final Color peakIdle;
@@ -39,8 +42,11 @@ class AidogColors {
     required this.fg2,
     required this.fg3,
     required this.accent,
+    required this.accentEdge,
     required this.accentText,
     required this.accentWash,
+    required this.glow,
+    required this.dataPrimary,
     required this.ok,
     required this.peak,
     required this.peakIdle,
@@ -64,8 +70,11 @@ class AidogColors {
     fg2: Color(0xFF9BA1A6),
     fg3: Color(0xFF62676C),
     accent: Color(0xFF101012),
-    accentText: Color(0xFF8A91E8),
-    accentWash: Color(0x295E6AD2),
+    accentEdge: Color(0x57FFFFFF),
+    accentText: Color(0xFFE6E8EC),
+    accentWash: Color(0x0FFFFFFF),
+    glow: Color(0xFFFFFFFF),
+    dataPrimary: Color(0xFF5E6AD2),
     ok: Color(0xFF4CB782),
     peak: Color(0xFFF2C94C),
     peakIdle: Color(0x0DFFFFFF),
@@ -89,8 +98,11 @@ class AidogColors {
     fg2: Color(0xFF5B6169),
     fg3: Color(0xFF8A9099),
     accent: Color(0xFF4E59C4),
+    accentEdge: Color(0x24090A0C),
     accentText: Color(0xFF3F47A6),
     accentWash: Color(0x1A4E59C4),
+    glow: Color(0xFF090A0C),
+    dataPrimary: Color(0xFF4E59C4),
     ok: Color(0xFF2E9367),
     peak: Color(0xFFE9A400),
     peakIdle: Color(0xFFE7E9EC),
