@@ -1117,8 +1117,12 @@ class _Pill extends StatelessWidget {
           horizontal: AidogSpace.smd,
           vertical: AidogSpace.sxs,
         ),
+        // 选中态是**实心**，不是淡底 —— React 这几组（时间预设 / 主图四 tab /
+        // 折线·堆叠）选中时用的是默认变体 `bg-primary text-primary-foreground`
+        //（`Stats.tsx:491,663,690`），没选中才是 ghost。淡底那一套是「胶囊多选」
+        //（分组归属）的样子，两种状态别混用。
         decoration: BoxDecoration(
-          color: active ? t.c.accentWash : null,
+          color: active ? t.c.accent : null,
           border: Border.all(color: active ? t.c.accent : t.c.line),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
@@ -1128,7 +1132,7 @@ class _Pill extends StatelessWidget {
             color: disabled
                 ? t.c.fg3
                 : active
-                ? t.c.accent
+                ? AidogColors.light.surface
                 : t.c.fg2,
           ),
         ),

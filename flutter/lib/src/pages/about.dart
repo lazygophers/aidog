@@ -175,7 +175,10 @@ class _AboutPageState extends State<AboutPage> {
                               ),
                               const SizedBox(height: AidogSpace.sxs),
                             ],
+                            // 关于页这一片 React 全是 `variant="default"` = 实心
+                            //（`About.tsx:292,314,343,352,402,415,428`）。
                             SmallButton(
+                              filled: true,
                               label: busy
                                   ? t.t('about.checking')
                                   : t.t('about.checkUpdate'),
@@ -209,6 +212,7 @@ class _AboutPageState extends State<AboutPage> {
                     ('reportIssue', 'about.reportIssue'),
                   ])
                     SmallButton(
+                      filled: true,
                       label: t.t(b.$2),
                       onTap: () => native.openUrl(kGithubLinks[b.$1]!),
                     ),
@@ -235,12 +239,14 @@ class _AboutPageState extends State<AboutPage> {
                     spacing: AidogSpace.ssm,
                     children: [
                       SmallButton(
+                        filled: true,
                         label: _c.cliBusy == 'check'
                             ? t.t('about.localEnv.checking')
                             : t.t('about.localEnv.check'),
                         onTap: _c.cliBusy.isEmpty ? _c.checkCli : null,
                       ),
                       SmallButton(
+                        filled: true,
                         label: _c.cliBusy == 'diagnose'
                             ? t.t('about.localEnv.diagnosing')
                             : t.t('about.localEnv.diagnose'),
@@ -321,6 +327,7 @@ class _CliToolRow extends StatelessWidget {
               // 三个互斥的按钮：没装给「安装」；装了且有更新给「升级」；坏了给「修复」。
               if (!status.installed)
                 SmallButton(
+                  filled: true,
                   label: busy == 'install' && pending
                       ? t.t('about.localEnv.installing')
                       : t.t('about.localEnv.install'),
@@ -330,6 +337,7 @@ class _CliToolRow extends StatelessWidget {
                   !status.broken &&
                   status.hasUpdate == true)
                 SmallButton(
+                  filled: true,
                   label: busy == 'upgrade' && pending
                       ? t.t('about.localEnv.upgrading')
                       : t.t('about.localEnv.upgrade'),
@@ -337,6 +345,7 @@ class _CliToolRow extends StatelessWidget {
                 ),
               if (status.broken)
                 SmallButton(
+                  filled: true,
                   label: busy == 'upgrade' && pending
                       ? t.t('about.localEnv.upgrading')
                       : t.t('about.localEnv.repair'),
