@@ -34,3 +34,16 @@
 - 不新增 Playwright，视觉验收走人工桌面浏览器清单。
 - command 生成器与检查脚本放根 `scripts/`。
 - `yarn check:docs` 串联所有自动门禁。
+
+## Flutter↔Tauri UI 对齐（workflows/flutter-ui-parity.md）
+
+- 「完全一致」= 元素级+行为级，React 现状为唯一真值；不做像素比对。
+- 触发 = 用户报差异；验收 = 机器（analyze + widget 测试 + check-ui-parity + 清单更新）。
+- 2026-09-23 推翻旧裁决：4 条有意偏离全部抹平（组内拖拽、导入确认卡、拖入判扩展名、关窗——末条两侧已一致无事可做）。
+
+## Registry 数据对齐（workflows/registry-data-alignment.md）
+
+- 「无缺失」= 分层：family/version/capabilities/context_window 必补（官方有公布即清零），thinking_*/predecessor/display_name 尽力。
+- 写入授权（2026-09-23）：agent 查证官方来源后自动写入 registry，事后审计；推翻「禁机器生成覆盖」，但「禁推断、缺省=未知、文本级编辑、数值保真」铁律不变。
+- 门禁：四必补字段覆盖率 ≥90% 硬阈值（单调收紧）。
+- 批次：按平台分批，每轮 1-2 平台。
