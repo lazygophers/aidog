@@ -78,6 +78,7 @@ const SNAPSHOT: ModelInfoSnapshot = {
         entry({
           platform_code: "openrouter",
           model_id: "zhipu/glm-4.6",
+          canonical_model: "glm-4.6",
           display_name: "GLM-4.6 (OpenRouter)",
           capabilities: ["text"],
           price_data: JSON.stringify({ price: { input: 2e-6 } }),
@@ -108,25 +109,23 @@ describe("ModelInfoTab", () => {
     });
   });
 
-  it("模型维度 tab: 一行一 canonical，展示名 + 代表平台 + 官方徽标", async () => {
+  it("模型维度 tab: 一行一 canonical，统一名 + 代表平台 + 官方徽标", async () => {
     render(<ModelInfoTab />);
-    expect(await screen.findByText("GLM-4.6")).toBeInTheDocument();
-    // 代表条目 = primary_platform，平台名走 registry labelMap
+    expect(await screen.findByText("glm-4.6")).toBeInTheDocument();
     expect(screen.getByText("智谱 GLM")).toBeInTheDocument();
     expect(screen.getByText("modelInfo.official")).toBeInTheDocument();
-    // 第二个平台折叠成「还有 N 个平台」提示
     expect(screen.getByText("modelInfo.morePlatforms")).toBeInTheDocument();
   });
 
-  it("展示名存在时: 展示名与真实请求名同屏并列", async () => {
+  it("展示名存在时: 表格不显示平台展示名", async () => {
     render(<ModelInfoTab />);
-    expect(await screen.findByText("GLM-4.6")).toBeInTheDocument();
-    expect(screen.getByText("glm-4.6")).toBeInTheDocument();
+    expect(await screen.findByText("glm-4.6")).toBeInTheDocument();
+    expect(screen.queryByText("GLM-4.6")).not.toBeInTheDocument();
   });
 
-  it("展示名缺省时: 只渲染一次 model_id，不出现空节点", async () => {
+  it("展示名缺省时: 统一名回落 canonical_model", async () => {
     render(<ModelInfoTab />);
-    await screen.findByText("GLM-4.6");
+    await screen.findByText("glm-4.6");
     expect(screen.getAllByText("mystery-model")).toHaveLength(1);
   });
 
@@ -143,7 +142,7 @@ describe("ModelInfoTab", () => {
 
   it("详情弹窗: 展示名与请求名不同则两行都在", async () => {
     render(<ModelInfoTab />);
-    fireEvent.click(await screen.findByText("GLM-4.6"));
+    fireEvent.click(await screen.findByText("glm-4.6"));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("modelInfo.displayName")).toBeInTheDocument();
     expect(within(dialog).getByText("modelInfo.requestName")).toBeInTheDocument();
@@ -151,19 +150,19 @@ describe("ModelInfoTab", () => {
 
   it("平台维度 tab: 切过去后按平台列出模型条目", async () => {
     render(<ModelInfoTab />);
-    await screen.findByText("GLM-4.6");
+    await screen.findByText("glm-4.6");
     // Radix TabsTrigger 在 mouseDown 阶段切值（click 不触发）
     fireEvent.mouseDown(screen.getByRole("tab", { name: "modelInfo.tabPlatforms" }), { button: 0 });
     // 未选平台时给引导文案
     expect(await screen.findByText("modelInfo.selectPlatform")).toBeInTheDocument();
     fireEvent.click(screen.getByText("OpenRouter"));
-    expect(await screen.findByText("GLM-4.6 (OpenRouter)")).toBeInTheDocument();
-    expect(screen.getByText("zhipu/glm-4.6")).toBeInTheDocument();
+    expect(await screen.findByText("glm-4.6")).toBeInTheDocument();
+    expect(screen.queryByText("GLM-4.6 (OpenRouter)")).not.toBeInTheDocument();
   });
 
   it("详情弹窗: 点击行后按平台分 tab，聚合版本链 / 默认价 / 高峰价", async () => {
     render(<ModelInfoTab />);
-    fireEvent.click(await screen.findByText("GLM-4.6"));
+    fireEvent.click(await screen.findByText("glm-4.6"));
     const dialog = await screen.findByRole("dialog");
     // 两个平台条目各一个 tab
     expect(within(dialog).getByRole("tab", { name: /智谱 GLM/ })).toBeInTheDocument();
@@ -196,7 +195,7 @@ describe("ModelInfoTab", () => {
       ],
     });
     render(<ModelInfoTab />);
-    fireEvent.click(await screen.findByText("GLM-5.3"));
+    fireEvent.click(await screen.findByText("glm-5.3"));
     const dialog = await screen.findByRole("dialog");
     // 三条 SKU = 三个 tab，不再被同 value 覆盖成一个
     const tabs = within(dialog).getAllByRole("tab");
@@ -217,7 +216,7 @@ describe("ModelInfoTab", () => {
     };
     syncMock.mockResolvedValue(result);
     render(<ModelInfoTab />);
-    await screen.findByText("GLM-4.6");
+    await screen.findByText("glm-4.6");
     fireEvent.click(screen.getByText("modelInfo.syncNow"));
     await waitFor(() => expect(syncMock).toHaveBeenCalled());
     expect(await screen.findByText("platforms/glm/models/glm-4.6.json")).toBeInTheDocument();
@@ -232,7 +231,7 @@ describe("ModelInfoTab", () => {
       pricing_only: ["openrouter"],
     });
     render(<ModelInfoTab />);
-    await screen.findByText("GLM-4.6");
+    await screen.findByText("glm-4.6");
 
     // 平台维度左侧列表不再列它
     fireEvent.mouseDown(screen.getByRole("tab", { name: "modelInfo.tabPlatforms" }), { button: 0 });
@@ -241,7 +240,7 @@ describe("ModelInfoTab", () => {
 
     // 详情弹窗仍保留该条目比价，但带「仅比价」标注
     fireEvent.mouseDown(screen.getByRole("tab", { name: "modelInfo.tabModels" }), { button: 0 });
-    fireEvent.click(await screen.findByText("GLM-4.6"));
+    fireEvent.click(await screen.findByText("glm-4.6"));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("tab", { name: /OpenRouter/ })).toBeInTheDocument();
     expect(within(dialog).getByText("modelInfo.priceRefOnly")).toBeInTheDocument();

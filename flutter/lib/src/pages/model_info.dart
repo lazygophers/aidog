@@ -369,10 +369,7 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
             return <Widget>[
               InkWell(
                 onTap: () => _c.select(g.canonicalModel),
-                child: _ModelNameCell(
-                  displayName: g.displayName,
-                  modelId: primary?.modelId ?? '',
-                ),
+                child: _ModelNameCell(canonicalModel: g.canonicalModel),
               ),
               Text(
                 '${primary == null ? '-' : _c.platformLabel(primary.platformCode)}'
@@ -542,10 +539,7 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                       () {
                         final price = parsePriceData(e.priceData);
                         return <Widget>[
-                          _ModelNameCell(
-                            displayName: e.displayName,
-                            modelId: e.modelId,
-                          ),
+                          _ModelNameCell(canonicalModel: e.canonicalModel),
                           Text(
                             _capText(t, e.capabilities),
                             style: AidogType.micro.copyWith(color: theme.c.fg2),
@@ -733,33 +727,18 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
   }
 }
 
-/// `ModelName.tsx:32::ModelNameCell`：两者同串时只有一行。
+/// 表格始终展示统一 canonical_model；请求名只在详情中展示。
 class _ModelNameCell extends StatelessWidget {
-  const _ModelNameCell({required this.displayName, required this.modelId});
+  const _ModelNameCell({required this.canonicalModel});
 
-  final String displayName;
-  final String modelId;
+  final String canonicalModel;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    final parts = nameParts(displayName, modelId);
-    if (parts.secondary == null) {
-      return Text(
-        parts.primary,
-        style: AidogType.micro.copyWith(color: theme.c.fg),
-      );
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(parts.primary, style: AidogType.micro.copyWith(color: theme.c.fg)),
-        Text(
-          parts.secondary!,
-          style: AidogType.caption.copyWith(color: theme.c.fg3),
-        ),
-      ],
+    return Text(
+      canonicalModel,
+      style: AidogType.micro.copyWith(color: theme.c.fg),
     );
   }
 }
