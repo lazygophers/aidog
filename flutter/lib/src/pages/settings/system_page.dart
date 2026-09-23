@@ -61,6 +61,31 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   /// `proxy_log_cleanup_estimate` 的结果；null = 还在统计。
   Map<String, Object?>? _estimate;
 
+  /// 密码类输入的明文切换态（内核令牌、上游代理密码）。只活在这个
+  /// State 里：不写设置、不落盘 —— 同 env_editor.dart 的 `_revealed`。
+  final _revealed = <String>{};
+
+  /// 密码框右侧的眼睛按钮（`EnvEditor.tsx:87-94` 同位置同语义）。
+  Widget _revealToggle(String fieldKey) {
+    final theme = AidogTheme.of(context);
+    final shown = _revealed.contains(fieldKey);
+    return IconButton(
+      key: ValueKey('$fieldKey-reveal'),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+      iconSize: 14,
+      visualDensity: VisualDensity.compact,
+      tooltip: shown ? 'Hide' : 'Show',
+      icon: Icon(
+        shown ? Icons.visibility_off : Icons.visibility,
+        color: theme.c.fg3,
+      ),
+      onPressed: () => setState(
+        () => shown ? _revealed.remove(fieldKey) : _revealed.add(fieldKey),
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -215,7 +240,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           // 🔴 这是内核管理面的访问令牌，拿到就能直连内核。React 是
           // `<input type="password">`（`KernelSection.tsx:72`），这边漏了遮挡，
           // 令牌明文显示在屏幕上，截图 / 投屏 / 旁人一眼就能看见。
-          obscure: true,
+          obscure: !_revealed.contains('kernel-token'),
+          trailing: _revealToggle('kernel-token'),
           value: _k.token,
           onChanged: _k.setToken,
           onSubmitted: (_) => _k.commitToken(t.t('kernel.saved')),
@@ -288,10 +314,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             onSubmitted: (v) => _c.updateProxyClient(p.copyWith(username: v)),
           ),
           TextRow(
+            key: const ValueKey('upstream-proxy-pass'),
             label: t.t('proxy.proxyPass'),
             hint: t.t('proxy.proxyPassPlaceholder'),
             value: p.password,
-            obscure: true,
+            obscure: !_revealed.contains('upstream-proxy-pass'),
+            trailing: _revealToggle('upstream-proxy-pass'),
             onSubmitted: (v) => _c.updateProxyClient(p.copyWith(password: v)),
           ),
           // 只有 SOCKS5 才谈得上「DNS 走代理」（`ProxyStatusSection.tsx:195`）：

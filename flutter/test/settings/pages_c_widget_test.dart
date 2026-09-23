@@ -308,6 +308,56 @@ void main() {
       );
     });
 
+    testWidgets('内核令牌与上游代理密码的眼睛按钮：看一眼再切回密文', (tester) async {
+      // 与 env_editor 的 `_revealed` 同语义（`EnvEditor.tsx:87-94`）：
+      // 密文态下粘错一个字符是看不出来的。切换只是看一眼，不写设置。
+      await useBigSurface(tester);
+      final k = FakeKernel({
+        ...baseResponses(),
+        'proxy_client_get_settings': (_) => {
+          'enabled': true,
+          'proxy_type': 'socks5',
+          'host': '127.0.0.1',
+          'port': 7890,
+          'username': '',
+          'password': 'pw',
+          'dns_over_proxy': false,
+          'no_proxy': '',
+        },
+      });
+      final i18n = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          i18n,
+        ),
+      );
+      await settle(tester);
+
+      bool obscured(String key) =>
+          tester.widget<TextRow>(find.byKey(ValueKey(key))).obscure;
+
+      expect(obscured('kernel-token'), isTrue);
+      expect(obscured('upstream-proxy-pass'), isTrue);
+
+      await tester.tap(find.byKey(const ValueKey('kernel-token-reveal')));
+      await settle(tester);
+      expect(obscured('kernel-token'), isFalse);
+
+      await tester.tap(find.byKey(const ValueKey('upstream-proxy-pass-reveal')));
+      await settle(tester);
+      expect(obscured('upstream-proxy-pass'), isFalse);
+
+      // 再切回密文。
+      await tester.tap(find.byKey(const ValueKey('upstream-proxy-pass-reveal')));
+      await settle(tester);
+      expect(obscured('upstream-proxy-pass'), isTrue);
+
+      // 看一眼不算改设置：一条写命令都不发。
+      expect(k.countOf('settings_set'), 0);
+      expect(k.countOf('proxy_client_set_settings'), 0);
+    });
+
     testWidgets('上游代理：三个协议都在；DNS 走代理只在 SOCKS5 下出现', (tester) async {
       // React `ProxyStatusSection.tsx:142-144` 给三个协议，`:195` 把
       // dns_over_proxy 锁在 socks5 分支里 —— HTTP/HTTPS 代理本来就是把域名
@@ -796,6 +846,28 @@ void main() {
       expect(k.lastArgsOf('coding_tools_settings_set'), {
         'applyToClaudePlugin': true,
       });
+    });
+
+    testWidgets('努力级别「—」把两侧清回不设置', (tester) async {
+      // `CodingToolsSettings.tsx:475-479` 的 `__none__`：选「—」写空串，
+      // claude effortLevel + codex model_reasoning_effort 双写。
+      final k = await mount(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('cli-effort')),
+          matching: find.text('—'),
+        ),
+      );
+      await settle(tester);
+
+      final setArgs = k.lastArgsOf('settings_set')!;
+      final value = (setArgs['input'] as Map)['value'] as Map;
+      expect(value['effortLevel'], '');
+      expect(
+        (k.lastArgsOf('codex_config_write')!['value'] as Map)[
+            'model_reasoning_effort'],
+        '',
+      );
     });
 
     testWidgets('代理草稿改了就挂守卫，放弃离开会丢回已生效值', (tester) async {
