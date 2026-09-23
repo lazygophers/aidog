@@ -545,6 +545,7 @@
   "importExport.pickFile": "Выбрать файл .aidogx",
   "importExport.previewItems": "Предпросмотр элементов экспорта",
   "importExport.rename": "Переименовать",
+  "importExport.renameRequired": "«Оставить оба» требует новое имя — пустое поле импортирует строку без имени",
   "importExport.reportTitle": "Результат импорта",
   "importExport.scope.claudeCode": "Настройки Claude Code",
   "importExport.scope.codex": "Настройки Codex",

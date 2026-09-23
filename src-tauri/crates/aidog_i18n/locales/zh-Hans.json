@@ -545,6 +545,7 @@
   "importExport.pickFile": "选择 .aidogx 文件",
   "importExport.previewItems": "预览导出项",
   "importExport.rename": "重命名",
+  "importExport.renameRequired": "选了「保留两者」就要填新名字，空着这条发过去是一行没名字的数据",
   "importExport.reportTitle": "导入结果",
   "importExport.scope.claudeCode": "Claude Code 设置",
   "importExport.scope.codex": "Codex 设置",

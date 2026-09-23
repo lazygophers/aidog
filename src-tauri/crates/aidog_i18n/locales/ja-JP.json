@@ -545,6 +545,7 @@
   "importExport.pickFile": ".aidogx ファイルを選択",
   "importExport.previewItems": "エクスポート項目をプレビュー",
   "importExport.rename": "名前変更",
+  "importExport.renameRequired": "「両方残す」には新しい名前が必要です。空のままだと名前のない行が取り込まれます",
   "importExport.reportTitle": "インポート結果",
   "importExport.scope.claudeCode": "Claude Code 設定",
   "importExport.scope.codex": "Codex 設定",

@@ -1753,6 +1753,144 @@ void main() {
       expect(k.countOf('import_apply'), 0);
     });
 
+    // 回归 2026-09-23：粘贴框原先 `maxLines: 4`，粘一份账号导出 JSON 只看得见
+    // 四行。React 那边是 120–320px 的 JSON 编辑器（`Sub2ApiImport.tsx:195-201`）。
+    testWidgets('sub2api 粘贴框有 JSON 编辑器那么高，且是等宽字', (tester) async {
+      await mount(tester);
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byKey(const ValueKey('sub2api-paste')),
+          matching: find.byType(TextField),
+        ),
+      );
+      // 7 行 ≈ 119px 起、19 行 ≈ 323px 封顶（等宽行高 12.5×1.35）。
+      expect(field.minLines, greaterThanOrEqualTo(6));
+      expect(field.maxLines, greaterThanOrEqualTo(18));
+      expect(field.style?.fontFamily, AidogType.numSm.fontFamily);
+    });
+
+    testWidgets('条目按菜单组折叠：组级三态 + 收起后组内行不渲染', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'items': [
+              {'scope': 'platform', 'key': 'p1', 'label': 'P1'},
+              {'scope': 'platform', 'key': 'p2', 'label': 'P2'},
+              {'scope': 'mcp', 'key': 'm1', 'label': 'M1'},
+            ],
+            'conflicts': <Object?>[],
+          },
+          'import_apply': (_) => <String, Object?>{},
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+
+      // 默认全选 → 两个组都是全选态。
+      Icon groupIcon(String gid) => tester.widget<Icon>(
+        find.descendant(
+          of: find.byKey(ValueKey('item-group-check-$gid')),
+          matching: find.byType(Icon),
+        ),
+      );
+      expect(groupIcon('platform').icon, Icons.check_box);
+      expect(groupIcon('extension').icon, Icons.check_box);
+
+      // 组内取消一条 → 该组变半选，另一组不受影响。
+      await tester.tap(find.byKey(const ValueKey('item-platform p1')));
+      await settle(tester);
+      expect(
+        groupIcon('platform').icon,
+        Icons.indeterminate_check_box,
+        reason: '挑了几条 = 半选，这是「这组我动过」的唯一线索',
+      );
+      expect(groupIcon('extension').icon, Icons.check_box);
+
+      // 点组级复选框 → 整组翻转（半选 → 全选）。
+      await tester.tap(find.byKey(const ValueKey('item-group-check-platform')));
+      await settle(tester);
+      expect(groupIcon('platform').icon, Icons.check_box);
+
+      // 折叠 → 组内行不再渲染，组头还在。
+      await tester.tap(find.byKey(const ValueKey('item-group-platform')));
+      await settle(tester);
+      expect(find.byKey(const ValueKey('item-platform p1')), findsNothing);
+      expect(find.byKey(const ValueKey('item-group-platform')), findsOneWidget);
+
+      // 发给后端的 selection 才是判据：折叠只是收起来，不等于取消勾选。
+      await tester.tap(find.byKey(const ValueKey('import-apply')));
+      await settle(tester);
+      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '3'})));
+      await settle(tester);
+      final selection = k.lastArgsOf('import_apply')!['selection']! as List;
+      expect(selection.length, 3);
+    });
+
+    testWidgets('冲突选「保留两者」：新名字预填并进 import_apply 的 decisions', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'items': [
+              {'scope': 'platform', 'key': 'p1', 'label': 'P1', 'conflict': true},
+            ],
+            'conflicts': [
+              {'scope': 'platform', 'key': 'p1'},
+            ],
+          },
+          'import_apply': (_) => <String, Object?>{},
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+
+      await tester.tap(
+        find.byKey(const ValueKey('decide-platform p1-keepBoth')),
+      );
+      await settle(tester);
+      // 预填 `<key>-imported`：不预填的话这个决策等于发一个空 key 过去。
+      final input = find.descendant(
+        of: find.byKey(const ValueKey('rename-platform p1')),
+        matching: find.byType(TextField),
+      );
+      expect(tester.widget<TextField>(input).controller!.text, 'p1-imported');
+
+      // 清空 → 不许提交（React 的 rename 必须带 new_key，后端反序列化才过）。
+      await tester.enterText(input, '   ');
+      await settle(tester);
+      expect(
+        tester
+            .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
+            .enabled,
+        isFalse,
+        reason: '空的新名字发过去就是一条没名字的行',
+      );
+      // 只禁不说等于让用户自己猜还差什么。
+      expect(
+        find.byKey(const ValueKey('rename-required-platform p1')),
+        findsOneWidget,
+      );
+
+      await tester.enterText(input, 'p1-copy');
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('import-apply')));
+      await settle(tester);
+      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '1'})));
+      await settle(tester);
+
+      final decisions = k.lastArgsOf('import_apply')!['decisions']! as List;
+      expect(decisions.single, {
+        'scope': 'platform',
+        'key': 'p1',
+        'decision': {'kind': 'rename', 'new_key': 'p1-copy'},
+      });
+    });
+
     testWidgets('导入预览给出来源机器 / 导出时间 / 各范围条数，冲突条目带徽标', (tester) async {
       final k = await mount(
         tester,
