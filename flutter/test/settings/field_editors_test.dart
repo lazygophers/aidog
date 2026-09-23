@@ -40,6 +40,18 @@ SchemaBundle bundle() => SchemaBundle(
           'type': 'string[]',
         },
         {
+          'key': 'model',
+          'label': 'Model',
+          'type': 'string',
+          'options': ['opus', 'sonnet', 'haiku'],
+        },
+        {
+          'key': 'outputStyle',
+          'label': 'Output Style',
+          'type': 'select',
+          'options': ['concise', 'verbose'],
+        },
+        {
           'key': 'spinnerVerbs',
           'label': 'Spinner Verbs',
           'type': 'object',
@@ -104,6 +116,50 @@ void main() {
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await settle(tester);
   }
+
+  group('select / 带候选的 string', () {
+    testWidgets('select 能清回「不设置」：那个键从写出去的 JSON 里消失', (tester) async {
+      final (k, t) = await mount(tester, stored: {'outputStyle': 'verbose'});
+
+      // 先确认读进来了，再清空 —— 否则「消失」可能只是它压根没写进去。
+      expect(find.text('verbose'), findsWidgets);
+
+      final dd = find.descendant(
+        of: find.byKey(const ValueKey('field-outputStyle')),
+        matching: find.byType(DropdownButton<String>),
+      );
+      await tester.tap(dd);
+      await settle(tester);
+      // 首项「—」= 不设置。
+      await tester.tap(find.text('—').last);
+      await settle(tester);
+
+      final saved = await saveAndRead(tester, k, t);
+      expect(
+        saved.containsKey('outputStyle'),
+        isFalse,
+        reason: '清回默认就该把这个键删掉，而不是写一个空串',
+      );
+    });
+
+    testWidgets('带候选的 string：点候选即写入，落盘是选中的那个值', (tester) async {
+      final (k, t) = await mount(tester);
+
+      // 聚焦即弹候选（与模型矩阵同一颗单元格）。
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('field-model')),
+          matching: find.byType(TextField),
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.text('sonnet').last);
+      await settle(tester);
+
+      final saved = await saveAndRead(tester, k, t);
+      expect(saved['model'], 'sonnet');
+    });
+  });
 
   group('kv', () {
     testWidgets('加一条 → 写成对象；改值 → 只动那一条；删空 → 整个键回收', (tester) async {

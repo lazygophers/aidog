@@ -92,6 +92,9 @@ class EnvEditor extends StatefulWidget {
 }
 
 class _EnvEditorState extends State<EnvEditor> {
+  /// 当前以明文显示的密码变量 key。**只活在这个 State 里** —— 切换态不写设置、
+  /// 不落盘、不进日志，关掉页面即恢复密文。
+  final Set<String> _revealed = {};
   final TextEditingController _search = TextEditingController();
   final TextEditingController _customKey = TextEditingController();
   final TextEditingController _customVal = TextEditingController();
@@ -397,15 +400,41 @@ class _EnvEditorState extends State<EnvEditor> {
           trailing: isSet ? _removeBtn(t, theme, d.key) : null,
         );
       case 'password':
+        final shown = _revealed.contains(d.key);
         return TextRow(
           key: ValueKey('env-${d.key}'),
           label: _labelOf(t, d),
           description: description,
           hint: d.placeholder,
           value: value ?? '',
-          obscure: true,
+          obscure: !shown,
           onSubmitted: (v) => _update(d.key, v),
-          trailing: isSet ? _removeBtn(t, theme, d.key) : null,
+          // 眼睛在输入框右边、「移除」左边（`EnvEditor.tsx:87-94` 同位置）。
+          // 密文态下粘错一个字符是看不出来的，得能看一眼再切回去。
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: ValueKey('env-reveal-${d.key}'),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+                iconSize: 14,
+                visualDensity: VisualDensity.compact,
+                tooltip: shown ? 'Hide' : 'Show',
+                icon: Icon(
+                  shown ? Icons.visibility_off : Icons.visibility,
+                  color: theme.c.fg3,
+                ),
+                // 只活在这个 State 里：不写设置、不落盘、不进日志。
+                onPressed: () => setState(
+                  () => shown
+                      ? _revealed.remove(d.key)
+                      : _revealed.add(d.key),
+                ),
+              ),
+              if (isSet) _removeBtn(t, theme, d.key),
+            ],
+          ),
         );
       default:
         // number / string 共用文本框：number 的 min/max 由 Claude Code 自己校验，

@@ -65,6 +65,12 @@ SchemaBundle _bundle() => SchemaBundle(
         'group': 'performance',
       }),
       EnvVarDef({
+        'key': 'ANTHROPIC_AUTH_TOKEN',
+        'label': 'Auth Token',
+        'type': 'password',
+        'group': 'performance',
+      }),
+      EnvVarDef({
         'key': 'DISABLE_TELEMETRY',
         'label': 'Disable Telemetry',
         'type': 'boolean',
@@ -314,6 +320,51 @@ void main() {
       await settle(tester);
       v = await saveAndRead(tester, k, t);
       expect(v.containsKey('env'), isFalse);
+    });
+
+    testWidgets('密码型变量能看一眼明文，再切回密文；切换态不进落盘结果', (tester) async {
+      final (k, t) = await mount(
+        tester,
+        stored: const {
+          'env': {'ANTHROPIC_AUTH_TOKEN': 'sk-ant-secret'},
+        },
+      );
+      bool obscured() => tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('env-ANTHROPIC_AUTH_TOKEN')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .obscureText;
+
+      // 默认密文：粘错一个字符看不出来，所以要有得看。
+      expect(obscured(), isTrue);
+      await tester.tap(
+        find.byKey(const ValueKey('env-reveal-ANTHROPIC_AUTH_TOKEN')),
+      );
+      await settle(tester);
+      expect(obscured(), isFalse);
+
+      // 再切回去。
+      await tester.tap(
+        find.byKey(const ValueKey('env-reveal-ANTHROPIC_AUTH_TOKEN')),
+      );
+      await settle(tester);
+      expect(obscured(), isTrue);
+
+      // 切换只是看一眼：不写设置、不落盘。连「有改动待保存」都不该算。
+      await tester.tap(
+        find.byKey(const ValueKey('env-reveal-ANTHROPIC_AUTH_TOKEN')),
+      );
+      await settle(tester);
+      await tester.tap(find.text(t.t('action.save')));
+      await settle(tester);
+      expect(
+        k.countOf('settings_set'),
+        0,
+        reason: '只是切了明文，没有任何值变过，不该有写入',
+      );
     });
 
     testWidgets('已知变量有「移除」×，点了键就不在落盘结果里（票 28 ①）', (tester) async {

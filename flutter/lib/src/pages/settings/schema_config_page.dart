@@ -24,6 +24,7 @@ import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
+import '../platform_form_bits.dart' show ModelCell;
 import 'bits.dart';
 import 'env_editor.dart';
 import 'field_editors.dart';
@@ -847,11 +848,33 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
           key: ValueKey('field-${f.key}'),
           label: label,
           description: f.description,
-          options: f.options,
+          // 首项「—」= 不设置（`FieldRenderer.tsx:87` 的 `__none__` 哨兵）。
+          // 没有它的话，设过一次就清不回默认，只能去改整段 JSON。
+          options: ['', ...f.options],
+          labelOf: (o) => o.isEmpty ? '—' : o,
           value: value == null ? '' : '$value',
-          onChanged: (v) => c.updateField(f.key, v),
+          onChanged: (v) => c.updateField(f.key, (v ?? '').isEmpty ? null : v),
         );
       case 'string':
+        // 带候选值的（模型名那类）给补全：React 挂 `<datalist>`
+        //（`FieldRenderer.tsx:194-202`），纯手打认不出有哪些合法值。
+        // 复用模型矩阵那颗单元格（聚焦即弹候选 + 拼音过滤），不另造一个。
+        if (f.options.isNotEmpty) {
+          return FieldShell(
+            key: ValueKey('field-${f.key}'),
+            label: label,
+            description: f.description,
+            child: ModelCell(
+              value: value == null ? '' : '$value',
+              candidates: f.options,
+              hint: f.placeholder ?? '',
+              pickTooltip: t.t('platform.selectModel'),
+              // 与 React 同口径：边打边写回（`onChange` 每次按键都调）。
+              onChanged: (v) =>
+                  c.updateField(f.key, v.trim().isEmpty ? null : v.trim()),
+            ),
+          );
+        }
         return TextRow(
           key: ValueKey('field-${f.key}'),
           label: label,
