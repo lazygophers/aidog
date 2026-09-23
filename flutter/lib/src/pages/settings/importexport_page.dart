@@ -631,6 +631,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
               Expanded(
                 child: TileMetaLine(
                   t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
+                  // 告警色（`ImportExportTab.tsx:542` 的 --color-warning）：
+                  // 冲突是要逐条拍板的事，标题不能混成普通小节标题的灰。
+                  color: AidogTheme.of(context).c.peak,
                 ),
               ),
               SmallButton(
@@ -1410,16 +1413,21 @@ class _ImportExportPageState extends State<ImportExportPage> {
 
 /// 卡片内的小节标题。`TileMeta` 自带间距，这里包一层只为少写一次 Padding。
 class TileMetaLine extends StatelessWidget {
-  const TileMetaLine(this.text, {super.key});
+  const TileMetaLine(this.text, {super.key, this.color});
 
   final String text;
+
+  /// 缺省 fg3；要喊人的标题（如冲突计数）传告警色。
+  final Color? color;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: AidogSpace.ssm, bottom: 2),
     child: Text(
       text,
-      style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
+      style: AidogType.micro.copyWith(
+        color: color ?? AidogTheme.of(context).c.fg3,
+      ),
     ),
   );
 }

@@ -1857,6 +1857,14 @@ void main() {
       // 本地现有那条长什么样 —— 没有它就得闭着眼睛决定要不要覆盖。
       expect(findStripped(find, '本地：glm · 3 个模型'), findsOneWidget);
 
+      // 告警色标题（`ImportExportTab.tsx:542` 的 --color-warning）：
+      // 冲突要逐条拍板，标题不能混成普通小节标题的灰。
+      final titleFinder = find.text(
+        i18n.t('importExport.conflicts', {'n': 1}),
+      );
+      final peak = AidogTheme.of(tester.element(titleFinder)).c.peak;
+      expect(tester.widget<Text>(titleFinder).style!.color, peak);
+
       // 批量决策在冲突行**上方**：冲突多时不必滚到底去找。
       final bulkY = tester.getTopLeft(find.byKey(const ValueKey('bulk-overwrite'))).dy;
       final rowY = tester.getTopLeft(find.byKey(const ValueKey('conflict-platform p1'))).dy;
