@@ -1,11 +1,11 @@
 {
-  "last_updated": 1790186874,
+  "last_updated": 1790187143,
   "model_id": "openai/gpt-6-sol",
   "canonical_model": "gpt-6-sol",
   "capabilities": [
     "text"
   ],
-  "official": false,
+  "official": true,
   "price": {
     "input": 1.9444444444444444e-06,
     "output": 9.722222222222223e-06,

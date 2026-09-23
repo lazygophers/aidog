@@ -1,11 +1,11 @@
 {
-  "last_updated": 1790186874,
+  "last_updated": 1790187143,
   "model_id": "openai/gpt-6-luna",
   "canonical_model": "gpt-6-luna",
   "capabilities": [
     "text"
   ],
-  "official": false,
+  "official": true,
   "price": {
     "input": 9.722222222222221e-08,
     "output": 4.861111111111111e-07,
