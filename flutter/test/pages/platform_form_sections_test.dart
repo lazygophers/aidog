@@ -24,8 +24,13 @@ import 'platform_form_logic_test.dart' show formFake, plat;
 Finder fieldWithHint(String hint) =>
     find.byWidgetPredicate((w) => w is PlatformField && w.hint == hint);
 
-Finder fieldWithLabel(String label) =>
-    find.byWidgetPredicate((w) => w is PlatformField && w.label == label);
+/// 按标签挑一个输入框。数字型字段的标签挂在 [NumberField] 上（它内部那个
+/// [PlatformField] 不重复画标签），所以两种都认。
+Finder fieldWithLabel(String label) => find.byWidgetPredicate(
+  (w) =>
+      (w is PlatformField && w.label == label) ||
+      (w is NumberField && w.label == label),
+);
 
 Finder inputOf(Finder field) =>
     find.descendant(of: field, matching: find.byType(TextField));

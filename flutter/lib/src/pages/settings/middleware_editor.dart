@@ -557,17 +557,22 @@ class ActionChainEditor extends StatelessWidget {
             row([
               Text('\$', style: AidogType.micro.copyWith(color: theme.c.fg3)),
               const SizedBox(width: AidogSpace.sxs),
-              SizedBox(
+              // 🔴 这里原先是纯文本框 + `double.tryParse(v) ?? 0`：手滑写成
+              // 「10 usd」会**静默变成 0**，预算闸门当场失效而界面一声不吭。
+              // [NumberInput] 从源头堵死 —— 非数字敲不进来，空串不上报、
+              // 输入框恢复原值，越界才夹取并显示范围。
+              NumberInput(
+                key: ValueKey('mw-action-$i-budget'),
                 width: 140,
-                child: PlainTextField(
-                  key: ValueKey('mw-action-$i-budget'),
-                  value: '${params['budget_usd'] ?? 0}',
-                  hint: tOr(t, 'middleware.budgetAmount', '本月预算上限（美元）'),
-                  onSubmitted: (v) => setParams({
-                    ...params,
-                    'budget_usd': double.tryParse(v) ?? 0,
-                  }),
-                ),
+                decimal: true,
+                min: 0,
+                value: '${params['budget_usd'] ?? 0}',
+                hint: tOr(t, 'middleware.budgetAmount', '本月预算上限（美元）'),
+                onChanged: (v) {
+                  final parsed = double.tryParse(v);
+                  if (parsed == null) return;
+                  setParams({...params, 'budget_usd': parsed});
+                },
               ),
               const SizedBox(width: AidogSpace.sxs),
               Expanded(
@@ -608,20 +613,23 @@ class ActionChainEditor extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: AidogSpace.sxs),
-              SizedBox(
+              // 同预算上限：原先 `int.tryParse(v) ?? 0` 会把打错的状态码变成
+              // `0`（一个根本不存在的 HTTP 状态）。夹在 100–599 内，越界时
+              // 输入框下面显示这个范围。
+              NumberInput(
+                key: ValueKey('mw-action-$i-override-status'),
                 width: 120,
-                child: PlainTextField(
-                  value: params['override_status'] == null
-                      ? ''
-                      : '${params['override_status']}',
-                  hint: 'override status',
-                  onSubmitted: (v) => setParams({
-                    ...params,
-                    'override_status': v.isEmpty
-                        ? null
-                        : (int.tryParse(v) ?? 0),
-                  }),
-                ),
+                min: 100,
+                max: 599,
+                value: params['override_status'] == null
+                    ? ''
+                    : '${params['override_status']}',
+                hint: 'override status',
+                onChanged: (v) {
+                  final parsed = int.tryParse(v);
+                  if (parsed == null) return;
+                  setParams({...params, 'override_status': parsed});
+                },
               ),
               const SizedBox(width: AidogSpace.sxs),
               Expanded(

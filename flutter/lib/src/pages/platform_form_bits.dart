@@ -8,6 +8,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
@@ -153,6 +154,12 @@ class _PlatformFieldState extends State<PlatformField> {
       enabled: on,
       keyboardType: widget.numeric
           ? const TextInputType.numberWithOptions(decimal: true)
+          : null,
+      // 数字键盘在桌面端接了实体键盘就是摆设：照样能敲进字母，然后被上层的
+      // `tryParse ?? 0` 静默变成 0。过滤放在这里，`NumberField` / `DecimalField`
+      // 以及所有 `numeric: true` 的调用点一次全保住。
+      inputFormatters: widget.numeric
+          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
           : null,
       maxLines: widget.obscure ? 1 : widget.maxLines,
       obscureText: widget.obscure,

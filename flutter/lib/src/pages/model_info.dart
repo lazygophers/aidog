@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
@@ -176,32 +177,41 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                 t.t('modelInfo.input'),
                 style: AidogType.micro.copyWith(color: theme.c.fg2),
               ),
-              SizedBox(
-                width: 80,
-                child: KeptTextField(
-                  key: const Key('fallback-input'),
-                  value: '${s.fallbackInputPrice}',
-                  keyboardType: TextInputType.number,
-                  // 负数被钳成 0（React 的 `Math.max(0, Number(...))`）。
-                  onSubmitted: (v) => _c.updateSettings(
-                    s.copyWith(fallbackInputPrice: _nonNegative(v)),
-                  ),
-                ),
+              // 单价要反复试，`step: 0.1` 那对箭头是 React 就有的
+              // （`SyncStatusCard.tsx:111-125` 的 `type="number" min=0 step=0.1`）。
+              // 原先是纯文本框 + `?? 0`：敲错一个字符，兜底单价静默变 0，
+              // 之后所有未登记模型都按 0 计价。
+              NumberInput(
+                key: const Key('fallback-input'),
+                width: 96,
+                decimal: true,
+                min: 0,
+                step: 0.1,
+                value: '${s.fallbackInputPrice}',
+                onChanged: (v) {
+                  final n = double.tryParse(v);
+                  if (n != null) {
+                    _c.updateSettings(s.copyWith(fallbackInputPrice: n));
+                  }
+                },
               ),
               Text(
                 t.t('modelInfo.output'),
                 style: AidogType.micro.copyWith(color: theme.c.fg2),
               ),
-              SizedBox(
-                width: 80,
-                child: KeptTextField(
-                  key: const Key('fallback-output'),
-                  value: '${s.fallbackOutputPrice}',
-                  keyboardType: TextInputType.number,
-                  onSubmitted: (v) => _c.updateSettings(
-                    s.copyWith(fallbackOutputPrice: _nonNegative(v)),
-                  ),
-                ),
+              NumberInput(
+                key: const Key('fallback-output'),
+                width: 96,
+                decimal: true,
+                min: 0,
+                step: 0.1,
+                value: '${s.fallbackOutputPrice}',
+                onChanged: (v) {
+                  final n = double.tryParse(v);
+                  if (n != null) {
+                    _c.updateSettings(s.copyWith(fallbackOutputPrice: n));
+                  }
+                },
               ),
             ],
           ),
@@ -234,11 +244,6 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
         ],
       ),
     );
-  }
-
-  static double _nonNegative(String v) {
-    final n = double.tryParse(v) ?? 0;
-    return n < 0 ? 0 : n;
   }
 
   static String _intervalLabel(int secs) => switch (secs) {
@@ -434,10 +439,12 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
           ),
           SizedBox(
             width: 60,
+            // 跳页只收数字（React 是 `type="number" min=1 max=totalPages`）。
             child: TextField(
               key: const Key('model-info-jump'),
               decoration: const InputDecoration(isDense: true, hintText: '#'),
               keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: AidogType.micro.copyWith(color: theme.c.fg),
               onChanged: _c.setJumpPage,
               onSubmitted: (_) => _c.jump(),

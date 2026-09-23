@@ -342,7 +342,16 @@ class ConfirmCard extends StatelessWidget {
     this.busy = false,
     this.extra,
     this.dismissOnBarrier = false,
+    this.dangerConfirm = false,
   });
+
+  /// 确认键出**实心红**。缺省 false = 实心 accent。
+  ///
+  /// React 的 `AlertDialogAction` 用的是默认变体（`ui/alert-dialog.tsx:107`
+  /// 的 `buttonVariants()`），删分组 / 删平台的确认键也是这一档，**不是红的**；
+  /// 只有批量删平台那处显式写了 `variant="destructive"`
+  /// （`BatchDeleteModal.tsx:132`）。所以红色留给那一处。
+  final bool dangerConfirm;
 
   final String title;
   final String body;
@@ -394,7 +403,8 @@ class ConfirmCard extends StatelessWidget {
                 const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
                   label: confirmLabel,
-                  danger: true,
+                  filled: true,
+                  danger: dangerConfirm,
                   onTap: busy ? null : onConfirm,
                 ),
               ],
@@ -692,6 +702,267 @@ class _KeptTextFieldState extends State<KeptTextField> {
       onSubmitted: widget.onSubmitted,
     );
   }
+}
+
+/// 数字输入框：**非数字敲不进去** + min/max 夹取 + 一对 ± 步进 + ↑↓ 键步进。
+///
+/// 对齐 React 的 `<input type="number" min max step>`，那四样能力它全有；
+/// 这边原先是个纯文本框，于是：没有步进（端口 / 超时 / 阈值这种要 ±1 试的值
+/// 只能整串重打）、没有上下限、敲进非数字被 `tryParse ?? 0` **静默变成 0**。
+///
+/// 三条语义，调用方不必再各写一遍：
+/// 1. **输入过滤**：`decimal=false` 只收 `0-9`，`true` 额外收一个小数点。
+///    于是「10 usd」这种根本打不进来，也就没有「解析失败」这个分支。
+/// 2. **提交失败保留原值**：空串 / 只剩一个小数点时**不上报**，输入框恢复成
+///    当前值 —— 不写 0，不丢数据。
+/// 3. **越界可见**：夹取发生时在下面显示一行 `min–max`，不是默默改掉。
+class NumberInput extends StatefulWidget {
+  const NumberInput({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.min = 0,
+    this.max,
+    this.step = 1,
+    this.decimal = false,
+    this.hint,
+    this.width,
+  });
+
+  /// 当前值的显示文本。
+  final String value;
+
+  /// 提交（已夹取）的文本。`null` = 禁用。
+  final ValueChanged<String>? onChanged;
+
+  /// 下限 / 上限，`null` = 不限。默认下限 0：本项目的数字设置项全是非负
+  /// （端口 / 秒数 / 天数 / 次数），而 `0` 在保留期那几处是「永久保留」的
+  /// 合法值，**必须夹得住 -1 又放得过 0**。
+  final num? min;
+  final num? max;
+
+  /// 每按一下 ± 或 ↑↓ 走多少。
+  final num step;
+
+  /// 允许小数（预算金额那种）。
+  final bool decimal;
+
+  final String? hint;
+  final double? width;
+
+  @override
+  State<NumberInput> createState() => _NumberInputState();
+}
+
+class _NumberInputState extends State<NumberInput> {
+  late final TextEditingController _ctrl = TextEditingController(
+    text: widget.value,
+  );
+  late final FocusNode _focus = FocusNode(onKeyEvent: _onKey);
+
+  /// 刚刚发生过夹取 → 显示 `min–max` 那行提示。
+  bool _clamped = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _commit(_ctrl.text);
+    });
+  }
+
+  @override
+  void didUpdateWidget(NumberInput old) {
+    super.didUpdateWidget(old);
+    // 外部值变了才覆盖输入框，免得打断正在输入的人（同 [TextRow]）。
+    if (widget.value != _ctrl.text && !_focus.hasFocus) {
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (widget.onChanged == null) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowUp) {
+      _bump(widget.step);
+      return KeyEventResult.handled;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.arrowDown) {
+      _bump(-widget.step);
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// 步进一格：从输入框当前文本起步，空的就从下限（没有下限就 0）起步。
+  void _bump(num delta) {
+    final cur = num.tryParse(_ctrl.text.trim()) ?? widget.min ?? 0;
+    _commit('${cur + delta}');
+  }
+
+  /// 夹取到 `[min, max]`。返回 null = 这串不是数字（空串、半截小数点）。
+  ///
+  /// [lowerBound] = false 时**不夹下限**：边打字边夹下限会把人堵死 ——
+  /// 下限 100 的格子里刚打出「4」就被顶成 100，「404」永远打不完。
+  /// 下限留到失焦 / 回车 / 步进时再夹。
+  String? _normalize(String raw, {bool lowerBound = true}) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final parsed = num.tryParse(trimmed);
+    if (parsed == null) return null;
+    var next = parsed;
+    if (lowerBound && widget.min != null && next < widget.min!) {
+      next = widget.min!;
+    }
+    if (widget.max != null && next > widget.max!) next = widget.max!;
+    return widget.decimal ? '$next' : '${next.round()}';
+  }
+
+  /// 边打边上报（React 的 `<input onChange>` 就是这个时机：改完直接点保存，
+  /// 不必先点别处失焦）。上限照夹 —— 上限 10 的格子里打出 99 当场变 10，
+  /// 与改造前 `_NumField` 的行为一致。
+  void _onTyped(String raw) {
+    if (_clamped) setState(() => _clamped = false);
+    final on = widget.onChanged;
+    if (on == null) return;
+    final next = _normalize(raw, lowerBound: false);
+    if (next == null) return; // 空串 / 半截小数点：等失焦再说，不写 0。
+    if (next != raw.trim()) {
+      setState(() => _clamped = true);
+      _ctrl.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+    }
+    if (next != widget.value) on(next);
+  }
+
+  void _commit(String raw) {
+    final on = widget.onChanged;
+    if (on == null) return;
+    final next = _normalize(raw);
+    if (next == null) {
+      // 不写 0：恢复成当前值，用户看得见自己那串没被接受。
+      setState(() => _clamped = false);
+      _ctrl.value = TextEditingValue(
+        text: widget.value,
+        selection: TextSelection.collapsed(offset: widget.value.length),
+      );
+      return;
+    }
+    // 只置位不清位：回车提交之后紧跟着还会来一次失焦提交，那一次读到的已经是
+    // 夹取后的值（`599 == 599`），在那里清位会让提示一闪而过等于没有。
+    // 清位交给「用户又开始打字」那条路径（见 `onChanged`）。
+    if (next != raw.trim()) setState(() => _clamped = true);
+    if (next != _ctrl.text) {
+      _ctrl.value = TextEditingValue(
+        text: next,
+        selection: TextSelection.collapsed(offset: next.length),
+      );
+    }
+    if (next != widget.value) on(next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final enabled = widget.onChanged != null;
+    final field = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            focusNode: _focus,
+            enabled: enabled,
+            keyboardType: TextInputType.numberWithOptions(
+              decimal: widget.decimal,
+            ),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(
+                RegExp(widget.decimal ? r'[0-9.]' : r'[0-9]'),
+              ),
+            ],
+            style: AidogType.micro.copyWith(
+              color: enabled ? theme.c.fg : theme.c.fg3,
+            ),
+            decoration: InputDecoration(
+              isDense: true,
+              hintText: widget.hint,
+              hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+            ),
+            onChanged: _onTyped,
+            onSubmitted: _commit,
+          ),
+        ),
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _StepArrow(
+              icon: Icons.keyboard_arrow_up,
+              color: enabled ? theme.c.fg3 : theme.c.line,
+              onTap: enabled ? () => _bump(widget.step) : null,
+            ),
+            _StepArrow(
+              icon: Icons.keyboard_arrow_down,
+              color: enabled ? theme.c.fg3 : theme.c.line,
+              onTap: enabled ? () => _bump(-widget.step) : null,
+            ),
+          ],
+        ),
+      ],
+    );
+    final sized = widget.width == null
+        ? field
+        : SizedBox(width: widget.width, child: field);
+    if (!_clamped) return sized;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        sized,
+        Text(
+          '${widget.min ?? ''}–${widget.max ?? ''}',
+          style: AidogType.micro.copyWith(color: theme.c.bad),
+        ),
+      ],
+    );
+  }
+}
+
+/// [NumberInput] 的两颗箭头。高度按一半行高，两颗叠起来正好一格输入框。
+class _StepArrow extends StatelessWidget {
+  const _StepArrow({
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    child: SizedBox(
+      height: 13,
+      width: 18,
+      child: Icon(icon, size: 13, color: color),
+    ),
+  );
 }
 
 /// 入场错峰淡入（React 的 `useReveal(delayMs)` + `.reveal` / `.reveal.in`，
