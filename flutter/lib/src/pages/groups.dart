@@ -226,10 +226,11 @@ class _GroupListView extends StatelessWidget {
       children: [
         Row(
           children: [
-            TileMeta(t.t('page.groups')),
-            // 分组计数（`GroupListView.tsx:163-167`）：有组才显，没有组时那行留白。
+            // 这里**没有**「分组」标题，故意的：下面那行计数本身就带「分组」这个词
+            //（`GroupListView.tsx:163-167` 的 `{details.length} {t("nav.groups")}`），
+            // 再加一个标题读出来是「分组　3 分组」，同一个词一行印两遍。
+            // 分组计数：有组才显，没有组时那行留白。
             if (c.details.isNotEmpty) ...[
-              const SizedBox(width: AidogSpace.ssm),
               Text(
                 '${c.details.length} ${t.t('nav.groups')}',
                 style: AidogType.micro.copyWith(
