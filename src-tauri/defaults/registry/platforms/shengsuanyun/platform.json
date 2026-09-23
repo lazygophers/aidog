@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788769178,
+  "last_updated": 1790186874,
   "endpoints": {
     "default": [
       {
@@ -85,6 +85,7 @@
       "anthropic/claude-sonnet-4.6",
       "anthropic/claude-sonnet-4:thinking",
       "anthropic/claude-sonnet-5",
+      "anthropic/claude-opus-5.5",
       "baidu/ernie-4.0-turbo-128k",
       "baidu/ernie-4.5-turbo-128k",
       "baidu/ernie-4.5-turbo-32k",
@@ -135,6 +136,7 @@
       "deepseek/deepseek-v4-flash-vision-exp",
       "deepseek/deepseek-v4-pro",
       "deepseek/deepseek-v4-pro-0813",
+      "deepseek/deepseek-v4.1-flash",
       "google/gemini-2.5-flash",
       "google/gemini-2.5-flash-lite",
       "google/gemini-2.5-flash-live",
@@ -147,6 +149,7 @@
       "google/gemini-3.5-flash-lite",
       "google/gemini-3.6-flash",
       "google/gemma-4-31b-it",
+      "google/gemini-3.7-flash",
       "intern/intern-s1",
       "intern/intern-s1-pro",
       "intern/intern-s2-preview",
@@ -205,6 +208,8 @@
       "openai/o3-mini-high",
       "openai/o4-mini",
       "openai/o4-mini-high",
+      "openai/gpt-6-sol",
+      "openai/gpt-6-luna",
       "stepfun/step-3.5-flash",
       "stepfun/step-3.5-flash-2603",
       "streamlake/kat-coder-air-v1",
@@ -221,11 +226,16 @@
       "x-ai/grok-4.1-fast",
       "x-ai/grok-4.5",
       "x-ai/grok-4.6",
+      "x-ai/grok-4.7",
       "xai/grok-code-fast-1",
       "xiaomi/mimo-v2.5",
       "xiaomi/mimo-v2.5-pro",
+      "xiaomi/mimo-v2.6-flash",
+      "xiaomi/mimo-v2.6-pro",
+      "xiaomi/mimo-v2.6-pro-ultraspeed",
       "agnes/agnes-2.0-flash",
       "agnes/agnes-2.5-flash",
+      "agnes/agnes-3.0-flash",
       "tencent/hy4-preview"
     ]
   },

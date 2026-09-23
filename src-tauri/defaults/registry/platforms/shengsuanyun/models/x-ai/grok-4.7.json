@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790186874,
+  "model_id": "x-ai/grok-4.7",
+  "canonical_model": "grok-4.7",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.5555555555555554e-06,
+    "output": 4.666666666666667e-06,
+    "cache_read": 3.8888888888888884e-07
+  },
+  "context_window": 500000,
+  "max_output_tokens": 500000
+}

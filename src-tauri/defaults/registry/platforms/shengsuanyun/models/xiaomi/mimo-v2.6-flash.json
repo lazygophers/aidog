@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790186874,
+  "model_id": "xiaomi/mimo-v2.6-flash",
+  "canonical_model": "mimo-v2.6-flash",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.3888888888888888e-07,
+    "output": 2.7777777777777776e-07,
+    "cache_read": 2.777777777777778e-09
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 128000
+}
