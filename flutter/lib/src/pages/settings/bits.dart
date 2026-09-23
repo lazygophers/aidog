@@ -374,6 +374,158 @@ class NumberRow extends StatelessWidget {
   static int _default(String raw) => int.tryParse(raw.trim()) ?? 0;
 }
 
+/// 多选下拉：收起时显示已选项（空 = [emptyLabel]），展开是可滚的勾选清单。
+///
+/// 对齐 React 的 `MultiSelect`（`MiddlewareRules.tsx:117-157`：触发器显示
+/// 「A、B」，展开 `maxHeight: 280` 可滚，逐项 checkbox）。选项**多到平铺会撑爆**
+/// 的维度才用它 —— 平台 / 分组几十条一铺，下面的维度就被挤到屏幕外了；
+/// 选项 ≤8 的仍用 [ChoiceRow]，平铺少点一次更好用。
+class MultiSelectRow extends StatelessWidget {
+  const MultiSelectRow({
+    super.key,
+    required this.label,
+    required this.options,
+    required this.selected,
+    required this.onToggle,
+    required this.emptyLabel,
+    this.itemKeyPrefix,
+  });
+
+  final String label;
+
+  /// 候选。`value` 是 `Object`：平台维度是 `int` id，分组维度是 `String` key，
+  /// 两者的类型要原样带到后端（见 `AppliesToEditor` 顶部那段注释）。
+  final List<({Object value, String label})> options;
+  final List<Object> selected;
+  final ValueChanged<Object> onToggle;
+
+  /// 一条都没选时触发器上显示什么（通常是「全部」）。
+  final String emptyLabel;
+
+  /// 清单每行的 key 前缀（测试按 `<prefix>-<value>` 点具体某一项）。
+  final String? itemKeyPrefix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final chosen = [
+      for (final o in options)
+        if (selected.contains(o.value)) o.label,
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+        const SizedBox(height: AidogSpace.sxs),
+        if (options.isEmpty)
+          Text(
+            emptyLabel,
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          )
+        else
+          PopupMenuButton<void>(
+            tooltip: '',
+            position: PopupMenuPosition.under,
+            constraints: const BoxConstraints(maxHeight: 280, minWidth: 220),
+            color: theme.c.surface2,
+            itemBuilder: (context) => [
+              // 整张清单塞进**一个** item：`PopupMenuItem` 一点就关，
+              // 多选要能连点几下，所以勾选态由这里的 StatefulBuilder 自己管，
+              // 同时把每次点击透传给外层。
+              PopupMenuItem<void>(
+                enabled: false,
+                padding: EdgeInsets.zero,
+                child: StatefulBuilder(
+                  builder: (context, setLocal) {
+                    final local = [...selected];
+                    return SingleChildScrollView(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          for (final o in options)
+                            InkWell(
+                              key: itemKeyPrefix == null
+                                  ? null
+                                  : ValueKey('$itemKeyPrefix-${o.value}'),
+                              onTap: () {
+                                onToggle(o.value);
+                                setLocal(() {
+                                  local.contains(o.value)
+                                      ? local.remove(o.value)
+                                      : local.add(o.value);
+                                });
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AidogSpace.ssm,
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      local.contains(o.value)
+                                          ? Icons.check_box
+                                          : Icons.check_box_outline_blank,
+                                      size: 14,
+                                      color: local.contains(o.value)
+                                          ? theme.c.accent
+                                          : theme.c.fg3,
+                                    ),
+                                    const SizedBox(width: AidogSpace.sxs),
+                                    Flexible(
+                                      child: Text(
+                                        o.label,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AidogType.micro.copyWith(
+                                          color: theme.c.fg,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.ssm,
+                vertical: 5,
+              ),
+              decoration: BoxDecoration(
+                border: Border.all(color: theme.c.line),
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Flexible(
+                    child: Text(
+                      chosen.isEmpty ? emptyLabel : chosen.join('、'),
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.micro.copyWith(
+                        color: chosen.isEmpty ? theme.c.fg3 : theme.c.fg,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.arrow_drop_down, size: 16, color: theme.c.fg3),
+                ],
+              ),
+            ),
+          ),
+        const SizedBox(height: AidogSpace.ssm),
+      ],
+    );
+  }
+}
+
 /// 单选行：一排 [SmallButton]，选中的高亮。选项少（≤8）时比下拉更好点。
 class ChoiceRow extends StatelessWidget {
   const ChoiceRow({

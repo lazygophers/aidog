@@ -699,37 +699,20 @@ class AppliesToEditor extends StatelessWidget {
     // 吞成空数组 —— 规则看着存住了，限定却不生效。React 传的就是数字
     // （`MiddlewareRules.tsx:605`）。groups / models 那两维在后端是 `Vec<String>`，
     // 继续传字符串是对的。
+    // 平台 / 分组是**多到会撑爆**的两维：几十个平台一平铺，下面的「分组」
+    // 和「模型」就被挤出屏幕。React 这两维用的是收起式 `MultiSelect`
+    //（`MiddlewareRules.tsx:604-623`），这里同构。
     Widget chips(
       String key,
       String label,
       List<({Object value, String label})> opts,
-    ) => Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
-        const SizedBox(height: AidogSpace.sxs),
-        if (opts.isEmpty)
-          Text(
-            tOr(t, 'middleware.appliesAll', '全部'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          )
-        else
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            children: [
-              for (final o in opts)
-                SmallButton(
-                  key: ValueKey('$key-${o.value}'),
-                  label: o.label,
-                  active: (value[key] as List? ?? const []).contains(o.value),
-                  onTap: () => _toggle(key, o.value),
-                ),
-            ],
-          ),
-        const SizedBox(height: AidogSpace.ssm),
-      ],
+    ) => MultiSelectRow(
+      label: label,
+      options: opts,
+      selected: [...(value[key] as List? ?? const [])],
+      emptyLabel: tOr(t, 'middleware.appliesAll', '全部'),
+      itemKeyPrefix: key,
+      onToggle: (v) => _toggle(key, v),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
