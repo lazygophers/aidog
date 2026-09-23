@@ -135,24 +135,30 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
               spacing: AidogSpace.ssm,
               runSpacing: AidogSpace.sxs,
               children: [
+                // 这四颗 React 都是 `variant="ghost"`
+                //（`NotificationSettings.tsx:355-382`）——无描边，不抢视线。
                 SmallButton(
+                  ghost: true,
                   key: const ValueKey('test-notify'),
                   label: t.t('notif.test'),
                   onTap: () => _c.testNotify(texts),
                 ),
                 SmallButton(
+                  ghost: true,
                   key: const ValueKey('test-tts'),
                   label: t.t('notif.testTtsLabel'),
                   tooltip: t.t('notif.testTtsTip'),
                   onTap: () => _c.testTts(texts),
                 ),
                 SmallButton(
+                  ghost: true,
                   key: const ValueKey('test-popup'),
                   label: t.t('notif.testPopupLabel'),
                   tooltip: t.t('notif.testPopupTip'),
                   onTap: () => _c.testPopup(texts),
                 ),
                 SmallButton(
+                  ghost: true,
                   key: const ValueKey('test-beep'),
                   label: t.t('notif.testBeepLabel'),
                   tooltip: t.t('notif.testBeepTip'),
