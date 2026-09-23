@@ -6,6 +6,7 @@
 ///   2. 中间件那 8 处确实传了 `maxLines: null` —— 不然自增高改了也没人用。
 library;
 
+import 'package:aidog_flutter/pages.dart' show NumberInput;
 import 'package:aidog_flutter/src/pages/settings/bits.dart' show PlainTextField;
 import 'package:aidog_flutter/src/pages/settings/middleware_editor.dart'
     show ActionChainEditor, AppliesToEditor, ConditionTreeEditor;
@@ -120,12 +121,11 @@ void main() {
       final lines = maxLinesOf(tester);
       // 自增高：replacement / target / value / category / override body 五处。
       expect(lines.where((l) => l == null).length, greaterThanOrEqualTo(5));
-      // 预算金额与 override status 是数字，React 那边也不是 AutoTextarea，保持单行。
-      expect(
-        lines.where((l) => l == 1).length,
-        greaterThanOrEqualTo(2),
-        reason: 'budget_usd / override_status 两处仍是单行',
-      );
+      // 预算金额与 override status 是数字：React 那边是 `<input type="number">`，
+      // 不是 AutoTextarea。2026-09-23 起这两处换成 [NumberInput]（数字过滤 +
+      // 夹取 + 步进），天然单行 —— 所以这里断言的是「它们已经不在多行输入里」
+      // 而不是数 `maxLines == 1` 的 PlainTextField。
+      expect(find.byType(NumberInput), findsNWidgets(2));
     },
   );
 

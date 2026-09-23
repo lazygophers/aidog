@@ -371,6 +371,8 @@ class _GroupListView extends StatelessWidget {
                     'count': '${c.batchDeleteTarget!.platforms.length}',
                   }),
             busy: c.batchDeleteBusy,
+            // 唯一一处 `variant="destructive"`（`BatchDeleteModal.tsx:132`）。
+            dangerConfirm: true,
             // React 先列**全部**待删平台，再单独警告其中跨组的那几个
             // （`BatchDeleteModal.tsx:90-128`）。原先这里只列跨组的，
             // 于是「一共要删几个、删的是哪几个」在确认前看不到。
@@ -1475,6 +1477,8 @@ class _MappingsSection extends StatelessWidget {
                   ),
                 SmallButton(
                   label: t.t('action.create'),
+                  // `GroupListItem.tsx:547` 没写 variant = 默认实心。
+                  filled: true,
                   onTap:
                       (c.mSource.isEmpty ||
                           c.mTargetPlatform == null ||
@@ -2172,6 +2176,9 @@ class _GroupCreatePanel extends StatelessWidget {
               // 名字为空就点不动 —— React 的 `disabled={!cName}`。
               SmallButton(
                 label: t.t('action.create'),
+                // `GroupCreateModal.tsx:55` 没写 variant = 默认实心；
+                // 旁边的「取消」是 `variant="outline"`，保持描边。
+                filled: true,
                 onTap: c.canCreate
                     ? () => c.createGroup(failText: t.t('group.createFailed'))
                     : null,
@@ -2789,6 +2796,8 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
               // 名字为空就点不动 —— React 的 `disabled={!editName}`。
               SmallButton(
                 label: t.t('action.save'),
+                // `GroupEditPanel.tsx:68` 没写 variant = 默认实心。
+                filled: true,
                 onTap: e.canSave
                     ? () => c.saveEdit(failText: t.t('group.saveFailed'))
                     : null,
@@ -2946,29 +2955,41 @@ class _NumField extends StatelessWidget {
   final String? hint;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TileMeta(label),
-        // 数字过滤 + 夹取 + ± / ↑↓ 步进都在 [NumberInput] 里（React 那边是
-        // `<input type="number" min max>` 自带的四样）。原先是普通文本框 +
-        // `tryParse ?? 0`：敲错一个字符，超时 / 重试次数静默变成 0。
-        NumberInput(
-          value: blankWhenZero && value == 0 ? '' : '$value',
-          hint: hint,
-          min: 0,
-          max: max,
-          onChanged: (v) {
-            final n = int.tryParse(v.trim());
-            if (n != null) onChanged(n);
-          },
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      // 布局照 [_Field]：标签左、输入右（`GroupEditPanel.tsx:76` 的两列 grid）。
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 96,
+            child: Text(
+              label,
+              style: AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
+          ),
+          const SizedBox(width: AidogSpace.ssm),
+          // 数字过滤 + 夹取 + ± / ↑↓ 步进都在 [NumberInput] 里（React 那边是
+          // `<input type="number" min max>` 自带的四样）。原先是普通文本框 +
+          // `tryParse ?? 0`：敲错一个字符，超时 / 重试次数静默变成 0。
+          Expanded(
+            child: NumberInput(
+              value: blankWhenZero && value == 0 ? '' : '$value',
+              hint: hint,
+              min: 0,
+              max: max,
+              onChanged: (v) {
+                final n = int.tryParse(v.trim());
+                if (n != null) onChanged(n);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /// 分组环境变量里的保留字：这几个键由 aidog 自己注入，用户再写一遍会互相覆盖。

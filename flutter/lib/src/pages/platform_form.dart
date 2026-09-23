@@ -355,13 +355,20 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
   Widget _mockSection(I18nController t) {
     final m = c.mockConfig;
+    // 数字型（`formSections.tsx` 那几处都是 `type="number" min=0`）：过滤 +
+    // 步进走 [NumberField]。原先是普通文本框 + `tryParse ?? 0`，敲错一个字符
+    // 整格静默变 0。
     Widget num1(String label, int value, ValueChanged<int> onChanged) =>
         Padding(
           padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-          child: PlatformField(
+          child: NumberField(
             label: label,
             value: '$value',
-            onChanged: (v) => onChanged(int.tryParse(v.trim()) ?? 0),
+            min: 0,
+            onChanged: (v) {
+              final n = int.tryParse(v.trim());
+              if (n != null) onChanged(n);
+            },
           ),
         );
     // 可选数值：留空 = null（透传给 Rust Option，禁塞 0 假装默认）。

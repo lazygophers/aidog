@@ -311,7 +311,10 @@ class _TextRowState extends State<TextRow> {
   }
 }
 
-/// 数字输入行。`parse` 由调用方给（各页的取整 / 钳位规则不同，不在这里假定）。
+/// 数字输入行：标签 + 说明 + [NumberInput]。
+///
+/// `parse` 由调用方给（各页的取整规则不同，不在这里假定）；夹取交给
+/// [NumberInput]，调用方不必再写 `max(0, ...)`。
 class NumberRow extends StatelessWidget {
   const NumberRow({
     super.key,
@@ -321,6 +324,9 @@ class NumberRow extends StatelessWidget {
     required this.onChanged,
     this.description,
     this.parse,
+    this.min = 0,
+    this.max,
+    this.step = 1,
   });
 
   final String label;
@@ -332,15 +338,37 @@ class NumberRow extends StatelessWidget {
   final ValueChanged<int>? onChanged;
   final int Function(String raw)? parse;
 
+  /// 见 [NumberInput.min]：默认 0，`0` 本身仍是合法值。
+  final num? min;
+  final num? max;
+  final num step;
+
   @override
-  Widget build(BuildContext context) => TextRow(
-    label: label,
-    labelIcon: labelIcon,
-    description: description,
-    value: '$value',
-    onSubmitted: onChanged == null
-        ? null
-        : (v) => onChanged!((parse ?? _default)(v)),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TileMeta(label, icon: labelIcon),
+        if (description != null && description!.isNotEmpty)
+          Text(
+            description!,
+            style: AidogType.micro.copyWith(
+              color: AidogTheme.of(context).c.fg3,
+            ),
+          ),
+        NumberInput(
+          value: '$value',
+          min: min,
+          max: max,
+          step: step,
+          onChanged: onChanged == null
+              ? null
+              : (v) => onChanged!((parse ?? _default)(v)),
+        ),
+      ],
+    ),
   );
 
   static int _default(String raw) => int.tryParse(raw.trim()) ?? 0;
