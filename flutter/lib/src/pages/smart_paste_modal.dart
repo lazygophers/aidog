@@ -285,6 +285,9 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
                 const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
                   label: t.t('platform.paste.apply'),
+                  // `SmartPasteModal.tsx:381` 没写 variant = 默认实心；
+                  // 同一行的「手动填写」「取消」都是 `variant="ghost"`。
+                  filled: true,
                   active: true,
                   onTap: _canApply ? _apply : null,
                 ),

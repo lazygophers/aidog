@@ -232,11 +232,15 @@ class _PlatformsPageState extends State<PlatformsPage> {
               if (widget.showGroups)
                 SmallButton(
                   label: '+ ${t.t('group.add')}',
+                  // `PlatformListView.tsx:118` 没写 variant = 默认实心。
+                  filled: true,
                   onTap: _openCreateGroup,
                 ),
               // 缺口清单「平台页缺口」#2：页头「+ 添加平台」。
               SmallButton(
                 label: '+ ${t.t('platform.add')}',
+                // `PlatformListView.tsx:121` 同上。
+                filled: true,
                 onTap: () => _form.openCreatePlatform(),
               ),
               // 破坏性动作排在两颗「添加」之后，并且弱化成 ghost

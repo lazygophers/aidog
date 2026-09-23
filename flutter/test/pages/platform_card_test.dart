@@ -2096,6 +2096,19 @@ void main() {
       return c;
     }
 
+    testWidgets('页头「添加平台」是实心，「清理失效」保持弱化', (tester) async {
+      // 判据是 React 各调用点的 variant：「添加平台」没写 variant = 默认实心
+      //（`PlatformListView.tsx:121`），「清理失效」是 `variant="ghost"`（`:124-125`）。
+      // 「添加分组」同为实心，但这个夹具 `showGroups: false`，页头上没有那颗。
+      final c = await mountPage(tester, cardFake());
+      SmallButton btn(String label) =>
+          tester.widget<SmallButton>(find.widgetWithText(SmallButton, label));
+      expect(btn('+ ${c.t('platform.add')}').filled, isTrue);
+      final purge = btn(c.t('platform.purgeDisabled'));
+      expect(purge.filled, isFalse);
+      expect(purge.ghost, isTrue);
+    });
+
     testWidgets('破坏性的「清理失效」排在两颗「添加」之后', (tester) async {
       final c = await mountPage(tester, cardFake());
       final addX = tester
