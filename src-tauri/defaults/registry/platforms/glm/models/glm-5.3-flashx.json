@@ -1,0 +1,24 @@
+{
+  "last_updated": 1790184041,
+  "model_id": "glm-5.3-flashx",
+  "canonical_model": "glm-5.3-flashx",
+  "family": "glm",
+  "version": "5.3",
+  "display_name": "GLM-5.3-FlashX",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 3.7e-07,
+    "output": 1.25e-06
+  }
+}
