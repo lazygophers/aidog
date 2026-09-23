@@ -119,21 +119,31 @@ class _LogsPageState extends State<LogsPage> {
                 ),
               // 刷新按钮（`ListView.tsx:70-72`）：原先主日志页只能等事件流推送，
               // 想立刻看一眼最新的没有任何入口。载入中禁用，防止连点堆查询。
+              // 三颗都是实心（React `variant="default"` ×2 + `destructive`，
+              // `ListView.tsx:70,75,78`）。
               SmallButton(
                 key: const ValueKey('logs-refresh'),
                 label: t.t('logs.refresh'),
+                filled: true,
                 onTap: _c.loading ? null : () => _c.load(),
               ),
-              SmallButton(
-                label: t.t('logs.cleanupExpired'),
-                onTap: () =>
-                    _c.cleanupExpired(doneText: t.t('logs.cleanupExpiredDone')),
-              ),
-              SmallButton(
-                label: t.t('logs.clear'),
-                danger: true,
-                onTap: () => setState(() => _c.showClearConfirm = true),
-              ),
+              // 一条日志都没有时这两颗不出现（`ListView.tsx:73`）：
+              // 没东西可清，摆两颗按钮在那儿只会让人以为清失败了。
+              if (_c.logs.isNotEmpty) ...[
+                SmallButton(
+                  label: t.t('logs.cleanupExpired'),
+                  filled: true,
+                  onTap: () => _c.cleanupExpired(
+                    doneText: t.t('logs.cleanupExpiredDone'),
+                  ),
+                ),
+                SmallButton(
+                  label: t.t('logs.clear'),
+                  danger: true,
+                  filled: true,
+                  onTap: () => setState(() => _c.showClearConfirm = true),
+                ),
+              ],
             ],
           ),
         ),

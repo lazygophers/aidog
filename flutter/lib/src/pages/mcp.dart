@@ -62,7 +62,13 @@ class _McpPageState extends State<McpPage> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SmallButton(label: t.t('mcp.add'), onTap: _c.openAdd),
-              SmallButton(label: t.t('mcp.scanImport'), onTap: _c.openScan),
+              // React 这颗没写 variant = 默认实心（`McpView.tsx:53-58`），
+              // 旁边三颗是 `variant="outline"`，保持描边。
+              SmallButton(
+                label: t.t('mcp.scanImport'),
+                filled: true,
+                onTap: _c.openScan,
+              ),
               SmallButton(
                 label: t.t('mcp.pasteImport'),
                 onTap: () => _c.setPasteOpen(true),
@@ -249,6 +255,8 @@ class _McpPageState extends State<McpPage> {
               ),
               const SizedBox(width: AidogSpace.ssm),
               SmallButton(
+                // 弹窗主按钮实心、取消描边（`McpModals.tsx:153-160`）。
+                filled: true,
                 label: _c.importing
                     ? t.t('mcp.importing')
                     : t.t('mcp.import', {'count': _c.selected.length}),
@@ -294,6 +302,7 @@ class _McpPageState extends State<McpPage> {
               ),
               const SizedBox(width: AidogSpace.ssm),
               SmallButton(
+                filled: true,
                 label: _c.pasteBusy
                     ? t.t('status.loading')
                     : t.t('action.confirm'),
@@ -432,6 +441,7 @@ class _McpPageState extends State<McpPage> {
                 SmallButton(label: t.t('action.cancel'), onTap: _c.closeEdit),
                 const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
+                  filled: true,
                   label: _c.busyKey != null
                       ? t.t('mcp.saving')
                       : t.t('action.save'),

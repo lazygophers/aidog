@@ -124,7 +124,9 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                 onTap: _c.refreshing ? null : _c.refreshInstalled,
               ),
               SmallButton(
+                // React 这颗没写 variant = 默认实心（`SkillsView.tsx:66-73`）。
                 label: t.t('skills.install.addBtn'),
+                filled: true,
                 onTap: _ready ? () => _c.setSubView('install') : null,
               ),
               // 这几颗按钮跑起来要几秒（都在写外部配置文件），忙碌时换文案，
@@ -152,7 +154,9 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                     : t.t('skills.uninstallSelected', {
                         'count': _c.selectedNames.length,
                       }),
+                // React `variant="destructive"`（`SkillsView.tsx:113`）= 实心红。
                 danger: true,
+                filled: true,
                 onTap: (_ready && _c.selectedNames.isNotEmpty)
                     ? _c.askUninstallBatch
                     : null,
@@ -162,6 +166,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                     ? t.t('skills.uninstalling')
                     : t.t('skills.uninstallAll'),
                 danger: true,
+                filled: true,
                 onTap: _ready ? _c.askUninstallAll : null,
               ),
             ],
@@ -685,8 +690,10 @@ class _SkillRow extends StatelessWidget {
                 ),
                 SmallButton(label: t.t('skills.share.title'), onTap: onShare),
                 SmallButton(
+                  // 单条卸载：React `variant="destructive"`（`SkillsView.tsx:567`）。
                   label: t.t('action.delete'),
                   danger: true,
+                  filled: true,
                   onTap: onUninstall,
                 ),
               ],
