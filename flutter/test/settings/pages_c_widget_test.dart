@@ -1830,11 +1830,12 @@ void main() {
         isTrue,
       );
 
-      // 应用前必须先确认。
+      // 与 React 对齐（`ImportExportTab.tsx:566-578`）：点「应用导入」直接执行，
+      // 没有二次确认卡。
       await tester.tap(find.byKey(const ValueKey('import-apply')));
       await settle(tester);
-      expect(find.byType(ConfirmCard), findsOneWidget);
-      expect(k.countOf('import_apply'), 0);
+      expect(find.byType(ConfirmCard), findsNothing);
+      expect(k.countOf('import_apply'), 1);
     });
 
     // 回归 2026-09-23：粘贴框原先 `maxLines: 4`，粘一份账号导出 JSON 只看得见
@@ -1869,7 +1870,6 @@ void main() {
           'import_apply': (_) => <String, Object?>{},
         },
       );
-      final i18n = await makeI18n(tester);
       await tester.tap(find.byKey(const ValueKey('import-pick')));
       await settle(tester);
 
@@ -1906,8 +1906,6 @@ void main() {
 
       // 发给后端的 selection 才是判据：折叠只是收起来，不等于取消勾选。
       await tester.tap(find.byKey(const ValueKey('import-apply')));
-      await settle(tester);
-      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '3'})));
       await settle(tester);
       final selection = k.lastArgsOf('import_apply')!['selection']! as List;
       expect(selection.length, 3);
@@ -1965,8 +1963,6 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('bulk-overwrite')));
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('import-apply')));
-      await settle(tester);
-      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '1'})));
       await settle(tester);
       final decisions = k.lastArgsOf('import_apply')!['decisions']! as List;
       expect((decisions.single as Map)['decision'], {'kind': 'overwrite'});
@@ -2046,7 +2042,6 @@ void main() {
           'import_apply': (_) => <String, Object?>{},
         },
       );
-      final i18n = await makeI18n(tester);
       await tester.tap(find.byKey(const ValueKey('import-pick')));
       await settle(tester);
 
@@ -2080,8 +2075,6 @@ void main() {
       await tester.enterText(input, 'p1-copy');
       await settle(tester);
       await tester.tap(find.byKey(const ValueKey('import-apply')));
-      await settle(tester);
-      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '1'})));
       await settle(tester);
 
       final decisions = k.lastArgsOf('import_apply')!['decisions']! as List;

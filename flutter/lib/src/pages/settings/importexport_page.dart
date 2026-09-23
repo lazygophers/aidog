@@ -99,9 +99,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
   /// sub2api 的粘贴文本。
   String _pasteText = '';
 
-  /// 应用导入前的确认卡。
-  bool _confirmApply = false;
-
   @override
   void initState() {
     super.initState();
@@ -474,19 +471,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ],
           ),
         ),
-        if (_confirmApply)
-          ConfirmCard(
-            title: t.t('importExport.applyBtn'),
-            body: t.t('importExport.importDesc'),
-            confirmLabel: t.t('importExport.applyN', {'n': _c.selected.length}),
-            busy: _c.busy,
-            onCancel: () => setState(() => _confirmApply = false),
-            onConfirm: () {
-              setState(() => _confirmApply = false);
-              final p = _importPath;
-              if (p != null) _c.applyImport(p);
-            },
-          ),
         if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
         if (_c.message.isNotEmpty)
           AutoToast(
@@ -601,12 +585,17 @@ class _ImportExportPageState extends State<ImportExportPage> {
             const SizedBox(width: AidogSpace.ssm),
             SmallButton(
               key: const ValueKey('import-apply'),
+              // 三态照抄 React（`ImportExportTab.tsx:566-578`）：跑着说「导入中」，
+              // 平时按钮上直接带会导几项。点了直接执行，没有二次确认卡。
               label: _c.busy
                   ? t.t('importExport.applying')
-                  : t.t('importExport.applyBtn'),
+                  : t.t('importExport.applyN', {'n': _c.selected.length}),
               // 冲突没定完 / 一项没选就点不动（`canApplyImport`）。
               onTap: _c.canApplyImport && _importPath != null
-                  ? () => setState(() => _confirmApply = true)
+                  ? () {
+                      final p = _importPath;
+                      if (p != null) _c.applyImport(p);
+                    }
                   : null,
             ),
           ],
@@ -1438,10 +1427,10 @@ class TileMetaLine extends StatelessWidget {
 /// 只认应用内部发起的拖拽，**收不到从 Finder / 资源管理器拖进来的系统文件**。
 /// 该包 Apache-2.0，与本仓库兼容；macOS / Windows / Linux 三端都有实现。
 ///
-/// 与 React 的一处**有意偏离**：React 在 dragenter 时会看拖的是不是 `.aidogx`，
-/// 不是就不高亮（`ImportExportTab.tsx:288`）。`desktop_drop` 的
-/// `DropEventDetails` 只带坐标不带文件列表（`drop_target.dart:49`），
-/// 进入阶段拿不到路径，所以这里一律高亮，到 drop 才判扩展名。
+/// 与 React 的一处**框架不可达偏离**：React 在 dragenter 时会看拖的是不是
+/// `.aidogx`，不是就不高亮（`ImportExportTab.tsx:288`）。desktop_drop 0.8.4 的
+/// `DropEventDetails` 只带坐标不带文件列表（`drop_target.dart:50-58`，包源码
+/// 已核），进入阶段拿不到路径，所以这里一律高亮，到 drop 才判扩展名。
 class _DropZone extends StatelessWidget {
   const _DropZone({
     required this.active,
