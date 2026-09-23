@@ -190,6 +190,8 @@ class TextRow extends StatefulWidget {
     this.description,
     this.hint,
     this.maxLines = 1,
+    this.minLines,
+    this.mono = false,
     this.obscure = false,
     this.trailing,
   });
@@ -215,6 +217,13 @@ class TextRow extends StatefulWidget {
   /// 不是 React 的行为，也不是用户想要的。
   final ValueChanged<String>? onEnter;
   final int maxLines;
+
+  /// 起始行数。不给就是「从一行起、随内容长到 [maxLines]」；
+  /// 粘贴整份 JSON 那种框要直接给出足够高度，从一行起等于逼人边粘边滚。
+  final int? minLines;
+
+  /// 等宽字。JSON / 命令这类内容缩进对不齐就看不出层级。
+  final bool mono;
   final bool obscure;
 
   @override
@@ -282,11 +291,12 @@ class _TextRowState extends State<TextRow> {
                   focusNode: _focus,
                   enabled: enabled,
                   maxLines: widget.obscure ? 1 : widget.maxLines,
-                  minLines: widget.maxLines == 1 ? null : 1,
+                  minLines: widget.maxLines == 1
+                      ? null
+                      : (widget.minLines ?? 1),
                   obscureText: widget.obscure,
-                  style: AidogType.micro.copyWith(
-                    color: enabled ? theme.c.fg : theme.c.fg3,
-                  ),
+                  style: (widget.mono ? AidogType.numSm : AidogType.micro)
+                      .copyWith(color: enabled ? theme.c.fg : theme.c.fg3),
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: widget.hint,
