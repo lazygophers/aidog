@@ -14,6 +14,7 @@ import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'filter_dropdown.dart';
+import 'mini_select.dart';
 import 'invoke.dart';
 import 'model_info_logic.dart';
 import 'ui_bits.dart';
@@ -157,14 +158,17 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
               // 一排裸时长读不出是什么，React 在它们前面写着「间隔」
               //（`SyncStatusCard.tsx:83`）。
               if (s.autoSyncEnabled) TileMeta(t.t('modelInfo.interval')),
+              // React 是窄下拉（`SyncStatusCard.tsx:87-100`），不是一排按钮。
               if (s.autoSyncEnabled)
-                for (final secs in kSyncIntervalOptions)
-                  SmallButton(
-                    label: ltr(_intervalLabel(secs)),
-                    active: s.syncIntervalSecs == secs,
-                    onTap: () =>
-                        _c.updateSettings(s.copyWith(syncIntervalSecs: secs)),
+                MiniSelect(
+                  key: const ValueKey('model-sync-interval'),
+                  value: '${s.syncIntervalSecs}',
+                  options: [for (final secs in kSyncIntervalOptions) '$secs'],
+                  labelOf: (v) => ltr(_intervalLabel(int.parse(v))),
+                  onChanged: (v) => _c.updateSettings(
+                    s.copyWith(syncIntervalSecs: int.parse(v!)),
                   ),
+                ),
             ],
           ),
           const SizedBox(height: AidogSpace.ssm),
@@ -422,12 +426,14 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
             ltr('$rangeStart–$rangeEnd / $total'),
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
-          for (final ps in kPageSizeOptions)
-            SmallButton(
-              label: ltr('$ps/page'),
-              active: _c.pageSize == ps,
-              onTap: () => _c.setPageSize(ps),
-            ),
+          // React 是窄下拉（`Pagination.tsx:56-66`）。
+          MiniSelect(
+            key: const ValueKey('model-page-size'),
+            value: '${_c.pageSize}',
+            options: [for (final ps in kPageSizeOptions) '$ps'],
+            labelOf: (v) => ltr('${int.parse(v)}/page'),
+            onChanged: (v) => _c.setPageSize(int.parse(v!)),
+          ),
           SmallButton(
             label: '⟪',
             onTap: _c.currentPage <= 1 ? null : () => _c.setPage(1),

@@ -26,7 +26,6 @@ Finder findStripped(CommonFinders find, String needle) =>
       description: 'text stripped of bidi isolates "$needle"',
     );
 
-
 Map<String, Object?> skill(
   String name, {
   List<String> agents = const [],
@@ -65,7 +64,11 @@ void main() {
       List<Map<String, Object?>>? items,
       Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
     }) {
-      final list = items ?? [skill('git-flow', agents: ['claude'])];
+      final list =
+          items ??
+          [
+            skill('git-flow', agents: ['claude']),
+          ];
       return FakeKernel({
         'skills_check_env': (_) => {'npx_available': npx},
         'skills_list_installed': (_) => cached(list),
@@ -318,7 +321,11 @@ void main() {
       List<Map<String, Object?>>? servers,
       Map<String, Object? Function(Map<String, Object?>?)> extra = const {},
     }) => FakeKernel({
-      'mcp_list': (_) => servers ?? [server('fs', agents: ['claude-code'])],
+      'mcp_list': (_) =>
+          servers ??
+          [
+            server('fs', agents: ['claude-code']),
+          ],
       ...extra,
     });
 
@@ -399,6 +406,19 @@ void main() {
         findsWidgets,
         reason: 'stdio 表单至少有 env 一处',
       );
+
+      // 键值行占位：key 一格写 KEY，value 一格写 ***（`Mcp/primitives.tsx:226-245`，
+      // React 的 value 占位就是 ***，不是 VALUE）。先加一行才看得见。
+      await tester.tap(find.text(c.t('mcp.addRow')).first);
+      await settle(tester);
+      expect(
+        tester.widget<KeptTextField>(find.byKey(const ValueKey('kv-k-0'))).hint,
+        'KEY',
+      );
+      expect(
+        tester.widget<KeptTextField>(find.byKey(const ValueKey('kv-v-0'))).hint,
+        '***',
+      );
     });
 
     // 回归 2026-09-23：粘贴导入框原先 `maxLines: 4`，粘一份 40 行的 mcpServers
@@ -429,7 +449,15 @@ void main() {
       await settle(tester);
       expect(find.byKey(const Key('mcp-command')), findsOneWidget);
       expect(find.byKey(const Key('mcp-url')), findsNothing);
-      await tester.tap(find.text('http'));
+      // 传输是下拉（对齐 React `McpModals.tsx:262-273`）：点开再选 http。
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('mcp-transport')),
+          matching: find.byWidgetPredicate((w) => w is DropdownButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('http').last);
       await settle(tester);
       expect(find.byKey(const Key('mcp-url')), findsOneWidget);
       expect(find.byKey(const Key('mcp-command')), findsNothing);
@@ -491,10 +519,15 @@ void main() {
       );
       expect(unsupported, findsOneWidget);
       expect(
-        tester.widget<AgentIconButton>(
-          // tooltip 在 AgentIconButton **里面**，所以按钮是它的祖先不是后代。
-          find.ancestor(of: unsupported, matching: find.byType(AgentIconButton)),
-        ).onTap,
+        tester
+            .widget<AgentIconButton>(
+              // tooltip 在 AgentIconButton **里面**，所以按钮是它的祖先不是后代。
+              find.ancestor(
+                of: unsupported,
+                matching: find.byType(AgentIconButton),
+              ),
+            )
+            .onTap,
         isNull,
         reason: '不支持的组合点不动',
       );
@@ -659,7 +692,10 @@ void main() {
         await useBigSurface(tester);
         await tester.pumpWidget(
           wrapPage(
-            AboutPage(invoke: fake().invoke, onCheckUpdate: () async => tapped++),
+            AboutPage(
+              invoke: fake().invoke,
+              onCheckUpdate: () async => tapped++,
+            ),
             c,
           ),
         );
@@ -800,9 +836,7 @@ void main() {
         'notification_inbox_list': (_) => <Object?>[],
         'notification_clear': (_) => null,
       });
-      await tester.pumpWidget(
-        wrapPage(NotificationsPage(invoke: k.invoke), c),
-      );
+      await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       expect(find.text(c.t('notif.inboxEmpty')), findsOneWidget);
       await tester.tap(find.text(c.t('notif.clear')));
@@ -819,9 +853,7 @@ void main() {
         ],
         'notification_clear': (_) => null,
       });
-      await tester.pumpWidget(
-        wrapPage(NotificationsPage(invoke: k.invoke), c),
-      );
+      await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       expect(
         find.text('任务好了 · ${c.t('notif.type.task_complete')}'),
@@ -847,9 +879,7 @@ void main() {
         'notification_inbox_list': (_) => [notif(1, title: 't')],
         'notification_clear': (_) => null,
       });
-      await tester.pumpWidget(
-        wrapPage(NotificationsPage(invoke: k.invoke), c),
-      );
+      await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       expect(find.byType(MiniBadge), findsOneWidget);
       // 左侧 2px accent 竖条。
@@ -874,9 +904,7 @@ void main() {
           return null;
         },
       });
-      await tester.pumpWidget(
-        wrapPage(NotificationsPage(invoke: k.invoke), c),
-      );
+      await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       await tester.tap(find.text(c.t('notif.clear')));
       await settle(tester);
@@ -894,7 +922,10 @@ void main() {
       });
       await tester.pumpWidget(
         wrapPage(
-          NotificationsPage(invoke: k.invoke, onNavigate: (id) => navigated = id),
+          NotificationsPage(
+            invoke: k.invoke,
+            onNavigate: (id) => navigated = id,
+          ),
           c,
         ),
       );
@@ -910,9 +941,7 @@ void main() {
         'notification_inbox_list': (_) => [notif(1, type: 'brand_new')],
         'notification_clear': (_) => null,
       });
-      await tester.pumpWidget(
-        wrapPage(NotificationsPage(invoke: k.invoke), c),
-      );
+      await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       // 标题位 + 徽标各一次。
       expect(find.text('brand_new'), findsNWidgets(2));
@@ -970,7 +999,9 @@ void main() {
     testWidgets('模型维度表：展示名 + 平台名 + 上下文 + 两列价格', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
       // 表格里印的是**统一模型名**（`canonical_model`），不是展示名 ——
       // `dc3421df` 起两侧同改（`ModelName.tsx` 删掉了「平台/请求名」那第二行）。
@@ -985,12 +1016,17 @@ void main() {
     testWidgets('能力筛选是一个下拉，不是十几颗平铺按钮', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
       // 收起态只有一个触发器写着「全部能力」，各能力名都收在弹层里。
       expect(find.text(c.t('modelInfo.allCapabilities')), findsOneWidget);
       expect(
-        find.widgetWithText(SmallButton, capabilityLabel(c.t, kCapabilities.first)),
+        find.widgetWithText(
+          SmallButton,
+          capabilityLabel(c.t, kCapabilities.first),
+        ),
         findsNothing,
       );
     });
@@ -1001,7 +1037,9 @@ void main() {
     testWidgets('「仅官方」点文字也能开关，且能再点回去', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
 
       AidogSwitch sw() => tester.widget<AidogSwitch>(
@@ -1026,7 +1064,9 @@ void main() {
     testWidgets('点一行开详情，再点关闭收起', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
       expect(find.text(c.t('modelInfo.requestName')), findsNothing);
       await tester.tap(find.text('glm-4.6').first);
@@ -1082,7 +1122,9 @@ void main() {
     testWidgets('切到平台维度：未选平台时给引导文案，选了才列条目', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('modelInfo.tabPlatforms')));
       await settle(tester);
@@ -1099,7 +1141,9 @@ void main() {
     testWidgets('搜索无结果时表里一行都没有', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await tester.pumpWidget(
+        wrapPage(ModelInfoPage(invoke: fake().invoke), c),
+      );
       await settle(tester);
       await tester.enterText(
         find.byKey(const Key('model-info-search')),
@@ -1149,14 +1193,12 @@ void main() {
     testWidgets('六个模式按钮都在；切到需要选模型的模式才出模型按钮', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      final k = FakeKernel({'model_test': (_) => const {'success': true}});
+      final k = FakeKernel({
+        'model_test': (_) => const {'success': true},
+      });
       await tester.pumpWidget(
         wrapPage(
-          ModelTestPanel(
-            invoke: k.invoke,
-            platform: platform,
-            onClose: () {},
-          ),
+          ModelTestPanel(invoke: k.invoke, platform: platform, onClose: () {}),
           c,
         ),
       );
@@ -1238,10 +1280,7 @@ void main() {
       expect(find.byKey(const Key('model-test-prompt')), findsNothing);
       await tester.tap(find.text(c.t('test.modeCustom')));
       await settle(tester);
-      await tester.enterText(
-        find.byKey(const Key('model-test-prompt')),
-        '你好',
-      );
+      await tester.enterText(find.byKey(const Key('model-test-prompt')), '你好');
       await tester.tap(find.text(c.t('test.run')));
       await settle(tester);
       expect((k.lastArgsOf('model_test')!['req'] as Map)['prompt'], '你好');
@@ -1251,7 +1290,9 @@ void main() {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
       var closed = false;
-      final k = FakeKernel({'model_test': (_) => const {'success': true}});
+      final k = FakeKernel({
+        'model_test': (_) => const {'success': true},
+      });
       await tester.pumpWidget(
         wrapPage(
           ModelTestPanel(

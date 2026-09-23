@@ -103,12 +103,12 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
               onChanged: (_) => _c.toggleTts(),
             ),
             if (s.ttsEnabled)
-              ChoiceRow(
+              SelectRow(
                 label: t.t('notif.ttsBackendLabel'),
                 options: kTtsBackends,
                 value: s.ttsBackend,
                 labelOf: (b) => tOr(t, 'notif.ttsBackend.$b', b),
-                onChanged: _c.setTtsBackend,
+                onChanged: (v) => _c.setTtsBackend(v!),
               ),
           ],
         ),

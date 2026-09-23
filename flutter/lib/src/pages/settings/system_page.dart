@@ -514,12 +514,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
         )
       else
-        ChoiceRow(
+        SelectRow(
           label: '',
           options: _kUnits.map((e) => e.wire).toList(),
           value: unit.wire,
           labelOf: (o) => t.t('unit.$o'),
-          onChanged: (v) => onUnit(RetentionUnit.parse(v)),
+          onChanged: (v) => onUnit(RetentionUnit.parse(v!)),
         ),
     ],
   );
@@ -537,12 +537,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         onChanged: (v) => _c.updateAppLogSettings(fileEnabled: v),
       ),
       if (_c.logFileEnabled) ...[
-        ChoiceRow(
+        SelectRow(
           label: t.t('appLog.level'),
           options: kAppLogLevels,
           value: _c.logLevel,
           labelOf: (o) => o.toUpperCase(),
-          onChanged: (v) => _c.updateAppLogSettings(level: v),
+          onChanged: (v) => _c.updateAppLogSettings(level: v!),
         ),
         NumberRow(
           label: _c.logRetHours == 0

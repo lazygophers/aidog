@@ -12,6 +12,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'mcp_logic.dart';
+import 'mini_select.dart';
 import 'platform_logo.dart' show AgentIconButton;
 import 'platform_card_bits.dart' show MiniBadge;
 import 'share_panel.dart';
@@ -350,6 +351,7 @@ class _McpPageState extends State<McpPage> {
                 child: KeptTextField(
                   key: ValueKey('kv-k-$i'),
                   value: rows[i].k,
+                  hint: 'KEY',
                   onChanged: (v) => rows[i].k = v,
                 ),
               ),
@@ -358,6 +360,7 @@ class _McpPageState extends State<McpPage> {
                 child: KeptTextField(
                   key: ValueKey('kv-v-$i'),
                   value: rows[i].v,
+                  hint: '***',
                   onChanged: (v) => rows[i].v = v,
                 ),
               ),
@@ -400,12 +403,13 @@ class _McpPageState extends State<McpPage> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 TileMeta(t.t('mcp.field.transport')),
-                for (final tr in const ['stdio', 'http', 'sse'])
-                  SmallButton(
-                    label: tr,
-                    active: f.transport == tr,
-                    onTap: () => setState(() => f.transport = tr),
-                  ),
+                // React 是 `Select` 下拉（`McpModals.tsx:262-273`）。
+                MiniSelect(
+                  key: const ValueKey('mcp-transport'),
+                  value: f.transport,
+                  options: const ['stdio', 'http', 'sse'],
+                  onChanged: (v) => setState(() => f.transport = v!),
+                ),
               ],
             ),
             const SizedBox(height: AidogSpace.ssm),
