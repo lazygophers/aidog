@@ -1550,6 +1550,71 @@ void main() {
       expect(models['default'], 'm');
     });
 
+    testWidgets('多选：批量覆盖模型 —— 在已有值中间插字符，光标留在插入处', (tester) async {
+      // 这条用例守的是「控制器不能造在 build 里」：那样写每敲一个字就换一个新
+      // 控制器并把光标按到末尾，于是只能往后追加，改不了中间的字。
+      // 所以断言的是**光标位置**，不是「字打进去了」—— 后者两种写法都过得了。
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.selectAll')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.batchOverrideModels')).last);
+      await settle(tester);
+
+      final slot = find.byKey(const ValueKey('batch-override-default'));
+      expect(slot, findsOneWidget);
+      await tester.enterText(slot, 'abc');
+      await settle(tester);
+
+      // 真实控制器实例：KeptTextField 把它收在 State 里，外面只能从
+      // EditableText 拿到。拿到了才能在「中间」落光标。
+      final editable = find.descendant(
+        of: slot,
+        matching: find.byType(EditableText),
+      );
+      final ctrl = tester.widget<EditableText>(editable).controller;
+      ctrl.selection = const TextSelection.collapsed(offset: 1);
+      await tester.pump();
+
+      // 输入法真正发过来的东西：文本 + 新光标位置。
+      tester.state<EditableTextState>(editable).updateEditingValue(
+        const TextEditingValue(
+          text: 'aXbc',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+      );
+      await settle(tester);
+
+      final after = tester.widget<EditableText>(editable).controller;
+      expect(after.text, 'aXbc', reason: '插进去的字要留在中间');
+      expect(
+        after.selection.baseOffset,
+        2,
+        reason: '光标要停在刚插入的字后面；跳到末尾 = 控制器又被重建了',
+      );
+
+      // 值确实进了提交载荷，不只是停在输入框里。
+      await tester.tap(
+        find.text(c.t('group.batchOverrideConfirm', {'count': '1'})),
+      );
+      await settle(tester);
+      final models =
+          k.lastCallTo('batch_override_models')!.args!['models']!
+              as Map<String, Object?>;
+      expect(models['default'], 'aXbc');
+    });
+
     testWidgets('多选：批量移组 —— 目标=当前组时不让确认，换一个组才发命令', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
