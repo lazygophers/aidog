@@ -105,6 +105,60 @@ class AidogTheme extends ThemeExtension<AidogTheme> {
       t < 0.5 ? this : (other as AidogTheme? ?? this);
 }
 
+/// 窗口底的主色光晕，对齐 React 的 `--app-bg-overlay`（`src/themes/mono.ts:41-46`）。
+///
+/// React 那边是几层 CSS `radial-gradient` 叠在 `bg` 之上；色值**从 accent 派生**
+/// （token 表没有单独的 overlay 色，两侧都这么做，不写第二份字面色）。
+/// 没有这层的话 Flutter 的窗口底是一块纯色，与 React 并排一眼能看出不一样。
+///
+/// CSS 的 `radial-gradient(<rx> <ry> at <x> <y>, …)` 画的是**椭圆**，
+/// Flutter 的 [RadialGradient] 是正圆（半径按短边取比例）。这里用
+/// `GradientTransform` 把圆按 rx/ry 的比例拉成椭圆，位置 / 透明度 / 收口百分比
+/// 逐个照抄，不做「差不多就行」的近似。
+List<Gradient> bgOverlays(AidogColors c) {
+  final mode = c == AidogColors.dark;
+  // (rx, ry, x, y, alpha, 收口停点)：数值与 mono.ts 一一对应。
+  const dark = [
+    (0.80, 0.50, 0.50, -0.12, 0.10, 0.60),
+    (0.56, 0.42, 0.10, 0.20, 0.06, 0.58),
+  ];
+  const light = [
+    (0.72, 0.52, 0.50, -0.10, 0.10, 0.62),
+    (0.52, 0.44, 0.92, 0.08, 0.08, 0.60),
+    (0.60, 0.50, 0.06, 1.00, 0.06, 0.64),
+  ];
+  return [
+    for (final (rx, ry, x, y, a, stop) in mode ? dark : light)
+      RadialGradient(
+        // CSS 的百分比位置（0%~100%）映射到 Flutter 的 Alignment（-1~1）。
+        center: Alignment(x * 2 - 1, y * 2 - 1),
+        radius: rx,
+        colors: [c.accent.withValues(alpha: a), c.accent.withValues(alpha: 0)],
+        stops: [0, stop],
+        transform: _EllipseY(ry / rx),
+      ),
+  ];
+}
+
+/// 把正圆渐变在 Y 轴上压扁成椭圆（CSS 的 `<rx> <ry>` 两个半径）。
+@immutable
+class _EllipseY extends GradientTransform {
+  const _EllipseY(this.ratio);
+
+  /// ry / rx。1 = 正圆。
+  final double ratio;
+
+  @override
+  Matrix4? transform(Rect bounds, {TextDirection? textDirection}) {
+    // 绕渐变中心缩放，否则压扁会把中心一起挪走。
+    final cy = bounds.center.dy;
+    return Matrix4.identity()
+      ..translateByDouble(0.0, cy, 0.0, 1.0)
+      ..scaleByDouble(1.0, ratio, 1.0, 1.0)
+      ..translateByDouble(0.0, -cy, 0.0, 1.0);
+  }
+}
+
 /// Material 的 ThemeData 只是宿主：真正的绘制属性全在 AidogTheme 扩展里。
 ThemeData aidogThemeData(AidogMode mode) {
   final ext = AidogTheme.forMode(mode);

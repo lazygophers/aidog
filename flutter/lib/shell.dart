@@ -42,6 +42,7 @@ export 'src/shell/theme.dart'
         AidogType,
         ThemeController,
         aidogThemeData,
+        bgOverlays,
         parseShadow;
 export 'src/shell/tiles.dart'
     show

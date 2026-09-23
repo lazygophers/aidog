@@ -110,4 +110,47 @@ void main() {
       }
     });
   });
+
+  // React 的窗口底不是纯色：`--app-bg-overlay` 叠了两到三层从 accent 派生的
+  // radial-gradient（`src/themes/mono.ts:41-46`）。Flutter 少了这层时，两版并排
+  // 最先被看出来的就是「一个偏亮带主色晕、一个死黑」。
+  group('窗口底的主色光晕', () {
+    test('深色两层、浅色三层，层数与 mono.ts 一一对应', () {
+      expect(bgOverlays(AidogColors.dark).length, 2);
+      expect(bgOverlays(AidogColors.light).length, 3);
+    });
+
+    test('颜色从 accent 派生，收口到全透明，不写第二份字面色', () {
+      for (final c in [AidogColors.dark, AidogColors.light]) {
+        for (final g in bgOverlays(c).cast<RadialGradient>()) {
+          expect(g.colors.first.r, c.accent.r);
+          expect(g.colors.first.g, c.accent.g);
+          expect(g.colors.first.b, c.accent.b);
+          expect(g.colors.first.a, greaterThan(0));
+          expect(g.colors.last.a, 0, reason: '外圈必须收到全透明，否则整页会被糊上一层');
+        }
+      }
+    });
+
+    test('第一层的位置与透明度照抄 mono.ts 的第一条', () {
+      // dark: radial-gradient(80% 50% at 50% -12%, rgba(accent,.10), transparent 60%)
+      final g = bgOverlays(AidogColors.dark).first as RadialGradient;
+      expect(g.center, const Alignment(0, -1.24)); // 50% → 0；-12% → -1.24
+      expect(g.radius, 0.80);
+      expect(g.stops, [0, 0.60]);
+      expect((g.colors.first.a * 100).round(), 10);
+    });
+
+    test('椭圆变换按 ry/rx 压扁，且绕渐变中心缩放（不把中心挪走）', () {
+      final g = bgOverlays(AidogColors.dark).first as RadialGradient;
+      const bounds = Rect.fromLTWH(0, 0, 100, 200);
+      final m = g.transform!.transform(bounds)!;
+      // 中心点（y=100）经变换后不动。
+      final moved = MatrixUtils.transformPoint(m, bounds.center);
+      expect(moved.dy, closeTo(bounds.center.dy, 0.001));
+      // 顶边被按 0.5/0.8 压向中心。
+      final top = MatrixUtils.transformPoint(m, Offset(bounds.center.dx, 0));
+      expect(top.dy, closeTo(100 - 100 * (0.50 / 0.80), 0.001));
+    });
+  });
 }

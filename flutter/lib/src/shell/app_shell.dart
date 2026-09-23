@@ -254,6 +254,40 @@ class _StickyHeaderDelegate extends SliverPersistentHeaderDelegate {
       old.child != child || old.background != background;
 }
 
+/// 窗口底：纯色 + 主色光晕。
+///
+/// 对齐 React 的 `--app-bg-overlay`（`src/themes/mono.ts:41-46`）：底色之上再叠
+/// 两到三层从 accent 派生的 radial-gradient。原先这里只有一层 `ColoredBox`，
+/// 于是 Flutter 的窗口底是一块纯色，而 React 顶部偏亮带主色晕 —— 两版并排时
+/// 这是最先被看出来的一处差别。
+///
+/// 画在骨架这一层，不在各页里各画一次：它是窗口底，不属于任何一页。
+class _WindowBackground extends StatelessWidget {
+  const _WindowBackground({required this.theme, required this.child});
+
+  final AidogTheme theme;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final overlays = bgOverlays(theme.c);
+    return ColoredBox(
+      color: theme.c.bg,
+      child: Stack(
+        children: [
+          for (final g in overlays)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: DecoratedBox(decoration: BoxDecoration(gradient: g)),
+              ),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
 class _AppShellState extends State<AppShell> {
   late bool _collapsed = widget.initialCollapsed;
 
@@ -272,8 +306,8 @@ class _AppShellState extends State<AppShell> {
     return AnimatedBuilder(
       animation: Listenable.merge([widget.controller, widget.theme]),
       builder: (context, _) {
-        return ColoredBox(
-          color: t.c.bg,
+        return _WindowBackground(
+          theme: t,
           // 整个骨架统一给一层 Material（Scaffold 干的就是这件事，而这里自绘不走 Scaffold）。
           // 少了它，顶栏与侧栏的每一行文字都会被 Flutter 画上「缺 Material 祖先」的黄色下划线
           // —— 页面区之前单独包过一层，所以只有那一块是干净的，看起来像设计差异，其实是缺层。
