@@ -8,6 +8,7 @@ library;
 
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/shell.dart';
+
 import 'dart:ui' show Canvas, PictureRecorder;
 
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
@@ -17,9 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   testWidgets('Reveal：延迟到点前透明，到点后淡入到位', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Reveal(delayMs: 120, child: Text('x')),
-      ),
+      const MaterialApp(home: Reveal(delayMs: 120, child: Text('x'))),
     );
     expect(
       tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
@@ -50,7 +49,9 @@ void main() {
   testWidgets('HoverLift：指针进入上移，移出复位', (tester) async {
     // 用 Center 把 child 固定成一小块，好让指针能真的移到它外面。
     await tester.pumpWidget(
-      const MaterialApp(home: Center(child: HoverLift(child: Text('x')))),
+      const MaterialApp(
+        home: Center(child: HoverLift(child: Text('x'))),
+      ),
     );
     Offset offsetNow() =>
         tester.widget<AnimatedSlide>(find.byType(AnimatedSlide)).offset;
@@ -121,7 +122,9 @@ void main() {
 
   // React 的 `<Button>` 默认变体是实心的（`ui/button.tsx:14-16`）。Flutter 这边
   // 原先只有描边一种，主动作（「+ 添加平台」这类）两版长得完全不是一个东西。
-  testWidgets('SmallButton filled：底色是 accent，文字是浅色，边是 accentEdge', (tester) async {
+  testWidgets('SmallButton filled：底色是 accent，文字是浅色，边是 accentEdge', (
+    tester,
+  ) async {
     Widget button({required bool filled, bool danger = false}) => MaterialApp(
       theme: aidogThemeData(AidogMode.dark),
       home: Scaffold(
@@ -162,11 +165,52 @@ void main() {
     expect(materialOf(tester).color, AidogColors.dark.bad);
   });
 
+  // 胶囊多选（分组归属那种）选中与未选中只差一圈边和一点底色；深色下 accent 是
+  // 近黑，边用 accent 等于没画，底色白 6% 又到不了 3:1 —— 两者都失效就分不出选没选。
+  testWidgets('pill 选中态的边是 accentEdge，不是近黑的 accent', (tester) async {
+    Widget button({required bool active}) => MaterialApp(
+      theme: aidogThemeData(AidogMode.dark),
+      home: Scaffold(
+        body: Center(
+          child: SmallButton(
+            label: 'x',
+            pill: true,
+            active: active,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    Color edgeOf(WidgetTester t) =>
+        ((t
+                    .widget<Material>(
+                      find
+                          .ancestor(
+                            of: find.text('x'),
+                            matching: find.byType(Material),
+                          )
+                          .first,
+                    )
+                    .shape!
+                as RoundedRectangleBorder)
+            .side
+            .color);
+
+    await tester.pumpWidget(button(active: false));
+    expect(edgeOf(tester), AidogColors.dark.line);
+
+    await tester.pumpWidget(button(active: true));
+    await tester.pumpAndSettle();
+    expect(edgeOf(tester), AidogColors.dark.accentEdge);
+  });
+
   testWidgets('pill 态切换走 200ms 过渡，普通态不拖泥带水', (tester) async {
     Widget button({required bool pill}) => MaterialApp(
       theme: aidogThemeData(AidogMode.dark),
       home: Scaffold(
-        body: Center(child: SmallButton(label: 'x', pill: pill, onTap: () {})),
+        body: Center(
+          child: SmallButton(label: 'x', pill: pill, onTap: () {}),
+        ),
       ),
     );
     await tester.pumpWidget(button(pill: true));
@@ -188,7 +232,10 @@ void main() {
     final recorder = PictureRecorder();
     final canvas = Canvas(recorder);
     var segments = 0;
-    painter.paint(_CountingCanvas(canvas, () => segments++), const Size(100, 40));
+    painter.paint(
+      _CountingCanvas(canvas, () => segments++),
+      const Size(100, 40),
+    );
     expect(segments, greaterThan(1));
   });
 }
