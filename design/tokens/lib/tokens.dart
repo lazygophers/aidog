@@ -63,7 +63,7 @@ class AidogColors {
     fg: Color(0xFFF7F8F8),
     fg2: Color(0xFF9BA1A6),
     fg3: Color(0xFF62676C),
-    accent: Color(0xFF5E6AD2),
+    accent: Color(0xFF101012),
     accentText: Color(0xFF8A91E8),
     accentWash: Color(0x295E6AD2),
     ok: Color(0xFF4CB782),
