@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790186874,
   "model_id": "ali/qwen3.5-plus",
   "canonical_model": "qwen3.5-plus",
   "capabilities": [
@@ -8,10 +8,10 @@
   ],
   "official": true,
   "price": {
-    "input": 1.11111e-07,
-    "output": 6.66667e-07
+    "input": 2.7777777777777776e-07,
+    "output": 4.1666666666666667e-07
   },
   "max_input_tokens": 1000000,
-  "max_output_tokens": 64000,
-  "context_window": 1000000
+  "max_output_tokens": 8000,
+  "context_window": 128000
 }

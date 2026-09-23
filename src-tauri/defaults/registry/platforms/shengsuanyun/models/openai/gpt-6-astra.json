@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "openai/gpt-6-astra",
   "canonical_model": "gpt-6-astra",
   "thinking_supported": true,
@@ -12,10 +12,10 @@
   ],
   "official": false,
   "price": {
-    "input": 9.72222222222,
+    "input": 9.722222222222221e-06,
     "output": 48.61111111111,
     "cache_read": 0.97222222222
   },
   "max_output_tokens": 128000,
-  "context_window": 1050000
+  "context_window": 400000
 }

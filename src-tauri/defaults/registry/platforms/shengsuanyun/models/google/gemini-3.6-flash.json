@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "google/gemini-3.6-flash",
   "canonical_model": "gemini-3.6-flash",
   "thinking_supported": true,
@@ -11,9 +11,9 @@
   ],
   "official": true,
   "price": {
-    "input": 1.45833e-06,
-    "output": 7.29167e-06,
-    "cache_read": 1.45833e-07
+    "input": 7.291666666666666e-07,
+    "output": 3.6458333333333333e-06,
+    "cache_read": 7.361111111111111e-08
   },
   "max_input_tokens": 1048576,
   "max_output_tokens": 65535,

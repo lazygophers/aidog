@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "anthropic/claude-sonnet-5",
   "canonical_model": "claude-sonnet-5",
   "family": "claude",
@@ -11,8 +11,8 @@
   ],
   "official": true,
   "price": {
-    "input": 2.91667e-06,
-    "output": 1.45833e-05
+    "input": 1.9444444444444444e-06,
+    "output": 9.722222222222223e-06
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 64000,

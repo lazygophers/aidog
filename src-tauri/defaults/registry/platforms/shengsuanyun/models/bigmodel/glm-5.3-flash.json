@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "bigmodel/glm-5.3-flash",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",
@@ -14,9 +14,9 @@
   ],
   "official": true,
   "price": {
-    "input": 5.55556e-08,
-    "output": 1.94444e-07,
-    "cache_read": 1.66667e-08
+    "input": 1.1111111111111112e-07,
+    "output": 3.8888888888888884e-07,
+    "cache_read": 3.194444444444445e-08
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 128000,

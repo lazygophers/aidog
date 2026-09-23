@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "ali/qwen3.8-max-0902",
   "canonical_model": "qwen3.8-max-2026-09-02",
   "thinking_supported": true,
@@ -13,11 +13,11 @@
   ],
   "official": true,
   "price": {
-    "input": 1.66666666667,
+    "input": 1.6666666666666667e-06,
     "output": 5.0,
     "cache_read": 0.20833333333
   },
   "max_input_tokens": 991808,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 128000,
   "context_window": 1000000
 }

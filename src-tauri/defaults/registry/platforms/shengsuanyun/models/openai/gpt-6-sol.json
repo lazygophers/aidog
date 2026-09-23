@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790186874,
+  "model_id": "openai/gpt-6-sol",
+  "canonical_model": "gpt-6-sol",
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.9444444444444444e-06,
+    "output": 9.722222222222223e-06,
+    "cache_read": 1.9444444444444442e-07
+  },
+  "context_window": 1000000,
+  "max_output_tokens": 128000
+}

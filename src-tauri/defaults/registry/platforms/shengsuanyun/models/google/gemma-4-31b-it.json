@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "google/gemma-4-31b-it",
   "canonical_model": "gemma-4-31b-it",
   "thinking_supported": true,
@@ -10,9 +10,9 @@
   ],
   "official": false,
   "price": {
-    "input": 1.66667e-08,
-    "output": 4.86111e-08,
-    "cache_read": 8.33333e-09
+    "input": 1.4166666666666668e-07,
+    "output": 4.2638888888888885e-07,
+    "cache_read": 7.500000000000001e-08
   },
   "max_input_tokens": 1048576,
   "max_output_tokens": 65535,

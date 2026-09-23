@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790186874,
   "model_id": "deepseek/deepseek-r1-0528",
   "canonical_model": "deepseek-r1-0528",
   "capabilities": [
@@ -7,8 +7,8 @@
   ],
   "official": false,
   "price": {
-    "input": 2.77778e-07,
-    "output": 4.16667e-07,
+    "input": 5.555555555555555e-07,
+    "output": 1.6666666666666667e-06,
     "cache_read": 2.77778e-08
   },
   "max_input_tokens": 128000,

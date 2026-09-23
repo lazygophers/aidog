@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790186874,
   "model_id": "anthropic/claude-fable-5.1",
   "canonical_model": "claude-fable-5-1",
   "predecessor": "claude-fable-5",
@@ -11,7 +11,7 @@
   ],
   "official": false,
   "price": {
-    "input": 9.72222222222,
+    "input": 9.722222222222221e-06,
     "output": 48.61111111111,
     "cache_read": 0.24305555556
   },
