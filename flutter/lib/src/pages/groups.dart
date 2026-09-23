@@ -3316,6 +3316,11 @@ class GroupIcon extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         color: auto ? theme.c.surface2 : theme.c.accentWash,
+        // 两档原先只差一层很淡的底色（深色强调色改近黑之后是 1.05:1 与 1.15:1，
+        // 肉眼分不出）。补一圈边把区分放回来：手建组用 accentEdge 的亮边
+        //（压在表面上 3.11:1），自动建的组用普通 line。
+        // 用户 2026-09-23 明确要求保住这个区分。React 同处同改。
+        border: Border.all(color: auto ? theme.c.line : theme.c.accentEdge),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
       child: Text(

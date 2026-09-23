@@ -13,6 +13,7 @@ import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/shell.dart' show AidogColors;
 import 'package:aidog_flutter/utils/formatters.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -234,9 +235,7 @@ void main() {
     testWidgets('表头有「原始模型」列；重试与流式各自挂徽标', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
-      final k = logsFake(
-        items: [logRow('a1', isStream: true, retryCount: 3)],
-      );
+      final k = logsFake(items: [logRow('a1', isStream: true, retryCount: 3)]);
       await tester.pumpWidget(wrapPage(LogsPage(invoke: k.fn), c));
       await settle(tester);
       expect(find.text(c.t('logs.model')), findsWidgets, reason: '表头缺这一列');
@@ -882,7 +881,10 @@ void main() {
       await tester.pump();
       expect(find.text('坏平台'), findsOneWidget, reason: '执行中取消也点不动');
 
-      run.complete({'deletedIds': <Object?>[2], 'unassignedIds': <Object?>[]});
+      run.complete({
+        'deletedIds': <Object?>[2],
+        'unassignedIds': <Object?>[],
+      });
       await settle(tester);
       expect(find.text('坏平台'), findsNothing);
     });
@@ -964,9 +966,7 @@ void main() {
       final handles = find.byTooltip(c.t('group.dragPlatform'));
       expect(handles, findsNWidgets(2));
       final firstRowTop = tester.getTopLeft(find.text('P1')).dy;
-      final gesture = await tester.startGesture(
-        tester.getCenter(handles.last),
-      );
+      final gesture = await tester.startGesture(tester.getCenter(handles.last));
       await tester.pump(const Duration(milliseconds: 150));
       await gesture.moveTo(
         Offset(tester.getCenter(find.text('P1')).dx, firstRowTop + 4),
@@ -981,11 +981,15 @@ void main() {
 
       await gesture.up();
       await settle(tester);
+      expect(k.lastCallTo('group_platform_reorder')!.args!['orderedIds'], [
+        2,
+        1,
+      ]);
       expect(
-        k.lastCallTo('group_platform_reorder')!.args!['orderedIds'],
-        [2, 1],
+        find.byWidgetPredicate(_isDropLine),
+        findsNothing,
+        reason: '松手后线要收掉',
       );
-      expect(find.byWidgetPredicate(_isDropLine), findsNothing, reason: '松手后线要收掉');
     });
 
     testWidgets('滚到底自动拉下一页，「加载更多」按钮作为兜底仍在', (tester) async {
@@ -1001,7 +1005,11 @@ void main() {
         return [
           for (var i = 0; i < 12; i++)
             {
-              'group': {'id': base + i, 'name': 'G${base + i}', 'group_key': 'gk${base + i}'},
+              'group': {
+                'id': base + i,
+                'name': 'G${base + i}',
+                'group_key': 'gk${base + i}',
+              },
               'platforms': <Object?>[],
               'model_mappings': <Object?>[],
             },
@@ -1073,10 +1081,7 @@ void main() {
       await settle(tester);
 
       // 页头四颗 + 密钥行一颗。
-      expect(
-        find.byTooltip(c.t('group.copyApiKeyTitle')),
-        findsNWidgets(2),
-      );
+      expect(find.byTooltip(c.t('group.copyApiKeyTitle')), findsNWidgets(2));
       await tester.tap(find.text(c.t('action.copy')));
       await tester.pump();
       expect(copied.single, 'gk10');
@@ -1145,7 +1150,10 @@ void main() {
             final d = w.decoration;
             return d is BoxDecoration && d.border != null;
           })
-          .map((w) => ((w.decoration! as BoxDecoration).border! as Border).top.color)
+          .map(
+            (w) =>
+                ((w.decoration! as BoxDecoration).border! as Border).top.color,
+          )
           .toSet();
       expect(borders.length, greaterThan(1), reason: '保留字行与普通行描边不同色');
     });
@@ -1399,7 +1407,9 @@ void main() {
       await tester.testTextInput.receiveAction(TextInputAction.done);
       await settle(tester);
       expect(
-        k.lastCallTo('group_platform_set_level_priority')!.args!['levelPriority'],
+        k
+            .lastCallTo('group_platform_set_level_priority')!
+            .args!['levelPriority'],
         10,
       );
     });
@@ -1612,12 +1622,14 @@ void main() {
       await tester.pump();
 
       // 输入法真正发过来的东西：文本 + 新光标位置。
-      tester.state<EditableTextState>(editable).updateEditingValue(
-        const TextEditingValue(
-          text: 'aXbc',
-          selection: TextSelection.collapsed(offset: 2),
-        ),
-      );
+      tester
+          .state<EditableTextState>(editable)
+          .updateEditingValue(
+            const TextEditingValue(
+              text: 'aXbc',
+              selection: TextSelection.collapsed(offset: 2),
+            ),
+          );
       await settle(tester);
 
       final after = tester.widget<EditableText>(editable).controller;
@@ -2352,6 +2364,85 @@ void main() {
       );
       await settle(tester);
       expect(find.text('生产分'), findsOneWidget);
+    });
+
+    // 用户 2026-09-23：自动建的组与手建的组要看得出区别。原先两档只差一层很淡的
+    // 底色（深色强调色改近黑之后 1.05:1 / 1.15:1，肉眼分不出），现在靠一圈边区分。
+    testWidgets('分组图标：手建组用 accentEdge 的亮边，自动建的组用普通 line', (tester) async {
+      Future<Color> edgeOf(WidgetTester tester, {required bool auto}) async {
+        await useBigSurface(tester);
+        final k = groupsFake(
+          page: [
+            {
+              'group': {
+                'id': 10,
+                'name': '生产分组',
+                'group_key': 'gk10',
+                if (auto) 'auto_from_platform': 'openai',
+              },
+              'platforms': [
+                {'platform': plat(1, 'P1')},
+                {'platform': plat(2, 'P2')},
+              ],
+              'model_mappings': <Object?>[],
+            },
+          ],
+        );
+        final c = await makeI18n(tester);
+        await tester.pumpWidget(
+          wrapPage(
+            GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+            c,
+          ),
+        );
+        await settle(tester);
+        final box = tester.widget<Container>(
+          find
+              .ancestor(of: find.text('生产分'), matching: find.byType(Container))
+              .first,
+        );
+        return ((box.decoration! as BoxDecoration).border! as Border).top.color;
+      }
+
+      expect(await edgeOf(tester, auto: false), AidogColors.dark.accentEdge);
+    });
+
+    testWidgets('分组图标：自动建的组那一圈是普通 line', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake(
+        page: [
+          {
+            'group': {
+              'id': 10,
+              'name': '生产分组',
+              'group_key': 'gk10',
+              'auto_from_platform': 'openai',
+            },
+            'platforms': [
+              {'platform': plat(1, 'P1')},
+              {'platform': plat(2, 'P2')},
+            ],
+            'model_mappings': <Object?>[],
+          },
+        ],
+      );
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      final box = tester.widget<Container>(
+        find
+            .ancestor(of: find.text('生产分'), matching: find.byType(Container))
+            .first,
+      );
+      expect(
+        ((box.decoration! as BoxDecoration).border! as Border).top.color,
+        AidogColors.dark.line,
+      );
     });
 
     testWidgets('分组卡的「清理失效」：先预览再确认，命令带上本组 id', (tester) async {

@@ -73,6 +73,9 @@ function vars(mode: ThemeMode): Record<string, string> {
     "--destructive": c.bad,
     "--destructive-foreground": mode === "dark" ? c.fg : c.surface,
     "--border": c.line,
+    // accent 面的亮描边（token `accent-edge`）。深色强调色是近黑时，accent 自己
+    // 画不出边界（对表面 1.01:1），凡是「靠一圈边表达状态」的地方都要改用它。
+    "--accent-edge": c["accent-edge"],
     "--input": c["line-strong"],
     // 焦点环 = 主色带透明度，token 表里就是 live-edge（活着的格子的边）。
     "--ring": c["live-edge"],
