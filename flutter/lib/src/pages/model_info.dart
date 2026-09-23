@@ -308,10 +308,34 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                 FilterOption(value: cap, label: capabilityLabel(t.t, cap)),
             ],
           ),
-          Switch(value: _c.officialOnly, onChanged: _c.setOfficialOnly),
-          Text(
-            t.t('modelInfo.officialOnly'),
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          // 开关与文字是同一个点击区（React 把两者包在一个 `<label>` 里，
+          // `ModelInfoTab.tsx:246-249`）：原先点文字没反应，想关掉「仅官方」
+          // 只能精准点那个小滑块。控件也换成全应用统一的 [AidogSwitch]，
+          // 这里原先是 Material 默认样式的 `Switch`，与其余开关长得不一样。
+          InkWell(
+            key: const ValueKey('model-info-official-only'),
+            onTap: () => _c.setOfficialOnly(!_c.officialOnly),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.sxs,
+                vertical: 2,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AidogSwitch(
+                    value: _c.officialOnly,
+                    onChanged: () => _c.setOfficialOnly(!_c.officialOnly),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  Text(
+                    t.t('modelInfo.officialOnly'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg2),
+                  ),
+                ],
+              ),
+            ),
           ),
           // 「清除筛选」只在真有筛选时才出现。
           if (_c.hasFilter)
