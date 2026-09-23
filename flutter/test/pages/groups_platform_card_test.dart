@@ -97,25 +97,21 @@ void main() {
     expect(find.byTooltip(c.t('page.logs')), findsNWidgets(3));
   });
 
-  testWidgets('组内控件保留：上下移、优先级加减、移除', (tester) async {
+  testWidgets('组内控件保留：优先级加减、移除', (tester) async {
     final k = pageFake();
     final c = await mount(tester, k);
 
-    // 上下移：第一行的「上移」禁用、第二行的「下移」禁用，中间两颗可点。
-    // 按图标找而不是按 tooltip —— `group.dragToReorder` 这个 key 被分组卡自己的
-    // 拖拽把手（`groups.dart:493`）共用，按 tooltip 找会多命中它一个。
-    final ups = find.widgetWithIcon(IconButton, Icons.arrow_upward);
-    final downs = find.widgetWithIcon(IconButton, Icons.arrow_downward);
-    expect(ups, findsNWidgets(2));
-    expect(downs, findsNWidgets(2));
-    final upBtns = tester.widgetList<IconButton>(ups).toList();
-    final downBtns = tester.widgetList<IconButton>(downs).toList();
-    expect(upBtns[0].onPressed, isNull, reason: '第一行不能再上移');
-    expect(upBtns[1].onPressed, isNotNull);
-    expect(downBtns[0].onPressed, isNotNull);
-    expect(downBtns[1].onPressed, isNull, reason: '最后一行不能再下移');
+    // 上下移按钮已随拖拽删除（2026-09-24，React 没有）——列表区不该再出现。
+    expect(
+      find.widgetWithIcon(IconButton, Icons.arrow_upward),
+      findsNothing,
+    );
+    expect(
+      find.widgetWithIcon(IconButton, Icons.arrow_downward),
+      findsNothing,
+    );
 
-    // 优先级加减：点一下「+」发命令。
+    // 优先级加减（行 1.5，在卡内）：点一下「+」发命令。
     final up = find.byTooltip(c.t('group.levelPriorityUp'));
     expect(up, findsNWidgets(2));
     await tester.tap(up.first);

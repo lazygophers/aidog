@@ -977,9 +977,10 @@ void main() {
         ),
       );
       await settle(tester);
-      // 上下移按钮仍在：它是键盘可达的那条路，不能因为有了拖拽就删掉。
-      expect(find.byIcon(Icons.arrow_upward), findsWidgets);
-      expect(find.byIcon(Icons.arrow_downward), findsWidgets);
+      // 上下移按钮已随拖拽删除（React 没有）。
+      expect(find.byIcon(Icons.arrow_upward), findsNothing);
+      expect(find.byIcon(Icons.arrow_downward), findsNothing);
+      expect(find.byIcon(Icons.drive_file_move_outline), findsNothing);
 
       // 按住第二行的把手，拖到第一行的上半部分。
       final handles = find.byTooltip(c.t('group.dragPlatform'));
@@ -1801,7 +1802,7 @@ void main() {
       expect(find.text('7'), findsOneWidget);
     });
 
-    testWidgets('把平台移到另一个分组 → group_platform_move', (tester) async {
+    testWidgets('跨组拖：P1 落到 G11 的行上 → group_platform_move 带真实源组', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
       k.responses['group_detail_list_paged'] = [
@@ -1814,38 +1815,7 @@ void main() {
         },
         {
           'group': {'id': 11, 'name': 'G11', 'group_key': 'gk11'},
-          'platforms': <Object?>[],
-          'model_mappings': <Object?>[],
-        },
-      ];
-      final c = await makeI18n(tester);
-      await tester.pumpWidget(
-        wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
-          c,
-        ),
-      );
-      await settle(tester);
-
-      await tester.tap(find.byIcon(Icons.drive_file_move_outline).first);
-      await settle(tester);
-      await tester.tap(find.text('G11').last);
-      await settle(tester);
-      expect(k.lastCallTo('group_platform_move')!.args, {
-        'platformId': 1,
-        'fromGroupId': 10,
-        'toGroupId': 11,
-      });
-    });
-
-    testWidgets('组内平台上下移 → group_platform_reorder', (tester) async {
-      await useBigSurface(tester);
-      final k = groupsFake();
-      k.responses['group_detail_list_paged'] = [
-        {
-          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
           'platforms': [
-            {'platform': plat(1, 'P1')},
             {'platform': plat(2, 'P2')},
           ],
           'model_mappings': <Object?>[],
@@ -1860,27 +1830,36 @@ void main() {
       );
       await settle(tester);
 
-      // 第一行的「上移」是禁用的，第一行的「下移」把它挪到第二位。
+      // 下拉「移动到分组」已删（React 没有），跨组走拖拽：P1 拖到 G11 组内 P2
+      // 那一行上松手。`fromGroupId` 必须是真实源组 10，不是 0（`usePlatformDrag.ts`
+      // 的 payload.fromGid 同义）。
+      final g11Row = find
+          .ancestor(
+            of: find.text('P2').first,
+            matching: find.byType(DragTarget<int>),
+          )
+          .first;
+      final target = tester.widget<DragTarget<int>>(g11Row);
       expect(
-        tester
-            .widget<IconButton>(
-              find
-                  .ancestor(
-                    of: find.byIcon(Icons.arrow_upward).first,
-                    matching: find.byType(IconButton),
-                  )
-                  .first,
-            )
-            .onPressed,
-        isNull,
+        target.onWillAcceptWithDetails!(
+          DragTargetDetails<int>(data: 1, offset: Offset.zero),
+        ),
+        isTrue,
       );
-      await tester.tap(find.byIcon(Icons.arrow_downward).first);
+      target.onAcceptWithDetails!(
+        DragTargetDetails<int>(data: 1, offset: Offset.zero),
+      );
       await settle(tester);
-      expect(k.lastCallTo('group_platform_reorder')!.args, {
-        'groupId': 10,
-        'orderedIds': [2, 1],
+      expect(k.lastCallTo('group_platform_move')!.args, {
+        'platformId': 1,
+        'fromGroupId': 10,
+        'toGroupId': 11,
       });
     });
+
+    // 组内重排（原「上下移 → group_platform_reorder」用例）：上下移按钮已删，
+    // 覆盖由上面的指针拖拽用例承担（拖到第一行上半 → 插入线 → group_platform_reorder
+    // orderedIds [2,1] → 松手线收掉）。
 
     testWidgets('一键测试：失败的行显示「失败」+ 错误文案，摘要按成功/失败计数', (tester) async {
       await useBigSurface(tester);
