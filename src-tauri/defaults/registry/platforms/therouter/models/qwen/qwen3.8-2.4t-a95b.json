@@ -1,18 +1,17 @@
 {
   "last_updated": 1790185041,
-  "model_id": "openai/gpt-5.6-terra",
-  "canonical_model": "gpt-5.6-terra",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "model_id": "qwen/qwen3.8-2.4t-a95b",
+  "canonical_model": "qwen3.8-2.4t-a95b",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],
   "official": false,
   "price": {
     "input": 2.16e-06,
-    "output": 1.296e-05
+    "output": 6.480000000000001e-06
   },
   "max_input_tokens": 1000000,
   "context_window": 1000000,
-  "max_output_tokens": 128000
+  "max_output_tokens": 131000
 }

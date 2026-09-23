@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788086879,
+  "last_updated": 1790185041,
   "endpoints": {
     "default": [
       {
@@ -31,6 +31,7 @@
       "amazon/nova-pro",
       "amazon/titan-embed-v2",
       "anthropic/claude-fable-5",
+      "anthropic/claude-fable-5-1",
       "anthropic/claude-haiku-4.5",
       "anthropic/claude-opus-4",
       "anthropic/claude-opus-4.1",
@@ -81,6 +82,8 @@
       "doubao/doubao-seed-character",
       "doubao/doubao-seed-code",
       "google/gemini-2.5-flash",
+      "google/gemini-3.8-flash",
+      "google/gemini-3.7-flash",
       "google/gemini-2.5-flash-lite",
       "google/gemini-2.5-pro",
       "google/gemini-3-pro-image",
@@ -121,8 +124,8 @@
       "minimax/minimax-m2.7-highspeed",
       "minimax/minimax-m3",
       "mistral/codestral",
-      "mistral/devstral-2",
-      "mistral/magistral-small",
+      
+      
       "mistral/ministral-14b",
       "mistral/ministral-3b",
       "mistral/ministral-8b",
@@ -130,7 +133,7 @@
       "mistral/mistral-medium-3.5",
       "mistral/mistral-small-4",
       "moonshot/kimi-k2-thinking",
-      "moonshot/kimi-k2.5",
+      
       "moonshot/kimi-k2.6",
       "moonshot/kimi-k2.7-code",
       "moonshot/kimi-k2.7-code-highspeed",
@@ -139,6 +142,7 @@
       "nvidia/nemotron-nano-30b",
       "nvidia/nemotron-super-120b",
       "openai/gpt-4.1",
+      "openai/gpt-6-astra",
       "openai/gpt-4.1-mini",
       "openai/gpt-4.1-nano",
       "openai/gpt-4o",
@@ -191,6 +195,9 @@
       "openai/o3-pro",
       "openai/o4-mini",
       "qwen/qwen-flash",
+      "qwen/qwen3.8-flash",
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.8-2.4t-a95b",
       "qwen/qwen-image-edit",
       "qwen/qwen-long",
       "qwen/qwen-max",
@@ -244,6 +251,8 @@
       "xiaomi/mimo-v2.5",
       "xiaomi/mimo-v2.5-pro",
       "zai/glm-4.5",
+      "zai/glm-5.3-flash",
+      "zai/glm-5.3",
       "zai/glm-4.5v",
       "zai/glm-4.6",
       "zai/glm-4.6v",
@@ -270,11 +279,11 @@
       "doubao/doubao-seedance-2-0",
       "doubao/doubao-seedance-2-0-fast",
       "doubao/doubao-seedream-4-5",
-      "doubao/doubao-seedream-5-0",
+      
       "indexteam/indextts-2",
       "openai/gpt-realtime-whisper",
-      "openai/sora-2",
-      "openai/sora-2-pro",
+      
+      
       "openai/tts-1",
       "openai/tts-1-hd",
       "openai/whisper-1",

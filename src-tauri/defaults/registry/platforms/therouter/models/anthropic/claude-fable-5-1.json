@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790185041,
+  "model_id": "anthropic/claude-fable-5-1",
+  "canonical_model": "claude-fable-5-1",
+  "family": "claude",
+  "capabilities": [
+    "text"
+  ],
+  "official": true,
+  "price": {
+    "input": 1.08e-05,
+    "output": 5.4e-05
+  },
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000
+}

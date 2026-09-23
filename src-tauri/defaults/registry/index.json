@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790184635,
+  "last_updated": 1790185041,
   "platforms": [
     {
       "code": "aihubmix",
@@ -4659,6 +4659,7 @@
         "amazon/nova-pro.json",
         "amazon/titan-embed-v2.json",
         "anthropic/claude-fable-5.json",
+        "anthropic/claude-fable-5-1.json",
         "anthropic/claude-haiku-4.5.json",
         "anthropic/claude-opus-4.1.json",
         "anthropic/claude-opus-4.5-20251101.json",
@@ -4711,9 +4712,11 @@
         "doubao/doubao-seedance-2-0-fast.json",
         "doubao/doubao-seedance-2-0.json",
         "doubao/doubao-seedream-4-5.json",
-        "doubao/doubao-seedream-5-0.json",
+        
         "google/gemini-2.5-flash-lite.json",
         "google/gemini-2.5-flash.json",
+        "google/gemini-3.8-flash.json",
+        "google/gemini-3.7-flash.json",
         "google/gemini-2.5-pro.json",
         "google/gemini-3-pro-image.json",
         "google/gemini-3.1-flash-image.json",
@@ -4754,8 +4757,8 @@
         "minimax/minimax-m2.json",
         "minimax/minimax-m3.json",
         "mistral/codestral.json",
-        "mistral/devstral-2.json",
-        "mistral/magistral-small.json",
+        
+        
         "mistral/ministral-14b.json",
         "mistral/ministral-3b.json",
         "mistral/ministral-8b.json",
@@ -4763,7 +4766,7 @@
         "mistral/mistral-medium-3.5.json",
         "mistral/mistral-small-4.json",
         "moonshot/kimi-k2-thinking.json",
-        "moonshot/kimi-k2.5.json",
+        
         "moonshot/kimi-k2.6.json",
         "moonshot/kimi-k2.7-code-highspeed.json",
         "moonshot/kimi-k2.7-code.json",
@@ -4774,6 +4777,7 @@
         "openai/gpt-4.1-mini.json",
         "openai/gpt-4.1-nano.json",
         "openai/gpt-4.1.json",
+        "openai/gpt-6-astra.json",
         "openai/gpt-4o-mini-transcribe.json",
         "openai/gpt-4o-mini-tts.json",
         "openai/gpt-4o-mini.json",
@@ -4824,12 +4828,15 @@
         "openai/o3-pro.json",
         "openai/o3.json",
         "openai/o4-mini.json",
-        "openai/sora-2-pro.json",
-        "openai/sora-2.json",
+        
+        
         "openai/tts-1-hd.json",
         "openai/tts-1.json",
         "openai/whisper-1.json",
         "qwen/qwen-flash.json",
+        "qwen/qwen3.8-flash.json",
+        "qwen/qwen3.8-27b.json",
+        "qwen/qwen3.8-2.4t-a95b.json",
         "qwen/qwen-image-edit.json",
         "qwen/qwen-long.json",
         "qwen/qwen-max.json",
@@ -4886,6 +4893,8 @@
         "xiaomi/mimo-v2.5-pro.json",
         "xiaomi/mimo-v2.5.json",
         "zai/glm-4.5.json",
+        "zai/glm-5.3-flash.json",
+        "zai/glm-5.3.json",
         "zai/glm-4.5v.json",
         "zai/glm-4.6.json",
         "zai/glm-4.6v.json",
