@@ -107,10 +107,12 @@ class SmallButton extends StatelessWidget {
         : ghost
         ? Colors.transparent
         : active && activeTone != null
+        // activeTone 是语义色（端点的 Coding Plan 用绿），自身对底够亮，另算。
         ? activeTone!.withValues(alpha: 0.25)
-        : pill && active
-        // 胶囊多选的选中边同样用 accentEdge：近黑 accent 对表面 1.01:1，
-        // 那圈边等于没画，选中与未选中只剩底色差（白 6%，到不了 3:1）。
+        : active
+        // 选中态（含胶囊多选）一律用 accentEdge。深色下 accent 是近黑，
+        // 对表面 1.01:1 —— 用它画边等于没画；底色 accentWash 是白 6%，
+        // 同样到不了 3:1。两件都失效的话，选中与未选中只剩文字色一件在撑。
         ? theme.c.accentEdge
         : theme.c.line;
     // 底色与描边交给 `Material` 自己插值（它的 `animationDuration` 管 color /
