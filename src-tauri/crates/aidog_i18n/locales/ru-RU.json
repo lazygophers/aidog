@@ -1037,6 +1037,7 @@
   "platform.expiredHint": "Истёк: {{time}}, автоматически исключён из маршрутизации",
   "platform.expiresAt": "Истекает",
   "platform.dateTimeInvalid": "Неверный формат, ожидается YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "Недопустимое число — значение не сохранено",
   "platform.pickDateTime": "Выбрать дату и время",
   "platform.expiresAtBadge": "Истекает {{time}}",
   "platform.expiresAtClear": "Очистить",

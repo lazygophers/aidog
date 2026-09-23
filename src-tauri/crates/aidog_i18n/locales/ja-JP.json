@@ -1037,6 +1037,7 @@
   "platform.expiredHint": "期限切れ：{{time}}、ルーティングから自動除外",
   "platform.expiresAt": "有効期限",
   "platform.dateTimeInvalid": "形式が不正です。YYYY-MM-DDTHH:MM で入力してください",
+  "platform.numberInvalid": "有効な数値ではありません。この値は保存されていません",
   "platform.pickDateTime": "日時を選択",
   "platform.expiresAtBadge": "{{time}} に期限切れ",
   "platform.expiresAtClear": "クリア",

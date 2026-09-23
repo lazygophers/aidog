@@ -580,10 +580,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     title: t.t('platform.devinConfig'),
     desc: t.t('platform.devinConfigHint'),
     children: [
-      PlatformField(
+      // 值本身就是字符串存的，不过数字键盘与上下步进得给
+      // （`formSections.tsx:287-296` 的 `type="number" min=0`）。
+      NumberField(
         label: t.t('platform.devinTimeout'),
         hint: t.t('platform.devinTimeoutPlaceholder'),
         value: c.devinConfig.devinTimeout,
+        min: 0,
         onChanged: (v) =>
             c.setDevinConfig(c.devinConfig.copyWith(devinTimeout: v)),
       ),
@@ -1241,26 +1244,26 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             },
             onChanged: (v) => update(b.copyWith(unit: v)),
           ),
-          SizedBox(
+          // 数字键盘 + 解析失败保留原文（`formSections.tsx:491-501` 是
+          // `type="number"`）。原先是 `?? 0`：打到一半的 `10.` 直接变 0，
+          // 外层一重建还会把框里的字换成那个 0。
+          DecimalField(
             width: 100,
-            child: PlatformField(
-              value: b.amount == 0 ? '' : '${b.amount}',
-              hint: t.t('platform.manualBudgetAmount'),
-              onChanged: (v) =>
-                  update(b.copyWith(amount: double.tryParse(v.trim()) ?? 0)),
-            ),
+            value: b.amount == 0 ? '' : '${b.amount}',
+            hint: t.t('platform.manualBudgetAmount'),
+            invalidText: t.t('platform.numberInvalid'),
+            onParsed: (v) => update(b.copyWith(amount: v ?? 0)),
           ),
           if (needsWindow) ...[
-            SizedBox(
-              width: 80,
-              child: PlatformField(
-                value: b.windowHours == null ? '' : '${b.windowHours}',
-                hint: t.t('platform.manualBudgetWindow'),
-                onChanged: (v) => update(
-                  v.trim().isEmpty
-                      ? b.copyWith(clearWindowHours: true)
-                      : b.copyWith(windowHours: double.tryParse(v.trim()) ?? 0),
-                ),
+            DecimalField(
+              width: 90,
+              value: b.windowHours == null ? '' : '${b.windowHours}',
+              hint: t.t('platform.manualBudgetWindow'),
+              invalidText: t.t('platform.numberInvalid'),
+              onParsed: (v) => update(
+                v == null
+                    ? b.copyWith(clearWindowHours: true)
+                    : b.copyWith(windowHours: v),
               ),
             ),
             FormDropdown(

@@ -2421,6 +2421,54 @@ void main() {
       ]);
     });
 
+    testWidgets('编辑态：关联平台上下移按钮改顺序，第一行不能上移', (tester) async {
+      // 拖拽之外的第二条路：拖不稳 / 用键盘的人靠它改优先级。
+      await useBigSurface(tester);
+      final k = groupsFake();
+      k.responses['group_detail_list_paged'] = [
+        {
+          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
+          'platforms': [
+            {'platform': plat(1, 'P1')},
+            {'platform': plat(2, 'P2')},
+          ],
+          'model_mappings': <Object?>[],
+        },
+      ];
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      await tester.tap(find.byTooltip(c.t('action.edit')).first);
+      await settle(tester);
+
+      // 第一行没得再往上，最后一行没得再往下。
+      VoidCallback? pressedOf(String key) => tester
+          .widget<IconButton>(
+            find.descendant(
+              of: find.byKey(ValueKey(key)),
+              matching: find.byType(IconButton),
+            ),
+          )
+          .onPressed;
+      expect(pressedOf('picker-up-1'), isNull);
+      expect(pressedOf('picker-down-2'), isNull);
+
+      // 第二行上移 → P2 排到 P1 前面。
+      await tester.tap(find.byKey(const ValueKey('picker-up-2')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.save')));
+      await settle(tester);
+      expect(k.lastCallTo('group_set_platforms')!.args!['platforms'], [
+        {'platform_id': 2, 'priority': 1, 'weight': 1},
+        {'platform_id': 1, 'priority': 2, 'weight': 1},
+      ]);
+    });
+
     testWidgets('编辑态：关联平台可拖拽重排，顺序即优先级', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();

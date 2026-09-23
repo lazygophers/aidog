@@ -1037,6 +1037,7 @@
   "platform.expiredHint": "Expiré : {{time}}, automatiquement exclu du routage",
   "platform.expiresAt": "Expire le",
   "platform.dateTimeInvalid": "Format invalide, attendu YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "Nombre invalide — cette valeur n’a pas été enregistrée",
   "platform.pickDateTime": "Choisir la date et l’heure",
   "platform.expiresAtBadge": "Expire {{time}}",
   "platform.expiresAtClear": "Effacer",

@@ -1015,6 +1015,7 @@
   "platform.expiredHint": "Expirado: {{time}}, excluido automáticamente del enrutamiento",
   "platform.expiresAt": "Expira el",
   "platform.dateTimeInvalid": "Formato no válido, se esperaba YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "No es un número válido: este valor no se guardó",
   "platform.pickDateTime": "Elegir fecha y hora",
   "platform.expiresAtBadge": "Expira {{time}}",
   "platform.expiresAtClear": "Limpiar",

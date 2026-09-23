@@ -72,12 +72,14 @@ void main() {
       // + 2（platform.deleteTitle / platform.deleteConfirm —— 删平台的二次确认，
       //      2026-09-22 两侧同用；此前 Flutter 借用 group.deletePlatformConfirm，
       //      那条文案写着「仅属此分组」，在平台列表里根本不成立）。
+      // + 1（platform.numberInvalid —— 数字框打错时的提示。React 那边靠
+      //      `<input type="number">` 由浏览器拦，Flutter 没有等价物，必须自己说）。
       // 这个数是故意写死的：加 key 必须 8 个 locale 一起加，改这一行时就会想起来。
       //
       // 数的是 [Translations.flatten] **之后**的键数，不是 JSON 顶层键数 ——
       // `group` / `logs` 在 JSON 里是嵌套对象，拍平后会展开成多条。拿
       // `len(json.load(f))` 去对这个数一定对不上，别那样核。
-      expect(base, hasLength(2844));
+      expect(base, hasLength(2845));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');
