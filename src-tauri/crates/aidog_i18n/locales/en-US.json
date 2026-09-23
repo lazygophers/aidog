@@ -1015,6 +1015,7 @@
   "platform.expiredHint": "Expired: {{time}}, automatically excluded from routing",
   "platform.expiresAt": "Expires at",
   "platform.dateTimeInvalid": "Invalid format, expected YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "Not a valid number — this value was not saved",
   "platform.pickDateTime": "Pick date and time",
   "platform.expiresAtBadge": "Expires {{time}}",
   "platform.expiresAtClear": "Clear",

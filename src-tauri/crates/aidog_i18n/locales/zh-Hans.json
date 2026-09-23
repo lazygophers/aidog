@@ -1015,6 +1015,7 @@
   "platform.expiredHint": "已过期：{{time}}，路由自动排除",
   "platform.expiresAt": "过期时间",
   "platform.dateTimeInvalid": "格式不对，应为 YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "不是有效数字，这个值没有保存",
   "platform.pickDateTime": "选择日期时间",
   "platform.expiresAtBadge": "到期 {{time}}",
   "platform.expiresAtClear": "清空",

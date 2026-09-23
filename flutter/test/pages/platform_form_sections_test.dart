@@ -574,6 +574,36 @@ void main() {
   });
 
   group('F10 手动预算', () {
+    testWidgets('额度打成非数字：保留原文 + 报错，不静默归零', (tester) async {
+      await boot(tester, protocol: 'anthropic');
+      f.setManualBudgets(const []);
+      await settle(tester);
+      await tester.tap(find.text(t.t('platform.manualBudgetAdd')));
+      await settle(tester);
+
+      final amount = inputOf(fieldWithHint(t.t('platform.manualBudgetAmount')));
+      await tester.enterText(amount, '12.5');
+      await settle(tester);
+      expect(f.manualBudgets.single.amount, 12.5);
+
+      // 打错一个点：改造前 `?? 0` 会把 12.5 抹成 0，框里的字也被换掉。
+      await tester.enterText(amount, '10.5.3');
+      await settle(tester);
+      expect(f.manualBudgets.single.amount, 12.5, reason: '解析不出来就不动已存的值');
+      expect(find.text(t.t('platform.numberInvalid')), findsOneWidget);
+      expect(
+        tester.widget<TextField>(amount).controller!.text,
+        '10.5.3',
+        reason: '用户打的字要留在框里，不能被换成上一个合法值',
+      );
+
+      // 改对了 → 提示收掉，值跟上。
+      await tester.enterText(amount, '10.53');
+      await settle(tester);
+      expect(f.manualBudgets.single.amount, 10.53);
+      expect(find.text(t.t('platform.numberInvalid')), findsNothing);
+    });
+
     testWidgets('加一条 → 改 kind/unit/额度 → 切窗口单位 → 开关 → 删', (tester) async {
       // resetForm 落在 openai 上时套餐档位已自动填过一条，这里先清空测空态。
       await boot(tester, protocol: 'anthropic');

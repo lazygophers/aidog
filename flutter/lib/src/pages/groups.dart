@@ -2261,14 +2261,29 @@ class _PlatformPicker extends StatelessWidget {
                         style: AidogType.micro.copyWith(color: theme.c.fg2),
                       ),
                     ),
-                    IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(
-                        minWidth: 22,
-                        minHeight: 22,
-                      ),
-                      iconSize: 14,
-                      icon: const Icon(Icons.close),
+                    // 上下移：与拖拽并存的第二条路（`PlatformPicker.tsx:72-92`）。
+                    // 这个顺序就是路由优先级，只有拖拽的话，拖不稳的人和用键盘
+                    // 的人根本改不了优先级。
+                    _PickerIconButton(
+                      key: ValueKey('picker-up-$pid'),
+                      icon: Icons.arrow_upward,
+                      tooltip: t.t('action.moveUp'),
+                      onPressed: i == 0
+                          ? null
+                          : () => onChange(_swapped(platformIds, i, i - 1)),
+                    ),
+                    _PickerIconButton(
+                      key: ValueKey('picker-down-$pid'),
+                      icon: Icons.arrow_downward,
+                      tooltip: t.t('action.moveDown'),
+                      onPressed: i == platformIds.length - 1
+                          ? null
+                          : () => onChange(_swapped(platformIds, i, i + 1)),
+                    ),
+                    _PickerIconButton(
+                      key: ValueKey('picker-remove-$pid'),
+                      icon: Icons.close,
+                      tooltip: t.t('action.delete'),
                       onPressed: () => onChange([
                         for (final id in platformIds)
                           if (id != pid) id,
@@ -2766,6 +2781,42 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
 /// 值由上层控制器持有（分组密钥要在输入时就滤掉非法字符，所以不能是非受控的），
 /// 但 `TextEditingController` **必须活在 State 里**：放在 build 里 new 一个，
 /// 每帧都是新实例 —— 光标每次输入都跳回开头，而且旧实例从不 dispose。
+/// 交换列表里两项的位置，返回新列表（原列表不动）。
+List<int> _swapped(List<int> ids, int a, int b) {
+  final next = [...ids];
+  final tmp = next[a];
+  next[a] = next[b];
+  next[b] = tmp;
+  return next;
+}
+
+/// 关联平台行右侧的小图标按钮。三颗（上移 / 下移 / 移除）尺寸与禁用语义一致，
+/// 所以收成一个。
+class _PickerIconButton extends StatelessWidget {
+  const _PickerIconButton({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  final IconData icon;
+  final String tooltip;
+
+  /// null = 禁用（第一行不能上移、最后一行不能下移）。
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+    iconSize: 14,
+    tooltip: tooltip,
+    icon: Icon(icon),
+    onPressed: onPressed,
+  );
+}
+
 class _Field extends StatefulWidget {
   const _Field({
     required this.value,

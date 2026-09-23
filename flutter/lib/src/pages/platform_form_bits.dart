@@ -907,3 +907,99 @@ class _Step extends StatelessWidget {
     ),
   );
 }
+
+/// 小数输入框：数字键盘 + 解析失败时**保留原文并报错**。
+///
+/// 存在的理由是一类静默丢数据：调用方把值存成 `double`，输入框又直接写
+/// `double.tryParse(v) ?? 0`，于是打到一半的 `10.`、打错的 `10.5.3` 全部变 0，
+/// 而且外层一重建还会把输入框里的字换成那个 0 —— 用户看到的是自己打的东西
+/// 凭空消失，没有任何提示。
+///
+/// 这里的做法：正在编辑的原文归本 State 管，只有**解析得出来**才往上报；
+/// 解析不出来就停在那儿，下面显示一行红字。外部值真的变了（预设填入之类）
+/// 才把原文换掉。
+class DecimalField extends StatefulWidget {
+  const DecimalField({
+    super.key,
+    required this.value,
+    required this.onParsed,
+    required this.invalidText,
+    this.hint,
+    this.width,
+  });
+
+  /// 当前值的显示文本（空串 = 未设置）。
+  final String value;
+
+  /// 解析成功才调用；null = 用户清空了。
+  final ValueChanged<double?> onParsed;
+
+  /// 解析失败时显示的一行提示。
+  final String invalidText;
+
+  final String? hint;
+  final double? width;
+
+  @override
+  State<DecimalField> createState() => _DecimalFieldState();
+}
+
+class _DecimalFieldState extends State<DecimalField> {
+  late String _text = widget.value;
+  bool _invalid = false;
+
+  @override
+  void didUpdateWidget(DecimalField old) {
+    super.didUpdateWidget(old);
+    // 外部值变了才覆盖原文；用户正打着的半截数字不受影响（那时 value 没动）。
+    if (widget.value != old.value && widget.value != _text) {
+      setState(() {
+        _text = widget.value;
+        _invalid = false;
+      });
+    }
+  }
+
+  void _onTyped(String v) {
+    final trimmed = v.trim();
+    if (trimmed.isEmpty) {
+      setState(() {
+        _text = v;
+        _invalid = false;
+      });
+      widget.onParsed(null);
+      return;
+    }
+    final parsed = double.tryParse(trimmed);
+    setState(() {
+      _text = v;
+      _invalid = parsed == null;
+    });
+    if (parsed != null) widget.onParsed(parsed);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final field = PlatformField(
+      value: _text,
+      hint: widget.hint,
+      numeric: true,
+      onChanged: _onTyped,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        widget.width == null
+            ? field
+            : SizedBox(width: widget.width, child: field),
+        if (_invalid)
+          Text(
+            widget.invalidText,
+            style: AidogType.caption.copyWith(color: theme.c.bad),
+          ),
+      ],
+    );
+  }
+}

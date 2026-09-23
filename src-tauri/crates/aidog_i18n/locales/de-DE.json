@@ -1037,6 +1037,7 @@
   "platform.expiredHint": "Abgelaufen: {{time}}, automatisch vom Routing ausgeschlossen",
   "platform.expiresAt": "Läuft ab am",
   "platform.dateTimeInvalid": "Ungültiges Format, erwartet YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "Keine gültige Zahl – dieser Wert wurde nicht gespeichert",
   "platform.pickDateTime": "Datum und Uhrzeit wählen",
   "platform.expiresAtBadge": "Läuft ab {{time}}",
   "platform.expiresAtClear": "Leeren",

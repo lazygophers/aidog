@@ -1037,6 +1037,7 @@
   "platform.expiredHint": "منتهي الصلاحية: {{time}}، مستبعد تلقائيًا من التوجيه",
   "platform.expiresAt": "تاريخ الانتهاء",
   "platform.dateTimeInvalid": "تنسيق غير صالح، المتوقع YYYY-MM-DDTHH:MM",
+  "platform.numberInvalid": "ليس رقمًا صالحًا — لم يتم حفظ هذه القيمة",
   "platform.pickDateTime": "اختيار التاريخ والوقت",
   "platform.expiresAtBadge": "ينتهي {{time}}",
   "platform.expiresAtClear": "مسح",
