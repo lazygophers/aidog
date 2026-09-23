@@ -105,7 +105,7 @@ export function Highlighted({ text, query }: { text: string; query?: string }) {
   return (
     <>
       {text.slice(0, idx)}
-      <mark style={{ background: "var(--primary)", color: "var(--primary-foreground)", borderRadius: 3, padding: "0 2px" }}>
+      <mark style={{ background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)", borderRadius: 3, padding: "0 2px" }}>
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}

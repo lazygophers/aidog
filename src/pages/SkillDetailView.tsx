@@ -340,7 +340,7 @@ function FileRow({ f, idx, on, onSelect }: FileRowProps) {
         justifyContent: "flex-start",
         background: on ? "var(--accent-subtle)" : "transparent",
         borderLeft: on ? "2px solid var(--accent)" : "2px solid transparent",
-        color: on ? "var(--primary)" : "var(--text)",
+        color: on ? "var(--accent)" : "var(--text)",
         fontFamily: "var(--font-mono, monospace)",
         whiteSpace: "nowrap",
         overflow: "hidden",

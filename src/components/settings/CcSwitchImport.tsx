@@ -378,9 +378,9 @@ export function CcSwitchImportSection({
                         display: "inline-flex", alignItems: "center",
                         padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
                         cursor: "pointer",
-                        border: `1px solid ${checked ? "var(--primary)" : "var(--border)"}`,
+                        border: `1px solid ${checked ? "var(--accent-edge)" : "var(--border)"}`,
                         background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
-                        color: checked ? "var(--primary)" : "var(--text-secondary)",
+                        color: checked ? "var(--accent)" : "var(--text-secondary)",
                         transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                       }}
                     >
@@ -523,7 +523,7 @@ function ProviderRow({
       }}
       style={{
         padding: 12, borderRadius: "var(--radius-md)", cursor: "pointer",
-        border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+        border: `1px solid ${selected ? "var(--accent-edge)" : "var(--border)"}`,
         background: selected ? "var(--accent-subtle)" : "transparent",
         display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
       }}
@@ -532,7 +532,7 @@ function ProviderRow({
         style={{
           width: 18, height: 18, borderRadius: "50%",
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+          border: `1px solid ${selected ? "var(--accent-edge)" : "var(--border)"}`,
           background: selected ? "var(--primary)" : "transparent",
           flexShrink: 0,
         }}
@@ -601,7 +601,7 @@ function ConflictRowSimple({
                 border: "none",
                 borderLeft: i > 0 ? "1px solid var(--border)" : "none",
                 background: active ? "var(--accent-subtle)" : "transparent",
-                color: active ? "var(--primary)" : "var(--text-secondary)",
+                color: active ? "var(--accent)" : "var(--text-secondary)",
               }}
             >
               {t(labelKey, defaultLabel)}

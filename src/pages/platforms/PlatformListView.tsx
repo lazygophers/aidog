@@ -239,7 +239,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
           position: "fixed", left: groupDrag.x + 14, top: groupDrag.y + 14,
           pointerEvents: "none", zIndex: 3000,
           padding: "6px 12px", borderRadius: 8,
-          background: "var(--primary)", color: "var(--primary-foreground)",
+          background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)",
           fontSize: 12, fontWeight: 600,
           boxShadow: "0 4px 12px rgba(var(--shadow-rgb), 0.35)", opacity: 0.92,
         }}>

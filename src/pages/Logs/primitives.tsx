@@ -110,7 +110,7 @@ export function RequestTabs({
               onClick={() => setActive(key)}
               style={{
                 padding: "10px 20px", fontSize: F.hint, fontWeight: isActive ? 700 : 400,
-                color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                color: isActive ? "var(--accent)" : "var(--text-secondary)",
                 background: "transparent", cursor: "pointer",
                 borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
                 transition: "all 0.15s ease",

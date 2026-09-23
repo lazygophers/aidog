@@ -26,6 +26,19 @@ const setup = (value = "", onChange = vi.fn()) => {
 };
 
 describe("FilterDropdown", () => {
+  // 近黑强调色那一轮的护栏：选中项的字色不能是 --primary（映射 token `accent`，
+  // 深色下近黑），否则选中行就是近黑字压在近黑底上，整条看不见。前景走 --accent。
+  it("选中项的字色取 --accent，不取 --primary", async () => {
+    const { user, trigger } = setup("glm");
+    await user.click(trigger);
+    const active = screen
+      .getAllByRole("button")
+      .find((b) => b.textContent === "智谱 GLM" && b.style.color !== "");
+    expect(active).toBeTruthy();
+    expect(active!.style.color).toContain("var(--accent)");
+    expect(active!.style.color).not.toContain("var(--primary)");
+  });
+
   it("value 为空显示 allLabel，非空显示对应 option 的 label", () => {
     const { trigger } = setup("");
     expect(trigger).toHaveTextContent("全部平台");

@@ -1091,9 +1091,9 @@ export function GroupAssignSection({ editing, lockedGroupId, groupDetails, autoG
                       display: "inline-flex", alignItems: "center", height: "auto",
                       padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
                       cursor: "pointer",
-                      border: `1px solid ${checked ? "var(--primary)" : "var(--border)"}`,
+                      border: `1px solid ${checked ? "var(--accent-edge)" : "var(--border)"}`,
                       background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
-                      color: checked ? "var(--primary)" : "var(--text-secondary)",
+                      color: checked ? "var(--accent)" : "var(--text-secondary)",
                       transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                     }}
                   >

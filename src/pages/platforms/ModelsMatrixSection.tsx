@@ -245,7 +245,7 @@ export function ModelsMatrixSection({
                 padding: "8px 12px",
                 fontSize: 13,
                 fontWeight: value === m ? 600 : 400,
-                color: value === m ? "var(--primary)" : "var(--text-primary)",
+                color: value === m ? "var(--accent)" : "var(--text-primary)",
                 background: value === m ? "var(--accent-subtle)" : "transparent",
                 borderRadius: "var(--radius-sm)",
               }}

@@ -95,7 +95,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
               padding: "6px 14px",
               minWidth: 96,
               // 萤火虫：主 CTA 流光描边 + 呼吸 glow
-              boxShadow: "0 0 12px color-mix(in srgb, var(--primary) 28%, transparent)",
+              boxShadow: "0 0 12px color-mix(in srgb, var(--accent) 28%, transparent)",
             }}
             onClick={(e) => { makeRipple(e); handleUpdate(); }}
             disabled={busy}

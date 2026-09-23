@@ -141,9 +141,9 @@ export function ShareModal<T extends object = Record<string, unknown>>({
     borderRadius: "var(--radius-sm)",
     cursor: "pointer",
     border: "1px solid",
-    borderColor: active ? "var(--primary)" : "var(--border)",
+    borderColor: active ? "var(--accent-edge)" : "var(--border)",
     background: active ? "var(--accent-subtle)" : "transparent",
-    color: active ? "var(--primary)" : "var(--text-secondary)",
+    color: active ? "var(--accent)" : "var(--text-secondary)",
   });
 
   return (

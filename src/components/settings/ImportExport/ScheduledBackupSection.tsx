@@ -193,7 +193,7 @@ export function ScheduledBackupSection() {
               disabled={running}
               style={{
                 padding: "7px 16px", fontSize: 13, cursor: running ? "not-allowed" : "pointer",
-                borderRadius: "var(--radius-md)", border: "1px solid var(--accent)",
+                borderRadius: "var(--radius-md)", border: "1px solid var(--accent-edge)",
                 background: "var(--primary)", color: "var(--primary-foreground)",
                 opacity: running ? 0.6 : 1,
               }}
