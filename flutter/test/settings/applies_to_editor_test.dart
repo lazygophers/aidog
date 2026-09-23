@@ -35,7 +35,14 @@ void main() {
     );
     await settle(tester);
 
+    // 2026-09-23 起平台 / 分组两维是收起式多选（选项多到平铺会撑爆屏幕），
+    // 所以要先点开对应的下拉再勾。第一个是平台，第二个是分组。
+    await tester.tap(find.byType(PopupMenuButton<void>).first);
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('platforms-7')));
+    await settle(tester);
+    // 关掉菜单，免得它盖住下面那个下拉。
+    await tester.tapAt(const Offset(5, 5));
     await settle(tester);
     expect(
       latest['platforms'],
@@ -46,6 +53,8 @@ void main() {
     // 写成字符串 '7' 时 `[7]` 这条断言就已经红了，这里再钉一道更直白的。
     expect((latest['platforms']! as List).single, isA<int>());
 
+    await tester.tap(find.byType(PopupMenuButton<void>).last);
+    await settle(tester);
     await tester.tap(find.byKey(const ValueKey('groups-gk3')));
     await settle(tester);
     expect(latest['groups'], ['gk3'], reason: 'groups 在后端是 Vec<String>');
