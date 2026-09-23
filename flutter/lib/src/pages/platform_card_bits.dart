@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
 import '../../utils/color_level.dart';
+import '../utils/contrast.dart';
 import '../../utils/formatters.dart';
 import '../../utils/hex_color.dart';
 import '../shell/theme.dart';
@@ -1029,15 +1030,6 @@ class StatChip extends StatelessWidget {
   }
 }
 
-/// 两色对比度（WCAG 相对亮度公式）。判「看不看得见」用它，不靠眼估。
-double _contrastRatio(Color a, Color b) {
-  final la = a.computeLuminance();
-  final lb = b.computeLuminance();
-  final hi = la > lb ? la : lb;
-  final lo = la > lb ? lb : la;
-  return (hi + 0.05) / (lo + 0.05);
-}
-
 /// 小徽标（自动禁用 / 高峰 / 已过期 / 最近错误 / Coding Plan / 分组名 …）。
 class MiniBadge extends StatelessWidget {
   const MiniBadge({
@@ -1074,16 +1066,20 @@ class MiniBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme0 = AidogTheme.of(context);
+    // 判断一律拿**合成后的实色**算：[color] 允许是半透明 token（`peakIdle`
+    // 是白 5%、`accentWash` 是白 6%），直接算得到的是「它自己多亮」，
+    // 不是「它压在卡面上多亮」——那个数是假的。绘制仍用原 [color]，
+    // 合成交给 Flutter。
+    final fill = compositeOver(color, theme0.c.surface);
     // 实心徽标的文字色按**底色亮度**挑，不能写死成页面底色：
     // 深色主题的 accent 是近黑（#101012），原先的「文字用 theme.c.bg」
     // 会得到近黑字 + 近黑底，整枚徽标读不出来。
-    final onSolid = color.computeLuminance() > 0.5
+    final onSolid = fill.computeLuminance() > 0.5
         ? AidogColors.dark.bg
         : AidogColors.light.surface;
     // 底色与卡片表面差得太近时（同上那种近黑 accent），再用底色当描边等于没有
     // 描边，徽标与背景糊成一片 —— 这时借一条 lineStrong 把边缘划出来。
-    final needsEdge =
-        solid && _contrastRatio(color, theme0.c.surface) < 1.5;
+    final needsEdge = solid && contrastRatio(fill, theme0.c.surface) < 1.5;
     final body = Container(
       padding: const EdgeInsets.symmetric(
         horizontal: AidogSpace.ssm,
