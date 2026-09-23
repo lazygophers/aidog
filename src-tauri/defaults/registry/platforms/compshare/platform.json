@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788155152,
+  "last_updated": 1790187917,
   "endpoints": {
     "default": [
       {
@@ -25,7 +25,6 @@
   "model_list": {
     "default": [
       "ByteDance/doubao-1-5-pro-32k-250115",
-      "ByteDance/doubao-seed-1.6",
       "MiniMax-M2",
       "MiniMax-M2.1",
       "MiniMax-M2.1-lightning",
@@ -38,11 +37,8 @@
       "Qwen/Qwen3-Coder",
       "Qwen/Qwen3-Max",
       "Qwen/Qwen3-VL-235B-A22B-Instruct",
-      "Qwen/Qwen3-vl-Plus",
       "baidu/ernie-4.5-turbo-128k",
       "baidu/ernie-4.5-turbo-vl-32k",
-      "deepseek-ai/DeepSeek-V3.2",
-      "deepseek-ai/DeepSeek-V3.2-Exp",
       "deepseek-v4-flash-0731",
       "deepseek-v4-flash-0731-sg",
       "deepseek-v4-flash-sg",
@@ -50,6 +46,7 @@
       "deepseek-v4-pro-0813",
       "deepseek-v4-pro-0813-sg",
       "deepseek-v4-pro-sg",
+      "deepseek-v4.1-flash",
       "doubao-1-5-pro-32k-character-250715",
       "doubao-seed-1-6-lite-251015",
       "doubao-seed-2-0-code-preview-260215",
@@ -65,15 +62,14 @@
       "glm-5.2-sg",
       "glm-5.3",
       "glm-5.3-flash",
-      "glm-5v-turbo",
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k2.7-code-highspeed",
       "kimi-k3",
       "mimo-v2.5",
       "mimo-v2.5-pro",
-      "moonshot/kimi-k2.5",
-      "moonshotai/kimi-k2.5",
+      "mimo-v2.6-flash",
+      "mimo-v2.6-pro",
       "qwen-mt-flash",
       "qwen3-30b-a3b",
       "qwen3-coder-30b-a3b-instruct",
@@ -120,7 +116,6 @@
       "kling-v3-omni",
       "kling-video-o1",
       "MiniMax-H3",
-      "MiniMax-Hailuo-02",
       "MiniMax-Hailuo-2.3",
       "MiniMax-Hailuo-2.3-Fast",
       "Qwen/Qwen-Image",
@@ -128,8 +123,6 @@
       "qwen3-embedding-8b",
       "qwen3-reranker-8b",
       "qwen3-tts-flash",
-      "speech-02-hd",
-      "speech-02-turbo",
       "speech-2.6-hd",
       "speech-2.6-turbo",
       "speech-2.8-hd",
@@ -159,6 +152,26 @@
       "wan3.0-video-prime"
     ]
   },
+  "peak": [
+    {
+      "start_hour": 9,
+      "end_hour": 12,
+      "multiplier": 2,
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-v4*"
+      ]
+    },
+    {
+      "start_hour": 14,
+      "end_hour": 18,
+      "multiplier": 2,
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-v4*"
+      ]
+    }
+  ],
   "name": {
     "en-US": "Compshare (YouYun)",
     "zh-Hans": "Compshare（优云）",
