@@ -25,6 +25,7 @@ import 'models.dart';
 import 'platform_card_bits.dart' show BalanceBar, MiniBadge, StatChip;
 import 'platform_logo.dart';
 import 'platform_defaults.dart' show kModelSlots;
+import 'settings/bits.dart' show PlainTextField;
 import 'ui_bits.dart';
 
 /// 分组区。内嵌在平台页里（与 React 的 `GroupsEmbedded` 同位置），
@@ -1260,12 +1261,24 @@ class _GroupPlatformControls extends StatelessWidget {
                     ),
               icon: const Icon(Icons.remove),
             ),
+            // 可以直接敲数字，不是只读（React 这里是 `<Input type="number">`，
+            // `PlatformCard.tsx:944-961`）。只有加减按钮的话，1 调到 10 要点九下。
+            // 失焦 / 回车提交，越界夹到 1~10，敲成非数字就还原当前值。
             SizedBox(
-              width: 18,
-              child: Text(
-                '${gp.levelPriority}',
-                textAlign: TextAlign.center,
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+              width: 38,
+              child: PlainTextField(
+                key: ValueKey('level-priority-$pid'),
+                value: '${gp.levelPriority}',
+                onSubmitted: (raw) {
+                  final v = int.tryParse(raw.trim());
+                  if (v == null || v == gp.levelPriority) return;
+                  c.setLevelPriority(
+                    group.id,
+                    pid,
+                    v.clamp(1, 10),
+                    failText: t.t('group.levelPriorityFailed'),
+                  );
+                },
               ),
             ),
             IconButton(
@@ -1418,6 +1431,7 @@ class _MappingsSection extends StatelessWidget {
                 SizedBox(
                   width: 140,
                   child: TextField(
+                    key: const ValueKey('mapping-quick-source'),
                     decoration: InputDecoration(
                       hintText: t.t('mapping.source'),
                     ),
