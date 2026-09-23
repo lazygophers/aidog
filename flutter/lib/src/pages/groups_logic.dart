@@ -512,12 +512,6 @@ class GroupsController {
   Set<int> batchSelectGroups = <int>{};
   Map<int, Set<int>> batchSelectedIds = <int, Set<int>>{};
 
-  // ── 列表页快捷添加映射表单（`Groups.tsx:85-88`）──
-  int? mappingGroupId;
-  String mSource = '';
-  int? mTargetPlatform;
-  String mTargetModel = '';
-
   /// 出站代理 env（claude settings.json `env` 段），前置注入 codex/pi 启动命令。
   List<EnvVar> proxyEnvVars = const [];
 
@@ -1117,77 +1111,6 @@ class GroupsController {
 
   // ── 模型映射（列表页的快捷添加 / 删除）────────────────────────────
 
-  /// `Groups.tsx:613-642`。四个字段缺一不加（与 React 的早退判据逐条一致）。
-  ///
-  /// **`env_vars` 必须一并透传**：后端 `UpdateGroup.env_vars` 是 `#[serde(default)]`
-  /// 的 `Vec`（不是 `Option`），不传就是空数组，会把用户已配的环境变量清光。
-  /// React 在 `:629-631` 用三行注释标了这个坑，这里同样处理。
-  Future<void> addMapping({
-    required int groupId,
-    required String sourceModel,
-    required int targetPlatformId,
-    required String targetModel,
-    String failText = '添加映射失败',
-  }) async {
-    if (sourceModel.isEmpty || targetModel.isEmpty) return;
-    GroupDetail? detail;
-    for (final d in details) {
-      if (d.group.id == groupId) detail = d;
-    }
-    if (detail == null) return;
-    try {
-      final next = [
-        ...detail.modelMappings,
-        ModelMapping(
-          sourceModel: sourceModel,
-          targetPlatformId: targetPlatformId,
-          targetModel: targetModel,
-          requestTimeoutSecs: 0,
-          connectTimeoutSecs: 0,
-        ),
-      ];
-      await _invoke('group_update', {
-        'input': {
-          'id': groupId,
-          'model_mappings': [for (final m in next) m.toJson()],
-          'env_vars': [for (final e in detail.group.envVars) e.toJson()],
-        },
-      });
-      await refreshSingleGroup(groupId);
-    } catch (e) {
-      _toast('$failText: $e', ok: false);
-    }
-  }
-
-  /// `Groups.tsx:660-674`。同样要透传 `env_vars`。
-  Future<void> deleteMapping(
-    int groupId,
-    int index, {
-    String failText = '删除映射失败',
-  }) async {
-    GroupDetail? detail;
-    for (final d in details) {
-      if (d.group.id == groupId) detail = d;
-    }
-    if (detail == null) return;
-    try {
-      final next = [
-        for (var i = 0; i < detail.modelMappings.length; i++)
-          if (i != index) detail.modelMappings[i],
-      ];
-      await _invoke('group_update', {
-        'input': {
-          'id': groupId,
-          'model_mappings': [for (final m in next) m.toJson()],
-          'env_vars': [for (final e in detail.group.envVars) e.toJson()],
-        },
-      });
-      await refreshSingleGroup(groupId);
-    } catch (e) {
-      _toast('$failText: $e', ok: false);
-    }
-  }
-
   // ── 移除平台（删 vs 移出本组）────────────────────────────────────
 
   /// 点「移除」：**先实时拉后端**算该平台的跨组归属，再开弹窗。
@@ -1755,32 +1678,6 @@ class GroupsController {
     _notify();
   }
 
-  // ── 列表页快捷添加映射表单（`Groups.tsx:612-642` 逐条翻译）─────────
-
-  void setMappingGroupId(int? id) {
-    mappingGroupId = id;
-    _notify();
-  }
-
-  void setMSource(String v) {
-    mSource = v;
-    _notify();
-  }
-
-  void setMTargetPlatform(int? v) {
-    mTargetPlatform = v;
-    mTargetModel = '';
-    _notify();
-  }
-
-  void setMTargetModel(String v) {
-    mTargetModel = v;
-    _notify();
-  }
-
-  /// 该目标平台的候选模型（五槽去重非空值）。未选目标平台 → 空。
-  List<String> get mAvailableModels => modelsOfPlatform(mTargetPlatform);
-
   /// 某个平台的候选模型（五槽去重非空值）。平台 id 为 null / 0 / 找不到 → 空。
   ///
   /// 编辑面板的模型映射也要用它：原先那边的「目标模型」恒为文本框，
@@ -1791,27 +1688,6 @@ class GroupsController {
       if (p.id == pid) return allModelValues(p.models);
     }
     return const [];
-  }
-
-  /// `Groups.tsx:613-642`：四个字段缺一不发；成功后清空表单并单组就地刷新。
-  Future<void> submitAddMapping({String failText = '添加映射失败'}) async {
-    final gid = mappingGroupId;
-    final pid = mTargetPlatform;
-    if (gid == null || mSource.isEmpty || pid == null || mTargetModel.isEmpty) {
-      return;
-    }
-    await addMapping(
-      groupId: gid,
-      sourceModel: mSource,
-      targetPlatformId: pid,
-      targetModel: mTargetModel,
-      failText: failText,
-    );
-    mSource = '';
-    mTargetPlatform = null;
-    mTargetModel = '';
-    mappingGroupId = null;
-    _notify();
   }
 }
 

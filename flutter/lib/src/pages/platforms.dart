@@ -144,12 +144,19 @@ class _PlatformsPageState extends State<PlatformsPage> {
   /// 分组区拿到的是这个闭包而不是 [PlatformsController]：
   /// 卡片要的余额 / 用量 / logo / 测试结果全在本页这一份控制器里，已经取过数了，
   /// 传闭包等于让分组区**共用本页这一份实时数据**，不多发一轮命令、不出第二份缓存。
-  Widget platformCard(PlatformRow p, int index, {bool draggable = true}) =>
-      PlatformCard(
+  Widget platformCard(
+    PlatformRow p,
+    int index, {
+    bool draggable = true,
+    int? levelPriority,
+    ValueChanged<int>? onLevelPriorityChange,
+  }) => PlatformCard(
         c: _c,
         platform: p,
         index: index,
         draggable: draggable,
+        levelPriority: levelPriority,
+        onLevelPriorityChange: onLevelPriorityChange,
         usage: _c.usageMap[p.id],
         quota: _c.quotaMap[p.id],
         quotaPending: _c.quotaPending[p.id] == true,
@@ -281,7 +288,14 @@ class _PlatformsPageState extends State<PlatformsPage> {
                 widget.onNavigate?.call(id, groupKey: groupKey),
             // 票 24：组内渲染与本页同一张平台卡，只是不给拖拽手柄
             //（分组卡本身已在一个 ReorderableListView 里，卡内再套一个会抢手势）。
-            buildPlatformCard: (p, i) => platformCard(p, i, draggable: false),
+            buildPlatformCard: (p, i, {levelPriority, onLevelPriorityChange}) =>
+                platformCard(
+                  p,
+                  i,
+                  draggable: false,
+                  levelPriority: levelPriority,
+                  onLevelPriorityChange: onLevelPriorityChange,
+                ),
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],

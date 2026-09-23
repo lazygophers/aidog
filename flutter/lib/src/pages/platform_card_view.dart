@@ -22,6 +22,7 @@ import 'models.dart';
 import 'platform_card_bits.dart';
 import 'platform_logo.dart';
 import 'platforms_logic.dart';
+import 'settings/bits.dart' show PlainTextField;
 import 'ui_bits.dart';
 
 class PlatformCard extends StatelessWidget {
@@ -46,6 +47,8 @@ class PlatformCard extends StatelessWidget {
     this.onEdit,
     this.onDuplicate,
     this.draggable = true,
+    this.levelPriority,
+    this.onLevelPriorityChange,
     this.nowMs,
   });
 
@@ -73,6 +76,14 @@ class PlatformCard extends StatelessWidget {
 
   /// 只读场景（分组展开区）不给拖拽手柄，`PlatformCard.tsx:203` 的 `draggable` 同义。
   final bool draggable;
+
+  /// per-group 优先级（1~10，10 最高）。分组上下文才有值；null 时回落 5
+  /// （`PlatformCard.tsx:426` 的 `levelPriority ?? 5` 同义）。
+  final int? levelPriority;
+
+  /// 优先级变化回调。**null = 非分组上下文，行 1.5 整行不渲染**
+  /// （`PlatformCard.tsx:423` 的 `onLevelPriorityChange != null` 同义）。
+  final ValueChanged<int>? onLevelPriorityChange;
 
   /// 测试注入「现在」，让高峰 / 倒计时 / 过期这些时间相关的断言可复现。
   final int? nowMs;
@@ -229,6 +240,20 @@ class PlatformCard extends StatelessWidget {
               ],
             ),
           ),
+          // 行 1.5：per-group 优先级（`PlatformCard.tsx:423-427`）。主列表不传
+          // [onLevelPriorityChange]，这行整行不画 —— 优先级是 (分组, 平台) 对的
+          // 属性，不属于平台本身。
+          if (onLevelPriorityChange != null) ...[
+            const SizedBox(height: AidogSpace.ssm),
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: 24),
+              child: LevelPriorityControl(
+                key: ValueKey('level-priority-${p.id}'),
+                value: levelPriority ?? 5,
+                onChanged: onLevelPriorityChange!,
+              ),
+            ),
+          ],
           if (showBalanceRow) ...[
             const SizedBox(height: AidogSpace.ssm),
             _BalanceRow(
@@ -891,6 +916,76 @@ class _LastTestBadgeState extends State<_LastTestBadge> {
               child: TestResultBody(body: lt.responseBody),
             ),
           ),
+      ],
+    );
+  }
+}
+
+// ── 行 1.5：per-group 优先级 ─────────────────────────────────────
+
+/// per-group 优先级步进器（`PlatformCard.tsx:895-961::LevelPriorityControl`，
+/// React 侧同样是导出组件）：「优先级」标签 + − / 数字格 / +。
+/// 数字可以直接敲（失焦 / 回车提交），越界夹到 1~10，敲成非数字就还原当前值 ——
+/// 只有加减按钮的话，1 调到 10 要点九下。
+/// 由 [PlatformCard] 在分组上下文渲染；widget 测试的 stub 卡也直接复用它。
+class LevelPriorityControl extends StatelessWidget {
+  const LevelPriorityControl({
+    super.key,
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: t.t('group.levelPriorityHint'),
+          child: Text(
+            t.t('group.levelPriority'),
+            style: AidogType.micro.copyWith(
+              color: theme.c.fg3,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+          iconSize: 14,
+          tooltip: t.t('group.levelPriorityDown'),
+          onPressed: value <= 1 ? null : () => onChanged(value - 1),
+          icon: const Icon(Icons.remove),
+        ),
+        SizedBox(
+          width: 38,
+          child: PlainTextField(
+            value: '$value',
+            onSubmitted: (raw) {
+              final v = int.tryParse(raw.trim());
+              if (v == null || v == value) return;
+              onChanged(v.clamp(1, 10));
+            },
+          ),
+        ),
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+          iconSize: 14,
+          tooltip: t.t('group.levelPriorityUp'),
+          onPressed: value >= 10 ? null : () => onChanged(value + 1),
+          icon: const Icon(Icons.add),
+        ),
+        Text(
+          t.t('group.levelPriorityMax'),
+          style: AidogType.micro.copyWith(color: theme.c.fg3),
+        ),
       ],
     );
   }

@@ -123,9 +123,9 @@ void main() {
     expect(k.callsTo('group_platform_set_level_priority'), isNotEmpty);
     expect(find.byTooltip(c.t('group.levelPriorityDown')), findsNWidgets(2));
 
-    // 「移除」仍在（每个组内平台一颗）。
+    // 「移除」仍在（每个组内平台一颗，图标化后按 tooltip 找）。
     expect(
-      find.widgetWithText(SmallButton, c.t('group.deletePlatformTitle')),
+      find.byTooltip(c.t('group.deletePlatformTitle')),
       findsNWidgets(2),
     );
   });
@@ -133,15 +133,16 @@ void main() {
   testWidgets('多选态：勾选框仍在，组内控件让位', (tester) async {
     final c = await mount(tester, pageFake());
 
-    await tester.tap(find.text(c.t('group.batchOps')));
+    await tester.tap(find.byTooltip(c.t('group.batchOps')));
     await settle(tester);
 
     // 每个组内平台一个勾选框；卡片本身仍是完整卡。
     expect(find.byType(Checkbox), findsNWidgets(2));
     expect(groupCards(), findsNWidgets(2));
-    // 多选态下上下移与优先级收起（与改造前同一条规矩）。
+    // 多选态下上下移收起；优先级**留在卡内**——React 多选态同样渲染
+    // LevelPriorityControl（`GroupListItem.tsx:464` 恒传 onLevelPriorityChange）。
     expect(find.widgetWithIcon(IconButton, Icons.arrow_upward), findsNothing);
-    expect(find.byTooltip(c.t('group.levelPriorityUp')), findsNothing);
+    expect(find.byTooltip(c.t('group.levelPriorityUp')), findsNWidgets(2));
 
     // 勾一个，选中态进到控制器里。
     await tester.tap(find.byType(Checkbox).first);

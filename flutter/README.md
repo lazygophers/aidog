@@ -624,8 +624,8 @@ tokens、本周期折算、上游速率余量）与配额是互不相干的维�
 | 所属分组徽标 | membership 非空:379 | 同:502 | 是 |
 | 最近测试徽章 | `lastTest`:389 | `lt != null`:507 | 是 |
 | 最近错误徽标 | `last_error` 非空:391 | 同:511 | 是 |
-| 快操作按钮组 | :414 / :760 | :204 | 是（形态见下 4） |
-| per-group 优先级 stepper | `onLevelPriorityChange`:423 | 不在卡内，`groups.dart:806` | 否（见下 5） |
+| 快操作按钮组 | :414 / :760 | :204 | 是 |
+| per-group 优先级 stepper | `onLevelPriorityChange`:423 | 同：行 1.5 `LevelPriorityControl` | 是（2026-09-23 并进卡内） |
 | **余额行整行** | `showQuota && (余额 或 预算 或 档位)`:430 | 六块条件并集:246 | 否（本票有意放宽） |
 | 余额进度条（含 ACU） | `balanceRemaining != null`:433 | 同:664 | 是 |
 | 手动预算 | `mb && mb.hasData`:449 | `mb != null`:682 | 是（非 null 时 hasData 恒真） |
@@ -650,7 +650,7 @@ tokens、本周期折算、上游速率余量）与配额是互不相干的维�
 （`platform_card_bits.dart:784`）与 React 的本地 `relativeTime`（`PlatformCard.tsx:867`）
 逐行相同；`BalanceBar` 的 currency 默认 `$`，与 React 显式传的 `"$"` 等价。
 
-### 仍未对齐的五处（照实列）
+### 仍未对齐的三处（照实列）
 
 1. **logo 回退链短两级**：React 是 缓存图 → 内置 SVG → favicon → 协议前两字母，
    Flutter 只有 缓存图 → 协议前两字母；logo 方框在 React 带协议主色底纹与描边，
@@ -661,10 +661,18 @@ tokens、本周期折算、上游速率余量）与配额是互不相干的维�
    回落 preset 的 `peak`。于是 glm_coding / deepseek 这类 preset 自带高峰窗口的平台，
    Flutter 显徽标、React 不显。Flutter 这侧与根 `CLAUDE.md` 写的
    「`isPeak = isCurrentlyPeak(userPh ?? preset default)`」一致，故保留，未按 React 收窄。
-4. **快操作是文字按钮**，React 是图标按钮（刷新带 spin 动画、启用态是 toggle 开关）。
-   九个动作一个不少。
-5. **per-group 优先级编辑画在分组页**（`groups.dart:806`）而不是平台卡里；
-   Flutter 只有 ± 两颗按钮，没有 React 的直接输入框。
+
+（原第 4 条「快操作是文字按钮」已修：c2f24367 起改开关 + 图标按钮 + 分段测试按钮。
+原第 5 条「优先级编辑画在分组页」已修：2026-09-23 起并进平台卡行 1.5。）
+
+### 有意偏离（当轮明示，非漏做）
+
+- **分组卡文字按钮全部图标化**（2026-09-23 用户拍板）：清理失效 / 多选 / 设为默认 /
+  复制启动命令触发钮 / 组内移除平台，React 侧是文字按钮（`GroupListItem.tsx:252-302`）。
+  文案 key 全部进 tooltip，没有删。多选工具栏（取消 / 全选 / 批量四操作）保持文字 ——
+  那是批量破坏性操作的确认界面，图标化丢标签。
+- **分组列表页的模型映射增删 UI 已删**（2026-09-23 用户拍板）：增删改只在分组编辑
+  表单；React 列表态本来也没有映射 UI，这条实为补齐对齐。
 
 ### 同类门控问题的排查结果
 

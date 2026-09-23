@@ -25,14 +25,22 @@ import 'models.dart';
 import 'platform_card_bits.dart' show BalanceBar, MiniBadge, StatChip;
 import 'platform_logo.dart';
 import 'platform_defaults.dart' show kModelSlots;
-import 'settings/bits.dart' show PlainTextField;
 import 'ui_bits.dart';
 
 /// 分组区。内嵌在平台页里（与 React 的 `GroupsEmbedded` 同位置），
 /// 也可以单独渲染（widget 测试就是这么用的）。
 /// 组内渲染一张平台卡。由宿主页（`platforms.dart::platformCard`）注入 ——
 /// 理由见 [GroupsSection.buildPlatformCard]。
-typedef PlatformCardBuilder = Widget Function(PlatformRow platform, int index);
+///
+/// 可选的 [levelPriority] / [onLevelPriorityChange] 让分组区把 per-group
+/// 优先级传进卡内（行 1.5，`PlatformCard.tsx:423`）；只有分组上下文会给，
+/// 主列表的闭包不传，卡里那行就不渲染。
+typedef PlatformCardBuilder = Widget Function(
+  PlatformRow platform,
+  int index, {
+  int? levelPriority,
+  void Function(int)? onLevelPriorityChange,
+});
 
 class GroupsSection extends StatefulWidget {
   const GroupsSection({
@@ -767,31 +775,32 @@ class _GroupCard extends StatelessWidget {
                         lockGid: g.id,
                       ),
                     ),
-                  SmallButton(
-                    label: t.t('group.purgeDisabled'),
+                  // 以下三颗原本是文字按钮（React `GroupListItem.tsx:252-302`
+                  // 也是文字）：2026-09-23 用户拍板全部图标化（有意偏离 React，
+                  // 登记见 flutter/README.md 差异表）。文案 key 进 tooltip，没删。
+                  _GroupIconAction(
+                    icon: Icons.cleaning_services_outlined,
+                    tooltip: t.t('group.purgeDisabled'),
                     onTap: () => c.askPurgeDisabled(g.id),
                   ),
                   if (detail.platforms.isNotEmpty)
-                    SmallButton(
-                      label: t.t('group.batchOps'),
+                    _GroupIconAction(
+                      icon: Icons.checklist,
+                      tooltip: t.t('group.batchOps'),
                       active: selecting,
                       onTap: () => selecting
                           ? c.exitBatchSelect(g.id)
                           : c.enterBatchSelect(g.id),
                     ),
-                  Tooltip(
-                    message: g.isDefault
+                  _GroupIconAction(
+                    icon: g.isDefault ? Icons.check : Icons.home_outlined,
+                    tooltip: g.isDefault
                         ? t.t('group.unsetDefault')
                         : t.t('group.setAsDefault'),
-                    child: SmallButton(
-                      label: g.isDefault
-                          ? t.t('group.defaultConfigWritten')
-                          : t.t('group.setAsDefault'),
-                      active: g.isDefault,
-                      onTap: () => c.toggleDefault(
-                        g,
-                        failText: t.t('group.setDefaultFailed'),
-                      ),
+                    active: g.isDefault,
+                    onTap: () => c.toggleDefault(
+                      g,
+                      failText: t.t('group.setDefaultFailed'),
                     ),
                   ),
                   _GroupIconAction(
@@ -900,7 +909,8 @@ class _GroupCard extends StatelessWidget {
               if (c.platDropIndicator?.gid == g.id &&
                   c.platDropIndicator?.idx == detail.platforms.length)
                 const _DropLine(),
-            _MappingsSection(controller: c, detail: detail),
+            // 列表态的模型映射增删 UI 已删（2026-09-23 用户拍板）：增删改只在
+            // 分组编辑表单（`_GroupEditPanel` → `saveEdit`），对齐 React 列表态。
           ],
         ],
       ),
@@ -924,10 +934,14 @@ class _CopyCommandMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
     final envVars = [...group.envVars, ...proxyEnvVars];
     return PopupMenuButton<String>(
-      // 平时显示「复制启动命令」，悬浮提示「复制密钥」——与 React 的 CopyButton
-      // defaultLabel / hoverLabel 一致（`GroupListItem.tsx:227-229`）。
+      // 图标触发（2026-09-23 用户拍板：分组卡文字按钮全部图标化）：
+      // 「复制启动命令」四项菜单的入口从文字按钮换成复制图标，
+      // 悬停提示「复制密钥」——与 React 的 CopyButton defaultLabel / hoverLabel
+      // 一致（`GroupListItem.tsx:227-229`）。IgnorePointer 让点击落在
+      // PopupMenuButton 上（菜单自己接手势）。
       tooltip: t.t('group.copyKeyLabel'),
       onSelected: (key) {
         final text = switch (key) {
@@ -971,7 +985,12 @@ class _CopyCommandMenu extends StatelessWidget {
           ),
         ),
       ],
-      child: IgnorePointer(child: SmallButton(label: t.t('group.copyCommand'))),
+      child: IgnorePointer(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          child: Icon(Icons.content_copy, size: 14, color: theme.c.fg2),
+        ),
+      ),
     );
   }
 }
@@ -1120,7 +1139,21 @@ class _PlatformRow extends StatelessWidget {
                 ),
               ),
             ),
-          Expanded(child: buildPlatformCard(gp.platform, index)),
+          Expanded(
+            child: buildPlatformCard(
+              gp.platform,
+              index,
+              // per-group 优先级进卡（行 1.5）：控件画在 PlatformCard 里，
+              // 写回走控制器（乐观更新 + 失败回滚）。
+              levelPriority: gp.levelPriority,
+              onLevelPriorityChange: (v) => c.setLevelPriority(
+                group.id,
+                pid,
+                v,
+                failText: t.t('group.levelPriorityFailed'),
+              ),
+            ),
+          ),
           const SizedBox(width: AidogSpace.sxs),
           _GroupPlatformControls(
             controller: c,
@@ -1252,69 +1285,9 @@ class _GroupPlatformControls extends StatelessWidget {
                   : () => c.movePlatformWithinGroup(group.id, index, index + 1),
               icon: const Icon(Icons.arrow_downward),
             ),
-            // per-group 优先级（1~10，10 最高）。就地改，乐观更新 + 失败回滚。
-            // `PlatformCard.tsx:895-961::LevelPriorityControl` 逐条翻译。
-            Tooltip(
-              message: t.t('group.levelPriorityHint'),
-              child: Text(
-                t.t('group.levelPriority'),
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
-              ),
-            ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 14,
-              tooltip: t.t('group.levelPriorityDown'),
-              onPressed: gp.levelPriority <= 1
-                  ? null
-                  : () => c.setLevelPriority(
-                      group.id,
-                      pid,
-                      gp.levelPriority - 1,
-                      failText: t.t('group.levelPriorityFailed'),
-                    ),
-              icon: const Icon(Icons.remove),
-            ),
-            // 可以直接敲数字，不是只读（React 这里是 `<Input type="number">`，
-            // `PlatformCard.tsx:944-961`）。只有加减按钮的话，1 调到 10 要点九下。
-            // 失焦 / 回车提交，越界夹到 1~10，敲成非数字就还原当前值。
-            SizedBox(
-              width: 38,
-              child: PlainTextField(
-                key: ValueKey('level-priority-$pid'),
-                value: '${gp.levelPriority}',
-                onSubmitted: (raw) {
-                  final v = int.tryParse(raw.trim());
-                  if (v == null || v == gp.levelPriority) return;
-                  c.setLevelPriority(
-                    group.id,
-                    pid,
-                    v.clamp(1, 10),
-                    failText: t.t('group.levelPriorityFailed'),
-                  );
-                },
-              ),
-            ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 14,
-              tooltip: t.t('group.levelPriorityUp'),
-              onPressed: gp.levelPriority >= 10
-                  ? null
-                  : () => c.setLevelPriority(
-                      group.id,
-                      pid,
-                      gp.levelPriority + 1,
-                      failText: t.t('group.levelPriorityFailed'),
-                    ),
-              icon: const Icon(Icons.add),
-            ),
-            Text(
-              t.t('group.levelPriorityMax'),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
+            // per-group 优先级（1~10）已并进平台卡本体（行 1.5，
+            // `PlatformCard.tsx:423-427` 的 `LevelPriorityControl`），
+            // 不再在这里画独立步进器行。
             const SizedBox(width: AidogSpace.ssm),
             // 移动到另一分组：`usePlatformDrag.ts` 的跨组拖拽等价功能（不同交互形态，
             // 同一后端命令 `group_platform_move`）——嵌套 `ReorderableListView`
@@ -1336,175 +1309,15 @@ class _GroupPlatformControls extends StatelessWidget {
                 ],
               ),
           ],
-          SmallButton(
-            label: t.t('group.deletePlatformTitle'),
+          // 移除平台：图标化（2026-09-23 用户拍板，超出 React 的文字按钮形态）。
+          _GroupIconAction(
+            icon: Icons.remove_circle_outline,
+            tooltip: t.t('group.deletePlatformTitle'),
+            danger: true,
             onTap: () => c.askRemovePlatform(gp.platform, group.id),
           ),
         ],
       ),
-    );
-  }
-}
-
-/// 模型映射列表 + 列表页快捷添加表单（`GroupListItem.tsx:476-553` 逐条翻译）。
-class _MappingsSection extends StatelessWidget {
-  const _MappingsSection({required this.controller, required this.detail});
-
-  final GroupsController controller;
-  final GroupDetail detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
-    final theme = AidogTheme.of(context);
-    final c = controller;
-    final gid = detail.group.id;
-    final showForm = c.mappingGroupId == gid;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (detail.modelMappings.isNotEmpty)
-          for (var i = 0; i < detail.modelMappings.length; i++)
-            // 每条映射是一张小卡：玻璃底 + 描边，源模型 accent 高亮，中间一个箭头
-            //（`GroupListItem.tsx:478-497`）。原先是一行裸字 `源 → 目标`，
-            // 连行与行的边界都看不出来。
-            Container(
-              margin: const EdgeInsets.only(bottom: 3),
-              padding: const EdgeInsets.symmetric(
-                horizontal: AidogSpace.ssm,
-                vertical: 3,
-              ),
-              decoration: BoxDecoration(
-                color: theme.c.surface2,
-                border: Border.all(color: theme.c.line),
-                borderRadius: BorderRadius.circular(AidogRadius.sm),
-              ),
-              child: Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      detail.modelMappings[i].sourceModel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(
-                        color: theme.c.accentText,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: AidogSpace.sxs,
-                    ),
-                    child: Icon(
-                      Icons.arrow_forward,
-                      size: 12,
-                      color: theme.c.fg3,
-                    ),
-                  ),
-                  Expanded(
-                    child: Text(
-                      detail.modelMappings[i].targetModel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(color: theme.c.fg2),
-                    ),
-                  ),
-                  IconButton(
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(
-                      minWidth: 22,
-                      minHeight: 22,
-                    ),
-                    iconSize: 14,
-                    icon: const Icon(Icons.close),
-                    onPressed: () => c.deleteMapping(
-                      gid,
-                      i,
-                      failText: t.t('group.deleteMappingFailed'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: SmallButton(
-            label: '+ ${t.t('mapping.add')}',
-            onTap: () => c.setMappingGroupId(showForm ? null : gid),
-          ),
-        ),
-        if (showForm)
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.sxs),
-            child: Wrap(
-              crossAxisAlignment: WrapCrossAlignment.center,
-              spacing: AidogSpace.sxs,
-              runSpacing: AidogSpace.sxs,
-              children: [
-                SizedBox(
-                  width: 140,
-                  child: TextField(
-                    key: const ValueKey('mapping-quick-source'),
-                    decoration: InputDecoration(
-                      hintText: t.t('mapping.source'),
-                    ),
-                    style: AidogType.micro.copyWith(color: theme.c.fg),
-                    onChanged: c.setMSource,
-                  ),
-                ),
-                DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    hint: Text(t.t('mapping.targetPlatform')),
-                    value: c.mTargetPlatform,
-                    items: [
-                      for (final p in c.platforms)
-                        DropdownMenuItem(value: p.id, child: Text(p.name)),
-                    ],
-                    onChanged: c.setMTargetPlatform,
-                  ),
-                ),
-                if (c.mAvailableModels.isNotEmpty)
-                  DropdownButtonHideUnderline(
-                    child: DropdownButton<String>(
-                      hint: Text(t.t('mapping.target')),
-                      value: c.mTargetModel.isEmpty ? null : c.mTargetModel,
-                      items: [
-                        for (final m in c.mAvailableModels)
-                          DropdownMenuItem(value: m, child: Text(m)),
-                      ],
-                      onChanged: (v) => c.setMTargetModel(v ?? ''),
-                    ),
-                  )
-                else
-                  SizedBox(
-                    width: 120,
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: t.t('mapping.target'),
-                      ),
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
-                      onChanged: c.setMTargetModel,
-                    ),
-                  ),
-                SmallButton(
-                  label: t.t('action.create'),
-                  // `GroupListItem.tsx:547` 没写 variant = 默认实心。
-                  filled: true,
-                  onTap:
-                      (c.mSource.isEmpty ||
-                          c.mTargetPlatform == null ||
-                          c.mTargetModel.isEmpty)
-                      ? null
-                      : () => c.submitAddMapping(
-                          failText: t.t('group.addMappingFailed'),
-                        ),
-                ),
-              ],
-            ),
-          ),
-      ],
     );
   }
 }
@@ -3380,12 +3193,16 @@ class _GroupIconAction extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.danger = false,
+    this.active = false,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
   final bool danger;
+
+  /// 激活态（多选中 / 已是默认组）用 accent 色，对齐原 SmallButton 的 active。
+  final bool active;
 
   @override
   Widget build(BuildContext context) {
@@ -3404,6 +3221,8 @@ class _GroupIconAction extends StatelessWidget {
                 ? c.fg3
                 : danger
                 ? c.bad
+                : active
+                ? c.accentText
                 : c.fg2,
           ),
         ),
