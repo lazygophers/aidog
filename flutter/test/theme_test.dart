@@ -111,7 +111,7 @@ void main() {
     });
   });
 
-  // React 的窗口底不是纯色：`--app-bg-overlay` 叠了两到三层从 accent 派生的
+  // React 的窗口底不是纯色：`--app-bg-overlay` 叠了两到三层光晕
   // radial-gradient（`src/themes/mono.ts:41-46`）。Flutter 少了这层时，两版并排
   // 最先被看出来的就是「一个偏亮带主色晕、一个死黑」。
   group('窗口底的主色光晕', () {
@@ -120,12 +120,14 @@ void main() {
       expect(bgOverlays(AidogColors.light).length, 3);
     });
 
-    test('颜色从 accent 派生，收口到全透明，不写第二份字面色', () {
+    // 色源是 `glow` 不是 `accent`：深色强调色改成近黑之后（用户 2026-09-23 定），
+    // 跟着 accent 走的光晕压在窗口底上只有 1.006:1，等于没画。
+    test('颜色从 glow 派生，收口到全透明，不写第二份字面色', () {
       for (final c in [AidogColors.dark, AidogColors.light]) {
         for (final g in bgOverlays(c).cast<RadialGradient>()) {
-          expect(g.colors.first.r, c.accent.r);
-          expect(g.colors.first.g, c.accent.g);
-          expect(g.colors.first.b, c.accent.b);
+          expect(g.colors.first.r, c.glow.r);
+          expect(g.colors.first.g, c.glow.g);
+          expect(g.colors.first.b, c.glow.b);
           expect(g.colors.first.a, greaterThan(0));
           expect(g.colors.last.a, 0, reason: '外圈必须收到全透明，否则整页会被糊上一层');
         }

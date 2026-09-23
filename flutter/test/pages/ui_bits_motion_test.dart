@@ -121,7 +121,7 @@ void main() {
 
   // React 的 `<Button>` 默认变体是实心的（`ui/button.tsx:14-16`）。Flutter 这边
   // 原先只有描边一种，主动作（「+ 添加平台」这类）两版长得完全不是一个东西。
-  testWidgets('SmallButton filled：底色是 accent，文字是浅色，且不画描边', (tester) async {
+  testWidgets('SmallButton filled：底色是 accent，文字是浅色，边是 accentEdge', (tester) async {
     Widget button({required bool filled, bool danger = false}) => MaterialApp(
       theme: aidogThemeData(AidogMode.dark),
       home: Scaffold(
@@ -145,10 +145,12 @@ void main() {
     await tester.pumpWidget(button(filled: true));
     final filledMaterial = materialOf(tester);
     expect(filledMaterial.color, AidogColors.dark.accent);
+    // 深色下 accent 是近黑（`#101012`，用户 2026-09-23 定），面对窗口底只有
+    // 1.05:1 —— 轮廓全靠这圈亮边（压在 accent 上 3.22:1，刚过 3:1）。
     expect(
       (filledMaterial.shape! as RoundedRectangleBorder).side.color,
-      Colors.transparent,
-      reason: '实心态不再叠一圈描边',
+      AidogColors.dark.accentEdge,
+      reason: '实心态的轮廓靠 accentEdge，不能没有边',
     );
     expect(
       tester.widget<Text>(find.text('x')).style!.color,

@@ -30,7 +30,12 @@ class ChartPalette {
   final AidogColors c;
 
   /// 主系列色（React 版 `PRIMARY_COLOR` = `var(--primary)`）。
-  Color get primary => c.accent;
+  ///
+  /// 读 `dataPrimary` 而不是 `accent`：两者曾经同值，直到深色强调色改成近黑
+  /// （`#101012`，用户 2026-09-23 定）—— 近黑折线画在 `#111214` 的卡片上是
+  /// 1.01:1，**数据本身看不见**。图表是唯一不跟随强调色单色化的地方：多条线
+  /// 必须靠色相分开，灰阶只够分 2~3 条（用户同日拍板）。
+  Color get primary => c.dataPrimary;
 
   /// 第 index 个系列的颜色：0（及负数）→ 主色，1 起循环四级灰阶。
   /// 例：`series(0)` = accent，`series(1)` = fg2，`series(5)` 回绕 = `series(1)`。
