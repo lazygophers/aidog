@@ -545,6 +545,7 @@
   "importExport.pickFile": "Pick .aidogx file",
   "importExport.previewItems": "Preview export items",
   "importExport.rename": "Rename",
+  "importExport.renameRequired": "Keep both needs a new name — an empty one imports a row with no name",
   "importExport.reportTitle": "Import result",
   "importExport.scope.claudeCode": "Claude Code settings",
   "importExport.scope.codex": "Codex settings",

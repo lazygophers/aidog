@@ -545,6 +545,7 @@
   "importExport.pickFile": "اختر ملف .aidogx",
   "importExport.previewItems": "معاينة عناصر التصدير",
   "importExport.rename": "إعادة تسمية",
+  "importExport.renameRequired": "خيار «الاحتفاظ بكليهما» يتطلب اسمًا جديدًا؛ تركه فارغًا يستورد صفًا بلا اسم",
   "importExport.reportTitle": "نتيجة الاستيراد",
   "importExport.scope.claudeCode": "إعدادات Claude Code",
   "importExport.scope.codex": "إعدادات Codex",

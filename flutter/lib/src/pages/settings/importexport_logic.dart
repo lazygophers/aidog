@@ -436,3 +436,44 @@ String? pickAidogxPath(List<String> paths) {
   }
   return null;
 }
+
+/// 导入条目 → 菜单组 id（`ImportExport/meta.ts:118::menuGroupOf`）。
+///
+/// `setting` scope 按 key 前缀再分一层（`scheduling:` 归调度、`tray:` / `popover:`
+/// / `notification:` 归界面偏好），其余按 scope 直映射，未列出的一律归 `system`。
+String menuGroupOf(String scope, String key) {
+  if (scope == 'setting') {
+    const settingScopeGroup = {
+      'scheduling': 'scheduling',
+      'tray': 'uiPref',
+      'popover': 'uiPref',
+      'notification': 'uiPref',
+    };
+    return settingScopeGroup[key.split(':').first] ?? 'system';
+  }
+  const scopeMenuGroup = {
+    'platform': 'platform',
+    'group': 'group',
+    'group_platform': 'group_platform',
+    'skills': 'extension',
+    'mcp': 'extension',
+    'middleware': 'rules',
+    'codex': 'system',
+    'claude_code': 'system',
+    'model_price': 'system',
+    'setting': 'system',
+  };
+  return scopeMenuGroup[scope] ?? 'system';
+}
+
+/// 菜单组 id → i18n key（`meta.ts:45-54` 的 `labelKey`）。
+String menuGroupLabelKey(String id) => switch (id) {
+  'platform' => 'importExport.menuGroup.platform',
+  'group' => 'importExport.menuGroup.group',
+  'group_platform' => 'importExport.menuGroup.groupPlatform',
+  'extension' => 'importExport.menuGroup.extension',
+  'rules' => 'importExport.menuGroup.rules',
+  'scheduling' => 'importExport.menuGroup.scheduling',
+  'uiPref' => 'importExport.menuGroup.uiPref',
+  _ => 'importExport.menuGroup.system',
+};

@@ -371,12 +371,18 @@ class _ImportExportPageState extends State<ImportExportPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // 粘的是 sub2api 导出的整份账号 JSON，`maxLines: 4` 只看得见
+              // 四行 —— 粘全没粘全、括号对不对都得靠猜。React 那边是
+              // `JsonCodeEditor`，高度 120–320px（`Sub2ApiImport.tsx:195-201`）。
+              // 等宽行高 12.5×1.35 ≈ 17px：7 行 ≈ 119px 起、19 行 ≈ 323px 封顶。
               TextRow(
                 key: const ValueKey('sub2api-paste'),
                 label: t.t('importExport.sub2api.title'),
                 hint: t.t('importExport.sub2api.pastePlaceholder'),
                 value: _pasteText,
-                maxLines: 4,
+                minLines: 7,
+                maxLines: 19,
+                mono: true,
                 onChanged: (v) => setState(() => _pasteText = v),
               ),
               Row(
@@ -621,6 +627,21 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 ],
               ),
             ),
+          // 名字空着时「应用导入」是禁用的，原因必须写出来 —— 只禁不说，
+          // 用户不知道还差什么（`canApplyImport` 的 keepBoth 分支）。
+          for (final k in _c.conflictKeys)
+            if (_c.decisions[k]?.kind == ConflictDecisionKind.keepBoth &&
+                _c.decisions[k]!.newKey.trim().isEmpty)
+              Padding(
+                key: ValueKey('rename-required-$k'),
+                padding: const EdgeInsets.only(bottom: 2),
+                child: Text(
+                  t.t('importExport.renameRequired'),
+                  style: AidogType.micro.copyWith(
+                    color: AidogTheme.of(context).c.bad,
+                  ),
+                ),
+              ),
           Row(
             children: [
               SmallButton(
@@ -769,14 +790,36 @@ class _ImportExportPageState extends State<ImportExportPage> {
     );
   }
 
+  /// 折叠起来的菜单组 id。默认全展开（条目多时用户自己收）。
+  final Set<String> _collapsedGroups = {};
+
   /// 预览里的可勾选条目（导出与导入共用同一份 `items`）。
+  ///
+  /// 按菜单组分组 + 可折叠 + 组级三态全选（`ItemSelector.tsx:39-171`）。
+  /// 原先是几百条平铺：要只导某一类，得一条条点过去。
   Widget _itemPicker(I18nController t) {
+    final theme = AidogTheme.of(context);
     final items = (_c.preview!['items'] as List? ?? const [])
         .whereType<Map>()
         .toList();
     if (items.isEmpty) {
       return CenteredNote(text: t.t('importExport.exportEmpty'));
     }
+    String keyOf(Map e) => '${e['scope']} ${e['key']}';
+
+    // 按出现顺序分组，不重排 —— 后端给的顺序本身有意义。
+    final groups = <String, List<Map>>{};
+    for (final e in items) {
+      final gid = menuGroupOf('${e['scope']}', '${e['key']}');
+      (groups[gid] ??= []).add(e);
+    }
+
+    void setMany(List<Map> rows, bool on) {
+      for (final e in rows) {
+        _c.toggleSelected(keyOf(e), on);
+      }
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
@@ -792,84 +835,166 @@ class _ImportExportPageState extends State<ImportExportPage> {
           children: [
             SmallButton(
               label: t.t('importExport.selectAll'),
-              onTap: () {
-                for (final e in items) {
-                  _c.toggleSelected('${e['scope']} ${e['key']}', true);
-                }
-              },
+              onTap: () => setMany(items, true),
             ),
             const SizedBox(width: AidogSpace.ssm),
             SmallButton(
               label: t.t('importExport.deselectAll'),
-              onTap: () {
-                for (final e in items) {
-                  _c.toggleSelected('${e['scope']} ${e['key']}', false);
-                }
-              },
+              onTap: () => setMany(items, false),
             ),
           ],
         ),
         ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 260),
+          constraints: const BoxConstraints(maxHeight: 360),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                for (final e in items)
-                  Builder(
-                    builder: (context) {
-                      final k = '${e['scope']} ${e['key']}';
-                      final on = _c.selected.contains(k);
-                      return InkWell(
-                        key: ValueKey('item-$k'),
-                        onTap: () => _c.toggleSelected(k, !on),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            children: [
-                              Icon(
-                                on
-                                    ? Icons.check_box
-                                    : Icons.check_box_outline_blank,
-                                size: 14,
-                                color: on
-                                    ? AidogTheme.of(context).c.accent
-                                    : AidogTheme.of(context).c.fg3,
-                              ),
-                              const SizedBox(width: AidogSpace.sxs),
-                              Expanded(
-                                child: Text(
-                                  // 后端给了人话标签（平台名 / 分组名 / 文件名），
-                                  // 只画 `scope key` 的话用户认不出这条是什么。
-                                  ltr('${e['label'] ?? ''}'.isEmpty
-                                      ? k
-                                      : '${e['label']}'),
-                                  overflow: TextOverflow.ellipsis,
-                                  style: AidogType.micro.copyWith(
-                                    color: AidogTheme.of(context).c.fg2,
-                                  ),
-                                ),
-                              ),
-                              // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名
-                              // 条目，导入时要在上面的冲突区逐条定夺。
-                              if (e['conflict'] == true) ...[
-                                const SizedBox(width: AidogSpace.sxs),
-                                MiniBadge(
-                                  text: t.t('importExport.conflictTag'),
-                                  color: AidogTheme.of(context).c.peak,
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                for (final entry in groups.entries)
+                  _itemGroup(t, theme, entry.key, entry.value, keyOf, setMany),
               ],
             ),
           ),
         ),
       ],
+    );
+  }
+
+  /// 一个菜单组：组头（折叠箭头 + 三态复选框 + 组名 + 计数）+ 展开后的条目行。
+  Widget _itemGroup(
+    I18nController t,
+    AidogTheme theme,
+    String gid,
+    List<Map> rows,
+    String Function(Map) keyOf,
+    void Function(List<Map>, bool) setMany,
+  ) {
+    final open = !_collapsedGroups.contains(gid);
+    final selected = rows.where((e) => _c.selected.contains(keyOf(e))).length;
+    final allOn = selected == rows.length;
+    // 半选：这组里挑了几条。没有这一档的话，收起来之后就看不出这组动过没有。
+    final someOn = selected > 0 && !allOn;
+    // skills 条目要单独提醒（`ItemSelector.tsx:118-131`）：它会跑 npx 装东西，
+    // 用户手动全清掉时得说一声。
+    final skills = rows.where((e) => e['scope'] == 'skills').toList();
+    final skillsSelected = skills
+        .where((e) => _c.selected.contains(keyOf(e)))
+        .length;
+    return Container(
+      margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: ValueKey('item-group-$gid'),
+            onTap: () => setState(
+              () => open
+                  ? _collapsedGroups.add(gid)
+                  : _collapsedGroups.remove(gid),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.sxs,
+                vertical: 4,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    open ? Icons.expand_more : Icons.chevron_right,
+                    size: 14,
+                    color: theme.c.fg3,
+                  ),
+                  // 组级三态：全选 / 半选 / 全不选。点它整组翻转。
+                  GestureDetector(
+                    key: ValueKey('item-group-check-$gid'),
+                    onTap: () => setMany(rows, !allOn),
+                    child: Icon(
+                      allOn
+                          ? Icons.check_box
+                          : someOn
+                          ? Icons.indeterminate_check_box
+                          : Icons.check_box_outline_blank,
+                      size: 14,
+                      color: allOn || someOn ? theme.c.accent : theme.c.fg3,
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  Expanded(
+                    child: Text(
+                      t.t(menuGroupLabelKey(gid)),
+                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                    ),
+                  ),
+                  if (skills.isNotEmpty && skillsSelected == 0) ...[
+                    MiniBadge(
+                      text: t.t('importExport.skillsScopeHint'),
+                      color: theme.c.peak,
+                    ),
+                    const SizedBox(width: AidogSpace.sxs),
+                  ],
+                  Text(
+                    ltr('$selected / ${rows.length}'),
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (open)
+            for (final e in rows) _itemRow(t, theme, e, keyOf(e)),
+        ],
+      ),
+    );
+  }
+
+  /// 一条可勾选条目。
+  Widget _itemRow(I18nController t, AidogTheme theme, Map e, String k) {
+    final on = _c.selected.contains(k);
+    final label = '${e['label'] ?? ''}';
+    return InkWell(
+      key: ValueKey('item-$k'),
+      onTap: () => _c.toggleSelected(k, !on),
+      child: Padding(
+        padding: const EdgeInsets.only(
+          left: AidogSpace.smd,
+          right: AidogSpace.sxs,
+          top: 2,
+          bottom: 2,
+        ),
+        child: Row(
+          children: [
+            Icon(
+              on ? Icons.check_box : Icons.check_box_outline_blank,
+              size: 14,
+              color: on ? theme.c.accent : theme.c.fg3,
+            ),
+            const SizedBox(width: AidogSpace.sxs),
+            Expanded(
+              child: Text(
+                // 后端给了人话标签（平台名 / 分组名 / 文件名），
+                // 只画 `scope key` 的话用户认不出这条是什么。
+                ltr(label.isEmpty ? k : label),
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.micro.copyWith(color: theme.c.fg2),
+              ),
+            ),
+            // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名条目，
+            // 导入时要在上面的冲突区逐条定夺。
+            if (e['conflict'] == true) ...[
+              const SizedBox(width: AidogSpace.sxs),
+              MiniBadge(
+                text: t.t('importExport.conflictTag'),
+                color: theme.c.peak,
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
