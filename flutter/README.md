@@ -145,6 +145,35 @@ import 'package:aidog_flutter/pages.dart';
   把 `k.responses['<命令>']` 换成一个**零参**闭包，每次调用换一批 id
   （`fake_invoke.dart:43` 只对 `Object? Function()` 求值，带参数的闭包会被当成返回值本身）。
 
+### 数字输入框吞掉用户正在打的字
+
+`tryParse(v) ?? 0` 这一行不是「解析失败取默认值」那么轻，它会**当场把用户打的字换掉**：
+
+```dart
+// ✗ 打到一半的 `10.` → 上报 0 → 外层把 value 变成 '0'
+//   → 输入框的 didUpdateWidget 看到 value != controller.text，把框里的字替换成 '0'
+PlatformField(
+  value: b.amount == 0 ? '' : '${b.amount}',
+  onChanged: (v) => update(b.copyWith(amount: double.tryParse(v.trim()) ?? 0)),
+)
+
+// ✓ 正在编辑的原文归输入框自己的 State 管，只有解析成功才往上报
+DecimalField(
+  value: b.amount == 0 ? '' : '${b.amount}',
+  invalidText: t.t('platform.numberInvalid'),
+  onParsed: (v) => update(b.copyWith(amount: v ?? 0)),
+)
+```
+
+规矩两条，缺一条就会退回同一个 bug：
+
+1. **向上回报只在解析成功时发生**。解析不出来就停住，别写 `?? 0`、别写 `?? 上一个值`。
+2. **解析中的文本留在自己的 State 里**，不要让它绕一圈从外部 `value` 回来 —— 只要回报过一次，
+   外部值就会和框里的字对不上，下一次重建就把人家打的东西盖掉。
+
+解析失败要给可见反馈（`platform.numberInvalid`）。桌面端接实体键盘时数字键盘挡不住字母，
+过滤要放在输入框那一层（`PlatformField` 的 `numeric`）。
+
 ### 按钮没有水波？底色画错地方了
 
 `InkWell` 的水波**画在祖先 `Material` 上**，不是画在自己身上。所以只要在它和
