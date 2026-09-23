@@ -992,7 +992,7 @@ void main() {
       );
     });
 
-    testWidgets('滚到底自动拉下一页，「加载更多」按钮作为兜底仍在', (tester) async {
+    testWidgets('滚到底自动拉下一页，没有「加载更多」按钮', (tester) async {
       // 一屏放不下才有得滚：给一块矮画布 + 满一页（12 条）的数据。
       await tester.binding.setSurfaceSize(const Size(1400, 700));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1024,8 +1024,8 @@ void main() {
       );
       await settle(tester);
       expect(k.callsTo('group_detail_list_paged').length, 1, reason: '首帧不乱拉');
-      // 兜底按钮还在：内容没占满一屏时没得滚，键盘用户也要有显式入口。
-      expect(find.text(c.t('logs.hasMore')), findsOneWidget);
+      // 对齐 React：那边只有哨兵，没有按钮（`GroupListView.tsx:277-285`）。
+      expect(find.text(c.t('logs.hasMore')), findsNothing);
 
       await tester.drag(find.text('G100').first, const Offset(0, -2000));
       await settle(tester);
@@ -1034,6 +1034,46 @@ void main() {
         greaterThan(1),
         reason: '滚到底就该自己接着拉',
       );
+    });
+
+    testWidgets('内容不满一屏：像 React 哨兵一样接着拉到没有下一页', (tester) async {
+      // React 的 IntersectionObserver 首次 observe 就回调：哨兵可见就拉下一页，
+      // 一页页拉到填满视口或没有下一页为止。按钮删掉之后这条路是唯一兜底。
+      await useBigSurface(tester);
+      var pageNo = 0;
+      final k = groupsFake(page: const []);
+      k.responses['group_detail_list_paged'] = () {
+        pageNo++;
+        // 第一页满 12 条（hasMore 仍真），第二页 2 条（不满一页 → hasMore 置假）。
+        final n = pageNo == 1 ? 12 : 2;
+        final base = 100 + (pageNo - 1) * 12;
+        return [
+          for (var i = 0; i < n; i++)
+            {
+              'group': {
+                'id': base + i,
+                'name': 'G${base + i}',
+                'group_key': 'gk${base + i}',
+              },
+              'platforms': <Object?>[],
+              'model_mappings': <Object?>[],
+            },
+        ];
+      };
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+      expect(
+        k.callsTo('group_detail_list_paged').length,
+        2,
+        reason: '没滚也要把第二页拉齐 —— 哨兵本来就可见',
+      );
+      expect(find.text('G113'), findsOneWidget, reason: '第二页的内容要真的上屏');
     });
 
     testWidgets('复制命令菜单四项各带图标', (tester) async {

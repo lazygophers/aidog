@@ -130,9 +130,6 @@ class _GroupsSectionState extends State<GroupsSection> {
   /// position 的通知发生在滚动活动里，不在布局 / 语义那一趟，所以往列表里追加
   /// 下一页不会踩 `!childSemantics.renderObject._needsLayout`。
   /// 同一条路子见 `settings/schema_config_page.dart` 的 `_onScroll`。
-  ///
-  /// **只在真的滚动时触发**：首帧不主动查。内容没占满一屏时根本没得滚，
-  /// 那种情况交给下面保留的「加载更多」按钮 —— 键盘用户和关了动效的用户也靠它。
   ScrollPosition? _scrollPos;
 
   @override
@@ -151,7 +148,12 @@ class _GroupsSectionState extends State<GroupsSection> {
     super.dispose();
   }
 
-  void _onScroll() {
+  void _onScroll() => _maybeLoadMore();
+
+  /// 哨兵可见就拉下一页。除了滚动中触发，React 的 `IntersectionObserver`
+  /// 首次 observe 就回调一次：内容没占满一屏时哨兵本来就可见，会一页页接着拉
+  /// 直到填满（那边没有按钮兜底）—— `build` 末尾的 post-frame 检查补的就是这一下。
+  void _maybeLoadMore() {
     final pos = _scrollPos;
     if (pos == null || !pos.hasContentDimensions) return;
     if (!_c.hasMore || _c.loadingMore || _c.loading) return;
@@ -174,6 +176,11 @@ class _GroupsSectionState extends State<GroupsSection> {
     if (_c.showCreate) return _GroupCreatePanel(controller: _c);
     // 搜索串每帧推给控制器 —— 它是纯派生的来源，不存第二份。
     _c.setSearchQuery(widget.searchQuery);
+    // 布局之后才量得到 extentAfter，所以挂 post-frame；有请求在跑 / 没下一页时
+    // `_maybeLoadMore` 自己会挡住，不会形成空转的重建循环。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _maybeLoadMore();
+    });
     return _GroupListView(
       controller: _c,
       searchQuery: widget.searchQuery,
@@ -328,20 +335,13 @@ class _GroupListView extends StatelessWidget {
               );
             },
           ),
+        // 触底自动拉下一页（`_GroupsSectionState._maybeLoadMore`）。这里**没有**
+        // 「加载更多」按钮，对齐 React：那边只有哨兵 + 拉取中的这一行「加载中…」
+        //（`GroupListView.tsx:281-285`）。
         if (c.loadingMore)
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.ssm),
             child: CenteredNote(text: t.t('status.loading')),
-          )
-        else if (c.hasMore)
-          // 滚到底会自动拉下一页（见 `_GroupsSectionState._onScroll`）。
-          // 这颗按钮**是有意保留的兜底**，React 也留着一颗：内容没占满一屏时
-          // 没得滚，键盘操作与关了动效的用户也需要一个显式入口。
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.ssm),
-            child: Align(
-              child: SmallButton(label: t.t('logs.hasMore'), onTap: c.loadMore),
-            ),
           ),
         // 虚拟桶「未匹配」（MITM fallback 直通）：`GroupListView.tsx:276-279`。
         if (c.unmatchedStat != null && c.unmatchedStat!.totalRequests > 0)
