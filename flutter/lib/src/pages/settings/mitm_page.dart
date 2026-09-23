@@ -206,7 +206,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
       title: t.t('mitm.whitelistTitle'),
       description: t.t('mitm.whitelistDesc'),
       children: [
-        ChoiceRow(
+        SelectRow(
           key: const ValueKey('mitm-rule-type'),
           label: t.t('mitm.ruleTypeLabel'),
           options: WhitelistRuleType.values.map((e) => e.wire).toList(),
@@ -217,7 +217,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
             'keyword' => t.t('mitm.ruleKeyword'),
             _ => t.t('mitm.ruleIpcidr'),
           },
-          onChanged: (v) => _c.setNewRuleType(WhitelistRuleType.parse(v)),
+          onChanged: (v) => _c.setNewRuleType(WhitelistRuleType.parse(v!)),
         ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -315,8 +315,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                   // 「当前是什么状态」还是「点了会变成什么」，本身就有歧义。
                   AidogSwitch(
                     value: e.enabled,
-                    onChanged: () =>
-                        _c.toggleEntry(e.hostPattern, !e.enabled),
+                    onChanged: () => _c.toggleEntry(e.hostPattern, !e.enabled),
                   ),
                   const SizedBox(width: AidogSpace.sxs),
                   SmallButton(

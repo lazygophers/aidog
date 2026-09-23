@@ -175,6 +175,18 @@ Future<SchemaBundle> loadSchemaBundle(
 /// Claude Code 的语言清单（`claude-settings-schema.ts::LANGUAGE_GROUPS` 拍平）。
 /// CLI 集成页的语言下拉用它 —— 与 claude 页同一份数据，不抄第二份。
 Future<List<({String value, String label})>> loadClaudeLanguageOptions() async {
+  final groups = await loadClaudeLanguageGroups();
+  return [
+    for (final g in groups)
+      for (final o in g.options)
+        (value: o.value, label: '${g.family} · ${o.label}'),
+  ];
+}
+
+/// 同一份语言清单，但保留语族分组（CLI 集成页的下拉要画分组标题，
+/// 对齐 React 的 `SelectGroup`，`CodingToolsSettings.tsx:433-450`）。
+Future<List<({String family, List<({String value, String label})> options})>>
+loadClaudeLanguageGroups() async {
   final all = await (_schemaAssetCache ??= _loadJsonAsset(
     'assets/settings_schema.json',
   ));
@@ -182,8 +194,13 @@ Future<List<({String value, String label})>> loadClaudeLanguageOptions() async {
       ((all['claude'] as Map)['languageGroups'] as List? ?? const []);
   return [
     for (final g in groups.whereType<Map>())
-      for (final o in (g['options'] as List? ?? const []).whereType<Map>())
-        (value: '${o['value']}', label: '${g['family']} · ${o['label']}'),
+      (
+        family: '${g['family']}',
+        options: [
+          for (final o in (g['options'] as List? ?? const []).whereType<Map>())
+            (value: '${o['value']}', label: '${o['label']}'),
+        ],
+      ),
   ];
 }
 

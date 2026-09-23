@@ -17,11 +17,12 @@ import 'package:flutter/material.dart';
 import '../../../i18n.dart';
 import '../../shell/nav_guard.dart';
 import '../../shell/theme.dart';
+import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'coding_tools_logic.dart';
-import 'schema_config_page.dart' show loadClaudeLanguageOptions;
+import 'schema_config_page.dart' show loadClaudeLanguageGroups;
 
 class CodingToolsPage extends StatefulWidget {
   const CodingToolsPage({
@@ -33,7 +34,12 @@ class CodingToolsPage extends StatefulWidget {
   final InvokeFn invoke;
 
   /// widget 测试塞一份短清单，避免每个用例都解 121 KB 资产。
-  final Future<List<({String value, String label})>> Function()? languageLoader;
+  /// 带语族分组（下拉里画分组标题，`CodingToolsSettings.tsx:433-450`）。
+  final Future<
+    List<({String family, List<({String value, String label})> options})>
+  >
+  Function()?
+  languageLoader;
 
   @override
   State<CodingToolsPage> createState() => _CodingToolsPageState();
@@ -41,7 +47,8 @@ class CodingToolsPage extends StatefulWidget {
 
 class _CodingToolsPageState extends State<CodingToolsPage> {
   late final CodingToolsController _c;
-  List<({String value, String label})> _languages = const [];
+  List<({String family, List<({String value, String label})> options})>
+  _langGroups = const [];
 
   void Function()? _unregisterGuard;
 
@@ -64,9 +71,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
   }
 
   Future<void> _loadLanguages() async {
-    final l =
-        await (widget.languageLoader?.call() ?? loadClaudeLanguageOptions());
-    if (mounted) setState(() => _languages = l);
+    final g =
+        await (widget.languageLoader?.call() ?? loadClaudeLanguageGroups());
+    if (mounted) setState(() => _langGroups = g);
   }
 
   @override
@@ -157,16 +164,10 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           title: t.t('codingTools.language.title'),
           description: t.t('codingTools.language.desc'),
           children: [
-            SelectRow(
+            _LanguageGroupSelect(
               key: const ValueKey('cli-language'),
               label: t.t('codingTools.language.title'),
-              options: _languages.map((e) => e.value).toList(),
-              labelOf: (v) => _languages
-                  .firstWhere(
-                    (e) => e.value == v,
-                    orElse: () => (value: v, label: v),
-                  )
-                  .label,
+              groups: _langGroups,
               value: _c.language,
               onChanged: _c.busy ? null : (v) => _c.setLanguage(v ?? '', texts),
             ),
@@ -286,4 +287,83 @@ class _LandingHint extends StatelessWidget {
       style: AidogType.numSm.copyWith(color: AidogTheme.of(context).c.fg3),
     ),
   );
+}
+
+/// 语言下拉：三十多项按语族分组画标题，对齐 React 的 `SelectGroup`
+/// （`CodingToolsSettings.tsx:433-450`）。拍平成一个长列表的话，找一门
+/// 语言要一路滚到底。分组标题是点不动的灰字（disabled 的菜单项）。
+class _LanguageGroupSelect extends StatelessWidget {
+  const _LanguageGroupSelect({
+    super.key,
+    required this.label,
+    required this.groups,
+    required this.value,
+    this.onChanged,
+  });
+
+  final String label;
+  final List<({String family, List<({String value, String label})> options})>
+  groups;
+  final String value;
+  final ValueChanged<String?>? onChanged;
+
+  /// 候选里找显示名；不在候选里（自定义值）原样返回。
+  String _labelOf(String v) {
+    for (final g in groups) {
+      for (final o in g.options) {
+        if (o.value == v) return o.label;
+      }
+    }
+    return v;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final flat = [for (final g in groups) ...g.options.map((o) => o.value)];
+    final hintStyle = AidogType.micro.copyWith(color: theme.c.fg3);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TileMeta(label),
+          DropdownButton<String>(
+            value: value.isEmpty ? null : value,
+            underline: const SizedBox.shrink(),
+            isDense: true,
+            isExpanded: true,
+            dropdownColor: theme.c.surface2,
+            style: AidogType.micro.copyWith(color: theme.c.fg),
+            hint: Text('—', style: hintStyle),
+            onChanged: onChanged,
+            items: [
+              // 当前值不在候选里（用户手填的自定义值）也要能显示，
+              // 否则 Dropdown 会断言失败。
+              if (value.isNotEmpty && !flat.contains(value))
+                DropdownMenuItem<String>(
+                  value: value,
+                  child: Text(_labelOf(value)),
+                ),
+              for (final g in groups) ...[
+                DropdownMenuItem<String>(
+                  enabled: false,
+                  child: Text(
+                    g.family,
+                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  ),
+                ),
+                for (final o in g.options)
+                  DropdownMenuItem<String>(
+                    value: o.value,
+                    child: Text(o.label),
+                  ),
+              ],
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }

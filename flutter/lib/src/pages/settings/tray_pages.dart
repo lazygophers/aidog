@@ -722,7 +722,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           ],
         ),
         if (ty == 'cost_trend') ...[
-          ChoiceRow(
+          SelectRow(
+            key: ValueKey('popover-scope-$id'),
             label: t.t('popover.trendScopeOverall'),
             options: const ['overall', 'group', 'platform'],
             value: scope,
@@ -743,7 +744,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
               },
             }),
           ),
-          ChoiceRow(
+          SelectRow(
             label: t.t('popover.previewTrend', {'window': ''}),
             options: kPopoverTrendWindows,
             value: '${it['time_window'] ?? '7d'}',
@@ -752,7 +753,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           ),
         ],
         if (ty == 'platform_share' || ty == 'hour_heatbar')
-          ChoiceRow(
+          SelectRow(
             label: t.t('popover.previewTrend', {'window': ''}),
             options: kPopoverTrendWindows,
             value:
@@ -762,7 +763,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           ),
         // 分组 / 平台候选是**不定长**的：平铺成一排按钮，平台一多就铺满屏
         // （React 这两处是 Select，`ScopeConfig.tsx:83-114`）。
-        // 候选为空时 ChoiceRow 整行什么都不画，这里给一句空态。
+        // 候选为空时 SelectRow 整行什么都不画，这里给一句空态。
         if (scope == 'group' || kPopoverGroupTypes.contains(ty))
           _c.groups.isEmpty
               ? _ScopeEmptyNote(
@@ -993,7 +994,9 @@ class _HexFieldState extends State<_HexField> {
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: valid ? theme.c.accentEdge : theme.c.bad),
+          borderSide: BorderSide(
+            color: valid ? theme.c.accentEdge : theme.c.bad,
+          ),
         ),
       ),
       onChanged: (v) {

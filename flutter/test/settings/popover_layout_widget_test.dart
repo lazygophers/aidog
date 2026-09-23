@@ -122,7 +122,9 @@ void main() {
       ),
     );
     await settle(tester);
-    await tester.tap(find.byKey(const ValueKey('popover-add-today_cache_rate')));
+    await tester.tap(
+      find.byKey(const ValueKey('popover-add-today_cache_rate')),
+    );
     await settle(tester);
     final cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     final items = (cfg['items']! as List).cast<Map>();
@@ -186,33 +188,34 @@ void main() {
     );
     await settle(tester);
 
-    // 用按钮定位而不是裸文本：选中某个范围后会多出一个同名标签的
-    // 选择器行，裸 find.text 会打在那行标签上。
-    await tester.tap(
-      find
-          .widgetWithText(SmallButton, i18n.t('popover.trendScopePlatform'))
-          .first,
-    );
-    await settle(tester);
+    // 范围是下拉（对齐 React `ScopeConfig.tsx:27-50`）：点开再选。
+    // 选中某个范围后会多出一个同名标签的选择器行，所以选项 tap 用
+    // `.last`（菜单浮在最上层）。
+    Future<void> pickScope(String label) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('popover-scope-a')),
+          matching: find.byWidgetPredicate((w) => w is DropdownButton),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(label).last);
+      await settle(tester);
+    }
+
+    await pickScope(i18n.t('popover.trendScopePlatform'));
     var cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     var item = (cfg['items']! as List).first as Map;
     expect(item['scope'], 'platform');
     expect(item['scope_ref'], '7', reason: '预填第一个平台，不是留空');
 
-    await tester.tap(
-      find.widgetWithText(SmallButton, i18n.t('popover.trendScopeGroup')).first,
-    );
-    await settle(tester);
+    await pickScope(i18n.t('popover.trendScopeGroup'));
     cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     item = (cfg['items']! as List).first as Map;
     expect(item['scope'], 'group');
     expect(item['scope_ref'], 'gk1');
 
-    await tester.tap(
-      find
-          .widgetWithText(SmallButton, i18n.t('popover.trendScopeOverall'))
-          .first,
-    );
+    await pickScope(i18n.t('popover.trendScopeOverall'));
     await settle(tester);
     cfg = k.lastArgsOf('popover_config_set')!['config']! as Map;
     item = (cfg['items']! as List).first as Map;

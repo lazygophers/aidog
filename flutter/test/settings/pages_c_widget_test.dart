@@ -283,7 +283,10 @@ void main() {
       final i18n = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          SystemSettingsPage(
+            invoke: k.invoke,
+            appVersionFn: () async => '9.9.9',
+          ),
           i18n,
         ),
       );
@@ -328,7 +331,10 @@ void main() {
       final i18n = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          SystemSettingsPage(
+            invoke: k.invoke,
+            appVersionFn: () async => '9.9.9',
+          ),
           i18n,
         ),
       );
@@ -344,12 +350,16 @@ void main() {
       await settle(tester);
       expect(obscured('kernel-token'), isFalse);
 
-      await tester.tap(find.byKey(const ValueKey('upstream-proxy-pass-reveal')));
+      await tester.tap(
+        find.byKey(const ValueKey('upstream-proxy-pass-reveal')),
+      );
       await settle(tester);
       expect(obscured('upstream-proxy-pass'), isFalse);
 
       // 再切回密文。
-      await tester.tap(find.byKey(const ValueKey('upstream-proxy-pass-reveal')));
+      await tester.tap(
+        find.byKey(const ValueKey('upstream-proxy-pass-reveal')),
+      );
       await settle(tester);
       expect(obscured('upstream-proxy-pass'), isTrue);
 
@@ -379,7 +389,10 @@ void main() {
       final i18n = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          SystemSettingsPage(invoke: k.invoke, appVersionFn: () async => '9.9.9'),
+          SystemSettingsPage(
+            invoke: k.invoke,
+            appVersionFn: () async => '9.9.9',
+          ),
           i18n,
         ),
       );
@@ -490,8 +503,7 @@ void main() {
           of: find.byKey(const ValueKey('cleanup-expired')),
           matching: find.byWidgetPredicate(
             (w) =>
-                w is Tooltip &&
-                w.message == i18n.t('logs.cleanupDisabledHint'),
+                w is Tooltip && w.message == i18n.t('logs.cleanupDisabledHint'),
           ),
         ),
         findsOneWidget,
@@ -500,10 +512,7 @@ void main() {
 
     testWidgets('关掉「记录原始请求」→ 它的保留期一并收起', (tester) async {
       await mount(tester);
-      expect(
-        find.byKey(const ValueKey('user-req-retention')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('user-req-retention')), findsOneWidget);
       await tapSwitch(tester, 'log-user-req');
       expect(find.byKey(const ValueKey('user-req-retention')), findsNothing);
       // 上游那条不受影响，各管各的。
@@ -520,10 +529,7 @@ void main() {
         find.byKey(const ValueKey('upstream-req-retention')),
         findsNothing,
       );
-      expect(
-        find.byKey(const ValueKey('user-req-retention')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('user-req-retention')), findsOneWidget);
     });
   });
 
@@ -585,10 +591,7 @@ void main() {
         ),
       );
       await settle(tester);
-      expect(
-        find.byKey(const ValueKey('settings-anchor-nav')),
-        findsOneWidget,
-      );
+      expect(find.byKey(const ValueKey('settings-anchor-nav')), findsOneWidget);
       final chip = find.descendant(
         of: find.byKey(const ValueKey('settings-anchor-nav')),
         matching: find.widgetWithText(
@@ -804,7 +807,7 @@ void main() {
           CodingToolsPage(
             invoke: k.invoke,
             languageLoader: () async => const [
-              (value: 'zh-Hans', label: '中文 · 简体'),
+              (family: '中文', options: [(value: 'zh-Hans', label: '简体（通用）')]),
             ],
           ),
           i18n,
@@ -864,8 +867,8 @@ void main() {
       final value = (setArgs['input'] as Map)['value'] as Map;
       expect(value['effortLevel'], '');
       expect(
-        (k.lastArgsOf('codex_config_write')!['value'] as Map)[
-            'model_reasoning_effort'],
+        (k.lastArgsOf('codex_config_write')!['value']
+            as Map)['model_reasoning_effort'],
         '',
       );
     });
@@ -1025,9 +1028,16 @@ void main() {
       wrapPage(SchedulingSettingsPage(invoke: k.invoke), i18n),
     );
     await settle(tester);
+    // 路由模式是下拉（对齐 React `SchedulingSettings.tsx:124-136`），
+    // 点开再选「故障转移」。
     await tester.tap(
-      find.widgetWithText(SmallButton, i18n.t('group.failover')),
+      find.descendant(
+        of: find.byKey(const ValueKey('routing-mode')),
+        matching: find.byWidgetPredicate((w) => w is DropdownButton),
+      ),
     );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(i18n.t('group.failover')));
     await settle(tester);
     final args = k.lastArgsOf('scheduling_settings_set')!['settings']! as Map;
     expect(args['default_routing_mode'], 'failover');
@@ -1213,7 +1223,6 @@ void main() {
       expect(inRow('example.org', 'mitm.ruleKeyword'), findsOneWidget);
       // 手动停用 ≠ 失效：那条关掉的不该写「失效」。
       expect(find.text(i18n.t('middleware.failed')), findsNothing);
-
 
       final switches = find.descendant(
         of: find.byKey(const ValueKey('wl-a.example.com')),
@@ -1715,7 +1724,10 @@ void main() {
         await settle(tester);
 
         expect(tester.takeException(), isNull);
-        expect(find.byKey(const ValueKey('sub2api-protocol-0')), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('sub2api-protocol-0')),
+          findsOneWidget,
+        );
       });
     }
 
@@ -1908,7 +1920,12 @@ void main() {
         extra: {
           'import_read_file': (_) => {
             'items': [
-              {'scope': 'platform', 'key': 'p1', 'label': 'P1', 'conflict': true},
+              {
+                'scope': 'platform',
+                'key': 'p1',
+                'label': 'P1',
+                'conflict': true,
+              },
             ],
             'conflicts': [
               {
@@ -1931,15 +1948,17 @@ void main() {
 
       // 告警色标题（`ImportExportTab.tsx:542` 的 --color-warning）：
       // 冲突要逐条拍板，标题不能混成普通小节标题的灰。
-      final titleFinder = find.text(
-        i18n.t('importExport.conflicts', {'n': 1}),
-      );
+      final titleFinder = find.text(i18n.t('importExport.conflicts', {'n': 1}));
       final peak = AidogTheme.of(tester.element(titleFinder)).c.peak;
       expect(tester.widget<Text>(titleFinder).style!.color, peak);
 
       // 批量决策在冲突行**上方**：冲突多时不必滚到底去找。
-      final bulkY = tester.getTopLeft(find.byKey(const ValueKey('bulk-overwrite'))).dy;
-      final rowY = tester.getTopLeft(find.byKey(const ValueKey('conflict-platform p1'))).dy;
+      final bulkY = tester
+          .getTopLeft(find.byKey(const ValueKey('bulk-overwrite')))
+          .dy;
+      final rowY = tester
+          .getTopLeft(find.byKey(const ValueKey('conflict-platform p1')))
+          .dy;
       expect(bulkY, lessThan(rowY));
 
       // 「全部覆盖」一次定完，落到载荷里。
@@ -2013,7 +2032,12 @@ void main() {
         extra: {
           'import_read_file': (_) => {
             'items': [
-              {'scope': 'platform', 'key': 'p1', 'label': 'P1', 'conflict': true},
+              {
+                'scope': 'platform',
+                'key': 'p1',
+                'label': 'P1',
+                'conflict': true,
+              },
             ],
             'conflicts': [
               {'scope': 'platform', 'key': 'p1'},
@@ -2102,11 +2126,7 @@ void main() {
       expect(find.text(i18n.t('importExport.sourceMachine')), findsOneWidget);
       expect(find.text(i18n.t('importExport.createdAt')), findsOneWidget);
       // 范围条数：「平台 3」这类徽标，光有路径看不出导进来会动多少东西。
-      expect(
-        find.textContaining('3'),
-        findsWidgets,
-        reason: 'counts 要画出来',
-      );
+      expect(find.textContaining('3'), findsWidgets, reason: 'counts 要画出来');
 
       // 勾选器：标题 + 「已选 n / 共 m」+ 人话标签 + 冲突徽标。
       expect(find.text(i18n.t('importExport.selectItems')), findsOneWidget);

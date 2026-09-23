@@ -17,6 +17,7 @@ import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'invoke.dart';
+import 'mini_select.dart';
 import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_logo.dart' show AgentIconButton;
 import 'share_panel.dart';
@@ -287,15 +288,15 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         TileMeta(t.t('skills.scope')),
-        SmallButton(
-          label: t.t('skills.scopeGlobal'),
-          active: _c.scopeKind == 'global',
-          onTap: () => _c.setScopeKind('global'),
-        ),
-        SmallButton(
-          label: t.t('skills.scopeProject'),
-          active: _c.scopeKind == 'project',
-          onTap: () => _c.setScopeKind('project'),
+        // React 是 `Select` 下拉（`SkillsView.tsx:262-270`）。
+        MiniSelect(
+          key: const ValueKey('skills-scope'),
+          value: _c.scopeKind,
+          options: const ['global', 'project'],
+          labelOf: (v) => v == 'global'
+              ? t.t('skills.scopeGlobal')
+              : t.t('skills.scopeProject'),
+          onChanged: (v) => _c.setScopeKind(v!),
         ),
         if (_c.scopeKind == 'project') ...[
           SizedBox(
@@ -341,23 +342,20 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             onChanged: _c.setSearchQuery,
           ),
         ),
-        // 三颗筛选按钮的 key 直接写死，不拼。
-        //
-        // 原先写的是 `'skills.filter\${f[0].toUpperCase()}...'` —— **单引号串里
-        // `\$` 是字面美元符**，于是三颗按钮拿到的是同一个不存在的 key
-        // `skills.filter\${f[0].toUpperCase()}\${f.substring(1)}`，界面上直接显这串裸 key。
-        // 换成双引号插值也能修，但拼出来的 key 会让 `check-ui-parity.mjs`
-        // 这类扫字面量的工具照不出来 —— 写死更好。
-        for (final (f, key) in const [
-          ('all', 'skills.filterAll'),
-          ('enabled', 'skills.filterEnabled'),
-          ('disabled', 'skills.filterDisabled'),
-        ])
-          SmallButton(
-            label: t.t(key),
-            active: _c.enabledFilter == f,
-            onTap: () => _c.setEnabledFilter(f),
-          ),
+        // 三个筛选 key 直接写死，不拼 —— 拼出来的 key `check-ui-parity.mjs`
+        // 这类扫字面量的工具照不出来（单引号串里 `\$` 还是字面美元符，
+        // 原先平铺按钮版就在这里翻过车）。
+        MiniSelect(
+          key: const ValueKey('skills-enabled-filter'),
+          value: _c.enabledFilter,
+          options: const ['all', 'enabled', 'disabled'],
+          labelOf: (f) => switch (f) {
+            'enabled' => t.t('skills.filterEnabled'),
+            'disabled' => t.t('skills.filterDisabled'),
+            _ => t.t('skills.filterAll'),
+          },
+          onChanged: (v) => _c.setEnabledFilter(v!),
+        ),
       ],
     ),
   );
@@ -387,19 +385,21 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               TileMeta(t.t('skills.alignFrom')),
-              for (final a in kSkillAgents)
-                SmallButton(
-                  label: t.t('skills.agent.$a'),
-                  active: _c.alignFrom == a,
-                  onTap: () => _c.setAlignFrom(a),
-                ),
+              MiniSelect(
+                key: const ValueKey('skills-align-from'),
+                value: _c.alignFrom,
+                options: kSkillAgents,
+                labelOf: (a) => t.t('skills.agent.$a'),
+                onChanged: (v) => _c.setAlignFrom(v!),
+              ),
               TileMeta(t.t('skills.alignTo')),
-              for (final a in kSkillAgents)
-                SmallButton(
-                  label: t.t('skills.agent.$a'),
-                  active: _c.alignTo == a,
-                  onTap: () => _c.setAlignTo(a),
-                ),
+              MiniSelect(
+                key: const ValueKey('skills-align-to'),
+                value: _c.alignTo,
+                options: kSkillAgents,
+                labelOf: (a) => t.t('skills.agent.$a'),
+                onChanged: (v) => _c.setAlignTo(v!),
+              ),
             ],
           ),
           const SizedBox(height: AidogSpace.ssm),
@@ -501,15 +501,14 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                   onTap: () => _c.toggleImportAgent(a),
                 ),
               TileMeta(t.t('skills.scope')),
-              SmallButton(
-                label: t.t('skills.scopeGlobal'),
-                active: _c.importScopeKind == 'global',
-                onTap: () => _c.setImportScopeKind('global'),
-              ),
-              SmallButton(
-                label: t.t('skills.scopeProject'),
-                active: _c.importScopeKind == 'project',
-                onTap: () => _c.setImportScopeKind('project'),
+              MiniSelect(
+                key: const ValueKey('skills-import-scope'),
+                value: _c.importScopeKind,
+                options: const ['global', 'project'],
+                labelOf: (v) => v == 'global'
+                    ? t.t('skills.scopeGlobal')
+                    : t.t('skills.scopeProject'),
+                onChanged: (v) => _c.setImportScopeKind(v!),
               ),
             ],
           ),

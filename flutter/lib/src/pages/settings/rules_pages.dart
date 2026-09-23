@@ -84,7 +84,7 @@ class _SchedulingSettingsPageState extends State<SchedulingSettingsPage> {
           title: t.t('scheduling.defaultRoutingMode'),
           description: t.t('scheduling.defaultRoutingModeDesc'),
           children: [
-            ChoiceRow(
+            SelectRow(
               key: const ValueKey('routing-mode'),
               label: t.t('scheduling.defaultRoutingMode'),
               options: kRoutingModes,
@@ -93,7 +93,7 @@ class _SchedulingSettingsPageState extends State<SchedulingSettingsPage> {
                 final e = kRoutingModeLabels[m];
                 return e == null ? m : tOr(t, e.$1, e.$2);
               },
-              onChanged: _c.setRoutingMode,
+              onChanged: (v) => _c.setRoutingMode(v!),
             ),
           ],
         ),
