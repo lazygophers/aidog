@@ -88,5 +88,20 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   glm-5.3-flashx、mimo-v2.6 三档等）。openrouter/* 元路由 5 条官方价为负（返点）
   schema 不收，保持原值。NO_OFFICIAL_CHANNEL +2（anthropic/claude-opus-4、
   kwaipilot/kat-coder-pro-v2：官方渠道已下架仅剩镜像）。
+- 2026-09-24 第 6 轮 bailian 国际区 `d3765ce0` + `5600050`：Singapore 价对齐（kimi-k3、
+  qwen3.6-max-preview 分档）、deepseek 闲时 base + 平台 peak ×2 窗口、ctx 修正、
+  thinking 填充 29 条。GLM/Kimi 国际价 `[reader]` 不可复核、MiniMax 国际在售性
+  存疑——均未写。另 `a2cc505` 补第 1 轮漏提交的 glm-5.3-flashx.json（pathspec
+  commit 不带 untracked，新文件必须先 git add——教训已犯两次）。
+- 2026-09-24 第 7 轮 therouter `2b659e2`：9 价格修正（gpt-5.6-luna 旧价恰 5 倍）、
+  9 新模型（claude-fable-5-1、gemini-3.7/3.8-flash、gpt-6-astra、qwen3.8×3、
+  zai glm-5.3×2——zai/ 前缀 3 条 official:true 对齐 therouter 惯例）、6 下架。
+  遗留：gpt-image-2.5-flare/sunburst（per-image 计价）未登记；therouter 264 个
+  详情页的 thinking 逐页核对未做。
+- 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条要不要全量镜像；
+  ② 官方 discount 限时优惠与 context_tiers 分档要不要进 registry；③ bailian_en
+  GLM/Kimi 国际价复核（需国际站计价页明文）；④ therouter per-image 计价模型
+  登记口径；⑤ anthropic/google 官方平台自身条目未在本循环核过（fable-5-1 官方
+  渠道缺口即来自这里）。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
