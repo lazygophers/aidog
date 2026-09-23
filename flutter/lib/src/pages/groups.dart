@@ -1755,13 +1755,14 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                     ),
                   ),
                   Expanded(
-                    child: TextField(
-                      controller:
-                          TextEditingController(text: _slots[s.key] ?? '')
-                            ..selection = TextSelection.collapsed(
-                              offset: (_slots[s.key] ?? '').length,
-                            ),
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                    // 🔴 控制器必须活在 State 里（`KeptTextField`）。
+                    // 这里原先是 `TextField(controller: TextEditingController(...))`，
+                    // 而本 widget 的 onChanged 自己就 setState —— 每敲一个字重建一个
+                    // 新控制器并把光标按到末尾，于是**改不了中间的字**，中文输入法
+                    // 的候选串也会被打断。这正是 `KeptTextField` 存在的理由。
+                    child: KeptTextField(
+                      key: ValueKey('batch-override-${s.key}'),
+                      value: _slots[s.key] ?? '',
                       onChanged: (v) =>
                           setState(() => _slots = {..._slots, s.key: v}),
                     ),
