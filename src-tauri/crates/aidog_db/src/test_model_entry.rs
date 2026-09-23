@@ -401,6 +401,39 @@ fn from_json_reads_display_name_without_write_side_fallback() {
     );
 }
 
+#[tokio::test]
+async fn legacy_canonical_values_are_normalized_before_grouping() {
+    let db = test_db().await;
+    let mut legacy = entry("aihubmix", "GLM-5", "GLM-5", false);
+    legacy.predecessor = "GLM-4.5".to_string();
+    upsert_model_entries(
+        &db,
+        vec![entry("glm", "glm-5", "glm-5", true), legacy],
+    )
+    .await
+    .unwrap();
+
+    let entries = list_model_entries(&db, None).await.unwrap();
+    assert!(entries
+        .iter()
+        .all(|e| e.canonical_model == "glm-5" && e.predecessor == "glm-4.5"));
+    let groups = group_by_canonical(entries, &Default::default());
+    assert_eq!(groups.len(), 1);
+    assert_eq!(groups[0].canonical_model, "glm-5");
+    assert_eq!(groups[0].entries.len(), 2);
+}
+
+#[test]
+fn canonical_model_and_predecessor_are_normalized_to_lowercase() {
+    let entry = model_entry_from_json(
+        "glm",
+        r#"{"model_id":"glm-5","canonical_model":"GLM-5","predecessor":"GLM-4.5"}"#,
+    )
+    .expect("parse");
+    assert_eq!(entry.canonical_model, "glm-5");
+    assert_eq!(entry.predecessor, "glm-4.5");
+}
+
 #[test]
 fn from_json_defaults_canonical_to_model_id() {
     let e = model_entry_from_json("glm", r#"{"model_id":"glm-4.6"}"#).expect("parse");
