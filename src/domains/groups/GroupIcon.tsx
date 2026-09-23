@@ -31,6 +31,10 @@ export function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group
       ...box,
       background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
       color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
+      // 自动建的组与手建的组，两档原先只差一层很淡的底色（深色强调色改成近黑之后
+      // 是 1.05:1 与 1.15:1，肉眼分不出）。补一圈边把区分放回来：手建组用 accent-edge
+      // 的亮边，自动组用普通 border。用户 2026-09-23 明确要求保住这个区分。
+      border: `1px solid ${group.auto_from_platform ? "var(--border)" : "var(--accent-edge)"}`,
       fontSize: 13, fontWeight: 700,
     }}>
       {group.name.slice(0, 3)}

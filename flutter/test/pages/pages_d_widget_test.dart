@@ -972,7 +972,10 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
       await settle(tester);
-      expect(find.text('GLM-4.6'), findsWidgets);
+      // 表格里印的是**统一模型名**（`canonical_model`），不是展示名 ——
+      // `dc3421df` 起两侧同改（`ModelName.tsx` 删掉了「平台/请求名」那第二行）。
+      // 展示名与请求名只在详情里出现。
+      expect(find.text('glm-4.6'), findsWidgets);
       expect(find.textContaining('智谱 GLM'), findsWidgets);
       expect(findStripped(find, '131.1K'), findsOneWidget);
       expect(findStripped(find, '\$1.10'), findsOneWidget);
@@ -1026,7 +1029,7 @@ void main() {
       await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
       await settle(tester);
       expect(find.text(c.t('modelInfo.requestName')), findsNothing);
-      await tester.tap(find.text('GLM-4.6').first);
+      await tester.tap(find.text('glm-4.6').first);
       await settle(tester);
       expect(find.text(c.t('modelInfo.requestName')), findsOneWidget);
       expect(find.text('glm-4.5'), findsOneWidget, reason: '版本链里的前代');
@@ -1103,7 +1106,7 @@ void main() {
         '绝无此模型',
       );
       await settle(tester);
-      expect(find.text('GLM-4.6'), findsNothing);
+      expect(find.text('glm-4.6'), findsNothing);
       // 「清除筛选」这时才出现
       expect(find.text(c.t('modelInfo.clearFilter')), findsOneWidget);
     });
