@@ -148,6 +148,10 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           const SizedBox(width: AidogSpace.ssm),
           SmallButton(
             key: const ValueKey('proxy-toggle'),
+            // 启动是默认变体（实心），停止是 destructive（实心红）
+            //（`ProxyStatusSection.tsx:67,71`）。
+            filled: true,
+            danger: _c.running,
             label: _c.running ? t.t('proxy.stop') : t.t('proxy.start'),
             onTap: () => _c.running
                 ? _c.stopProxy(t.t('proxy.stopped'))
@@ -427,7 +431,10 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           SmallButton(
             key: const ValueKey('clear-logs'),
             label: _c.logMaintBusy ? t.t('logs.cleaning') : t.t('logs.clear'),
+            // React `variant="destructive"`（`LogSettingsSection.tsx:221`）；
+            // 旁边的「清理过期」是 outline，保持描边。
             danger: true,
+            filled: true,
             onTap: _c.logMaintBusy
                 ? null
                 : () => setState(() => _confirm = _Confirm.clearLogs),
