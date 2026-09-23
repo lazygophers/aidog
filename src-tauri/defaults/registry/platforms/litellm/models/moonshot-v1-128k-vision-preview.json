@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790185833,
   "model_id": "moonshot-v1-128k-vision-preview",
   "canonical_model": "moonshot-v1-128k-vision-preview",
   "capabilities": [
@@ -10,7 +10,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 1.3888888888888887e-06,
-    "output": 4.166666666666667e-06
+    "input": 2e-06,
+    "output": 5e-06
   }
 }

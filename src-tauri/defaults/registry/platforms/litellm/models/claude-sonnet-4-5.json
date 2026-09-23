@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790185833,
   "model_id": "claude-sonnet-4-5",
   "canonical_model": "claude-sonnet-4-5",
   "family": "claude",
@@ -7,9 +7,9 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 200000,
-  "max_output_tokens": 65536,
-  "context_window": 200000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 64000,
+  "context_window": 1000000,
   "official": false,
   "price": {
     "input": 3e-06,

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790185833,
   "model_id": "MiniMax-M2.5-lightning",
   "canonical_model": "MiniMax-M2.5-lightning",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

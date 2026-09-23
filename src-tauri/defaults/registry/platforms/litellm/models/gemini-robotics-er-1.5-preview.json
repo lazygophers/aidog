@@ -1,16 +1,16 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790185833,
   "model_id": "gemini-robotics-er-1.5-preview",
   "canonical_model": "gemini-robotics-er-1.5-preview",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 65535,
-  "context_window": 65535,
   "official": false,
+  "context_window": 1048576,
   "price": {
     "input": 3e-07,
-    "output": 2.5e-06
+    "output": 2.5e-06,
+    "cache_read": 0
   }
 }

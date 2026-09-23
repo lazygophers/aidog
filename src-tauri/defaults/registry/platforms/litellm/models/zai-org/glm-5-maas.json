@@ -1,13 +1,14 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "zai-org/glm-5-maas",
   "canonical_model": "glm-5-maas",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 200000,
   "max_output_tokens": 128000,
-  "context_window": 128000,
+  "context_window": 200000,
   "official": false,
   "price": {
     "input": 1e-06,

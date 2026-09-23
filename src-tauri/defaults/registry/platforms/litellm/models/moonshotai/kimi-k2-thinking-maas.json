@@ -1,16 +1,15 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "moonshotai/kimi-k2-thinking-maas",
   "canonical_model": "kimi-k2-thinking-maas",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 256000,
-  "max_output_tokens": 256000,
-  "context_window": 256000,
   "official": false,
+  "context_window": 256000,
   "price": {
     "input": 6e-07,
-    "output": 2.5e-06
+    "output": 2.5e-06,
+    "cache_read": 6e-08
   }
 }

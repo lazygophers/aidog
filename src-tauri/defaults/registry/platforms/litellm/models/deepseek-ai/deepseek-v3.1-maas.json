@@ -1,16 +1,16 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "deepseek-ai/deepseek-v3.1-maas",
   "canonical_model": "deepseek-v3.1-maas",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 163840,
-  "max_output_tokens": 32768,
-  "context_window": 32768,
   "official": false,
+  "context_window": 163840,
   "price": {
-    "input": 1.35e-06,
-    "output": 5.4e-06
+    "input": 6e-07,
+    "output": 1.7e-06,
+    "cache_read": 6e-08
   }
 }
