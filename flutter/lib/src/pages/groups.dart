@@ -256,8 +256,12 @@ class _GroupListView extends StatelessWidget {
                 onTap: () => copyText(c.proxyBaseUrl),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(label: t.t('group.add'), onTap: c.openCreate),
+            // 🔴 这里**没有**「添加分组」按钮，故意的。
+            // `GroupsSection` 只有一个挂载点（`platforms.dart` 的平台页内嵌，
+            // 与 React 的 `GroupsEmbedded` 同构），而平台页页头已经有一颗
+            // 「+ 添加分组」（`PlatformListView.tsx:118`）。这里再放一颗就是
+            // 同一页里的第二颗同功能按钮，React 没有。
+            // 建组入口由 `onCreateGroupReady` 把 `c.openCreate` 交给页头那颗。
           ],
         ),
         const SizedBox(height: AidogSpace.ssm),
