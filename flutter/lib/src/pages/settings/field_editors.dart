@@ -504,7 +504,10 @@ class ObjectEditor extends StatelessWidget {
           key: ValueKey('$idPrefix-$key'),
           value: v == true,
           onChanged: (b) => _setKey(key, b),
-          activeThumbColor: theme.c.accent,
+          // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
+          // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
+          activeThumbColor: AidogColors.light.surface,
+          activeTrackColor: theme.c.accent,
           inactiveTrackColor: theme.c.surface2,
           inactiveThumbColor: theme.c.fg3,
         ),

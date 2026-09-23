@@ -468,7 +468,7 @@ class _GroupDragLabel extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: AidogTheme.of(context).c.accentWash,
-        border: Border.all(color: AidogTheme.of(context).c.accent),
+        border: Border.all(color: AidogTheme.of(context).c.accentEdge),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
       child: Text(
@@ -575,7 +575,7 @@ class _GroupCard extends StatelessWidget {
             : BoxDecoration(
                 // React 那边是 `outline: 2px solid var(--accent)` + 2px offset。
                 border: Border.all(
-                  color: AidogTheme.of(context).c.accent,
+                  color: AidogTheme.of(context).c.accentEdge,
                   width: 2,
                 ),
                 borderRadius: BorderRadius.circular(AidogRadius.md),
@@ -670,7 +670,7 @@ class _GroupCard extends StatelessWidget {
                                 message: t.t('group.isDefaultTitle'),
                                 child: MiniBadge(
                                   text: t.t('group.isDefault'),
-                                  color: theme.c.accent,
+                                  color: theme.c.accentText,
                                   solid: true,
                                 ),
                               ),
@@ -1179,7 +1179,7 @@ class _DropLine extends StatelessWidget {
       height: 2,
       margin: const EdgeInsets.symmetric(vertical: 1),
       decoration: BoxDecoration(
-        color: AidogTheme.of(context).c.accent,
+        color: AidogTheme.of(context).c.accentEdge,
         borderRadius: BorderRadius.circular(1),
       ),
     ),
@@ -3428,7 +3428,7 @@ class _RadioChoice extends StatelessWidget {
           Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_off,
             size: 14,
-            color: selected ? theme.c.accent : theme.c.fg3,
+            color: selected ? theme.c.accentText : theme.c.fg3,
           ),
           const SizedBox(width: 4),
           Text(

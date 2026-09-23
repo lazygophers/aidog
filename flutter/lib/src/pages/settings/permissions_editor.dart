@@ -416,7 +416,7 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
                 children: [
                   Text(
                     tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label),
-                    style: AidogType.micro.copyWith(color: theme.c.accent),
+                    style: AidogType.micro.copyWith(color: theme.c.accentText),
                   ),
                   for (final ex in g.examples)
                     SmallButton(

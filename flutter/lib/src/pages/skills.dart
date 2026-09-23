@@ -1219,7 +1219,7 @@ MarkdownStyleSheet markdownStyle(AidogTheme theme) {
     listBullet: body,
     tableBody: body,
     tableHead: body.copyWith(fontWeight: FontWeight.w600),
-    a: body.copyWith(color: theme.c.accent),
+    a: body.copyWith(color: theme.c.accentText),
     h1: heading(19),
     h2: heading(17),
     h3: heading(15),
@@ -1265,7 +1265,7 @@ class _BusyOverlay extends StatelessWidget {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: theme.c.accent,
+                color: theme.c.accentText,
               ),
             ),
             const SizedBox(width: AidogSpace.ssm),

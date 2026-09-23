@@ -480,7 +480,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                     ),
                   Text(
                     actionsSummary(t, r.raw['actions'] as List? ?? const []),
-                    style: AidogType.micro.copyWith(color: theme.c.accent),
+                    style: AidogType.micro.copyWith(color: theme.c.accentText),
                   ),
                   if (hasObserveAction(r.raw['actions'] as List? ?? const []))
                     Text(
@@ -834,7 +834,7 @@ class _BudgetLine extends StatelessWidget {
                   minHeight: 4,
                   backgroundColor: theme.c.line,
                   valueColor: AlwaysStoppedAnimation<Color>(
-                    over ? theme.c.bad : theme.c.accent,
+                    over ? theme.c.bad : theme.c.accentText,
                   ),
                 ),
               ),

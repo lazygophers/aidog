@@ -1007,7 +1007,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           ? Icons.indeterminate_check_box
                           : Icons.check_box_outline_blank,
                       size: 14,
-                      color: allOn || someOn ? theme.c.accent : theme.c.fg3,
+                      color: allOn || someOn ? theme.c.accentText : theme.c.fg3,
                     ),
                   ),
                   const SizedBox(width: AidogSpace.sxs),
@@ -1058,7 +1058,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
             Icon(
               on ? Icons.check_box : Icons.check_box_outline_blank,
               size: 14,
-              color: on ? theme.c.accent : theme.c.fg3,
+              color: on ? theme.c.accentText : theme.c.fg3,
             ),
             const SizedBox(width: AidogSpace.sxs),
             // scope 图标（`ItemSelector.tsx:155`）：混在一张清单里时，
@@ -1298,7 +1298,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                     decoration: BoxDecoration(
                       color: on ? theme.c.accentWash : Colors.transparent,
                       border: Border.all(
-                        color: on ? theme.c.accent : Colors.transparent,
+                        color: on ? theme.c.accentEdge : Colors.transparent,
                       ),
                       borderRadius: BorderRadius.circular(AidogRadius.sm),
                     ),
@@ -1312,7 +1312,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         Icon(
                           on ? Icons.check_box : Icons.check_box_outline_blank,
                           size: 14,
-                          color: on ? theme.c.accent : theme.c.fg3,
+                          color: on ? theme.c.accentText : theme.c.fg3,
                         ),
                         const SizedBox(width: AidogSpace.sxs),
                         Expanded(
@@ -1523,7 +1523,7 @@ class _MatchReadout extends StatelessWidget {
     final (label, color) = switch (match.matchedBy) {
       CcMatchedBy.presetKeyword => (
         t.t('importExport.ccswitch.matched'),
-        c.accent,
+        c.accentText,
       ),
       CcMatchedBy.baseUrlHost => (t.t('importExport.ccswitch.hostMatch'), c.ok),
       CcMatchedBy.protocolFallback => (
