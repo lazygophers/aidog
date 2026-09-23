@@ -992,6 +992,34 @@ void main() {
       );
     });
 
+    // 回归 2026-09-23：原先开关旁边的文字不可点，要关掉「仅官方」只能精准点
+    // 那个小滑块。React 把开关和文字包在同一个 `<label>` 里
+    //（`ModelInfoTab.tsx:246-249`），点文字就能切。
+    testWidgets('「仅官方」点文字也能开关，且能再点回去', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: fake().invoke), c));
+      await settle(tester);
+
+      AidogSwitch sw() => tester.widget<AidogSwitch>(
+        find.descendant(
+          of: find.byKey(const ValueKey('model-info-official-only')),
+          matching: find.byType(AidogSwitch),
+        ),
+      );
+      expect(sw().value, isFalse);
+
+      // 点的是**文字**，不是滑块。
+      await tester.tap(find.text(c.t('modelInfo.officialOnly')));
+      await settle(tester);
+      expect(sw().value, isTrue);
+
+      // 再点一次要能取消选中。
+      await tester.tap(find.text(c.t('modelInfo.officialOnly')));
+      await settle(tester);
+      expect(sw().value, isFalse);
+    });
+
     testWidgets('点一行开详情，再点关闭收起', (tester) async {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
