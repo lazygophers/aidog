@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "rekaai/reka-flash-3",
   "canonical_model": "reka-flash-3",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 65536,
-  "max_output_tokens": 65536,
+  "max_output_tokens": 58982,
   "context_window": 65536,
   "official": true,
   "price": {

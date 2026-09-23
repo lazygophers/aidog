@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "thedrummer/skyfall-36b-v2",
   "canonical_model": "skyfall-36b-v2",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 32768,
-  "max_output_tokens": 32768,
+  "max_output_tokens": 29491,
   "context_window": 32768,
   "official": true,
   "price": {

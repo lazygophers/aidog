@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-8b",
   "canonical_model": "qwen3-8b",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -10,8 +11,8 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 6.944444444444444e-08,
-    "output": 2.7777777777777776e-07,
+    "input": 1.17e-07,
+    "output": 4.5500000000000004e-07,
     "cache_read": 5e-08
   }
 }

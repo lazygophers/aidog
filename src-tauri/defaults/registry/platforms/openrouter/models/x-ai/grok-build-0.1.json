@@ -1,13 +1,14 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "x-ai/grok-build-0.1",
   "canonical_model": "grok-build-0.1",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 256000,
   "context_window": 256000,
-  "max_output_tokens": 8000,
+  "max_output_tokens": 230400,
   "official": true,
   "price": {
     "input": 1e-06,

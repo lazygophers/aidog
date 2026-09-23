@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-small-3.1-24b-instruct",
   "canonical_model": "mistral-small-3.1-24b-instruct",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 128000,
-  "max_output_tokens": 128000,
+  "max_output_tokens": 102400,
   "context_window": 128000,
   "official": true,
   "price": {

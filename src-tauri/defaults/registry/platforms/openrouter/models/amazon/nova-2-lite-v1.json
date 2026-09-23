@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "amazon/nova-2-lite-v1",
   "canonical_model": "nova-2-lite-v1",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

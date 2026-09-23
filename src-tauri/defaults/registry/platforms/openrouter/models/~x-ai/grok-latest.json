@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084177,
+  "last_updated": 1790183108,
   "model_id": "~x-ai/grok-latest",
   "canonical_model": "grok-latest",
   "capabilities": [
@@ -15,8 +15,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2e-06,
-    "output": 6e-06,
-    "cache_read": 5e-07
+    "input": 1.6000000000000001e-06,
+    "output": 4.8e-06,
+    "cache_read": 4.0000000000000003e-07
   }
 }

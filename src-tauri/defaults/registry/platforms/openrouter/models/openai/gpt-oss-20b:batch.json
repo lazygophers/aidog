@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "openai/gpt-oss-20b:batch",
   "canonical_model": "gpt-oss-20b",
   "family": "gpt",
@@ -14,7 +14,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5e-08,
-    "output": 2e-07
+    "input": 2.4e-08,
+    "output": 1.12e-07
   }
 }

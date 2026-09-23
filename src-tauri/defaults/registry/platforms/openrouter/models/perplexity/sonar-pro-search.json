@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "perplexity/sonar-pro-search",
   "canonical_model": "sonar-pro-search",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

@@ -288,6 +288,9 @@ fn glm_coding_keeps_peak_branches() {
 ///   阿里云文档抓取被挡（`webgrab https://help.aliyun.com/zh/model-studio/models` 空返回），
 ///   按「推测值禁写入」不改数据，先豁免。
 const NO_OFFICIAL_CHANNEL: &[&str] = &[
+    // openrouter 官方渠道 2026-09-24 已下架，仅剩中转镜像在售
+    "anthropic/claude-opus-4",
+    "kwaipilot/kat-coder-pro-v2",
     "deepseek-v3.2-think",
     "grok-4-1-fast-non-reasoning",
     "grok-4-fast-reasoning",

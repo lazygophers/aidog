@@ -1,13 +1,13 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "thedrummer/unslopnemo-12b",
   "canonical_model": "unslopnemo-12b",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 32768,
-  "max_output_tokens": 32768,
-  "context_window": 32768,
+  "max_output_tokens": 819200,
+  "context_window": 1024000,
   "official": true,
   "price": {
     "input": 4e-07,

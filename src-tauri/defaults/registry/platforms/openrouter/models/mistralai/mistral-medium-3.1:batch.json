@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-medium-3.1:batch",
   "canonical_model": "mistral-medium-3.1",
   "capabilities": [
@@ -12,8 +12,8 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 4e-07,
-    "output": 2e-06,
-    "cache_read": 4e-08
+    "input": 2.0000000000000002e-07,
+    "output": 1e-06,
+    "cache_read": 2e-08
   }
 }

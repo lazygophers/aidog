@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-chat-v3.1",
   "canonical_model": "deepseek-chat-v3.1",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -10,8 +11,8 @@
   "context_window": 163840,
   "official": true,
   "price": {
-    "input": 2.1e-07,
-    "output": 7.9e-07,
+    "input": 2.5e-07,
+    "output": 9.499999999999999e-07,
     "cache_read": 1.3e-07
   }
 }

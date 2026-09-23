@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "openai/gpt-5.2-chat",
   "canonical_model": "gpt-5.2-chat",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 128000,
-  "max_output_tokens": 16384,
+  "max_output_tokens": 32000,
   "context_window": 128000,
   "official": true,
   "price": {

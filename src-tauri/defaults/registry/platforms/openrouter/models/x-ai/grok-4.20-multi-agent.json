@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "x-ai/grok-4.20-multi-agent",
   "canonical_model": "grok-4.20-multi-agent",
+  "thinking_supported": true,
+  "max_output_tokens": 1800000,
   "capabilities": [
     "text"
   ],

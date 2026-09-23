@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "anthropic/claude-3-haiku",
   "canonical_model": "claude-3-haiku",
   "capabilities": [
@@ -7,7 +7,7 @@
   ],
   "max_input_tokens": 200000,
   "max_output_tokens": 4096,
-  "context_window": 4096,
+  "context_window": 200000,
   "official": true,
   "price": {
     "input": 2.5e-07,

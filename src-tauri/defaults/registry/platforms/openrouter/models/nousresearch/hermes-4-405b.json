@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "nousresearch/hermes-4-405b",
   "canonical_model": "hermes-4-405b",
+  "thinking_supported": true,
+  "max_output_tokens": 117964,
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "perplexity/sonar",
   "canonical_model": "sonar",
+  "max_output_tokens": 114364,
   "capabilities": [
     "text"
   ],

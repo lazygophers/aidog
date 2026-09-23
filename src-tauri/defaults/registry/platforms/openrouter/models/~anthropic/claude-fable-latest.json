@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "~anthropic/claude-fable-latest",
   "canonical_model": "claude-fable-latest",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -12,7 +13,7 @@
   "price": {
     "input": 1e-05,
     "output": 5e-05,
-    "cache_read": 1e-06,
+    "cache_read": 2.5e-07,
     "cache_write": 1.25e-05
   }
 }

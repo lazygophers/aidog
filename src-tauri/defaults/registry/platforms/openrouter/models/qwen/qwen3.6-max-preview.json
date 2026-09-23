@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.6-max-preview",
   "canonical_model": "qwen3.6-max-preview",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -10,8 +11,8 @@
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 1.04e-06,
-    "output": 6.24e-06,
-    "cache_write": 1.3e-06
+    "input": 1.0269999999999999e-06,
+    "output": 6.162e-06,
+    "cache_write": 1.28375e-06
   }
 }

@@ -1,13 +1,14 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "baidu/ernie-4.5-vl-424b-a47b",
   "canonical_model": "ernie-4.5-vl-424b-a47b",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
   "max_output_tokens": 16000,
-  "context_window": 131072,
+  "context_window": 123000,
   "official": true,
   "price": {
     "input": 4.2e-07,

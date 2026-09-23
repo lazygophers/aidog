@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084177,
+  "last_updated": 1790183108,
   "model_id": "~z-ai/glm-latest",
   "canonical_model": "glm-latest",
   "capabilities": [
@@ -14,8 +14,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.1875e-06,
-    "output": 4.18e-06,
-    "cache_read": 2.47e-07
+    "input": 5.614e-07,
+    "output": 1.7644e-06,
+    "cache_read": 1.0426000000000001e-07
   }
 }

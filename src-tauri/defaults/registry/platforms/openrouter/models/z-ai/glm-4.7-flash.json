@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "z-ai/glm-4.7-flash",
   "canonical_model": "glm-4.7-flash",
   "family": "glm",
@@ -12,11 +12,11 @@
     "reasoning"
   ],
   "max_input_tokens": 202752,
-  "max_output_tokens": 16384,
-  "context_window": 202752,
+  "max_output_tokens": 117964,
+  "context_window": 200000,
   "official": true,
   "price": {
-    "input": 6e-08,
+    "input": 6.049999999999999e-08,
     "output": 4e-07,
     "cache_read": 1e-08
   }

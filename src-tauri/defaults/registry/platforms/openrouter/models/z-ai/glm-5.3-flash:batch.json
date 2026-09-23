@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "z-ai/glm-5.3-flash:batch",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",
@@ -11,14 +11,14 @@
     "reasoning"
   ],
   "max_input_tokens": 1048575,
-  "max_output_tokens": 943717,
-  "context_window": 1048575,
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.5e-07,
-    "output": 5e-07,
-    "cache_read": 3e-08
+    "input": 6e-08,
+    "output": 2.0000000000000002e-07,
+    "cache_read": 1.2e-08
   }
 }

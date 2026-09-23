@@ -1,12 +1,13 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790183108,
   "model_id": "tencent/hunyuan-a13b-instruct",
   "canonical_model": "Hunyuan-A13B-Instruct",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 117964,
   "context_window": 131072,
   "official": true,
   "price": {

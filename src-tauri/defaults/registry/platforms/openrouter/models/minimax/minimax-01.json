@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "minimax/minimax-01",
   "canonical_model": "minimax-01",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000192,
-  "max_output_tokens": 1000192,
+  "max_output_tokens": 900172,
   "context_window": 1000192,
   "official": true,
   "price": {

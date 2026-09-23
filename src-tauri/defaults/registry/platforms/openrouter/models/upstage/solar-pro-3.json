@@ -1,12 +1,14 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "upstage/solar-pro-3",
   "canonical_model": "solar-pro-3",
+  "thinking_supported": true,
+  "max_output_tokens": 117964,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 128000,
-  "context_window": 128000,
+  "context_window": 131072,
   "official": true,
   "price": {
     "input": 1.5e-07,
