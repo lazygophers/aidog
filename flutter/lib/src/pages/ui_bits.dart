@@ -109,7 +109,9 @@ class SmallButton extends StatelessWidget {
         : active && activeTone != null
         ? activeTone!.withValues(alpha: 0.25)
         : pill && active
-        ? theme.c.accent
+        // 胶囊多选的选中边同样用 accentEdge：近黑 accent 对表面 1.01:1，
+        // 那圈边等于没画，选中与未选中只剩底色差（白 6%，到不了 3:1）。
+        ? theme.c.accentEdge
         : theme.c.line;
     // 底色与描边交给 `Material` 自己插值（它的 `animationDuration` 管 color /
     // shape），水波画在同一张 `Material` 上 —— 这样「有过渡」和「有水波」能同时成立。
