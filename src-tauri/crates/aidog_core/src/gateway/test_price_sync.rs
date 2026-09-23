@@ -283,6 +283,65 @@ async fn second_identical_sync_skips_then_bumped_index_is_all_unchanged() {
     assert_eq!(r.unchanged, 5);
 }
 
+/// 下架清理：完整成功的一轮同步后，DB 里不在 registry 清单的镜像行被 prune；
+/// 内容未变的行（被过滤出 upsert 清单）必须存活——键集必须在过滤前收齐。
+#[tokio::test]
+async fn full_sync_prunes_delisted_rows_but_keeps_unchanged() {
+    let db = test_db().await;
+    let base = spawn_registry(full()).await;
+    sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        3
+    );
+
+    // index 更新但内容全未变：unchanged 行不进 upsert 清单，但仍在 registry 里
+    let base = spawn_registry(full_newer()).await;
+    let r = sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(r.unchanged, 5);
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        3,
+        "未变行仍在 registry 清单里，prune 不得删"
+    );
+
+    // 下一版下架 b-1（index 清单与上游文件都移除）：完整成功后旧行被删
+    let delisted_index = r#"{"last_updated": 3,
+  "platforms": [
+    {"code": "alpha", "platform_file": "platforms/alpha/platform.json", "models_dir": "platforms/alpha/models", "models": ["a-1.json"]},
+    {"code": "beta", "platform_file": "platforms/beta/platform.json", "models_dir": "platforms/beta/models", "models": []}
+  ],
+  "pricing_only": [
+    {"code": "litellm", "models_dir": "platforms/litellm/models", "models": ["a-1.json"]}
+  ]}"#;
+    let mut delisted = full_with(3);
+    delisted.insert("index.json".to_string(), delisted_index.to_string());
+    delisted.remove("platforms/beta/models/b-1.json");
+    let base = spawn_registry(delisted).await;
+    let r = sync_registry_from(&db, &[&base]).await.unwrap();
+    assert_eq!(r.failed, 0);
+    assert_eq!(
+        aidog_db::select_model_entries(&db, None)
+            .await
+            .unwrap()
+            .len(),
+        2,
+        "已下架的 b-1 行被 prune"
+    );
+    assert!(
+        aidog_db::select_model_entries(&db, Some("beta"))
+            .await
+            .unwrap()
+            .is_empty()
+    );
+}
+
 /// index 拉不到 = 不知道该拉什么，整轮放弃，DB 一行不动。
 #[tokio::test]
 async fn index_fetch_failure_aborts_round() {

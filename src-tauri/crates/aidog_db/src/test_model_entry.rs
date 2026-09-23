@@ -237,6 +237,25 @@ async fn platform_preset_upsert_overwrites_whole_json() {
 }
 
 #[tokio::test]
+async fn prune_model_entries_removes_only_keys_absent_from_registry() {
+    let db = test_db().await;
+    upsert_model_entries(
+        &db,
+        vec![
+            entry("keep", "keep-1", "keep-1", true),
+            entry("remove", "remove-1", "remove-1", true),
+        ],
+    )
+    .await
+    .unwrap();
+
+    let keys = std::collections::HashSet::from([("keep".to_string(), "keep-1".to_string())]);
+    assert_eq!(prune_model_entries(&db, &keys).await.unwrap(), 1);
+    assert!(get_model_entry(&db, "keep", "keep-1").await.unwrap().is_some());
+    assert!(get_model_entry(&db, "remove", "remove-1").await.unwrap().is_none());
+}
+
+#[tokio::test]
 async fn bundled_fallback_serves_empty_db() {
     let db = test_db().await;
     assert_eq!(count_model_entries(&db).await.unwrap(), 0);

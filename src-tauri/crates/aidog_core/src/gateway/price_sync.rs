@@ -9,7 +9,7 @@
 use super::models::{ModelEntry, PlatformPreset, PriceSyncResult, SyncFailure};
 use aidog_db::Db;
 use futures::stream::StreamExt;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
 /// 主源：jsDelivr CDN（master 分支）。CDN 加速 + 边缘缓存，失败/非 200 回退 raw。
@@ -185,6 +185,12 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         .into_iter()
         .map(|e| ((e.platform_code, e.model_id), e.price_data))
         .collect();
+    // Registry 清单是镜像表的真值。键集必须在 entries 被过滤/消费**之前**收齐：
+    // 内容未变的行不会进 upsert 清单，但它们仍在 registry 里，prune 不能删它们。
+    let remote_model_keys: HashSet<(String, String)> = entries
+        .iter()
+        .map(|e| (e.platform_code.clone(), e.model_id.clone()))
+        .collect();
     let entries: Vec<ModelEntry> = entries
         .into_iter()
         .filter(
@@ -204,7 +210,6 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
             },
         )
         .collect();
-
     // DB 写入同样 best-effort：一行脏数据不该吞掉整轮结果（`last_sync_at` 不写、
     // failures 清单整个丢失、前端只看到一个字符串错误）。写失败的行并进 failures。
     failures.extend(write_failures(
@@ -215,6 +220,17 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         "model_entry",
         aidog_db::upsert_model_entries_best_effort(db, entries).await,
     ));
+    // Registry 清单是镜像表的真值。只有所有文件都成功写入，才删除已下架的旧行；
+    // 部分失败时保留旧行，避免网络抖动造成模型突然消失。
+    if failures.is_empty() {
+        let keys = remote_model_keys;
+        if let Err(error) = aidog_db::prune_model_entries(db, &keys).await {
+            failures.push(SyncFailure {
+                file: "model_entry".into(),
+                error,
+            });
+        }
+    }
     // preset 写入作废了热路径缓存，这里把新值装回去（路由/计费与前端读同一份）。
     if let Err(e) = aidog_db::refresh_presets_cache(db).await {
         tracing::warn!(error = %e, "registry sync: refresh presets cache failed");

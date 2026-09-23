@@ -531,6 +531,41 @@ pub async fn model_entry_for_billing(
         .map(|e| (e, true)))
 }
 
+/// 删除当前 registry 清单已不再包含的模型镜像行。
+/// 只在同步完整成功后调用；部分文件失败时必须保留旧行，等待下一轮补齐。
+#[track_caller]
+pub fn prune_model_entries<'a>(
+    db: &'a Db,
+    keys: &'a std::collections::HashSet<(String, String)>,
+) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let keys = keys.clone();
+        db.call_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT platform_code, model_id FROM model_entry WHERE deleted_at = 0",
+            )?;
+            let rows = stmt
+                .query_map([], |row| Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?)))?
+                .collect::<SqlResult<Vec<_>>>()?;
+            let tx = conn.unchecked_transaction()?;
+            let mut removed = 0u32;
+            for key in rows {
+                if !keys.contains(&key) {
+                    removed += tx.execute(
+                        "DELETE FROM model_entry WHERE platform_code = ?1 AND model_id = ?2",
+                        params![key.0, key.1],
+                    )? as u32;
+                }
+            }
+            tx.commit()?;
+            Ok(removed)
+        })
+        .await
+        .map_err(|e| format!("prune model entries: {e}"))
+    }
+}
+
 /// 列平台预设裸行（无 bundled 兜底）。空 = DB 从未同步过。
 #[track_caller]
 pub fn select_platform_presets(
