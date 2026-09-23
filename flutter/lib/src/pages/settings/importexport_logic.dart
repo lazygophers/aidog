@@ -222,10 +222,24 @@ class ImportExportController {
   }
 
   /// 预览里列出的冲突 key。
-  List<String> get conflictKeys {
+  List<String> get conflictKeys => [for (final r in conflictRows) r.key];
+
+  /// 冲突条目连同**本地现有那条的摘要**（后端 `ConflictItem.existing_summary`）。
+  /// 只给 key 的话，用户要在「覆盖 / 跳过 / 保留两者」之间选，却看不到本地那条
+  /// 长什么样 —— 等于让他闭着眼睛决定要不要覆盖自己的配置。
+  List<({String key, String scope, String existing, String incoming})>
+  get conflictRows {
     final c = preview?['conflicts'];
     if (c is! List) return const [];
-    return c.whereType<Map>().map((e) => '${e['scope']} ${e['key']}').toList();
+    return [
+      for (final e in c.whereType<Map>())
+        (
+          key: '${e['scope']} ${e['key']}',
+          scope: '${e['scope']}',
+          existing: '${e['existing_summary'] ?? ''}',
+          incoming: '${e['incoming_summary'] ?? ''}',
+        ),
+    ];
   }
 
   /// 每个冲突都定了决策才能应用。

@@ -135,6 +135,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
     if (_metaRequested) return;
     _metaRequested = true;
     unawaited(_loadProtocolMeta());
+    unawaited(_loadGroupOptions());
   }
 
   /// 协议元数据是 best-effort：拉不到就回落空表，匹配退化成协议回退那一支，
@@ -234,6 +235,52 @@ class _ImportExportPageState extends State<ImportExportPage> {
         const SizedBox(width: AidogSpace.sxs),
       ],
     );
+  }
+
+  /// 已有分组（批量归属的候选）。`(id, name)` 两样够画 chip 了。
+  List<({int id, String name})> _groupOptions = const [];
+
+  /// 勾中的分组 id：导入完把这批平台一起加进去（`CcSwitchImport.tsx:203-212`）。
+  final Set<int> _batchJoinGroupIds = {};
+
+  Future<void> _loadGroupOptions() async {
+    try {
+      final rows = await _followUp.listGroupDetails();
+      if (rows is! List || !mounted) return;
+      setState(() {
+        _groupOptions = [
+          for (final r in rows.whereType<Map>())
+            if (r['group'] is Map)
+              (
+                id: ((r['group'] as Map)['id'] as num?)?.toInt() ?? 0,
+                name: '${(r['group'] as Map)['name'] ?? ''}',
+              ),
+        ];
+      });
+    } catch (_) {
+      // 拉不到就不画 chip：自动建组那条路照旧可用，不拦导入。
+    }
+  }
+
+  /// 导入完把这批平台加进勾中的分组（`CcSwitchImport.tsx:203-212`）：
+  /// 按最终名字在平台列表里找回刚建出来的行，再逐个 `platform_update`。
+  /// 失败不回滚、不拦报告 —— 平台已经建好了，分组没挂上是可以再手工挂的。
+  Future<void> _joinChosenGroups(List<Map<String, Object?>> payload) async {
+    if (_batchJoinGroupIds.isEmpty) return;
+    try {
+      final names = {for (final p in payload) '${p['name'] ?? ''}'};
+      final rows = await _followUp.listPlatforms();
+      if (rows is! List) return;
+      for (final r in rows.whereType<Map>()) {
+        if (!names.contains('${r['name'] ?? ''}')) continue;
+        await _followUp.updatePlatform({
+          'id': r['id'],
+          'join_group_ids': _batchJoinGroupIds.toList(),
+        });
+      }
+    } catch (_) {
+      // 同上：不阻断导入报告。
+    }
   }
 
   /// 点过「预览冲突」之后，与本地已有平台重名的 provider 名字。
@@ -576,24 +623,81 @@ class _ImportExportPageState extends State<ImportExportPage> {
           _itemPicker(t),
         ],
         if (_c.conflictKeys.isNotEmpty) ...[
-          TileMetaLine(
-            t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
+          // 计数 + 两颗批量决策同一行，压在冲突行**上方**
+          //（`ImportExportTab.tsx:541-549`）。原先批量按钮落在整张清单末尾：
+          // 冲突多的时候要一路滚到底才找得到「全部覆盖 / 全部跳过」。
+          Row(
+            children: [
+              Expanded(
+                child: TileMetaLine(
+                  t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
+                ),
+              ),
+              SmallButton(
+                key: const ValueKey('bulk-overwrite'),
+                label: t.t('importExport.bulkOverwrite'),
+                onTap: () {
+                  for (final k in _c.conflictKeys) {
+                    _c.decide(k, ConflictDecisionKind.useIncoming);
+                  }
+                },
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              SmallButton(
+                key: const ValueKey('bulk-skip'),
+                label: t.t('importExport.bulkSkip'),
+                onTap: () {
+                  for (final k in _c.conflictKeys) {
+                    _c.decide(k, ConflictDecisionKind.keepLocal);
+                  }
+                },
+              ),
+            ],
           ),
-          for (final k in _c.conflictKeys)
-            Padding(
-              key: ValueKey('conflict-$k'),
-              padding: const EdgeInsets.symmetric(vertical: 2),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      ltr(k),
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(
-                        color: AidogTheme.of(context).c.fg,
-                      ),
-                    ),
+          for (final row in _c.conflictRows)
+            Builder(
+              key: ValueKey('conflict-${row.key}'),
+              builder: (context) {
+                final k = row.key;
+                final theme = AidogTheme.of(context);
+                return Container(
+                  margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
+                  padding: const EdgeInsets.all(AidogSpace.sxs),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: theme.c.line),
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
                   ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            scopeIcon(row.scope),
+                            size: 12,
+                            color: theme.c.fg3,
+                          ),
+                          const SizedBox(width: AidogSpace.sxs),
+                          Expanded(
+                            child: Text(
+                              ltr(k),
+                              overflow: TextOverflow.ellipsis,
+                              style: AidogType.micro.copyWith(color: theme.c.fg),
+                            ),
+                          ),
+                        ],
+                      ),
+                      // 本地现有那条的摘要（`ConflictRow.tsx:46`）：不给它，
+                      // 用户就得闭着眼睛决定要不要覆盖自己的配置。
+                      if (row.existing.isNotEmpty)
+                        Text(
+                          ltr(row.existing),
+                          key: ValueKey('conflict-existing-$k'),
+                          style: AidogType.caption.copyWith(color: theme.c.fg3),
+                        ),
+                      Row(
+                        children: [
                   for (final d in ConflictDecisionKind.values) ...[
                     SmallButton(
                       key: ValueKey('decide-$k-${d.name}'),
@@ -624,8 +728,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         onChanged: (v) => _c.setRenameKey(k, v),
                       ),
                     ),
-                ],
-              ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           // 名字空着时「应用导入」是禁用的，原因必须写出来 —— 只禁不说，
           // 用户不知道还差什么（`canApplyImport` 的 keepBoth 分支）。
@@ -642,27 +750,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   ),
                 ),
               ),
-          Row(
-            children: [
-              SmallButton(
-                label: t.t('importExport.bulkSkip'),
-                onTap: () {
-                  for (final k in _c.conflictKeys) {
-                    _c.decide(k, ConflictDecisionKind.keepLocal);
-                  }
-                },
-              ),
-              const SizedBox(width: AidogSpace.ssm),
-              SmallButton(
-                label: t.t('importExport.bulkOverwrite'),
-                onTap: () {
-                  for (final k in _c.conflictKeys) {
-                    _c.decide(k, ConflictDecisionKind.useIncoming);
-                  }
-                },
-              ),
-            ],
-          ),
         ],
         // 导入结果：三个计数 + 三个分区 + 错误原文逐条（`ReportView.tsx:24-61`）。
         // 原先是把整个 map 直接 `InfoRow(key, '$value')` 铺开，屏幕上出现的是
@@ -974,6 +1061,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
               color: on ? theme.c.accent : theme.c.fg3,
             ),
             const SizedBox(width: AidogSpace.sxs),
+            // scope 图标（`ItemSelector.tsx:155`）：混在一张清单里时，
+            // 图标比 scope 名更快认出这条是平台还是设置。
+            Icon(scopeIcon('${e['scope']}'), size: 12, color: theme.c.fg3),
+            const SizedBox(width: AidogSpace.sxs),
             Expanded(
               child: Text(
                 // 后端给了人话标签（平台名 / 分组名 / 文件名），
@@ -1133,6 +1224,31 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: c.autoGroup,
           onChanged: c.setAutoGroup,
         ),
+        // 已有分组的 chip 多选（`CcSwitchImport.tsx:365-391`）：
+        // 只有那个开关的话，导进来的平台只能进固定的自动分组，
+        // 想直接放进现成的分组还得回平台页一个个改。
+        if (groupAssignHint.isNotEmpty && _groupOptions.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+            child: Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                for (final g in _groupOptions)
+                  SmallButton(
+                    key: ValueKey('batch-join-group-${g.id}'),
+                    label: g.name,
+                    pill: true,
+                    active: _batchJoinGroupIds.contains(g.id),
+                    onTap: () => setState(
+                      () => _batchJoinGroupIds.contains(g.id)
+                          ? _batchJoinGroupIds.remove(g.id)
+                          : _batchJoinGroupIds.add(g.id),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         // 三个导入维度（`CcSwitchImport.tsx:311-331`）：它们直接决定 payload
         // 里带什么字段，不是纯展示。平台类型那一维 React 锁定常开 ——
         // 不带协议和 endpoints 的话导进来就是空壳，关掉没有意义。
@@ -1176,8 +1292,21 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 return InkWell(
                   key: ValueKey('provider-$i'),
                   onTap: () => c.toggleSelected(i, !on),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 2),
+                  // 选中的整行换底色 + 描边（`CcSwitchImport.tsx:524-528`）：
+                  // 只有一个小勾的话，十几条里选了哪几条要逐行去找。
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: on ? theme.c.accentWash : Colors.transparent,
+                      border: Border.all(
+                        color: on ? theme.c.accent : Colors.transparent,
+                      ),
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 4,
+                      horizontal: AidogSpace.sxs,
+                    ),
                     child: Row(
                       children: [
                         Icon(
@@ -1250,8 +1379,14 @@ class _ImportExportPageState extends State<ImportExportPage> {
               // 一项没选就点不动（`canImport`）。
               onTap: c.canImport
                   ? () async {
+                      final chosen = [
+                        for (var i = 0; i < c.providers.length; i++)
+                          if (c.selected.contains(i)) c.providers[i],
+                      ];
                       await c.runImport(toPayload);
                       if (!mounted || c.error.isNotEmpty) return;
+                      await _joinChosenGroups(toPayload(chosen));
+                      if (!mounted) return;
                       if (c.autoGroup) {
                         // 导入后建 / 取自动分组，再刷一次平台列表。
                         await _followUp.ensureAutoGroup(c.source.autoGroupName);
@@ -1424,3 +1559,21 @@ class _MatchReadout extends StatelessWidget {
     );
   }
 }
+
+/// scope → 图标（`ImportExport/meta.ts:16-26` 的 `icon` 字段逐条对应）。
+///
+/// React 那边是 `SectionIcon` 的名字，这边取 Material 里语义最近的一枚；
+/// 未登记的 scope 落到文件夹图标（与 React 的 `SCOPE_ICON[...] ?? "folder"` 同）。
+IconData scopeIcon(String scope) => switch (scope) {
+  'platform' => Icons.lan_outlined,
+  'group' => Icons.workspaces_outlined,
+  'group_platform' => Icons.account_tree_outlined,
+  'setting' => Icons.bolt_outlined,
+  'codex' => Icons.description_outlined,
+  'claude_code' => Icons.memory_outlined,
+  'model_price' => Icons.sell_outlined,
+  'mcp' => Icons.extension_outlined,
+  'middleware' => Icons.rule_outlined,
+  'skills' => Icons.auto_awesome_outlined,
+  _ => Icons.folder_outlined,
+};
