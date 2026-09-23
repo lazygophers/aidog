@@ -1877,7 +1877,10 @@ void main() {
 
       await tester.enterText(find.byType(TextField).first, '新组');
       await settle(tester);
-      await tester.tap(find.text(c.t('group.loadBalance')));
+      // 路由模式是下拉（与编辑面板一致）：先展开再点选项。
+      await tester.tap(find.byKey(const ValueKey('create-routing-mode')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('group.loadBalance')).last);
       await settle(tester);
       await tester.tap(find.text(c.t('group.addPlatform')));
       await settle(tester);
@@ -2457,6 +2460,9 @@ void main() {
           .onPressed;
       expect(pressedOf('picker-up-1'), isNull);
       expect(pressedOf('picker-down-2'), isNull);
+
+      // 协议双字母徽标：同名不同协议的平台在这张列表里要分得出来。
+      expect(find.text('OP'), findsNWidgets(2));
 
       // 第二行上移 → P2 排到 P1 前面。
       await tester.tap(find.byKey(const ValueKey('picker-up-2')));

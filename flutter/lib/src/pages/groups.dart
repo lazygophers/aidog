@@ -2126,16 +2126,22 @@ class _GroupCreatePanel extends StatelessWidget {
           const SizedBox(height: AidogSpace.ssm),
           TileMeta(t.t('group.routingMode')),
           const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            children: [
-              for (final m in kRoutingModes)
-                SmallButton(
-                  label: routingLabel(t, m),
-                  active: c.createMode == m,
-                  onTap: () => c.setCreateMode(m),
-                ),
-            ],
+          // 下拉，与编辑面板一致 —— React 两处都是 `<Select>`
+          //（`GroupCreateModal.tsx:88-95`、`GroupEditPanel.tsx:97-106`）。
+          // 原先这里是一排互斥按钮，同一个字段在同一页有两种长相。
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              key: const ValueKey('create-routing-mode'),
+              isExpanded: true,
+              value: c.createMode,
+              items: [
+                for (final m in kRoutingModes)
+                  DropdownMenuItem(value: m, child: Text(routingLabel(t, m))),
+              ],
+              onChanged: (v) {
+                if (v != null) c.setCreateMode(v);
+              },
+            ),
           ),
           Padding(
             padding: const EdgeInsets.only(top: AidogSpace.sxs),
@@ -2253,6 +2259,25 @@ class _PlatformPicker extends StatelessWidget {
                       style: AidogType.micro.copyWith(color: theme.c.fg3),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
+                    // 协议双字母徽标（`PlatformPicker.tsx:63-71`）：同名不同协议的
+                    // 两个平台在这张列表里本来长得一模一样，选错了只能退出去看平台页。
+                    if (p != null)
+                      Container(
+                        width: 26,
+                        alignment: Alignment.center,
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        margin: const EdgeInsets.only(right: AidogSpace.sxs),
+                        decoration: BoxDecoration(
+                          color: theme.c.accentWash,
+                          borderRadius: BorderRadius.circular(AidogRadius.sm),
+                        ),
+                        child: Text(
+                          p.platformType.characters.take(2).toString().toUpperCase(),
+                          style: AidogType.micro.copyWith(
+                            color: theme.c.accentText,
+                          ),
+                        ),
+                      ),
                     Expanded(
                       child: Text(
                         p?.name ?? '#$pid',
@@ -2921,17 +2946,28 @@ class _NumField extends StatelessWidget {
   final String? hint;
 
   @override
-  Widget build(BuildContext context) => _Field(
-    label: label,
-    hint: hint,
-    value: blankWhenZero && value == 0 ? '' : '$value',
-    // 非数字 / 空 → 0，与 React 那边 `Number(v) || 0` 同语义。
-    onChanged: (v) {
-      var n = int.tryParse(v.trim()) ?? 0;
-      if (n < 0) n = 0;
-      if (max != null && n > max!) n = max!;
-      onChanged(n);
-    },
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        TileMeta(label),
+        // 数字过滤 + 夹取 + ± / ↑↓ 步进都在 [NumberInput] 里（React 那边是
+        // `<input type="number" min max>` 自带的四样）。原先是普通文本框 +
+        // `tryParse ?? 0`：敲错一个字符，超时 / 重试次数静默变成 0。
+        NumberInput(
+          value: blankWhenZero && value == 0 ? '' : '$value',
+          hint: hint,
+          min: 0,
+          max: max,
+          onChanged: (v) {
+            final n = int.tryParse(v.trim());
+            if (n != null) onChanged(n);
+          },
+        ),
+      ],
+    ),
   );
 }
 
