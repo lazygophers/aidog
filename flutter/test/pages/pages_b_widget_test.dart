@@ -473,14 +473,22 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
+      // 建组入口在**平台页页头**那颗「+ 添加分组」上（分组区自己没有第二颗，
+      // React 同样只有一颗）。单测只挂分组区，所以走 `onCreateGroupReady`
+      // 把入口取出来调用 —— 与真页面同一条路。
+      VoidCallback? openCreate;
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            onCreateGroupReady: (fn) => openCreate = fn,
+          ),
           c,
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.add')));
+      openCreate!();
       await settle(tester);
 
       final create = tester.widget<SmallButton>(
@@ -494,14 +502,22 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
+      // 建组入口在**平台页页头**那颗「+ 添加分组」上（分组区自己没有第二颗，
+      // React 同样只有一颗）。单测只挂分组区，所以走 `onCreateGroupReady`
+      // 把入口取出来调用 —— 与真页面同一条路。
+      VoidCallback? openCreate;
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            onCreateGroupReady: (fn) => openCreate = fn,
+          ),
           c,
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.add')));
+      openCreate!();
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, '我的组');
@@ -522,14 +538,22 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
+      // 建组入口在**平台页页头**那颗「+ 添加分组」上（分组区自己没有第二颗，
+      // React 同样只有一颗）。单测只挂分组区，所以走 `onCreateGroupReady`
+      // 把入口取出来调用 —— 与真页面同一条路。
+      VoidCallback? openCreate;
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            onCreateGroupReady: (fn) => openCreate = fn,
+          ),
           c,
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.add')));
+      openCreate!();
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).at(0), 'n');
@@ -1865,14 +1889,22 @@ void main() {
       await useBigSurface(tester);
       final k = groupsFake();
       final c = await makeI18n(tester);
+      // 建组入口在**平台页页头**那颗「+ 添加分组」上（分组区自己没有第二颗，
+      // React 同样只有一颗）。单测只挂分组区，所以走 `onCreateGroupReady`
+      // 把入口取出来调用 —— 与真页面同一条路。
+      VoidCallback? openCreate;
       await tester.pumpWidget(
         wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          GroupsSection(
+            invoke: k.fn,
+            buildPlatformCard: stubPlatformCard,
+            onCreateGroupReady: (fn) => openCreate = fn,
+          ),
           c,
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.add')));
+      openCreate!();
       await settle(tester);
 
       await tester.enterText(find.byType(TextField).first, '新组');
