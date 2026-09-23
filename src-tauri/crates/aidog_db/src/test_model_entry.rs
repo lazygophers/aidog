@@ -404,22 +404,47 @@ fn from_json_reads_display_name_without_write_side_fallback() {
 #[tokio::test]
 async fn legacy_canonical_values_are_normalized_before_grouping() {
     let db = test_db().await;
-    let mut legacy = entry("aihubmix", "GLM-5", "GLM-5", false);
-    legacy.predecessor = "GLM-4.5".to_string();
+    let mut legacy = entry(
+        "legacy-platform-b",
+        "LEGACY-CASING-MODEL",
+        "LEGACY-CASING-MODEL",
+        false,
+    );
+    legacy.predecessor = "LEGACY-PREVIOUS-MODEL".to_string();
     upsert_model_entries(
         &db,
-        vec![entry("glm", "glm-5", "glm-5", true), legacy],
+        vec![
+            entry(
+                "legacy-platform-a",
+                "legacy-casing-model",
+                "legacy-casing-model",
+                true,
+            ),
+            legacy,
+        ],
     )
     .await
     .unwrap();
 
     let entries = list_model_entries(&db, None).await.unwrap();
-    assert!(entries
-        .iter()
-        .all(|e| e.canonical_model == "glm-5" && e.predecessor == "glm-4.5"));
+    let entries = entries
+        .into_iter()
+        .filter(|e| {
+            e.platform_code == "legacy-platform-a" || e.platform_code == "legacy-platform-b"
+        })
+        .collect::<Vec<_>>();
+    assert!(entries.iter().all(|e| e.canonical_model == "legacy-casing-model"));
+    assert_eq!(
+        entries
+            .iter()
+            .find(|e| e.platform_code == "legacy-platform-b")
+            .expect("legacy row")
+            .predecessor,
+        "legacy-previous-model"
+    );
     let groups = group_by_canonical(entries, &Default::default());
     assert_eq!(groups.len(), 1);
-    assert_eq!(groups[0].canonical_model, "glm-5");
+    assert_eq!(groups[0].canonical_model, "legacy-casing-model");
     assert_eq!(groups[0].entries.len(), 2);
 }
 
