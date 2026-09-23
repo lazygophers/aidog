@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1790184635,
   "endpoints": {
     "default": [
       {
@@ -330,6 +330,18 @@
       "wanx2.1-imageedit"
     ]
   },
+  "peak": [
+    {
+      "start_hour": 8,
+      "end_hour": 22,
+      "multiplier": 2,
+      "timezone": "Asia/Shanghai",
+      "models": [
+        "deepseek-v4-pro-0813",
+        "deepseek-v4-flash-0731"
+      ]
+    }
+  ],
   "name": {
     "en-US": "Bailian International (Alibaba Cloud)",
     "zh-Hans": "百炼国际版（阿里云）",
