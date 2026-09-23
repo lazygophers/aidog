@@ -104,10 +104,13 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   （旧世代 claude/kimi/mistral）；10 新模型。中间过程绞坏 14 文件后重建
   （教训：price 块尾无逗号时插入要处理两种形状——已在多轮重犯，考虑给
   check-registry 加预检或写公共编辑工具）。
-- 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条要不要全量镜像；
-  ② 官方 discount 限时优惠与 context_tiers 分档要不要进 registry；③ bailian_en
-  GLM/Kimi 国际价复核（需国际站计价页明文）；④ therouter per-image 计价模型
-  登记口径；⑤ anthropic/google 官方平台自身条目未在本循环核过（fable-5-1 官方
-  渠道缺口即来自这里）。
+- 2026-09-24 第 9 轮 gemini `1bb3ada7`+`219e1c2`：ctx 数量级修正 4、max_out 65535→65536
+  ×7、image 系出价改 per-image token 价、robotics-er-2 现行价、gemma-4 付费价清零、
+  thinking 填充、下架 10 条（3 条未来日期模型恢复保留）。NO_OFFICIAL_CHANNEL +3。
+- 待确认攒问（一次性问）：① aihubmix 400+ 全量镜像；② discount/context_tiers 维度；
+  ③ bailian_en GLM/Kimi 国际价复核；④ therouter per-image 计价口径；⑤ anthropic/google
+  官方平台自身条目未核；⑥ gemini 平台 91/154 非 Gemini API 文件（Vertex 来源，
+  claude-*/mistral/-maas/gemma）去向；⑦ 门禁可达性——family/version 官方不公布占多数，
+  ≥90% 绝对覆盖率不可达，建议改「可公布字段清零率」口径。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
