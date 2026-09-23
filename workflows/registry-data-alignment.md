@@ -71,5 +71,15 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   20260420 改名 2026-04-20）；下线复核 6 条全在售并修正其窗口/价格/视觉能力。
 - 遗留：qwen3.8-omni-flash 价格官方模型页缺失（需计费文档）；qwen3.8-omni-flash-realtime
   音频/文本双价 registry 单价结构装不下；qwen3.5-plus-2026-04-20 快照价与主版本不同源未核。
+- 2026-09-24 第 4 轮 aihubmix `a942158`（420 文件，官方 Models API 全量对齐）：
+  554 条目修正（ctx/maxout 208 处、价格 50 处、填充 display_name/context/maxout/
+  thinking/cache 价 643 处）；删 26 条官方已下架（含裸 glm-5、全部 *-free 变体）；
+  新增 15 个官方在售新模型（claude-opus-5-5、gpt-6-luna/sol、grok-4.7、
+  deepseek-v4.1-flash、glm-5.3-flashx、mimo-v2.6 系等）。新条目 official:false——
+  aihubmix 是聚合站，官方渠道语义由 canonical 关联其它平台条目承载（测试不变量）。
+  alicloud-glm-5 因官方未公布 ctx 无法过 schema，未登记。
+- 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条（旧代 gpt-3.5/4、
+  embedding/image/video 类）要不要全量镜像；② 官方 discount 限时优惠与
+  context_tiers 分档要不要进 registry（现无此维度）。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
