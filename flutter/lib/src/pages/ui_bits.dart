@@ -716,6 +716,12 @@ class _KeptTextFieldState extends State<KeptTextField> {
 /// 2. **提交失败保留原值**：空串 / 只剩一个小数点时**不上报**，输入框恢复成
 ///    当前值 —— 不写 0，不丢数据。
 /// 3. **越界可见**：夹取发生时在下面显示一行 `min–max`，不是默默改掉。
+///
+/// **与 [DecimalField]（`platform_form_bits.dart`）的差别是故意的，不是漂移。**
+/// 那边必须放行「打到一半的 `10.`」，所以一定会经过一段「当前文本不是合法数」
+/// 的中间态，需要一条红线告诉用户「这个值现在没被采纳」；这边有输入过滤，
+/// 那种状态根本到不了，能出错的只有「空串」和「越界」，两者都即时可恢复，
+/// 再加一条红线只是噪音。改动任一侧前先读另一侧。
 class NumberInput extends StatefulWidget {
   const NumberInput({
     super.key,
