@@ -204,11 +204,15 @@ function DropdownItem({
         padding: "8px 10px",
         fontSize: 13,
         fontWeight: active ? 600 : 400,
-        color: active ? "var(--primary)" : "var(--text-primary)",
+        // 选中项的字与左侧竖条走 --accent / --accent-edge，不走 --primary：
+        // --primary 是「填充色」，深色下是近黑（#101012），拿它当字色 = 近黑字压在
+        // 近黑底上，整条菜单项看不见（用户 2026-09-23 实机报的就是这个）。
+        // --accent 映射的是 token 的 accent-text（深色更亮 / 浅色更暗），是给字用的那档。
+        color: active ? "var(--accent)" : "var(--text-primary)",
         background: active ? "var(--accent-subtle)" : "transparent",
         borderRadius: "var(--radius-sm)",
         height: "auto",
-        boxShadow: active ? "inset 2px 0 0 var(--primary), 0 0 8px color-mix(in srgb, var(--primary) 22%, transparent)" : "none",
+        boxShadow: active ? "inset 2px 0 0 var(--accent-edge), 0 0 8px color-mix(in srgb, var(--accent) 22%, transparent)" : "none",
       }}
       onClick={(e) => { makeRipple(e); onClick(); }}
     >
@@ -330,15 +334,16 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   gap: 10,
                   padding: "10px 12px",
                   fontWeight: isActive ? 600 : 400,
+                  // 同上：字走 --accent（token accent-text），不走近黑的 --primary。
                   color: isActive
-                    ? "var(--primary)"
+                    ? "var(--accent)"
                     : "var(--text-secondary)",
                   background: isActive
                     ? "var(--accent-subtle)"
                     : "transparent",
                   // 萤火虫激活态：左侧流光条 + 描边 glow
                   boxShadow: isActive
-                    ? "inset 2px 0 0 var(--primary), inset 0 0 0 1px color-mix(in srgb, var(--primary) 42%, transparent), 0 0 12px color-mix(in srgb, var(--primary) 28%, transparent)"
+                    ? "inset 2px 0 0 var(--accent-edge), inset 0 0 0 1px var(--accent-edge), 0 0 12px color-mix(in srgb, var(--accent) 28%, transparent)"
                     : "none",
                   borderRadius: "var(--radius-sm)",
                   fontSize: 13,
@@ -430,11 +435,11 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 padding: "7px 10px 7px 26px",
                                 fontWeight: childActive ? 600 : 400,
                                 fontSize: 12.5,
-                                color: childActive ? "var(--primary)" : "var(--text-secondary)",
+                                color: childActive ? "var(--accent)" : "var(--text-secondary)",
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
-                                borderLeft: childActive ? "2px solid var(--primary)" : "2px solid transparent",
-                                boxShadow: childActive ? "0 0 8px color-mix(in srgb, var(--primary) 22%, transparent)" : "none",
+                                borderLeft: childActive ? "2px solid var(--accent-edge)" : "2px solid transparent",
+                                boxShadow: childActive ? "0 0 8px color-mix(in srgb, var(--accent) 22%, transparent)" : "none",
                                 height: "auto",
                               }}
                               onClick={(e) => { makeRipple(e); onNavigate(c.id); }}
