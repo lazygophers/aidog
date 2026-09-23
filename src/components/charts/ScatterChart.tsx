@@ -90,7 +90,7 @@ export function ScatterChart({
   return (
     <ChartCard title={title} subtitle={subtitle} empty={points.length === 0} emptyHint={emptyHint} className={className}>
       <ChartContainer
-        config={{ points: { label: "points", color: "var(--primary)" } }}
+        config={{ points: { label: "points", color: "var(--data-primary)" } }}
         className="w-full"
         style={{ height }}
       >
@@ -138,7 +138,7 @@ export function ScatterChart({
               />
             }
           />
-          <Scatter name="points" data={points} fill="var(--primary)" fillOpacity={0.55} />
+          <Scatter name="points" data={points} fill="var(--data-primary)" fillOpacity={0.55} />
         </RechartsScatterChart>
       </ChartContainer>
     </ChartCard>

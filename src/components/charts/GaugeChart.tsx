@@ -67,7 +67,9 @@ export function GaugeChart({
             position: "absolute",
             inset: 0,
             borderRadius: "50%",
-            background: `conic-gradient(var(--primary) ${fraction * 360}deg, var(--chart-3) 0deg)`,
+            // 已填弧是数据本身，用 data-primary；界面填充色在深色下是近黑，
+            // 弧与灰轨几乎同色，读不出填了多少。
+            background: `conic-gradient(var(--data-primary) ${fraction * 360}deg, var(--chart-3) 0deg)`,
             maskImage: `radial-gradient(farthest-side, transparent calc(100% - ${ringWidth}px), #000 calc(100% - ${ringWidth - 1}px))`,
             WebkitMaskImage: `radial-gradient(farthest-side, transparent calc(100% - ${ringWidth}px), #000 calc(100% - ${ringWidth - 1}px))`,
           }}
@@ -123,13 +125,14 @@ function TrendSparkline({ points, width }: { points: GaugeTrendPoint[]; width: n
         <polyline
           points={points.map((p) => `${x(p)},${y(p)}`).join(" ")}
           fill="none"
-          stroke="var(--primary)"
+          // 数据线用 data-primary，不用界面填充色（深色下近黑 = 线看不见）。
+          stroke="var(--data-primary)"
           strokeWidth={1.5}
           strokeLinejoin="round"
           strokeLinecap="round"
         />
       ) : (
-        <circle cx={x(points[0])} cy={y(points[0])} r={2} fill="var(--primary)" />
+        <circle cx={x(points[0])} cy={y(points[0])} r={2} fill="var(--data-primary)" />
       )}
     </svg>
   );

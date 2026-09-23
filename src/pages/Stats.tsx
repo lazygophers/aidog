@@ -1012,7 +1012,7 @@ function SortableTh({ label, col, align = "right", sortKey, sortDir, onSort }: S
     >
       <span style={{ display: "inline-flex", alignItems: "center", gap: 3, flexDirection: align === "left" ? "row" : "row-reverse" }}>
         {label}
-        {active && (sortDir === "asc" ? <ArrowUp color="var(--primary)" /> : <ArrowDown color="var(--primary)" />)}
+        {active && (sortDir === "asc" ? <ArrowUp color="var(--accent)" /> : <ArrowDown color="var(--accent)" />)}
       </span>
     </TableHead>
   );

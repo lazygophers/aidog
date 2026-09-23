@@ -1,10 +1,12 @@
 // ── 图表系列色板（spec §A3 定案）──
-// 主线琥珀：首位/主系列 = var(--primary)（mono 萤火虫主题 dark #e8c547 / light #c49a3c）。
+// 主线 = var(--data-primary)（token `data-primary`，蓝紫 dark #5E6AD2 / light #4E59C4）。
+// **不是 var(--primary)**：那是界面填充色，2026-09-23 之后深色下是近黑，
+// 画成折线等于看不见。数据色与界面强调色从此是两档，别再合并。
 // 辅线灰阶：var(--chart-2..5) 循环。globals.css 的 --chart-N 定义保持纯灰阶不动，
 // 色板语义只在这里表达。
 import { clamp } from "@/utils/formatters";
 
-export const PRIMARY_COLOR = "var(--primary)" as const;
+export const PRIMARY_COLOR = "var(--data-primary)" as const;
 
 const AUX_COLORS = [
   "var(--chart-2)",
@@ -15,7 +17,7 @@ const AUX_COLORS = [
 
 /**
  * 第 index 个系列的颜色：0（及负数）→ 主系列琥珀，1 起循环灰阶 --chart-2..5。
- * 例：seriesColor(0)="var(--primary)"，seriesColor(1)="var(--chart-2)"，
+ * 例：seriesColor(0)="var(--data-primary)"，seriesColor(1)="var(--chart-2)"，
  * seriesColor(5)= 回绕 "var(--chart-2)"。
  */
 export function seriesColor(index: number): string {
