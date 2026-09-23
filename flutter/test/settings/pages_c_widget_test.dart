@@ -1829,6 +1829,103 @@ void main() {
       expect(selection.length, 3);
     });
 
+    testWidgets('冲突行给出本地那条的摘要，批量决策压在清单上方', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'items': [
+              {'scope': 'platform', 'key': 'p1', 'label': 'P1', 'conflict': true},
+            ],
+            'conflicts': [
+              {
+                'scope': 'platform',
+                'key': 'p1',
+                'existing_summary': '本地：glm · 3 个模型',
+                'incoming_summary': '导入：glm · 5 个模型',
+              },
+            ],
+          },
+          'import_apply': (_) => <String, Object?>{},
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+
+      // 本地现有那条长什么样 —— 没有它就得闭着眼睛决定要不要覆盖。
+      expect(findStripped(find, '本地：glm · 3 个模型'), findsOneWidget);
+
+      // 批量决策在冲突行**上方**：冲突多时不必滚到底去找。
+      final bulkY = tester.getTopLeft(find.byKey(const ValueKey('bulk-overwrite'))).dy;
+      final rowY = tester.getTopLeft(find.byKey(const ValueKey('conflict-platform p1'))).dy;
+      expect(bulkY, lessThan(rowY));
+
+      // 「全部覆盖」一次定完，落到载荷里。
+      await tester.tap(find.byKey(const ValueKey('bulk-overwrite')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('import-apply')));
+      await settle(tester);
+      await tester.tap(find.text(i18n.t('importExport.applyN', {'n': '1'})));
+      await settle(tester);
+      final decisions = k.lastArgsOf('import_apply')!['decisions']! as List;
+      expect((decisions.single as Map)['decision'], {'kind': 'overwrite'});
+    });
+
+    testWidgets('cc-switch 批量分组：勾了分组 chip → 导入后逐个 platform_update 挂进去', (
+      tester,
+    ) async {
+      final k = await mount(
+        tester,
+        extra: {
+          'ccswitch_detect': (_) => {
+            'found': true,
+            'path': '/tmp/cc',
+            'sourceType': 'json',
+            'providerCount': 1,
+          },
+          'ccswitch_read': (_) => {
+            'sourceType': 'json',
+            'path': '/tmp/cc',
+            'providers': [
+              {
+                'id': 'p1',
+                'appType': 'claude',
+                'name': 'GLM 主号',
+                'detectedBaseUrl': 'https://x.test/v1',
+                'detectedApiKey': 'sk-test',
+              },
+            ],
+          },
+          'ccswitch_import': (_) => {'applied': <String, Object?>{}},
+          'group_detail_list': (_) => [
+            {
+              'group': {'id': 7, 'name': '常用', 'group_key': 'gk7'},
+              'platforms': <Object?>[],
+            },
+          ],
+          'platform_list': (_) => [
+            {'id': 42, 'name': 'GLM 主号'},
+          ],
+          'platform_update': (_) => null,
+          'platform_ensure_auto_group': (_) => null,
+        },
+      );
+      await tester.tap(find.byKey(const ValueKey('ccswitch-detect')));
+      await settle(tester);
+
+      // 勾一个已有分组。
+      await tester.tap(find.byKey(const ValueKey('batch-join-group-7')));
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('foreign-import-cc-switch')));
+      await settle(tester);
+
+      final args = k.lastArgsOf('platform_update')!['input']! as Map;
+      expect(args['id'], 42);
+      expect(args['join_group_ids'], [7]);
+    });
+
     testWidgets('冲突选「保留两者」：新名字预填并进 import_apply 的 decisions', (tester) async {
       final k = await mount(
         tester,
