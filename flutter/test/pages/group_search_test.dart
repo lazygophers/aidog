@@ -44,7 +44,8 @@ Future<void> _mount(WidgetTester tester, String query, dynamic c) async {
       GroupsSection(
         invoke: k.fn,
         searchQuery: query,
-        buildPlatformCard: (p, i) => Text('卡:${p.name}'),
+        buildPlatformCard: (p, i, {levelPriority, onLevelPriorityChange}) =>
+            Text('卡:${p.name}'),
       ),
       c,
     ),

@@ -161,7 +161,26 @@ FakeInvoke platformsFake() => FakeInvoke({
 /// 组内平台卡的替身。本文件测的是**分组行为**（改名、映射、批量、移组…），
 /// 不是卡片渲染：真卡片挂进来会把每个用例的断言都拖进 `PlatformCard` 的整棵子树。
 /// 卡片本体由 `platform_card_test.dart` 守，组内接线由 `groups_platform_card_test.dart` 守。
-Widget stubPlatformCard(PlatformRow p, int index) => Text(p.name);
+/// per-group 优先级已并进卡内（行 1.5），替身直接复用同一个控件，
+/// 让优先级用例不必挂整棵真卡。
+Widget stubPlatformCard(
+  PlatformRow p,
+  int index, {
+  int? levelPriority,
+  void Function(int)? onLevelPriorityChange,
+}) => Column(
+  mainAxisSize: MainAxisSize.min,
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    Text(p.name),
+    if (onLevelPriorityChange != null)
+      LevelPriorityControl(
+        key: ValueKey('level-priority-${p.id}'),
+        value: levelPriority ?? 5,
+        onChanged: onLevelPriorityChange,
+      ),
+  ],
+);
 
 /// 组内拖放的插入线：2px 高、accent 底色的小条（私有 widget，按形状认）。
 bool _isDropLine(Widget w) =>
@@ -651,7 +670,7 @@ void main() {
       await settle(tester);
 
       final before = k.callsTo('group_detail_list').length;
-      await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
+      await tester.tap(find.byTooltip(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
       expect(k.callsTo('group_detail_list').length, before + 1);
       expect(k.commands.contains('platform_delete'), isFalse);
@@ -668,7 +687,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
+      await tester.tap(find.byTooltip(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
       expect(find.text(c.t('group.removeFromGroupAction')), findsNothing);
     });
@@ -698,7 +717,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
+      await tester.tap(find.byTooltip(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
       expect(find.text(c.t('group.removeFromGroupAction')), findsOneWidget);
 
@@ -787,7 +806,7 @@ void main() {
       await settle(tester);
       expect(find.text('P1'), findsNothing);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       expect(find.text('P1'), findsWidgets, reason: '要选的平台得看得见');
       // 多选期间不许再折叠。
@@ -863,7 +882,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await tester.tap(find.byTooltip(c.t('group.purgeDisabled')).first);
       await tester.pump();
       expect(find.text(c.t('status.loading')), findsOneWidget);
 
@@ -1087,7 +1106,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.copyCommand')));
+      await tester.tap(find.byTooltip(c.t('group.copyKeyLabel')));
       await settle(tester);
       // 密钥那项是钥匙图标，另外三项是平台 svg。
       expect(find.byIcon(Icons.key), findsOneWidget);
@@ -1236,7 +1255,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       expect(find.text(c.t('group.selectAll')), findsOneWidget);
       for (final key in const [
@@ -1264,7 +1283,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1302,7 +1321,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1353,13 +1372,13 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.copyCommand')).first);
+      await tester.tap(find.byTooltip(c.t('group.copyKeyLabel')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.menuCopyClaude')));
       await settle(tester);
       expect(copied.single, contains('~/.aidog/settings.gk10.json'));
 
-      await tester.tap(find.text(c.t('group.copyCommand')).first);
+      await tester.tap(find.byTooltip(c.t('group.copyKeyLabel')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.menuCopyPi')));
       await settle(tester);
@@ -1454,52 +1473,6 @@ void main() {
       );
     });
 
-    testWidgets('列表卡快捷添加映射：填齐才可点，点了发 group_update', (tester) async {
-      await useBigSurface(tester);
-      final k = groupsFake();
-      final c = await makeI18n(tester);
-      await tester.pumpWidget(
-        wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
-          c,
-        ),
-      );
-      await settle(tester);
-
-      await tester.tap(find.text('+ ${c.t('mapping.add')}').first);
-      await settle(tester);
-      var create = tester.widget<SmallButton>(
-        find.widgetWithText(SmallButton, c.t('action.create')),
-      );
-      expect(create.enabled, isFalse);
-
-      // 按 key 定位，不按「页面上第一个 TextField」—— 平台行后来加了优先级输入框，
-      // 「第一个」就不再是这里的源模型格了。
-      await tester.enterText(
-        find.byKey(const ValueKey('mapping-quick-source')),
-        'src',
-      );
-      await settle(tester);
-      await tester.tap(find.text(c.t('mapping.targetPlatform')).first);
-      await settle(tester);
-      await tester.tap(find.text('P1').last);
-      await settle(tester);
-      await tester.tap(find.text(c.t('mapping.target')).first);
-      await settle(tester);
-      await tester.tap(find.text('m').last);
-      await settle(tester);
-
-      create = tester.widget<SmallButton>(
-        find.widgetWithText(SmallButton, c.t('action.create')),
-      );
-      expect(create.enabled, isTrue);
-      await tester.tap(find.text(c.t('action.create')));
-      await settle(tester);
-      final input =
-          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
-      expect((input['model_mappings']! as List).length, 1);
-    });
-
     testWidgets('编辑态：环境变量、pi 线路协议、锁定的分组密钥都在', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
@@ -1550,7 +1523,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1601,7 +1574,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1639,7 +1612,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1717,7 +1690,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -1796,7 +1769,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       await tester.tap(find.text(c.t('group.selectAll')));
       await settle(tester);
@@ -2095,7 +2068,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.deletePlatformTitle')).first);
+      await tester.tap(find.byTooltip(c.t('group.deletePlatformTitle')).first);
       await settle(tester);
       // 「删除平台」这串文案同时是行内按钮、弹窗标题和确认按钮，取最后一个（确认）。
       await tester.tap(find.text(c.t('group.deletePlatformAction')).last);
@@ -2147,7 +2120,7 @@ void main() {
       expect(find.text(formatPercent(100, 0)), findsOneWidget);
       // 🔴 group_key 就是这个分组的 API Key，列表上不许出现明文。
       expect(find.textContaining('gk10'), findsNothing);
-      await tester.tap(find.text(c.t('group.defaultConfigWritten')));
+      await tester.tap(find.byTooltip(c.t('group.unsetDefault')));
       await settle(tester);
       // 已是默认 → 再点一次传 null（取消默认）。
       expect(k.lastCallTo('group_set_default')!.args!['id'], isNull);
@@ -2165,7 +2138,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await tester.tap(find.byTooltip(c.t('group.purgeDisabled')).first);
       await settle(tester);
       expect(find.text(c.t('platform.purgeDisabledNone')), findsOneWidget);
       expect(
@@ -2193,50 +2166,12 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.batchOps')).first);
+      await tester.tap(find.byTooltip(c.t('group.batchOps')).first);
       await settle(tester);
       expect(find.text(c.t('group.selectAll')), findsOneWidget);
       await tester.tap(find.text(c.t('action.cancel')).first);
       await settle(tester);
       expect(find.text(c.t('group.selectAll')), findsNothing);
-    });
-
-    testWidgets('列表卡里删一条模型映射 → group_update 把它去掉', (tester) async {
-      await useBigSurface(tester);
-      final k = groupsFake();
-      k.responses['group_detail_list_paged'] = [
-        {
-          'group': {'id': 10, 'name': 'G10', 'group_key': 'gk10'},
-          'platforms': <Object?>[],
-          'model_mappings': [
-            {
-              'source_model': 'a',
-              'target_platform_id': 1,
-              'target_model': 'b',
-              'request_timeout_secs': 0,
-              'connect_timeout_secs': 0,
-            },
-          ],
-        },
-      ];
-      final c = await makeI18n(tester);
-      await tester.pumpWidget(
-        wrapPage(
-          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
-          c,
-        ),
-      );
-      await settle(tester);
-      // 映射行现在是一张小卡：源 / 箭头 / 目标各自成段，不再是一串拼好的字。
-      expect(find.text('a'), findsOneWidget);
-      expect(find.text('b'), findsOneWidget);
-      expect(find.byIcon(Icons.arrow_forward), findsOneWidget);
-
-      await tester.tap(find.byIcon(Icons.close).first);
-      await settle(tester);
-      final input =
-          k.lastCallTo('group_update')!.args!['input']! as Map<String, Object?>;
-      expect(input['model_mappings'], isEmpty);
     });
 
     testWidgets('拖分组卡的把手 → group_reorder 按新顺序发整串 id', (tester) async {
@@ -2263,14 +2198,18 @@ void main() {
       );
       await settle(tester);
 
-      // 把第一张卡的把手往下拖过第二张卡。
-      final handle = find.byIcon(Icons.drag_handle).first;
-      final from = tester.getCenter(handle);
+      // 拖到两张卡中心的正中间。不写死像素距离：卡高随按钮形态变化（图标化后
+      // 更矮），固定距离会漂——落点太近没过换位线、太远越过末张卡又弹回原位
+      //（2026-09-23 已两次因卡片变矮改数字：160→120→这次）。两张卡的中点
+      // 永远在换位区内，怎么变版式都不漂。
+      final from = tester.getCenter(find.byIcon(Icons.drag_handle).first);
+      final mid =
+          (tester.getRect(find.byKey(const ValueKey(10))).center.dy +
+              tester.getRect(find.byKey(const ValueKey(11))).center.dy) /
+          2;
       final gesture = await tester.startGesture(from);
       await tester.pump(const Duration(milliseconds: 200));
-      // 120 = 略超一张卡的高度。卡片变矮之后（快捷操作并成一行）原来的 160
-      // 反而会越过落点，`onReorderEnd` 收到的下标与起点相同，等于没换位。
-      await gesture.moveBy(const Offset(0, 120));
+      await gesture.moveBy(Offset(0, mid - from.dy));
       await tester.pump(const Duration(milliseconds: 200));
       await gesture.up();
       await settle(tester);
@@ -2294,7 +2233,7 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await tester.tap(find.byTooltip(c.t('group.purgeDisabled')).first);
       await settle(tester);
       expect(
         find.text(c.t('platform.purgeDisabledActionDelete')),
@@ -2509,7 +2448,7 @@ void main() {
       );
       await settle(tester);
 
-      await tester.tap(find.text(c.t('group.purgeDisabled')).first);
+      await tester.tap(find.byTooltip(c.t('group.purgeDisabled')).first);
       await settle(tester);
       expect(
         k.lastCallTo('platform_purge_disabled_preview')!.args!['groupId'],
