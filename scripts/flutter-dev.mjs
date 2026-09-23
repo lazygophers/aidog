@@ -28,6 +28,7 @@ const child = spawn(
 // 防抖：编辑器存盘常常一次触发多个事件（写临时文件 + rename），不合并就会连发好几次。
 let timer = null;
 let pendingRestart = false;
+let pidEverSeen = false;
 const DEBOUNCE_MS = 150;
 
 // SIGUSR1 = 热重载（保留应用状态，毫秒级）；SIGUSR2 = 热重启（丢状态，秒级）。
@@ -37,8 +38,20 @@ function signal(kind) {
   let pid;
   try {
     pid = Number(readFileSync(pidFile, 'utf8').trim());
+    pidEverSeen = true;
   } catch {
-    return; // 还没起来，这次存盘就不重载了，下次存盘会补上
+    // 两种「读不到」，要分清：
+    //   1. 从没见过 —— flutter run 还在启动，这次存盘不重载，下次存盘补上，不值得喊。
+    //   2. 见过又没了 —— flutter_tools 退出清理（TerminalHandler.stop() 会删 pid 文件
+    //      并注销 SIGUSR1/2），但进程常被 analytics 网络请求挂住迟迟不退。这时存盘
+    //      不会再有任何反应，静默吞掉就是「热重载不生效」——大声告诉用户重启。
+    if (pidEverSeen && child.exitCode === null) {
+      process.stderr.write(
+        `\x1b[33m[flutter-dev] 存盘了，但 flutter run 已不接信号（pid 文件没了、进程卡在退出清理）。` +
+          `Ctrl-C 重启 dev shell 后继续。\x1b[0m\n`,
+      );
+    }
+    return;
   }
   const sig = kind === 'restart' ? 'SIGUSR2' : 'SIGUSR1';
   const what = kind === 'restart' ? '热重启（资产变了）' : '热重载';
