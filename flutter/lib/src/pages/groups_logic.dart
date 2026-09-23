@@ -1017,8 +1017,15 @@ class GroupsController {
     final ids = [for (final gp in detail.platforms) gp.platform.id];
     final from = ids.indexOf(pid);
     if (from < 0) {
-      // 跨组（或从未分组区）：先落进这个组，再按目标位次排一次。
-      await movePlatform(pid, 0, gid);
+      // 跨组（或从未分组区）。源组按 details 反查（React 是拖起时带在 payload 里的
+      // `fromGid`，`usePlatformDrag.ts:184-188`）；查不到 = 未分组区来的，发 0。
+      var fromGid = 0;
+      for (final d in details) {
+        if ([for (final gp in d.platforms) gp.platform.id].contains(pid)) {
+          fromGid = d.group.id;
+        }
+      }
+      await movePlatform(pid, fromGid, gid);
       for (final d in details) {
         if (d.group.id != gid) continue;
         final now = [for (final gp in d.platforms) gp.platform.id];

@@ -888,8 +888,8 @@ class _GroupCard extends StatelessWidget {
               )
             else
               // 搜索命中过滤：只渲染命中的那几张（`GroupListItem.tsx:344-346`）。
-              // **index / total 仍按全量算** —— 它们决定上下移按钮的可用性，
-              // 按过滤后的算会让「上移」把平台挪到错的位置上。
+              // **index 仍按全量算** —— 它是组内位次（拖放插入位与后端 reorder
+              // 都用它），按过滤后的算会把平台挪到错的位置上。
               for (var i = 0; i < detail.platforms.length; i++)
                 if (visiblePlatformIds == null ||
                     visiblePlatformIds!.contains(
@@ -900,8 +900,6 @@ class _GroupCard extends StatelessWidget {
                     group: g,
                     gp: detail.platforms[i],
                     index: i,
-                    total: detail.platforms.length,
-                    allGroups: c.allGroups,
                     selecting: selecting,
                     buildPlatformCard: buildPlatformCard,
                   ),
@@ -1065,20 +1063,20 @@ class _BatchToolbar extends StatelessWidget {
   }
 }
 
-/// 单个分组内平台行（票 24）：左侧多选勾选框 + 中间**完整平台卡** +
-/// 右侧组内控件（上下移 / 优先级 / 移组 / 移除）。
+/// 单个分组内平台行（票 24）：左侧多选勾选框或拖拽把手 + 中间**完整平台卡** +
+/// 右侧「移除」。
 ///
 /// 中间那张卡与平台页用的是同一张（`platform_card_view.dart::PlatformCard`），
-/// 经 [buildPlatformCard] 注入，只是不给拖拽手柄。组内控件留在卡**外面**：
-/// 它们是「这个平台在这个分组里」的属性，不属于平台本身，卡片也不认识分组。
+/// 经 [buildPlatformCard] 注入，只是不给拖拽手柄。组内排序走行首拖拽把手、
+/// 跨组走拖到目标组（`usePlatformDrag.ts` 同构，React 没有上下移按钮和移组下拉，
+/// 2026-09-24 已随拖拽落地删除）；移除留在卡**外面**：它是「这个平台在这个
+/// 分组里」的属性，不属于平台本身，卡片也不认识分组。
 class _PlatformRow extends StatelessWidget {
   const _PlatformRow({
     required this.controller,
     required this.group,
     required this.gp,
     required this.index,
-    required this.total,
-    required this.allGroups,
     required this.selecting,
     required this.buildPlatformCard,
   });
@@ -1089,10 +1087,8 @@ class _PlatformRow extends StatelessWidget {
   final GroupRow group;
   final GroupPlatform gp;
 
-  /// 组内位次（0 起）与本组平台总数：决定上下移按钮的可用性。
+  /// 组内位次（0 起）：拖放插入位与后端 reorder 都按它算。
   final int index;
-  final int total;
-  final List<({int id, String name})> allGroups;
   final bool selecting;
 
   @override
@@ -1155,14 +1151,12 @@ class _PlatformRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: AidogSpace.sxs),
-          _GroupPlatformControls(
-            controller: c,
-            group: group,
-            gp: gp,
-            index: index,
-            total: total,
-            allGroups: allGroups,
-            selecting: selecting,
+          // 移除平台：图标化（2026-09-23 用户拍板，超出 React 的文字按钮形态）。
+          _GroupIconAction(
+            icon: Icons.remove_circle_outline,
+            tooltip: t.t('group.deletePlatformTitle'),
+            danger: true,
+            onTap: () => c.askRemovePlatform(gp.platform, group.id),
           ),
         ],
       ),
@@ -1225,101 +1219,6 @@ class _DropLine extends StatelessWidget {
       ),
     ),
   );
-}
-
-/// 「这个平台在这个分组里」的那几个控件：上下移 / 优先级 / 移组 / 移除。
-///
-/// 从 [_PlatformRow] 拆出来，是因为它现在要和一张整卡并排 —— 横向塞不下一长条，
-/// 用 [Wrap] 限宽换行。
-class _GroupPlatformControls extends StatelessWidget {
-  const _GroupPlatformControls({
-    required this.controller,
-    required this.group,
-    required this.gp,
-    required this.index,
-    required this.total,
-    required this.allGroups,
-    required this.selecting,
-  });
-
-  final GroupsController controller;
-  final GroupRow group;
-  final GroupPlatform gp;
-  final int index;
-  final int total;
-  final List<({int id, String name})> allGroups;
-  final bool selecting;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogI18n.of(context);
-    final theme = AidogTheme.of(context);
-    final c = controller;
-    final pid = gp.platform.id;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 190),
-      child: Wrap(
-        alignment: WrapAlignment.end,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          if (!selecting) ...[
-            // 组内位次（= 路由优先级顺序）。拖拽把手在行首（见 `_PlatformRow`），
-            // 这两颗**是键盘可达的那条路**，不因为有了拖拽就删。
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 14,
-              tooltip: t.t('group.dragToReorder'),
-              onPressed: index == 0
-                  ? null
-                  : () => c.movePlatformWithinGroup(group.id, index, index - 1),
-              icon: const Icon(Icons.arrow_upward),
-            ),
-            IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 14,
-              tooltip: t.t('group.dragToReorder'),
-              onPressed: index >= total - 1
-                  ? null
-                  : () => c.movePlatformWithinGroup(group.id, index, index + 1),
-              icon: const Icon(Icons.arrow_downward),
-            ),
-            // per-group 优先级（1~10）已并进平台卡本体（行 1.5，
-            // `PlatformCard.tsx:423-427` 的 `LevelPriorityControl`），
-            // 不再在这里画独立步进器行。
-            const SizedBox(width: AidogSpace.ssm),
-            // 移动到另一分组：`usePlatformDrag.ts` 的跨组拖拽等价功能（不同交互形态，
-            // 同一后端命令 `group_platform_move`）——嵌套 `ReorderableListView`
-            // 手势冲突，改下拉选目标组。
-            if (allGroups.length > 1)
-              PopupMenuButton<int>(
-                tooltip: t.t('group.dragPlatform'),
-                icon: Icon(
-                  Icons.drive_file_move_outline,
-                  size: 14,
-                  color: theme.c.fg3,
-                ),
-                onSelected: (targetGid) =>
-                    c.movePlatform(pid, group.id, targetGid),
-                itemBuilder: (context) => [
-                  for (final og in allGroups)
-                    if (og.id != group.id)
-                      PopupMenuItem(value: og.id, child: Text(og.name)),
-                ],
-              ),
-          ],
-          // 移除平台：图标化（2026-09-23 用户拍板，超出 React 的文字按钮形态）。
-          _GroupIconAction(
-            icon: Icons.remove_circle_outline,
-            tooltip: t.t('group.deletePlatformTitle'),
-            danger: true,
-            onTap: () => c.askRemovePlatform(gp.platform, group.id),
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 /// 「移除平台」确认。属几个组决定给几个选项 —— 这是本票点名的风险位：
