@@ -1,14 +1,17 @@
 {
-  "last_updated": 1788183969,
+  "last_updated": 1790181902,
   "model_id": "kimi/kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "capabilities": [
-    "text"
+    "text",
+    "vision"
   ],
   "official": true,
   "price": {
     "input": 5.555555555555556e-07,
     "output": 2.9166666666666666e-06
   },
+  "max_input_tokens": 229376,
+  "max_output_tokens": 16384,
   "context_window": 262144
 }
