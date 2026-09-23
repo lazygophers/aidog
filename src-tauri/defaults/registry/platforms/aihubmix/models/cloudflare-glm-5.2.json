@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "cloudflare-glm-5.2",
   "canonical_model": "glm-5.2",
+  "display_name": "Cloudflare Glm 5.2",
   "family": "glm",
   "version": "5.2",
   "predecessor": "glm-5.1",
@@ -14,7 +15,7 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
-  "context_window": 1048576,
+  "context_window": 1000000,
   "official": false,
   "price": {
     "input": 0.0000014,

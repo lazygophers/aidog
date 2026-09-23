@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "hy4-preview",
   "canonical_model": "hy4-preview",
+  "display_name": "Hy4 Preview",
+  "max_output_tokens": 64000,
   "context_window": 1048576,
   "family": "hunyuan",
   "thinking_supported": true,

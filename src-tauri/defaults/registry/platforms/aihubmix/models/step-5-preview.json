@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790182696,
+  "model_id": "step-5-preview",
+  "canonical_model": "step-5-preview",
+  "display_name": "Step 5 Preview",
+  "capabilities": ["text", "vision", "reasoning"],
+  "context_window": 1000000,
+  "max_output_tokens": 64000,
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 1.08e-06,
+    "output": 3.0888e-06,
+    "cache_read": 5.4e-08
+  }
+}

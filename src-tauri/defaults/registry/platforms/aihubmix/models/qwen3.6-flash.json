@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "qwen3.6-flash",
   "canonical_model": "qwen3.6-flash",
+  "display_name": "Qwen3.6 Flash",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -13,6 +15,7 @@
     "input": 1.69e-7,
     "output": 0.000001014,
     "cache_read": 1.69e-8,
+  "cache_write": 2.1125e-07,
     "context_tiers": [
       {
         "min_tokens": 1,

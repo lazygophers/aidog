@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "nemotron-3.5-content-safety-free",
   "canonical_model": "nemotron-3.5-content-safety-free",
+  "display_name": "Nemotron 3.5 Content Safety (free)",
+  "context_window": 131072,
   "capabilities": [],
   "official": false,
   "price": {

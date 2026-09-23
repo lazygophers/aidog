@@ -1,7 +1,10 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "gemini-2.5-flash-preview-05-20-nothink",
   "canonical_model": "gemini-2.5-flash-preview-05-20-nothink",
+  "display_name": "Gemini 2.5 Flash Preview 05-20 (no think)",
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

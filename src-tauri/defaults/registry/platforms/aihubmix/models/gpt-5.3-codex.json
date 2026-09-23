@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790182696,
   "model_id": "gpt-5.3-codex",
   "canonical_model": "gpt-5.3-codex",
+  "thinking_supported": true,
   "display_name": "GPT-5.3-Codex",
   "family": "gpt",
   "capabilities": [

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "kat-dev",
   "canonical_model": "kat-dev",
+  "display_name": "Kat Dev",
+  "context_window": 128000,
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,13 +1,14 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gemini-2.5-flash-preview-09-2025",
   "canonical_model": "gemini-2.5-flash-preview-09-2025",
+  "display_name": "Gemini 2.5 Flash Preview 09 2025",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65535,
-  "context_window": 65535,
+  "max_output_tokens": 65536,
+  "context_window": 1048576,
   "official": false,
   "price": {
     "input": 3e-7,

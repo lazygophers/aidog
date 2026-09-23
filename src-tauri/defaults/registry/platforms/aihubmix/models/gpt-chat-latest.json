@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "gpt-chat-latest",
   "canonical_model": "gpt-chat-latest",
+  "display_name": "GPT Chat",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

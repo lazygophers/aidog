@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "kimi-k2-instruct",
   "canonical_model": "kimi-k2-instruct",
+  "display_name": "Kimi K2 Instruct",
   "context_window": 131072,
   "capabilities": [
     "text"

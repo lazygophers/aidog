@@ -1,12 +1,14 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "coding-minimax-m2.7-free",
   "canonical_model": "MiniMax-M2.7",
+  "display_name": "Coding MiniMax M2.7 (free)",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 204800,
-  "max_output_tokens": 8192,
+  "max_output_tokens": 204800,
   "context_window": 204800,
   "official": false,
   "price": {

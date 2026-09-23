@@ -1,12 +1,14 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gpt-5-pro",
   "canonical_model": "gpt-5-pro",
+  "display_name": "GPT 5 Pro",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 400000,
-  "max_output_tokens": 128000,
+  "max_output_tokens": 272000,
   "context_window": 400000,
   "official": false,
   "price": {

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "auto",
   "canonical_model": "auto",
-  "context_window": 2000000,
+  "display_name": "Auto",
+  "context_window": 1000000,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
@@ -14,6 +15,6 @@
   ],
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 2e-06
   }
 }

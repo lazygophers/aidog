@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085930,
+  "last_updated": 1790182696,
   "model_id": "o3-mini",
   "canonical_model": "o3-mini",
+  "display_name": "O3 Mini",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

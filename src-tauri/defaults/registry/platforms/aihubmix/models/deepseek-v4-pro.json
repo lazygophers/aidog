@@ -1,14 +1,15 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790182696,
   "model_id": "deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
+  "thinking_supported": true,
   "display_name": "DeepSeek V4 Pro",
   "family": "deepseek",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 393216,
+  "max_output_tokens": 384000,
   "official": false,
   "price": {
     "input": 1.69e-06,

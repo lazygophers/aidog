@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "coding-xiaomi-mimo-v2-omni",
   "canonical_model": "coding-xiaomi-mimo-v2-omni",
+  "display_name": "Coding Xiaomi Mimo V2 Omni",
+  "thinking_supported": true,
   "capabilities": [],
   "official": false,
   "price": {

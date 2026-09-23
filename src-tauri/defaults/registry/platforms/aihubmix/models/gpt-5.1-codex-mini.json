@@ -1,12 +1,14 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gpt-5.1-codex-mini",
   "canonical_model": "gpt-5.1-codex-mini",
+  "display_name": "GPT-5.1-Codex Mini",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 400000,
-  "max_output_tokens": 100000,
+  "max_output_tokens": 128000,
   "context_window": 400000,
   "official": false,
   "price": {

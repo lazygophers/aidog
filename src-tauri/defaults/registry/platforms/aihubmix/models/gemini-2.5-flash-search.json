@@ -1,14 +1,15 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "gemini-2.5-flash-search",
   "canonical_model": "gemini-2.5-flash",
+  "display_name": "Gemini 2.5 Flash Search",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65535,
+  "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": false,
   "price": {

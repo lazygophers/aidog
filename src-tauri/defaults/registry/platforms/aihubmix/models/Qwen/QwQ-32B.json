@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "Qwen/QwQ-32B",
   "canonical_model": "qwq-32b",
+  "display_name": "QwQ 32B",
   "capabilities": [
     "text"
   ],

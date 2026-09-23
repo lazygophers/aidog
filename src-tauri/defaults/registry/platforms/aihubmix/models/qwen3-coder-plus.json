@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
+  "display_name": "Qwen3 Coder Plus",
   "capabilities": [
     "text"
   ],
@@ -10,8 +11,8 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 5.47944e-7,
-    "output": 0.00000219178,
+    "input": 5.4e-07,
+    "output": 2.16e-06,
     "cache_read": 1.09589e-7,
     "context_tiers": [
       {

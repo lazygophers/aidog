@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
   "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
+  "display_name": "Nemotron 3 Nano Omni 30B A3B (reasoning) (free)",
+  "context_window": 262144,
   "capabilities": [],
   "official": false,
   "price": {

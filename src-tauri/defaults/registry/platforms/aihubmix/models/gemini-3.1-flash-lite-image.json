@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1790182696,
   "model_id": "gemini-3.1-flash-lite-image",
   "canonical_model": "gemini-3.1-flash-lite-image",
   "display_name": "Nano Banana 2 Lite",
@@ -9,13 +9,14 @@
     "image_edit"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 65536,
-  "context_window": 131072,
+  "max_output_tokens": 4096,
+  "context_window": 65536,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
     "input": 2.5e-07,
-    "output": 1.5e-06
+    "output": 1.5e-06,
+"cache_read": 2.5000000000000002e-08
   }
 }

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "grok-vision-beta",
   "canonical_model": "grok-vision-beta",
+  "display_name": "Grok Vision Beta",
   "capabilities": [],
   "official": false,
   "price": {

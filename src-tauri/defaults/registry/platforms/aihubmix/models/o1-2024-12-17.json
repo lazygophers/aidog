@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "o1-2024-12-17",
   "canonical_model": "o1",
+  "display_name": "O1 2024 12-17",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

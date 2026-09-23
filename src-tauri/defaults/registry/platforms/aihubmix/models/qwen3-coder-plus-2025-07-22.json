@@ -1,17 +1,19 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "qwen3-coder-plus-2025-07-22",
   "canonical_model": "qwen3-coder-plus",
+  "display_name": "Qwen3 Coder Plus 2025 07-22",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 65536,
-  "context_window": 1048576,
+  "context_window": 128000,
   "official": false,
   "price": {
-    "input": 5.47944e-7,
-    "output": 0.00000219178,
+    "input": 5.4e-07,
+    "output": 2.16e-06,
+  "cache_read": 1.08e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,

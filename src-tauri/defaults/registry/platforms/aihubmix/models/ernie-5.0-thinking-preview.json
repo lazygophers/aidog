@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "ernie-5.0-thinking-preview",
   "canonical_model": "ernie-5.0-thinking-preview",
   "display_name": "ERNIE 5.0 Thinking Preview",
@@ -9,14 +9,15 @@
     "reasoning"
   ],
   "max_input_tokens": 121856,
-  "max_output_tokens": 65536,
-  "context_window": 121856,
+  "max_output_tokens": 64000,
+  "context_window": 183000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
     "input": 8.2192e-7,
     "output": 0.00000328768,
+  "cache_read": 8.219999999999999e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,

@@ -1,12 +1,13 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "kimi-k2-0711",
   "canonical_model": "kimi-k2",
+  "display_name": "Kimi K2 0711",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 32768,
+  "max_output_tokens": 16384,
   "context_window": 131072,
   "official": false,
   "price": {

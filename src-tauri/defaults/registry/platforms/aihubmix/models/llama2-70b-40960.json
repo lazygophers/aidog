@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "llama2-70b-40960",
   "canonical_model": "llama2-70b-40960",
+  "display_name": "Llama2 70B 40960",
   "capabilities": [],
   "official": false,
   "price": {

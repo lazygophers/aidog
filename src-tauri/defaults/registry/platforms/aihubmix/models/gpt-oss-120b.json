@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
+  "max_output_tokens": 32768,
   "family": "gpt",
   "thinking_supported": true,
   "thinking_toggleable": true,
@@ -10,7 +11,7 @@
     "text",
     "reasoning"
   ],
-  "context_window": 400000,
+  "context_window": 131072,
   "official": false,
   "price": {
     "input": 1.8e-7,

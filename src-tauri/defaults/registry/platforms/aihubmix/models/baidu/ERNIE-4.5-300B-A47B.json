@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790182696,
   "model_id": "baidu/ERNIE-4.5-300B-A47B",
   "canonical_model": "ERNIE-4.5-300B-A47B",
+  "display_name": "ERNIE 4.5 300B A47B",
   "capabilities": [],
   "official": false,
   "price": {

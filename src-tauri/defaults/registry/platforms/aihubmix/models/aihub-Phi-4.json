@@ -1,7 +1,10 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "aihub-Phi-4",
   "canonical_model": "aihub-Phi-4",
+  "display_name": "Aihub Phi 4",
+  "max_output_tokens": 16400,
+  "context_window": 16400,
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,17 +1,18 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790182696,
   "model_id": "qwen3-coder-30b-a3b-instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
+  "display_name": "Qwen3 Coder 30B A3B Instruct",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 160000,
-  "max_output_tokens": 32768,
-  "context_window": 160000,
+  "max_output_tokens": 262000,
+  "context_window": 262144,
   "official": false,
   "price": {
-    "input": 2.05478e-7,
-    "output": 8.21912e-7,
+    "input": 2.0000000000000002e-07,
+    "output": 8.000000000000001e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,

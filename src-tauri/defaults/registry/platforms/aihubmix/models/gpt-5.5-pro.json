@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788102888,
+  "last_updated": 1790182696,
   "model_id": "gpt-5.5-pro",
   "canonical_model": "gpt-5.5-pro",
+  "thinking_supported": true,
   "display_name": "GPT 5.5 Pro",
   "family": "gpt",
   "capabilities": [

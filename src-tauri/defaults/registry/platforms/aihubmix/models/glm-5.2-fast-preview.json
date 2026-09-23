@@ -1,8 +1,11 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790182696,
   "model_id": "glm-5.2-fast-preview",
   "canonical_model": "glm-5.2-fast-preview",
-  "context_window": 1048576,
+  "display_name": "GLM 5.2 Fast Preview",
+  "thinking_supported": true,
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
   "capabilities": [
     "text"
   ],
