@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790186493,
+  "model_id": "gemini-omni-flash-preview",
+  "canonical_model": "gemini-omni-flash-preview",
+  "display_name": "Gemini Omni Flash (preview)",
+  "capabilities": [
+    "text",
+    "audio",
+    "video"
+  ],
+  "context_window": 65536,
+  "official": true,
+  "price": {
+    "input": 1.5e-06,
+    "output": 9e-06
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790186344,
+  "last_updated": 1790186493,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2345,7 +2345,8 @@
         "e5/multilingual-e5-large-maas.json",
         "e5/multilingual-e5-small-maas.json",
         "gemini-1.5-flash.json",
-                                        "gemini-2.5-computer-use-preview-10-2025.json",
+                                        "gemini-2.5-flash-image.json",
+        "gemini-2.5-computer-use-preview-10-2025.json",
                 "gemini-2.5-flash-lite-preview-06-17.json",
         "gemini-2.5-flash-lite-preview-09-2025.json",
         "gemini-2.5-flash-lite.json",
@@ -2384,6 +2385,7 @@
         "gemini-gemma-2-27b-it.json",
         "gemini-gemma-2-9b-it.json",
         "gemini-live-2.5-flash-preview-native-audio-09-2025.json",
+        "gemini-omni-flash-preview.json",
         "gemini-omni-1.1-flash.json",
                 "gemini-pro-latest.json",
                         "gemini-robotics-er-2-preview.json",
