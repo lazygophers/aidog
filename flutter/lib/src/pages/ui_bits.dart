@@ -29,6 +29,7 @@ class SmallButton extends StatelessWidget {
     this.pill = false,
     this.activeTone,
     this.tooltip,
+    this.filled = false,
   });
 
   final String label;
@@ -50,6 +51,15 @@ class SmallButton extends StatelessWidget {
   /// 端点的 Coding Plan「C」用绿，因为绿 = 走 coding 套餐，通用高亮色说不出这层意思。
   final Color? activeTone;
 
+  /// 实心按钮：底色填 accent（[danger] 时填 bad），文字取浅色模式的 surface 当「白」。
+  ///
+  /// React 的 `<Button>` 默认变体就是实心的（`ui/button.tsx:14-16`
+  /// `bg-primary text-primary-foreground`），`destructive` 同理；只有显式写了
+  /// `variant="outline"` / `variant="ghost"` 才是描边或透明。Flutter 这边原先**只有**
+  /// 描边一种，于是「+ 添加平台」这类主动作在两版里一个是实心块、一个是淡描边框，
+  /// 一眼就看得出不是同一个界面。
+  final bool filled;
+
   /// 悬浮解释，对应 React 挂在按钮 `title=` 上的那句。
   /// 按钮**被禁用**时尤其不能省：只禁不解释，用户不知道还差什么。
   final String? tooltip;
@@ -67,7 +77,14 @@ class SmallButton extends StatelessWidget {
 
   Widget _button(BuildContext context) {
     final theme = AidogTheme.of(context);
-    final fg = onTap == null
+    // 实心态：底色是 accent / bad，文字取浅色模式的 surface 当「白」——
+    // 与 [AidogSwitch] 的圆点、[ToastBar] 的文字同一条路子，不写字面色值。
+    final fillColor = danger ? theme.c.bad : theme.c.accent;
+    final fg = filled
+        ? (onTap == null
+              ? AidogColors.light.surface.withValues(alpha: 0.6)
+              : AidogColors.light.surface)
+        : onTap == null
         ? theme.c.fg3
         : danger
         ? theme.c.bad
@@ -77,10 +94,14 @@ class SmallButton extends StatelessWidget {
         ? theme.c.fg3
         : theme.c.fg2;
     final radius = BorderRadius.circular(pill ? 999 : AidogRadius.sm);
-    final bg = active
+    final bg = filled
+        ? (onTap == null ? fillColor.withValues(alpha: 0.4) : fillColor)
+        : active
         ? (activeTone?.withValues(alpha: 0.08) ?? theme.c.accentWash)
         : Colors.transparent;
-    final borderColor = ghost
+    final borderColor = filled
+        ? Colors.transparent
+        : ghost
         ? Colors.transparent
         : active && activeTone != null
         ? activeTone!.withValues(alpha: 0.25)
