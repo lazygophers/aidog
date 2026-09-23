@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790186887,
+  "last_updated": 1790187143,
   "platforms": [
     {
       "code": "aihubmix",
@@ -3978,7 +3978,10 @@
         "~moonshotai/kimi-latest.json",
         "~openai/gpt-mini-latest.json",
         "~x-ai/grok-latest.json",
-        "~z-ai/glm-latest.json"
+        "~z-ai/glm-latest.json",
+        "xiaomi/mimo-v2.6-flash.json",
+        "xiaomi/mimo-v2.6-pro-ultraspeed.json",
+        "xiaomi/mimo-v2.6-pro.json"
       ]
     },
     {
@@ -4168,6 +4171,7 @@
       "models": [
         "agnes/agnes-2.0-flash.json",
         "agnes/agnes-2.5-flash.json",
+        "agnes/agnes-3.0-flash.json",
         "ali/qvq-plus.json",
         "ali/qwen-plus-latest.json",
         "ali/qwen-plus-latest:thinking.json",
@@ -4221,6 +4225,7 @@
         "anthropic/claude-opus-4.7.json",
         "anthropic/claude-opus-4.8.json",
         "anthropic/claude-opus-4.json",
+        "anthropic/claude-opus-5.5.json",
         "anthropic/claude-opus-5.json",
         "anthropic/claude-sonnet-4.5.json",
         "anthropic/claude-sonnet-4.5:thinking.json",
@@ -4277,6 +4282,7 @@
         "deepseek/deepseek-v4-flash-vision-exp.json",
         "deepseek/deepseek-v4-flash.json",
         "deepseek/deepseek-v4-pro.json",
+        "deepseek/deepseek-v4.1-flash.json",
         "google/gemini-2.5-flash-lite.json",
         "google/gemini-2.5-flash-live.json",
         "google/gemini-2.5-flash.json",
@@ -4288,6 +4294,7 @@
         "google/gemini-3.5-flash-lite.json",
         "google/gemini-3.5-flash.json",
         "google/gemini-3.6-flash.json",
+        "google/gemini-3.7-flash.json",
         "google/gemini-3.8-flash.json",
         "google/gemma-4-31b-it.json",
         "intern/intern-s1-pro.json",
@@ -4340,6 +4347,8 @@
         "openai/gpt-5.6-terra.json",
         "openai/gpt-5.json",
         "openai/gpt-6-astra.json",
+        "openai/gpt-6-luna.json",
+        "openai/gpt-6-sol.json",
         "openai/gpt-oss-120b.json",
         "openai/gpt-oss-20b.json",
         "openai/o1.json",
@@ -4365,13 +4374,14 @@
         "x-ai/grok-4.1-fast.json",
         "x-ai/grok-4.5.json",
         "x-ai/grok-4.6.json",
+        "x-ai/grok-4.7.json",
         "x-ai/grok-4.json",
         "xai/grok-code-fast-1.json",
         "xiaomi/mimo-v2.5-pro.json",
+        "xiaomi/mimo-v2.5.json",
         "xiaomi/mimo-v2.6-flash.json",
-        "xiaomi/mimo-v2.6-pro.json",
         "xiaomi/mimo-v2.6-pro-ultraspeed.json",
-        "xiaomi/mimo-v2.5.json"
+        "xiaomi/mimo-v2.6-pro.json"
       ]
     },
     {

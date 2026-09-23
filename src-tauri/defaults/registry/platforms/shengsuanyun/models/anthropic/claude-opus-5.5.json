@@ -1,11 +1,11 @@
 {
-  "last_updated": 1790186887,
+  "last_updated": 1790187143,
   "model_id": "anthropic/claude-opus-5.5",
   "canonical_model": "claude-opus-5-5",
   "capabilities": [
     "text"
   ],
-  "official": false,
+  "official": true,
   "price": {
     "input": 3.888888888888889e-06,
     "output": 1.9444444444444445e-05,
