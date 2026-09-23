@@ -46,4 +46,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 平台缺失排名头部：bailian 1016 / bailian_coding 1014 / aihubmix 906 /
   openrouter 744 / bailian_en 732 / therouter 534。
 - 2026-09-23 门禁基建提交 `011c60b`（check-registry ⑩ 覆盖率统计 + env 门禁）。
+- 2026-09-24 第 1 轮 glm `1c0f5ba`：官方冲突修正 6 处（autoglm-phone 20K、
+  glm-4.1v-thinking-flash 64K/16K、flashx 输出 16K、glm-4.7-flash 输出 128K、
+  glm-4v-flash 16K/1K）+ glm-4.6v thinking 两字段 + glm-4-32b-0414-128k 展示名
+  + 新增 glm-5.3-flashx。glm 平台 family/version 官方不公布 → 合法缺省。
+  未采纳：AutoGLM-Phone-Multilingual（限时免费无稳定价、上下文未公布，攒待问）；
+  glm-4.5-flash 两站冲突（z.ai 200K vs bigmodel 128K）保持 bigmodel 口径 131072。
 - DB 侧独立线：过期行清理（prune_model_entries）已实现待验证提交。
