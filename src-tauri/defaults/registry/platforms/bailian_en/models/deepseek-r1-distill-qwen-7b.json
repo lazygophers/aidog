@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790184635,
   "model_id": "deepseek-r1-distill-qwen-7b",
   "canonical_model": "deepseek-r1-distill-qwen-7b",
   "capabilities": [
@@ -8,6 +8,8 @@
   ],
   "context_window": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.2e-8,
     "output": 1.44e-7
