@@ -167,8 +167,8 @@ void main() {
 
   // 胶囊多选（分组归属那种）选中与未选中只差一圈边和一点底色；深色下 accent 是
   // 近黑，边用 accent 等于没画，底色白 6% 又到不了 3:1 —— 两者都失效就分不出选没选。
-  testWidgets('pill 选中态的边是 accentEdge，不是近黑的 accent', (tester) async {
-    Widget button({required bool active}) => MaterialApp(
+  testWidgets('选中态的边是 accentEdge，不是近黑的 accent（胶囊与普通态同）', (tester) async {
+    Widget button({required bool active, bool pill = true}) => MaterialApp(
       theme: aidogThemeData(AidogMode.dark),
       home: Scaffold(
         body: Center(
@@ -200,6 +200,12 @@ void main() {
     expect(edgeOf(tester), AidogColors.dark.line);
 
     await tester.pumpWidget(button(active: true));
+    await tester.pumpAndSettle();
+    expect(edgeOf(tester), AidogColors.dark.accentEdge);
+
+    // 非胶囊的普通选中态同样要有边：原先它拿的是 `line`，与未选中同色，
+    // 于是「选中」全靠文字色一件在撑。
+    await tester.pumpWidget(button(active: true, pill: false));
     await tester.pumpAndSettle();
     expect(edgeOf(tester), AidogColors.dark.accentEdge);
   });
