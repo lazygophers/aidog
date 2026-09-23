@@ -328,7 +328,7 @@ export function ModelInfoTab() {
   );
 }
 
-/** 模型维度一行：展示名 + 真实请求名 + 代表条目（primary_platform）的能力/上下文/价格。 */
+/** 模型维度一行：统一模型名 + 代表条目（primary_platform）的能力/上下文/价格。 */
 function ModelRow({ group, labelMap, onOpen }: {
   group: ModelEntryGroup;
   labelMap: Record<string, string>;
@@ -347,7 +347,7 @@ function ModelRow({ group, labelMap, onOpen }: {
       title={group.canonical_model}
     >
       <Td>
-        <ModelNameCell displayName={group.display_name} modelId={primary?.model_id ?? ""} />
+        <ModelNameCell canonicalModel={group.canonical_model} />
       </Td>
       <Td>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
@@ -442,7 +442,7 @@ function PlatformPane({ platformCodes, byPlatform, labelMap, active, onSelect, q
                 return (
                   <TableRow key={e.model_id} className="hover-lift">
                     <Td>
-                      <ModelNameCell displayName={e.display_name} modelId={e.model_id} />
+                      <ModelNameCell canonicalModel={e.canonical_model} />
                     </Td>
                     <Td><CapabilityBadges capabilities={e.capabilities} /></Td>
                     <Td><span className="text-secondary" style={{ fontSize: F.small }}>{fmtTokens(e.context_window)}</span></Td>
