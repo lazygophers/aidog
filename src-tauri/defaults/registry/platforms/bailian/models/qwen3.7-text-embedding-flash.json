@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790181902,
+  "model_id": "qwen3.7-text-embedding-flash",
+  "canonical_model": "qwen3.7-text-embedding-flash",
+  "capabilities": [
+    "embedding"
+  ],
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 1.736111111111111e-08
+  }
+}

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790181902,
   "model_id": "qwen3.7-plus",
   "canonical_model": "qwen3.7-plus",
   "capabilities": [
@@ -7,7 +7,12 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 2.7777777777777776e-07,
+    "output": 1.111111111111111e-06,
+    "cache_read": 5.555555555555556e-08,
+    "context_tiers": [
+      {"min_tokens": 262145, "input": 8.333333333333333e-07, "output": 3.3333333333333333e-06, "cache_read": 1.6666666666666665e-07}
+    ]
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 65536,
