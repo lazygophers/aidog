@@ -76,6 +76,11 @@ function vars(mode: ThemeMode): Record<string, string> {
     // accent 面的亮描边（token `accent-edge`）。深色强调色是近黑时，accent 自己
     // 画不出边界（对表面 1.01:1），凡是「靠一圈边表达状态」的地方都要改用它。
     "--accent-edge": c["accent-edge"],
+    // 图表主系列色（token `data-primary`）。**不跟随 accent 单色化**：
+    // accent 深色下是近黑，近黑折线画在卡片上 1.01:1，线还在但数据看不见。
+    // 用户 2026-09-23 拍板「图表另用一个颜色，保留原来的蓝紫」，Flutter 侧
+    // 当天已落地（`ChartPalette.primary` 读 dataPrimary），这里是补齐 React 侧。
+    "--data-primary": c["data-primary"],
     "--input": c["line-strong"],
     // 焦点环 = 主色带透明度，token 表里就是 live-edge（活着的格子的边）。
     "--ring": c["live-edge"],

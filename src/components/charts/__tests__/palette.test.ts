@@ -11,8 +11,10 @@ import {
 } from "../palette";
 
 describe("seriesColor", () => {
-  it("index 0 and negative → primary amber", () => {
-    expect(seriesColor(0)).toBe("var(--primary)");
+  it("index 0 and negative → 数据主色（不是界面填充色）", () => {
+    // 钉 data-primary：深色强调色改成近黑之后，主系列若跟着界面填充色走，
+    // 折线与卡片 1.01:1，线还在但数据看不见。
+    expect(seriesColor(0)).toBe("var(--data-primary)");
     expect(seriesColor(-3)).toBe(PRIMARY_COLOR);
   });
 
@@ -33,7 +35,7 @@ describe("seriesColor", () => {
 describe("seriesColors", () => {
   it("returns count colors following the same mapping", () => {
     expect(seriesColors(6)).toEqual([
-      "var(--primary)",
+      "var(--data-primary)",
       "var(--chart-2)",
       "var(--chart-3)",
       "var(--chart-4)",
@@ -70,7 +72,9 @@ describe("withDefaultColors", () => {
       cost: { label: "cost" },
       tokens: { label: "tokens" },
     });
-    expect(out.cost).toEqual({ label: "cost", color: "var(--primary)" });
+    // 主系列钉的是 data-primary 不是 primary：2026-09-23 深色强调色改成近黑之后，
+    // 「图表跟着界面填充色走」这条被推翻了（近黑折线画在卡片上 1.01:1）。
+    expect(out.cost).toEqual({ label: "cost", color: "var(--data-primary)" });
     expect(out.tokens).toEqual({ label: "tokens", color: "var(--chart-2)" });
   });
 

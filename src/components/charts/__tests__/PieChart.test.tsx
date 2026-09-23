@@ -25,7 +25,9 @@ describe("PieChart", () => {
     const fills = Array.from(container.querySelectorAll(".recharts-pie-sector path")).map(
       (el) => el.getAttribute("fill"),
     );
-    expect(fills[0]).toBe("var(--primary)");
+    // 主系列钉的是 data-primary 不是 primary：2026-09-23 深色强调色改成近黑之后，
+    // 「图表跟着界面填充色走」这条被推翻了（近黑折线画在卡片上 1.01:1）。
+    expect(fills[0]).toBe("var(--data-primary)");
     expect(fills[1]).toBe("var(--chart-2)");
     expect(fills[2]).toBe("var(--chart-3)");
   });
