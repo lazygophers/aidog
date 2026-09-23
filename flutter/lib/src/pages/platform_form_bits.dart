@@ -553,7 +553,7 @@ class _ProtocolPickerState extends State<ProtocolPicker> {
             ),
             decoration: BoxDecoration(
               color: theme.c.surface2,
-              border: Border.all(color: _open ? theme.c.accent : theme.c.line),
+              border: Border.all(color: _open ? theme.c.accentEdge : theme.c.line),
               borderRadius: BorderRadius.circular(AidogRadius.sm),
             ),
             child: Row(

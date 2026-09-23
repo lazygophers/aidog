@@ -147,7 +147,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         // 整条左侧 2px accent 竖条（`Notifications.tsx:31`）。
                         decoration: BoxDecoration(
                           border: BorderDirectional(
-                            start: BorderSide(color: theme.c.accent, width: 2),
+                            start: BorderSide(color: theme.c.accentEdge, width: 2),
                           ),
                         ),
                         child: Tile(

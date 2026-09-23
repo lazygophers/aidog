@@ -823,7 +823,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         padding: const EdgeInsets.all(AidogSpace.smd),
         decoration: BoxDecoration(
           color: theme.c.surface2,
-          border: Border.all(color: theme.c.accent),
+          border: Border.all(color: theme.c.accentEdge),
           borderRadius: BorderRadius.circular(AidogRadius.md),
         ),
         child: Column(
@@ -1711,7 +1711,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               Switch(
                 value: c.autoGroup,
                 onChanged: c.setAutoGroup,
-                activeThumbColor: theme.c.accent,
+                // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
+                // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
+                activeThumbColor: AidogColors.light.surface,
+                activeTrackColor: theme.c.accent,
                 inactiveTrackColor: theme.c.surface2,
                 inactiveThumbColor: theme.c.fg3,
               ),
@@ -1761,7 +1764,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             Switch(
               value: c.expiryEnabled,
               onChanged: c.setExpiryEnabled,
-              activeThumbColor: theme.c.accent,
+              // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
+              // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
+              activeThumbColor: AidogColors.light.surface,
+              activeTrackColor: theme.c.accent,
               inactiveTrackColor: theme.c.surface2,
               inactiveThumbColor: theme.c.fg3,
             ),
@@ -2316,7 +2322,10 @@ class _CheckRow extends StatelessWidget {
             value: value,
             visualDensity: VisualDensity.compact,
             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            activeColor: theme.c.accent,
+            // 勾选态：亮底 + 深色勾（同 `MiniBadge(solid:)` 的路子）。
+            // accent 当底色时方框本身对卡片只有 1.01:1，看不出勾没勾。
+            activeColor: theme.c.accentText,
+            checkColor: theme.c.bg,
             onChanged: (v) => onChanged(v == true),
           ),
           const SizedBox(width: AidogSpace.sxs),

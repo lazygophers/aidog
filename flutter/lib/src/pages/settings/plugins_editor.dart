@@ -408,7 +408,10 @@ class _PluginsEditorState extends State<PluginsEditor> {
                   key: ValueKey('plugin-on-${e.key}'),
                   value: e.value == true,
                   onChanged: (v) => _setEnabled(e.key, v),
-                  activeThumbColor: theme.c.accent,
+                  // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
+                  // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
+                  activeThumbColor: AidogColors.light.surface,
+                  activeTrackColor: theme.c.accent,
                   inactiveTrackColor: theme.c.surface2,
                   inactiveThumbColor: theme.c.fg3,
                 ),
@@ -570,7 +573,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
             Expanded(
               child: Text(
                 name,
-                style: AidogType.numSm.copyWith(color: theme.c.accent),
+                style: AidogType.numSm.copyWith(color: theme.c.accentText),
                 overflow: TextOverflow.ellipsis,
               ),
             ),

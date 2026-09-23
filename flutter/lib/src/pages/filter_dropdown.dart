@@ -164,7 +164,7 @@ class _FilterDropdownState extends State<FilterDropdown> {
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
-                              borderSide: BorderSide(color: t.c.accent),
+                              borderSide: BorderSide(color: t.c.accentEdge),
                               borderRadius: BorderRadius.circular(
                                 AidogRadius.sm,
                               ),
@@ -231,7 +231,7 @@ class _FilterDropdownState extends State<FilterDropdown> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
           style: AidogType.label.copyWith(
-            color: active ? t.c.accent : t.c.fg,
+            color: active ? t.c.accentText : t.c.fg,
             fontWeight: active ? FontWeight.w500 : FontWeight.w400,
           ),
         ),
@@ -257,7 +257,7 @@ class _FilterDropdownState extends State<FilterDropdown> {
           padding: const EdgeInsets.symmetric(horizontal: AidogSpace.smd),
           decoration: BoxDecoration(
             color: t.c.surface2,
-            border: Border.all(color: open ? t.c.accent : t.c.line),
+            border: Border.all(color: open ? t.c.accentEdge : t.c.line),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Row(

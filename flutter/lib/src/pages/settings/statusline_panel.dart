@@ -537,7 +537,10 @@ class _SegmentList extends StatelessWidget {
                       key: ValueKey('sl-$scriptType-on-${seg.id}'),
                       value: seg.enabled,
                       onChanged: (v) => onToggle(seg.id, v),
-                      activeThumbColor: theme.c.accent,
+                      // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
+                      // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
+                      activeThumbColor: AidogColors.light.surface,
+                      activeTrackColor: theme.c.accent,
                       inactiveTrackColor: theme.c.surface2,
                       inactiveThumbColor: theme.c.fg3,
                     ),
@@ -949,7 +952,7 @@ class _StatusLineDataRefState extends State<StatusLineDataRef> {
                         f.$1,
                         style: _mono.copyWith(
                           fontSize: 11,
-                          color: theme.c.accent,
+                          color: theme.c.accentText,
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -1054,7 +1057,7 @@ class _ColorSwatchButton extends StatelessWidget {
                       color: parseHexColor(c),
                       border: Border.all(
                         color: c.toLowerCase() == hex.toLowerCase()
-                            ? AidogTheme.of(ctx).c.accent
+                            ? AidogTheme.of(ctx).c.accentEdge
                             : AidogTheme.of(ctx).c.line,
                         width: c.toLowerCase() == hex.toLowerCase() ? 2 : 1,
                       ),

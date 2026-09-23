@@ -328,7 +328,7 @@ class _PlatformsPageState extends State<PlatformsPage> {
                           label: _c.protocolMeta.label(p.platformType),
                           color:
                               _c.protocolMeta.colors[p.platformType] ??
-                              AidogTheme.of(context).c.accent,
+                              AidogTheme.of(context).c.accentText,
                         )
                       : Opacity(
                           opacity: dragging ? 0.4 : 1,
@@ -477,7 +477,7 @@ class _DragLabel extends StatelessWidget {
             // React 用的是实心 accent + primary-foreground；token 表里没有
             // 「accent 上的前景色」，所以换成同一套里的 wash + 描边 + accentText。
             color: theme.c.accentWash,
-            border: Border.all(color: theme.c.accent),
+            border: Border.all(color: theme.c.accentEdge),
             borderRadius: BorderRadius.circular(AidogRadius.md),
           ),
           child: Text(
@@ -513,7 +513,7 @@ class _GhostCard extends StatelessWidget {
       opacity: 0.5,
       child: CustomPaint(
         painter: DashedBorder(
-          color: theme.c.accent,
+          color: theme.c.accentEdge,
           radius: AidogRadius.md,
         ),
         child: Container(

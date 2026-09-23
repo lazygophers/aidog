@@ -525,7 +525,7 @@ class _HooksEditorState extends State<HooksEditor> {
               const SizedBox(width: AidogSpace.sxs),
               Text(
                 eventId,
-                style: AidogType.label.copyWith(color: theme.c.accent),
+                style: AidogType.label.copyWith(color: theme.c.accentText),
               ),
               if (meta != null)
                 Expanded(
@@ -543,7 +543,7 @@ class _HooksEditorState extends State<HooksEditor> {
               Text(
                 '$count',
                 key: ValueKey('hooks-count-$eventId'),
-                style: AidogType.micro.copyWith(color: theme.c.accent),
+                style: AidogType.micro.copyWith(color: theme.c.accentText),
               ),
               const SizedBox(width: AidogSpace.ssm),
               SmallButton(
@@ -591,7 +591,7 @@ class _HooksEditorState extends State<HooksEditor> {
       margin: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
       padding: const EdgeInsets.only(left: AidogSpace.smd),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: theme.c.accent, width: 2)),
+        border: Border(left: BorderSide(color: theme.c.accentEdge, width: 2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -714,7 +714,7 @@ class _HooksEditorState extends State<HooksEditor> {
             children: [
               Text(
                 _handlerLabel(t, type),
-                style: AidogType.micro.copyWith(color: theme.c.accent),
+                style: AidogType.micro.copyWith(color: theme.c.accentText),
               ),
               const SizedBox(width: AidogSpace.ssm),
               DropdownButton<String>(

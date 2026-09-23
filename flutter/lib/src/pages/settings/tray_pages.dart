@@ -478,7 +478,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           padding: const EdgeInsets.all(AidogSpace.ssm),
           decoration: BoxDecoration(
             border: Border.all(
-              color: candidate.isNotEmpty ? theme.c.accent : theme.c.line,
+              color: candidate.isNotEmpty ? theme.c.accentEdge : theme.c.line,
               width: candidate.isNotEmpty ? 1.5 : 1,
             ),
             borderRadius: BorderRadius.circular(AidogRadius.md),
@@ -553,13 +553,13 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         ),
         decoration: BoxDecoration(
           color: theme.c.accentWash,
-          border: Border.all(color: theme.c.accent),
+          border: Border.all(color: theme.c.accentEdge),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
           boxShadow: theme.shadowFloat,
         ),
         child: Text(
           _typeLabel(t)(ty),
-          style: AidogType.label.copyWith(color: theme.c.accent),
+          style: AidogType.label.copyWith(color: theme.c.accentText),
         ),
       ),
       childWhenDragging: Opacity(opacity: 0.4, child: _cardBody(t, it, color)),
@@ -572,7 +572,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
           decoration: BoxDecoration(
             color: theme.c.surface2,
             border: Border.all(
-              color: candidate.isNotEmpty ? theme.c.accent : theme.c.line,
+              color: candidate.isNotEmpty ? theme.c.accentEdge : theme.c.line,
             ),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
@@ -828,7 +828,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
             shape: BoxShape.circle,
             color: fill,
             border: Border.all(
-              color: selected ? theme.c.accent : theme.c.line,
+              color: selected ? theme.c.accentEdge : theme.c.line,
               width: selected ? 2 : 1,
             ),
           ),
@@ -986,14 +986,14 @@ class _HexFieldState extends State<_HexField> {
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(
             color: widget.active
-                ? theme.c.accent
+                ? theme.c.accentEdge
                 : valid
                 ? theme.c.line
                 : theme.c.bad,
           ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(color: valid ? theme.c.accent : theme.c.bad),
+          borderSide: BorderSide(color: valid ? theme.c.accentEdge : theme.c.bad),
         ),
       ),
       onChanged: (v) {

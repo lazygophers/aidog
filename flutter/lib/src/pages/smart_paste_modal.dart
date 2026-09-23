@@ -321,7 +321,7 @@ class _ShareHit extends StatelessWidget {
         ),
         decoration: BoxDecoration(
           color: theme.c.accentWash,
-          border: Border.all(color: theme.c.accent),
+          border: Border.all(color: theme.c.accentEdge),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: Column(
@@ -568,7 +568,7 @@ class _OptionRow extends StatelessWidget {
           ),
           decoration: BoxDecoration(
             color: theme.c.surface2,
-            border: Border.all(color: selected ? theme.c.accent : theme.c.line),
+            border: Border.all(color: selected ? theme.c.accentEdge : theme.c.line),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Row(

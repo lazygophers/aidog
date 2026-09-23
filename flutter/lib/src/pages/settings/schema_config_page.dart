@@ -1242,7 +1242,7 @@ class _JsonFieldState extends State<_JsonField> {
                   fontFamily: AidogType.familyMono,
                   textColor: theme.c.fg,
                   backgroundColor: theme.c.surface2,
-                  cursorColor: theme.c.accent,
+                  cursorColor: theme.c.accentText,
                   selectionColor: theme.c.accentWash,
                   codeTheme: CodeHighlightTheme(
                     languages: {'json': CodeHighlightThemeMode(mode: langJson)},
@@ -1423,7 +1423,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     final children = n.children;
     if (children != null && children.isNotEmpty) {
       final state = _nodeState(n);
-      final badgeColor = state == 'partial' ? theme.c.peak : theme.c.accent;
+      final badgeColor = state == 'partial' ? theme.c.peak : theme.c.accentText;
       final badgeText = state == 'partial'
           ? t.t('settings.editor.diffPartial')
           : t.t('settings.editor.diffObject');
@@ -1441,7 +1441,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
                       ? Icons.check_box_outline_blank
                       : Icons.check_box,
                   size: 14,
-                  color: state == 'off' ? theme.c.fg3 : theme.c.accent,
+                  color: state == 'off' ? theme.c.fg3 : theme.c.accentText,
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 Text(
@@ -1471,7 +1471,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     final labelColor = switch (changeType) {
       'added' => theme.c.ok,
       'removed' => theme.c.bad,
-      _ => theme.c.accent,
+      _ => theme.c.accentText,
     };
     final changeLabel = switch (changeType) {
       'added' => t.t('settings.editor.diffAdded'),
@@ -1494,7 +1494,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
               Icon(
                 on ? Icons.check_box : Icons.check_box_outline_blank,
                 size: 14,
-                color: on ? theme.c.accent : theme.c.fg3,
+                color: on ? theme.c.accentText : theme.c.fg3,
               ),
               const SizedBox(width: AidogSpace.sxs),
               Expanded(

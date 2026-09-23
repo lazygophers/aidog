@@ -346,7 +346,18 @@ class _PathInputRowState extends State<PathInputRow> {
     key: ValueKey('path-sugg-$i'),
     onTap: () => _select(s),
     child: Container(
-      color: i == _hl ? theme.c.accentWash : null,
+      // 键盘高亮行：淡底 + 左侧亮竖条。只有淡底的话对表面只有 1.15:1，
+      // 到不了 1.4.11 要求的 3:1 —— 键盘用户看不出光标停在哪一行。
+      // 透明边常驻，高亮时才上色，避免行宽在高亮切换时跳。
+      decoration: BoxDecoration(
+        color: i == _hl ? theme.c.accentWash : null,
+        border: Border(
+          left: BorderSide(
+            color: i == _hl ? theme.c.accentEdge : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
       padding: const EdgeInsets.symmetric(
         horizontal: AidogSpace.ssm,
         vertical: AidogSpace.sxs,

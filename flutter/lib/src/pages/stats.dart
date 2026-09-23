@@ -1123,7 +1123,7 @@ class _Pill extends StatelessWidget {
         //（分组归属）的样子，两种状态别混用。
         decoration: BoxDecoration(
           color: active ? t.c.accent : null,
-          border: Border.all(color: active ? t.c.accent : t.c.line),
+          border: Border.all(color: active ? t.c.accentEdge : t.c.line),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: Text(
@@ -1221,7 +1221,7 @@ class _SortHead extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
-                color: active ? t.c.accent : t.c.fg3,
+                color: active ? t.c.accentText : t.c.fg3,
               ),
             ),
           ),
@@ -1229,7 +1229,7 @@ class _SortHead extends StatelessWidget {
             Icon(
               dir == SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward,
               size: 11,
-              color: t.c.accent,
+              color: t.c.accentText,
             ),
         ],
       ),

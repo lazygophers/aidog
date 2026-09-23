@@ -268,7 +268,7 @@ class AgentIconButton extends StatelessWidget {
             decoration: BoxDecoration(
               color: enabled ? theme.c.accentWash : null,
               border: Border.all(
-                color: enabled ? theme.c.accent : theme.c.line,
+                color: enabled ? theme.c.accentEdge : theme.c.line,
               ),
               borderRadius: BorderRadius.circular(AidogRadius.sm),
             ),
