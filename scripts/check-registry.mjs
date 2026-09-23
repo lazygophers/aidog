@@ -63,10 +63,16 @@ function walkModels(dir, baseRel, rel, out, ids) {
           ids.push(doc.model_id);
           modelMeta.push({
             file: relFile,
+            platform: baseRel.split("/")[1],
             canon: doc.canonical_model ?? null,
             pred: doc.predecessor ?? null,
             family: doc.family ?? null,
-            version: doc.version ?? null
+            version: doc.version ?? null,
+            capabilities: Array.isArray(doc.capabilities) && doc.capabilities.length > 0,
+            contextWindow: typeof doc.context_window === "number",
+            thinking: typeof doc.thinking_supported === "boolean",
+            thinkingToggle: typeof doc.thinking_toggleable === "boolean",
+            displayName: typeof doc.display_name === "string" && doc.display_name.trim() !== ""
           });
         } catch {
           /* schema 校验已经报过错，这里不重复 */
@@ -304,6 +310,47 @@ try {
   }
 } catch {
   /* 非 git 环境（fixture 目录）跳过 */
+}
+
+// ⑩ 覆盖率统计（2026-09-23 registry 数据对齐循环门禁基建）：只报数不拦截——
+// 硬阈值随补数轮次逐步挂（AIDOG_REGISTRY_COVERAGE_MIN=90 表示四必补字段覆盖率
+// 全部 ≥90% 才算过，低于则按缺最低的字段报错）。必补四字段 family/version/
+// capabilities/context_window；thinking_*/predecessor/display_name 仅尽力，不进门禁。
+const MUST_FIELDS = {
+  family: (m) => typeof m.family === "string" && m.family !== "",
+  version: (m) => typeof m.version === "string" && m.version !== "",
+  capabilities: (m) => m.capabilities,
+  context_window: (m) => m.contextWindow,
+};
+const BONUS_FIELDS = {
+  thinking_supported: (m) => m.thinking,
+  thinking_toggleable: (m) => m.thinkingToggle,
+  predecessor: (m) => typeof m.pred === "string" && m.pred !== "",
+  display_name: (m) => m.displayName,
+};
+const total = modelMeta.length;
+const covLine = (name, ok) =>
+  `  ${name}: ${(((modelMeta.filter(ok).length) / total) * 100).toFixed(1)}%`;
+console.log(`覆盖率统计：${total} 条模型条目`);
+for (const [name, ok] of Object.entries(MUST_FIELDS)) console.log(covLine(name, ok));
+for (const [name, ok] of Object.entries(BONUS_FIELDS)) console.log(covLine(name, ok));
+// per-platform 缺失数（必补四字段合计），降序——补数循环按这张表选下一平台
+const missByPlatform = new Map();
+for (const m of modelMeta) {
+  const missing = Object.values(MUST_FIELDS).filter((ok) => !ok(m)).length;
+  if (missing > 0) missByPlatform.set(m.platform, (missByPlatform.get(m.platform) ?? 0) + missing);
+}
+const ranked = [...missByPlatform.entries()].sort((a, b) => b[1] - a[1]);
+if (ranked.length) {
+  console.log(`平台缺失排名（必补字段缺失格子数，降序，前 20）：`);
+  for (const [code, n] of ranked.slice(0, 20)) console.log(`  ${code}: ${n}`);
+}
+const covMin = Number(process.env.AIDOG_REGISTRY_COVERAGE_MIN);
+if (Number.isFinite(covMin) && covMin > 0) {
+  for (const [name, ok] of Object.entries(MUST_FIELDS)) {
+    const pct = (modelMeta.filter(ok).length / total) * 100;
+    if (pct < covMin) failures.push(["coverage", `必补字段 ${name} 覆盖率 ${pct.toFixed(1)}% < 门禁 ${covMin}%`]);
+  }
 }
 
 if (failures.length) {
