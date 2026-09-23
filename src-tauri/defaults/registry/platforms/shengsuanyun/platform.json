@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790186874,
+  "last_updated": 1790186887,
   "endpoints": {
     "default": [
       {
@@ -135,7 +135,7 @@
       "deepseek/deepseek-v4-flash",
       "deepseek/deepseek-v4-flash-vision-exp",
       "deepseek/deepseek-v4-pro",
-      "deepseek/deepseek-v4-pro-0813",
+      
       "deepseek/deepseek-v4.1-flash",
       "google/gemini-2.5-flash",
       "google/gemini-2.5-flash-lite",
