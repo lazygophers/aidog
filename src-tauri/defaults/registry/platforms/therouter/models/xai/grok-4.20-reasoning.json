@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1790185041,
   "model_id": "xai/grok-4.20-reasoning",
   "canonical_model": "grok-4.20-reasoning",
   "capabilities": [
@@ -7,8 +7,8 @@
   ],
   "official": false,
   "price": {
-    "input": 3.24e-06,
-    "output": 9.72e-06
+    "input": 1.35e-06,
+    "output": 2.7e-06
   },
   "max_input_tokens": 2000000,
   "context_window": 2000000,

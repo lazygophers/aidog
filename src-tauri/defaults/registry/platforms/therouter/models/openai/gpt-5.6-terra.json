@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790185041,
   "model_id": "openai/gpt-5.6-terra",
   "canonical_model": "gpt-5.6-terra",
   "thinking_supported": true,
@@ -9,8 +9,8 @@
   ],
   "official": false,
   "price": {
-    "input": 2.7e-06,
-    "output": 1.62e-05
+    "input": 2.16e-06,
+    "output": 1.296e-05
   },
   "max_input_tokens": 1000000,
   "context_window": 1000000,
