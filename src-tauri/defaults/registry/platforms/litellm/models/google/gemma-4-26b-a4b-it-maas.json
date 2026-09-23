@@ -1,13 +1,13 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "google/gemma-4-26b-a4b-it-maas",
   "canonical_model": "gemma-4-26b-a4b-it-maas",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 256000,
+  "max_input_tokens": 262144,
   "max_output_tokens": 128000,
-  "context_window": 128000,
+  "context_window": 262144,
   "official": false,
   "price": {
     "input": 1.5e-07,

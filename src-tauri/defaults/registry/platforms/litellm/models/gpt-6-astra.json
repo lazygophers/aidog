@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790185833,
   "model_id": "gpt-6-astra",
   "canonical_model": "gpt-6-astra",
+  "max_input_tokens": 922000,
   "thinking_supported": true,
   "thinking_toggleable": false,
   "display_name": "GPT-6 Astra",
@@ -11,7 +12,7 @@
     "reasoning"
   ],
   "max_output_tokens": 128000,
-  "context_window": 1050000,
+  "context_window": 922000,
   "official": false,
   "price": {
     "input": 1e-05,

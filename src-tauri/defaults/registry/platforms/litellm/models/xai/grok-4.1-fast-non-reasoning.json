@@ -1,13 +1,13 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "xai/grok-4.1-fast-non-reasoning",
   "canonical_model": "grok-4.1-fast-non-reasoning",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 2000000,
-  "max_output_tokens": 2000000,
-  "context_window": 2000000,
+  "max_input_tokens": 128000,
+  "max_output_tokens": 128000,
+  "context_window": 128000,
   "official": false,
   "price": {
     "input": 2e-07,

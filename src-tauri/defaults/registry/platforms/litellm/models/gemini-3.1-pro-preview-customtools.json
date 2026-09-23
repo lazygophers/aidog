@@ -1,13 +1,14 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790185833,
   "model_id": "gemini-3.1-pro-preview-customtools",
   "canonical_model": "gemini-3.1-pro-preview-customtools",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 65536,
-  "context_window": 65536,
+  "context_window": 1048576,
   "official": false,
   "price": {
     "input": 2e-06,

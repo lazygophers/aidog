@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790185833,
   "model_id": "claude-haiku-4-5",
   "canonical_model": "claude-haiku-4-5",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 200000,
-  "max_output_tokens": 65536,
+  "max_output_tokens": 64000,
   "context_window": 200000,
   "official": false,
   "price": {

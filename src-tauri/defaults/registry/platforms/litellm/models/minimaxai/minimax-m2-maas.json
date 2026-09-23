@@ -1,16 +1,15 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790185833,
   "model_id": "minimaxai/minimax-m2-maas",
   "canonical_model": "minimax-m2-maas",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 196608,
-  "max_output_tokens": 196608,
-  "context_window": 196608,
   "official": false,
+  "context_window": 196608,
   "price": {
     "input": 3e-07,
-    "output": 1.2e-06
+    "output": 1.2e-06,
+    "cache_read": 3e-08
   }
 }

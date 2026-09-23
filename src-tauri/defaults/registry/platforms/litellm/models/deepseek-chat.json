@@ -1,17 +1,17 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790185833,
   "model_id": "deepseek-chat",
   "canonical_model": "deepseek-chat",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 393216,
-  "context_window": 1048576,
+  "max_input_tokens": 131072,
+  "max_output_tokens": 8192,
+  "context_window": 131072,
   "official": false,
   "price": {
-    "input": 1.388888888888889e-07,
-    "output": 2.777777777777778e-07,
-    "cache_read": 2.777777777777778e-09
+    "input": 2.8e-07,
+    "output": 4.2e-07,
+    "cache_read": 2.8e-08
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790185833,
   "model_id": "gemini-robotics-er-2-streaming-preview",
   "canonical_model": "gemini-robotics-er-2-streaming-preview",
   "display_name": "Gemini Robotics ER 2 Streaming",
@@ -11,8 +11,8 @@
   "context_window": 65535,
   "official": false,
   "price": {
-    "input": 2e-06,
-    "output": 1e-05,
+    "input": 1e-06,
+    "output": 5e-06,
     "cache_read": 2e-07
   }
 }
