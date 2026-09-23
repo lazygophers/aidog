@@ -71,4 +71,5 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   20260420 改名 2026-04-20）；下线复核 6 条全在售并修正其窗口/价格/视觉能力。
 - 遗留：qwen3.8-omni-flash 价格官方模型页缺失（需计费文档）；qwen3.8-omni-flash-realtime
   音频/文本双价 registry 单价结构装不下；qwen3.5-plus-2026-04-20 快照价与主版本不同源未核。
-- DB 侧独立线：过期行清理（prune_model_entries）已实现待验证提交。
+- DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
+  351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
