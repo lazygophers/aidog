@@ -32,7 +32,6 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
   const entries = [...group.entries].sort(
     (a, b) => Number(pricingOnly.has(a.platform_code)) - Number(pricingOnly.has(b.platform_code)),
   );
-  const title = nameParts(group.display_name, group.canonical_model);
   // tab 唯一键：同平台可对同一 canonical 挂多条 model_id（aihubmix coding-/free- 变体、
   // bailian 日期别名对），单用 platform_code 做 key/value 会撞——同名 tab 重复且
   // TabsContent 同 value 互相覆盖。platform_code/model_id 是 model_entry 主键，天然唯一。
@@ -42,14 +41,8 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
     <Dialog open onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent style={{ maxWidth: 720, maxHeight: "82vh", overflow: "auto" }}>
         <DialogHeader>
-          <DialogTitle style={{ display: "flex", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <span>{title.primary}</span>
-            {/* 展示名与 canonical id 同串时（读取层回落）只留标题，不把同一串再写一遍 */}
-            {title.secondary !== null && (
-              <span className="text-tertiary" style={{ fontSize: F.small, fontWeight: 400 }}>
-                {t("modelInfo.canonical")}: <code>{title.secondary}</code>
-              </span>
-            )}
+          <DialogTitle>
+            <code>{group.canonical_model}</code>
           </DialogTitle>
         </DialogHeader>
 
