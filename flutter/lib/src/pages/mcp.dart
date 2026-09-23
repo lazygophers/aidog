@@ -282,14 +282,20 @@ class _McpPageState extends State<McpPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 粘的是一整份 mcpServers 配置，`maxLines: 4` 只看得见四行 ——
+          // 括号对不对、粘全没粘全都得靠猜。React 那边是 `JsonCodeEditor`，
+          // 高度 220–360px（`McpModals.tsx:183-189`）。
+          // 等宽行高 12.5×1.35 ≈ 17px：13 行 ≈ 221px（起始高），21 行 ≈ 357px（封顶）。
           TextField(
             key: const Key('mcp-paste'),
-            maxLines: 4,
+            minLines: 13,
+            maxLines: 21,
             decoration: InputDecoration(
               isDense: true,
               hintText: t.t('mcp.pasteHint'),
             ),
-            style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg),
+            // JSON 用等宽：缩进对不齐的话，粘错层级根本看不出来。
+            style: AidogType.numSm.copyWith(color: AidogTheme.of(context).c.fg),
             onChanged: _c.setPasteText,
           ),
           const SizedBox(height: AidogSpace.ssm),

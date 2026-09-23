@@ -10,6 +10,7 @@ import 'dart:async';
 
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/shell.dart' show AidogType;
 import 'package:aidog_flutter/src/updater.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/material.dart';
@@ -398,6 +399,25 @@ void main() {
         findsWidgets,
         reason: 'stdio 表单至少有 env 一处',
       );
+    });
+
+    // 回归 2026-09-23：粘贴导入框原先 `maxLines: 4`，粘一份 40 行的 mcpServers
+    // 配置只看得见四行。React 那边是 220–360px 的 JSON 编辑器
+    //（`McpModals.tsx:183-189`）。
+    testWidgets('粘贴导入框有 JSON 编辑器那么高，且是等宽字', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.pasteImport')).first);
+      await settle(tester);
+      final field = tester.widget<TextField>(
+        find.byKey(const Key('mcp-paste')),
+      );
+      // 13 行 ≈ 221px 起、21 行 ≈ 357px 封顶（等宽行高 12.5×1.35）。
+      expect(field.minLines, greaterThanOrEqualTo(12));
+      expect(field.maxLines, greaterThanOrEqualTo(20));
+      expect(field.style?.fontFamily, AidogType.numSm.fontFamily);
     });
 
     testWidgets('切传输到 http：表单换成 url + headers', (tester) async {
