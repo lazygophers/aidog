@@ -926,7 +926,7 @@ class _Step extends StatelessWidget {
 /// 解析不出来就停在那儿，下面显示一行红字。外部值真的变了（预设填入之类）
 /// 才把原文换掉。
 ///
-/// **为什么这里有红线，而 [NumberInput]（`ui_bits.dart`）没有**：
+/// **为什么这里有红线，而 [NumberInput]（`ui_bits.dart:707-725`）没有**：
 /// 两者挡的是同一个坑（`tryParse ?? 0` 静默吞数据），但挡在不同位置。
 /// - [NumberInput] 在**入口**挡：输入过滤只放数字与一个小数点进来，
 ///   「10 usd」根本敲不进去，于是「非法值」这个状态压根不存在，也就没什么
@@ -938,6 +938,9 @@ class _Step extends StatelessWidget {
 ///
 /// 换句话说：能在入口过滤干净的用 [NumberInput]，过滤不干净、必须容忍中间态的
 /// 用这个。别给 [NumberInput] 加红线（它永远不会红），也别把这里的红线省掉。
+///
+/// 对侧那半写在 `ui_bits.dart:720-725`（`NumberInput` 文档注释末尾）——
+/// 那句话是「差别是故意的，不是漂移」。**改动任一侧前先读另一侧。**
 class DecimalField extends StatefulWidget {
   const DecimalField({
     super.key,
