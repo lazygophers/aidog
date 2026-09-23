@@ -291,6 +291,9 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     // openrouter 官方渠道 2026-09-24 已下架，仅剩中转镜像在售
     "anthropic/claude-opus-4",
     "kwaipilot/kat-coder-pro-v2",
+    "gemini-3-pro-preview", // Google 官方 2026-03-09 下架，仅剩 pipellm 镜像
+    "gemini-robotics-er-1.5-preview",
+    "gemini-embedding-2-preview",
     "deepseek-v3.2-think",
     "grok-4-1-fast-non-reasoning",
     "grok-4-fast-reasoning",
