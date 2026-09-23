@@ -1,11 +1,11 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790181253,
   "model_id": "qwq-plus",
   "canonical_model": "qwq-plus",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 131072,
+  "max_input_tokens": 98304,
   "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,

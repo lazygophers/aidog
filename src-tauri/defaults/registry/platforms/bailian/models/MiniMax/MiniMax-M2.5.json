@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790181253,
   "model_id": "MiniMax/MiniMax-M2.5",
   "canonical_model": "MiniMax-M2.5",
   "family": "minimax",
@@ -11,5 +11,7 @@
     "input": 2.916666666666667e-07,
     "output": 1.1666666666666668e-06
   },
+  "max_input_tokens": 196608,
+  "max_output_tokens": 32768,
   "context_window": 204800
 }
