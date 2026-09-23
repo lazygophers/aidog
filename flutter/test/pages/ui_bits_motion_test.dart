@@ -119,6 +119,47 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  // React 的 `<Button>` 默认变体是实心的（`ui/button.tsx:14-16`）。Flutter 这边
+  // 原先只有描边一种，主动作（「+ 添加平台」这类）两版长得完全不是一个东西。
+  testWidgets('SmallButton filled：底色是 accent，文字是浅色，且不画描边', (tester) async {
+    Widget button({required bool filled, bool danger = false}) => MaterialApp(
+      theme: aidogThemeData(AidogMode.dark),
+      home: Scaffold(
+        body: Center(
+          child: SmallButton(
+            label: 'x',
+            filled: filled,
+            danger: danger,
+            onTap: () {},
+          ),
+        ),
+      ),
+    );
+    Material materialOf(WidgetTester t) => t.widget<Material>(
+      find.ancestor(of: find.text('x'), matching: find.byType(Material)).first,
+    );
+
+    await tester.pumpWidget(button(filled: false));
+    expect(materialOf(tester).color, Colors.transparent);
+
+    await tester.pumpWidget(button(filled: true));
+    final filledMaterial = materialOf(tester);
+    expect(filledMaterial.color, AidogColors.dark.accent);
+    expect(
+      (filledMaterial.shape! as RoundedRectangleBorder).side.color,
+      Colors.transparent,
+      reason: '实心态不再叠一圈描边',
+    );
+    expect(
+      tester.widget<Text>(find.text('x')).style!.color,
+      AidogColors.light.surface,
+    );
+
+    // 破坏性动作的实心态用 bad，对齐 React 的 `variant="destructive"`。
+    await tester.pumpWidget(button(filled: true, danger: true));
+    expect(materialOf(tester).color, AidogColors.dark.bad);
+  });
+
   testWidgets('pill 态切换走 200ms 过渡，普通态不拖泥带水', (tester) async {
     Widget button({required bool pill}) => MaterialApp(
       theme: aidogThemeData(AidogMode.dark),
