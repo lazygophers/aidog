@@ -1,15 +1,17 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790181253,
   "model_id": "MiniMax/MiniMax-M3",
   "canonical_model": "MiniMax-M3",
   "family": "minimax",
   "capabilities": [
-    "text"
+    "text",
+    "vision"
   ],
   "official": true,
   "price": {
     "input": 5.833333333333334e-07,
     "output": 2.3333333333333336e-06
   },
-  "context_window": 204800
+  "max_input_tokens": 1048576,
+  "context_window": 1048576
 }
