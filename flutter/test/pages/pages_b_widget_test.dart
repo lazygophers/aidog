@@ -1338,6 +1338,48 @@ void main() {
       });
     });
 
+    // 回归 2026-09-23：这格原先是只读 `Text`，只能靠加减按钮一档一档点，
+    // 1 调到 10 要点九下。React 这里是 `<Input type="number" min=1 max=10>`
+    //（`PlatformCard.tsx:944-961`），可以直接敲。
+    testWidgets('组内优先级可以直接敲数字，越界夹到 1~10', (tester) async {
+      await useBigSurface(tester);
+      final k = groupsFake();
+      final c = await makeI18n(tester);
+      await tester.pumpWidget(
+        wrapPage(
+          GroupsSection(invoke: k.fn, buildPlatformCard: stubPlatformCard),
+          c,
+        ),
+      );
+      await settle(tester);
+
+      final field = find.byKey(const ValueKey('level-priority-1'));
+      expect(field, findsOneWidget, reason: '优先级那一格必须是可输入的');
+      await tester.enterText(
+        find.descendant(of: field, matching: find.byType(TextField)),
+        '9',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(k.lastCallTo('group_platform_set_level_priority')!.args, {
+        'groupId': 10,
+        'platformId': 1,
+        'levelPriority': 9,
+      });
+
+      // 越界不报错，夹到上限。
+      await tester.enterText(
+        find.descendant(of: field, matching: find.byType(TextField)),
+        '99',
+      );
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await settle(tester);
+      expect(
+        k.lastCallTo('group_platform_set_level_priority')!.args!['levelPriority'],
+        10,
+      );
+    });
+
     testWidgets('列表卡快捷添加映射：填齐才可点，点了发 group_update', (tester) async {
       await useBigSurface(tester);
       final k = groupsFake();
@@ -1357,7 +1399,12 @@ void main() {
       );
       expect(create.enabled, isFalse);
 
-      await tester.enterText(find.byType(TextField).first, 'src');
+      // 按 key 定位，不按「页面上第一个 TextField」—— 平台行后来加了优先级输入框，
+      // 「第一个」就不再是这里的源模型格了。
+      await tester.enterText(
+        find.byKey(const ValueKey('mapping-quick-source')),
+        'src',
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('mapping.targetPlatform')).first);
       await settle(tester);
@@ -1448,6 +1495,12 @@ void main() {
 
       // 换到 preset 来源，选协议 → 槽位被灌满 → 可确认。
       await tester.tap(find.text(c.t('group.batchOverrideSourcePreset')));
+      await settle(tester);
+      // 平台行加了优先级输入框之后整页变高，弹窗里这颗按钮会落到滚动区之外，
+      // 直接 tap 会打空 —— 先滚到它。
+      await tester.ensureVisible(
+        find.text(c.t('group.batchOverridePresetSelect')),
+      );
       await settle(tester);
       await tester.tap(find.text(c.t('group.batchOverridePresetSelect')));
       await settle(tester);
