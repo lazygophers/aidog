@@ -98,6 +98,12 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   zai glm-5.3×2——zai/ 前缀 3 条 official:true 对齐 therouter 惯例）、6 下架。
   遗留：gpt-image-2.5-flare/sunburst（per-image 计价）未登记；therouter 264 个
   详情页的 thinking 逐页核对未做。
+- 2026-09-24 第 8 轮 litellm `7f8da6fa`（158 文件）：131 条对齐官方价目
+  （litellm 平台真值源=BerriAI 官方 JSON，zai/MiniMax/deepseek 固定倍数旧价整族
+  刷新；context_window 语义定为=官方 max_input_tokens）；39 条官方删键下架
+  （旧世代 claude/kimi/mistral）；10 新模型。中间过程绞坏 14 文件后重建
+  （教训：price 块尾无逗号时插入要处理两种形状——已在多轮重犯，考虑给
+  check-registry 加预检或写公共编辑工具）。
 - 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条要不要全量镜像；
   ② 官方 discount 限时优惠与 context_tiers 分档要不要进 registry；③ bailian_en
   GLM/Kimi 国际价复核（需国际站计价页明文）；④ therouter per-image 计价模型
