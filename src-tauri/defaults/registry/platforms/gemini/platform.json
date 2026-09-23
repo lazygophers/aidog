@@ -23,8 +23,8 @@
       "gemini-2.5-pro",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
-      "gemini-2.0-flash",
-      "gemini-2.0-flash-lite",
+      
+      
       "antigravity-preview-05-2026",
       "claude-3-5-haiku",
       "claude-3-5-haiku@20241022",
@@ -64,10 +64,10 @@
       "e5/multilingual-e5-large-maas",
       "e5/multilingual-e5-small-maas",
       "gemini-1.5-flash",
-      "gemini-2.0-flash-001",
-      "gemini-2.0-flash-lite-001",
+      
+      
       "gemini-2.5-computer-use-preview-10-2025",
-      "gemini-2.5-flash-image",
+      
       "gemini-2.5-flash-lite-preview-06-17",
       "gemini-2.5-flash-lite-preview-09-2025",
       "gemini-2.5-flash-native-audio-latest",
@@ -75,12 +75,12 @@
       "gemini-2.5-flash-native-audio-preview-12-2025",
       "gemini-2.5-flash-preview-09-2025",
       "gemini-2.5-flash-preview-tts",
-      "gemini-2.5-pro-preview",
-      "gemini-2.5-pro-preview-05-06",
+      
+      
       "gemini-2.5-pro-preview-tts",
       "gemini-3-pro-image",
       "gemini-3-pro-image-preview",
-      "gemini-3-pro-preview",
+      
       "gemini-3.1-flash-image",
       "gemini-3.1-flash-image-preview",
       "gemini-3.1-flash-lite",
@@ -96,17 +96,17 @@
       "gemini-3.5-transcribe-live",
       "gemini-embedding-001",
       "gemini-embedding-2",
-      "gemini-embedding-2-preview",
+      
       "gemini-flash-latest",
       "gemini-flash-lite-latest",
       "gemini-gemma-2-27b-it",
       "gemini-gemma-2-9b-it",
       "gemini-live-2.5-flash-preview-native-audio-09-2025",
       "gemini-omni-1.1-flash",
-      "gemini-omni-flash-preview",
+      
       "gemini-pro-latest",
-      "gemini-robotics-er-1.5-preview",
-      "gemini-robotics-er-1.6-preview",
+      
+      
       "gemini-robotics-er-2-preview",
       "gemini-robotics-er-2-streaming-preview",
       "gemma-2-27b-it",
@@ -117,7 +117,7 @@
       "gemma-4-26b-a4b-it",
       "gemma-4-31b-it",
       "google/gemma-4-26b-a4b-it-maas",
-      "imagen-4.0-generate",
+      
       "jamba-1.5",
       "jamba-1.5-large",
       "jamba-1.5-large@001",
