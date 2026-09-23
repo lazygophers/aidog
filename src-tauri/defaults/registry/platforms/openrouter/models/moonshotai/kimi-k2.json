@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "moonshotai/kimi-k2",
   "canonical_model": "kimi-k2",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 32768,
+  "max_output_tokens": 98304,
   "context_window": 131072,
   "official": true,
   "price": {

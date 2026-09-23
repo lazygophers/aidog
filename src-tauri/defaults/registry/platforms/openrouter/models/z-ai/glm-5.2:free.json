@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "z-ai/glm-5.2:free",
   "canonical_model": "glm-5.2",
   "family": "glm",
@@ -11,8 +11,8 @@
     "reasoning"
   ],
   "max_input_tokens": 256000,
-  "max_output_tokens": 230400,
-  "context_window": 256000,
+  "max_output_tokens": 29491,
+  "context_window": 32768,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "mistralai/ministral-8b-2512",
   "canonical_model": "ministral-8b-2512",
+  "max_output_tokens": 209715,
   "capabilities": [
     "text"
   ],

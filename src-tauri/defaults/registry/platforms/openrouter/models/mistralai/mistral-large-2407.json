@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-large-2407",
   "canonical_model": "mistral-large-2407",
+  "max_output_tokens": 104857,
   "capabilities": [
     "text"
   ],

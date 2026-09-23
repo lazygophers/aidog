@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-v4-flash-vision-exp",
   "canonical_model": "deepseek-v4-flash-vision-exp",
   "capabilities": [
@@ -9,7 +9,7 @@
     "reasoning"
   ],
   "max_input_tokens": 1048576,
-  "max_output_tokens": 384000,
+  "max_output_tokens": 943718,
   "context_window": 1048576,
   "official": false,
   "thinking_supported": true,

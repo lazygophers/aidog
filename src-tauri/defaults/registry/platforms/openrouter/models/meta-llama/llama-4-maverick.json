@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "meta-llama/llama-4-maverick",
   "canonical_model": "llama-4-maverick",
   "capabilities": [
@@ -10,7 +10,7 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 1.5e-07,
-    "output": 6e-07
+    "input": 1.875e-07,
+    "output": 6.525e-07
   }
 }

@@ -1,17 +1,17 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "mancer/weaver",
   "canonical_model": "weaver",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 8000,
-  "max_output_tokens": 2000,
+  "max_output_tokens": 6000,
   "context_window": 8000,
   "official": true,
   "price": {
-    "input": 7.5e-07,
-    "output": 1e-06,
+    "input": 4.0000000000000003e-07,
+    "output": 7.5e-07,
     "cache_read": 0
   }
 }

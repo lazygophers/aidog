@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "ibm-granite/granite-4.0-h-micro",
   "canonical_model": "granite-4.0-h-micro",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131000,
-  "max_output_tokens": 131000,
+  "max_output_tokens": 117900,
   "context_window": 131000,
   "official": true,
   "price": {

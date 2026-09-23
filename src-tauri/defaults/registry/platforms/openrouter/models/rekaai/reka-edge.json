@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "rekaai/reka-edge",
   "canonical_model": "reka-edge",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 16384,
-  "max_output_tokens": 16384,
+  "max_output_tokens": 14745,
   "context_window": 16384,
   "official": true,
   "price": {

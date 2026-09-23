@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790183108,
+  "model_id": "ibm-granite/granite-4.2-8b",
+  "canonical_model": "granite-4.2-8b",
+  "display_name": "IBM: Granite 4.2 8B",
+  "capabilities": ["text", "tool_use", "reasoning"],
+  "context_window": 131072,
+  "max_output_tokens": 117964,
+  "thinking_supported": true,
+  "official": true,
+  "price": {
+    "input": 6e-08,
+    "output": 2.5e-07,
+    "cache_read": 1.5e-08
+  }
+}

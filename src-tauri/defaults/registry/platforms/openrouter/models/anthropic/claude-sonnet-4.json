@@ -1,12 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "anthropic/claude-sonnet-4",
   "canonical_model": "claude-sonnet-4",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 200000,
-  "max_output_tokens": 65536,
+  "max_output_tokens": 64000,
   "context_window": 200000,
   "official": true,
   "price": {

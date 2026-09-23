@@ -1,17 +1,18 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "stepfun/step-3.5-flash",
   "canonical_model": "step-3.5-flash",
+  "thinking_supported": true,
   "family": "stepfun",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
-  "max_output_tokens": 16384,
+  "max_output_tokens": 65536,
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 9e-08,
+    "input": 1.0000000000000001e-07,
     "output": 3e-07,
     "cache_read": 2e-08
   }

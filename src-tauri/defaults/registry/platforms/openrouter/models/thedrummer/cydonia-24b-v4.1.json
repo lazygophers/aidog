@@ -1,12 +1,12 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "thedrummer/cydonia-24b-v4.1",
   "canonical_model": "cydonia-24b-v4.1",
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 131072,
+  "max_output_tokens": 117964,
   "context_window": 131072,
   "official": true,
   "price": {

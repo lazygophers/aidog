@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-large-2512:batch",
   "canonical_model": "mistral-large-2512",
   "capabilities": [
@@ -12,8 +12,8 @@
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 5e-07,
-    "output": 1.5e-06,
-    "cache_read": 5e-08
+    "input": 2.5e-07,
+    "output": 7.5e-07,
+    "cache_read": 2.5000000000000002e-08
   }
 }

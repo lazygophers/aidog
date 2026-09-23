@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790183108,
   "model_id": "bytedance-seed/seed-1.6",
   "canonical_model": "seed-1.6",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "~anthropic/claude-sonnet-latest",
   "canonical_model": "claude-sonnet-latest",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -10,9 +11,9 @@
   "context_window": 1000000,
   "official": true,
   "price": {
-    "input": 3e-06,
-    "output": 1.5e-05,
-    "cache_read": 3e-07,
-    "cache_write": 3.75e-06
+    "input": 2e-06,
+    "output": 1e-05,
+    "cache_read": 2.0000000000000002e-07,
+    "cache_write": 2.5e-06
   }
 }

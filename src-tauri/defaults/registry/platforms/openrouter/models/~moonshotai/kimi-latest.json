@@ -1,17 +1,18 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "~moonshotai/kimi-latest",
   "canonical_model": "kimi-latest",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
-  "max_output_tokens": 131072,
-  "context_window": 131072,
+  "max_output_tokens": 943718,
+  "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 2e-06,
-    "output": 5e-06,
-    "cache_read": 1.5e-07
+    "input": 1.4989e-06,
+    "output": 1.0758e-05,
+    "cache_read": 3e-07
   }
 }

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "openai/o1-pro",
   "canonical_model": "o1-pro",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

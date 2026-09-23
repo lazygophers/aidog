@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790183108,
   "model_id": "z-ai/glm-4.6v",
   "canonical_model": "glm-4.6v",
+  "thinking_supported": true,
   "family": "glm",
   "version": "4.6",
   "capabilities": [
@@ -14,8 +15,8 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 1.388888888888889e-07,
-    "output": 4.166666666666666e-07,
-    "cache_read": 2.777777777777778e-08
+    "input": 3e-07,
+    "output": 9.000000000000001e-07,
+    "cache_read": 5.5e-08
   }
 }

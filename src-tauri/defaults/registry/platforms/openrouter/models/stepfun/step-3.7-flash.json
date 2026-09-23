@@ -1,13 +1,14 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790183108,
   "model_id": "stepfun/step-3.7-flash",
   "canonical_model": "step-3.7-flash",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
   "max_input_tokens": 256000,
-  "max_output_tokens": 256000,
-  "context_window": 256000,
+  "max_output_tokens": 230400,
+  "context_window": 262144,
   "official": false,
   "price": {
     "input": 2e-07,
