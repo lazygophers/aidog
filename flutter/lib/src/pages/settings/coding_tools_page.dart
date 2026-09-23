@@ -185,7 +185,10 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
             ChoiceRow(
               key: const ValueKey('cli-effort'),
               label: t.t('settings.f_effortLevel'),
-              options: kEffortOptions,
+              // 首项「—」= 不设置（`CodingToolsSettings.tsx:478-479` 的
+              // `__none__` → 写空串）。没有它设过一次就清不回不设置。
+              options: ['', ...kEffortOptions],
+              labelOf: (v) => v.isEmpty ? '—' : v,
               value: _c.effort,
               onChanged: _c.busy ? null : (v) => _c.setEffort(v, texts),
             ),
