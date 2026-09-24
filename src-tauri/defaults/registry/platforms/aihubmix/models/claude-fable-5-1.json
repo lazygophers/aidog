@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "claude-fable-5-1",
   "canonical_model": "claude-fable-5-1",
   "display_name": "Claude Fable 5.1",
+  "family": "claude",
   "predecessor": "claude-fable-5",
   "capabilities": [
     "text"

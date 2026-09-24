@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "wan2.7-r2v",
   "canonical_model": "wan2.7-r2v",
   "display_name": "Wan2.7 R2v",
+  "version": "2.7",
+  "family": "wan",
   "capabilities": [
     "vision",
     "text_to_video",

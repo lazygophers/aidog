@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "kimi-k2.6",
   "canonical_model": "kimi-k2.6",
   "display_name": "Kimi K2.6",
+  "family": "kimi",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

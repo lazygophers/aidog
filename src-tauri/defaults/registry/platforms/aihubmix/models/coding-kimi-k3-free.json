@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "coding-kimi-k3-free",
   "canonical_model": "kimi-k3",
   "display_name": "Coding Kimi K3 (free)",
+  "family": "kimi",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

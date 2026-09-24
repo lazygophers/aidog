@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "qwen3.5-122b-a10b",
   "canonical_model": "qwen3.5-122b-a10b",
   "display_name": "Qwen3.5 122B A10B",
+  "family": "qwen",
   "thinking_supported": true,
   "capabilities": [
     "text"
