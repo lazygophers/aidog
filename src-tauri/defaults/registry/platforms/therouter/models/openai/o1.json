@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790274366,
   "model_id": "openai/o1",
   "canonical_model": "o1",
+  "family": "o",
+  "version": "1",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790274366,
   "model_id": "gemini-2.5-flash",
   "canonical_model": "gemini-2.5-flash",
+  "family": "gemini",
+  "version": "2.5",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790274366,
   "model_id": "gemini-3.1-flash-lite",
   "canonical_model": "gemini-3.1-flash-lite",
+  "family": "gemini",
+  "version": "3.1",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

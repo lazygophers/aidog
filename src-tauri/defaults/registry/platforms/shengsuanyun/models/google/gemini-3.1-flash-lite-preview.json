@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790274366,
   "model_id": "google/gemini-3.1-flash-lite-preview",
   "canonical_model": "gemini-3.1-flash-lite-preview",
+  "family": "gemini",
+  "version": "3.1",
   "capabilities": [
     "text",
     "vision",

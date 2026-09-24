@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790269367,
+  "last_updated": 1790274366,
   "model_id": "anthropic/claude-sonnet-4.6",
   "canonical_model": "claude-sonnet-4-6",
+  "version": "4.6",
   "family": "claude",
   "thinking_supported": true,
   "thinking_toggleable": true,
