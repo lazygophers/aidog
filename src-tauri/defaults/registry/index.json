@@ -1,6 +1,5 @@
 {
   "last_updated": 1790271384,
-
   "platforms": [
     {
       "code": "aihubmix",
@@ -7589,6 +7588,8 @@
         "gpt-5.6.json",
         "gpt-5.json",
         "gpt-6-astra.json",
+        "gpt-6-luna.json",
+        "gpt-6-sol.json",
         "gpt-audio-1.5.json",
         "gpt-audio-mini.json",
         "gpt-audio.json",
@@ -7597,6 +7598,8 @@
         "gpt-image-1-mini.json",
         "gpt-image-1.5.json",
         "gpt-image-1.json",
+        "gpt-image-2.5-flare.json",
+        "gpt-image-2.5-sunburst.json",
         "gpt-image-2.json",
         "gpt-live-transcribe.json",
         "gpt-realtime-1.5.json",

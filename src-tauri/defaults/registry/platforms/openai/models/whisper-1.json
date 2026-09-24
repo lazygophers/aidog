@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "whisper-1",
   "canonical_model": "whisper-1",
   "display_name": "Whisper-1",
@@ -10,5 +10,7 @@
   "price": {
     "unit": "second",
     "unit_price": 0.0001
-  }
+  },
+  "family": "whisper",
+  "version": "1"
 }

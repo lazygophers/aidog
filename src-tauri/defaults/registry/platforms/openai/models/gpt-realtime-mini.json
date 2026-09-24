@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "gpt-realtime-mini",
   "canonical_model": "gpt-realtime-mini",
   "capabilities": [
@@ -10,5 +10,8 @@
     "input": 6e-7,
     "output": 0.0000024,
     "cache_read": 6e-8
-  }
+  },
+  "family": "gpt",
+  "version": "realtime",
+  "context_window": 32000
 }

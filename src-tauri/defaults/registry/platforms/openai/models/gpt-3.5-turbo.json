@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "gpt-3.5-turbo",
   "canonical_model": "gpt-3.5-turbo",
   "capabilities": [
@@ -10,8 +10,10 @@
   "context_window": 16385,
   "official": true,
   "price": {
-    "input": 5e-07,
-    "output": 1.5e-06,
+    "input": 5e-7,
+    "output": 0.0000015,
     "cache_read": 0
-  }
+  },
+  "family": "gpt",
+  "version": "3.5"
 }

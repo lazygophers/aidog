@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "gpt-4.5-preview",
   "canonical_model": "gpt-4.5-preview",
   "capabilities": [
@@ -14,5 +14,7 @@
     "input": 0.000075,
     "output": 0.00015,
     "cache_read": 0.0000375
-  }
+  },
+  "family": "gpt",
+  "version": "4.5"
 }
