@@ -488,62 +488,61 @@ ManualBudgetDisplay? computeManualBudgetDisplay(List<ManualBudget>? budgets) {
 // 翻了一遍，合并时撞名。留下的那份多一个 `unknown` 字段（保留未识别的键，
 // 保存时不把用户手写的配置吃掉），写入侧要用它。
 
-/// `platforms.ts:348::parsePlatformPeak`：`extra.peak` 数组；缺失 / 非法 → 空。
-List<TimeWindow> parsePlatformPeak(String extra) {
-  if (extra.trim().isEmpty) return const [];
+/// `extra` 字符串的进程级解析缓存（LRU，按内容寻址）：每张卡的 build 里
+/// peak / disable_during_peak / plan_price / quota_custom_script 各 parse 一遍，
+/// 每次重建全部重来；全走这里合并成每个字符串一次。
+const int _kExtraCacheCapacity = 32;
+final Map<String, Map<String, dynamic>?> _extraCache =
+    <String, Map<String, dynamic>?>{};
+
+Map<String, dynamic>? _extraMap(String extra) {
+  if (extra.trim().isEmpty) return null;
+  if (_extraCache.containsKey(extra)) {
+    final hit = _extraCache.remove(extra)!;
+    _extraCache[extra] = hit;
+    return hit;
+  }
+  Map<String, dynamic>? parsed;
   try {
-    final parsed = jsonDecode(extra);
-    if (parsed is Map && parsed['peak'] is List) {
-      return [
-        for (final e in parsed['peak'] as List)
-          if (e is Map) TimeWindow.fromJson(e.cast<String, dynamic>()),
-      ];
-    }
+    final v = jsonDecode(extra);
+    if (v is Map) parsed = v.cast<String, dynamic>();
   } catch (_) {
     /* ignore */
+  }
+  _extraCache[extra] = parsed;
+  if (_extraCache.length > _kExtraCacheCapacity) {
+    _extraCache.remove(_extraCache.keys.first);
+  }
+  return parsed;
+}
+
+/// `platforms.ts:348::parsePlatformPeak`：`extra.peak` 数组；缺失 / 非法 → 空。
+List<TimeWindow> parsePlatformPeak(String extra) {
+  final parsed = _extraMap(extra);
+  if (parsed != null && parsed['peak'] is List) {
+    return [
+      for (final e in parsed['peak'] as List)
+        if (e is Map) TimeWindow.fromJson(e.cast<String, dynamic>()),
+    ];
   }
   return const [];
 }
 
 /// `platforms.ts:381::parseDisableDuringPeak`：**严格布尔**（数字 / 字符串不误判）。
 bool parseDisableDuringPeak(String extra) {
-  if (extra.trim().isEmpty) return false;
-  try {
-    final parsed = jsonDecode(extra);
-    if (parsed is Map) return parsed['disable_during_peak'] == true;
-  } catch (_) {
-    /* ignore */
-  }
-  return false;
+  return _extraMap(extra)?['disable_during_peak'] == true;
 }
 
 /// `PlatformCard.tsx:134`：手填套餐月价（`extra.plan_price`，¥/月）；非数字 → null。
 double? parsePlanPrice(String extra) {
-  if (extra.trim().isEmpty) return null;
-  try {
-    final parsed = jsonDecode(extra);
-    if (parsed is Map && parsed['plan_price'] is num) {
-      return (parsed['plan_price'] as num).toDouble();
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  return null;
+  final v = _extraMap(extra)?['plan_price'];
+  return v is num ? v.toDouble() : null;
 }
 
 /// `platforms.ts:160::hasCustomQuotaScript`：`extra.quota_custom_script` 非空。
 bool hasCustomQuotaScript(String extra) {
-  if (extra.trim().isEmpty) return false;
-  try {
-    final parsed = jsonDecode(extra);
-    if (parsed is Map) {
-      final v = parsed['quota_custom_script'];
-      return v is String && v.trim().isNotEmpty;
-    }
-  } catch (_) {
-    /* ignore */
-  }
-  return false;
+  final v = _extraMap(extra)?['quota_custom_script'];
+  return v is String && v.trim().isNotEmpty;
 }
 
 // ══ 协议元数据（useProtocolMeta.ts + defaults.ts）════════════════════
@@ -571,8 +570,26 @@ class ProtocolMetaTable {
   });
 
   /// `get_defaults_json` 的整份文档 → 本表。[locale] 决定 label 取哪个 name。
+  ///
+  /// 文档 219KB，platforms 与 importexport 两页各 parse 一遍（每遍含一次完整
+  /// jsonDecode）——按原文缓存，同一份文档只 parse 一次（性能审计 #7②）。
+  static String? _cachedRaw;
+  static String? _cachedLocale;
+  static ProtocolMetaTable? _cached;
+
   factory ProtocolMetaTable.parse(String rawJson, String locale) {
     if (rawJson.isEmpty) return const ProtocolMetaTable();
+    if (_cached != null && rawJson == _cachedRaw && locale == _cachedLocale) {
+      return _cached!;
+    }
+    final table = _parseUncached(rawJson, locale);
+    _cachedRaw = rawJson;
+    _cachedLocale = locale;
+    _cached = table;
+    return table;
+  }
+
+  static ProtocolMetaTable _parseUncached(String rawJson, String locale) {
     final Object? doc;
     try {
       doc = jsonDecode(rawJson);

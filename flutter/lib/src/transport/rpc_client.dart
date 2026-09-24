@@ -17,6 +17,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show compute;
+
 /// 命令失败（= Tauri 侧 `invoke` 的 reject）。
 ///
 /// [body] 就是错误值本身，与 React 版 `catch (e)` 拿到的一字不差：`Result<_, String>` 的
@@ -96,7 +98,11 @@ class RpcClient {
     if (res.body.isNotEmpty) {
       final text = utf8.decode(res.body);
       try {
-        data = jsonDecode(text);
+        // 大载荷（模型快照 3-4MB）扔到后台 isolate 解码，免得 UI 单帧长阻塞
+        // （性能审计 #7）；100KB 以下留在原地，省一次 isolate 往返。
+        data = text.length > 100_000
+            ? await compute(_jsonDecodeTopLevel, text)
+            : jsonDecode(text);
       } catch (_) {
         // 网络边界，回什么都可能：命中静态资源 fallback 拿到 index.html、被反向代理拦下拿到
         // 它自己的错误页，都不是 JSON。把原文当错误值抛出去，别让解析异常顶替真正的失败原因。
@@ -401,3 +407,6 @@ class _ByteBuf {
     return -1;
   }
 }
+
+/// `compute` 的入口必须是顶层/静态函数：大 JSON 的后台 isolate 解码走这里。
+Object? _jsonDecodeTopLevel(String text) => jsonDecode(text);
