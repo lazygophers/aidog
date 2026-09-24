@@ -37,12 +37,20 @@ class SettingsCard extends StatelessWidget {
     this.meta,
     this.description,
     this.dimmed = false,
+    this.icon,
+    this.emphasized = false,
     required this.children,
   });
 
   final String? title;
   final String? meta;
   final String? description;
+
+  /// 节标题行首图标（React 各节 20px 的 `SectionIcon`，`Settings.tsx:527-531`）。
+  final IconData? icon;
+
+  /// 大节标题：20px w600（editors 的 F.title）。缺省 false = Tile 的 13.5。
+  final bool emphasized;
 
   /// 总开关关掉后压暗这张卡（React 四处 `opacity: 0.55 / 0.5`：
   /// `SchedulingSettings.tsx:142`、`NotificationEventList.tsx:196`、
@@ -61,7 +69,8 @@ class SettingsCard extends StatelessWidget {
         // editors/tokens.ts 的 S.sectionGap）。
         padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
         child: Tile(
-          title: title,
+          // 大节标题不借 Tile 自带的 13.5 标题，自己在正文顶上画 20px 那行。
+          title: emphasized ? null : title,
           meta: meta,
           // React 设置分区卡 padding 28（editors/tokens.ts:15 的 S.pad）。
           padding: const EdgeInsets.all(28),
@@ -69,6 +78,26 @@ class SettingsCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (emphasized && title != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 22),
+                  child: Row(
+                    children: [
+                      if (icon != null) ...[
+                        Icon(icon, size: 20, color: theme.c.fg),
+                        const SizedBox(width: 8),
+                      ],
+                      Text(
+                        title!,
+                        style: AidogType.title.copyWith(
+                          fontSize: 20,
+                          letterSpacing: -0.2,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               if (description != null && description!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
@@ -439,14 +468,14 @@ class InlineSelect<T> extends StatelessWidget {
   final List<T> options;
   final ValueChanged<T?>? onChanged;
   final String Function(T option)? labelOf;
-  final double width;
+
+  /// null = 不限宽（字段行右列那种占满剩余空间的下拉）。
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return SizedBox(
-      width: width,
-      child: DropdownButton<T>(
+    final dropdown = DropdownButton<T>(
         value: value,
         underline: const SizedBox.shrink(),
         isDense: true,
@@ -461,8 +490,8 @@ class InlineSelect<T> extends StatelessWidget {
               child: Text(labelOf?.call(o) ?? '$o'),
             ),
         ],
-      ),
-    );
+      );
+    return width == null ? dropdown : SizedBox(width: width, child: dropdown);
   }
 }
 

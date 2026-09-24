@@ -15,7 +15,6 @@ import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
-import '../platform_card_bits.dart' show MiniBadge;
 import 'bits.dart';
 import 'mitm_logic.dart';
 
@@ -686,56 +685,6 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
 
   // ── URL 命中测试 ────────────────────────────────────────
 
-  Widget _testCard(I18nController t) {
-    final theme = AidogTheme.of(context);
-    final result = _c.testResult;
-    return SettingsCard(
-      title: t.t('mitm.testUrlLabel'),
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            Expanded(
-              child: TextRow(
-                key: const ValueKey('mitm-test-url'),
-                label: t.t('mitm.testUrlLabel'),
-                hint: t.t('mitm.testUrlPlaceholder'),
-                value: _c.testUrl,
-                onChanged: _c.setTestUrl,
-                // React `MitmConfig.tsx:477`：回车 = 点「测试」。
-                onEnter: (_) {
-                  if (_c.canTest) _c.runUrlTest();
-                },
-              ),
-            ),
-            const SizedBox(width: AidogSpace.ssm),
-            Padding(
-              padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-              child: SmallButton(
-                key: const ValueKey('mitm-test'),
-                label: t.t('mitm.testUrlBtn'),
-                onTap: _c.canTest ? _c.runUrlTest : null,
-              ),
-            ),
-          ],
-        ),
-        // null = 还没测过（不渲染结果区）；空列表 = 测过但未命中。两者不是一回事。
-        if (result != null) ...[
-          Text(
-            result.isEmpty
-                ? t.t('mitm.testNoHit')
-                : t.t('mitm.testUrlHit', {'n': result.length}),
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
-          ),
-          for (final r in result)
-            Text(
-              ltr('${r.hostPattern} · ${r.ruleType.wire}'),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
-        ],
-      ],
-    );
-  }
 }
 
 /// 装 CA 失败时的诊断块（`MitmConfig.tsx:362-375`）：等宽、可选中、能整段复制走。

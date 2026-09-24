@@ -470,24 +470,6 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
   }
 }
 
-/// 卡片里的「落点」一行：等宽、弱化，写明这张卡改的是哪个文件的哪个键。
-/// 开关行上的同名信息走 `SwitchRow.hint`。
-class _LandingHint extends StatelessWidget {
-  const _LandingHint(this.text);
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-    child: Text(
-      // 路径与键名是标识串，RTL 下不该被重排。
-      ltr(text),
-      style: AidogType.numSm.copyWith(color: AidogTheme.of(context).c.fg3),
-    ),
-  );
-}
-
 /// 语言下拉：三十多项按语族分组画标题，对齐 React 的 `SelectGroup`
 /// （`CodingToolsSettings.tsx:433-450`）。拍平成一个长列表的话，找一门
 /// 语言要一路滚到底。分组标题是点不动的灰字（disabled 的菜单项）。

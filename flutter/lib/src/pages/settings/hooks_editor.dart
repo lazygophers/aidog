@@ -589,9 +589,10 @@ class _HooksEditorState extends State<HooksEditor> {
     return Container(
       key: ValueKey('hooks-group-$eventId-$gi'),
       margin: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
-      padding: const EdgeInsets.only(left: AidogSpace.smd),
+      padding: const EdgeInsets.only(left: 16),
       decoration: BoxDecoration(
-        border: Border(left: BorderSide(color: theme.c.accentEdge, width: 2)),
+        // React 是 3px var(--accent) + paddingLeft 16（HooksSectionInline.tsx:169）。
+        border: Border(left: BorderSide(color: theme.c.accent, width: 3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
