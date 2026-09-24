@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "gpt-5.2-pro",
   "canonical_model": "gpt-5.2-pro",
   "capabilities": [
@@ -10,8 +10,10 @@
   "context_window": 400000,
   "official": true,
   "price": {
-    "input": 2.1e-05,
+    "input": 0.000021,
     "output": 0.000168,
     "cache_read": 0
-  }
+  },
+  "family": "gpt",
+  "version": "5.2"
 }

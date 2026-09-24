@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "gpt-live-transcribe",
   "canonical_model": "gpt-live-transcribe",
   "display_name": "GPT Live Transcribe",
@@ -10,5 +10,7 @@
   "price": {
     "unit": "second",
     "unit_price": 0.0002833333
-  }
+  },
+  "family": "gpt",
+  "version": "live-transcribe"
 }

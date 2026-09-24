@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "o1",
   "canonical_model": "o1",
   "capabilities": [
@@ -10,8 +10,10 @@
   "context_window": 200000,
   "official": true,
   "price": {
-    "input": 1.5e-05,
-    "output": 6e-05,
-    "cache_read": 7.5e-06
-  }
+    "input": 0.000015,
+    "output": 0.00006,
+    "cache_read": 0.0000075
+  },
+  "family": "o",
+  "version": "1"
 }

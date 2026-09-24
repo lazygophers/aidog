@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "gpt-4o-audio-preview",
   "canonical_model": "gpt-4o-audio-preview",
   "capabilities": [
@@ -9,5 +9,8 @@
   "price": {
     "input": 0.0000025,
     "output": 0.00001
-  }
+  },
+  "family": "gpt",
+  "version": "4o",
+  "context_window": 128000
 }

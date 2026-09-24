@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "gpt-realtime-1.5",
   "canonical_model": "gpt-realtime-1.5",
   "display_name": "GPT Realtime 1.5",
@@ -8,8 +8,11 @@
   ],
   "official": true,
   "price": {
-    "input": 4e-06,
-    "output": 1.6e-05,
-    "cache_read": 4e-07
-  }
+    "input": 0.000004,
+    "output": 0.000016,
+    "cache_read": 4e-7
+  },
+  "family": "gpt",
+  "version": "1.5",
+  "context_window": 32000
 }

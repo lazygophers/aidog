@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "o1-preview",
   "canonical_model": "o1-preview",
   "capabilities": [
@@ -14,5 +14,7 @@
     "input": 0.000015,
     "output": 0.00006,
     "cache_read": 0.0000075
-  }
+  },
+  "family": "o",
+  "version": "1"
 }
