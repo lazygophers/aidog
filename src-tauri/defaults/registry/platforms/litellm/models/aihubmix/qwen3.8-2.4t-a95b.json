@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790280349,
   "model_id": "aihubmix/qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
+  "version": "3.8",
   "capabilities": [
     "text",
     "tool_use",

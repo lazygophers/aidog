@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790269367,
+  "last_updated": 1790280349,
   "model_id": "moonshot/kimi-k3",
   "canonical_model": "kimi-k3",
   "family": "kimi",
+  "version": "3",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

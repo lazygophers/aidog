@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1790280349,
   "model_id": "xiaomi/mimo-v2.5",
   "canonical_model": "mimo-v2.5",
+  "family": "mimo",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision"

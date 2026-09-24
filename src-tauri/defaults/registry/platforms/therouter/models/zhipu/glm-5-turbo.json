@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1790280349,
   "model_id": "zhipu/glm-5-turbo",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5",
   "capabilities": [
     "text"
   ],

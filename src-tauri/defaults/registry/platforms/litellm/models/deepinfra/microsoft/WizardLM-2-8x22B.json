@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790280349,
   "model_id": "deepinfra/microsoft/WizardLM-2-8x22B",
   "canonical_model": "wizardlm-2-8x22b",
+  "family": "wizardlm",
+  "version": "2",
   "capabilities": [
     "text"
   ],

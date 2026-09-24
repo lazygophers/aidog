@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790280349,
   "model_id": "openrouter/qwen/qwen-2.5-coder-32b-instruct",
   "canonical_model": "qwen-2.5-coder-32b-instruct",
   "family": "qwen",
+  "version": "2.5",
   "capabilities": [
     "text"
   ],

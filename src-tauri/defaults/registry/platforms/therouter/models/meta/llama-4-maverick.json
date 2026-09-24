@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790280349,
   "model_id": "meta/llama-4-maverick",
   "canonical_model": "llama-4-maverick",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text"
   ],

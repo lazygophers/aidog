@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790280349,
   "model_id": "openrouter/qwen/qwen3.7-flash",
   "canonical_model": "qwen3.7-flash",
   "family": "qwen",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/bytedance-seed/seed-1.6-flash",
   "canonical_model": "seed-1.6-flash",
+  "family": "seed",
+  "version": "1.6",
   "capabilities": [
     "text",
     "vision",

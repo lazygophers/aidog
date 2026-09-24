@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790280349,
   "model_id": "aihubmix/qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
+  "version": "3.8",
   "capabilities": [
     "text",
     "vision",

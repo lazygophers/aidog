@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790269259,
+  "last_updated": 1790280349,
   "model_id": "ali/qwen3.5-omni-plus",
   "canonical_model": "qwen3.5-omni-plus",
   "family": "qwen",
+  "version": "3.5",
   "capabilities": [
     "text"
   ],

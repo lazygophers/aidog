@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790273374,
+  "last_updated": 1790280349,
   "model_id": "qwen/qwen3-embedding-0.6b",
   "canonical_model": "Qwen3-Embedding-0.6B",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "embedding"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788086879,
+  "last_updated": 1790280349,
   "model_id": "zhipu/cogvideox-3",
   "canonical_model": "cogvideox-3",
+  "family": "cogvideox",
+  "version": "3",
   "capabilities": [
     "text_to_video"
   ],

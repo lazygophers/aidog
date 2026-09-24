@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790280349,
   "model_id": "bigmodel/glm-z1-airx",
   "canonical_model": "glm-z1-airx",
+  "family": "glm",
+  "version": "z1",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "meta/muse-spark-1.3-contributor",
   "canonical_model": "muse-spark-1.3-contributor",
+  "family": "muse-spark",
+  "version": "1.3",
   "capabilities": [
     "text",
     "vision",

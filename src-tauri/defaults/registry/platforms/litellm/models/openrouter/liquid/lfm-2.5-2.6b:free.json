@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/liquid/lfm-2.5-2.6b:free",
   "canonical_model": "lfm-2.5-2.6b:free",
+  "family": "lfm",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790280349,
   "model_id": "xiaomimimo/mimo-v2-pro",
   "canonical_model": "mimo-v2-pro",
+  "family": "mimo",
+  "version": "2",
   "capabilities": [
     "text"
   ],

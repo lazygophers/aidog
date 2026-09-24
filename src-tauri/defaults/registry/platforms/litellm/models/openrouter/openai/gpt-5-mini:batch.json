@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/openai/gpt-5-mini:batch",
   "canonical_model": "gpt-5-mini:batch",
+  "family": "gpt",
+  "version": "5",
   "capabilities": [
     "text",
     "vision",

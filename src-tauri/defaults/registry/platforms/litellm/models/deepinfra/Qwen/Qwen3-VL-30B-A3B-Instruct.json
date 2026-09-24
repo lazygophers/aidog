@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790280349,
   "model_id": "deepinfra/Qwen/Qwen3-VL-30B-A3B-Instruct",
   "canonical_model": "qwen3-vl-30b-a3b-instruct",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

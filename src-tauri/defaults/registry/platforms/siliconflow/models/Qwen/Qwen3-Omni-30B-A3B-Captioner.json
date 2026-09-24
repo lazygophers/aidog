@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790273374,
+  "last_updated": 1790280349,
   "model_id": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
   "canonical_model": "Qwen3-Omni-30B-A3B-Captioner",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",
