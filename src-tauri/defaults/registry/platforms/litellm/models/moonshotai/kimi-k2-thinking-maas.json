@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790278679,
+  "max_input_tokens": 256000,
+  "last_updated": 1790287585,
   "model_id": "moonshotai/kimi-k2-thinking-maas",
   "canonical_model": "kimi-k2-thinking-maas",
   "family": "kimi",

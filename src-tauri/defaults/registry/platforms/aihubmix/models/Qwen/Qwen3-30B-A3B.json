@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790279972,
+  "context_window": 131072,
+  "max_input_tokens": 131072,
+  "last_updated": 1790287585,
   "model_id": "Qwen/Qwen3-30B-A3B",
   "canonical_model": "qwen3-30b-a3b",
   "display_name": "Qwen3 30B A3B",

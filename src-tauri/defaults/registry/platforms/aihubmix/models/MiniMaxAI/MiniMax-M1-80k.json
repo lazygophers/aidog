@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790279972,
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "last_updated": 1790287585,
   "model_id": "MiniMaxAI/MiniMax-M1-80k",
   "canonical_model": "minimax-m1-80k",
 

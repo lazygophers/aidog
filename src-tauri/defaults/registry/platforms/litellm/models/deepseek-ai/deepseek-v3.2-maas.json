@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790278679,
+  "max_input_tokens": 163840,
+  "last_updated": 1790287585,
   "model_id": "deepseek-ai/deepseek-v3.2-maas",
   "canonical_model": "deepseek-v3.2-maas",
   "family": "deepseek",
