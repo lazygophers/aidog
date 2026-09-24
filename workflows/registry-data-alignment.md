@@ -225,3 +225,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 锚定源扩充完成（gemini+openai 官方轮），镜像平台二轮平移待跑：litellm 6699 /
   aihubmix 2164 / openrouter 773 / bailian 系 1532 / therouter 466 / shengsuanyun 319 /
   novita 292 / crazyrouter 285 / compshare 225。
+- 2026-09-25 第 30/31 轮二轮平移：litellm `9ea965cf`→merge `5788c4855`（238 格，
+  6699 → 6461）、aihubmix `01fb12d4`→merge `6c98c871b`（125 格，2164 → 1915），
+  均吃 gemini/openai 新锚。覆盖率 family 42.8% / version 20.3% / ctx 76.5%。
+- 第 32 轮 litellm Bedrock canonical 归一（anthropic./ai21./meta./deepseek. 前缀剥除
+  映射官方拼写，逐字符相等才改，model_id 不动）、第 33 轮 novita+siliconflow(_en)
+  锚定平移进行中。
