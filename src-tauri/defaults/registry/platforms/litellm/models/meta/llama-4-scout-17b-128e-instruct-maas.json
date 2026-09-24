@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790084258,
+  "family": "llama",
+  "version": "4",
+  "last_updated": 1790287585,
   "model_id": "meta/llama-4-scout-17b-128e-instruct-maas",
   "canonical_model": "llama-4-scout-17b-128e-instruct-maas",
   "capabilities": [

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790084258,
+  "family": "qwen",
+  "last_updated": 1790287585,
   "model_id": "Qwen/Qwen3-VL-32B-Instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
   "capabilities": [

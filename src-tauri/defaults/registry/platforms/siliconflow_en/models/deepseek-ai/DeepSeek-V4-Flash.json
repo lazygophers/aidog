@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790084258,
+  "version": "4",
+  "last_updated": 1790287585,
   "model_id": "deepseek-ai/DeepSeek-V4-Flash",
   "canonical_model": "deepseek-v4-flash",
   "display_name": "DeepSeek-V4-Flash",

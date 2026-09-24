@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "family": "deepseek",
+  "last_updated": 1790287585,
   "model_id": "deepseek/deepseek-v3.1-terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "capabilities": ["text", "tool_use", "reasoning"],

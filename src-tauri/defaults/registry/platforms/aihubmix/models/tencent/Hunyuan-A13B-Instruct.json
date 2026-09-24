@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790267844,
+  "context_window": 131072,
+  "max_input_tokens": 131072,
+  "last_updated": 1790287585,
   "model_id": "tencent/Hunyuan-A13B-Instruct",
   "canonical_model": "Hunyuan-A13B-Instruct",
   "display_name": "Hunyuan A13B Instruct",

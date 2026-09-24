@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "context_window": 1047576,
+  "max_input_tokens": 1047576,
+  "last_updated": 1790287585,
   "model_id": "fal_ai/high/1024-x-768/gpt-image-2",
   "canonical_model": "gpt-image-2",
   "family": "gpt",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "family": "gemma",
+  "last_updated": 1790287585,
   "model_id": "google/gemma-4-31b-it",
   "canonical_model": "gemma-4-31b-it",
   "thinking_supported": true,

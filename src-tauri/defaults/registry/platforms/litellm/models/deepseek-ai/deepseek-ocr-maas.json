@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790084258,
+  "family": "deepseek",
+  "last_updated": 1790287585,
   "model_id": "deepseek-ai/deepseek-ocr-maas",
   "canonical_model": "deepseek-ocr-maas",
   "capabilities": [

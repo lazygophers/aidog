@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790267844,
+  "context_window": 131072,
+  "max_input_tokens": 131072,
+  "last_updated": 1790287585,
   "model_id": "Qwen/Qwen2.5-72B-Instruct",
   "canonical_model": "qwen2.5-72b-instruct",
   "display_name": "Qwen2.5 72B Instruct",

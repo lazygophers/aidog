@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790084258,
+  "version": "5.1",
+  "last_updated": 1790287585,
   "model_id": "Pro/zai-org/GLM-5.1",
   "canonical_model": "glm-5.1",
   "family": "glm",
