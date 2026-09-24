@@ -359,7 +359,8 @@ void main() {
       final k = fake(extra: {'mcp_delete': (_) => null});
       await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('action.delete')).first);
+      // 批三后行尾删除是图标按钮（React ghost icon，`Mcp/primitives.tsx:160-175`）。
+      await tester.tap(find.byIcon(Icons.delete_outline));
       await settle(tester);
       expect(find.byType(ConfirmCard), findsOneWidget);
       expect(k.countOf('mcp_delete'), 0);
