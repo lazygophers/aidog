@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "display_name": "Gemma 4 26B A4B It",
+  "family": "gemma",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

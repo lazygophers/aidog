@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "wan2.6-t2i",
   "canonical_model": "wan2.6-t2i",
   "display_name": "Wan2.6 T2i",
+  "version": "2.6",
+  "family": "wan",
   "capabilities": [
     "vision",
     "text_to_image",

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
   "thinking_supported": true,
   "display_name": "DeepSeek V4 Pro",
+  "version": "4",
   "family": "deepseek",
   "capabilities": [
     "text"

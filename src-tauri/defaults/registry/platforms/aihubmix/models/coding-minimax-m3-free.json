@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "coding-minimax-m3-free",
   "canonical_model": "MiniMax-M3",
   "display_name": "Coding MiniMax M3 (free)",
+  "version": "3",
   "thinking_supported": true,
   "family": "minimax",
   "capabilities": [
