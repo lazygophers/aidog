@@ -1,17 +1,29 @@
 /// 图表色板（对应 React 版 `src/components/charts/palette.ts`）。
 ///
-/// React 版把色值写成 `var(--primary)` / `var(--chart-2..5)` 字符串交给 CSS 解析；
-/// Flutter 没有 CSS 变量，所以这里**从主题取色**（`AidogTheme.of(context).c`），
-/// 一个色值字面量都不写 —— 改色请改 `design/tokens/tokens.json`。
+/// React 版把主色写成 `var(--primary)` 交给 CSS 解析；Flutter 没有 CSS 变量，
+/// 主色从主题取（`AidogTheme.of(context).c`）。辅线灰阶与热力琥珀在 React 侧
+/// 是明暗同值的固定色（globals.css / palette.ts），这里直接写死常量，不跟主题。
 library;
 
 import 'package:flutter/widgets.dart';
 
 import '../shell/theme.dart';
 
-/// 辅线灰阶的四级不透明度：React 版的 `--chart-2..5` 是纯灰阶四档，
-/// 这里用 fg-2 的透明度阶梯表达同一语义（A′ 主题没有 chart-N token）。
-const List<double> kAuxAlphas = [1.0, 0.72, 0.50, 0.34];
+/// 辅线灰阶四档 = React 的 `--chart-2..5`（globals.css:106-109,811-814），
+/// 原值 oklch(0.556/0.439/0.371/0.269 0 0)，明暗两模式同值。
+/// oklch→sRGB 换算（2026-09-25 批次一）：零色度 → a=b=0 → 线性值恰为 L³，
+/// gamma 编码 1.055·c^(1/2.4)−0.055 后 ×255 四舍五入：
+///   0.556³=0.17188 → 0.4515 → 115 → #737373
+///   0.439³=0.08460 → 0.3220 →  82 → #525252
+///   0.371³=0.05106 → 0.2505 →  64 → #404040
+///   0.269³=0.01947 → 0.1493 →  38 → #262626
+/// （恰为 Tailwind neutral-500..800，互为佐证。）
+const List<Color> kAuxColors = [
+  Color(0xFF737373),
+  Color(0xFF525252),
+  Color(0xFF404040),
+  Color(0xFF262626),
+];
 
 /// 热力色带端点：与 React 版 `HEAT_MIN_ALPHA` / `HEAT_MAX_ALPHA` 一字不差。
 const double kHeatMinAlpha = 0.06;
@@ -41,17 +53,19 @@ class ChartPalette {
   /// 例：`series(0)` = accent，`series(1)` = fg2，`series(5)` 回绕 = `series(1)`。
   Color series(int index) {
     if (index <= 0) return primary;
-    return c.fg2.withValues(alpha: kAuxAlphas[(index - 1) % kAuxAlphas.length]);
+    return kAuxColors[(index - 1) % kAuxColors.length];
   }
 
   /// 前 count 个系列的颜色（批量取色）。
   List<Color> seriesColors(int count) =>
       List.generate(count, series, growable: false);
 
-  /// 热力格子颜色：t ∈ [0,1] → 主色的 alpha 阶梯，区间外 clamp 到两端。
+  /// 热力色带色源：固定琥珀 `#e8c547`（React `palette.ts:33` 的 HEAT_RGB），不跟主题。
+  static const Color kHeatAmber = Color(0xFFE8C547);
+
+  /// 热力格子颜色：t ∈ [0,1] → 琥珀的 alpha 阶梯，区间外 clamp 到两端。
   /// alpha 公式与 React 版逐字对应（min + (max-min) × clamp(t)）。
-  Color heat(double t) =>
-      primary.withValues(alpha: heatAlpha(t));
+  Color heat(double t) => kHeatAmber.withValues(alpha: heatAlpha(t));
 
   /// 热力格子的 alpha（暴露出来是因为测试按 alpha 断言，与 React 版同一套期望值）。
   ///

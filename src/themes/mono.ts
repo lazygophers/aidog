@@ -70,7 +70,9 @@ function vars(mode: ThemeMode): Record<string, string> {
     "--accent": c["accent-text"],
     // 配套字色：accent-text 深色下是亮紫 → 配深字；浅色下是深紫 → 配白字。与旧金底 idiom 同构。
     "--accent-foreground": mode === "dark" ? c.bg : c.surface,
-    "--destructive": c.bad,
+    // 实心删除按钮的底色：饱和红（新 token `destructive`）。状态色 token `bad` 已改成
+    // React globals.css 的莫兰迪 --color-danger（批次一对齐），白字压莫兰迪红只有 ~3.4:1。
+    "--destructive": c.destructive,
     "--destructive-foreground": mode === "dark" ? c.fg : c.surface,
     "--border": c.line,
     // accent 面的亮描边（token `accent-edge`）。深色强调色是近黑时，accent 自己
