@@ -30,10 +30,19 @@ class SmallButton extends StatelessWidget {
     this.activeTone,
     this.tooltip,
     this.filled = false,
+    this.fontSize,
+    this.padding,
   });
 
   final String label;
   final VoidCallback? onTap;
+
+  /// 字号 / 内边距覆盖：React 各处按钮是裸值（分页 12/4/8、Logs 头部 13/4/10…），
+  /// 不进 AidogType 字阶。null = 缺省 micro 11。
+  final double? fontSize;
+
+  /// [padding] 是竖直 / 水平（水平在前）。null = 缺省 10/5（非 pill）。
+  final (double, double)? padding;
 
   /// 破坏性动作（删除 / 清空）：用 bad 色，让它和旁边的按钮长得不一样。
   final bool danger;
@@ -134,11 +143,22 @@ class SmallButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Padding(
-          padding: EdgeInsets.symmetric(
-            horizontal: pill ? 12 : 10,
-            vertical: pill ? 4 : 5,
+          padding: padding == null
+              ? EdgeInsets.symmetric(
+                  horizontal: pill ? 12 : 10,
+                  vertical: pill ? 4 : 5,
+                )
+              : EdgeInsets.symmetric(
+                  horizontal: padding!.$1,
+                  vertical: padding!.$2,
+                ),
+          child: Text(
+            label,
+            style: (fontSize == null
+                ? AidogType.micro
+                : AidogType.micro.copyWith(fontSize: fontSize)
+            ).copyWith(color: fg),
           ),
-          child: Text(label, style: AidogType.micro.copyWith(color: fg)),
         ),
       ),
     );
@@ -276,7 +296,8 @@ class _AidogModalState extends State<AidogModal> {
                   // 遮罩色不进 token 表：React 那边是写死的 `bg-black/80`，
                   // 深浅两套都一样。取深色模式的底色 token 当「黑」，不写字面色值。
                   child: ColoredBox(
-                    color: AidogColors.dark.bg.withValues(alpha: 0.72),
+                    // React shadcn overlay 是写死的 bg-black/80（两侧同值）。
+                    color: AidogColors.dark.bg.withValues(alpha: 0.8),
                   ),
                 ),
               ),

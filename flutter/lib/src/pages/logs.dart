@@ -219,13 +219,15 @@ class _LogsFilterBar extends StatelessWidget {
     final t = AidogI18n.of(context);
     final f = controller.filters;
     return Tile(
+      // React glass-surface：padding 12/16、gap 10（ListView.tsx:87）
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Wrap(
-        spacing: AidogSpace.ssm,
-        runSpacing: AidogSpace.ssm,
+        spacing: 10,
+        runSpacing: 10,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           FilterDropdown(
-            width: 160,
+            width: 140, // React 平台下拉 140（ListView.tsx:91）
             value: f.platform,
             onChanged: (v) => controller.setFilters(f.copyWith(platform: v)),
             allLabel: t.t('logs.filterPlatform'),
@@ -245,7 +247,7 @@ class _LogsFilterBar extends StatelessWidget {
             ],
           ),
           FilterDropdown(
-            width: 160,
+            width: 140, // React 分组下拉 140（ListView.tsx:107）
             value: f.group,
             onChanged: (v) => controller.setFilters(f.copyWith(group: v)),
             allLabel: t.t('logs.filterGroup'),
@@ -313,7 +315,7 @@ class _LogsFilterBar extends StatelessWidget {
                 controller.setFilters(f.copyWith(modelType: 'original')),
           ),
           FilterDropdown(
-            width: 180,
+            width: 170, // React 模型下拉 170（ListView.tsx:163）
             value: f.modelText,
             onChanged: (v) => controller.setFilters(f.copyWith(modelText: v)),
             allLabel: t.t('logs.filterModel'),
@@ -325,8 +327,9 @@ class _LogsFilterBar extends StatelessWidget {
             ],
           ),
           // 路径搜索：对 request_url 做 LIKE 匹配（`ListView.tsx:174-180`）。
-          SizedBox(
-            width: 180,
+          ConstrainedBox(
+            // React 路径框 max-width 180 / min-width 120（ListView.tsx:178）
+            constraints: const BoxConstraints(minWidth: 120, maxWidth: 180),
             child: KeptTextField(
               key: const Key('logs-path'),
               value: f.path,
@@ -578,7 +581,8 @@ class _LogTableState extends State<_LogTable> {
 
   /// 行高（数据行与操作列共用）：两侧各画一半（滚动列 / 钉住的操作列），
   /// 高度必须逐行严格相等才能对齐，所以锁死而不是让内容自己撑。
-  static const double _kRowHeight = 34;
+  /// React 行是 13px 文字 + 上下 10 padding ≈ 40（primitives.tsx:249-262）。
+  static const double _kRowHeight = 40;
 
   @override
   Widget build(BuildContext context) {
@@ -717,20 +721,22 @@ class _LogTableState extends State<_LogTable> {
                                             : log.actualModel,
                                         width: 170,
                                       ),
-                                      // 状态码（React badge 口径）：0 不渲染、
-                                      // 正数裸数字、2xx 绿 / 非 2xx 红。
-                                      if (log.statusCode != 0)
-                                        _Cell(
-                                          '${log.statusCode}',
-                                          width: 70,
-                                          color:
-                                              log.statusCode >= 200 &&
-                                                  log.statusCode < 300
-                                              ? theme.c.ok
-                                              : theme.c.bad,
-                                        )
-                                      else
-                                        const SizedBox(width: 70),
+                                      // 状态码（primitives.tsx:314-320）：
+                                      // 0 →「未完成」、499 →「已中断」、
+                                      // 其余裸数字；2xx 绿 / 非 2xx 红。
+                                      _Cell(
+                                        log.statusCode == 0
+                                            ? t.t('logs.statusIncomplete')
+                                            : log.statusCode == 499
+                                            ? t.t('logs.statusInterrupted')
+                                            : '${log.statusCode}',
+                                        width: 70,
+                                        color:
+                                            log.statusCode >= 200 &&
+                                                log.statusCode < 300
+                                            ? theme.c.ok
+                                            : theme.c.bad,
+                                      ),
                                       _Cell(
                                         formatDurationMs(
                                           log.durationMs.toDouble(),
@@ -816,7 +822,10 @@ class _CellWithBadge extends StatelessWidget {
               text,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              style: AidogType.caption.copyWith(
+                fontSize: 13,
+                color: theme.c.fg,
+              ),
             ),
           ),
           if (badge case final b?) ...[
@@ -851,12 +860,21 @@ class _Cell extends StatelessWidget {
     return SizedBox(
       width: width,
       child: Text(
-        header ? text.toUpperCase() : text,
+        text, // 混合大小写：React 表头与正文都不大写
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
-        style: AidogType.micro.copyWith(
-          color: color ?? (header ? theme.c.fg3 : theme.c.fg2),
-        ),
+        style: header
+            ? AidogType.caption.copyWith(
+                // React ThCell：12 w600 secondary（primitives.tsx:232-241）
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: theme.c.fg2,
+              )
+            : AidogType.caption.copyWith(
+                // React 行 13px（ListView.tsx:200 表 fontSize F.hint）
+                fontSize: 13,
+                color: color ?? theme.c.fg,
+              ),
       ),
     );
   }
@@ -893,6 +911,8 @@ class _Pager extends StatelessWidget {
       children: [
         SmallButton(
           label: '⟪',
+          fontSize: 12,
+          padding: (8, 4),
           // 首页直达（`primitives.tsx:383-385`）：原先只有 ← / →，
           // 回第一页要一路点到底。
           onTap: currentPage > 1 ? () => onPage(1) : null,
@@ -900,6 +920,8 @@ class _Pager extends StatelessWidget {
         const SizedBox(width: AidogSpace.ssm),
         SmallButton(
           label: t.t('action.prev'),
+          fontSize: 12,
+          padding: (8, 4),
           onTap: currentPage > 1 ? () => onPage(currentPage - 1) : null,
         ),
         const SizedBox(width: AidogSpace.ssm),
@@ -910,6 +932,8 @@ class _Pager extends StatelessWidget {
         const SizedBox(width: AidogSpace.ssm),
         SmallButton(
           label: t.t('action.next'),
+          fontSize: 12,
+          padding: (8, 4),
           onTap: hasMore ? () => onPage(currentPage + 1) : null,
         ),
         const Spacer(),
@@ -932,6 +956,8 @@ class _Pager extends StatelessWidget {
             padding: const EdgeInsets.only(left: 4),
             child: SmallButton(
               label: '$size',
+              fontSize: 12,
+              padding: (8, 4),
               active: size == pageSize,
               onTap: () => onPageSize(size),
             ),
@@ -1004,6 +1030,8 @@ class _DetailPanelState extends State<_DetailPanel> {
       maxWidth: 900,
       onBarrierTap: onClose,
       child: Tile(
+        // React DialogContent padding 20（DetailPanel.tsx:53）
+        padding: const EdgeInsets.all(20),
         title: t.t('logs.detail'),
         meta: detail.id,
         child: Column(
@@ -1012,30 +1040,45 @@ class _DetailPanelState extends State<_DetailPanel> {
           children: [
             // 请求 ID 独占一行：等宽 + 复制成 `request_id=<id>`
             //（`DetailPanel.tsx:146-167`）。原先只作标题旁的小字，复制不了。
-            Row(
-              children: [
-                SizedBox(
-                  width: 110,
-                  child: Text(
+            // 请求 ID 行是一张卡片：padding 12/20、label 12 w600、id 13 mono
+            //（`DetailPanel.tsx:147-149`）。
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: theme.c.surface2,
+                border: Border.all(color: theme.c.line),
+                borderRadius: BorderRadius.circular(AidogRadius.lg),
+              ),
+              child: Row(
+                children: [
+                  Text(
                     t.t('logs.requestId'),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.fg3,
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: SelectableText(
-                    ltr(detail.id),
-                    style: AidogType.numSm.copyWith(color: theme.c.fg),
+                  const SizedBox(width: AidogSpace.smd),
+                  Expanded(
+                    child: SelectableText(
+                      ltr(detail.id),
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
+                    ),
                   ),
-                ),
-                SmallButton(
-                  key: const ValueKey('detail-copy-id'),
-                  label: t.t('logs.copy'),
-                  tooltip: t.t('logs.copyRequestId'),
-                  onTap: () => onCopy('request_id=${detail.id}'),
-                ),
-              ],
+                  SmallButton(
+                    key: const ValueKey('detail-copy-id'),
+                    label: t.t('logs.copy'),
+                    tooltip: t.t('logs.copyRequestId'),
+                    onTap: () => onCopy('request_id=${detail.id}'),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            const SizedBox(height: 16),
             Row(
               children: [
                 SmallButton(
@@ -1055,129 +1098,141 @@ class _DetailPanelState extends State<_DetailPanel> {
                 SmallButton(label: t.t('action.close'), onTap: onClose),
               ],
             ),
-            const SizedBox(height: AidogSpace.ssm),
-            // 显**分组名**，不显 group_key —— 那串正好是该分组的 API Key，
-            // 分组卡已经因为这个理由不印它了（`groups.dart:530-533`），
-            // 详情面板这处原先还留着。React 同样只显名字（`DetailPanel.tsx:171`）。
-            _kv(
-              theme,
-              t.t('logs.group'),
-              groupName(detail.groupKey),
-              // 复制的是原始 group_key（审计用），显示的是名字。
-              copyText: detail.groupKey,
-            ),
-            // 平台与时间原先整个没有：面板里看不出这条请求什么时候发生、打到哪
-            //（`DetailPanel.tsx:172,214`）。
-            _kv(
-              theme,
-              t.t('logs.platform'),
-              platformName(detail.platformId),
-              copyText: platformName(detail.platformId),
-            ),
-            _kv(theme, t.t('logs.time'), formatDateTime(detail.createdAt)),
-            _kv(theme, t.t('logs.model'), detail.model, copyText: detail.model),
-            _kv(
-              theme,
-              t.t('logs.actualModel'),
-              detail.actualModel,
-              copyText: detail.actualModel,
-            ),
-            // 协议印本地化名，裸枚举值只留在复制内容里供审计
-            //（`DetailPanel.tsx:175-176`）。
-            _kv(
-              theme,
-              t.t('logs.sourceProtocol'),
-              protocolLabel(detail.sourceProtocol),
-              copyText: detail.sourceProtocol,
-            ),
-            _kv(
-              theme,
-              t.t('logs.targetProtocol'),
-              protocolLabel(detail.targetProtocol),
-              copyText: detail.targetProtocol,
-            ),
-            // 状态码与列表同口径：0 →「未完成」、499 →「已中断」，2xx 绿其余红
-            //（`DetailPanel.tsx:179-186`）。详情里原先是裸数字且不上色。
-            _kv(
-              theme,
-              t.t('logs.status'),
-              switch (detail.statusCode) {
-                0 => t.t('logs.statusIncomplete'),
-                499 => t.t('logs.statusInterrupted'),
-                _ => '${detail.statusCode}',
-              },
-              color: detail.statusCode >= 200 && detail.statusCode < 300
-                  ? theme.c.ok
-                  : theme.c.bad,
-            ),
-            // 上游状态码：0 / 缺失 = 没捕获到（`DetailPanel.tsx:190-208`）。
-            // 这个字段早就解析进来了，详情区就是没这一项。
-            _kv(
-              theme,
-              t.t('logs.upstreamStatus'),
-              detail.upstreamStatusCode == 0
-                  ? t.t('logs.notCaptured')
-                  : '${detail.upstreamStatusCode}',
-            ),
-            // 传输方式（`DetailPanel.tsx:209`）。模型层原先没接这个字段。
-            _kv(
-              theme,
-              t.t('logs.stream'),
-              detail.isStream
-                  ? t.t('logs.streaming')
-                  : t.t('logs.nonStreaming'),
-            ),
-            _kv(
-              theme,
-              t.t('logs.duration'),
-              formatDurationMs(detail.durationMs.toDouble()),
-            ),
-            _kv(
-              theme,
-              t.t('logs.inputTokens'),
-              formatNumber(detail.inputTokens),
-            ),
-            _kv(
-              theme,
-              t.t('logs.outputTokens'),
-              formatNumber(detail.outputTokens),
-            ),
-            _kv(
-              theme,
-              t.t('logs.cacheTokens'),
-              formatNumber(detail.cacheTokens),
-            ),
+            const SizedBox(height: 16),
+            // 元信息 grid：`repeat(auto-fill, minmax(160px, 1fr))` gap 14
+            //（`DetailPanel.tsx:170`），label 12 tertiary / 值 15 w600。
+            _metaGrid(theme, [
+              _kv(
+                theme,
+                t.t('logs.group'),
+                groupName(detail.groupKey),
+                // 复制的是原始 group_key（审计用），显示的是名字。
+                copyText: detail.groupKey,
+              ),
+              // 平台与时间原先整个没有：面板里看不出这条请求什么时候发生、打到哪
+              //（`DetailPanel.tsx:172,214`）。
+              _kv(
+                theme,
+                t.t('logs.platform'),
+                platformName(detail.platformId),
+                copyText: platformName(detail.platformId),
+              ),
+              _kv(theme, t.t('logs.time'), formatDateTime(detail.createdAt)),
+              _kv(
+                theme,
+                t.t('logs.model'),
+                detail.model,
+                copyText: detail.model,
+              ),
+              _kv(
+                theme,
+                t.t('logs.actualModel'),
+                detail.actualModel,
+                copyText: detail.actualModel,
+              ),
+              // 协议印本地化名，裸枚举值只留在复制内容里供审计
+              //（`DetailPanel.tsx:175-176`）。
+              _kv(
+                theme,
+                t.t('logs.sourceProtocol'),
+                protocolLabel(detail.sourceProtocol),
+                copyText: detail.sourceProtocol,
+              ),
+              _kv(
+                theme,
+                t.t('logs.targetProtocol'),
+                protocolLabel(detail.targetProtocol),
+                copyText: detail.targetProtocol,
+              ),
+              // 状态码与列表同口径：0 →「未完成」、499 →「已中断」，2xx 绿其余红
+              //（`DetailPanel.tsx:179-186`）。详情里原先是裸数字且不上色。
+              _kv(
+                theme,
+                t.t('logs.status'),
+                switch (detail.statusCode) {
+                  0 => t.t('logs.statusIncomplete'),
+                  499 => t.t('logs.statusInterrupted'),
+                  _ => '${detail.statusCode}',
+                },
+                color: detail.statusCode >= 200 && detail.statusCode < 300
+                    ? theme.c.ok
+                    : theme.c.bad,
+              ),
+              // 上游状态码：0 / 缺失 = 没捕获到（`DetailPanel.tsx:190-208`）。
+              // 这个字段早就解析进来了，详情区就是没这一项。
+              _kv(
+                theme,
+                t.t('logs.upstreamStatus'),
+                detail.upstreamStatusCode == 0
+                    ? t.t('logs.notCaptured')
+                    : '${detail.upstreamStatusCode}',
+              ),
+              // 传输方式（`DetailPanel.tsx:209`）。模型层原先没接这个字段。
+              _kv(
+                theme,
+                t.t('logs.stream'),
+                detail.isStream
+                    ? t.t('logs.streaming')
+                    : t.t('logs.nonStreaming'),
+              ),
+              _kv(
+                theme,
+                t.t('logs.duration'),
+                formatDurationMs(detail.durationMs.toDouble()),
+              ),
+              _kv(
+                theme,
+                t.t('logs.inputTokens'),
+                formatNumber(detail.inputTokens),
+              ),
+              _kv(
+                theme,
+                t.t('logs.outputTokens'),
+                formatNumber(detail.outputTokens),
+              ),
+              _kv(
+                theme,
+                t.t('logs.cacheTokens'),
+                formatNumber(detail.cacheTokens),
+              ),
+            ]),
             if (detail.attempts.isNotEmpty) _attempts(t, theme),
             // 用户侧与上游侧**分开列**：两边受不同开关控制
             // （`log_user_request` / `log_upstream_request`，见项目 CLAUDE.md
             // 的「Proxy 日志」段）。合成一份会让人分不清关掉的是哪个开关。
-            const SizedBox(height: AidogSpace.smd),
-            // 两个 tab 的头：标题 + 协议 + 方向 + 该侧状态码
-            //（`DetailPanel.tsx:263-288`）。
-            Row(
+            const SizedBox(height: 16),
+            // 两个 tab 的头：标题 + 副标题 + 协议 + 该侧状态码
+            //（`primitives.tsx:101-133`）。整条底边 1px，激活那个按钮底边 2px accent。
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                _tabButton(
-                  t,
-                  theme,
-                  index: 0,
-                  title: t.t('logs.userRequest'),
-                  subtitle: 'Client → Proxy',
-                  protocol: protocolLabel(detail.sourceProtocol),
-                  statusCode: detail.statusCode,
+                Row(
+                  children: [
+                    _tabButton(
+                      t,
+                      theme,
+                      index: 0,
+                      title: t.t('logs.userRequest'),
+                      subtitle: 'Client → Proxy',
+                      protocol: protocolLabel(detail.sourceProtocol),
+                      statusCode: detail.statusCode,
+                    ),
+                    _tabButton(
+                      t,
+                      theme,
+                      index: 1,
+                      title: t.t('logs.upstreamRequest'),
+                      subtitle: 'Proxy → Platform',
+                      protocol: protocolLabel(detail.targetProtocol),
+                      statusCode: detail.upstreamStatusCode,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: AidogSpace.sxs),
-                _tabButton(
-                  t,
-                  theme,
-                  index: 1,
-                  title: t.t('logs.upstreamRequest'),
-                  subtitle: 'Proxy → Platform',
-                  protocol: protocolLabel(detail.targetProtocol),
-                  statusCode: detail.upstreamStatusCode,
-                ),
+                const Divider(height: 1, thickness: 1),
               ],
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            const SizedBox(height: 16),
             if (_tab == 0) ...[
               _section(t, theme, 'URL', detail.requestUrl),
               _section(
@@ -1293,8 +1348,10 @@ class _DetailPanelState extends State<_DetailPanel> {
           vertical: AidogSpace.sxs,
         ),
         decoration: BoxDecoration(
-          border: Border.all(color: tone),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          // React：底 = 语义色 8%、边 = 语义色 25%（原先边是全强度，视觉重一截）
+          color: tone.withValues(alpha: 0.08),
+          border: Border.all(color: tone.withValues(alpha: 0.25)),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -1303,7 +1360,10 @@ class _DetailPanelState extends State<_DetailPanel> {
               width: 24,
               child: Text(
                 '#${i + 1}',
-                style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                style: AidogType.numSm.copyWith(
+                  fontSize: 11,
+                  color: theme.c.fg3,
+                ),
               ),
             ),
             Expanded(
@@ -1315,14 +1375,21 @@ class _DetailPanelState extends State<_DetailPanel> {
                     name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AidogType.micro.copyWith(color: theme.c.fg),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: theme.c.fg,
+                    ),
                   ),
                   if (a.error.isNotEmpty)
                     Text(
                       a.error,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(color: theme.c.bad),
+                      style: AidogType.micro.copyWith(
+                        fontSize: 10,
+                        color: theme.c.bad,
+                      ),
                     ),
                 ],
               ),
@@ -1330,7 +1397,8 @@ class _DetailPanelState extends State<_DetailPanel> {
             const SizedBox(width: AidogSpace.ssm),
             Text(
               status,
-              style: AidogType.micro.copyWith(
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
                 color: tone,
                 fontWeight: FontWeight.w600,
               ),
@@ -1338,7 +1406,7 @@ class _DetailPanelState extends State<_DetailPanel> {
             const SizedBox(width: AidogSpace.ssm),
             Text(
               '${a.durationMs}ms',
-              style: AidogType.numSm.copyWith(color: theme.c.fg3),
+              style: AidogType.numSm.copyWith(fontSize: 11, color: theme.c.fg3),
             ),
             IconButton(
               key: ValueKey('attempt-copy-$i'),
@@ -1372,57 +1440,64 @@ class _DetailPanelState extends State<_DetailPanel> {
     // 0 = 没捕获到，直接不渲染。
     final showStatus = statusCode > 0;
     final statusText = '$statusCode';
+    // React（primitives.tsx:104-121）：padding 10/20、13px、激活 w700 +
+    // 底边 2px accent、未激活底边 2px 透明；没有盒子边框，没有淡底。
     return Expanded(
       child: InkWell(
         key: ValueKey('detail-tab-$index'),
         onTap: () => setState(() => _tab = index),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AidogSpace.ssm,
-            vertical: AidogSpace.sxs,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
           decoration: BoxDecoration(
-            color: active ? theme.c.accentWash : null,
-            border: Border.all(
-              color: active ? theme.c.accentEdge : theme.c.line,
-            ),
-            borderRadius: BorderRadius.circular(AidogRadius.sm),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                children: [
-                  Flexible(
-                    child: Text(
-                      title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.label.copyWith(
-                        color: active ? theme.c.accentText : theme.c.fg2,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                  if (protocol.isNotEmpty) ...[
-                    const SizedBox(width: AidogSpace.sxs),
-                    MiniBadge(text: protocol, color: theme.c.fg3),
-                  ],
-                ],
+            border: Border(
+              bottom: BorderSide(
+                width: 2,
+                color: active ? theme.c.accentText : Colors.transparent,
               ),
-              Text(
-                showStatus ? '${ltr(subtitle)} · $statusText' : ltr(subtitle),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AidogType.micro.copyWith(
-                  // 2xx 绿、其余一律红（`primitives.tsx:131-133`）。原先非 2xx
-                  // 画成灰，与 React 的 danger 不一致。
-                  color: statusCode >= 200 && statusCode < 300
-                      ? theme.c.ok
-                      : theme.c.bad,
+            ),
+          ),
+          child: Row(
+            children: [
+              Flexible(
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: active ? theme.c.accentText : theme.c.fg2,
+                    fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                  ),
                 ),
               ),
+              const SizedBox(width: AidogSpace.smd),
+              Text(
+                ltr(subtitle),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
+                ),
+              ),
+              if (protocol.isNotEmpty) ...[
+                const SizedBox(width: AidogSpace.smd),
+                MiniBadge(text: protocol, color: theme.c.fg3),
+              ],
+              if (showStatus) ...[
+                const SizedBox(width: AidogSpace.smd),
+                Text(
+                  statusText,
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    // 2xx 绿、其余一律红（`primitives.tsx:131-133`）。
+                    color: statusCode >= 200 && statusCode < 300
+                        ? theme.c.ok
+                        : theme.c.bad,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -1430,44 +1505,71 @@ class _DetailPanelState extends State<_DetailPanel> {
     );
   }
 
-  /// 元信息一行。[copyText] 非空时行尾挂一颗复制按钮
-  /// （React 的 `MetaItem` 每格都自带，`DetailPanel.tsx:171-214`）；
-  /// [color] 用于状态码那行的绿 / 红。
+  /// 元信息一列（React `MetaItem`）：label 12 tertiary 上、值 15 w600 下，
+  /// 复制按钮随值同行。[color] 用于状态码那格的绿 / 红。
   Widget _kv(
     AidogTheme theme,
     String k,
     String v, {
     String? copyText,
     Color? color,
-  }) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 2),
-    child: Row(
+  }) {
+    final value = v.isEmpty ? '-' : v;
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: 110,
-          child: Text(k, style: AidogType.micro.copyWith(color: theme.c.fg3)),
-        ),
-        Expanded(
+        Padding(
+          padding: const EdgeInsets.only(bottom: 2),
           child: Text(
-            v.isEmpty ? '-' : v,
-            style: AidogType.micro.copyWith(color: color ?? theme.c.fg2),
+            k,
+            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg3),
           ),
         ),
-        if (copyText != null && copyText.isNotEmpty)
-          SizedBox(
-            width: 22,
-            child: IconButton(
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(),
-              iconSize: 12,
-              color: theme.c.fg3,
-              icon: const Icon(Icons.copy_outlined),
-              onPressed: () => widget.onCopy(copyText),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                value,
+                style: AidogType.body.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: color ?? theme.c.fg,
+                ),
+              ),
             ),
-          ),
+            if (copyText != null && copyText.isNotEmpty)
+              SizedBox(
+                width: 22,
+                child: IconButton(
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  iconSize: 12,
+                  color: theme.c.fg3,
+                  icon: const Icon(Icons.copy_outlined),
+                  onPressed: () => widget.onCopy(copyText),
+                ),
+              ),
+          ],
+        ),
       ],
-    ),
+    );
+  }
+
+  /// 元信息区网格：`minmax(160px, 1fr)` gap 14 的 auto-fill 等价实现。
+  Widget _metaGrid(AidogTheme theme, List<Widget> items) => LayoutBuilder(
+    builder: (context, cons) {
+      final cols = (((cons.maxWidth + 14) / (160 + 14)).floor()).clamp(
+        1,
+        items.length,
+      );
+      final w = (cons.maxWidth - (cols - 1) * 14) / cols;
+      return Wrap(
+        spacing: 14,
+        runSpacing: 14,
+        children: [for (final it in items) SizedBox(width: w, child: it)],
+      );
+    },
   );
 
   /// 一个正文区块：小标题 + 正文 + **本块自己的**复制按钮。
@@ -1490,14 +1592,22 @@ class _DetailPanelState extends State<_DetailPanel> {
         ? (emptyText ?? t.t('logs.noUpstream'))
         : prettyJsonOrRaw(body);
     return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.ssm),
+      padding: const EdgeInsets.only(top: AidogSpace.smd),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              TileMeta(title),
+              // React 段落小标题：12 w600 secondary（primitives.tsx:180-183）
+              Text(
+                title,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg2,
+                ),
+              ),
               const Spacer(),
               // 空块没什么可复制的，不画按钮（React：占位串不给复制）。
               if (!empty)
@@ -1517,17 +1627,24 @@ class _DetailPanelState extends State<_DetailPanel> {
             ],
           ),
           const SizedBox(height: 4),
+          // React `.code-block`（globals.css:565-576）：mono 12 lh1.7、
+          // padding 14/16、底 bg-base、1px 边、radius 8；编辑器 minHeight 60。
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(AidogSpace.ssm),
+            constraints: const BoxConstraints(minHeight: 60),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
-              color: theme.c.surface2,
-              borderRadius: BorderRadius.circular(AidogRadius.sm),
+              color: theme.c.bg,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(8),
             ),
             child: SelectableText(
               text,
-              style: AidogType.micro.copyWith(
-                color: empty ? theme.c.fg3 : theme.c.fg2,
+              style: TextStyle(
+                fontFamily: AidogType.familyMono,
+                fontSize: 12,
+                height: 1.7,
+                color: empty ? theme.c.fg3 : theme.c.fg,
               ),
             ),
           ),
