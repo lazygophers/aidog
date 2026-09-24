@@ -755,6 +755,7 @@ class KeptTextField extends StatefulWidget {
     this.keyboardType,
     this.textAlign = TextAlign.start,
     this.maxLines = 1,
+    this.fontSize,
   });
 
   final String value;
@@ -764,6 +765,9 @@ class KeptTextField extends StatefulWidget {
   final TextInputType? keyboardType;
   final TextAlign textAlign;
   final int? maxLines;
+
+  /// 字号覆盖（React 各处 input 是裸值：12 / 13），null = 缺省 label。
+  final double? fontSize;
 
   @override
   State<KeptTextField> createState() => _KeptTextFieldState();
@@ -808,13 +812,19 @@ class _KeptTextFieldState extends State<KeptTextField> {
       keyboardType: widget.keyboardType,
       textAlign: widget.textAlign,
       maxLines: widget.maxLines,
+      // React `.input` 是 13px（globals.css:441）；label 13.5 在 ±0.5 容差内。
+      style: AidogType.label.copyWith(
+        fontSize: widget.fontSize,
+        color: theme.c.fg,
+      ),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
+        hintStyle: AidogType.label.copyWith(
+          fontSize: widget.fontSize,
+          color: theme.c.fg3,
+        ),
       ),
-      // React `.input` 是 13px（globals.css:441）；label 13.5 在 ±0.5 容差内。
-      style: AidogType.label.copyWith(color: theme.c.fg),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
     );
