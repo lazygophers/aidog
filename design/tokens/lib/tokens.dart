@@ -26,6 +26,7 @@ class AidogColors {
   final Color bad;
   final Color liveFill;
   final Color liveEdge;
+  final Color destructive;
   final String liveHalo; // 阴影/none，按平台自行解析
   final String liveRing; // 阴影/none，按平台自行解析
   final String shadowTile; // 阴影/none，按平台自行解析
@@ -53,6 +54,7 @@ class AidogColors {
     required this.bad,
     required this.liveFill,
     required this.liveEdge,
+    required this.destructive,
     required this.liveHalo,
     required this.liveRing,
     required this.shadowTile,
@@ -75,14 +77,15 @@ class AidogColors {
     accentWash: Color(0x0FFFFFFF),
     glow: Color(0xFFFFFFFF),
     dataPrimary: Color(0xFF5E6AD2),
-    ok: Color(0xFF4CB782),
-    peak: Color(0xFFF2C94C),
+    ok: Color(0xFF5A8A6A),
+    peak: Color(0xFFB8984A),
     peakIdle: Color(0x0DFFFFFF),
-    bad: Color(0xFFEB5757),
+    bad: Color(0xFFB07070),
     liveFill: Color(0x21FFFFFF),
     liveEdge: Color(0x40FFFFFF),
+    destructive: Color(0xFFEB5757),
     liveHalo: "0 0 18px -6px rgba(255,255,255,.55)",
-    liveRing: "0 0 0 3px rgba(76,183,130,.16)",
+    liveRing: "0 0 0 3px rgba(90,138,106,.16)",
     shadowTile: "none",
     shadowFloat: "0 24px 64px -16px rgba(0,0,0,.9)",
   );
@@ -103,14 +106,15 @@ class AidogColors {
     accentWash: Color(0x1A4E59C4),
     glow: Color(0xFF090A0C),
     dataPrimary: Color(0xFF4E59C4),
-    ok: Color(0xFF2E9367),
-    peak: Color(0xFFE9A400),
+    ok: Color(0xFF6B9E7A),
+    peak: Color(0xFFC9A35C),
     peakIdle: Color(0xFFE7E9EC),
-    bad: Color(0xFFC93B3B),
+    bad: Color(0xFFC47A7A),
     liveFill: Color(0x174E59C4),
     liveEdge: Color(0x664E59C4),
+    destructive: Color(0xFFC93B3B),
     liveHalo: "none",
-    liveRing: "0 0 0 3px rgba(46,147,103,.18)",
+    liveRing: "0 0 0 3px rgba(107,158,122,.18)",
     shadowTile: "0 1px 2px rgba(9,10,12,.05)",
     shadowFloat: "0 18px 44px -14px rgba(9,10,12,.22)",
   );

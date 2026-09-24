@@ -20,13 +20,10 @@ void main() {
       expect(p.series(-3), p.primary);
     });
 
-    test('index 1..4 按序取四级灰阶', () {
+    test('index 1..4 按序取四级灰阶（React --chart-2..5 的固定 hex，2026-09-25 批次一）', () {
+      const expected = [0xFF737373, 0xFF525252, 0xFF404040, 0xFF262626];
       for (var i = 1; i <= 4; i++) {
-        expect(
-          p.series(i),
-          AidogColors.dark.fg2.withValues(alpha: kAuxAlphas[i - 1]),
-          reason: 'series($i)',
-        );
+        expect(p.series(i).toARGB32(), expected[i - 1], reason: 'series($i)');
       }
       // 四档互不相同，否则「灰阶」名存实亡
       expect({for (var i = 1; i <= 4; i++) p.series(i)}.length, 4);
@@ -74,11 +71,9 @@ void main() {
       expect(ChartPalette.heatAlpha(2), ChartPalette.heatAlpha(1));
     });
 
-    test('色相取主色，只有 alpha 在动', () {
+    test('色源固定琥珀 #e8c547（React HEAT_RGB），只有 alpha 在动', () {
       final c = p.heat(0.5);
-      expect(c.r, p.primary.r);
-      expect(c.g, p.primary.g);
-      expect(c.b, p.primary.b);
+      expect(c.toARGB32() & 0xFFFFFF, 0xE8C547);
       expect(c.a, closeTo(ChartPalette.heatAlpha(0.5), 1 / 255));
     });
   });
