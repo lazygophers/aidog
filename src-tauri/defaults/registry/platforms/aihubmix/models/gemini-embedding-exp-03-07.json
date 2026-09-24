@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "gemini-embedding-exp-03-07",
   "canonical_model": "gemini-embedding-exp-03-07",
-  "display_name": "Gemini Embedding",
+
+  "family": "gemini",  "display_name": "Gemini Embedding",
   "capabilities": [
     "embedding"
   ],

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "gpt-image-test",
   "canonical_model": "gpt-image-test",
-  "display_name": "GPT Image Test",
+
+  "family": "gpt",  "display_name": "GPT Image Test",
   "capabilities": [],
   "official": false,
   "price": {

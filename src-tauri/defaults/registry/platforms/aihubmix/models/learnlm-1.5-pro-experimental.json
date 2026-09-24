@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "learnlm-1.5-pro-experimental",
   "canonical_model": "learnlm-1.5-pro-experimental",
-  "display_name": "Learnlm 1.5 Pro Experimental",
+
+  "version": "1.5",
+  "family": "learnlm",  "display_name": "Learnlm 1.5 Pro Experimental",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "wan3.0-video-prime",
   "canonical_model": "wan3.0-video-prime",
-  "display_name": "Wan3.0 Video Prime",
+
+  "version": "3.0",
+  "family": "wan",  "display_name": "Wan3.0 Video Prime",
   "capabilities": [
     "vision",
     "text_to_video",

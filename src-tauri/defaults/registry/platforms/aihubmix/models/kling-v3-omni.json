@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "kling-v3-omni",
   "canonical_model": "kling-v3-omni",
-  "display_name": "Kling V3 Omni",
+
+  "version": "3",
+  "family": "kling",  "display_name": "Kling V3 Omni",
   "capabilities": [
     "vision",
     "text_to_video",

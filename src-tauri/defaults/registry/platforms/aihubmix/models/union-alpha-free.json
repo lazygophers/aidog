@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "union-alpha-free",
   "canonical_model": "union-alpha-free",
-  "display_name": "Union Alpha (free)",
+
+  "family": "union",  "display_name": "Union Alpha (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

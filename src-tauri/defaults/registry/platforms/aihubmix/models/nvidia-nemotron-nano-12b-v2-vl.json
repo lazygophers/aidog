@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "nvidia-nemotron-nano-12b-v2-vl",
   "canonical_model": "nvidia-nemotron-nano-12b-v2-vl",
-  "display_name": "Nvidia Nemotron Nano 12B V2 VL",
+
+  "version": "2",
+  "family": "nemotron",  "display_name": "Nvidia Nemotron Nano 12B V2 VL",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "ernie-4.5",
   "canonical_model": "ernie-4.5",
-  "display_name": "ERNIE 4.5",
+
+  "version": "4.5",
+  "family": "ernie",  "display_name": "ERNIE 4.5",
   "max_output_tokens": 64000,
   "context_window": 160000,
   "capabilities": [],

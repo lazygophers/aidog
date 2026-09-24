@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "jina-deepsearch-v1",
   "canonical_model": "jina-deepsearch-v1",
-  "thinking_supported": true,
+
+  "version": "1",
+  "family": "jina",  "thinking_supported": true,
   "context_window": 1000000,
   "display_name": "Jina DeepSearch",
   "capabilities": [],

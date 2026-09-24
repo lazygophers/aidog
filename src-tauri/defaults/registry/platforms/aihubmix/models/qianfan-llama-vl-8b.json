@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "qianfan-llama-vl-8b",
   "canonical_model": "llama-vl-8b",
-  "display_name": "Qianfan Llama VL 8B",
+
+  "family": "qianfan",  "display_name": "Qianfan Llama VL 8B",
   "capabilities": [],
   "official": false,
   "price": {

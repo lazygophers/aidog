@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790279972,
   "model_id": "qwen3-next-80b-a3b-thinking",
   "canonical_model": "qwen3-next-80b-a3b-thinking",
   "display_name": "Qwen3 Next 80B A3B Thinking",
   "family": "qwen",
-  "capabilities": [
+
+  "version": "3",  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,

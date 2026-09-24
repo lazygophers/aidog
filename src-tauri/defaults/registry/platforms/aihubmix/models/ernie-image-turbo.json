@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "ernie-image-turbo",
   "canonical_model": "ERNIE-Image-Turbo",
-  "display_name": "ERNIE Image Turbo",
+
+  "family": "ernie",  "display_name": "ERNIE Image Turbo",
   "capabilities": [
     "text_to_image"
   ],

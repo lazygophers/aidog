@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "ling-3.0-flash-free",
   "canonical_model": "ling-3.0-flash-free",
-  "display_name": "Ling 3.0 Flash (free)",
+
+  "version": "3.0",
+  "family": "ling",  "display_name": "Ling 3.0 Flash (free)",
   "context_window": 262144,
   "capabilities": [],
   "official": false,

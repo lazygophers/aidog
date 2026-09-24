@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "xiaomi-mimo-v2.5-free",
   "canonical_model": "xiaomi-mimo-v2.5-free",
-  "display_name": "Xiaomi Mimo V2.5 (free)",
+
+  "version": "2.5",
+  "family": "mimo",  "display_name": "Xiaomi Mimo V2.5 (free)",
   "max_output_tokens": 131072,
   "context_window": 1048576,
   "capabilities": [],

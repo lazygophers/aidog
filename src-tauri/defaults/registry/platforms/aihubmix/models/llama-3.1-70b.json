@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "llama-3.1-70b",
   "canonical_model": "llama-3.1-70b",
-  "display_name": "Llama 3.1 70B",
+
+  "family": "llama",  "display_name": "Llama 3.1 70B",
   "capabilities": [],
   "official": false,
   "price": {

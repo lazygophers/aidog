@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "qwen-max-0125",
   "canonical_model": "qwen-max-0125",
-  "display_name": "Qwen Max 0125",
+
+  "family": "qwen",  "display_name": "Qwen Max 0125",
   "capabilities": [],
   "official": false,
   "price": {

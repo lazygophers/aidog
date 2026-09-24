@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "doubao-seed-2-0-code-preview",
   "canonical_model": "doubao-seed-2-0-code-preview",
-  "display_name": "Doubao Seed 2.0 Code Preview",
+
+  "version": "2.0",
+  "family": "doubao-seed",  "display_name": "Doubao Seed 2.0 Code Preview",
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "context_window": 256000,

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "deepinfra-llama-3.3-70b-instant-turbo",
   "canonical_model": "llama-3.3-70b-instant-turbo",
-  "display_name": "Deepinfra Llama 3.3 70B Instant Turbo",
+
+  "family": "llama",  "display_name": "Deepinfra Llama 3.3 70B Instant Turbo",
   "capabilities": [],
   "official": false,
   "price": {

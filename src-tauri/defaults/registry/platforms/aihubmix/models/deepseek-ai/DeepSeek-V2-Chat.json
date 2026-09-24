@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "deepseek-ai/DeepSeek-V2-Chat",
   "canonical_model": "deepseek-v2-chat",
-  "display_name": "DeepSeek V2 Chat",
+
+  "version": "2",
+  "family": "deepseek",  "display_name": "DeepSeek V2 Chat",
   "capabilities": [],
   "official": false,
   "price": {

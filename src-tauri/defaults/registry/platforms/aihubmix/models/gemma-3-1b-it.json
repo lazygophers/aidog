@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "gemma-3-1b-it",
   "canonical_model": "gemma-3-1b-it",
-  "display_name": "Gemma 3 1B It",
+
+  "version": "3",
+  "family": "gemma",  "display_name": "Gemma 3 1B It",
   "capabilities": [],
   "official": false,
   "price": {

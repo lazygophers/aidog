@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "UPSCALE",
   "canonical_model": "upscale",
-  "display_name": "Upscale",
+
+  "family": "vidu",  "display_name": "Upscale",
   "capabilities": [
     "vision",
     "text_to_image",

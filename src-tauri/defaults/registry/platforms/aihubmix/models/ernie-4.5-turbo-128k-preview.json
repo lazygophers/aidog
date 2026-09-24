@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "ernie-4.5-turbo-128k-preview",
   "canonical_model": "ernie-4.5-turbo-128k-preview",
-  "display_name": "ERNIE 4.5 Turbo 128K Preview",
+
+  "version": "4.5",
+  "family": "ernie",  "display_name": "ERNIE 4.5 Turbo 128K Preview",
   "capabilities": [],
   "official": false,
   "price": {

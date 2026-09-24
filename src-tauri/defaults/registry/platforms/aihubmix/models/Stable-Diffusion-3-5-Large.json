@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "Stable-Diffusion-3-5-Large",
   "canonical_model": "stable-diffusion-3-5-large",
-  "display_name": "Stable Diffusion 3.5 Large",
+
+  "version": "3.5",
+  "family": "stable",  "display_name": "Stable Diffusion 3.5 Large",
   "capabilities": [
     "vision",
     "text_to_image",

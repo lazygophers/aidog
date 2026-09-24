@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "jina-reranker-m0",
   "canonical_model": "jina-reranker-m0",
-  "display_name": "Jina Reranker M0",
+
+  "family": "jina",  "display_name": "Jina Reranker M0",
   "capabilities": [
     "vision",
     "rerank"
