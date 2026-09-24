@@ -1,13 +1,13 @@
 {
   "last_updated": 1790250918,
-  "model_id": "gpt-image-2",
-  "canonical_model": "gpt-image-2",
+  "model_id": "gpt-image-2.5-sunburst",
+  "canonical_model": "gpt-image-2.5-sunburst",
   "capabilities": [
     "text_to_image"
   ],
   "official": false,
   "price": {
     "unit": "image",
-    "unit_price": 0.0377
+    "unit_price": 0.058
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790250918,
   "model_id": "gpt-5.5",
   "canonical_model": "gpt-5.5",
   "family": "gpt",
@@ -13,6 +13,14 @@
   "price": {
     "input": 3.25e-06,
     "output": 1.95e-05,
-    "cache_read": 3.25e-07
+    "cache_read": 3.25e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 6.5e-06,
+        "output": 2.925e-05,
+        "cache_read": 6.5e-07
+      }
+    ]
   }
 }
