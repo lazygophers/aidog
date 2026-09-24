@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788086218,
+  "last_updated": 1790277180,
   "model_id": "gpt-5",
   "canonical_model": "gpt-5",
+  "family": "gpt",
+  "version": "5",
   "capabilities": [
     "text"
   ],

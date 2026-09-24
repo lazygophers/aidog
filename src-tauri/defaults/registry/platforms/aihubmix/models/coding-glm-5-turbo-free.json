@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "coding-glm-5-turbo-free",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5",
   "display_name": "Coding GLM 5 Turbo (free)",
   "thinking_supported": true,
   "capabilities": [

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790277180,
   "model_id": "claude-opus-4-8",
   "canonical_model": "claude-opus-4-8",
   "family": "claude",
+  "version": "4.8",
   "thinking_supported": true,
   "capabilities": [
     "text"

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788103292,
+  "last_updated": 1790277180,
   "model_id": "gpt-4.1",
   "canonical_model": "gpt-4.1",
+  "family": "gpt",
+  "version": "4.1",
   "capabilities": [
     "text"
   ],

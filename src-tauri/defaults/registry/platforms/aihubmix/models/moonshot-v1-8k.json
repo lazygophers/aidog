@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "moonshot-v1-8k",
   "canonical_model": "moonshot-v1-8k",
+  "family": "moonshot",
+  "version": "1",
   "display_name": "Moonshot V1 8K",
   "capabilities": [],
   "official": false,

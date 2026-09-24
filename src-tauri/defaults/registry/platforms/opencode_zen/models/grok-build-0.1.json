@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790277180,
   "model_id": "grok-build-0.1",
   "canonical_model": "grok-build-0.1",
+  "family": "grok",
+  "version": "0.1",
   "capabilities": [
     "text"
   ],

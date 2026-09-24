@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "aihubmix-Llama-3-1-70B-Instruct",
   "canonical_model": "llama-3.1-70b-instruct",
+  "family": "llama",
+  "version": "3.1",
   "display_name": "Aihubmix Llama 3.1 70B Instruct",
   "capabilities": [],
   "official": false,

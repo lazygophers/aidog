@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "doubao-seed-2-0-pro",
   "canonical_model": "doubao-seed-2-0-pro",
+  "family": "doubao-seed",
+  "version": "2.0",
   "display_name": "Doubao Seed 2.0 Pro",
   "thinking_supported": true,
   "capabilities": [
