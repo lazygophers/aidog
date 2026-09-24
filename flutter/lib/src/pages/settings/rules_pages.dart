@@ -370,6 +370,14 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
+                    t.t('middleware.globalRules'),
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AidogTheme.of(context).c.fg,
+                    ),
+                  ),
+                  Text(
                     t.t('middleware.globalRulesHint'),
                     style: AidogType.label.copyWith(
                       fontSize: 13,
@@ -483,10 +491,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         child: Container(
           // 玻璃盒行：r-sm、padding 10/14、1px 边框（failed 红）
           //（`MiddlewareRules.tsx:905-914`）。
-          padding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 10,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: theme.c.surface2,
             border: Border.all(color: r.failed ? theme.c.bad : theme.c.line),
@@ -653,11 +658,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
               children: [
                 // 只读时先说清为什么点不动（`MiddlewareRules.tsx:721-727`）。
                 Text(
-                  tOr(
-                    t,
-                    'middleware.builtinReadonlyHint',
-                    '内置规则只可启停，内容不可修改',
-                  ),
+                  tOr(t, 'middleware.builtinReadonlyHint', '内置规则只可启停，内容不可修改'),
                   style: AidogType.caption.copyWith(
                     fontSize: 11,
                     color: AidogTheme.of(context).c.fg3,
@@ -841,8 +842,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         child: NumberInput(
           value: '${d.priority}',
           width: 120,
-          onChanged: (v) =>
-              setState(() => d.priority = int.tryParse(v) ?? 0),
+          onChanged: (v) => setState(() => d.priority = int.tryParse(v) ?? 0),
         ),
       ),
       const SizedBox(height: AidogSpace.smd),

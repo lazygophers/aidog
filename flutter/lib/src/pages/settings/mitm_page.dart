@@ -76,11 +76,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
         // 三处都是 `{enabled && ...}`，URL 命中测试在白名单那块里面）。
         // 原先这四张卡无条件渲染：开关关着照样能装 CA、改白名单、跑命中测试，
         // 改完却一条都不生效，也没人告诉你为什么。
-        if (_c.enabled) ...[
-          _riskCard(t),
-          _caCard(t),
-          _whitelistCard(t),
-        ],
+        if (_c.enabled) ...[_riskCard(t), _caCard(t), _whitelistCard(t)],
         if (_c.showClearConfirm)
           ConfirmCard(
             title: t.t('mitm.clear'),
@@ -114,9 +110,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: theme.c.surface,
-          border: Border(
-            left: BorderSide(color: theme.c.peak, width: 3),
-          ),
+          border: Border(left: BorderSide(color: theme.c.peak, width: 3)),
           borderRadius: BorderRadius.circular(AidogRadius.md),
         ),
         child: Column(
@@ -305,10 +299,9 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                       child: SmallButton(
                         key: const ValueKey('mitm-copy-command'),
                         label: t.t('logs.copy'),
-                        onTap: () =>
-                            (widget.copyFn ?? native.writeText)(
-                              manual.manualDisplay,
-                            ),
+                        onTap: () => (widget.copyFn ?? native.writeText)(
+                          manual.manualDisplay,
+                        ),
                       ),
                     ),
                   ],
@@ -396,10 +389,10 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
                   onTap: _c.busy
                       ? null
                       : () => _c.importDefaults(
-                          (imported, skipped) => t.t('mitm.importDefaultsDone', {
-                            'imported': imported,
-                            'skipped': skipped,
-                          }),
+                          (imported, skipped) => t.t(
+                            'mitm.importDefaultsDone',
+                            {'imported': imported, 'skipped': skipped},
+                          ),
                         ),
                 ),
                 const SizedBox(width: AidogSpace.ssm),
@@ -422,15 +415,18 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
               runSpacing: AidogSpace.ssm,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                InlineSelect<String>(
-                  key: const ValueKey('mitm-rule-type'),
-                  value: _c.newRuleType.wire,
-                  options: WhitelistRuleType.values
-                      .map((e) => e.wire)
-                      .toList(),
-                  width: 120,
-                  onChanged: (v) =>
-                      _c.setNewRuleType(WhitelistRuleType.parse(v!)),
+                Tooltip(
+                  message: t.t('mitm.ruleTypeLabel'),
+                  child: InlineSelect<String>(
+                    key: const ValueKey('mitm-rule-type'),
+                    value: _c.newRuleType.wire,
+                    options: WhitelistRuleType.values
+                        .map((e) => e.wire)
+                        .toList(),
+                    width: 120,
+                    onChanged: (v) =>
+                        _c.setNewRuleType(WhitelistRuleType.parse(v!)),
+                  ),
                 ),
                 SizedBox(
                   width: 320,
@@ -561,7 +557,11 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
   }
 
   /// 10px 徽标（2/6、r4、wash 底 + secondary 字，`MitmConfig.tsx:548-579`）。
-  Widget _wlBadge(AidogTheme theme, {required String text, required Color color}) {
+  Widget _wlBadge(
+    AidogTheme theme, {
+    required String text,
+    required Color color,
+  }) {
     final theme = AidogTheme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -571,10 +571,7 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
       ),
       child: Text(
         text,
-        style: AidogType.caption.copyWith(
-          fontSize: 10,
-          color: theme.c.fg2,
-        ),
+        style: AidogType.caption.copyWith(fontSize: 10, color: theme.c.fg2),
       ),
     );
   }
@@ -684,7 +681,6 @@ class _MitmSettingsPageState extends State<MitmSettingsPage> {
       };
 
   // ── URL 命中测试 ────────────────────────────────────────
-
 }
 
 /// 装 CA 失败时的诊断块（`MitmConfig.tsx:362-375`）：等宽、可选中、能整段复制走。
