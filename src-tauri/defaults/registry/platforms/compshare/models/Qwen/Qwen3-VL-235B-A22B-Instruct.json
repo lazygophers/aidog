@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790269926,
   "model_id": "Qwen/Qwen3-VL-235B-A22B-Instruct",
   "canonical_model": "qwen3-vl-235b-a22b-instruct",
+  "family": "qwen",
   "capabilities": [
     "text",
     "vision"
