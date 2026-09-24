@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790272826,
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
+  "family": "davinci",
+  "version": "002",
   "capabilities": [
     "text"
   ],
