@@ -1,12 +1,12 @@
 {
-  "last_updated": 1790268690,
+  "last_updated": 1790287023,
   "model_id": "qwen3-max",
   "canonical_model": "qwen3-max",
   "family": "qwen",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 258048,
   "max_output_tokens": 65536,
   "context_window": 262144,
   "official": true,

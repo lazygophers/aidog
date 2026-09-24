@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790287023,
   "model_id": "zai-glm-5-2",
   "canonical_model": "glm-5.2",
   "version": "5.2",
@@ -12,7 +12,7 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
-  "context_window": 1000000,
+  "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
