@@ -256,3 +256,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   mistral 26（dated 按 YY.MM 约定）；27 格官方未公布留缺省（非 token 计价类无 ctx）。
   与 gemini 镜像 6 条重叠零冲突。门禁全绿。覆盖率 family 48.6% / version 25.7%。
 - 三轮官方造锚完成（gemini/openai/anthropic/xai/mistral），镜像三轮平移待跑。
+- 2026-09-25 第 39/40 轮三轮平移：六平台 `fa3a757d`→merge `7f64f43a2`（39 文件 67 格）
+  + 五平台 `03b76559d`（50 文件：litellm 22 / aihubmix 28）。compshare/novita 余量
+  根因：minimax 官方条目自身 family/version None。覆盖率 family 49.2% / version 26.7% /
+  ctx 76.5%。门禁全绿。
