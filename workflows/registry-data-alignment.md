@@ -135,3 +135,30 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   含点号/大小写/下划线。
 - 第 15 轮 crazyrouter 进行中；后续队列按缺失量：novita 276 / nvidia 254 / atlascloud 244 /
   openai 231 / siliconflow 182 / doubao 123。
+- 2026-09-24 第 15 轮 crazyrouter `e907a6011`（65 文件，官方 /api/pricing 全量对齐，
+  141 → 153 条）：新增 13 在售模型（gemini-3.8-flash、glm-5.3-flashx、gpt-6-luna/sol、
+  gpt-image-2-t、gpt-image-2.5-flare/sunburst、kimi-k2.7-code(+highspeed)、
+  mimo-v2.5-pro、mimo-v2.6-flash/pro、qwen3.8-flash）；下架 gpt-5.5-pro；49 条价格/
+  分档修正。**平台计价口径（本轮确立）**：crazyrouter = new-api 聚合站，
+  $/1M = model_ratio×$2×discount；registry 存折扣后实价（站内自洽，与 aihubmix
+  存原价的惯例不同）。**billing_expr 模型以表达式系数×折扣为准**，model_ratio 相悖时
+  证伪 ratio（gpt-6-astra 站点展示 $6.5 = expr 10×0.65 而非 ratio 5×0.65=3.25；
+  gpt-5.6-sol 同）；tier-2（>272k）系数 = tier-1 的 input×2 / output×1.5 /
+  cache_read×2；expr 无 cr 系数但 cache_ratio_configured=true 时 cache_read =
+  条目价×cache_ratio（gpt-5.4-pro 30×1×0.85 两径同值）；expr 无 cc 且
+  cache_creation_priced=false → 不写 cache_write（删 gpt-5.6-luna 误写的 8.125e-08）。
+  其余：claude cache_write 尾数修正（4.063e-06→4.0625e-06 ×6、2.438e-06→2.4375e-06
+  ×2）、claude-sonnet-5 整族实价、per-call 按折扣实价（kling 0.0425→0.0255、
+  gpt-image-2 0.058→0.0377、nano-banana-pro 0.134→0.0737 等）、补 gpt-5.5 /
+  gpt-5.4-pro 长上下文 context_tiers。peak 窗口（北京工作日 9-12/14-18）未动。
+  未登记 6 条：hy-3d-3.0/3.1/component（schema capabilities 无 3D 枚举）、
+  jev-1.13（endpoint 仅 decisions 类型，平台三端点不可路由）、kimi-k2.8-preview /
+  mimo-v2.6-pro-ultraspeed（官方未公布 context_window）。NO_OFFICIAL_CHANNEL +5
+  （gpt-6-luna/sol、gpt-image-2-t/2.5-flare/2.5-sunburst：openai 官方平台 registry
+  滞后未收，官方一手价无来源禁以聚合折扣价代写；openai 对齐轮补条后应移除）。
+  遗留：crazyrouter 详情页 thinking 逐页核对未做；gpt-image-2-t 命名与 OpenAI
+  官方 id 对应关系未核。门禁：bump 62 文件 / check-registry 4572 文件通过 /
+  aidog_db 351 passed 全绿。官方来源：
+  https://crazyrouter.com/api/pricing（主）+
+  https://r.jina.ai/https://crazyrouter.com/pricing（展示价交叉验证）；
+  /v1/models 401（需令牌）。
