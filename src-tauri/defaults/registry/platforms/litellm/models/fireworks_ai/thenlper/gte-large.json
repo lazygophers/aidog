@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/thenlper/gte-large",
   "canonical_model": "gte-large",
+  "family": "gte",
   "capabilities": [
     "embedding"
   ],

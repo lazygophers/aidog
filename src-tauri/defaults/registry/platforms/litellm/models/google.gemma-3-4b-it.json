@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790283197,
   "model_id": "google.gemma-3-4b-it",
   "canonical_model": "google-gemma-3-4b-it",
+  "family": "gemma",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1-distill-qwen-32b",
   "canonical_model": "deepseek-r1-distill-qwen-32b",
+  "version": "r1",
   "family": "deepseek",
   "capabilities": [
     "text"

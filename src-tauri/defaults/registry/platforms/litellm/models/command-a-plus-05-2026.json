@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "command-a-plus-05-2026",
   "canonical_model": "command-a-plus-05-2026",
+  "family": "command",
   "capabilities": [
     "text",
     "vision",

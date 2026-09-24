@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "fal_ai/fal-ai/stable-diffusion-v35-medium",
   "canonical_model": "stable-diffusion-v35-medium",
+  "family": "stable-diffusion",
+  "version": "3.5",
   "capabilities": [
     "text_to_image"
   ],

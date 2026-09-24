@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790283197,
   "model_id": "gemini-robotics-er-1.5-preview",
   "canonical_model": "gemini-robotics-er-1.5-preview",
+  "family": "gemini",
+  "version": "1.5",
   "thinking_supported": true,
   "capabilities": [
     "text"

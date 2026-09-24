@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/FW-Nemotron-3-Ultra-NVFP4",
   "canonical_model": "FW-Nemotron-3-Ultra-NVFP4",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use",
