@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788088124,
+  "last_updated": 1790273374,
   "model_id": "MiniMaxAI/MiniMax-M3",
   "canonical_model": "MiniMax-M3",
+  "version": "3",
   "display_name": "MiniMax-M3",
   "family": "minimax",
   "capabilities": [
