@@ -255,7 +255,7 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
               decoration: InputDecoration(
                 isDense: true,
                 hintText: t.t('platform.paste.placeholder'),
-                hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+                hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
               ),
               style: AidogType.numSm.copyWith(color: theme.c.fg),
               onChanged: _onTextChanged,

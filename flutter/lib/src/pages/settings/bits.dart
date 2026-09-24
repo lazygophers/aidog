@@ -298,12 +298,12 @@ class _TextRowState extends State<TextRow> {
                       ? null
                       : (widget.minLines ?? 1),
                   obscureText: widget.obscure,
-                  style: (widget.mono ? AidogType.numSm : AidogType.micro)
+                  style: (widget.mono ? AidogType.numSm : AidogType.label)
                       .copyWith(color: enabled ? theme.c.fg : theme.c.fg3),
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: widget.hint,
-                    hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+                    hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
                   ),
                   onChanged: widget.onChanged,
                   onSubmitted: (v) {
@@ -941,13 +941,13 @@ class _PlainTextFieldState extends State<PlainTextField> {
       keyboardType: widget.maxLines == 1
           ? TextInputType.text
           : TextInputType.multiline,
-      style: AidogType.micro.copyWith(
+      style: AidogType.label.copyWith(
         color: widget.enabled ? theme.c.fg : theme.c.fg3,
       ),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
       ),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,

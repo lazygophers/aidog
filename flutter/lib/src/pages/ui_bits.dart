@@ -725,9 +725,10 @@ class _KeptTextFieldState extends State<KeptTextField> {
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
       ),
-      style: AidogType.micro.copyWith(color: theme.c.fg),
+      // React `.input` 是 13px（globals.css:441）；label 13.5 在 ±0.5 容差内。
+      style: AidogType.label.copyWith(color: theme.c.fg),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
     );
@@ -931,13 +932,13 @@ class _NumberInputState extends State<NumberInput> {
                 RegExp(widget.decimal ? r'[0-9.]' : r'[0-9]'),
               ),
             ],
-            style: AidogType.micro.copyWith(
+            style: AidogType.label.copyWith(
               color: enabled ? theme.c.fg : theme.c.fg3,
             ),
             decoration: InputDecoration(
               isDense: true,
               hintText: widget.hint,
-              hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+              hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
             ),
             onChanged: _onTyped,
             onSubmitted: _commit,

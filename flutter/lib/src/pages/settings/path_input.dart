@@ -298,7 +298,7 @@ class _PathInputRowState extends State<PathInputRow> {
         key: const ValueKey('path-input'),
         controller: _ctrl,
         focusNode: _focus,
-        style: AidogType.micro.copyWith(color: theme.c.fg),
+        style: AidogType.label.copyWith(color: theme.c.fg),
         decoration: InputDecoration(
           isDense: true,
           hintText:
@@ -306,7 +306,7 @@ class _PathInputRowState extends State<PathInputRow> {
               (_isDirPicker
                   ? t.t('settings.editor.dirOrInputPh')
                   : t.t('settings.editor.fileOrInputPh')),
-          hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+          hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
         ),
         onChanged: (v) {
           widget.onChanged(v.isEmpty ? null : v);

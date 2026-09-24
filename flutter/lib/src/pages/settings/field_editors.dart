@@ -176,7 +176,7 @@ class _KvEditorState extends State<KvEditor> {
               child: TextField(
                 key: ValueKey('${widget.idPrefix}-new-key'),
                 controller: _newKey,
-                style: AidogType.micro.copyWith(
+                style: AidogType.label.copyWith(
                   color: AidogTheme.of(context).c.fg,
                 ),
                 decoration: InputDecoration(
@@ -191,7 +191,7 @@ class _KvEditorState extends State<KvEditor> {
               child: TextField(
                 key: ValueKey('${widget.idPrefix}-new-val'),
                 controller: _newVal,
-                style: AidogType.micro.copyWith(
+                style: AidogType.label.copyWith(
                   color: AidogTheme.of(context).c.fg,
                 ),
                 decoration: const InputDecoration(
@@ -301,7 +301,7 @@ class _KvSelectEditorState extends State<KvSelectEditor> {
               child: TextField(
                 key: ValueKey('${widget.idPrefix}-new-key'),
                 controller: _newKey,
-                style: AidogType.micro.copyWith(
+                style: AidogType.label.copyWith(
                   color: AidogTheme.of(context).c.fg,
                 ),
                 decoration: InputDecoration(
@@ -408,7 +408,7 @@ class _StringListEditorState extends State<StringListEditor> {
             child: TextField(
               key: ValueKey('${widget.idPrefix}-new'),
               controller: _draft,
-              style: AidogType.micro.copyWith(
+              style: AidogType.label.copyWith(
                 color: AidogTheme.of(context).c.fg,
               ),
               decoration: InputDecoration(
