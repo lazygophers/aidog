@@ -260,3 +260,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   + 五平台 `03b76559d`（50 文件：litellm 22 / aihubmix 28）。compshare/novita 余量
   根因：minimax 官方条目自身 family/version None。覆盖率 family 49.2% / version 26.7% /
   ctx 76.5%。门禁全绿。
+- 2026-09-25 第 41 轮 glm/doubao `545987b9`（174 文件）：glm 系 122 格 + doubao 48
+  文件（产品线名火山官方逐字证实）；glm-5-turbo version 分裂按官方组多数修正 3 镜像。
+  第 42 轮 kimi/minimax/deepseek/stepfun/meta `162ffa7cf`→merge `4248a2692`（140 文件
+  247 格）。覆盖率 family 52.6% / version 29.6%。第 43 轮镜像四轮平移、第 44 轮中小
+  官方平台（modelscope/qianfan/byteplus/opencode/sensenova/xiaomi_mimo/longcat/devin）
+  补齐进行中。
