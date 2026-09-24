@@ -308,6 +308,15 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "gpt-image-2-t",
     "gpt-image-2.5-flare",
     "gpt-image-2.5-sunburst",
+// New Novita-only reseller entries with no official platform in registry.
+    "deepseek/deepseek-v4.1-flash-p",
+    "deepseek/deepseek-v4.1-flash",
+    "qwen/qwen3-embedding-0.6b",
+    "qwen/qwen3-embedding-8b",
+    "inclusionai/ling-3.0-flash-vl",
+    "inclusionai/ling-3.0-flash-sante",
+    "baai/bge-m3",
+
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，

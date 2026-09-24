@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen-mt-plus",
   "canonical_model": "qwen-mt-plus",
   "capabilities": [
@@ -8,7 +8,8 @@
   "official": true,
   "price": {
     "input": 2.5e-07,
-    "output": 7.5e-07
+    "output": 7.5e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 16384,
   "context_window": 16384,

@@ -1,10 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "xiaomimimo/mimo-v2.5",
   "canonical_model": "mimo-v2.5",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 1.6800000000000002e-07,

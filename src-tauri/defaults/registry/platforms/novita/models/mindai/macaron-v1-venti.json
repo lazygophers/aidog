@@ -1,15 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "mindai/macaron-v1-venti",
   "canonical_model": "macaron-v1-venti",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
-    "input": 1.5e-06,
-    "output": 4.5e-06,
-    "cache_read": 3e-07
+    "input": 8.249999999999999e-07,
+    "output": 2.475e-06,
+    "cache_read": 1.65e-07
   },
   "max_input_tokens": 1048576,
   "context_window": 1048576,

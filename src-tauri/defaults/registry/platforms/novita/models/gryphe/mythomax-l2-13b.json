@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "gryphe/mythomax-l2-13b",
   "canonical_model": "mythomax-l2-13b",
   "capabilities": [
@@ -8,7 +8,8 @@
   "official": false,
   "price": {
     "input": 9e-08,
-    "output": 9e-08
+    "output": 9e-08,
+    "cache_read": 0
   },
   "max_input_tokens": 4096,
   "context_window": 4096,

@@ -1,17 +1,16 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "openai/gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
   "family": "gpt",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": false,
   "price": {
     "input": 5.0000000000000004e-08,
-    "output": 2.5e-07
+    "output": 2.5e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 131072,
   "context_window": 131072,

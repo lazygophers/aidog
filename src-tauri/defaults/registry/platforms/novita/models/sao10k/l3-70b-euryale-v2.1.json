@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788168301,
+  "last_updated": 1790262613,
   "model_id": "sao10k/l3-70b-euryale-v2.1",
   "canonical_model": "l3-70b-euryale-v2.1",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use"],
   "official": true,
   "price": {
     "input": 1.48e-06,
-    "output": 1.48e-06
+    "output": 1.48e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 8192,
   "context_window": 8192,
