@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1790275340,
   "model_id": "mistral-ocr-2606",
   "canonical_model": "mistral-ocr-2606",
   "capabilities": [],
   "official": true,
   "family": "mistral",
+  "version": "26.06",
   "price": {
     "unit": "request",
     "unit_price": 0.004
