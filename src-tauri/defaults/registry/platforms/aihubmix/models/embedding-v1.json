@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "embedding-v1",
   "canonical_model": "embedding-v1",
+  "family": "embedding",
+  "version": "1",
   "display_name": "Embedding V1",
   "capabilities": [
     "embedding"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "musesteamer-air-image",
   "canonical_model": "musesteamer-air-image",
+  "family": "musesteamer",
   "display_name": "Musesteamer Air Image",
   "capabilities": [
     "text_to_image"

@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "doubao-seed-2-0-lite-260428",
   "canonical_model": "seed-2-0-lite-260428",
   "display_name": "Doubao Seed 2.0 Lite 260428",
   "thinking_supported": true,
   "family": "seed",
+  "version": "2.0",
   "capabilities": [
     "text"
   ],

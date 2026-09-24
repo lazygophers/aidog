@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "qianfan-ocr",
   "canonical_model": "qianfan-ocr",
+  "family": "qianfan",
   "display_name": "Qianfan Ocr",
   "max_output_tokens": 28000,
   "context_window": 32000,

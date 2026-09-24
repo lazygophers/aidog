@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "bge-large-en",
   "canonical_model": "bge-large-en",
+  "family": "bge",
   "display_name": "Bge Large En",
   "capabilities": [
     "vision",

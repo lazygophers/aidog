@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790278047,
   "model_id": "qwen3.7-plus",
   "canonical_model": "qwen3.7-plus",
   "display_name": "Qwen3.7 Plus",
   "family": "qwen",
+  "version": "3.7",
   "thinking_supported": true,
   "capabilities": [
     "text"
