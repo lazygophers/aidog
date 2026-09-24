@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790272826,
   "model_id": "gpt-4o-mini-tts",
   "canonical_model": "gpt-4o-mini-tts",
+  "family": "gpt",
+  "version": "4o",
   "capabilities": [
     "audio"
   ],

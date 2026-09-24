@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790272826,
   "model_id": "text-embedding-ada-002",
   "canonical_model": "text-embedding-ada-002",
+  "family": "text-embedding",
+  "version": "2",
   "capabilities": [
     "embedding"
   ],

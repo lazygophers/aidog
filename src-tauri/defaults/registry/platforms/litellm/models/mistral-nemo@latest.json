@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790272826,
   "model_id": "mistral-nemo@latest",
   "canonical_model": "mistral-nemo@latest",
+  "family": "mistral",
   "capabilities": [
     "text"
   ],

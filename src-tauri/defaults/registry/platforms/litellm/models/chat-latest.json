@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790272826,
   "model_id": "chat-latest",
   "canonical_model": "chat-latest",
+  "family": "chat",
+  "version": "latest",
   "capabilities": [
     "text",
     "vision",
