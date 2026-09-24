@@ -426,7 +426,9 @@ class ModalCard extends StatelessWidget {
                     const Spacer(),
                   if (meta != null) ...[
                     const SizedBox(width: AidogSpace.smd),
-                    TileMeta(meta!),
+                    // 窄面板上长 meta（段编辑器的 desc）会挤爆标题行：
+                    // Flexible + 单行省略，别让整行溢出。
+                    Flexible(child: TileMeta(meta!)),
                   ],
                 ],
               ),

@@ -403,7 +403,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                 runSpacing: AidogSpace.sxs,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  TileMeta(t.t('skills.scope')),
+                  FieldLabel(t.t('skills.scope')),
                   // React 是 `Select` 下拉（`SkillsView.tsx:262-270`）。
                   MiniSelect(
                     key: const ValueKey('skills-scope'),
@@ -507,7 +507,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              TileMeta(t.t('skills.alignFrom')),
+              FieldLabel(t.t('skills.alignFrom')),
               MiniSelect(
                 key: const ValueKey('skills-align-from'),
                 value: _c.alignFrom,
@@ -515,7 +515,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                 labelOf: (a) => t.t('skills.agent.$a'),
                 onChanged: (v) => _c.setAlignFrom(v!),
               ),
-              TileMeta(t.t('skills.alignTo')),
+              FieldLabel(t.t('skills.alignTo')),
               MiniSelect(
                 key: const ValueKey('skills-align-to'),
                 value: _c.alignTo,
@@ -616,14 +616,14 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             children: [
               // 这一排按钮混着「目标 agent」和「范围」两件事，没有标签分不出来
               //（React 各自有一行标签，`SkillModals.tsx:268,295`）。
-              TileMeta(t.t('skills.importAgents')),
+              FieldLabel(t.t('skills.importAgents')),
               for (final a in kSkillAgents)
                 SmallButton(
                   label: t.t('skills.agent.$a'),
                   active: _c.importAgents.contains(a),
                   onTap: () => _c.toggleImportAgent(a),
                 ),
-              TileMeta(t.t('skills.scope')),
+              FieldLabel(t.t('skills.scope')),
               MiniSelect(
                 key: const ValueKey('skills-import-scope'),
                 value: _c.importScopeKind,
@@ -751,14 +751,18 @@ class _SkillRow extends StatelessWidget {
                       skill.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AidogType.body.copyWith(color: theme.c.fg),
+                      style: AidogType.body.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     if ((skill.description ?? '').isNotEmpty)
                       Text(
                         skill.description!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.micro.copyWith(color: theme.c.fg3),
+                        style: AidogType.caption.copyWith(color: theme.c.fg3),
                       ),
                     // 元信息行（`SkillsView.tsx:432-490`）：来源类型 / plugin 来源 /
                     // 更新时间 / 安装于 · 内容 hash 前 7 位。
@@ -1173,7 +1177,7 @@ class _CatalogRow extends StatelessWidget {
             spacing: AidogSpace.sxs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              TileMeta(t.t('skills.install.selectAgent')),
+              FieldLabel(t.t('skills.install.selectAgent')),
               for (final a in kSkillAgents)
                 SmallButton(
                   label: t.t('skills.agent.$a'),

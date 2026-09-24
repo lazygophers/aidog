@@ -404,16 +404,11 @@ class _PluginsEditorState extends State<PluginsEditor> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                Switch(
+                AidogSwitch(
                   key: ValueKey('plugin-on-${e.key}'),
                   value: e.value == true,
-                  onChanged: (v) => _setEnabled(e.key, v),
-                  // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
-                  // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
-                  activeThumbColor: AidogColors.light.surface,
-                  activeTrackColor: theme.c.accent,
-                  inactiveTrackColor: theme.c.surface2,
-                  inactiveThumbColor: theme.c.fg3,
+                  compact: true,
+                  onChanged: () => _setEnabled(e.key, e.value != true),
                 ),
                 Tooltip(
                   message: t.t('settings.plugins.removePlugin'),

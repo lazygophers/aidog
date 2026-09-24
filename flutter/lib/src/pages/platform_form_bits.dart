@@ -179,7 +179,7 @@ class _PlatformFieldState extends State<PlatformField> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [TileMeta(widget.label!), field],
+      children: [FieldLabel(widget.label!), field],
     );
   }
 }
@@ -239,7 +239,7 @@ class FormDropdown extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [TileMeta(label!), sized],
+      children: [FieldLabel(label!), sized],
     );
   }
 }
@@ -896,7 +896,7 @@ class NumberField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
-      children: [TileMeta(label!), sized],
+      children: [FieldLabel(label!), sized],
     );
   }
 }

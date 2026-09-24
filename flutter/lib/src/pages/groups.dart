@@ -668,7 +668,11 @@ class _GroupCard extends StatelessWidget {
                               g.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: AidogType.body.copyWith(color: theme.c.fg),
+                              style: AidogType.body.copyWith(
+                                fontSize: 14,
+                                color: theme.c.fg,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           if (g.isDefault)
@@ -682,7 +686,12 @@ class _GroupCard extends StatelessWidget {
                                 message: t.t('group.isDefaultTitle'),
                                 child: MiniBadge(
                                   text: t.t('group.isDefault'),
-                                  color: theme.c.accentText,
+                                  // React 是 --primary 底 + 反色字 + accent-edge 边
+                                  //（GroupListItem.tsx:207-209）：深色下 primary 近黑，
+                                  // 深底浅字。原先传 accentText 得到的是浅底深字，
+                                  // 明暗正好反掉。
+                                  color: theme.c.accent,
+                                  borderColor: theme.c.accentEdge,
                                   solid: true,
                                 ),
                               ),
@@ -719,8 +728,8 @@ class _GroupCard extends StatelessWidget {
                                 '${detail.platforms.length} ${t.t('group.platforms')}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
-                                style: AidogType.micro.copyWith(
-                                  color: theme.c.fg3,
+                                style: AidogType.caption.copyWith(
+                                  color: theme.c.fg2,
                                 ),
                               ),
                             ),
@@ -2161,7 +2170,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             onChanged: (v) => c.patchEdit(e.patch(name: v)),
           ),
           // 分组密钥：创建后锁定不可改（只读展示 + 说明）。
-          TileMeta(t.t('group.groupKey')),
+          FieldLabel(t.t('group.groupKey')),
           // 密钥旁边就要有复制（`GroupEditPanel.tsx:85-90`）：
           // 只读一行字没法选，之前得滚回页头那颗 API Key 按钮。
           Row(
@@ -2188,7 +2197,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
             style: AidogType.micro.copyWith(color: theme.c.fg3),
           ),
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('group.routingMode')),
+          FieldLabel(t.t('group.routingMode')),
           const SizedBox(height: AidogSpace.sxs),
           // 下拉而不是一排互斥按钮（`GroupEditPanel.tsx:97-106`）：
           // 平铺会把选项全堆在表单里，当前选的是哪个反而要扫一遍才看出来。
@@ -2214,7 +2223,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
           ),
           const SizedBox(height: AidogSpace.ssm),
           // pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集）。
-          TileMeta(t.t('group.piApiLabel')),
+          FieldLabel(t.t('group.piApiLabel')),
           const SizedBox(height: AidogSpace.sxs),
           // 同上（`GroupEditPanel.tsx:115-122`）。
           DropdownButtonHideUnderline(
@@ -2645,13 +2654,7 @@ class _FieldState extends State<_Field> {
           : Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                SizedBox(
-                  width: 96,
-                  child: Text(
-                    widget.label!,
-                    style: AidogType.micro.copyWith(color: theme.c.fg2),
-                  ),
-                ),
+                SizedBox(width: 96, child: FieldLabel(widget.label!)),
                 const SizedBox(width: AidogSpace.ssm),
                 Expanded(child: _input(theme)),
               ],

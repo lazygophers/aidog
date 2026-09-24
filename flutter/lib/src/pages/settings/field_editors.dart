@@ -14,7 +14,7 @@ import 'package:flutter/material.dart';
 import '../../../i18n.dart';
 import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
-import '../ui_bits.dart' show SmallButton;
+import '../ui_bits.dart' show AidogSwitch, SmallButton;
 import 'bits.dart';
 
 /// 行尾那颗「移除」×。四个编辑器共用一个长相。
@@ -500,16 +500,11 @@ class ObjectEditor extends StatelessWidget {
     final control = switch (type) {
       'boolean' => Align(
         alignment: AlignmentDirectional.centerStart,
-        child: Switch(
+        child: AidogSwitch(
           key: ValueKey('$idPrefix-$key'),
           value: v == true,
-          onChanged: (b) => _setKey(key, b),
-          // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
-          // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
-          activeThumbColor: AidogColors.light.surface,
-          activeTrackColor: theme.c.accent,
-          inactiveTrackColor: theme.c.surface2,
-          inactiveThumbColor: theme.c.fg3,
+          compact: true,
+          onChanged: () => _setKey(key, v != true),
         ),
       ),
       'select' => _InlineSelect(

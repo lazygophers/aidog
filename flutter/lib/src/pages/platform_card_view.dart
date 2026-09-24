@@ -650,6 +650,7 @@ class _LogoDot extends StatelessWidget {
                                 .substring(0, protocol.length < 2 ? 1 : 2)
                                 .toUpperCase(),
                       style: AidogType.micro.copyWith(
+                        fontSize: 12,
                         color: brandColor,
                         fontWeight: FontWeight.w700,
                       ),
