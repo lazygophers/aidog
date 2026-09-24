@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790282454,
   "model_id": "wan3.0-video",
   "canonical_model": "wan3.0-video",
+  "family": "wan",
+  "version": "3.0",
   "capabilities": [
     "video_edit"
   ],

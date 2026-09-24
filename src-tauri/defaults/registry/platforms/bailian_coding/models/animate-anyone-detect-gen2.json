@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790282454,
   "model_id": "animate-anyone-detect-gen2",
   "canonical_model": "animate-anyone-detect-gen2",
   "family": "animate-anyone",
+  "version": "2",
   "capabilities": [
     "vision"
   ],

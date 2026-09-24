@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790282454,
   "model_id": "deepseek-r1-distill-qwen-32b",
   "canonical_model": "deepseek-r1-distill-qwen-32b",
   "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text",
     "reasoning"

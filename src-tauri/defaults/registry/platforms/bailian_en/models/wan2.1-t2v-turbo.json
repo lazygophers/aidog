@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790282454,
   "model_id": "wan2.1-t2v-turbo",
   "canonical_model": "wan2.1-t2v-turbo",
+  "family": "wan",
+  "version": "2.1",
   "capabilities": [
     "text_to_video"
   ],

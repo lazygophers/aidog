@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790282454,
   "model_id": "llama-3.3-70b",
   "canonical_model": "llama-3.3-70b",
+  "version": "3.3",
 
   "family": "llama",  "display_name": "Llama 3.3 70B",
   "max_output_tokens": 8192,
