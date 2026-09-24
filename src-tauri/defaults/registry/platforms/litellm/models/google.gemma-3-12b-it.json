@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790248000,
   "model_id": "google.gemma-3-12b-it",
-  "canonical_model": "google.gemma-3-12b-it",
+  "canonical_model": "google-gemma-3-12b-it",
   "capabilities": [
     "text",
     "vision",
