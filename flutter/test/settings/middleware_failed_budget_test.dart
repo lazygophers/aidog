@@ -10,6 +10,7 @@ import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/shell.dart';
 import 'package:aidog_flutter/utils/formatters.dart';
+import 'package:aidog_flutter/src/pages/settings/bits.dart' show IconGhostButton;
 import 'package:aidog_flutter/src/pages/settings/middleware_logic.dart'
     show MiddlewareRule;
 import 'package:flutter/material.dart';
@@ -110,16 +111,13 @@ void main() {
     expect(op.opacity, 1);
   });
 
-  testWidgets('失效规则：出「失效」徽标，且编辑按钮点不动', (tester) async {
+  // 批三重构后：编辑 / 删除是图标按钮（React ghost icon，IconEdit / IconClose）。
+  testWidgets('失效规则：出「失效」徽标，且编辑按钮不渲染', (tester) async {
     final (_, t) = await _mount(tester, failed: true);
     expect(find.text(t.t('middleware.failed')), findsOneWidget);
     expect(
-      tester
-          .widget<SmallButton>(
-            find.widgetWithText(SmallButton, t.t('action.edit')),
-          )
-          .enabled,
-      isFalse,
+      find.byKey(const ValueKey('rule-edit-1')),
+      findsNothing,
       reason: '引擎翻译不了那份条件，改它没有意义 —— React 干脆不渲染编辑按钮',
     );
   });
@@ -128,12 +126,8 @@ void main() {
     final (_, t) = await _mount(tester, failed: false);
     expect(find.text(t.t('middleware.failed')), findsNothing);
     expect(
-      tester
-          .widget<SmallButton>(
-            find.widgetWithText(SmallButton, t.t('action.edit')),
-          )
-          .enabled,
-      isTrue,
+      tester.widget<IconGhostButton>(find.byKey(const ValueKey('rule-edit-1'))).onTap,
+      isNotNull,
     );
   });
 
@@ -160,9 +154,9 @@ void main() {
 
   testWidgets('内置规则：「查看规则」点得动，开出来是只读表单', (tester) async {
     final (_, t) = await _mount(tester, failed: false, builtin: true);
-    final view = find.widgetWithText(SmallButton, t.t('middleware.viewRule'));
+    final view = find.byKey(const ValueKey('rule-edit-1'));
     // 原先这颗按钮是禁用的 —— 内置规则的条件和动作在界面上根本打不开看。
-    expect(tester.widget<SmallButton>(view).enabled, isTrue);
+    expect(tester.widget<IconGhostButton>(view).onTap, isNotNull);
 
     await tester.tap(view);
     await settle(tester);

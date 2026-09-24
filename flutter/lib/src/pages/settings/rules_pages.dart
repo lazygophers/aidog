@@ -21,6 +21,7 @@ import '../../../i18n.dart';
 import '../../../utils/formatters.dart';
 import '../../shell/nav_guard.dart';
 import '../../shell/theme.dart';
+import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../platform_card_bits.dart' show MiniBadge;
 import '../ui_bits.dart';
@@ -69,62 +70,78 @@ class _SchedulingSettingsPageState extends State<SchedulingSettingsPage> {
     return SettingsPageBody(
       title: t.t('appSettings.schedulingTab'),
       children: [
-        SettingsCard(
-          children: [
-            SwitchRow(
-              key: const ValueKey('breaker-master'),
-              label: t.t('scheduling.masterToggle'),
-              description: t.t('scheduling.masterToggleDesc'),
-              value: s.enabled,
-              onChanged: (_) => _c.toggleEnabled(),
-            ),
-          ],
+        ToggleCard(
+          key: const ValueKey('breaker-master'),
+          label: t.t('scheduling.masterToggle'),
+          descriptions: [t.t('scheduling.masterToggleDesc')],
+          value: s.enabled,
+          onChanged: (_) => _c.toggleEnabled(),
         ),
-        SettingsCard(
+        HeaderCard(
           title: t.t('scheduling.defaultRoutingMode'),
-          description: t.t('scheduling.defaultRoutingModeDesc'),
-          children: [
-            SelectRow(
-              key: const ValueKey('routing-mode'),
-              label: t.t('scheduling.defaultRoutingMode'),
-              options: kRoutingModes,
-              value: s.defaultRoutingMode,
-              labelOf: (m) {
-                final e = kRoutingModeLabels[m];
-                return e == null ? m : tOr(t, e.$1, e.$2);
-              },
-              onChanged: (v) => _c.setRoutingMode(v!),
+          descriptions: [t.t('scheduling.defaultRoutingModeDesc')],
+          child: Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.smd),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              // React Select maxWidth 240（`SchedulingSettings.tsx:124-136`）。
+              child: InlineSelect<String>(
+                key: const ValueKey('routing-mode'),
+                value: s.defaultRoutingMode,
+                options: kRoutingModes,
+                width: 240,
+                labelOf: (m) {
+                  final e = kRoutingModeLabels[m];
+                  return e == null ? m : tOr(t, e.$1, e.$2);
+                },
+                onChanged: (v) => _c.setRoutingMode(v!),
+              ),
             ),
-          ],
+          ),
         ),
-        SettingsCard(
-          // 总开关关掉后整块压暗（`SchedulingSettings.tsx:142`）。
+        // 总开关关掉后整块压暗（`SchedulingSettings.tsx:142`）。
+        HeaderCard(
           dimmed: !s.enabled,
           title: t.t('scheduling.breakerDefaults'),
-          description: t.t('scheduling.breakerDefaultsDesc'),
-          children: [
-            NumberRow(
-              key: const ValueKey('breaker-failure-threshold'),
-              label: t.t('platform.breakerFailureThreshold'),
-              value: s.breakerFailureThreshold,
-              parse: clampNonNegativeInt,
-              onChanged: (v) => _c.setFailureThreshold('$v'),
+          descriptions: [t.t('scheduling.breakerDefaultsDesc')],
+          child: Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.smd),
+            // React 是 2 列 grid（auto 1fr、行列距 10/12）；这里 Wrap 两枚一组
+            // 换行，等价排布。
+            child: Wrap(
+              spacing: 12,
+              runSpacing: AidogSpace.smd,
+              children: [
+                InlineRow(
+                  label: t.t('platform.breakerFailureThreshold'),
+                  child: NumberInput(
+                    key: const ValueKey('breaker-failure-threshold'),
+                    value: '${s.breakerFailureThreshold}',
+                    width: 140,
+                    onChanged: (v) => _c.setFailureThreshold(v),
+                  ),
+                ),
+                InlineRow(
+                  label: t.t('platform.breakerOpenSecs'),
+                  child: NumberInput(
+                    key: const ValueKey('breaker-open-secs'),
+                    value: '${s.breakerOpenSecs}',
+                    width: 140,
+                    onChanged: (v) => _c.setOpenSecs(v),
+                  ),
+                ),
+                InlineRow(
+                  label: t.t('platform.breakerHalfOpenMax'),
+                  child: NumberInput(
+                    key: const ValueKey('breaker-half-open-max'),
+                    value: '${s.breakerHalfOpenMax}',
+                    width: 140,
+                    onChanged: (v) => _c.setHalfOpenMax(v),
+                  ),
+                ),
+              ],
             ),
-            NumberRow(
-              key: const ValueKey('breaker-open-secs'),
-              label: t.t('platform.breakerOpenSecs'),
-              value: s.breakerOpenSecs,
-              parse: clampNonNegativeInt,
-              onChanged: (v) => _c.setOpenSecs('$v'),
-            ),
-            NumberRow(
-              key: const ValueKey('breaker-half-open-max'),
-              label: t.t('platform.breakerHalfOpenMax'),
-              value: s.breakerHalfOpenMax,
-              parse: clampNonNegativeInt,
-              onChanged: (v) => _c.setHalfOpenMax('$v'),
-            ),
-          ],
+          ),
         ),
         if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
       ],
@@ -334,39 +351,76 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     return SettingsPageBody(
       title: t.t('appSettings.middlewareTab'),
       subtitle: '${_c.rules.length}',
-      trailing: SmallButton(
-        key: const ValueKey('middleware-add'),
-        label: t.t('middleware.addRule'),
-        onTap: () {
-          _c.openCreate();
-          _openForm(_RuleDraft.empty());
-        },
-      ),
       children: [
-        SettingsCard(
-          children: [
-            SwitchRow(
-              key: const ValueKey('middleware-master'),
-              label: t.t('middleware.masterToggle'),
-              description: t.t('middleware.masterToggleDesc'),
-              value: _c.settingsEnabled,
-              onChanged: _c.setSettingsEnabled,
-            ),
-          ],
+        ToggleCard(
+          key: const ValueKey('middleware-master'),
+          label: t.t('middleware.masterToggle'),
+          descriptions: [t.t('middleware.masterToggleDesc')],
+          value: _c.settingsEnabled,
+          onChanged: _c.setSettingsEnabled,
         ),
-        SettingsCard(
-          // 同上（`MiddlewareRules.tsx:1246`）。
-          dimmed: !_c.settingsEnabled,
-          title: t.t('middleware.globalRules'),
-          description: t.t('middleware.globalRulesHint'),
-          children: [
-            if (_c.loading)
-              CenteredNote(text: t.t('status.loading'))
-            else if (_c.rules.isEmpty)
-              CenteredNote(text: t.t('middleware.noRules'))
-            else
-              for (final r in _c.rules) _ruleRow(t, r),
-          ],
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Opacity(
+              // 同上（`MiddlewareRules.tsx:1246`）。
+              opacity: _c.settingsEnabled ? 1 : 0.55,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t.t('middleware.globalRulesHint'),
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      color: AidogTheme.of(context).c.fg3,
+                    ),
+                  ),
+                  const SizedBox(height: AidogSpace.ssm),
+                  if (_c.loading)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        t.t('status.loading'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: AidogTheme.of(context).c.fg2,
+                        ),
+                      ),
+                    )
+                  else if (_c.rules.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        t.t('middleware.noRules'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: AidogTheme.of(context).c.fg3,
+                        ),
+                      ),
+                    )
+                  else
+                    for (final r in _c.rules) _ruleRow(t, r),
+                  // 新增入口在列表底部（React「+ 新增规则」ghost 按钮，
+                  // `MiddlewareRules.tsx:1151-1155`），不在页头。
+                  const SizedBox(height: AidogSpace.ssm),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SmallButton(
+                      key: const ValueKey('middleware-add'),
+                      ghost: true,
+                      label: '+ ${t.t('middleware.addRule')}',
+                      onTap: () {
+                        _c.openCreate();
+                        _openForm(_RuleDraft.empty());
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ),
         if (_draft != null) _form(t, _draft!),
         if (_deleteTarget != null)
@@ -416,181 +470,255 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   Widget _ruleRow(I18nController t, MiddlewareRule r) {
     final theme = AidogTheme.of(context);
     final budget = _c.budgets[r.id];
+    final actions = r.raw['actions'] as List? ?? const [];
+    final applies = r.raw['applies_to'] is Map
+        ? Map<String, Object?>.from(r.raw['applies_to'] as Map)
+        : null;
     return Padding(
       key: ValueKey('rule-${r.id}'),
-      padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
+      padding: const EdgeInsets.only(bottom: 6),
       // 停用的规则整行弱化（`MiddlewareRules.tsx:1007-1011` 的 opacity 0.55）：
       // 原先停用与启用长得一模一样，一屏规则里分不出哪几条其实没在跑。
       child: Opacity(
         opacity: r.enabled ? 1 : 0.55,
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    children: [
-                      Flexible(
-                        child: Text(
+        child: Container(
+          // 玻璃盒行：r-sm、padding 10/14、1px 边框（failed 红）
+          //（`MiddlewareRules.tsx:905-914`）。
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: theme.c.surface2,
+            border: Border.all(color: r.failed ? theme.c.bad : theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 名称 + 徽标行（10px 徽标，`MiddlewareRules.tsx:921-966`）。
+                    Wrap(
+                      spacing: AidogSpace.ssm,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
                           r.name,
-                          overflow: TextOverflow.ellipsis,
-                          style: AidogType.label.copyWith(color: theme.c.fg),
-                        ),
-                      ),
-                      if (r.isBuiltin)
-                        Padding(
-                          padding: const EdgeInsets.only(left: AidogSpace.sxs),
-                          child: Text(
-                            t.t('middleware.builtin'),
-                            style: AidogType.micro.copyWith(color: theme.c.fg3),
+                          style: AidogType.label.copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.c.fg,
                           ),
                         ),
-                      // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
-                      // 引擎跳过它，用户该做的是删掉重建，不是继续改。
-                      if (r.failed)
-                        Padding(
-                          padding: const EdgeInsets.only(left: AidogSpace.sxs),
-                          child: MiniBadge(
+                        if (r.isBuiltin)
+                          _ruleBadge(
+                            theme,
+                            text: t.t('middleware.builtin'),
+                            fg: theme.c.accentText,
+                            bg: theme.c.accentWash,
+                          ),
+                        // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
+                        // 引擎跳过它，用户该做的是删掉重建，不是继续改。
+                        if (r.failed)
+                          _ruleBadge(
+                            theme,
                             text: t.t('middleware.failed'),
-                            color: theme.c.bad,
+                            fg: theme.c.bad,
+                            bg: theme.c.bad.withValues(alpha: 0.12),
+                          ),
+                        _ruleBadge(
+                          theme,
+                          text: actionsSummary(t, actions),
+                          fg: theme.c.fg2,
+                          bg: theme.c.fg3.withValues(alpha: 0.12),
+                        ),
+                        if (hasObserveAction(actions))
+                          Tooltip(
+                            message: tOr(
+                              t,
+                              'middleware.observeHint',
+                              '开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤',
+                            ),
+                            child: _ruleBadge(
+                              theme,
+                              text: tOr(t, 'middleware.observe', '观察模式'),
+                              fg: theme.c.peak,
+                              bg: theme.c.peak.withValues(alpha: 0.12),
+                            ),
+                          ),
+                        if (appliesSummary(applies).isNotEmpty)
+                          _ruleBadge(
+                            theme,
+                            text: appliesSummary(applies),
+                            fg: theme.c.fg2,
+                            bg: theme.c.fg3.withValues(alpha: 0.12),
+                          ),
+                      ],
+                    ),
+                    // 失效规则不显摘要（`MiddlewareRules.tsx:950`）：那份条件引擎
+                    // 已经翻译不了，照着念只会误导。
+                    if (!r.failed)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Text(
+                          conditionsSummary(
+                            r.raw['conditions'] is Map
+                                ? Map<String, Object?>.from(
+                                    r.raw['conditions'] as Map,
+                                  )
+                                : emptyLeaf,
+                          ),
+                          style: AidogType.numSm.copyWith(
+                            fontSize: 11,
+                            color: theme.c.fg3,
                           ),
                         ),
-                    ],
-                  ),
-                  if (r.description.isNotEmpty)
-                    Text(
-                      r.description,
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
-                    ),
-                  // 条件 / 动作 / 应用范围摘要（React RuleRow 的徽标行）。
-                  // 失效规则不显摘要（`MiddlewareRules.tsx:950`）：那份条件引擎
-                  // 已经翻译不了，照着念只会误导。
-                  if (!r.failed)
-                    Text(
-                      conditionsSummary(
-                        r.raw['conditions'] is Map
-                            ? Map<String, Object?>.from(
-                                r.raw['conditions'] as Map,
-                              )
-                            : emptyLeaf,
                       ),
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
-                    ),
-                  Text(
-                    actionsSummary(t, r.raw['actions'] as List? ?? const []),
-                    style: AidogType.micro.copyWith(color: theme.c.accentText),
-                  ),
-                  if (hasObserveAction(r.raw['actions'] as List? ?? const []))
-                    Text(
-                      '${tOr(t, 'middleware.observe', '观察模式')} · '
-                      '${appliesSummary(r.raw['applies_to'] is Map ? Map<String, Object?>.from(r.raw['applies_to'] as Map) : null)}',
-                      style: AidogType.micro.copyWith(color: theme.c.peak),
-                    ),
-                  if (budget != null) _BudgetLine(budget: budget),
-                ],
+                    if (budget != null) _BudgetLine(budget: budget),
+                  ],
+                ),
               ),
-            ),
-            // 开关而不是按钮（`MiddlewareRules.tsx:917`）。
-            AidogSwitch(value: r.enabled, onChanged: () => _c.toggleRule(r)),
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              // 内置规则只可启停，内容不可修改。
-              // 失效规则也不给编辑入口（`MiddlewareRules.tsx:1013-1019`）：
-              // 引擎翻译不了那份条件，改它没有任何意义，该做的是删掉重建。
-              label: r.isBuiltin
-                  ? t.t('middleware.viewRule')
-                  : t.t('action.edit'),
-              onTap: r.failed
-                  ? null
-                  : () {
-                      // 内置规则只读打开：看得到条件 / 动作，改不动
-                      //（React 同一颗按钮走的也是只读表单）。
-                      if (!r.isBuiltin) _c.openEdit(r);
-                      _openForm(_RuleDraft.fromRule(r), readOnly: r.isBuiltin);
-                    },
-            ),
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              label: t.t('action.delete'),
-              danger: true,
-              onTap: r.isBuiltin
-                  ? null
-                  : () => setState(() => _deleteTarget = r.id),
-            ),
-          ],
+              // 开关而不是按钮（`MiddlewareRules.tsx:917`）。
+              AidogSwitch(
+                compact: true,
+                value: r.enabled,
+                onChanged: () => _c.toggleRule(r),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              // 内置规则可点开查看详情（表单只读）；Failed 规则（含内置残留）
+              // 只可删除（`MiddlewareRules.tsx:1013-1028`）。
+              if (!r.failed)
+                IconGhostButton(
+                  key: ValueKey('rule-edit-${r.id}'),
+                  icon: Icons.edit_outlined,
+                  tooltip: t.t('action.edit'),
+                  onTap: () {
+                    // 内置规则只读打开：看得到条件 / 动作，改不动
+                    //（React 同一颗按钮走的也是只读表单）。
+                    if (!r.isBuiltin) _c.openEdit(r);
+                    _openForm(_RuleDraft.fromRule(r), readOnly: r.isBuiltin);
+                  },
+                ),
+              if (!r.isBuiltin || r.failed)
+                IconGhostButton(
+                  key: ValueKey('rule-del-${r.id}'),
+                  icon: Icons.close,
+                  tooltip: t.t('action.delete'),
+                  onTap: () => setState(() => _deleteTarget = r.id),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _form(I18nController t, _RuleDraft d) {
-    final card = _formCard(t, d);
-    if (!_readOnly) return card;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 文本仍可选中复制，只是所有控件点不动（React 用 `pointerEvents: none`
-        // 达到同样效果，`MiddlewareRules.tsx:729`）。
-        IgnorePointer(child: card),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            SmallButton(
-              key: const ValueKey('rule-readonly-close'),
-              label: t.t('action.close'),
-              onTap: _closeForm,
-            ),
-          ],
-        ),
-      ],
-    );
-  }
+  /// 10px 徽标（React `badge`，`MiddlewareRules.tsx:925-966`）。
+  Widget _ruleBadge(
+    AidogTheme theme, {
+    required String text,
+    required Color fg,
+    required Color bg,
+  }) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    decoration: BoxDecoration(
+      color: bg,
+      borderRadius: BorderRadius.circular(4),
+    ),
+    child: Text(
+      text,
+      style: AidogType.caption.copyWith(fontSize: 10, color: fg),
+    ),
+  );
 
-  Widget _formCard(I18nController t, _RuleDraft d) => SettingsCard(
-    title: _readOnly
-        ? t.t('middleware.viewRule')
-        : _c.editingRule != null
-        ? t.t('middleware.editRule')
-        : t.t('middleware.addRule'),
-    // 只读时先说清为什么点不动，否则用户会以为表单坏了。
-    description: _readOnly
-        ? tOr(t, 'middleware.builtinReadonlyHint', '内置规则只可启停，内容不可修改')
-        : null,
+  /// 表单弹窗：对齐 React 的 `RuleFormDialog`（`MiddlewareRules.tsx:861-893`：
+  /// 720 宽、内滚的 modal），不再是页内卡。只读时控件罩住、底部给「关闭」。
+  Widget _form(I18nController t, _RuleDraft d) => AidogModal(
+    key: ValueKey('rule-form-${_c.editingRule?['id'] ?? 'new'}'),
+    maxWidth: 720,
+    child: ModalCard(
+      title: _readOnly
+          ? t.t('middleware.viewRule')
+          : _c.editingRule != null
+          ? t.t('middleware.editRule')
+          : t.t('middleware.addRule'),
+      padding: const EdgeInsets.all(20),
+      child: _readOnly
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // 只读时先说清为什么点不动（`MiddlewareRules.tsx:721-727`）。
+                Text(
+                  tOr(
+                    t,
+                    'middleware.builtinReadonlyHint',
+                    '内置规则只可启停，内容不可修改',
+                  ),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 11,
+                    color: AidogTheme.of(context).c.fg3,
+                  ),
+                ),
+                const SizedBox(height: AidogSpace.ssm),
+                // 文本仍可选中复制，只是所有控件点不动（React 用
+                // `pointerEvents: none` 达到同样效果）。
+                IgnorePointer(child: _formFields(t, d)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    SmallButton(
+                      key: const ValueKey('rule-readonly-close'),
+                      label: t.t('action.close'),
+                      onTap: _closeForm,
+                    ),
+                  ],
+                ),
+              ],
+            )
+          : _formFields(t, d),
+    ),
+  );
+
+  Widget _formFields(I18nController t, _RuleDraft d) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
     children: [
-      TextRow(
+      // React：名称 / 描述是全宽 Input（placeholder 形态，无标签，
+      // `MiddlewareRules.tsx:731-741`）。
+      PlainTextField(
         key: const ValueKey('rule-name'),
-        label: t.t('middleware.name'),
         value: d.name,
+        hint: t.t('middleware.name'),
         onChanged: (v) => setState(() => d.name = v),
       ),
-      TextRow(
-        label: t.t('middleware.description'),
+      const SizedBox(height: AidogSpace.smd),
+      PlainTextField(
         value: d.description,
+        hint: tOr(t, 'middleware.description', '描述（可选）'),
         onChanged: (v) => setState(() => d.description = v),
       ),
-      NumberRow(
-        label: t.t('middleware.priority'),
-        value: d.priority,
-        onChanged: (v) => setState(() => d.priority = v),
-      ),
-      SwitchRow(
-        label: t.t('middleware.enabled'),
-        value: d.enabled,
-        onChanged: (v) => setState(() => d.enabled = v),
-      ),
-      // ── 条件：卡片 / DSL / JSON 三模式 ──
+      const SizedBox(height: AidogSpace.smd),
       Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            t.t('middleware.conditions'),
-            style: AidogType.label.copyWith(color: AidogTheme.of(context).c.fg),
+          Expanded(
+            child: Text(
+              t.t('middleware.conditions'),
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                color: AidogTheme.of(context).c.fg2,
+              ),
+            ),
           ),
-          const Spacer(),
           SmallButton(
             key: const ValueKey('cond-mode-cards'),
+            ghost: true,
+            fontSize: 11,
             label: tOr(t, 'middleware.toCards', '卡片模式'),
             active: _condMode == 'cards',
             onTap: () => _switchCondMode('cards'),
@@ -598,6 +726,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           const SizedBox(width: AidogSpace.sxs),
           SmallButton(
             key: const ValueKey('cond-mode-dsl'),
+            ghost: true,
+            fontSize: 11,
             label: tOr(t, 'middleware.toDsl', 'DSL 源码'),
             active: _condMode == 'dsl',
             onTap: () => _switchCondMode('dsl'),
@@ -605,12 +735,15 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           const SizedBox(width: AidogSpace.sxs),
           SmallButton(
             key: const ValueKey('cond-mode-json'),
+            ghost: true,
+            fontSize: 11,
             label: t.t('settings.jsonMode'),
             active: _condMode == 'json',
             onTap: () => _switchCondMode('json'),
           ),
         ],
       ),
+      const SizedBox(height: AidogSpace.ssm),
       if (_condMode == 'cards')
         ConditionTreeEditor(
           node: _draft!.conditions,
@@ -642,19 +775,22 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           onChanged: (v) => setState(() => _condJsonText = v),
         ),
       if (d.phaseError != null) ErrorNote(text: d.phaseError!),
-      // ── 动作链：卡片 / JSON ──
+      const SizedBox(height: AidogSpace.smd),
       Row(
         children: [
           Expanded(
             child: Text(
               t.t('middleware.actions'),
               style: AidogType.label.copyWith(
-                color: AidogTheme.of(context).c.fg,
+                fontSize: 13,
+                color: AidogTheme.of(context).c.fg2,
               ),
             ),
           ),
           SmallButton(
             key: const ValueKey('actions-mode-cards'),
+            ghost: true,
+            fontSize: 11,
             label: tOr(t, 'middleware.toCards', '卡片模式'),
             active: _actionsMode == 'cards',
             onTap: () => _switchActionsMode('cards'),
@@ -662,12 +798,15 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           const SizedBox(width: AidogSpace.sxs),
           SmallButton(
             key: const ValueKey('actions-mode-json'),
+            ghost: true,
+            fontSize: 11,
             label: t.t('settings.jsonMode'),
             active: _actionsMode == 'json',
             onTap: () => _switchActionsMode('json'),
           ),
         ],
       ),
+      const SizedBox(height: AidogSpace.ssm),
       if (_actionsMode == 'cards')
         ActionChainEditor(
           steps: _draft!.actions,
@@ -681,19 +820,40 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           maxLines: 6,
           onChanged: (v) => setState(() => _actionsJsonText = v),
         ),
-      // ── 应用范围 ──
+      const SizedBox(height: AidogSpace.smd),
       Text(
         t.t('middleware.appliesTo'),
-        style: AidogType.label.copyWith(color: AidogTheme.of(context).c.fg),
+        style: AidogType.label.copyWith(
+          fontSize: 13,
+          color: AidogTheme.of(context).c.fg2,
+        ),
       ),
+      const SizedBox(height: AidogSpace.ssm),
       AppliesToEditor(
         value: _draft!.applies,
         onChanged: (a) => setState(() => _draft!.applies = a),
         platforms: _c.platforms,
         groups: _c.groups,
       ),
-      // 只读时整张卡被 IgnorePointer 罩住，按钮放在卡外面才点得动。
-      if (!_readOnly)
+      const SizedBox(height: AidogSpace.smd),
+      // 优先级：label 13 + 宽 120 的数字框（`MiddlewareRules.tsx:828-840`）。
+      InlineRow(
+        label: t.t('middleware.priority'),
+        child: NumberInput(
+          value: '${d.priority}',
+          width: 120,
+          onChanged: (v) =>
+              setState(() => d.priority = int.tryParse(v) ?? 0),
+        ),
+      ),
+      const SizedBox(height: AidogSpace.smd),
+      SwitchRow(
+        label: t.t('middleware.enabled'),
+        value: d.enabled,
+        onChanged: (v) => setState(() => d.enabled = v),
+      ),
+      if (!_readOnly) ...[
+        const SizedBox(height: AidogSpace.ssm),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
@@ -701,6 +861,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
             const SizedBox(width: AidogSpace.ssm),
             SmallButton(
               key: const ValueKey('rule-save'),
+              filled: true,
               label: t.t('action.save'),
               // 名字为空、条件 / 动作在当前模式下解析不了、或混阶段，就点不动。
               onTap: _draftValid()
@@ -713,6 +874,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
             ),
           ],
         ),
+      ],
     ],
   );
 }

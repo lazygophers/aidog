@@ -1091,17 +1091,7 @@ void main() {
         ],
       );
       final i18n = await makeI18n(tester);
-      await tester.tap(
-        find
-            .descendant(
-              of: find.byKey(const ValueKey('rule-3')),
-              matching: find.widgetWithText(
-                SmallButton,
-                i18n.t('action.delete'),
-              ),
-            )
-            .first,
-      );
+      await tester.tap(find.byKey(const ValueKey('rule-del-3')));
       await settle(tester);
       expect(find.byType(ConfirmCard), findsOneWidget);
       expect(k.countOf('middleware_delete_rule'), 0);
