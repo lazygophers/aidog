@@ -17,7 +17,9 @@ Directory repoRoot() {
     if (Directory('${dir.path}/src-tauri').existsSync()) return dir;
     final parent = dir.parent;
     if (parent.path == dir.path) {
-      throw StateError('repo root (the directory holding src-tauri/) not found');
+      throw StateError(
+        'repo root (the directory holding src-tauri/) not found',
+      );
     }
     dir = parent;
   }
@@ -34,23 +36,22 @@ void main() {
   group('文案来源', () {
     test('8 种语言的资产逐字节等于 Rust crate 里的真值源', () async {
       for (final locale in kAllLocales) {
-        final asset = await rootBundle.loadString('$kLocaleAssetDir$locale.json');
-        final source = File(sourcePath(locale)).readAsStringSync();
-        expect(
-          asset,
-          source,
-          reason: '$locale 的资产与真值源不一致 —— 说明某处多出了一份拷贝',
+        final asset = await rootBundle.loadString(
+          '$kLocaleAssetDir$locale.json',
         );
+        final source = File(sourcePath(locale)).readAsStringSync();
+        expect(asset, source, reason: '$locale 的资产与真值源不一致 —— 说明某处多出了一份拷贝');
       }
     });
 
     test('kAllLocales 覆盖 locales/ 目录里的全部 JSON，不多不少', () {
-      final onDisk = Directory('${repoRoot().path}/src-tauri/crates/aidog_i18n/locales')
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.json'))
-          .map((f) => f.uri.pathSegments.last.replaceAll('.json', ''))
-          .toSet();
+      final onDisk =
+          Directory('${repoRoot().path}/src-tauri/crates/aidog_i18n/locales')
+              .listSync()
+              .whereType<File>()
+              .where((f) => f.path.endsWith('.json'))
+              .map((f) => f.uri.pathSegments.last.replaceAll('.json', ''))
+              .toSet();
       expect(onDisk, kAllLocales.toSet());
     });
   });
@@ -72,9 +73,8 @@ void main() {
       // + 2（platform.deleteTitle / platform.deleteConfirm —— 删平台的二次确认，
       //      2026-09-22 两侧同用；此前 Flutter 借用 group.deletePlatformConfirm，
       //      那条文案写着「仅属此分组」，在平台列表里根本不成立）。
-      // + 1（importExport.renameRequired —— 冲突选「保留两者」却没填新名字时，
-      //      「应用导入」是禁用的，这行字说明为什么；React 那边没有这个分支，
-      //      它的 apply 不校验冲突决策）。
+      // + 1（importExport.renameRequired —— key 仍在 8 个 locale 里；
+      //      2026-09-24 对齐 React 后 UI 不再用它，删 key 要 8 份一起动，暂留）。
       // + 1（platform.numberInvalid —— 数字框打错时的提示。React 那边靠
       //      `<input type="number">` 由浏览器拦，Flutter 没有等价物，必须自己说）。
       // 这个数是故意写死的：加 key 必须 8 个 locale 一起加，改这一行时就会想起来。
@@ -252,7 +252,9 @@ void main() {
     });
 
     test('写 DB 失败不把界面按回去', () async {
-      final broken = I18nController(persist: (_) => throw StateError('db down'));
+      final broken = I18nController(
+        persist: (_) => throw StateError('db down'),
+      );
       await broken.init(initial: 'en-US');
       await broken.setLocale('de-DE');
       expect(broken.locale, 'de-DE');
@@ -260,7 +262,10 @@ void main() {
 
     test('插值走到 t()', () async {
       await c.init(initial: 'en-US');
-      expect(c.t('about.downloading', {'version': '0.1.17'}), 'Downloading v0.1.17');
+      expect(
+        c.t('about.downloading', {'version': '0.1.17'}),
+        'Downloading v0.1.17',
+      );
     });
   });
 
@@ -329,10 +334,8 @@ void main() {
           controller: c,
           // 经由 context 取词 —— 这正是切语言能自动重建的唯一路径。
           child: Builder(
-            builder: (context) => Text(
-              AidogI18n.of(context).t('common.cancel'),
-              key: probeKey,
-            ),
+            builder: (context) =>
+                Text(AidogI18n.of(context).t('common.cancel'), key: probeKey),
           ),
         ),
       );

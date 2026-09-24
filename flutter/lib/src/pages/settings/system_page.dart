@@ -61,31 +61,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   /// `proxy_log_cleanup_estimate` 的结果；null = 还在统计。
   Map<String, Object?>? _estimate;
 
-  /// 密码类输入的明文切换态（内核令牌、上游代理密码）。只活在这个
-  /// State 里：不写设置、不落盘 —— 同 env_editor.dart 的 `_revealed`。
-  final _revealed = <String>{};
-
-  /// 密码框右侧的眼睛按钮（`EnvEditor.tsx:87-94` 同位置同语义）。
-  Widget _revealToggle(String fieldKey) {
-    final theme = AidogTheme.of(context);
-    final shown = _revealed.contains(fieldKey);
-    return IconButton(
-      key: ValueKey('$fieldKey-reveal'),
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-      iconSize: 14,
-      visualDensity: VisualDensity.compact,
-      tooltip: shown ? 'Hide' : 'Show',
-      icon: Icon(
-        shown ? Icons.visibility_off : Icons.visibility,
-        color: theme.c.fg3,
-      ),
-      onPressed: () => setState(
-        () => shown ? _revealed.remove(fieldKey) : _revealed.add(fieldKey),
-      ),
-    );
-  }
-
   @override
   void initState() {
     super.initState();
@@ -231,17 +206,15 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           '${t.t('kernel.remoteAccess')}\n'
           '${t.t('kernel.notProxy')}',
       children: [
-        InfoRow(label: t.t('proxy.port'), value: ltr('${s.port}')),
         TextRow(
           key: const ValueKey('kernel-token'),
           label: t.t('kernel.authToken'),
           description: t.t('kernel.authTokenDesc'),
           hint: t.t('kernel.authTokenPlaceholder'),
-          // 🔴 这是内核管理面的访问令牌，拿到就能直连内核。React 是
-          // `<input type="password">`（`KernelSection.tsx:72`），这边漏了遮挡，
-          // 令牌明文显示在屏幕上，截图 / 投屏 / 旁人一眼就能看见。
-          obscure: !_revealed.contains('kernel-token'),
-          trailing: _revealToggle('kernel-token'),
+          // 🔴 内核管理面的访问令牌，拿到就能直连内核。React 是
+          // `<input type="password">`（`KernelSection.tsx:72`），无明文切换 ——
+          // 令牌永远遮挡显示。
+          obscure: true,
           value: _k.token,
           onChanged: _k.setToken,
           onSubmitted: (_) => _k.commitToken(t.t('kernel.saved')),
@@ -318,8 +291,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             label: t.t('proxy.proxyPass'),
             hint: t.t('proxy.proxyPassPlaceholder'),
             value: p.password,
-            obscure: !_revealed.contains('upstream-proxy-pass'),
-            trailing: _revealToggle('upstream-proxy-pass'),
+            // React 是 `<input type="password">`（`ProxyStatusSection.tsx:187`），
+            // 无明文切换 —— 密码永远遮挡。
+            obscure: true,
             onSubmitted: (v) => _c.updateProxyClient(p.copyWith(password: v)),
           ),
           // 只有 SOCKS5 才谈得上「DNS 走代理」（`ProxyStatusSection.tsx:195`）：
