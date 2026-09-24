@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "nebius/Qwen/Qwen3.5-397B-A17B",
   "canonical_model": "qwen3.5-397b-a17b",
+  "version": "3.5",
   "capabilities": [
     "text",
     "tool_use",

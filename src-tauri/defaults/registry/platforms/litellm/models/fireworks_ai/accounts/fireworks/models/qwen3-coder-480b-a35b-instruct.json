@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-coder-480b-a35b-instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
+  "family": "qwen",
   "capabilities": [
     "text",
     "reasoning"

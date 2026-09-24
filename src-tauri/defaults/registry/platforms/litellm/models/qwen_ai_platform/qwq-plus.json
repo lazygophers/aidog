@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "qwen_ai_platform/qwq-plus",
   "canonical_model": "qwq-plus",
+  "family": "qwen",
   "capabilities": [
     "text",
     "tool_use",

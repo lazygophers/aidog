@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "dashscope/qwen3-vl-235b-a22b-thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

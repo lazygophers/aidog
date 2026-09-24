@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "deepinfra/XiaomiMiMo/MiMo-V2.5-Pro",
   "canonical_model": "mimo-v2.5-pro",
+  "family": "mimo",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use",

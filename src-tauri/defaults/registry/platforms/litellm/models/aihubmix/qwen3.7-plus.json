@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "aihubmix/qwen3.7-plus",
   "canonical_model": "qwen3.7-plus",
+  "family": "qwen",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision",
