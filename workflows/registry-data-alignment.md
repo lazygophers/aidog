@@ -216,3 +216,12 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   官方未公布（@latest 别名、媒体模型无 token 上限）。造锚效应：镜像平台可平移的
   family/version 新增约 260 格。合并后 cargo 一次 FAILED 为 mtime 陈旧构建（panic 行号
   与源码错位），touch 重编译后 351 passed——遇「测试红但源码对不上」先 touch 再排查。
+- 2026-09-25 第 29 轮 openai `45c5e4877`+`f2bd0bcb0`→merge `2d1b377ec`（107 文件）：
+  family+version 100 条全补、ctx 17（231 → 20，余全官方不公布）；gpt-6-luna/sol 与
+  gpt-image-2.5-flare/sunburst 补官方条目（official:true + 官方价）并删 4 条
+  NO_OFFICIAL_CHANNEL 豁免；gpt-image-2-t 官方 0 命中，豁免保留。gpt-5.6-cyber ctx
+  勘误 1,050,000 → 400,000。worktree 轮改用私有 CARGO_TARGET_DIR（共享 target 会被
+  并行会话污染）。门禁：check 8794 文件 / 351 passed 全绿。
+- 锚定源扩充完成（gemini+openai 官方轮），镜像平台二轮平移待跑：litellm 6699 /
+  aihubmix 2164 / openrouter 773 / bailian 系 1532 / therouter 466 / shengsuanyun 319 /
+  novita 292 / crazyrouter 285 / compshare 225。
