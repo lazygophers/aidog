@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790274966,
   "model_id": "stability/sd3",
   "canonical_model": "sd3",
+  "family": "stable",
+  "version": "3",
   "capabilities": [
     "text_to_image"
   ],
