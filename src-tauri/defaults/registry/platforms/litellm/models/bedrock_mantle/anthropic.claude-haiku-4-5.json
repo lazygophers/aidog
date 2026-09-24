@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790273334,
   "model_id": "bedrock_mantle/anthropic.claude-haiku-4-5",
-  "canonical_model": "anthropic.claude-haiku-4-5",
+  "canonical_model": "claude-haiku-4-5",
   "capabilities": [
     "text",
     "vision",
