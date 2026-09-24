@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "paddleocr-vl-0.9b",
   "canonical_model": "paddleocr-vl-0.9b",
+  "family": "paddleocr",
   "display_name": "Paddleocr VL 0.9b",
   "capabilities": [
     "vision"

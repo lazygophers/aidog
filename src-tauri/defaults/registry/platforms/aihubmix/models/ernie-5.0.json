@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790278047,
   "model_id": "ernie-5.0",
   "canonical_model": "ernie-5.0",
   "display_name": "ERNIE 5.0",
   "thinking_supported": true,
   "family": "ernie",
+  "version": "5.0",
   "capabilities": [
     "text",
     "vision"

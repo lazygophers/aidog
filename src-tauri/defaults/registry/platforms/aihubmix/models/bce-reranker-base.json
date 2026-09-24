@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "bce-reranker-base",
   "canonical_model": "bce-reranker-base",
+  "family": "bce",
   "display_name": "Bce Reranker Base",
   "capabilities": [
     "vision",

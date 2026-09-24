@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790278047,
   "model_id": "bge-large-zh",
   "canonical_model": "bge-large-zh",
+  "family": "bge",
   "display_name": "Bge Large Zh",
   "capabilities": [
     "vision",
