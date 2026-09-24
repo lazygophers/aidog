@@ -94,16 +94,18 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     final t = AidogI18n.of(context);
     return SettingsPageBody(
       title: t.t('appSettings.systemTab'),
-      subtitle: _c.appVersion.isEmpty ? null : ltr('v${_c.appVersion}'),
       children: [
         _startup(t),
+        _upstreamProxy(t),
         _kernel(t),
         _timeouts(t),
-        _upstreamProxy(t),
+        _btcGlobal(t),
         _proxyLogs(t),
         _appLogs(t),
+        _dbCompact(t),
         _stats(t),
-        _misc(t),
+        _autoUpdate(t),
+        _version(t),
         if (_confirm != null) _confirmCard(t),
         if (_c.proxyStartError != null)
           ErrorNote(
@@ -563,9 +565,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     ],
   );
 
-  // ── 杂项：内置工具兼容 / 压缩数据库 / 自动更新 ──────────
+  // ── 杂项卡（React 把这三块拆在三个 glass-surface 里，穿插编排）─────
+  // React System tab 卡序（`AppSettings.tsx:72-79` + 各 section 内卡序）：
+  // 启动/端口 → 上游代理 → 内核 → 超时 → 内置工具兼容 → 日志设置 →
+  // 压缩数据库 → 聚合统计 → 自动更新 → 版本。原先 Flutter 是
+  // 「统计 → 杂项一张卡（兼容+更新+压缩）」，顺序和分卡都对不上。
 
-  Widget _misc(I18nController t) => SettingsCard(
+  Widget _btcGlobal(I18nController t) => SettingsCard(
     children: [
       SwitchRow(
         key: const ValueKey('btc-global'),
@@ -574,13 +580,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         value: _c.btcGlobalEnabled,
         onChanged: _c.setBtcGlobal,
       ),
-      SwitchRow(
-        key: const ValueKey('auto-update'),
-        label: t.t('settings.autoUpdate'),
-        description: t.t('settings.autoUpdateHint'),
-        value: _c.autoUpdateEnabled,
-        onChanged: _c.setAutoUpdate,
-      ),
+    ],
+  );
+
+  Widget _dbCompact(I18nController t) => SettingsCard(
+    children: [
       const SizedBox(height: AidogSpace.ssm),
       Align(
         alignment: AlignmentDirectional.centerStart,
@@ -598,11 +602,27 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         t.t('settings.dbCompactHint'),
         style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
       ),
-      InfoRow(label: t.t('app.version'), value: ltr(_c.appVersion)),
     ],
   );
 
-  // ── 破坏性操作的确认卡 ──────────────────────────────────
+  Widget _autoUpdate(I18nController t) => SettingsCard(
+    children: [
+      SwitchRow(
+        key: const ValueKey('auto-update'),
+        label: t.t('settings.autoUpdate'),
+        description: t.t('settings.autoUpdateHint'),
+        value: _c.autoUpdateEnabled,
+        onChanged: _c.setAutoUpdate,
+      ),
+    ],
+  );
+
+  Widget _version(I18nController t) => SettingsCard(
+    children: [
+      if (_c.appVersion.isNotEmpty)
+        InfoRow(label: t.t('app.version'), value: ltr('v${_c.appVersion}')),
+    ],
+  );
 
   Widget _confirmCard(I18nController t) {
     final e = _estimate;
