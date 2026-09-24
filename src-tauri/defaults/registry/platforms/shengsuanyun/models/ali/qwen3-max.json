@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790269259,
   "model_id": "ali/qwen3-max",
   "canonical_model": "qwen3-max",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

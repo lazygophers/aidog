@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790269259,
   "model_id": "ali/qwen3.7-flash",
   "canonical_model": "qwen3.7-flash",
+  "family": "qwen",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
