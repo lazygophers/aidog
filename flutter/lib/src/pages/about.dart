@@ -65,16 +65,25 @@ class _AboutPageState extends State<AboutPage> {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final info = _c.info;
+    // mono 标记照 React（About.tsx:199-206）：除构建时间外值全走等宽。
     final rows = info == null
-        ? const <({String label, String value})>[]
+        ? const <({String label, String value, bool mono})>[]
         : [
-            (label: t.t('about.appVersion'), value: 'v${info.appVersion}'),
-            (label: t.t('about.tauriVersion'), value: 'v${info.tauriVersion}'),
-            (label: t.t('about.os'), value: info.os),
-            (label: t.t('about.arch'), value: info.arch),
-            (label: t.t('about.profile'), value: info.profile),
-            (label: t.t('about.gitCommit'), value: info.gitCommit),
-            (label: t.t('about.buildTime'), value: _buildTimeText(t)),
+            (
+              label: t.t('about.appVersion'),
+              value: 'v${info.appVersion}',
+              mono: true,
+            ),
+            (
+              label: t.t('about.tauriVersion'),
+              value: 'v${info.tauriVersion}',
+              mono: true,
+            ),
+            (label: t.t('about.os'), value: info.os, mono: true),
+            (label: t.t('about.arch'), value: info.arch, mono: true),
+            (label: t.t('about.profile'), value: info.profile, mono: true),
+            (label: t.t('about.gitCommit'), value: info.gitCommit, mono: true),
+            (label: t.t('about.buildTime'), value: _buildTimeText(t), mono: false),
           ];
 
     return Column(
@@ -89,23 +98,41 @@ class _AboutPageState extends State<AboutPage> {
           delayMs: 0,
           child: HoverLift(
             child: Tile(
+              // React 首卡 padding 8/20（About.tsx:237），行距靠行自己的 12/0
+              // padding + 行间 1px 分隔线撑出来。
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               child: rows.isEmpty
-                  ? Text(
-                      t.t('status.loading'),
-                      style: AidogType.micro.copyWith(color: theme.c.fg2),
+                  ? Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      child: Text(
+                        t.t('status.loading'),
+                        style: AidogType.caption.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg2,
+                        ),
+                      ),
                     )
                   : Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        for (final r in rows)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4),
+                        for (final (i, r) in rows.indexed)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              border: i == 0
+                                  ? null
+                                  : Border(
+                                      top: BorderSide(color: theme.c.line),
+                                    ),
+                            ),
                             child: Row(
                               children: [
                                 Text(
                                   r.label,
-                                  style: AidogType.micro.copyWith(
+                                  style: AidogType.caption.copyWith(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
                                     color: theme.c.fg,
                                   ),
                                 ),
@@ -115,9 +142,16 @@ class _AboutPageState extends State<AboutPage> {
                                   child: Text(
                                     ltr(r.value),
                                     textAlign: TextAlign.end,
-                                    style: AidogType.micro.copyWith(
-                                      color: theme.c.fg2,
-                                    ),
+                                    style: (r.mono
+                                            ? AidogType.numSm.copyWith(
+                                                fontFamily:
+                                                    AidogType.familyMono,
+                                              )
+                                            : AidogType.caption)
+                                        .copyWith(
+                                          fontSize: 13,
+                                          color: theme.c.fg2,
+                                        ),
                                   ),
                                 ),
                               ],
@@ -128,7 +162,7 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
         ),
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 20),
 
         // ── 软件更新 ──
         // React 在 `About.tsx:291` 按 `isTauri()` 分两条分支；Flutter 壳对应的是
@@ -139,6 +173,8 @@ class _AboutPageState extends State<AboutPage> {
           delayMs: 80,
           child: HoverLift(
             child: Tile(
+              // React 其余卡 padding 16/20（About.tsx:278,308,332）
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               title: t.t('about.updateTitle'),
               child: widget.onCheckUpdate == null
                   ? Text(
@@ -179,6 +215,8 @@ class _AboutPageState extends State<AboutPage> {
                             //（`About.tsx:292,314,343,352,402,415,428`）。
                             SmallButton(
                               filled: true,
+                              fontSize: 13, // React 关于页按钮 13 / 6px 12px（About.tsx:292）
+                              padding: (12, 6),
                               label: busy
                                   ? t.t('about.checking')
                                   : t.t('about.checkUpdate'),
@@ -191,7 +229,7 @@ class _AboutPageState extends State<AboutPage> {
             ),
           ),
         ),
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 20),
 
         // ── GitHub 链接 ──
         // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
@@ -199,29 +237,46 @@ class _AboutPageState extends State<AboutPage> {
           delayMs: 160,
           child: HoverLift(
             child: Tile(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               title: t.t('about.githubTitle'),
-              meta: ltr(kGithubRepo),
-              child: Wrap(
-                spacing: AidogSpace.ssm,
-                runSpacing: AidogSpace.sxs,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final b in const [
-                    ('repo', 'about.repo'),
-                    ('releases', 'about.releases'),
-                    ('issues', 'about.issues'),
-                    ('reportIssue', 'about.reportIssue'),
-                  ])
-                    SmallButton(
-                      filled: true,
-                      label: t.t(b.$2),
-                      onTap: () => native.openUrl(kGithubLinks[b.$1]!),
+                  Wrap(
+                    spacing: AidogSpace.ssm,
+                    runSpacing: AidogSpace.sxs,
+                    children: [
+                      for (final b in const [
+                        ('repo', 'about.repo'),
+                        ('releases', 'about.releases'),
+                        ('issues', 'about.issues'),
+                        ('reportIssue', 'about.reportIssue'),
+                      ])
+                        SmallButton(
+                          filled: true,
+                          fontSize: 13, // About.tsx:318
+                          padding: (12, 6),
+                          label: t.t(b.$2),
+                          onTap: () => native.openUrl(kGithubLinks[b.$1]!),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: AidogSpace.smd),
+                  // repo 串：mono 12 tertiary，按钮下方独立一行（About.tsx:326-328）。
+                  Text(
+                    ltr(kGithubRepo),
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 12,
+                      color: theme.c.fg3,
                     ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 20),
 
         // ── 本地环境 ──
         // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
@@ -229,6 +284,7 @@ class _AboutPageState extends State<AboutPage> {
           delayMs: 240,
           child: HoverLift(
             child: Tile(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
               title: t.t('about.localEnv.title'),
               meta: t.t('about.localEnv.subtitle'),
               child: Column(
@@ -240,6 +296,8 @@ class _AboutPageState extends State<AboutPage> {
                     children: [
                       SmallButton(
                         filled: true,
+                        fontSize: 13, // About.tsx:346
+                        padding: (12, 6),
                         label: _c.cliBusy == 'check'
                             ? t.t('about.localEnv.checking')
                             : t.t('about.localEnv.check'),
@@ -316,18 +374,35 @@ class _CliToolRow extends StatelessWidget {
             children: [
               Text(
                 labelKey == null ? status.name : t.t(labelKey),
-                style: AidogType.body.copyWith(color: theme.c.fg),
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg,
+                ),
               ),
-              const SizedBox(width: AidogSpace.sxs),
-              Text(
-                t.t(cliStatusKey(kind)),
-                style: AidogType.micro.copyWith(color: statusColor),
+              const SizedBox(width: AidogSpace.smd),
+              // 状态 chip：11px、padding 2/8、radius 4、带底色（About.tsx:386-394）。
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.surface2,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  t.t(cliStatusKey(kind)),
+                  style: AidogType.micro.copyWith(color: statusColor),
+                ),
               ),
               const Spacer(),
               // 三个互斥的按钮：没装给「安装」；装了且有更新给「升级」；坏了给「修复」。
               if (!status.installed)
                 SmallButton(
                   filled: true,
+                  fontSize: 12,
+                  padding: (10, 4),
                   label: busy == 'install' && pending
                       ? t.t('about.localEnv.installing')
                       : t.t('about.localEnv.install'),
@@ -338,6 +413,8 @@ class _CliToolRow extends StatelessWidget {
                   status.hasUpdate == true)
                 SmallButton(
                   filled: true,
+                  fontSize: 12,
+                  padding: (10, 4),
                   label: busy == 'upgrade' && pending
                       ? t.t('about.localEnv.upgrading')
                       : t.t('about.localEnv.upgrade'),
@@ -346,6 +423,8 @@ class _CliToolRow extends StatelessWidget {
               if (status.broken)
                 SmallButton(
                   filled: true,
+                  fontSize: 12,
+                  padding: (10, 4),
                   label: busy == 'upgrade' && pending
                       ? t.t('about.localEnv.upgrading')
                       : t.t('about.localEnv.repair'),
@@ -359,11 +438,17 @@ class _CliToolRow extends StatelessWidget {
             '${t.t('about.localEnv.version')}: '
             '${status.version ?? (status.installed ? t.t('about.localEnv.unknown') : '—')}'
             '${status.latestVersion != null ? '  ${t.t('about.localEnv.latest', {'version': status.latestVersion})}' : ''}',
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              color: theme.c.fg2,
+            ),
           ),
           Text(
             '${t.t('about.localEnv.path')}: ${status.path ?? '—'}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              color: theme.c.fg3,
+            ),
           ),
           if (conflict != null && conflict!.installations.isNotEmpty)
             // 冲突诊断（`About.tsx:464-537`）：整块有警示边框与底色，

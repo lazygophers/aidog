@@ -117,10 +117,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
             children: [
               if (widget.onNavigate != null)
                 SmallButton(
+                  fontSize: 12, // React 12 / 4px 10px（Notifications.tsx:103-119）
+                  padding: (10, 4),
                   label: t.t('notifications.goSettings'),
                   onTap: () => widget.onNavigate!('settings/notifications'),
                 ),
               SmallButton(
+                fontSize: 12,
+                padding: (10, 4),
                 label: t.t('notif.clear'),
                 // 空列表时「清空」是禁用的（React 的 `disabled={items.length === 0}`）。
                 onTap: _items.isEmpty ? null : _clear,
@@ -131,7 +135,20 @@ class _NotificationsPageState extends State<NotificationsPage> {
         if (_loading)
           CenteredNote(text: t.t('status.loading'))
         else if (_items.isEmpty)
-          CenteredNote(text: t.t('notif.inboxEmpty'))
+          Tile(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 40,
+            ),
+            child: Text(
+              t.t('notif.inboxEmpty'),
+              textAlign: TextAlign.center,
+              style: AidogType.caption.copyWith(
+                fontSize: 13,
+                color: theme.c.fg2,
+              ),
+            ),
+          )
         else
           Column(
             mainAxisSize: MainAxisSize.min,
@@ -142,15 +159,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   delayMs: i * 60,
                   child: HoverLift(
                     child: Padding(
-                      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                      // 卡间 gap 8（Notifications.tsx:131）
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: Container(
-                        // 整条左侧 2px accent 竖条（`Notifications.tsx:31`）。
+                        // 整条左侧 2px accent 竖条（`Notifications.tsx:31`；
+                        // React --accent 在 mono 主题下映射 accent-text）。
                         decoration: BoxDecoration(
                           border: BorderDirectional(
-                            start: BorderSide(color: theme.c.accentEdge, width: 2),
+                            start: BorderSide(
+                              color: theme.c.accentText,
+                              width: 2,
+                            ),
                           ),
                         ),
                         child: Tile(
+                          // 卡 padding 12/16（Notifications.tsx:23）
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -165,7 +192,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                           : notifTypeLabel(item.notifType, t.t),
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
-                                      style: AidogType.body.copyWith(
+                                      style: AidogType.caption.copyWith(
+                                        fontSize: 13, // Notifications.tsx:36
+                                        fontWeight: FontWeight.w600,
                                         color: theme.c.fg,
                                       ),
                                     ),
@@ -178,22 +207,28 @@ class _NotificationsPageState extends State<NotificationsPage> {
                                   ),
                                 ],
                               ),
-                              if (item.body.isNotEmpty)
+                              const SizedBox(height: 2),
+                              if (item.body.isNotEmpty) ...[
                                 Text(
                                   item.body,
-                                  style: AidogType.micro.copyWith(
+                                  style: AidogType.caption.copyWith(
+                                    fontSize: 12, // Notifications.tsx:54
                                     color: theme.c.fg2,
                                   ),
                                 ),
-                              Text(
-                                // 时间戳缺省时 React 渲染 "-"。
-                                ltr(
-                                  formatDateTime(item.createdAt).isEmpty
-                                      ? '-'
-                                      : formatDateTime(item.createdAt),
-                                ),
-                                style: AidogType.micro.copyWith(
-                                  color: theme.c.fg3,
+                              ],
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  // 时间戳缺省时 React 渲染 "-"。
+                                  ltr(
+                                    formatDateTime(item.createdAt).isEmpty
+                                        ? '-'
+                                        : formatDateTime(item.createdAt),
+                                  ),
+                                  style: AidogType.micro.copyWith(
+                                    color: theme.c.fg3,
+                                  ),
                                 ),
                               ),
                             ],
