@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vercel_ai_gateway/xai/grok-2-vision",
+  "canonical_model": "grok-2-vision",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 0.000002,
+    "output": 0.00001
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "wandb/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  "canonical_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 262000,
+  "context_window": 262000,
+  "max_output_tokens": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-7,
+    "output": 0.00000215
+  }
+}

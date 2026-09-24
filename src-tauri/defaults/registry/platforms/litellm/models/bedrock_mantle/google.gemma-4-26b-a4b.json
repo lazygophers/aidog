@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "bedrock_mantle/google.gemma-4-26b-a4b",
+  "canonical_model": "google.gemma-4-26b-a4b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.3e-7,
+    "output": 4e-7
+  }
+}

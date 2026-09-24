@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "apac.amazon.nova-micro-v1:0",
+  "canonical_model": "apac.amazon.nova-micro-v1:0",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 10000,
+  "official": false,
+  "price": {
+    "input": 3.7e-8,
+    "output": 1.48e-7
+  }
+}

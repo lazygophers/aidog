@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/gpt-5.4-nano",
+  "canonical_model": "gpt-5.4-nano",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 272000,
+  "context_window": 272000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2e-7,
+    "output": 0.00000125
+  }
+}

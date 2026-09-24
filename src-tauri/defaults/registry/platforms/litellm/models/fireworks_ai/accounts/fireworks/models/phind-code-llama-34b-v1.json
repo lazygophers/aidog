@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/accounts/fireworks/models/phind-code-llama-34b-v1",
+  "canonical_model": "phind-code-llama-34b-v1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "input": 9e-7,
+    "output": 9e-7
+  }
+}

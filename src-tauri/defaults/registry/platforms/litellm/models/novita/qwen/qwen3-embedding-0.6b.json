@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/qwen/qwen3-embedding-0.6b",
+  "canonical_model": "Qwen3-Embedding-0.6B",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 7e-8,
+    "output": 0
+  },
+  "family": "qwen"
+}

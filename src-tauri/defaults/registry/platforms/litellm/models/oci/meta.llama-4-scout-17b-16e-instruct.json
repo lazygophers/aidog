@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "oci/meta.llama-4-scout-17b-16e-instruct",
+  "canonical_model": "meta.llama-4-scout-17b-16e-instruct",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 10485760,
+  "context_window": 10485760,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 7.2e-7,
+    "output": 7.2e-7
+  }
+}

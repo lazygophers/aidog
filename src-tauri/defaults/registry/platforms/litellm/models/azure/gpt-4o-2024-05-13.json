@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/gpt-4o-2024-05-13",
+  "canonical_model": "gpt-4o-2024-05-13",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000015
+  }
+}

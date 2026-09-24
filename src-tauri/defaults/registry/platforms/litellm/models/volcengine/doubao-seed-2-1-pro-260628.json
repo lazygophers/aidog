@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "volcengine/doubao-seed-2-1-pro-260628",
+  "canonical_model": "doubao-seed-2-1-pro-260628",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 8.625e-7,
+    "output": 0.0000043125
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/gemini-3.5-flash-lite",
+  "canonical_model": "gemini-3.5-flash-lite",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3e-7,
+    "output": 0.0000025
+  }
+}

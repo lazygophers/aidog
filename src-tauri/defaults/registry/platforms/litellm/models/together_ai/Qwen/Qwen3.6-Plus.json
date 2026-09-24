@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/Qwen/Qwen3.6-Plus",
+  "canonical_model": "qwen3.6-plus",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 1000000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-7,
+    "output": 0.000003
+  }
+}

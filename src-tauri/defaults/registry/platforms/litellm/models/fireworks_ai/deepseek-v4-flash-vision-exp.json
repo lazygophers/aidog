@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/deepseek-v4-flash-vision-exp",
+  "canonical_model": "deepseek-v4-flash-vision-exp",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "price": {
+    "input": 2.2e-7,
+    "output": 6.6e-7
+  }
+}

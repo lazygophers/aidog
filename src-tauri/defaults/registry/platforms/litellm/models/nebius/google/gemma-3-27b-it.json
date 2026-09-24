@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "nebius/google/gemma-3-27b-it",
+  "canonical_model": "gemma-3-27b-it",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 110000,
+  "context_window": 110000,
+  "max_output_tokens": 110000,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 3e-7
+  }
+}

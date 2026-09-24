@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/Sao10K/L3-8B-Stheno-v3.2",
+  "canonical_model": "l3-8b-stheno-v3.2",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "input": 5e-8,
+    "output": 5e-8
+  }
+}

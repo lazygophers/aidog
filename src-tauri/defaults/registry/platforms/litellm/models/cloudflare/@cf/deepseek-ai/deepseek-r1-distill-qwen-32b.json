@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+  "canonical_model": "deepseek-r1-distill-qwen-32b",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 80000,
+  "context_window": 80000,
+  "max_output_tokens": 80000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4.97e-7,
+    "output": 0.000004881
+  }
+}

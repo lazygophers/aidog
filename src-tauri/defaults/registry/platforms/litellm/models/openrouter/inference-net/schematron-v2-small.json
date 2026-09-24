@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/inference-net/schematron-v2-small",
+  "canonical_model": "schematron-v2-small",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 5e-8,
+    "output": 2.3e-7
+  }
+}

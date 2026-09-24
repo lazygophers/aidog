@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/Phi-3.5-vision-instruct",
+  "canonical_model": "Phi-3.5-vision-instruct",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 1.3e-7,
+    "output": 5.2e-7
+  }
+}

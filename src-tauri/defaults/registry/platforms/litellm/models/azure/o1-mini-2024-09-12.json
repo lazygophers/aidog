@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/o1-mini-2024-09-12",
+  "canonical_model": "o1-mini-2024-09-12",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000011,
+    "output": 0.0000044
+  }
+}

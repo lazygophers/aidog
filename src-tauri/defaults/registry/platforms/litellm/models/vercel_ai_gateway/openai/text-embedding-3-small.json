@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vercel_ai_gateway/openai/text-embedding-3-small",
+  "canonical_model": "text-embedding-3-small",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-8,
+    "output": 0
+  }
+}

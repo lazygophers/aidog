@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "lemonade/gpt-oss-20b-mxfp4-GGUF",
+  "canonical_model": "gpt-oss-20b-mxfp4-GGUF",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

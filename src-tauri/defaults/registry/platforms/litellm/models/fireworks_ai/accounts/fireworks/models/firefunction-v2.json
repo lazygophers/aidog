@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/accounts/fireworks/models/firefunction-v2",
+  "canonical_model": "firefunction-v2",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 9e-7,
+    "output": 9e-7
+  }
+}

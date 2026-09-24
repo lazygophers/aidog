@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vercel_ai_gateway/mistral/mistral-small",
+  "canonical_model": "mistral-small",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4000,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 3e-7
+  }
+}

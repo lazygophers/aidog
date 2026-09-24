@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+  "canonical_model": "deepseek-r1-0528-maas",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 65336,
+  "context_window": 65336,
+  "max_output_tokens": 8192,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.00000135,
+    "output": 0.0000054
+  }
+}

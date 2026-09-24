@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/google/gemma-4-31B-it-Ultra",
+  "canonical_model": "gemma-4-31B-it-Ultra",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.7e-7,
+    "output": 7.6e-7
+  }
+}

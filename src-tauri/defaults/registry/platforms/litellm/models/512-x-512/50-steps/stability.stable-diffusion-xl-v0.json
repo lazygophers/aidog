@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "512-x-512/50-steps/stability.stable-diffusion-xl-v0",
+  "canonical_model": "stability.stable-diffusion-xl-v0",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "max_input_tokens": 77,
+  "context_window": 77,
+  "max_output_tokens": 77,
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.018
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/thinkingmachines/Inkling",
+  "canonical_model": "inkling",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "max_output_tokens": 524288,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 9.5e-7,
+    "output": 0.00000405
+  }
+}

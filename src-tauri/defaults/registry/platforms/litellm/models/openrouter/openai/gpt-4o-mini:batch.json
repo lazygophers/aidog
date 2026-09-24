@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/openai/gpt-4o-mini:batch",
+  "canonical_model": "gpt-4o-mini:batch",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "input": 7.5e-8,
+    "output": 3e-7
+  }
+}

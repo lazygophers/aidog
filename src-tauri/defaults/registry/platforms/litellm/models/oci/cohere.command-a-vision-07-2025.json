@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "oci/cohere.command-a-vision-07-2025",
+  "canonical_model": "cohere.command-a-vision-07-2025",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4000,
+  "official": false,
+  "price": {
+    "input": 0.00000156,
+    "output": 0.00000156
+  }
+}

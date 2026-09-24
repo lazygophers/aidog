@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790247750,
   "model_id": "claude-sonnet-4-5-20250929-v1:0",
   "canonical_model": "claude-sonnet-4-5-20250929-v1:0",
   "thinking_supported": true,
@@ -9,7 +9,7 @@
   "max_input_tokens": 200000,
   "max_output_tokens": 64000,
   "context_window": 200000,
-  "official": true,
+  "official": false,
   "price": {
     "input": 3e-06,
     "output": 1.5e-05,

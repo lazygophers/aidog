@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "sarvam/sarvam-m",
+  "canonical_model": "sarvam-m",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 32000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

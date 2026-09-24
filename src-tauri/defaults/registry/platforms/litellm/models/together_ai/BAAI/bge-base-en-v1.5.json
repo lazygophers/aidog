@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/BAAI/bge-base-en-v1.5",
+  "canonical_model": "bge-base-en-v1.5",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 512,
+  "context_window": 512,
+  "official": false,
+  "price": {
+    "input": 8e-9,
+    "output": 0
+  }
+}

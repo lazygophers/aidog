@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/anthropic/claude-haiku-4.5:batch",
+  "canonical_model": "claude-haiku-4.5:batch",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-7,
+    "output": 0.0000025
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/upstage/solar-pro4",
+  "canonical_model": "solar-pro4",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 9e-8,
+    "output": 3.6e-7
+  }
+}

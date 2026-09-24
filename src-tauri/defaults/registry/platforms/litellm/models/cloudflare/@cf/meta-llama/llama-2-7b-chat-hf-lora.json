@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/meta-llama/llama-2-7b-chat-hf-lora",
+  "canonical_model": "llama-2-7b-chat-hf-lora",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

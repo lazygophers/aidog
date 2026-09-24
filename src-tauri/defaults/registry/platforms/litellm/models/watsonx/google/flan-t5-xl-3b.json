@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/google/flan-t5-xl-3b",
+  "canonical_model": "flan-t5-xl-3b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 6e-7,
+    "output": 6e-7
+  }
+}

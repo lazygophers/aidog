@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/kimi-k3-fast",
+  "canonical_model": "kimi-k3-fast",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000045,
+    "output": 0.0000225
+  }
+}

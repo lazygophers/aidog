@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "meta.llama2-13b-chat-v1",
+  "canonical_model": "meta.llama2-13b-chat-v1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 7.5e-7,
+    "output": 0.000001
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "gpt-3.5-turbo-1106",
+  "canonical_model": "gpt-3.5-turbo-1106",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 16385,
+  "context_window": 16385,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000002
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "aihubmix/doubao-seed-2-0-lite-260428",
+  "canonical_model": "doubao-seed-2-0-lite-260428",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 9.041e-8,
+    "output": 5.4246e-7
+  }
+}
