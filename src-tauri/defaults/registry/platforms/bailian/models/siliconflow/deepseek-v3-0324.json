@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788183969,
+  "last_updated": 1790267035,
   "model_id": "siliconflow/deepseek-v3-0324",
   "canonical_model": "deepseek-v3-0324",
+  "family": "deepseek",
   "capabilities": [
     "text"
   ],

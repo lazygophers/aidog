@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "wan2.7-i2v-2026-04-25",
   "canonical_model": "wan2.7-i2v-2026-04-25",
+  "family": "wan",
+  "version": "2.7",
   "capabilities": [
     "image_to_video"
   ],

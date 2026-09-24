@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788183969,
+  "last_updated": 1790267035,
   "model_id": "pixverse/pixverse-c1-it2v",
   "canonical_model": "pixverse-c1-it2v",
+  "family": "pixverse",
   "capabilities": [
     "image_to_video"
   ],

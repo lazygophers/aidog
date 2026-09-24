@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790181253,
+  "last_updated": 1790267035,
   "model_id": "kimi-k3",
   "canonical_model": "kimi-k3",
+  "family": "kimi",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
