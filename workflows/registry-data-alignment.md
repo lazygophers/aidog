@@ -231,3 +231,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 第 32 轮 litellm Bedrock canonical 归一（anthropic./ai21./meta./deepseek. 前缀剥除
   映射官方拼写，逐字符相等才改，model_id 不动）、第 33 轮 novita+siliconflow(_en)
   锚定平移进行中。
+- 2026-09-25 第 32 轮 litellm Bedrock 归一 `e835a36b`→merge `1554e5821`（101 文件）：
+  46 canonical 归一 + family 40 / version 30 / ctx 70 文件平移（6461 → 6362）。125 个
+  Bedrock canonical 无逐字符匹配不改（amazon.nova/titan AWS 自有、ai21/cohere/stability/
+  writer 无官方平台）。第 33 轮 novita+siliconflow(_en) `1ff02517`→merge `850408f0d`
+  （137 文件）：151 格，三平台余量 398 格全为无锚缺省。两轮门禁全绿。
+  覆盖率：family 44.9% / version 21.1% / ctx 76.5%。
