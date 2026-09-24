@@ -104,6 +104,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   ×7、image 系出价改 per-image token 价、robotics-er-2 现行价、gemma-4 付费价清零、
   thinking 填充、下架 10 条（3 条未来日期模型恢复保留）。NO_OFFICIAL_CHANNEL +3。
 - 待确认攒问（已于 2026-09-24 ask-ui 拍板）：① aihubmix 官方在售但 registry 未收的旧代与非 token 模态全量镜像；②促销价用 `time_tiers`、未公布字段列入缺失归因；③ bailian_en 国际价维持摘要级证据；④ gemini Vertex 条目拆独立平台。
+- 2026-09-24 第 16 轮 novita：108 条官方模型数据对齐（88 条既有条目修正价格/上下文/输出上限/输入上限/能力；新增 8 条有效模型，2 条上下文为 0 的候选不登记）；不删除 57 条无官方对应条目。Novita 为聚合/转售平台，新模型均 `official:false`；新增 Novita-only 模型加入 `NO_OFFICIAL_CHANNEL` 豁免，`check:registry` 4568 文件通过，`aidog_db` 351 tests 通过。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
 - 2026-09-24 第 10 轮 shengsuanyun `be4fbeaa`+`aef56f4`：4 个 input 单位 bug（计费放大
