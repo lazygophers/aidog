@@ -314,6 +314,14 @@ export function ImportExportTab() {
   const handleApply = async () => {
     if (!importPath) return;
     setError("");
+    // 重命名决策的新名为空 → 后端静默回落原名（apply/mod.rs 空new_key分支），
+    // 用户以为保留两条实际覆盖本地。前置拦截，与 Flutter 侧同闸。
+    for (const d of decisions.values()) {
+      if (d.kind === "rename" && !d.new_key.trim()) {
+        setError(t("importExport.renameRequired", "选了「保留两者」就要填新名字，空着这条发过去是一行没名字的数据"));
+        return;
+      }
+    }
     setImporting(true);
     try {
       const ds: ConflictDecision[] = Array.from(decisions.entries()).map(([k, d]) => {
