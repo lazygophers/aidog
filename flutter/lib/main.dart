@@ -4,12 +4,14 @@ library;
 
 import 'dart:async';
 
+import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
 
 import 'i18n.dart';
 import 'pages.dart';
 import 'popover.dart';
 import 'shell.dart';
+import 'src/deep_link.dart';
 import 'src/menubar.dart';
 import 'src/updater.dart';
 import 'transport.dart';
@@ -54,9 +56,50 @@ class AidogApp extends StatefulWidget {
 class _AidogAppState extends State<AidogApp> {
   final _nav = ShellController();
   final _theme = ThemeController();
+  StreamSubscription<Uri>? _deepLinkSub;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_initDeepLinks());
+  }
+
+  /// `aidog://<entity>/<action>?data=` 深链（补核 A）：app_links 的
+  /// `uriLinkStream` 同时抛冷启动首条与运行时唤起，解析后送 [deepLinks] 总线并
+  /// 跳到目标页。对应 React 侧 Rust `deep_link.rs`（URL →
+  /// `{entity, action, data}` → emit）+ `App.tsx:123-143` 的分发。
+  /// scheme 注册在 bundle 期（macOS Info.plist 的 CFBundleURLTypes），
+  /// dev 模式未打包二进制里点 `aidog://` 不唤起本实例 —— 与 Tauri 同一限制。
+  Future<void> _initDeepLinks() async {
+    final links = AppLinks();
+    // app_links README：这条 stream 包括 initial link + 后续事件；另调
+    // getInitialLink 会把冷启动链接消费两遍。
+    _deepLinkSub = links.uriLinkStream.listen(
+      _handleDeepLink,
+      onError: (Object e) => debugPrint('deep-link stream error: $e'),
+    );
+  }
+
+  void _handleDeepLink(Uri uri) {
+    final payload = parseDeepLink(uri);
+    if (payload == null) {
+      debugPrint('deep-link: skipped malformed/non-aidog url $uri');
+      return;
+    }
+    deepLinks.dispatch(payload);
+    // 跳到目标页触发挂载（React `App.tsx:138-140` 的 setActiveNav）。
+    final page = switch (payload.entity) {
+      'platform' => 'platforms',
+      'mcp' => 'mcp',
+      'skill' => 'skills',
+      _ => null,
+    };
+    if (page != null) _nav.navigate(page);
+  }
 
   @override
   void dispose() {
+    _deepLinkSub?.cancel();
     _nav.dispose();
     _theme.dispose();
     super.dispose();

@@ -241,12 +241,16 @@ void main() {
       await useBigSurface(tester);
       final c = await makeI18n(tester);
       final gate = Completer<Map<String, Object?>>();
-      final k = fake(extra: {'skills_uninstall_all': (_) => gate.future});
+      final k = fake(extra: {'skills_uninstall_batch': (_) => gate.future});
       await tester.pumpWidget(wrapPage(SkillsPage(invoke: k.invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('skills.uninstallAll')).first);
+      await tester.tap(find.byType(Checkbox).first);
       await settle(tester);
-      await tester.tap(find.text(c.t('action.confirm')).last);
+      await tester.tap(
+        find.text(c.t('skills.uninstallSelected', {'count': 1})).first,
+      );
+      await settle(tester);
+      await tester.tap(find.text(c.t('action.delete')).last);
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsOneWidget);
       gate.complete(opOk());

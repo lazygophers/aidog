@@ -75,6 +75,12 @@ dependencies:
     path: ../src/assets/platforms
   desktop_drop: ^0.8.4
   flutter_svg: ^2.3.0
+
+  # aidog:// 深链（补核 A）：URL 唤起事件经 `uriLinkStream` 进 Dart，
+  # 对应 React 侧 tauri-plugin-deep-link + Rust `deep_link.rs`。桌面三平台
+  # 都在插件支持矩阵里（macOS 还需 Info.plist 注册 scheme，见
+  # `macos/Runner/Info.plist` 的 CFBundleURLTypes）。
+  app_links: ^7.2.1
   re_editor: ^0.10.0
   re_highlight: ^0.0.3
   flutter_markdown_plus: ^1.0.12

@@ -8,11 +8,15 @@
 /// 色值一律 `AidogTheme.of(context).c.*`，本文件零硬编码颜色。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../../i18n.dart';
 import '../../platform.dart' as native;
+import '../deep_link.dart';
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
@@ -35,6 +39,7 @@ class SkillsPage extends StatefulWidget {
 
 class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   late final SkillsController _c;
+  StreamSubscription<DeepLinkPayload>? _deepLinkSub;
 
   bool _built = false;
 
@@ -55,7 +60,15 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
       },
     );
     _c.init();
+    final pending = deepLinks.takePending('skill');
+    if (pending != null) _consumeDeepLink(pending);
+    _deepLinkSub = deepLinks.subscribe('skill', _consumeDeepLink);
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _consumeDeepLink(DeepLinkPayload payload) {
+    if (payload.action != 'import' || payload.data.isEmpty) return;
+    _c.openDeepLinkImport(payload.data);
   }
 
   /// React 那边靠 `window focus` + `visibilitychange` 两个事件触发重查；
@@ -67,6 +80,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _deepLinkSub?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     _c.dispose();
     super.dispose();
@@ -102,12 +116,6 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
       children: [
         PageHead(
           title: t.t('skills.title'),
-          // 数字要带标签，否则一串裸数字读不出是什么
-          //（`SkillsView.tsx:215-233` 每个数字下面都有一行说明）。
-          subtitle:
-              '${t.t('skills.total')} ${_c.total}'
-              ' · ${t.t('skills.agent.claude')} ${_c.agentCounts['claude']}'
-              ' · ${t.t('skills.agent.codex')} ${_c.agentCounts['codex']}',
           trailing: Wrap(
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -178,7 +186,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
             padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
             child: ToastBar(text: t.t('skills.envMissing'), ok: false),
           ),
-        _scopeBar(t),
+        _statsBar(t),
         const SizedBox(height: AidogSpace.ssm),
         _filterBar(t),
         const SizedBox(height: AidogSpace.ssm),
@@ -202,7 +210,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
                   child: _SkillRow(
                     skill: s,
                     checked: _c.selectedNames.contains(s.name),
-                    busy: _c.busyKey != null,
+                    busyKey: _c.busyKey,
                     writeReady: _c.writeReady,
                     onCheck: () => _c.toggleSelected(s.name),
                     onOpen: () => _c.setDetailTarget(s),
@@ -264,65 +272,180 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
               onClose: () => _c.setDetailTarget(null),
             ),
           ),
-        // 批量卸载 / 批量安装期间的全页遮罩（`SkillsView.tsx:34-53`）：
-        // 这两件事要跑好几秒，没有遮罩时页面看不出在忙，用户会重复点。
-        if (_c.busyKey == '__uninstall__' ||
-            _c.busyKey == '__uninstall_batch__')
-          _BusyOverlay(
-            text: _c.busyKey == '__uninstall__'
-                ? t.t('skills.uninstallAll')
-                : t.t('skills.uninstallSelected', {
-                    'count': _c.selectedNames.length,
-                  }),
-          ),
+        // 批量卸载期间的全页遮罩（React `SkillsView.tsx:34-53` 只盖
+        // `__uninstall_batch__`）：单行 / 全部卸载不盖全页遮罩，只禁按钮 ——
+        // 照 React 真值，原先 `__uninstall__`（卸载全部）也盖了。
+        if (_c.busyKey == '__uninstall_batch__')
+          _BusyOverlay(text: t.t('skills.uninstalling')),
         if (_c.message != null)
           ToastBar(text: _c.message!, ok: true, onDismiss: _c.clearMessage),
       ],
     );
   }
 
-  Widget _scopeBar(I18nController t) => Tile(
-    child: Wrap(
-      spacing: AidogSpace.ssm,
-      runSpacing: AidogSpace.sxs,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        TileMeta(t.t('skills.scope')),
-        // React 是 `Select` 下拉（`SkillsView.tsx:262-270`）。
-        MiniSelect(
-          key: const ValueKey('skills-scope'),
-          value: _c.scopeKind,
-          options: const ['global', 'project'],
-          labelOf: (v) => v == 'global'
-              ? t.t('skills.scopeGlobal')
-              : t.t('skills.scopeProject'),
-          onChanged: (v) => _c.setScopeKind(v!),
-        ),
-        if (_c.scopeKind == 'project') ...[
-          SizedBox(
-            width: 280,
-            child: KeptTextField(
-              key: const Key('skills-project-path'),
-              value: _c.projectPath,
-              hint: t.t('skills.chooseProjectDir'),
-              onSubmitted: _c.setProjectPath,
-            ),
+  /// 统计 + scope 合并卡（`SkillsView.tsx:203-287`）：左侧大数字（总计 40px
+  /// + 每 agent 计数 + enableAll），右侧范围筛选。原先只是一行小字副标题 ——
+  /// 数字不带视觉重量，扫一眼抓不到「装了多少、各 agent 开了多少」。
+  Widget _statsBar(I18nController t) {
+    final theme = AidogTheme.of(context);
+    final counts = _c.agentCounts;
+    return Tile(
+      child: Wrap(
+        spacing: AidogSpace.slg,
+        runSpacing: AidogSpace.ssm,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          // 总计大数字（React：fontSize 40 / 800 / accent，`SkillsView.tsx:216-223`）。
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '${_c.total}',
+                style: AidogType.body.copyWith(
+                  fontSize: 40,
+                  fontWeight: FontWeight.w800,
+                  height: 1,
+                  color: theme.c.accentText,
+                ),
+              ),
+              Text(
+                t.t('skills.total'),
+                style: AidogType.caption.copyWith(color: theme.c.fg2),
+              ),
+            ],
           ),
-          SmallButton(
-            label: t.t('skills.chooseProjectDir'),
-            onTap: _pickProjectDir,
+          // 每 agent：图标 + 计数 + 「全部启用」（`SkillsView.tsx:224-245`）。
+          for (final a in kSkillAgents)
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset(
+                  AgentIconButton.assetFor(a) ?? '',
+                  width: 22,
+                  height: 22,
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '${counts[a] ?? 0}',
+                      style: AidogType.body.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                    Text(
+                      t.t('skills.agent.$a'),
+                      style: AidogType.caption.copyWith(color: theme.c.fg2),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: AidogSpace.ssm),
+                SmallButton(
+                  label: _c.busyKey == '__enableall_${a}__'
+                      ? t.t('skills.enabling')
+                      : t.t('skills.enableAll'),
+                  // 禁用条件照 `SkillsView.tsx：238`：未就绪 / 忙 / 空列表 /
+                  // 该 agent 已全部启用（再点是空操作）。
+                  onTap:
+                      (_c.writeReady &&
+                          !_c.scopeInvalid &&
+                          _c.busyKey == null &&
+                          _c.installed.isNotEmpty &&
+                          counts[a] != _c.installed.length)
+                      ? () => _c.enableAll(a)
+                      : null,
+                ),
+              ],
+            ),
+          // pi：无 per-skill 启停，全部常开，只报总数不给按钮
+          //（`SkillsView.tsx:246-255`）。
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SvgPicture.asset(
+                'packages/aidog_platform_logos/pi.svg',
+                width: 22,
+                height: 22,
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${_c.total}',
+                    style: AidogType.body.copyWith(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      height: 1.1,
+                    ),
+                  ),
+                  Text(
+                    t.t('skills.piAlwaysOnDesc'),
+                    style: AidogType.caption.copyWith(color: theme.c.fg2),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // 右侧：范围筛选（`SkillsView.tsx:259-286`）。
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Wrap(
+                spacing: AidogSpace.ssm,
+                runSpacing: AidogSpace.sxs,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  TileMeta(t.t('skills.scope')),
+                  // React 是 `Select` 下拉（`SkillsView.tsx:262-270`）。
+                  MiniSelect(
+                    key: const ValueKey('skills-scope'),
+                    value: _c.scopeKind,
+                    options: const ['global', 'project'],
+                    labelOf: (v) => v == 'global'
+                        ? t.t('skills.scopeGlobal')
+                        : t.t('skills.scopeProject'),
+                    onChanged: (v) => _c.setScopeKind(v!),
+                  ),
+                ],
+              ),
+              if (_c.scopeKind == 'project')
+                Padding(
+                  padding: const EdgeInsets.only(top: AidogSpace.ssm),
+                  child: Wrap(
+                    spacing: AidogSpace.ssm,
+                    runSpacing: AidogSpace.sxs,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 280,
+                        child: KeptTextField(
+                          key: const Key('skills-project-path'),
+                          value: _c.projectPath,
+                          hint: t.t('skills.chooseProjectDir'),
+                          onSubmitted: _c.setProjectPath,
+                        ),
+                      ),
+                      SmallButton(
+                        label: t.t('skills.chooseProjectDir'),
+                        onTap: _pickProjectDir,
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ),
         ],
-        for (final a in kSkillAgents)
-          SmallButton(
-            label: '${t.t('skills.enableAll')} ${t.t('skills.agent.$a')}',
-            onTap: _c.busyKey == null && _c.writeReady && !_c.scopeInvalid
-                ? () => _c.enableAll(a)
-                : null,
-          ),
-      ],
-    ),
-  );
+      ),
+    );
+  }
 
   Widget _filterBar(I18nController t) => Tile(
     child: Wrap(
@@ -577,7 +700,7 @@ class _SkillRow extends StatelessWidget {
   const _SkillRow({
     required this.skill,
     required this.checked,
-    required this.busy,
+    required this.busyKey,
     required this.writeReady,
     required this.onCheck,
     required this.onOpen,
@@ -588,7 +711,11 @@ class _SkillRow extends StatelessWidget {
 
   final SkillInfo skill;
   final bool checked;
-  final bool busy;
+
+  /// 全页 busyKey（`<name>::<agent>` / `__update__` / `__uninstall_single_<name>__`
+  /// …）；非 null 时行内按钮全部禁用（React `SkillsView.tsx:571` 的
+  /// `busyKey !== null`，原先卸载按钮漏了这条）。
+  final String? busyKey;
   final bool writeReady;
   final VoidCallback onCheck;
   final VoidCallback onOpen;
@@ -600,6 +727,7 @@ class _SkillRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    final busy = busyKey != null;
     return Tile(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -640,14 +768,28 @@ class _SkillRow extends StatelessWidget {
               ),
             ),
           ),
+          // 来源：可点链接（React `SkillsView.tsx:406-431`，`source_url` 缺省
+          // 拼 `https://github.com/<source>`）。原先纯文本点不动。
           Expanded(
             flex: 2,
-            child: Text(
-              skill.source ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
+            child: (skill.source ?? '').isEmpty
+                ? const SizedBox.shrink()
+                : Tooltip(
+                    message: skill.sourceUrl ?? skill.source!,
+                    child: InkWell(
+                      onTap: () => native.openUrl(
+                        skill.sourceUrl ?? 'https://github.com/${skill.source}',
+                      ),
+                      child: Text(
+                        skill.source!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.micro.copyWith(
+                          color: theme.c.accentText,
+                        ),
+                      ),
+                    ),
+                  ),
           ),
           // 操作区要能换行：agent 开关的文案带上状态之后变长了，窄窗下一行放不下，
           // 裸 `Wrap` 在 `Row` 里拿到的是无限宽约束，永远不换行 —— 必须给它
@@ -687,13 +829,20 @@ class _SkillRow extends StatelessWidget {
                   color: theme.c.fg3,
                   tooltip: t.t('skills.piAlwaysOnHint'),
                 ),
-                SmallButton(label: t.t('skills.share.title'), onTap: onShare),
+                // 分享按钮只在 catalog 来源（有 source）时出现
+                //（React `SkillsView.tsx:554-557` 的 `skillCatalogId(skill) &&`：
+                // 手动 symlink 的 skill 无 source，点不出任何东西，直接隐藏）。
+                if (skillCatalogId(skill) != null)
+                  SmallButton(label: t.t('skills.share.title'), onTap: onShare),
                 SmallButton(
-                  // 单条卸载：React `variant="destructive"`（`SkillsView.tsx:567`）。
-                  label: t.t('action.delete'),
+                  // 单条卸载：React `variant="destructive"`（`SkillsView.tsx:567`），
+                  // busy 期间换「卸载中…」并禁用（`SkillsView.tsx:575-577`）。
+                  label: busyKey == '__uninstall_single_${skill.name}__'
+                      ? t.t('skills.uninstalling')
+                      : t.t('skills.uninstall'),
                   danger: true,
                   filled: true,
-                  onTap: onUninstall,
+                  onTap: busy || !writeReady ? null : onUninstall,
                 ),
               ],
             ),
@@ -838,6 +987,10 @@ class _SkillInstallViewState extends State<SkillInstallView> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
+        // 批量安装期间的全页遮罩（React `SkillInstallView.tsx:201-222`）：
+        // 安装要跑 npx、可能连装好几个，原先只禁按钮 / 换文案，页面看不出在忙。
+        if (_c.busyId == '__batch__')
+          _BusyOverlay(text: t.t('skills.install.installing')),
         PageHead(
           title: t.t('skills.install.title'),
           subtitle: _c.loading ? t.t('skills.install.searching') : null,
@@ -1093,6 +1246,27 @@ class _SkillDetailViewState extends State<SkillDetailView> {
             onTap: widget.onClose,
           ),
         ),
+        // 头部 chips（React `SkillDetailView.tsx:131-159`）：来源 + 已启用
+        // agent 徽标。原先只有标题/路径，装在哪个 agent 上一眼看不出来。
+        if ((widget.skill.source ?? '').isNotEmpty ||
+            widget.skill.enabledAgents.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+            child: Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if ((widget.skill.source ?? '').isNotEmpty)
+                  MiniBadge(
+                    text: widget.skill.source!,
+                    color: theme.c.accentText,
+                  ),
+                for (final a in widget.skill.enabledAgents)
+                  MiniBadge(text: a, color: theme.c.fg2),
+              ],
+            ),
+          ),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
