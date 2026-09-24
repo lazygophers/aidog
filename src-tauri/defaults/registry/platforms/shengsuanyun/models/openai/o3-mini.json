@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790274366,
   "model_id": "openai/o3-mini",
   "canonical_model": "o3-mini",
+  "family": "o",
+  "version": "3",
   "capabilities": [
     "text"
   ],

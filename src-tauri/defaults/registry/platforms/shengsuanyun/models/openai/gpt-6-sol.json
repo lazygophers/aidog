@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790187143,
+  "last_updated": 1790274366,
   "model_id": "openai/gpt-6-sol",
   "canonical_model": "gpt-6-sol",
+  "family": "gpt",
+  "version": "6",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790274366,
   "model_id": "gpt-5-mini",
   "canonical_model": "gpt-5-mini",
+  "family": "gpt",
+  "version": "5",
   "capabilities": [
     "text"
   ],

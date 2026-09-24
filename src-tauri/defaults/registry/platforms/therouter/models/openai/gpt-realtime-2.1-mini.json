@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790274366,
   "model_id": "openai/gpt-realtime-2.1-mini",
   "canonical_model": "gpt-realtime-2.1-mini",
+  "family": "gpt",
+  "version": "2.1",
   "capabilities": [
     "audio"
   ],
