@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790269926,
   "model_id": "doubao-seed-2-1-turbo-260628",
   "canonical_model": "doubao-seed-2-1-turbo-260628",
+  "family": "doubao-seed",
+  "version": "2.1",
   "capabilities": [
     "text"
   ],
