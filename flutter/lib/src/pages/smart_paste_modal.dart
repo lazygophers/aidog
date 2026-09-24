@@ -16,7 +16,6 @@ import '../../i18n.dart';
 import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
-import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_paste_logic.dart';
@@ -236,7 +235,7 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
     return AidogModal(
       maxWidth: 540,
       onBarrierTap: widget.onClose,
-      child: Tile(
+      child: ModalCard(
         title: t.t('platform.paste.title'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

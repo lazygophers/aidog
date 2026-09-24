@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "step-3.7-flash",
   "canonical_model": "step-3.7-flash",
   "display_name": "Step 3.7 Flash",
+  "family": "stepfun",
   "capabilities": [
     "text",
     "vision"

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "coding-minimax-m2.5-free",
   "canonical_model": "MiniMax-M2.5",
   "display_name": "Coding MiniMax M2.5 (free)",
+  "version": "2.5",
+  "family": "minimax",
   "thinking_supported": true,
   "capabilities": [
     "text"

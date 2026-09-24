@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790267844,
   "model_id": "meta-llama/Llama-3.2-90B-Vision-Instruct",
   "canonical_model": "llama-3.2-90b-vision-instruct",
   "display_name": "Llama 3.2 90B Vision Instruct",
+  "family": "llama",
   "capabilities": [],
   "official": false,
   "price": {

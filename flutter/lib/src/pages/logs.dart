@@ -1029,7 +1029,7 @@ class _DetailPanelState extends State<_DetailPanel> {
     return AidogModal(
       maxWidth: 900,
       onBarrierTap: onClose,
-      child: Tile(
+      child: ModalCard(
         // React DialogContent padding 20（DetailPanel.tsx:53）
         padding: const EdgeInsets.all(20),
         title: t.t('logs.detail'),

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790267844,
   "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "display_name": "DeepSeek R1 Distill Llama 70B",
+  "family": "deepseek",
   "capabilities": [],
   "official": false,
   "price": {

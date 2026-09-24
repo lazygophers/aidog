@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "qwen3-coder-plus-2025-07-22",
   "canonical_model": "qwen3-coder-plus",
   "display_name": "Qwen3 Coder Plus 2025 07-22",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

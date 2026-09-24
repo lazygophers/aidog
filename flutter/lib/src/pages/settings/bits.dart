@@ -166,15 +166,16 @@ class SwitchRow extends StatelessWidget {
           const SizedBox(width: AidogSpace.ssm),
           // React 把 × 放在开关**左边**（`EnvEditor.tsx:48`），这里照做。
           ?trailing,
-          Switch(
-            value: value,
-            onChanged: onChanged,
-            // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
-            // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
-            activeThumbColor: AidogColors.light.surface,
-            activeTrackColor: theme.c.accent,
-            inactiveTrackColor: theme.c.surface2,
-            inactiveThumbColor: theme.c.fg3,
+          // 36×20 的 shadcn Switch（ui/switch.tsx:14-23），不再用 Material 原件
+          // （≈52×32，尺寸与形态都对不上）。禁用态压暗对齐 React 的
+          // `disabled:opacity-50`。
+          Opacity(
+            opacity: onChanged == null ? 0.5 : 1,
+            child: AidogSwitch(
+              value: value,
+              compact: true,
+              onChanged: onChanged == null ? null : () => onChanged!(!value),
+            ),
           ),
         ],
       ),
@@ -776,7 +777,7 @@ class UnsavedChangesCard extends StatelessWidget {
     // maxWidth 420）：点遮罩等于「取消离开」，执行中不许关。
     return AidogModal(
       onBarrierTap: busy ? null : onCancel,
-      child: Tile(
+      child: ModalCard(
         title: t.t('settings.unsavedTitle'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

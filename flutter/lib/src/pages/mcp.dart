@@ -160,7 +160,7 @@ class _McpPageState extends State<McpPage> {
   Widget _scanCard(I18nController t) => AidogModal(
     maxWidth: 560,
     onBarrierTap: _c.importing ? null : _c.closeScan,
-    child: Tile(
+    child: ModalCard(
       title: t.t('mcp.scanTitle'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -301,7 +301,7 @@ class _McpPageState extends State<McpPage> {
   Widget _pasteCard(I18nController t) => AidogModal(
     maxWidth: 560,
     onBarrierTap: _c.pasteBusy ? null : () => _c.setPasteOpen(false),
-    child: Tile(
+    child: ModalCard(
       title: t.t('mcp.pasteImport'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -403,7 +403,7 @@ class _McpPageState extends State<McpPage> {
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: _c.closeEdit,
-      child: Tile(
+      child: ModalCard(
         title: _c.editTarget == null ? t.t('mcp.add') : t.t('mcp.edit'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

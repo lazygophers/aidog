@@ -1247,7 +1247,7 @@ class _RemovePlatformConfirm extends StatelessWidget {
     // 但按 Esc 关（Radix `AlertDialog` 的默认行为）。
     return AidogModal(
       onEscape: controller.cancelRemovePlatform,
-      child: Tile(
+      child: ModalCard(
         title: multi
             ? t.t('group.deletePlatformMultiTitle')
             : t.t('group.deletePlatformTitle'),
@@ -1753,7 +1753,7 @@ class _GroupTestPanel extends StatelessWidget {
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: controller.closeGroupTest,
-      child: Tile(
+      child: ModalCard(
         title: '${t.t('group.testAllTitle')}：${gt.groupName}',
         meta: gt.running
             ? t.t('group.testAllProgress', {

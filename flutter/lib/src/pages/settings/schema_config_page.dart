@@ -1389,7 +1389,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     return AidogModal(
       maxWidth: 680,
       onBarrierTap: widget.onCancel,
-      child: Tile(
+      child: ModalCard(
         title: widget.pending.recommended
             ? t.t('settings.editor.recommendTitle')
             : t.t('settings.editor.importTitle'),
