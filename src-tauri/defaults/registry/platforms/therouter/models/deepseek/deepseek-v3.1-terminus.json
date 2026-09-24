@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790269367,
+  "last_updated": 1790280349,
   "model_id": "deepseek/deepseek-v3.1-terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "family": "deepseek",
+  "version": "3.1",
   "capabilities": [
     "text",
     "vision"

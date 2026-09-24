@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/openai/o4-mini-high",
   "canonical_model": "o4-mini-high",
+  "family": "o",
+  "version": "4",
   "capabilities": [
     "text",
     "vision",

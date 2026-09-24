@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/google/gemini-3.7-flash:batch",
   "canonical_model": "gemini-3.7-flash:batch",
+  "family": "gemini",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision",

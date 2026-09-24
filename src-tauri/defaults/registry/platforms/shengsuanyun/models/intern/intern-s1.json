@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790280349,
   "model_id": "intern/intern-s1",
   "canonical_model": "intern-s1",
+  "family": "intern",
+  "version": "1",
   "capabilities": [
     "text"
   ],

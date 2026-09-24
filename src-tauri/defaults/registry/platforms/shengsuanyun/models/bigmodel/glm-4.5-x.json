@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790280349,
   "model_id": "bigmodel/glm-4.5-x",
   "canonical_model": "glm-4.5-x",
+  "family": "glm",
+  "version": "4.5",
   "capabilities": [
     "text"
   ],

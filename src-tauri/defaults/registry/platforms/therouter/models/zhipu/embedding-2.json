@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1790280349,
   "model_id": "zhipu/embedding-2",
   "canonical_model": "embedding-2",
+  "family": "embedding",
+  "version": "2",
   "capabilities": [
     "embedding"
   ],

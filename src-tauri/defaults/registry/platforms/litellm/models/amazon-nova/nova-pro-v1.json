@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790280349,
   "model_id": "amazon-nova/nova-pro-v1",
   "canonical_model": "nova-pro-v1",
+  "family": "nova",
+  "version": "1",
   "capabilities": [
     "text",
     "vision",

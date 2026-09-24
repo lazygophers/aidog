@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790280349,
   "model_id": "openrouter/aion-labs/aion-3.5",
   "canonical_model": "aion-3.5",
+  "family": "aion",
+  "version": "3.5",
   "capabilities": [
     "text",
     "tool_use",

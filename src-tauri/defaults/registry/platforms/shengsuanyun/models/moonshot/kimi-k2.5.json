@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790269259,
+  "last_updated": 1790280349,
   "model_id": "moonshot/kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "family": "kimi",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision"

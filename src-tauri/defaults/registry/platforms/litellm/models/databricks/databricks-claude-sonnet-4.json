@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790280349,
   "model_id": "databricks/databricks-claude-sonnet-4",
   "canonical_model": "claude-sonnet-4",
+  "family": "claude",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use",

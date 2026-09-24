@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790280349,
   "model_id": "wan2.6-r2v",
   "canonical_model": "wan2.6-r2v",
+  "family": "wan",
+  "version": "2.6",
   "capabilities": [
     "video_to_video"
   ],

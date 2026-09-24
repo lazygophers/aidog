@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790280349,
   "model_id": "nebius/nvidia/Nemotron-3-Ultra-550b-a55b",
   "canonical_model": "nemotron-3-ultra-550b-a55b",
   "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use",

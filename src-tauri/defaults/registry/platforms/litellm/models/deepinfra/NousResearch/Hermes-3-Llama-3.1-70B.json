@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790280349,
   "model_id": "deepinfra/NousResearch/Hermes-3-Llama-3.1-70B",
   "canonical_model": "hermes-3-llama-3.1-70b",
+  "family": "hermes",
+  "version": "3",
   "capabilities": [
     "text"
   ],

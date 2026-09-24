@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790280349,
   "model_id": "emoji-v1",
   "canonical_model": "emoji-v1",
+  "family": "emoji",
+  "version": "1",
   "capabilities": [
     "video_edit"
   ],
