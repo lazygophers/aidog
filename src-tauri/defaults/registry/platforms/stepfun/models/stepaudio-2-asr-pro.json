@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144722,
+  "last_updated": 1790276888,
   "model_id": "stepaudio-2-asr-pro",
   "canonical_model": "stepaudio-2-asr-pro",
+  "family": "stepfun",
+  "version": "2",
   "capabilities": [
     "audio"
   ],

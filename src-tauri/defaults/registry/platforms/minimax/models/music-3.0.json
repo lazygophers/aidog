@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788164531,
+  "last_updated": 1790276888,
   "model_id": "music-3.0",
   "canonical_model": "music-3.0",
+  "family": "minimax",
+  "version": "3.0",
   "display_name": "Music 3.0",
   "capabilities": [
     "audio"

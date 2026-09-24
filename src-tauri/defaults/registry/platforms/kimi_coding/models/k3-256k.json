@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790276888,
   "model_id": "k3-256k",
   "canonical_model": "k3-256k",
+  "family": "kimi",
+  "version": "3",
   "display_name": "Kimi K3 (256K)",
   "capabilities": [
     "text",

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "MiniMax-H3-Max",
   "canonical_model": "MiniMax-H3-Max",
+  "family": "minimax",
   "display_name": "MiniMax-H3-Max",
   "capabilities": [
     "text_to_video",

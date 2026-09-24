@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "MiniMax-Hailuo-02",
   "canonical_model": "MiniMax-Hailuo-02",
+  "family": "minimax",
+  "version": "02",
   "display_name": "MiniMax-Hailuo-02",
   "capabilities": [
     "text_to_video",
