@@ -1,9 +1,8 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790284433,
   "model_id": "longcat-2.0",
   "canonical_model": "LongCat-2.0",
   "family": "longcat",
-  "version": "2.0",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
