@@ -3,6 +3,7 @@
   "display_name": "Meta: Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",
   "family": "llama",
+  "version": "4",
   "max_input_tokens": 163840,
   "context_window": 163840,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 1.8e-7,
     "output": 1.8e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

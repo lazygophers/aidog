@@ -2,6 +2,7 @@
   "model_id": "~z-ai/glm-latest",
   "display_name": "Z.ai: GLM Latest",
   "canonical_model": "glm-latest",
+  "family": "glm",
   "max_input_tokens": 1048576,
   "context_window": 1310720,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.0000017644,
     "cache_read": 1.0426e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "tool_use",

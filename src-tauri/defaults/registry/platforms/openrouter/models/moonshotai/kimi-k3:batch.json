@@ -2,6 +2,8 @@
   "model_id": "moonshotai/kimi-k3:batch",
   "display_name": "MoonshotAI: Kimi K3 (batch)",
   "canonical_model": "kimi-k3:batch",
+  "family": "kimi",
+  "version": "3",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.0000114,
     "cache_read": 2.28e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

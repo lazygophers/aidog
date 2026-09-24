@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3.5-35B-A3B",
   "canonical_model": "qwen3.5-35b-a3b",
   "family": "qwen",
+  "version": "3.5",
   "max_input_tokens": 256000,
   "context_window": 262144,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.00000125,
     "cache_read": 1.5625e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

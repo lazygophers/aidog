@@ -2,6 +2,8 @@
   "model_id": "thedrummer/skyfall-36b-v2",
   "display_name": "TheDrummer: Skyfall 36B V2",
   "canonical_model": "skyfall-36b-v2",
+  "family": "skyfall",
+  "version": "2",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 8e-7,
     "cache_read": 2.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

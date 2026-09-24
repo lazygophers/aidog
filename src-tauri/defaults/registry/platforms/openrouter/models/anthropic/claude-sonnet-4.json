@@ -2,6 +2,8 @@
   "model_id": "anthropic/claude-sonnet-4",
   "display_name": "Anthropic: Claude Sonnet 4",
   "canonical_model": "claude-sonnet-4",
+  "family": "claude",
+  "version": "4",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000015,
     "cache_read": 3e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

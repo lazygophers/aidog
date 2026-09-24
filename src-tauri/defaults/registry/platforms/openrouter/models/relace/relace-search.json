@@ -2,6 +2,7 @@
   "model_id": "relace/relace-search",
   "display_name": "Relace: Relace Search",
   "canonical_model": "relace-search",
+  "family": "relace",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.000001,
     "output": 0.000003
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

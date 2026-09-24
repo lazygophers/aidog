@@ -2,6 +2,7 @@
   "model_id": "openrouter/free",
   "display_name": "Free Models Router",
   "canonical_model": "free",
+  "family": "openrouter",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -9,7 +10,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

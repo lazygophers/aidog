@@ -2,6 +2,8 @@
   "model_id": "baidu/ernie-4.5-vl-424b-a47b",
   "display_name": "Baidu: ERNIE 4.5 VL 424B A47B ",
   "canonical_model": "ernie-4.5-vl-424b-a47b",
+  "family": "ernie",
+  "version": "4.5",
   "max_input_tokens": 123000,
   "context_window": 123000,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 4.2e-7,
     "output": 0.00000125
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

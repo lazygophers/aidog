@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3 235B A22B Instruct 2507",
   "canonical_model": "qwen3-235b-a22b-2507",
   "family": "qwen",
+  "version": "3",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 3.5e-7,
     "cache_read": 1.75e-8
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

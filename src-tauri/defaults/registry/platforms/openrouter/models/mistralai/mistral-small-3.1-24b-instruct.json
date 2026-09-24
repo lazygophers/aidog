@@ -2,6 +2,8 @@
   "model_id": "mistralai/mistral-small-3.1-24b-instruct",
   "display_name": "Mistral: Mistral Small 3.1 24B",
   "canonical_model": "mistral-small-3.1-24b-instruct",
+  "family": "mistral",
+  "version": "3.1",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 3.51e-7,
     "output": 5.55e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-4o:batch",
   "display_name": "OpenAI: GPT-4o (batch)",
   "canonical_model": "gpt-4o:batch",
+  "family": "gpt",
+  "version": "4o",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000005,
     "cache_read": 6.25e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,7 @@
   "model_id": "cohere/command-a",
   "display_name": "Cohere: Command A",
   "canonical_model": "command-a",
+  "family": "command",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.0000025,
     "output": 0.00001
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

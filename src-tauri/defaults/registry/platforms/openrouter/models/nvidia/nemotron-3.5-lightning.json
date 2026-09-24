@@ -2,6 +2,8 @@
   "model_id": "nvidia/nemotron-3.5-lightning",
   "display_name": "NVIDIA: Nemotron 3.5 Lightning",
   "canonical_model": "nemotron-3.5-lightning",
+  "family": "nemotron",
+  "version": "3.5",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 2e-7,
     "cache_read": 4e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

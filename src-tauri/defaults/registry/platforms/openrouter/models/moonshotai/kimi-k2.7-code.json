@@ -3,6 +3,7 @@
   "display_name": "MoonshotAI: Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",
   "family": "kimi",
+  "version": "2.7",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.0000033,
     "cache_read": 1.8e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

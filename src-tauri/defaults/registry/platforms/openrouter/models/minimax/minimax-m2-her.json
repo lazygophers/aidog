@@ -2,6 +2,8 @@
   "model_id": "minimax/minimax-m2-her",
   "display_name": "MiniMax: MiniMax M2-her",
   "canonical_model": "minimax-m2-her",
+  "family": "minimax",
+  "version": "2",
   "max_input_tokens": 65536,
   "context_window": 65536,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.0000012,
     "cache_read": 3e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

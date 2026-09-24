@@ -2,6 +2,8 @@
   "model_id": "bytedance-seed/seed-2.0-lite",
   "display_name": "ByteDance Seed: Seed-2.0-Lite",
   "canonical_model": "seed-2.0-lite",
+  "family": "seed",
+  "version": "2.0",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +13,7 @@
     "input": 2.5e-7,
     "output": 0.000002
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "nvidia/nemotron-3-ultra-550b-a55b:free",
   "display_name": "NVIDIA: Nemotron 3 Ultra (free)",
   "canonical_model": "nemotron-3-ultra-550b-a55b:free",
+  "family": "nemotron",
+  "version": "3",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -11,7 +13,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

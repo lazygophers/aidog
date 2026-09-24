@@ -2,6 +2,8 @@
   "model_id": "meta-llama/llama-3.2-1b-instruct",
   "display_name": "Meta: Llama 3.2 1B Instruct",
   "canonical_model": "llama-3.2-1b-instruct",
+  "family": "llama",
+  "version": "3.2",
   "max_input_tokens": 60000,
   "context_window": 60000,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 2.7e-8,
     "output": 2.01e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

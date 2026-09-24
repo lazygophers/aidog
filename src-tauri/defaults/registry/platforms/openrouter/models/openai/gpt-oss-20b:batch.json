@@ -2,6 +2,7 @@
   "model_id": "openai/gpt-oss-20b:batch",
   "display_name": "OpenAI: gpt-oss-20b (batch)",
   "canonical_model": "gpt-oss-20b:batch",
+  "family": "gpt",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 2.4e-8,
     "output": 1.12e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "reasoning"

@@ -2,6 +2,8 @@
   "model_id": "sakana/fugu-ultra-v2",
   "display_name": "Sakana: Fugu Ultra v2",
   "canonical_model": "fugu-ultra-v2",
+  "family": "fugu",
+  "version": "2",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.00003,
     "cache_read": 5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

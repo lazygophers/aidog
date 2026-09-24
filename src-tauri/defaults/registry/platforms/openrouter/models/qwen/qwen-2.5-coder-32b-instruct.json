@@ -3,6 +3,7 @@
   "display_name": "Qwen2.5 Coder 32B Instruct",
   "canonical_model": "qwen-2.5-coder-32b-instruct",
   "family": "qwen",
+  "version": "2.5",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 6.6e-7,
     "output": 0.000001
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

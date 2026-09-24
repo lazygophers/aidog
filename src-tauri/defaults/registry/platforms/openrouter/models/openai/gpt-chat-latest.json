@@ -2,6 +2,7 @@
   "model_id": "openai/gpt-chat-latest",
   "display_name": "OpenAI: GPT Chat Latest",
   "canonical_model": "gpt-chat-latest",
+  "family": "gpt",
   "max_input_tokens": 400000,
   "context_window": 400000,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 0.00003,
     "cache_read": 5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

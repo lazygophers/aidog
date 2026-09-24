@@ -2,6 +2,7 @@
   "model_id": "perplexity/sonar-pro-search",
   "display_name": "Perplexity: Sonar Pro Search",
   "canonical_model": "sonar-pro-search",
+  "family": "sonar",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.000003,
     "output": 0.000015
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

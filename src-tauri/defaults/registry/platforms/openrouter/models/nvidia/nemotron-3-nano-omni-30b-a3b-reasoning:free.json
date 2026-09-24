@@ -2,6 +2,8 @@
   "model_id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
   "display_name": "NVIDIA: Nemotron 3 Nano Omni (free)",
   "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning:free",
+  "family": "nemotron",
+  "version": "3",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

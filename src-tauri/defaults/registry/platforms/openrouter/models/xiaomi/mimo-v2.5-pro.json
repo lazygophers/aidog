@@ -3,6 +3,7 @@
   "display_name": "Xiaomi: MiMo-V2.5-Pro",
   "canonical_model": "mimo-v2.5-pro",
   "family": "mimo",
+  "version": "2.5",
   "max_input_tokens": 1048576,
   "context_window": 1050000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 8.7e-7,
     "cache_read": 3.6e-9
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

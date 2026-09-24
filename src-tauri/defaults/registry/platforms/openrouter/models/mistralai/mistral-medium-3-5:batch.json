@@ -2,6 +2,8 @@
   "model_id": "mistralai/mistral-medium-3-5:batch",
   "display_name": "Mistral: Mistral Medium 3.5 (batch)",
   "canonical_model": "mistral-medium-3-5:batch",
+  "family": "mistral",
+  "version": "3.5",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +13,7 @@
     "input": 7.5e-7,
     "output": 0.00000375
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

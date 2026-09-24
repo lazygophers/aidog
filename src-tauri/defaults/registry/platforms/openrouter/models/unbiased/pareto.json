@@ -2,6 +2,7 @@
   "model_id": "unbiased/pareto",
   "display_name": "Pareto",
   "canonical_model": "pareto",
+  "family": "pareto",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 0.0000075,
     "cache_read": 2.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,7 @@
   "model_id": "tencent/hy-mt2-1.8b",
   "display_name": "Tencent: Hy-MT2-1.8B",
   "canonical_model": "hy-mt2-1.8b",
+  "family": "hunyuan",
   "max_input_tokens": 8192,
   "context_window": 8192,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 4.4e-8,
     "output": 1.77e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

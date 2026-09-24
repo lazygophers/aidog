@@ -2,6 +2,8 @@
   "model_id": "aion-labs/aion-2.0",
   "display_name": "AionLabs: Aion-2.0",
   "canonical_model": "aion-2.0",
+  "family": "aion",
+  "version": "2.0",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.0000016,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

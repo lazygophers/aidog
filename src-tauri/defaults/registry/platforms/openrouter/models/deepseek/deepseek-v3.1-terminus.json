@@ -3,6 +3,7 @@
   "display_name": "DeepSeek: DeepSeek V3.1 Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "family": "deepseek",
+  "version": "3.1",
   "max_input_tokens": 131072,
   "context_window": 163840,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.000001,
     "cache_read": 1.35e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

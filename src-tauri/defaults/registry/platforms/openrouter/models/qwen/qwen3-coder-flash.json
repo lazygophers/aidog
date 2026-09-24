@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3 Coder Flash",
   "canonical_model": "qwen3-coder-flash",
   "family": "qwen",
+  "version": "3",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 9.75e-7,
     "cache_read": 3.9e-8
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

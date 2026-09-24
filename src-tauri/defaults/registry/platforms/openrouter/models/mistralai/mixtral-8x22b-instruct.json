@@ -2,6 +2,7 @@
   "model_id": "mistralai/mixtral-8x22b-instruct",
   "display_name": "Mistral: Mixtral 8x22B Instruct",
   "canonical_model": "mixtral-8x22b-instruct",
+  "family": "mixtral",
   "max_input_tokens": 65536,
   "context_window": 65536,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 0.000006,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-5-mini:batch",
   "display_name": "OpenAI: GPT-5 Mini (batch)",
   "canonical_model": "gpt-5-mini:batch",
+  "family": "gpt",
+  "version": "5",
   "max_input_tokens": 400000,
   "context_window": 400000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000001,
     "cache_read": 1.25e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

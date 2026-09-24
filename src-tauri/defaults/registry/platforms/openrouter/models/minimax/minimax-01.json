@@ -2,6 +2,8 @@
   "model_id": "minimax/minimax-01",
   "display_name": "MiniMax: MiniMax-01",
   "canonical_model": "minimax-01",
+  "family": "minimax",
+  "version": "01",
   "max_input_tokens": 1000192,
   "context_window": 1000192,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 2e-7,
     "output": 0.0000011
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

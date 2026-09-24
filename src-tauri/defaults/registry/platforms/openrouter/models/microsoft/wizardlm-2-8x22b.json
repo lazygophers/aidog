@@ -2,6 +2,8 @@
   "model_id": "microsoft/wizardlm-2-8x22b",
   "display_name": "WizardLM-2 8x22B",
   "canonical_model": "wizardlm-2-8x22b",
+  "family": "wizardlm",
+  "version": "2",
   "max_input_tokens": 65535,
   "context_window": 65535,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 6.2e-7,
     "output": 6.2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

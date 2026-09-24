@@ -2,6 +2,8 @@
   "model_id": "liquid/lfm-2.5-2.6b:free",
   "display_name": "LiquidAI: LFM2.5-2.6B (free)",
   "canonical_model": "lfm-2.5-2.6b:free",
+  "family": "lfm",
+  "version": "2.5",
   "max_input_tokens": 65536,
   "context_window": 65536,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

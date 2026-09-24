@@ -2,6 +2,8 @@
   "model_id": "upstage/solar-pro4",
   "display_name": "Upstage: Solar Pro 4",
   "canonical_model": "solar-pro4",
+  "family": "solar",
+  "version": "4",
   "max_input_tokens": 524288,
   "context_window": 524288,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 3.6e-7,
     "cache_read": 1.8e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "tool_use",

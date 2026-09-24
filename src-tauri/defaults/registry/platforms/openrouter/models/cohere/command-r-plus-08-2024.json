@@ -2,6 +2,7 @@
   "model_id": "cohere/command-r-plus-08-2024",
   "display_name": "Cohere: Command R+ (08-2024)",
   "canonical_model": "command-r-plus-08-2024",
+  "family": "command",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.0000025,
     "output": 0.00001
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

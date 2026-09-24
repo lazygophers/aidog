@@ -2,6 +2,8 @@
   "model_id": "tencent/hy4-preview",
   "display_name": "Tencent: Hy4 preview",
   "canonical_model": "hy4-preview",
+  "family": "hunyuan",
+  "version": "4",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000002501,
     "cache_read": 4.2e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "tool_use",

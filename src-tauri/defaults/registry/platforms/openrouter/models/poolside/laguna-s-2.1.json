@@ -2,6 +2,8 @@
   "model_id": "poolside/laguna-s-2.1",
   "display_name": "Poolside: Laguna S 2.1",
   "canonical_model": "laguna-s-2.1",
+  "family": "laguna",
+  "version": "2.1",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 1.8e-7,
     "cache_read": 9e-9
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "tool_use",

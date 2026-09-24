@@ -3,6 +3,7 @@
   "display_name": "DeepSeek: DeepSeek V3.2 Exp",
   "canonical_model": "DeepSeek-V3.2-Exp",
   "family": "deepseek",
+  "version": "3.2",
   "max_input_tokens": 163840,
   "context_window": 163840,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 2.7e-7,
     "output": 4.1e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]
