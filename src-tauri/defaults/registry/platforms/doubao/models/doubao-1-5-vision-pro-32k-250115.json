@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144135,
+  "last_updated": 1790276818,
   "model_id": "doubao-1-5-vision-pro-32k-250115",
   "canonical_model": "doubao-1-5-vision-pro-32k-250115",
+  "family": "doubao-vision",
+  "version": "1.5",
   "capabilities": [
     "text",
     "vision",

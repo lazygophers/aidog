@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "rerank",
   "canonical_model": "rerank",
+  "family": "rerank",
   "display_name": "Rerank",
   "capabilities": [
     "rerank"

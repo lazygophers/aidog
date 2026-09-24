@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "emohaa",
   "canonical_model": "emohaa",
+  "family": "emohaa",
   "display_name": "Emohaa",
   "capabilities": [
     "text"

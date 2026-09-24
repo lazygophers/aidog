@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "glm-realtime-air",
   "canonical_model": "glm-realtime-air",
+  "family": "glm",
   "display_name": "GLM-Realtime-Air",
   "capabilities": [
     "text",

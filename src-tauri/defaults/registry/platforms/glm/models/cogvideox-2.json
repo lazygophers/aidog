@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "cogvideox-2",
   "canonical_model": "cogvideox-2",
+  "family": "cogvideox",
+  "version": "2",
   "display_name": "CogVideoX-2",
   "capabilities": [
     "text_to_video",

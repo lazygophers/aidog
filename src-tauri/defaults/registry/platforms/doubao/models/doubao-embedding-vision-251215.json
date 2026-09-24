@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788144135,
+  "last_updated": 1790276818,
   "model_id": "doubao-embedding-vision-251215",
   "canonical_model": "doubao-embedding-vision-251215",
+  "family": "doubao-embedding",
   "capabilities": [
     "embedding",
     "vision"

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "glm-4-voice",
   "canonical_model": "glm-4-voice",
+  "family": "glm",
+  "version": "4",
   "display_name": "GLM-4-Voice",
   "capabilities": [
     "text",

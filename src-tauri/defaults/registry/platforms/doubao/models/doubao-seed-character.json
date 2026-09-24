@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790276818,
   "model_id": "doubao-seed-character",
   "canonical_model": "doubao-seed-character",
+  "family": "doubao-seed-character",
   "capabilities": [
     "text"
   ],

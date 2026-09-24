@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789538918,
+  "last_updated": 1790276818,
   "model_id": "glm-4.5-flash",
   "canonical_model": "glm-4.5-flash",
+  "family": "glm",
+  "version": "4.5",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "viduq1-text",
   "canonical_model": "viduq1-text",
+  "family": "vidu",
+  "version": "q1",
   "display_name": "ViduQ1-Text",
   "capabilities": [
     "text_to_video"

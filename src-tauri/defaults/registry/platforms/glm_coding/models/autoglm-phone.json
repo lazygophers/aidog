@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "autoglm-phone",
   "canonical_model": "autoglm-phone",
+  "family": "autoglm",
   "display_name": "AutoGLM-Phone",
   "capabilities": [
     "text"

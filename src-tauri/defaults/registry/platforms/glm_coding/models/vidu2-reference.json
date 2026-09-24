@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "vidu2-reference",
   "canonical_model": "vidu2-reference",
+  "family": "vidu",
+  "version": "2",
   "display_name": "Vidu2-Reference",
   "capabilities": [
     "image_to_video"

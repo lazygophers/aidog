@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144135,
+  "last_updated": 1790276818,
   "model_id": "doubao-seedream-5-0-pro-260628",
   "canonical_model": "doubao-seedream-5-0-pro-260628",
+  "family": "doubao-seedream",
+  "version": "5.0",
   "capabilities": [
     "text_to_image",
     "image_to_image",

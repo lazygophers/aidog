@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "glm-z1-flash",
   "canonical_model": "glm-z1-flash",
+  "family": "glm",
+  "version": "z1",
   "display_name": "GLM-Z1-Flash",
   "capabilities": [
     "text",

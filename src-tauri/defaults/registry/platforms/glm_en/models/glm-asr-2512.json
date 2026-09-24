@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788108806,
+  "last_updated": 1790276818,
   "model_id": "glm-asr-2512",
   "canonical_model": "glm-asr-2512",
+  "family": "glm",
   "display_name": "GLM-ASR-2512",
   "capabilities": [
     "audio"
