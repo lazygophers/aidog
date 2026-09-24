@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790277685,
   "model_id": "qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
   "thinking_supported": true,
@@ -9,6 +9,7 @@
   ],
   "official": false,
   "family": "qwen",
+  "version": "3.8",
   "context_window": 1000000,
   "price": {
     "input": 0.0,

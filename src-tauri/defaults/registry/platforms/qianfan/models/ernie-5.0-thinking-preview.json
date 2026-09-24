@@ -1,9 +1,10 @@
 {
-  "last_updated": 1789538918,
+  "last_updated": 1790277685,
   "model_id": "ernie-5.0-thinking-preview",
   "canonical_model": "ernie-5.0-thinking-preview",
   "display_name": "ERNIE 5.0 Thinking Preview",
   "family": "ernie",
+  "version": "5.0",
   "capabilities": [
     "text",
     "reasoning"

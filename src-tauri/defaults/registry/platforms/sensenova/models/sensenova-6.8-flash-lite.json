@@ -1,9 +1,10 @@
 {
-  "last_updated": 1788095210,
+  "last_updated": 1790277685,
   "model_id": "sensenova-6.8-flash-lite",
   "canonical_model": "sensenova-6.8-flash-lite",
   "display_name": "SenseNova 6.8 Flash Lite",
   "family": "sensenova",
+  "version": "6.8",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1790277685,
   "model_id": "pp-structurev3",
   "canonical_model": "pp-structurev3",
+  "family": "pp-structure",
+  "version": "3",
   "capabilities": [
     "vision"
   ],

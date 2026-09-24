@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790277685,
   "model_id": "seed-1-6-flash-250715",
   "canonical_model": "seed-1-6-flash-250715",
   "family": "seed",
+  "version": "1.6",
   "capabilities": [
     "text"
   ],

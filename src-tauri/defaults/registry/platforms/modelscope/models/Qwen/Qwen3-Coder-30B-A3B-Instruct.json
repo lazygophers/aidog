@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790277685,
   "model_id": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

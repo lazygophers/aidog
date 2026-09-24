@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790277685,
   "model_id": "glm-4-7-251222",
   "canonical_model": "glm-4-7-251222",
   "family": "glm",
+  "version": "4.7",
   "capabilities": [
     "text"
   ],
