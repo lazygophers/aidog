@@ -163,3 +163,23 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   https://crazyrouter.com/api/pricing（主）+
   https://r.jina.ai/https://crazyrouter.com/pricing（展示价交叉验证）；
   /v1/models 401（需令牌）。
+- 2026-09-25 第 17 轮 nvidia `48047746d`+`45eb3d583`（92 文件）：85 个官方模型页逐一取证
+  （build.nvidia.com 页面内嵌 specifications.contextLength / modalities /
+  modelCapability.reasoning 结构化数据）；下架 17 条（双 slug 形态 404 + jina 交叉）、
+  新增 10 条、family 补 55、thinking 补 15、ctx 修正 26。version 全轮零写入：官方页与
+  NIM 文档均不公布 per-model version，合法缺省。NO_OFFICIAL_CHANNEL +1
+  （deepseek-ai/deepseek-v4.1-flash：nvidia id 带 vendor 前缀，与官方条目字符串不匹配）。
+  ASR/TTS（whisper/parakeet）与非 chat 服务（kumo-relational）按平台范围不登记。
+- 2026-09-25 第 18 轮 atlascloud `60e45329e`（130 文件）：family 25→136、version 7→132
+  （138 条），thinking 11、display_name 20、predecessor 3（MiniMax 链）。19 条官方未公布
+  系列名留缺省（text-embedding-v1~v4、tongyi 伞品牌系等）。岔路：check-registry ⑨ 误报
+  修复（纯字符串字段插入被判 round-trip 指纹，改按数字字面 token 集合变化判定）。
+- 2026-09-25 第 19 轮 bailian/bailian_coding `c302a4181`（734 文件）：family 补
+  367+366、version 补 89+88，缺口 1017/1015 → 562/561。qwen 系 version 因官方组
+  （modelscope/siliconflow）全为 None 不填（填则触发 ⑦ canonical 分裂）；19 条/平台
+  官方未公布系列名留缺省。来源：r.jina.ai/https://help.aliyun.com/zh/model-studio/models
+  （第 1 类）+ 同 canonical 平台平移（第 2 类）。
+- 2026-09-25 主仓三件套全绿（bump=0 / check=0 8790 文件 / cargo=0 351 passed）。
+  缺失排名刷新：litellm 7696 / aihubmix 2391 / openrouter 910 / bailian_en 732 /
+  bailian 562 / bailian_coding 561。第 20 轮 litellm、第 21 轮 aihubmix 锚定平移
+  （canonical → 官方组 family/version 平移，bailian 轮打法的镜像平台版）进行中。
