@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/claude-opus-4-8@default",
+  "canonical_model": "claude-opus-4-8@default",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000025
+  }
+}

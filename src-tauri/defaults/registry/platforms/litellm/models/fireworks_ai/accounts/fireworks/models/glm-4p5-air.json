@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/accounts/fireworks/models/glm-4p5-air",
+  "canonical_model": "glm-4p5-air",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 96000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.2e-7,
+    "output": 8.8e-7
+  }
+}

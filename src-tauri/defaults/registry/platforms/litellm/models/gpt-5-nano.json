@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "gpt-5-nano",
+  "canonical_model": "gpt-5-nano",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 272000,
+  "context_window": 272000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 5e-8,
+    "output": 4e-7
+  }
+}

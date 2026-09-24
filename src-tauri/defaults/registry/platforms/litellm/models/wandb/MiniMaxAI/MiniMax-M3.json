@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "wandb/MiniMaxAI/MiniMax-M3",
+  "canonical_model": "MiniMax-M3",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 262000,
+  "context_window": 262000,
+  "max_output_tokens": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.3e-7,
+    "output": 9.6e-7
+  },
+  "family": "minimax"
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/ibm-granite/granite-4.0-h-micro",
+  "canonical_model": "granite-4.0-h-micro",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131000,
+  "context_window": 131000,
+  "max_output_tokens": 131000,
+  "official": false,
+  "price": {
+    "input": 1.7e-8,
+    "output": 1.12e-7
+  }
+}

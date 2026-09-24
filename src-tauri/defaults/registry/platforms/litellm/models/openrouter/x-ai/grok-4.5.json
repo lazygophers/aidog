@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/x-ai/grok-4.5",
+  "canonical_model": "grok-4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 500000,
+  "context_window": 500000,
+  "max_output_tokens": 450000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.000002,
+    "output": 0.000006
+  }
+}

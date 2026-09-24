@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "pinstripes/ps/glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.25e-7,
+    "output": 4.5e-7
+  },
+  "family": "glm",
+  "version": "4.5"
+}

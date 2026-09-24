@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "mistral/devstral-latest",
+  "canonical_model": "devstral-latest",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "price": {
+    "input": 4e-7,
+    "output": 0.000002
+  }
+}

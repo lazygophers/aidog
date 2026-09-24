@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
+  "canonical_model": "mistral-small-3.2-24b-instruct",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "input": 9.375e-8,
+    "output": 2.5e-7
+  }
+}

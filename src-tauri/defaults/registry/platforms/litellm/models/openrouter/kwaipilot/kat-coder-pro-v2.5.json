@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/kwaipilot/kat-coder-pro-v2.5",
+  "canonical_model": "kat-coder-pro-v2.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 235929,
+  "official": false,
+  "price": {
+    "input": 7.4e-7,
+    "output": 0.00000296
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/z-ai/glm-4.6",
+  "canonical_model": "glm-4.6",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 204800,
+  "context_window": 204800,
+  "max_output_tokens": 16384,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4.3e-7,
+    "output": 0.00000175
+  },
+  "family": "glm",
+  "version": "4.6"
+}

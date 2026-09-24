@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct",
+  "canonical_model": "qwen2.5-coder-32b-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 6.6e-7,
+    "output": 0.000001
+  }
+}

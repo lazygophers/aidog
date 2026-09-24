@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/accounts/fireworks/models/firesearch-ocr-v6",
+  "canonical_model": "firesearch-ocr-v6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 2e-7,
+    "output": 2e-7
+  }
+}

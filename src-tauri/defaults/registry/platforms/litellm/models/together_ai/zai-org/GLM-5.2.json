@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/zai-org/GLM-5.2",
+  "canonical_model": "glm-5.2",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048575,
+  "context_window": 1048575,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000014,
+    "output": 0.0000044
+  },
+  "family": "glm",
+  "version": "5.2"
+}

@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "sambanova/MiniMax-M2.7",
+  "canonical_model": "MiniMax-M2.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 196608,
+  "context_window": 196608,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6e-7,
+    "output": 0.0000024
+  }
+}

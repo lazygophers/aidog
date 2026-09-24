@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "aiml/dall-e-3",
+  "canonical_model": "dall-e-3",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.052
+  }
+}

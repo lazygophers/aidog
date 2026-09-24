@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "rerank-v4.0-pro",
+  "canonical_model": "rerank-v4.0-pro",
+  "capabilities": [
+    "rerank"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

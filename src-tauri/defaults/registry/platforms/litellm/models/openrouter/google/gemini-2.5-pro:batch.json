@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/google/gemini-2.5-pro:batch",
+  "canonical_model": "gemini-2.5-pro:batch",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6.25e-7,
+    "output": 0.000005
+  }
+}

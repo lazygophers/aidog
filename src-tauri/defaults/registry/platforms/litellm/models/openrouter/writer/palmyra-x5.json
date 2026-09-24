@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/writer/palmyra-x5",
+  "canonical_model": "palmyra-x5",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1040000,
+  "context_window": 1040000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 6e-7,
+    "output": 0.000006
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/eu/o3-mini-2025-01-31",
+  "canonical_model": "o3-mini-2025-01-31",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 100000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.00000121,
+    "output": 0.00000484
+  }
+}

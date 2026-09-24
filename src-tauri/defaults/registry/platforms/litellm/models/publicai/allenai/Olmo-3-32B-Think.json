@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "publicai/allenai/Olmo-3-32B-Think",
+  "canonical_model": "Olmo-3-32B-Think",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

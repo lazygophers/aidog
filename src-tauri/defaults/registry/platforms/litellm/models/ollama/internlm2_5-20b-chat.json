@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "ollama/internlm2_5-20b-chat",
+  "canonical_model": "internlm2_5-20b-chat",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

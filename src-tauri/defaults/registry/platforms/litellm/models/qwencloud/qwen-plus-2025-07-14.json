@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "qwencloud/qwen-plus-2025-07-14",
+  "canonical_model": "qwen-plus-2025-07-14",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 129024,
+  "context_window": 129024,
+  "max_output_tokens": 16384,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4e-7,
+    "output": 0.0000012
+  }
+}

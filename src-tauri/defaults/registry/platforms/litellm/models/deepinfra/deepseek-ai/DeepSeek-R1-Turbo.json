@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/deepseek-ai/DeepSeek-R1-Turbo",
+  "canonical_model": "deepseek-r1-turbo",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 40960,
+  "context_window": 40960,
+  "max_output_tokens": 40960,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000003
+  }
+}

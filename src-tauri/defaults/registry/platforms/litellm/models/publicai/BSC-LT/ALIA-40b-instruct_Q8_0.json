@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "publicai/BSC-LT/ALIA-40b-instruct_Q8_0",
+  "canonical_model": "ALIA-40b-instruct_Q8_0",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

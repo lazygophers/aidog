@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/gpt-image-1.5-2025-12-16",
+  "canonical_model": "gpt-image-1.5-2025-12-16",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000032
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/anthropic/claude-opus-5:batch",
+  "canonical_model": "claude-opus-5:batch",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000025,
+    "output": 0.0000125
+  }
+}

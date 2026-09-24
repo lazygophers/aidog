@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
+  "canonical_model": "mistral-small-3.1-24b-instruct",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 3.51e-7,
+    "output": 5.55e-7
+  }
+}

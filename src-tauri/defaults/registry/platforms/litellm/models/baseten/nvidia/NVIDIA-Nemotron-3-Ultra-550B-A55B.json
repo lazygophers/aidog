@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "baseten/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  "canonical_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202800,
+  "context_window": 202800,
+  "max_output_tokens": 202800,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6e-7,
+    "output": 0.0000024
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepgram/streaming/nova-3-multilingual",
+  "canonical_model": "nova-3-multilingual",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00009667
+  }
+}

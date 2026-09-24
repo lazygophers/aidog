@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/meta-llama/llama-3-2-11b-vision-instruct",
+  "canonical_model": "llama-3.2-11b-vision-instruct",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 3.5e-7,
+    "output": 3.5e-7
+  }
+}

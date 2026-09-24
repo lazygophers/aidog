@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/Cohere-parse-v5",
+  "canonical_model": "Cohere-parse-v5",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.0015
+  }
+}

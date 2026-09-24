@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "dashscope/qwq-plus",
+  "canonical_model": "qwq-plus",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 98304,
+  "context_window": 98304,
+  "max_output_tokens": 8192,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 8e-7,
+    "output": 0.0000024
+  }
+}
