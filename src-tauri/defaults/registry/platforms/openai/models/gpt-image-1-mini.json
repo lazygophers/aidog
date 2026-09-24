@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "gpt-image-1-mini",
   "canonical_model": "gpt-image-1-mini",
   "capabilities": [
@@ -12,5 +12,7 @@
     "input": 0.000002,
     "output": 0.000008,
     "cache_read": 2e-7
-  }
+  },
+  "family": "gpt",
+  "version": "1"
 }

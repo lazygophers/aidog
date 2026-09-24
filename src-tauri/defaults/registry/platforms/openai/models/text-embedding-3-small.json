@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "text-embedding-3-small",
   "canonical_model": "text-embedding-3-small",
   "display_name": "Text Embedding 3 Small",
@@ -8,6 +8,8 @@
   ],
   "official": true,
   "price": {
-    "input": 2e-08
-  }
+    "input": 2e-8
+  },
+  "family": "text-embedding",
+  "version": "3"
 }

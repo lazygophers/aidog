@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "gpt-5.6-cyber",
   "canonical_model": "gpt-5.6-cyber",
   "display_name": "GPT-5.6 Cyber",
@@ -9,13 +9,15 @@
   ],
   "max_input_tokens": 400000,
   "max_output_tokens": 128000,
-  "context_window": 1050000,
+  "context_window": 400000,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.25e-05,
-    "output": 7.5e-05,
-    "cache_read": 1.25e-06
-  }
+    "input": 0.0000125,
+    "output": 0.000075,
+    "cache_read": 0.00000125
+  },
+  "family": "gpt",
+  "version": "5.6"
 }

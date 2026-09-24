@@ -299,15 +299,11 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "grok-4-fast-reasoning",
     "hy4-preview",
     "qwen3-coder-plus-2025-07-22",
-    // 以下 5 条：crazyrouter 2026-09-24 全量对齐新增，OpenAI 官方渠道在售
-    // （gpt-6-luna/sol 有 openrouter/shengsuanyun openai/ 前缀镜像条目 official:true）
-    // 但 openai 官方平台 registry 未收录，官方一手单价无来源（crazyrouter 卖的是
-    // 聚合折扣价，禁当官方价写入）——豁免，待 openai 平台对齐轮补条后移除。
-    "gpt-6-luna",
-    "gpt-6-sol",
+    // gpt-image-2-t：openai 官方平台 2026-09-25 核实（platform.openai.com/docs/models
+    // 与 /docs/pricing 全文 0 命中）确实无此模型，仅 crazyrouter 等中转在售——豁免保留。
+    // 其余 4 条（gpt-6-luna / gpt-6-sol / gpt-image-2.5-flare / gpt-image-2.5-sunburst）
+    // 已由 openai 官方平台 2026-09-25 补 official 条目（官方一手价）后移除。
     "gpt-image-2-t",
-    "gpt-image-2.5-flare",
-    "gpt-image-2.5-sunburst",
 // New Novita-only reseller entries with no official platform in registry.
     "deepseek/deepseek-v4.1-flash-p",
     "deepseek/deepseek-v4.1-flash",

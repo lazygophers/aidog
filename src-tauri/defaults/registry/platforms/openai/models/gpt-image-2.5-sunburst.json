@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790271371,
+  "model_id": "gpt-image-2.5-sunburst",
+  "canonical_model": "gpt-image-2.5-sunburst",
+  "display_name": "GPT Image 2.5 Sunburst",
+  "family": "gpt",
+  "version": "2.5",
+  "capabilities": [
+    "text_to_image",
+    "image_edit",
+    "image_to_image"
+  ],
+  "official": true,
+  "price": {
+    "input": 0.000005,
+    "cache_read": 0.00000125,
+    "output": 0.00003
+  }
+}
