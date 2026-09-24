@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "deepinfra/Qwen/Qwen3-235B-A22B",
   "canonical_model": "qwen3-235b-a22b",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "databricks/databricks-bge-large-en",
-  "canonical_model": "databricks-bge-large-en",
+  "canonical_model": "bge-large-en",
+  "family": "bge",
   "capabilities": [
     "embedding"
   ],

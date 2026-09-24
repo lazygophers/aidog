@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/eu/o3-mini-2025-01-31",
-  "canonical_model": "o3-mini-2025-01-31",
+  "canonical_model": "o3-mini",
+  "family": "o",
+  "version": "3",
   "capabilities": [
     "text",
     "reasoning"

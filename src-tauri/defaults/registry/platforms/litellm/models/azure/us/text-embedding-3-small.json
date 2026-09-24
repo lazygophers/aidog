@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/us/text-embedding-3-small",
   "canonical_model": "text-embedding-3-small",
+  "family": "text-embedding",
+  "version": "3",
   "capabilities": [
     "embedding"
   ],

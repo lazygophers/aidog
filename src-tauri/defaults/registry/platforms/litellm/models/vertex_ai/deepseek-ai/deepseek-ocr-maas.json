@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "vertex_ai/deepseek-ai/deepseek-ocr-maas",
   "canonical_model": "deepseek-ocr-maas",
+  "family": "deepseek",
   "capabilities": [
     "vision"
   ],
+  "context_window": 8192,
   "official": false,
   "price": {
     "unit": "request",

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790273334,
+  "last_updated": 1790278679,
   "model_id": "bedrock/us-gov-west-1/anthropic.claude-sonnet-5",
   "canonical_model": "claude-sonnet-5",
   "family": "claude",
+  "version": "5",
   "capabilities": [
     "text",
     "vision",

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790273334,
+  "last_updated": 1790278679,
   "model_id": "bedrock/us-east-2/moonshotai.kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
+  "version": "2",
   "capabilities": [
     "text",
     "tool_use",

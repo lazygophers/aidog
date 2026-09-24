@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "vertex_ai/meta/llama-4-scout-17b-16e-instruct-maas",
   "canonical_model": "llama-4-scout-17b-16e-instruct-maas",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use"

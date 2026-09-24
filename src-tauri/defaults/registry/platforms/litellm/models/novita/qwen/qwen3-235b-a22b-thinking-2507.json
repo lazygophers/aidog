@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "novita/qwen/qwen3-235b-a22b-thinking-2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use",

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790272826,
+  "last_updated": 1790278679,
   "model_id": "gpt-realtime-whisper",
   "canonical_model": "gpt-realtime-whisper",
   "family": "gpt",
@@ -7,6 +7,7 @@
   "capabilities": [
     "audio"
   ],
+  "context_window": 16000,
   "official": false,
   "price": {
     "unit": "second",

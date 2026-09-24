@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/us/gpt-4o-realtime-preview-2024-10-01",
-  "canonical_model": "gpt-4o-realtime-preview-2024-10-01",
+  "canonical_model": "gpt-4o-realtime-preview",
+  "family": "gpt",
+  "version": "4o",
   "capabilities": [
     "text",
     "tool_use"

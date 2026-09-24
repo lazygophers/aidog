@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790278679,
   "model_id": "amazon.nova-2-lite-v1:0",
-  "canonical_model": "amazon.nova-2-lite-v1:0",
+  "canonical_model": "nova-2-lite-v1",
   "family": "nova",
   "version": "2",
   "capabilities": [

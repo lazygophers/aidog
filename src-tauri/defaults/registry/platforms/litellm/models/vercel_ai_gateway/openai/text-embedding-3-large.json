@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "vercel_ai_gateway/openai/text-embedding-3-large",
   "canonical_model": "text-embedding-3-large",
+  "family": "text-embedding",
+  "version": "3",
   "capabilities": [
     "embedding"
   ],
