@@ -2,6 +2,8 @@
   "model_id": "mistralai/codestral-2508",
   "display_name": "Mistral: Codestral 2508",
   "canonical_model": "codestral-2508",
+  "family": "codestral",
+  "version": "25.08",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 9e-7,
     "cache_read": 3e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]
