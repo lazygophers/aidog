@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268689,
   "model_id": "cosyvoice-v2",
   "canonical_model": "cosyvoice-v2",
+  "family": "cosyvoice",
+  "version": "2",
   "capabilities": [
     "audio"
   ],
