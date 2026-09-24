@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790268690,
   "model_id": "qwen3-next-80b-a3b-thinking",
   "canonical_model": "qwen3-next-80b-a3b-thinking",
+  "family": "qwen",
   "thinking_supported": true,
   "capabilities": [
     "text"
