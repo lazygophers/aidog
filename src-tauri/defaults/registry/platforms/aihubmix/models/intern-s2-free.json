@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "intern-s2-free",
   "canonical_model": "intern-s2-free",
-  "display_name": "Intern S2 (free)",
+
+  "family": "intern",  "display_name": "Intern S2 (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

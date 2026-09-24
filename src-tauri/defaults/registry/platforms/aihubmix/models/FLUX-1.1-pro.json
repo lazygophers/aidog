@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "FLUX-1.1-pro",
   "canonical_model": "flux-1.1-pro",
-  "display_name": "Flux 1.1 Pro",
+
+  "version": "1.1",
+  "family": "flux",  "display_name": "Flux 1.1 Pro",
   "capabilities": [
     "vision",
     "text_to_image",

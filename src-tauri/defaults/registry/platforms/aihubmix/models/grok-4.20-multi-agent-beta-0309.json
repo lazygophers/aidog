@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "grok-4.20-multi-agent-beta-0309",
   "canonical_model": "grok-4.20-multi-agent-beta-0309",
-  "display_name": "Grok 4.20 Multi Agent Beta 0309",
+
+  "version": "4.20",
+  "family": "grok",  "display_name": "Grok 4.20 Multi Agent Beta 0309",
   "thinking_supported": true,
   "max_output_tokens": 2000000,
   "context_window": 2000000,

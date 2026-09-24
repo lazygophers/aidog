@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "deepseek-ai/deepseek-llm-67b-chat",
   "canonical_model": "deepseek-llm-67b-chat",
-  "display_name": "DeepSeek Llm 67B Chat",
+
+  "family": "deepseek",  "display_name": "DeepSeek Llm 67B Chat",
   "capabilities": [],
   "official": false,
   "price": {

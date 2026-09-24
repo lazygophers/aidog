@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790279972,
   "model_id": "qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "family": "qwen",
-  "display_name": "Qwen3.8-2.4T-A95B",
+
+  "version": "3.8",  "display_name": "Qwen3.8-2.4T-A95B",
   "capabilities": [
     "text",
     "reasoning"

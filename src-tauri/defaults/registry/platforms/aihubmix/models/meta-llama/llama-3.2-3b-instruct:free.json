@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "meta-llama/llama-3.2-3b-instruct:free",
   "canonical_model": "llama-3.2-3b-instruct:free",
-  "display_name": "Llama 3.2 3B Instruct (free)",
+
+  "family": "llama",  "display_name": "Llama 3.2 3B Instruct (free)",
   "capabilities": [],
   "official": false,
   "price": {

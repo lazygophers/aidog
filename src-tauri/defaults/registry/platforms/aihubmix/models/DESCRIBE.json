@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "DESCRIBE",
   "canonical_model": "describe",
-  "display_name": "Describe",
+
+  "family": "vidu",  "display_name": "Describe",
   "capabilities": [
     "vision",
     "text_to_image",

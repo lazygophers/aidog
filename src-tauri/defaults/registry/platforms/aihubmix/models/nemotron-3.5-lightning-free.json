@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "nemotron-3.5-lightning-free",
   "canonical_model": "nemotron-3.5-lightning-free",
-  "display_name": "Nemotron 3.5 Lightning (free)",
+
+  "version": "3.5",
+  "family": "nemotron",  "display_name": "Nemotron 3.5 Lightning (free)",
   "capabilities": [
     "text"
   ],

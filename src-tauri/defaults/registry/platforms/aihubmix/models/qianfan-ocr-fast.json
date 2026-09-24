@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "qianfan-ocr-fast",
   "canonical_model": "ocr-fast",
-  "display_name": "Qianfan Ocr Fast",
+
+  "family": "qianfan",  "display_name": "Qianfan Ocr Fast",
   "max_output_tokens": 28000,
   "context_window": 32000,
   "capabilities": [

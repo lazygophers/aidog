@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "glm-3-turbo",
   "canonical_model": "glm-3-turbo",
-  "display_name": "GLM 3 Turbo",
+
+  "version": "3",
+  "family": "glm",  "display_name": "GLM 3 Turbo",
   "capabilities": [],
   "official": false,
   "price": {

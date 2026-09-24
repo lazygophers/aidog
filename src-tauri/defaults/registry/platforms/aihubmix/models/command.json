@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "command",
   "canonical_model": "command",
-  "display_name": "Command",
+
+  "family": "command",  "display_name": "Command",
   "capabilities": [],
   "official": false,
   "price": {

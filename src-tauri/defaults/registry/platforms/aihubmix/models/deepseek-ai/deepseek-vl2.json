@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "deepseek-ai/deepseek-vl2",
   "canonical_model": "deepseek-vl2",
-  "display_name": "DeepSeek Vl2",
+
+  "family": "deepseek",  "display_name": "DeepSeek Vl2",
   "capabilities": [],
   "official": false,
   "price": {

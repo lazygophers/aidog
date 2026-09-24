@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "veo-3.0-generate-preview",
   "canonical_model": "veo-3.0-generate-preview",
-  "display_name": "Veo 3.0 Generate Preview",
+
+  "version": "3.0",
+  "family": "veo",  "display_name": "Veo 3.0 Generate Preview",
   "capabilities": [
     "vision",
     "text_to_video",

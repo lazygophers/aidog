@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "deepseek-r1-distill-qianfan-llama-8b",
   "canonical_model": "deepseek-r1-distill-qianfan-llama-8b",
-  "display_name": "DeepSeek R1 Distill Qianfan Llama 8B",
+
+  "family": "deepseek",  "display_name": "DeepSeek R1 Distill Qianfan Llama 8B",
   "capabilities": [],
   "official": false,
   "price": {

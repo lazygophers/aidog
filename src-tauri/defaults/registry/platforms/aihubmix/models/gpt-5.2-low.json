@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "gpt-5.2-low",
   "canonical_model": "gpt-5.2-low",
-  "display_name": "GPT 5.2 Low",
+
+  "version": "5.2",
+  "family": "gpt",  "display_name": "GPT 5.2 Low",
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "context_window": 400000,

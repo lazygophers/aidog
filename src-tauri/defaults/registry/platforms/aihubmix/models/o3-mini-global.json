@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "o3-mini-global",
   "canonical_model": "o3-mini-global",
-  "display_name": "O3 Mini Global",
+
+  "version": "3",
+  "family": "o",  "display_name": "O3 Mini Global",
   "capabilities": [],
   "official": false,
   "price": {

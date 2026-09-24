@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "qwen-3-32b",
   "canonical_model": "qwen-3-32b",
-  "display_name": "Qwen 3 32B",
+
+  "version": "3",
+  "family": "qwen",  "display_name": "Qwen 3 32B",
   "capabilities": [],
   "official": false,
   "price": {

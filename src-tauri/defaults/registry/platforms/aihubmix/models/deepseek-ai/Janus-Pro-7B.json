@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "deepseek-ai/Janus-Pro-7B",
   "canonical_model": "janus-pro-7b",
-  "display_name": "Janus Pro 7B",
+
+  "family": "janus",  "display_name": "Janus Pro 7B",
   "capabilities": [],
   "official": false,
   "price": {

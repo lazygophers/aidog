@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "gemma-7b-it",
   "canonical_model": "gemma-7b-it",
-  "display_name": "Gemma 7B It",
+
+  "family": "gemma",  "display_name": "Gemma 7B It",
   "capabilities": [],
   "official": false,
   "price": {

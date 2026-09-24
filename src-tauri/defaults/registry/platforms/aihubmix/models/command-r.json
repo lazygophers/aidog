@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "command-r",
   "canonical_model": "command-r",
-  "display_name": "Command R",
+
+  "family": "command",  "display_name": "Command R",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "jina-embeddings-v2-base-code",
   "canonical_model": "jina-embeddings-v2-base-code",
-  "display_name": "Jina Embeddings V2 Base Code",
+
+  "version": "2",
+  "family": "jina",  "display_name": "Jina Embeddings V2 Base Code",
   "capabilities": [
     "embedding"
   ],

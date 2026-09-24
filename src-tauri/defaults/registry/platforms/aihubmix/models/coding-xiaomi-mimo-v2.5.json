@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "coding-xiaomi-mimo-v2.5",
   "canonical_model": "coding-xiaomi-mimo-v2.5",
-  "display_name": "Coding Xiaomi Mimo V2.5",
+
+  "version": "2.5",
+  "family": "mimo",  "display_name": "Coding Xiaomi Mimo V2.5",
   "thinking_supported": true,
   "max_output_tokens": 131072,
   "context_window": 1048576,

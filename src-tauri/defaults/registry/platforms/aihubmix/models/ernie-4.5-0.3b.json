@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "ernie-4.5-0.3b",
   "canonical_model": "ernie-4.5-0.3b",
-  "display_name": "ERNIE 4.5 0.3b",
+
+  "version": "4.5",
+  "family": "ernie",  "display_name": "ERNIE 4.5 0.3b",
   "capabilities": [],
   "official": false,
   "price": {

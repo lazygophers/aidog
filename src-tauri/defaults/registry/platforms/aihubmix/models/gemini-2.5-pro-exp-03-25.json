@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "gemini-2.5-pro-exp-03-25",
   "canonical_model": "gemini-2.5-pro-exp-03-25",
-  "display_name": "Gemini 2.5 Pro",
+
+  "version": "2.5",
+  "family": "gemini",  "display_name": "Gemini 2.5 Pro",
   "capabilities": [],
   "official": false,
   "price": {

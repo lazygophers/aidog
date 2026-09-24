@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "mimo-v2-flash",
   "canonical_model": "mimo-v2-flash",
-  "display_name": "MiMo V2 Flash",
+
+  "version": "2",
+  "family": "mimo",  "display_name": "MiMo V2 Flash",
   "max_output_tokens": 131072,
   "context_window": 1048576,
   "thinking_supported": true,

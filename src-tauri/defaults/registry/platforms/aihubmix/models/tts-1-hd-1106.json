@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "tts-1-hd-1106",
   "canonical_model": "tts-1-hd-1106",
-  "display_name": "Tts 1 Hd 1106",
+
+  "family": "tts",  "display_name": "Tts 1 Hd 1106",
   "capabilities": [
     "audio"
   ],

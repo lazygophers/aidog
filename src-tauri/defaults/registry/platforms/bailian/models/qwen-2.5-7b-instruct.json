@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790279972,
   "model_id": "qwen-2.5-7b-instruct",
   "canonical_model": "qwen-2.5-7b-instruct",
   "family": "qwen",
-  "capabilities": [
+
+  "version": "2.5",  "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
