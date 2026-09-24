@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790277685,
   "model_id": "Shanghai_AI_Laboratory/Intern-S1",
   "canonical_model": "intern-s1",
+  "family": "intern",
+  "version": "1",
   "capabilities": [
     "text"
   ],

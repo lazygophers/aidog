@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790277685,
   "model_id": "dreamina-seedance-2-0-fast-260128",
   "canonical_model": "dreamina-seedance-2-0-fast-260128",
   "family": "seedance",
+  "version": "2.0",
   "capabilities": [
     "text_to_video"
   ],

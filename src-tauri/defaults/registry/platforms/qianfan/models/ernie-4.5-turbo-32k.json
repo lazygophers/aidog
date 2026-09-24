@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790277685,
   "model_id": "ernie-4.5-turbo-32k",
   "canonical_model": "ernie-4.5-turbo-32k",
   "max_input_tokens": 32000,
@@ -11,6 +11,7 @@
     "cache_read": 2.7777778e-08
   },
   "family": "ernie",
+  "version": "4.5",
   "capabilities": [
     "text"
   ],
