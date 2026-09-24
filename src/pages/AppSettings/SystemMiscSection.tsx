@@ -3,6 +3,17 @@ import type { SystemSettings } from "./useSystemSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { makeRipple } from "@/components/shared";
 
 /**
  * Timeout + DB Maintenance + Aggregate Stats + App version + toast（原 L519-560 + L680-755 + L820-837）。
@@ -81,7 +92,7 @@ export function SystemMiscSection({ s }: { s: SystemSettings }) {
 export function DbStatsSection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
   const {
-    dbCompacting, handleDbCompact,
+    dbCompacting, dbCompactConfirm, setDbCompactConfirm, requestDbCompact, runDbCompact,
     statsRetention, statsRebuilding, handleStatsRetentionChange, handleStatsRebuild,
   } = s;
 
@@ -102,7 +113,7 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
         </div>
         <Button
           variant="outline"
-          onClick={handleDbCompact}
+          onClick={requestDbCompact}
           disabled={dbCompacting}
           style={{
             padding: "7px 16px", fontSize: 13,
@@ -112,6 +123,32 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
           {dbCompacting ? t("common.loading", "加载中…") : t("settings.dbCompact", "立即压缩数据库")}
         </Button>
       </div>
+
+      {/* 压缩确认弹窗 — AlertDialog（Radix Portal，替代原生 window.confirm：破坏 Tauri，项目禁用）。 */}
+      <AlertDialog open={dbCompactConfirm} onOpenChange={setDbCompactConfirm}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 380, padding: 20 }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle style={{ fontSize: 13, fontWeight: 600 }}>
+              {t("settings.dbCompact", "立即压缩数据库")}
+            </AlertDialogTitle>
+            <AlertDialogDescription style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel style={{ padding: "6px 14px", fontSize: 12 }}>
+              {t("common.cancel", "取消")}
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="ripple"
+              onClick={(e) => { makeRipple(e); runDbCompact(); }}
+              style={{ padding: "6px 14px", fontSize: 12 }}
+            >
+              {t("settings.dbCompact", "立即压缩数据库")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Aggregate Stats — 聚合统计表保留与重建（与日志开关解耦：关日志也累计统计） */}
       <div className="glass-surface" style={{
