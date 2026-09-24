@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790282454,
   "model_id": "llama-3.1-70b-versatile",
   "canonical_model": "llama-3.1-70b-versatile",
+  "version": "3.1",
 
   "family": "llama",  "display_name": "Llama 3.1 70B Versatile",
   "capabilities": [],
