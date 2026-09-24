@@ -2,6 +2,8 @@
   "model_id": "google/gemini-3-pro-image-preview",
   "display_name": "Google: Nano Banana Pro (Gemini 3 Pro Image Preview)",
   "canonical_model": "gemini-3-pro-image-preview",
+  "family": "gemini",
+  "version": "3",
   "max_input_tokens": 65536,
   "context_window": 65536,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000012,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text_to_image",
     "image_to_image",

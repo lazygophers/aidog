@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-6-sol",
   "display_name": "OpenAI: GPT-6 Sol",
   "canonical_model": "gpt-6-sol",
+  "family": "gpt",
+  "version": "6",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.00001,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-4o-mini",
   "display_name": "OpenAI: GPT-4o-mini",
   "canonical_model": "gpt-4o-mini",
+  "family": "gpt",
+  "version": "4o",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 6e-7,
     "cache_read": 7.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]

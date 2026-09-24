@@ -2,6 +2,8 @@
   "model_id": "google/gemma-2-27b-it",
   "display_name": "Google: Gemma 2 27B",
   "canonical_model": "gemma-2-27b-it",
+  "family": "gemma",
+  "version": "2",
   "max_input_tokens": 8192,
   "context_window": 8192,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 6.5e-7,
     "output": 6.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]

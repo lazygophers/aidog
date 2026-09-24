@@ -2,6 +2,8 @@
   "model_id": "google/gemini-2.5-flash-image",
   "display_name": "Google: Nano Banana (Gemini 2.5 Flash Image)",
   "canonical_model": "gemini-2.5-flash-image",
+  "family": "gemini",
+  "version": "2.5",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.0000025,
     "cache_read": 3e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text_to_image",
     "image_to_image",
