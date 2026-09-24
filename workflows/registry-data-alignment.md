@@ -29,14 +29,13 @@
 
 ## Gate（验收判据）
 
-覆盖率硬阈值：四必补字段各自覆盖率 ≥90%（起线，随轮次单调收紧）。判定命令：
+四个必补字段按「可公布字段清零率」验收：官方来源已公布的值必须全部补齐；官方未公布的字段允许缺省，但必须进入缺失归因清单。判定命令：
 
 ```bash
 AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 ```
 
-默认不带 env 只报数不拦截；thinking_*/predecessor 只统计不设门。
-门禁全绿 = 循环终止。
+默认不带 env 只报数不拦截；thinking_*/predecessor 只统计不设门。门禁全绿且可公布字段缺失归因清单为空 = 循环终止。
 
 ## State
 
@@ -78,9 +77,6 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   deepseek-v4.1-flash、glm-5.3-flashx、mimo-v2.6 系等）。新条目 official:false——
   aihubmix 是聚合站，官方渠道语义由 canonical 关联其它平台条目承载（测试不变量）。
   alicloud-glm-5 因官方未公布 ctx 无法过 schema，未登记。
-- 待确认攒问：① aihubmix 官方在售但 registry 未收的 400+ 条（旧代 gpt-3.5/4、
-  embedding/image/video 类）要不要全量镜像；② 官方 discount 限时优惠与
-  context_tiers 分档要不要进 registry（现无此维度）。
 - 2026-09-24 第 5 轮 openrouter `c23dacd`（287 文件，官方 models API 全量对齐）：
   299 条目修正（价格 103 系含 qwen/z-ai/deepseek 大面积旧价、窗口三连错）；删 33 条
   官方下架（含 claude-opus-4、:batch/:free 变体、~openai/gpt-latest alias）；
@@ -107,10 +103,18 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 2026-09-24 第 9 轮 gemini `1bb3ada7`+`219e1c2`：ctx 数量级修正 4、max_out 65535→65536
   ×7、image 系出价改 per-image token 价、robotics-er-2 现行价、gemma-4 付费价清零、
   thinking 填充、下架 10 条（3 条未来日期模型恢复保留）。NO_OFFICIAL_CHANNEL +3。
-- 待确认攒问（一次性问）：① aihubmix 400+ 全量镜像；② discount/context_tiers 维度；
-  ③ bailian_en GLM/Kimi 国际价复核；④ therouter per-image 计价口径；⑤ anthropic/google
-  官方平台自身条目未核；⑥ gemini 平台 91/154 非 Gemini API 文件（Vertex 来源，
-  claude-*/mistral/-maas/gemma）去向；⑦ 门禁可达性——family/version 官方不公布占多数，
-  ≥90% 绝对覆盖率不可达，建议改「可公布字段清零率」口径。
+- 待确认攒问（已于 2026-09-24 ask-ui 拍板）：① aihubmix 官方在售但 registry 未收的旧代与非 token 模态全量镜像；②促销价用 `time_tiers`、未公布字段列入缺失归因；③ bailian_en 国际价维持摘要级证据；④ gemini Vertex 条目拆独立平台。
 - DB 侧独立线：过期行清理（prune_model_entries）已提交 `95808e3`（门禁：aidog_db
   351 passed / aidog_core desktop 全过 / clippy -D warnings 零 warning，2026-09-24）。
+- 2026-09-24 第 10 轮 shengsuanyun `be4fbeaa`+`aef56f4`：4 个 input 单位 bug（计费放大
+  百万倍）、8 价格分叉、5 窗口修正、10 新模型、1 下架。model_list/index 串位后改用
+  结构化 JSON 对账收尾；后续平台条目对账禁止文本锚点。
+- 2026-09-24 第 11 轮 compshare `99d5263`：deepseek 峰谷平台窗口、qwen3-vl-flash
+  三档价、3 新模型、10 条下线。LingDT/minimax-h3-context-ir 因官方未公布 ctx 撤下。
+- 用户 2026-09-24 拍板 7 项：门禁改可公布字段清零率；aihubmix/openrouter/litellm 全量镜像
+  所有在售条目（含旧代与非 token 模态，schema `unit` 支持 image/second/request/char）；
+  gemini 的 Vertex 条目拆独立 vertex 平台；促销价用 `time_tiers` 起止档；继续按缺失量降序跑
+  聚合站；per-image/per-second 条目登记并标 `unit`，计费走 fallback；bailian_en 国际价
+  维持摘要级证据现值。
+- 待执行队列：三平台全量镜像；Vertex 平台拆分；gemini flash/robotics-er-2 补 `time_tiers`；
+  per-image 模型登记。
