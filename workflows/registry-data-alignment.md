@@ -237,3 +237,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   writer 无官方平台）。第 33 轮 novita+siliconflow(_en) `1ff02517`→merge `850408f0d`
   （137 文件）：151 格，三平台余量 398 格全为无锚缺省。两轮门禁全绿。
   覆盖率：family 44.9% / version 21.1% / ctx 76.5%。
+- 2026-09-25 第 34 轮 openrouter 二轮 `da83e9c1e`（78 文件）：family 68 + version 78
+  （773 → 627），349 文件官方条目自身 null 留缺省。第 35 轮 bailian 系二轮
+  `bc88af6c`→merge `45c0ee75`（28 文件）：deepseek-v4*/MiniMax-M 系 version 平移
+  （562/561 → 548/547）；余量主体是 version 无官方锚（bailian 300 / bailian_en 227），
+  需新官方源造锚。门禁全绿。
