@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790275340,
   "model_id": "grok-4.6",
   "canonical_model": "grok-4.6",
+  "family": "grok",
+  "version": "4.6",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

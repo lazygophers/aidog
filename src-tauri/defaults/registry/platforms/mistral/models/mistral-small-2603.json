@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790275340,
   "model_id": "mistral-small-2603",
   "canonical_model": "mistral-small-2603",
+  "family": "mistral",
+  "version": "4",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
