@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790273334,
+  "last_updated": 1790275571,
   "model_id": "anthropic.claude-fable-5-1",
   "canonical_model": "claude-fable-5-1",
+  "family": "claude",
+  "version": "5.1",
   "capabilities": [
     "text",
     "vision",

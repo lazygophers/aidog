@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790273334,
+  "last_updated": 1790275571,
   "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
   "canonical_model": "claude-3-5-sonnet-20241022",
+  "family": "claude",
+  "version": "3.5",
   "capabilities": [
     "text",
     "vision",

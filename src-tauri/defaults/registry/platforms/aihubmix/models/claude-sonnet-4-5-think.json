@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790275571,
   "model_id": "claude-sonnet-4-5-think",
   "canonical_model": "claude-sonnet-4-5",
+  "version": "4.5",
   "display_name": "Claude Sonnet 4.5 Thinking",
   "family": "claude",
   "capabilities": [
