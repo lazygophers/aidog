@@ -404,7 +404,7 @@ class _HooksEditorState extends State<HooksEditor> {
       decoration: BoxDecoration(
         color: theme.c.surface2,
         border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
       child: Row(
         children: [
@@ -506,7 +506,7 @@ class _HooksEditorState extends State<HooksEditor> {
       decoration: BoxDecoration(
         color: theme.c.surface2,
         border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,

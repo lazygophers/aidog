@@ -732,7 +732,7 @@ class _Section extends StatelessWidget {
       padding: const EdgeInsets.all(AidogSpace.ssm),
       decoration: BoxDecoration(
         color: t.c.surface,
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
         border: Border.all(color: t.c.line),
       ),
       child: child,

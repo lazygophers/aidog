@@ -130,10 +130,10 @@ class AidogSpace {
 }
 
 class AidogRadius {
-  static const double sm = 6.0;
-  static const double md = 8.0;
-  static const double lg = 12.0;
-  static const double xl = 14.0;
+  static const double sm = 8.0;
+  static const double md = 12.0;
+  static const double lg = 16.0;
+  static const double xl = 24.0;
   static const double pill = 999.0;
 }
 

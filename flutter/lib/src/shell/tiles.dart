@@ -170,7 +170,7 @@ class Tile extends StatelessWidget {
       decoration: BoxDecoration(
         color: live ? t.c.liveFill : t.c.surface,
         border: Border.all(color: live ? t.c.liveEdge : t.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.lg),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
         boxShadow: t.shadowTile,
       ),
       child: Column(

@@ -287,7 +287,7 @@ class _NavButton extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 2),
       child: _Tappable(
         onTap: onTap,
-        radius: AidogRadius.md,
+        radius: AidogRadius.sm,
         background: active ? t.c.liveFill : null,
         border: active ? t.c.liveEdge : null,
         // 深色下发光，浅色下 token 把 halo 置 none、由 fill + edge 接替。
@@ -361,7 +361,7 @@ class _FootButton extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 2),
       child: _Tappable(
         onTap: onTap,
-        radius: AidogRadius.md,
+        radius: AidogRadius.sm,
         padding: EdgeInsets.symmetric(
           vertical: 7,
           horizontal: mini ? 0 : AidogSpace.smd,
