@@ -10,7 +10,6 @@ import 'package:flutter/services.dart';
 import '../../i18n.dart';
 import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
-import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'filter_dropdown.dart';
@@ -60,18 +59,16 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
       _labelLocale = t.locale;
       _c.loadLabels(t.locale);
     }
+    // React 的 ModelInfoTab 顶部直接是同步状态卡（`ModelInfoTab.tsx:206`），
+    // 没有 PageHead；节间距 16。
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PageHead(
-          title: t.t('modelInfo.syncTitle'),
-          subtitle: t.t('modelInfo.syncDesc'),
-        ),
         _syncCard(t),
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 16),
         _filterBar(t),
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 16),
         if (_c.loading)
           CenteredNote(text: t.t('status.loading'))
         else if (_c.groups.isEmpty)
@@ -95,7 +92,7 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
           const SizedBox(height: AidogSpace.ssm),
           if (_c.tab == 'models') ...[
             _modelTable(t),
-            const SizedBox(height: AidogSpace.ssm),
+            const SizedBox(height: 16),
             _pagination(t),
           ] else
             _platformPane(t),
@@ -492,41 +489,78 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // React 平台清单：220 宽、maxHeight 520、内 padding 6；选中项
+        // accent-subtle 底 + 左缘 2px accent 竖线 + 文字提权
+        //（`ModelInfoTab.tsx:422-446`）。
         SizedBox(
-          width: 240,
+          width: 220,
           child: Tile(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final code in _c.visiblePlatformCodes)
-                  InkWell(
-                    onTap: () => _c.selectPlatform(code),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _c.platformLabel(code),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AidogType.micro.copyWith(
+            padding: const EdgeInsets.all(6),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 520),
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final code in _c.visiblePlatformCodes)
+                      InkWell(
+                        key: ValueKey('model-info-platform-$code'),
+                        borderRadius: BorderRadius.circular(AidogRadius.sm),
+                        onTap: () => _c.selectPlatform(code),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _c.activePlatform == code
+                                ? theme.c.accentWash
+                                : null,
+                            borderRadius: BorderRadius.circular(
+                              AidogRadius.sm,
+                            ),
+                            border: BorderDirectional(
+                              start: BorderSide(
                                 color: _c.activePlatform == code
-                                    ? theme.c.accentText
-                                    : theme.c.fg2,
+                                    ? theme.c.accent
+                                    : Colors.transparent,
+                                width: 2,
                               ),
                             ),
                           ),
-                          Text(
-                            ltr('${_c.byPlatform[code]?.length ?? 0}'),
-                            style: AidogType.micro.copyWith(color: theme.c.fg3),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _c.platformLabel(code),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AidogType.caption.copyWith(
+                                    fontSize: 12,
+                                    fontWeight: _c.activePlatform == code
+                                        ? FontWeight.w600
+                                        : FontWeight.w400,
+                                    color: _c.activePlatform == code
+                                        ? theme.c.accentText
+                                        : theme.c.fg2,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                ltr('${_c.byPlatform[code]?.length ?? 0}'),
+                                style: AidogType.caption.copyWith(
+                                  fontSize: 11,
+                                  color: theme.c.fg3,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-              ],
+                  ],
+                ),
+              ),
             ),
           ),
         ),
