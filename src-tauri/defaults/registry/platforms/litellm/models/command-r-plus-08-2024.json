@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "command-r-plus-08-2024",
   "canonical_model": "command-r-plus-08-2024",
+  "family": "command",
   "capabilities": [
     "text",
     "tool_use"

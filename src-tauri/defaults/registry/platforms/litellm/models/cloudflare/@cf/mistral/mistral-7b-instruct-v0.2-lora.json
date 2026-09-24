@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora",
   "canonical_model": "mistral-7b-instruct-v0.2-lora",
+  "family": "mistral",
+  "version": "0.2",
   "capabilities": [
     "text"
   ],

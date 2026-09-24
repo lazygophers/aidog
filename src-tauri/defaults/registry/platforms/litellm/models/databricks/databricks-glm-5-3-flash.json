@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "databricks/databricks-glm-5-3-flash",
-  "canonical_model": "databricks-glm-5-3-flash",
+  "canonical_model": "glm-5.3-flash",
+  "family": "glm",
+  "version": "5.3",
   "capabilities": [
     "text",
     "vision",

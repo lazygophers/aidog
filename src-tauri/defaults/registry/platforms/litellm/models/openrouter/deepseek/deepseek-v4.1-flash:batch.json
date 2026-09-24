@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/deepseek/deepseek-v4.1-flash:batch",
   "canonical_model": "deepseek-v4.1-flash:batch",
   "family": "deepseek",

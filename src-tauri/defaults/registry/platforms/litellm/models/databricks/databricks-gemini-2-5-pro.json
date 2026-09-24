@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "databricks/databricks-gemini-2-5-pro",
-  "canonical_model": "databricks-gemini-2-5-pro",
+  "canonical_model": "gemini-2.5-pro",
+  "family": "gemini",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision",

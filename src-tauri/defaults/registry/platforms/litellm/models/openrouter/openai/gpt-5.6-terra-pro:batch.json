@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/openai/gpt-5.6-terra-pro:batch",
   "canonical_model": "gpt-5.6-terra-pro:batch",
   "family": "gpt",

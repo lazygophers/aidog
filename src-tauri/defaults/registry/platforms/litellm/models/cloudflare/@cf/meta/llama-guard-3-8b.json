@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/meta/llama-guard-3-8b",
   "canonical_model": "llama-guard-3-8b",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text"
   ],

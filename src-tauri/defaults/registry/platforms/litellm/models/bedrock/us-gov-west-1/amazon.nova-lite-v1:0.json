@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790281333,
   "model_id": "bedrock/us-gov-west-1/amazon.nova-lite-v1:0",
   "canonical_model": "nova-lite-v1",
+  "family": "nova",
+  "version": "1",
   "capabilities": [
     "text",
     "vision",

@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/nvidia/nemotron-3-ultra-550b-a55b:free",
   "canonical_model": "nemotron-3-ultra-550b-a55b:free",
   "family": "nemotron",

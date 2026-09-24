@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "deepinfra/ByteDance/Seed-1.8",
   "canonical_model": "Seed-1.8",
+  "family": "seed",
+  "version": "1.8",
   "capabilities": [
     "text",
     "vision",

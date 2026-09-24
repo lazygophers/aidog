@@ -1,9 +1,17 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct",
   "canonical_model": "qwen2.5-coder-32b-instruct",
   "family": "qwen",
   "version": "2.5",
+<<<<<<< HEAD
+=======
+  "family": "qwen",
+>>>>>>> registry/litellm-longtail
   "capabilities": [
     "text"
   ],

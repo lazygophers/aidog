@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "oci/cohere.command-a-translate-08-2025",
   "canonical_model": "cohere.command-a-translate-08-2025",
+  "family": "command",
   "capabilities": [
     "text"
   ],

@@ -1,9 +1,17 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-30b-a3b-instruct-2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
   "family": "qwen",
   "version": "3",
+<<<<<<< HEAD
+=======
+  "family": "qwen",
+>>>>>>> registry/litellm-longtail
   "capabilities": [
     "text"
   ],

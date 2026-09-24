@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/aion-labs/aion-3.0-mini",
   "canonical_model": "aion-3.0-mini",
   "family": "aion",

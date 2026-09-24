@@ -1,7 +1,14 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
   "model_id": "aihubmix/qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
+=======
+  "last_updated": 1790281333,
+  "model_id": "aihubmix/qwen3.8-flash",
+  "canonical_model": "qwen3.8-flash",
+  "family": "qwen",
+>>>>>>> registry/litellm-longtail
   "version": "3.8",
   "capabilities": [
     "text",
