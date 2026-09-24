@@ -216,6 +216,18 @@
       "type": "synonym",
       "reason": "删除图标按钮的无障碍标签。Flutter 全应用只有一句「删除」，用 action.delete；React 这边 MitmConfig 与托盘卡片编辑器另起了 common.delete 这个同义 key。",
       "evidence": "flutter/lib/src/pages/settings/tray_pages.dart:639"
+    },
+    {
+      "key": "importExport.ccswitch.preview",
+      "type": "intentional",
+      "reason": "React 的 cc-switch 导入预览按钮 handlePreview 查重结果恒为空（CcSwitchImport.tsx:163-172 conflicts 恒 []），是展示性残件；Flutter 2026-09-24 按重核 #7 抹平删去重名预览，React 无真实数据支撑此 UI，不搬。孤儿 key 随 d97537ec 产生。",
+      "evidence": "src/components/settings/CcSwitchImport.tsx:163"
+    },
+    {
+      "key": "importExport.ccswitch.conflict",
+      "type": "intentional",
+      "reason": "同上，cc-switch 查重文案只在恒空 conflicts 分支出现，Flutter 已随 #7 删除该预览路径。孤儿 key 随 d97537ec 产生。",
+      "evidence": "src/components/settings/CcSwitchImport.tsx:163"
     }
   ]
 }
