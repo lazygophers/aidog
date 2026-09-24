@@ -1,8 +1,9 @@
 {
   "max_input_tokens": 256000,
-  "last_updated": 1790287585,
+  "last_updated": 1790288456,
   "model_id": "kimi/kimi-k2.7-code-highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
+  "version": "2.7",
   "family": "kimi",
   "capabilities": [
     "text"

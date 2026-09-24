@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790288456,
   "model_id": "poolside/laguna-xs-2.1",
   "canonical_model": "laguna-xs-2.1",
+  "family": "laguna",
+  "version": "2.1",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

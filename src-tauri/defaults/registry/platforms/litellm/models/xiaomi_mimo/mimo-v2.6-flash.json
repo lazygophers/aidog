@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790288456,
   "model_id": "xiaomi_mimo/mimo-v2.6-flash",
   "canonical_model": "mimo-v2.6-flash",
+  "family": "mimo",
+  "version": "2.6",
   "capabilities": [
     "text",
     "vision",

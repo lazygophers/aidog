@@ -1,8 +1,9 @@
 {
   "max_input_tokens": 65536,
-  "last_updated": 1790287585,
+  "last_updated": 1790288456,
   "model_id": "vanchin/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
+  "version": "r1",
   "family": "deepseek",
   "capabilities": [
     "text"

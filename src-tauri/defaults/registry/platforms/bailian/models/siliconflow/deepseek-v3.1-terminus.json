@@ -1,8 +1,9 @@
 {
   "max_input_tokens": 163840,
-  "last_updated": 1790287585,
+  "last_updated": 1790288456,
   "model_id": "siliconflow/deepseek-v3.1-terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
+  "version": "3.1",
   "family": "deepseek",
   "capabilities": [
     "text"

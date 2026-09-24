@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "moonshotai/kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
+  "family": "kimi",
+  "version": "2",
   "thinking_supported": true,
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,

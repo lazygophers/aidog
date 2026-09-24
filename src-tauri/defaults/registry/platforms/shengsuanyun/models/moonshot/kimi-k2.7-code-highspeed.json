@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790269259,
+  "last_updated": 1790288456,
   "model_id": "moonshot/kimi-k2.7-code-highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
+  "version": "2.7",
   "family": "kimi",
   "capabilities": [
     "text",

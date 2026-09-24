@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "deepseek/deepseek-v4-flash-vision-exp",
   "canonical_model": "deepseek-v4-flash-vision-exp",
+  "family": "deepseek",
+  "version": "4",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": ["text", "vision", "tool_use", "reasoning"],

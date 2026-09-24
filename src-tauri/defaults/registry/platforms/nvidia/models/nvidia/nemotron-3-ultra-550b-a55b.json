@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790288456,
   "model_id": "nvidia/nemotron-3-ultra-550b-a55b",
   "canonical_model": "nemotron-3-ultra-550b-a55b",
+  "version": "3",
   "family": "nemotron",
   "thinking_supported": true,
   "thinking_toggleable": true,

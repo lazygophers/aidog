@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790288456,
   "model_id": "bigmodel/glm-5-turbo",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5",
   "capabilities": [
     "text"
   ],

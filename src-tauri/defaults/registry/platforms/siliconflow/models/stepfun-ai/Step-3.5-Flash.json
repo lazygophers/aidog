@@ -1,8 +1,9 @@
 {
   "max_input_tokens": 262144,
-  "last_updated": 1790287585,
+  "last_updated": 1790288456,
   "model_id": "stepfun-ai/Step-3.5-Flash",
   "canonical_model": "step-3.5-flash",
+  "version": "3.5",
   "family": "stepfun",
   "capabilities": [
     "text"

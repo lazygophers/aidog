@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790269259,
+  "last_updated": 1790288456,
   "model_id": "ali/qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
+  "version": "3.5",
   "family": "qwen",
   "capabilities": [
     "text",

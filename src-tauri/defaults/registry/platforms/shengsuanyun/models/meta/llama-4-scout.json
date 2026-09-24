@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790288456,
   "model_id": "meta/llama-4-scout",
   "canonical_model": "llama-4-scout",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text",
     "vision"
