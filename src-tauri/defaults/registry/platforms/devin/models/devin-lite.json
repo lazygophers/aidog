@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790277685,
   "model_id": "devin-lite",
   "canonical_model": "devin-lite",
+  "family": "devin",
   "display_name": "Devin Lite",
   "capabilities": [
     "tool_use"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790277685,
   "model_id": "devin-fast",
   "canonical_model": "devin-fast",
+  "family": "devin",
   "display_name": "Devin Fast",
   "capabilities": [
     "tool_use"

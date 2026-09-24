@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790277685,
   "model_id": "qwen3-reranker-4b",
   "canonical_model": "Qwen3-Reranker-4B",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "rerank"
   ],

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1788095210,
+  "last_updated": 1790277685,
   "model_id": "sensenova-u1-fast",
   "canonical_model": "sensenova-u1-fast",
   "display_name": "SenseNova U1 Fast",
   "family": "sensenova",
+  "version": "u1",
   "capabilities": [
     "text_to_image"
   ],

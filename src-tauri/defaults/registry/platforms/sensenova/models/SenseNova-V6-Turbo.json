@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788147401,
+  "last_updated": 1790277685,
   "model_id": "SenseNova-V6-Turbo",
   "canonical_model": "SenseNova-V6-Turbo",
   "family": "sensenova",
+  "version": "6",
   "capabilities": [
     "text",
     "vision"

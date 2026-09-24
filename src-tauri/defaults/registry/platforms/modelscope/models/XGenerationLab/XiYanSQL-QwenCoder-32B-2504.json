@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788072476,
+  "last_updated": 1790277685,
   "model_id": "XGenerationLab/XiYanSQL-QwenCoder-32B-2504",
   "canonical_model": "xiyansql-qwencoder-32b-2504",
+  "family": "xiyansql",
   "capabilities": [
     "text"
   ],

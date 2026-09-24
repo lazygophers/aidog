@@ -1,9 +1,10 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790277685,
   "model_id": "ernie-5.0-thinking-exp",
   "canonical_model": "ernie-5.0-thinking-exp",
   "display_name": "ERNIE 5.0 Thinking Exp",
   "family": "ernie",
+  "version": "5.0",
   "capabilities": [
     "text",
     "reasoning"

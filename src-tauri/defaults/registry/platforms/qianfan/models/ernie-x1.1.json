@@ -1,9 +1,10 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790277685,
   "model_id": "ernie-x1.1",
   "canonical_model": "ernie-x1.1",
   "display_name": "ERNIE X1.1",
   "family": "ernie-x",
+  "version": "1.1",
   "capabilities": [
     "text",
     "reasoning"

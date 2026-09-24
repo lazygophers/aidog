@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788072476,
+  "last_updated": 1790277685,
   "model_id": "OpenGVLab/InternVL3_5-241B-A28B",
   "canonical_model": "internvl3_5-241b-a28b",
+  "family": "internvl",
+  "version": "3.5",
   "capabilities": [
     "text"
   ],

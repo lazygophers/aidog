@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790277685,
   "model_id": "mistralai/Mistral-Large-Instruct-2407",
   "canonical_model": "mistral-large-instruct-2407",
+  "family": "mistral",
+  "version": "24.07",
   "capabilities": [
     "text"
   ],

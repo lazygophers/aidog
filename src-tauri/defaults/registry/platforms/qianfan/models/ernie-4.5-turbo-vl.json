@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790277685,
   "model_id": "ernie-4.5-turbo-vl",
   "canonical_model": "ernie-4.5-turbo-vl",
   "official": true,
@@ -9,6 +9,7 @@
     "cache_read": 1.04166667e-07
   },
   "family": "ernie",
+  "version": "4.5",
   "capabilities": [
     "text",
     "vision"
