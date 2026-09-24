@@ -93,37 +93,45 @@ class _HomePageState extends State<HomePage> {
     if (_inFlight) return;
     _inFlight = true;
     final window = last24h(widget.now());
+
+    // 一轮事件只落一次 setState：六个区各自 await，结果先攒在局部变量里，
+    // 全部回来（或兜底）后一次性提交 —— 原先六个 _guard 各自 setState，
+    // 一轮事件最多把整页重建 6 次（性能审计 #4）。
+    bool? running = _running;
+    int port = _port;
+    TodayStats? today = _today;
+    List<TodayPlatformStat> platformsToday = _platformsToday;
+    List<PlatformSummary> platforms = _platforms;
+    List<StatsBucket> trend = _trend;
     await Future.wait<void>([
       _guard(() async {
         final v = await widget.invoke('proxy_status');
-        if (mounted) setState(() => _running = v as bool?);
-      }, () => setState(() => _running = null)),
+        running = v as bool?;
+      }, () => running = null),
       _guard(() async {
         final v = await widget.invoke('proxy_get_settings');
         final s = ProxySettingsSummary.fromJson(v! as Map<String, dynamic>);
-        if (mounted) setState(() => _port = s.port);
+        port = s.port;
       }, null),
       _guard(() async {
         final v = await widget.invoke('tray_today_stats');
         final s = TodayStats.fromJson(v! as Map<String, dynamic>);
-        if (mounted) setState(() => _today = s);
-      }, () => setState(() => _today = null)),
+        today = s;
+      }, () => today = null),
       _guard(() async {
         final v = await widget.invoke('popover_platform_today');
-        final list = [
+        platformsToday = [
           for (final e in v! as List)
             TodayPlatformStat.fromJson(e as Map<String, dynamic>),
         ];
-        if (mounted) setState(() => _platformsToday = list);
-      }, () => setState(() => _platformsToday = const [])),
+      }, () => platformsToday = const []),
       _guard(() async {
         final v = await widget.invoke('platform_list');
-        final list = [
+        platforms = [
           for (final e in v! as List)
             PlatformSummary.fromJson(e as Map<String, dynamic>),
         ];
-        if (mounted) setState(() => _platforms = list);
-      }, () => setState(() => _platforms = const [])),
+      }, () => platforms = const []),
       _guard(() async {
         final v = await widget.invoke('stats_query', {
           'query': {
@@ -133,11 +141,20 @@ class _HomePageState extends State<HomePage> {
           },
         });
         final r = StatsResult.fromJson(v! as Map<String, dynamic>);
-        if (mounted) setState(() => _trend = r.buckets);
-      }, () => setState(() => _trend = const [])),
+        trend = r.buckets;
+      }, () => trend = const []),
     ]);
     _inFlight = false;
-    if (mounted) setState(() => _loading = false);
+    if (!mounted) return;
+    setState(() {
+      _running = running;
+      _port = port;
+      _today = today;
+      _platformsToday = platformsToday;
+      _platforms = platforms;
+      _trend = trend;
+      _loading = false;
+    });
   }
 
   /// 单区兜底：失败只跑 [onError]，不把异常往上抛（对齐 React 的 `.catch(...)`）。

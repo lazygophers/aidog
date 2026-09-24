@@ -46,29 +46,43 @@ void main() {
     expect(find.text('x'), findsOneWidget);
   });
 
-  testWidgets('HoverLift：指针进入上移，移出复位', (tester) async {
+  testWidgets('HoverLift：指针进入上移 2px，移出复位', (tester) async {
     // 用 Center 把 child 固定成一小块，好让指针能真的移到它外面。
     await tester.pumpWidget(
       const MaterialApp(
         home: Center(child: HoverLift(child: Text('x'))),
       ),
     );
-    Offset offsetNow() =>
-        tester.widget<AnimatedSlide>(find.byType(AnimatedSlide)).offset;
-    expect(offsetNow().dy, 0);
+    // TweenAnimationBuilder 动画进行中，Transform 的 offset 是当前帧插值，
+    // 断言目标值直接读 tween.end。
+    double targetDy() => tester
+        .widget<TweenAnimationBuilder<double>>(
+          find.byType(TweenAnimationBuilder<double>),
+        )
+        .tween
+        .end!;
+    expect(targetDy(), 0);
 
     final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await gesture.addPointer(location: Offset.zero);
     addTearDown(gesture.removePointer);
     await gesture.moveTo(tester.getCenter(find.text('x')));
     await tester.pump();
-    expect(offsetNow().dy, lessThan(0));
+    expect(targetDy(), -2.0);
 
     await gesture.moveTo(const Offset(1, 1));
     await tester.pump();
-    // -0.0 == 0.0 为真，但 Offset 的 == 按位比较认不出来，所以比 dy。
-    expect(offsetNow().dy, 0);
+    expect(targetDy(), 0);
     await tester.pumpAndSettle();
+    // 到位后 Transform 的平移量归零（Matrix4 第 4 列）。
+    expect(
+      tester
+          .widget<Transform>(find.byType(Transform))
+          .transform
+          .getTranslation()
+          .y,
+      0,
+    );
   });
 
   testWidgets('减少动态效果时 HoverLift 不套动画', (tester) async {
@@ -80,7 +94,7 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(AnimatedSlide), findsNothing);
+    expect(find.byType(Transform), findsNothing);
   });
 
   // ── 票 29 第三梯队：平台卡 / 分组页的动效 ──

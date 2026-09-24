@@ -173,9 +173,17 @@ class PlatformsController {
   /// `usePlatformsState.ts:631`。
   int get enabledCount => platforms.where((p) => p.enabled).length;
 
+  /// 搜索过滤本身是同步的（getter 读 [searchQuery]），防抖只压 **重建**：
+  /// 每敲一键 eager 重建整页（所有卡）在 Flutter 侧是可感知的输入延迟，
+  /// 停顿 150ms 才轮到刷新。React 侧 onChange 即刷（`PlatformListView.tsx:115`），
+  /// 那边重渲染便宜；这里是唯一一处刻意的时序偏离（性能）。
+  static const Duration _searchNotifyDebounce = Duration(milliseconds: 150);
+  Timer? _searchNotifyTimer;
+
   void setSearchQuery(String q) {
     searchQuery = q;
-    _notify();
+    _searchNotifyTimer?.cancel();
+    _searchNotifyTimer = Timer(_searchNotifyDebounce, _notify);
   }
 
   // ── 加载 ────────────────────────────────────────────────────────
@@ -225,7 +233,8 @@ class PlatformsController {
     _notify();
     try {
       final v = await _invoke('all_platform_usage_stats');
-      final m = (v as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+      final m =
+          (v as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
       usageMap = {
         for (final e in m.entries)
           if (int.tryParse(e.key) != null && e.value is Map)
@@ -251,7 +260,9 @@ class PlatformsController {
       for (final p in list)
         () async {
           try {
-            final v = await _invoke('get_last_test_result', {'platformId': p.id});
+            final v = await _invoke('get_last_test_result', {
+              'platformId': p.id,
+            });
             if (v != null) {
               next[p.id] = LastTestResult.fromJson(
                 (v as Map).cast<String, dynamic>(),
@@ -268,7 +279,9 @@ class PlatformsController {
 
   Future<void> refreshLastTest(int platformId) async {
     try {
-      final v = await _invoke('get_last_test_result', {'platformId': platformId});
+      final v = await _invoke('get_last_test_result', {
+        'platformId': platformId,
+      });
       final next = {...lastTestMap};
       if (v != null) {
         next[platformId] = LastTestResult.fromJson(
@@ -359,9 +372,9 @@ class PlatformsController {
       } else {
         // 缓存 miss：后台补拉，不等待（React: `.catch(console.warn)`）。
         unawaited(
-          _invoke('sync_protocol_logo', {'protocol': protocol}).catchError(
-            (Object _) => null,
-          ),
+          _invoke('sync_protocol_logo', {
+            'protocol': protocol,
+          }).catchError((Object _) => null),
         );
       }
     } catch (_) {
@@ -391,6 +404,7 @@ class PlatformsController {
 
   /// 页面 dispose 时叫一次：把没到点的防抖计时器掐掉。
   void dispose() {
+    _searchNotifyTimer?.cancel();
     for (final t in _expandTimers.values) {
       t.cancel();
     }
@@ -429,7 +443,8 @@ class PlatformsController {
         }
       }
       final u = await _invoke('all_platform_usage_stats');
-      final m = (u as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
+      final m =
+          (u as Map?)?.cast<String, dynamic>() ?? const <String, dynamic>{};
       usageMap = {
         for (final e in m.entries)
           if (int.tryParse(e.key) != null && e.value is Map)
@@ -527,13 +542,9 @@ class PlatformsController {
         'input': {'id': p.id, 'status': nextStatus},
       });
       final updated = PlatformRow.fromJson((v as Map).cast<String, dynamic>());
-      platforms = [
-        for (final x in platforms) x.id == p.id ? updated : x,
-      ];
+      platforms = [for (final x in platforms) x.id == p.id ? updated : x];
     } catch (_) {
-      platforms = [
-        for (final x in platforms) x.id == p.id ? p : x,
-      ];
+      platforms = [for (final x in platforms) x.id == p.id ? p : x];
       _toast(
         '${p.name}: ${trFallback(failText, 'platform.toggleFail')}',
         ok: false,
@@ -755,8 +766,7 @@ class PlatformsController {
   /// 按平台协议选对应的查询命令。三个命令参数不同：newapi / devin 要多传 `extra`。
   /// `usePlatformQuota.ts:73-86`。
   Future<PlatformQuota?> _queryQuota(PlatformRow p) async {
-    final baseUrl =
-        getPrimaryBaseUrl(p.platformType, p.endpoints).isNotEmpty
+    final baseUrl = getPrimaryBaseUrl(p.platformType, p.endpoints).isNotEmpty
         ? getPrimaryBaseUrl(p.platformType, p.endpoints)
         : p.baseUrl;
     final Object? v;
@@ -955,8 +965,10 @@ class PlatformsController {
     bool autoGroup = true,
     int? editingId,
     String? failText,
+
     /// 批量创建时由调用方统一汇总失败，逐条 toast 会刷屏 —— 置 true 就不单独提示。
     bool silent = false,
+
     /// 失败原因原文，供表单底部的错误条展示（React `setSaveError(msg)`）。
     void Function(String message)? onError,
   }) async {
@@ -1065,5 +1077,4 @@ class PlatformsController {
     }
     return null;
   }
-
 }

@@ -1025,7 +1025,8 @@ class _RevealState extends State<Reveal> {
         opacity: _in ? 1 : 0,
         duration: const Duration(milliseconds: 600),
         curve: AidogMotion.easeStandard,
-        child: widget.child,
+        // 入场窗口内 opacity 每帧调图层，边界内子树只画一次。
+        child: RepaintBoundary(child: widget.child),
       ),
     );
   }
@@ -1051,11 +1052,16 @@ class _HoverLiftState extends State<HoverLift> {
     return MouseRegion(
       onEnter: (_) => setState(() => _over = true),
       onExit: (_) => setState(() => _over = false),
-      child: AnimatedSlide(
-        offset: _over ? const Offset(0, -0.04) : Offset.zero,
+      // -2px 固定值（React `.hover-lift:hover` 是 translateY(-2px)），不用
+      // AnimatedSlide 的比例 offset——高卡会被抬过头，且 Transform 不触发 relayout。
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(end: _over ? -2.0 : 0.0),
         duration: const Duration(milliseconds: 250),
         curve: AidogMotion.easeStandard,
-        child: widget.child,
+        builder: (context, dy, child) =>
+            Transform.translate(offset: Offset(0, dy), child: child),
+        // 每行自持重绘边界：hover 动画不再把重绘扩散到整页视口。
+        child: RepaintBoundary(child: widget.child),
       ),
     );
   }

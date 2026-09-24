@@ -1070,7 +1070,13 @@ class _JsonFieldState extends State<JsonField> {
   }
 
   void _notifyChanged() {
-    widget.onChanged?.call(_ctrl.text);
+    final onChanged = widget.onChanged;
+    if (onChanged == null) return;
+    // CodeEditor 可在自身 build 阶段同步触发 controller listener；MCP 粘贴框
+    // 的回调会 setState，必须延到当前 frame 后，避免 setState during build。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) onChanged(_ctrl.text);
+    });
   }
 
   @override

@@ -27,7 +27,7 @@ double mapToLeft(double y, AxisSpec right, AxisSpec left) {
   return left.min + (y - right.min) / rSpan * lSpan;
 }
 
-class AidogLineChart extends StatelessWidget {
+class AidogLineChart extends StatefulWidget {
   const AidogLineChart({
     super.key,
     required this.series,
@@ -56,28 +56,77 @@ class AidogLineChart extends StatelessWidget {
   final bool area;
 
   @override
-  Widget build(BuildContext context) {
-    assertUniqueKeys(series);
-    final t = AidogTheme.of(context);
-    final rows = downsampleAligned(series);
-    final xd = xDomain(rows);
-    if (rows.isEmpty || xd == null) return ChartEmpty(emptyText, hint: emptyHint);
+  State<AidogLineChart> createState() => _AidogLineChartState();
+}
 
+/// build 里的重活（LTTB 降采样 + niceTicks×2 + FlSpot 列表）算一次的产物。
+/// silent 刷新（代理事件，500ms 一轮）和 fl_chart 触摸状态变化都会整图重建，
+/// 输入没变时必须复用（性能审计 #8）。
+class _ChartDerived {
+  _ChartDerived({
+    required this.rows,
+    required this.xAxis,
+    required this.leftAxis,
+    required this.rightAxis,
+    required this.bars,
+    required this.left,
+    required this.right,
+    required this.empty,
+  });
+
+  /// 无可画数据时的空标记：axes / bars 全是占位，build 直接走 ChartEmpty。
+  final bool empty;
+
+  final List<ChartSeries> rows;
+  final AxisSpec xAxis, leftAxis, rightAxis;
+  final List<LineChartBarData> bars;
+  final List<ChartSeries> left, right;
+}
+
+class _AidogLineChartState extends State<AidogLineChart> {
+  List<ChartSeries>? _derivedInput;
+  _ChartDerived? _derived;
+
+  _ChartDerived _ensureDerived() {
+    final input = widget.series;
+    if (identical(_derivedInput, input) &&
+        _derived != null &&
+        widget.tickCount == _tickCountOf &&
+        widget.mini == _miniOf &&
+        widget.area == _areaOf) {
+      return _derived!;
+    }
+    final rows = downsampleAligned(input);
+    final xd = xDomain(rows);
+    _ChartDerived emptyOut() {
+      _derivedInput = input;
+      _tickCountOf = widget.tickCount;
+      _miniOf = widget.mini;
+      _areaOf = widget.area;
+      return _derived = _ChartDerived(
+        rows: rows,
+        xAxis: axisFromTicks(const []),
+        leftAxis: axisFromTicks(const []),
+        rightAxis: axisFromTicks(const []),
+        bars: const [],
+        left: const [],
+        right: const [],
+        empty: true,
+      );
+    }
+
+    if (rows.isEmpty || xd == null) return emptyOut();
     final left = rows.where((s) => !s.rightAxis).toList(growable: false);
     final right = rows.where((s) => s.rightAxis).toList(growable: false);
 
     final xAxis = axisFromTicks(niceTicks(xd.min, xd.max, 6));
     final ld = yDomain(left.isEmpty ? rows : left);
-    final leftAxis = axisFromTicks(niceTicks(ld.min, ld.max, tickCount));
+    final leftAxis = axisFromTicks(niceTicks(ld.min, ld.max, widget.tickCount));
     final rd = yDomain(right);
     final rightAxis = right.isEmpty
         ? leftAxis
-        : axisFromTicks(niceTicks(rd.min, rd.max, tickCount));
+        : axisFromTicks(niceTicks(rd.min, rd.max, widget.tickCount));
 
-    final spanMs = xd.max - xd.min;
-    final labelStyle = axisLabelStyle(t.c);
-
-    // 画线顺序 = rows 顺序 = tooltip 查表顺序。**只有这一个列表**，没有平行数组可漂移。
     final bars = <LineChartBarData>[
       for (final s in rows)
         LineChartBarData(
@@ -99,9 +148,11 @@ class AidogLineChart extends StatelessWidget {
           color: s.color,
           barWidth: 2,
           dashArray: s.dashed ? const [3, 3] : null,
-          dotData: FlDotData(show: !mini && rows.first.points.length <= 60),
+          dotData: FlDotData(
+            show: !widget.mini && rows.first.points.length <= 60,
+          ),
           belowBarData: BarAreaData(
-            show: area && !s.rightAxis && identical(s, left.firstOrNull),
+            show: widget.area && !s.rightAxis && identical(s, left.firstOrNull),
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
@@ -114,85 +165,135 @@ class AidogLineChart extends StatelessWidget {
         ),
     ];
 
-    return LineChart(
-      LineChartData(
-        minX: xAxis.min,
-        maxX: xAxis.max,
-        minY: leftAxis.min,
-        maxY: leftAxis.max,
-        lineBarsData: bars,
-        gridData: FlGridData(
-          show: !mini,
-          drawVerticalLine: false,
-          horizontalInterval: leftAxis.interval,
-          getDrawingHorizontalLine: (_) =>
-              FlLine(color: t.c.line, strokeWidth: 1, dashArray: const [3, 3]),
-        ),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          show: !mini,
-          topTitles: const AxisTitles(),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: !mini,
-              interval: xAxis.interval,
-              reservedSize: 24,
-              getTitlesWidget: (v, meta) => _tick(
-                formatTimeTick(v, spanMs),
-                labelStyle,
+    _derivedInput = input;
+    _tickCountOf = widget.tickCount;
+    _miniOf = widget.mini;
+    _areaOf = widget.area;
+    return _derived = _ChartDerived(
+      rows: rows,
+      xAxis: xAxis,
+      leftAxis: leftAxis,
+      rightAxis: rightAxis,
+      bars: bars,
+      left: left,
+      right: right,
+      empty: false,
+    );
+  }
+
+  // 缓存键的另外三个标量；series 用 identical 判（调用方每次 setState 新建列表
+  // 就是缓存 miss，静态数据是同一引用就命中）。
+  int _tickCountOf = -1;
+  bool _miniOf = false;
+  bool _areaOf = false;
+
+  @override
+  Widget build(BuildContext context) {
+    assertUniqueKeys(widget.series);
+    final t = AidogTheme.of(context);
+    final d = _ensureDerived();
+    if (d.empty) return ChartEmpty(widget.emptyText, hint: widget.emptyHint);
+    final rows = d.rows;
+    final xAxis = d.xAxis;
+    final leftAxis = d.leftAxis;
+    final rightAxis = d.rightAxis;
+    final left = d.left;
+    final right = d.right;
+
+    final spanMs = xAxis.max - xAxis.min;
+    final labelStyle = axisLabelStyle(t.c);
+
+    // 图表自持重绘边界：hover 指示线 / tooltip 不再触发整页重绘（性能审计 #8）。
+    return RepaintBoundary(
+      child: LineChart(
+        LineChartData(
+          minX: xAxis.min,
+          maxX: xAxis.max,
+          minY: leftAxis.min,
+          maxY: leftAxis.max,
+          lineBarsData: d.bars,
+          gridData: FlGridData(
+            show: !widget.mini,
+            drawVerticalLine: false,
+            horizontalInterval: leftAxis.interval,
+            getDrawingHorizontalLine: (_) => FlLine(
+              color: t.c.line,
+              strokeWidth: 1,
+              dashArray: const [3, 3],
+            ),
+          ),
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            show: !widget.mini,
+            topTitles: const AxisTitles(),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: !widget.mini,
+                interval: xAxis.interval,
+                reservedSize: 24,
+                getTitlesWidget: (v, meta) =>
+                    _tick(formatTimeTick(v, spanMs), labelStyle),
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: !widget.mini,
+                interval: leftAxis.interval,
+                reservedSize: 48,
+                getTitlesWidget: (v, meta) => _tick(
+                  (left.firstOrNull ?? rows.first).format(v),
+                  labelStyle,
+                ),
+              ),
+            ),
+            rightTitles: AxisTitles(
+              sideTitles: SideTitles(
+                // 右轴刻度标**原值**：位置在左轴坐标系里，文字反解回右轴域。
+                showTitles: !widget.mini && right.isNotEmpty,
+                interval: leftAxis.interval,
+                reservedSize: 48,
+                getTitlesWidget: (v, meta) => _tick(
+                  right.isEmpty
+                      ? ''
+                      : right.first.format(mapToLeft(v, leftAxis, rightAxis)),
+                  labelStyle,
+                ),
               ),
             ),
           ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: !mini,
-              interval: leftAxis.interval,
-              reservedSize: 48,
-              getTitlesWidget: (v, meta) => _tick(
-                (left.firstOrNull ?? rows.first).format(v),
-                labelStyle,
-              ),
+          lineTouchData: LineTouchData(
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => t.c.surface2,
+              tooltipBorder: BorderSide(color: t.c.line),
+              maxContentWidth: 260,
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              getTooltipItems: (spots) => [
+                for (var i = 0; i < spots.length; i++)
+                  chartTooltipItem(
+                    tooltipRowAtSpot(
+                      rows,
+                      spots[i].barIndex,
+                      spots[i].spotIndex,
+                    ),
+                    // 表头只挂第一行（fl_chart 每个触点一行，没有独立表头槽）。
+                    header: i == 0 ? formatTimeTick(spots[i].x, spanMs) : null,
+                    c: t.c,
+                  ),
+              ],
             ),
-          ),
-          rightTitles: AxisTitles(
-            sideTitles: SideTitles(
-              // 右轴刻度标**原值**：位置在左轴坐标系里，文字反解回右轴域。
-              showTitles: !mini && right.isNotEmpty,
-              interval: leftAxis.interval,
-              reservedSize: 48,
-              getTitlesWidget: (v, meta) => _tick(
-                right.isEmpty
-                    ? ''
-                    : right.first.format(mapToLeft(v, leftAxis, rightAxis)),
-                labelStyle,
-              ),
-            ),
-          ),
-        ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => t.c.surface2,
-            tooltipBorder: BorderSide(color: t.c.line),
-            maxContentWidth: 260,
-            fitInsideHorizontally: true,
-            fitInsideVertically: true,
-            getTooltipItems: (spots) => [
-              for (var i = 0; i < spots.length; i++)
-                chartTooltipItem(
-                  tooltipRowAtSpot(rows, spots[i].barIndex, spots[i].spotIndex),
-                  // 表头只挂第一行（fl_chart 每个触点一行，没有独立表头槽）。
-                  header: i == 0 ? formatTimeTick(spots[i].x, spanMs) : null,
-                  c: t.c,
+            getTouchedSpotIndicator: (bar, indexes) => [
+              for (final _ in indexes)
+                TouchedSpotIndicatorData(
+                  FlLine(
+                    color: t.c.line,
+                    strokeWidth: 1,
+                    dashArray: const [4, 3],
+                  ),
+                  FlDotData(show: true),
                 ),
             ],
           ),
-          getTouchedSpotIndicator: (bar, indexes) => [
-            for (final _ in indexes)
-              TouchedSpotIndicatorData(
-                FlLine(color: t.c.line, strokeWidth: 1, dashArray: const [4, 3]),
-                FlDotData(show: true),
-              ),
-          ],
         ),
       ),
     );
