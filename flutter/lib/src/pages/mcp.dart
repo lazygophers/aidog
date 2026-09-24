@@ -313,7 +313,7 @@ class _McpPageState extends State<McpPage> {
           // 不另造一份。高度取 React 区间中点 ≈ 290。
           JsonField(
             key: const Key('mcp-paste'),
-            label: t.t('mcp.pasteImport'),
+            description: t.t('mcp.pasteHint'),
             height: 290,
             syncExternal: false,
             hint: '{\n  "mcpServers": {\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]\n    }\n  }\n}',

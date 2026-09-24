@@ -986,7 +986,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
 class JsonField extends StatefulWidget {
   const JsonField({
     super.key,
-    required this.label,
+    this.label,
     this.value,
     required this.onSubmitted,
     this.description,
@@ -998,7 +998,8 @@ class JsonField extends StatefulWidget {
     this.hint,
   });
 
-  final String label;
+  /// 字段头标签；整窗编辑器（如 MCP 粘贴导入）无字段头时省略。
+  final String? label;
   final String? description;
   final Object? value;
   final String? error;
@@ -1189,7 +1190,8 @@ class _JsonFieldState extends State<JsonField> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            TileMeta(widget.label),
+            if (widget.label != null && widget.label!.isNotEmpty)
+              TileMeta(widget.label!),
             if (widget.description != null && widget.description!.isNotEmpty)
               Text(
                 widget.description!,
