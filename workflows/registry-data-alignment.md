@@ -118,3 +118,20 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   维持摘要级证据现值。
 - 待执行队列：三平台全量镜像；Vertex 平台拆分；gemini flash/robotics-er-2 补 `time_tiers`；
   per-image 模型登记。
+- 2026-09-24 第 12 轮 aihubmix 全量镜像 `0c0e115a`：+445 条（848 总量，含 image/second/char
+  unit 模态）、12 价差按官方精确值修正、deprecated 15 条不登记（拍板主句限定「在售」）。
+  93 条 context tiers 未写（门槛推断）。bump 脚本嵌套未跟踪目录 EISDIR bug 修复 `910b24d0`。
+- 2026-09-24 q4 落地 `c98d4c36`：gemini-robotics-er-2-preview 补 `time_tiers`（2027-01-01 起
+  2e-6/1e-5）；3.6/3.7/3.8-flash 原有档与拍板值一致未动。
+- 2026-09-24 第 13 轮 openrouter 全量镜像 `78ecacdc`→merge `e99a8fe1`→修复 `a55403d4`：
+  +455 条、free 模型 price.input=1e-8 占位、动态价 -1→0、59 条 openrouter 独有条目
+  official:true。教训：agent 生成的快照条目缺 capabilities/canonical 未折叠，merge 后
+  check 才暴露——镜像轮落地前必须先在 /tmp 组装副本跑 check。
+- 2026-09-24 第 14 轮 litellm 全量镜像 `c4aa33a0f`→merge `34927fcce`：+3711 条（8777 文件
+  总量）、440 条未登记全部带原因、存量 3 条 official:true 翻 false（纯镜像语义）。
+- canonical 官方拼写规则（22+16 处统一 `3ec97578`+`8d4c9890d`）：以官方平台组多数为准
+  ——claude 系连字符小写（claude-opus-5-5）；MiniMax/DeepSeek/Hunyuan/Qwen/LongCat 系官方
+  CamelCase（MiniMax-M2.5、DeepSeek-V3.2）；gemma/nvidia/flux 系小写连字符；检查器折叠键
+  含点号/大小写/下划线。
+- 第 15 轮 crazyrouter 进行中；后续队列按缺失量：novita 276 / nvidia 254 / atlascloud 244 /
+  openai 231 / siliconflow 182 / doubao 123。
