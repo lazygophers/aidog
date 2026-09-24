@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788168301,
+  "last_updated": 1790267209,
   "model_id": "qwen/qwen3.6-plus",
   "canonical_model": "qwen3.6-plus",
+  "family": "qwen",
+  "version": "3.6",
   "capabilities": [
     "text"
   ],

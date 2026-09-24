@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "openai/gpt-4o",
   "canonical_model": "gpt-4o",
+  "family": "gpt",
+  "display_name": "GPT-4o",
   "capabilities": [
     "text"
   ],

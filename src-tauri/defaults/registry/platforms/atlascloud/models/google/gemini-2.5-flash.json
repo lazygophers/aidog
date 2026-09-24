@@ -1,7 +1,10 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790267209,
   "model_id": "google/gemini-2.5-flash",
   "canonical_model": "gemini-2.5-flash",
+  "family": "gemini",
+  "version": "2.5",
+  "display_name": "Gemini 2.5 Flash",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

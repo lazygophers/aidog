@@ -1,7 +1,12 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "zai-org/glm-5-turbo",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5-Turbo",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "display_name": "GLM-5-Turbo",
   "capabilities": [
     "text"
   ],

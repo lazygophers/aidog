@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790267209,
   "model_id": "anthropic/claude-opus-5",
   "canonical_model": "claude-opus-5",
+  "version": "5",
+  "display_name": "Claude Opus 5",
   "family": "claude",
   "thinking_supported": true,
   "thinking_toggleable": true,

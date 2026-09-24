@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "kwaipilot/kat-coder-air-v2.5",
   "canonical_model": "kat-coder-air-v2.5",
+  "family": "kat",
+  "version": "2.5",
+  "display_name": "KAT-Coder-Air V2.5",
   "capabilities": [
     "text",
     "vision"
