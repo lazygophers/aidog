@@ -31,6 +31,12 @@ UninstallDisplayIcon={app}\{#MyAppExeName}
 ; flutter build windows --release 的输出（含 aidog-kernel.exe，由 CMake install 阶段落位）。
 Source: "..\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
+[Registry]
+; aidog://skill/import / aidog://mcp/import：注册给当前用户，卸载时 Inno 自动清理。
+Root: HKCU; Subkey: "Software\Classes\aidog"; ValueType: string; ValueName: ""; ValueData: "URL:AiDog Protocol"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\aidog"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""
+Root: HKCU; Subkey: "Software\Classes\aidog\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\{#MyAppExeName}"" ""%1"""
+
 [Icons]
 Name: "{autoprograms}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"
 Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: desktopicon

@@ -4,9 +4,12 @@
 /// 页面 state 的一部分，不是 route，widget 测试直接断言。色值一律走主题。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../i18n.dart';
+import '../deep_link.dart';
 import '../shell/app_shell.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
@@ -29,6 +32,7 @@ class McpPage extends StatefulWidget {
 
 class _McpPageState extends State<McpPage> {
   late final McpController _c;
+  StreamSubscription<DeepLinkPayload>? _deepLinkSub;
 
   bool _built = false;
 
@@ -46,6 +50,20 @@ class _McpPageState extends State<McpPage> {
       },
     );
     _c.refresh();
+    final pending = deepLinks.takePending('mcp');
+    if (pending != null) _consumeDeepLink(pending);
+    _deepLinkSub = deepLinks.subscribe('mcp', _consumeDeepLink);
+  }
+
+  void _consumeDeepLink(DeepLinkPayload payload) {
+    if (payload.action != 'import' || payload.data.isEmpty) return;
+    unawaited(_c.openDeepLinkImport(payload.data));
+  }
+
+  @override
+  void dispose() {
+    _deepLinkSub?.cancel();
+    super.dispose();
   }
 
   @override
