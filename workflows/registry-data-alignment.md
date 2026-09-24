@@ -199,3 +199,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   锚；244 格 version 官方未公布留缺省。两轮门禁均绿（check 8790 / 351 passed）。
 - 榜单刷新（第 23 轮后）：litellm 6699 / aihubmix 2164 / openrouter 773 / bailian_en 409 /
   bailian 562 / bailian_coding 561 / therouter 528。镜像平台大头为「官方组无锚」合法缺省。
+- 2026-09-25 第 24 轮 therouter `54c41b484`→merge `5f55db606`（56 文件）：family 49 +
+  version 13（缺口 528 → 466）；423 条无 official 锚留缺省（amazon nova/titan 系、
+  claude-fable 全系）。第 25 轮 shengsuanyun `9cdead2fa`（61 文件）：family 56 +
+  version 11（386 → 319）；130 文件 canonical 无锚、62 文件 version 无官方值留缺省。
+  两轮门禁全绿。
