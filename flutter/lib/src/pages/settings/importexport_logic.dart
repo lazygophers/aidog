@@ -481,6 +481,39 @@ String? pickAidogxPath(List<String> paths) {
   return null;
 }
 
+/// `setting` 条目按稳定的 scope:key 映射本地化标签；未知 key 由调用方保留后端标签。
+String settingLabelKey(String scope, String key) =>
+    const {
+      'app:theme': 'importExport.settingLabel.app_theme',
+      'app:locale': 'importExport.settingLabel.app_locale',
+      'app:logging': 'importExport.settingLabel.app_logging',
+      'app:script_executor': 'importExport.settingLabel.app_script_executor',
+      'proxy:settings': 'importExport.settingLabel.proxy_settings',
+      'proxy:proxy_client': 'importExport.settingLabel.proxy_client',
+      'proxy:timeout': 'importExport.settingLabel.proxy_timeout',
+      'proxy:logging': 'importExport.settingLabel.proxy_logging',
+      'notification:settings':
+          'importExport.settingLabel.notification_settings',
+      'middleware:settings': 'importExport.settingLabel.middleware_settings',
+      'scheduling:settings': 'importExport.settingLabel.scheduling_settings',
+      'stats:settings': 'importExport.settingLabel.stats_settings',
+      'stats:agg_rebuild_v1': 'importExport.settingLabel.stats_agg_rebuild_v1',
+      'stats:agg_count_tokens_excluded_v1':
+          'importExport.settingLabel.stats_agg_count_tokens_excluded_v1',
+      'pricing:sync': 'importExport.settingLabel.pricing_sync',
+      'tray:config': 'importExport.settingLabel.tray_config',
+      'popover:config': 'importExport.settingLabel.popover_config',
+      'global:claude_code': 'importExport.settingLabel.global_claude_code',
+      'global:coding_tools_settings':
+          'importExport.settingLabel.global_coding_tools_settings',
+      'global:cc_codex_settings':
+          'importExport.settingLabel.global_cc_codex_settings',
+      'backup:settings': 'importExport.settingLabel.backup_settings',
+      'db:compact_migrated_v1':
+          'importExport.settingLabel.db_compact_migrated_v1',
+    }['$scope:$key'] ??
+    '';
+
 /// 导入条目 → 菜单组 id（`ImportExport/meta.ts:118::menuGroupOf`）。
 ///
 /// `setting` scope 按 key 前缀再分一层（`scheduling:` 归调度、`tray:` / `popover:`
