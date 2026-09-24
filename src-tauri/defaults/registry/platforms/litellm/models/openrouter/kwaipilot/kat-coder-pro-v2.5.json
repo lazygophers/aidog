@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "openrouter/kwaipilot/kat-coder-pro-v2.5",
   "canonical_model": "kat-coder-pro-v2.5",
+  "family": "kat",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use"

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "together_ai/Qwen/Qwen3.6-Plus",
   "canonical_model": "qwen3.6-plus",
+  "family": "qwen",
+  "version": "3.6",
   "capabilities": [
     "text",
     "reasoning"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790267681,
   "model_id": "gpt-6-astra",
   "canonical_model": "gpt-6-astra",
+  "family": "gpt",
   "max_input_tokens": 922000,
   "thinking_supported": true,
   "thinking_toggleable": false,

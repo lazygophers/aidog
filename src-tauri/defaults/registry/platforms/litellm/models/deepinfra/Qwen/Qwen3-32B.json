@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "deepinfra/Qwen/Qwen3-32B",
   "canonical_model": "qwen3-32b",
+  "family": "qwen",
   "capabilities": [
     "text",
     "tool_use"
