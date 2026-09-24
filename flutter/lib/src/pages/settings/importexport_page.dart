@@ -1248,6 +1248,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           // React：label + input(90 宽) + 单位横排（ScheduledBackupSection.tsx:107-147）。
           child: InlineRow(
             label: t.t('settings.backup.interval'),
+            unit: t.t('settings.backup.hours'),
             child: NumberInput(
               key: const ValueKey('backup-interval'),
               value: '${s.intervalHours}',
@@ -1256,7 +1257,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 s.copyWith(intervalHours: int.tryParse(v) ?? 0),
               ),
             ),
-            unit: t.t('settings.backup.hours'),
           ),
         ),
         Padding(
@@ -1288,6 +1288,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
           child: InlineRow(
             label: t.t('settings.backup.retention'),
+            unit: t.t('settings.backup.days'),
             child: NumberInput(
               key: const ValueKey('backup-retention'),
               value: '${s.retentionDays}',
@@ -1296,7 +1297,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 s.copyWith(retentionDays: int.tryParse(v) ?? 0),
               ),
             ),
-            unit: t.t('settings.backup.days'),
           ),
         ),
         if (s.enabled) ...[
@@ -1512,7 +1512,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _dimSwitch(
-                  '${t.t('importExport.ccswitch.dimPlatformType')}',
+                  t.t('importExport.ccswitch.dimPlatformType'),
                   hint: t.t('importExport.ccswitch.dimPlatformTypeHint'),
                   value: true,
                   onChanged: null,

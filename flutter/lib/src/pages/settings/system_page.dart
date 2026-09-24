@@ -360,6 +360,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         children: [
           InlineRow(
             label: t.t('proxy.requestTimeout'),
+            unit: t.t('unit.sec'),
             child: NumberInput(
               key: const ValueKey('req-timeout'),
               value: '${_c.reqTimeout}',
@@ -367,10 +368,10 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   _c.setTimeouts(int.tryParse(v) ?? 0, _c.connTimeout),
               width: 80,
             ),
-            unit: t.t('unit.sec'),
           ),
           InlineRow(
             label: t.t('proxy.connectTimeout'),
+            unit: t.t('unit.sec'),
             child: NumberInput(
               key: const ValueKey('conn-timeout'),
               value: '${_c.connTimeout}',
@@ -378,7 +379,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   _c.setTimeouts(_c.reqTimeout, int.tryParse(v) ?? 0),
               width: 80,
             ),
-            unit: t.t('unit.sec'),
           ),
         ],
       ),
@@ -806,13 +806,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     child: InlineRow(
       label: label,
       labelWidth: 120,
-      child: NumberInput(
-        value: '$days',
-        onChanged: (v) => onDays(
-          (int.tryParse(v) ?? 0) < 0 ? 0 : int.tryParse(v) ?? 0,
-        ),
-        width: 70,
-      ),
       // 0 = 永久保留：这时单位（小时/天）没有意义，React 把整组单位藏掉、
       // 换成一行「永久保留」（`LogSettingsSection.tsx:155-162`）。
       suffix: days == 0
@@ -830,6 +823,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               labelOf: (u) => t.t('unit.${u.wire}'),
               onChanged: (u) => onUnit(u!),
             ),
+      child: NumberInput(
+        value: '$days',
+        onChanged: (v) => onDays(
+          (int.tryParse(v) ?? 0) < 0 ? 0 : int.tryParse(v) ?? 0,
+        ),
+        width: 70,
+      ),
     ),
   );
 
@@ -872,6 +872,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                     ),
                     InlineRow(
                       label: t.t('appLog.retention'),
+                      unit: t.t('appLog.retentionUnit'),
                       child: NumberInput(
                         value: '${_c.logRetHours}',
                         onChanged: (v) => _c.updateAppLogSettings(
@@ -880,7 +881,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                         ),
                         width: 70,
                       ),
-                      unit: t.t('appLog.retentionUnit'),
                     ),
                     if (_c.logRetHours == 0)
                       Text(
@@ -912,15 +912,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           child: InlineRow(
             label: t.t('stats.aggRetention'),
             labelWidth: 120,
-            child: NumberInput(
-              key: const ValueKey('stats-retention'),
-              value: '${_c.statsRetention}',
-              onChanged: (v) {
-                final n = int.tryParse(v) ?? 0;
-                _c.setStatsRetention(n < 0 ? 0 : n);
-              },
-              width: 70,
-            ),
             suffix: Text(
               _c.statsRetention == 0
                   ? t.t('proxy.logRetentionForever')
@@ -929,6 +920,15 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 fontSize: 11,
                 color: AidogTheme.of(context).c.fg3,
               ),
+            ),
+            child: NumberInput(
+              key: const ValueKey('stats-retention'),
+              value: '${_c.statsRetention}',
+              onChanged: (v) {
+                final n = int.tryParse(v) ?? 0;
+                _c.setStatsRetention(n < 0 ? 0 : n);
+              },
+              width: 70,
             ),
           ),
         ),
