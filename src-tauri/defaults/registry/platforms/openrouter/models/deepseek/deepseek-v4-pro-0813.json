@@ -1,22 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-v4-pro-0813",
-  "canonical_model": "deepseek-v4-pro-0813",
-  "family": "deepseek",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 384000,
+  "display_name": "DeepSeek: DeepSeek V4 Pro 0813",
+  "canonical_model": "deepseek/deepseek-v4-pro-20260813",
+  "max_input_tokens": 1024000,
   "context_window": 1048576,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 384000,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 4.6200000000000003e-07,
-    "output": 1.386e-06,
-    "cache_read": 1.54e-08
-  }
+    "input": 4.62e-7,
+    "output": 0.000001386,
+    "cache_read": 1.54e-8
+  },
+  "last_updated": 1790237684
 }

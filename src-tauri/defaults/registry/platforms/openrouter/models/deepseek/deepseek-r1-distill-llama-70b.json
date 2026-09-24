@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-r1-distill-llama-70b",
-  "canonical_model": "deepseek-r1-distill-llama-70b",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 128000,
-  "max_output_tokens": 7372,
+  "display_name": "DeepSeek: R1 Distill Llama 70B",
+  "canonical_model": "deepseek/deepseek-r1-distill-llama-70b",
+  "max_input_tokens": 8192,
   "context_window": 8192,
   "official": true,
+  "max_output_tokens": 7372,
   "price": {
-    "input": 8e-07,
-    "output": 8e-07
-  }
+    "input": 8e-7,
+    "output": 8e-7
+  },
+  "last_updated": 1790237684
 }

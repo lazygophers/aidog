@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "baidu/ernie-4.5-vl-424b-a47b",
-  "canonical_model": "ernie-4.5-vl-424b-a47b",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16000,
+  "display_name": "Baidu: ERNIE 4.5 VL 424B A47B ",
+  "canonical_model": "baidu/ernie-4.5-vl-424b-a47b",
+  "max_input_tokens": 123000,
   "context_window": 123000,
   "official": true,
+  "max_output_tokens": 16000,
   "price": {
-    "input": 4.2e-07,
-    "output": 1.25e-06,
-    "cache_read": 0
-  }
+    "input": 4.2e-7,
+    "output": 0.00000125
+  },
+  "last_updated": 1790237684
 }

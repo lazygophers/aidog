@@ -1,21 +1,13 @@
 {
-  "last_updated": 1788084177,
   "model_id": "openrouter/auto-beta",
-  "canonical_model": "auto-beta",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning",
-    "text_to_image"
-  ],
+  "display_name": "Auto Router (Beta)",
+  "canonical_model": "openrouter/auto-beta",
   "max_input_tokens": 2000000,
   "context_window": 2000000,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": -1,
+    "output": -1
+  },
+  "last_updated": 1790237684
 }

@@ -1,17 +1,15 @@
 {
-  "last_updated": 1788067648,
   "model_id": "openai/gpt-4.1-nano",
-  "canonical_model": "gpt-4.1-nano",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT-4.1 Nano",
+  "canonical_model": "openai/gpt-4.1-nano-2025-04-14",
   "max_input_tokens": 1047576,
-  "max_output_tokens": 32768,
   "context_window": 1047576,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 1.0000000000000001e-07,
-    "output": 4.0000000000000003e-07,
-    "cache_read": 2.5000000000000002e-08
-  }
+    "input": 1e-7,
+    "output": 4e-7,
+    "cache_read": 2.5e-8
+  },
+  "last_updated": 1790237684
 }

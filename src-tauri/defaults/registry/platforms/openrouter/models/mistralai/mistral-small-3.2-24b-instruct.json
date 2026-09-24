@@ -1,16 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-small-3.2-24b-instruct",
-  "canonical_model": "mistral-small-3.2-24b-instruct",
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 128000,
-  "max_output_tokens": 16384,
+  "display_name": "Mistral: Mistral Small 3.2 24B",
+  "canonical_model": "mistralai/mistral-small-3.2-24b-instruct-2506",
+  "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 9.375e-08,
-    "output": 2.5e-07
-  }
+    "input": 9.375e-8,
+    "output": 2.5e-7
+  },
+  "last_updated": 1790237684
 }

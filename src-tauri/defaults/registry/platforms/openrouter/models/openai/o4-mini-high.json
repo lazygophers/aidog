@@ -1,18 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "openai/o4-mini-high",
-  "canonical_model": "o4-mini-high",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: o4 Mini High",
+  "canonical_model": "openai/o4-mini-high-2025-04-16",
   "max_input_tokens": 200000,
-  "max_output_tokens": 100000,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 100000,
+  "thinking_supported": true,
   "price": {
-    "input": 1.1e-06,
-    "output": 4.4e-06,
-    "cache_read": 2.75e-07
-  }
+    "input": 0.0000011,
+    "output": 0.0000044,
+    "cache_read": 2.75e-7
+  },
+  "last_updated": 1790237684
 }

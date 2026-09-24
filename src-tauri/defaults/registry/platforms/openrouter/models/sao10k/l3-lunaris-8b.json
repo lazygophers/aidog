@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "sao10k/l3-lunaris-8b",
-  "canonical_model": "l3-lunaris-8b",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Sao10K: Llama 3 8B Lunaris",
+  "canonical_model": "sao10k/l3-lunaris-8b",
   "max_input_tokens": 8192,
-  "max_output_tokens": 7372,
   "context_window": 8192,
   "official": true,
+  "max_output_tokens": 7372,
   "price": {
-    "input": 4e-08,
-    "output": 5e-08,
-    "cache_read": 0
-  }
+    "input": 4e-8,
+    "output": 5e-8
+  },
+  "last_updated": 1790237684
 }

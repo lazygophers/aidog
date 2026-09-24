@@ -1,20 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "google/gemini-3-pro-image-preview",
-  "canonical_model": "gemini-3-pro-image-preview",
-  "thinking_supported": true,
-  "capabilities": [
-    "text_to_image",
-    "image_to_image",
-    "image_edit"
-  ],
+  "display_name": "Google: Nano Banana Pro (Gemini 3 Pro Image Preview)",
+  "canonical_model": "google/gemini-3-pro-image-preview-20251120",
   "max_input_tokens": 65536,
-  "max_output_tokens": 32768,
   "context_window": 65536,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 2e-06,
-    "output": 1.2e-05,
-    "cache_read": 2e-07
-  }
+    "input": 0.000002,
+    "output": 0.000012,
+    "cache_read": 2e-7
+  },
+  "last_updated": 1790237684
 }

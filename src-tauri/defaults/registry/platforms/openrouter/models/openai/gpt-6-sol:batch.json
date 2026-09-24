@@ -1,0 +1,16 @@
+{
+  "model_id": "openai/gpt-6-sol:batch",
+  "display_name": "OpenAI: GPT-6 Sol (batch)",
+  "canonical_model": "openai/gpt-6-sol-20260922",
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000005,
+    "cache_read": 1e-7
+  },
+  "last_updated": 1790237684
+}

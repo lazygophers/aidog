@@ -1,16 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "inception/mercury-2.5",
-  "canonical_model": "mercury-2.5",
   "display_name": "Inception: Mercury 2.5",
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "canonical_model": "inception/mercury-2.5-20260908",
+  "max_input_tokens": 260000,
   "context_window": 260000,
+  "official": true,
   "max_output_tokens": 65536,
   "thinking_supported": true,
-  "official": true,
   "price": {
-    "input": 4e-08,
-    "output": 1.5e-07,
-    "cache_read": 4e-09
-  }
+    "input": 4e-8,
+    "output": 1.5e-7,
+    "cache_read": 4e-9
+  },
+  "last_updated": 1790237684
 }

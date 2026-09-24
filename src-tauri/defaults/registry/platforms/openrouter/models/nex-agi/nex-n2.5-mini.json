@@ -1,16 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "nex-agi/nex-n2.5-mini",
-  "canonical_model": "nex-n2.5-mini",
   "display_name": "Nex AGI: Nex-N2.5-Mini",
-  "capabilities": ["text", "vision", "reasoning"],
+  "canonical_model": "nex-agi/nex-n2.5-mini-20260908",
+  "max_input_tokens": 262144,
   "context_window": 262144,
+  "official": true,
   "max_output_tokens": 235929,
   "thinking_supported": true,
-  "official": true,
   "price": {
-    "input": 2.5e-08,
-    "output": 1e-07,
-    "cache_read": 2.5e-09
-  }
+    "input": 2.5e-8,
+    "output": 1e-7,
+    "cache_read": 2.5e-9
+  },
+  "last_updated": 1790237684
 }

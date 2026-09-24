@@ -1,17 +1,15 @@
 {
-  "last_updated": 1788067648,
   "model_id": "minimax/minimax-m2-her",
-  "canonical_model": "minimax-m2-her",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "MiniMax: MiniMax M2-her",
+  "canonical_model": "minimax/minimax-m2-her-20260123",
   "max_input_tokens": 65536,
-  "max_output_tokens": 2048,
   "context_window": 65536,
   "official": true,
+  "max_output_tokens": 2048,
   "price": {
-    "input": 3e-07,
-    "output": 1.2e-06,
-    "cache_read": 3e-08
-  }
+    "input": 3e-7,
+    "output": 0.0000012,
+    "cache_read": 3e-8
+  },
+  "last_updated": 1790237684
 }

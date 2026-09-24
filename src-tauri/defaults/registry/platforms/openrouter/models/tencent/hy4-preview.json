@@ -1,22 +1,16 @@
 {
-  "last_updated": 1789258661,
   "model_id": "tencent/hy4-preview",
-  "canonical_model": "hy4-preview",
-  "family": "hunyuan",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Tencent: Hy4 preview",
+  "canonical_model": "tencent/hy4-preview-20260827",
   "max_input_tokens": 1048576,
-  "max_output_tokens": 64000,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 64000,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 8.34e-07,
-    "output": 2.501e-06,
-    "cache_read": 4.2e-08
-  }
+    "input": 8.34e-7,
+    "output": 0.000002501,
+    "cache_read": 4.2e-8
+  },
+  "last_updated": 1790237684
 }

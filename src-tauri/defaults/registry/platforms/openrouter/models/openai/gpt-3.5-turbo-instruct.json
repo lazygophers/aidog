@@ -1,16 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "openai/gpt-3.5-turbo-instruct",
-  "canonical_model": "gpt-3.5-turbo-instruct",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT-3.5 Turbo Instruct",
+  "canonical_model": "openai/gpt-3.5-turbo-instruct",
   "max_input_tokens": 4095,
-  "max_output_tokens": 3685,
   "context_window": 4095,
   "official": true,
+  "max_output_tokens": 3685,
   "price": {
-    "input": 1.5e-06,
-    "output": 2e-06
-  }
+    "input": 0.0000015,
+    "output": 0.000002
+  },
+  "last_updated": 1790237684
 }

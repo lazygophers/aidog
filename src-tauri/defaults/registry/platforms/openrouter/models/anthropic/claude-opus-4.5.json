@@ -1,20 +1,15 @@
 {
-  "last_updated": 1790084258,
   "model_id": "anthropic/claude-opus-4.5",
-  "canonical_model": "claude-opus-4-5",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Anthropic: Claude Opus 4.5",
+  "canonical_model": "anthropic/claude-4.5-opus-20251124",
   "max_input_tokens": 200000,
-  "max_output_tokens": 64000,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 64000,
   "price": {
-    "input": 5e-06,
-    "output": 2.5e-05,
-    "cache_read": 5e-07,
-    "cache_write": 6.25e-06
-  }
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 5e-7
+  },
+  "last_updated": 1790237684
 }

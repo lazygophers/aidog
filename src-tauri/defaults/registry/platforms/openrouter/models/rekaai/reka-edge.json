@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "rekaai/reka-edge",
-  "canonical_model": "reka-edge",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Reka Edge",
+  "canonical_model": "rekaai/reka-edge-2603",
   "max_input_tokens": 16384,
-  "max_output_tokens": 14745,
   "context_window": 16384,
   "official": true,
+  "max_output_tokens": 14745,
   "price": {
-    "input": 1e-07,
-    "output": 1e-07,
-    "cache_read": 0
-  }
+    "input": 1e-7,
+    "output": 1e-7
+  },
+  "last_updated": 1790237684
 }

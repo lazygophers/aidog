@@ -1,20 +1,14 @@
 {
-  "last_updated": 1788084177,
   "model_id": "liquid/lfm-2.5-2.6b:free",
-  "canonical_model": "lfm-2.5-2.6b",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "LiquidAI: LFM2.5-2.6B (free)",
+  "canonical_model": "liquid/lfm-2.5-2.6b-20260811",
   "max_input_tokens": 65536,
-  "max_output_tokens": 8192,
   "context_window": 65536,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "max_output_tokens": 8192,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1790237684
 }

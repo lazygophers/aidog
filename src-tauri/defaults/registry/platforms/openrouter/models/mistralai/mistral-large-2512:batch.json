@@ -1,19 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-large-2512:batch",
-  "canonical_model": "mistral-large-2512",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use"
-  ],
+  "display_name": "Mistral: Mistral Large 3 2512 (batch)",
+  "canonical_model": "mistralai/mistral-large-2512",
   "max_input_tokens": 262144,
-  "max_output_tokens": 209715,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 209715,
   "price": {
-    "input": 2.5e-07,
-    "output": 7.5e-07,
-    "cache_read": 2.5000000000000002e-08
-  }
+    "input": 2.5e-7,
+    "output": 7.5e-7,
+    "cache_read": 2.5e-8
+  },
+  "last_updated": 1790237684
 }

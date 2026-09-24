@@ -1,22 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "moonshotai/kimi-k3:batch",
-  "canonical_model": "kimi-k3",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "MoonshotAI: Kimi K3 (batch)",
+  "canonical_model": "moonshotai/kimi-k3-20260715",
   "max_input_tokens": 1048576,
-  "max_output_tokens": 16384,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 16384,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 2.2799999999999998e-06,
-    "output": 1.1400000000000001e-05,
-    "cache_read": 2.28e-07
-  }
+    "input": 0.00000228,
+    "output": 0.0000114,
+    "cache_read": 2.28e-7
+  },
+  "last_updated": 1790237684
 }

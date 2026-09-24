@@ -1,15 +1,13 @@
 {
-  "last_updated": 1788084177,
   "model_id": "openrouter/bodybuilder",
-  "canonical_model": "bodybuilder",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Body Builder (beta)",
+  "canonical_model": "openrouter/bodybuilder",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": -1,
+    "output": -1
+  },
+  "last_updated": 1790237684
 }

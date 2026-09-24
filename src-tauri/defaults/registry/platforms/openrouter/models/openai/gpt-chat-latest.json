@@ -1,17 +1,15 @@
 {
-  "last_updated": 1788067649,
   "model_id": "openai/gpt-chat-latest",
-  "canonical_model": "gpt-chat-latest",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT Chat Latest",
+  "canonical_model": "openai/gpt-chat-latest-20260505",
   "max_input_tokens": 400000,
-  "max_output_tokens": 128000,
   "context_window": 400000,
   "official": true,
+  "max_output_tokens": 128000,
   "price": {
-    "input": 5e-06,
-    "output": 3e-05,
-    "cache_read": 5e-07
-  }
+    "input": 0.000005,
+    "output": 0.00003,
+    "cache_read": 5e-7
+  },
+  "last_updated": 1790237684
 }

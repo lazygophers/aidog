@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-v3.2",
-  "canonical_model": "DeepSeek-V3.2",
-  "family": "deepseek",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "DeepSeek: DeepSeek V3.2",
+  "canonical_model": "deepseek/deepseek-v3.2-20251201",
   "max_input_tokens": 163840,
-  "max_output_tokens": 65536,
   "context_window": 163840,
   "official": true,
+  "max_output_tokens": 65536,
   "price": {
-    "input": 2.6900000000000004e-07,
-    "output": 4e-07
-  }
+    "input": 2.69e-7,
+    "output": 4e-7,
+    "cache_read": 1.345e-7
+  },
+  "last_updated": 1790237684
 }

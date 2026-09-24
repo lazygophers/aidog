@@ -1,15 +1,13 @@
 {
-  "last_updated": 1788084177,
   "model_id": "openrouter/fusion",
-  "canonical_model": "fusion",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenRouter: Fusion",
+  "canonical_model": "openrouter/fusion",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": -1,
+    "output": -1
+  },
+  "last_updated": 1790237684
 }

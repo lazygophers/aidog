@@ -1,0 +1,16 @@
+{
+  "model_id": "sakana/fugu-max",
+  "display_name": "Sakana: Fugu Max",
+  "canonical_model": "sakana/fugu-max-20260911",
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "price": {
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2.5e-7
+  },
+  "last_updated": 1790237684
+}

@@ -1,21 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "tencent/hy3",
-  "canonical_model": "hy3",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Tencent: Hy3",
+  "canonical_model": "tencent/hy3-20260706",
   "max_input_tokens": 262144,
-  "max_output_tokens": 128000,
   "context_window": 262144,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 128000,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 8.25e-08,
-    "output": 3.3e-07,
-    "cache_read": 2.0625e-08
-  }
+    "input": 8.25e-8,
+    "output": 3.3e-7,
+    "cache_read": 2.0625e-8
+  },
+  "last_updated": 1790237684
 }

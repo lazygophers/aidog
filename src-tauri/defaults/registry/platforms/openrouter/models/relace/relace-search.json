@@ -1,17 +1,14 @@
 {
-  "last_updated": 1788067649,
   "model_id": "relace/relace-search",
-  "canonical_model": "relace-search",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Relace: Relace Search",
+  "canonical_model": "relace/relace-search-20251208",
   "max_input_tokens": 256000,
-  "max_output_tokens": 128000,
   "context_window": 256000,
   "official": true,
+  "max_output_tokens": 128000,
   "price": {
-    "input": 1e-06,
-    "output": 3e-06,
-    "cache_read": 0
-  }
+    "input": 0.000001,
+    "output": 0.000003
+  },
+  "last_updated": 1790237684
 }

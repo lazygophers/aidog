@@ -1,22 +1,16 @@
 {
-  "last_updated": 1788084177,
   "model_id": "meta/muse-glimmer-30b",
-  "canonical_model": "muse-glimmer-30b",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Meta: Muse Glimmer 30B",
+  "canonical_model": "meta/muse-glimmer-30b-20260810",
   "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
   "context_window": 131072,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 16384,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 3e-07,
-    "output": 1.2e-06,
-    "cache_read": 4e-08
-  }
+    "input": 3e-7,
+    "output": 0.0000012,
+    "cache_read": 4e-8
+  },
+  "last_updated": 1790237684
 }

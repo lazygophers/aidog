@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "openai/o1",
-  "canonical_model": "o1",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: o1",
+  "canonical_model": "openai/o1-2024-12-17",
   "max_input_tokens": 200000,
-  "max_output_tokens": 100000,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 100000,
   "price": {
-    "input": 1.5e-05,
-    "output": 6e-05,
-    "cache_read": 7.5e-06
-  }
+    "input": 0.000015,
+    "output": 0.00006,
+    "cache_read": 0.0000075
+  },
+  "last_updated": 1790237684
 }

@@ -1,20 +1,13 @@
 {
-  "last_updated": 1788084177,
   "model_id": "openrouter/free",
-  "canonical_model": "free",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Free Models Router",
+  "canonical_model": "openrouter/free",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1790237684
 }

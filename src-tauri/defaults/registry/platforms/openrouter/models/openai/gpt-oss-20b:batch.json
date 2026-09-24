@@ -1,20 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "openai/gpt-oss-20b:batch",
-  "canonical_model": "gpt-oss-20b",
-  "family": "gpt",
-  "capabilities": [
-    "text",
-    "reasoning"
-  ],
+  "display_name": "OpenAI: gpt-oss-20b (batch)",
+  "canonical_model": "openai/gpt-oss-20b",
   "max_input_tokens": 131072,
-  "max_output_tokens": 117964,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 117964,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 2.4e-08,
-    "output": 1.12e-07
-  }
+    "input": 2.4e-8,
+    "output": 1.12e-7
+  },
+  "last_updated": 1790237684
 }

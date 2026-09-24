@@ -1,21 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "upstage/solar-pro4",
-  "canonical_model": "solar-pro4",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Upstage: Solar Pro 4",
+  "canonical_model": "upstage/solar-pro4-20260810",
   "max_input_tokens": 524288,
-  "max_output_tokens": 131072,
   "context_window": 524288,
   "official": true,
+  "max_output_tokens": 131072,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 9e-08,
-    "output": 3.6e-07,
-    "cache_read": 1.8e-08
-  }
+    "input": 9e-8,
+    "output": 3.6e-7,
+    "cache_read": 1.8e-8
+  },
+  "last_updated": 1790237684
 }

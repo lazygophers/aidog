@@ -1,0 +1,16 @@
+{
+  "model_id": "x-ai/grok-4.3:batch",
+  "display_name": "SpaceXAI: Grok 4.3 (batch)",
+  "canonical_model": "x-ai/grok-4.3-20260430",
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "max_output_tokens": 900000,
+  "thinking_supported": true,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000002,
+    "cache_read": 1.6e-7
+  },
+  "last_updated": 1790237684
+}

@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "x-ai/grok-build-0.1",
-  "canonical_model": "grok-build-0.1",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "SpaceXAI: Grok Build 0.1",
+  "canonical_model": "x-ai/grok-build-0.1-20260520",
   "max_input_tokens": 256000,
   "context_window": 256000,
-  "max_output_tokens": 230400,
   "official": true,
+  "max_output_tokens": 230400,
   "price": {
-    "input": 1e-06,
-    "output": 2e-06,
-    "cache_read": 2e-07
-  }
+    "input": 0.000001,
+    "output": 0.000002,
+    "cache_read": 2e-7
+  },
+  "last_updated": 1790237684
 }

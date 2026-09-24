@@ -1,16 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-235b-a22b-2507",
-  "canonical_model": "qwen3-235b-a22b-2507",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen3 235B A22B Instruct 2507",
+  "canonical_model": "qwen/qwen3-235b-a22b-07-25",
   "max_input_tokens": 262144,
-  "max_output_tokens": 235929,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 235929,
   "price": {
-    "input": 8.75e-08,
-    "output": 3.5e-07
-  }
+    "input": 8.75e-8,
+    "output": 3.5e-7,
+    "cache_read": 1.75e-8
+  },
+  "last_updated": 1790237684
 }

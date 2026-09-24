@@ -1,20 +1,14 @@
 {
-  "last_updated": 1788084265,
   "model_id": "cohere/north-mini-code:free",
-  "canonical_model": "north-mini-code",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Cohere: North Mini Code (free)",
+  "canonical_model": "cohere/north-mini-code-20260617",
   "max_input_tokens": 256000,
-  "max_output_tokens": 64000,
   "context_window": 256000,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "max_output_tokens": 64000,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1790237684
 }

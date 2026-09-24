@@ -1,25 +1,16 @@
 {
-  "last_updated": 1789258661,
   "model_id": "meta/muse-spark-1.2",
-  "canonical_model": "muse-spark-1.2",
-  "family": "muse",
-  "version": "1.2",
-  "predecessor": "muse-spark-1.1",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Meta: Muse Spark 1.2",
+  "canonical_model": "meta/muse-spark-1.2-20260805",
   "max_input_tokens": 1048576,
-  "max_output_tokens": 943718,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 943718,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 1.25e-06,
-    "output": 4.25e-06,
-    "cache_read": 1.5e-07
-  }
+    "input": 0.00000125,
+    "output": 0.00000425,
+    "cache_read": 1.5e-7
+  },
+  "last_updated": 1790237684
 }

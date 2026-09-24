@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "perceptron/perceptron-mk1",
-  "canonical_model": "perceptron-mk1",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Perceptron: Perceptron Mk1",
+  "canonical_model": "perceptron/perceptron-mk1-20260512",
   "max_input_tokens": 32768,
-  "max_output_tokens": 8192,
   "context_window": 32768,
   "official": true,
+  "max_output_tokens": 8192,
   "price": {
-    "input": 1.5e-07,
-    "output": 1.5e-06,
-    "cache_read": 0
-  }
+    "input": 1.5e-7,
+    "output": 0.0000015
+  },
+  "last_updated": 1790237684
 }

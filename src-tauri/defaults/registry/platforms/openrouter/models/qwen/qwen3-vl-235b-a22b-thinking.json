@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
-  "canonical_model": "qwen3-vl-235b-a22b-thinking",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen3 VL 235B A22B Thinking",
+  "canonical_model": "qwen/qwen3-vl-235b-a22b-thinking",
   "max_input_tokens": 131072,
-  "max_output_tokens": 32768,
   "context_window": 131072,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 4.0000000000000003e-07,
-    "output": 4e-06
-  }
+    "input": 4e-7,
+    "output": 0.000004
+  },
+  "last_updated": 1790237684
 }

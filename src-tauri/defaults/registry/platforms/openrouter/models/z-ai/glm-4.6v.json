@@ -1,22 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "z-ai/glm-4.6v",
-  "canonical_model": "glm-4.6v",
-  "thinking_supported": true,
-  "family": "glm",
-  "version": "4.6",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use"
-  ],
+  "display_name": "Z.ai: GLM 4.6V",
+  "canonical_model": "z-ai/glm-4.6-20251208",
   "max_input_tokens": 131072,
-  "max_output_tokens": 32768,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 3e-07,
-    "output": 9.000000000000001e-07,
-    "cache_read": 5.5e-08
-  }
+    "input": 3e-7,
+    "output": 9e-7,
+    "cache_read": 5.5e-8
+  },
+  "last_updated": 1790237684
 }

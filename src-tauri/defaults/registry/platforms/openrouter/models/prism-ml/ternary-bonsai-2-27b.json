@@ -1,0 +1,15 @@
+{
+  "model_id": "prism-ml/ternary-bonsai-2-27b",
+  "display_name": "PrismML: Ternary Bonsai 2 27B",
+  "canonical_model": "prism-ml/ternary-bonsai-2-27b-20260918",
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "max_output_tokens": 32768,
+  "thinking_supported": true,
+  "price": {
+    "input": 7.5e-8,
+    "output": 5e-7
+  },
+  "last_updated": 1790237684
+}

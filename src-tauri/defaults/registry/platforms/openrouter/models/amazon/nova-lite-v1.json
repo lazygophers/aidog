@@ -1,17 +1,14 @@
 {
-  "last_updated": 1788067648,
   "model_id": "amazon/nova-lite-v1",
-  "canonical_model": "nova-lite-v1",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Amazon: Nova Lite 1.0",
+  "canonical_model": "amazon/nova-lite-v1",
   "max_input_tokens": 300000,
-  "max_output_tokens": 5120,
   "context_window": 300000,
   "official": true,
+  "max_output_tokens": 5120,
   "price": {
-    "input": 6e-08,
-    "output": 2.4e-07,
-    "cache_read": 0
-  }
+    "input": 6e-8,
+    "output": 2.4e-7
+  },
+  "last_updated": 1790237684
 }

@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "anthracite-org/magnum-v4-72b",
-  "canonical_model": "magnum-v4-72b",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Magnum v4 72B",
+  "canonical_model": "anthracite-org/magnum-v4-72b",
   "max_input_tokens": 32768,
-  "max_output_tokens": 4096,
   "context_window": 32768,
   "official": true,
+  "max_output_tokens": 4096,
   "price": {
-    "input": 2.5e-06,
-    "output": 5e-06,
-    "cache_read": 0
-  }
+    "input": 0.0000025,
+    "output": 0.000005
+  },
+  "last_updated": 1790237684
 }

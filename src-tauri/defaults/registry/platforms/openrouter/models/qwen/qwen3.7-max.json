@@ -1,19 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.7-max",
-  "canonical_model": "qwen3.7-max",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen3.7 Max",
+  "canonical_model": "qwen/qwen3.7-max-20260520",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 131072,
   "context_window": 1000000,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 131072,
   "price": {
-    "input": 1.475e-06,
-    "output": 4.425e-06,
-    "cache_read": 2.95e-07,
-    "cache_write": 1.84375e-06
-  }
+    "input": 0.000001475,
+    "output": 0.000004425,
+    "cache_read": 2.95e-7
+  },
+  "last_updated": 1790237684
 }

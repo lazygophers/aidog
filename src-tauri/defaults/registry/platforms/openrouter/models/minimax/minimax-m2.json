@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "minimax/minimax-m2",
-  "canonical_model": "MiniMax-M2",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "MiniMax: MiniMax M2",
+  "canonical_model": "minimax/minimax-m2",
   "max_input_tokens": 204800,
-  "max_output_tokens": 131072,
   "context_window": 204800,
   "official": true,
+  "max_output_tokens": 131072,
   "price": {
-    "input": 2.55e-07,
-    "output": 1.02e-06,
-    "cache_read": 3e-08
-  }
+    "input": 2.55e-7,
+    "output": 0.00000102
+  },
+  "last_updated": 1790237684
 }

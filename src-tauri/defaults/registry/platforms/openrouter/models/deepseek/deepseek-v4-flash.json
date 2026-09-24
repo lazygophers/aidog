@@ -1,20 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "deepseek/deepseek-v4-flash",
-  "canonical_model": "deepseek-v4-flash",
-  "family": "deepseek",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 384000,
+  "display_name": "DeepSeek: DeepSeek V4 Flash 0423",
+  "canonical_model": "deepseek/deepseek-v4-flash-20260423",
+  "max_input_tokens": 1024000,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 384000,
+  "thinking_supported": true,
   "price": {
-    "input": 8.246000000000001e-08,
-    "output": 1.6492000000000002e-07,
-    "cache_read": 1.6492e-08
-  }
+    "input": 8.246e-8,
+    "output": 1.6492e-7,
+    "cache_read": 1.6492e-8
+  },
+  "last_updated": 1790237684
 }

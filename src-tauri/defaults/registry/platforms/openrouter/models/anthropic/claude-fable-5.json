@@ -1,19 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "anthropic/claude-fable-5",
-  "canonical_model": "claude-fable-5",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Anthropic: Claude Fable 5",
+  "canonical_model": "anthropic/claude-5-fable-20260609",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 128000,
   "context_window": 1000000,
   "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
   "price": {
-    "input": 1e-05,
-    "output": 5e-05,
-    "cache_read": 1e-06
-  }
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 0.000001
+  },
+  "last_updated": 1790237684
 }

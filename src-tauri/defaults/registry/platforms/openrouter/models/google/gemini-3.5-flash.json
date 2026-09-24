@@ -1,20 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "google/gemini-3.5-flash",
-  "canonical_model": "gemini-3.5-flash",
-  "family": "gemini",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Google: Gemini 3.5 Flash",
+  "canonical_model": "google/gemini-3.5-flash-20260519",
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 65536,
+  "thinking_supported": true,
   "price": {
-    "input": 1.5e-06,
-    "output": 9e-06,
-    "cache_read": 1.5e-07
-  }
+    "input": 0.0000015,
+    "output": 0.000009,
+    "cache_read": 1.5e-7
+  },
+  "last_updated": 1790237684
 }

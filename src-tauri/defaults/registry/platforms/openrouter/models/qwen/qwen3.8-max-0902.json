@@ -1,24 +1,16 @@
 {
-  "last_updated": 1788769178,
   "model_id": "qwen/qwen3.8-max-0902",
-  "canonical_model": "qwen3.8-max-2026-09-02",
-  "display_name": "Qwen3.8-Max (2026-09-02)",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 991808,
-  "max_output_tokens": 131072,
+  "display_name": "Qwen: Qwen3.8 Max (0902)",
+  "canonical_model": "qwen/qwen3.8-max-20260902",
+  "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
+  "max_output_tokens": 131072,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 2e-06,
-    "output": 6e-06,
-    "cache_read": 2.5e-07,
-    "cache_write": 2.5e-06
-  }
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2.5e-7
+  },
+  "last_updated": 1790237684
 }

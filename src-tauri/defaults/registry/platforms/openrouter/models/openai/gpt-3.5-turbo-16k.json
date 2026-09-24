@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788067648,
   "model_id": "openai/gpt-3.5-turbo-16k",
-  "canonical_model": "gpt-3.5-turbo-16k",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT-3.5 Turbo 16k",
+  "canonical_model": "openai/gpt-3.5-turbo-16k",
   "max_input_tokens": 16385,
-  "max_output_tokens": 4096,
   "context_window": 16385,
   "official": true,
+  "max_output_tokens": 4096,
   "price": {
-    "input": 3e-06,
-    "output": 4e-06
-  }
+    "input": 0.000003,
+    "output": 0.000004
+  },
+  "last_updated": 1790237684
 }

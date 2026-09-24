@@ -1,17 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen-plus",
-  "canonical_model": "qwen-plus",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen-Plus",
+  "canonical_model": "qwen/qwen-plus-2025-01-25",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 32768,
   "context_window": 1000000,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 2.6e-07,
-    "output": 7.8e-07,
-    "cache_read": 5.2e-08
-  }
+    "input": 2.6e-7,
+    "output": 7.8e-7,
+    "cache_read": 5.2e-8
+  },
+  "last_updated": 1790237684
 }
