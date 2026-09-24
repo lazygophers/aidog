@@ -1,10 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "baidu/cobuddy",
   "canonical_model": "cobuddy",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 2.8e-07,

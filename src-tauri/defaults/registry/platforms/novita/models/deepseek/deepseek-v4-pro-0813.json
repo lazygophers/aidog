@@ -1,18 +1,16 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "deepseek/deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "family": "deepseek",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 1.32e-06,
     "output": 3.96e-06,
-    "cache_read": 1.3200000000000002e-07
+    "cache_read": 4.4e-08
   },
   "max_input_tokens": 1048576,
   "context_window": 1048576,

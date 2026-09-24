@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790000000,
+  "model_id": "baai/bge-m3",
+  "canonical_model": "bge-m3",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 1e-08,
+    "output": 1e-08,
+    "cache_read": 0.0
+  },
+  "context_window": 8192,
+  "max_input_tokens": 8192,
+  "max_output_tokens": 96000
+}

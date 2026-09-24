@@ -1,10 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen3.7-max",
   "canonical_model": "qwen3.7-max",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 1.25e-06,

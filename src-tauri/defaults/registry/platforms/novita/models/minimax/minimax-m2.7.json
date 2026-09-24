@@ -1,12 +1,10 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790262613,
   "model_id": "minimax/minimax-m2.7",
   "canonical_model": "MiniMax-M2.7",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": false,
   "price": {
     "input": 3e-07,

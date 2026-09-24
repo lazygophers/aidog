@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "minimaxai/minimax-m1-80k",
   "canonical_model": "minimax-m1-80k",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 5.5e-07,
-    "output": 2.2e-06
+    "output": 2.2e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 1000000,
   "context_window": 1000000,

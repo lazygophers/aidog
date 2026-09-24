@@ -1,11 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "moonshotai/kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
   "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 6e-07,
@@ -14,5 +12,5 @@
   },
   "max_input_tokens": 262144,
   "context_window": 262144,
-  "max_output_tokens": 100352
+  "max_output_tokens": 98304
 }
