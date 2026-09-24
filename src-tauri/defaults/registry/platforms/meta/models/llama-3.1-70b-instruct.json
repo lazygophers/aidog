@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790276888,
   "model_id": "llama-3.1-70b-instruct",
   "canonical_model": "llama-3.1-70b-instruct",
+  "family": "llama",
+  "version": "3.1",
   "capabilities": [
     "text"
   ],

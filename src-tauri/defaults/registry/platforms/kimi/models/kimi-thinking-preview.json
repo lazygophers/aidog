@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790276888,
   "model_id": "kimi-thinking-preview",
   "canonical_model": "kimi-thinking-preview",
+  "family": "kimi",
   "capabilities": [
     "text"
   ],

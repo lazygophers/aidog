@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "speech-02-turbo",
   "canonical_model": "speech-02-turbo",
+  "family": "minimax",
+  "version": "02",
   "display_name": "Speech 02 Turbo",
   "capabilities": [
     "audio"

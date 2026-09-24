@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "image-01",
   "canonical_model": "image-01",
+  "family": "minimax",
+  "version": "01",
   "display_name": "Image-01",
   "capabilities": [
     "text_to_image",

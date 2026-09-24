@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790276888,
   "model_id": "kimi-latest-32k",
   "canonical_model": "kimi-latest-32k",
+  "family": "kimi",
   "capabilities": [
     "text"
   ],

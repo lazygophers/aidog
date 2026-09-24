@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788144722,
+  "last_updated": 1790276888,
   "model_id": "step-tts-mini",
   "canonical_model": "step-tts-mini",
+  "family": "stepfun",
   "capabilities": [
     "audio"
   ],

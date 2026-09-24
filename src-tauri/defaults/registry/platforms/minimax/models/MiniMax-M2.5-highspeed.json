@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790276888,
   "model_id": "MiniMax-M2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
+  "family": "minimax",
+  "version": "2.5",
   "capabilities": [
     "text"
   ],
