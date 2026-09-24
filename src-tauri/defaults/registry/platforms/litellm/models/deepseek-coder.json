@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790277180,
   "model_id": "deepseek-coder",
   "canonical_model": "deepseek-coder",
+  "family": "deepseek",
   "capabilities": [
     "text"
   ],

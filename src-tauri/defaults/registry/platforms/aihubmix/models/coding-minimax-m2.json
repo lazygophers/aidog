@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "coding-minimax-m2",
   "canonical_model": "MiniMax-M2",
+  "family": "minimax",
+  "version": "2",
   "display_name": "Coding MiniMax M2",
   "thinking_supported": true,
   "capabilities": [

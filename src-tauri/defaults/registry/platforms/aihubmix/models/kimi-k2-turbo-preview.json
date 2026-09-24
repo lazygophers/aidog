@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "kimi-k2-turbo-preview",
   "canonical_model": "kimi-k2-turbo-preview",
+  "family": "kimi",
+  "version": "2",
   "display_name": "Kimi K2 Turbo Preview",
   "capabilities": [
     "text"

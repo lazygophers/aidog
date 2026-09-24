@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "doubao-seedance-1-0-pro-fast-251015",
   "canonical_model": "doubao-seedance-1-0-pro-fast-251015",
+  "family": "doubao-seedance",
+  "version": "1.0",
   "display_name": "Doubao Seedance 1.0 Pro Fast 251015",
   "capabilities": [
     "vision",
