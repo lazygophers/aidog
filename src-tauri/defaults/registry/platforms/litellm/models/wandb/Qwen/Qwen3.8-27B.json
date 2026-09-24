@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "wandb/Qwen/Qwen3.8-27B",
   "canonical_model": "qwen3.8-27b",
   "capabilities": [
@@ -17,5 +17,6 @@
     "input": 4e-7,
     "output": 0.000003
   },
-  "family": "qwen"
+  "family": "qwen",
+  "version": "3.8"
 }

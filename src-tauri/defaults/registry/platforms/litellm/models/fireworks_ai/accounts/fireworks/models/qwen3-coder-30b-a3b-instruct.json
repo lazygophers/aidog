@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-coder-30b-a3b-instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
   "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

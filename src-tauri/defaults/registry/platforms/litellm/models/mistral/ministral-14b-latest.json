@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "mistral/ministral-14b-latest",
-  "canonical_model": "ministral-14b-latest",
+  "canonical_model": "ministral-14b",
   "capabilities": [
     "text",
     "vision",

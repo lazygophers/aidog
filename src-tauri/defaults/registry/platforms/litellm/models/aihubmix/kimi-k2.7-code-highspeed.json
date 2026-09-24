@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "aihubmix/kimi-k2.7-code-highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
   "family": "kimi",
+  "version": "2.7",
   "capabilities": [
     "text",
     "vision",

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-4o",
   "canonical_model": "gpt-4o",
   "family": "gpt",
+  "version": "4o",
   "capabilities": [
     "text",
     "vision",

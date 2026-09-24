@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "nebius/deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text",
     "tool_use"

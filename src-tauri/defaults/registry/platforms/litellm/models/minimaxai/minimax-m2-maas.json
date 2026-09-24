@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790278679,
   "model_id": "minimaxai/minimax-m2-maas",
   "canonical_model": "minimax-m2-maas",
+  "family": "minimax",
+  "version": "2",
   "capabilities": [
     "text"
   ],

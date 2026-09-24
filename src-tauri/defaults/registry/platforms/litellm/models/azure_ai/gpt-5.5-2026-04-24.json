@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure_ai/gpt-5.5-2026-04-24",
-  "canonical_model": "gpt-5.5-2026-04-24",
+  "canonical_model": "gpt-5.5",
+  "family": "gpt",
+  "version": "5.5",
   "capabilities": [
     "text",
     "vision",

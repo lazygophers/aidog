@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "aihubmix/gemini-3.5-flash-lite",
   "canonical_model": "gemini-3.5-flash-lite",
+  "family": "gemini",
+  "version": "3.5",
   "capabilities": [
     "text",
     "vision",

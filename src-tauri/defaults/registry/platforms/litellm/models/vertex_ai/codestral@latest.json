@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "vertex_ai/codestral@latest",
   "canonical_model": "codestral@latest",
+  "family": "codestral",
   "capabilities": [
     "text",
     "tool_use"

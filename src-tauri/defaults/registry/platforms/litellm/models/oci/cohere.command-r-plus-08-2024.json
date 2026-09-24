@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "oci/cohere.command-r-plus-08-2024",
-  "canonical_model": "cohere.command-r-plus-08-2024",
+  "canonical_model": "command-r-plus-08-2024",
   "capabilities": [
     "text",
     "tool_use"
