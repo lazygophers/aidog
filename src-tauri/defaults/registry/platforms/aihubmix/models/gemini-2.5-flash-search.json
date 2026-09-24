@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790272756,
   "model_id": "gemini-2.5-flash-search",
   "canonical_model": "gemini-2.5-flash",
   "display_name": "Gemini 2.5 Flash Search",
+  "family": "gemini",
+  "version": "2.5",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

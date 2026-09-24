@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "gpt-5.1-chat-latest",
   "canonical_model": "gpt-5.1",
   "display_name": "GPT 5.1 Chat",
+  "family": "gpt",
+  "version": "5.1",
   "capabilities": [
     "text"
   ],

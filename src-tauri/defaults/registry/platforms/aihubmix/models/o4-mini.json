@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "o4-mini",
   "canonical_model": "o4-mini",
   "display_name": "O4 Mini",
+  "family": "o",
+  "version": "4",
   "thinking_supported": true,
   "capabilities": [
     "text"

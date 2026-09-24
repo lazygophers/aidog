@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "codex-mini-latest",
   "canonical_model": "codex-mini-latest",
   "display_name": "Codex Mini",
+  "family": "codex",
+  "version": "mini",
   "capabilities": [
     "text"
   ],

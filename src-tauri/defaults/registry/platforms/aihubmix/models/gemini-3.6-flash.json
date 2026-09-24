@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "gemini-3.6-flash",
   "canonical_model": "gemini-3.6-flash",
   "display_name": "Gemini 3.6 Flash",
+  "family": "gemini",
+  "version": "3.6",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

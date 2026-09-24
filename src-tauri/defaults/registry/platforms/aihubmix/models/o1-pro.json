@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "o1-pro",
   "canonical_model": "o1-pro",
   "display_name": "O1 Pro",
+  "family": "o",
+  "version": "1",
   "thinking_supported": true,
   "capabilities": [
     "text"
