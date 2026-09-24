@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790274966,
   "model_id": "ai21.j2-mid-v1",
   "canonical_model": "ai21.j2-mid-v1",
+  "family": "j2",
+  "version": "2",
   "capabilities": [
     "text"
   ],

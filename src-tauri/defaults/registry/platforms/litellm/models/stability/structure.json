@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790274966,
   "model_id": "stability/structure",
   "canonical_model": "structure",
+  "family": "stable",
+  "version": "1",
   "capabilities": [
     "image_edit"
   ],
