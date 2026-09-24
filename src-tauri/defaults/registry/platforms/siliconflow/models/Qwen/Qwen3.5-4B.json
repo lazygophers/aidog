@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790084258,
+  "max_input_tokens": 256000,
+  "last_updated": 1790287585,
   "model_id": "Qwen/Qwen3.5-4B",
   "canonical_model": "qwen3.5-4b",
   "capabilities": [
