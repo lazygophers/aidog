@@ -817,7 +817,7 @@ void main() {
 
     testWidgets('日期改写规则读不到时开关点不动', (tester) async {
       await mount(tester);
-      final sw = tester.widget<SwitchRow>(
+      final sw = tester.widget<ToggleCard>(
         find.byKey(const ValueKey('date-rewrite')),
       );
       expect(sw.onChanged, isNull);
@@ -835,7 +835,7 @@ void main() {
           },
         ],
       );
-      final sw = tester.widget<SwitchRow>(
+      final sw = tester.widget<ToggleCard>(
         find.byKey(const ValueKey('date-rewrite')),
       );
       expect(sw.onChanged, isNotNull);
@@ -853,12 +853,16 @@ void main() {
       // `CodingToolsSettings.tsx:475-479` 的 `__none__`：选「—」写空串，
       // claude effortLevel + codex model_reasoning_effort 双写。
       final k = await mount(tester);
+      // 批三后努力级别是下拉（React Select，`CodingToolsSettings.tsx:454-485`）：
+      // 先点触发器展开，再点菜单里的「—」。
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('cli-effort')),
-          matching: find.text('—'),
+          matching: find.byType(DropdownButton<String>),
         ),
       );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('—').last);
       await settle(tester);
 
       final setArgs = k.lastArgsOf('settings_set')!;
