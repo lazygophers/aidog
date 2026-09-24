@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790269990,
   "model_id": "qwen3-vl-plus",
   "canonical_model": "qwen3-vl-plus",
+  "family": "qwen",
   "capabilities": [
     "text",
     "vision"
