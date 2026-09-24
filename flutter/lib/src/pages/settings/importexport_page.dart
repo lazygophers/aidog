@@ -473,32 +473,85 @@ class _ImportExportPageState extends State<ImportExportPage> {
     title: t.t('importExport.exportTitle'),
     description: t.t('importExport.exportDesc'),
     children: [
-      TileMetaLine(t.t('importExport.scopeHeader')),
-      Wrap(
-        spacing: AidogSpace.sxs,
-        runSpacing: AidogSpace.sxs,
+      // scope 区头：标题 14 w600 + 全选/反选 + 选中计数
+      //（`ImportExportTab.tsx:381-395`）。
+      Row(
         children: [
-          for (final s in kImportExportScopes)
-            SmallButton(
-              key: ValueKey('scope-$s'),
-              // label key 是 camelCase（`scopeLabelKey`），wire id 是 snake_case。
-              label: tOr(t, scopeLabelKey(s), s),
-              active: _c.scopes.contains(s),
-              onTap: () => _c.toggleScope(s, !_c.scopes.contains(s)),
+          Text(
+            t.t('importExport.scopeHeader'),
+            style: AidogType.label.copyWith(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: AidogTheme.of(context).c.fg,
             ),
+          ),
+          const SizedBox(width: AidogSpace.smd),
+          SmallButton(
+            key: const ValueKey('scope-select-all'),
+            ghost: true,
+            label: t.t('importExport.selectAll'),
+            onTap: () => _c.setAllScopes(true),
+          ),
+          const SizedBox(width: AidogSpace.sxs),
+          SmallButton(
+            key: const ValueKey('scope-deselect-all'),
+            ghost: true,
+            label: t.t('importExport.deselectAll'),
+            onTap: () => _c.setAllScopes(false),
+          ),
+          const Spacer(),
+          MiniBadge(
+            text:
+                '${_c.scopes.length} / ${kImportExportScopes.length}',
+            color: _c.scopes.isNotEmpty
+                ? AidogTheme.of(context).c.ok
+                : AidogTheme.of(context).c.fg3,
+          ),
         ],
+      ),
+      const SizedBox(height: AidogSpace.smd),
+      // scope 网格卡（`repeat(auto-fill,minmax(220px,1fr))`、gap 10，
+      // `ImportExportTab.tsx:398-430` + primitives 的 ScopeCard）。
+      LayoutBuilder(
+        builder: (context, constraints) {
+          final perRow = (constraints.maxWidth / 230).floor().clamp(1, 99);
+          return Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              for (final s in kImportExportScopes)
+                SizedBox(
+                  width: (constraints.maxWidth - 10 * (perRow - 1)) / perRow,
+                  child: _ScopeCard(
+                    key: ValueKey('scope-$s'),
+                    icon: scopeIcon(s),
+                    label: tOr(t, scopeLabelKey(s), s),
+                    desc: tOr(t, scopeDescKey(s), s),
+                    selected: _c.scopes.contains(s),
+                    onTap: () =>
+                        _c.toggleScope(s, !_c.scopes.contains(s)),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
       Text(
         t.t('importExport.skillsScopeHint'),
-        style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
+        style: AidogType.caption.copyWith(
+          fontSize: 12,
+          color: AidogTheme.of(context).c.fg3,
+        ),
       ),
       const SizedBox(height: AidogSpace.ssm),
       // 没有手动预览按钮：scope 勾选变化经控制器 300ms 防抖自动拉预览
       // （`ImportExportTab.tsx:112-126`），预览期间 busy 顶掉导出。
+      // 页尾右对齐 default 按钮（`ImportExportTab.tsx:469-482`）。
       Align(
-        alignment: AlignmentDirectional.centerStart,
+        alignment: AlignmentDirectional.centerEnd,
         child: SmallButton(
           key: const ValueKey('export-run'),
+          filled: true,
           // 三态照抄 `ImportExportTab.tsx:467-473`：跑着的时候说「导出中」，
           // 预览出来之后按钮上直接带上会导几项 —— 光写「导出」看不出导什么。
           label: _c.busy
@@ -559,7 +612,11 @@ class _ImportExportPageState extends State<ImportExportPage> {
           },
         ),
         const SizedBox(height: AidogSpace.ssm),
+        // 页尾右对齐：应用是 default（实心），选文件是 outline
+        //（`ImportExportTab.tsx:575-584`）。
+        const SizedBox(height: AidogSpace.ssm),
         Row(
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
             SmallButton(
               key: const ValueKey('import-pick'),
@@ -569,6 +626,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
             const SizedBox(width: AidogSpace.ssm),
             SmallButton(
               key: const ValueKey('import-apply'),
+              filled: true,
               // 三态照抄 React（`ImportExportTab.tsx:566-578`）：跑着说「导入中」，
               // 平时按钮上直接带会导几项。点了直接执行，没有二次确认卡。
               label: _c.busy
@@ -607,15 +665,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
           Row(
             children: [
               Expanded(
-                child: TileMetaLine(
+                child: Text(
                   t.t('importExport.conflicts', {'n': _c.conflictKeys.length}),
-                  // 告警色（`ImportExportTab.tsx:542` 的 --color-warning）：
+                  // 告警色 14 w600（`ImportExportTab.tsx:541-549`）：
                   // 冲突是要逐条拍板的事，标题不能混成普通小节标题的灰。
-                  color: AidogTheme.of(context).c.peak,
+                  style: AidogType.label.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AidogTheme.of(context).c.peak,
+                  ),
                 ),
               ),
               SmallButton(
                 key: const ValueKey('bulk-overwrite'),
+                ghost: true,
                 label: t.t('importExport.bulkOverwrite'),
                 onTap: () {
                   for (final k in _c.conflictKeys) {
@@ -626,6 +689,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
               const SizedBox(width: AidogSpace.sxs),
               SmallButton(
                 key: const ValueKey('bulk-skip'),
+                ghost: true,
                 label: t.t('importExport.bulkSkip'),
                 onTap: () {
                   for (final k in _c.conflictKeys) {
@@ -642,11 +706,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 final k = row.key;
                 final theme = AidogTheme.of(context);
                 return Container(
-                  margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
-                  padding: const EdgeInsets.all(AidogSpace.sxs),
+                  margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                  padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
+                    color: theme.c.surface2,
                     border: Border.all(color: theme.c.line),
-                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    borderRadius: BorderRadius.circular(AidogRadius.md),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,52 +719,65 @@ class _ImportExportPageState extends State<ImportExportPage> {
                     children: [
                       Row(
                         children: [
-                          Icon(
-                            scopeIcon(row.scope),
-                            size: 12,
+                          MiniBadge(
+                            text: tOr(
+                              t,
+                              scopeLabelKey(row.scope),
+                              row.scope,
+                            ),
                             color: theme.c.fg3,
                           ),
-                          const SizedBox(width: AidogSpace.sxs),
+                          const SizedBox(width: AidogSpace.ssm),
                           Expanded(
                             child: Text(
                               ltr(k),
-                              overflow: TextOverflow.ellipsis,
-                              style: AidogType.micro.copyWith(
+                              style: AidogType.label.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
                                 color: theme.c.fg,
                               ),
                             ),
                           ),
                         ],
                       ),
-                      // 本地现有那条的摘要（`ConflictRow.tsx:46`）：不给它，
-                      // 用户就得闭着眼睛决定要不要覆盖自己的配置。
                       if (row.existing.isNotEmpty)
-                        Text(
-                          ltr(row.existing),
-                          key: ValueKey('conflict-existing-$k'),
-                          style: AidogType.caption.copyWith(color: theme.c.fg3),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          // 本地现有那条的摘要（`ConflictRow.tsx:46`）：不给它，
+                          // 用户就得闭着眼睛决定要不要覆盖自己的配置。
+                          child: Text(
+                            ltr(row.existing),
+                            key: ValueKey('conflict-existing-$k'),
+                            style: AidogType.caption.copyWith(
+                              fontSize: 12,
+                              color: theme.c.fg3,
+                            ),
+                          ),
                         ),
+                      const SizedBox(height: 8),
                       Row(
                         children: [
-                          for (final d in ConflictDecisionKind.values) ...[
-                            SmallButton(
-                              key: ValueKey('decide-$k-${d.name}'),
-                              label: switch (d) {
-                                ConflictDecisionKind.keepLocal => t.t(
-                                  'importExport.skip',
-                                ),
-                                ConflictDecisionKind.useIncoming => t.t(
-                                  'importExport.overwrite',
-                                ),
-                                ConflictDecisionKind.keepBoth => t.t(
-                                  'importExport.rename',
-                                ),
-                              },
-                              active: _c.decisions[k]?.kind == d,
-                              onTap: () => _c.decide(k, d),
-                            ),
-                            const SizedBox(width: AidogSpace.sxs),
-                          ],
+                          // 三段分段控件（覆盖 / 跳过 / 重命名，
+                          // `ConflictRow.tsx:48-59` 的 Segmented）。
+                          SegmentedRow<ConflictDecisionKind>(
+                            value: _c.decisions[k]?.kind ??
+                                ConflictDecisionKind.useIncoming,
+                            options: ConflictDecisionKind.values,
+                            labelOf: (d) => switch (d) {
+                              ConflictDecisionKind.keepLocal => t.t(
+                                'importExport.skip',
+                              ),
+                              ConflictDecisionKind.useIncoming => t.t(
+                                'importExport.overwrite',
+                              ),
+                              ConflictDecisionKind.keepBoth => t.t(
+                                'importExport.rename',
+                              ),
+                            },
+                            onChanged: (d) => _c.decide(k, d),
+                            segmentKeyOf: (d) => ValueKey('decide-$k-${d.name}'),
+                          ),
+                          const SizedBox(width: AidogSpace.smd),
                           // 选了「重命名」才出新名输入框（`ConflictRow.tsx:62-67`）。
                           // 没有它的话这个选项等于发一个空 key 过去。
                           if (_c.decisions[k]?.kind ==
@@ -747,16 +825,40 @@ class _ImportExportPageState extends State<ImportExportPage> {
     ];
     int total(Map<String, int> m) => m.values.fold(0, (a, b) => a + b);
 
+    // 三语义色分区卡（`ReportView.tsx:24-101`）：success / neutral / danger
+    // 各自的 wash 底 + 同色边，标题 12 w600，行 12。
     Widget section(String title, Color color, List<String> rows) => Padding(
       padding: const EdgeInsets.only(top: AidogSpace.ssm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(title, style: AidogType.micro.copyWith(color: color)),
-          for (final r in rows)
-            Text(r, style: AidogType.caption.copyWith(color: theme.c.fg2)),
-        ],
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          border: Border.all(color: color.withValues(alpha: 0.35)),
+          borderRadius: BorderRadius.circular(AidogRadius.md),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              title,
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+            for (final r in rows)
+              Text(
+                r,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg2,
+                ),
+              ),
+          ],
+        ),
       ),
     );
 
@@ -811,38 +913,74 @@ class _ImportExportPageState extends State<ImportExportPage> {
     final theme = AidogTheme.of(context);
     final manifest = _c.preview!['manifest'];
     final counts = _c.preview!['counts'];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
+    Widget metaRow(String label, String value) => Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
       children: [
-        if (manifest is Map) ...[
-          InfoRow(
-            label: t.t('importExport.sourceMachine'),
-            value: ltr('${manifest['source_machine'] ?? ''}'),
-          ),
-          InfoRow(
-            label: t.t('importExport.createdAt'),
-            value: ltr('${manifest['created_at'] ?? ''}'),
-          ),
-        ],
-        if (counts is Map && counts.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.sxs),
-            child: Wrap(
-              spacing: AidogSpace.sxs,
-              runSpacing: AidogSpace.sxs,
-              children: [
-                for (final e in counts.entries)
-                  MiniBadge(
-                    text:
-                        '${tOr(t, scopeLabelKey(e.key), '${e.key}')} '
-                        '${e.value}',
-                    color: theme.c.fg3,
-                  ),
-              ],
+        SizedBox(
+          width: 72,
+          child: Text(
+            label,
+            style: AidogType.label.copyWith(
+              fontSize: 13,
+              color: theme.c.fg3,
             ),
           ),
+        ),
+        Expanded(
+          child: Text(
+            value,
+            style: AidogType.label.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: theme.c.fg,
+            ),
+          ),
+        ),
       ],
+    );
+    return Container(
+      margin: const EdgeInsets.only(top: AidogSpace.smd),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (manifest is Map) ...[
+            metaRow(
+              t.t('importExport.sourceMachine'),
+              ltr('${manifest['source_machine'] ?? ''}'),
+            ),
+            const SizedBox(height: 2),
+            metaRow(
+              t.t('importExport.createdAt'),
+              ltr('${manifest['created_at'] ?? ''}'),
+            ),
+          ],
+          if (counts is Map && counts.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: AidogSpace.ssm),
+              child: Wrap(
+                spacing: AidogSpace.sxs,
+                runSpacing: AidogSpace.sxs,
+                children: [
+                  for (final e in counts.entries)
+                    MiniBadge(
+                      text:
+                          '${tOr(t, scopeLabelKey(e.key), '${e.key}')} '
+                          '${e.value}',
+                      color: theme.c.fg3,
+                    ),
+                ],
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -882,23 +1020,41 @@ class _ImportExportPageState extends State<ImportExportPage> {
       children: [
         // 标题 + 「已选 n / 共 m」（`ItemSelector.tsx:63-72`）：只报已选数看不出
         // 还剩多少没勾。
-        TileMetaLine(t.t('importExport.selectItems')),
-        TileMetaLine(
-          '${t.t('importExport.selectedLabel')} '
-          '${_c.selected.length} / ${items.length}',
-        ),
-        Row(
-          children: [
-            SmallButton(
-              label: t.t('importExport.selectAll'),
-              onTap: () => setMany(items, true),
-            ),
-            const SizedBox(width: AidogSpace.ssm),
-            SmallButton(
-              label: t.t('importExport.deselectAll'),
-              onTap: () => setMany(items, false),
-            ),
-          ],
+        Padding(
+          padding: const EdgeInsets.only(top: AidogSpace.ssm),
+          child: Row(
+            children: [
+              Text(
+                t.t('importExport.selectItems'),
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg,
+                ),
+              ),
+              const SizedBox(width: AidogSpace.smd),
+              Text(
+                '${t.t('importExport.selectedLabel')} '
+                '${_c.selected.length} / ${items.length}',
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
+                ),
+              ),
+              const Spacer(),
+              SmallButton(
+                ghost: true,
+                label: t.t('importExport.selectAll'),
+                onTap: () => setMany(items, true),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              SmallButton(
+                ghost: true,
+                label: t.t('importExport.deselectAll'),
+                onTap: () => setMany(items, false),
+              ),
+            ],
+          ),
         ),
         ConstrainedBox(
           constraints: const BoxConstraints(maxHeight: 360),
@@ -937,10 +1093,11 @@ class _ImportExportPageState extends State<ImportExportPage> {
         .where((e) => _c.selected.contains(keyOf(e)))
         .length;
     return Container(
-      margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
+      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
       decoration: BoxDecoration(
+        color: theme.c.surface2,
         border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -955,8 +1112,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ),
             child: Padding(
               padding: const EdgeInsets.symmetric(
-                horizontal: AidogSpace.sxs,
-                vertical: 4,
+                horizontal: 12,
+                vertical: 10,
               ),
               child: Row(
                 children: [
@@ -965,25 +1122,22 @@ class _ImportExportPageState extends State<ImportExportPage> {
                     size: 14,
                     color: theme.c.fg3,
                   ),
+                  const SizedBox(width: AidogSpace.sxs),
                   // 组级三态：全选 / 半选 / 全不选。点它整组翻转。
                   GestureDetector(
                     key: ValueKey('item-group-check-$gid'),
                     onTap: () => setMany(rows, !allOn),
-                    child: Icon(
-                      allOn
-                          ? Icons.check_box
-                          : someOn
-                          ? Icons.indeterminate_check_box
-                          : Icons.check_box_outline_blank,
-                      size: 14,
-                      color: allOn || someOn ? theme.c.accentText : theme.c.fg3,
-                    ),
+                    child: ImportCheckBox(checked: allOn, indeterminate: someOn),
                   ),
-                  const SizedBox(width: AidogSpace.sxs),
+                  const SizedBox(width: AidogSpace.ssm),
                   Expanded(
                     child: Text(
                       t.t(menuGroupLabelKey(gid)),
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      style: AidogType.label.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.c.fg,
+                      ),
                     ),
                   ),
                   if (skills.isNotEmpty && skillsSelected == 0) ...[
@@ -995,7 +1149,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   ],
                   Text(
                     ltr('$selected / ${rows.length}'),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: theme.c.fg3,
+                    ),
                   ),
                 ],
               ),
@@ -1021,18 +1178,14 @@ class _ImportExportPageState extends State<ImportExportPage> {
       onTap: () => _c.toggleSelected(k, !on),
       child: Padding(
         padding: const EdgeInsets.only(
-          left: AidogSpace.smd,
-          right: AidogSpace.sxs,
+          left: 34,
+          right: 12,
           top: 2,
           bottom: 2,
         ),
         child: Row(
           children: [
-            Icon(
-              on ? Icons.check_box : Icons.check_box_outline_blank,
-              size: 14,
-              color: on ? theme.c.accentText : theme.c.fg3,
-            ),
+            ImportCheckBox(checked: on),
             const SizedBox(width: AidogSpace.sxs),
             // scope 图标（`ItemSelector.tsx:155`）：混在一张清单里时，
             // 图标比 scope 名更快认出这条是平台还是设置。
@@ -1046,7 +1199,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   localized.isEmpty ? label : t.t(localized),
                 ),
                 overflow: TextOverflow.ellipsis,
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  color: theme.c.fg2,
+                ),
               ),
             ),
             // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名条目，
@@ -1087,58 +1243,108 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: s.enabled,
           onChanged: (v) => _b.persist(s.copyWith(enabled: v)),
         ),
-        NumberRow(
-          key: const ValueKey('backup-interval'),
-          label:
-              '${t.t('settings.backup.interval')} '
-              '(${t.t('settings.backup.hours')})',
-          value: s.intervalHours,
-          onChanged: (v) => _b.persist(s.copyWith(intervalHours: v)),
-        ),
-        Wrap(
-          key: const ValueKey('backup-interval-presets'),
-          spacing: AidogSpace.sxs,
-          runSpacing: AidogSpace.sxs,
-          children: [
-            for (final preset in const [
-              (hours: 1, key: 'settings.backup.preset1h'),
-              (hours: 6, key: 'settings.backup.preset6h'),
-              (hours: 12, key: 'settings.backup.preset12h'),
-              (hours: 24, key: 'settings.backup.presetDaily'),
-              (hours: 168, key: 'settings.backup.presetWeekly'),
-            ])
-              SmallButton(
-                key: ValueKey('backup-preset-${preset.hours}h'),
-                label: t.t(preset.key),
-                active: s.intervalHours == preset.hours,
-                onTap: () =>
-                    _b.persist(s.copyWith(intervalHours: preset.hours)),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+          // React：label + input(90 宽) + 单位横排（ScheduledBackupSection.tsx:107-147）。
+          child: InlineRow(
+            label: t.t('settings.backup.interval'),
+            child: NumberInput(
+              key: const ValueKey('backup-interval'),
+              value: '${s.intervalHours}',
+              width: 90,
+              onChanged: (v) => _b.persist(
+                s.copyWith(intervalHours: int.tryParse(v) ?? 0),
               ),
-          ],
+            ),
+            unit: t.t('settings.backup.hours'),
+          ),
         ),
-        NumberRow(
-          key: const ValueKey('backup-retention'),
-          label:
-              '${t.t('settings.backup.retention')} '
-              '(${t.t('settings.backup.days')})',
-          value: s.retentionDays,
-          onChanged: (v) => _b.persist(s.copyWith(retentionDays: v)),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+          child: Wrap(
+            key: const ValueKey('backup-interval-presets'),
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
+            children: [
+              for (final preset in const [
+                (hours: 1, key: 'settings.backup.preset1h'),
+                (hours: 6, key: 'settings.backup.preset6h'),
+                (hours: 12, key: 'settings.backup.preset12h'),
+                (hours: 24, key: 'settings.backup.presetDaily'),
+                (hours: 168, key: 'settings.backup.presetWeekly'),
+              ])
+                SmallButton(
+                  key: ValueKey('backup-preset-${preset.hours}h'),
+                  padding: (10, 4),
+                  label: t.t(preset.key),
+                  active: s.intervalHours == preset.hours,
+                  onTap: () =>
+                      _b.persist(s.copyWith(intervalHours: preset.hours)),
+                ),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+          child: InlineRow(
+            label: t.t('settings.backup.retention'),
+            child: NumberInput(
+              key: const ValueKey('backup-retention'),
+              value: '${s.retentionDays}',
+              width: 90,
+              onChanged: (v) => _b.persist(
+                s.copyWith(retentionDays: int.tryParse(v) ?? 0),
+              ),
+            ),
+            unit: t.t('settings.backup.days'),
+          ),
         ),
         if (s.enabled) ...[
-          InfoRow(
-            key: const ValueKey('backup-last'),
-            label: t.t('settings.backup.lastBackup'),
-            value: _backupTime(t, s.lastBackupAt),
-          ),
-          if (s.nextBackupAt > 0)
-            InfoRow(
-              key: const ValueKey('backup-next'),
-              label: t.t('settings.backup.nextBackup'),
-              value: _backupTime(t, s.nextBackupAt),
+          // 状态区：bg-subtle 盒（padding 10/12 r-md）内 12px 文本
+          //（`ScheduledBackupSection.tsx:176-187`）。
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
             ),
-          InfoRow(
-            label: t.t('settings.backup.location'),
-            value: ltr(s.dir.isEmpty ? '~/.aidog/backups/' : s.dir),
+            decoration: BoxDecoration(
+              color: AidogTheme.of(context).c.surface2,
+              borderRadius: BorderRadius.circular(AidogRadius.md),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${t.t('settings.backup.lastBackup')}: '
+                  '${_backupTime(t, s.lastBackupAt)}',
+                  key: const ValueKey('backup-last'),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: AidogTheme.of(context).c.fg2,
+                  ),
+                ),
+                if (s.nextBackupAt > 0)
+                  Text(
+                    '${t.t('settings.backup.nextBackup')}: '
+                    '${_backupTime(t, s.nextBackupAt)}',
+                    key: const ValueKey('backup-next'),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: AidogTheme.of(context).c.fg2,
+                    ),
+                  ),
+                Text(
+                  '${t.t('settings.backup.location')}: '
+                  '${ltr(s.dir.isEmpty ? '~/.aidog/backups/' : s.dir)}',
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: AidogTheme.of(context).c.fg2,
+                  ),
+                ),
+              ],
+            ),
           ),
           if (s.lastBackupError.isNotEmpty)
             ErrorNote(
@@ -1188,6 +1394,53 @@ class _ImportExportPageState extends State<ImportExportPage> {
   }
 
   // ── 异源导入（cc-switch / sub2api 同形）────────────────
+
+  /// cc-switch 导入维度：label 13 w500 + hint 11 + 开关，横排小组。
+  Widget _dimSwitch(
+    String label, {
+    Key? key,
+    required String hint,
+    required bool value,
+    required ValueChanged<bool>? onChanged,
+  }) {
+    final theme = AidogTheme.of(context);
+    return Opacity(
+      key: key,
+      opacity: onChanged == null ? 0.55 : 1,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w500,
+                  color: theme.c.fg,
+                ),
+              ),
+              Text(
+                hint,
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  color: theme.c.fg3,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(width: AidogSpace.ssm),
+          AidogSwitch(
+            value: value,
+            compact: true,
+            onChanged: onChanged == null ? null : () => onChanged(!value),
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _foreignCard(
     I18nController t, {
@@ -1247,31 +1500,42 @@ class _ImportExportPageState extends State<ImportExportPage> {
         // 三个导入维度（`CcSwitchImport.tsx:311-331`）：它们直接决定 payload
         // 里带什么字段，不是纯展示。平台类型那一维 React 锁定常开 ——
         // 不带协议和 endpoints 的话导进来就是空壳，关掉没有意义。
-        if (showDims) ...[
-          SwitchRow(
-            label:
-                '${t.t('importExport.ccswitch.dimPlatformType')}'
-                '（${t.t('importExport.ccswitch.dimPlatformTypeHint')}）',
-            value: true,
-            onChanged: null,
+        // 三维度横排一卡（gap 16、label 13 w500，`CcSwitchImport.tsx:311`）：
+        // 它们直接决定 payload 里带什么字段，不是纯展示。平台类型那一维
+        // React 锁定常开 —— 不带协议和 endpoints 的话导进来就是空壳。
+        if (showDims)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+            child: Wrap(
+              spacing: 16,
+              runSpacing: AidogSpace.ssm,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _dimSwitch(
+                  '${t.t('importExport.ccswitch.dimPlatformType')}',
+                  hint: t.t('importExport.ccswitch.dimPlatformTypeHint'),
+                  value: true,
+                  onChanged: null,
+                ),
+                _dimSwitch(
+                  t.t('importExport.ccswitch.dimModels'),
+                  key: const ValueKey('cc-dim-models'),
+                  hint: t.t('importExport.ccswitch.dimModelsHint'),
+                  value: _dims.d2,
+                  onChanged: (v) =>
+                      setState(() => _dims = _dims.copyWith(d2: v)),
+                ),
+                _dimSwitch(
+                  t.t('importExport.ccswitch.dimApiKey'),
+                  key: const ValueKey('cc-dim-apikey'),
+                  hint: t.t('importExport.ccswitch.dimApiKeyHint'),
+                  value: _dims.d4,
+                  onChanged: (v) =>
+                      setState(() => _dims = _dims.copyWith(d4: v)),
+                ),
+              ],
+            ),
           ),
-          SwitchRow(
-            key: const ValueKey('cc-dim-models'),
-            label:
-                '${t.t('importExport.ccswitch.dimModels')}'
-                '（${t.t('importExport.ccswitch.dimModelsHint')}）',
-            value: _dims.d2,
-            onChanged: (v) => setState(() => _dims = _dims.copyWith(d2: v)),
-          ),
-          SwitchRow(
-            key: const ValueKey('cc-dim-apikey'),
-            label:
-                '${t.t('importExport.ccswitch.dimApiKey')}'
-                '（${t.t('importExport.ccswitch.dimApiKeyHint')}）',
-            value: _dims.d4,
-            onChanged: (v) => setState(() => _dims = _dims.copyWith(d4: v)),
-          ),
-        ],
         if (c.providers.isEmpty)
           CenteredNote(text: t.t('importExport.ccswitch.nothingSelected'))
         else ...[
@@ -1290,29 +1554,43 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 return InkWell(
                   key: ValueKey('provider-$i'),
                   onTap: () => c.toggleSelected(i, !on),
-                  // 选中的整行换底色 + 描边（`CcSwitchImport.tsx:524-528`）：
-                  // 只有一个小勾的话，十几条里选了哪几条要逐行去找。
+                  // 盒卡 padding 12 r-md + 18px 圆形勾 + 选中 accentWash 底
+                  //（`CcSwitchImport.tsx:524-536`）：只有一个小勾的话，
+                  // 十几条里选了哪几条要逐行去找。
                   child: Container(
                     decoration: BoxDecoration(
-                      color: on ? theme.c.accentWash : Colors.transparent,
+                      color: on ? theme.c.accentWash : theme.c.surface2,
                       border: Border.all(
-                        color: on ? theme.c.accentEdge : Colors.transparent,
+                        color: on ? theme.c.accentEdge : theme.c.line,
                       ),
-                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                      borderRadius: BorderRadius.circular(AidogRadius.md),
                     ),
-                    margin: const EdgeInsets.only(bottom: 2),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 4,
-                      horizontal: AidogSpace.sxs,
-                    ),
+                    margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                    padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
-                        Icon(
-                          on ? Icons.check_box : Icons.check_box_outline_blank,
-                          size: 14,
-                          color: on ? theme.c.accentText : theme.c.fg3,
+                        Container(
+                          width: 18,
+                          height: 18,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: on
+                                  ? theme.c.accentEdge
+                                  : theme.c.line,
+                            ),
+                            color: on ? theme.c.accent : Colors.transparent,
+                          ),
+                          child: on
+                              ? Icon(
+                                  Icons.check,
+                                  size: 12,
+                                  color: AidogColors.light.surface,
+                                )
+                              : null,
                         ),
-                        const SizedBox(width: AidogSpace.sxs),
+                        const SizedBox(width: AidogSpace.ssm),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1322,14 +1600,17 @@ class _ImportExportPageState extends State<ImportExportPage> {
                               // claude / codex 混在一张清单里，先认类型再看名字。
                               Text(
                                 '${p['appType'] ?? ''}'.toUpperCase(),
-                                style: AidogType.micro.copyWith(
+                                style: AidogType.caption.copyWith(
+                                  fontSize: 11,
                                   color: theme.c.fg3,
                                 ),
                               ),
                               Text(
                                 ltr('${p['name'] ?? p['id'] ?? i}'),
                                 overflow: TextOverflow.ellipsis,
-                                style: AidogType.micro.copyWith(
+                                style: AidogType.label.copyWith(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
                                   color: theme.c.fg,
                                 ),
                               ),
@@ -1362,8 +1643,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ),
           const SizedBox(height: AidogSpace.ssm),
           Align(
-            alignment: AlignmentDirectional.centerStart,
+            alignment: AlignmentDirectional.centerEnd,
             child: SmallButton(
+              filled: true,
               key: ValueKey('foreign-import-${c.source.autoGroupName}'),
               label: t.t('importExport.ccswitch.importBtn', {
                 'n': c.selected.length,
@@ -1420,6 +1702,156 @@ class TileMetaLine extends StatelessWidget {
   );
 }
 
+/// 导出范围卡（React `primitives.tsx:48-116` 的 ScopeCard）：整卡可点、
+/// 选中 accent 边 + wash 底、右上 18px 圆形勾、icon 20 / label 14 w600 / desc 12。
+class _ScopeCard extends StatefulWidget {
+  const _ScopeCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.desc,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String desc;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  State<_ScopeCard> createState() => _ScopeCardState();
+}
+
+class _ScopeCardState extends State<_ScopeCard> {
+  bool _hover = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final on = widget.selected;
+    return HoverLift(
+      child: InkWell(
+        onTap: widget.onTap,
+        borderRadius: BorderRadius.circular(AidogRadius.lg),
+        onHover: (v) => setState(() => _hover = v),
+        child: AnimatedContainer(
+          duration: AidogMotion.base,
+          curve: AidogMotion.easeStandard,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            border: Border.all(
+              color: on ? theme.c.accentEdge : theme.c.line,
+            ),
+            color: on ? theme.c.accentWash : Colors.transparent,
+            borderRadius: BorderRadius.circular(AidogRadius.lg),
+            boxShadow: _hover ? theme.shadowFloat : theme.shadowTile,
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      widget.icon,
+                      size: 20,
+                      color: on ? theme.c.accentText : theme.c.fg2,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      widget.label,
+                      style: AidogType.label.copyWith(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: theme.c.fg,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      widget.desc,
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // 右上角选中指示：18px 圆形勾。
+              PositionedDirectional(
+                top: 0,
+                end: 0,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: on ? theme.c.accentEdge : theme.c.line,
+                    ),
+                    color: on ? theme.c.accent : Colors.transparent,
+                  ),
+                  child: on
+                      ? Icon(
+                          Icons.check,
+                          size: 12,
+                          color: AidogColors.light.surface,
+                        )
+                      : null,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 自绘 16px 复选框（React `primitives.tsx:225-243` 的 CheckBox）：
+/// accent 选中态 + 半选横线。逐项勾选器与 cc-switch provider 行用它。
+class ImportCheckBox extends StatelessWidget {
+  const ImportCheckBox({super.key, required this.checked, this.indeterminate = false});
+
+  final bool checked;
+  final bool indeterminate;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final on = checked || indeterminate;
+    return Container(
+      width: 16,
+      height: 16,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        border: Border.all(
+          color: on ? theme.c.accentEdge : theme.c.line,
+        ),
+        color: on ? theme.c.accent : Colors.transparent,
+      ),
+      child: checked && !indeterminate
+          ? Icon(Icons.check, size: 11, color: AidogColors.light.surface)
+          : indeterminate
+          ? Container(
+              width: 8,
+              height: 2,
+              decoration: BoxDecoration(
+                color: AidogColors.light.surface,
+                borderRadius: BorderRadius.circular(1),
+              ),
+            )
+          : null,
+    );
+  }
+}
+
 /// 导入落区（`ImportExportTab.tsx:487-503` 的 `DropZone` + 外层拖放容器）。
 ///
 /// 拖放走 `desktop_drop`：选它是因为 Flutter 自带的 `Draggable` / `DragTarget`
@@ -1459,44 +1891,53 @@ class _DropZone extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('import-dropzone'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: AidogSpace.smd,
-            vertical: AidogSpace.slg,
+        // React DropZone：1.5px 虚线、padding 28/20、r-lg、icon 28
+        //（`primitives.tsx:151-187`），不是实线 1px 小框。
+        borderRadius: BorderRadius.circular(AidogRadius.lg),
+        child: CustomPaint(
+          foregroundPainter: DashedBorder(
+            color: active ? theme.c.accentEdge : theme.c.line,
+            radius: AidogRadius.lg,
           ),
-          decoration: BoxDecoration(
-            color: active ? theme.c.surface2 : null,
-            border: Border.all(
-              color: active ? theme.c.accentText : theme.c.line,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: 20,
+              vertical: 28,
             ),
-            borderRadius: BorderRadius.circular(AidogRadius.sm),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.file_upload_outlined,
-                size: 20,
-                color: active ? theme.c.accentText : theme.c.fg3,
-              ),
-              const SizedBox(height: AidogSpace.sxs),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: AidogType.body.copyWith(
-                  color: theme.c.fg,
-                  fontWeight: FontWeight.w600,
+            decoration: BoxDecoration(
+              color: active ? theme.c.accentWash : theme.c.surface2,
+              borderRadius: BorderRadius.circular(AidogRadius.lg),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.file_upload_outlined,
+                  size: 28,
+                  color: active ? theme.c.accentText : theme.c.fg2,
                 ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                hint,
-                textAlign: TextAlign.center,
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
-              ),
-            ],
+                const SizedBox(height: 8),
+                Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  style: AidogType.label.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  hint,
+                  textAlign: TextAlign.center,
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1504,7 +1945,7 @@ class _DropZone extends StatelessWidget {
   }
 }
 
-/// provider 行里的匹配读数：协议名 + 命中方式徽标 + 实际 base_url。
+/// provider 行里的匹配读数/// provider 行里的匹配读数：协议名 + 命中方式徽标 + 实际 base_url。
 /// 对齐 `CcSwitchImport.tsx:50-58,543-551`：三种命中方式三种颜色 ——
 /// 关键词命中（accent）/ host 命中（ok）/ 回退（peak，提醒这条是猜的）。
 class _MatchReadout extends StatelessWidget {

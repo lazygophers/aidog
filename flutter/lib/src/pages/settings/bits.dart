@@ -545,6 +545,7 @@ class SegmentedRow<T> extends StatelessWidget {
     required this.onChanged,
     this.labelOf,
     this.fontSize = 12,
+    this.segmentKeyOf,
   });
 
   final List<T> options;
@@ -552,6 +553,9 @@ class SegmentedRow<T> extends StatelessWidget {
   final ValueChanged<T>? onChanged;
   final String Function(T option)? labelOf;
   final double fontSize;
+
+  /// 每段的 key（测试按段拍冲突决策用）。
+  final Key Function(T option)? segmentKeyOf;
 
   @override
   Widget build(BuildContext context) {
@@ -581,6 +585,7 @@ class SegmentedRow<T> extends StatelessWidget {
                 color: o == value ? theme.c.accentWash : null,
               ),
               child: InkWell(
+                key: segmentKeyOf?.call(o),
                 onTap: onChanged == null ? null : () => onChanged!(o),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(

@@ -76,7 +76,8 @@ export 'src/pages/settings/bits.dart'
         UnsavedChangesCard,
         tOr;
 export 'src/pages/settings/coding_tools_page.dart' show CodingToolsPage;
-export 'src/pages/settings/importexport_page.dart' show ImportExportPage;
+export 'src/pages/settings/importexport_page.dart'
+    show ImportExportPage, ImportCheckBox;
 export 'src/pages/settings/mitm_page.dart' show MitmSettingsPage;
 export 'src/pages/settings/notification_events.dart';
 export 'src/pages/settings/notifications_page.dart'

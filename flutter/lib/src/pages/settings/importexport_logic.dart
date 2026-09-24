@@ -48,6 +48,14 @@ String scopeLabelKey(String scope) => switch (scope) {
   _ => 'importExport.scope.$scope',
 };
 
+/// scope wire id → ScopeCard 的 desc key（`meta.ts` 的 descKey 同一映射）。
+String scopeDescKey(String scope) => switch (scope) {
+  'group_platform' => 'importExport.scopeDesc.groupPlatform',
+  'claude_code' => 'importExport.scopeDesc.claudeCode',
+  'model_price' => 'importExport.scopeDesc.modelPrice',
+  _ => 'importExport.scopeDesc.$scope',
+};
+
 /// 冲突决策：保留本地（跳过） / 用导入的（覆盖） / 两者都留（重命名）。
 ///
 /// 🔴 **wire 形状由后端的 `Decision` 定**（`gateway/import_export/mod.rs:182-188`）：
@@ -332,6 +340,13 @@ class ImportExportController {
       next.remove(itemKey);
     }
     selected = next;
+    _notify();
+  }
+
+  /// 区头的「全选 / 反选」（`ImportExportTab.tsx:83-84` 的 selectAll/deselectAll）。
+  void setAllScopes(bool on) {
+    scopes = on ? {...kImportExportScopes} : <String>{};
+    schedulePreview();
     _notify();
   }
 
