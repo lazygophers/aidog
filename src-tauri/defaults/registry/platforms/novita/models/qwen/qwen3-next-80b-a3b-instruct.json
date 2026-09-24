@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen3-next-80b-a3b-instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 1.5e-07,
-    "output": 1.5e-06
+    "output": 1.5e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 131072,
   "context_window": 131072,

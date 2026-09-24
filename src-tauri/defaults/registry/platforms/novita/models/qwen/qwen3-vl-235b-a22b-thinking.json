@@ -1,15 +1,14 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
   "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 9.8e-07,
-    "output": 3.95e-06
+    "output": 3.95e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 131072,
   "context_window": 131072,

@@ -1,12 +1,10 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "inclusionai/ling-3.0-flash",
   "canonical_model": "ling-3.0-flash",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 6e-08,

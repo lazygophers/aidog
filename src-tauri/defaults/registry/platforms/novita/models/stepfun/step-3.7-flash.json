@@ -1,10 +1,8 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "stepfun/step-3.7-flash",
   "canonical_model": "step-3.7-flash",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 2.0000000000000002e-07,

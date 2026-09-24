@@ -1,12 +1,10 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 2e-06,

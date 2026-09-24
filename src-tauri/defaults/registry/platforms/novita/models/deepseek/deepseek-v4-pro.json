@@ -1,11 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790262613,
   "model_id": "deepseek/deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
   "family": "deepseek",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": false,
   "price": {
     "input": 1.6000000000000001e-06,

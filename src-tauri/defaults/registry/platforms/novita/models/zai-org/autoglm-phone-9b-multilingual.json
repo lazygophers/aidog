@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "zai-org/autoglm-phone-9b-multilingual",
   "canonical_model": "autoglm-phone-9b-multilingual",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision"],
   "official": true,
   "price": {
     "input": 3.5e-08,
-    "output": 1.3800000000000002e-07
+    "output": 1.3800000000000002e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 65536,
   "context_window": 65536,

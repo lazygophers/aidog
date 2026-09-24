@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen3.5-122b-a10b",
   "canonical_model": "qwen3.5-122b-a10b",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": false,
   "price": {
     "input": 4.0000000000000003e-07,
-    "output": 3.2000000000000003e-06
+    "output": 3.2000000000000003e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 262144,
   "context_window": 262144,

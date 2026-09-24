@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "baidu/ernie-4.5-21B-a3b",
   "canonical_model": "ernie-4.5-21B-a3b",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use"],
   "official": true,
   "price": {
     "input": 7e-08,
-    "output": 2.8e-07
+    "output": 2.8e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 120000,
   "context_window": 120000,
