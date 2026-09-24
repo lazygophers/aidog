@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790273334,
   "model_id": "anthropic.claude-haiku-4-5-20251001-v1:0",
-  "canonical_model": "anthropic.claude-haiku-4-5-20251001-v1:0",
+  "canonical_model": "claude-haiku-4-5-20251001",
   "capabilities": [
     "text",
     "vision",
