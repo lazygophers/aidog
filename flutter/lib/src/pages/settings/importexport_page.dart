@@ -96,6 +96,14 @@ class _ImportExportPageState extends State<ImportExportPage> {
     await _c.readImportFile(path);
   }
 
+  /// sub2api provider 的 key 前 4 后 4 遮罩（React `Sub2ApiImport.tsx` 同口径）。
+  String _maskKey(Object? value) {
+    final key = value is String ? value : '';
+    if (key.isEmpty) return '';
+    if (key.length <= 10) return '••••';
+    return '${key.substring(0, 4)}••••${key.substring(key.length - 4)}';
+  }
+
   /// sub2api 的粘贴文本。
   String _pasteText = '';
 
@@ -996,6 +1004,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
   Widget _itemRow(I18nController t, AidogTheme theme, Map e, String k) {
     final on = _c.selected.contains(k);
     final label = '${e['label'] ?? ''}';
+    final localized = settingLabelKey(
+      '${e['scope'] ?? ''}',
+      '${e['key'] ?? ''}',
+    );
     return InkWell(
       key: ValueKey('item-$k'),
       onTap: () => _c.toggleSelected(k, !on),
@@ -1022,7 +1034,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
               child: Text(
                 // 后端给了人话标签（平台名 / 分组名 / 文件名），
                 // 只画 `scope key` 的话用户认不出这条是什么。
-                ltr(label.isEmpty ? k : label),
+                ltr(
+                  localized.isEmpty ? label : t.t(localized),
+                ),
                 overflow: TextOverflow.ellipsis,
                 style: AidogType.micro.copyWith(color: theme.c.fg2),
               ),
@@ -1261,6 +1275,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
               builder: (context) {
                 final p = c.providers[i];
                 final on = c.selected.contains(i);
+                final maskedKey = _maskKey(
+                  p['api_key'] ?? p['apiKey'] ?? p['detectedApiKey'],
+                );
                 return InkWell(
                   key: ValueKey('provider-$i'),
                   onTap: () => c.toggleSelected(i, !on),
@@ -1308,12 +1325,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         ),
                         if (rowExtra != null) rowExtra(i, p),
                         Text(
-                          (p['api_key'] ??
-                                      p['apiKey'] ??
-                                      p['detectedApiKey']) ==
-                                  null
+                          maskedKey.isEmpty
                               ? t.t('importExport.ccswitch.noKey')
-                              : t.t('importExport.ccswitch.dimApiKey'),
+                              : maskedKey,
                           style: AidogType.micro.copyWith(color: theme.c.fg3),
                         ),
                       ],
