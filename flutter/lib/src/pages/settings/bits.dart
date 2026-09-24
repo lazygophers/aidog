@@ -282,7 +282,7 @@ class _TextRowState extends State<TextRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(widget.label, icon: widget.labelIcon),
+          FieldLabel(widget.label, icon: widget.labelIcon),
           if (widget.description != null && widget.description!.isNotEmpty)
             Text(
               widget.description!,
@@ -366,7 +366,7 @@ class NumberRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TileMeta(label, icon: labelIcon),
+        FieldLabel(label, icon: labelIcon),
         if (description != null && description!.isNotEmpty)
           Text(
             description!,
@@ -570,7 +570,7 @@ class ChoiceRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(label),
+          FieldLabel(label),
           if (description != null && description!.isNotEmpty)
             Text(
               description!,
@@ -636,7 +636,7 @@ class SelectRow extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(label, icon: labelIcon),
+          FieldLabel(label, icon: labelIcon),
           if (description != null && description!.isNotEmpty)
             Text(
               description!,

@@ -932,6 +932,7 @@ class BalanceBar extends StatelessWidget {
             Text(
               '$currency${formatCost(rem)}',
               style: AidogType.numSm.copyWith(
+                fontSize: 12,
                 color: color,
                 fontWeight: FontWeight.w700,
               ),
@@ -942,7 +943,10 @@ class BalanceBar extends StatelessWidget {
                   padding: const EdgeInsets.only(left: AidogSpace.sxs),
                   child: Text(
                     '/ $currency${formatCost(total!)}',
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.micro.copyWith(
+                      fontSize: 10,
+                      color: theme.c.fg3,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -960,7 +964,14 @@ class BalanceBar extends StatelessWidget {
           ),
         ],
         if (label != null)
-          Text(label!, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+          Text(
+            label!,
+            style: AidogType.micro.copyWith(
+              fontSize: 9,
+              color: theme.c.fg3,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
       ],
     );
   }
@@ -1021,9 +1032,10 @@ class StatChip extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final valueColor = level != null ? levelColor(level!, theme.c) : theme.c.fg;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        // React 中性档底是 --bg-glass（= card = surface），不是 surface2。
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.pill),
       ),
@@ -1035,12 +1047,19 @@ class StatChip extends StatelessWidget {
           Text(
             value,
             style: AidogType.numSm.copyWith(
+              fontSize: 12,
               color: valueColor,
               fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(width: AidogSpace.sxs),
-          Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+          Text(
+            label,
+            style: AidogType.micro.copyWith(
+              fontSize: 10,
+              color: theme.c.fg3,
+            ),
+          ),
         ],
       ),
     );
@@ -1059,6 +1078,7 @@ class MiniBadge extends StatelessWidget {
     this.accentText,
     this.accentColor,
     this.solid = false,
+    this.borderColor,
   });
 
   final String text;
@@ -1074,6 +1094,10 @@ class MiniBadge extends StatelessWidget {
   /// 用在「这是当前生效的那一个」这种需要一眼认出的标记上（分组页的默认分组徽标，
   /// `GroupListItem.tsx:207-209` 的 primary 底 + 反色字）。
   final bool solid;
+
+  /// 描边覆盖。null = 默认（实心取 [color] / needsEdge，非实心取 [color] 30%）。
+  /// 默认分组徽标用：React 那圈是 accent-edge（近黑 accent 需要亮边发声）。
+  final Color? borderColor;
   final String? tooltip;
   final IconData? icon;
 
@@ -1105,11 +1129,12 @@ class MiniBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: solid ? color : color.withValues(alpha: 0.12),
         border: Border.all(
-          color: needsEdge
-              ? theme0.c.lineStrong
-              : solid
-              ? color
-              : color.withValues(alpha: 0.30),
+          color: borderColor ??
+              (needsEdge
+                  ? theme0.c.lineStrong
+                  : solid
+                  ? color
+                  : color.withValues(alpha: 0.30)),
         ),
         borderRadius: BorderRadius.circular(5),
       ),
@@ -1139,6 +1164,8 @@ class MiniBadge extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
+                fontSize: 10,
+                letterSpacing: 0,
                 color: solid ? onSolid : color,
                 fontWeight: FontWeight.w600,
               ),
@@ -1382,15 +1409,30 @@ class QuotaTierBlock extends StatelessWidget {
             track: theme.c.bg,
           ),
           const SizedBox(height: 2),
-          Text(
-            '$value$remainSuffix',
+          // 主数 11 w700 + 后缀独立 8px w600 半透明（PlatformCard.tsx:537-539；
+          // 展开态主数 13 = numMd）。原先后缀与主数同号同阶。
+          Text.rich(
+            TextSpan(
+              text: value,
+              children: [
+                TextSpan(
+                  text: remainSuffix,
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg.withValues(alpha: 0.65),
+                  ),
+                ),
+              ],
+            ),
             style: (expanded ? AidogType.numMd : AidogType.numSm).copyWith(
+              fontSize: expanded ? null : 11,
               color: theme.c.fg,
               fontWeight: FontWeight.w700,
             ),
           ),
-          // 档位名 · 倒计时 · 重置时刻同一行，倒计时前一枚时钟图标
-          //（`PlatformCard.tsx:650-657`）。原先重置时刻另起一行、没有图标。
+          // 档位名 · 倒计时：紧凑态 9px 无图标、重置时刻另起一行 8px（:540-547）；
+          // 展开态 11px + 时钟图标同排（:650-657）。
           Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1399,24 +1441,44 @@ class QuotaTierBlock extends StatelessWidget {
                   tierLabel(tier.name),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  style: AidogType.micro.copyWith(
+                    fontSize: expanded ? null : 9,
+                    color: theme.c.fg3,
+                  ),
                 ),
               ),
               if (countdown.isNotEmpty) ...[
-                const SizedBox(width: 3),
-                Icon(Icons.schedule, size: 11, color: theme.c.fg3),
-                const SizedBox(width: 2),
+                if (expanded) ...[
+                  const SizedBox(width: 3),
+                  Icon(Icons.schedule, size: 11, color: theme.c.fg3),
+                  const SizedBox(width: 2),
+                ],
                 Flexible(
                   child: Text(
-                    resetClock.isEmpty ? countdown : '$countdown · $resetClock',
+                    expanded && resetClock.isNotEmpty
+                        ? '$countdown · $resetClock'
+                        : countdown,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.micro.copyWith(
+                      fontSize: expanded ? null : 9,
+                      color: theme.c.fg3,
+                    ),
                   ),
                 ),
               ],
             ],
           ),
+          if (!expanded && resetClock.isNotEmpty)
+            Text(
+              resetClock,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.micro.copyWith(
+                fontSize: 8,
+                color: theme.c.fg3,
+              ),
+            ),
         ],
       ),
     );

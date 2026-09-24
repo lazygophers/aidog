@@ -353,7 +353,7 @@ class _McpPageState extends State<McpPage> {
         children: [
           // 列表回传的是**脱敏值**（`***`），用户照原样保存就把字面 `***` 写进
           // 配置、原密钥丢失。React 把这句提示写在标题旁（`Mcp/primitives.tsx:220-225`）。
-          Expanded(child: TileMeta('$label（${t.t('mcp.maskedHint')}）')),
+          Expanded(child: FieldLabel('$label（${t.t('mcp.maskedHint')}）')),
           SmallButton(
             label: t.t('mcp.addRow'),
             onTap: () => setState(() => rows.add(KvRow('', ''))),
@@ -411,7 +411,7 @@ class _McpPageState extends State<McpPage> {
           children: [
             // 标签独立成行，不塞在 hint 里（`Mcp/primitives.tsx` 的 McpForm）：
             // hint 一旦填了内容就没了，回头看不出这格是什么字段。
-            TileMeta(t.t('mcp.field.name')),
+            FieldLabel(t.t('mcp.field.name')),
             KeptTextField(
               key: const Key('mcp-name'),
               value: f.name,
@@ -423,7 +423,7 @@ class _McpPageState extends State<McpPage> {
               spacing: AidogSpace.sxs,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                TileMeta(t.t('mcp.field.transport')),
+                FieldLabel(t.t('mcp.field.transport')),
                 // React 是 `Select` 下拉（`McpModals.tsx:262-273`）。
                 MiniSelect(
                   key: const ValueKey('mcp-transport'),
@@ -436,7 +436,7 @@ class _McpPageState extends State<McpPage> {
             const SizedBox(height: AidogSpace.ssm),
             // stdio 用 command + args；http / sse 用 url + headers。
             if (f.transport == 'stdio') ...[
-              TileMeta(t.t('mcp.field.command')),
+              FieldLabel(t.t('mcp.field.command')),
               KeptTextField(
                 key: const Key('mcp-command'),
                 value: f.command,
@@ -444,7 +444,7 @@ class _McpPageState extends State<McpPage> {
                 onChanged: (v) => f.command = v,
               ),
               const SizedBox(height: AidogSpace.sxs),
-              TileMeta(t.t('mcp.field.args')),
+              FieldLabel(t.t('mcp.field.args')),
               KeptTextField(
                 key: const Key('mcp-args'),
                 value: f.argsText,
@@ -455,7 +455,7 @@ class _McpPageState extends State<McpPage> {
               const SizedBox(height: AidogSpace.ssm),
               _kvEditor(t, t.t('mcp.field.env'), f.envRows),
             ] else ...[
-              TileMeta(t.t('mcp.field.url')),
+              FieldLabel(t.t('mcp.field.url')),
               KeptTextField(
                 key: const Key('mcp-url'),
                 value: f.url,
@@ -506,6 +506,42 @@ class _McpPageState extends State<McpPage> {
   }
 }
 
+/// transport 彩色徽标（`Mcp/constants.ts:18::transportStyle`）：
+/// http/sse 走 accent 系（accentWash 底 + accentText 字），stdio 中性
+/// （surface 底 + fg3 字）。10 w600 全大写 ls 0.3、无边框（`Mcp/primitives.tsx:184-201`）。
+class _TransportBadge extends StatelessWidget {
+  const _TransportBadge({required this.transport});
+
+  final String transport;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final remote = transport == 'http' || transport == 'sse';
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+        decoration: BoxDecoration(
+          color: remote ? theme.c.accentWash : theme.c.surface,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Text(
+          transport.toUpperCase(),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AidogType.micro.copyWith(
+            fontSize: 10,
+            letterSpacing: 0.3,
+            fontWeight: FontWeight.w600,
+            color: remote ? theme.c.accentText : theme.c.fg3,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _McpRow extends StatelessWidget {
   const _McpRow({
     required this.server,
@@ -547,13 +583,21 @@ class _McpRow extends StatelessWidget {
                   server.name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AidogType.body.copyWith(color: theme.c.fg),
+                  style: AidogType.body.copyWith(
+                    fontSize: 14,
+                    color: theme.c.fg,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                Text(
-                  server.summary,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                Padding(
+                  // summary 12 + marginTop 3（Mcp/primitives.tsx:55-59）。
+                  padding: const EdgeInsets.only(top: 3),
+                  child: Text(
+                    server.summary,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AidogType.caption.copyWith(color: theme.c.fg3),
+                  ),
                 ),
                 // 行内 env chips（`Mcp/primitives.tsx:67-86`）：k=v 等宽小字胶囊，
                 // 值由后端 mask_env 打码，原样展示即可。
@@ -590,12 +634,7 @@ class _McpRow extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(
-            child: Text(
-              server.transport,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
-          ),
+          Expanded(child: _TransportBadge(transport: server.transport)),
           Wrap(
             spacing: AidogSpace.sxs,
             children: [

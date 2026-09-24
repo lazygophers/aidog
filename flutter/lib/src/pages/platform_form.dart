@@ -1708,21 +1708,16 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                   style: AidogType.label.copyWith(color: theme.c.fg),
                 ),
               ),
-              Switch(
+              AidogSwitch(
                 value: c.autoGroup,
-                onChanged: c.setAutoGroup,
-                // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
-                // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
-                activeThumbColor: AidogColors.light.surface,
-                activeTrackColor: theme.c.accent,
-                inactiveTrackColor: theme.c.surface2,
-                inactiveThumbColor: theme.c.fg3,
+                compact: true,
+                onChanged: () => c.setAutoGroup(!c.autoGroup),
               ),
             ],
           ),
         if (locked == null && gds.isNotEmpty) ...[
           const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('platform.groupAssignJoin')),
+          FieldLabel(t.t('platform.groupAssignJoin')),
           const SizedBox(height: AidogSpace.sxs),
           Wrap(
             spacing: AidogSpace.sxs,
@@ -1761,15 +1756,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 style: AidogType.label.copyWith(color: theme.c.fg),
               ),
             ),
-            Switch(
+            AidogSwitch(
               value: c.expiryEnabled,
-              onChanged: c.setExpiryEnabled,
-              // 开态：白圆点 + accent 轨道，与 `AidogSwitch` 同一条路子。
-              // accent 是近黑，圆点跟着它走就和轨道糊成一块，开没开看不出来。
-              activeThumbColor: AidogColors.light.surface,
-              activeTrackColor: theme.c.accent,
-              inactiveTrackColor: theme.c.surface2,
-              inactiveThumbColor: theme.c.fg3,
+              compact: true,
+              onChanged: () => c.setExpiryEnabled(!c.expiryEnabled),
             ),
           ],
         ),

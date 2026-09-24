@@ -145,10 +145,12 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
             runSpacing: AidogSpace.sxs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Switch(
+              AidogSwitch(
                 value: s.autoSyncEnabled,
-                onChanged: (v) =>
-                    _c.updateSettings(s.copyWith(autoSyncEnabled: v)),
+                compact: true,
+                onChanged: () => _c.updateSettings(
+                  s.copyWith(autoSyncEnabled: !s.autoSyncEnabled),
+                ),
               ),
               Text(
                 t.t('modelInfo.autoSync'),
