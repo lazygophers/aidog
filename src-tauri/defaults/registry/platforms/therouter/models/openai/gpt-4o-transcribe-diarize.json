@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790288505,
   "model_id": "openai/gpt-4o-transcribe-diarize",
   "canonical_model": "gpt-4o-transcribe-diarize",
+  "context_window": 16000,
   "family": "gpt",
   "version": "4o",
   "capabilities": [

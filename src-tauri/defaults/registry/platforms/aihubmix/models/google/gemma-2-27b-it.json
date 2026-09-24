@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790272756,
+  "last_updated": 1790288505,
   "model_id": "google/gemma-2-27b-it",
   "canonical_model": "gemma-2-27b-it",
+  "context_window": 8192,
   "display_name": "Gemma 2 27B It",
   "family": "gemma",
   "version": "2",

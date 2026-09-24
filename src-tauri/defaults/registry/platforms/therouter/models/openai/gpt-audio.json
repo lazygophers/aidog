@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790288505,
   "model_id": "openai/gpt-audio",
   "canonical_model": "gpt-audio",
+  "context_window": 128000,
   "family": "gpt",
   "version": "audio",
   "capabilities": [
