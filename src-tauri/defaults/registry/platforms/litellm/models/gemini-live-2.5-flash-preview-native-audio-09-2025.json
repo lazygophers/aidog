@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790272826,
   "model_id": "gemini-live-2.5-flash-preview-native-audio-09-2025",
   "canonical_model": "gemini-live-2.5-flash-preview-native-audio-09-2025",
+  "family": "gemini",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision",

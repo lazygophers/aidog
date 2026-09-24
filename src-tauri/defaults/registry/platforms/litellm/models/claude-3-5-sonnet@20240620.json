@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790272826,
   "model_id": "claude-3-5-sonnet@20240620",
   "canonical_model": "claude-3-5-sonnet@20240620",
+  "family": "claude",
+  "version": "3.5",
   "capabilities": [
     "text"
   ],

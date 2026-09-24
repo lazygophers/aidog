@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790272826,
   "model_id": "codestral-2",
   "canonical_model": "codestral-2",
+  "family": "codestral",
+  "version": "2",
   "capabilities": [
     "text"
   ],

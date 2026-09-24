@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790272826,
   "model_id": "gemini-3.1-pro-preview-customtools",
   "canonical_model": "gemini-3.1-pro-preview-customtools",
+  "family": "gemini",
+  "version": "3.1",
   "thinking_supported": true,
   "capabilities": [
     "text"
