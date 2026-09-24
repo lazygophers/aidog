@@ -1575,6 +1575,15 @@ void main() {
       return c;
     }
 
+    testWidgets('窄窗口快操作自动换行，不产生 RenderFlex overflow', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final k = cardFake();
+      await mount(tester, k);
+      final exception = tester.takeException();
+      expect(exception, isNull, reason: '平台卡行 1 快操作必须在窄窗可换行');
+    });
+
     testWidgets('logo 缓存命中 → 画图，不画首字母', (tester) async {
       final k = cardFake();
       k.responses['get_protocol_logo_path'] = '/tmp/openai.png';

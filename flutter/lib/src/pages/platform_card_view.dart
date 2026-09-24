@@ -361,9 +361,13 @@ class _QuickActions extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
+    return Flexible(
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: AidogSpace.sxs,
+        runSpacing: AidogSpace.sxs,
+        children: [
         if (quotaCapable)
           _IconAction(
             icon: Icons.refresh,
@@ -418,7 +422,8 @@ class _QuickActions extends StatelessWidget {
           danger: true,
           onTap: onDelete,
         ),
-      ],
+        ],
+      ),
     );
   }
 }

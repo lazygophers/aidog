@@ -60,9 +60,19 @@ void main() {
       );
     });
 
+    test('coding 协议除 bailian_coding 外无内置图（与 React 共同空白）', () {
+      // React `src/assets/platforms/index.ts` 的 SVG_URLS/ALIASES 同样没有
+      // kimi_coding / glm_coding / minimax_coding —— 两侧一致靠 favicon 兜底，
+      // 不算 Flutter 缺口；要补得连 React 一起补。
+      expect(bundledLogoAsset('bailian_coding'),
+          'packages/aidog_platform_logos/bailian.svg');
+      expect(bundledLogoAsset('kimi_coding'), isNull);
+      expect(bundledLogoAsset('glm_coding'), isNull);
+    });
+
     test('别名指向一个没有内置图的协议 → null，不返回不存在的资产路径', () {
-      // glm_coding_en → glm_coding，而 glm_coding 没有内置 svg。
       expect(bundledLogoAsset('glm_coding_en'), isNull);
+      expect(bundledLogoAsset('xiaomi_mimo_coding_en'), isNull);
       expect(bundledLogoAsset('没这个协议'), isNull);
     });
   });

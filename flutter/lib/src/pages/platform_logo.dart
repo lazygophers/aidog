@@ -27,13 +27,11 @@ const Map<String, String> kLogoAliases = {
   'glm_en': 'glm',
   'glm_coding_en': 'glm_coding',
   'bailian_en': 'bailian',
-  'bailian_coding_en': 'bailian_coding',
+  'bailian_coding_en': 'bailian',
   'kimi_en': 'kimi',
-  'xiaomi_mimo_coding_en': 'xiaomi_mimo_coding',
   'sensenova_en': 'sensenova',
   'bailian_coding': 'bailian',
 };
-
 /// 内置 svg 的文件名（不含扩展名），与 `src/assets/platforms/` 里的文件一一对应。
 /// 写成常量而不是运行时列目录：资产清单在编译期就定了，列不出来。
 const Set<String> kBundledLogos = {
@@ -171,6 +169,16 @@ Widget? logoWidget(({String mime, Uint8List bytes})? logo) {
   );
 }
 
+Widget _faviconWidget(String url, String protocol) => Image.network(
+  url,
+  fit: BoxFit.contain,
+  errorBuilder: (_, _, _) => Text(
+    protocol.isEmpty
+        ? '?'
+        : protocol.substring(0, protocol.length < 2 ? 1 : 2).toUpperCase(),
+  ),
+);
+
 /// 四级回退拼出来的 logo；四级都拿不到 → null（调用方画字母块）。
 Widget? platformLogo({
   required String protocol,
@@ -195,11 +203,7 @@ Widget? platformLogo({
   //    仍然留着这一级：有些站点的 /favicon.ico 实际返回的是 PNG。
   final favicon = faviconUrl(baseUrl);
   if (favicon != null) {
-    return Image.network(
-      favicon,
-      fit: BoxFit.contain,
-      errorBuilder: (_, _, _) => const SizedBox.shrink(),
-    );
+    return _faviconWidget(favicon, protocol);
   }
   return null;
 }
