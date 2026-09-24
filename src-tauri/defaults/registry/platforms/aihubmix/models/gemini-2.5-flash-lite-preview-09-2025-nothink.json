@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284433,
   "model_id": "gemini-2.5-flash-lite-preview-09-2025-nothink",
   "canonical_model": "gemini-2.5-flash-lite-preview-09-2025",
+  "family": "gemini",
+  "version": "2.5",
   "display_name": "Gemini 2.5 Flash Lite Preview 09 2025 (no think)",
   "capabilities": [
     "text"

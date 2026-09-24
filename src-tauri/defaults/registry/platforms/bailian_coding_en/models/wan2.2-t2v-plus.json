@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790284433,
   "model_id": "wan2.2-t2v-plus",
   "canonical_model": "wan2.2-t2v-plus",
+  "family": "wan",
+  "version": "2.2",
   "capabilities": [
     "text_to_video"
   ],

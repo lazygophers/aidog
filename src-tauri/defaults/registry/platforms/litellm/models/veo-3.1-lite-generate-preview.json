@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790284433,
   "model_id": "veo-3.1-lite-generate-preview",
   "canonical_model": "veo-3.1-lite-generate-preview",
+  "family": "veo",
+  "version": "3.1",
   "context_window": 1024,
   "max_output_tokens": 1024,
   "max_input_tokens": 1024,

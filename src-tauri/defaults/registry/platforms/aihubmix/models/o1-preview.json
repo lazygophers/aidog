@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284433,
   "model_id": "o1-preview",
   "canonical_model": "o1-preview",
+  "family": "o",
+  "version": "1",
   "display_name": "O1 Preview",
   "thinking_supported": true,
   "context_window": 128000,

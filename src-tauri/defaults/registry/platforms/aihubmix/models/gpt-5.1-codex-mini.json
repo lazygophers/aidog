@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284433,
   "model_id": "gpt-5.1-codex-mini",
   "canonical_model": "gpt-5.1-codex-mini",
+  "family": "gpt",
+  "version": "5.1",
   "display_name": "GPT-5.1-Codex Mini",
   "thinking_supported": true,
   "capabilities": [

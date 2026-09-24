@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "gpt-image-2.5-flare",
   "canonical_model": "gpt-image-2.5-flare",
+  "family": "gpt",
+  "version": "2.5",
   "display_name": "GPT Image 2.5 Flare",
   "capabilities": [
     "vision",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790284433,
   "model_id": "gpt-5-nano",
   "canonical_model": "gpt-5-nano",
+  "family": "gpt",
+  "version": "5",
   "capabilities": [
     "text"
   ],

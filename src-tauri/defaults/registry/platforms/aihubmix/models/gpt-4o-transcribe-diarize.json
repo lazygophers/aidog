@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284433,
   "model_id": "gpt-4o-transcribe-diarize",
   "canonical_model": "gpt-4o-transcribe-diarize",
+  "family": "gpt",
+  "version": "4o",
   "thinking_supported": true,
   "max_output_tokens": 2000,
   "context_window": 16000,

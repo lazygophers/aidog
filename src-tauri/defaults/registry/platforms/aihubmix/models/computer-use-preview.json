@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "computer-use-preview",
   "canonical_model": "computer-use-preview",
+  "family": "computer-use",
+  "version": "preview",
   "display_name": "Computer Use Preview",
   "capabilities": [],
   "official": false,
