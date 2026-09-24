@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "sora-2-pro",
   "canonical_model": "sora-2-pro",
   "capabilities": [
@@ -10,5 +10,7 @@
   "price": {
     "unit": "second",
     "unit_price": 0.3
-  }
+  },
+  "family": "sora",
+  "version": "2"
 }

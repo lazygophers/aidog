@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "gpt-4.1",
   "canonical_model": "gpt-4.1",
   "capabilities": [
@@ -10,8 +10,10 @@
   "max_output_tokens": 33000,
   "official": true,
   "price": {
-    "input": 2e-06,
-    "output": 8e-06,
-    "cache_read": 5e-07
-  }
+    "input": 0.000002,
+    "output": 0.000008,
+    "cache_read": 5e-7
+  },
+  "family": "gpt",
+  "version": "4.1"
 }

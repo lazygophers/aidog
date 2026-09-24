@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271371,
   "model_id": "gpt-transcribe",
   "canonical_model": "gpt-transcribe",
+  "family": "gpt",
+  "version": "transcribe",
   "display_name": "GPT Transcribe",
   "capabilities": [
     "audio"

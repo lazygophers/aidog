@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "chatgpt-4o-latest",
   "canonical_model": "chatgpt-4o-latest",
   "capabilities": [
@@ -13,5 +13,7 @@
   "price": {
     "input": 0.000005,
     "output": 0.000015
-  }
+  },
+  "family": "chatgpt",
+  "version": "4o"
 }

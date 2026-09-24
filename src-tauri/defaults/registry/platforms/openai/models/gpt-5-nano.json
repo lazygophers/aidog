@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "gpt-5-nano",
   "canonical_model": "gpt-5-nano",
   "capabilities": [
@@ -10,8 +10,10 @@
   "max_output_tokens": 131072,
   "official": true,
   "price": {
-    "input": 5.0000000000000004e-08,
-    "output": 4.0000000000000003e-07,
-    "cache_read": 5e-09
-  }
+    "input": 5.0000000000000004e-8,
+    "output": 4.0000000000000003e-7,
+    "cache_read": 5e-9
+  },
+  "family": "gpt",
+  "version": "5"
 }

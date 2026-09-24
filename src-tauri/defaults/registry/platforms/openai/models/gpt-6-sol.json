@@ -1,0 +1,32 @@
+{
+  "last_updated": 1790271371,
+  "model_id": "gpt-6-sol",
+  "canonical_model": "gpt-6-sol",
+  "display_name": "GPT-6 Sol",
+  "family": "gpt",
+  "version": "6",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "context_window": 1050000,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "official": true,
+  "price": {
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 2e-7,
+    "cache_write": 0.0000025,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 0.000004,
+        "output": 0.000015,
+        "cache_read": 4e-7
+      }
+    ]
+  }
+}

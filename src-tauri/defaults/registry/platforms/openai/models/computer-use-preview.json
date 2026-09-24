@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788148784,
+  "last_updated": 1790271371,
   "model_id": "computer-use-preview",
   "canonical_model": "computer-use-preview",
   "capabilities": [
@@ -14,5 +14,7 @@
   "price": {
     "input": 0.000003,
     "output": 0.000012
-  }
+  },
+  "family": "computer-use",
+  "version": "preview"
 }

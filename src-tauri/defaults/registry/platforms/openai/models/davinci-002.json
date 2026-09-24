@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790271371,
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
   "capabilities": [
@@ -7,8 +7,10 @@
   ],
   "official": true,
   "price": {
-    "input": 2e-06,
-    "output": 2e-06,
+    "input": 0.000002,
+    "output": 0.000002,
     "cache_read": 0
-  }
+  },
+  "family": "davinci",
+  "version": "002"
 }
