@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790271384,
   "model_id": "openai/gpt-oss-20b-maas",
   "canonical_model": "gpt-oss-20b-maas",
+  "family": "gpt",
   "capabilities": [
     "text"
   ],

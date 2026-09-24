@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1790271384,
   "model_id": "lyria-3.5",
   "canonical_model": "lyria-3.5",
+  "family": "lyria",
+  "version": "3.5",
   "display_name": "Lyria 3.5",
   "predecessor": "lyria-3-pro-preview",
   "capabilities": [

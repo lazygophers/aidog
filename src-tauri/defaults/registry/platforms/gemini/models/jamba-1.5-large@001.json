@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790271384,
   "model_id": "jamba-1.5-large@001",
   "canonical_model": "jamba-1.5-large@001",
+  "family": "jamba",
+  "version": "1.5",
   "capabilities": [
     "text"
   ],
