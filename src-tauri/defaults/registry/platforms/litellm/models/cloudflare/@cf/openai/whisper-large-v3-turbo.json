@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
   "canonical_model": "whisper-large-v3-turbo",
+  "family": "whisper",
   "capabilities": [
     "audio"
   ],

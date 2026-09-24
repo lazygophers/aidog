@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "databricks/databricks-gemini-3-1-flash-lite",
-  "canonical_model": "databricks-gemini-3-1-flash-lite",
+  "canonical_model": "gemini-3.1-flash-lite",
+  "family": "gemini",
+  "version": "3.1",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/thedrummer/skyfall-36b-v2",
   "canonical_model": "skyfall-36b-v2",
+  "family": "skyfall",
+  "version": "2",
   "capabilities": [
     "text"
   ],

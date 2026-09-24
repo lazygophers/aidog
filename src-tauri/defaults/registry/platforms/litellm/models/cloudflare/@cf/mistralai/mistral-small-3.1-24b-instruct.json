@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
   "canonical_model": "mistral-small-3.1-24b-instruct",
+  "family": "mistral",
+  "version": "3.1",
   "capabilities": [
     "text",
     "tool_use"

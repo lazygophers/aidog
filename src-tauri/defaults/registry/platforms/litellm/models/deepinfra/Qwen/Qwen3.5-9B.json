@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "deepinfra/Qwen/Qwen3.5-9B",
   "canonical_model": "qwen3.5-9b",
+  "family": "qwen",
+  "version": "3.5",
   "capabilities": [
     "text",
     "vision",

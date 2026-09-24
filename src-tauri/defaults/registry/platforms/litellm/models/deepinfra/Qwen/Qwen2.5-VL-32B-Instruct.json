@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "deepinfra/Qwen/Qwen2.5-VL-32B-Instruct",
   "canonical_model": "Qwen2.5-VL-32B-Instruct",
+  "family": "qwen",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision",

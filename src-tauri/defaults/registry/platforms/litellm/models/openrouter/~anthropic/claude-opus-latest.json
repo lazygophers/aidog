@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/~anthropic/claude-opus-latest",
   "canonical_model": "claude-opus-latest",
+  "family": "claude",
   "capabilities": [
     "text",
     "vision",

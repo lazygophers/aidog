@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/sao10k/l3.1-euryale-70b",
   "canonical_model": "l3.1-euryale-70b",
+  "family": "euryale",
+  "version": "3.1",
   "capabilities": [
     "text",
     "tool_use"

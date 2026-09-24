@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "aihubmix/hy4-preview",
   "canonical_model": "hy4-preview",
+  "family": "hunyuan",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use",

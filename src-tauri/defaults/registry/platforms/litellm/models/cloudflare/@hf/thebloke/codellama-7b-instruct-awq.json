@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@hf/thebloke/codellama-7b-instruct-awq",
   "canonical_model": "codellama-7b-instruct-awq",
+  "family": "codellama",
   "capabilities": [
     "text"
   ],

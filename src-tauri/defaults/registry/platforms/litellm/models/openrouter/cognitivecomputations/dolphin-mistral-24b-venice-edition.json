@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/cognitivecomputations/dolphin-mistral-24b-venice-edition",
   "canonical_model": "dolphin-mistral-24b-venice-edition",
+  "family": "dolphin",
   "capabilities": [
     "text"
   ],
