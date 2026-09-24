@@ -267,17 +267,17 @@ class _HomePageState extends State<HomePage> {
             (
               label: tr.t('home.tokens'),
               value: formatNumber(today.tokens),
-              spark: _Spark(values: s.tokens, color: _panelMuted),
+              spark: _Spark(values: s.tokens, color: _panelAux),
             ),
             (
               label: tr.t('home.requests'),
               value: formatNumber(today.totalRequests),
-              spark: _Spark(values: s.requests, color: _panelMuted),
+              spark: _Spark(values: s.requests, color: _panelAux),
             ),
             (
               label: tr.t('home.cacheRate'),
               value: formatPercent(today.cacheRate),
-              spark: _Spark(values: s.cache, color: _panelMuted),
+              spark: _Spark(values: s.cache, color: _panelAux),
             ),
           ]
         : const <({String label, String value, Widget? spark})>[];
@@ -378,10 +378,11 @@ class _HomePageState extends State<HomePage> {
                               : 'HOURLY',
                           child: trendOk
                               ? SizedBox(
-                                  height: 122,
+                                  height: 88 + 12, // 图 88（Home.tsx:364）+ 小时轴行 12（:373）
                                   child: Column(
                                     children: [
-                                      Expanded(
+                                      SizedBox(
+                                        height: 88,
                                         child: AidogLineChart(
                                           mini: true,
                                           area: true,
@@ -402,7 +403,7 @@ class _HomePageState extends State<HomePage> {
                                             ChartSeries(
                                               key: 'cost',
                                               label: tr.t('home.trendCost'),
-                                              color: _panelMuted,
+                                              color: _panelAux,
                                               points: [
                                                 for (final b in _trend)
                                                   ChartPoint(
@@ -452,17 +453,24 @@ class _HomePageState extends State<HomePage> {
                               : Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    for (final p in top)
+                                    for (var i = 0; i < top.length; i++) ...[
+                                      if (i > 0)
+                                        const Divider(
+                                          height: 1,
+                                          thickness: 1,
+                                          color: Color(0x0DFFFFFF), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
+                                        ),
                                       Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: AidogSpace.sxs,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 9, // Home.tsx:417
                                         ),
                                         child: _platformRow(
-                                          p,
+                                          top[i],
                                           maxCost,
                                           costSum,
                                         ),
                                       ),
+                                    ],
                                   ],
                                 ),
                         ),
@@ -496,7 +504,7 @@ class _HomePageState extends State<HomePage> {
                         Ltr(
                           child: Text(
                             formatCostUsd(balance),
-                            style: numStyle(AidogType.numLg, _panelFg),
+                            style: _panelMono(17, _panelFg, w: FontWeight.w700),
                           ),
                         ),
                       ],
@@ -568,7 +576,10 @@ class _HomePageState extends State<HomePage> {
                 '${tr.t('home.port')} $_port',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AidogType.body.copyWith(color: _panelFg),
+                style: AidogType.body.copyWith(
+                  color: _panelFg,
+                  fontWeight: FontWeight.w600, // Home.tsx:301
+                ),
               ),
             ),
           ),
@@ -651,8 +662,33 @@ class _HomePageState extends State<HomePage> {
 const Color _panelFg = Color(0xFFF5F5F0);
 const Color _panelMuted = Color(0xFF8A8580);
 const Color _panelS1 = Color(0xFF0E0E0E);
+const Color _panelS2 = Color(0xFF151514);
 const Color _panelLine = Color(0x12FFFFFF); // rgba(255,255,255,.07)
 const Color _panelAccent = Color(0xFFE8C547);
+
+/// 辅线灰（React `seriesColor(1)` = `--chart-2`，明暗同值）：KPI 灰阶 sparkline、
+/// 趋势 cost 虚线用它，与琥珀主线区分（Home.tsx:104/363）。
+const Color _panelAux = Color(0xFF737373);
+
+/// 迷你环 track：白 .14（Home.tsx:118），与面板 hairline（.07）分开。
+const Color _panelTrack = Color(0x24FFFFFF);
+
+/// 面板内等宽数字（`PANEL.mono` 的 Flutter 侧）：字号逐消费点对齐 React 裸值，
+/// 不走 AidogType 字阶 —— 命令面板是固定深色，字号也按面板自己的体系。
+TextStyle _panelMono(
+  double size,
+  Color color, {
+  FontWeight w = FontWeight.w400,
+  double tracking = 0,
+}) => TextStyle(
+  fontFamily: AidogType.familyMono,
+  fontSize: size,
+  fontWeight: w,
+  letterSpacing: tracking * size,
+  height: 1.35,
+  color: color,
+  fontFeatures: const [FontFeature.tabularFigures()],
+);
 
 /// 面板内的一条横分隔线。
 class _PanelDivider extends StatelessWidget {
@@ -682,11 +718,18 @@ class _KpiCell extends StatelessWidget {
           label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AidogType.micro.copyWith(color: _panelMuted),
+          style: _panelMono(10, _panelMuted, tracking: 0.1), // Home.tsx:92
         ),
-        const SizedBox(height: 2),
-        Ltr(child: Text(value, style: numStyle(AidogType.numLg, _panelFg))),
-        if (spark case final sp?) ...[const SizedBox(height: 4), sp],
+        const SizedBox(height: 3), // Home.tsx:100
+        Ltr(
+          child: Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: _panelMono(24, _panelFg, w: FontWeight.w700), // Home.tsx:98-99
+          ),
+        ),
+        if (spark case final sp?) ...[const SizedBox(height: 8), sp],
       ],
     ),
   );
@@ -730,7 +773,7 @@ class _PanelSection extends StatelessWidget {
             Ltr(
               child: Text(
                 meta,
-                style: AidogType.numSm.copyWith(color: _panelMuted),
+                style: _panelMono(10, _panelMuted), // Home.tsx:353
               ),
             ),
           ],
@@ -752,9 +795,13 @@ class _Spark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (values.length < 2) return const SizedBox.shrink();
-    return CustomPaint(
-      painter: _SparkPainter(values: values, color: color),
+    // 无 child 的 CustomPaint 在 min Column 里拿无界约束 → 0×0 完全不可见
+    // （React Sparkline 固定高 22，Home.tsx:67-84）。槽位必须给死高度。
+    if (values.length < 2) return const SizedBox(height: 22);
+    return SizedBox(
+      height: 22,
+      width: double.infinity,
+      child: CustomPaint(painter: _SparkPainter(values: values, color: color)),
     );
   }
 }
@@ -812,7 +859,7 @@ class _RingPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final r = size.shortestSide / 2 - 2.5;
+    const r = 9.0; // Home.tsx:117
     final stroke = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 5;
@@ -842,7 +889,6 @@ class _HourAxis extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (buckets.length < 2) return const SizedBox.shrink();
-    final t = AidogTheme.of(context);
     return LayoutBuilder(
       builder: (context, c) => Stack(
         children: [
@@ -854,7 +900,7 @@ class _HourAxis extends StatelessWidget {
                 child: Text(
                   hourTickOf(buckets[i]),
                   textAlign: TextAlign.center,
-                  style: AidogType.micro.copyWith(color: t.c.fg3),
+                  style: _panelMono(8, _panelMuted), // Home.tsx:383-384 固定面板色，不跟主题
                 ),
               ),
             ),
@@ -874,26 +920,46 @@ class _Chip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final t = AidogTheme.of(context);
+    // globals.css `.cmd-kb`：固定深色 s2 底，不跟主题（面板内 chip 浅色模式也保持深）。
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.smd,
-          vertical: AidogSpace.ssm,
+          horizontal: 11,
+          vertical: 7,
         ),
         decoration: BoxDecoration(
-          color: t.c.surface2,
-          border: Border.all(color: t.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          color: _panelS2,
+          border: Border.all(color: _panelLine),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(label, style: AidogType.caption.copyWith(color: t.c.fg)),
-            const SizedBox(width: AidogSpace.ssm),
-            Ltr(child: Text(kbd, style: numStyle(AidogType.numSm, t.c.fg3))),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: _panelFg,
+              ),
+            ),
+            const SizedBox(width: 7),
+            // 键帽：mono 10、白 .14 边、radius 4、padding 1/5（`.cmd-kb .k`）。
+            Ltr(
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 5,
+                  vertical: 1,
+                ),
+                decoration: BoxDecoration(
+                  border: Border.all(color: _panelTrack),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(kbd, style: _panelMono(10, _panelMuted)),
+              ),
+            ),
           ],
         ),
       ),
