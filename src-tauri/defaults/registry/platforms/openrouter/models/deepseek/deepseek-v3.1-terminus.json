@@ -1,7 +1,7 @@
 {
   "model_id": "deepseek/deepseek-v3.1-terminus",
   "display_name": "DeepSeek: DeepSeek V3.1 Terminus",
-  "canonical_model": "deepseek-v3.1-terminus",
+  "canonical_model": "DeepSeek-V3.1-Terminus",
   "max_input_tokens": 131072,
   "context_window": 163840,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 0.000001,
     "cache_read": 1.35e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]

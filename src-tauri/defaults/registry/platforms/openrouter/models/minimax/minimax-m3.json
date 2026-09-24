@@ -1,7 +1,7 @@
 {
   "model_id": "minimax/minimax-m3",
   "display_name": "MiniMax: MiniMax M3",
-  "canonical_model": "minimax-m3",
+  "canonical_model": "MiniMax-M3",
   "max_input_tokens": 524288,
   "context_window": 1048576,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 0.0000012,
     "cache_read": 6e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]

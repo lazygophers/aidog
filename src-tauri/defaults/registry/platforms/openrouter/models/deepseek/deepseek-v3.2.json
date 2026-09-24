@@ -1,7 +1,7 @@
 {
   "model_id": "deepseek/deepseek-v3.2",
   "display_name": "DeepSeek: DeepSeek V3.2",
-  "canonical_model": "deepseek-v3.2",
+  "canonical_model": "DeepSeek-V3.2",
   "max_input_tokens": 163840,
   "context_window": 163840,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 4e-7,
     "cache_read": 1.345e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]

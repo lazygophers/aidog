@@ -1,7 +1,7 @@
 {
   "model_id": "minimax/minimax-m2.5",
   "display_name": "MiniMax: MiniMax M2.5",
-  "canonical_model": "minimax-m2.5",
+  "canonical_model": "MiniMax-M2.5",
   "max_input_tokens": 200000,
   "context_window": 204800,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 0.00000108,
     "cache_read": 2.7e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]
