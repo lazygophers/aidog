@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790268690,
+  "last_updated": 1790287023,
   "model_id": "qwen3.6-35b-a3b",
   "canonical_model": "qwen3.6-35b-a3b",
   "family": "qwen",
@@ -7,7 +7,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 260096,
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": true,
