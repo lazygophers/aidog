@@ -292,3 +292,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   失败后 ; 链误 commit 带标记文件（二次同款事故），按「超集+键感知+时间戳 max」
   三遍解净、全库复验绿。后续轮起 **merge 冲突一律解完+全库 parse+check 绿再 commit，
   resolver 失败即中止**。
+- 2026-09-25 第 51 轮 `06d3b03a`→merge `f3bc37d34`（652 文件 1110 格：FW-* 微软托管表、
+  fireworks/fal/azure_ai/root 厂商文档）+ 第 52 轮 aihubmix 长尾+bailian 岔路
+  `1fe5ff40c`+`e2cee24f0`（60 文件）。覆盖率 family 84.9% / version 69.1% / ctx 77.1%。
+  排名：litellm 2567 / aihubmix 957 / bailian_coding 373 / bailian 369。
