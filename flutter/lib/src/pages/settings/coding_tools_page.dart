@@ -116,127 +116,326 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
     return SettingsPageBody(
       title: t.t('codingTools.cliIntegrationTitle'),
       children: [
-        SettingsCard(
-          description: t.t('codingTools.introDesc'),
-          children: [
-            SwitchRow(
-              key: const ValueKey('apply-to-claude-plugin'),
-              label: t.t('codingTools.applyPlugin.title'),
-              description: t.t('codingTools.applyPlugin.desc'),
-              hint: '~/.claude/config.json · primaryApiKey="any"',
-              value: _c.applyToClaudePlugin,
-              onChanged: _c.busy
-                  ? null
-                  : (v) => _c.toggleApplyToClaudePlugin(v, texts),
+        // 说明卡（`CodingToolsSettings.tsx:366-373`）。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.t('codingTools.cliIntegrationTitle'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AidogTheme.of(context).c.fg,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(
+                    t.t('codingTools.introDesc'),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: AidogTheme.of(context).c.fg2,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            SwitchRow(
-              key: const ValueKey('skip-onboarding'),
-              label: t.t('codingTools.skipOnboarding.title'),
-              description: t.t('codingTools.skipOnboarding.desc'),
-              hint: '~/.claude.json · hasCompletedOnboarding=true',
-              value: _c.skipClaudeOnboarding,
-              onChanged: _c.busy
-                  ? null
-                  : (v) => _c.toggleSkipOnboarding(v, texts),
-            ),
-            SwitchRow(
-              key: const ValueKey('date-rewrite'),
-              label: t.t('codingTools.dateRewrite.title'),
-              description: t.t('codingTools.dateRewrite.desc'),
-              hint: 'middleware · redaction · YYYY/MM/DD → YYYY-MM-DD',
-              value: _c.dateRewriteEnabled == true,
-              // 规则还没读到 / 不存在 → 开关不响应（`dateRewriteDisabled`）。
-              onChanged: _c.dateRewriteDisabled
-                  ? null
-                  : (v) => _c.toggleDateRewrite(v, texts),
-            ),
-            SwitchRow(
-              key: const ValueKey('btc-global'),
-              label: t.t('proxy.btcGlobal'),
-              description: t.t('proxy.btcGlobalDesc'),
-              hint: 'settings · proxy · builtin_tool_compat',
-              value: _c.btcGlobal,
-              onChanged: _c.busy ? null : (v) => _c.toggleBtcGlobal(v, texts),
-            ),
-          ],
+          ),
         ),
-        SettingsCard(
-          title: t.t('codingTools.language.title'),
-          description: t.t('codingTools.language.desc'),
-          children: [
-            _LanguageGroupSelect(
-              key: const ValueKey('cli-language'),
-              label: t.t('codingTools.language.title'),
-              groups: _langGroups,
-              value: _c.language,
-              onChanged: _c.busy ? null : (v) => _c.setLanguage(v ?? '', texts),
-            ),
-          ],
+        // 四张一开关一卡（`CodingToolsSettings.tsx:374-415` 的 ToggleCard），
+        // 等宽 hint 是各开关的「落点」。
+        ToggleCard(
+          key: const ValueKey('apply-to-claude-plugin'),
+          label: t.t('codingTools.applyPlugin.title'),
+          descriptions: [t.t('codingTools.applyPlugin.desc')],
+          hint: '~/.claude/config.json · primaryApiKey="any"',
+          value: _c.applyToClaudePlugin,
+          onChanged: _c.busy
+              ? null
+              : (v) => _c.toggleApplyToClaudePlugin(v, texts),
         ),
-        SettingsCard(
-          title: t.t('codingTools.effort.title'),
-          description: t.t('codingTools.effort.desc'),
-          children: [
-            // 「落点」等宽小字：这张卡改的是哪几个键
-            // （`CodingToolsSettings.tsx:465`）。开关会动哪个文件、哪个键，
-            // 原先界面上完全看不到。
-            _LandingHint(
-              'claude · effortLevel · codex · model_reasoning_effort',
-            ),
-            ChoiceRow(
-              key: const ValueKey('cli-effort'),
-              label: t.t('settings.f_effortLevel'),
-              // 首项「—」= 不设置（`CodingToolsSettings.tsx:478-479` 的
-              // `__none__` → 写空串）。没有它设过一次就清不回不设置。
-              options: ['', ...kEffortOptions],
-              labelOf: (v) => v.isEmpty ? '—' : v,
-              value: _c.effort,
-              onChanged: _c.busy ? null : (v) => _c.setEffort(v, texts),
-            ),
-          ],
+        ToggleCard(
+          key: const ValueKey('skip-onboarding'),
+          label: t.t('codingTools.skipOnboarding.title'),
+          descriptions: [t.t('codingTools.skipOnboarding.desc')],
+          hint: '~/.claude.json · hasCompletedOnboarding=true',
+          value: _c.skipClaudeOnboarding,
+          onChanged: _c.busy ? null : (v) => _c.toggleSkipOnboarding(v, texts),
         ),
-        SettingsCard(
-          title: t.t('codingTools.proxy.title'),
-          description: t.t('codingTools.proxy.desc'),
-          children: [
-            // `CodingToolsSettings.tsx:494`。
-            _LandingHint(
-              'claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY · NO_PROXY',
-            ),
-            ChoiceRow(
-              label: t.t('proxy.upstreamProxy'),
-              options: kProxyUrlPresets,
-              value: _c.proxyDraft.url,
-              onChanged: _c.busy
-                  ? null
-                  : (v) {
-                      _c.setProxyUrl(v);
-                      _c.commitProxy(texts);
-                    },
-            ),
-            TextRow(
-              key: const ValueKey('cli-proxy-url'),
-              label: t.t('proxy.upstreamProxy'),
-              value: _c.proxyDraft.url,
-              onChanged: _c.setProxyUrl,
-              onSubmitted: (_) => _c.commitProxy(texts),
-            ),
-            TextRow(
-              key: const ValueKey('cli-proxy-no'),
-              label: t.t('proxy.noProxy'),
-              description: t.t('proxy.noProxyDesc'),
-              hint: t.t('proxy.noProxyPlaceholder'),
-              value: _c.proxyDraft.no,
-              onChanged: _c.setProxyNo,
-              onSubmitted: (_) => _c.commitProxy(texts),
-            ),
-          ],
+        ToggleCard(
+          key: const ValueKey('date-rewrite'),
+          label: t.t('codingTools.dateRewrite.title'),
+          descriptions: [t.t('codingTools.dateRewrite.desc')],
+          hint: 'middleware · redaction · YYYY/MM/DD → YYYY-MM-DD',
+          value: _c.dateRewriteEnabled == true,
+          // 规则还没读到 / 不存在 → 开关不响应（`dateRewriteDisabled`）。
+          onChanged: _c.dateRewriteDisabled
+              ? null
+              : (v) => _c.toggleDateRewrite(v, texts),
         ),
+        // 内置工具兼容总开关：与「设置 → 系统」的同名开关同源（同一 setting）。
+        ToggleCard(
+          key: const ValueKey('btc-global'),
+          label: t.t('proxy.btcGlobal'),
+          descriptions: [t.t('proxy.btcGlobalDesc')],
+          hint: 'settings · proxy · builtin_tool_compat',
+          value: _c.btcGlobal,
+          onChanged: _c.busy ? null : (v) => _c.toggleBtcGlobal(v, texts),
+        ),
+        // 语言卡：标题左、下拉右（`CodingToolsSettings.tsx:419-451`）。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t.t('codingTools.language.title'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AidogTheme.of(context).c.fg,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          t.t('codingTools.language.desc'),
+                          style: AidogType.caption.copyWith(
+                            fontSize: 12,
+                            color: AidogTheme.of(context).c.fg2,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AidogSpace.smd),
+                _LanguageGroupSelect(
+                  key: const ValueKey('cli-language'),
+                  groups: _langGroups,
+                  value: _c.language,
+                  onChanged: _c.busy
+                      ? null
+                      : (v) => _c.setLanguage(v ?? '', texts),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 努力级别卡：标题 + 落点 hint 左、下拉右
+        //（`CodingToolsSettings.tsx:454-485`），不是平铺 chips。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        t.t('codingTools.effort.title'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: AidogTheme.of(context).c.fg,
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          t.t('codingTools.effort.desc'),
+                          style: AidogType.caption.copyWith(
+                            fontSize: 12,
+                            color: AidogTheme.of(context).c.fg2,
+                          ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          ltr(
+                            'claude · effortLevel · codex · model_reasoning_effort',
+                          ),
+                          style: AidogType.numSm.copyWith(
+                            fontSize: 11,
+                            color: AidogTheme.of(context).c.fg3,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: AidogSpace.smd),
+                // 首项「—」= 不设置（`__none__` → 写空串）。
+                // 没有它设过一次就清不回不设置。
+                InlineSelect<String>(
+                  key: const ValueKey('cli-effort'),
+                  value: _c.effort,
+                  options: ['', ...kEffortOptions],
+                  width: 120,
+                  labelOf: (v) => v.isEmpty ? '—' : v,
+                  onChanged: _c.busy
+                      ? null
+                      : (v) => _c.setEffort(v ?? '', texts),
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 代理卡：两列 grid（label 11 w600 + Input 13），预设走不可见的
+        // datalist（`CodingToolsSettings.tsx:497-540`），不再平铺成常驻 chips。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.t('codingTools.proxy.title'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AidogTheme.of(context).c.fg,
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    t.t('codingTools.proxy.desc'),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: AidogTheme.of(context).c.fg2,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    ltr(
+                      'claude · env.HTTP_PROXY / HTTPS_PROXY / ALL_PROXY · NO_PROXY',
+                    ),
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 11,
+                      color: AidogTheme.of(context).c.fg3,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AidogSpace.smd),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            t.t('codingTools.proxy.title'),
+                            style: AidogType.caption.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AidogTheme.of(context).c.fg2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          PlainTextField(
+                            key: const ValueKey('cli-proxy-url'),
+                            value: _c.proxyDraft.url,
+                            hint: 'http://host:port',
+                            onChanged: _c.setProxyUrl,
+                            onSubmitted: (_) => _c.commitProxy(texts),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: AidogSpace.smd),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'NO_PROXY',
+                            style: AidogType.numSm.copyWith(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: AidogTheme.of(context).c.fg2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          PlainTextField(
+                            key: const ValueKey('cli-proxy-no'),
+                            value: _c.proxyDraft.no,
+                            hint: 'localhost,127.0.0.1,*.local',
+                            onChanged: _c.setProxyNo,
+                            onSubmitted: (_) => _c.commitProxy(texts),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 常驻错误卡：danger 边 + 底三行（`CodingToolsSettings.tsx:545-569`）。
         if (_c.error.isNotEmpty)
-          SettingsCard(
-            title: t.t('codingTools.errorTitle'),
-            description: t.t('codingTools.errorHint'),
-            children: [ErrorNote(text: _c.error)],
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+            child: Container(
+              padding: const EdgeInsets.all(AidogSpace.smd),
+              decoration: BoxDecoration(
+                color: AidogTheme.of(context).c.bad.withValues(alpha: 0.08),
+                border: Border.all(color: AidogTheme.of(context).c.bad),
+                borderRadius: BorderRadius.circular(AidogRadius.md),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t.t('codingTools.errorTitle'),
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AidogTheme.of(context).c.bad,
+                    ),
+                  ),
+                  Text(
+                    ltr(_c.error),
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 12,
+                      color: AidogTheme.of(context).c.bad,
+                    ),
+                  ),
+                  Text(
+                    t.t('codingTools.errorHint'),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: AidogTheme.of(context).c.bad,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
         if (_pendingNav != null)
           UnsavedChangesCard(
@@ -295,13 +494,11 @@ class _LandingHint extends StatelessWidget {
 class _LanguageGroupSelect extends StatelessWidget {
   const _LanguageGroupSelect({
     super.key,
-    required this.label,
     required this.groups,
     required this.value,
     this.onChanged,
   });
 
-  final String label;
   final List<({String family, List<({String value, String label})> options})>
   groups;
   final String value;
@@ -322,46 +519,36 @@ class _LanguageGroupSelect extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final flat = [for (final g in groups) ...g.options.map((o) => o.value)];
     final hintStyle = AidogType.micro.copyWith(color: theme.c.fg3);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TileMeta(label),
-          DropdownButton<String>(
-            value: value.isEmpty ? null : value,
-            underline: const SizedBox.shrink(),
-            isDense: true,
-            isExpanded: true,
-            dropdownColor: theme.c.surface2,
-            style: AidogType.micro.copyWith(color: theme.c.fg),
-            hint: Text('—', style: hintStyle),
-            onChanged: onChanged,
-            items: [
-              // 当前值不在候选里（用户手填的自定义值）也要能显示，
-              // 否则 Dropdown 会断言失败。
-              if (value.isNotEmpty && !flat.contains(value))
-                DropdownMenuItem<String>(
-                  value: value,
-                  child: Text(_labelOf(value)),
-                ),
-              for (final g in groups) ...[
-                DropdownMenuItem<String>(
-                  enabled: false,
-                  child: Text(
-                    g.family,
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
-                  ),
-                ),
-                for (final o in g.options)
-                  DropdownMenuItem<String>(
-                    value: o.value,
-                    child: Text(o.label),
-                  ),
-              ],
-            ],
-          ),
+    return SizedBox(
+      width: 200,
+      child: DropdownButton<String>(
+        value: value.isEmpty ? null : value,
+        underline: const SizedBox.shrink(),
+        isDense: true,
+        isExpanded: true,
+        dropdownColor: theme.c.surface2,
+        style: AidogType.micro.copyWith(color: theme.c.fg),
+        hint: Text('—', style: hintStyle),
+        onChanged: onChanged,
+        items: [
+          // 当前值不在候选里（用户手填的自定义值）也要能显示，
+          // 否则 Dropdown 会断言失败。
+          if (value.isNotEmpty && !flat.contains(value))
+            DropdownMenuItem<String>(
+              value: value,
+              child: Text(_labelOf(value)),
+            ),
+          for (final g in groups) ...[
+            DropdownMenuItem<String>(
+              enabled: false,
+              child: Text(
+                g.family,
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            ),
+            for (final o in g.options)
+              DropdownMenuItem<String>(value: o.value, child: Text(o.label)),
+          ],
         ],
       ),
     );
