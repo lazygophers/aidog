@@ -1,7 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790267209,
   "model_id": "openai/gpt-5.5",
   "canonical_model": "gpt-5.5",
+  "version": "5.5",
+  "thinking_supported": true,
   "family": "gpt",
   "capabilities": [
     "text",
