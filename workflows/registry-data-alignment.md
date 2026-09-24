@@ -285,3 +285,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   （r47/r48 各自绿、合并撞出；官方产品线名口径）。覆盖率 family 71.3% / version 56.2% /
   ctx 77.1%。排名：litellm 4547 / aihubmix 988 / bailian 385。
 - 🔴 验证纪律：check 一律直跑重定向取码，`| tail` 掩码退出码（本轮假绿一次）。
+- 2026-09-25 第 49 轮镜像六轮 `394bd073`（382 文件 655 格：litellm 384/therouter 96/
+  bailian_coding_en 81 等）。第 50 轮 litellm 长尾 `17424c80`→merge `38e8c99e5`+
+  `82d28243d`（540 文件：azure 归一 29 + databricks/oci 剥前缀 + cloudflare/deepinfra
+  厂商文档 76 文件 + 锚定 676 格）。r49/r50 并行分支合并撞 161 冲突，首版 resolver
+  失败后 ; 链误 commit 带标记文件（二次同款事故），按「超集+键感知+时间戳 max」
+  三遍解净、全库复验绿。后续轮起 **merge 冲突一律解完+全库 parse+check 绿再 commit，
+  resolver 失败即中止**。
