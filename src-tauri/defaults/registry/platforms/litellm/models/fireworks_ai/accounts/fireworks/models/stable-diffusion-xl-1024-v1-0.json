@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/stable-diffusion-xl-1024-v1-0",
   "canonical_model": "stable-diffusion-xl-1024-v1-0",
+  "family": "stable-diffusion",
+  "version": "1.0",
   "capabilities": [
     "text_to_image"
   ],

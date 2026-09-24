@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/yi-34b-200k-capybara",
   "canonical_model": "yi-34b-200k-capybara",
+  "family": "yi",
   "capabilities": [
     "text"
   ],

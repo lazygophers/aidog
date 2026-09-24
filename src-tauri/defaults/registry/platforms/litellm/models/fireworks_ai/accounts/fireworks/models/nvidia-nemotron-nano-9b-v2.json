@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/nvidia-nemotron-nano-9b-v2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
+  "family": "nemotron",
+  "version": "2",
   "capabilities": [
     "text"
   ],

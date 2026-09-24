@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "ft:o4-mini-2025-04-16",
   "canonical_model": "ft:o4-mini-2025-04-16",
+  "family": "o",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use",

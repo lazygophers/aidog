@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/Cohere-embed-v3-multilingual",
   "canonical_model": "Cohere-embed-v3-multilingual",
+  "family": "embed",
+  "version": "3",
   "capabilities": [
     "embedding"
   ],

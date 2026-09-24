@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/Meta-Llama-3-70B-Instruct",
   "canonical_model": "Meta-Llama-3-70B-Instruct",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text"
   ],

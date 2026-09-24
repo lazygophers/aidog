@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "us.writer.palmyra-x4-v1:0",
-  "canonical_model": "us.writer.palmyra-x4-v1:0",
+  "canonical_model": "writer.palmyra-x4-v1:0",
+  "family": "palmyra",
+  "version": "x4",
   "capabilities": [
     "text",
     "tool_use"
