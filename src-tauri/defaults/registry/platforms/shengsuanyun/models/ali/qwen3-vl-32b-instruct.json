@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790269259,
+  "last_updated": 1790288456,
   "model_id": "ali/qwen3-vl-32b-instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
+  "version": "3",
   "family": "qwen",
   "capabilities": [
     "text",

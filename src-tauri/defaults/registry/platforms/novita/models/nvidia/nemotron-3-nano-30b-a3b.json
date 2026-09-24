@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "nvidia/nemotron-3-nano-30b-a3b",
   "canonical_model": "nemotron-3-nano-30b-a3b",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790288456,
   "model_id": "novita/deepseek/deepseek-r1-distill-qwen-14b",
   "canonical_model": "deepseek-r1-distill-qwen-14b",
+  "version": "r1",
   "family": "deepseek",
   "capabilities": [
     "text",

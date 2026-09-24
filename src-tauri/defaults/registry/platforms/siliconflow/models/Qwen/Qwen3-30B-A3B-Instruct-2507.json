@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790273374,
+  "last_updated": 1790288456,
   "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
+  "version": "3",
   "family": "qwen",
   "capabilities": [
     "text"

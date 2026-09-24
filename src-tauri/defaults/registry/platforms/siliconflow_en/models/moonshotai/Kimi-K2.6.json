@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790288456,
   "model_id": "moonshotai/Kimi-K2.6",
   "canonical_model": "kimi-k2.6",
+  "version": "2.6",
   "display_name": "Kimi-K2.6",
   "family": "kimi",
   "capabilities": [

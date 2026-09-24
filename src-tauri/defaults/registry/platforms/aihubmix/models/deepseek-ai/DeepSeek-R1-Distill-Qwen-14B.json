@@ -1,9 +1,10 @@
 {
   "context_window": 32768,
   "max_input_tokens": 32768,
-  "last_updated": 1790287585,
+  "last_updated": 1790288456,
   "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
   "canonical_model": "deepseek-r1-distill-qwen-14b",
+  "version": "r1",
   "display_name": "DeepSeek R1 Distill Qwen 14B",
   "family": "deepseek",
   "capabilities": [],

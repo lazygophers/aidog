@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790273374,
+  "last_updated": 1790288456,
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
+  "version": "3",
   "family": "qwen",
   "thinking_supported": true,
   "capabilities": ["text", "vision", "tool_use", "reasoning"],

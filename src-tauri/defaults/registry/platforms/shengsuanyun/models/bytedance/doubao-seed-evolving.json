@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790288456,
   "model_id": "bytedance/doubao-seed-evolving",
   "canonical_model": "doubao-seed-evolving",
+  "family": "doubao-seed-evolving",
   "capabilities": [
     "text",
     "vision"

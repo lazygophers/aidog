@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "inclusionai/ling-3.0-flash",
   "canonical_model": "ling-3.0-flash",
+  "family": "ling",
+  "version": "3.0",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": ["text", "tool_use", "reasoning"],

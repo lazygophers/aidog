@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "gryphe/mythomax-l2-13b",
   "canonical_model": "mythomax-l2-13b",
+  "family": "mythomax",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790288456,
   "model_id": "meta/llama-3.2-90b-vision-instruct",
   "canonical_model": "llama-3.2-90b-vision-instruct",
+  "version": "3.2",
   "family": "llama",
   "thinking_supported": false,
   "thinking_toggleable": false,

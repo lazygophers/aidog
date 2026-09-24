@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790288456,
   "model_id": "MiniMax/speech-2.8-hd",
   "canonical_model": "speech-2.8-hd",
+  "version": "2.8",
   "family": "minimax",
   "capabilities": [
     "audio"

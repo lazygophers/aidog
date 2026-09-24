@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790288456,
   "model_id": "microsoft/wizardlm-2-8x22b",
   "canonical_model": "wizardlm-2-8x22b",
+  "family": "wizardlm",
+  "version": "2",
   "capabilities": [
     "text"
   ],

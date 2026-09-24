@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790288456,
   "model_id": "vanchin/deepseek-v3",
   "canonical_model": "DeepSeek-V3",
+  "version": "3",
   "family": "deepseek",
   "capabilities": [
     "text"
