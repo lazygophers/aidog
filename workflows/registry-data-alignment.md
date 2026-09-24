@@ -192,3 +192,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   冲突取 max 时间戳；b043a0e48 曾短暂带冲突标记入 master（修复脚本漏逗号 parse 失败
   未写盘但 ; 链继续 commit），`2694826c8` 前滚修复。门禁：check 8790 文件 /
   aidog_db 351 passed 全绿。
+- 2026-09-25 第 22 轮 openrouter `da71794eb`（109 文件）：family 平移 109、version 平移
+  28（缺口 910 → 773）。455 条全 official:true，其中 346 个 canonical 全库独有无外锚
+  → 773 格合法缺省。第 23 轮 bailian_en `2ffa21f38`→merge `ff1edef65`（268 文件）：
+  family 262 + version 61（缺口 567 → 409），315 格 bailian 同构镜像 + 8 格 canonical
+  锚；244 格 version 官方未公布留缺省。两轮门禁均绿（check 8790 / 351 passed）。
+- 榜单刷新（第 23 轮后）：litellm 6699 / aihubmix 2164 / openrouter 773 / bailian_en 409 /
+  bailian 562 / bailian_coding 561 / therouter 528。镜像平台大头为「官方组无锚」合法缺省。
