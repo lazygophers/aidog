@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790267035,
+  "max_input_tokens": 163840,
+  "last_updated": 1790287585,
   "model_id": "siliconflow/deepseek-v3-0324",
   "canonical_model": "deepseek-v3-0324",
   "family": "deepseek",

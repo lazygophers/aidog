@@ -1,5 +1,8 @@
 {
-  "last_updated": 1790185833,
+  "family": "glm",
+  "max_input_tokens": 200000,
+  "version": "4.7",
+  "last_updated": 1790287585,
   "model_id": "zai-org/glm-4.7-maas",
   "canonical_model": "glm-4.7-maas",
   "thinking_supported": true,

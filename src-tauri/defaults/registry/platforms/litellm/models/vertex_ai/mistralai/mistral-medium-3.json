@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "family": "mistral",
+  "version": "3",
+  "last_updated": 1790287585,
   "model_id": "vertex_ai/mistralai/mistral-medium-3",
   "canonical_model": "mistral-medium-3",
   "capabilities": [

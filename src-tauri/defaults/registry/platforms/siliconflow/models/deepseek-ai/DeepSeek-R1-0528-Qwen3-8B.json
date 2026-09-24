@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788084265,
+  "max_input_tokens": 128000,
+  "last_updated": 1790287585,
   "model_id": "deepseek-ai/DeepSeek-R1-0528-Qwen3-8B",
   "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
   "capabilities": [

@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790084258,
+  "family": "codestral",
+  "version": "2",
+  "last_updated": 1790287585,
   "model_id": "mistralai/codestral-2@001",
   "canonical_model": "codestral-2@001",
   "capabilities": [

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788067648,
+  "family": "qwen",
+  "last_updated": 1790287585,
   "model_id": "MusePublic/Qwen-Image-Edit",
   "canonical_model": "qwen-image-edit",
   "capabilities": [

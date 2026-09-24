@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "family": "qwen",
+  "last_updated": 1790287585,
   "model_id": "qwen/qwen3-235b-a22b-thinking-2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",
   "thinking_supported": true,

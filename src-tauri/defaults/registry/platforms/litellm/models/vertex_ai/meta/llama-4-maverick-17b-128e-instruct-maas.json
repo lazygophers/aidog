@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "family": "llama",
+  "version": "4",
+  "last_updated": 1790287585,
   "model_id": "vertex_ai/meta/llama-4-maverick-17b-128e-instruct-maas",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-maas",
   "capabilities": [

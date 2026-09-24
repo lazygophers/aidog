@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790185833,
+  "family": "glm",
+  "version": "5",
+  "last_updated": 1790287585,
   "model_id": "zai-org/glm-5-maas",
   "canonical_model": "glm-5-maas",
   "thinking_supported": true,

@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790084258,
+  "family": "glm",
+  "version": "4.5",
+  "last_updated": 1790287585,
   "model_id": "zai-org/GLM-4.5-Air",
   "canonical_model": "glm-4.5-air",
   "capabilities": [

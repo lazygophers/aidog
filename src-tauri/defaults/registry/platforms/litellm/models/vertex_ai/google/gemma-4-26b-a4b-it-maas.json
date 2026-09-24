@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "family": "gemma",
+  "version": "4",
+  "last_updated": 1790287585,
   "model_id": "vertex_ai/google/gemma-4-26b-a4b-it-maas",
   "canonical_model": "gemma-4-26b-a4b-it-maas",
   "capabilities": [

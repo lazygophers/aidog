@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "family": "qwen",
+  "last_updated": 1790287585,
   "model_id": "qwen/qwen3-coder-480b-a35b-instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "capabilities": ["text", "tool_use"],

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "family": "mimo",
+  "last_updated": 1790287585,
   "model_id": "xiaomimimo/mimo-v2.5-pro",
   "canonical_model": "mimo-v2.5-pro",
   "capabilities": ["text", "tool_use", "reasoning"],

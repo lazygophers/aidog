@@ -1,5 +1,7 @@
 {
-  "last_updated": 1790223339,
+  "context_window": 32000,
+  "max_input_tokens": 32000,
+  "last_updated": 1790287585,
   "model_id": "THUDM/GLM-4-32B-0414",
   "canonical_model": "glm-4-32b-0414",
   "display_name": "GLM 4 32B 0414",

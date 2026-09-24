@@ -1,5 +1,8 @@
 {
-  "last_updated": 1790185833,
+  "family": "deepseek",
+  "max_input_tokens": 163840,
+  "version": "3.1",
+  "last_updated": 1790287585,
   "model_id": "deepseek-ai/deepseek-v3.1-maas",
   "canonical_model": "deepseek-v3.1-maas",
   "thinking_supported": true,
