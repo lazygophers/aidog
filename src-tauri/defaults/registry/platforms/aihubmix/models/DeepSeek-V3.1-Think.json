@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284899,
   "model_id": "DeepSeek-V3.1-Think",
   "canonical_model": "DeepSeek-V3.1-Think",
   "display_name": "DeepSeek V3.1 Thinking",
   "max_output_tokens": 32000,
+  "max_input_tokens": 163840,
   "context_window": 128000,
   "capabilities": [],
   "official": false,

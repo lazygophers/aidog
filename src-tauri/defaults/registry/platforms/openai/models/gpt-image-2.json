@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790284899,
   "model_id": "gpt-image-2",
   "canonical_model": "gpt-image-2",
   "display_name": "GPT-Image-2",
   "capabilities": [
     "text_to_image"
   ],
+  "context_window": 1047576,
+  "max_input_tokens": 1047576,
   "official": true,
   "price": {
     "input": 0.000005,

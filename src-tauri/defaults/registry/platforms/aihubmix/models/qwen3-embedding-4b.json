@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790284899,
   "model_id": "qwen3-embedding-4b",
   "canonical_model": "Qwen3-Embedding-4B",
   "display_name": "Qwen3 Embedding 4B",
@@ -7,6 +7,7 @@
   "capabilities": [
     "embedding"
   ],
+  "context_window": 8192,
   "official": false,
   "price": {
     "input": 6.8e-08,

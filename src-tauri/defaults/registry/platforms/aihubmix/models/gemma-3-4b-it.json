@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284899,
   "model_id": "gemma-3-4b-it",
   "canonical_model": "gemma-3-4b-it",
   "display_name": "Gemma 3 4B It",
   "capabilities": [],
+  "context_window": 131072,
+  "max_input_tokens": 131072,
   "official": false,
   "price": {
     "input": 2e-07,

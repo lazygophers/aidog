@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284899,
   "model_id": "gpt-5.6-sol-pro",
   "canonical_model": "gpt-5.6-sol-pro",
   "display_name": "GPT 5.6 Sol Pro",
   "capabilities": ["text", "vision"],
   "context_window": 1050000,
+  "max_input_tokens": 1050000,
   "thinking_supported": false,
   "official": false,
   "price": {

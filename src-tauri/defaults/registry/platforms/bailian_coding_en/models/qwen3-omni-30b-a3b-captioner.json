@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790284899,
   "model_id": "qwen3-omni-30b-a3b-captioner",
   "canonical_model": "Qwen3-Omni-30B-A3B-Captioner",
   "capabilities": [
     "audio"
   ],
+  "context_window": 65536,
+  "max_input_tokens": 65536,
   "official": false,
   "price": {
     "input": 0

@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284899,
   "model_id": "computer-use-preview",
   "canonical_model": "computer-use-preview",
   "display_name": "Computer Use Preview",
   "capabilities": [],
+  "context_window": 8192,
+  "max_input_tokens": 8192,
   "official": false,
   "price": {
     "input": 3e-06,
