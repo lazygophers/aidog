@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790272756,
   "model_id": "gpt-image-1.5",
   "canonical_model": "gpt-image-1.5",
   "display_name": "GPT Image 1.5",
+  "family": "gpt",
+  "version": "1.5",
   "capabilities": [
     "vision",
     "text_to_image",

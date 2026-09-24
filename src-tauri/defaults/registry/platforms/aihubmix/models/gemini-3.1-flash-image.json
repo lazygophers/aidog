@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "gemini-3.1-flash-image",
   "canonical_model": "gemini-3.1-flash-image",
   "display_name": "Gemini 3.1 Flash Image",
+  "family": "gemini",
+  "version": "3.1",
   "thinking_supported": true,
   "capabilities": [
     "text_to_image",

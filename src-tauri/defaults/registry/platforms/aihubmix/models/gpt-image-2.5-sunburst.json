@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790272756,
   "model_id": "gpt-image-2.5-sunburst",
   "canonical_model": "gpt-image-2.5-sunburst",
   "display_name": "GPT Image 2.5 Sunburst",
+  "family": "gpt",
+  "version": "2.5",
   "capabilities": [
     "vision",
     "text_to_image",
