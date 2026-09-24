@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790273374,
   "model_id": "qwen/qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
+  "family": "qwen",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": ["text", "tool_use", "reasoning"],

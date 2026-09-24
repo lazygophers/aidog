@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790273374,
   "model_id": "Qwen/Qwen3-VL-8B-Thinking",
   "canonical_model": "qwen3-vl-8b-thinking",
+  "family": "qwen",
   "capabilities": [
     "text",
     "vision",

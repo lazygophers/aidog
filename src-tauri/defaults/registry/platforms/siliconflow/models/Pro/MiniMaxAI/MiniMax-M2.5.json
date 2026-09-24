@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790273374,
   "model_id": "Pro/MiniMaxAI/MiniMax-M2.5",
   "canonical_model": "MiniMax-M2.5",
+  "version": "2.5",
   "family": "minimax",
   "capabilities": [
     "text",
