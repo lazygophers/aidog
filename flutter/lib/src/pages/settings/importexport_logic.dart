@@ -6,9 +6,11 @@
 /// - 导出：先 `export_preview` 出可勾选清单 → 用户选路径 → `export_to_file`。
 ///   **没勾任何条目时不许导出**（会写出一个空备份，覆盖掉用户以为还在的文件）。
 /// - 导入：`import_read_file` 出冲突预览 → 用户逐条决策 → `import_apply`。
-///   **决策没定完不许应用**。
+///   禁用线照 React：没勾条目不许应用（冲突缺省即覆盖，不强制逐条拍板）。
 /// - 定时备份：间隔 ≥1 小时、保留 1..=90 天，后端会再 clamp 一次。
 library;
+
+import 'dart:async';
 
 import '../invoke.dart';
 
@@ -20,6 +22,11 @@ const List<String> kImportExportScopes = [
   'skills',
   'mcp',
 ];
+
+/// 初始勾选的导出范围，对齐 React（`ImportExportTab.tsx:60-61` 的
+/// `["platform", "group", "group_platform", "setting"]`，不含 skills / mcp；
+/// Flutter 侧 wire 名见 [kImportExportScopes]，无 group_platform，取前三项）。
+const Set<String> kInitialScopes = {'platforms', 'groups', 'settings'};
 
 /// 冲突决策：保留本地（跳过） / 用导入的（覆盖） / 两者都留（重命名）。
 ///
@@ -132,8 +139,27 @@ class ImportExportController {
   final InvokeFn _invoke;
   final void Function()? onChanged;
 
-  /// 勾选的导出范围。
-  Set<String> scopes = {...kImportExportScopes};
+  /// 勾选的导出范围（初值对齐 React，见 [kInitialScopes]）。
+  Set<String> scopes = {...kInitialScopes};
+
+  /// scope 变化 → 300ms 防抖自动拉预览（`ImportExportTab.tsx:112-126`）。
+  /// 取代手动「预览导出项」按钮 —— 勾选即展开条目，连续勾多个只拉一次。
+  Timer? _previewDebounce;
+  int _previewRequest = 0;
+
+  /// 初始化时也自动拉一次（React 的 effect 挂载即触发）。
+  void schedulePreview() {
+    _previewDebounce?.cancel();
+    final request = ++_previewRequest;
+    _previewDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!previewIsImport) unawaited(exportPreview(request));
+    });
+  }
+
+  /// 取消挂着的防抖（页面 dispose 时调，防 pending timer）。
+  void dispose() {
+    _previewDebounce?.cancel();
+  }
 
   /// `export_preview` / `import_read_file` 的结果。null = 还没预览过。
   Map<String, Object?>? preview;
@@ -159,22 +185,27 @@ class ImportExportController {
   void _notify() => onChanged?.call();
 
   /// 导出前预览：列出可勾选条目（conflicts 恒空）。
-  Future<void> exportPreview() async {
+  Future<void> exportPreview(int request) async {
+    if (request != _previewRequest || previewIsImport) return;
     busy = true;
     error = '';
     _notify();
     try {
-      preview = _map(
+      final nextPreview = _map(
         await _invoke('export_preview', {'scopes': scopes.toList()}),
       );
+      if (request != _previewRequest || previewIsImport) return;
+      preview = nextPreview;
       previewIsImport = false;
       // 默认全选，与 React 的初始状态一致。
       selected = _allItemKeys(preview!);
     } catch (e) {
-      error = '$e';
+      if (request == _previewRequest && !previewIsImport) error = '$e';
     } finally {
-      busy = false;
-      _notify();
+      if (request == _previewRequest && !previewIsImport) {
+        busy = false;
+        _notify();
+      }
     }
   }
 
@@ -204,15 +235,19 @@ class ImportExportController {
 
   /// 读文件 → 解密 → 冲突预览。
   Future<void> readImportFile(String path) async {
+    _previewDebounce?.cancel();
+    ++_previewRequest;
+    previewIsImport = true;
+    preview = null;
+    selected = {};
+    decisions = {};
     busy = true;
     error = '';
     report = null;
     _notify();
     try {
       preview = _map(await _invoke('import_read_file', {'path': path}));
-      previewIsImport = true;
       selected = _allItemKeys(preview!);
-      decisions = {};
     } catch (e) {
       error = '$e';
     } finally {
@@ -242,16 +277,10 @@ class ImportExportController {
     ];
   }
 
-  /// 每个冲突都定了决策才能应用。
-  /// 每个冲突都定了决策才能应用；选了「两者都留」还得真填了新 key。
-  bool get allConflictsDecided => conflictKeys.every((k) {
-    final d = decisions[k];
-    if (d == null) return false;
-    return d.kind != ConflictDecisionKind.keepBoth || d.newKey.trim().isNotEmpty;
-  });
-
-  bool get canApplyImport =>
-      !busy && preview != null && allConflictsDecided && selected.isNotEmpty;
+  /// 应用按钮的禁用线照 React（`ImportExportTab.tsx:568`）：
+  /// 只看「跑着没 / 有没有预览 / 有没有勾条目」，不要求冲突全决策完 ——
+  /// React 侧冲突缺省即 overwrite，用户不改就直接覆盖。
+  bool get canApplyImport => !busy && preview != null && selected.isNotEmpty;
 
   /// 选「两者都留」时预填一个新 key（`ConflictRow.tsx:56` 的
   /// `item.key + "-imported"`），否则后端拿到空 key 会建一条没名字的行。
@@ -294,6 +323,7 @@ class ImportExportController {
       next.remove(scope);
     }
     scopes = next;
+    schedulePreview();
     _notify();
   }
 
