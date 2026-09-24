@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "azure/o3-pro",
   "canonical_model": "o3-pro",
+  "family": "o",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

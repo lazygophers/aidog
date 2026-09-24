@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "deepinfra/nvidia/Llama-3.1-Nemotron-70B-Instruct",
   "canonical_model": "llama-3.1-nemotron-70b-instruct",
+  "family": "nemotron",
   "capabilities": [
     "text",
     "tool_use"

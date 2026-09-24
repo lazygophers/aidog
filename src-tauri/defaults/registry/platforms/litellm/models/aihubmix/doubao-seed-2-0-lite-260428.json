@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "aihubmix/doubao-seed-2-0-lite-260428",
   "canonical_model": "doubao-seed-2-0-lite-260428",
+  "family": "doubao-seed",
+  "version": "2.0",
   "capabilities": [
     "text",
     "vision",

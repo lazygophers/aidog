@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "vercel_ai_gateway/openai/o3-mini",
   "canonical_model": "o3-mini",
+  "family": "o",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

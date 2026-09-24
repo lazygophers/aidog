@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "azure/gpt-5.1-codex-mini",
   "canonical_model": "gpt-5.1-codex-mini",
+  "family": "gpt",
+  "version": "5.1",
   "capabilities": [
     "text",
     "vision",

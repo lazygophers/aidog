@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "bedrock/sa-east-1/deepseek.v3.2",
   "canonical_model": "DeepSeek-V3.2",
+  "version": "3.2",
   "capabilities": [
     "text",
     "tool_use",
