@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790269926,
   "model_id": "MiniMax-M2.7",
   "canonical_model": "MiniMax-M2.7",
+  "family": "minimax",
+  "version": "2.7",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
