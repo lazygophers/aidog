@@ -183,3 +183,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   缺失排名刷新：litellm 7696 / aihubmix 2391 / openrouter 910 / bailian_en 732 /
   bailian 562 / bailian_coding 561。第 20 轮 litellm、第 21 轮 aihubmix 锚定平移
   （canonical → 官方组 family/version 平移，bailian 轮打法的镜像平台版）进行中。
+- 2026-09-25 第 20 轮 litellm `3c4bbf24c`→merge `a3977e9b5`（732 文件）：family 平移 513、
+  version 平移 484（缺口 7696 → 6699）。锚定索引 643 canonical 有 family 锚，None 视为
+  缺省非冲突，真冲突 0；1890 canonical 官方组无锚 → 留缺省（镜像平台禁推断）。
+  门禁：bump 731 文件 / check 8790 文件 / aidog_db 351 passed 全绿。
