@@ -251,3 +251,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   amazon nova/titan、cohere command/embed/rerank、ai21 jamba/j2、stability、writer
   palmyra 从厂商官方文档取证（AWS model-cards + docs.cohere.com）；图像模型 ctx 官方
   不公布留缺省。门禁全绿。
+- 2026-09-25 第 38 轮 anthropic/xai/mistral `944dc9d3`→merge `c1c26b8d8`（52 文件）：
+  anthropic 45 格全补（claude 代际 3→5.1 官方链）、xai 13（grok 4.20 官方原文）、
+  mistral 26（dated 按 YY.MM 约定）；27 格官方未公布留缺省（非 token 计价类无 ctx）。
+  与 gemini 镜像 6 条重叠零冲突。门禁全绿。覆盖率 family 48.6% / version 25.7%。
+- 三轮官方造锚完成（gemini/openai/anthropic/xai/mistral），镜像三轮平移待跑。
