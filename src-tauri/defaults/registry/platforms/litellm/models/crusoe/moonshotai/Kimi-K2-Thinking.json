@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "crusoe/moonshotai/Kimi-K2-Thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
+  "version": "2",
   "capabilities": [
     "text",
     "reasoning"

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "sambanova/gemma-4-31B-it",
   "canonical_model": "gemma-4-31b-it",
   "capabilities": [
@@ -14,5 +14,6 @@
     "input": 3.8e-7,
     "output": 0.00000115
   },
-  "family": "gemma"
+  "family": "gemma",
+  "version": "4"
 }

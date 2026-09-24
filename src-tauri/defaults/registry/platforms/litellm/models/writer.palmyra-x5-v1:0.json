@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790278679,
   "model_id": "writer.palmyra-x5-v1:0",
-  "canonical_model": "writer.palmyra-x5-v1:0",
+  "canonical_model": "palmyra-x5",
   "family": "palmyra",
   "version": "x5",
   "capabilities": [

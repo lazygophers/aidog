@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "databricks/databricks-llama-4-maverick",
-  "canonical_model": "databricks-llama-4-maverick",
+  "canonical_model": "llama-4-maverick",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "databricks/databricks-inkling",
-  "canonical_model": "databricks-inkling",
+  "canonical_model": "inkling",
   "capabilities": [
     "text",
     "vision",

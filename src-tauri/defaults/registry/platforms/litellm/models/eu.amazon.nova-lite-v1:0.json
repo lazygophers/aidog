@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "eu.amazon.nova-lite-v1:0",
-  "canonical_model": "eu.amazon.nova-lite-v1:0",
+  "canonical_model": "nova-lite-v1",
   "capabilities": [
     "text",
     "vision",

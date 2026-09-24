@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-audio-mini",
   "canonical_model": "gpt-audio-mini",
+  "family": "gpt",
+  "version": "audio",
   "capabilities": [
     "text",
     "tool_use"

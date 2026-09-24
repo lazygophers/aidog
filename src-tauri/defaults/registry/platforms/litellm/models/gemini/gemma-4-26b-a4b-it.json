@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "gemini/gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "capabilities": [
@@ -18,5 +18,6 @@
     "input": 0,
     "output": 0
   },
-  "family": "gemma"
+  "family": "gemma",
+  "version": "4"
 }

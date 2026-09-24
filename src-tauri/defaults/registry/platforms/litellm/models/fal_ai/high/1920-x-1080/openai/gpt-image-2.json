@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "fal_ai/high/1920-x-1080/openai/gpt-image-2",
   "canonical_model": "gpt-image-2",
   "family": "gpt",
@@ -7,6 +7,7 @@
   "capabilities": [
     "text_to_image"
   ],
+  "context_window": 1047576,
   "official": false,
   "price": {
     "unit": "image",

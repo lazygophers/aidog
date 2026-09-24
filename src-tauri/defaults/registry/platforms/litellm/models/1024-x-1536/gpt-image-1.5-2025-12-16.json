@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "1024-x-1536/gpt-image-1.5-2025-12-16",
-  "canonical_model": "gpt-image-1.5-2025-12-16",
+  "canonical_model": "gpt-image-1.5",
+  "family": "gpt",
+  "version": "1.5",
   "capabilities": [
     "text_to_image"
   ],

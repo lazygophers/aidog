@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "oci/xai.grok-4.1-fast",
-  "canonical_model": "xai.grok-4.1-fast",
+  "canonical_model": "grok-4.1-fast",
   "capabilities": [
     "text",
     "tool_use"

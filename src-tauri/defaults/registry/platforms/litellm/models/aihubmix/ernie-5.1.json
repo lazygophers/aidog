@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "aihubmix/ernie-5.1",
   "canonical_model": "ernie-5.1",
   "capabilities": [
@@ -16,5 +16,6 @@
     "input": 5.634e-7,
     "output": 0.0000025353
   },
-  "family": "ernie"
+  "family": "ernie",
+  "version": "5.1"
 }

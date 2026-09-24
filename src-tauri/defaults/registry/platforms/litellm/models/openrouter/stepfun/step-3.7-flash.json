@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "openrouter/stepfun/step-3.7-flash",
   "canonical_model": "step-3.7-flash",
   "family": "stepfun",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision",

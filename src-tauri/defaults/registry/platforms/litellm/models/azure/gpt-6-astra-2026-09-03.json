@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-6-astra-2026-09-03",
-  "canonical_model": "gpt-6-astra-2026-09-03",
+  "canonical_model": "gpt-6-astra",
+  "family": "gpt",
+  "version": "6",
   "capabilities": [
     "text",
     "vision",

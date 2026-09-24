@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1-distill-llama-70b",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text"
   ],
