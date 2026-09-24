@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
   "canonical_model": "mistral-small-3.1-24b-instruct",
   "family": "mistral",

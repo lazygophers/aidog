@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "openrouter/prism-ml/ternary-bonsai-2-27b",
   "canonical_model": "ternary-bonsai-2-27b",
   "family": "ternary-bonsai",

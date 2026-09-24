@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "openrouter/ibm-granite/granite-4.2-8b",
   "canonical_model": "granite-4.2-8b",
   "family": "granite",

@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "oci/xai.grok-4.20-multi-agent",
   "canonical_model": "grok-4.20-multi-agent",
   "family": "grok",

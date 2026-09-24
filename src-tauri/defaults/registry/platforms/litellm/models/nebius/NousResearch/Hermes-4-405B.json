@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "nebius/NousResearch/Hermes-4-405B",
   "canonical_model": "hermes-4-405b",
   "family": "hermes",

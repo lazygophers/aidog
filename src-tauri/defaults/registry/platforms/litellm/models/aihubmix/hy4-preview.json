@@ -1,14 +1,7 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
+  "last_updated": 1790281740,
   "model_id": "aihubmix/hy4-preview",
   "canonical_model": "hy4-preview",
-=======
-  "last_updated": 1790281333,
-  "model_id": "aihubmix/hy4-preview",
-  "canonical_model": "hy4-preview",
-  "family": "hunyuan",
->>>>>>> registry/litellm-longtail
   "version": "4",
   "capabilities": [
     "text",

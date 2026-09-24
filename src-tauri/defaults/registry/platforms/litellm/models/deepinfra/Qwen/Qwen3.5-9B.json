@@ -1,14 +1,7 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
+  "last_updated": 1790281740,
   "model_id": "deepinfra/Qwen/Qwen3.5-9B",
   "canonical_model": "qwen3.5-9b",
-=======
-  "last_updated": 1790281333,
-  "model_id": "deepinfra/Qwen/Qwen3.5-9B",
-  "canonical_model": "qwen3.5-9b",
-  "family": "qwen",
->>>>>>> registry/litellm-longtail
   "version": "3.5",
   "capabilities": [
     "text",

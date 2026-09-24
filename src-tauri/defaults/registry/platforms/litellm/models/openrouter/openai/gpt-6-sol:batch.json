@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "openrouter/openai/gpt-6-sol:batch",
   "canonical_model": "gpt-6-sol:batch",
   "family": "gpt",

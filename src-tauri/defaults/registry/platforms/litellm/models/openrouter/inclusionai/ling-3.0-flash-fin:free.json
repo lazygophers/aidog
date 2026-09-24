@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "openrouter/inclusionai/ling-3.0-flash-fin:free",
   "canonical_model": "ling-3.0-flash-fin:free",
   "family": "ling",
