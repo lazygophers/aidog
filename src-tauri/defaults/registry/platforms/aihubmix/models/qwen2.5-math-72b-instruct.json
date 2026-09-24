@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "qwen2.5-math-72b-instruct",
   "canonical_model": "qwen2.5-math-72b-instruct",
-  "display_name": "Qwen2.5 Math 72B Instruct",
+
+  "version": "2.5",
+  "family": "qwen",  "display_name": "Qwen2.5 Math 72B Instruct",
   "capabilities": [],
   "official": false,
   "price": {

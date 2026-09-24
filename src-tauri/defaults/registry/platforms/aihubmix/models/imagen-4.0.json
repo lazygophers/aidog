@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "imagen-4.0",
   "canonical_model": "imagen-4.0",
-  "display_name": "Imagen 4.0",
+
+  "version": "4.0",
+  "family": "imagen",  "display_name": "Imagen 4.0",
   "capabilities": [
     "vision",
     "text_to_image",

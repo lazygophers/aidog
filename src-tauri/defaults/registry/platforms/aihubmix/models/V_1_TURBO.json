@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "V_1_TURBO",
   "canonical_model": "v_1_turbo",
-  "display_name": "V_1_turbo",
+
+  "version": "1",
+  "family": "vidu",  "display_name": "V_1_turbo",
   "capabilities": [
     "vision",
     "text_to_image",

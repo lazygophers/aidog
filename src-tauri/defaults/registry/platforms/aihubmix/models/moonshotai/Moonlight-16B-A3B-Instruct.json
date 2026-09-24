@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "moonshotai/Moonlight-16B-A3B-Instruct",
   "canonical_model": "moonlight-16b-a3b-instruct",
-  "display_name": "Moonlight 16B A3B Instruct",
+
+  "family": "moonlight",  "display_name": "Moonlight 16B A3B Instruct",
   "capabilities": [],
   "official": false,
   "price": {

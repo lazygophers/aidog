@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "meta/llama3-8B-chat",
   "canonical_model": "llama3-8b-chat",
-  "display_name": "Llama3 8B Chat",
+
+  "version": "3",
+  "family": "llama",  "display_name": "Llama3 8B Chat",
   "capabilities": [],
   "official": false,
   "price": {

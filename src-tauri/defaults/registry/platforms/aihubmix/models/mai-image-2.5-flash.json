@@ -1,10 +1,11 @@
 {
-  "last_updated": 1789539801,
+  "last_updated": 1790279972,
   "model_id": "mai-image-2.5-flash",
   "canonical_model": "mai-image-2.5-flash",
   "display_name": "MAI-Image-2.5 Flash",
   "family": "mai-image",
-  "capabilities": [
+
+  "version": "2.5",  "capabilities": [
     "text_to_image",
     "image_to_image",
     "image_edit"

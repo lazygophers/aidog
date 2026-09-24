@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "jina-search",
   "canonical_model": "jina-search",
-  "display_name": "Jina Search",
+
+  "family": "jina",  "display_name": "Jina Search",
   "capabilities": [],
   "official": false,
   "price": {

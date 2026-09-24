@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "Mistral-large-2407",
   "canonical_model": "mistral-large-2407",
-  "display_name": "Mistral Large 2407",
+
+  "version": "2",
+  "family": "mistral",  "display_name": "Mistral Large 2407",
   "capabilities": [],
   "official": false,
   "price": {

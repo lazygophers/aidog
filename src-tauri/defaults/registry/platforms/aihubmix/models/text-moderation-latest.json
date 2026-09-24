@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "text-moderation-latest",
   "canonical_model": "text-moderation-latest",
-  "display_name": "Text Moderation",
+
+  "family": "text-moderation",  "display_name": "Text Moderation",
   "capabilities": [],
   "official": false,
   "price": {

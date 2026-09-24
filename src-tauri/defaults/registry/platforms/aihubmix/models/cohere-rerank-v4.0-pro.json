@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "cohere-rerank-v4.0-pro",
   "canonical_model": "cohere-rerank-v4.0-pro",
-  "display_name": "Cohere Rerank V4.0 Pro",
+
+  "version": "4.0",
+  "family": "rerank",  "display_name": "Cohere Rerank V4.0 Pro",
   "context_window": 32768,
   "capabilities": [
     "rerank"

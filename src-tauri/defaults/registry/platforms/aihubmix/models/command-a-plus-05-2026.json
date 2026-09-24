@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "command-a-plus-05-2026",
   "canonical_model": "command-a-plus-05-2026",
-  "display_name": "Command A Plus 05 2026",
+
+  "family": "command",  "display_name": "Command A Plus 05 2026",
   "thinking_supported": true,
   "max_output_tokens": 64000,
   "context_window": 128000,

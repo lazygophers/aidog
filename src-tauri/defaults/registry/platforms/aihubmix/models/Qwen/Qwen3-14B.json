@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790279972,
   "model_id": "Qwen/Qwen3-14B",
   "canonical_model": "qwen3-14b",
   "display_name": "Qwen3 14B",
   "family": "qwen",
-  "capabilities": [],
+
+  "version": "3",  "capabilities": [],
   "official": false,
   "price": {
     "input": 5e-07,

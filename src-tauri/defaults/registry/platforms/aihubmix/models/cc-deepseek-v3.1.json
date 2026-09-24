@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "cc-deepseek-v3.1",
   "canonical_model": "cc-deepseek-v3.1",
-  "display_name": "CC DeepSeek V3.1",
+
+  "version": "3.1",
+  "family": "deepseek",  "display_name": "CC DeepSeek V3.1",
   "capabilities": [],
   "official": false,
   "price": {

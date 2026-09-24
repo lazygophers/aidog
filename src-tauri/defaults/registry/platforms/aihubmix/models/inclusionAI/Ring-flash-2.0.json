@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "inclusionAI/Ring-flash-2.0",
   "canonical_model": "Ring-flash-2.0",
-  "display_name": "Ring Flash 2.0",
+
+  "version": "2.0",
+  "family": "ring",  "display_name": "Ring Flash 2.0",
   "thinking_supported": true,
   "capabilities": [],
   "official": false,

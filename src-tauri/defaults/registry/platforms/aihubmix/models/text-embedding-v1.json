@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "text-embedding-v1",
   "canonical_model": "text-embedding-v1",
-  "display_name": "Text Embedding V1",
+
+  "version": "1",
+  "family": "text-embedding",  "display_name": "Text Embedding V1",
   "capabilities": [
     "embedding"
   ],

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "aihubmix-router",
   "canonical_model": "aihubmix-router",
-  "display_name": "Aihubmix Router",
+
+  "family": "aihubmix",  "display_name": "Aihubmix Router",
   "capabilities": [],
   "official": false,
   "price": {

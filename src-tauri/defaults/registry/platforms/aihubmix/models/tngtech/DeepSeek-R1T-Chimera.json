@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "tngtech/DeepSeek-R1T-Chimera",
   "canonical_model": "deepseek-r1t-chimera",
-  "display_name": "DeepSeek R1t Chimera",
+
+  "family": "deepseek",  "display_name": "DeepSeek R1t Chimera",
   "capabilities": [],
   "official": false,
   "price": {

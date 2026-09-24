@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "cc-kimi-dev-72b",
   "canonical_model": "kimi-dev-72b",
-  "display_name": "CC Kimi Dev 72B",
+
+  "family": "kimi",  "display_name": "CC Kimi Dev 72B",
   "capabilities": [],
   "official": false,
   "price": {

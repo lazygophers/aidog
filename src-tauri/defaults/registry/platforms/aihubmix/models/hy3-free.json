@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "hy3-free",
   "canonical_model": "hy3-free",
-  "display_name": "Hy3 (free)",
+
+  "version": "3",
+  "family": "hunyuan",  "display_name": "Hy3 (free)",
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "capabilities": [

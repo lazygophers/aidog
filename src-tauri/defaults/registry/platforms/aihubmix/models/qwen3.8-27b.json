@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790279972,
   "model_id": "qwen3.8-27b",
   "canonical_model": "qwen3.8-27b",
   "display_name": "Qwen3.8 27B",
   "family": "qwen",
-  "capabilities": ["text", "vision", "reasoning"],
+
+  "version": "3.8",  "capabilities": ["text", "vision", "reasoning"],
   "context_window": 1000000,
   "max_output_tokens": 131072,
   "thinking_supported": true,

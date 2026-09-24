@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "chatglm_turbo",
   "canonical_model": "chatglm_turbo",
-  "display_name": "Chatglm_turbo",
+
+  "family": "glm",  "display_name": "Chatglm_turbo",
   "capabilities": [],
   "official": false,
   "price": {

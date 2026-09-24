@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "cogview-3-plus",
   "canonical_model": "cogview-3-plus",
-  "display_name": "Cogview 3 Plus",
+
+  "version": "3",
+  "family": "cogview",  "display_name": "Cogview 3 Plus",
   "capabilities": [],
   "official": false,
   "price": {

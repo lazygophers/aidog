@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "hy-3d-3.1",
   "canonical_model": "hy-3d-3.1",
-  "display_name": "Hy 3d 3.1",
+
+  "version": "3",
+  "family": "hunyuan",  "display_name": "Hy 3d 3.1",
   "capabilities": [
     "vision"
   ],

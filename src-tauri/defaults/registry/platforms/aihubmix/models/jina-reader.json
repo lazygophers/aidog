@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "jina-reader",
   "canonical_model": "jina-reader",
-  "display_name": "Jina Reader",
+
+  "family": "jina",  "display_name": "Jina Reader",
   "capabilities": [],
   "official": false,
   "price": {
