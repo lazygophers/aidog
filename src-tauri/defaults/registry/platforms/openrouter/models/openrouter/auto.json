@@ -2,7 +2,7 @@
   "model_id": "openrouter/auto",
   "display_name": "Auto Router",
   "canonical_model": "auto",
-  "family": "openrouter",
+  "family": "auto",
   "max_input_tokens": 2000000,
   "context_window": 2000000,
   "official": true,
@@ -10,7 +10,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790280170,
   "capabilities": [
     "text",
     "vision",

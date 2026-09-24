@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790280170,
   "model_id": "auto",
   "canonical_model": "auto",
 
-  "family": "aihubmix",  "display_name": "Auto",
+  "family": "auto",  "display_name": "Auto",
   "context_window": 1000000,
   "thinking_supported": true,
   "thinking_toggleable": true,
