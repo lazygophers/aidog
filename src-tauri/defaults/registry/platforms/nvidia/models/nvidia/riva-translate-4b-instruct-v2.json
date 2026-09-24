@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085397,
+  "last_updated": 1790266153,
   "model_id": "nvidia/riva-translate-4b-instruct-v2",
   "canonical_model": "riva-translate-4b-instruct-v2",
+  "family": "riva",
   "capabilities": [],
   "official": true,
   "price": {

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "meta/codellama-70b",
   "canonical_model": "codellama-70b",
+  "family": "codellama",
   "capabilities": [],
   "official": true,
   "price": {

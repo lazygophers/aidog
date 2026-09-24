@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "nvidia/embed-qa-4",
   "canonical_model": "embed-qa-4",
+  "family": "nv-embedqa",
   "capabilities": [
     "embedding"
   ],

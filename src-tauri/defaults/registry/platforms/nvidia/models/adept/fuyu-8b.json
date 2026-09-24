@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "adept/fuyu-8b",
   "canonical_model": "fuyu-8b",
+  "family": "fuyu",
+  "thinking_supported": false,
   "capabilities": [
     "vision"
   ],
@@ -9,5 +11,6 @@
   "price": {
     "input": 0.0,
     "output": 0.0
-  }
+  },
+  "context_window": 16384
 }

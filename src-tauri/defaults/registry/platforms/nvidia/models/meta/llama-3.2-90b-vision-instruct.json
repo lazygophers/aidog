@@ -1,12 +1,13 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790266153,
   "model_id": "meta/llama-3.2-90b-vision-instruct",
   "canonical_model": "llama-3.2-90b-vision-instruct",
   "family": "llama",
   "thinking_supported": false,
   "thinking_toggleable": false,
   "capabilities": [
-    "text"
+    "text",
+    "vision"
   ],
   "max_input_tokens": 131072,
   "official": true,

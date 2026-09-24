@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "nvidia/nemotron-3-embed-1b",
   "canonical_model": "nemotron-3-embed-1b",
+  "family": "nemotron",
   "capabilities": [
     "embedding"
   ],
@@ -9,5 +10,6 @@
   "price": {
     "input": 0.0,
     "output": 0.0
-  }
+  },
+  "context_window": 32768
 }

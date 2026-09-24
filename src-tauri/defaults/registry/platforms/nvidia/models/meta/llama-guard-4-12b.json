@@ -1,9 +1,12 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790266153,
   "model_id": "meta/llama-guard-4-12b",
   "canonical_model": "llama-guard-4-12b",
+  "family": "llama",
+  "thinking_supported": false,
   "capabilities": [
-    "text"
+    "text",
+    "vision"
   ],
   "max_input_tokens": 163840,
   "max_output_tokens": 16384,

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "zyphra/zamba2-7b-instruct",
   "canonical_model": "zamba2-7b-instruct",
+  "family": "zamba",
   "capabilities": [],
   "official": true,
   "price": {

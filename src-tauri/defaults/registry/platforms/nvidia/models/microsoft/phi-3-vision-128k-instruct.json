@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "microsoft/phi-3-vision-128k-instruct",
   "canonical_model": "phi-3-vision-128k-instruct",
+  "family": "phi",
+  "thinking_supported": false,
   "capabilities": [
     "vision"
   ],
@@ -9,5 +11,6 @@
   "price": {
     "input": 0.0,
     "output": 0.0
-  }
+  },
+  "context_window": 131072
 }
