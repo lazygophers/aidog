@@ -278,3 +278,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   镜像余量收敛为真无锚。覆盖率 family 63.8% / version 44.6% / ctx 77.1%。
   litellm 真无锚余量 1507 条（azure 拼写 gpt-35-turbo、cloudflare @cf、私有别名），
   需 facts 轮逐条取证或列官方未公布。
+- 2026-09-25 第 47 轮 openrouter r3 `1204d09b`（325 文件 529 格，family 全填；67 格
+  *-latest 别名留缺省；两处带注记裁决 mistral-large-2407→2.0、claude-opus-5-5→5.5）。
+  第 48 轮 bailian qwen version + aihubmix 长尾 `047fca1f`→merge `9f9dd83a7`（883 文件：
+  bailian 系 qwen version 421 + aihubmix 462）。合并后修 3 处 ⑦ 分裂 `e5d8827ce`
+  （r47/r48 各自绿、合并撞出；官方产品线名口径）。覆盖率 family 71.3% / version 56.2% /
+  ctx 77.1%。排名：litellm 4547 / aihubmix 988 / bailian 385。
+- 🔴 验证纪律：check 一律直跑重定向取码，`| tail` 掩码退出码（本轮假绿一次）。
