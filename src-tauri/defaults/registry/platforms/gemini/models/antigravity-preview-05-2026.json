@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271384,
   "model_id": "antigravity-preview-05-2026",
   "canonical_model": "antigravity-preview-05-2026",
+  "family": "antigravity",
   "display_name": "Antigravity Agent",
   "capabilities": [
     "text"

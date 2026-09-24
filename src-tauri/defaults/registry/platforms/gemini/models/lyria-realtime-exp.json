@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271384,
   "model_id": "lyria-realtime-exp",
   "canonical_model": "lyria-realtime-exp",
+  "family": "lyria",
   "display_name": "Lyria Realtime",
   "capabilities": [
     "audio"

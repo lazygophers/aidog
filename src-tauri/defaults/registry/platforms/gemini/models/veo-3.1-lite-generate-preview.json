@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271384,
   "model_id": "veo-3.1-lite-generate-preview",
   "canonical_model": "veo-3.1-lite-generate-preview",
+  "family": "veo",
+  "version": "3.1",
   "display_name": "Veo 3.1 Lite",
   "capabilities": [
     "text_to_video"

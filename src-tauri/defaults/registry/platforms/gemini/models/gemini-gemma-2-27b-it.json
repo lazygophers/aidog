@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790271384,
   "model_id": "gemini-gemma-2-27b-it",
   "canonical_model": "gemini-gemma-2-27b-it",
+  "family": "gemma",
+  "version": "2",
   "capabilities": [
     "text"
   ],

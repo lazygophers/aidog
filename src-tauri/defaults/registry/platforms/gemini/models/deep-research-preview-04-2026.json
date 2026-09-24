@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790271384,
   "model_id": "deep-research-preview-04-2026",
   "canonical_model": "deep-research-preview-04-2026",
+  "family": "deep-research",
   "display_name": "Gemini Deep Research",
   "capabilities": [
     "text"
