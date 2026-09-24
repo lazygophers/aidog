@@ -104,9 +104,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   （旧世代 claude/kimi/mistral）；10 新模型。中间过程绞坏 14 文件后重建
   （教训：price 块尾无逗号时插入要处理两种形状——已在多轮重犯，考虑给
   check-registry 加预检或写公共编辑工具）。
-- 2026-09-24 第 9 轮 gemini `1bb3ada7`+`219e1c2`：ctx 数量级修正 4、max_out 65535→65536
-  ×7、image 系出价改 per-image token 价、robotics-er-2 现行价、gemma-4 付费价清零、
-  thinking 填充、下架 10 条（3 条未来日期模型恢复保留）。NO_OFFICIAL_CHANNEL +3。
+- 2026-09-24 第 10 轮 novita：108 条官方模型数据对齐（88 条既有条目修正价格/上下文/输出上限/输入上限/能力；新增 8 条有效模型，2 条上下文为 0 的候选不登记）；不删除 57 条无官方对应条目。Novita 为聚合/转售平台，新模型均 `official:false`；新增 Novita-only 模型加入 `NO_OFFICIAL_CHANNEL` 豁免，`check:registry` 4568 文件通过，`aidog_db` 351 tests 通过。
 - 待确认攒问（一次性问）：① aihubmix 400+ 全量镜像；② discount/context_tiers 维度；
   ③ bailian_en GLM/Kimi 国际价复核；④ therouter per-image 计价口径；⑤ anthropic/google
   官方平台自身条目未核；⑥ gemini 平台 91/154 非 Gemini API 文件（Vertex 来源，
