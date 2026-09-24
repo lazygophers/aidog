@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "kimi-for-coding-free",
   "canonical_model": "kimi-for-coding-free",
   "display_name": "Kimi For Coding (free)",
@@ -7,6 +7,7 @@
   "max_output_tokens": 32768,
   "context_window": 256000,
   "capabilities": [],
+  "max_input_tokens": 256000,
   "official": false,
   "price": {
     "input": 0.0

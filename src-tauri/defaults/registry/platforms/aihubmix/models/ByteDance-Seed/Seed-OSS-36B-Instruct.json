@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
   "canonical_model": "Seed-OSS-36B-Instruct",
   "thinking_supported": true,
@@ -8,7 +8,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 256000,
   "max_output_tokens": 32000,
   "context_window": 256000,
   "official": false,

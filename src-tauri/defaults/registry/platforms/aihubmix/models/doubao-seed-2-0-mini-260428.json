@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "doubao-seed-2-0-mini-260428",
   "canonical_model": "seed-2-0-mini-260428",
   "display_name": "Doubao Seed 2.0 Mini 260428",
@@ -8,7 +8,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 229376,
+  "max_input_tokens": 256000,
   "max_output_tokens": 128000,
   "context_window": 256000,
   "official": false,

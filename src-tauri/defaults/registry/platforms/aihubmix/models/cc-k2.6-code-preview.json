@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "cc-k2.6-code-preview",
   "canonical_model": "k2.6-code-preview",
   "display_name": "CC K2.6 Code Preview",
@@ -8,6 +8,7 @@
     "vision",
     "video"
   ],
+  "max_input_tokens": 262144,
   "official": false,
   "price": {
     "input": 2e-07,

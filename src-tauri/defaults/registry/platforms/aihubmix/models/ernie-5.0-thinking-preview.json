@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "ernie-5.0-thinking-preview",
   "canonical_model": "ernie-5.0-thinking-preview",
   "display_name": "ERNIE 5.0 Thinking Preview",
@@ -8,7 +8,7 @@
     "text",
     "reasoning"
   ],
-  "max_input_tokens": 121856,
+  "max_input_tokens": 183000,
   "max_output_tokens": 64000,
   "context_window": 183000,
   "official": false,

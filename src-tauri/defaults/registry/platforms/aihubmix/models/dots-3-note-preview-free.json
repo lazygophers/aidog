@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "dots-3-note-preview-free",
   "canonical_model": "dots-3-note-preview-free",
   "display_name": "Dots 3 Note Preview (free)",
   "context_window": 524288,
   "capabilities": [],
+  "max_input_tokens": 524288,
   "official": false,
   "price": {
     "input": 0.0

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790286522,
   "model_id": "longcat-2.0",
   "canonical_model": "LongCat-2.0",
   "display_name": "Longcat 2.0",
@@ -10,7 +10,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 1048756,
+  "max_input_tokens": 1000000,
   "max_output_tokens": 131072,
   "context_window": 1000000,
   "official": false,

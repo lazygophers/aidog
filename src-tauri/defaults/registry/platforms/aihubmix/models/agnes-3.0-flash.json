@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "agnes-3.0-flash",
   "canonical_model": "agnes-3.0-flash",
   "display_name": "Agnes 3.0 Flash",
@@ -7,6 +7,7 @@
   "context_window": 512000,
   "max_output_tokens": 65500,
   "thinking_supported": true,
+  "max_input_tokens": 512000,
   "official": false,
   "price": {
     "input": 3e-08,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "intern-s2-free",
   "canonical_model": "intern-s2-free",
   "display_name": "Intern S2 (free)",
@@ -8,6 +8,7 @@
     "text",
     "vision"
   ],
+  "max_input_tokens": 262144,
   "official": false,
   "price": {
     "input": 0,

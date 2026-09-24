@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "mai-thinking-1",
   "canonical_model": "mai-thinking-1",
   "display_name": "Mai Thinking 1",
   "max_output_tokens": 64000,
   "context_window": 256000,
   "capabilities": [],
+  "max_input_tokens": 256000,
   "official": false,
   "thinking_supported": true,
   "price": {

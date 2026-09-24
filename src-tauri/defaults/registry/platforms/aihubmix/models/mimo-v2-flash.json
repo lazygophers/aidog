@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "mimo-v2-flash",
   "canonical_model": "mimo-v2-flash",
   "display_name": "MiMo V2 Flash",
@@ -9,6 +9,7 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1048576,
   "official": false,
   "price": {
     "input": 1.918e-7,

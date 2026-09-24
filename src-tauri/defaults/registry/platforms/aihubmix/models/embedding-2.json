@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "embedding-2",
   "canonical_model": "embedding-2",
   "display_name": "Embedding 2",
@@ -7,6 +7,7 @@
   "capabilities": [
     "embedding"
   ],
+  "max_input_tokens": 8000,
   "official": false,
   "price": {
     "input": 6.86e-08,

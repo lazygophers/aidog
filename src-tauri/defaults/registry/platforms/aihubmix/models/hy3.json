@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "hy3",
   "canonical_model": "hy3",
   "display_name": "Hy3",
@@ -8,7 +8,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 256000,
   "max_output_tokens": 128000,
   "context_window": 256000,
   "official": false,

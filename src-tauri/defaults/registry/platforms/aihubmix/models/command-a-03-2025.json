@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "command-a-03-2025",
   "canonical_model": "command-a-03-2025",
   "display_name": "Command A 03 2025",
   "max_output_tokens": 8000,
   "context_window": 256000,
   "capabilities": [],
+  "max_input_tokens": 256000,
   "official": false,
   "price": {
     "input": 0.0000025,

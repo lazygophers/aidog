@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "nemotron-3-nano-30b-a3b-free",
   "canonical_model": "nemotron-3-nano-30b-a3b-free",
   "display_name": "Nemotron 3 Nano 30B A3B (free)",
   "max_output_tokens": 1048576,
   "context_window": 1048576,
   "capabilities": [],
+  "max_input_tokens": 1048576,
   "official": false,
   "price": {
     "input": 0.0
