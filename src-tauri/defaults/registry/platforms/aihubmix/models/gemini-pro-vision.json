@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gemini-pro-vision",
+  "canonical_model": "gemini-pro-vision",
+  "display_name": "Gemini Pro Vision",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 1e-06
+  }
+}

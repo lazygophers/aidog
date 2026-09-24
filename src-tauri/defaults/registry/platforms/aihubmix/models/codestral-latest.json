@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "codestral-latest",
+  "canonical_model": "codestral-latest",
+  "display_name": "Codestral",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 1.2e-06
+  }
+}

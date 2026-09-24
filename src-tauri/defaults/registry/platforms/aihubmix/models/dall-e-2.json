@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "dall-e-2",
+  "canonical_model": "dall-e-2",
+  "display_name": "Dall E 2",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 1.6e-05
+  }
+}

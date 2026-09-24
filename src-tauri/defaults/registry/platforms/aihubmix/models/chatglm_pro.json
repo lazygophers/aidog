@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "chatglm_pro",
+  "canonical_model": "chatglm_pro",
+  "display_name": "Chatglm_pro",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4286e-06,
+    "output": 1.4286e-06
+  }
+}

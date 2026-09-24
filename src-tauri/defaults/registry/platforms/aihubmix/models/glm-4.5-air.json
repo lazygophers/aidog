@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "display_name": "GLM 4.5 Air",
+  "max_output_tokens": 98304,
+  "context_window": 131072,
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 8.4e-07
+  }
+}

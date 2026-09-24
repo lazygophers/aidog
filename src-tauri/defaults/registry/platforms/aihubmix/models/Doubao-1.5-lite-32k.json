@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-1.5-lite-32k",
+  "canonical_model": "doubao-1-5-lite-32k",
+  "display_name": "Doubao 1.5 Lite 32K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5e-08,
+    "output": 1e-07,
+    "cache_read": 1e-08
+  }
+}

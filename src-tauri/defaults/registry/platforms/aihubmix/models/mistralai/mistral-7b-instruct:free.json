@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "mistralai/mistral-7b-instruct:free",
+  "canonical_model": "mistral-7b-instruct:free",
+  "display_name": "Mistral 7B Instruct (free)",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-09,
+    "output": 2e-09
+  }
+}

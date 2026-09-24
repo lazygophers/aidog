@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-3.5-turbo-16k",
+  "canonical_model": "gpt-3.5-turbo-16k",
+  "display_name": "GPT 3.5 Turbo 16K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-06,
+    "output": 4e-06
+  }
+}

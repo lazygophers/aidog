@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "claude-2",
+  "canonical_model": "claude-2",
+  "display_name": "Claude 2",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 8.8e-06,
+    "output": 8.8e-06
+  }
+}

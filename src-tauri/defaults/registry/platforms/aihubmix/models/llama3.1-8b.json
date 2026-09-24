@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama3.1-8b",
+  "canonical_model": "llama3.1-8b",
+  "display_name": "Llama3.1 8B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-07,
+    "output": 6e-07
+  }
+}

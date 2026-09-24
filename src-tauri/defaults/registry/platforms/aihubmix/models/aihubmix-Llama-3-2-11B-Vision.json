@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "aihubmix-Llama-3-2-11B-Vision",
+  "canonical_model": "llama-3-2-11b-vision",
+  "display_name": "Aihubmix Llama 3.2 11B Vision",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 4e-07
+  }
+}

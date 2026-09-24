@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "deepseek-ai/deepseek-llm-67b-chat",
+  "canonical_model": "deepseek-llm-67b-chat",
+  "display_name": "DeepSeek Llm 67B Chat",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.6e-07,
+    "output": 1.6e-07
+  }
+}

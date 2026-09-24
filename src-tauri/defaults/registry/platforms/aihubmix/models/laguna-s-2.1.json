@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "laguna-s-2.1",
+  "canonical_model": "laguna-s-2.1",
+  "display_name": "Laguna S 2.1",
+  "context_window": 1048576,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 2e-07,
+    "cache_read": 1e-08
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama-3.2-90b-vision-preview",
+  "canonical_model": "llama-3.2-90b-vision-preview",
+  "display_name": "Llama 3.2 90B Vision Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.4e-06,
+    "output": 2.4e-06
+  }
+}

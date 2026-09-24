@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-image-test",
+  "canonical_model": "gpt-image-test",
+  "display_name": "GPT Image Test",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5e-06,
+    "output": 4e-05
+  }
+}

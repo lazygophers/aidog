@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-image-1.5",
+  "canonical_model": "gpt-image-1.5",
+  "display_name": "GPT Image 1.5",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 1e-05
+  }
+}

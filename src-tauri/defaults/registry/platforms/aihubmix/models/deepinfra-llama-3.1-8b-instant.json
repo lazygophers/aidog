@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "deepinfra-llama-3.1-8b-instant",
+  "canonical_model": "llama-3.1-8b-instant",
+  "display_name": "Deepinfra Llama 3.1 8B Instant",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3.3e-08,
+    "output": 5.4978e-08
+  }
+}

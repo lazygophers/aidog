@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "ahm-Phi-3-small-128k",
+  "canonical_model": "phi-3-small-128k",
+  "display_name": "Ahm Phi 3 Small 128K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 3e-06
+  }
+}

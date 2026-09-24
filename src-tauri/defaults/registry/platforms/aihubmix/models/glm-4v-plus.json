@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "glm-4v-plus",
+  "canonical_model": "glm-4v-plus",
+  "display_name": "GLM 4 Vision Plus",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 2e-06
+  }
+}

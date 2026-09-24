@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-lite-4k",
+  "canonical_model": "doubao-lite-4k",
+  "display_name": "Doubao Lite 4K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6e-08,
+    "output": 1.2e-07
+  }
+}

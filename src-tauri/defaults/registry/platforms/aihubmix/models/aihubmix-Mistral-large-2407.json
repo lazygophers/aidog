@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "aihubmix-Mistral-large-2407",
+  "canonical_model": "mistral-large-2407",
+  "display_name": "Aihubmix Mistral Large 2407",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-06,
+    "output": 9e-06
+  }
+}

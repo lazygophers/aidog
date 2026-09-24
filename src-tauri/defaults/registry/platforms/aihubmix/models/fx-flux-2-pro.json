@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "fx-flux-2-pro",
+  "canonical_model": "fx-flux-2-pro",
+  "display_name": "Fx Flux 2 Pro",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 0
+  }
+}

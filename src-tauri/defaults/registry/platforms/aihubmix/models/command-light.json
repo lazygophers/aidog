@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "command-light",
+  "canonical_model": "command-light",
+  "display_name": "Command Light",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 2e-06
+  }
+}

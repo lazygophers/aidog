@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-lite-128k",
+  "canonical_model": "doubao-lite-128k",
+  "display_name": "Doubao Lite 128K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 2.8e-07
+  }
+}

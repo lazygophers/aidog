@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "ahm-Phi-3-medium-4k",
+  "canonical_model": "phi-3-medium-4k",
+  "display_name": "Ahm Phi 3 Medium 4K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 3e-06
+  }
+}

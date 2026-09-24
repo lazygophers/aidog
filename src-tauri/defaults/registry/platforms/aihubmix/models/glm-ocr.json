@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "glm-ocr",
+  "canonical_model": "glm-ocr",
+  "display_name": "GLM Ocr",
+  "context_window": 32000,
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 2.82e-08,
+    "output": 2.82e-08
+  }
+}

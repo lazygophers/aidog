@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "grok-3-fast",
+  "canonical_model": "grok-3-fast",
+  "display_name": "Grok 3 Fast",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5.5e-06,
+    "output": 2.75e-05
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "dall-e-3",
+  "canonical_model": "dall-e-3",
+  "display_name": "Dall E 3",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 4e-05
+  }
+}

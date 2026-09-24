@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "jina-reranker-v3",
+  "canonical_model": "jina-reranker-v3",
+  "display_name": "Jina Reranker V3",
+  "context_window": 131072,
+  "capabilities": [
+    "vision",
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 5e-08,
+    "output": 5e-08
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-pro-4k",
+  "canonical_model": "doubao-pro-4k",
+  "display_name": "Doubao Pro 4K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 3.5e-07
+  }
+}

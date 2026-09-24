@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "doubao-embedding-text-240715",
+  "canonical_model": "doubao-embedding-text-240715",
+  "display_name": "Doubao Embedding Text 240715",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 7e-07,
+    "output": 7e-07
+  }
+}

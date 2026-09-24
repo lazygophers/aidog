@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-3.8-27b",
+  "canonical_model": "qwen-3.8-27b",
+  "display_name": "Qwen 3.8 27B",
+  "context_window": 131072,
+  "capabilities": [
+    "text",
+    "vision",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.1e-06,
+    "output": 1.65e-06
+  }
+}

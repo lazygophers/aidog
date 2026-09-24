@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Qwen/QVQ-72B-Preview",
+  "canonical_model": "qvq-72b-preview",
+  "display_name": "Qvq 72B Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.2e-06,
+    "output": 1.2e-06
+  }
+}

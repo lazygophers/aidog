@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "deepseek-ai/DeepSeek-R1-Zero",
+  "canonical_model": "deepseek-r1-zero",
+  "display_name": "DeepSeek R1 Zero",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.2e-06,
+    "output": 2.2e-06
+  }
+}

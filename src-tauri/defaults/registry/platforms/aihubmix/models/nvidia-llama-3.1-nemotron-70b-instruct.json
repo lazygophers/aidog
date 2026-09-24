@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "nvidia-llama-3.1-nemotron-70b-instruct",
+  "canonical_model": "nvidia-llama-3.1-nemotron-70b-instruct",
+  "display_name": "Nvidia Llama 3.1 Nemotron 70B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.32e-06,
+    "output": 1.32e-06
+  }
+}

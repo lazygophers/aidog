@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama2-7b-2048",
+  "canonical_model": "llama2-7b-2048",
+  "display_name": "Llama2 7B 2048",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 1e-07
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "coding-xiaomi-mimo-v2.6-flash",
+  "canonical_model": "xiaomi-mimo-v2.6-flash",
+  "display_name": "Coding Xiaomi Mimo V2.6 Flash",
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning",
+    "audio",
+    "video"
+  ],
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 8e-08,
+    "output": 1.6e-07,
+    "cache_read": 1.6e-09
+  }
+}

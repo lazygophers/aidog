@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "xiaomi-mimo-v2.6-pro-free",
+  "canonical_model": "xiaomi-mimo-v2.6-pro-free",
+  "display_name": "Xiaomi Mimo V2.6 Pro (free)",
+  "max_output_tokens": 131072,
+  "context_window": 1048576,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning",
+    "audio",
+    "video"
+  ],
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

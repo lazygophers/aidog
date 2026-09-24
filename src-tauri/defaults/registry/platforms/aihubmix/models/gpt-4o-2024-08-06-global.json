@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-4o-2024-08-06-global",
+  "canonical_model": "gpt-4o-2024-08-06-global",
+  "display_name": "GPT 4o 2024 08-06 Global",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.5e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-06
+  }
+}

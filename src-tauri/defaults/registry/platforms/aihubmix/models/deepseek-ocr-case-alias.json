@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "deepseek-ocr",
+  "canonical_model": "DeepSeek-OCR",
+  "display_name": "DeepSeek Ocr",
+  "context_window": 8000,
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-08,
+    "output": 2e-08
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "google-gemma-3-12b-it",
+  "canonical_model": "google-gemma-3-12b-it",
+  "display_name": "Google Gemma 3 12B It",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 2e-07
+  }
+}

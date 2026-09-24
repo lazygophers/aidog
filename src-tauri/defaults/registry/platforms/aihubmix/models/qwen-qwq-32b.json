@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-qwq-32b",
+  "canonical_model": "qwen-qwq-32b",
+  "display_name": "Qwen Qwq 32B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 8e-07
+  }
+}

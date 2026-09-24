@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790223763,
   "model_id": "doubao-seed-2-0-lite-260428",
   "canonical_model": "seed-2-0-lite-260428",
   "display_name": "Doubao Seed 2.0 Lite 260428",
@@ -14,8 +14,8 @@
   "official": false,
   "price": {
     "input": 9.041e-08,
-    "output": 5.424600000000001e-07,
-    "cache_read": 1.692e-8,
+    "output": 5.4246e-07,
+    "cache_read": 1.8082e-08,
     "context_tiers": [
       {
         "min_tokens": 32001,

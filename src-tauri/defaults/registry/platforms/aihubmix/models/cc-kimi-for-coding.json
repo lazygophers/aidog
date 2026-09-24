@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "cc-kimi-for-coding",
+  "canonical_model": "kimi-for-coding",
+  "display_name": "CC Kimi For Coding",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 2e-07,
+    "cache_read": 2e-08
+  }
+}

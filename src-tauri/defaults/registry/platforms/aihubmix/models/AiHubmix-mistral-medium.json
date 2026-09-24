@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "AiHubmix-mistral-medium",
+  "canonical_model": "mistral-medium",
+  "display_name": "Aihubmix Mistral Medium",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 2e-06
+  }
+}

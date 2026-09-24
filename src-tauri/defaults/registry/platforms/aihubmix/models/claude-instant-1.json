@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "claude-instant-1",
+  "canonical_model": "claude-instant-1",
+  "display_name": "Claude Instant 1",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.793e-06,
+    "output": 1.793e-06
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "ahm-Phi-3-medium-128k",
+  "canonical_model": "phi-3-medium-128k",
+  "display_name": "Ahm Phi 3 Medium 128K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6e-06,
+    "output": 1.8e-05
+  }
+}

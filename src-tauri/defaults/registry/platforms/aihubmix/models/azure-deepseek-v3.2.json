@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "azure-deepseek-v3.2",
+  "canonical_model": "DeepSeek-V3.2",
+  "display_name": "Azure Deepseek V3.2",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5.8e-07,
+    "output": 1.680028e-06
+  }
+}

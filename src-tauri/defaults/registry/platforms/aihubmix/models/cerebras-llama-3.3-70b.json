@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "cerebras-llama-3.3-70b",
+  "canonical_model": "cerebras-llama-3.3-70b",
+  "display_name": "Cerebras Llama 3.3 70B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6e-07,
+    "output": 6e-07
+  }
+}

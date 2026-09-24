@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "mai-image-2.6",
+  "canonical_model": "mai-image-2.6",
+  "display_name": "Mai Image 2.6",
+  "max_output_tokens": 4096,
+  "context_window": 32000,
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 5e-06
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "cc-k2.6-code-preview",
+  "canonical_model": "k2.6-code-preview",
+  "display_name": "CC K2.6 Code Preview",
+  "context_window": 262144,
+  "capabilities": [
+    "vision",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 2e-07,
+    "cache_read": 2e-08
+  }
+}

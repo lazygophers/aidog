@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "doubao-seedream-4-0",
+  "canonical_model": "doubao-seedream-4-0",
+  "display_name": "Doubao Seedream 4.0",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0
+  }
+}

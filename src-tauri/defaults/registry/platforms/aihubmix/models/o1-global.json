@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "o1-global",
+  "canonical_model": "o1-global",
+  "display_name": "O1 Global",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.5e-05,
+    "output": 6e-05,
+    "cache_read": 7.5e-06
+  }
+}

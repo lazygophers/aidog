@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "aihubmix-Llama-3-1-8B-Instruct",
+  "canonical_model": "llama-3.1-8b-instruct",
+  "display_name": "Aihubmix Llama 3.1 8B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-07,
+    "output": 6e-07
+  }
+}

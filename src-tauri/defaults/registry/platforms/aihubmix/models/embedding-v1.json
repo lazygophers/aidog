@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "embedding-v1",
+  "canonical_model": "embedding-v1",
+  "display_name": "Embedding V1",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 6.8e-08,
+    "output": 0
+  }
+}

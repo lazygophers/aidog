@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qianfan-qi-vl",
+  "canonical_model": "qi-vl",
+  "display_name": "Qianfan Qi VL",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 6e-07
+  }
+}

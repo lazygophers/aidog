@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "coding-xiaomi-mimo-v2.6-pro",
+  "canonical_model": "xiaomi-mimo-v2.6-pro",
+  "display_name": "Coding Xiaomi Mimo V2.6 Pro",
+  "context_window": 1048576,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 4e-07,
+    "cache_read": 1.6e-09
+  }
+}

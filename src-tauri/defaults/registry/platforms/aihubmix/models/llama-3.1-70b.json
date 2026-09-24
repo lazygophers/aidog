@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama-3.1-70b",
+  "canonical_model": "llama-3.1-70b",
+  "display_name": "Llama 3.1 70B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4.4e-07,
+    "output": 4.4e-07
+  }
+}

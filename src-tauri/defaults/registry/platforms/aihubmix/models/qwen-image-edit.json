@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-image-edit",
+  "canonical_model": "qwen-image-edit",
+  "display_name": "Qwen Image Edit",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0
+  }
+}

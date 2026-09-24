@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "wan2.5-i2v-preview",
+  "canonical_model": "wan2.5-i2v-preview",
+  "display_name": "Wan2.5 I2v Preview",
+  "capabilities": [
+    "vision",
+    "text_to_video",
+    "image_to_video",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0
+  }
+}

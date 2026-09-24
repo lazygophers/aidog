@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "grok-3-mini-fast-beta",
+  "canonical_model": "grok-3-mini-fast-beta",
+  "display_name": "Grok 3 Mini Fast Beta",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3.3e-07,
+    "output": 2.20011e-06
+  }
+}

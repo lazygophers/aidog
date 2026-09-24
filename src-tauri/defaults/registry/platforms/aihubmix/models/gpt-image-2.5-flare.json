@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-image-2.5-flare",
+  "canonical_model": "gpt-image-2.5-flare",
+  "display_name": "GPT Image 2.5 Flare",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 3e-05
+  }
+}

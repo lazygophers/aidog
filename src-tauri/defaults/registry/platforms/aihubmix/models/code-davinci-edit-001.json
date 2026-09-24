@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "code-davinci-edit-001",
+  "canonical_model": "code-davinci-edit-001",
+  "display_name": "Code Davinci Edit 001",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-05,
+    "output": 2e-05
+  }
+}

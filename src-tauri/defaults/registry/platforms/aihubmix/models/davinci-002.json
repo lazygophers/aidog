@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "davinci-002",
+  "canonical_model": "davinci-002",
+  "display_name": "Davinci 002",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 2e-06
+  }
+}

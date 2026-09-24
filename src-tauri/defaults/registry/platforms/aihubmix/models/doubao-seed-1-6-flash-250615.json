@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "doubao-seed-1-6-flash-250615",
+  "canonical_model": "doubao-seed-1-6-flash-250615",
+  "display_name": "Doubao Seed 1.6 Flash 250615",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4.4e-08,
+    "output": 4.4e-07,
+    "cache_read": 8.8e-09
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "doubao-seedream-5.0-pro",
+  "canonical_model": "doubao-seedream-5.0-pro",
+  "display_name": "Doubao Seedream 5.0 Pro",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0
+  }
+}

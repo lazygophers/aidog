@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "MiniMaxAI/MiniMax-M1-80k",
+  "canonical_model": "minimax-m1-80k",
+  "display_name": "MiniMax M1 80K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6e-07,
+    "output": 2.4e-06
+  }
+}

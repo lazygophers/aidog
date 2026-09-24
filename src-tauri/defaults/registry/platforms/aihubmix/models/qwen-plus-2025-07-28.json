@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-plus-2025-07-28",
+  "canonical_model": "qwen-plus-2025-07-28",
+  "display_name": "Qwen Plus 2025 07-28",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.126e-07,
+    "output": 1.126e-06,
+    "cache_read": 2.252e-08,
+    "cache_write": 1.4075e-07
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gemini-embedding-exp-03-07",
+  "canonical_model": "gemini-embedding-exp-03-07",
+  "display_name": "Gemini Embedding",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-08,
+    "output": 2e-08
+  }
+}

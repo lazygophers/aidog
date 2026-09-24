@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "whisper-large-v3",
+  "canonical_model": "whisper-large-v3",
+  "display_name": "Whisper Large V3",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 3.0834e-05,
+    "output": 3.0834e-05
+  }
+}

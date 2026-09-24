@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-max-0125",
+  "canonical_model": "qwen-max-0125",
+  "display_name": "Qwen Max 0125",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3.8e-07,
+    "output": 1.52e-06
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen3-reranker-0.6b",
+  "canonical_model": "Qwen3-Reranker-0.6B",
+  "display_name": "Qwen3 Reranker 0.6b",
+  "max_output_tokens": 8000,
+  "context_window": 16000,
+  "capabilities": [
+    "vision",
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.1e-07,
+    "output": 1.1e-07
+  }
+}

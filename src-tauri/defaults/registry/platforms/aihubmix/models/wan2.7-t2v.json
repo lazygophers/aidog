@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "wan2.7-t2v",
+  "canonical_model": "wan2.7-t2v",
+  "display_name": "Wan2.7 T2v",
+  "capabilities": [
+    "text_to_video",
+    "audio",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0
+  }
+}

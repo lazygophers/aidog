@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "kimi-thinking-preview",
+  "canonical_model": "kimi-thinking-preview",
+  "display_name": "Kimi Thinking Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-05,
+    "output": 3e-05
+  }
+}

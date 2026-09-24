@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "omni-moderation-latest",
+  "canonical_model": "omni-moderation-latest",
+  "display_name": "Omni Moderation",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-08,
+    "output": 2e-08
+  }
+}
