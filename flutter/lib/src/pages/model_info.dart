@@ -110,6 +110,8 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
     final result = _c.syncResult;
     return Tile(
       title: t.t('modelInfo.syncTitle'),
+      // React 在同步卡里带一句描述（`SyncStatusCard.tsx:46`）。
+      meta: t.t('modelInfo.syncDesc'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -517,9 +519,7 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                             color: _c.activePlatform == code
                                 ? theme.c.accentWash
                                 : null,
-                            borderRadius: BorderRadius.circular(
-                              AidogRadius.sm,
-                            ),
+                            borderRadius: BorderRadius.circular(AidogRadius.sm),
                             border: BorderDirectional(
                               start: BorderSide(
                                 color: _c.activePlatform == code

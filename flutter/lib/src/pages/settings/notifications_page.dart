@@ -123,9 +123,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(
-                          color: AidogTheme.of(context).c.line,
-                        ),
+                        top: BorderSide(color: AidogTheme.of(context).c.line),
                       ),
                     ),
                     child: Padding(
@@ -157,9 +155,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             // 关 → 0（不清理）；开 → 回 7 天默认。
             value: s.inboxRetentionDays > 0,
             compact: true,
-            onChanged: () => _c.setInboxRetentionDays(
-              s.inboxRetentionDays > 0 ? 0 : 7,
-            ),
+            onChanged: () =>
+                _c.setInboxRetentionDays(s.inboxRetentionDays > 0 ? 0 : 7),
           ),
           child: s.inboxRetentionDays > 0
               ? Padding(
@@ -167,9 +164,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border(
-                        top: BorderSide(
-                          color: AidogTheme.of(context).c.line,
-                        ),
+                        top: BorderSide(color: AidogTheme.of(context).c.line),
                       ),
                     ),
                     child: Padding(
@@ -185,9 +180,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                           onChanged: (v) {
                             // 限 [1,3650]；0 仅由开关切「不清理」。
                             final n = int.tryParse(v) ?? 1;
-                            _c.setInboxRetentionDays(
-                              n.clamp(1, 3650),
-                            );
+                            _c.setInboxRetentionDays(n.clamp(1, 3650));
                           },
                         ),
                         unit: t.t('notif.retentionDaysUnit'),
@@ -236,65 +229,65 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   Widget _testBar(I18nController t, NotificationSettings s) {
     final texts = _texts(t);
     return Opacity(
-    key: const ValueKey('notif-test-bar-dim'),
-    opacity: s.enabled ? 1 : 0.55,
-    child: Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-      child: Tile(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Wrap(
-          spacing: AidogSpace.ssm,
-          runSpacing: AidogSpace.sxs,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            Text(
-              t.t('notif.testChannels'),
-              style: AidogType.caption.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AidogTheme.of(context).c.fg,
+      key: const ValueKey('notif-test-bar-dim'),
+      opacity: s.enabled ? 1 : 0.55,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+        child: Tile(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          child: Wrap(
+            spacing: AidogSpace.ssm,
+            runSpacing: AidogSpace.sxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                t.t('notif.testChannels'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AidogTheme.of(context).c.fg,
+                ),
               ),
-            ),
-            SmallButton(
-              ghost: true,
-              key: const ValueKey('test-tts'),
-              fontSize: 12,
-              padding: (10, 4),
-              label: '🔊 ${t.t('notif.testTtsLabel')}',
-              tooltip: t.t('notif.testTtsTip'),
-              onTap: s.enabled ? () => _c.testTts(texts) : null,
-            ),
-            SmallButton(
-              ghost: true,
-              key: const ValueKey('test-popup'),
-              fontSize: 12,
-              padding: (10, 4),
-              label: '🪟 ${t.t('notif.testPopupLabel')}',
-              tooltip: t.t('notif.testPopupTip'),
-              onTap: s.enabled ? () => _c.testPopup(texts) : null,
-            ),
-            SmallButton(
-              ghost: true,
-              key: const ValueKey('test-beep'),
-              fontSize: 12,
-              padding: (10, 4),
-              label: '🔔 ${t.t('notif.testBeepLabel')}',
-              tooltip: t.t('notif.testBeepTip'),
-              onTap: s.enabled ? _c.testBeep : null,
-            ),
-            SmallButton(
-              ghost: true,
-              key: const ValueKey('test-notify'),
-              fontSize: 12,
-              padding: (10, 4),
-              label: t.t('notif.test'),
-              onTap: s.enabled ? () => _c.testNotify(texts) : null,
-            ),
-          ],
+              SmallButton(
+                ghost: true,
+                key: const ValueKey('test-tts'),
+                fontSize: 12,
+                padding: (10, 4),
+                label: '🔊 ${t.t('notif.testTtsLabel')}',
+                tooltip: t.t('notif.testTtsTip'),
+                onTap: s.enabled ? () => _c.testTts(texts) : null,
+              ),
+              SmallButton(
+                ghost: true,
+                key: const ValueKey('test-popup'),
+                fontSize: 12,
+                padding: (10, 4),
+                label: '🪟 ${t.t('notif.testPopupLabel')}',
+                tooltip: t.t('notif.testPopupTip'),
+                onTap: s.enabled ? () => _c.testPopup(texts) : null,
+              ),
+              SmallButton(
+                ghost: true,
+                key: const ValueKey('test-beep'),
+                fontSize: 12,
+                padding: (10, 4),
+                label: '🔔 ${t.t('notif.testBeepLabel')}',
+                tooltip: t.t('notif.testBeepTip'),
+                onTap: s.enabled ? _c.testBeep : null,
+              ),
+              SmallButton(
+                ghost: true,
+                key: const ValueKey('test-notify'),
+                fontSize: 12,
+                padding: (10, 4),
+                label: t.t('notif.test'),
+                onTap: s.enabled ? () => _c.testNotify(texts) : null,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
-  );
+    );
   }
 
   Widget _eventList(I18nController t, NotificationSettings s) {
@@ -346,7 +339,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                         setting: effectiveEventSetting(s.perEvent, event),
                         disabled: disabled,
                         // 首次改动即把该事件的当前展示态整份物化进 per_event。
-                        onUpdate: (next) => _c.updateEvent(event, next.toJson()),
+                        onUpdate: (next) =>
+                            _c.updateEvent(event, next.toJson()),
                       ),
                   ],
                 ),
@@ -456,7 +450,8 @@ class _EventRow extends StatelessWidget {
                 compact: true,
                 onChanged: disabled
                     ? null
-                    : () => onUpdate(setting.copyWith(enabled: !setting.enabled)),
+                    : () =>
+                          onUpdate(setting.copyWith(enabled: !setting.enabled)),
               ),
               SizedBox(
                 width: 150,
@@ -499,15 +494,18 @@ class _EventRow extends StatelessWidget {
           ),
           const SizedBox(height: AidogSpace.ssm),
           // 第二行：模板 textarea，placeholder = 该事件专属默认模板。
-          PlainTextField(
-            key: ValueKey('event-template-$event'),
-            value: setting.template,
-            hint: defaultTemplateForEvent(event),
-            enabled: setting.enabled,
-            mono: true,
-            maxLines: null,
-            minLines: 2,
-            onSubmitted: (v) => onUpdate(setting.copyWith(template: v)),
+          Tooltip(
+            message: t.t('notif.fieldTemplate'),
+            child: PlainTextField(
+              key: ValueKey('event-template-$event'),
+              value: setting.template,
+              hint: defaultTemplateForEvent(event),
+              enabled: setting.enabled,
+              mono: true,
+              maxLines: null,
+              minLines: 2,
+              onSubmitted: (v) => onUpdate(setting.copyWith(template: v)),
+            ),
           ),
           const SizedBox(height: AidogSpace.ssm),
           // 第三行：该事件专属可用入参提示（每事件不同）。
