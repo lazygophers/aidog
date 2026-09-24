@@ -1,9 +1,10 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790266153,
   "model_id": "google/diffusiongemma-26b-a4b-it",
   "canonical_model": "diffusiongemma-26b-a4b-it",
   "capabilities": [
-    "text"
+    "text",
+    "video"
   ],
   "max_input_tokens": 262144,
   "official": true,

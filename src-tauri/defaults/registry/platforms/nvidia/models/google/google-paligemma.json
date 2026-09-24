@@ -1,16 +1,16 @@
 {
   "last_updated": 1790266153,
-  "model_id": "adept/fuyu-8b",
-  "canonical_model": "fuyu-8b",
-  "family": "fuyu",
+  "model_id": "google/google-paligemma",
+  "canonical_model": "paligemma",
   "thinking_supported": false,
   "capabilities": [
+    "text",
     "vision"
   ],
+  "context_window": 8192,
   "official": true,
   "price": {
     "input": 0.0,
     "output": 0.0
-  },
-  "context_window": 16384
+  }
 }

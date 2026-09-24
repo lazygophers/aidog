@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "nvidia/llama-nemotron-embed-vl-1b-v2",
   "canonical_model": "llama-nemotron-embed-vl-1b-v2",
+  "family": "nemotron",
   "capabilities": [
     "embedding",
     "vision"
@@ -10,5 +11,6 @@
   "price": {
     "input": 0.0,
     "output": 0.0
-  }
+  },
+  "context_window": 16384
 }

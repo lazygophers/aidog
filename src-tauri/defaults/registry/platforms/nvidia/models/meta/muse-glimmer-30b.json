@@ -1,11 +1,13 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790266153,
   "model_id": "meta/muse-glimmer-30b",
   "canonical_model": "muse-glimmer-30b",
+  "family": "muse",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
-    "text"
+    "text",
+    "vision"
   ],
   "max_input_tokens": 131072,
   "official": true,

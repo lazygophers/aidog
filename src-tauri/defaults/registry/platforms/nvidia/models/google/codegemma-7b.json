@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "google/codegemma-7b",
   "canonical_model": "codegemma-7b",
+  "family": "gemma",
   "capabilities": [],
   "official": true,
   "price": {

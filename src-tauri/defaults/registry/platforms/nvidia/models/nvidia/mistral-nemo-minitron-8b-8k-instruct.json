@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790266153,
   "model_id": "nvidia/mistral-nemo-minitron-8b-8k-instruct",
   "canonical_model": "mistral-nemo-minitron-8b-8k-instruct",
+  "family": "mistral",
   "capabilities": [],
   "official": true,
   "price": {

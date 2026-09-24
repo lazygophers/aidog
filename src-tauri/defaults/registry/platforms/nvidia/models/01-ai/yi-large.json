@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "01-ai/yi-large",
   "canonical_model": "yi-large",
+  "family": "yi",
   "capabilities": [],
   "official": true,
   "price": {

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790266153,
   "model_id": "nvidia/nemotron-3.5-content-safety",
   "canonical_model": "nemotron-3.5-content-safety",
-  "context_window": 128000,
+  "family": "nemotron",
+  "context_window": 131072,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

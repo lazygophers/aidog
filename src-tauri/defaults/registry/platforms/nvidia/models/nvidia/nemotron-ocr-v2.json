@@ -1,9 +1,11 @@
 {
   "last_updated": 1790266153,
-  "model_id": "nvidia/nemotron-4-340b-reward",
-  "canonical_model": "nemotron-4-340b-reward",
+  "model_id": "nvidia/nemotron-ocr-v2",
+  "canonical_model": "nemotron-ocr-v2",
   "family": "nemotron",
-  "capabilities": [],
+  "capabilities": [
+    "vision"
+  ],
   "official": true,
   "price": {
     "input": 0.0,

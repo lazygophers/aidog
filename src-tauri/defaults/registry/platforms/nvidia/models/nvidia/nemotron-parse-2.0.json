@@ -1,11 +1,12 @@
 {
   "last_updated": 1790266153,
-  "model_id": "nvidia/vila",
-  "canonical_model": "vila",
-  "family": "vila",
+  "model_id": "nvidia/nemotron-parse-2.0",
+  "canonical_model": "nemotron-parse-2.0",
+  "family": "nemotron",
   "capabilities": [
     "vision"
   ],
+  "context_window": 9000,
   "official": true,
   "price": {
     "input": 0.0,

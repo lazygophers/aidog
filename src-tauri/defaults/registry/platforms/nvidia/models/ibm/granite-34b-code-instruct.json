@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "ibm/granite-34b-code-instruct",
   "canonical_model": "granite-34b-code-instruct",
+  "family": "granite",
   "capabilities": [],
   "official": true,
   "price": {

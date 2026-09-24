@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "writer/palmyra-creative-122b",
   "canonical_model": "palmyra-creative-122b",
+  "family": "palmyra",
   "capabilities": [],
   "official": true,
   "price": {

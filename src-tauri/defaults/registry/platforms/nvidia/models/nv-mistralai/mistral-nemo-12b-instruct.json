@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085214,
+  "last_updated": 1790266153,
   "model_id": "nv-mistralai/mistral-nemo-12b-instruct",
   "canonical_model": "mistral-nemo-12b-instruct",
+  "family": "mistral",
   "capabilities": [],
   "official": true,
   "price": {

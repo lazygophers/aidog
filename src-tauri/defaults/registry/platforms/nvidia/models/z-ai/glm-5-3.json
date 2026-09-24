@@ -1,12 +1,13 @@
 {
   "last_updated": 1790266153,
-  "model_id": "nvidia/nemotron-parse",
-  "canonical_model": "nemotron-parse",
-  "family": "nemotron",
+  "model_id": "z-ai/glm-5-3",
+  "canonical_model": "glm-5.3",
+  "family": "glm",
   "thinking_supported": true,
   "capabilities": [
-    "vision"
+    "text"
   ],
+  "context_window": 1048576,
   "official": true,
   "price": {
     "input": 0.0,

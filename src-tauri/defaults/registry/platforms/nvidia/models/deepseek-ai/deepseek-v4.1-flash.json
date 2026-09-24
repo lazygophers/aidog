@@ -1,13 +1,14 @@
 {
   "last_updated": 1790266153,
-  "model_id": "nvidia/nemotron-parse",
-  "canonical_model": "nemotron-parse",
-  "family": "nemotron",
+  "model_id": "deepseek-ai/deepseek-v4.1-flash",
+  "canonical_model": "deepseek-v4.1-flash",
   "thinking_supported": true,
   "capabilities": [
+    "text",
     "vision"
   ],
-  "official": true,
+  "context_window": 1048576,
+  "official": false,
   "price": {
     "input": 0.0,
     "output": 0.0

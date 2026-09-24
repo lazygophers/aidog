@@ -1,8 +1,8 @@
 {
   "last_updated": 1790266153,
-  "model_id": "nvidia/vila",
-  "canonical_model": "vila",
-  "family": "vila",
+  "model_id": "nvidia/cosmos3-nano-reasoner",
+  "canonical_model": "cosmos3-nano-reasoner",
+  "family": "cosmos",
   "capabilities": [
     "vision"
   ],
