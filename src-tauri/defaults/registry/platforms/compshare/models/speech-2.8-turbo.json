@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790269926,
   "model_id": "speech-2.8-turbo",
   "canonical_model": "speech-2.8-turbo",
+  "family": "minimax",
   "capabilities": [
     "audio"
   ],
