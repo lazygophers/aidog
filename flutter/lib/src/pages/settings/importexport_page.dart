@@ -1309,6 +1309,14 @@ class _ImportExportPageState extends State<ImportExportPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
                             children: [
+                              // appType 大写小字（`CcSwitchImport.tsx:542-544`）：
+                              // claude / codex 混在一张清单里，先认类型再看名字。
+                              Text(
+                                '${p['appType'] ?? ''}'.toUpperCase(),
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.fg3,
+                                ),
+                              ),
                               Text(
                                 ltr('${p['name'] ?? p['id'] ?? i}'),
                                 overflow: TextOverflow.ellipsis,
