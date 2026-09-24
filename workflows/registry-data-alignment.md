@@ -187,3 +187,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   version 平移 484（缺口 7696 → 6699）。锚定索引 643 canonical 有 family 锚，None 视为
   缺省非冲突，真冲突 0；1890 canonical 官方组无锚 → 留缺省（镜像平台禁推断）。
   门禁：bump 731 文件 / check 8790 文件 / aidog_db 351 passed 全绿。
+- 2026-09-25 第 21 轮 aihubmix `4a8c7dd99`→merge `b043a0e48`+`2694826c8`（181 文件）：
+  family 平移 168、version 平移 59（缺口 2391 → 2164），官方组零分裂。index.json 合并
+  冲突取 max 时间戳；b043a0e48 曾短暂带冲突标记入 master（修复脚本漏逗号 parse 失败
+  未写盘但 ; 链继续 commit），`2694826c8` 前滚修复。门禁：check 8790 文件 /
+  aidog_db 351 passed 全绿。
