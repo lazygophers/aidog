@@ -2,6 +2,8 @@
   "model_id": "google/gemma-3-12b-it",
   "display_name": "Google: Gemma 3 12B",
   "canonical_model": "gemma-3-12b-it",
+  "family": "gemma",
+  "version": "3",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 5e-8,
     "output": 1.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]

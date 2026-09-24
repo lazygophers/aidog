@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-4.1-nano",
   "display_name": "OpenAI: GPT-4.1 Nano",
   "canonical_model": "gpt-4.1-nano",
+  "family": "gpt",
+  "version": "4.1",
   "max_input_tokens": 1047576,
   "context_window": 1047576,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 4e-7,
     "cache_read": 2.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-3.5-turbo",
   "display_name": "OpenAI: GPT-3.5 Turbo",
   "canonical_model": "gpt-3.5-turbo",
+  "family": "gpt",
+  "version": "3.5",
   "max_input_tokens": 16385,
   "context_window": 16385,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 5e-7,
     "output": 0.0000015
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,7 @@
   "model_id": "anthropic/claude-fable-5.1",
   "display_name": "Anthropic: Claude Fable 5.1",
   "canonical_model": "claude-fable-5-1",
+  "version": "5.1",
   "family": "claude",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
@@ -13,7 +14,7 @@
     "output": 0.00005,
     "cache_read": 2.5e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790273742,
   "capabilities": [
     "text"
   ]
