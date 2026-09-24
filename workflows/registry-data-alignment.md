@@ -242,3 +242,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `bc88af6c`→merge `45c0ee75`（28 文件）：deepseek-v4*/MiniMax-M 系 version 平移
   （562/561 → 548/547）；余量主体是 version 无官方锚（bailian 300 / bailian_en 227），
   需新官方源造锚。门禁全绿。
+- 2026-09-25 第 36 轮四平台二轮 `27155e6e`（171 文件）：therouter 73 / shengsuanyun 51 /
+  crazyrouter 47 填入，compshare 余量全无锚 0 填。覆盖率 family 47.3% / version 24.3%。
+  第 37 轮 litellm 无锚族（amazon nova/titan、cohere、ai21、stability、writer）从厂商
+  官方文档直接取证、第 38 轮 anthropic/xai/mistral 官方平台补齐（其缺值锁死 openrouter
+  等镜像同 canonical 格）进行中。
