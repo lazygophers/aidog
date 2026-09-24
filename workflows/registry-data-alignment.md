@@ -210,3 +210,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   158 格无锚留缺省。两轮门禁全绿。
 - 第 28 轮 gemini、第 29 轮 openai（官方平台造锚轮）进行中：填官方条目 family/version
   同时解锁镜像平台；openai 轮兼核实 crazyrouter 5 条 NO_OFFICIAL_CHANNEL 豁免的在售性。
+- 2026-09-25 第 28 轮 gemini `1fd678d44`→merge `13a0e58ad`（144 文件）：family 139 全填
+  （gemini/gemma/veo/lyria/robotics/claude 25/codestral 7/Vertex MaaS 26 族）+ version 124
+  （gemini 代际 1.5~3.8、claude 3~5.1、grok 4.20 官方明示）+ ctx 2；297 → 32，余量全部
+  官方未公布（@latest 别名、媒体模型无 token 上限）。造锚效应：镜像平台可平移的
+  family/version 新增约 260 格。合并后 cargo 一次 FAILED 为 mtime 陈旧构建（panic 行号
+  与源码错位），touch 重编译后 351 passed——遇「测试红但源码对不上」先 touch 再排查。
