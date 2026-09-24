@@ -12,7 +12,7 @@
 // 提交前跑：改了 platform.json / models/*.json 而时间戳没变新 → 同步永远跳过该文件。
 import { execSync } from "node:child_process";
 import { readFileSync, writeFileSync, statSync, readdirSync } from "node:fs";
-import { join, relative } from "node:path";
+import { join, relative, sep } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 const REG = join(ROOT, "src-tauri/defaults/registry");
@@ -51,8 +51,13 @@ for (let i = 0; i < statusEntries.length; i++) {
   }
 }
 const changed = new Set(
-  statusPaths
-    .map((p) => join(ROOT, p))
+  statusPaths.flatMap((p) => {
+    // git 对 untracked 目录输出带尾斜杠（"?? dir/"），归一化后再拼前缀
+    const absolute = join(ROOT, p).replace(/[/\\]+$/, "");
+    if (!statSync(absolute).isDirectory()) return [absolute];
+    const prefix = `${absolute}${sep}`;
+    return listRegistryFiles().filter((file) => file.startsWith(prefix));
+  })
     // schema/ 是 JSON Schema 文档不是数据，不盖戳（同一过滤与 listRegistryFiles 对齐）
     .filter((p) => !relative(REG, p).startsWith("schema/")),
 );
