@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "openai/gpt-image-2",
   "canonical_model": "gpt-image-2",
+  "family": "gpt",
+  "version": "2",
+  "display_name": "GPT-Image-2",
   "capabilities": [
     "text"
   ],

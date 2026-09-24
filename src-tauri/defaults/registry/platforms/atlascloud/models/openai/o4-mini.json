@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "openai/o4-mini",
   "canonical_model": "o4-mini",
+  "family": "o",
+  "version": "4",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

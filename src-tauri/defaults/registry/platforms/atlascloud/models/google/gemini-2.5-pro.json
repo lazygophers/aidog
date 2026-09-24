@@ -1,7 +1,10 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790267209,
   "model_id": "google/gemini-2.5-pro",
   "canonical_model": "gemini-2.5-pro",
+  "family": "gemini",
+  "version": "2.5",
+  "display_name": "Gemini 2.5 Pro",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

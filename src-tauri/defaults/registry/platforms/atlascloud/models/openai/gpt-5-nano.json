@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "openai/gpt-5-nano",
   "canonical_model": "gpt-5-nano",
+  "family": "gpt",
+  "version": "5",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
