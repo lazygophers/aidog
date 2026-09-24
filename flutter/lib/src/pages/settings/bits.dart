@@ -57,7 +57,9 @@ class SettingsCard extends StatelessWidget {
     return Opacity(
       opacity: dimmed ? 0.55 : 1,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: AidogSpace.smd),
+        // React 设置页 section 卡间距 20（AppSettings.tsx:71 的 gap: 20、
+        // editors/tokens.ts 的 S.sectionGap）。
+        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
         child: Tile(
           title: title,
           meta: meta,
@@ -117,6 +119,18 @@ class SwitchRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     final fg = onChanged == null ? theme.c.fg3 : theme.c.fg;
+    // 根因 A：React 开关行标题是 13px w600 正文级（`StartupSection.tsx:26-28`
+    // 等全部开关卡），描述 12px text-secondary。原先 label 13.5 w400 + micro 11，
+    // 整套低一档。
+    final titleStyle = AidogType.label.copyWith(
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      color: fg,
+    );
+    final descStyle = AidogType.caption.copyWith(
+      fontSize: 12,
+      color: onChanged == null ? theme.c.fg3 : theme.c.fg2,
+    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
       child: Row(
@@ -128,29 +142,20 @@ class SwitchRow extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (labelIcon == null)
-                  HighlightedText(
-                    label,
-                    style: AidogType.label.copyWith(color: fg),
-                  )
+                  HighlightedText(label, style: titleStyle)
                 else
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(labelIcon, size: 13, color: theme.c.fg3),
                       const SizedBox(width: 5),
-                      Flexible(
-                        child: HighlightedText(
-                          label,
-                          style: AidogType.label.copyWith(color: fg),
-                        ),
-                      ),
+                      Flexible(child: HighlightedText(label, style: titleStyle)),
                     ],
                   ),
-                if (description != null && description!.isNotEmpty)
-                  Text(
-                    description!,
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
-                  ),
+                if (description != null && description!.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(description!, style: descStyle),
+                ],
                 if (hint != null && hint!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -177,6 +182,393 @@ class SwitchRow extends StatelessWidget {
               onChanged: onChanged == null ? null : () => onChanged!(!value),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 根因 B：「一开关一卡」。React 设置页的每个开关各自一张 glass 卡
+/// （padding 16/20、标题 13 w600 + 描述 12，开关居右，`StartupSection.tsx:19-38`、
+/// `MitmConfig.tsx:259-270`、`SchedulingSettings.tsx:100-111` 等）；
+/// Flutter 原先多行并进一张 SettingsCard，整页卡片节奏两边完全不同。
+///
+/// [descriptions] 是多行说明（bindLan 那种两句），一行一个元素，行距 2。
+class ToggleCard extends StatelessWidget {
+  const ToggleCard({
+    super.key,
+    required this.label,
+    required this.value,
+    required this.onChanged,
+    this.descriptions,
+    this.hint,
+  });
+
+  final String label;
+
+  /// 说明行。单句传一个元素即可；null/空 = 无说明区。
+  final List<String>? descriptions;
+
+  /// 等宽小字「落点」（coding 四开关那种 hint，`CodingToolsSettings.tsx` ToggleCard）。
+  final String? hint;
+  final bool value;
+  final ValueChanged<bool>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final descs = descriptions ?? const <String>[];
+    final fg = onChanged == null ? theme.c.fg3 : theme.c.fg;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      child: Tile(
+        // React 的开关卡是 `padding: "16px 20px"`（竖 16 / 横 20），
+        // 不是 editors 分区卡的 28。
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    label,
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: fg,
+                    ),
+                  ),
+                  for (final d in descs.where((e) => e.isNotEmpty))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        d,
+                        style: AidogType.caption.copyWith(
+                          fontSize: 12,
+                          color: onChanged == null ? theme.c.fg3 : theme.c.fg2,
+                        ),
+                      ),
+                    ),
+                  if (hint != null && hint!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        ltr(hint!),
+                        style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: AidogSpace.smd),
+            Opacity(
+              opacity: onChanged == null ? 0.5 : 1,
+              child: AidogSwitch(
+                value: value,
+                compact: true,
+                onChanged: onChanged == null ? null : () => onChanged!(!value),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 带页头的设置卡：标题 13 w600 + 说明 12 在左、[trailing]（通常是开关）在右，
+/// 正文 [child] 在下。React 的「总开关卡 + 展开区」都是这个形态
+/// （`LogSettingsSection.tsx:104-112`、`UpstreamProxySection`、`NotificationSettings.tsx:311`）。
+class HeaderCard extends StatelessWidget {
+  const HeaderCard({
+    super.key,
+    required this.title,
+    this.descriptions,
+    this.trailing,
+    this.dimmed = false,
+    required this.child,
+  });
+
+  final String title;
+  final List<String>? descriptions;
+  final Widget? trailing;
+  final bool dimmed;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final descs = descriptions ?? const <String>[];
+    return Opacity(
+      opacity: dimmed ? 0.55 : 1,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+        child: Tile(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          title,
+                          style: AidogType.label.copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: theme.c.fg,
+                          ),
+                        ),
+                        for (final d in descs.where((e) => e.isNotEmpty))
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              d,
+                              style: AidogType.caption.copyWith(
+                                fontSize: 12,
+                                color: theme.c.fg2,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (trailing != null) ...[
+                    const SizedBox(width: AidogSpace.smd),
+                    trailing!,
+                  ],
+                ],
+              ),
+              child,
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 根因 C：横排小表单行。React 的 label（12px nowrap）+ 小输入框
+/// （h28、宽 70-120）+ 单位在同一行（`ProxyStatusSection.tsx:130-220`、
+/// `LogSettingsSection.tsx:144-206`、`SystemMiscSection.tsx:38-65`）；
+/// Flutter 原先一律「标签在上 + 控件全宽在下」。
+///
+/// [child] 是控件本体（自带宽度）；[unit] 是右侧的「秒 / 天」这类单位字。
+class InlineRow extends StatelessWidget {
+  const InlineRow({
+    super.key,
+    required this.label,
+    required this.child,
+    this.labelWidth,
+    this.unit,
+    this.suffix,
+  });
+
+  final String label;
+
+  /// label 列的最小宽度（React 的 `minWidth: 120`）；null = 按文字收缩。
+  final double? labelWidth;
+
+  final Widget child;
+
+  /// 单位字（「秒」「天」），12px tertiary。
+  final String? unit;
+
+  /// 单位之后还要摆的东西（保留期的单位下拉就挂这里）。
+  final Widget? suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final label = Text(
+      this.label,
+      style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg2),
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        if (labelWidth == null)
+          Padding(
+            padding: const EdgeInsets.only(right: AidogSpace.ssm),
+            child: label,
+          )
+        else
+          ConstrainedBox(
+            constraints: BoxConstraints(minWidth: labelWidth!),
+            child: Padding(
+              padding: const EdgeInsets.only(right: AidogSpace.ssm),
+              child: label,
+            ),
+          ),
+        child,
+        if (unit != null) ...[
+          const SizedBox(width: AidogSpace.ssm),
+          Text(
+            unit!,
+            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg3),
+          ),
+        ],
+        if (suffix != null) ...[const SizedBox(width: AidogSpace.ssm), suffix!],
+      ],
+    );
+  }
+}
+
+/// 横排行里的小下拉（React `UnitSelect` / 协议 Select：宽 80-100、h28、12px）。
+/// [SelectRow] 是纵向全宽形态，横排场景塞不进去。
+class InlineSelect<T> extends StatelessWidget {
+  const InlineSelect({
+    super.key,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+    this.labelOf,
+    this.width = 80,
+  });
+
+  final T value;
+  final List<T> options;
+  final ValueChanged<T?>? onChanged;
+  final String Function(T option)? labelOf;
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return SizedBox(
+      width: width,
+      child: DropdownButton<T>(
+        value: value,
+        underline: const SizedBox.shrink(),
+        isDense: true,
+        isExpanded: true,
+        dropdownColor: theme.c.surface2,
+        style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg),
+        onChanged: onChanged,
+        items: [
+          for (final o in options)
+            DropdownMenuItem<T>(
+              value: o,
+              child: Text(labelOf?.call(o) ?? '$o'),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 图标按钮（React 的 ghost icon button：14px 图标、无描边、悬浮解释挂 title）。
+/// 中间件规则行的编辑 / 删除、MITM 白名单的 ✕ 都是它。
+class IconGhostButton extends StatelessWidget {
+  const IconGhostButton({
+    super.key,
+    required this.icon,
+    this.onTap,
+    this.tooltip,
+    this.danger = false,
+    this.size = 14,
+  });
+
+  final IconData icon;
+  final VoidCallback? onTap;
+  final String? tooltip;
+  final bool danger;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final color = onTap == null
+        ? theme.c.fg3
+        : danger
+        ? theme.c.bad
+        : theme.c.fg2;
+    final btn = InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(icon, size: size, color: color),
+      ),
+    );
+    final tip = tooltip;
+    if (tip == null || tip.isEmpty) return btn;
+    return Tooltip(message: tip, child: btn);
+  }
+}
+
+/// 分段单选（React `primitives.tsx:243-285` 的 Segmented：外框 r-sm、
+/// 段间 borderLeft 分隔、选中段 accentWash 底）。导入冲突行三段决策用它。
+class SegmentedRow<T> extends StatelessWidget {
+  const SegmentedRow({
+    super.key,
+    required this.options,
+    required this.value,
+    required this.onChanged,
+    this.labelOf,
+    this.fontSize = 12,
+  });
+
+  final List<T> options;
+  final T value;
+  final ValueChanged<T>? onChanged;
+  final String Function(T option)? labelOf;
+  final double fontSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (i, o) in options.indexed)
+            Container(
+              decoration: BoxDecoration(
+                border: i == 0
+                    ? null
+                    : Border(left: BorderSide(color: theme.c.line)),
+                borderRadius: BorderRadius.horizontal(
+                  left: i == 0
+                      ? Radius.circular(AidogRadius.sm)
+                      : Radius.zero,
+                  right: i == options.length - 1
+                      ? Radius.circular(AidogRadius.sm)
+                      : Radius.zero,
+                ),
+                color: o == value ? theme.c.accentWash : null,
+              ),
+              child: InkWell(
+                onTap: onChanged == null ? null : () => onChanged!(o),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 5,
+                  ),
+                  child: Text(
+                    labelOf?.call(o) ?? '$o',
+                    style: AidogType.caption.copyWith(
+                      fontSize: fontSize,
+                      color: o == value ? theme.c.accentText : theme.c.fg2,
+                      fontWeight: o == value ? FontWeight.w600 : FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -883,6 +1275,7 @@ class PlainTextField extends StatefulWidget {
     this.hint,
     this.maxLines = 1,
     this.enabled = true,
+    this.obscure = false,
   });
 
   final String value;
@@ -893,6 +1286,9 @@ class PlainTextField extends StatefulWidget {
   /// `null` = 自增高，不封顶。
   final int? maxLines;
   final bool enabled;
+
+  /// 遮挡显示（密码 / 令牌，React `<input type="password">` 无明文切换）。
+  final bool obscure;
 
   @override
   State<PlainTextField> createState() => _PlainTextFieldState();
@@ -937,7 +1333,8 @@ class _PlainTextFieldState extends State<PlainTextField> {
       controller: _ctrl,
       focusNode: _focus,
       enabled: widget.enabled,
-      maxLines: widget.maxLines,
+      maxLines: widget.obscure ? 1 : widget.maxLines,
+      obscureText: widget.obscure,
       // 自增高那条路要给 minLines，否则首帧就按 1 行高度画完再跳。
       minLines: widget.maxLines == 1 ? null : 1,
       // 单行时回车提交；多行时回车是换行，提交交给失焦（上面的 FocusNode 监听）。
