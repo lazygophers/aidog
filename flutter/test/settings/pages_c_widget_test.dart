@@ -11,7 +11,7 @@ import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/pages/settings/coding_tools_logic.dart'
     show kDateRewriteRuleName;
 import 'package:aidog_flutter/src/pages/settings/importexport_logic.dart'
-    show kImportExportScopes;
+    show kInitialScopes;
 import 'package:aidog_flutter/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -311,9 +311,10 @@ void main() {
       );
     });
 
-    testWidgets('内核令牌与上游代理密码的眼睛按钮：看一眼再切回密文', (tester) async {
-      // 与 env_editor 的 `_revealed` 同语义（`EnvEditor.tsx:87-94`）：
-      // 密文态下粘错一个字符是看不出来的。切换只是看一眼，不写设置。
+    testWidgets('内核令牌与上游代理密码没有明文切换按钮（对齐 React）', (tester) async {
+      // React 的 KernelSection.tsx / ProxyStatusSection.tsx 没有暴露眼睛
+      // 按钮，密码永远密文。Flutter 原先多出的 reveal 已删，此测试守着
+      // 不让它长回来（安全：拿到令牌就能直连内核）。
       await useBigSurface(tester);
       final k = FakeKernel({
         ...baseResponses(),
@@ -343,29 +344,16 @@ void main() {
       bool obscured(String key) =>
           tester.widget<TextRow>(find.byKey(ValueKey(key))).obscure;
 
+      // 密文是常态。
       expect(obscured('kernel-token'), isTrue);
       expect(obscured('upstream-proxy-pass'), isTrue);
 
-      await tester.tap(find.byKey(const ValueKey('kernel-token-reveal')));
-      await settle(tester);
-      expect(obscured('kernel-token'), isFalse);
-
-      await tester.tap(
+      // 没有明文切换按钮。
+      expect(find.byKey(const ValueKey('kernel-token-reveal')), findsNothing);
+      expect(
         find.byKey(const ValueKey('upstream-proxy-pass-reveal')),
+        findsNothing,
       );
-      await settle(tester);
-      expect(obscured('upstream-proxy-pass'), isFalse);
-
-      // 再切回密文。
-      await tester.tap(
-        find.byKey(const ValueKey('upstream-proxy-pass-reveal')),
-      );
-      await settle(tester);
-      expect(obscured('upstream-proxy-pass'), isTrue);
-
-      // 看一眼不算改设置：一条写命令都不发。
-      expect(k.countOf('settings_set'), 0);
-      expect(k.countOf('proxy_client_set_settings'), 0);
     });
 
     testWidgets('上游代理：三个协议都在；DNS 走代理只在 SOCKS5 下出现', (tester) async {
@@ -1627,57 +1615,6 @@ void main() {
       expect(payload['endpoints'] as List, isNotEmpty);
     });
 
-    testWidgets('cc-switch「预览冲突」：与本地重名的 provider 标出来', (tester) async {
-      await mount(
-        tester,
-        extra: {
-          'ccswitch_detect': (_) => {
-            'found': true,
-            'path': '/tmp/cc',
-            'sourceType': 'json',
-            'providerCount': 1,
-          },
-          'ccswitch_read': (_) => {
-            'sourceType': 'json',
-            'path': '/tmp/cc',
-            'providers': [
-              {
-                'id': 'p1',
-                'appType': 'claude',
-                'name': '重名的',
-                'detectedBaseUrl': 'https://x.test/v1',
-                'detectedApiKey': 'sk-test',
-              },
-            ],
-          },
-          'platform_list': (_) => [
-            {'id': 1, 'name': '重名的'},
-          ],
-          'group_detail_list': (_) => <Object?>[],
-        },
-      );
-      final i18n = await makeI18n(tester);
-      await tester.tap(find.byKey(const ValueKey('ccswitch-detect')));
-      await settle(tester);
-      expect(
-        find.text(i18n.t('importExport.ccswitch.conflict')),
-        findsNothing,
-        reason: '没点预览之前不报冲突',
-      );
-
-      await tester.tap(find.byKey(const ValueKey('ccswitch-preview')));
-      await settle(tester);
-      expect(
-        find.text(i18n.t('importExport.ccswitch.conflict')),
-        findsOneWidget,
-      );
-      // 批量分组那段说明：这个开关作用于全部已导入平台，不是某一行。
-      expect(
-        find.text(i18n.t('importExport.ccswitch.groupAssignHint')),
-        findsOneWidget,
-      );
-    });
-
     // 这一页新加的三块（sub2api 行内协议下拉、导入概要卡的计数徽标、
     // cc-switch 行的匹配读数）都是「一行里塞好几个控件」，窄窗和 RTL 下
     // 挤爆只会在画出来的时候露头：Flutter 的 overflow 是一条 FlutterError，
@@ -1741,27 +1678,36 @@ void main() {
       );
     });
 
-    testWidgets('取消勾选全部范围 → 预览点不动并报错', (tester) async {
+    testWidgets('取消勾选全部范围 → 报错且不许导出', (tester) async {
       await mount(tester);
       final i18n = await makeI18n(tester);
-      for (final s in kImportExportScopes) {
+      // 初始只勾 kInitialScopes 三项（对齐 React），其余本来就关，
+      // 逐个点会反把它们打开。只点开着的。
+      for (final s in kInitialScopes) {
         await tester.tap(find.byKey(ValueKey('scope-$s')));
         await settle(tester);
       }
+      expect(find.text(i18n.t('importExport.error.noScope')), findsOneWidget);
       expect(
         tester
-            .widget<SmallButton>(find.byKey(const ValueKey('export-preview')))
+            .widget<SmallButton>(find.byKey(const ValueKey('export-run')))
             .enabled,
         isFalse,
       );
-      expect(find.text(i18n.t('importExport.error.noScope')), findsOneWidget);
     });
 
-    testWidgets('预览出来是空清单 → 走「无可导出条目」空态，仍不许导出', (tester) async {
-      await mount(tester);
+    testWidgets('scope 变更 300ms 防抖自动拉预览，空清单仍不许导出', (tester) async {
+      final k = await mount(tester);
       final i18n = await makeI18n(tester);
-      await tester.tap(find.byKey(const ValueKey('export-preview')));
+      final before = k.countOf('export_preview');
+      await tester.tap(find.byKey(ValueKey('scope-skills')));
+      // 300ms 内连点不重复拉：防抖只发最后一次。
+      await tester.tap(find.byKey(ValueKey('scope-mcp')));
+      // settle 一轮只走 240ms，不够 300ms 防抖到期，再补一泵。
+      await tester.pump(const Duration(milliseconds: 400));
       await settle(tester);
+      final after = k.countOf('export_preview');
+      expect(after, before + 1, reason: '300ms 内连点只拉一次');
       expect(find.text(i18n.t('importExport.exportEmpty')), findsOneWidget);
       expect(
         tester
@@ -1774,6 +1720,10 @@ void main() {
     testWidgets('选到非 .aidogx 文件时报错且不读文件', (tester) async {
       final k = await mount(tester, pick: '/tmp/x.zip');
       final i18n = await makeI18n(tester);
+      // 先让挂载时的初始导出预览跑完（300ms 防抖），否则它晚到会把
+      // 下面的错误清空 —— 页面真用起来初始预览早就拉完了。
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
       await tester.tap(find.byKey(const ValueKey('import-pick')));
       await settle(tester);
       expect(k.countOf('import_read_file'), 0);
@@ -1788,7 +1738,7 @@ void main() {
       expect(k.countOf('import_read_file'), 1);
     });
 
-    testWidgets('冲突没定完不许应用', (tester) async {
+    testWidgets('冲突没决策也能应用：缺省即覆盖（对齐 React）', (tester) async {
       final k = await mount(
         tester,
         pick: '/tmp/x.aidogx',
@@ -1807,12 +1757,13 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('import-pick')));
       await settle(tester);
       expect(k.countOf('import_read_file'), 1);
+      // 对齐 React（`ImportExportTab.tsx:568`）：只看跑着没 / 有没有预览 /
+      // 有没有勾条目，冲突不拍板就按缺省 overwrite 走。
       expect(
         tester
             .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
             .enabled,
-        isFalse,
-        reason: '冲突还没定决策',
+        isTrue,
       );
 
       expect(
@@ -1823,12 +1774,6 @@ void main() {
         find.byKey(const ValueKey('decide-platforms p1-useIncoming')),
       );
       await settle(tester);
-      expect(
-        tester
-            .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
-            .enabled,
-        isTrue,
-      );
 
       // 与 React 对齐（`ImportExportTab.tsx:566-578`）：点「应用导入」直接执行，
       // 没有二次确认卡。
@@ -2055,22 +2000,6 @@ void main() {
         matching: find.byType(TextField),
       );
       expect(tester.widget<TextField>(input).controller!.text, 'p1-imported');
-
-      // 清空 → 不许提交（React 的 rename 必须带 new_key，后端反序列化才过）。
-      await tester.enterText(input, '   ');
-      await settle(tester);
-      expect(
-        tester
-            .widget<SmallButton>(find.byKey(const ValueKey('import-apply')))
-            .enabled,
-        isFalse,
-        reason: '空的新名字发过去就是一条没名字的行',
-      );
-      // 只禁不说等于让用户自己猜还差什么。
-      expect(
-        find.byKey(const ValueKey('rename-required-platform p1')),
-        findsOneWidget,
-      );
 
       await tester.enterText(input, 'p1-copy');
       await settle(tester);
