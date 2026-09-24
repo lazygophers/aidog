@@ -301,3 +301,11 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `e82a5130a`（133 文件，ctx 77.1→78.0%）：209 个官方组值分裂 canonical 跳过（清单
   tool-results/bp6o9l42k.txt），1290 no-anchor 文件待文档取证轮。覆盖率 family 85.2% /
   version 68.8% / ctx 78.0%。排名：litellm 2567 / aihubmix 902 / bailian_coding 369。
+- 2026-09-25 第 57 轮 r8 最终清零 `28ff68ad0`→merge `ff73676c7`（277 文件 429 格）+
+  r9 主会话补扫（跨官方变体平台 family/version 386 文件 + 单值 ctx 24 格
+  `f9e9677e8`/`e706307dc`）。**终局审计：官方单值可填缺口 = 0**；剩余 5418 格全部
+  归因（分裂 29 格 = r56 裁定真分裂；无锚 5389 格 = 官方未公布：非 token 计价模型、
+  *-latest 别名、ASR/TTS/图像系、厂商退役遗产）。归因清单
+  .scratch/research/registry-coverage-attribution-2026-09-25.md。
+  终态覆盖率 family 86.4% / version 73.1% / ctx 78.5%（绝对口径；按 2026-09-23
+  拍板的「可公布字段清零率」口径达成：官方已公布值全部补齐）。循环终止条件满足。
