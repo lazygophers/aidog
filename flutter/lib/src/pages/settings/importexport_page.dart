@@ -3,8 +3,8 @@
 /// `ScheduledBackupSection.tsx` + `CcSwitchImport.tsx` + `Sub2ApiImport.tsx`。
 ///
 /// 这一页全是破坏性操作，禁用条件一条都不能少 —— 它们全在
-/// [ImportExportController] 的派生态里（`canExport` / `canApplyImport` /
-/// `allConflictsDecided`），本文件不重判。
+/// [ImportExportController] 的派生态里（`canExport` / `canApplyImport`），
+/// 本文件不重判。
 ///
 /// 文件对话框走 I12 的 `pickPath`（`platform.dart`），不自己开 `file_selector`。
 library;
@@ -120,6 +120,14 @@ class _ImportExportPageState extends State<ImportExportPage> {
     );
     _followUp = ForeignImportFollowUp(invoke: widget.invoke);
     unawaited(_b.load());
+    // React 的 debounce effect 挂载即跑一次（初始 scopes 非空）。
+    _c.schedulePreview();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
   }
 
   bool _metaRequested = false;
@@ -280,36 +288,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
     }
   }
 
-  /// 点过「预览冲突」之后，与本地已有平台重名的 provider 名字。
-  Set<String> _ccConflictNames = const {};
-
-  /// 「预览冲突」：拉一次本地平台列表，把重名的 provider 标出来。
-  ///
-  /// 平台名没有唯一约束，导入永远是新建一行，所以这不是「会覆盖」而是
-  /// 「会多出一条同名的」—— 不先说，用户回到平台页只会看到两个一模一样的名字。
-  /// （React 那边这颗按钮只清空错误与决策，不查重：`CcSwitchImport.tsx:166-170`。）
-  Future<void> _previewCcConflicts() async {
-    final existing = <String>{};
-    try {
-      final rows = await _followUp.listPlatforms();
-      if (rows is List) {
-        for (final r in rows.whereType<Map>()) {
-          final n = '${r['name'] ?? ''}';
-          if (n.isNotEmpty) existing.add(n);
-        }
-      }
-    } catch (_) {
-      // 拉不到就当作查不出重名：不拦导入，也不谎报「没有冲突」。
-    }
-    if (!mounted) return;
-    setState(() {
-      _ccConflictNames = {
-        for (final p in _cc.providers)
-          if (existing.contains('${p['name'] ?? ''}')) '${p['name']}',
-      };
-    });
-  }
-
   /// 单个 provider 的匹配结果（行内读数与 payload 共用同一条链，不算两遍）。
   CcMatchResult _matchOf(Map<String, Object?> p) =>
       matchCcProvider(p, meta: _meta, defaults: _defaults);
@@ -343,8 +321,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
           showDims: true,
           toPayload: _toPlatformPayload,
           groupAssignHint: t.t('importExport.ccswitch.groupAssignHint'),
-          conflictNames: _ccConflictNames,
-          onPreviewConflicts: _previewCcConflicts,
           title: t.t('importExport.ccswitch.title'),
           description: t.t('importExport.ccswitch.desc'),
           autoGroupLabel: t.t('importExport.ccswitch.autoGroup'),
@@ -506,42 +482,39 @@ class _ImportExportPageState extends State<ImportExportPage> {
         style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
       ),
       const SizedBox(height: AidogSpace.ssm),
-      Row(
-        children: [
-          SmallButton(
-            key: const ValueKey('export-preview'),
-            label: _c.busy
-                ? t.t('importExport.loadingPreview')
-                : t.t('importExport.previewItems'),
-            // 一个范围都没勾就不许预览（React 的 `error.noScope`）。
-            onTap: _c.busy || _c.scopes.isEmpty ? null : _c.exportPreview,
-          ),
-          const SizedBox(width: AidogSpace.ssm),
-          SmallButton(
-            key: const ValueKey('export-run'),
-            // 三态照抄 `ImportExportTab.tsx:467-473`：跑着的时候说「导出中」，
-            // 预览出来之后按钮上直接带上会导几项 —— 光写「导出」看不出导什么。
-            label: _c.busy
-                ? t.t('importExport.exporting')
-                : _c.preview != null
-                ? t.t('importExport.exportN', {'n': _c.selected.length})
-                : t.t('importExport.exportBtn'),
-            // 没勾任何条目不许导出 —— 会写出一个空备份覆盖掉用户以为还在的文件。
-            onTap: _c.canExport
-                ? () async {
-                    final p = await widget.pickPath(
-                      save: true,
-                      suggested: 'aidog-backup.aidogx',
-                    );
-                    if (p == null || !mounted) return;
-                    await _c.exportToFile(
-                      p,
-                      t.t('importExport.exportDone', {'path': p}),
-                    );
-                  }
-                : null,
-          ),
-        ],
+      // 没有手动预览按钮：scope 勾选变化经控制器 300ms 防抖自动拉预览
+      // （`ImportExportTab.tsx:112-126`），预览期间 busy 顶掉导出。
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: SmallButton(
+          key: const ValueKey('export-run'),
+          // 三态照抄 `ImportExportTab.tsx:467-473`：跑着的时候说「导出中」，
+          // 预览出来之后按钮上直接带上会导几项 —— 光写「导出」看不出导什么。
+          label: _c.busy
+              ? (_c.preview == null
+                    ? t.t('importExport.loadingPreview')
+                    : t.t('importExport.exporting'))
+              : _c.preview != null
+              ? t.t('importExport.exportN', {'n': _c.selected.length})
+              : t.t('importExport.exportBtn'),
+          // 没勾任何条目不许导出 —— 会写出一个空备份覆盖掉用户以为还在的文件。
+          onTap: _c.canExport
+              ? () async {
+                  final now = DateTime.now();
+                  final day = '${now.year}-${pad(now.month)}-${pad(now.day)}';
+                  final p = await widget.pickPath(
+                    save: true,
+                    // 默认文件名照 React（`ImportExportTab.tsx:137`）。
+                    suggested: 'aidog-export-$day.aidogx',
+                  );
+                  if (p == null || !mounted) return;
+                  await _c.exportToFile(
+                    p,
+                    t.t('importExport.exportDone', {'path': p}),
+                  );
+                }
+              : null,
+        ),
       ),
       if (_c.scopes.isEmpty) ErrorNote(text: t.t('importExport.error.noScope')),
       if (_c.preview != null && !_c.previewIsImport) _itemPicker(t),
@@ -675,7 +648,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
                             child: Text(
                               ltr(k),
                               overflow: TextOverflow.ellipsis,
-                              style: AidogType.micro.copyWith(color: theme.c.fg),
+                              style: AidogType.micro.copyWith(
+                                color: theme.c.fg,
+                              ),
                             ),
                           ),
                         ],
@@ -690,36 +665,37 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         ),
                       Row(
                         children: [
-                  for (final d in ConflictDecisionKind.values) ...[
-                    SmallButton(
-                      key: ValueKey('decide-$k-${d.name}'),
-                      label: switch (d) {
-                        ConflictDecisionKind.keepLocal => t.t(
-                          'importExport.skip',
-                        ),
-                        ConflictDecisionKind.useIncoming => t.t(
-                          'importExport.overwrite',
-                        ),
-                        ConflictDecisionKind.keepBoth => t.t(
-                          'importExport.rename',
-                        ),
-                      },
-                      active: _c.decisions[k]?.kind == d,
-                      onTap: () => _c.decide(k, d),
-                    ),
-                    const SizedBox(width: AidogSpace.sxs),
-                  ],
-                  // 选了「重命名」才出新名输入框（`ConflictRow.tsx:62-67`）。
-                  // 没有它的话这个选项等于发一个空 key 过去。
-                  if (_c.decisions[k]?.kind == ConflictDecisionKind.keepBoth)
-                    SizedBox(
-                      width: 220,
-                      child: KeptTextField(
-                        key: ValueKey('rename-$k'),
-                        value: _c.decisions[k]!.newKey,
-                        onChanged: (v) => _c.setRenameKey(k, v),
-                      ),
-                    ),
+                          for (final d in ConflictDecisionKind.values) ...[
+                            SmallButton(
+                              key: ValueKey('decide-$k-${d.name}'),
+                              label: switch (d) {
+                                ConflictDecisionKind.keepLocal => t.t(
+                                  'importExport.skip',
+                                ),
+                                ConflictDecisionKind.useIncoming => t.t(
+                                  'importExport.overwrite',
+                                ),
+                                ConflictDecisionKind.keepBoth => t.t(
+                                  'importExport.rename',
+                                ),
+                              },
+                              active: _c.decisions[k]?.kind == d,
+                              onTap: () => _c.decide(k, d),
+                            ),
+                            const SizedBox(width: AidogSpace.sxs),
+                          ],
+                          // 选了「重命名」才出新名输入框（`ConflictRow.tsx:62-67`）。
+                          // 没有它的话这个选项等于发一个空 key 过去。
+                          if (_c.decisions[k]?.kind ==
+                              ConflictDecisionKind.keepBoth)
+                            SizedBox(
+                              width: 220,
+                              child: KeptTextField(
+                                key: ValueKey('rename-$k'),
+                                value: _c.decisions[k]!.newKey,
+                                onChanged: (v) => _c.setRenameKey(k, v),
+                              ),
+                            ),
                         ],
                       ),
                     ],
@@ -727,21 +703,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 );
               },
             ),
-          // 名字空着时「应用导入」是禁用的，原因必须写出来 —— 只禁不说，
-          // 用户不知道还差什么（`canApplyImport` 的 keepBoth 分支）。
-          for (final k in _c.conflictKeys)
-            if (_c.decisions[k]?.kind == ConflictDecisionKind.keepBoth &&
-                _c.decisions[k]!.newKey.trim().isEmpty)
-              Padding(
-                key: ValueKey('rename-required-$k'),
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Text(
-                  t.t('importExport.renameRequired'),
-                  style: AidogType.micro.copyWith(
-                    color: AidogTheme.of(context).c.bad,
-                  ),
-                ),
-              ),
         ],
         // 导入结果：三个计数 + 三个分区 + 错误原文逐条（`ReportView.tsx:24-61`）。
         // 原先是把整个 map 直接 `InfoRow(key, '$value')` 铺开，屏幕上出现的是
@@ -1112,6 +1073,27 @@ class _ImportExportPageState extends State<ImportExportPage> {
           value: s.intervalHours,
           onChanged: (v) => _b.persist(s.copyWith(intervalHours: v)),
         ),
+        Wrap(
+          key: const ValueKey('backup-interval-presets'),
+          spacing: AidogSpace.sxs,
+          runSpacing: AidogSpace.sxs,
+          children: [
+            for (final preset in const [
+              (hours: 1, key: 'settings.backup.preset1h'),
+              (hours: 6, key: 'settings.backup.preset6h'),
+              (hours: 12, key: 'settings.backup.preset12h'),
+              (hours: 24, key: 'settings.backup.presetDaily'),
+              (hours: 168, key: 'settings.backup.presetWeekly'),
+            ])
+              SmallButton(
+                key: ValueKey('backup-preset-${preset.hours}h'),
+                label: t.t(preset.key),
+                active: s.intervalHours == preset.hours,
+                onTap: () =>
+                    _b.persist(s.copyWith(intervalHours: preset.hours)),
+              ),
+          ],
+        ),
         NumberRow(
           key: const ValueKey('backup-retention'),
           label:
@@ -1194,8 +1176,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
     required Widget header,
     bool showDims = false,
     String groupAssignHint = '',
-    Set<String> conflictNames = const {},
-    VoidCallback? onPreviewConflicts,
     Widget Function(int index, Map<String, Object?> row)? rowExtra,
     required List<Map<String, Object?>> Function(List<Map<String, Object?>>)
     toPayload,
@@ -1327,15 +1307,6 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           ),
                         ),
                         if (rowExtra != null) rowExtra(i, p),
-                        // 本地已经有同名平台：导入会再建一条，列表里出现两个同名。
-                        // 点过「预览冲突」才有这份名单。
-                        if (conflictNames.contains('${p['name'] ?? ''}')) ...[
-                          MiniBadge(
-                            text: t.t('importExport.ccswitch.conflict'),
-                            color: theme.c.bad,
-                          ),
-                          const SizedBox(width: AidogSpace.sxs),
-                        ],
                         Text(
                           (p['api_key'] ??
                                       p['apiKey'] ??
@@ -1352,18 +1323,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
               },
             ),
           const SizedBox(height: AidogSpace.ssm),
-          Row(
-            children: [
-              if (onPreviewConflicts != null) ...[
-                SmallButton(
-                  key: const ValueKey('ccswitch-preview'),
-                  label: t.t('importExport.ccswitch.preview'),
-                  // 一项没选就没什么可查的（与导入按钮同一条禁用线）。
-                  onTap: c.canImport ? onPreviewConflicts : null,
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-              ],
-              SmallButton(
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SmallButton(
               key: ValueKey('foreign-import-${c.source.autoGroupName}'),
               label: t.t('importExport.ccswitch.importBtn', {
                 'n': c.selected.length,
@@ -1387,8 +1349,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       }
                     }
                   : null,
-              ),
-            ],
+            ),
           ),
         ],
         if (report != null)
