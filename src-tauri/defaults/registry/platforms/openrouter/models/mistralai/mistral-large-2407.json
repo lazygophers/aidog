@@ -2,6 +2,8 @@
   "model_id": "mistralai/mistral-large-2407",
   "display_name": "Mistral Large 2407",
   "canonical_model": "mistral-large-2407",
+  "family": "mistral",
+  "version": "2.0",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000006,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,7 @@
   "model_id": "~deepseek/deepseek-flash-latest",
   "display_name": "DeepSeek: DeepSeek Flash Latest",
   "canonical_model": "deepseek-flash-latest",
+  "family": "deepseek",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 5e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

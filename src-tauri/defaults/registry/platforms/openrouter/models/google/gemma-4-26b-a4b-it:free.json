@@ -2,6 +2,8 @@
   "model_id": "google/gemma-4-26b-a4b-it:free",
   "display_name": "Google: Gemma 4 26B A4B  (free)",
   "canonical_model": "gemma-4-26b-a4b-it:free",
+  "family": "gemma",
+  "version": "4",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

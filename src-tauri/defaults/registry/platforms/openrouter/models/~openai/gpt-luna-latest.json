@@ -2,6 +2,7 @@
   "model_id": "~openai/gpt-luna-latest",
   "display_name": "OpenAI: GPT Luna Latest",
   "canonical_model": "gpt-luna-latest",
+  "family": "gpt",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 5e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

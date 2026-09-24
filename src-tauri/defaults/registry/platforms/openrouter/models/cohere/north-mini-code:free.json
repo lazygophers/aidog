@@ -2,6 +2,7 @@
   "model_id": "cohere/north-mini-code:free",
   "display_name": "Cohere: North Mini Code (free)",
   "canonical_model": "north-mini-code:free",
+  "family": "north",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

@@ -2,6 +2,7 @@
   "model_id": "~x-ai/grok-latest",
   "display_name": "xAI: Grok Latest",
   "canonical_model": "grok-latest",
+  "family": "grok",
   "max_input_tokens": 500000,
   "context_window": 500000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.0000048,
     "cache_read": 4e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

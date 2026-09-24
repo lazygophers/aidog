@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-6-luna-pro",
   "display_name": "OpenAI: GPT-6 Luna Pro",
   "canonical_model": "gpt-6-luna-pro",
+  "family": "gpt",
+  "version": "6",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 5e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,8 @@
   "model_id": "z-ai/glm-5-turbo",
   "display_name": "Z.ai: GLM 5 Turbo",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5",
   "max_input_tokens": 202752,
   "context_window": 202752,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000004,
     "cache_read": 2.4e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

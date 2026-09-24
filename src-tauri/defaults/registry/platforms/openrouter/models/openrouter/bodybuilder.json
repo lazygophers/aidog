@@ -2,6 +2,7 @@
   "model_id": "openrouter/bodybuilder",
   "display_name": "Body Builder (beta)",
   "canonical_model": "bodybuilder",
+  "family": "openrouter",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -9,7 +10,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

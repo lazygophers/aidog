@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen2.5 VL 72B Instruct",
   "canonical_model": "qwen2.5-vl-72b-instruct",
   "family": "qwen",
+  "version": "2.5",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.000001,
     "cache_read": 4e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

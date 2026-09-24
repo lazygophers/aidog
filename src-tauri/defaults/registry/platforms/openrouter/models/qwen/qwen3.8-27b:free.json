@@ -2,6 +2,8 @@
   "model_id": "qwen/qwen3.8-27b:free",
   "display_name": "Qwen: Qwen3.8 27B (free)",
   "canonical_model": "qwen3.8-27b:free",
+  "family": "qwen",
+  "version": "3.8",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +13,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

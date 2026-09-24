@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-5.6-sol:batch",
   "display_name": "OpenAI: GPT-5.6 Sol (batch)",
   "canonical_model": "gpt-5.6-sol:batch",
+  "family": "gpt",
+  "version": "5.6",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000005,
     "cache_read": 1e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

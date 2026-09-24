@@ -3,6 +3,7 @@
   "display_name": "MoonshotAI: Kimi K3",
   "canonical_model": "kimi-k3",
   "family": "kimi",
+  "version": "3",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -13,7 +14,7 @@
     "output": 0.000015,
     "cache_read": 3e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

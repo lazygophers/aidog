@@ -2,6 +2,7 @@
   "model_id": "thedrummer/unslopnemo-12b",
   "display_name": "TheDrummer: UnslopNemo 12B",
   "canonical_model": "unslopnemo-12b",
+  "family": "unslopnemo",
   "max_input_tokens": 1024000,
   "context_window": 1024000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 4e-7,
     "output": 4e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

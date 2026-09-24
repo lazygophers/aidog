@@ -2,6 +2,8 @@
   "model_id": "thedrummer/cydonia-24b-v4.1",
   "display_name": "TheDrummer: Cydonia 24B V4.1",
   "canonical_model": "cydonia-24b-v4.1",
+  "family": "cydonia",
+  "version": "4.1",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 5e-7,
     "cache_read": 1.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

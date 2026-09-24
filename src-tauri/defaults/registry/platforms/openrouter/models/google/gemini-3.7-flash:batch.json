@@ -2,6 +2,8 @@
   "model_id": "google/gemini-3.7-flash:batch",
   "display_name": "Google: Gemini 3.7 Flash (batch)",
   "canonical_model": "gemini-3.7-flash:batch",
+  "family": "gemini",
+  "version": "3.7",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000001875,
     "cache_read": 3.75e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,8 @@
   "model_id": "sao10k/l3.3-euryale-70b",
   "display_name": "Sao10K: Llama 3.3 Euryale 70B",
   "canonical_model": "l3.3-euryale-70b",
+  "family": "euryale",
+  "version": "3.3",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 6.5e-7,
     "output": 7.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

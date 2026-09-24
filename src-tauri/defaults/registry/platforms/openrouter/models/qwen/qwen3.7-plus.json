@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3.7 Plus",
   "canonical_model": "qwen3.7-plus",
   "family": "qwen",
+  "version": "3.7",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.00000128,
     "cache_read": 6.4e-8
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

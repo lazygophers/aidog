@@ -2,6 +2,8 @@
   "model_id": "amazon/nova-micro-v1",
   "display_name": "Amazon: Nova Micro 1.0",
   "canonical_model": "nova-micro-v1",
+  "family": "nova",
+  "version": "1",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 3.5e-8,
     "output": 1.4e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "deepseek/deepseek-v4-flash-vision-exp",
   "display_name": "DeepSeek: DeepSeek V4 Flash Vision Exp",
   "canonical_model": "deepseek-v4-flash-vision-exp",
+  "family": "deepseek",
+  "version": "4",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 6.6e-7,
     "cache_read": 7e-9
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

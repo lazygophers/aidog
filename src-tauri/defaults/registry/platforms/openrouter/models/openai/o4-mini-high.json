@@ -2,6 +2,8 @@
   "model_id": "openai/o4-mini-high",
   "display_name": "OpenAI: o4 Mini High",
   "canonical_model": "o4-mini-high",
+  "family": "o",
+  "version": "4",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.0000044,
     "cache_read": 2.75e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

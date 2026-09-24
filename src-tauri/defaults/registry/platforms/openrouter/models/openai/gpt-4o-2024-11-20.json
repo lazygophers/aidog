@@ -2,6 +2,8 @@
   "model_id": "openai/gpt-4o-2024-11-20",
   "display_name": "OpenAI: GPT-4o (2024-11-20)",
   "canonical_model": "gpt-4o-2024-11-20",
+  "family": "gpt",
+  "version": "4o",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.00001,
     "cache_read": 0.00000125
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

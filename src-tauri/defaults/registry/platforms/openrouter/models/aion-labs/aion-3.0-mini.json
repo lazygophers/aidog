@@ -2,6 +2,8 @@
   "model_id": "aion-labs/aion-3.0-mini",
   "display_name": "AionLabs: Aion-3.0-Mini",
   "canonical_model": "aion-3.0-mini",
+  "family": "aion",
+  "version": "3.0",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.0000014,
     "cache_read": 1.8e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3.5 397B A17B",
   "canonical_model": "qwen3.5-397b-a17b",
   "family": "qwen",
+  "version": "3.5",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.0000035,
     "cache_read": 2.25e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,7 @@
   "model_id": "deepseek/deepseek-chat",
   "display_name": "DeepSeek: DeepSeek V3",
   "canonical_model": "deepseek-chat",
+  "family": "deepseek",
   "max_input_tokens": 163840,
   "context_window": 163840,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 3.2e-7,
     "output": 8.9e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

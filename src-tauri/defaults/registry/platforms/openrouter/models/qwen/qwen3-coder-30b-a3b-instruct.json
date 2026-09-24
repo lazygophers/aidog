@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3 Coder 30B A3B Instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
   "family": "qwen",
+  "version": "3",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 7e-8,
     "output": 2.8e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

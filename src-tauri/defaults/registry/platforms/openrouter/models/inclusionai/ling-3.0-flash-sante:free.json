@@ -2,6 +2,8 @@
   "model_id": "inclusionai/ling-3.0-flash-sante:free",
   "display_name": "inclusionAI: Ling 3.0 Flash Sante (free)",
   "canonical_model": "ling-3.0-flash-sante:free",
+  "family": "ling",
+  "version": "3.0",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

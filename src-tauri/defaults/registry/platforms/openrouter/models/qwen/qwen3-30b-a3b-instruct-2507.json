@@ -3,6 +3,7 @@
   "display_name": "Qwen: Qwen3 30B A3B Instruct 2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
   "family": "qwen",
+  "version": "3",
   "max_input_tokens": 128000,
   "context_window": 262144,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 4.815e-8,
     "output": 1.9305e-7
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

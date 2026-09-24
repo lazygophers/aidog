@@ -2,6 +2,7 @@
   "model_id": "thinkingmachines/inkling:free",
   "display_name": "Thinking Machines: Inkling (free)",
   "canonical_model": "inkling:free",
+  "family": "inkling",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -11,7 +12,7 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "vision",

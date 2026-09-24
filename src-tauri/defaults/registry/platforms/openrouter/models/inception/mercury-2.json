@@ -2,6 +2,8 @@
   "model_id": "inception/mercury-2",
   "display_name": "Inception: Mercury 2",
   "canonical_model": "mercury-2",
+  "family": "mercury",
+  "version": "2",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 7.5e-7,
     "cache_read": 2.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

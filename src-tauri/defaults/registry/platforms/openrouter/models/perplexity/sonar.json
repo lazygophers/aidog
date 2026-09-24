@@ -2,6 +2,7 @@
   "model_id": "perplexity/sonar",
   "display_name": "Perplexity: Sonar",
   "canonical_model": "sonar",
+  "family": "sonar",
   "max_input_tokens": 127072,
   "context_window": 127072,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.000001,
     "output": 0.000001
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

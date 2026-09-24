@@ -3,6 +3,7 @@
   "display_name": "Tencent: Hy3 preview",
   "canonical_model": "hy3-preview",
   "family": "hunyuan",
+  "version": "3",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -13,7 +14,7 @@
     "output": 6e-7,
     "cache_read": 6e-8
   },
-  "last_updated": 1790268677,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

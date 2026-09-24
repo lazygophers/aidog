@@ -2,6 +2,8 @@
   "model_id": "deepseek/deepseek-v4.1-flash:batch",
   "display_name": "DeepSeek: DeepSeek V4.1 Flash (batch)",
   "canonical_model": "deepseek-v4.1-flash:batch",
+  "family": "deepseek",
+  "version": "4.1",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 3.36e-7,
     "cache_read": 3.36e-9
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

@@ -2,6 +2,7 @@
   "model_id": "~openai/gpt-mini-latest",
   "display_name": "OpenAI: GPT Mini Latest",
   "canonical_model": "gpt-mini-latest",
+  "family": "gpt",
   "max_input_tokens": 400000,
   "context_window": 400000,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.0000045,
     "cache_read": 7.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "meta/muse-spark-1.2-contributor",
   "display_name": "Meta: Muse Spark 1.2 Contributor",
   "canonical_model": "muse-spark-1.2-contributor",
+  "family": "muse-spark",
+  "version": "1.2",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 2e-7,
     "cache_read": 2e-9
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "vision",

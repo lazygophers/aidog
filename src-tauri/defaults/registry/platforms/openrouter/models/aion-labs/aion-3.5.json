@@ -2,6 +2,8 @@
   "model_id": "aion-labs/aion-3.5",
   "display_name": "AionLabs: Aion 3.5",
   "canonical_model": "aion-3.5",
+  "family": "aion",
+  "version": "3.5",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000006,
     "cache_read": 7.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text",
     "tool_use",

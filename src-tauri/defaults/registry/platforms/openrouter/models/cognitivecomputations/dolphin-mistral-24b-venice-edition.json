@@ -2,6 +2,7 @@
   "model_id": "cognitivecomputations/dolphin-mistral-24b-venice-edition",
   "display_name": "Venice: Uncensored",
   "canonical_model": "dolphin-mistral-24b-venice-edition",
+  "family": "dolphin",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 2e-7,
     "output": 9e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279932,
   "capabilities": [
     "text"
   ]

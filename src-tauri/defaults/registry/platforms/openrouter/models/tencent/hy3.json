@@ -2,6 +2,8 @@
   "model_id": "tencent/hy3",
   "display_name": "Tencent: Hy3",
   "canonical_model": "hy3",
+  "family": "hunyuan",
+  "version": "3",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 3.3e-7,
     "cache_read": 2.0625e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790279933,
   "capabilities": [
     "text",
     "tool_use",
