@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "vercel_ai_gateway/deepseek/deepseek-r1-distill-llama-70b",
   "canonical_model": "deepseek-r1-distill-llama-70b",
+  "family": "deepseek",
   "capabilities": [
     "text",
     "tool_use"

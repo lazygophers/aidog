@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790267681,
   "model_id": "aihubmix/kimi-k2.6",
   "canonical_model": "kimi-k2.6",
+  "version": "2.6",
   "capabilities": [
     "text",
     "vision",

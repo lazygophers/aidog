@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "xai/grok-4.3",
   "canonical_model": "grok-4.3",
+  "version": "4.3",
   "capabilities": [
     "text",
     "vision",

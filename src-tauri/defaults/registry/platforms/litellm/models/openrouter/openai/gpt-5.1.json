@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790267681,
   "model_id": "openrouter/openai/gpt-5.1",
   "canonical_model": "gpt-5.1",
+  "family": "gpt",
+  "version": "5.1",
   "capabilities": [
     "text",
     "vision",
