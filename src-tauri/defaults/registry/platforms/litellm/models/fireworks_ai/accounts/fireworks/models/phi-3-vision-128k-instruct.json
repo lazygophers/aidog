@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/phi-3-vision-128k-instruct",
   "canonical_model": "phi-3-vision-128k-instruct",
+  "version": "3",
   "family": "phi",
   "capabilities": [
     "text"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/phind-code-llama-34b-v2",
   "canonical_model": "phind-code-llama-34b-v2",
+  "family": "codellama",
   "capabilities": [
     "text"
   ],

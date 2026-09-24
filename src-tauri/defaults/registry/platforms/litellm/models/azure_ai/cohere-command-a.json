@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/cohere-command-a",
   "canonical_model": "cohere-command-a",
+  "family": "command",
   "capabilities": [
     "text",
     "tool_use"

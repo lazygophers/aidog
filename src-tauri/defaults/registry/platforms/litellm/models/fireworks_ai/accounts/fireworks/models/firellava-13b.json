@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/firellava-13b",
   "canonical_model": "firellava-13b",
+  "family": "firellava",
   "capabilities": [
     "text"
   ],

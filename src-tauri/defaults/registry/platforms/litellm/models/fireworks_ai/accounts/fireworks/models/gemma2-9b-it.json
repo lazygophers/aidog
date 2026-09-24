@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/gemma2-9b-it",
   "canonical_model": "gemma2-9b-it",
+  "family": "gemma",
+  "version": "2",
   "capabilities": [
     "text"
   ],

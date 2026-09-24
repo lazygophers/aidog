@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/llama-guard-3-1b",
   "canonical_model": "llama-guard-3-1b",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text"
   ],

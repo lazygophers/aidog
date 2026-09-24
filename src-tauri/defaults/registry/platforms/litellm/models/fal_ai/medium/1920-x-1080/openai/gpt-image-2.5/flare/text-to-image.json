@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fal_ai/medium/1920-x-1080/openai/gpt-image-2.5/flare/text-to-image",
   "canonical_model": "text-to-image",
+  "family": "seedream",
   "capabilities": [
     "text_to_image"
   ],

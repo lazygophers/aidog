@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-v3-0324",
   "canonical_model": "deepseek-v3-0324",
+  "version": "3",
   "family": "deepseek",
   "capabilities": [
     "text"
