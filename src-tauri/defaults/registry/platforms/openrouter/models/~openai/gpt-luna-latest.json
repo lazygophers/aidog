@@ -1,0 +1,15 @@
+{
+  "model_id": "~openai/gpt-luna-latest",
+  "display_name": "OpenAI: GPT Luna Latest",
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 1e-8,
+    "cache_write": 1.25e-7
+  },
+  "canonical_model": "~openai/gpt-luna-latest",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

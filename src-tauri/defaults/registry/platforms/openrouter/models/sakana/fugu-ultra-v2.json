@@ -1,0 +1,14 @@
+{
+  "model_id": "sakana/fugu-ultra-v2",
+  "display_name": "Sakana: Fugu Ultra v2",
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.00003,
+    "cache_read": 5e-7
+  },
+  "canonical_model": "sakana/fugu-ultra-v2-20260911",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

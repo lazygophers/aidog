@@ -1,0 +1,12 @@
+{
+  "model_id": "nex-agi/nex-n2.5-pro:free",
+  "display_name": "Nex AGI: Nex-N2.5-Pro (free)",
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 1e-8
+  },
+  "canonical_model": "nex-agi/nex-n2.5-pro-20260907",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

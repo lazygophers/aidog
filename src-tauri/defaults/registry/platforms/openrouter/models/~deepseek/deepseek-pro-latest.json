@@ -1,0 +1,14 @@
+{
+  "model_id": "~deepseek/deepseek-pro-latest",
+  "display_name": "DeepSeek: DeepSeek Pro Latest",
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 3.9996e-7,
+    "output": 0.00000119988,
+    "cache_read": 1.2726e-8
+  },
+  "canonical_model": "~deepseek/deepseek-pro-latest",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

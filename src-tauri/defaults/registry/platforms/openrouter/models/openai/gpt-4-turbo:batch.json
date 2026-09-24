@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-4-turbo:batch",
+  "display_name": "OpenAI: GPT-4 Turbo (batch)",
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000015
+  },
+  "canonical_model": "gpt-4-turbo",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

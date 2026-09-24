@@ -1,0 +1,14 @@
+{
+  "model_id": "deepseek/deepseek-v4.1-flash:batch",
+  "display_name": "DeepSeek: DeepSeek V4.1 Flash (batch)",
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 1.12e-7,
+    "output": 3.36e-7,
+    "cache_read": 3.36e-9
+  },
+  "canonical_model": "deepseek/deepseek-v4.1-flash-20260910",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

@@ -1,0 +1,14 @@
+{
+  "model_id": "inference-net/schematron-v2-small",
+  "display_name": "Inference.net: Schematron V2 Small",
+  "context_window": 128000,
+  "official": true,
+  "price": {
+    "input": 5e-8,
+    "output": 2.3e-7,
+    "cache_read": 5e-8
+  },
+  "canonical_model": "inference-net/schematron-v2-small-20260902",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

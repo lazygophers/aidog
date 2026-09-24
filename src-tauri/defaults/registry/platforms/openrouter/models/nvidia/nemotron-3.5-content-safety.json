@@ -1,0 +1,13 @@
+{
+  "model_id": "nvidia/nemotron-3.5-content-safety",
+  "display_name": "NVIDIA: Nemotron 3.5 Content Safety",
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 2e-7,
+    "output": 2e-7
+  },
+  "canonical_model": "nvidia/nemotron-3.5-content-safety-20260604",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

@@ -1,0 +1,15 @@
+{
+  "model_id": "~openai/gpt-astra-latest",
+  "display_name": "OpenAI: GPT Astra Latest",
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "input": 0.00001,
+    "output": 0.00005,
+    "cache_read": 0.000001,
+    "cache_write": 0.0000125
+  },
+  "canonical_model": "~openai/gpt-astra-latest",
+  "last_updated": 1790232770,
+  "capabilities": []
+}
