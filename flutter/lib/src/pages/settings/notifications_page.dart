@@ -12,7 +12,6 @@ import 'package:flutter/material.dart';
 import '../../../i18n.dart';
 import '../../../platform.dart' as native;
 import '../../shell/theme.dart';
-import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
@@ -258,7 +257,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     // 安装中不许关。
     return AidogModal(
       onBarrierTap: _c.uvInstalling ? null : _c.cancelUvPrompt,
-      child: Tile(
+      child: ModalCard(
         title: t.t('notif.uvModalTitle'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

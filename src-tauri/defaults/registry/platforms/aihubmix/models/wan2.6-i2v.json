@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "wan2.6-i2v",
   "canonical_model": "wan2.6-i2v",
   "display_name": "Wan2.6 I2v",
+  "version": "2.6",
+  "family": "wan",
   "capabilities": [
     "vision",
     "text_to_video",

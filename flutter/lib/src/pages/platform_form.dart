@@ -2051,7 +2051,7 @@ class WindowsEditorState extends State<WindowsEditor> {
     return AidogModal(
       maxWidth: 500,
       onBarrierTap: widget.onCancel,
-      child: Tile(
+      child: ModalCard(
         title: t.t('platform.windows_edit_title'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "qwen-image-2.0-pro",
   "canonical_model": "qwen-image-2.0-pro-2026-04-22",
   "display_name": "Qwen Image 2.0 Pro",
+  "family": "qwen",
   "capabilities": [
     "vision",
     "text_to_image",

@@ -725,7 +725,7 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
     // React 侧是普通 `Dialog`（`SegmentEditModal.tsx:49`，maxWidth 420），点遮罩可关。
     return AidogModal(
       onBarrierTap: widget.onCancel,
-      child: Tile(
+      child: ModalCard(
         title: segName(t, def),
         meta: segDesc(t, def),
         child: Column(
@@ -1037,7 +1037,7 @@ class _ColorSwatchButton extends StatelessWidget {
       builder: (ctx) => AidogModal(
         maxWidth: 260,
         onBarrierTap: () => Navigator.of(ctx).pop(),
-        child: Tile(
+        child: ModalCard(
           title: t.t('statusline.color'),
           child: Wrap(
             spacing: AidogSpace.sxs,

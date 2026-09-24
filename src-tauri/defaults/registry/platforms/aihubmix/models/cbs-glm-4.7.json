@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "cbs-glm-4.7",
   "canonical_model": "glm-4.7",
   "display_name": "Cbs Glm 4.7",
+  "version": "4.7",
+  "family": "glm",
   "capabilities": [],
   "official": false,
   "price": {

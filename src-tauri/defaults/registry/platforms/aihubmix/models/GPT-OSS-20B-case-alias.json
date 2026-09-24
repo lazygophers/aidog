@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "GPT-OSS-20B",
   "canonical_model": "gpt-oss-20b",
   "display_name": "gpt-oss-20b",
+  "family": "gpt",
   "capabilities": [],
   "official": false,
   "price": {

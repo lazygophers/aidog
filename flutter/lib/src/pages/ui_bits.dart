@@ -176,6 +176,7 @@ class AidogSwitch extends StatelessWidget {
     required this.value,
     required this.onChanged,
     this.tooltip,
+    this.compact = false,
   });
 
   final bool value;
@@ -184,9 +185,16 @@ class AidogSwitch extends StatelessWidget {
   final VoidCallback? onChanged;
   final String? tooltip;
 
+  /// 36×20 紧凑档（shadcn Switch，ui/switch.tsx:14-23 的 w-9 h-5）：设置页 /
+  /// 表单的行内开关。缺省 40×22 是平台卡 `.toggle`（globals.css:507-540）。
+  /// 两档的圆点都是 16，行程由轨道宽度自然差出（18 vs 16）。
+  final bool compact;
+
   @override
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
+    final trackW = compact ? 36.0 : 40.0;
+    final trackH = compact ? 20.0 : 22.0;
     return Tooltip(
       message: tooltip ?? '',
       child: MouseRegion(
@@ -198,14 +206,14 @@ class AidogSwitch extends StatelessWidget {
           child: AnimatedContainer(
             duration: AidogMotion.slow,
             curve: AidogMotion.easeStandard,
-            width: 40,
-            height: 22,
+            width: trackW,
+            height: trackH,
             decoration: BoxDecoration(
               color: value ? c.accent : c.surface2,
               // 开态轨道的边用 accentEdge：近黑 accent 对关态 surface2 只有
               // 1.06:1，光看轨道颜色分不出开没开，边界得自己发声。
               border: Border.all(color: value ? c.accentEdge : c.line),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(trackH / 2),
             ),
             child: AnimatedAlign(
               duration: AidogMotion.slow,
@@ -356,6 +364,80 @@ class _EscapeScope extends StatelessWidget {
   }
 }
 
+/// 弹窗面板：React `Dialog` / `AlertDialog` 的面板形态 —— p-6 = 24（dialog.tsx:41）、
+/// `glass-elevated` 圆角 24、标题 text-lg ≈ 16.9 w600（alert-dialog.tsx:82）、
+/// 正文 text-sm ≈ 13 muted。
+///
+/// 之前直接借 [Tile]（padding 16/14、r12、标题 13.5），弹窗比 React 瘦一圈矮一截。
+/// 差的只有这三处，其余（surface 底 + line 边 + shadow-tile）与 Tile 同源。
+class ModalCard extends StatelessWidget {
+  const ModalCard({
+    super.key,
+    this.title,
+    this.meta,
+    this.padding,
+    required this.child,
+  });
+
+  final String? title;
+
+  /// 标题行右端的小字（分组测试面板的进度计数等），与 [Tile.meta] 同形态。
+  final String? meta;
+
+  /// 缺省 24（React p-6）。分组删除等处 React 显式 20/22，由调用方传入。
+  final EdgeInsetsGeometry? padding;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogTheme.of(context);
+    return AnimatedContainer(
+      duration: AidogMotion.base,
+      curve: AidogMotion.easeStandard,
+      padding: padding ?? const EdgeInsets.all(AidogSpace.s_2xl),
+      decoration: BoxDecoration(
+        color: t.c.surface,
+        border: Border.all(color: t.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.xl),
+        boxShadow: t.shadowTile,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (title != null || meta != null)
+            // React DialogContent 是 gap-4 的 grid，标题与正文隔 16。
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  if (title != null)
+                    Expanded(
+                      child: Text(
+                        title!,
+                        style: AidogType.title.copyWith(
+                          fontSize: 17,
+                          color: t.c.fg,
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (meta != null) ...[
+                    const SizedBox(width: AidogSpace.smd),
+                    TileMeta(meta!),
+                  ],
+                ],
+              ),
+            ),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
 /// 破坏性操作的确认弹窗。
 ///
 /// 浮层由 [AidogModal] 提供，卡片本体沿用 [Tile] 的长相（与 React 那边
@@ -411,7 +493,7 @@ class ConfirmCard extends StatelessWidget {
       // 点遮罩关不关由 dismissOnBarrier 说了算，但 Esc 一律关（除非正忙）——
       // 与 Radix `AlertDialog` 同口径：外部点击不关，Escape 关。
       onEscape: busy ? null : onCancel,
-      child: Tile(
+      child: ModalCard(
         title: title,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

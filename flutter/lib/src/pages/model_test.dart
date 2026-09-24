@@ -56,7 +56,7 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: _c.running ? null : widget.onClose,
-      child: Tile(
+      child: ModalCard(
         title: t.t('test.title'),
         meta: '${widget.platform.name} · ${widget.platform.platformType}',
         child: Column(

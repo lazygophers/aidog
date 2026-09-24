@@ -487,7 +487,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   Widget _alignCard(I18nController t) => AidogModal(
     maxWidth: 400,
     onBarrierTap: _c.closeAlign,
-    child: Tile(
+    child: ModalCard(
       title: t.t('skills.alignTitle'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -551,7 +551,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   Widget _pasteCard(I18nController t) => AidogModal(
     maxWidth: 560,
     onBarrierTap: () => _c.setPasteOpen(false),
-    child: Tile(
+    child: ModalCard(
       title: t.t('skills.importFromShare'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -588,7 +588,7 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
   Widget _importCard(I18nController t) => AidogModal(
     maxWidth: 560,
     onBarrierTap: _c.importBusy ? null : _c.cancelImport,
-    child: Tile(
+    child: ModalCard(
       title: t.t('skills.importConfirmTitle'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1431,7 +1431,7 @@ class _BusyOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return AidogModal(
-      child: Tile(
+      child: ModalCard(
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [

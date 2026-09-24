@@ -13,7 +13,6 @@ import 'package:pretty_qr_code/pretty_qr_code.dart';
 import '../../i18n.dart';
 import '../../platform.dart' as native;
 import '../shell/theme.dart';
-import '../shell/tiles.dart';
 import 'platform_card_bits.dart';
 import 'ui_bits.dart';
 
@@ -110,7 +109,7 @@ class _SharePanelState extends State<SharePanel> {
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: widget.onClose,
-      child: Tile(
+      child: ModalCard(
         title: '${t.t(widget.titleKey)} · ${widget.title}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

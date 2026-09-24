@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "alicloud-glm-5",
   "canonical_model": "glm-5",
   "display_name": "Alicloud Glm 5",
+  "version": "5",
+  "family": "glm",
   "capabilities": [],
   "official": false,
   "price": {

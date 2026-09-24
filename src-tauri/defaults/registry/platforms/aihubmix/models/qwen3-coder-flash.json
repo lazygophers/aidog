@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790267844,
   "model_id": "qwen3-coder-flash",
   "canonical_model": "qwen3-coder-flash",
   "display_name": "Qwen3 Coder Flash",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

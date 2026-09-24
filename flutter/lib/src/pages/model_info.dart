@@ -582,7 +582,7 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
     return AidogModal(
       maxWidth: 720,
       onBarrierTap: () => _c.select(null),
-      child: Tile(
+      child: ModalCard(
         title: title.primary,
         meta: title.secondary == null
             ? null

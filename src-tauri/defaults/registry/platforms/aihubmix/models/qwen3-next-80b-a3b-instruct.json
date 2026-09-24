@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790267844,
   "model_id": "qwen3-next-80b-a3b-instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
   "display_name": "Qwen3 Next 80B A3B Instruct",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],
