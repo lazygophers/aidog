@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790269990,
   "model_id": "qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
+  "family": "qwen",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

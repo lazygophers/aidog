@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790269990,
   "model_id": "wan2.2-kf2v-flash",
   "canonical_model": "wan2.2-kf2v-flash",
+  "family": "wan",
+  "version": "2.2",
   "capabilities": [
     "text_to_video",
     "image_to_video"
