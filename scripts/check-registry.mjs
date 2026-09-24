@@ -291,6 +291,9 @@ const NUMBER_RE = /-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?/g;
 function numericMultiset(text) {
   return JSON.stringify((text.match(NUMBER_RE) ?? []).map(Number).sort((a, b) => a - b));
 }
+function literalMultiset(text) {
+  return JSON.stringify((text.match(NUMBER_RE) ?? []).sort());
+}
 try {
   const changed = execFileSync("git", ["diff", "--name-only", "--", registryDir], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
     .trim()
@@ -304,7 +307,10 @@ try {
     } catch {
       continue; // 新文件无基线
     }
-    if (numericMultiset(readFileSync(p, "utf8")) === numericMultiset(head) && readFileSync(p, "utf8") !== head) {
+    // 2026-09-25 修正误报：纯字符串字段插入（family/version 字符串含数字）也会让全文不等，
+    // 旧条件（值集合相等 && 全文不同）把所有合法文本级插入都判成指纹。真指纹是
+    // 「值集合相等 && 数字字面 token 集合变化」（1e-06 被重写成 0.000002）。
+    if (numericMultiset(readFileSync(p, "utf8")) === numericMultiset(head) && literalMultiset(readFileSync(p, "utf8")) !== literalMultiset(head)) {
       failures.push([rel, "数值与 HEAD 完全相等但字面不同：JSON round-trip 指纹（科学计数法漂移），批量改数据须文本级编辑"]);
     }
   }

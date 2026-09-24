@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "kwaipilot/kat-coder-pro-v2",
   "canonical_model": "kat-coder-pro-v2",
+  "family": "kat",
+  "version": "2",
+  "display_name": "KAT-Coder-Pro V2",
   "capabilities": [
     "text"
   ],

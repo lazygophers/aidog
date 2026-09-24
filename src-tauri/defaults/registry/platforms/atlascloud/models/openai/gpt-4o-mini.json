@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "openai/gpt-4o-mini",
   "canonical_model": "gpt-4o-mini",
+  "family": "gpt",
+  "display_name": "GPT-4o mini",
   "capabilities": [
     "text"
   ],

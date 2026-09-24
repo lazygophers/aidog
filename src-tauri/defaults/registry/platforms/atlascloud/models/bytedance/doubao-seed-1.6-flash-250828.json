@@ -1,7 +1,10 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790267209,
   "model_id": "bytedance/doubao-seed-1.6-flash-250828",
   "canonical_model": "doubao-seed-1-6-flash-250828",
+  "family": "doubao-seed",
+  "version": "1.6",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],

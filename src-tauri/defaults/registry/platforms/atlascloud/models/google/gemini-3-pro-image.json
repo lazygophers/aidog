@@ -1,7 +1,10 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "google/gemini-3-pro-image",
   "canonical_model": "gemini-3-pro-image",
+  "family": "gemini",
+  "version": "3",
+  "display_name": "Nano Banana Pro",
   "capabilities": [
     "text"
   ],

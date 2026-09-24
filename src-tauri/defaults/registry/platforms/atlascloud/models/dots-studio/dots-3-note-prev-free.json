@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790267209,
   "model_id": "dots-studio/dots-3-note-prev-free",
   "canonical_model": "dots-3-note-prev-free",
+  "family": "dots",
+  "thinking_supported": true,
   "capabilities": [
     "text",
     "vision"
