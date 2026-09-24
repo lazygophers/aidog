@@ -296,3 +296,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   fireworks/fal/azure_ai/root 厂商文档）+ 第 52 轮 aihubmix 长尾+bailian 岔路
   `1fe5ff40c`+`e2cee24f0`（60 文件）。覆盖率 family 84.9% / version 69.1% / ctx 77.1%。
   排名：litellm 2567 / aihubmix 957 / bailian_coding 373 / bailian 369。
+- 2026-09-25 第 53 轮精准平移 `0cb55325`→merge `a3cd72413`（493 文件 21 平台，461 冲突
+  「时间戳 max/余 theirs/重复键保后值」解净）。第 54 轮 ctx 锚定平移 `a068efd4`→merge
+  `e82a5130a`（133 文件，ctx 77.1→78.0%）：209 个官方组值分裂 canonical 跳过（清单
+  tool-results/bp6o9l42k.txt），1290 no-anchor 文件待文档取证轮。覆盖率 family 85.2% /
+  version 68.8% / ctx 78.0%。排名：litellm 2567 / aihubmix 902 / bailian_coding 369。
