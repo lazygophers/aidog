@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788181367,
+  "last_updated": 1790276818,
   "model_id": "charglm-4",
   "canonical_model": "charglm-4",
+  "family": "charglm",
+  "version": "4",
   "display_name": "CharGLM-4",
   "capabilities": [
     "text"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788144135,
+  "last_updated": 1790276818,
   "model_id": "doubao-seed-code-preview-251028",
   "canonical_model": "doubao-seed-code-preview-251028",
+  "family": "doubao-seed-code",
   "capabilities": [
     "text",
     "vision",

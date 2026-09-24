@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "glm-realtime-flash",
   "canonical_model": "glm-realtime-flash",
+  "family": "glm",
   "display_name": "GLM-Realtime-Flash",
   "capabilities": [
     "text",

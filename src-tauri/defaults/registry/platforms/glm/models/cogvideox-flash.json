@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "cogvideox-flash",
   "canonical_model": "cogvideox-flash",
+  "family": "cogvideox",
   "display_name": "CogVideoX-Flash",
   "capabilities": [
     "text_to_video",

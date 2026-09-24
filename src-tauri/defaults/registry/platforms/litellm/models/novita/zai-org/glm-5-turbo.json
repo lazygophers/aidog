@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790276818,
   "model_id": "novita/zai-org/glm-5-turbo",
   "canonical_model": "glm-5-turbo",
   "family": "glm",
-  "version": "5-Turbo",
+  "version": "5",
   "capabilities": [
     "text",
     "tool_use",

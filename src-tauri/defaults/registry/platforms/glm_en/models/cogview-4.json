@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788108806,
+  "last_updated": 1790276818,
   "model_id": "cogview-4",
   "canonical_model": "cogview-4",
+  "family": "cogview",
+  "version": "4",
   "display_name": "CogView-4",
   "capabilities": [
     "text_to_image"

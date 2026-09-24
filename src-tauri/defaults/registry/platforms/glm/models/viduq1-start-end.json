@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788108577,
+  "last_updated": 1790276818,
   "model_id": "viduq1-start-end",
   "canonical_model": "viduq1-start-end",
+  "family": "vidu",
+  "version": "q1",
   "display_name": "ViduQ1-Start-End",
   "capabilities": [
     "image_to_video"
