@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "aihubmix/mimo-v2-pro",
   "canonical_model": "mimo-v2-pro",
+  "family": "mimo",
+  "version": "2",
   "capabilities": [
     "text"
   ],

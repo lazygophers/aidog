@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "aihubmix/grok-4-20-reasoning",
   "canonical_model": "grok-4.20-reasoning",
+  "family": "grok",
+  "version": "4.20",
   "capabilities": [
     "text",
     "vision",

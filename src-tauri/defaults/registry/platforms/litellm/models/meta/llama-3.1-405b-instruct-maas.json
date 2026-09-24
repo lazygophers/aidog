@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790278679,
   "model_id": "meta/llama-3.1-405b-instruct-maas",
   "canonical_model": "llama-3.1-405b-instruct-maas",
+  "family": "llama",
+  "version": "3.1",
   "capabilities": [
     "text"
   ],

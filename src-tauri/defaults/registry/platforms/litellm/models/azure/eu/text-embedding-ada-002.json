@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/eu/text-embedding-ada-002",
   "canonical_model": "text-embedding-ada-002",
+  "family": "text-embedding",
+  "version": "2",
   "capabilities": [
     "embedding"
   ],

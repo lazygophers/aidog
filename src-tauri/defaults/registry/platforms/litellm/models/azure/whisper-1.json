@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/whisper-1",
   "canonical_model": "whisper-1",
+  "family": "whisper",
+  "version": "1",
   "capabilities": [
     "audio"
   ],

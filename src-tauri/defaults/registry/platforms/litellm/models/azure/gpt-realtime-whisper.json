@@ -1,10 +1,13 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-realtime-whisper",
   "canonical_model": "gpt-realtime-whisper",
+  "family": "gpt",
+  "version": "realtime",
   "capabilities": [
     "audio"
   ],
+  "context_window": 16000,
   "official": false,
   "price": {
     "unit": "second",

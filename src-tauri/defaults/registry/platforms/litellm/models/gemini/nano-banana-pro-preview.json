@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "gemini/nano-banana-pro-preview",
-  "canonical_model": "nano-banana-pro-preview",
+  "canonical_model": "nano-banana-pro",
   "capabilities": [
     "text_to_image"
   ],

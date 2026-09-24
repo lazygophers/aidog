@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "databricks/databricks-gpt-oss-20b",
-  "canonical_model": "databricks-gpt-oss-20b",
+  "canonical_model": "gpt-oss-20b",
+  "family": "gpt",
   "capabilities": [
     "text"
   ],

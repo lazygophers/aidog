@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "cloudflare/@cf/google/gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "capabilities": [
@@ -17,5 +17,6 @@
     "input": 1e-7,
     "output": 3e-7
   },
-  "family": "gemma"
+  "family": "gemma",
+  "version": "4"
 }

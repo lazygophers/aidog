@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "global.openai.gpt-6-luna",
-  "canonical_model": "global.openai.gpt-6-luna",
+  "canonical_model": "gpt-6-luna",
+  "family": "gpt",
+  "version": "6",
   "capabilities": [
     "text",
     "vision",

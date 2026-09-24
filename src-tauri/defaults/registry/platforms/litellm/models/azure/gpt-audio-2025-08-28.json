@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-audio-2025-08-28",
-  "canonical_model": "gpt-audio-2025-08-28",
+  "canonical_model": "gpt-audio",
+  "family": "gpt",
+  "version": "audio",
   "capabilities": [
     "text",
     "tool_use"

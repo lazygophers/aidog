@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "vertex_ai/mistral-large-2411",
   "canonical_model": "mistral-large-2411",
+  "family": "mistral",
+  "version": "2.1",
   "capabilities": [
     "text",
     "tool_use"

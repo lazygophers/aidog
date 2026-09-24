@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "replicate/deepseek-ai/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text",
     "reasoning"

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790278679,
   "model_id": "mistral/mistral-moderation-2603",
   "canonical_model": "mistral-moderation-2603",
   "capabilities": [
@@ -12,5 +12,6 @@
     "input": 0,
     "output": 0
   },
-  "family": "mistral"
+  "family": "mistral",
+  "version": "2"
 }

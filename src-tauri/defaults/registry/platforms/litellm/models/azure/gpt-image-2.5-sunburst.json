@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/gpt-image-2.5-sunburst",
   "canonical_model": "gpt-image-2.5-sunburst",
+  "family": "gpt",
+  "version": "2.5",
   "capabilities": [
     "text_to_image"
   ],

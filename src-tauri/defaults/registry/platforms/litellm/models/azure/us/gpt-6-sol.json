@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/us/gpt-6-sol",
   "canonical_model": "gpt-6-sol",
+  "family": "gpt",
+  "version": "6",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790278679,
   "model_id": "cohere.embed-v4:0",
-  "canonical_model": "cohere.embed-v4:0",
+  "canonical_model": "embed-v4",
   "family": "embed",
   "version": "4",
   "capabilities": [

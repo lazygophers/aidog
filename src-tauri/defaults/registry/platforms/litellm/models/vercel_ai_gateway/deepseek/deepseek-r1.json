@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790278679,
   "model_id": "vercel_ai_gateway/deepseek/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text"
   ],

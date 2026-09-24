@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790278679,
   "model_id": "azure/eu/o1-2024-12-17",
-  "canonical_model": "o1-2024-12-17",
+  "canonical_model": "o1",
+  "family": "o",
+  "version": "1",
   "capabilities": [
     "text",
     "vision",
