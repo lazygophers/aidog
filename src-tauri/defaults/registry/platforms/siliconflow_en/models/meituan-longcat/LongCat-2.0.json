@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788084265,
+  "last_updated": 1790273374,
   "model_id": "meituan-longcat/LongCat-2.0",
   "canonical_model": "LongCat-2.0",
+  "version": "2.0",
   "display_name": "LongCat-2.0",
   "family": "longcat",
   "capabilities": [

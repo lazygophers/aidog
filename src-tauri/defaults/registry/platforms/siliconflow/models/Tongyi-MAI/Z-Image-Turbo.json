@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790273374,
   "model_id": "Tongyi-MAI/Z-Image-Turbo",
   "canonical_model": "Z-Image-Turbo",
+  "family": "z-image",
   "capabilities": [
     "text_to_image"
   ],

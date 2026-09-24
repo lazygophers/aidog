@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790273374,
   "model_id": "qwen/qwen2.5-vl-72b-instruct",
   "canonical_model": "qwen2.5-vl-72b-instruct",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],
