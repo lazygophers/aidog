@@ -1,11 +1,12 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790284899,
   "model_id": "MiniMax-M2.7-highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "capabilities": [
     "text"
   ],
   "context_window": 204800,
+  "max_input_tokens": 204800,
   "official": false,
   "price": {
     "input": 0

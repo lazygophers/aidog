@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790284899,
   "model_id": "solar-pro4",
   "canonical_model": "solar-pro4",
 
   "version": "4",
   "family": "solar",  "display_name": "Solar Pro4",
   "context_window": 524288,
+  "max_input_tokens": 524288,
   "capabilities": [
     "text"
   ],

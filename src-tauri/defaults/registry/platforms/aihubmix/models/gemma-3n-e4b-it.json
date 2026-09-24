@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790284899,
   "model_id": "gemma-3n-e4b-it",
   "canonical_model": "gemma-3n-e4b-it",
   "display_name": "Gemma 3n E4B It",
   "family": "gemma",
   "version": "3n",
   "capabilities": [],
+  "context_window": 32768,
+  "max_input_tokens": 32768,
   "official": false,
   "price": {
     "input": 2e-07,

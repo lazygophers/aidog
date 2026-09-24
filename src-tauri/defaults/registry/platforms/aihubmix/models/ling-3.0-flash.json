@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "ling-3.0-flash",
   "canonical_model": "ling-3.0-flash",
 
   "version": "3.0",
   "family": "ling",  "display_name": "Ling 3.0 Flash",
   "context_window": 262144,
+  "max_input_tokens": 262144,
   "capabilities": [
     "text"
   ],

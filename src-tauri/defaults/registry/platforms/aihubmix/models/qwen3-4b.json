@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "qwen3-4b",
   "canonical_model": "qwen3-4b",
 
   "version": "3",
   "family": "qwen",  "display_name": "Qwen3 4B",
   "context_window": 32768,
+  "max_input_tokens": 32768,
   "capabilities": [
     "text"
   ],

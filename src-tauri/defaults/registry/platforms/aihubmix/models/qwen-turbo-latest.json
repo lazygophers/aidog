@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "qwen-turbo-latest",
   "canonical_model": "qwen-turbo-latest",
 
   "family": "qwen",  "display_name": "Qwen Turbo",
   "context_window": 1000000,
+  "max_input_tokens": 1000000,
   "capabilities": [
     "text"
   ],

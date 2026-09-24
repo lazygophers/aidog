@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790268690,
+  "last_updated": 1790284899,
   "model_id": "qwen-vl-ocr",
   "canonical_model": "qwen-vl-ocr",
   "family": "qwen",
   "capabilities": [
     "vision"
   ],
+  "context_window": 32000,
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "input": 7e-8,
