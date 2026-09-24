@@ -348,8 +348,22 @@ class ImportExportController {
   }
 
   /// 按决策应用导入。**破坏性**：调用方先确认。
-  Future<void> applyImport(String path) async {
+  ///
+  /// [renameRequiredText]：选了「保留两者」但新名字空着时直接报错不发请求 ——
+  /// 后端对空 new_key 是静默回落原名（`apply/mod.rs:583-586`），等于用户以为
+  /// 保留了两条、实际覆盖了本地那条，所以这道闸必须在客户端拦。
+  Future<void> applyImport(
+    String path, {
+    String renameRequiredText = '',
+  }) async {
     if (!canApplyImport) return;
+    if (decisions.values.any(
+      (d) => d.kind == ConflictDecisionKind.keepBoth && d.newKey.isEmpty,
+    )) {
+      if (renameRequiredText.isNotEmpty) error = renameRequiredText;
+      _notify();
+      return;
+    }
     busy = true;
     error = '';
     _notify();

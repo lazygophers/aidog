@@ -1992,6 +1992,39 @@ void main() {
       expect(args['join_group_ids'], [7]);
     });
 
+    testWidgets('保留两者新名字清空 → 报错不发 import_apply', (tester) async {
+      final k = await mount(
+        tester,
+        pick: '/tmp/x.aidogx',
+        extra: {
+          'import_read_file': (_) => {
+            'items': [
+              {'scope': 'platform', 'key': 'p1', 'conflict': true},
+            ],
+            'conflicts': [
+              {'scope': 'platform', 'key': 'p1'},
+            ],
+          },
+          'import_apply': (_) => <String, Object?>{},
+        },
+      );
+      final i18n = await makeI18n(tester);
+      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await settle(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('decide-platform p1-keepBoth')),
+      );
+      await settle(tester);
+      // 把预填的 p1-imported 清空。
+      final input = find.byKey(const ValueKey('rename-platform p1'));
+      await tester.enterText(input, '');
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('import-apply')));
+      await settle(tester);
+      expect(k.countOf('import_apply'), 0);
+      expect(find.text(i18n.t('importExport.renameRequired')), findsOneWidget);
+    });
+
     testWidgets('冲突选「保留两者」：新名字预填并进 import_apply 的 decisions', (tester) async {
       final k = await mount(
         tester,

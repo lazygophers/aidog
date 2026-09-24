@@ -328,6 +328,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           c: _cc,
           showDims: true,
           toPayload: _toPlatformPayload,
+          noKeyKey: 'importExport.ccswitch.noKey',
           groupAssignHint: t.t('importExport.ccswitch.groupAssignHint'),
           title: t.t('importExport.ccswitch.title'),
           description: t.t('importExport.ccswitch.desc'),
@@ -391,6 +392,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           t,
           c: _sub,
           toPayload: _toSubPayload,
+          noKeyKey: 'importExport.sub2api.noKey',
           rowExtra: _subRowExtra,
           title: t.t('importExport.sub2api.title'),
           description: t.t('importExport.sub2api.desc'),
@@ -576,7 +578,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
               onTap: _c.canApplyImport && _importPath != null
                   ? () {
                       final p = _importPath;
-                      if (p != null) _c.applyImport(p);
+                      if (p != null) {
+                        _c.applyImport(
+                          p,
+                          renameRequiredText: t.t('importExport.renameRequired'),
+                        );
+                      }
                     }
                   : null,
             ),
@@ -1191,6 +1198,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
     required Widget header,
     bool showDims = false,
     String groupAssignHint = '',
+    required String noKeyKey,
     Widget Function(int index, Map<String, Object?> row)? rowExtra,
     required List<Map<String, Object?>> Function(List<Map<String, Object?>>)
     toPayload,
@@ -1333,12 +1341,19 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           ),
                         ),
                         if (rowExtra != null) rowExtra(i, p),
-                        Text(
-                          maskedKey.isEmpty
-                              ? t.t('importExport.ccswitch.noKey')
-                              : maskedKey,
-                          style: AidogType.micro.copyWith(color: theme.c.fg3),
-                        ),
+                        // 无密钥是告警徽标不是灰字（两张卡同口径：
+                        // `CcSwitchImport.tsx:555-557` / `Sub2ApiImport.tsx:283`
+                        // 的 StatChip level="warning"）。
+                        maskedKey.isEmpty
+                            ? MiniBadge(
+                              key: const ValueKey('provider-no-key'),
+                              text: t.t(noKeyKey),
+                              color: theme.c.peak,
+                            )
+                            : Text(
+                              maskedKey,
+                              style: AidogType.micro.copyWith(color: theme.c.fg3),
+                            ),
                       ],
                     ),
                   ),
