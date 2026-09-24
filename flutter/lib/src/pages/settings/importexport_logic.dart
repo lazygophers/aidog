@@ -14,19 +14,39 @@ import 'dart:async';
 
 import '../invoke.dart';
 
-/// 可导入导出的范围。与后端 `ImportExportScope` 的 serde 值一致。
+/// 可导入导出的范围（10 个，`meta.ts:16-26` 的 ALL_SCOPES 逐条对应）。
+/// 与后端 `collect.rs` 的 scope_set 精确字符串匹配一致（
+/// `aidog_core/src/gateway/import_export/mod.rs:32-40` 的 SCOPE_* 常量）。
 const List<String> kImportExportScopes = [
-  'platforms',
-  'groups',
-  'settings',
-  'skills',
+  'platform',
+  'group',
+  'group_platform',
+  'setting',
+  'codex',
+  'claude_code',
+  'model_price',
   'mcp',
+  'middleware',
+  'skills',
 ];
 
-/// 初始勾选的导出范围，对齐 React（`ImportExportTab.tsx:60-61` 的
-/// `["platform", "group", "group_platform", "setting"]`，不含 skills / mcp；
-/// Flutter 侧 wire 名见 [kImportExportScopes]，无 group_platform，取前三项）。
-const Set<String> kInitialScopes = {'platforms', 'groups', 'settings'};
+/// 初始勾选的导出范围，照抄 React（`ImportExportTab.tsx:60-61` 的
+/// `["platform", "group", "group_platform", "setting"]`，不含 skills / mcp）。
+const Set<String> kInitialScopes = {
+  'platform',
+  'group',
+  'group_platform',
+  'setting',
+};
+
+/// scope wire id（snake_case）→ i18n label key（camelCase，`meta.ts` 的
+/// labelKey 逐条对应）。三处不一致的显式列出，其余直接拼。
+String scopeLabelKey(String scope) => switch (scope) {
+  'group_platform' => 'importExport.scope.groupPlatform',
+  'claude_code' => 'importExport.scope.claudeCode',
+  'model_price' => 'importExport.scope.modelPrice',
+  _ => 'importExport.scope.$scope',
+};
 
 /// 冲突决策：保留本地（跳过） / 用导入的（覆盖） / 两者都留（重命名）。
 ///

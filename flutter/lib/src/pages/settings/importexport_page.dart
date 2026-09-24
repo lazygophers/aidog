@@ -479,7 +479,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
           for (final s in kImportExportScopes)
             SmallButton(
               key: ValueKey('scope-$s'),
-              label: tOr(t, 'importExport.scope.$s', s),
+              // label key 是 camelCase（`scopeLabelKey`），wire id 是 snake_case。
+              label: tOr(t, scopeLabelKey(s), s),
               active: _c.scopes.contains(s),
               onTap: () => _c.toggleScope(s, !_c.scopes.contains(s)),
             ),
@@ -779,12 +780,12 @@ class _ImportExportPageState extends State<ImportExportPage> {
         if (applied.isNotEmpty)
           section(t.t('importExport.applied'), theme.c.ok, [
             for (final e in applied.entries)
-              '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+              '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
           ]),
         if (skipped.isNotEmpty)
           section(t.t('importExport.skipped'), theme.c.fg3, [
             for (final e in skipped.entries)
-              '${tOr(t, 'importExport.scope.${e.key}', e.key)}: ${e.value}',
+              '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
           ]),
         // 错误原文逐条列出来 —— 这是导入失败时唯一能查的东西。
         if (errors.isNotEmpty)
@@ -827,7 +828,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 for (final e in counts.entries)
                   MiniBadge(
                     text:
-                        '${tOr(t, 'importExport.scope.${e.key}', '${e.key}')} '
+                        '${tOr(t, scopeLabelKey(e.key), '${e.key}')} '
                         '${e.value}',
                     color: theme.c.fg3,
                   ),

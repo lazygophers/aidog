@@ -1717,6 +1717,32 @@ void main() {
       );
     });
 
+    testWidgets('导出范围补全到 10 个且 wire 名与后端一致', (tester) async {
+      final k = await mount(tester);
+      // 挂载即防抖拉一次初始预览 —— 传出去的 scopes 必须是后端认的
+      // 单数 wire 名（'platform' 而非 'platforms'），否则 collect 全空。
+      await tester.pump(const Duration(milliseconds: 400));
+      await settle(tester);
+      final scopes =
+          (k.lastArgsOf('export_preview')!['scopes']! as List).cast<String>();
+      expect(scopes.toSet(), kInitialScopes);
+      // 10 个 scope 的 chip 全在场（`meta.ts:16-26` 的 ALL_SCOPES）。
+      for (final s in [
+        'platform',
+        'group',
+        'group_platform',
+        'setting',
+        'codex',
+        'claude_code',
+        'model_price',
+        'mcp',
+        'middleware',
+        'skills',
+      ]) {
+        expect(find.byKey(ValueKey('scope-$s')), findsOneWidget, reason: s);
+      }
+    });
+
     testWidgets('选到非 .aidogx 文件时报错且不读文件', (tester) async {
       final k = await mount(tester, pick: '/tmp/x.zip');
       final i18n = await makeI18n(tester);
@@ -1745,10 +1771,10 @@ void main() {
         extra: {
           'import_read_file': (_) => {
             'items': [
-              {'scope': 'platforms', 'key': 'p1'},
+              {'scope': 'platform', 'key': 'p1'},
             ],
             'conflicts': [
-              {'scope': 'platforms', 'key': 'p1'},
+              {'scope': 'platform', 'key': 'p1'},
             ],
           },
           'import_apply': (_) => <String, Object?>{},
@@ -1767,11 +1793,11 @@ void main() {
       );
 
       expect(
-        find.byKey(const ValueKey('conflict-platforms p1')),
+        find.byKey(const ValueKey('conflict-platform p1')),
         findsOneWidget,
       );
       await tester.tap(
-        find.byKey(const ValueKey('decide-platforms p1-useIncoming')),
+        find.byKey(const ValueKey('decide-platform p1-useIncoming')),
       );
       await settle(tester);
 
