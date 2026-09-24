@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790250918,
+  "model_id": "qwen3.8-flash",
+  "canonical_model": "qwen3.8-flash",
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "context_window": 1000000,
+  "official": false,
+  "price": {
+    "input": 1.5e-07,
+    "output": 4.7e-07,
+    "cache_read": 1.6e-08
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "last_updated": 1790250918,
+  "model_id": "gpt-6-luna",
+  "canonical_model": "gpt-6-luna",
+  "thinking_supported": true,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 5e-07,
+    "cache_read": 1e-08,
+    "cache_write": 1.25e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 2e-07,
+        "output": 7.5e-07,
+        "cache_read": 2e-08
+      }
+    ]
+  }
+}

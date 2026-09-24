@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790250918,
   "model_id": "gpt-5.6-sol",
   "canonical_model": "gpt-5.6-sol",
   "thinking_supported": true,
@@ -12,8 +12,17 @@
   "context_window": 1050000,
   "official": false,
   "price": {
-    "input": 3.25e-06,
-    "output": 1.95e-05,
-    "cache_read": 3.25e-07
+    "input": 2.6e-06,
+    "output": 1.3e-05,
+    "cache_read": 2.6e-07,
+    "cache_write": 3.25e-06,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 5.2e-06,
+        "output": 1.95e-05,
+        "cache_read": 5.2e-07
+      }
+    ]
   }
 }

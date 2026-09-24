@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790250918,
   "model_id": "claude-sonnet-4-6",
   "canonical_model": "claude-sonnet-4-6",
   "family": "claude",
@@ -15,6 +15,6 @@
     "input": 1.95e-06,
     "output": 9.75e-06,
     "cache_read": 1.95e-07,
-    "cache_write": 2.438e-06
+    "cache_write": 2.4375e-06
   }
 }

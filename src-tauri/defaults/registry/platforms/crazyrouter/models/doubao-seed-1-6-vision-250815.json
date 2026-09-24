@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790250918,
   "model_id": "doubao-seed-1-6-vision-250815",
   "canonical_model": "doubao-seed-1-6-vision-250815",
   "capabilities": [
@@ -11,7 +11,7 @@
   "context_window": 131000,
   "official": true,
   "price": {
-    "input": 1.14e-07,
-    "output": 1.143e-06
+    "input": 1.143e-07,
+    "output": 1.1429e-06
   }
 }

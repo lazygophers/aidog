@@ -1,9 +1,7 @@
 {
   "last_updated": 1790250918,
-  "model_id": "glm-5.3-flash",
-  "canonical_model": "glm-5.3-flash",
-  "family": "glm",
-  "version": "5.3",
+  "model_id": "glm-5.3-flashx",
+  "canonical_model": "glm-5.3-flashx",
   "thinking_supported": true,
   "thinking_toggleable": false,
   "capabilities": [
@@ -14,11 +12,11 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
-  "context_window": 1310720,
+  "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 1.185185185e-07,
-    "output": 4.148148148e-07,
-    "cache_read": 3.40740741e-08
+    "input": 2.898550725e-07,
+    "output": 1.014492754e-06,
+    "cache_read": 8.26086957e-08
   }
 }
