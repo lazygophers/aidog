@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/moonshotai/kimi-k2-instruct",
+  "canonical_model": "kimi-k2-instruct",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 100352,
+  "official": false,
+  "price": {
+    "input": 5.7e-7,
+    "output": 0.0000023
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
+  "canonical_model": "whisper-large-v3-turbo",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0000085
+  }
+}

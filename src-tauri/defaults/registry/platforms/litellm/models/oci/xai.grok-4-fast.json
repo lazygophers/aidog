@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "oci/xai.grok-4-fast",
+  "canonical_model": "xai.grok-4-fast",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000025
+  }
+}

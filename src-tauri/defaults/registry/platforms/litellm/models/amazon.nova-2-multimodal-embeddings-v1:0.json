@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "amazon.nova-2-multimodal-embeddings-v1:0",
+  "canonical_model": "amazon.nova-2-multimodal-embeddings-v1:0",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8172,
+  "context_window": 8172,
+  "max_output_tokens": 8172,
+  "official": false,
+  "price": {
+    "input": 1.35e-7,
+    "output": 0
+  }
+}

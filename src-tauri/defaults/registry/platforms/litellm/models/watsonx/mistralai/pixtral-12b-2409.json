@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/mistralai/pixtral-12b-2409",
+  "canonical_model": "pixtral-12b-2409",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 3.5e-7,
+    "output": 3.5e-7
+  }
+}

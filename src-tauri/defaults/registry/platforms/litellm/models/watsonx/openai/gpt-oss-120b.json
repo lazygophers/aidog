@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/openai/gpt-oss-120b",
+  "canonical_model": "gpt-oss-120b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "input": 1.59e-7,
+    "output": 6.36e-7
+  },
+  "family": "gpt"
+}

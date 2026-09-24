@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/ministral-3b",
+  "canonical_model": "ministral-3b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 4e-8,
+    "output": 4e-8
+  }
+}

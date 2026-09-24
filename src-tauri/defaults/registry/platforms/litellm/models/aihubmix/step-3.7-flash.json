@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "aihubmix/step-3.7-flash",
+  "canonical_model": "step-3.7-flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.2e-7,
+    "output": 0.00000132
+  }
+}

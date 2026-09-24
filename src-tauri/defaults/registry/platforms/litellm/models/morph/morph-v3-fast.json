@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "morph/morph-v3-fast",
+  "canonical_model": "morph-v3-fast",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 16000,
+  "context_window": 16000,
+  "max_output_tokens": 16000,
+  "official": false,
+  "price": {
+    "input": 8e-7,
+    "output": 0.0000012
+  }
+}

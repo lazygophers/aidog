@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "canonical_model": "nvidia.nemotron-nano-9b-v2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": false,
+  "price": {
+    "input": 6e-8,
+    "output": 2.5e-7
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/qwen/qwen2.5-vl-72b-instruct",
+  "canonical_model": "qwen2.5-vl-72b-instruct",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 8e-7,
+    "output": 8e-7
+  }
+}

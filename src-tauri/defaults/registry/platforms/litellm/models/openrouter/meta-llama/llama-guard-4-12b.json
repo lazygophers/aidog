@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/meta-llama/llama-guard-4-12b",
+  "canonical_model": "llama-guard-4-12b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 163840,
+  "context_window": 163840,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "input": 1.8e-7,
+    "output": 1.8e-7
+  }
+}

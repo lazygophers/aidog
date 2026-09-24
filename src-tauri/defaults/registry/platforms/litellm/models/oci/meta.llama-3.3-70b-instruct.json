@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "oci/meta.llama-3.3-70b-instruct",
+  "canonical_model": "meta.llama-3.3-70b-instruct",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4000,
+  "official": false,
+  "price": {
+    "input": 7.2e-7,
+    "output": 7.2e-7
+  }
+}

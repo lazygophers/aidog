@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/doc-intelligence/prebuilt-layout",
+  "canonical_model": "prebuilt-layout",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.01
+  }
+}

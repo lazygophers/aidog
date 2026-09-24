@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "aihubmix/gpt-5.4-low",
+  "canonical_model": "gpt-5.4-low",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000025,
+    "output": 0.000015
+  }
+}

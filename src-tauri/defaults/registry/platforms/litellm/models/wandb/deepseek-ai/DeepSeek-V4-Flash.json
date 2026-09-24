@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "wandb/deepseek-ai/DeepSeek-V4-Flash",
+  "canonical_model": "deepseek-v4-flash",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 1049000,
+  "context_window": 1049000,
+  "max_output_tokens": 1048576,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.4e-7,
+    "output": 2.8e-7
+  },
+  "family": "deepseek"
+}

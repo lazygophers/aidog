@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "j2-ultra",
+  "canonical_model": "j2-ultra",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 0.000015,
+    "output": 0.000015
+  }
+}

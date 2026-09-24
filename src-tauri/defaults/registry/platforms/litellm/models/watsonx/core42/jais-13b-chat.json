@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/core42/jais-13b-chat",
+  "canonical_model": "jais-13b-chat",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 0.0005,
+    "output": 0.002
+  }
+}

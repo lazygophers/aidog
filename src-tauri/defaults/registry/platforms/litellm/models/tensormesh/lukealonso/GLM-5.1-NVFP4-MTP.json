@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "tensormesh/lukealonso/GLM-5.1-NVFP4-MTP",
+  "canonical_model": "GLM-5.1-NVFP4-MTP",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202752,
+  "context_window": 202752,
+  "max_output_tokens": 202752,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000014,
+    "output": 0.0000044
+  }
+}

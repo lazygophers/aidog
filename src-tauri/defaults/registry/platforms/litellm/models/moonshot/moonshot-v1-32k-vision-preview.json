@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "moonshot/moonshot-v1-32k-vision-preview",
+  "canonical_model": "moonshot-v1-32k-vision-preview",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000003
+  }
+}

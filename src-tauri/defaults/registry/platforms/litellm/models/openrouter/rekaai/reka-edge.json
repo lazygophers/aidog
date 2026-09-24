@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/rekaai/reka-edge",
+  "canonical_model": "reka-edge",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 16384,
+  "context_window": 16384,
+  "max_output_tokens": 14745,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 1e-7
+  }
+}

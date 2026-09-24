@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/minimax/minimax-m1",
+  "canonical_model": "minimax-m1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 40000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4e-7,
+    "output": 0.0000022
+  }
+}

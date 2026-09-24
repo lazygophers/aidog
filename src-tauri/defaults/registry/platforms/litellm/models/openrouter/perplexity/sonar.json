@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/perplexity/sonar",
+  "canonical_model": "sonar",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 127072,
+  "context_window": 127072,
+  "max_output_tokens": 114364,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000001
+  }
+}

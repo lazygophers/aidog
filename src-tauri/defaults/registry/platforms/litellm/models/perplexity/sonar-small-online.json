@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "perplexity/sonar-small-online",
+  "canonical_model": "sonar-small-online",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 12000,
+  "context_window": 12000,
+  "max_output_tokens": 12000,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 2.8e-7
+  }
+}

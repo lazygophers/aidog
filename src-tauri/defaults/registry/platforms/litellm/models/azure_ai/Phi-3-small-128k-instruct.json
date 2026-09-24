@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/Phi-3-small-128k-instruct",
+  "canonical_model": "Phi-3-small-128k-instruct",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 1.5e-7,
+    "output": 6e-7
+  }
+}

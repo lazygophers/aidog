@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepgram/enhanced-meeting",
+  "canonical_model": "enhanced-meeting",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00024167
+  }
+}

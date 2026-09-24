@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "gradient_ai/deepseek-r1-distill-llama-70b",
+  "canonical_model": "deepseek-r1-distill-llama-70b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "input": 9.9e-7,
+    "output": 9.9e-7
+  }
+}

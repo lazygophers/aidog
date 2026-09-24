@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepgram/base-video",
+  "canonical_model": "base-video",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00020833
+  }
+}

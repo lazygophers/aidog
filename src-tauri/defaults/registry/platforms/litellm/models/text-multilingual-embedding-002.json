@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "text-multilingual-embedding-002",
+  "canonical_model": "text-multilingual-embedding-002",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 2048,
+  "context_window": 2048,
+  "max_output_tokens": 2048,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 0
+  }
+}

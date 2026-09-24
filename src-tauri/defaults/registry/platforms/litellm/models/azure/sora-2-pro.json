@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/sora-2-pro",
+  "canonical_model": "sora-2-pro",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.3
+  }
+}

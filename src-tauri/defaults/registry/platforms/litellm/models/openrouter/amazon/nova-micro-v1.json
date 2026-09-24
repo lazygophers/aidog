@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/amazon/nova-micro-v1",
+  "canonical_model": "nova-micro-v1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 5120,
+  "official": false,
+  "price": {
+    "input": 3.5e-8,
+    "output": 1.4e-7
+  }
+}

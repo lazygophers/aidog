@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/qwen/qwen3.5-35b-a3b",
+  "canonical_model": "qwen3.5-35b-a3b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 16384,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3.125e-7,
+    "output": 0.00000125
+  },
+  "family": "qwen"
+}

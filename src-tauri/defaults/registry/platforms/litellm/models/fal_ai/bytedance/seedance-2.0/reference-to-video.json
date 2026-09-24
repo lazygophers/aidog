@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "fal_ai/bytedance/seedance-2.0/reference-to-video",
+  "canonical_model": "reference-to-video",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.3034
+  }
+}

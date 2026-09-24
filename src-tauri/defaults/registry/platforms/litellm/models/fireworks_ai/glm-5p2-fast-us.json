@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "fireworks_ai/glm-5p2-fast-us",
+  "canonical_model": "glm-5p2-fast-us",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000021,
+    "output": 0.0000066
+  }
+}

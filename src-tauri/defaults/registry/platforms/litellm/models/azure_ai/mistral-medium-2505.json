@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/mistral-medium-2505",
+  "canonical_model": "mistral-medium-2505",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 8191,
+  "official": false,
+  "price": {
+    "input": 4e-7,
+    "output": 0.000002
+  }
+}

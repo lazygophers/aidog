@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "crusoe/moonshotai/Kimi-K2-Thinking",
+  "canonical_model": "kimi-k2-thinking",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000025,
+    "output": 0.0000025
+  }
+}

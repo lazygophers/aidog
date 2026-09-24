@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "bedrock/eu-north-1/minimax.minimax-m2.1",
+  "canonical_model": "minimax.minimax-m2.1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 196000,
+  "context_window": 196000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 3.6e-7,
+    "output": 0.00000144
+  }
+}

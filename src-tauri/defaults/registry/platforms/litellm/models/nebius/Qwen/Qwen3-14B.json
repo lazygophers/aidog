@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "nebius/Qwen/Qwen3-14B",
+  "canonical_model": "qwen3-14b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 8e-8,
+    "output": 2.4e-7
+  }
+}

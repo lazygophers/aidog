@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/FW-MiniMax-M3",
+  "canonical_model": "FW-MiniMax-M3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 512000,
+  "context_window": 512000,
+  "max_output_tokens": 512000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3.3e-7,
+    "output": 0.00000132
+  }
+}

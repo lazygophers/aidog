@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "baseten/zai-org/GLM-5.3",
+  "canonical_model": "glm-5.3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000014,
+    "output": 0.0000044
+  },
+  "family": "glm",
+  "version": "5.3"
+}

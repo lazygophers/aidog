@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/google/gemma-4-26b-a4b-it-maas",
+  "canonical_model": "gemma-4-26b-a4b-it-maas",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 1.5e-7,
+    "output": 6e-7
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "scaleway/qwen/qwen3-235b-a22b-instruct-2507",
+  "canonical_model": "qwen3-235b-a22b-instruct-2507",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 16384,
+  "official": false,
+  "price": {
+    "input": 7.5e-7,
+    "output": 0.00000225
+  }
+}

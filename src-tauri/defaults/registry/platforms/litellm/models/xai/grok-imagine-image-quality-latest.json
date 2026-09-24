@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "xai/grok-imagine-image-quality-latest",
+  "canonical_model": "grok-imagine-image-quality-latest",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.05
+  }
+}

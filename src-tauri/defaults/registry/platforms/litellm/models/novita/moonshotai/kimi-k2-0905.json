@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/moonshotai/kimi-k2-0905",
+  "canonical_model": "kimi-k2-0905",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 100352,
+  "official": false,
+  "price": {
+    "input": 6e-7,
+    "output": 0.0000025
+  }
+}

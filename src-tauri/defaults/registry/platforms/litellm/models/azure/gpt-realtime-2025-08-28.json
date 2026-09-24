@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/gpt-realtime-2025-08-28",
+  "canonical_model": "gpt-realtime-2025-08-28",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 0.000004,
+    "output": 0.000016
+  }
+}

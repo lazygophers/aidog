@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "groq/qwen/qwen3.8-27b",
+  "canonical_model": "qwen3.8-27b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131042,
+  "context_window": 131042,
+  "max_output_tokens": 16384,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 8e-7,
+    "output": 0.000004
+  },
+  "family": "qwen"
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "ollama/gpt-oss:20b-cloud",
+  "canonical_model": "gpt-oss:20b-cloud",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

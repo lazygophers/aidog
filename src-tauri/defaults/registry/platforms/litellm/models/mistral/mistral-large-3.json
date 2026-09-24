@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "mistral/mistral-large-3",
+  "canonical_model": "mistral-large-3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 262144,
+  "official": false,
+  "price": {
+    "input": 5e-7,
+    "output": 0.0000015
+  }
+}
