@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1790275340,
   "model_id": "ocr-4-0",
   "canonical_model": "ocr-4-0",
   "capabilities": [],
   "official": true,
   "family": "mistral",
+  "version": "4.0",
   "price": {
     "unit": "request",
     "unit_price": 0.004

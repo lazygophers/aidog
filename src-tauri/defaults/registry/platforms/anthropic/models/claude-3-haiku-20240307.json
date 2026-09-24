@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067645,
+  "last_updated": 1790275340,
   "model_id": "claude-3-haiku-20240307",
   "canonical_model": "claude-3-haiku-20240307",
+  "family": "claude",
+  "version": "3",
   "capabilities": [
     "text"
   ],
