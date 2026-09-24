@@ -221,7 +221,7 @@
         "ponytail@ponytail": true
     },
     "permissions": {
-        "defaultMode": "auto",
+        "defaultMode": "bypassPermissions",
         "additionalDirectories": [
             ".claude/",
             ".ask-ui/",
