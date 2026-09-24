@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/code-llama-34b-instruct",
   "canonical_model": "code-llama-34b-instruct",
+  "family": "codellama",
   "capabilities": [
     "text"
   ],

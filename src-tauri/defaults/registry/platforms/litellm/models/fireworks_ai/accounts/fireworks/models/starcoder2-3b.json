@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/starcoder2-3b",
   "canonical_model": "starcoder2-3b",
+  "family": "starcoder",
+  "version": "2",
   "capabilities": [
     "text"
   ],

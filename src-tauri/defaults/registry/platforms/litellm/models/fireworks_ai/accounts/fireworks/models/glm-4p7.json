@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/glm-4p7",
   "canonical_model": "glm-4p7",
+  "family": "glm",
+  "version": "4.7",
   "capabilities": [
     "text",
     "tool_use",

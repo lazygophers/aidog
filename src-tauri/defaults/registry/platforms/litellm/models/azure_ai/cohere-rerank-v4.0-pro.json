@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/cohere-rerank-v4.0-pro",
   "canonical_model": "cohere-rerank-v4.0-pro",
+  "family": "rerank",
+  "version": "4.0",
   "capabilities": [
     "rerank"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790283197,
   "model_id": "azure_ai/flux.2-pro",
   "canonical_model": "flux-2-pro",
+  "family": "flux",
+  "version": "2",
   "capabilities": [
     "text_to_image"
   ],

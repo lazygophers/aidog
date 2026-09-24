@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "ft:gpt-4.1-mini-2025-04-14",
   "canonical_model": "ft:gpt-4.1-mini-2025-04-14",
+  "family": "gpt",
+  "version": "4.1",
   "capabilities": [
     "text",
     "tool_use"

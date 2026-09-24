@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790283197,
   "model_id": "fireworks_ai/accounts/fireworks/models/llamaguard-7b",
   "canonical_model": "llamaguard-7b",
+  "family": "llama",
   "capabilities": [
     "text"
   ],

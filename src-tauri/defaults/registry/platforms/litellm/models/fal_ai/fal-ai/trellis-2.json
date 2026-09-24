@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790283197,
   "model_id": "fal_ai/fal-ai/trellis-2",
   "canonical_model": "trellis-2",
+  "family": "trellis",
+  "version": "2",
   "capabilities": [
     "text_to_image"
   ],
