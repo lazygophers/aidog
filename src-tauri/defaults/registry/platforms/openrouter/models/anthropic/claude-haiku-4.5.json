@@ -2,6 +2,8 @@
   "model_id": "anthropic/claude-haiku-4.5",
   "display_name": "Anthropic: Claude Haiku 4.5",
   "canonical_model": "claude-haiku-4-5",
+  "family": "claude",
+  "version": "4.5",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.000005,
     "cache_read": 1e-7
   },
-  "last_updated": 1790245754,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]

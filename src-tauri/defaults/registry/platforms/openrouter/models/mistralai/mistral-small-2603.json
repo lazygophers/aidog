@@ -2,6 +2,8 @@
   "model_id": "mistralai/mistral-small-2603",
   "display_name": "Mistral: Mistral Small 4",
   "canonical_model": "mistral-small-2603",
+  "family": "mistral",
+  "version": "4",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 6e-7,
     "cache_read": 1.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]

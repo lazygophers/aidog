@@ -2,6 +2,8 @@
   "model_id": "mistralai/ministral-3b-2512",
   "display_name": "Mistral: Ministral 3 3B 2512",
   "canonical_model": "ministral-3b-2512",
+  "family": "ministral",
+  "version": "3",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 1e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]

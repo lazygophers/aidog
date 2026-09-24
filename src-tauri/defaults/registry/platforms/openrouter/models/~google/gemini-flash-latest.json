@@ -2,6 +2,7 @@
   "model_id": "~google/gemini-flash-latest",
   "display_name": "Google: Gemini Flash Latest",
   "canonical_model": "gemini-flash-latest",
+  "family": "gemini",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.00000375,
     "cache_read": 7.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,8 @@
   "model_id": "mistralai/voxtral-small-24b-2507",
   "display_name": "Mistral: Voxtral Small 24B 2507",
   "canonical_model": "voxtral-small-24b-2507",
+  "family": "voxtral",
+  "version": "25.07",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 3e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790275824,
   "capabilities": [
     "text"
   ]
