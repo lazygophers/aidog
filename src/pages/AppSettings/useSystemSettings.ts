@@ -37,6 +37,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [proxyStartError, setProxyStartError] = useState<ProxyStartError | null>(null);
   const [appVersion, setAppVersion] = useState("");
   const [dbCompacting, setDbCompacting] = useState(false);
+  const [dbCompactConfirm, setDbCompactConfirm] = useState(false);
   const [statsRetention, setStatsRetention] = useState(365);
   const [statsRebuilding, setStatsRebuilding] = useState(false);
   const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
@@ -209,10 +210,11 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     } catch (e: any) { setMessage(e.toString()); }
   };
 
-  const handleDbCompact = async () => {
-    // 确认：全量 VACUUM 锁库期间代理请求短暂排队
-    const ok = window.confirm(t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队"));
-    if (!ok) return;
+  // 确认改走 AlertDialog（Radix Portal）：原生 window.confirm 破坏 Tauri，项目禁用。
+  const requestDbCompact = () => setDbCompactConfirm(true);
+
+  const runDbCompact = async () => {
+    setDbCompactConfirm(false);
     setDbCompacting(true);
     try {
       const r = await dbApi.compact();
@@ -282,7 +284,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     upstreamReqRetention, upstreamReqRetentionUnit,
     reqTimeout, connTimeout, btcGlobalEnabled,
     logFileEnabled, logLevel, logRetHours, message, proxyStartError, appVersion,
-    dbCompacting, statsRetention, statsRebuilding, proxyClient,
+    dbCompacting, dbCompactConfirm, setDbCompactConfirm, statsRetention, statsRebuilding, proxyClient,
     autoUpdateEnabled,
     // state setters needed directly in JSX (inline onChange)
     setProxyPort, setLogUserReq, setLogUpstreamReq,
@@ -294,7 +296,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     handleAutostartChange, handleBindLanChange,
     handleAutolaunchChange, handleSilentLaunchChange,
     handleProxyClientChange, handleLogEnabledChange, updateLogSettings,
-    handleDbCompact, handleStatsRetentionChange, handleStatsRebuild,
+    requestDbCompact, runDbCompact, handleStatsRetentionChange, handleStatsRebuild,
     handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange, handleBtcGlobalChange,
   };
 }
