@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790287023,
   "model_id": "glm-4v-flash",
   "canonical_model": "glm-4v-flash",
   "family": "glm",
@@ -9,7 +9,7 @@
     "text",
     "vision"
   ],
-  "context_window": 65536,
+  "context_window": 16384,
   "official": true,
   "price": {
     "input": 6.944444444444444e-07,

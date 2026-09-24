@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790287023,
   "model_id": "claude-opus-4-7",
   "canonical_model": "claude-opus-4-7",
   "family": "claude",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 1000000,
   "max_output_tokens": 128000,
-  "context_window": 128000,
+  "context_window": 1000000,
   "official": true,
   "price": {
     "input": 5e-06,

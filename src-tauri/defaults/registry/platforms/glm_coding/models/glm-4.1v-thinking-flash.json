@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790287023,
   "model_id": "glm-4.1v-thinking-flash",
   "canonical_model": "glm-4.1v-thinking-flash",
   "family": "glm",
@@ -10,9 +10,9 @@
     "vision",
     "reasoning"
   ],
-  "max_input_tokens": 131072,
+  "max_input_tokens": 65536,
   "max_output_tokens": 32768,
-  "context_window": 131072,
+  "context_window": 65536,
   "official": true,
   "thinking_supported": true,
   "price": {

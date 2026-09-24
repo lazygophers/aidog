@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790287023,
   "model_id": "glm-4-flash-250414",
   "canonical_model": "glm-4-flash-250414",
   "family": "glm",
@@ -8,7 +8,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 200000,
+  "max_input_tokens": 131072,
   "max_output_tokens": 128000,
   "context_window": 131072,
   "official": true,
