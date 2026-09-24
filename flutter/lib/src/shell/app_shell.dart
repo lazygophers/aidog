@@ -128,17 +128,21 @@ class PageHead extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.trailing,
+    this.bottom,
   });
 
   final String title;
   final String? subtitle;
   final Widget? trailing;
 
+  /// 与后续内容的间距。缺省 2xl；React 页面全页 gap（如 Stats 的 16）经这里传入。
+  final double? bottom;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.s_2xl),
+      padding: EdgeInsets.only(bottom: bottom ?? AidogSpace.s_2xl),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [

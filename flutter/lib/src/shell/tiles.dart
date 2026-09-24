@@ -197,6 +197,8 @@ class ReadoutTile extends StatelessWidget {
     this.deltaNote,
     this.spark,
     this.live = false,
+    this.padding,
+    this.valueColor,
   });
 
   /// 小号说明（「费用」「缓存率」）。
@@ -216,6 +218,12 @@ class ReadoutTile extends StatelessWidget {
   final Widget? spark;
   final bool live;
 
+  /// 卡内边距（React Stats Overview 卡是 16/20，其余读数卡走 Tile 缺省）。
+  final EdgeInsetsGeometry? padding;
+
+  /// 读数本体的颜色（React `levelColor(level)` 的色编码）。
+  final Color? valueColor;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
@@ -226,6 +234,7 @@ class ReadoutTile extends StatelessWidget {
     };
     return Tile(
       live: live,
+      padding: padding,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -233,7 +242,18 @@ class ReadoutTile extends StatelessWidget {
           Text(label, style: AidogType.caption.copyWith(color: t.c.fg2)),
           const SizedBox(height: 2),
           // 以数字开头/结尾的读数在 RTL 下会被 bidi 重排 —— 规则 6 第 ④ 类。
-          Ltr(child: Text(value, style: numStyle(AidogType.numXl, t.c.fg))),
+          // React Overview 卡值：20 sans w700（`Stats.tsx:976` 的 F.title + 700），
+          // 不是 28 mono —— 读数观感对齐现仓。
+          Ltr(
+            child: Text(
+              value,
+              style: AidogType.title.copyWith(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: valueColor ?? t.c.fg,
+              ),
+            ),
+          ),
           if (delta != null)
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.ssm),
@@ -572,15 +592,19 @@ int effectiveSpan(int span, double width) {
 /// 12 列网格。行内各格等高（同一行共享行高，靠 IntrinsicHeight），
 /// 与 CSS grid 的 `align-items: stretch` 行为一致。
 class Bento extends StatelessWidget {
-  const Bento({super.key, required this.children});
+  const Bento({super.key, required this.children, this.gap = AidogLayout.gridGap});
 
   final List<BentoCell> children;
+
+  /// 行距 / 列距。缺省是 token 的 grid-gap；React 页面各自的全页 gap（如 Stats 的
+  /// 16）经这里传入，不改 token 全局值。
+  final double gap;
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const gap = AidogLayout.gridGap;
+        final gap = this.gap;
         const cols = 12;
         final width = constraints.maxWidth;
         final unit = (width - gap * (cols - 1)) / cols;
@@ -611,7 +635,7 @@ class Bento extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var i = 0; i < rows[r].length; i++) ...[
-                        if (i > 0) const SizedBox(width: gap),
+                        if (i > 0) SizedBox(width: gap),
                         SizedBox(
                           width: widthFor(rows[r][i].span),
                           child: rows[r][i].child,
