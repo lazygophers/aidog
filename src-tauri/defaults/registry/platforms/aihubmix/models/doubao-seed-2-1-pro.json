@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284899,
   "model_id": "doubao-seed-2-1-pro",
   "canonical_model": "doubao-seed-2-1-pro",
   "display_name": "Doubao Seed 2.1 Pro",
   "thinking_supported": true,
   "max_output_tokens": 256000,
+  "max_input_tokens": 256000,
   "context_window": 256000,
   "capabilities": [
     "text",

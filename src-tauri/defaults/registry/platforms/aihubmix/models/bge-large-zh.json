@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284899,
   "model_id": "bge-large-zh",
   "canonical_model": "bge-large-zh",
   "display_name": "Bge Large Zh",
@@ -8,6 +8,7 @@
     "tool_use",
     "embedding"
   ],
+  "context_window": 512,
   "official": false,
   "price": {
     "input": 6.8e-08,

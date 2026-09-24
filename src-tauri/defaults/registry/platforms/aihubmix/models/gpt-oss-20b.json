@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284899,
   "model_id": "gpt-oss-20b",
   "canonical_model": "gpt-oss-20b",
   "max_output_tokens": 32768,
+  "max_input_tokens": 131072,
   "family": "gpt",
   "thinking_supported": true,
   "thinking_toggleable": true,

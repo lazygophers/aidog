@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284899,
   "model_id": "gpt-3.5-turbo-16k",
   "canonical_model": "gpt-3.5-turbo-16k",
   "display_name": "GPT 3.5 Turbo 16K",
   "capabilities": [],
+  "context_window": 16385,
+  "max_input_tokens": 16385,
   "official": false,
   "price": {
     "input": 3e-06,

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790284899,
   "model_id": "auto",
   "canonical_model": "auto",
   "display_name": "Auto",
   "context_window": 1000000,
+  "max_input_tokens": 2000000,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

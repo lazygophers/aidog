@@ -1,10 +1,12 @@
 {
-  "last_updated": 1788110545,
+  "last_updated": 1790284899,
   "model_id": "text-embedding-v4",
   "canonical_model": "text-embedding-v4",
   "capabilities": [
     "embedding"
   ],
+  "context_window": 8000,
+  "max_input_tokens": 8000,
   "official": true,
   "price": {
     "input": 6.94444e-8

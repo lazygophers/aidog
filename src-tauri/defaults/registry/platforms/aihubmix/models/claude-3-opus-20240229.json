@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284899,
   "model_id": "claude-3-opus-20240229",
   "canonical_model": "claude-3-opus-20240229",
   "display_name": "Claude 3 Opus 20240229",
   "capabilities": [],
+  "context_window": 4096,
+  "max_input_tokens": 200000,
   "official": false,
   "price": {
     "input": 1.65e-05,
