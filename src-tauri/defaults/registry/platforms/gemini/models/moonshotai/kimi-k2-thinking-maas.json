@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790271384,
   "model_id": "moonshotai/kimi-k2-thinking-maas",
   "canonical_model": "kimi-k2-thinking-maas",
+  "family": "kimi",
+  "version": "2",
   "capabilities": [
     "text"
   ],

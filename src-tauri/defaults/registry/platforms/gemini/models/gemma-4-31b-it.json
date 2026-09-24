@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790186344,
+  "last_updated": 1790271384,
   "model_id": "gemma-4-31b-it",
   "canonical_model": "gemma-4-31b-it",
+  "family": "gemma",
+  "version": "4",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

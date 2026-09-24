@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1790271384,
   "model_id": "gemini-3.8-flash",
   "canonical_model": "gemini-3.8-flash",
+  "family": "gemini",
+  "version": "3.8",
   "display_name": "Gemini 3.8 Flash",
   "predecessor": "gemini-3.7-flash",
   "capabilities": [

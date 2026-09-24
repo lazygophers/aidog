@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790186344,
+  "last_updated": 1790271384,
   "model_id": "gemini-3.7-flash",
   "canonical_model": "gemini-3.7-flash",
+  "family": "gemini",
+  "version": "3.7",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
