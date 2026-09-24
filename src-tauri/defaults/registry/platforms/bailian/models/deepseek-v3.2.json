@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790181253,
+  "last_updated": 1790273817,
   "model_id": "deepseek-v3.2",
   "canonical_model": "DeepSeek-V3.2",
+  "version": "3.2",
   "family": "deepseek",
   "thinking_supported": true,
   "thinking_toggleable": true,
