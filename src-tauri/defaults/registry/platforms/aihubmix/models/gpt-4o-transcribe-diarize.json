@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790286522,
   "model_id": "gpt-4o-transcribe-diarize",
   "canonical_model": "gpt-4o-transcribe-diarize",
   "thinking_supported": true,
@@ -11,6 +11,7 @@
   "capabilities": [
     "audio"
   ],
+  "max_input_tokens": 16000,
   "official": false,
   "price": {
     "input": 2.5e-06,

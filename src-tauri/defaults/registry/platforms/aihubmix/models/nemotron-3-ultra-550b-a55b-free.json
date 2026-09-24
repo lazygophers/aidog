@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790286522,
   "model_id": "nemotron-3-ultra-550b-a55b-free",
   "canonical_model": "nemotron-3-ultra-550b-a55b-free",
 
@@ -7,6 +7,7 @@
   "family": "nemotron",  "display_name": "Nemotron 3 Ultra 550B A55B (free)",
   "context_window": 1048576,
   "capabilities": [],
+  "max_input_tokens": 1048576,
   "official": false,
   "price": {
     "input": 0.0

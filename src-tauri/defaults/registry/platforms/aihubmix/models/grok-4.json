@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790286522,
   "model_id": "grok-4",
   "canonical_model": "grok-4",
 
@@ -7,11 +7,11 @@
   "family": "grok",  "display_name": "Grok 4",
   "thinking_supported": true,
   "max_output_tokens": 64000,
-  "max_input_tokens": 256000,
   "context_window": 256000,
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 256000,
   "official": false,
   "price": {
     "input": 0.0000033,

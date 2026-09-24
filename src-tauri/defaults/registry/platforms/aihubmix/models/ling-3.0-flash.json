@@ -1,15 +1,15 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790286522,
   "model_id": "ling-3.0-flash",
   "canonical_model": "ling-3.0-flash",
 
   "version": "3.0",
   "family": "ling",  "display_name": "Ling 3.0 Flash",
   "context_window": 262144,
-  "max_input_tokens": 262144,
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 262144,
   "official": false,
   "price": {
     "input": 6e-08,

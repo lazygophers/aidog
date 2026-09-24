@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790286522,
   "model_id": "glm-ocr",
   "canonical_model": "glm-ocr",
   "display_name": "GLM Ocr",
@@ -8,6 +8,7 @@
   "capabilities": [
     "vision"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "input": 2.82e-08,

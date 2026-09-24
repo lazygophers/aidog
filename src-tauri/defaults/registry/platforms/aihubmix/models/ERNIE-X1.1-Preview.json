@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278047,
+  "last_updated": 1790286522,
   "model_id": "ERNIE-X1.1-Preview",
   "canonical_model": "ernie-x1.1-preview",
   "display_name": "ERNIE X1.1 Preview",
@@ -9,7 +9,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 56320,
+  "max_input_tokens": 119000,
   "max_output_tokens": 64000,
   "context_window": 119000,
   "official": false,

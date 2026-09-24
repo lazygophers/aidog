@@ -1,15 +1,15 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790286522,
   "model_id": "qianfan-ocr",
   "canonical_model": "qianfan-ocr",
   "family": "qianfan",
   "display_name": "Qianfan Ocr",
   "max_output_tokens": 28000,
-  "max_input_tokens": 32768,
   "context_window": 32000,
   "capabilities": [
     "vision"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "input": 6.2e-08,

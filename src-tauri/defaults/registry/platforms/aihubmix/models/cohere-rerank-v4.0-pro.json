@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790286522,
   "model_id": "cohere-rerank-v4.0-pro",
   "canonical_model": "cohere-rerank-v4.0-pro",
 
@@ -9,6 +9,7 @@
   "capabilities": [
     "rerank"
   ],
+  "max_input_tokens": 32768,
   "official": false,
   "price": {
     "input": 6.8e-08,

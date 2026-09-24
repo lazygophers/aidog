@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790286522,
   "model_id": "gpt-5.1-chat-latest",
   "canonical_model": "gpt-5.1",
   "display_name": "GPT 5.1 Chat",
@@ -8,7 +8,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 400000,
+  "max_input_tokens": 128000,
   "max_output_tokens": 16384,
   "context_window": 128000,
   "official": false,
