@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788183969,
+  "last_updated": 1790267035,
   "model_id": "pixverse/pixverse-motioncontrol",
   "canonical_model": "pixverse-motioncontrol",
+  "family": "pixverse",
   "capabilities": [
     "video_edit"
   ],

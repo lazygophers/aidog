@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788183969,
+  "last_updated": 1790267035,
   "model_id": "kling/kling-v3-omni-image-generation",
   "canonical_model": "kling-v3-omni-image-generation",
+  "family": "kling",
+  "version": "3",
   "capabilities": [
     "text_to_image"
   ],

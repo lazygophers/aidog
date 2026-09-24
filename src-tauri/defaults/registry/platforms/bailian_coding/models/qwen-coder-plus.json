@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790267035,
   "model_id": "qwen-coder-plus",
   "canonical_model": "qwen-coder-plus",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

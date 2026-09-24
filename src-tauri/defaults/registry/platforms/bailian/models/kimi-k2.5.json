@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790181902,
+  "last_updated": 1790267035,
   "model_id": "kimi-k2.5",
   "canonical_model": "kimi-k2.5",
+  "family": "kimi",
   "capabilities": [
     "text",
     "vision"

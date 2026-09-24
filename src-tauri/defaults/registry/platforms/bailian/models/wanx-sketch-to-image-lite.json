@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "wanx-sketch-to-image-lite",
   "canonical_model": "wanx-sketch-to-image-lite",
+  "family": "wan",
   "capabilities": [
     "image_edit"
   ],

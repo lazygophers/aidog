@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "wanx-background-generation-v2",
   "canonical_model": "wanx-background-generation-v2",
+  "family": "wan",
+  "version": "2",
   "capabilities": [
     "image_edit"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "wan2.2-animate-move",
   "canonical_model": "wan2.2-animate-move",
+  "family": "wan",
+  "version": "2.2",
   "capabilities": [
     "video_edit"
   ],

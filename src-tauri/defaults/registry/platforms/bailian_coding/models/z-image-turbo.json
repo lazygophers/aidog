@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790267035,
   "model_id": "z-image-turbo",
   "canonical_model": "Z-Image-Turbo",
+  "family": "z-image",
   "capabilities": [
     "text_to_image"
   ],

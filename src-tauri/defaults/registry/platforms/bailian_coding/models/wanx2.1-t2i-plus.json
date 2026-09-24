@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "wanx2.1-t2i-plus",
   "canonical_model": "wanx2.1-t2i-plus",
+  "family": "wan",
+  "version": "2.1",
   "capabilities": [
     "text_to_image",
     "image_to_image"
