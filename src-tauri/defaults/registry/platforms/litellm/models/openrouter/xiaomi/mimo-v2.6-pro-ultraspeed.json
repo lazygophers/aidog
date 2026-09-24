@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "openrouter/xiaomi/mimo-v2.6-pro-ultraspeed",
   "canonical_model": "mimo-v2.6-pro-ultraspeed",
   "family": "mimo",

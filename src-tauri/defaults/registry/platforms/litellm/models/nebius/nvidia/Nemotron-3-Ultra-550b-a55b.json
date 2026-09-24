@@ -1,17 +1,9 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "nebius/nvidia/Nemotron-3-Ultra-550b-a55b",
   "canonical_model": "nemotron-3-ultra-550b-a55b",
   "family": "nemotron",
   "version": "3",
-<<<<<<< HEAD
-=======
-  "family": "nemotron",
->>>>>>> registry/litellm-longtail
   "capabilities": [
     "text",
     "tool_use",

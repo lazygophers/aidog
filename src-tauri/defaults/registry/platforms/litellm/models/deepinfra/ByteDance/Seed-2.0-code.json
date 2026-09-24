@@ -1,9 +1,5 @@
 {
-<<<<<<< HEAD
-  "last_updated": 1790280349,
-=======
-  "last_updated": 1790281333,
->>>>>>> registry/litellm-longtail
+  "last_updated": 1790281740,
   "model_id": "deepinfra/ByteDance/Seed-2.0-code",
   "canonical_model": "seed-2.0-code",
   "family": "seed",
