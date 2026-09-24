@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790277685,
   "model_id": "seedance-1-5-pro-251215",
   "canonical_model": "seedance-1-5-pro-251215",
   "family": "seedance",
+  "version": "1.5",
   "capabilities": [
     "text_to_video"
   ],

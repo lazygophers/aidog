@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1790277685,
   "model_id": "seededit-3-0-i2i-250628",
   "canonical_model": "seededit-3-0-i2i-250628",
   "family": "seededit",
+  "version": "3.0",
   "capabilities": [
     "image_edit",
     "image_to_image"

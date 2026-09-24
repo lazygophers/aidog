@@ -1,8 +1,9 @@
 {
-  "last_updated": 1788088237,
+  "last_updated": 1790277685,
   "model_id": "seed-2-0-mini-260428",
   "canonical_model": "seed-2-0-mini-260428",
   "family": "seed",
+  "version": "2.0",
   "capabilities": [
     "text"
   ],

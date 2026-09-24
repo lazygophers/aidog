@@ -1,8 +1,9 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790277685,
   "model_id": "minimax-m3",
   "canonical_model": "MiniMax-M3",
   "family": "minimax",
+  "version": "3",
   "capabilities": [
     "text"
   ],

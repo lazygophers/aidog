@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790277685,
   "model_id": "devin-ultra",
   "canonical_model": "devin-ultra",
+  "family": "devin",
   "display_name": "Devin Ultra",
   "capabilities": [
     "tool_use"

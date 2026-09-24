@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1790277685,
   "model_id": "bge-large-zh",
   "canonical_model": "bge-large-zh",
+  "family": "bge",
   "capabilities": [
     "embedding"
   ],

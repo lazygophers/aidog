@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788144513,
+  "last_updated": 1790277685,
   "model_id": "qianfan-ocr",
   "canonical_model": "qianfan-ocr",
+  "family": "qianfan",
   "capabilities": [
     "text",
     "vision"

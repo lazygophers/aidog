@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790277685,
   "model_id": "hy3-preview",
   "canonical_model": "hy3-preview",
+  "family": "hunyuan",
+  "version": "3",
   "capabilities": [
     "text"
   ],
