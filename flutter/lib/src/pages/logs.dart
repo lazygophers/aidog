@@ -121,11 +121,14 @@ class _LogsPageState extends State<LogsPage> {
               // 想立刻看一眼最新的没有任何入口。载入中禁用，防止连点堆查询。
               // 三颗都是实心（React `variant="default"` ×2 + `destructive`，
               // `ListView.tsx:70,75,78`）。
-              SmallButton(
-                key: const ValueKey('logs-refresh'),
-                label: t.t('logs.refresh'),
-                filled: true,
-                onTap: _c.loading ? null : () => _c.load(),
+              Tooltip(
+                message: t.t('logs.refresh'),
+                child: IconButton(
+                  key: const ValueKey('logs-refresh'),
+                  icon: const Icon(Icons.refresh, size: 16),
+                  onPressed: _c.loading ? null : () => _c.load(),
+                  visualDensity: VisualDensity.compact,
+                ),
               ),
               // 一条日志都没有时这两颗不出现（`ListView.tsx:73`）：
               // 没东西可清，摆两颗按钮在那儿只会让人以为清失败了。
