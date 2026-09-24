@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "mistral-large-3",
   "canonical_model": "mistral-large-3",
 
   "version": "3",
   "family": "mistral",  "display_name": "Mistral Large 3",
   "max_output_tokens": 131072,
+  "max_input_tokens": 128000,
   "context_window": 256000,
   "capabilities": [
     "text"

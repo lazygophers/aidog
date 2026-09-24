@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "grok-3",
   "canonical_model": "grok-3",
 
   "version": "3",
   "family": "grok",  "display_name": "Grok 3",
   "capabilities": [],
+  "context_window": 131072,
+  "max_input_tokens": 131072,
   "official": false,
   "price": {
     "input": 3e-06,

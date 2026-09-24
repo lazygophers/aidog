@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "laguna-s-2.1",
   "canonical_model": "laguna-s-2.1",
 
   "version": "2.1",
   "family": "laguna",  "display_name": "Laguna S 2.1",
   "context_window": 1048576,
+  "max_input_tokens": 1048576,
   "capabilities": [
     "text"
   ],

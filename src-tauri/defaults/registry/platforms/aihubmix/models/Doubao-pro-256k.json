@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "Doubao-pro-256k",
   "canonical_model": "doubao-pro-256k",
 
   "family": "doubao-pro",  "display_name": "Doubao Pro 256K",
   "capabilities": [],
+  "context_window": 256000,
+  "max_input_tokens": 256000,
   "official": false,
   "price": {
     "input": 8e-07,

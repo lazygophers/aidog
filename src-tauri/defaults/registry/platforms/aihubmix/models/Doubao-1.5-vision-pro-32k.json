@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790284899,
   "model_id": "Doubao-1.5-vision-pro-32k",
   "canonical_model": "doubao-1-5-vision-pro-32k",
 
   "version": "1.5",
   "family": "doubao-vision",  "display_name": "Doubao 1.5 Vision Pro 32K",
   "capabilities": [],
+  "context_window": 33000,
+  "max_input_tokens": 33000,
   "official": false,
   "price": {
     "input": 4.6e-07,
