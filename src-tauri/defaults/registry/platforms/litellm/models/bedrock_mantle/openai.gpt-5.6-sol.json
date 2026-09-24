@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790273334,
   "model_id": "bedrock_mantle/openai.gpt-5.6-sol",
-  "canonical_model": "openai.gpt-5.6-sol",
+  "canonical_model": "gpt-5.6-sol",
+  "family": "gpt",
+  "version": "5.6",
   "capabilities": [
     "text",
     "vision",
@@ -9,7 +11,7 @@
     "reasoning"
   ],
   "max_input_tokens": 1050000,
-  "context_window": 1050000,
+  "context_window": 400000,
   "max_output_tokens": 128000,
   "official": false,
   "thinking_supported": true,

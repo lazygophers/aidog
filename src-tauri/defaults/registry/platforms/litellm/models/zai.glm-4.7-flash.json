@@ -1,14 +1,16 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790273334,
   "model_id": "zai.glm-4.7-flash",
-  "canonical_model": "zai.glm-4.7-flash",
+  "canonical_model": "glm-4.7-flash",
+  "family": "glm",
+  "version": "4.7",
   "capabilities": [
     "text",
     "tool_use",
     "reasoning"
   ],
   "max_input_tokens": 203000,
-  "context_window": 203000,
+  "context_window": 202752,
   "max_output_tokens": 4000,
   "official": false,
   "thinking_supported": true,
