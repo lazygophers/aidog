@@ -548,7 +548,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
               // 折叠 + 查找替换），原先是个纯文本框 `TextRow(maxLines: 24)`
               // —— 字段级早就换成 re_editor 了，整页模式没跟上
               //（React 两处都是 `JsonCodeEditor`，`Settings.tsx:506`）。
-              _JsonField(
+              JsonField(
                 key: const ValueKey('page-json-editor'),
                 label: t.t('settings.editInJson'),
                 text: c.editJson,
@@ -952,7 +952,7 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         );
       default:
         // 剩下的 json 类型走 JSON 编辑框。权限矩阵、hooks 构建器另有专用编辑器。
-        return _JsonField(
+        return JsonField(
           key: ValueKey('field-${f.key}'),
           label: label,
           description: f.description,
@@ -983,8 +983,8 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
 /// json / object / kv 字段：一个两空格缩进的 JSON 编辑框 + 格式化按钮 + 搜索/替换
 /// （React `JsonCodeEditor.tsx` 的精简对应：多行文本域没有 CodeMirror 的语法高亮，
 /// 但格式化、查找下一个/上一个、全部替换三个动作是真实可用的，不是摆设文案）。
-class _JsonField extends StatefulWidget {
-  const _JsonField({
+class JsonField extends StatefulWidget {
+  const JsonField({
     super.key,
     required this.label,
     this.value,
@@ -993,6 +993,9 @@ class _JsonField extends StatefulWidget {
     this.error,
     this.text,
     this.height = 260,
+    this.onChanged,
+    this.syncExternal = true,
+    this.hint,
   });
 
   final String label;
@@ -1008,8 +1011,19 @@ class _JsonField extends StatefulWidget {
   final double height;
   final ValueChanged<String> onSubmitted;
 
+  /// 每次内容变化即回调（MCP 粘贴导入用：确认按钮要跟着有无内容启停）。
+  /// 缺省 null —— schema 页维持「失焦才回写」的旧行为不变。
+  final ValueChanged<String>? onChanged;
+
+  /// false = 内容完全归用户，外部值只在建 widget 时取一次
+  ///（粘贴导入框：失焦后父级重建不能把框清空）。
+  final bool syncExternal;
+
+  /// 空内容时的占位示例（re_editor 无内建 placeholder，用叠加文字实现）。
+  final String? hint;
+
   @override
-  State<_JsonField> createState() => _JsonFieldState();
+  State<JsonField> createState() => _JsonFieldState();
 }
 
 /// 本项目 token → re_highlight 的着色表。
@@ -1026,7 +1040,7 @@ Map<String, TextStyle> _highlightTheme(AidogTheme theme) => {
   'punctuation': TextStyle(color: theme.c.fg3),
 };
 
-class _JsonFieldState extends State<_JsonField> {
+class _JsonFieldState extends State<JsonField> {
   // 票 27 第 2 步（折叠）：换成 re_editor 的 CodeEditor。语法高亮、行号、
   // 折叠标记、折叠检测全部由它提供 —— 自己那套分词高亮随之删掉，不留两份。
   late final CodeLineEditingController _ctrl =
@@ -1050,11 +1064,18 @@ class _JsonFieldState extends State<_JsonField> {
     _focus.addListener(() {
       if (!_focus.hasFocus) widget.onSubmitted(_ctrl.text);
     });
+    // onChanged 是「每次内容变化」的旁路，不影响失焦回写那条主路。
+    _ctrl.addListener(_notifyChanged);
+  }
+
+  void _notifyChanged() {
+    widget.onChanged?.call(_ctrl.text);
   }
 
   @override
-  void didUpdateWidget(_JsonField old) {
+  void didUpdateWidget(JsonField old) {
     super.didUpdateWidget(old);
+    if (!widget.syncExternal) return;
     final v = _initialText();
     if (v != _ctrl.text && !_focus.hasFocus) _ctrl.text = v;
   }
@@ -1245,30 +1266,38 @@ class _JsonFieldState extends State<_JsonField> {
             // React 的 JsonCodeEditor 同样是 maxHeight + 内部滚动。
             SizedBox(
               height: widget.height,
-              child: CodeEditor(
-                key: const ValueKey('json-code-editor'),
-                controller: _ctrl,
-                focusNode: _focus,
-                padding: const EdgeInsets.all(AidogSpace.ssm),
-                border: Border.all(color: theme.c.line),
-                borderRadius: BorderRadius.circular(AidogRadius.sm),
-                // `{}` / `[]` 自动识别折叠区间。
-                chunkAnalyzer: const DefaultCodeChunkAnalyzer(),
-                style: CodeEditorStyle(
-                  fontSize: AidogType.numSm.fontSize,
-                  fontFamily: AidogType.familyMono,
-                  textColor: theme.c.fg,
-                  backgroundColor: theme.c.surface2,
-                  cursorColor: theme.c.accentText,
-                  selectionColor: theme.c.accentWash,
-                  codeTheme: CodeHighlightTheme(
-                    languages: {'json': CodeHighlightThemeMode(mode: langJson)},
-                    theme: _highlightTheme(theme),
-                  ),
-                ),
-                indicatorBuilder:
-                    (context, editingController, chunkController, notifier) =>
-                        Row(
+              child: Stack(
+                children: [
+                  CodeEditor(
+                    key: const ValueKey('json-code-editor'),
+                    controller: _ctrl,
+                    focusNode: _focus,
+                    padding: const EdgeInsets.all(AidogSpace.ssm),
+                    border: Border.all(color: theme.c.line),
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    // `{}` / `[]` 自动识别折叠区间。
+                    chunkAnalyzer: const DefaultCodeChunkAnalyzer(),
+                    style: CodeEditorStyle(
+                      fontSize: AidogType.numSm.fontSize,
+                      fontFamily: AidogType.familyMono,
+                      textColor: theme.c.fg,
+                      backgroundColor: theme.c.surface2,
+                      cursorColor: theme.c.accentText,
+                      selectionColor: theme.c.accentWash,
+                      codeTheme: CodeHighlightTheme(
+                        languages: {
+                          'json': CodeHighlightThemeMode(mode: langJson),
+                        },
+                        theme: _highlightTheme(theme),
+                      ),
+                    ),
+                    indicatorBuilder:
+                        (
+                          context,
+                          editingController,
+                          chunkController,
+                          notifier,
+                        ) => Row(
                           children: [
                             DefaultCodeLineNumber(
                               controller: editingController,
@@ -1284,10 +1313,23 @@ class _JsonFieldState extends State<_JsonField> {
                             ),
                           ],
                         ),
-                // **不接 onChanged**：CodeEditor 每敲一个键都会通知，而回写要走
-                // 父级 setState —— 在 build 期间触发就是
-                // 「setState() called during build」。何况边打字边校验会在写到
-                // 一半时刷一串报错。提交仍由上面那个失焦监听负责，与换包前一致。
+                    // **不接 onChanged**：CodeEditor 每敲一个键都会通知，而回写要走
+                    // 父级 setState —— 在 build 期间触发就是
+                    // 「setState() called during build」。何况边打字边校验会在写到
+                    // 一半时刷一串报错。提交仍由上面那个失焦监听负责，与换包前一致。
+                  ),
+                  // 空内容时的占位示例（React JsonCodeEditor 的 placeholder）。
+                  if (widget.hint != null && _ctrl.text.isEmpty)
+                    IgnorePointer(
+                      child: Padding(
+                        padding: const EdgeInsets.all(AidogSpace.ssm),
+                        child: Text(
+                          widget.hint!,
+                          style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (widget.error != null) ErrorNote(text: widget.error!),

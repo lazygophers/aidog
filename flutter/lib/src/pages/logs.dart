@@ -169,6 +169,7 @@ class _LogsPageState extends State<LogsPage> {
           _Pager(
             currentPage: _c.currentPage,
             hasMore: _c.hasMore,
+            resultCount: _c.logs.length,
             pageSize: _c.pageSize,
             onPage: _c.goToPage,
             onPageSize: _c.setPageSize,
@@ -503,6 +504,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
           _Pager(
             currentPage: _c.currentPage,
             hasMore: _c.currentPage < _c.totalPages,
+            resultCount: _c.logs.length,
             totalPages: _c.totalPages,
             pageSize: _c.pageSize,
             onPage: _c.goToPage,
@@ -534,7 +536,11 @@ class _RequestLogPageState extends State<RequestLogPage> {
 
 // ── 两页共用的零件 ────────────────────────────────────────────────
 
-class _LogTable extends StatelessWidget {
+/// 日志表。窄窗横向滚动 + 操作列 sticky（对齐 React `ListView.tsx:199` 的
+/// `overflow:auto` 容器 + `primitives.tsx:232-262` 的 `position: sticky; right: 0`）：
+/// 数据列放进共用一个 controller 的横向滚动区，28px 复制按钮钉在右缘不随滚动 ——
+/// Flutter 没有 CSS sticky，这是 sticky 列的等价实现。
+class _LogTable extends StatefulWidget {
   const _LogTable({
     required this.rows,
     required this.platformName,
@@ -550,128 +556,231 @@ class _LogTable extends StatelessWidget {
   final void Function(String id) onCopy;
 
   @override
+  State<_LogTable> createState() => _LogTableState();
+}
+
+class _LogTableState extends State<_LogTable> {
+  // 表头与所有数据行共用同一个横向 controller，滚动才能同步（React 是同一容器）。
+  final ScrollController _hScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _hScroll.dispose();
+    super.dispose();
+  }
+
+  // 九个数据列的最小总宽（逻辑 px）。窗口够宽时列区拉伸填满剩余空间
+  // （等价 React 的 flex），不够宽时锁在最小宽、容器出横向滚动。
+  static const double _kMinTableWidth = 1050;
+
+  /// 行高（数据行与操作列共用）：两侧各画一半（滚动列 / 钉住的操作列），
+  /// 高度必须逐行严格相等才能对齐，所以锁死而不是让内容自己撑。
+  static const double _kRowHeight = 34;
+
+  @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     return Tile(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-            child: Row(
-              children: [
-                _Cell(t.t('logs.time'), flex: 3, header: true),
-                _Cell(t.t('logs.group'), flex: 2, header: true),
-                _Cell(t.t('logs.platform'), flex: 2, header: true),
-                // 「原始模型」列：发生模型改写时，不写出来就看不出客户端
-                // 原本请求的是哪个模型（`ListView.tsx:202-211` 是十列）。
-                _Cell(t.t('logs.model'), flex: 3, header: true),
-                _Cell(t.t('logs.actualModel'), flex: 3, header: true),
-                _Cell(t.t('logs.status'), flex: 1, header: true),
-                _Cell(t.t('logs.duration'), flex: 2, header: true),
-                _Cell(t.t('logs.inputTokens'), flex: 2, header: true),
-                _Cell(t.t('logs.outputTokens'), flex: 2, header: true),
-                const SizedBox(width: 28),
-              ],
-            ),
-          ),
-          // 入场错峰 + 悬停抬升（`primitives.tsx:284-290` 的
-          // `useReveal(idx*60)` + `hover-lift`）：原先只有 InkWell 的水波。
-          for (final (i, log) in rows.indexed)
-            Reveal(
-              delayMs: i * 60,
-              child: HoverLift(
-                child: InkWell(
-                  onTap: () => onOpen(log.id),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    child: Row(
+      child: LayoutBuilder(
+        builder: (context, cons) {
+          // 窗口够宽时列区拉伸填满剩余空间（等价 React 的 flex），
+          // 不够宽时锁在最小宽、容器出横向滚动。
+          final tableWidth = cons.maxWidth < _kMinTableWidth
+              ? _kMinTableWidth
+              : cons.maxWidth;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 数据列：整表（表头 + 所有行）共用一个横向滚动视图，
+              // 滚动天然同步（React 是同一容器 `overflow:auto`）。
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: _hScroll,
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: tableWidth,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        _Cell(formatDateTime(log.createdAt), flex: 3),
-                        // 分组名画成 accent 徽标（`primitives.tsx:293`），不是纯文字。
-                        Expanded(
-                          flex: 2,
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: MiniBadge(
-                              text: groupName(log.groupKey),
-                              color: theme.c.accentText,
-                            ),
-                          ),
-                        ),
-                        // 重试徽标 ↻N（`primitives.tsx:296-300`）：`retryCount` 早就
-                        // 解析出来了，只是没画 —— 列表上分不出哪些请求重试过。
-                        _CellWithBadge(
-                          text: platformName(log.platformId),
-                          flex: 2,
-                          badge: log.retryCount > 0
-                              ? '↻${log.retryCount}'
-                              : null,
-                          badgeTooltip: t.t('logs.retriedHint', {
-                            'n': '${log.retryCount}',
-                          }),
-                        ),
-                        // 流式徽标 SSE（`primitives.tsx:304-306`），同上。
-                        _CellWithBadge(
-                          text: log.model.isEmpty ? '-' : log.model,
-                          flex: 3,
-                          badge: log.isStream ? 'SSE' : null,
-                          badgeTooltip: t.t('logs.streaming'),
-                        ),
-                        _Cell(
-                          log.actualModel.isEmpty ? '-' : log.actualModel,
-                          flex: 3,
-                        ),
-                        Expanded(
-                          flex: 1,
-                          child: Text(
-                            // 两个状态码有专门的说法，不显示裸数字
-                            //（`Logs/primitives.tsx:310-314`）：
-                            //   0   = 还没有终态（流式在跑）→「未完成」
-                            //   499 = 客户端提前断开 → 「已中断」
-                            switch (log.statusCode) {
-                              0 => t.t('logs.statusIncomplete'),
-                              499 => t.t('logs.statusInterrupted'),
-                              _ => '${log.statusCode}',
-                            },
-                            style: AidogType.micro.copyWith(
-                              // 2xx 绿、其余一律红 —— 包括 0。
-                              // 原先把 0 画成灰色，与 React 相反：流式跑到一半没落终态
-                              // 通常就是出事了，灰色会让人以为「正常，只是还没结束」。
-                              color:
-                                  log.statusCode >= 200 && log.statusCode < 300
-                                  ? theme.c.ok
-                                  : theme.c.bad,
-                            ),
-                          ),
-                        ),
-                        _Cell(
-                          formatDurationMs(log.durationMs.toDouble()),
-                          flex: 2,
-                        ),
-                        _Cell(formatNumber(log.inputTokens), flex: 2),
-                        _Cell(formatNumber(log.outputTokens), flex: 2),
                         SizedBox(
-                          width: 28,
-                          child: IconButton(
-                            padding: EdgeInsets.zero,
-                            constraints: const BoxConstraints(),
-                            iconSize: 14,
-                            tooltip: t.t('logs.copy'),
-                            color: theme.c.fg3,
-                            icon: const Icon(Icons.copy_outlined),
-                            onPressed: () => onCopy(log.id),
+                          height: _kRowHeight,
+                          child: Row(
+                            children: [
+                              _Cell(t.t('logs.time'), width: 150, header: true),
+                              _Cell(
+                                t.t('logs.group'),
+                                width: 110,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.platform'),
+                                width: 130,
+                                header: true,
+                              ),
+                              // 「原始模型」列：发生模型改写时，不写出来就看不出
+                              // 客户端原本请求的是哪个模型
+                              //（`ListView.tsx:202-211` 是十列）。
+                              _Cell(
+                                t.t('logs.model'),
+                                width: 170,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.actualModel'),
+                                width: 170,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.status'),
+                                width: 70,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.duration'),
+                                width: 90,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.inputTokens'),
+                                width: 80,
+                                header: true,
+                              ),
+                              _Cell(
+                                t.t('logs.outputTokens'),
+                                width: 80,
+                                header: true,
+                              ),
+                            ],
                           ),
                         ),
+                        // 入场错峰 + 悬停抬升（`primitives.tsx:284-290` 的
+                        // `useReveal(idx*60)` + `hover-lift`）。
+                        for (final (i, log) in widget.rows.indexed)
+                          SizedBox(
+                            height: _kRowHeight,
+                            child: Reveal(
+                              delayMs: i * 60,
+                              child: HoverLift(
+                                child: InkWell(
+                                  onTap: () => widget.onOpen(log.id),
+                                  child: Row(
+                                    children: [
+                                      _Cell(
+                                        formatDateTime(log.createdAt),
+                                        width: 150,
+                                      ),
+                                      SizedBox(
+                                        width: 110,
+                                        child: Align(
+                                          alignment:
+                                              AlignmentDirectional.centerStart,
+                                          child: MiniBadge(
+                                            text: widget.groupName(
+                                              log.groupKey,
+                                            ),
+                                            color: theme.c.accentText,
+                                          ),
+                                        ),
+                                      ),
+                                      // 重试徽标 ↻N
+                                      //（`primitives.tsx:296-300`）。
+                                      _CellWithBadge(
+                                        text: widget.platformName(
+                                          log.platformId,
+                                        ),
+                                        width: 130,
+                                        badge: log.retryCount > 0
+                                            ? '↻${log.retryCount}'
+                                            : null,
+                                        badgeTooltip: t.t('logs.retriedHint', {
+                                          'n': '${log.retryCount}',
+                                        }),
+                                      ),
+                                      // 流式徽标 SSE
+                                      //（`primitives.tsx:304-306`）。
+                                      _CellWithBadge(
+                                        text: log.model.isEmpty
+                                            ? '-'
+                                            : log.model,
+                                        width: 170,
+                                        badge: log.isStream ? 'SSE' : null,
+                                        badgeTooltip: t.t('logs.streaming'),
+                                      ),
+                                      _Cell(
+                                        log.actualModel.isEmpty
+                                            ? '-'
+                                            : log.actualModel,
+                                        width: 170,
+                                      ),
+                                      // 状态码（React badge 口径）：0 不渲染、
+                                      // 正数裸数字、2xx 绿 / 非 2xx 红。
+                                      if (log.statusCode != 0)
+                                        _Cell(
+                                          '${log.statusCode}',
+                                          width: 70,
+                                          color:
+                                              log.statusCode >= 200 &&
+                                                  log.statusCode < 300
+                                              ? theme.c.ok
+                                              : theme.c.bad,
+                                        )
+                                      else
+                                        const SizedBox(width: 70),
+                                      _Cell(
+                                        formatDurationMs(
+                                          log.durationMs.toDouble(),
+                                        ),
+                                        width: 90,
+                                      ),
+                                      _Cell(
+                                        formatNumber(log.inputTokens),
+                                        width: 80,
+                                      ),
+                                      _Cell(
+                                        formatNumber(log.outputTokens),
+                                        width: 80,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                       ],
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
+              // 操作列：钉在右缘不随横向滚动（React `primitives.tsx:232-262`
+              // 的 `position: sticky; right: 0`；Flutter 没有 CSS sticky，
+              // 把它画在滚动区外就是等价实现）。首格对齐表头行高。
+              SizedBox(
+                width: 28,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: _kRowHeight),
+                    for (final log in widget.rows)
+                      SizedBox(
+                        height: _kRowHeight,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          iconSize: 14,
+                          tooltip: t.t('logs.copy'),
+                          color: theme.c.fg3,
+                          icon: const Icon(Icons.copy_outlined),
+                          onPressed: () => widget.onCopy(log.id),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
@@ -682,21 +791,21 @@ class _LogTable extends StatelessWidget {
 class _CellWithBadge extends StatelessWidget {
   const _CellWithBadge({
     required this.text,
-    required this.flex,
+    required this.width,
     required this.badge,
     required this.badgeTooltip,
   });
 
   final String text;
-  final int flex;
+  final double width;
   final String? badge;
   final String badgeTooltip;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return Expanded(
-      flex: flex,
+    return SizedBox(
+      width: width,
       child: Row(
         children: [
           Flexible(
@@ -721,23 +830,29 @@ class _CellWithBadge extends StatelessWidget {
 }
 
 class _Cell extends StatelessWidget {
-  const _Cell(this.text, {required this.flex, this.header = false});
+  const _Cell(
+    this.text, {
+    required this.width,
+    this.header = false,
+    this.color,
+  });
 
   final String text;
-  final int flex;
+  final double width;
   final bool header;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return Expanded(
-      flex: flex,
+    return SizedBox(
+      width: width,
       child: Text(
         header ? text.toUpperCase() : text,
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: AidogType.micro.copyWith(
-          color: header ? theme.c.fg3 : theme.c.fg2,
+          color: color ?? (header ? theme.c.fg3 : theme.c.fg2),
         ),
       ),
     );
@@ -748,6 +863,7 @@ class _Pager extends StatelessWidget {
   const _Pager({
     required this.currentPage,
     required this.hasMore,
+    required this.resultCount,
     required this.pageSize,
     required this.onPage,
     required this.onPageSize,
@@ -756,6 +872,9 @@ class _Pager extends StatelessWidget {
 
   final int currentPage;
   final bool hasMore;
+
+  /// 本页行数，用来算区间 `rangeStart–rangeEnd`（`primitives.tsx:358-359`）。
+  final int resultCount;
   final int? totalPages;
   final int pageSize;
   final void Function(int) onPage;
@@ -765,8 +884,17 @@ class _Pager extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    final rangeStart = (currentPage - 1) * pageSize + 1;
+    final rangeEnd = rangeStart + resultCount - 1;
     return Row(
       children: [
+        SmallButton(
+          label: '⟪',
+          // 首页直达（`primitives.tsx:383-385`）：原先只有 ← / →，
+          // 回第一页要一路点到底。
+          onTap: currentPage > 1 ? () => onPage(1) : null,
+        ),
+        const SizedBox(width: AidogSpace.ssm),
         SmallButton(
           label: t.t('action.prev'),
           onTap: currentPage > 1 ? () => onPage(currentPage - 1) : null,
@@ -782,6 +910,17 @@ class _Pager extends StatelessWidget {
           onTap: hasMore ? () => onPage(currentPage + 1) : null,
         ),
         const Spacer(),
+        // 区间 + 有无更多（`primitives.tsx:359-364`）：`rangeStart–rangeEnd`
+        // 尾随 `· 还有更多 / · 已到底`（首页且无更多时省略）。
+        Text(
+          resultCount > 0 ? '$rangeStart–$rangeEnd' : '$rangeStart',
+          style: AidogType.micro.copyWith(color: theme.c.fg3),
+        ),
+        if (hasMore || currentPage > 1)
+          Text(
+            ' · ${t.t(hasMore ? 'logs.hasMore' : 'logs.noMore')}',
+            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          ),
         // 三个裸数字看不出是什么，React 在它们前面写着「每页」
         //（`primitives.tsx:371`）。
         TileMeta(t.t('logs.pageSize')),
@@ -799,9 +938,9 @@ class _Pager extends StatelessWidget {
   }
 }
 
-/// 详情抽屉。React 那边是 Radix Sheet（Portal 到 body），这里是页面内的一张大格子 ——
-/// Flutter 没有「祖先 transform 让 fixed 退化」那个问题（那是 CSS 的坑，项目
-/// CLAUDE.md 里记的 modal 居中铁律只对 Web 侧成立），所以不必绕 Portal。
+/// 详情面板。React 侧 2026-09-22 已从右侧 Sheet 改成居中 Radix Dialog
+/// （`Logs/DetailPanel.tsx:47` `width: min(900px, 90vw)`）—— 为的正是与 Flutter
+/// 对齐；这里维持居中 `AidogModal(maxWidth: 900)`，形态一致，无差异。
 class _DetailPanel extends StatefulWidget {
   const _DetailPanel({
     required this.detail,
@@ -856,9 +995,8 @@ class _DetailPanelState extends State<_DetailPanel> {
     final onCopy = widget.onCopy;
     final onRefresh = widget.onRefresh;
     final copied = widget.copied;
-    // React 用的是 Radix `Sheet`（`Logs/DetailPanel.tsx:37`，右侧抽屉，width 900）。
-    // 这里同为 Portal 浮层但居中，不做侧滑抽屉：Flutter 没有等价原语，
-    // 自造一套抽屉动画换来的只是入场方向不同。
+    // React 现在也是居中 Dialog（`Logs/DetailPanel.tsx:40-50`，2026-09-22 改），
+    // 不再是右侧 Sheet —— 旧注释已随 React 侧改动过期。
     return AidogModal(
       maxWidth: 900,
       onBarrierTap: onClose,
@@ -1226,13 +1364,11 @@ class _DetailPanelState extends State<_DetailPanel> {
     required int statusCode,
   }) {
     final active = _tab == index;
-    // 上游侧状态码 0 = 没捕获到，不是一个真的 HTTP 码。
-    final statusText = statusCode == 0
-        ? t.t('logs.notCaptured')
-        : switch (statusCode) {
-            499 => t.t('logs.statusInterrupted'),
-            _ => '$statusCode',
-          };
+    // tab 徽标口径对齐 React（`primitives.tsx:125-134`）：statusCode > 0 才画，
+    // 且是**裸数字**（499 不转「已中断」——那是列表/详情 kv 的口径），
+    // 0 = 没捕获到，直接不渲染。
+    final showStatus = statusCode > 0;
+    final statusText = '$statusCode';
     return Expanded(
       child: InkWell(
         key: ValueKey('detail-tab-$index'),
@@ -1244,7 +1380,9 @@ class _DetailPanelState extends State<_DetailPanel> {
           ),
           decoration: BoxDecoration(
             color: active ? theme.c.accentWash : null,
-            border: Border.all(color: active ? theme.c.accentEdge : theme.c.line),
+            border: Border.all(
+              color: active ? theme.c.accentEdge : theme.c.line,
+            ),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Column(
@@ -1271,13 +1409,15 @@ class _DetailPanelState extends State<_DetailPanel> {
                 ],
               ),
               Text(
-                '${ltr(subtitle)} · $statusText',
+                showStatus ? '${ltr(subtitle)} · $statusText' : ltr(subtitle),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AidogType.micro.copyWith(
+                  // 2xx 绿、其余一律红（`primitives.tsx:131-133`）。原先非 2xx
+                  // 画成灰，与 React 的 danger 不一致。
                   color: statusCode >= 200 && statusCode < 300
                       ? theme.c.ok
-                      : theme.c.fg3,
+                      : theme.c.bad,
                 ),
               ),
             ],
