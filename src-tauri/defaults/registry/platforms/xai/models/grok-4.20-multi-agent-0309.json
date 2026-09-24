@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790275340,
   "model_id": "grok-4.20-multi-agent-0309",
   "canonical_model": "grok-4.20-multi-agent-0309",
+  "family": "grok",
+  "version": "4.20",
   "capabilities": [
     "text",
     "vision"

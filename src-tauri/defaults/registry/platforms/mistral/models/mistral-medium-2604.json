@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788087755,
+  "last_updated": 1790275340,
   "model_id": "mistral-medium-2604",
   "canonical_model": "mistral-medium-3-5",
   "capabilities": [
@@ -7,6 +7,7 @@
   ],
   "official": true,
   "family": "mistral",
+  "version": "3.5",
   "context_window": 262144,
   "max_input_tokens": 262144,
   "thinking_supported": true,
