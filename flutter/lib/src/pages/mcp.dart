@@ -16,6 +16,7 @@ import '../shell/tiles.dart';
 import 'invoke.dart';
 import 'mcp_logic.dart';
 import 'mini_select.dart';
+import 'settings/schema_config_page.dart' show JsonField;
 import 'platform_logo.dart' show AgentIconButton;
 import 'platform_card_bits.dart' show MiniBadge;
 import 'share_panel.dart';
@@ -80,17 +81,22 @@ class _McpPageState extends State<McpPage> {
             spacing: AidogSpace.ssm,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              SmallButton(label: t.t('mcp.add'), onTap: _c.openAdd),
+              // React 顶栏四颗按钮全部 `disabled={busyKey !== null}`
+              //（`McpView.tsx`）：任何一个动作在忙时整栏锁定。
+              SmallButton(
+                label: t.t('mcp.add'),
+                onTap: _c.busyKey == null ? _c.openAdd : null,
+              ),
               // React 这颗没写 variant = 默认实心（`McpView.tsx:53-58`），
               // 旁边三颗是 `variant="outline"`，保持描边。
               SmallButton(
                 label: t.t('mcp.scanImport'),
                 filled: true,
-                onTap: _c.openScan,
+                onTap: _c.busyKey == null ? _c.openScan : null,
               ),
               SmallButton(
                 label: t.t('mcp.pasteImport'),
-                onTap: () => _c.setPasteOpen(true),
+                onTap: _c.busyKey == null ? () => _c.setPasteOpen(true) : null,
               ),
               SmallButton(
                 label: t.t('mcp.resync'),
@@ -123,7 +129,7 @@ class _McpPageState extends State<McpPage> {
                   padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
                   child: _McpRow(
                     server: s,
-                    busy: _c.busyKey != null,
+                    busyKey: _c.busyKey,
                     onToggleAgent: (a) => _c.toggle(s, a),
                     onEdit: () => _c.openEdit(s),
                     onShare: () => _c.share(s),
@@ -301,20 +307,17 @@ class _McpPageState extends State<McpPage> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 粘的是一整份 mcpServers 配置，`maxLines: 4` 只看得见四行 ——
-          // 括号对不对、粘全没粘全都得靠猜。React 那边是 `JsonCodeEditor`，
-          // 高度 220–360px（`McpModals.tsx:183-189`）。
-          // 等宽行高 12.5×1.35 ≈ 17px：13 行 ≈ 221px（起始高），21 行 ≈ 357px（封顶）。
-          TextField(
+          // 粘的是一整份 mcpServers 配置。React 那边是 `JsonCodeEditor`
+          //（高度 220–360px，`McpModals.tsx:183-189`）：这里直接复用 schema
+          // 设置页同一个 JSON 编辑器（语法高亮 + 行号 + 折叠 + 格式化），
+          // 不另造一份。高度取 React 区间中点 ≈ 290。
+          JsonField(
             key: const Key('mcp-paste'),
-            minLines: 13,
-            maxLines: 21,
-            decoration: InputDecoration(
-              isDense: true,
-              hintText: t.t('mcp.pasteHint'),
-            ),
-            // JSON 用等宽：缩进对不齐的话，粘错层级根本看不出来。
-            style: AidogType.numSm.copyWith(color: AidogTheme.of(context).c.fg),
+            label: t.t('mcp.pasteImport'),
+            height: 290,
+            syncExternal: false,
+            hint: '{\n  "mcpServers": {\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]\n    }\n  }\n}',
+            onSubmitted: (_) {},
             onChanged: _c.setPasteText,
           ),
           const SizedBox(height: AidogSpace.ssm),
@@ -506,7 +509,7 @@ class _McpPageState extends State<McpPage> {
 class _McpRow extends StatelessWidget {
   const _McpRow({
     required this.server,
-    required this.busy,
+    required this.busyKey,
     required this.onToggleAgent,
     required this.onEdit,
     required this.onShare,
@@ -514,7 +517,12 @@ class _McpRow extends StatelessWidget {
   });
 
   final McpServerInfo server;
-  final bool busy;
+
+  /// React 侧是单值 `busyKey`（`Mcp/primitives.tsx`），按前缀精确到「哪个服务器
+  /// 的哪个动作」：`edit::<name>` / `del::<name>` / `<name>::<agent>`。
+  /// 原先把 `busyKey != null` 整行传下来，一个服务器在忙会把**所有**行的
+  /// 编辑 / 删除 / 开关全部锁死 —— 过度禁用。
+  final String? busyKey;
   final void Function(String agent) onToggleAgent;
   final VoidCallback onEdit;
   final VoidCallback onShare;
@@ -545,6 +553,26 @@ class _McpRow extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: AidogType.micro.copyWith(color: theme.c.fg3),
                 ),
+                // 行内 env chips（`Mcp/primitives.tsx:67-86`）：k=v 等宽小字胶囊，
+                // 值由后端 mask_env 打码，原样展示即可。
+                if (server.env.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Wrap(
+                      spacing: 6,
+                      runSpacing: 2,
+                      children: [
+                        for (final e in server.env.entries)
+                          Text(
+                            '${e.key}=${e.value}',
+                            style: AidogType.numSm.copyWith(
+                              fontSize: 10,
+                              color: theme.c.fg3,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -571,16 +599,25 @@ class _McpRow extends StatelessWidget {
                       : t.t('mcp.unsupportedTransportTip', {
                           'transport': server.transport,
                         }),
-                  onTap: (busy || !mcpAgentSupported(server.transport, a))
+                  onTap:
+                      (busyKey == '${server.name}::$a' ||
+                          !mcpAgentSupported(server.transport, a))
                       ? null
                       : () => onToggleAgent(a),
                 ),
-              SmallButton(label: t.t('action.edit'), onTap: onEdit),
+              SmallButton(
+                label: t.t('action.edit'),
+                onTap: (busyKey?.startsWith('edit::${server.name}') ?? false)
+                    ? null
+                    : onEdit,
+              ),
               SmallButton(label: t.t('mcp.share'), onTap: onShare),
               SmallButton(
                 label: t.t('action.delete'),
                 danger: true,
-                onTap: onDelete,
+                onTap: (busyKey?.startsWith('del::${server.name}') ?? false)
+                    ? null
+                    : onDelete,
               ),
             ],
           ),
