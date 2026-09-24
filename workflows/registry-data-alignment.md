@@ -247,3 +247,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   第 37 轮 litellm 无锚族（amazon nova/titan、cohere、ai21、stability、writer）从厂商
   官方文档直接取证、第 38 轮 anthropic/xai/mistral 官方平台补齐（其缺值锁死 openrouter
   等镜像同 canonical 格）进行中。
+- 2026-09-25 第 37 轮 litellm 无锚族 `12fab2eb8`（75 文件）：146 格（6362 → 6216）。
+  amazon nova/titan、cohere command/embed/rerank、ai21 jamba/j2、stability、writer
+  palmyra 从厂商官方文档取证（AWS model-cards + docs.cohere.com）；图像模型 ctx 官方
+  不公布留缺省。门禁全绿。
