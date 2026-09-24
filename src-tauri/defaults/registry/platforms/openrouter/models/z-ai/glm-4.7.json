@@ -1,7 +1,7 @@
 {
   "model_id": "z-ai/glm-4.7",
   "display_name": "Z.ai: GLM 4.7",
-  "canonical_model": "z-ai/glm-4.7-20251222",
+  "canonical_model": "glm-4.7",
   "max_input_tokens": 202752,
   "context_window": 204800,
   "official": true,
@@ -11,5 +11,10 @@
     "output": 0.00000175,
     "cache_read": 8e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

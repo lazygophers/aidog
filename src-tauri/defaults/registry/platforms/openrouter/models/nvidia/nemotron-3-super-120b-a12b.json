@@ -1,7 +1,7 @@
 {
   "model_id": "nvidia/nemotron-3-super-120b-a12b",
   "display_name": "NVIDIA: Nemotron 3 Super",
-  "canonical_model": "nvidia/nemotron-3-super-120b-a12b-20230311",
+  "canonical_model": "nemotron-3-super-120b-a12b",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "input": 8e-8,
     "output": 4.5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

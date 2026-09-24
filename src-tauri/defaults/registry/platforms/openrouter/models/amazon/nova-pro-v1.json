@@ -1,7 +1,7 @@
 {
   "model_id": "amazon/nova-pro-v1",
   "display_name": "Amazon: Nova Pro 1.0",
-  "canonical_model": "amazon/nova-pro-v1",
+  "canonical_model": "nova-pro-v1",
   "max_input_tokens": 300000,
   "context_window": 300000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 8e-7,
     "output": 0.0000032
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

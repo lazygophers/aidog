@@ -1,13 +1,16 @@
 {
   "model_id": "openrouter/pareto-code",
   "display_name": "Pareto Code Router",
-  "canonical_model": "openrouter/pareto-code",
+  "canonical_model": "pareto-code",
   "max_input_tokens": 2000000,
   "context_window": 2000000,
   "official": true,
   "price": {
-    "input": -1,
-    "output": -1
+    "input": 0,
+    "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

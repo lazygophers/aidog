@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
   "display_name": "Qwen: Qwen3 VL 235B A22B Thinking",
-  "canonical_model": "qwen/qwen3-vl-235b-a22b-thinking",
+  "canonical_model": "qwen3-vl-235b-a22b-thinking",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 4e-7,
     "output": 0.000004
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

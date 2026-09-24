@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3.5-plus-20260420",
   "display_name": "Qwen: Qwen3.5 Plus 2026-04-20",
-  "canonical_model": "qwen/qwen3.5-plus-20260420",
+  "canonical_model": "qwen3.5-plus-20260420",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 3e-7,
     "output": 0.0000018
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

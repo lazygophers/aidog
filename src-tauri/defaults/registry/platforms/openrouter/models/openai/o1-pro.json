@@ -1,7 +1,7 @@
 {
   "model_id": "openai/o1-pro",
   "display_name": "OpenAI: o1-pro",
-  "canonical_model": "openai/o1-pro",
+  "canonical_model": "o1-pro",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 0.00015,
     "output": 0.0006
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

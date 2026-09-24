@@ -1,7 +1,7 @@
 {
   "model_id": "z-ai/glm-5.3-flash:batch",
   "display_name": "Z.ai: GLM 5.3 Flash (batch)",
-  "canonical_model": "z-ai/glm-5.3-flash-20260826",
+  "canonical_model": "glm-5.3-flash:batch",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 2e-7,
     "cache_read": 1.2e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

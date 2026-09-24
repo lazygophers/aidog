@@ -1,7 +1,7 @@
 {
   "model_id": "anthracite-org/magnum-v4-72b",
   "display_name": "Magnum v4 72B",
-  "canonical_model": "anthracite-org/magnum-v4-72b",
+  "canonical_model": "magnum-v4-72b",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 0.0000025,
     "output": 0.000005
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "bytedance-seed/seed-1.6",
   "display_name": "ByteDance Seed: Seed 1.6",
-  "canonical_model": "bytedance-seed/seed-1.6-20250625",
+  "canonical_model": "seed-1.6",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 2.5e-7,
     "output": 0.000002
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

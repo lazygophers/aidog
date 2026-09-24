@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemini-2.5-flash",
   "display_name": "Google: Gemini 2.5 Flash",
-  "canonical_model": "google/gemini-2.5-flash",
+  "canonical_model": "gemini-2.5-flash",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.0000025,
     "cache_read": 3e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

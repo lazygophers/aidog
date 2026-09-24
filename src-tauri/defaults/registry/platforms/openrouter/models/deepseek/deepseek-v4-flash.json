@@ -1,7 +1,7 @@
 {
   "model_id": "deepseek/deepseek-v4-flash",
   "display_name": "DeepSeek: DeepSeek V4 Flash 0423",
-  "canonical_model": "deepseek/deepseek-v4-flash-20260423",
+  "canonical_model": "deepseek-v4-flash",
   "max_input_tokens": 1024000,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 1.6492e-7,
     "cache_read": 1.6492e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

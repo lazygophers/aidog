@@ -1,7 +1,7 @@
 {
   "model_id": "poolside/laguna-xs-2.1:free",
   "display_name": "Poolside: Laguna XS 2.1 (free)",
-  "canonical_model": "poolside/laguna-xs-2.1-20260625",
+  "canonical_model": "laguna-xs-2.1:free",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,5 +10,10 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

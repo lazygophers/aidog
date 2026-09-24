@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-5.4-pro:batch",
   "display_name": "OpenAI: GPT-5.4 Pro (batch)",
-  "canonical_model": "openai/gpt-5.4-pro-20260305",
+  "canonical_model": "gpt-5.4-pro:batch",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -11,5 +11,11 @@
     "input": 0.000015,
     "output": 0.00009
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "stepfun/step-3.7-flash",
   "display_name": "StepFun: Step 3.7 Flash",
-  "canonical_model": "stepfun/step-3.7-flash-20260528",
+  "canonical_model": "step-3.7-flash",
   "max_input_tokens": 256000,
   "context_window": 262144,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 0.00000115,
     "cache_read": 4e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

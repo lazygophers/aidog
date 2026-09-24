@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemma-4-31b-it:free",
   "display_name": "Google: Gemma 4 31B (free)",
-  "canonical_model": "google/gemma-4-31b-it-20260402",
+  "canonical_model": "gemma-4-31b-it:free",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,5 +10,11 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

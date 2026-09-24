@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemini-2.5-flash-lite:batch",
   "display_name": "Google: Gemini 2.5 Flash Lite (batch)",
-  "canonical_model": "google/gemini-2.5-flash-lite",
+  "canonical_model": "gemini-2.5-flash-lite:batch",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -11,5 +11,11 @@
     "output": 2e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

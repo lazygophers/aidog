@@ -1,7 +1,7 @@
 {
   "model_id": "inclusionai/ling-3.0-flash-vl",
   "display_name": "inclusionAI: Ling 3.0 Flash VL",
-  "canonical_model": "inclusionai/ling-3.0-flash-vl-20260910",
+  "canonical_model": "ling-3.0-flash-vl",
   "max_input_tokens": 131072,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,12 @@
     "output": 1.8e-7,
     "cache_read": 1.2e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ]
 }

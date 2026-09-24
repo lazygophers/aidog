@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3-235b-a22b",
   "display_name": "Qwen: Qwen3 235B A22B",
-  "canonical_model": "qwen/qwen3-235b-a22b-04-28",
+  "canonical_model": "qwen3-235b-a22b",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 4.55e-7,
     "output": 0.00000182
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "nvidia/nemotron-3-nano-30b-a3b",
   "display_name": "NVIDIA: Nemotron 3 Nano 30B A3B",
-  "canonical_model": "nvidia/nemotron-3-nano-30b-a3b",
+  "canonical_model": "nemotron-3-nano-30b-a3b",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 2e-7,
     "cache_read": 3e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

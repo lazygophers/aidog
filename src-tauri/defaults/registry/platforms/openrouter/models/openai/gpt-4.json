@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-4",
   "display_name": "OpenAI: GPT-4",
-  "canonical_model": "openai/gpt-4",
+  "canonical_model": "gpt-4",
   "max_input_tokens": 8191,
   "context_window": 8191,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 0.00003,
     "output": 0.00006
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3-coder-next",
   "display_name": "Qwen: Qwen3 Coder Next",
-  "canonical_model": "qwen/qwen3-coder-next-2025-02-03",
+  "canonical_model": "qwen3-coder-next",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 8e-7,
     "cache_read": 7e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "xiaomi/mimo-v2.6-pro-ultraspeed",
   "display_name": "Xiaomi: MiMo-V2.6-Pro-UltraSpeed",
-  "canonical_model": "xiaomi/mimo-v2.6-pro-ultraspeed-20260921",
+  "canonical_model": "mimo-v2.6-pro-ultraspeed",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -11,5 +11,11 @@
     "output": 0.0000087,
     "cache_read": 3.6e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-4o",
   "display_name": "OpenAI: GPT-4o",
-  "canonical_model": "openai/gpt-4o",
+  "canonical_model": "gpt-4o",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.00001,
     "cache_read": 0.00000125
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

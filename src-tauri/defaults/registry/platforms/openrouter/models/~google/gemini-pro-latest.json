@@ -1,7 +1,7 @@
 {
   "model_id": "~google/gemini-pro-latest",
   "display_name": "Google: Gemini Pro Latest",
-  "canonical_model": "~google/gemini-pro-latest",
+  "canonical_model": "gemini-pro-latest",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 0.000012,
     "cache_read": 2e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

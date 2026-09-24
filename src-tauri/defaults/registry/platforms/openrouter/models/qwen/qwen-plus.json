@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen-plus",
   "display_name": "Qwen: Qwen-Plus",
-  "canonical_model": "qwen/qwen-plus-2025-01-25",
+  "canonical_model": "qwen-plus",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 7.8e-7,
     "cache_read": 5.2e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

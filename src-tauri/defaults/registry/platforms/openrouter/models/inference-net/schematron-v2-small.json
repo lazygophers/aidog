@@ -1,7 +1,7 @@
 {
   "model_id": "inference-net/schematron-v2-small",
   "display_name": "Inference.net: Schematron V2 Small",
-  "canonical_model": "inference-net/schematron-v2-small-20260902",
+  "canonical_model": "schematron-v2-small",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 2.3e-7,
     "cache_read": 5e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

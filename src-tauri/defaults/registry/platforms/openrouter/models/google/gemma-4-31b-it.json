@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemma-4-31b-it",
   "display_name": "Google: Gemma 4 31B",
-  "canonical_model": "google/gemma-4-31b-it-20260402",
+  "canonical_model": "gemma-4-31b-it",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 3.4e-7,
     "cache_read": 5e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

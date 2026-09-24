@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3.8-2.4t-a95b",
   "display_name": "Qwen: Qwen3.8 2.4T A95B",
-  "canonical_model": "qwen/qwen3.8-2.4t-a95b-20260812",
+  "canonical_model": "qwen3.8-2.4t-a95b",
   "max_input_tokens": 1000000,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 0.000006,
     "cache_read": 2.5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

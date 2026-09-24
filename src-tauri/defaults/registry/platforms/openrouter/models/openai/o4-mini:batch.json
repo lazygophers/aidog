@@ -1,7 +1,7 @@
 {
   "model_id": "openai/o4-mini:batch",
   "display_name": "OpenAI: o4 Mini (batch)",
-  "canonical_model": "openai/o4-mini-2025-04-16",
+  "canonical_model": "o4-mini:batch",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,5 +11,11 @@
     "output": 0.0000022,
     "cache_read": 1.375e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "~deepseek/deepseek-pro-latest",
   "display_name": "DeepSeek: DeepSeek Pro Latest",
-  "canonical_model": "~deepseek/deepseek-pro-latest",
+  "canonical_model": "deepseek-pro-latest",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 0.00000119988,
     "cache_read": 1.2726e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

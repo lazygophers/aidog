@@ -1,7 +1,7 @@
 {
   "model_id": "openai/o1",
   "display_name": "OpenAI: o1",
-  "canonical_model": "openai/o1-2024-12-17",
+  "canonical_model": "o1",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.00006,
     "cache_read": 0.0000075
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

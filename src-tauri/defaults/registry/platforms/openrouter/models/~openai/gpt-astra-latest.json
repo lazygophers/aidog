@@ -1,7 +1,7 @@
 {
   "model_id": "~openai/gpt-astra-latest",
   "display_name": "OpenAI: GPT Astra Latest",
-  "canonical_model": "~openai/gpt-astra-latest",
+  "canonical_model": "gpt-astra-latest",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 0.00005,
     "cache_read": 0.000001
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }
