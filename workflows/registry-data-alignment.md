@@ -204,3 +204,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   claude-fable 全系）。第 25 轮 shengsuanyun `9cdead2fa`（61 文件）：family 56 +
   version 11（386 → 319）；130 文件 canonical 无锚、62 文件 version 无官方值留缺省。
   两轮门禁全绿。
+- 2026-09-25 第 26 轮 crazyrouter `d5a9c6b5`→merge `267911735`（39 文件）：51 格（336 → 285）；
+  100 条无锚留缺省，根因是 anthropic 等官方平台自身条目未填——官方平台轮造锚后可解锁。
+  第 27 轮 compshare `8d3df911d`→merge `2249d0800`（51 文件）：73 格（实测缺口 231）；
+  158 格无锚留缺省。两轮门禁全绿。
+- 第 28 轮 gemini、第 29 轮 openai（官方平台造锚轮）进行中：填官方条目 family/version
+  同时解锁镜像平台；openai 轮兼核实 crazyrouter 5 条 NO_OFFICIAL_CHANNEL 豁免的在售性。
