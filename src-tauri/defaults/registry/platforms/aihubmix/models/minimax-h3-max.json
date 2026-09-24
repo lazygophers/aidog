@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "minimax-h3-max",
   "canonical_model": "MiniMax-H3-Max",
+  "family": "minimax",
   "display_name": "MiniMax H3 Max",
   "capabilities": [
     "vision",

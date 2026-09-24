@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "doubao-1-5-pro-32k-250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
+  "family": "doubao-pro",
+  "version": "1.5",
   "display_name": "Doubao 1.5 Pro 32K 250115",
   "capabilities": [],
   "official": false,

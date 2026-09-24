@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790277180,
   "model_id": "kimi-thinking-preview",
   "canonical_model": "kimi-thinking-preview",
+  "family": "kimi",
   "display_name": "Kimi Thinking Preview",
   "capabilities": [],
   "official": false,
