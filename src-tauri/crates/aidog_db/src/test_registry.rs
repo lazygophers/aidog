@@ -317,6 +317,11 @@ const NO_OFFICIAL_CHANNEL: &[&str] = &[
     "inclusionai/ling-3.0-flash-sante",
     "baai/bge-m3",
 
+    // 以下 1 条：nvidia 2026-09-24 对齐轮新增。build.nvidia.com 在售
+    // （https://build.nvidia.com/deepseek-ai/deepseek-v4.1-flash），DeepSeek 官方渠道由
+    // openrouter/shengsuanyun 的 `deepseek/deepseek-v4.1-flash` 条目承载（official:true，
+    // id 前缀不同故此处按字符串匹配不到），nvidia NIM 条目本身 official:false。
+    "deepseek-ai/deepseek-v4.1-flash",
 ];
 
 /// 每个 `model_id` 至少有一个 `official` 平台条目（模型维度列表默认展示官方条目，
