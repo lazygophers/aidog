@@ -271,3 +271,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `c8f33014`→merge `ff0a609c5`（183 文件 253 格：modelscope 80 / qianfan 73 /
   opencode 50 / byteplus 32 等）。覆盖率 family 55.7% / version 34.4% / ctx 76.5%。
   门禁全绿。排名：litellm 6139 / aihubmix 1744 / openrouter 596 / bailian 537。
+- 2026-09-25 第 45 轮 litellm alias 归一 `121cef69`→merge `a458c0e96`（995 文件）：
+  224 canonical 归一（区域前缀/日期快照/:N/-preview/厂商点前缀/-vN/databricks-，
+  逐条同模型复核，驳回 1 条跨厂商误命中）+ family 688 / version 853 / ctx 51 平移。
+  第 46 轮镜像五轮 `bae14f95`（50 文件 60 格）：锚定平移收益递减（r4 438 → r5 60），
+  镜像余量收敛为真无锚。覆盖率 family 63.8% / version 44.6% / ctx 77.1%。
+  litellm 真无锚余量 1507 条（azure 拼写 gpt-35-turbo、cloudflare @cf、私有别名），
+  需 facts 轮逐条取证或列官方未公布。
