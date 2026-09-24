@@ -2,6 +2,7 @@
   "model_id": "qwen/qwen3-coder-plus",
   "display_name": "Qwen: Qwen3 Coder Plus",
   "canonical_model": "qwen3-coder-plus",
+  "family": "qwen",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 0.00000325,
     "cache_read": 1.3e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

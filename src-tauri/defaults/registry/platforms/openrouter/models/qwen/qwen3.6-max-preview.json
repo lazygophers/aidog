@@ -2,6 +2,7 @@
   "model_id": "qwen/qwen3.6-max-preview",
   "display_name": "Qwen: Qwen3.6 Max Preview",
   "canonical_model": "qwen3.6-max-preview",
+  "family": "qwen",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 0.000001027,
     "output": 0.000006162
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

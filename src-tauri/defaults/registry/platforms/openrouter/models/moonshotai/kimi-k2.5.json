@@ -2,6 +2,7 @@
   "model_id": "moonshotai/kimi-k2.5",
   "display_name": "MoonshotAI: Kimi K2.5",
   "canonical_model": "kimi-k2.5",
+  "family": "kimi",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 0.00000225,
     "cache_read": 7e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

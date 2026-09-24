@@ -2,6 +2,7 @@
   "model_id": "qwen/qwen3-14b",
   "display_name": "Qwen: Qwen3 14B",
   "canonical_model": "qwen3-14b",
+  "family": "qwen",
   "max_input_tokens": 40960,
   "context_window": 131072,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 1.2e-7,
     "output": 2.4e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

@@ -2,6 +2,7 @@
   "model_id": "google/gemini-3.1-pro-preview",
   "display_name": "Google: Gemini 3.1 Pro Preview",
   "canonical_model": "gemini-3.1-pro-preview",
+  "family": "gemini",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 0.000012,
     "cache_read": 2e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

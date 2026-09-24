@@ -2,6 +2,7 @@
   "model_id": "google/gemma-4-26b-a4b-it",
   "display_name": "Google: Gemma 4 26B A4B ",
   "canonical_model": "gemma-4-26b-a4b-it",
+  "family": "gemma",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,7 +12,7 @@
     "output": 3e-7,
     "cache_read": 5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]
