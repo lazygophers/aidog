@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790284433,
   "model_id": "mistral-small-2503@001",
   "canonical_model": "mistral-small-2503@001",
+  "family": "mistral",
+  "version": "3.1",
   "capabilities": [
     "text"
   ],

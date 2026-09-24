@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "sora-2",
   "canonical_model": "sora-2",
+  "family": "sora",
+  "version": "2",
   "display_name": "Sora 2",
   "capabilities": [
     "text_to_video",

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "veo-3.1-generate-preview",
   "canonical_model": "veo-3.1-generate-preview",
+  "family": "veo",
+  "version": "3.1",
   "display_name": "Veo 3.1 Generate Preview",
   "capabilities": [
     "vision",

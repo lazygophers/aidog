@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790284433,
   "model_id": "happyhorse-1.0-r2v",
   "canonical_model": "happyhorse-1.0-r2v",
+  "family": "happyhorse",
+  "version": "1.0",
   "capabilities": [
     "video_to_video"
   ],

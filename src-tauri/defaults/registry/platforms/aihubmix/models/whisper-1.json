@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "whisper-1",
   "canonical_model": "whisper-1",
+  "family": "whisper",
+  "version": "1",
   "display_name": "Whisper 1",
   "capabilities": [
     "audio"

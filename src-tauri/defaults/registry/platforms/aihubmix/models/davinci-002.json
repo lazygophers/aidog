@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
+  "family": "davinci",
+  "version": "002",
   "display_name": "Davinci 002",
   "capabilities": [],
   "official": false,

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790284433,
   "model_id": "deep-research-pro-preview-12-2025",
   "canonical_model": "deep-research-pro-preview-12-2025",
+  "family": "deep-research",
   "capabilities": [
     "text_to_image"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790284433,
   "model_id": "aihubmix-Mistral-Large-2411",
   "canonical_model": "mistral-large-2411",
+  "family": "mistral",
+  "version": "2.1",
   "display_name": "Aihubmix Mistral Large 2411",
   "capabilities": [],
   "official": false,

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790284433,
   "model_id": "chatgpt-image-latest",
   "canonical_model": "chatgpt-image-latest",
+  "family": "chatgpt-image",
+  "version": "latest",
   "capabilities": [
     "text_to_image"
   ],

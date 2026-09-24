@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790284433,
   "model_id": "glm-5.2-fast-preview",
   "canonical_model": "glm-5.2-fast-preview",
+  "family": "glm",
+  "version": "5.2",
   "capabilities": [
     "text"
   ],
