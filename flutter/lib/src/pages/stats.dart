@@ -329,8 +329,13 @@ class _StatsPageState extends State<StatsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: tr.t('page.stats'), subtitle: tr.t('stats.desc')),
+        PageHead(
+          title: tr.t('page.stats'),
+          subtitle: tr.t('stats.desc'),
+          bottom: 16, // React 全页 gap 16（Stats.tsx:477）
+        ),
         Bento(
+          gap: 16, // React 全页 gap 16（Stats.tsx:477）
           children: [
             BentoCell(span: 12, child: _filters(t, tr)),
             if (_loading)
@@ -356,15 +361,24 @@ class _StatsPageState extends State<StatsPage> {
                     ),
                   ),
                 ),
-              )
-            else ...[
-              ..._overviewCells(t, tr, data.overview),
+              ),
+          ],
+        ),
+        if (!_loading && data != null) ...[
+          // Overview 卡 wrap 行：`flex 1 1 120 + gap 12`（Stats.tsx:975-981）。
+          // 不进 Bento —— Bento 的行内 IntrinsicHeight 不容 LayoutBuilder。
+          const SizedBox(height: 16),
+          _overviewWrap(t, tr, data.overview),
+          const SizedBox(height: 16),
+          Bento(
+            gap: 16,
+            children: [
               BentoCell(span: 12, child: _tabBar(t, tr)),
               ..._tabContent(t, tr, data),
               ..._dimensionTable(t, tr, data),
             ],
-          ],
-        ),
+          ),
+        ],
       ],
     );
   }
@@ -373,9 +387,11 @@ class _StatsPageState extends State<StatsPage> {
 
   Widget _filters(AidogTheme t, I18nController tr) {
     return Tile(
+      // React glass-surface：padding 14/20、gap 12（Stats.tsx:485）
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
       child: Wrap(
-        spacing: AidogSpace.smd,
-        runSpacing: AidogSpace.smd,
+        spacing: 12,
+        runSpacing: 12,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Row(
@@ -483,7 +499,7 @@ class _StatsPageState extends State<StatsPage> {
 
   // ── Overview 八卡 ─────────────────────────────────────────
 
-  List<BentoCell> _overviewCells(
+  Widget _overviewWrap(
     AidogTheme t,
     I18nController tr,
     StatsOverview o,
@@ -506,91 +522,83 @@ class _StatsPageState extends State<StatsPage> {
       deltaNote: tr.t('stats.vsPrevPeriod'),
     );
 
-    return [
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.totalRequests'),
-          formatNumber(o.totalRequests),
-          deltaPct: delta(
-            o.totalRequests.toDouble(),
-            (p?.totalRequests ?? 0).toDouble(),
-          ),
+    final cards = <Widget>[
+      card(
+        tr.t('stats.totalRequests'),
+        formatNumber(o.totalRequests),
+        deltaPct: delta(
+          o.totalRequests.toDouble(),
+          (p?.totalRequests ?? 0).toDouble(),
         ),
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.successRate'),
-          o.successRate.toStringAsFixed(1),
-          unit: '%',
-          level: successRateLevel(o.successRate, o.totalRequests),
-          deltaPct: delta(o.successRate, p?.successRate ?? 0),
+      card(
+        tr.t('stats.successRate'),
+        o.successRate.toStringAsFixed(1),
+        unit: '%',
+        level: successRateLevel(o.successRate, o.totalRequests),
+        deltaPct: delta(o.successRate, p?.successRate ?? 0),
+      ),
+      card(
+        tr.t('stats.inputTokens'),
+        formatNumber(o.totalInputTokens),
+        deltaPct: delta(
+          o.totalInputTokens.toDouble(),
+          (p?.totalInputTokens ?? 0).toDouble(),
         ),
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.inputTokens'),
-          formatNumber(o.totalInputTokens),
-          deltaPct: delta(
-            o.totalInputTokens.toDouble(),
-            (p?.totalInputTokens ?? 0).toDouble(),
-          ),
+      card(
+        tr.t('stats.outputTokens'),
+        formatNumber(o.totalOutputTokens),
+        deltaPct: delta(
+          o.totalOutputTokens.toDouble(),
+          (p?.totalOutputTokens ?? 0).toDouble(),
         ),
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.outputTokens'),
-          formatNumber(o.totalOutputTokens),
-          deltaPct: delta(
-            o.totalOutputTokens.toDouble(),
-            (p?.totalOutputTokens ?? 0).toDouble(),
-          ),
+      card(
+        tr.t('stats.cacheTokens'),
+        formatNumber(o.totalCacheTokens),
+        deltaPct: delta(
+          o.totalCacheTokens.toDouble(),
+          (p?.totalCacheTokens ?? 0).toDouble(),
         ),
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.cacheTokens'),
-          formatNumber(o.totalCacheTokens),
-          deltaPct: delta(
-            o.totalCacheTokens.toDouble(),
-            (p?.totalCacheTokens ?? 0).toDouble(),
-          ),
-        ),
+      card(
+        tr.t('stats.cacheRate'),
+        o.cacheRate.toStringAsFixed(1),
+        unit: '%',
+        deltaPct: delta(o.cacheRate, p?.cacheRate ?? 0),
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.cacheRate'),
-          o.cacheRate.toStringAsFixed(1),
-          unit: '%',
-          deltaPct: delta(o.cacheRate, p?.cacheRate ?? 0),
-        ),
+      card(
+        tr.t('stats.avgLatency'),
+        o.avgDurationMs.toStringAsFixed(0),
+        unit: 'ms',
+        deltaPct: delta(o.avgDurationMs, p?.avgDurationMs ?? 0),
+        inverse: true,
       ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.avgLatency'),
-          o.avgDurationMs.toStringAsFixed(0),
-          unit: 'ms',
-          deltaPct: delta(o.avgDurationMs, p?.avgDurationMs ?? 0),
-          inverse: true,
-        ),
-      ),
-      BentoCell(
-        span: 3,
-        child: card(
-          tr.t('stats.totalCost'),
-          '\$${formatCost(o.totalCost)}',
-          level: costLevel(o.totalCost),
-          deltaPct: delta(o.totalCost, p?.totalCost ?? 0),
-          inverse: true,
-        ),
+      card(
+        tr.t('stats.totalCost'),
+        '\$\${formatCost(o.totalCost)}',
+        level: costLevel(o.totalCost),
+        deltaPct: delta(o.totalCost, p?.totalCost ?? 0),
+        inverse: true,
       ),
     ];
+
+    // React：Overview 卡是 `flex: 1 1 120px` + gap 12 的 wrap 行（`Stats.tsx:975-981`），
+    // 宽度够时一张不落全在一行；塞不下才折行 —— 不是固定四列的 Bento 栅格。
+    return LayoutBuilder(
+      builder: (context, c) {
+        final perRow = ((c.maxWidth + 12) / (120 + 12))
+            .floor()
+            .clamp(1, cards.length);
+        final w = (c.maxWidth - (perRow - 1) * 12) / perRow;
+        return Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [for (final cd in cards) SizedBox(width: w, child: cd)],
+        );
+      },
+    );
   }
 
   // ── 主图区四 tab ──────────────────────────────────────────
@@ -717,7 +725,7 @@ class _StatsPageState extends State<StatsPage> {
               child: SeriesTile(
                 title: tr.t('stats.requestTrend'),
                 meta: meta,
-                chartHeight: 260,
+                chartHeight: 240, // React LineChart 默认 240（LineChart.tsx:121）
                 legend: [
                   for (final s in chartSeries) (color: s.color, label: s.label),
                 ],
@@ -738,7 +746,7 @@ class _StatsPageState extends State<StatsPage> {
       case StatsTab.share:
         return [
           BentoCell(
-            span: 6,
+            span: 12, // React 上下整宽堆叠，不是左右并排（批次一 P4）
             child: SeriesTile(
               title: '${tr.t('stats.costShare')} — ${_byLabel(tr)}',
               chartHeight: 260,
@@ -755,7 +763,7 @@ class _StatsPageState extends State<StatsPage> {
             ),
           ),
           BentoCell(
-            span: 6,
+            span: 12, // 同上：上下整宽
             child: SeriesTile(
               title: tr.t('stats.dimHeatTitle'),
               chartHeight: 260,
@@ -823,7 +831,7 @@ class _StatsPageState extends State<StatsPage> {
                   )
                 : SeriesTile(
                     title: tr.t('stats.scatterTitle'),
-                    chartHeight: 300,
+                    chartHeight: 280, // React ScatterChart 默认 280（ScatterChart.tsx:65）
                     chart: AidogScatterChart(
                       histogram:
                           _scatterHist ??
@@ -1083,11 +1091,15 @@ class _OverviewCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = delta;
+    final lv = level;
     final show = d != null && d.abs() >= 0.05;
     // 正常指标：上升 = 好（ok）；反向指标（成本 / 延迟）：上升 = 差（bad）。
     final up = show && d > 0;
     final good = deltaInverse ? !up : up;
     return ReadoutTile(
+      // React Overview 卡 padding 16/20（Stats.tsx:980）；值色 = levelColor（:977）。
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      valueColor: lv == null ? null : levelColor(lv, AidogTheme.of(context).c),
       label: label,
       value: unit == null ? value : '$value$unit',
       delta: show ? '${up ? '+' : '-'}${d.abs().toStringAsFixed(1)}%' : null,
@@ -1109,6 +1121,10 @@ class _Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
     final disabled = onTap == null;
+    // 选中态是**淡底**：accent-subtle 底 + accent 字 + accent-edge 40% 边。
+    // React 虽然写的是默认变体，但 inline style 覆盖后实际渲染就是这组淡底
+    //（`Stats.tsx:496-502,668-674`；mono.ts 把 --accent 映射到 accent-text）。
+    final washEdge = _mixSrgb(t.c.accentEdge, t.c.line, 0.4);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AidogRadius.sm),
@@ -1117,28 +1133,35 @@ class _Pill extends StatelessWidget {
           horizontal: AidogSpace.smd,
           vertical: AidogSpace.sxs,
         ),
-        // 选中态是**实心**，不是淡底 —— React 这几组（时间预设 / 主图四 tab /
-        // 折线·堆叠）选中时用的是默认变体 `bg-primary text-primary-foreground`
-        //（`Stats.tsx:491,663,690`），没选中才是 ghost。淡底那一套是「胶囊多选」
-        //（分组归属）的样子，两种状态别混用。
         decoration: BoxDecoration(
-          color: active ? t.c.accent : null,
-          border: Border.all(color: active ? t.c.accentEdge : t.c.line),
+          color: active ? t.c.accentWash : null,
+          border: Border.all(color: active ? washEdge : t.c.line),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: Text(
           label,
           style: AidogType.caption.copyWith(
-            color: disabled
-                ? t.c.fg3
-                : active
-                ? AidogColors.light.surface
-                : t.c.fg2,
+            color: disabled ? t.c.fg3 : active ? t.c.accentText : t.c.fg2,
           ),
         ),
       ),
     );
   }
+}
+
+/// `color-mix(in srgb, a t%, b)` 的等价实现（premultiplied alpha 线性插值）。
+/// 目前只有 _Pill 的选中态边（accent-edge 40% + border）在用。
+Color _mixSrgb(Color a, Color b, double t) {
+  double lerp(double x, double y) => x + (y - x) * t;
+  final alpha = lerp(a.a, b.a);
+  double comp(double ca, double cb) =>
+      alpha <= 0 ? 0 : lerp(ca * a.a, cb * b.a) / alpha;
+  return Color.fromARGB(
+    (alpha * 255).round(),
+    (comp(a.r, b.r) * 255).round(),
+    (comp(a.g, b.g) * 255).round(),
+    (comp(a.b, b.b) * 255).round(),
+  );
 }
 
 /// 无搜索的下拉（粒度 / 维度 / 计费类型）。走 Material 的 `DropdownButton`，
@@ -1217,11 +1240,13 @@ class _SortHead extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              label.toUpperCase(),
+              label, // 混合大小写，不大写（React 表头 12 w600）
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: AidogType.micro.copyWith(
-                color: active ? t.c.accentText : t.c.fg3,
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: active ? t.c.accentText : t.c.fg2,
               ),
             ),
           ),
