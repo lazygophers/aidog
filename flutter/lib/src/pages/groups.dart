@@ -2620,11 +2620,11 @@ class _FieldState extends State<_Field> {
 
   Widget _input(AidogTheme theme) => TextField(
     controller: _ctrl,
-    style: AidogType.micro.copyWith(color: theme.c.fg),
+    style: AidogType.label.copyWith(color: theme.c.fg),
     decoration: InputDecoration(
       isDense: true,
       hintText: widget.hint,
-      hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+      hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
     ),
     onChanged: widget.onChanged,
   );

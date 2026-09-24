@@ -176,7 +176,7 @@ class _EnvEditorState extends State<EnvEditor> {
         TextField(
           key: const ValueKey('env-search'),
           controller: _search,
-          style: AidogType.micro.copyWith(color: theme.c.fg),
+          style: AidogType.label.copyWith(color: theme.c.fg),
           decoration: InputDecoration(
             isDense: true,
             hintText: t.t('env.searchPlaceholder'),
@@ -229,7 +229,7 @@ class _EnvEditorState extends State<EnvEditor> {
                 child: TextField(
                   key: const ValueKey('env-custom-key'),
                   controller: _customKey,
-                  style: AidogType.micro.copyWith(color: theme.c.fg),
+                  style: AidogType.label.copyWith(color: theme.c.fg),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'KEY',
@@ -241,7 +241,7 @@ class _EnvEditorState extends State<EnvEditor> {
                 child: TextField(
                   key: const ValueKey('env-custom-value'),
                   controller: _customVal,
-                  style: AidogType.micro.copyWith(color: theme.c.fg),
+                  style: AidogType.label.copyWith(color: theme.c.fg),
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'VALUE',

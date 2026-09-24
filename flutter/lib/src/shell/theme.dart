@@ -162,6 +162,14 @@ class _EllipseY extends GradientTransform {
   }
 }
 
+/// `.input` 的描边形状：r8（React --radius-sm）+ 1px。色由调用处给。
+OutlineInputBorder _inputBorder(Color color) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(AidogRadius.sm),
+  borderSide: BorderSide(color: color),
+  // 没有 prefix/suffix 时缺口不参与绘制，显式归零省掉 InputDecorator 的 gap 动画。
+  gapPadding: 0,
+);
+
 /// Material 的 ThemeData 只是宿主：真正的绘制属性全在 AidogTheme 扩展里。
 ThemeData aidogThemeData(AidogMode mode) {
   final ext = AidogTheme.forMode(mode);
@@ -171,18 +179,22 @@ ThemeData aidogThemeData(AidogMode mode) {
     scaffoldBackgroundColor: ext.c.bg,
     canvasColor: ext.c.bg,
     fontFamily: AidogType.familySans,
-    // 输入框一律无下划线。Material 默认给 TextField 画一条 underline 边框，
-    // 15 个页面里的输入框会各带一条横线 —— 与本项目的卡片/描边风格冲突，也不是
-    // React 版的长相（那边输入框走 `.glass-surface` 的圆角描边）。
-    // 统一在主题里关掉，比逐个 TextField 传 `border: InputBorder.none` 可靠：
-    // 新写的输入框不会再漏。要描边的场合自己包 Container 画。
-    inputDecorationTheme: const InputDecorationTheme(
-      border: InputBorder.none,
-      enabledBorder: InputBorder.none,
-      focusedBorder: InputBorder.none,
-      errorBorder: InputBorder.none,
-      focusedErrorBorder: InputBorder.none,
-      disabledBorder: InputBorder.none,
+    // 输入框 = React 的 `.input`（globals.css:433-445）：8/12 内衬 + 1px line 边 +
+    // r8 + surface 底。原先全站 InputBorder.none 裸文字行，与 React 的描边盒形态
+    // 是两版「不是同一个界面」感的最大单一来源（像素对齐批次二 P1）。统一在主题层
+    // 给，新写的输入框不会再漏；个别不要描边的场合自己包 Container 覆盖。
+    inputDecorationTheme: InputDecorationTheme(
+      filled: true,
+      fillColor: ext.c.surface,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      border: _inputBorder(ext.c.line),
+      enabledBorder: _inputBorder(ext.c.line),
+      // 聚焦描边换 accentEdge（React 是 --border-focus + 3px accent-subtle 光环；
+      // 近黑 accent 时代替它发声的是这圈亮边，与选中态 pill 同一条路子）。
+      focusedBorder: _inputBorder(ext.c.accentEdge),
+      errorBorder: _inputBorder(ext.c.bad),
+      focusedErrorBorder: _inputBorder(ext.c.bad),
+      disabledBorder: _inputBorder(ext.c.line),
     ),
     // 下拉同理：Material 默认在 `DropdownButton` 底下画一条线，现在各处靠
     // 手写 `underline: SizedBox.shrink()` / `DropdownButtonHideUnderline` 去除，

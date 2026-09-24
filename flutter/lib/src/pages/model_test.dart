@@ -100,7 +100,7 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
                   isDense: true,
                   hintText: t.t('test.promptPlaceholder'),
                 ),
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                style: AidogType.label.copyWith(color: theme.c.fg),
                 onChanged: _c.setCustomPrompt,
               ),
             ],

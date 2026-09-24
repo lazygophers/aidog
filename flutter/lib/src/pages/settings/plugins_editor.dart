@@ -433,7 +433,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
               child: TextField(
                 key: const ValueKey('plugin-new'),
                 controller: _newPlugin,
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                style: AidogType.label.copyWith(color: theme.c.fg),
                 decoration: const InputDecoration(
                   isDense: true,
                   hintText: 'plugin-name@marketplace',
@@ -471,7 +471,7 @@ class _PluginsEditorState extends State<PluginsEditor> {
               child: TextField(
                 key: const ValueKey('market-new'),
                 controller: _newMarket,
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                style: AidogType.label.copyWith(color: theme.c.fg),
                 decoration: const InputDecoration(
                   isDense: true,
                   hintText: 'marketplace-name',

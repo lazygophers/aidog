@@ -1224,7 +1224,7 @@ class _JsonFieldState extends State<JsonField> {
                     child: TextField(
                       key: const ValueKey('json-search'),
                       controller: _searchCtrl,
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      style: AidogType.label.copyWith(color: theme.c.fg),
                       decoration: const InputDecoration(isDense: true),
                       onSubmitted: (_) => _findNext(),
                     ),
@@ -1253,7 +1253,7 @@ class _JsonFieldState extends State<JsonField> {
                       child: TextField(
                         key: const ValueKey('json-replace'),
                         controller: _replaceCtrl,
-                        style: AidogType.micro.copyWith(color: theme.c.fg),
+                        style: AidogType.label.copyWith(color: theme.c.fg),
                         decoration: const InputDecoration(isDense: true),
                       ),
                     ),

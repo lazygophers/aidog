@@ -224,11 +224,11 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: t.t('platform.searchPlaceholder'),
-                    hintStyle: AidogType.micro.copyWith(
+                    hintStyle: AidogType.label.copyWith(
                       color: AidogTheme.of(context).c.fg3,
                     ),
                   ),
-                  style: AidogType.micro.copyWith(
+                  style: AidogType.label.copyWith(
                     color: AidogTheme.of(context).c.fg,
                   ),
                   onChanged: _c.setSearchQuery,

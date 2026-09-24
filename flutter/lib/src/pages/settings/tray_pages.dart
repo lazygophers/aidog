@@ -975,11 +975,11 @@ class _HexFieldState extends State<_HexField> {
     final valid = draft.isEmpty || _validHex(draft);
     return TextField(
       controller: _ctrl,
-      style: AidogType.micro.copyWith(color: theme.c.fg),
+      style: AidogType.label.copyWith(color: theme.c.fg),
       decoration: InputDecoration(
         isDense: true,
         hintText: AidogI18n.of(context).t('popover.colorHex'),
-        hintStyle: AidogType.micro.copyWith(color: theme.c.fg3),
+        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: AidogSpace.sxs,
           vertical: AidogSpace.sxs,

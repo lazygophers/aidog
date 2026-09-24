@@ -97,7 +97,7 @@ class _SandboxTagListState extends State<SandboxTagList> {
             Expanded(
               child: TextField(
                 controller: _draft,
-                style: AidogType.micro.copyWith(color: theme.c.fg),
+                style: AidogType.label.copyWith(color: theme.c.fg),
                 decoration: InputDecoration(
                   isDense: true,
                   hintText: widget.hint,
