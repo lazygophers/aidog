@@ -1856,30 +1856,31 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('import-pick')));
       await settle(tester);
 
-      // 默认全选 → 两个组都是全选态。
-      Icon groupIcon(String gid) => tester.widget<Icon>(
+      // 批三后组级三态是自绘 _CheckBox（16px、半选横线），
+      // 不再是 Material 的 indeterminate_check_box 图标。
+      ImportCheckBox groupCheck(String gid) => tester.widget<ImportCheckBox>(
         find.descendant(
           of: find.byKey(ValueKey('item-group-check-$gid')),
-          matching: find.byType(Icon),
+          matching: find.byType(ImportCheckBox),
         ),
       );
-      expect(groupIcon('platform').icon, Icons.check_box);
-      expect(groupIcon('extension').icon, Icons.check_box);
+      expect(groupCheck('platform').checked, isTrue);
+      expect(groupCheck('extension').checked, isTrue);
 
       // 组内取消一条 → 该组变半选，另一组不受影响。
       await tester.tap(find.byKey(const ValueKey('item-platform p1')));
       await settle(tester);
       expect(
-        groupIcon('platform').icon,
-        Icons.indeterminate_check_box,
+        groupCheck('platform').indeterminate,
+        isTrue,
         reason: '挑了几条 = 半选，这是「这组我动过」的唯一线索',
       );
-      expect(groupIcon('extension').icon, Icons.check_box);
+      expect(groupCheck('extension').checked, isTrue);
 
       // 点组级复选框 → 整组翻转（半选 → 全选）。
       await tester.tap(find.byKey(const ValueKey('item-group-check-platform')));
       await settle(tester);
-      expect(groupIcon('platform').icon, Icons.check_box);
+      expect(groupCheck('platform').checked, isTrue);
 
       // 折叠 → 组内行不再渲染，组头还在。
       await tester.tap(find.byKey(const ValueKey('item-group-platform')));
