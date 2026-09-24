@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790267035,
   "model_id": "Tripo/Tripo-H3.1",
   "canonical_model": "Tripo-H3.1",
+  "family": "tripo",
+  "version": "3.1",
   "capabilities": [],
   "official": true,
   "price": {

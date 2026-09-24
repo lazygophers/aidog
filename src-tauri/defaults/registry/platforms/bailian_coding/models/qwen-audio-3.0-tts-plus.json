@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "qwen-audio-3.0-tts-plus",
   "canonical_model": "qwen-audio-3.0-tts-plus",
+  "family": "qwen",
   "capabilities": [
     "audio"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "emoji-detect-v1",
   "canonical_model": "emoji-detect-v1",
+  "family": "emoji",
+  "version": "1",
   "capabilities": [
     "vision"
   ],

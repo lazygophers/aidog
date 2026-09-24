@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "animate-anyone-gen2",
   "canonical_model": "animate-anyone-gen2",
+  "family": "animate-anyone",
   "capabilities": [
     "video_edit"
   ],
