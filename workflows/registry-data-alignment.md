@@ -266,3 +266,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   247 格）。覆盖率 family 52.6% / version 29.6%。第 43 轮镜像四轮平移、第 44 轮中小
   官方平台（modelscope/qianfan/byteplus/opencode/sensenova/xiaomi_mimo/longcat/devin）
   补齐进行中。
+- 2026-09-25 第 43 轮镜像四轮 `9461eb04`→merge `8ae2adaba`（271 文件 438 格：aihubmix
+  132 / pipellm 94 / opencode_zen 85 / compshare 40 等）。第 44 轮中小平台
+  `c8f33014`→merge `ff0a609c5`（183 文件 253 格：modelscope 80 / qianfan 73 /
+  opencode 50 / byteplus 32 等）。覆盖率 family 55.7% / version 34.4% / ctx 76.5%。
+  门禁全绿。排名：litellm 6139 / aihubmix 1744 / openrouter 596 / bailian 537。
