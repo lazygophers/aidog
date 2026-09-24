@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788104075,
+  "last_updated": 1790276888,
   "model_id": "kimi-for-coding-highspeed",
   "canonical_model": "kimi-for-coding-highspeed",
+  "family": "kimi",
   "display_name": "Kimi K2.7 Code HighSpeed",
   "capabilities": [
     "text",

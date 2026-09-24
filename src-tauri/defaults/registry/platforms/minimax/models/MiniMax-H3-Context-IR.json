@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "MiniMax-H3-Context-IR",
   "canonical_model": "MiniMax-H3-Context-IR",
+  "family": "minimax",
   "display_name": "MiniMax-H3-Context-IR",
   "capabilities": [
     "video"

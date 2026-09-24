@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790276888,
   "model_id": "step-router-v1",
   "canonical_model": "step-router-v1",
+  "family": "stepfun",
+  "version": "v1",
   "display_name": "Step Router V1",
   "capabilities": [
     "text"
