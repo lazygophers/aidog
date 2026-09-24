@@ -102,32 +102,20 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
       subtitle: ltr('${selected.length}/$kTrayMaxSegments'),
       children: [
         _preview(t, selected),
-        SettingsCard(
-          title: tOr(t, 'tray.pickAtMost', '最多挑 3 项，菜单栏按勾选顺序显示'),
-          children: [
-            Wrap(
-              spacing: AidogSpace.sxs,
-              runSpacing: AidogSpace.sxs,
-              children: [
-                for (final opt in options)
-                  SmallButton(
-                    key: ValueKey('tray-seg-${opt.key}'),
-                    label: opt.label,
-                    active: selectedKeys.contains(opt.key),
-                    onTap: !selectedKeys.contains(opt.key) && full
-                        ? null
-                        : () => _c.toggleSegment(opt),
-                  ),
-              ],
-            ),
-          ],
-        ),
+        _pickList(t, options, selectedKeys, full),
         if (keptDisabled > 0)
-          CenteredNote(
-            text: tOr(
-              t,
-              'tray.keptDisabled',
-              '旧版托盘配置里多出的 $keptDisabled 项已保留但未启用，不会丢失',
+          Padding(
+            padding: const EdgeInsets.only(bottom: AidogSpace.smd),
+            child: Text(
+              tOr(
+                t,
+                'tray.keptDisabled',
+                '旧版托盘配置里多出的 $keptDisabled 项已保留但未启用，不会丢失',
+              ),
+              style: AidogType.caption.copyWith(
+                fontSize: 11,
+                color: AidogTheme.of(context).c.fg3,
+              ),
             ),
           ),
         if (_c.message.isNotEmpty)
@@ -137,6 +125,90 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
             onDone: () => setState(() => _c.message = ''),
           ),
       ],
+    );
+  }
+
+  /// 候选清单卡（`TrayConfigTab.tsx:228-257`）：头部提示条 12px + 整行 ghost
+  /// 按钮（13px、padding 10/16、左对齐、16px 方形勾选框），不是 chip 平铺。
+  Widget _pickList(
+    I18nController t,
+    List<TraySegmentOption> options,
+    Set<String> selectedKeys,
+    bool full,
+  ) {
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      child: Tile(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Text(
+                tOr(t, 'tray.pickAtMost', '最多挑 3 项，菜单栏按勾选顺序显示'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg2,
+                ),
+              ),
+            ),
+            for (final opt in options)
+              () {
+                final on = selectedKeys.contains(opt.key);
+                final disabled = !on && full;
+                return InkWell(
+                  key: ValueKey('tray-seg-${opt.key}'),
+                  onTap: disabled ? null : () => _c.toggleSegment(opt),
+                  child: Opacity(
+                    opacity: disabled ? 0.4 : 1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 10,
+                      ),
+                      child: Row(
+                        children: [
+                          // 16px 方形勾选框（r4，React `TrayConfigTab.tsx:246-253`）。
+                          Container(
+                            width: 16,
+                            height: 16,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(4),
+                              border: on
+                                  ? null
+                                  : Border.all(color: theme.c.line),
+                              color: on ? theme.c.accent : Colors.transparent,
+                            ),
+                            child: on
+                                ? Icon(
+                                    Icons.check,
+                                    size: 11,
+                                    color: AidogColors.light.surface,
+                                  )
+                                : null,
+                          ),
+                          const SizedBox(width: AidogSpace.smd),
+                          Expanded(
+                            child: Text(
+                              opt.label,
+                              style: AidogType.label.copyWith(
+                                fontSize: 13,
+                                color: theme.c.fg,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }(),
+          ],
+        ),
+      ),
     );
   }
 
@@ -156,37 +228,69 @@ class _TraySettingsPageState extends State<TraySettingsPage> {
       );
       parts.add('${text.label} ${text.value}');
     }
-    return SettingsCard(
-      title: t.t('tray.preview'),
-      children: [
-        // 深色圆角条模拟 macOS 菜单栏外观（`TrayConfigTab.tsx:209-218`）。
-        // 这几个色值是**菜单栏模拟色，不跟随 app 主题**，所以写死不取 token。
-        Container(
-          constraints: const BoxConstraints(minHeight: 26),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
-          alignment: AlignmentDirectional.centerStart,
-          decoration: BoxDecoration(
-            color: const Color(0xF21E1E1E), // rgba(30,30,30,.95)
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: parts.isEmpty
-              // 空时原先拼出一串空字符串，看着像渲染坏了。
-              ? Text(
-                  t.t('tray.previewEmpty'),
-                  style: AidogType.label.copyWith(
-                    color: const Color(0x59FFFFFF), // rgba(255,255,255,.35)
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              : Text(
-                  ltr(parts.join(_c.separator)),
-                  style: AidogType.numSm.copyWith(
-                    color: const Color(0xD9FFFFFF), // rgba(255,255,255,.85)
-                    fontWeight: FontWeight.w600,
+    final theme = AidogTheme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      child: Tile(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    t.t('tray.preview'),
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.fg,
+                    ),
                   ),
                 ),
+                Text(
+                  '${selected.length}/$kTrayMaxSegments',
+                  style: AidogType.caption.copyWith(
+                    fontSize: 11,
+                    color: theme.c.fg2,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AidogSpace.smd),
+            // 深色圆角条模拟 macOS 菜单栏外观（`TrayConfigTab.tsx:209-218`）。
+            // 这几个色值是**菜单栏模拟色，不跟随 app 主题**，所以写死不取 token。
+            Container(
+              constraints: const BoxConstraints(minHeight: 26),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
+              alignment: AlignmentDirectional.centerStart,
+              decoration: BoxDecoration(
+                color: const Color(0xF21E1E1E), // rgba(30,30,30,.95)
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: parts.isEmpty
+                  // 空时原先拼出一串空字符串，看着像渲染坏了。
+                  ? Text(
+                      t.t('tray.previewEmpty'),
+                      style: AidogType.label.copyWith(
+                        color: const Color(0x59FFFFFF), // rgba(255,255,255,.35)
+                        fontStyle: FontStyle.italic,
+                      ),
+                    )
+                  : Text(
+                      ltr(parts.join(_c.separator)),
+                      // React 菜单栏条内是 16px w600（`TrayConfigTab.tsx:215`）。
+                      style: AidogType.numMd.copyWith(
+                        fontSize: 16,
+                        color: const Color(0xD9FFFFFF), // rgba(255,255,255,.85)
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }
@@ -401,49 +505,105 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
       title: t.t('popover.title'),
       subtitle: '${items.length}',
       children: [
-        SettingsCard(
-          description: t.t('popover.descGrid'),
-          children: [
-            // 说明改成按钮，点了才把那段提示发成 toast
-            //（`PopoverLayout.tsx:169-175` + `usePopoverConfig.ts:202-204`）。
-            // 原先常驻一行小字，功能没丢但一直占屏。
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SmallButton(
-                key: const ValueKey('popover-layout-hint'),
-                label: t.t('popover.rowHintBtn'),
-                ghost: true,
-                onTap: () =>
-                    setState(() => _c.message = t.t('popover.layoutHint')),
-              ),
+        // 说明卡（`PopoverLayout.tsx:61-68`：标题 13 w600 + 描述 12）。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.t('popover.title'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AidogTheme.of(context).c.fg,
+                  ),
+                ),
+                Text(
+                  t.t('popover.descGrid'),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: AidogTheme.of(context).c.fg2,
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        SettingsCard(
-          title: t.t('popover.items'),
-          children: [
-            // 一颗「添加项」按钮 + 点开的菜单（`PopoverLayout.tsx:85-107`）。
-            // 原先是把 14 个类型全平铺成一排按钮，占掉整张卡。
-            // 单实例类型加过一次就不再出现在菜单里。
-            _AddItemMenu(
-              key: const ValueKey('popover-add'),
-              label: t.t('popover.addItem'),
-              types: kPopoverItemTypes
-                  .where(
-                    (ty) =>
-                        kPopoverMultiInstanceTypes.contains(ty) ||
-                        !items.any((e) => e['item_type'] == ty),
+        // 编辑器卡（React 是**一张卡**：标题 + 添加项在页头右侧、行容器在内、
+        // 布局说明压底，`PopoverLayout.tsx:71-178`）。
+        Padding(
+          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Tile(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        t.t('popover.items'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: AidogTheme.of(context).c.fg,
+                        ),
+                      ),
+                    ),
+                    _AddItemMenu(
+                      key: const ValueKey('popover-add'),
+                      label: t.t('popover.addItem'),
+                      types: kPopoverItemTypes
+                          .where(
+                            (ty) =>
+                                kPopoverMultiInstanceTypes.contains(ty) ||
+                                !items.any((e) => e['item_type'] == ty),
+                          )
+                          .toList(),
+                      labelOf: _typeLabel(t),
+                      onPick: _addItem,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AidogSpace.smd),
+                if (groups.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      t.t('popover.empty'),
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        fontStyle: FontStyle.italic,
+                        color: AidogTheme.of(context).c.fg3,
+                      ),
+                    ),
                   )
-                  .toList(),
-              labelOf: _typeLabel(t),
-              onPick: _addItem,
+                else
+                  for (var r = 0; r < groups.length; r++) _rowEditor(t, r, groups[r]),
+                // 布局说明压底（`PopoverLayout.tsx:169-175` 的 ghost 11px）。
+                // 说明改成按钮，点了把那段提示发成 toast
+                //（`usePopoverConfig.ts:202-204`）。原先常驻一行小字占屏。
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: SmallButton(
+                    key: const ValueKey('popover-layout-hint'),
+                    label: t.t('popover.rowHintBtn'),
+                    ghost: true,
+                    fontSize: 11,
+                    padding: (8, 2),
+                    onTap: () =>
+                        setState(() => _c.message = t.t('popover.layoutHint')),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
-        if (groups.isEmpty)
-          CenteredNote(text: t.t('popover.empty'))
-        else
-          for (var r = 0; r < groups.length; r++) _rowEditor(t, r, groups[r]),
         _previewCard(t),
         if (_c.message.isNotEmpty)
           AutoToast(
@@ -475,13 +635,14 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
         onWillAcceptWithDetails: (details) => details.data.isNotEmpty,
         onAcceptWithDetails: (details) => _moveItem(details.data, row, null),
         builder: (context, candidate, rejected) => Container(
-          padding: const EdgeInsets.all(AidogSpace.ssm),
+          padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             border: Border.all(
               color: candidate.isNotEmpty ? theme.c.accentEdge : theme.c.line,
               width: candidate.isNotEmpty ? 1.5 : 1,
             ),
-            borderRadius: BorderRadius.circular(AidogRadius.sm),
+            // React 行容器 r10（`RowContainer.tsx:31`）。
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -491,12 +652,18 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                 children: [
                   Text(
                     ltr(t.t('popover.rowLabel', {'n': row + 1})),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 11,
+                      color: theme.c.fg3,
+                    ),
                   ),
                   const SizedBox(width: AidogSpace.ssm),
                   Text(
                     t.t('popover.cols'),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 11,
+                      color: theme.c.fg3,
+                    ),
                   ),
                   const SizedBox(width: AidogSpace.sxs),
                   for (var c = 1; c <= kPopoverMaxCols; c++)
@@ -505,6 +672,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                       child: SmallButton(
                         key: ValueKey('popover-cols-$row-$c'),
                         label: '$c',
+                        fontSize: 11,
+                        padding: (8, 2),
                         active: cols == c,
                         onTap: () => _setRowCols(row, c),
                       ),
@@ -913,6 +1082,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
   /// 两处调用），所见即所得，预览与实际不会漂移。
   Widget _previewCard(I18nController t) => SettingsCard(
     title: t.t('popover.preview'),
+    // React 预览 hint 是 11px（`PopoverLayout.tsx:189`）。
     description: t.t('popover.previewHint'),
     children: [
       ConstrainedBox(
