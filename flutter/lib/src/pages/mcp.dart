@@ -563,11 +563,23 @@ class _McpRow extends StatelessWidget {
                       runSpacing: 2,
                       children: [
                         for (final e in server.env.entries)
-                          Text(
-                            '${e.key}=${e.value}',
-                            style: AidogType.numSm.copyWith(
-                              fontSize: 10,
-                              color: theme.c.fg3,
+                          Container(
+                            // 胶囊底与 React 同款：bg 底 + 1px 5px 内衬 + 4 圆角
+                            //（`Mcp/primitives.tsx:71-84`）。
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 1,
+                            ),
+                            decoration: BoxDecoration(
+                              color: theme.c.bg,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${e.key}=${e.value}',
+                              style: AidogType.numSm.copyWith(
+                                fontSize: 10,
+                                color: theme.c.fg3,
+                              ),
                             ),
                           ),
                       ],
