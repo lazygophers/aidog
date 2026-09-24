@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-vl-8b-thinking",
-  "canonical_model": "qwen3-vl-8b-thinking",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 256000,
-  "max_output_tokens": 32768,
+  "display_name": "Qwen: Qwen3 VL 8B Thinking",
+  "canonical_model": "qwen/qwen3-vl-8b-thinking",
+  "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 1.8e-07,
-    "output": 2.1000000000000002e-06
-  }
+    "input": 1.8e-7,
+    "output": 0.0000021
+  },
+  "last_updated": 1790237684
 }

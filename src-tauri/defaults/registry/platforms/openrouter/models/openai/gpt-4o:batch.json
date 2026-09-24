@@ -1,0 +1,15 @@
+{
+  "model_id": "openai/gpt-4o:batch",
+  "display_name": "OpenAI: GPT-4o (batch)",
+  "canonical_model": "openai/gpt-4o",
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "max_output_tokens": 16384,
+  "price": {
+    "input": 0.00000125,
+    "output": 0.000005,
+    "cache_read": 6.25e-7
+  },
+  "last_updated": 1790237684
+}

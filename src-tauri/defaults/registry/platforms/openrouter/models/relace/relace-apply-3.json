@@ -1,17 +1,14 @@
 {
-  "last_updated": 1788067649,
   "model_id": "relace/relace-apply-3",
-  "canonical_model": "relace-apply-3",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Relace: Relace Apply 3",
+  "canonical_model": "relace/relace-apply-3",
   "max_input_tokens": 256000,
-  "max_output_tokens": 128000,
   "context_window": 256000,
   "official": true,
+  "max_output_tokens": 128000,
   "price": {
-    "input": 8.5e-07,
-    "output": 1.25e-06,
-    "cache_read": 0
-  }
+    "input": 8.5e-7,
+    "output": 0.00000125
+  },
+  "last_updated": 1790237684
 }

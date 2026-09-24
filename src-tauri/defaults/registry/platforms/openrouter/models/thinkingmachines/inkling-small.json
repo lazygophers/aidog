@@ -1,22 +1,16 @@
 {
-  "last_updated": 1788084177,
   "model_id": "thinkingmachines/inkling-small",
-  "canonical_model": "inkling-small",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 262144,
+  "display_name": "Thinking Machines: Inkling Small",
+  "canonical_model": "thinkingmachines/inkling-small-20260730",
+  "max_input_tokens": 524288,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 262144,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 4.5e-07,
-    "output": 1.2e-06,
-    "cache_read": 1e-07
-  }
+    "input": 4.5e-7,
+    "output": 0.0000012,
+    "cache_read": 1e-7
+  },
+  "last_updated": 1790237684
 }

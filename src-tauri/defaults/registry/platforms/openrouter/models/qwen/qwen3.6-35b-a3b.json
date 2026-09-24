@@ -1,17 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.6-35b-a3b",
-  "canonical_model": "qwen3.6-35b-a3b",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen3.6 35B A3B",
+  "canonical_model": "qwen/qwen3.6-35b-a3b-20260415",
   "max_input_tokens": 262144,
-  "max_output_tokens": 235929,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 235929,
   "price": {
-    "input": 1.5e-07,
-    "output": 1e-06
-  }
+    "input": 1.5e-7,
+    "output": 0.000001,
+    "cache_read": 5e-8
+  },
+  "last_updated": 1790237684
 }

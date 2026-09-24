@@ -1,0 +1,15 @@
+{
+  "model_id": "openai/o3-mini:batch",
+  "display_name": "OpenAI: o3 Mini (batch)",
+  "canonical_model": "openai/o3-mini-2025-01-31",
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "official": true,
+  "max_output_tokens": 100000,
+  "price": {
+    "input": 5.5e-7,
+    "output": 0.0000022,
+    "cache_read": 2.75e-7
+  },
+  "last_updated": 1790237684
+}

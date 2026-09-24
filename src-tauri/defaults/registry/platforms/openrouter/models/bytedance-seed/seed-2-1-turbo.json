@@ -1,21 +1,14 @@
 {
-  "last_updated": 1788084265,
   "model_id": "bytedance-seed/seed-2-1-turbo",
-  "canonical_model": "seed-2-1-turbo",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "ByteDance Seed: Seed 2.1 Turbo",
+  "canonical_model": "bytedance-seed/seed-2-1-turbo-20260810",
   "max_input_tokens": 262144,
-  "max_output_tokens": 235929,
   "context_window": 262144,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "max_output_tokens": 235929,
   "price": {
-    "input": 5e-07,
-    "output": 2.5e-06
-  }
+    "input": 5e-7,
+    "output": 0.0000025
+  },
+  "last_updated": 1790237684
 }

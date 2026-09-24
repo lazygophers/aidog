@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-30b-a3b-thinking-2507",
-  "canonical_model": "qwen3-30b-a3b-thinking-2507",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 32768,
+  "display_name": "Qwen: Qwen3 30B A3B Thinking 2507",
+  "canonical_model": "qwen/qwen3-30b-a3b-thinking-2507",
+  "max_input_tokens": 81920,
   "context_window": 81920,
   "official": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 2.0000000000000002e-07,
-    "output": 2.4e-06,
-    "cache_read": 8e-08
-  }
+    "input": 2e-7,
+    "output": 0.0000024
+  },
+  "last_updated": 1790237684
 }

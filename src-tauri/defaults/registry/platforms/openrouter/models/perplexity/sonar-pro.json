@@ -1,17 +1,14 @@
 {
-  "last_updated": 1788067649,
   "model_id": "perplexity/sonar-pro",
-  "canonical_model": "sonar-pro",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Perplexity: Sonar Pro",
+  "canonical_model": "perplexity/sonar-pro",
   "max_input_tokens": 200000,
-  "max_output_tokens": 8000,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 8000,
   "price": {
-    "input": 3e-06,
-    "output": 1.5e-05,
-    "cache_read": 0
-  }
+    "input": 0.000003,
+    "output": 0.000015
+  },
+  "last_updated": 1790237684
 }

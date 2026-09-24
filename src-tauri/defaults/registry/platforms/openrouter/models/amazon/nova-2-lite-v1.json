@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "amazon/nova-2-lite-v1",
-  "canonical_model": "nova-2-lite-v1",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Amazon: Nova 2 Lite",
+  "canonical_model": "amazon/nova-2-lite-v1",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 65535,
   "context_window": 1000000,
   "official": true,
+  "max_output_tokens": 65535,
   "price": {
-    "input": 3e-07,
-    "output": 2.5e-06,
-    "cache_read": 0
-  }
+    "input": 3e-7,
+    "output": 0.0000025
+  },
+  "last_updated": 1790237684
 }

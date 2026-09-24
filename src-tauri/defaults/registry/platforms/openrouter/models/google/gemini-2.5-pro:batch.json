@@ -1,22 +1,15 @@
 {
-  "last_updated": 1788084265,
   "model_id": "google/gemini-2.5-pro:batch",
-  "canonical_model": "gemini-2.5-pro",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Google: Gemini 2.5 Pro (batch)",
+  "canonical_model": "google/gemini-2.5-pro",
   "max_input_tokens": 1048576,
-  "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "max_output_tokens": 65536,
   "price": {
-    "input": 6.25e-07,
-    "output": 5e-06,
-    "cache_read": 1.25e-07
-  }
+    "input": 6.25e-7,
+    "output": 0.000005,
+    "cache_read": 1.25e-7
+  },
+  "last_updated": 1790237684
 }

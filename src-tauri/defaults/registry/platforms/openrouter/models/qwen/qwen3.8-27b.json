@@ -1,23 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.8-27b",
-  "canonical_model": "qwen3.8-27b",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Qwen: Qwen3.8 27B",
+  "canonical_model": "qwen/qwen3.8-27b-20260814",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 131072,
   "context_window": 1000000,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 131072,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 4.2e-07,
-    "output": 3e-06,
-    "cache_read": 8.5e-08,
-    "cache_write": 5.3125e-07
-  }
+    "input": 4.2e-7,
+    "output": 0.000003,
+    "cache_read": 8.5e-8
+  },
+  "last_updated": 1790237684
 }

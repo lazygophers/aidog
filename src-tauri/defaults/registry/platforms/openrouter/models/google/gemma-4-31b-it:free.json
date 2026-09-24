@@ -1,21 +1,14 @@
 {
-  "last_updated": 1788084265,
   "model_id": "google/gemma-4-31b-it:free",
-  "canonical_model": "gemma-4-31b-it",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Google: Gemma 4 31B (free)",
+  "canonical_model": "google/gemma-4-31b-it-20260402",
   "max_input_tokens": 262144,
-  "max_output_tokens": 32768,
   "context_window": 262144,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "max_output_tokens": 32768,
   "price": {
-    "input": 0.0,
-    "output": 0.0
-  }
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1790237684
 }

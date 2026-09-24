@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "google/gemma-4-26b-a4b-it",
-  "canonical_model": "gemma-4-26b-a4b-it",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Google: Gemma 4 26B A4B ",
+  "canonical_model": "google/gemma-4-26b-a4b-it-20260403",
   "max_input_tokens": 262144,
   "context_window": 262144,
-  "max_output_tokens": 235929,
   "official": true,
+  "max_output_tokens": 235929,
   "price": {
-    "input": 9e-08,
-    "output": 3e-07
-  }
+    "input": 9e-8,
+    "output": 3e-7,
+    "cache_read": 5e-8
+  },
+  "last_updated": 1790237684
 }

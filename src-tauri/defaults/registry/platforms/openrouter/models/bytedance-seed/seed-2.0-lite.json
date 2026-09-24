@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "bytedance-seed/seed-2.0-lite",
-  "canonical_model": "seed-2.0-lite",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "ByteDance Seed: Seed-2.0-Lite",
+  "canonical_model": "bytedance-seed/seed-2.0-lite-20260309",
   "max_input_tokens": 262144,
-  "max_output_tokens": 131072,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 131072,
+  "thinking_supported": true,
   "price": {
-    "input": 2.5e-07,
-    "output": 2e-06,
-    "cache_read": 0
-  }
+    "input": 2.5e-7,
+    "output": 0.000002
+  },
+  "last_updated": 1790237684
 }

@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-32b",
-  "canonical_model": "qwen3-32b",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
+  "display_name": "Qwen: Qwen3 32B",
+  "canonical_model": "qwen/qwen3-32b-04-28",
+  "max_input_tokens": 40960,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 8e-08,
-    "output": 2.8e-07
-  }
+    "input": 8e-8,
+    "output": 2.8e-7
+  },
+  "last_updated": 1790237684
 }

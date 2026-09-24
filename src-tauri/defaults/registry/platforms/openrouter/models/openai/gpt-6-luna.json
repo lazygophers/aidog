@@ -1,17 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "openai/gpt-6-luna",
-  "canonical_model": "gpt-6-luna",
   "display_name": "OpenAI: GPT-6 Luna",
-  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+  "canonical_model": "openai/gpt-6-luna-20260922",
+  "max_input_tokens": 1050000,
   "context_window": 1050000,
+  "official": true,
   "max_output_tokens": 128000,
   "thinking_supported": true,
-  "official": true,
   "price": {
-    "input": 1e-07,
-    "output": 5e-07,
-    "cache_read": 1e-08,
-    "cache_write": 1.25e-07
-  }
+    "input": 1e-7,
+    "output": 5e-7,
+    "cache_read": 1e-8
+  },
+  "last_updated": 1790237684
 }

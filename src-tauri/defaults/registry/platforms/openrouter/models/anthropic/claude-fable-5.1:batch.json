@@ -1,0 +1,16 @@
+{
+  "model_id": "anthropic/claude-fable-5.1:batch",
+  "display_name": "Anthropic: Claude Fable 5.1 (batch)",
+  "canonical_model": "anthropic/claude-fable-5.1-20260831",
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000025,
+    "cache_read": 1.25e-7
+  },
+  "last_updated": 1790237684
+}

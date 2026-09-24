@@ -1,17 +1,15 @@
 {
-  "last_updated": 1788067649,
   "model_id": "openai/gpt-4o-mini",
-  "canonical_model": "gpt-4o-mini",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT-4o-mini",
+  "canonical_model": "openai/gpt-4o-mini",
   "max_input_tokens": 128000,
-  "max_output_tokens": 16384,
   "context_window": 128000,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 1.5e-07,
-    "output": 6e-07,
-    "cache_read": 7.5e-08
-  }
+    "input": 1.5e-7,
+    "output": 6e-7,
+    "cache_read": 7.5e-8
+  },
+  "last_updated": 1790237684
 }

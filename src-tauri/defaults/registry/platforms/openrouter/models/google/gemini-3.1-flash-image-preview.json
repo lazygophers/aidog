@@ -1,19 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "google/gemini-3.1-flash-image-preview",
-  "canonical_model": "gemini-3.1-flash-image-preview",
-  "thinking_supported": true,
-  "capabilities": [
-    "text_to_image",
-    "image_to_image",
-    "image_edit"
-  ],
+  "display_name": "Google: Nano Banana 2 (Gemini 3.1 Flash Image Preview)",
+  "canonical_model": "google/gemini-3.1-flash-image-preview-20260226",
   "max_input_tokens": 65536,
-  "max_output_tokens": 58982,
   "context_window": 65536,
   "official": true,
+  "max_output_tokens": 58982,
+  "thinking_supported": true,
   "price": {
-    "input": 5e-07,
-    "output": 3e-06
-  }
+    "input": 5e-7,
+    "output": 0.000003
+  },
+  "last_updated": 1790237684
 }

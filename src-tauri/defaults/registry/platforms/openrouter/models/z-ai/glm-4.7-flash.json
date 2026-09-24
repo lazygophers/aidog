@@ -1,23 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "z-ai/glm-4.7-flash",
-  "canonical_model": "glm-4.7-flash",
-  "family": "glm",
-  "version": "4.7",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 202752,
-  "max_output_tokens": 117964,
+  "display_name": "Z.ai: GLM 4.7 Flash",
+  "canonical_model": "z-ai/glm-4.7-flash-20260119",
+  "max_input_tokens": 131072,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 117964,
   "price": {
-    "input": 6.049999999999999e-08,
-    "output": 4e-07,
-    "cache_read": 1e-08
-  }
+    "input": 6.05e-8,
+    "output": 4e-7
+  },
+  "last_updated": 1790237684
 }

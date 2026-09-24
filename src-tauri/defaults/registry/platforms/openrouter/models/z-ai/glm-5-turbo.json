@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "z-ai/glm-5-turbo",
-  "canonical_model": "glm-5-turbo",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 204800,
-  "max_output_tokens": 131072,
+  "display_name": "Z.ai: GLM 5 Turbo",
+  "canonical_model": "z-ai/glm-5-turbo-20260315",
+  "max_input_tokens": 202752,
   "context_window": 202752,
   "official": true,
+  "max_output_tokens": 131072,
   "price": {
-    "input": 1.2e-06,
-    "output": 4e-06,
-    "cache_read": 2.4e-07
-  }
+    "input": 0.0000012,
+    "output": 0.000004,
+    "cache_read": 2.4e-7
+  },
+  "last_updated": 1790237684
 }

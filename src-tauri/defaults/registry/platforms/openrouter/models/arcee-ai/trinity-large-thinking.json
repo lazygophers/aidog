@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "arcee-ai/trinity-large-thinking",
-  "canonical_model": "trinity-large-thinking",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Arcee AI: Trinity Large Thinking",
+  "canonical_model": "arcee-ai/trinity-large-thinking",
   "max_input_tokens": 262144,
-  "max_output_tokens": 80000,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 80000,
   "price": {
-    "input": 2.5e-07,
-    "output": 8e-07,
-    "cache_read": 6e-08
-  }
+    "input": 2.5e-7,
+    "output": 8e-7,
+    "cache_read": 6e-8
+  },
+  "last_updated": 1790237684
 }

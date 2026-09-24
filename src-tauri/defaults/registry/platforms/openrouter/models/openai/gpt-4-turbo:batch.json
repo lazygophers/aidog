@@ -1,0 +1,14 @@
+{
+  "model_id": "openai/gpt-4-turbo:batch",
+  "display_name": "OpenAI: GPT-4 Turbo (batch)",
+  "canonical_model": "openai/gpt-4-turbo",
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "max_output_tokens": 4096,
+  "price": {
+    "input": 0.000005,
+    "output": 0.000015
+  },
+  "last_updated": 1790237684
+}

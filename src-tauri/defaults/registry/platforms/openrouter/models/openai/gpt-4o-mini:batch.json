@@ -1,0 +1,15 @@
+{
+  "model_id": "openai/gpt-4o-mini:batch",
+  "display_name": "OpenAI: GPT-4o-mini (batch)",
+  "canonical_model": "openai/gpt-4o-mini",
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "max_output_tokens": 16384,
+  "price": {
+    "input": 7.5e-8,
+    "output": 3e-7,
+    "cache_read": 3.75e-8
+  },
+  "last_updated": 1790237684
+}

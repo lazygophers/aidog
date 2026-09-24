@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788067648,
   "model_id": "openai/gpt-4-turbo",
-  "canonical_model": "gpt-4-turbo",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "OpenAI: GPT-4 Turbo",
+  "canonical_model": "openai/gpt-4-turbo",
   "max_input_tokens": 128000,
-  "max_output_tokens": 4096,
   "context_window": 128000,
   "official": true,
+  "max_output_tokens": 4096,
   "price": {
-    "input": 1e-05,
-    "output": 3e-05
-  }
+    "input": 0.00001,
+    "output": 0.00003
+  },
+  "last_updated": 1790237684
 }

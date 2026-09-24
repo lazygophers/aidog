@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3-235b-a22b",
-  "canonical_model": "qwen3-235b-a22b",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Qwen: Qwen3 235B A22B",
+  "canonical_model": "qwen/qwen3-235b-a22b-04-28",
   "max_input_tokens": 131072,
-  "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 8192,
   "price": {
-    "input": 4.5500000000000004e-07,
-    "output": 1.8200000000000002e-06
-  }
+    "input": 4.55e-7,
+    "output": 0.00000182
+  },
+  "last_updated": 1790237684
 }

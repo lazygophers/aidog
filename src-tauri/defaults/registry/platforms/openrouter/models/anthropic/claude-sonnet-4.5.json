@@ -1,20 +1,15 @@
 {
-  "last_updated": 1790084258,
   "model_id": "anthropic/claude-sonnet-4.5",
-  "canonical_model": "claude-sonnet-4-5",
-  "thinking_supported": true,
-  "thinking_toggleable": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Anthropic: Claude Sonnet 4.5",
+  "canonical_model": "anthropic/claude-4.5-sonnet-20250929",
   "max_input_tokens": 1000000,
-  "max_output_tokens": 64000,
   "context_window": 1000000,
   "official": true,
+  "max_output_tokens": 64000,
   "price": {
-    "input": 3e-06,
-    "output": 1.5e-05,
-    "cache_read": 3e-07,
-    "cache_write": 3.75e-06
-  }
+    "input": 0.000003,
+    "output": 0.000015,
+    "cache_read": 3e-7
+  },
+  "last_updated": 1790237684
 }

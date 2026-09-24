@@ -1,21 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.8-2.4t-a95b",
-  "canonical_model": "qwen3.8-2.4t-a95b",
-  "capabilities": [
-    "text",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 1048576,
-  "max_output_tokens": 131072,
+  "display_name": "Qwen: Qwen3.8 2.4T A95B",
+  "canonical_model": "qwen/qwen3.8-2.4t-a95b-20260812",
+  "max_input_tokens": 1000000,
   "context_window": 1048576,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 131072,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 2e-06,
-    "output": 6e-06,
-    "cache_read": 2.5e-07
-  }
+    "input": 0.000002,
+    "output": 0.000006,
+    "cache_read": 2.5e-7
+  },
+  "last_updated": 1790237684
 }

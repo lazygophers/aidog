@@ -1,17 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "thedrummer/skyfall-36b-v2",
-  "canonical_model": "skyfall-36b-v2",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "TheDrummer: Skyfall 36B V2",
+  "canonical_model": "thedrummer/skyfall-36b-v2",
   "max_input_tokens": 32768,
-  "max_output_tokens": 29491,
   "context_window": 32768,
   "official": true,
+  "max_output_tokens": 29491,
   "price": {
-    "input": 5.5e-07,
-    "output": 8e-07,
-    "cache_read": 2.5e-07
-  }
+    "input": 5.5e-7,
+    "output": 8e-7,
+    "cache_read": 2.5e-7
+  },
+  "last_updated": 1790237684
 }

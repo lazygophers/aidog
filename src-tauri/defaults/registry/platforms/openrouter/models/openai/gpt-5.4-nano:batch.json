@@ -1,0 +1,16 @@
+{
+  "model_id": "openai/gpt-5.4-nano:batch",
+  "display_name": "OpenAI: GPT-5.4 Nano (batch)",
+  "canonical_model": "openai/gpt-5.4-nano-20260317",
+  "max_input_tokens": 400000,
+  "context_window": 400000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "price": {
+    "input": 1e-7,
+    "output": 6.25e-7,
+    "cache_read": 1e-8
+  },
+  "last_updated": 1790237684
+}

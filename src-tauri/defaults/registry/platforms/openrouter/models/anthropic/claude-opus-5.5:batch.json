@@ -1,0 +1,16 @@
+{
+  "model_id": "anthropic/claude-opus-5.5:batch",
+  "display_name": "Anthropic: Claude Opus 5.5 (batch)",
+  "canonical_model": "anthropic/claude-opus-5.5-20260921",
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "price": {
+    "input": 0.000002,
+    "output": 0.00001,
+    "cache_read": 1e-7
+  },
+  "last_updated": 1790237684
+}

@@ -1,0 +1,15 @@
+{
+  "model_id": "qwen/qwen3.8-27b:free",
+  "display_name": "Qwen: Qwen3.8 27B (free)",
+  "canonical_model": "qwen/qwen3.8-27b-20260814",
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "max_output_tokens": 235929,
+  "thinking_supported": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1790237684
+}

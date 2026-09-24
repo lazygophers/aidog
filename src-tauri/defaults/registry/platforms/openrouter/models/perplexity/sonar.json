@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "perplexity/sonar",
-  "canonical_model": "sonar",
-  "max_output_tokens": 114364,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Perplexity: Sonar",
+  "canonical_model": "perplexity/sonar",
   "max_input_tokens": 127072,
   "context_window": 127072,
   "official": true,
+  "max_output_tokens": 114364,
   "price": {
-    "input": 1e-06,
-    "output": 1e-06,
-    "cache_read": 0
-  }
+    "input": 0.000001,
+    "output": 0.000001
+  },
+  "last_updated": 1790237684
 }

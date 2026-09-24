@@ -1,24 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "z-ai/glm-5.3-flash:batch",
-  "canonical_model": "glm-5.3-flash",
-  "family": "glm",
-  "version": "5.3",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
-  "max_input_tokens": 1048575,
-  "max_output_tokens": 131072,
+  "display_name": "Z.ai: GLM 5.3 Flash (batch)",
+  "canonical_model": "z-ai/glm-5.3-flash-20260826",
+  "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
+  "max_output_tokens": 131072,
   "thinking_supported": true,
-  "thinking_toggleable": false,
   "price": {
-    "input": 6e-08,
-    "output": 2.0000000000000002e-07,
-    "cache_read": 1.2e-08
-  }
+    "input": 6e-8,
+    "output": 2e-7,
+    "cache_read": 1.2e-8
+  },
+  "last_updated": 1790237684
 }

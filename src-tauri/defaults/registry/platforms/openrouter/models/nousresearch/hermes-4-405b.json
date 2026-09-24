@@ -1,18 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "nousresearch/hermes-4-405b",
-  "canonical_model": "hermes-4-405b",
-  "thinking_supported": true,
-  "max_output_tokens": 117964,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Nous: Hermes 4 405B",
+  "canonical_model": "nousresearch/hermes-4-405b",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 117964,
   "price": {
-    "input": 1e-06,
-    "output": 3e-06,
-    "cache_read": 0
-  }
+    "input": 0.000001,
+    "output": 0.000003
+  },
+  "last_updated": 1790237684
 }

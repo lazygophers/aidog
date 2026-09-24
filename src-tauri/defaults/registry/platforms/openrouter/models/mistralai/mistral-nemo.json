@@ -1,16 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "mistralai/mistral-nemo",
-  "canonical_model": "mistral-nemo",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Mistral: Mistral Nemo",
+  "canonical_model": "mistralai/mistral-nemo",
   "max_input_tokens": 131072,
   "context_window": 131072,
+  "official": true,
   "max_output_tokens": 16384,
-  "official": false,
   "price": {
-    "input": 1.8999999999999998e-08,
-    "output": 3e-08
-  }
+    "input": 1.9e-8,
+    "output": 3e-8
+  },
+  "last_updated": 1790237684
 }

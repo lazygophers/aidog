@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788067648,
   "model_id": "google/gemma-3-4b-it",
-  "canonical_model": "gemma-3-4b-it",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Google: Gemma 3 4B",
+  "canonical_model": "google/gemma-3-4b-it",
   "max_input_tokens": 131072,
-  "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 5e-08,
-    "output": 1e-07
-  }
+    "input": 5e-8,
+    "output": 1e-7
+  },
+  "last_updated": 1790237684
 }

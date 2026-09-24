@@ -1,17 +1,14 @@
 {
-  "last_updated": 1788067648,
   "model_id": "amazon/nova-micro-v1",
-  "canonical_model": "nova-micro-v1",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Amazon: Nova Micro 1.0",
+  "canonical_model": "amazon/nova-micro-v1",
   "max_input_tokens": 128000,
-  "max_output_tokens": 5120,
   "context_window": 128000,
   "official": true,
+  "max_output_tokens": 5120,
   "price": {
-    "input": 3.5e-08,
-    "output": 1.4e-07,
-    "cache_read": 0
-  }
+    "input": 3.5e-8,
+    "output": 1.4e-7
+  },
+  "last_updated": 1790237684
 }

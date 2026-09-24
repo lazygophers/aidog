@@ -1,19 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "~anthropic/claude-haiku-latest",
-  "canonical_model": "claude-haiku-latest",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Anthropic: Claude Haiku Latest",
+  "canonical_model": "~anthropic/claude-haiku-latest",
   "max_input_tokens": 200000,
-  "max_output_tokens": 64000,
   "context_window": 200000,
   "official": true,
+  "max_output_tokens": 64000,
   "price": {
-    "input": 1e-06,
-    "output": 5e-06,
-    "cache_read": 1e-07,
-    "cache_write": 1.25e-06
-  }
+    "input": 0.000001,
+    "output": 0.000005,
+    "cache_read": 1e-7
+  },
+  "last_updated": 1790237684
 }

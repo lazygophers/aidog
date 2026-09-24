@@ -1,16 +1,14 @@
 {
-  "last_updated": 1788067649,
   "model_id": "openai/gpt-audio-mini",
-  "canonical_model": "gpt-audio-mini",
-  "capabilities": [
-    "audio"
-  ],
+  "display_name": "OpenAI: GPT Audio Mini",
+  "canonical_model": "openai/gpt-audio-mini",
   "max_input_tokens": 128000,
-  "max_output_tokens": 16384,
   "context_window": 128000,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 6e-07,
-    "output": 2.4e-06
-  }
+    "input": 6e-7,
+    "output": 0.0000024
+  },
+  "last_updated": 1790237684
 }

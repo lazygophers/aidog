@@ -1,22 +1,16 @@
 {
-  "last_updated": 1790183108,
   "model_id": "~x-ai/grok-latest",
-  "canonical_model": "grok-latest",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "xAI: Grok Latest",
+  "canonical_model": "~x-ai/grok-latest",
   "max_input_tokens": 500000,
-  "max_output_tokens": 450000,
   "context_window": 500000,
   "official": true,
+  "max_output_tokens": 450000,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 1.6000000000000001e-06,
-    "output": 4.8e-06,
-    "cache_read": 4.0000000000000003e-07
-  }
+    "input": 0.0000016,
+    "output": 0.0000048,
+    "cache_read": 4e-7
+  },
+  "last_updated": 1790237684
 }

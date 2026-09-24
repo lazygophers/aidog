@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "moonshotai/kimi-k2-thinking",
-  "canonical_model": "kimi-k2-thinking",
-  "thinking_supported": true,
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "MoonshotAI: Kimi K2 Thinking",
+  "canonical_model": "moonshotai/kimi-k2-thinking-20251106",
   "max_input_tokens": 262144,
-  "max_output_tokens": 98304,
   "context_window": 262144,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 98304,
   "price": {
-    "input": 6e-07,
-    "output": 2.5e-06,
-    "cache_read": 1.5e-07
-  }
+    "input": 6e-7,
+    "output": 0.0000025,
+    "cache_read": 1.5e-7
+  },
+  "last_updated": 1790237684
 }

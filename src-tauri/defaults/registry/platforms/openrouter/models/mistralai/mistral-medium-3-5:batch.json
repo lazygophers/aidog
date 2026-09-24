@@ -1,22 +1,15 @@
 {
-  "last_updated": 1789258661,
   "model_id": "mistralai/mistral-medium-3-5:batch",
-  "canonical_model": "mistral-medium-3-5",
-  "family": "mistral",
-  "capabilities": [
-    "text",
-    "vision",
-    "tool_use",
-    "reasoning"
-  ],
+  "display_name": "Mistral: Mistral Medium 3.5 (batch)",
+  "canonical_model": "mistralai/mistral-medium-3.5-20260430",
   "max_input_tokens": 262144,
-  "max_output_tokens": 209715,
   "context_window": 262144,
   "official": true,
+  "max_output_tokens": 209715,
   "thinking_supported": true,
-  "thinking_toggleable": true,
   "price": {
-    "input": 7.5e-07,
-    "output": 3.75e-06
-  }
+    "input": 7.5e-7,
+    "output": 0.00000375
+  },
+  "last_updated": 1790237684
 }

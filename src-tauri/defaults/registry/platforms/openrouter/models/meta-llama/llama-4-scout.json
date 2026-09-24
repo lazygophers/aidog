@@ -1,16 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "meta-llama/llama-4-scout",
-  "canonical_model": "llama-4-scout",
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 10000000,
-  "max_output_tokens": 16384,
+  "display_name": "Meta: Llama 4 Scout",
+  "canonical_model": "meta-llama/llama-4-scout-17b-16e-instruct",
+  "max_input_tokens": 327680,
   "context_window": 1310720,
   "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 1e-07,
-    "output": 3e-07
-  }
+    "input": 1e-7,
+    "output": 3e-7
+  },
+  "last_updated": 1790237684
 }

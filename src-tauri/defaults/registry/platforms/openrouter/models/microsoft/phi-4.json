@@ -1,17 +1,14 @@
 {
-  "last_updated": 1790183108,
   "model_id": "microsoft/phi-4",
-  "canonical_model": "phi-4",
-  "capabilities": [
-    "text"
-  ],
+  "display_name": "Microsoft: Phi 4",
+  "canonical_model": "microsoft/phi-4",
   "max_input_tokens": 16384,
-  "max_output_tokens": 14745,
   "context_window": 16384,
   "official": true,
+  "max_output_tokens": 14745,
   "price": {
-    "input": 7e-08,
-    "output": 1.4e-07,
-    "cache_read": 0
-  }
+    "input": 7e-8,
+    "output": 1.4e-7
+  },
+  "last_updated": 1790237684
 }

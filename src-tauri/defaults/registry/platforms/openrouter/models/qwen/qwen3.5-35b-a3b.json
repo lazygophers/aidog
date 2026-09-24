@@ -1,18 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "qwen/qwen3.5-35b-a3b",
-  "canonical_model": "qwen3.5-35b-a3b",
-  "thinking_supported": true,
-  "family": "qwen",
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 262144,
-  "max_output_tokens": 16384,
+  "display_name": "Qwen: Qwen3.5-35B-A3B",
+  "canonical_model": "qwen/qwen3.5-35b-a3b-20260224",
+  "max_input_tokens": 256000,
   "context_window": 262144,
-  "official": false,
+  "official": true,
+  "max_output_tokens": 16384,
   "price": {
-    "input": 3.125e-07,
-    "output": 1.25e-06
-  }
+    "input": 3.125e-7,
+    "output": 0.00000125,
+    "cache_read": 1.5625e-7
+  },
+  "last_updated": 1790237684
 }

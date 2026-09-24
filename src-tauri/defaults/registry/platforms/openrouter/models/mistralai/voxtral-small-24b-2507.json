@@ -1,17 +1,15 @@
 {
-  "last_updated": 1790183108,
   "model_id": "mistralai/voxtral-small-24b-2507",
-  "canonical_model": "voxtral-small-24b-2507",
-  "max_output_tokens": 26214,
-  "capabilities": [
-    "text"
-  ],
-  "max_input_tokens": 32000,
+  "display_name": "Mistral: Voxtral Small 24B 2507",
+  "canonical_model": "mistralai/voxtral-small-24b-2507",
+  "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
+  "max_output_tokens": 26214,
   "price": {
-    "input": 1e-07,
-    "output": 3e-07,
-    "cache_read": 1e-08
-  }
+    "input": 1e-7,
+    "output": 3e-7,
+    "cache_read": 1e-8
+  },
+  "last_updated": 1790237684
 }
