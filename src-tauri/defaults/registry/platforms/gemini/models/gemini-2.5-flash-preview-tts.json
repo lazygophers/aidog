@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790271384,
   "model_id": "gemini-2.5-flash-preview-tts",
   "canonical_model": "gemini-2.5-flash-preview-tts",
+  "family": "gemini",
+  "version": "2.5",
   "capabilities": [
     "audio"
   ],

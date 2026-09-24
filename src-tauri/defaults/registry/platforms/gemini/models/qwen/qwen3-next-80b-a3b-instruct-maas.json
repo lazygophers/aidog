@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790271384,
   "model_id": "qwen/qwen3-next-80b-a3b-instruct-maas",
   "canonical_model": "qwen3-next-80b-a3b-instruct-maas",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

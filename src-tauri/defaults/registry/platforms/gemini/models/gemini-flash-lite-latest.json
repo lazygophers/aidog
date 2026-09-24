@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788067647,
+  "last_updated": 1790271384,
   "model_id": "gemini-flash-lite-latest",
   "canonical_model": "gemini-flash-lite-latest",
+  "family": "gemini",
   "capabilities": [
     "text"
   ],
