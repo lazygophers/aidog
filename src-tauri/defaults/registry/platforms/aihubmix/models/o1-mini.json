@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790272756,
   "model_id": "o1-mini",
   "canonical_model": "o1-mini",
   "display_name": "O1 Mini",
+  "family": "o",
+  "version": "1",
   "capabilities": [],
   "official": false,
   "price": {

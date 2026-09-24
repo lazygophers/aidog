@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "gemini-3-flash-preview",
   "canonical_model": "gemini-3-flash-preview",
   "display_name": "Gemini 3 Flash Preview",
+  "family": "gemini",
+  "version": "3",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [

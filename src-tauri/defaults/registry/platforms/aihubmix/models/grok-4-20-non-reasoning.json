@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790272756,
   "model_id": "grok-4-20-non-reasoning",
   "canonical_model": "grok-4.20-non-reasoning",
   "display_name": "Grok 4 20",
+  "family": "grok",
+  "version": "4.20",
   "capabilities": [
     "text"
   ],
