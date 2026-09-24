@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790288505,
   "model_id": "openai/gpt-realtime-2.1-mini",
   "canonical_model": "gpt-realtime-2.1-mini",
+  "context_window": 128000,
   "family": "gpt",
   "version": "2.1",
   "capabilities": [
