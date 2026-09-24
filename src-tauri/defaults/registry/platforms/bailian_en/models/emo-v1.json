@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790268689,
   "model_id": "emo-v1",
   "canonical_model": "emo-v1",
+  "family": "emo",
+  "version": "1",
   "capabilities": [
     "video_edit"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268689,
   "model_id": "qvq-max",
   "canonical_model": "qvq-max",
+  "family": "qwen",
   "capabilities": [
     "text",
     "vision",

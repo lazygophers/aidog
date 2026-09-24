@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268689,
   "model_id": "qwen-deep-research",
   "canonical_model": "qwen-deep-research",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

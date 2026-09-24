@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268689,
   "model_id": "fun-asr-mtl",
   "canonical_model": "fun-asr-mtl",
+  "family": "fun-asr",
   "capabilities": [
     "audio"
   ],

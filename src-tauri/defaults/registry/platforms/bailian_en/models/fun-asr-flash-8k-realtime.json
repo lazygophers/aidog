@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268689,
   "model_id": "fun-asr-flash-8k-realtime",
   "canonical_model": "fun-asr-flash-8k-realtime-2026-01-28",
+  "family": "fun-asr",
   "capabilities": [
     "audio"
   ],
