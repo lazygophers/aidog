@@ -579,15 +579,25 @@ class _McpRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  server.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AidogType.body.copyWith(
-                    fontSize: 14,
-                    color: theme.c.fg,
-                    fontWeight: FontWeight.w600,
-                  ),
+                // React：transport 徽标跟在名字**旁边**
+                //（`Mcp/primitives.tsx:50-53`），不是独立一列。
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 2,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    Text(
+                      server.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.body.copyWith(
+                        fontSize: 14,
+                        color: theme.c.fg,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    _TransportBadge(transport: server.transport),
+                  ],
                 ),
                 Padding(
                   // summary 12 + marginTop 3（Mcp/primitives.tsx:55-59）。
@@ -634,7 +644,6 @@ class _McpRow extends StatelessWidget {
               ],
             ),
           ),
-          Expanded(child: _TransportBadge(transport: server.transport)),
           Wrap(
             spacing: AidogSpace.sxs,
             children: [
@@ -658,15 +667,23 @@ class _McpRow extends StatelessWidget {
                       ? null
                       : () => onToggleAgent(a),
                 ),
-              SmallButton(
-                label: t.t('action.edit'),
+              // 编辑 / 分享 / 删除：30×30 图标按钮（15px 图标，
+              // `Mcp/primitives.tsx:128-175`），不是文字按钮。
+              _RowIconButton(
+                icon: Icons.edit_outlined,
+                tooltip: t.t('action.edit'),
                 onTap: (busyKey?.startsWith('edit::${server.name}') ?? false)
                     ? null
                     : onEdit,
               ),
-              SmallButton(label: t.t('mcp.share'), onTap: onShare),
-              SmallButton(
-                label: t.t('action.delete'),
+              _RowIconButton(
+                icon: Icons.share_outlined,
+                tooltip: t.t('mcp.share'),
+                onTap: onShare,
+              ),
+              _RowIconButton(
+                icon: Icons.delete_outline,
+                tooltip: t.t('action.delete'),
                 danger: true,
                 onTap: (busyKey?.startsWith('del::${server.name}') ?? false)
                     ? null
@@ -675,6 +692,47 @@ class _McpRow extends StatelessWidget {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// MCP 行尾的 30×30 图标按钮（对齐 React 的 `size="icon"` outline 按钮，
+/// `Mcp/primitives.tsx:128-175`）。
+class _RowIconButton extends StatelessWidget {
+  const _RowIconButton({
+    required this.icon,
+    required this.tooltip,
+    this.onTap,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        child: SizedBox(
+          width: 30,
+          height: 30,
+          child: Icon(
+            icon,
+            size: 15,
+            color: onTap == null
+                ? theme.c.fg3
+                : danger
+                ? theme.c.bad
+                : theme.c.fg2,
+          ),
+        ),
       ),
     );
   }

@@ -290,6 +290,8 @@ class _SkillsPageState extends State<SkillsPage> with WidgetsBindingObserver {
     final theme = AidogTheme.of(context);
     final counts = _c.agentCounts;
     return Tile(
+      // React 统计卡容器 20/24（`SkillsView.tsx:205`），不是 Tile 缺省 16/14。
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
       child: Wrap(
         spacing: AidogSpace.slg,
         runSpacing: AidogSpace.ssm,

@@ -246,7 +246,7 @@ class PlatformCard extends StatelessWidget {
           // [onLevelPriorityChange]，这行整行不画 —— 优先级是 (分组, 平台) 对的
           // 属性，不属于平台本身。
           if (onLevelPriorityChange != null) ...[
-            const SizedBox(height: AidogSpace.ssm),
+            const SizedBox(height: AidogSpace.smd),
             Padding(
               padding: const EdgeInsetsDirectional.only(start: 24),
               child: LevelPriorityControl(
@@ -257,7 +257,8 @@ class PlatformCard extends StatelessWidget {
             ),
           ],
           if (showBalanceRow) ...[
-            const SizedBox(height: AidogSpace.ssm),
+            // React header 列 gap 10（`PlatformCard.tsx:213`）。
+            const SizedBox(height: AidogSpace.smd),
             _BalanceRow(
               platform: p,
               quota: q,
@@ -288,22 +289,32 @@ class PlatformCard extends StatelessWidget {
             alignment: Alignment.topCenter,
             child: !expanded
                 ? const SizedBox(width: double.infinity)
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const SizedBox(height: AidogSpace.smd),
-                      _DetailSection(
+                : Container(
+                    // React 展开区：marginTop 12 + 上边框 + paddingTop 12
+                    //（`CompactCard.tsx:111-117`）。
+                    margin: const EdgeInsets.only(top: 12),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: theme.c.line),
+                      ),
+                    ),
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _DetailSection(
                         platform: p,
                         meta: meta,
                         quota: q,
                         usage: usage,
                         usagePending: usagePending,
                         configuredModels: configuredModels,
-                        nowMs: now,
-                        quotaCapable: quotaCapable,
-                      ),
-                    ],
+                          nowMs: now,
+                          quotaCapable: quotaCapable,
+                        ),
+                      ],
+                    ),
                   ),
           ),
         ],
@@ -318,7 +329,8 @@ class PlatformCard extends StatelessWidget {
       child: card,
     );
     // 逐卡错峰淡入（`PlatformCard.tsx:201,211`：`animationDelay: i*50ms`）。
-    return Reveal(delayMs: index * 50, child: dimmed);
+    // React 的 reveal 错峰是 i*60（`PlatformCard.tsx:211` 的 revealDelay）。
+    return Reveal(delayMs: index * 60, child: dimmed);
   }
 }
 
@@ -666,6 +678,13 @@ class _LogoDot extends StatelessWidget {
                   color: color,
                   shape: BoxShape.circle,
                   border: Border.all(color: theme.c.bg, width: 2),
+                  // React 健康点带 4px 同色外发光（`PlatformCard.tsx:259`）。
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withValues(alpha: 0x60 / 255),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
             ),

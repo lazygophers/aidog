@@ -1486,7 +1486,7 @@ class QuotaTierBlock extends StatelessWidget {
 }
 
 /// 骨架占位（外部 HTTP 待回）。**不画零值假数**：给一块灰条，不给 `0`。
-class SkeletonBox extends StatelessWidget {
+class SkeletonBox extends StatefulWidget {
   const SkeletonBox({
     super.key,
     required this.width,
@@ -1499,15 +1499,45 @@ class SkeletonBox extends StatelessWidget {
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    label: semanticLabel,
-    child: Container(
-      width: width,
-      height: height,
-      decoration: BoxDecoration(
-        color: AidogTheme.of(context).c.surface2,
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
+  State<SkeletonBox> createState() => _SkeletonBoxState();
+}
+
+/// 带流光的骨架块（React `.skeleton`：1.4s ease-in-out 无限往复的 shimmer，
+/// `globals.css:206-216`）—— 纯灰块和「加载完了但没数据」长得一样。
+class _SkeletonBoxState extends State<SkeletonBox>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1400),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Semantics(
+      label: widget.semanticLabel,
+      child: AnimatedBuilder(
+        animation: _ctrl,
+        builder: (context, _) => Container(
+          width: widget.width,
+          height: widget.height,
+          decoration: BoxDecoration(
+            color: Color.lerp(
+              theme.c.surface2,
+              theme.c.line,
+              Curves.easeInOut.transform(_ctrl.value) * 0.6,
+            ),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+        ),
       ),
-    ),
-  );
+    );
+  }
+
 }
