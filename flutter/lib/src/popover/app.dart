@@ -209,7 +209,7 @@ class _PopoverAppState extends State<PopoverApp> {
       return Container(
         decoration: BoxDecoration(
           color: t.c.bg,
-          borderRadius: BorderRadius.circular(AidogRadius.lg),
+          borderRadius: BorderRadius.circular(AidogRadius.md),
           border: Border.all(color: t.c.line, width: _borderWidth),
         ),
         clipBehavior: Clip.antiAlias,

@@ -1047,7 +1047,7 @@ class _DetailPanelState extends State<_DetailPanel> {
               decoration: BoxDecoration(
                 color: theme.c.surface2,
                 border: Border.all(color: theme.c.line),
-                borderRadius: BorderRadius.circular(AidogRadius.lg),
+                borderRadius: BorderRadius.circular(AidogRadius.md),
               ),
               child: Row(
                 children: [

@@ -729,6 +729,8 @@ class _SkillRow extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final busy = busyKey != null;
     return Tile(
+      // React 行卡 12/16（SkillsView.tsx:384）。
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [

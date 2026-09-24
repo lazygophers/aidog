@@ -611,7 +611,7 @@ class _AddSegmentMenu extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 360),
       decoration: BoxDecoration(
         color: theme.c.surface2,
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
         border: Border.all(color: theme.c.line),
       ),
       child: SingleChildScrollView(

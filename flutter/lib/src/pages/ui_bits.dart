@@ -599,7 +599,9 @@ class _ToastBarState extends State<ToastBar> {
                 ),
                 decoration: BoxDecoration(
                   color: bg,
-                  borderRadius: BorderRadius.circular(AidogRadius.md),
+                  // React toast 是写死的 borderRadius: 10（PlatformListView.tsx:263），
+                  // 不在四档里，照抄字面值。
+                  borderRadius: BorderRadius.circular(10),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

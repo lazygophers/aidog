@@ -150,6 +150,8 @@ class PlatformCard extends StatelessWidget {
 
     final card = Tile(
       live: p.status == 'enabled',
+      // React CompactCard 卡壳 padding 20（CompactCard.tsx:71）。
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

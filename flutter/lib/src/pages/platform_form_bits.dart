@@ -37,6 +37,8 @@ class FormSection extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: AidogSpace.smd),
       child: Tile(
+        // React FormSection：padding 16、标题→内容 gap 12（formSections.tsx:58-65）。
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -72,7 +74,9 @@ class FormSection extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            // React FormSection 标题→内容 gap 12（formSections.tsx:59），
+            // 不在 space 四档里，照抄字面值。
+            const SizedBox(height: 12),
             ...children,
           ],
         ),

@@ -481,7 +481,7 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
               color: candidate.isNotEmpty ? theme.c.accentEdge : theme.c.line,
               width: candidate.isNotEmpty ? 1.5 : 1,
             ),
-            borderRadius: BorderRadius.circular(AidogRadius.md),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

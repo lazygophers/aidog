@@ -34,10 +34,10 @@
   --space-lg: 14px;
   --space-xl: 18px;
   --space-2xl: 24px;
-  --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
   --radius-pill: 999px;
   --layout-rail-w: 200px;
   --layout-rail-w-collapsed: 56px;

@@ -533,6 +533,8 @@ class _McpRow extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     return Tile(
+      // React MCP 行卡 10/12（Mcp/primitives.tsx:47）。
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         children: [
           Expanded(

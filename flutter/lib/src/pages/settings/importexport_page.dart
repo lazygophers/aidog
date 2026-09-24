@@ -1459,7 +1459,7 @@ class _DropZone extends StatelessWidget {
       child: InkWell(
         key: const ValueKey('import-dropzone'),
         onTap: onTap,
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
         child: Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(
@@ -1471,7 +1471,7 @@ class _DropZone extends StatelessWidget {
             border: Border.all(
               color: active ? theme.c.accentText : theme.c.line,
             ),
-            borderRadius: BorderRadius.circular(AidogRadius.md),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

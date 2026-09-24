@@ -492,7 +492,7 @@ class _DragLabel extends StatelessWidget {
             // 「accent 上的前景色」，所以换成同一套里的 wash + 描边 + accentText。
             color: theme.c.accentWash,
             border: Border.all(color: theme.c.accentEdge),
-            borderRadius: BorderRadius.circular(AidogRadius.md),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Text(
             name,

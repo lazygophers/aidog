@@ -514,6 +514,8 @@ class _UnmatchedBucketCard extends StatelessWidget {
         child: Tile(
       title: t.t('group.unmatched'),
       meta: t.t('group.unmatchedBadge'),
+      // React 未分组桶与组卡同为 CompactCard padding 20（GroupListView.tsx:446-449）。
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -606,6 +608,8 @@ class _GroupCard extends StatelessWidget {
     // 折叠着进多选，要选的平台一个都看不到。
     final folded = collapsed && !selecting;
     return Tile(
+      // React 组卡壳 CompactCard padding 20（GroupListItem.tsx:354）。
+      padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,

@@ -61,6 +61,8 @@ class SettingsCard extends StatelessWidget {
         child: Tile(
           title: title,
           meta: meta,
+          // React 设置分区卡 padding 28（editors/tokens.ts:15 的 S.pad）。
+          padding: const EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
