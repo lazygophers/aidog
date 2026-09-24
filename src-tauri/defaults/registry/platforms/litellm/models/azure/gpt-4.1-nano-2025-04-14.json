@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/gpt-4.1-nano-2025-04-14",
+  "canonical_model": "gpt-4.1-nano-2025-04-14",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 1047576,
+  "context_window": 1047576,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 4e-7
+  }
+}

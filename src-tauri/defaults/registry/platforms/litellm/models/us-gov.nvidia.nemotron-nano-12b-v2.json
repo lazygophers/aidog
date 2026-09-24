@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "us-gov.nvidia.nemotron-nano-12b-v2",
+  "canonical_model": "us-gov.nvidia.nemotron-nano-12b-v2",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 2.4e-7,
+    "output": 7.2e-7
+  }
+}

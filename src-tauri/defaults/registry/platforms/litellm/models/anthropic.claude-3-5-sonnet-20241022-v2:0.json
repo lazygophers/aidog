@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "canonical_model": "anthropic.claude-3-5-sonnet-20241022-v2:0",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 0.000003,
+    "output": 0.000015
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "au.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "canonical_model": "au.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000011,
+    "output": 0.0000055
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "watsonx/ibm/granite-ttm-512-96-r2",
+  "canonical_model": "granite-ttm-512-96-r2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 512,
+  "context_window": 512,
+  "max_output_tokens": 512,
+  "official": false,
+  "price": {
+    "input": 3.8e-7,
+    "output": 3.8e-7
+  }
+}

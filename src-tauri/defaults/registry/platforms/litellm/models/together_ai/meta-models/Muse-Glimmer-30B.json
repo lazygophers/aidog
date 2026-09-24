@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/meta-models/Muse-Glimmer-30B",
+  "canonical_model": "muse-glimmer-30b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 131072,
+  "official": false,
+  "price": {
+    "input": 3.5e-7,
+    "output": 0.0000015
+  }
+}

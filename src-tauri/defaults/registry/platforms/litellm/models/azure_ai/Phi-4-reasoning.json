@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/Phi-4-reasoning",
+  "canonical_model": "Phi-4-reasoning",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.25e-7,
+    "output": 5e-7
+  }
+}

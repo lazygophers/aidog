@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepgram/nova-3-general",
+  "canonical_model": "nova-3-general",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00007167
+  }
+}

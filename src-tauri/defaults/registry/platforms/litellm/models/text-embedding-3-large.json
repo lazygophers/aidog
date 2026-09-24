@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "text-embedding-3-large",
+  "canonical_model": "text-embedding-3-large",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8191,
+  "context_window": 8191,
+  "max_output_tokens": 8191,
+  "official": false,
+  "price": {
+    "input": 1.3e-7,
+    "output": 0
+  }
+}

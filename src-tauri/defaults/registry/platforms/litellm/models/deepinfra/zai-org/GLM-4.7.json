@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/zai-org/GLM-4.7",
+  "canonical_model": "glm-4.7",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 202752,
+  "context_window": 202752,
+  "max_output_tokens": 202752,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4e-7,
+    "output": 0.00000175
+  },
+  "family": "glm",
+  "version": "4.7"
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/baidu/ernie-4.5-vl-28b-a3b",
+  "canonical_model": "ernie-4.5-vl-28b-a3b",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 30000,
+  "context_window": 30000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.4e-7,
+    "output": 5.6e-7
+  }
+}

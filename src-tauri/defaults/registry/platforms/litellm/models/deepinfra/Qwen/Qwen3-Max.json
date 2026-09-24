@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/Qwen/Qwen3-Max",
+  "canonical_model": "qwen3-max",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "max_output_tokens": 256000,
+  "official": false,
+  "price": {
+    "input": 0.0000012,
+    "output": 0.000006
+  }
+}

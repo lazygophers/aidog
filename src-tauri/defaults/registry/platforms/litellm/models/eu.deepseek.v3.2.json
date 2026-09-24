@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "eu.deepseek.v3.2",
+  "canonical_model": "eu.deepseek.v3.2",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 163840,
+  "context_window": 163840,
+  "max_output_tokens": 163840,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 7.4e-7,
+    "output": 0.00000222
+  }
+}

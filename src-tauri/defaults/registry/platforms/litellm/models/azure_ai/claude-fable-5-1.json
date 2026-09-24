@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure_ai/claude-fable-5-1",
+  "canonical_model": "claude-fable-5-1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 0.00001,
+    "output": 0.00005
+  },
+  "family": "claude"
+}

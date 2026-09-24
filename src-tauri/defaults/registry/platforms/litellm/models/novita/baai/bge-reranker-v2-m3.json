@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/baai/bge-reranker-v2-m3",
+  "canonical_model": "bge-reranker-v2-m3",
+  "capabilities": [
+    "rerank"
+  ],
+  "max_input_tokens": 8000,
+  "context_window": 8000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "input": 1e-8
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "novita/baidu/ernie-4.5-vl-28b-a3b-thinking",
+  "canonical_model": "ernie-4.5-vl-28b-a3b-thinking",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 3.9e-7,
+    "output": 3.9e-7
+  }
+}

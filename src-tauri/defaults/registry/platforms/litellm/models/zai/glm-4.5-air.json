@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "zai/glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "input": 2e-7,
+    "output": 0.0000011
+  },
+  "family": "glm",
+  "version": "4.5"
+}

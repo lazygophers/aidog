@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "together_ai/Qwen/Qwen3.8-2.4T-A95B",
+  "canonical_model": "qwen3.8-2.4t-a95b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1010000,
+  "context_window": 1010000,
+  "max_output_tokens": 1010000,
+  "official": false,
+  "price": {
+    "input": 0.000002,
+    "output": 0.000006
+  },
+  "family": "qwen"
+}

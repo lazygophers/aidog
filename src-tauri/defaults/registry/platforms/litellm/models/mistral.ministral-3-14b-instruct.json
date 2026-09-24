@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "mistral.ministral-3-14b-instruct",
+  "canonical_model": "mistral.ministral-3-14b-instruct",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8000,
+  "official": false,
+  "price": {
+    "input": 2e-7,
+    "output": 2e-7
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/qwen/qwq-32b",
+  "canonical_model": "qwq-32b",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 24000,
+  "context_window": 24000,
+  "max_output_tokens": 24000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6.6e-7,
+    "output": 0.000001
+  }
+}

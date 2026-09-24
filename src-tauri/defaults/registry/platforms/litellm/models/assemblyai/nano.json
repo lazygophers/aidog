@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "assemblyai/nano",
+  "canonical_model": "nano",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.00010278
+  }
+}

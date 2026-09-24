@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "nvidia_nim/nvidia/nv-rerankqa-mistral-4b-v3",
+  "canonical_model": "nv-rerankqa-mistral-4b-v3",
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 0
+  }
+}

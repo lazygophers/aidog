@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/minimax/minimax-01",
+  "canonical_model": "minimax-01",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1000192,
+  "context_window": 1000192,
+  "max_output_tokens": 900172,
+  "official": false,
+  "price": {
+    "input": 2e-7,
+    "output": 0.0000011
+  }
+}

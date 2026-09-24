@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/mistral-large-2402",
+  "canonical_model": "mistral-large-2402",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 32000,
+  "official": false,
+  "price": {
+    "input": 0.000008,
+    "output": 0.000024
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "global.cohere.embed-v4:0",
+  "canonical_model": "global.cohere.embed-v4:0",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 1.2e-7,
+    "output": 0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/microsoft/WizardLM-2-8x22B",
+  "canonical_model": "wizardlm-2-8x22b",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 65536,
+  "context_window": 65536,
+  "max_output_tokens": 65536,
+  "official": false,
+  "price": {
+    "input": 4.8e-7,
+    "output": 4.8e-7
+  }
+}

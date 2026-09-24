@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/openai/gpt-3.5-turbo-0613",
+  "canonical_model": "gpt-3.5-turbo-0613",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 4095,
+  "context_window": 4095,
+  "max_output_tokens": 3685,
+  "official": false,
+  "price": {
+    "input": 0.000001,
+    "output": 0.000002
+  }
+}

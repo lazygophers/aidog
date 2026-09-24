@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/thedrummer/skyfall-36b-v2",
+  "canonical_model": "skyfall-36b-v2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 29491,
+  "official": false,
+  "price": {
+    "input": 5.5e-7,
+    "output": 8e-7
+  }
+}

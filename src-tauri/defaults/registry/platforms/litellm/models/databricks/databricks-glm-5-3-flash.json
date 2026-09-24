@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "databricks/databricks-glm-5-3-flash",
+  "canonical_model": "databricks-glm-5-3-flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 131072,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.5001e-7,
+    "output": 5.0001e-7
+  }
+}

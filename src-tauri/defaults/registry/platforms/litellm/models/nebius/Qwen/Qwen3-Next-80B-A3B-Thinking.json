@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "nebius/Qwen/Qwen3-Next-80B-A3B-Thinking",
+  "canonical_model": "qwen3-next-80b-a3b-thinking",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-7,
+    "output": 0.0000012
+  }
+}

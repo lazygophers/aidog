@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "bedrock/us-east-1/deepseek.v3.2",
+  "canonical_model": "DeepSeek-V3.2",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 163840,
+  "context_window": 163840,
+  "max_output_tokens": 163840,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 6.2e-7,
+    "output": 0.00000185
+  },
+  "family": "deepseek"
+}

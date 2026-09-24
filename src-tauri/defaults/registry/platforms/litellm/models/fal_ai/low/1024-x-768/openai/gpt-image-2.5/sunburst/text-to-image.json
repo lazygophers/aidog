@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "fal_ai/low/1024-x-768/openai/gpt-image-2.5/sunburst/text-to-image",
+  "canonical_model": "text-to-image",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.00402
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/mancer/weaver",
+  "canonical_model": "weaver",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8000,
+  "context_window": 8000,
+  "max_output_tokens": 6000,
+  "official": false,
+  "price": {
+    "input": 4e-7,
+    "output": 7.5e-7
+  }
+}

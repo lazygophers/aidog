@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/eu/text-embedding-3-small",
+  "canonical_model": "text-embedding-3-small",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 2.2e-8
+  }
+}

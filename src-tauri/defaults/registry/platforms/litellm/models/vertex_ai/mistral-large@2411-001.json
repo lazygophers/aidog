@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/mistral-large@2411-001",
+  "canonical_model": "mistral-large@2411-001",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 8191,
+  "official": false,
+  "price": {
+    "input": 0.000002,
+    "output": 0.000006
+  }
+}

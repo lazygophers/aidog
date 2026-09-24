@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "databricks/databricks-gpt-5-3-codex",
+  "canonical_model": "databricks-gpt-5-3-codex",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 272000,
+  "context_window": 272000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 0.00000175,
+    "output": 0.000014
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "perplexity/pplx-70b-chat",
+  "canonical_model": "pplx-70b-chat",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 7e-7,
+    "output": 0.0000028
+  }
+}

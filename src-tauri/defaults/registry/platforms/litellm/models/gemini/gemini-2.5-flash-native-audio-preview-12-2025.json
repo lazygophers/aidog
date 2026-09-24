@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "gemini/gemini-2.5-flash-native-audio-preview-12-2025",
+  "canonical_model": "gemini-2.5-flash-native-audio-preview-12-2025",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 5e-7,
+    "output": 0.000002
+  }
+}

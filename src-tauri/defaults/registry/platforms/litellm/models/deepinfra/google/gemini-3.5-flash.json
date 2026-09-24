@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/google/gemini-3.5-flash",
+  "canonical_model": "gemini-3.5-flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 1000000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000015,
+    "output": 0.000009
+  },
+  "family": "gemini"
+}

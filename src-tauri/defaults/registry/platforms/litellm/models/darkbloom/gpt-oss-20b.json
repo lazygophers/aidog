@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "darkbloom/gpt-oss-20b",
+  "canonical_model": "gpt-oss-20b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 32768,
+  "official": false,
+  "price": {
+    "input": 1.45e-8,
+    "output": 7e-8
+  },
+  "family": "gpt"
+}

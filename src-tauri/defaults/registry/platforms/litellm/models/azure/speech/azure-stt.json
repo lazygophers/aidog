@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/speech/azure-stt",
+  "canonical_model": "azure-stt",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0002777778
+  }
+}

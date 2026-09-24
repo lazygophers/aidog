@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "tensormesh/moonshotai/Kimi-K2.6",
+  "canonical_model": "kimi-k2.6",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "max_output_tokens": 32768,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 9.6e-7,
+    "output": 0.000004
+  },
+  "family": "kimi"
+}

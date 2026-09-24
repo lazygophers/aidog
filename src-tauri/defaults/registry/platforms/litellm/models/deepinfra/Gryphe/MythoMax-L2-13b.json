@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/Gryphe/MythoMax-L2-13b",
+  "canonical_model": "mythomax-l2-13b",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096,
+  "official": false,
+  "price": {
+    "input": 4e-7,
+    "output": 4e-7
+  }
+}

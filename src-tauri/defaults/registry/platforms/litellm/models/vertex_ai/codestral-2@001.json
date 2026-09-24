@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "vertex_ai/codestral-2@001",
+  "canonical_model": "codestral-2@001",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 3e-7,
+    "output": 9e-7
+  }
+}

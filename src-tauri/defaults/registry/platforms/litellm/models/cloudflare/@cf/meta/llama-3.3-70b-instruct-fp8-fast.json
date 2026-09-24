@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
+  "canonical_model": "llama-3.3-70b-instruct-fp8-fast",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 24000,
+  "context_window": 24000,
+  "max_output_tokens": 24000,
+  "official": false,
+  "price": {
+    "input": 2.93e-7,
+    "output": 0.000002253
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "openrouter/z-ai/glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 98304,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.3e-7,
+    "output": 8.5e-7
+  },
+  "family": "glm",
+  "version": "4.5"
+}

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepinfra/MiniMaxAI/MiniMax-M3",
+  "canonical_model": "MiniMax-M3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 524288,
+  "context_window": 524288,
+  "max_output_tokens": 524288,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 2.8e-7,
+    "output": 0.0000011
+  },
+  "family": "minimax"
+}

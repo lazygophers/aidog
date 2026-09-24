@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/us-gov/text-embedding-3-small",
+  "canonical_model": "text-embedding-3-small",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8191,
+  "context_window": 8191,
+  "max_output_tokens": 8191,
+  "official": false,
+  "price": {
+    "input": 2.5e-8,
+    "output": 0
+  }
+}

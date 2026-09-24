@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/gpt-6-luna-2026-09-22",
+  "canonical_model": "gpt-6-luna-2026-09-22",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 922000,
+  "context_window": 922000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-7,
+    "output": 5e-7
+  }
+}

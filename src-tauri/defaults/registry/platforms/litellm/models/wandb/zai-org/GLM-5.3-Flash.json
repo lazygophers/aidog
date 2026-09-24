@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "wandb/zai-org/GLM-5.3-Flash",
+  "canonical_model": "glm-5.3-flash",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1049000,
+  "context_window": 1049000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-7,
+    "output": 5e-7
+  },
+  "family": "glm",
+  "version": "5.3"
+}

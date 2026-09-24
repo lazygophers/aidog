@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "azure/us/o3-2025-04-16",
+  "canonical_model": "o3-2025-04-16",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 100000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000022,
+    "output": 0.0000088
+  }
+}

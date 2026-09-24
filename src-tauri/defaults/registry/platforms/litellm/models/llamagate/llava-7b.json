@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "llamagate/llava-7b",
+  "canonical_model": "llava-7b",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 2048,
+  "official": false,
+  "price": {
+    "input": 1e-7,
+    "output": 2e-7
+  }
+}

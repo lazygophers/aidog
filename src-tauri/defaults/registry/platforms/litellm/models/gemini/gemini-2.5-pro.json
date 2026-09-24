@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "gemini/gemini-2.5-pro",
+  "canonical_model": "gemini-2.5-pro",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.00000125,
+    "output": 0.00001
+  }
+}

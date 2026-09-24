@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "wandb/Qwen/Qwen3.8-27B",
+  "canonical_model": "qwen3.8-27b",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "max_input_tokens": 262000,
+  "context_window": 262000,
+  "max_output_tokens": 262144,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 4e-7,
+    "output": 0.000003
+  },
+  "family": "qwen"
+}

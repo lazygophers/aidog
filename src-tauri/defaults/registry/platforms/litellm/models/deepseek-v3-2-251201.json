@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "deepseek-v3-2-251201",
+  "canonical_model": "deepseek-v3-2-251201",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 98304,
+  "context_window": 98304,
+  "max_output_tokens": 32768,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "family": "deepseek"
+}

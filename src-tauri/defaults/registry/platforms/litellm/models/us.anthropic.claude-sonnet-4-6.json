@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790247751,
+  "model_id": "us.anthropic.claude-sonnet-4-6",
+  "canonical_model": "us.anthropic.claude-sonnet-4-6",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0.0000033,
+    "output": 0.0000165
+  }
+}

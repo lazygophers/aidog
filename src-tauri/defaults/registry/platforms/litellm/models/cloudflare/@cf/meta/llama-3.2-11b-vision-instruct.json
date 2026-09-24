@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790247750,
+  "model_id": "cloudflare/@cf/meta/llama-3.2-11b-vision-instruct",
+  "canonical_model": "llama-3.2-11b-vision-instruct",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 128000,
+  "official": false,
+  "price": {
+    "input": 4.85e-8,
+    "output": 6.76e-7
+  }
+}
