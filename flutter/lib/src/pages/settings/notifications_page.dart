@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import '../../../i18n.dart';
 import '../../../platform.dart' as native;
 import '../../shell/theme.dart';
+import '../../shell/tiles.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
@@ -85,128 +86,131 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     return SettingsPageBody(
       title: t.t('appSettings.notificationsTab'),
       children: [
-        SettingsCard(
-          children: [
-            SwitchRow(
-              key: const ValueKey('notif-master'),
-              label: t.t('notif.masterToggle'),
-              description: t.t('notif.masterToggleDesc'),
-              value: s.enabled,
-              onChanged: (_) => _c.toggleEnabled(),
-            ),
-            SwitchRow(
-              key: const ValueKey('notif-tts'),
-              label: t.t('notif.ttsToggle'),
-              description: t.t('notif.ttsToggleDesc'),
-              value: s.ttsEnabled,
-              onChanged: (_) => _c.toggleTts(),
-            ),
-            if (s.ttsEnabled)
-              SelectRow(
-                label: t.t('notif.ttsBackendLabel'),
-                options: kTtsBackends,
-                value: s.ttsBackend,
-                labelOf: (b) => tOr(t, 'notif.ttsBackend.$b', b),
-                onChanged: (v) => _c.setTtsBackend(v!),
-              ),
-          ],
+        ToggleCard(
+          key: const ValueKey('notif-master'),
+          label: t.t('notif.masterToggle'),
+          descriptions: [t.t('notif.masterToggleDesc')],
+          value: s.enabled,
+          onChanged: (_) => _c.toggleEnabled(),
         ),
-        SettingsCard(
+        HeaderCard(
           title: t.t('notif.permGuideTitle'),
-          description: t.t('notif.permGuideDesc'),
-          children: [
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SmallButton(
-                key: const ValueKey('open-system-notif'),
-                label: t.t('notif.permGuideButton'),
-                onTap: _c.openSystemNotificationSettings,
-              ),
-            ),
-          ],
+          descriptions: [t.t('notif.permGuideDesc')],
+          trailing: SmallButton(
+            key: const ValueKey('open-system-notif'),
+            ghost: true,
+            fontSize: 12,
+            padding: (12, 6),
+            label: t.t('notif.permGuideButton'),
+            onTap: _c.openSystemNotificationSettings,
+          ),
+          child: const SizedBox.shrink(),
         ),
-        SettingsCard(
-          // 同上（`NotificationSettings.tsx:352`）。
+        // TTS 独立卡；总开关关掉后压暗（`NotificationSettings.tsx:313`）。
+        HeaderCard(
           dimmed: !s.enabled,
-          title: t.t('notif.testChannels'),
-          children: [
-            Wrap(
-              spacing: AidogSpace.ssm,
-              runSpacing: AidogSpace.sxs,
-              children: [
-                // 这四颗 React 都是 `variant="ghost"`
-                //（`NotificationSettings.tsx:355-382`）——无描边，不抢视线。
-                SmallButton(
-                  ghost: true,
-                  key: const ValueKey('test-notify'),
-                  label: t.t('notif.test'),
-                  onTap: () => _c.testNotify(texts),
-                ),
-                SmallButton(
-                  ghost: true,
-                  key: const ValueKey('test-tts'),
-                  label: t.t('notif.testTtsLabel'),
-                  tooltip: t.t('notif.testTtsTip'),
-                  onTap: () => _c.testTts(texts),
-                ),
-                SmallButton(
-                  ghost: true,
-                  key: const ValueKey('test-popup'),
-                  label: t.t('notif.testPopupLabel'),
-                  tooltip: t.t('notif.testPopupTip'),
-                  onTap: () => _c.testPopup(texts),
-                ),
-                SmallButton(
-                  ghost: true,
-                  key: const ValueKey('test-beep'),
-                  label: t.t('notif.testBeepLabel'),
-                  tooltip: t.t('notif.testBeepTip'),
-                  onTap: _c.testBeep,
-                ),
-              ],
-            ),
-          ],
+          title: t.t('notif.ttsToggle'),
+          descriptions: [t.t('notif.ttsToggleDesc')],
+          trailing: AidogSwitch(
+            key: const ValueKey('notif-tts'),
+            value: s.ttsEnabled,
+            compact: true,
+            onChanged: () => _c.toggleTts(),
+          ),
+          child: s.ttsEnabled
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: AidogTheme.of(context).c.line,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: AidogSpace.smd),
+                      child: InlineRow(
+                        label: t.t('notif.ttsBackendLabel'),
+                        child: InlineSelect<String>(
+                          value: s.ttsBackend,
+                          options: kTtsBackends,
+                          width: 220,
+                          labelOf: (b) => tOr(t, 'notif.ttsBackend.$b', b),
+                          onChanged: (v) => _c.setTtsBackend(v!),
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
-        SettingsCard(
+        // 通道测试：紧凑单行条（padding 12/20，label 12 w600 与按钮同排，
+        // `NotificationSettings.tsx:352-390`）。顺序与 emoji 前缀照 React：
+        // 🔊语音 → 🪟弹窗 → 🔔提示音 → 测试。
+        _testBar(t, s),
+        HeaderCard(
+          key: const ValueKey('inbox-retention-on'),
           title: t.t('notif.retentionTitle'),
-          description: t.t('notif.retentionDesc'),
-          children: [
-            // 「不清理」= 天数 0。没有这个开关的话，用户得自己猜出「填 0」
-            //（`NotificationSettings.tsx:409-419`：关 → 写 0，开 → 回 7 天）。
-            SwitchRow(
-              key: const ValueKey('inbox-retention-on'),
-              label: t.t('notif.retentionTitle'),
-              value: s.inboxRetentionDays > 0,
-              onChanged: (on) => _c.setInboxRetentionDays(on ? 7 : 0),
+          descriptions: [t.t('notif.retentionDesc')],
+          trailing: AidogSwitch(
+            // 关 → 0（不清理）；开 → 回 7 天默认。
+            value: s.inboxRetentionDays > 0,
+            compact: true,
+            onChanged: () => _c.setInboxRetentionDays(
+              s.inboxRetentionDays > 0 ? 0 : 7,
             ),
-            if (s.inboxRetentionDays > 0)
-              NumberRow(
-                key: const ValueKey('inbox-retention'),
-                label:
-                    '${t.t('notif.retentionDaysLabel')} '
-                    '(${t.t('notif.retentionDaysUnit')})',
-                value: s.inboxRetentionDays,
-                onChanged: (v) => _c.setInboxRetentionDays(v < 0 ? 0 : v),
-              ),
-          ],
+          ),
+          child: s.inboxRetentionDays > 0
+              ? Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(
+                          color: AidogTheme.of(context).c.line,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: AidogSpace.smd),
+                      child: InlineRow(
+                        label: t.t('notif.retentionDaysLabel'),
+                        child: NumberInput(
+                          key: const ValueKey('inbox-retention'),
+                          value: '${s.inboxRetentionDays}',
+                          min: 1,
+                          max: 3650,
+                          width: 120,
+                          onChanged: (v) {
+                            // 限 [1,3650]；0 仅由开关切「不清理」。
+                            final n = int.tryParse(v) ?? 1;
+                            _c.setInboxRetentionDays(
+                              n.clamp(1, 3650),
+                            );
+                          },
+                        ),
+                        unit: t.t('notif.retentionDaysUnit'),
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
         ),
-        SettingsCard(
-          title: t.t('notif.defaultHooksTitle'),
-          description: _c.hooksDisabled
-              ? '${t.t('notif.defaultHooksDesc')} · '
-                    '${t.t('notif.defaultHooksDisabledHint')}'
-              : t.t('notif.defaultHooksDesc'),
-          children: [
-            SwitchRow(
-              key: const ValueKey('default-hooks'),
-              label: t.t('notif.defaultHooksTitle'),
-              value: _c.defaultHooks,
-              // 总开关关掉时强制禁用：通知都不发，hook 没意义。
-              onChanged: _c.hooksDisabled || _c.defaultHooksBusy
-                  ? null
-                  : (_) => _c.toggleDefaultHooks(texts),
-            ),
+        ToggleCard(
+          key: const ValueKey('default-hooks'),
+          label: t.t('notif.defaultHooksTitle'),
+          descriptions: [
+            _c.hooksDisabled
+                ? '${t.t('notif.defaultHooksDesc')} · '
+                      '${t.t('notif.defaultHooksDisabledHint')}'
+                : t.t('notif.defaultHooksDesc'),
           ],
+          value: _c.defaultHooks,
+          // 总开关关掉时强制禁用：通知都不发，hook 没意义。
+          onChanged: _c.hooksDisabled || _c.defaultHooksBusy
+              ? null
+              : (_) => _c.toggleDefaultHooks(texts),
         ),
         const Padding(
           padding: EdgeInsets.only(bottom: AidogSpace.smd),
@@ -227,27 +231,130 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     );
   }
 
+  /// 通道测试单行条：React `padding: "12px 20px"`、label 12 w600、
+  /// 四颗 ghost 按钮 12px（`NotificationSettings.tsx:347-390`）。
+  Widget _testBar(I18nController t, NotificationSettings s) {
+    final texts = _texts(t);
+    return Opacity(
+    key: const ValueKey('notif-test-bar-dim'),
+    opacity: s.enabled ? 1 : 0.55,
+    child: Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      child: Tile(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Wrap(
+          spacing: AidogSpace.ssm,
+          runSpacing: AidogSpace.sxs,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              t.t('notif.testChannels'),
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AidogTheme.of(context).c.fg,
+              ),
+            ),
+            SmallButton(
+              ghost: true,
+              key: const ValueKey('test-tts'),
+              fontSize: 12,
+              padding: (10, 4),
+              label: '🔊 ${t.t('notif.testTtsLabel')}',
+              tooltip: t.t('notif.testTtsTip'),
+              onTap: s.enabled ? () => _c.testTts(texts) : null,
+            ),
+            SmallButton(
+              ghost: true,
+              key: const ValueKey('test-popup'),
+              fontSize: 12,
+              padding: (10, 4),
+              label: '🪟 ${t.t('notif.testPopupLabel')}',
+              tooltip: t.t('notif.testPopupTip'),
+              onTap: s.enabled ? () => _c.testPopup(texts) : null,
+            ),
+            SmallButton(
+              ghost: true,
+              key: const ValueKey('test-beep'),
+              fontSize: 12,
+              padding: (10, 4),
+              label: '🔔 ${t.t('notif.testBeepLabel')}',
+              tooltip: t.t('notif.testBeepTip'),
+              onTap: s.enabled ? _c.testBeep : null,
+            ),
+            SmallButton(
+              ghost: true,
+              key: const ValueKey('test-notify'),
+              fontSize: 12,
+              padding: (10, 4),
+              label: t.t('notif.test'),
+              onTap: s.enabled ? () => _c.testNotify(texts) : null,
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+  }
+
   Widget _eventList(I18nController t, NotificationSettings s) {
     final disabled = !s.enabled;
-    return SettingsCard(
-      // 总开关关掉后整块压暗（`NotificationEventList.tsx:196`）。
-      dimmed: disabled,
-      title: t.t('notif.eventListTitle'),
-      description: disabled
-          ? '${t.t('notif.eventListDesc')} · '
-                '${t.t('notif.defaultHooksDisabledHint')}'
-          : t.t('notif.eventListDesc'),
-      children: [
-        for (final event in orderedHookEvents())
-          _EventRow(
-            key: ValueKey('event-$event'),
-            event: event,
-            setting: effectiveEventSetting(s.perEvent, event),
-            disabled: disabled,
-            // 首次改动即把该事件的当前展示态整份物化进 per_event。
-            onUpdate: (next) => _c.updateEvent(event, next.toJson()),
-          ),
-      ],
+    return Padding(
+      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      child: Tile(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.t('notif.eventListTitle'),
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AidogTheme.of(context).c.fg,
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                disabled
+                    ? '${t.t('notif.eventListDesc')} · '
+                          '${t.t('notif.defaultHooksDisabledHint')}'
+                    : t.t('notif.eventListDesc'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: AidogTheme.of(context).c.fg2,
+                ),
+              ),
+            ),
+            const SizedBox(height: AidogSpace.smd),
+            // 总开关关掉后整块压暗（`NotificationEventList.tsx:196`）。
+            Opacity(
+              key: const ValueKey('notif-event-list-dim'),
+              opacity: disabled ? 0.5 : 1,
+              child: IgnorePointer(
+                ignoring: disabled,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final event in orderedHookEvents())
+                      _EventRow(
+                        key: ValueKey('event-$event'),
+                        event: event,
+                        setting: effectiveEventSetting(s.perEvent, event),
+                        disabled: disabled,
+                        // 首次改动即把该事件的当前展示态整份物化进 per_event。
+                        onUpdate: (next) => _c.updateEvent(event, next.toJson()),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -301,7 +408,9 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   }
 }
 
-/// 一个 hook 事件：启用 / 语音 / 弹窗 / 提示音 四个开关 + 模板 + 可用入参。
+/// 一个 hook 事件：盒行（bg-subtle、r8、padding 10/12，`NotificationEventList.tsx:132-141`）
+/// 内三行 —— ①启用开关 + 事件名 mono + 三通道开关横排 ②模板 textarea（mono 12、minH 40）
+/// ③可用入参 accent chips。
 ///
 /// 三个通道开关在**事件本身没启用时**一律禁用（React 的
 /// `disabled={disabled || !es.enabled}`）。
@@ -324,71 +433,153 @@ class _EventRow extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final chDisabled = disabled || !setting.enabled;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+    return Container(
+      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: theme.c.surface2,
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SwitchRow(
-            // 事件名英文原样（Claude Code 官方名，不翻译）。
-            label: event,
-            value: setting.enabled,
-            onChanged: disabled
-                ? null
-                : (v) => onUpdate(setting.copyWith(enabled: v)),
-          ),
+          // 第一行：启用开关 + 事件名（CC 官方名，不翻译）+ 三通道。
           Wrap(
-            spacing: AidogSpace.ssm,
+            spacing: 12,
+            runSpacing: AidogSpace.ssm,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              _toggleChip(
+              AidogSwitch(
+                key: ValueKey('event-enabled-$event'),
+                value: setting.enabled,
+                compact: true,
+                onChanged: disabled
+                    ? null
+                    : () => onUpdate(setting.copyWith(enabled: !setting.enabled)),
+              ),
+              SizedBox(
+                width: 150,
+                child: Text(
+                  event,
+                  style: AidogType.numMd.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg,
+                  ),
+                ),
+              ),
+              _channelSwitch(
                 context,
                 label: t.t('notif.fieldTts'),
                 on: setting.tts,
-                onTap: chDisabled
-                    ? null
-                    : () => onUpdate(setting.copyWith(tts: !setting.tts)),
+                disabled: chDisabled,
+                key: ValueKey('event-tts-$event'),
+                onToggle: () => onUpdate(setting.copyWith(tts: !setting.tts)),
               ),
-              _toggleChip(
+              _channelSwitch(
                 context,
                 label: t.t('notif.fieldPopup'),
                 on: setting.popup,
-                onTap: chDisabled
-                    ? null
-                    : () => onUpdate(setting.copyWith(popup: !setting.popup)),
+                disabled: chDisabled,
+                key: ValueKey('event-popup-$event'),
+                onToggle: () =>
+                    onUpdate(setting.copyWith(popup: !setting.popup)),
               ),
-              _toggleChip(
+              _channelSwitch(
                 context,
                 label: t.t('notif.fieldSound'),
                 on: setting.sound,
-                onTap: chDisabled
-                    ? null
-                    : () => onUpdate(setting.copyWith(sound: !setting.sound)),
+                disabled: chDisabled,
+                key: ValueKey('event-sound-$event'),
+                onToggle: () =>
+                    onUpdate(setting.copyWith(sound: !setting.sound)),
               ),
             ],
           ),
-          TextRow(
-            label: t.t('notif.fieldTemplate'),
-            hint: defaultTemplateForEvent(event),
+          const SizedBox(height: AidogSpace.ssm),
+          // 第二行：模板 textarea，placeholder = 该事件专属默认模板。
+          PlainTextField(
+            key: ValueKey('event-template-$event'),
             value: setting.template,
-            maxLines: 2,
-            onSubmitted: setting.enabled
-                ? (v) => onUpdate(setting.copyWith(template: v))
-                : null,
+            hint: defaultTemplateForEvent(event),
+            enabled: setting.enabled,
+            mono: true,
+            maxLines: null,
+            minLines: 2,
+            onSubmitted: (v) => onUpdate(setting.copyWith(template: v)),
           ),
-          Text(
-            '${t.t('notif.eventVarsHint')}: ${eventVars(event).join(' ')}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          const SizedBox(height: AidogSpace.ssm),
+          // 第三行：该事件专属可用入参提示（每事件不同）。
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                t.t('notif.eventVarsHint'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  color: theme.c.fg2,
+                ),
+              ),
+              for (final v in eventVars(event))
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.c.accentWash,
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  ),
+                  child: Text(
+                    v,
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 11,
+                      color: theme.c.accentText,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _toggleChip(
+  Widget _channelSwitch(
     BuildContext context, {
+    Key? key,
     required String label,
     required bool on,
-    required VoidCallback? onTap,
-  }) => SmallButton(label: label, active: on, onTap: onTap);
+    required bool disabled,
+    required VoidCallback onToggle,
+  }) {
+    final theme = AidogTheme.of(context);
+    return Opacity(
+      opacity: disabled ? 0.5 : 1,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: Text(
+              label,
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                color: theme.c.fg2,
+              ),
+            ),
+          ),
+          AidogSwitch(
+            key: key,
+            value: on,
+            compact: true,
+            onChanged: disabled ? null : onToggle,
+          ),
+        ],
+      ),
+    );
+  }
 }

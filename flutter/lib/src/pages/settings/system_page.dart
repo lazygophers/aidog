@@ -421,6 +421,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                           InlineRow(
                             label: t.t('proxy.proxyType'),
                             child: InlineSelect<String>(
+                              key: const ValueKey('upstream-proxy-type'),
                               // 三个协议，少一个 HTTPS 就没法接走 HTTPS 的上游代理
                               //（`ProxyStatusSection.tsx:142-144`）。
                               value: p.proxyType,
