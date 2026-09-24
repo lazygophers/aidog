@@ -2,7 +2,7 @@
 ///
 /// **这三个没有用过图表库**，React 那边自己就是 CSS grid 的 div 格子
 /// （文件头写着「零 canvas 零 Recharts」）。Flutter 这边同理：`GridView` 而不是 fl_chart。
-/// 色带复用 [ChartPalette.heat]（主色 alpha 阶梯，端点与 React 版一字不差）。
+/// 色带复用 [ChartPalette.heat]（固定琥珀 alpha 阶梯，端点与 React 版一字不差）。
 library;
 
 import 'package:flutter/material.dart';

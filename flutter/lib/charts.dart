@@ -16,7 +16,7 @@
 ///    `barIndex`，而 Stats 的序列顺序按总量动态排（`src/pages/Stats.tsx:114`）——
 ///    位置 + 动态排序 = 显示一个错的数还不报错（commit `a7e665c8` 修的就是这个）。
 ///    取行一律走 [tooltipRowAtSpot] / [tooltipRowFor]，别自己按下标查平行数组。
-/// 2. **色值只来自主题**（[ChartPalette]），一个字面量都不写。
+/// 2. **色值只来自 [ChartPalette]**：主色跟主题，辅线灰阶与热力琥珀是固定常量。
 /// 3. **卡片壳、标题、图例归 `SeriesTile`**（票 I02 的四种格子之一）。本层只出图表本体
 ///    与诚实空态（[ChartEmpty]），不造第五种格子。
 ///
