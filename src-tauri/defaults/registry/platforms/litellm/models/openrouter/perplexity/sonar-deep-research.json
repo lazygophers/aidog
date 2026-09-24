@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/perplexity/sonar-deep-research",
   "canonical_model": "sonar-deep-research",
+  "family": "sonar",
   "capabilities": [
     "text",
     "reasoning"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/gryphe/mythomax-l2-13b",
   "canonical_model": "mythomax-l2-13b",
+  "family": "mythomax",
   "capabilities": [
     "text"
   ],

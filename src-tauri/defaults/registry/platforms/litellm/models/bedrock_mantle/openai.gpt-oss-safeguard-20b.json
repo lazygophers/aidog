@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790281333,
   "model_id": "bedrock_mantle/openai.gpt-oss-safeguard-20b",
   "canonical_model": "gpt-oss-safeguard-20b",
+  "family": "gpt",
   "capabilities": [
     "text",
     "tool_use",

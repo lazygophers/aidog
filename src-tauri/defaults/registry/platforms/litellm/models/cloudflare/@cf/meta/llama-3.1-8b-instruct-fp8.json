@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/meta/llama-3.1-8b-instruct-fp8",
   "canonical_model": "llama-3.1-8b-instruct-fp8",
+  "family": "llama",
+  "version": "3.1",
   "capabilities": [
     "text"
   ],

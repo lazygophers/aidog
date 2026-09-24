@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/z-ai/glm-5.3:batch",
   "canonical_model": "glm-5.3:batch",
+  "family": "glm",
+  "version": "5.3",
   "capabilities": [
     "text",
     "tool_use",

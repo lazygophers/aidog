@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/rekaai/reka-flash-3",
   "canonical_model": "reka-flash-3",
+  "family": "reka",
+  "version": "3",
   "capabilities": [
     "text",
     "reasoning"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "deepinfra/allenai/olmOCR-7B-0725-FP8",
   "canonical_model": "olmOCR-7B-0725-FP8",
+  "family": "olmocr",
   "capabilities": [
     "text"
   ],

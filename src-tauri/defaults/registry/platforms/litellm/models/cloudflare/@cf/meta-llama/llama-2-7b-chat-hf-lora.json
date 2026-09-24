@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/meta-llama/llama-2-7b-chat-hf-lora",
   "canonical_model": "llama-2-7b-chat-hf-lora",
+  "family": "llama",
+  "version": "2",
   "capabilities": [
     "text"
   ],

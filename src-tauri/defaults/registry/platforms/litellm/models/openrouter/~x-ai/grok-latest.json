@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/~x-ai/grok-latest",
   "canonical_model": "grok-latest",
+  "family": "grok",
   "capabilities": [
     "text",
     "vision",

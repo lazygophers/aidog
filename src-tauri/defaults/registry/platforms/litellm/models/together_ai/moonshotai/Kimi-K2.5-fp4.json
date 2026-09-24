@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "together_ai/moonshotai/Kimi-K2.5-fp4",
   "canonical_model": "Kimi-K2.5-fp4",
+  "family": "kimi",
+  "version": "2.5",
   "capabilities": [
     "text"
   ],

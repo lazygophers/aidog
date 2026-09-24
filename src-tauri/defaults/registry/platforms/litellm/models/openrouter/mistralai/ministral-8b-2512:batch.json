@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "openrouter/mistralai/ministral-8b-2512:batch",
   "canonical_model": "ministral-8b-2512:batch",
+  "family": "ministral",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",
