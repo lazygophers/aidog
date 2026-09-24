@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790276888,
   "model_id": "step-1o-turbo-vision",
   "canonical_model": "step-1o-turbo-vision",
+  "family": "stepfun",
+  "version": "1o",
   "capabilities": [
     "text",
     "vision"

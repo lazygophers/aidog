@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788109208,
+  "last_updated": 1790276888,
   "model_id": "MiniMax-H3-Regeneration",
   "canonical_model": "MiniMax-H3-Regeneration",
+  "family": "minimax",
   "display_name": "MiniMax-H3-Regeneration",
   "capabilities": [
     "video_to_video"

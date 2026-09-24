@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144722,
+  "last_updated": 1790276888,
   "model_id": "step-asr-1.1",
   "canonical_model": "step-asr-1.1",
+  "family": "stepfun",
+  "version": "1.1",
   "capabilities": [
     "audio"
   ],

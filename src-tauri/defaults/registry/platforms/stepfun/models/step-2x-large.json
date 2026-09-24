@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788144722,
+  "last_updated": 1790276888,
   "model_id": "step-2x-large",
   "canonical_model": "step-2x-large",
+  "family": "stepfun",
+  "version": "2x",
   "capabilities": [
     "text_to_image"
   ],
