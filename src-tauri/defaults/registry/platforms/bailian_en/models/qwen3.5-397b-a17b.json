@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788083579,
+  "last_updated": 1790268690,
   "model_id": "qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
+  "family": "qwen",
   "display_name": "Qwen3.5-397B-A17B",
   "capabilities": [
     "text"

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790184635,
+  "last_updated": 1790268689,
   "model_id": "kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
+  "family": "kimi",
   "thinking_supported": true,
   "thinking_toggleable": false,
   "capabilities": [

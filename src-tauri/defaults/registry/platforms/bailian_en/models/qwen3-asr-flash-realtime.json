@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790268690,
   "model_id": "qwen3-asr-flash-realtime",
   "canonical_model": "qwen3-asr-flash-realtime-2025-10-27",
+  "family": "qwen",
   "capabilities": [
     "audio"
   ],
