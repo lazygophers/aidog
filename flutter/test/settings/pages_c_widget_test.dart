@@ -152,7 +152,7 @@ Future<void> tapSwitch(WidgetTester tester, String key) async {
   await tester.tap(
     find.descendant(
       of: find.byKey(ValueKey(key)),
-      matching: find.byType(Switch),
+      matching: find.byType(AidogSwitch),
     ),
   );
   await settle(tester);
@@ -1534,7 +1534,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('cc-dim-apikey')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);

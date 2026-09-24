@@ -48,6 +48,43 @@ class TileMeta extends StatelessWidget {
     final label = HighlightedText(
       text.toUpperCase(),
       style: AidogType.micro.copyWith(color: t.c.fg3),
+      // 单行省略：长 meta 挤爆宿主行（弹窗标题行的段 desc 等）时截断，
+      // 与 React 的 truncate/ellipsis 同路。
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    if (icon == null) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 13, color: t.c.fg3),
+        const SizedBox(width: 5),
+        Flexible(child: label),
+      ],
+    );
+  }
+}
+
+/// 表单字段标签：caption 字阶、正常大小写、fg-2。
+///
+/// React 的字段标签就是这个形态（formSections.tsx:199 的 12 secondary、
+/// McpModals.tsx:250、GroupEditPanel.tsx:77 的 13、editors/_shared.tsx:134 的 15），
+/// 从来不是全大写——之前全站拿 [TileMeta]（micro 11 + toUpperCase + ls 0.66）当
+/// 字段标签用，三重差（大小写 / 字号 / 色阶）。[TileMeta] 留给格子右上角的元信息。
+class FieldLabel extends StatelessWidget {
+  const FieldLabel(this.text, {super.key, this.icon});
+
+  final String text;
+
+  /// 行首图标（同 [TileMeta.icon] 的用法）。
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogTheme.of(context);
+    final label = HighlightedText(
+      text,
+      style: AidogType.caption.copyWith(color: t.c.fg2),
     );
     if (icon == null) return label;
     return Row(
@@ -80,15 +117,25 @@ class TextHighlight extends InheritedWidget {
 /// 普通 [Text]，但若祖先有 [TextHighlight] 且本段文字命中，就把命中那段
 /// 加底色标出来。没有祖先 / 没命中时与 [Text] 完全一样。
 class HighlightedText extends StatelessWidget {
-  const HighlightedText(this.text, {super.key, this.style});
+  const HighlightedText(
+    this.text, {
+    super.key,
+    this.style,
+    this.maxLines,
+    this.overflow,
+  });
 
   final String text;
   final TextStyle? style;
+  final int? maxLines;
+  final TextOverflow? overflow;
 
   @override
   Widget build(BuildContext context) {
     final q = TextHighlight.queryOf(context).trim();
-    if (q.isEmpty) return Text(text, style: style);
+    if (q.isEmpty) {
+      return Text(text, style: style, maxLines: maxLines, overflow: overflow);
+    }
     final i = text.toLowerCase().indexOf(q.toLowerCase());
     if (i < 0) return Text(text, style: style);
     final theme = AidogTheme.of(context);
@@ -107,6 +154,8 @@ class HighlightedText extends StatelessWidget {
         ],
       ),
       style: style,
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }
