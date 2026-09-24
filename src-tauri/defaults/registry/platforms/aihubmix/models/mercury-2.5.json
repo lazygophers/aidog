@@ -1,15 +1,15 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790286522,
   "model_id": "mercury-2.5",
   "canonical_model": "mercury-2.5",
 
   "version": "2.5",
   "family": "mercury",  "display_name": "Mercury 2.5",
   "context_window": 260000,
-  "max_input_tokens": 260000,
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 260000,
   "official": false,
   "price": {
     "input": 2e-07,

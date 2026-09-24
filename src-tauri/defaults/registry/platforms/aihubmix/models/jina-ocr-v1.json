@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790286522,
   "model_id": "jina-ocr-v1",
   "canonical_model": "jina-ocr-v1",
 
@@ -9,6 +9,7 @@
   "capabilities": [
     "vision"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "input": 0,

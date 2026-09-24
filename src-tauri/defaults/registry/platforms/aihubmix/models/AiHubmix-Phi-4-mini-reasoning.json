@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790286522,
   "model_id": "AiHubmix-Phi-4-mini-reasoning",
   "canonical_model": "AiHubmix-Phi-4-mini-reasoning",
 
@@ -8,6 +8,7 @@
   "max_output_tokens": 4000,
   "context_window": 128000,
   "capabilities": [],
+  "max_input_tokens": 128000,
   "official": false,
   "thinking_supported": true,
   "price": {

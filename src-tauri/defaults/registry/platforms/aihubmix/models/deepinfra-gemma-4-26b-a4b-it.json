@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790286522,
   "model_id": "deepinfra-gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "version": "4",
@@ -10,7 +10,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 262100,
   "max_output_tokens": 131100,
   "context_window": 262100,
   "official": false,

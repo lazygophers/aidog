@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790286522,
   "model_id": "grok-4.7",
   "canonical_model": "grok-4.7",
 
@@ -8,6 +8,7 @@
   "capabilities": ["text", "vision", "reasoning"],
   "context_window": 500000,
   "thinking_supported": true,
+  "max_input_tokens": 500000,
   "official": false,
   "price": {
     "input": 2.2e-06,
