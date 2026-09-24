@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790267035,
   "model_id": "paraformer-8k-v2",
   "canonical_model": "paraformer-8k-v2",
+  "family": "paraformer",
+  "version": "2",
   "capabilities": [
     "audio"
   ],

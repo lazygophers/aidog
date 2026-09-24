@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790267035,
   "model_id": "paraformer-mtl-v1",
   "canonical_model": "paraformer-mtl-v1",
+  "family": "paraformer",
+  "version": "1",
   "capabilities": [
     "audio"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790267035,
   "model_id": "qwen-omni-turbo-2025-03-26",
   "canonical_model": "qwen-omni-turbo-2025-03-26",
+  "family": "qwen",
   "capabilities": [
     "audio"
   ],
