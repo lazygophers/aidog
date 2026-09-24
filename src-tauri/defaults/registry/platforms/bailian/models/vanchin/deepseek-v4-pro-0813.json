@@ -1,7 +1,8 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790273817,
   "model_id": "vanchin/deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
+  "version": "4",
   "family": "deepseek",
   "thinking_supported": true,
   "thinking_toggleable": true,
