@@ -49,7 +49,6 @@
       "gpt-5.4",
       "gpt-5.4-pro",
       "gpt-5.5",
-      "gpt-5.5-pro",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
       "gemini-2.5-pro",
@@ -163,7 +162,20 @@
       "wan2.2-kf2v-flash",
       "wan2.2-s2v",
       "wan2.2-t2v-plus",
-      "wan2.5-t2v-preview"
+      "wan2.5-t2v-preview",
+      "gemini-3.8-flash",
+      "glm-5.3-flashx",
+      "gpt-6-luna",
+      "gpt-6-sol",
+      "gpt-image-2-t",
+      "gpt-image-2.5-flare",
+      "gpt-image-2.5-sunburst",
+      "kimi-k2.7-code",
+      "kimi-k2.7-code-highspeed",
+      "mimo-v2.5-pro",
+      "mimo-v2.6-flash",
+      "mimo-v2.6-pro",
+      "qwen3.8-flash"
     ]
   },
   "name": {
@@ -208,5 +220,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1788769178
+  "last_updated": 1790250918
 }

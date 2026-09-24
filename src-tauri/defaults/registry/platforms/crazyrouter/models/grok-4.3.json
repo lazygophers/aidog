@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790250918,
   "model_id": "grok-4.3",
   "canonical_model": "grok-4.3",
   "family": "grok",
@@ -11,7 +11,7 @@
   "context_window": 1000000,
   "official": true,
   "price": {
-    "input": 1.063e-06,
+    "input": 1.0625e-06,
     "output": 2.125e-06,
     "cache_read": 1.7e-07
   }

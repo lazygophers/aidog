@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790250918,
   "model_id": "glm-5.3-flash",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",
@@ -17,8 +17,8 @@
   "context_window": 1310720,
   "official": false,
   "price": {
-    "input": 1.19e-07,
-    "output": 4.15e-07,
-    "cache_read": 3.4e-08
+    "input": 1.185185185e-07,
+    "output": 4.148148148e-07,
+    "cache_read": 3.40740741e-08
   }
 }
