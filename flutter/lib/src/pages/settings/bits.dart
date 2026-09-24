@@ -1274,8 +1274,10 @@ class PlainTextField extends StatefulWidget {
     this.onSubmitted,
     this.hint,
     this.maxLines = 1,
+    this.minLines,
     this.enabled = true,
     this.obscure = false,
+    this.mono = false,
   });
 
   final String value;
@@ -1285,10 +1287,16 @@ class PlainTextField extends StatefulWidget {
 
   /// `null` = 自增高，不封顶。
   final int? maxLines;
+
+  /// 自增高模式的起始行数（模板框那种要直接给出足够高度）。
+  final int? minLines;
   final bool enabled;
 
   /// 遮挡显示（密码 / 令牌，React `<input type="password">` 无明文切换）。
   final bool obscure;
+
+  /// 等宽字（模板 / 命令这类内容缩进对不齐就看不出层级）。
+  final bool mono;
 
   @override
   State<PlainTextField> createState() => _PlainTextFieldState();
@@ -1336,18 +1344,21 @@ class _PlainTextFieldState extends State<PlainTextField> {
       maxLines: widget.obscure ? 1 : widget.maxLines,
       obscureText: widget.obscure,
       // 自增高那条路要给 minLines，否则首帧就按 1 行高度画完再跳。
-      minLines: widget.maxLines == 1 ? null : 1,
+      minLines: widget.obscure || widget.maxLines == 1
+          ? null
+          : widget.minLines ?? 1,
       // 单行时回车提交；多行时回车是换行，提交交给失焦（上面的 FocusNode 监听）。
       keyboardType: widget.maxLines == 1
           ? TextInputType.text
           : TextInputType.multiline,
-      style: AidogType.label.copyWith(
+      style: (widget.mono ? AidogType.numSm : AidogType.label).copyWith(
         color: widget.enabled ? theme.c.fg : theme.c.fg3,
       ),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
+        hintStyle: (widget.mono ? AidogType.numSm : AidogType.label)
+            .copyWith(color: theme.c.fg3),
       ),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,

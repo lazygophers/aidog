@@ -8,6 +8,7 @@ library;
 
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
+import 'package:aidog_flutter/src/pages/settings/bits.dart';
 import 'package:aidog_flutter/src/pages/settings/coding_tools_logic.dart'
     show kDateRewriteRuleName;
 import 'package:aidog_flutter/src/pages/settings/importexport_logic.dart'
@@ -341,8 +342,15 @@ void main() {
       );
       await settle(tester);
 
-      bool obscured(String key) =>
-          tester.widget<TextRow>(find.byKey(ValueKey(key))).obscure;
+      bool obscured(String key) => switch (key) {
+        // 批三重构后：令牌仍是 TextRow，上游密码换成了横排 PlainTextField。
+        'kernel-token' => tester.widget<TextRow>(
+            find.byKey(const ValueKey('kernel-token')),
+          ).obscure,
+        _ => tester.widget<PlainTextField>(
+            find.byKey(ValueKey(key)),
+          ).obscure,
+      };
 
       // 密文是常态。
       expect(obscured('kernel-token'), isTrue);
@@ -386,13 +394,15 @@ void main() {
       );
       await settle(tester);
 
-      final row = tester.widget<ChoiceRow>(
-        find.ancestor(
-          of: find.text(i18n.t('proxy.proxyType')),
-          matching: find.byType(ChoiceRow),
-        ),
+      final row = tester.widget<InlineSelect<String>>(
+        find.byKey(const ValueKey('upstream-proxy-type')),
       );
       expect(row.options, ['socks5', 'http', 'https']);
+      expect(
+        find.text(i18n.t('proxy.proxyType')),
+        findsOneWidget,
+        reason: '协议 label 仍在（横排行）',
+      );
       expect(
         find.text(i18n.t('proxy.dnsOverProxy')),
         findsNothing,
@@ -936,26 +946,35 @@ void main() {
     //（React 四处 `opacity: 0.55 / 0.5`，这里验通知页那两处）。
     testWidgets('通知总开关关掉 → 通道测试卡与事件列表压暗', (tester) async {
       await mount(tester, enabled: false);
-      final dimmed = tester
-          .widgetList<SettingsCard>(find.byType(SettingsCard))
-          .where((c) => c.dimmed)
-          .length;
-      expect(dimmed, 2, reason: '通道测试卡 + 事件列表');
+      // 批三重构后：两处压暗不再是 SettingsCard.dimmed，改成 React 同款
+      // Opacity 0.55 / 0.5（NotificationSettings.tsx:352 / EventList:196）。
+      final testBar = tester.widget<Opacity>(
+        find.byKey(const ValueKey('notif-test-bar-dim')),
+      );
+      final eventList = tester.widget<Opacity>(
+        find.byKey(const ValueKey('notif-event-list-dim')),
+      );
+      expect(testBar.opacity, 0.55, reason: '通道测试卡');
+      expect(eventList.opacity, 0.5, reason: '事件列表');
     });
 
     testWidgets('通知总开关开着 → 一张都不压暗', (tester) async {
       await mount(tester);
       expect(
-        tester
-            .widgetList<SettingsCard>(find.byType(SettingsCard))
-            .where((c) => c.dimmed),
-        isEmpty,
+        tester.widget<Opacity>(find.byKey(const ValueKey('notif-test-bar-dim'))).opacity,
+        1.0,
+      );
+      expect(
+        tester.widget<Opacity>(
+          find.byKey(const ValueKey('notif-event-list-dim')),
+        ).opacity,
+        1.0,
       );
     });
 
     testWidgets('总开关关掉时「默认注入 hook」点不动', (tester) async {
       await mount(tester, enabled: false);
-      final sw = tester.widget<SwitchRow>(
+      final sw = tester.widget<ToggleCard>(
         find.byKey(const ValueKey('default-hooks')),
       );
       expect(sw.onChanged, isNull);
@@ -963,7 +982,7 @@ void main() {
 
     testWidgets('总开关开着时可用，且 30 个 hook 事件都渲染出来', (tester) async {
       await mount(tester);
-      final sw = tester.widget<SwitchRow>(
+      final sw = tester.widget<ToggleCard>(
         find.byKey(const ValueKey('default-hooks')),
       );
       expect(sw.onChanged, isNotNull);
