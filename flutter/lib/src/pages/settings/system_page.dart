@@ -786,7 +786,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         AidogSwitch(
           value: value,
           compact: true,
-          onChanged: onChanged == null ? null : () => onChanged!(!value),
+          onChanged: () => onChanged(!value),
         ),
       ],
     ),

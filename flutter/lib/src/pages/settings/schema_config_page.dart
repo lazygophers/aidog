@@ -115,6 +115,36 @@ class SchemaSection {
       .toList();
 }
 
+
+/// 各 schema 节的标题图标（React `SectionIcon name=<section.id>`，icons.tsx）。
+/// Flutter 侧用 Material 图标近似同一语义；认不出的节不给图标。
+const Map<String, IconData> kSectionIcons = {
+  'core': Icons.settings_outlined,
+  'behavior': Icons.psychology_outlined,
+  'ui': Icons.desktop_windows_outlined,
+  'permissions': Icons.shield_outlined,
+  'env': Icons.public,
+  'hooks': Icons.link,
+  'mcp': Icons.extension_outlined,
+  'remote': Icons.settings_remote_outlined,
+  'plugins': Icons.local_offer_outlined,
+  'sandbox': Icons.inventory_2_outlined,
+  'status': Icons.bar_chart,
+  'worktree': Icons.account_tree_outlined,
+  'attribution': Icons.edit,
+  'network': Icons.lan_outlined,
+  'memory': Icons.memory,
+  'advanced': Icons.tune,
+  'reasoning': Icons.psychology_outlined,
+  'approval': Icons.fact_check_outlined,
+  'providers': Icons.dns_outlined,
+  'tui': Icons.terminal,
+  'search': Icons.search,
+  'features': Icons.star_outline,
+  'shell': Icons.terminal,
+  'diagnostics': Icons.monitor_heart_outlined,
+};
+
 /// 一份 schema + 它的推荐配置。
 class SchemaBundle {
   const SchemaBundle({
@@ -420,8 +450,8 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (isClaude)
-            SizedBox(
-              width: 200,
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 180, maxWidth: 360),
               child: TextField(
                 key: const ValueKey('settings-search'),
                 controller: _searchCtrl,
@@ -552,7 +582,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
                 key: const ValueKey('page-json-editor'),
                 label: t.t('settings.editInJson'),
                 text: c.editJson,
-                height: 420,
+                // React 的整页 JSON 编辑器 `fill` 撑满剩余视口
+                //（`Settings.tsx:483-488`），不是固定 420。
+                height: MediaQuery.sizeOf(context).height - 320,
                 onSubmitted: c.setEditJson,
               ),
             ],
@@ -619,6 +651,19 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     );
   }
 
+
+  /// schema 节卡：大节标题（20px w600 + 20px 图标，React `Settings.tsx:527-531`）。
+  Widget _sectionCard(
+    I18nController t,
+    SchemaSection s, {
+    required List<Widget> children,
+  }) => SettingsCard(
+    title: t.t(s.labelKey),
+    icon: kSectionIcons[s.id],
+    emphasized: true,
+    children: children,
+  );
+
   Widget _section(
     I18nController t,
     SchemaConfigController c,
@@ -630,8 +675,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     // hooks 区在 schema 里标了 skipGui（通用行渲染器画不了树），但 React 侧
     // 给它配了专用构建器（HooksSectionInline）—— 这里同样走专用编辑器。
     if (widget.kind == SchemaConfigKind.claude && s.id == 'hooks') {
-      return SettingsCard(
-        title: t.t(s.labelKey),
+      return _sectionCard(
+        t,
+        s,
         children: [
           HooksEditor(
             hooks: c.config['hooks'] is Map
@@ -652,8 +698,9 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
                 '${e.key}': '${e.value}',
             }
           : <String, String>{};
-      return SettingsCard(
-        title: t.t(s.labelKey),
+      return _sectionCard(
+        t,
+        s,
         children: [
           EnvEditor(
             env: env,
@@ -665,16 +712,18 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     }
     // 插件区：五个字段在 schema 里全是 skipGui，React 侧整节换成 PluginsSectionInline。
     if (widget.kind == SchemaConfigKind.claude && s.id == 'plugins') {
-      return SettingsCard(
-        title: t.t(s.labelKey),
+      return _sectionCard(
+        t,
+        s,
         children: [PluginsEditor(config: c.config, updateField: c.updateField)],
       );
     }
     // 沙箱区同理：schema 里是一个 skipGui 的 json 字段，React 侧整节换成
     // SandboxSectionInline（文件系统 / 网络 / 安全策略 / 排除命令四块）。
     if (widget.kind == SchemaConfigKind.claude && s.id == 'sandbox') {
-      return SettingsCard(
-        title: t.t(s.labelKey),
+      return _sectionCard(
+        t,
+        s,
         children: [
           SandboxEditor(
             sandbox: c.config['sandbox'] is Map
@@ -732,30 +781,50 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         Padding(
           key: const ValueKey('field-attribution'),
           padding: const EdgeInsets.only(top: AidogSpace.smd),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TileMeta(tOr(t, 'settings.f_attribution', 'Attribution')),
-              TextRow(
-                key: const ValueKey('field-attribution-commit'),
-                label: t.t('settings.attribution.commit'),
-                value: '${attr['commit'] ?? ''}',
-                onSubmitted: (v) => setAttr('commit', v),
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border(
+                top: BorderSide(color: AidogTheme.of(context).c.line),
               ),
-              TextRow(
-                key: const ValueKey('field-attribution-pr'),
-                label: t.t('settings.attribution.pr'),
-                value: '${attr['pr'] ?? ''}',
-                onSubmitted: (v) => setAttr('pr', v),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.only(top: AidogSpace.slg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FieldShell(
+                    fieldKey: 'attribution',
+                    label: tOr(t, 'settings.f_attribution', 'Attribution'),
+                    child: const SizedBox.shrink(),
+                  ),
+                  FieldShell(
+                    key: const ValueKey('field-attribution-commit'),
+                    label: t.t('settings.attribution.commit'),
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    child: PlainTextField(
+                      value: '${attr['commit'] ?? ''}',
+                      onSubmitted: (v) => setAttr('commit', v),
+                    ),
+                  ),
+                  FieldShell(
+                    key: const ValueKey('field-attribution-pr'),
+                    label: t.t('settings.attribution.pr'),
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    child: PlainTextField(
+                      value: '${attr['pr'] ?? ''}',
+                      onSubmitted: (v) => setAttr('pr', v),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       );
     }
     if (rows.isEmpty) return const SizedBox.shrink();
-    return SettingsCard(title: t.t(s.labelKey), children: rows);
+    return _sectionCard(t, s, children: rows);
   }
 
   /// R10：字段当前值与推荐默认值不同 → 显示重置徽标。深比较不认键序
@@ -779,6 +848,51 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     return a == b;
   }
 
+  /// R10 重置 pill：标签行内（React `_shared.tsx:144-160`：r999、10px、
+  /// 1px accent 边 + 5px 圆点），不再是内容下方的右对齐按钮。
+  Widget _resetPill(I18nController t, Object? defaultValue, String key) {
+    final theme = AidogTheme.of(context);
+    return Tooltip(
+      message: t.t('settings.resetToDefault'),
+      child: GestureDetector(
+        key: ValueKey('field-reset-$key'),
+        onTap: () {
+          setState(() => _fieldErrors.remove(key));
+          _c?.updateField(key, defaultValue);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.c.accent),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 5,
+                height: 5,
+                decoration: BoxDecoration(
+                  color: theme.c.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 3),
+              Text(
+                t.t('settings.reset'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.accentText,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _field(I18nController t, SchemaConfigController c, SchemaField f) {
     final value = c.config[f.key];
     // 权限矩阵：React 侧是专用可视化编辑器（PermissionsSectionInline），
@@ -795,28 +909,30 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     final hasDefault = recommended.containsKey(f.key);
     final defaultValue = hasDefault ? recommended[f.key] : null;
     final nonDefault = hasDefault && !_stableEq(value, defaultValue);
-    final content = _fieldContent(t, c, f, value);
-    if (!nonDefault) return content;
-    return Column(
-      key: ValueKey('field-wrap-${f.key}'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        content,
-        Align(
-          alignment: AlignmentDirectional.centerEnd,
-          child: Tooltip(
-            message: t.t('settings.resetToDefault'),
-            child: SmallButton(
-              key: ValueKey('field-reset-${f.key}'),
-              label: t.t('settings.reset'),
-              onTap: () => c.updateField(f.key, defaultValue),
-            ),
-          ),
-        ),
-      ],
+    final label = tOr(t, 'settings.f_${f.key}', f.label);
+    // fileSuggestion 的 description 来自 statusline 域的 i18n（React 在
+    // StatusLineSection.tsx 就地构造字段对象时换掉 schema 静态串）。
+    final description = f.key == 'fileSuggestion'
+        ? tOr(t, 'statusline.fileSuggestionDesc', f.description ?? '')
+        : f.description;
+    return FieldShell(
+      key: ValueKey('field-${f.key}'),
+      label: label,
+      fieldKey: f.key,
+      description: description,
+      reset: nonDefault ? _resetPill(t, defaultValue, f.key) : null,
+      crossAxisAlignment: _tallControl(f) || _fieldErrors[f.key] != null
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
+      child: _fieldContent(t, c, f, value),
     );
   }
+
+  /// 控件会不会长到多行（kv / 清单 / json / object）——决定右列顶对齐还是居中。
+  static bool _tallControl(SchemaField f) => switch (f.type) {
+    'string[]' || 'kv' || 'kv-select' || 'object' => true,
+    _ => f.pathType != null,
+  };
 
   /// kv / kv-select 的值：只认「对象」，数组和标量当没配过。
   /// 对应 React 的 `typeof value === "object" && !Array.isArray(value)`
@@ -831,19 +947,10 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     SchemaField f,
     Object? value,
   ) {
-    final label = tOr(t, 'settings.f_${f.key}', f.label);
     // 带 pathType 的字段走带补全的路径输入（React `FieldRenderer.tsx:174`）。
     if (f.pathType != null) {
-      // fileSuggestion 在 React 侧是 StatusLineSection.tsx 就地构造的字段对象，
-      // description 直接来自 t("statusline.fileSuggestionDesc", ...) 而不是 schema.ts
-      // 里的静态字符串（schema.json 里那份是同一句中文的字面量副本，非 8 语言联动）。
-      final description = f.key == 'fileSuggestion'
-          ? tOr(t, 'statusline.fileSuggestionDesc', f.description ?? '')
-          : f.description;
       return PathInputRow(
-        key: ValueKey('field-${f.key}'),
-        label: label,
-        description: description,
+        label: null,
         hint: f.placeholder,
         value: value == null ? null : '$value',
         pathType: f.pathType!,
@@ -853,23 +960,23 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     }
     switch (f.type) {
       case 'boolean':
-        return SwitchRow(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          value: value == true,
-          onChanged: (v) => c.updateField(f.key, v),
+        // React：开关贴右缘（`FieldRenderer.tsx:64-71` 的 justify-end）。
+        return Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: AidogSwitch(
+            value: value == true,
+            compact: true,
+            onChanged: () => c.updateField(f.key, !(value == true)),
+          ),
         );
       case 'select':
-        return SelectRow(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
+        return InlineSelect<String>(
           // 首项「—」= 不设置（`FieldRenderer.tsx:87` 的 `__none__` 哨兵）。
           // 没有它的话，设过一次就清不回默认，只能去改整段 JSON。
           options: ['', ...f.options],
           labelOf: (o) => o.isEmpty ? '—' : o,
           value: value == null ? '' : '$value',
+          width: null,
           onChanged: (v) => c.updateField(f.key, (v ?? '').isEmpty ? null : v),
         );
       case 'string':
@@ -877,85 +984,54 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
         //（`FieldRenderer.tsx:194-202`），纯手打认不出有哪些合法值。
         // 复用模型矩阵那颗单元格（聚焦即弹候选 + 拼音过滤），不另造一个。
         if (f.options.isNotEmpty) {
-          return FieldShell(
-            key: ValueKey('field-${f.key}'),
-            label: label,
-            description: f.description,
-            child: ModelCell(
-              value: value == null ? '' : '$value',
-              candidates: f.options,
-              hint: f.placeholder ?? '',
-              pickTooltip: t.t('platform.selectModel'),
-              // 与 React 同口径：边打边写回（`onChange` 每次按键都调）。
-              onChanged: (v) =>
-                  c.updateField(f.key, v.trim().isEmpty ? null : v.trim()),
-            ),
+          return ModelCell(
+            value: value == null ? '' : '$value',
+            candidates: f.options,
+            hint: f.placeholder ?? '',
+            pickTooltip: t.t('platform.selectModel'),
+            // 与 React 同口径：边打边写回（`onChange` 每次按键都调）。
+            onChanged: (v) =>
+                c.updateField(f.key, v.trim().isEmpty ? null : v.trim()),
           );
         }
-        return TextRow(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          hint: f.placeholder,
+        return PlainTextField(
           value: value == null ? '' : '$value',
+          hint: f.placeholder,
           onSubmitted: (v) => c.updateField(f.key, v.trim()),
         );
       case 'string[]':
-        return FieldShell(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          child: StringListEditor(
-            idPrefix: 'field-${f.key}',
-            items: value is List ? value.map((e) => '$e').toList() : const [],
-            addLabel: f.placeholder ?? t.t('settings.addRule'),
-            onChanged: (list) => c.updateField(f.key, list),
-          ),
+        return StringListEditor(
+          idPrefix: 'field-${f.key}',
+          items: value is List ? value.map((e) => '$e').toList() : const [],
+          addLabel: f.placeholder ?? t.t('settings.addRule'),
+          onChanged: (list) => c.updateField(f.key, list),
         );
       case 'kv':
-        return FieldShell(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          child: KvEditor(
-            idPrefix: 'field-${f.key}',
-            items: _asStringMap(value),
-            keyPlaceholder: f.keyPlaceholder ?? 'KEY',
-            onChanged: (kv) => c.updateField(f.key, kv),
-          ),
+        return KvEditor(
+          idPrefix: 'field-${f.key}',
+          items: _asStringMap(value),
+          keyPlaceholder: f.keyPlaceholder ?? 'KEY',
+          onChanged: (kv) => c.updateField(f.key, kv),
         );
       case 'kv-select':
-        return FieldShell(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          child: KvSelectEditor(
-            idPrefix: 'field-${f.key}',
-            items: _asStringMap(value),
-            valueOptions: f.valueOptions,
-            keyPlaceholder: f.keyPlaceholder ?? 'KEY',
-            onChanged: (kv) => c.updateField(f.key, kv),
-          ),
+        return KvSelectEditor(
+          idPrefix: 'field-${f.key}',
+          items: _asStringMap(value),
+          valueOptions: f.valueOptions,
+          keyPlaceholder: f.keyPlaceholder ?? 'KEY',
+          onChanged: (kv) => c.updateField(f.key, kv),
         );
       case 'object':
-        return FieldShell(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
-          child: ObjectEditor(
-            idPrefix: 'field-${f.key}',
-            value: value is Map ? Map<String, Object?>.from(value) : const {},
-            fields: f.objectFields,
-            addLabel: t.t('settings.addRule'),
-            onChanged: (v) => c.updateField(f.key, v),
-          ),
+        return ObjectEditor(
+          idPrefix: 'field-${f.key}',
+          value: value is Map ? Map<String, Object?>.from(value) : const {},
+          fields: f.objectFields,
+          addLabel: t.t('settings.addRule'),
+          onChanged: (v) => c.updateField(f.key, v),
         );
       default:
         // 剩下的 json 类型走 JSON 编辑框。权限矩阵、hooks 构建器另有专用编辑器。
         return JsonField(
-          key: ValueKey('field-${f.key}'),
-          label: label,
-          description: f.description,
           value: value,
           error: _fieldErrors[f.key],
           onSubmitted: (text) {

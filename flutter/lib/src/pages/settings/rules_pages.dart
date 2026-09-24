@@ -23,7 +23,6 @@ import '../../shell/nav_guard.dart';
 import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
 import '../invoke.dart';
-import '../platform_card_bits.dart' show MiniBadge;
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'middleware_dsl.dart';

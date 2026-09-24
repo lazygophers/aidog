@@ -1094,7 +1094,6 @@ void main() {
           },
         ],
       );
-      final i18n = await makeI18n(tester);
       await tester.tap(find.byKey(const ValueKey('rule-del-3')));
       await settle(tester);
       expect(find.byType(ConfirmCard), findsOneWidget);

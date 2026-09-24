@@ -74,7 +74,7 @@ class _PathKeyIntent extends Intent {
 class PathInputRow extends StatefulWidget {
   const PathInputRow({
     super.key,
-    required this.label,
+    this.label,
     required this.value,
     required this.onChanged,
     required this.pathType,
@@ -85,7 +85,8 @@ class PathInputRow extends StatefulWidget {
     this.showPicker = true,
   });
 
-  final String label;
+  /// null = 不画标签列（字段行外壳已带标签时）。
+  final String? label;
   final String? description;
   final String? hint;
   final String? value;
@@ -244,12 +245,17 @@ class _PathInputRowState extends State<PathInputRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          TileMeta(widget.label),
-          if (widget.description != null && widget.description!.isNotEmpty)
-            Text(
-              widget.description!,
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
+          if (widget.label != null) ...[
+            FieldLabel(widget.label!),
+            if (widget.description != null && widget.description!.isNotEmpty)
+              Text(
+                widget.description!,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
+                ),
+              ),
+          ],
           Row(
             children: [
               Expanded(child: _field(t, theme)),

@@ -553,36 +553,93 @@ class ObjectEditor extends StatelessWidget {
   }
 }
 
-/// 带标签 + 说明的一行外壳，把上面四个编辑器摆成和其余设置行一样的样子。
+/// 带标签列的字段行外壳：**左右分栏**（React `FieldLabel`，editors/_shared.tsx:117-171）——
+/// 左列固定 200（S.labelW）：label 15 w500 + 重置 pill + key mono 13 + desc 13；
+/// 右列是控件本体（flex 1）。原先「标签在上 + 控件全宽在下」的纵向堆叠是
+/// settings 域最大的结构差（审计 batch3 #1）。
 class FieldShell extends StatelessWidget {
   const FieldShell({
     super.key,
     required this.label,
+    this.fieldKey,
     required this.child,
     this.description,
+    this.reset,
+    this.crossAxisAlignment = CrossAxisAlignment.start,
   });
 
   final String label;
+
+  /// schema 键名（左列第二行的 mono 小字）。
+  final String? fieldKey;
   final String? description;
+
+  /// 行内重置 pill（值 ≠ 推荐默认时才有，`_shared.tsx:144-160`）。
+  final Widget? reset;
   final Widget child;
+
+  /// 长控件（kv / 清单 / json）顶对齐，短控件（开关 / 下拉）居中。
+  final CrossAxisAlignment crossAxisAlignment;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.only(bottom: AidogSpace.slg),
+      child: Row(
+        crossAxisAlignment: crossAxisAlignment,
         children: [
-          TileMeta(label),
-          if (description != null && description!.isNotEmpty)
-            Text(
-              description!,
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
+          SizedBox(
+            width: 200,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      HighlightedText(
+                        label,
+                        style: AidogType.body.copyWith(
+                          fontWeight: FontWeight.w500,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                      ?reset,
+                    ],
+                  ),
+                  if (fieldKey != null && fieldKey!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        ltr(fieldKey!),
+                        style: AidogType.numSm.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                    ),
+                  if (description != null && description!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 3),
+                      child: Text(
+                        description!,
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
-          const SizedBox(height: 4),
-          child,
+          ),
+          const SizedBox(width: 12),
+          Expanded(child: child),
         ],
       ),
     );
