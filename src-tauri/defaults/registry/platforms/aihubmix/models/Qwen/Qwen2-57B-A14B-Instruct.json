@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "Qwen/Qwen2-57B-A14B-Instruct",
   "canonical_model": "qwen2-57b-a14b-instruct",
-  "display_name": "Qwen2 57B A14B Instruct",
+
+  "version": "2",
+  "family": "qwen",  "display_name": "Qwen2 57B A14B Instruct",
   "capabilities": [],
   "official": false,
   "price": {

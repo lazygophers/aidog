@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "lfm-2.5-2.6b-free",
   "canonical_model": "lfm-2.5-2.6b-free",
-  "display_name": "Lfm 2.5 2.6b (free)",
+
+  "version": "2.5",
+  "family": "lfm",  "display_name": "Lfm 2.5 2.6b (free)",
   "context_window": 131072,
   "capabilities": [],
   "official": false,

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "Qwen2-VL-72B-Instruct",
   "canonical_model": "qwen2-vl-72b-instruct",
-  "display_name": "Qwen2 VL 72B Instruct",
+
+  "version": "2",
+  "family": "qwen",  "display_name": "Qwen2 VL 72B Instruct",
   "capabilities": [
     "vision",
     "video"

@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "qwen3-0.6b",
   "canonical_model": "qwen3-0.6b",
-  "display_name": "Qwen3 0.6b",
+
+  "version": "3",
+  "family": "qwen",  "display_name": "Qwen3 0.6b",
   "capabilities": [],
   "official": false,
   "price": {

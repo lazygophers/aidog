@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "THUDM/GLM-4-32B-0414",
   "canonical_model": "glm-4-32b-0414",
-  "display_name": "GLM 4 32B 0414",
+
+  "version": "4",
+  "family": "glm",  "display_name": "GLM 4 32B 0414",
   "capabilities": [],
   "official": false,
   "price": {

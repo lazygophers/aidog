@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "bai-qwen3-vl-235b-a22b-instruct",
   "canonical_model": "bai-qwen3-vl-235b-a22b-instruct",
-  "display_name": "Bai Qwen3 VL 235B A22B Instruct",
+
+  "version": "3",
+  "family": "qwen",  "display_name": "Bai Qwen3 VL 235B A22B Instruct",
   "capabilities": [],
   "official": false,
   "price": {

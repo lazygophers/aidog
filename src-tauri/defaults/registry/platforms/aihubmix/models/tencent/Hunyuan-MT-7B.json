@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "tencent/Hunyuan-MT-7B",
   "canonical_model": "hunyuan-mt-7b",
-  "display_name": "Hunyuan Mt 7B",
+
+  "family": "hunyuan",  "display_name": "Hunyuan Mt 7B",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790268690,
+  "last_updated": 1790279972,
   "model_id": "qwen-image-3.0",
   "canonical_model": "qwen-image-3.0",
   "family": "qwen",
-  "capabilities": [
+
+  "version": "3.0",  "capabilities": [
     "text_to_image",
     "image_to_image"
   ],

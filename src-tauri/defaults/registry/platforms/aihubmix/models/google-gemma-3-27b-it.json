@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "google-gemma-3-27b-it",
   "canonical_model": "google-gemma-3-27b-it",
-  "display_name": "Google Gemma 3 27B It",
+
+  "version": "3",
+  "family": "gemma",  "display_name": "Google Gemma 3 27B It",
   "capabilities": [],
   "official": false,
   "price": {

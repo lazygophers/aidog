@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "V3",
   "canonical_model": "v3",
-  "display_name": "V3",
+
+  "version": "3",
+  "family": "vidu",  "display_name": "V3",
   "capabilities": [
     "vision",
     "text_to_image",

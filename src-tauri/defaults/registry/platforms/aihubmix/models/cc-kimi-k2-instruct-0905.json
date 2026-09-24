@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "cc-kimi-k2-instruct-0905",
   "canonical_model": "cc-kimi-k2-instruct-0905",
-  "display_name": "CC Kimi K2 Instruct 0905",
+
+  "version": "2",
+  "family": "kimi",  "display_name": "CC Kimi K2 Instruct 0905",
   "capabilities": [],
   "official": false,
   "price": {

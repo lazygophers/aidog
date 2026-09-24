@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "claude-3-sonnet-20240229",
   "canonical_model": "claude-3-sonnet-20240229",
-  "display_name": "Claude 3 Sonnet 20240229",
+
+  "version": "3",
+  "family": "claude",  "display_name": "Claude 3 Sonnet 20240229",
   "capabilities": [],
   "official": false,
   "price": {

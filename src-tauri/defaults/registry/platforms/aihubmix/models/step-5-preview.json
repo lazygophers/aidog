@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "step-5-preview",
   "canonical_model": "step-5-preview",
-  "display_name": "Step 5 Preview",
+
+  "version": "5",
+  "family": "stepfun",  "display_name": "Step 5 Preview",
   "capabilities": ["text", "vision", "reasoning"],
   "context_window": 1000000,
   "max_output_tokens": 64000,

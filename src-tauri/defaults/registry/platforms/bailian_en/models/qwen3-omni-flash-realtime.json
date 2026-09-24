@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790268690,
+  "last_updated": 1790279972,
   "model_id": "qwen3-omni-flash-realtime",
   "canonical_model": "qwen3-omni-flash-realtime-2025-12-01",
   "family": "qwen",
-  "capabilities": [
+
+  "version": "3",  "capabilities": [
     "audio"
   ],
   "official": false,

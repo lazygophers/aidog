@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "mercury-2.5-preview",
   "canonical_model": "mercury-2.5-preview",
-  "display_name": "Mercury 2.5 Preview",
+
+  "version": "2.5",
+  "family": "mercury",  "display_name": "Mercury 2.5 Preview",
   "max_output_tokens": 65536,
   "context_window": 260000,
   "capabilities": [

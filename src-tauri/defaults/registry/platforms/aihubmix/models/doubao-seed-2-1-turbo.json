@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "doubao-seed-2-1-turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
-  "display_name": "Doubao Seed 2.1 Turbo",
+
+  "version": "2.1",
+  "family": "doubao-seed",  "display_name": "Doubao Seed 2.1 Turbo",
   "thinking_supported": true,
   "max_output_tokens": 256000,
   "context_window": 256000,

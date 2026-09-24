@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "agents-a1-free",
   "canonical_model": "agents-a1-free",
-  "display_name": "Agents A1 (free)",
+
+  "version": "1",
+  "family": "agents",  "display_name": "Agents A1 (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

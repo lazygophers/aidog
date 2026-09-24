@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223339,
+  "last_updated": 1790279972,
   "model_id": "Pro/THUDM/GLM-4.1V-9B-Thinking",
   "canonical_model": "thudm/glm-4.1v-9b-thinking",
-  "display_name": "Thudm/glm 4.1 Vision 9B Thinking",
+
+  "version": "4.1",
+  "family": "glm",  "display_name": "Thudm/glm 4.1 Vision 9B Thinking",
   "capabilities": [],
   "official": false,
   "price": {

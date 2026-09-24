@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790279972,
   "model_id": "deepseek-v4.1-flash",
   "canonical_model": "deepseek-v4.1-flash",
   "display_name": "DeepSeek V4.1 Flash",
   "family": "deepseek",
-  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+
+  "version": "4.1",  "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "context_window": 1000000,
   "max_output_tokens": 384000,
   "thinking_supported": true,

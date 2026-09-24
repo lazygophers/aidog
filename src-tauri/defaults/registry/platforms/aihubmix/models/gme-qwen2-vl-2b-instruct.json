@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "gme-qwen2-vl-2b-instruct",
   "canonical_model": "gme-qwen2-vl-2b-instruct",
-  "display_name": "Gme Qwen2 VL 2B Instruct",
+
+  "family": "gme",  "display_name": "Gme Qwen2 VL 2B Instruct",
   "capabilities": [
     "vision",
     "video",

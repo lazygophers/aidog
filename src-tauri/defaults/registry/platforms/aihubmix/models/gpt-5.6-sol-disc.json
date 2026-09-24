@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790279972,
   "model_id": "gpt-5.6-sol-disc",
   "canonical_model": "gpt-5.6-sol-disc",
-  "display_name": "GPT 5.6 Sol Disc",
+
+  "version": "5.6",
+  "family": "gpt",  "display_name": "GPT 5.6 Sol Disc",
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "context_window": 1050000,

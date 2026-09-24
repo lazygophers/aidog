@@ -1,8 +1,10 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790279972,
   "model_id": "meta-llama-3-8b",
   "canonical_model": "meta-llama-3-8b",
-  "display_name": "Meta Llama 3 8B",
+
+  "version": "3.8",
+  "family": "llama",  "display_name": "Meta Llama 3 8B",
   "capabilities": [],
   "official": false,
   "price": {
