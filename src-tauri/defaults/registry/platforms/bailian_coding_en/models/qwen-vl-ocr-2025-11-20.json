@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788187322,
+  "last_updated": 1790284433,
   "model_id": "qwen-vl-ocr-2025-11-20",
   "canonical_model": "qwen-vl-ocr-2025-11-20",
+  "family": "qwen",
   "capabilities": [
     "vision"
   ],
