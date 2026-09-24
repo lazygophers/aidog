@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "meta/muse-spark-1.3-contributor",
   "canonical_model": "muse-spark-1.3-contributor",
   "family": "muse-spark",

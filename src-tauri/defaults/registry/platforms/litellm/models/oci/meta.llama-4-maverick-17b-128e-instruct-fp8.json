@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790281333,
   "model_id": "oci/meta.llama-4-maverick-17b-128e-instruct-fp8",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-fp8",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text",
     "vision",

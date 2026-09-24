@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/qwen/qwen3.8-max-0902",
   "canonical_model": "qwen3.8-max-0902",
   "family": "qwen",

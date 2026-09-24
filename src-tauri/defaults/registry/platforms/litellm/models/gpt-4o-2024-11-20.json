@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "gpt-4o-2024-11-20",
   "canonical_model": "gpt-4o-2024-11-20",
+  "family": "gpt",
+  "version": "4o",
   "capabilities": [
     "text",
     "vision",

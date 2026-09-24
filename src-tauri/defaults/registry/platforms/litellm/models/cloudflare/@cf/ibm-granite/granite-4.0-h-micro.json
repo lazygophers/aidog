@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "cloudflare/@cf/ibm-granite/granite-4.0-h-micro",
   "canonical_model": "granite-4.0-h-micro",
   "family": "granite",

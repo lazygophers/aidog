@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "together_ai/Qwen/Qwen2.5-7B-Instruct-Turbo",
   "canonical_model": "Qwen2.5-7B-Instruct-Turbo",
+  "family": "qwen",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use"

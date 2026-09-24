@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text",
     "tool_use"

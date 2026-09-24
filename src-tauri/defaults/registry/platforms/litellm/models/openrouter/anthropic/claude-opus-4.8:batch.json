@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/anthropic/claude-opus-4.8:batch",
   "canonical_model": "claude-opus-4.8:batch",
   "family": "claude",

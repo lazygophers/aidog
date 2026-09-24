@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/nex-agi/nex-n2.5-mini",
   "canonical_model": "nex-n2.5-mini",
   "family": "nex",

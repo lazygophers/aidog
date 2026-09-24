@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it",
   "canonical_model": "gemma-sea-lion-v4-27b-it",
+  "family": "sea-lion",
+  "version": "4",
   "capabilities": [
     "text"
   ],

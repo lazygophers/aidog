@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "deepinfra/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
   "canonical_model": "Mistral-Small-3.2-24B-Instruct-2506",
+  "family": "mistral",
+  "version": "3.2",
   "capabilities": [
     "text",
     "tool_use"

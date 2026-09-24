@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "cloudflare/@cf/google/gemma-7b-it-lora",
   "canonical_model": "gemma-7b-it-lora",
+  "family": "gemma",
   "capabilities": [
     "text"
   ],

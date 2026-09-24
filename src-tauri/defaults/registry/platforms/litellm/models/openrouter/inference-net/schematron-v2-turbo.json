@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "openrouter/inference-net/schematron-v2-turbo",
   "canonical_model": "schematron-v2-turbo",
   "family": "schematron",

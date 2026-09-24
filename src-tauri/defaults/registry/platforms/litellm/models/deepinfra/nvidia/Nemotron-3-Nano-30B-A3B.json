@@ -1,5 +1,9 @@
 {
+<<<<<<< HEAD
   "last_updated": 1790280349,
+=======
+  "last_updated": 1790281333,
+>>>>>>> registry/litellm-longtail
   "model_id": "deepinfra/nvidia/Nemotron-3-Nano-30B-A3B",
   "canonical_model": "nemotron-3-nano-30b-a3b",
   "family": "nemotron",

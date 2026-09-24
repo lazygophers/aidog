@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790281333,
   "model_id": "xai/grok-4.20-multi-agent-latest",
   "canonical_model": "grok-4.20-multi-agent",
+  "family": "grok",
+  "version": "4.20",
   "capabilities": [
     "text",
     "vision",

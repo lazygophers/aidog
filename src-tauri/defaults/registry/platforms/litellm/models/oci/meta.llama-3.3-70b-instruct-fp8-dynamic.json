@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790281333,
   "model_id": "oci/meta.llama-3.3-70b-instruct-fp8-dynamic",
   "canonical_model": "meta.llama-3.3-70b-instruct-fp8-dynamic",
+  "family": "llama",
+  "version": "3.3",
   "capabilities": [
     "text",
     "tool_use"

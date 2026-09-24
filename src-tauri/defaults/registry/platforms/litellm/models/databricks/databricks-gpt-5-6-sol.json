@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790281333,
   "model_id": "databricks/databricks-gpt-5-6-sol",
-  "canonical_model": "databricks-gpt-5-6-sol",
+  "canonical_model": "gpt-5.6-sol",
+  "family": "gpt",
+  "version": "5.6",
   "capabilities": [
     "text",
     "vision",
