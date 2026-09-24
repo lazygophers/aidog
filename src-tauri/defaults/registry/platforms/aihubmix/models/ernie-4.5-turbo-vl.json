@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "ernie-4.5-turbo-vl",
   "canonical_model": "ernie-4.5-turbo-vl",
   "display_name": "ERNIE 4.5 Turbo VL",
@@ -8,7 +8,7 @@
     "text",
     "vision"
   ],
-  "max_input_tokens": 125952,
+  "max_input_tokens": 139000,
   "max_output_tokens": 16000,
   "context_window": 139000,
   "official": false,

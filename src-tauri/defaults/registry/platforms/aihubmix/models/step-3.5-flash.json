@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "step-3.5-flash",
   "canonical_model": "step-3.5-flash",
   "display_name": "Step 3.5 Flash",
@@ -7,7 +7,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 262144,
+  "max_input_tokens": 256000,
   "max_output_tokens": 16384,
   "context_window": 256000,
   "official": false,

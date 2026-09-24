@@ -1,12 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "llama-4-scout",
   "canonical_model": "llama-4-scout",
   "display_name": "Llama 4 Scout",
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 10000000,
+  "max_input_tokens": 131072,
   "max_output_tokens": 131000,
   "context_window": 131072,
   "official": false,

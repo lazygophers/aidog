@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790286522,
   "model_id": "deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
@@ -10,7 +10,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 1048576,
+  "max_input_tokens": 1000000,
   "max_output_tokens": 384000,
   "context_window": 1000000,
   "official": false,

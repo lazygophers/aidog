@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "ernie-4.5-turbo-latest",
   "canonical_model": "ernie-4.5-turbo-latest",
   "display_name": "ERNIE 4.5 Turbo",
   "max_output_tokens": 12000,
   "context_window": 135000,
   "capabilities": [],
+  "max_input_tokens": 135000,
   "official": false,
   "price": {
     "input": 1.1e-7,

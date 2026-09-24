@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "jina-reranker-v3.5",
   "canonical_model": "jina-reranker-v3.5",
   "display_name": "Jina Reranker V3.5",
@@ -7,6 +7,7 @@
   "capabilities": [
     "rerank"
   ],
+  "max_input_tokens": 131072,
   "official": false,
   "price": {
     "input": 5e-08,

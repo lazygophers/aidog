@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "cc-glm-5.1",
   "canonical_model": "glm-5.1",
   "display_name": "CC GLM 5.1",
@@ -12,7 +12,7 @@
     "tool_use",
     "reasoning"
   ],
-  "max_input_tokens": 204800,
+  "max_input_tokens": 200000,
   "max_output_tokens": 131072,
   "context_window": 200000,
   "official": false,

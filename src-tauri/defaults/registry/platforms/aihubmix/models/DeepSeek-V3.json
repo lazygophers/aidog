@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790286522,
   "model_id": "DeepSeek-V3",
   "canonical_model": "DeepSeek-V3",
   "display_name": "DeepSeek V3",
@@ -7,7 +7,7 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 65536,
+  "max_input_tokens": 163840,
   "max_output_tokens": 8192,
   "context_window": 163840,
   "official": false,

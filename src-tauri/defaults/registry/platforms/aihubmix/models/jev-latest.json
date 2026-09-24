@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "jev-latest",
   "canonical_model": "jev-latest",
   "display_name": "Jev",
@@ -7,6 +7,7 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 64000,
   "official": false,
   "price": {
     "input": 4.62e-08,

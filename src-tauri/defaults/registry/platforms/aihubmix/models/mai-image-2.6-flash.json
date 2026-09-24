@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "mai-image-2.6-flash",
   "canonical_model": "mai-image-2.6-flash",
   "display_name": "Mai Image 2.6 Flash",
@@ -10,6 +10,7 @@
     "text_to_image",
     "image_edit"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "unit": "image",

@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "mimo-v2-flash-free",
   "canonical_model": "mimo-v2-flash-free",
   "display_name": "MiMo V2 Flash (free)",
   "max_output_tokens": 65536,
   "context_window": 256000,
   "capabilities": [],
+  "max_input_tokens": 256000,
   "official": false,
   "price": {
     "input": 0.0

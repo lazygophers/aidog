@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "auto",
   "canonical_model": "auto",
   "display_name": "Auto",
@@ -13,6 +13,7 @@
     "reasoning",
     "text_to_image"
   ],
+  "max_input_tokens": 1000000,
   "official": false,
   "price": {
     "input": 2e-06

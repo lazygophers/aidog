@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "qianfan-ocr-fast",
   "canonical_model": "ocr-fast",
   "display_name": "Qianfan Ocr Fast",
@@ -8,6 +8,7 @@
   "capabilities": [
     "vision"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "price": {
     "input": 6.64e-07,

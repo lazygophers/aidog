@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "ernie-5.0",
   "canonical_model": "ernie-5.0",
   "display_name": "ERNIE 5.0",
@@ -9,7 +9,7 @@
     "text",
     "vision"
   ],
-  "max_input_tokens": 121856,
+  "max_input_tokens": 119000,
   "max_output_tokens": 65536,
   "context_window": 119000,
   "official": false,

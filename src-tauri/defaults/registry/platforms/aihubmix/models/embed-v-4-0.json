@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "embed-v-4-0",
   "canonical_model": "embed-v-4-0",
   "display_name": "Embed V 4.0",
@@ -8,6 +8,7 @@
     "vision",
     "embedding"
   ],
+  "max_input_tokens": 128000,
   "official": false,
   "price": {
     "input": 1.2e-07,

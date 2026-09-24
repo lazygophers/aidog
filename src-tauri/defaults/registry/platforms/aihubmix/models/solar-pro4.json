@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790286522,
   "model_id": "solar-pro4",
   "canonical_model": "solar-pro4",
   "display_name": "Solar Pro4",
@@ -7,6 +7,7 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 524288,
   "official": false,
   "price": {
     "input": 3e-07,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790286522,
   "model_id": "grok-4-1-fast-non-reasoning",
   "canonical_model": "grok-4.1-fast-non-reasoning",
   "display_name": "Grok 4.1 Fast",
@@ -7,6 +7,7 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
