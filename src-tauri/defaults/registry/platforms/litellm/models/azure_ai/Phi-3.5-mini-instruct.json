@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790248000,
   "model_id": "azure_ai/Phi-3.5-mini-instruct",
-  "canonical_model": "Phi-3.5-mini-instruct",
+  "canonical_model": "phi-3.5-mini-instruct",
   "capabilities": [
     "text"
   ],

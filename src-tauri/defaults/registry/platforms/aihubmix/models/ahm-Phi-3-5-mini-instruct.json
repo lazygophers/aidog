@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790248000,
   "model_id": "ahm-Phi-3-5-mini-instruct",
-  "canonical_model": "phi-3-5-mini-instruct",
+  "canonical_model": "phi-3.5-mini-instruct",
   "display_name": "Ahm Phi 3.5 Mini Instruct",
   "capabilities": [],
   "official": false,
