@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "qwen/qwen-2.5-72b-instruct",
   "canonical_model": "qwen-2.5-72b-instruct",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use"],
   "official": false,
   "price": {
     "input": 3.8e-07,
-    "output": 4.0000000000000003e-07
+    "output": 4.0000000000000003e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 32000,
   "context_window": 32000,

@@ -1,16 +1,15 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "moonshotai/kimi-k2-instruct",
   "canonical_model": "kimi-k2-instruct",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use"],
   "official": true,
   "price": {
     "input": 5.699999999999999e-07,
-    "output": 2.3e-06
+    "output": 2.3e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 131072,
   "context_window": 131072,
-  "max_output_tokens": 100352
+  "max_output_tokens": 98304
 }

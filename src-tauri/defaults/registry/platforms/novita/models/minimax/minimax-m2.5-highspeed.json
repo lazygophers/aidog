@@ -1,10 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790262613,
   "model_id": "minimax/minimax-m2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 6e-07,

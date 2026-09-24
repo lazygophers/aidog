@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "google/gemma-3-27b-it",
   "canonical_model": "gemma-3-27b-it",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision"],
   "official": true,
   "price": {
     "input": 1.19e-07,
-    "output": 2.0000000000000002e-07
+    "output": 2.0000000000000002e-07,
+    "cache_read": 0
   },
   "max_input_tokens": 98304,
   "context_window": 98304,

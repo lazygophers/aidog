@@ -1,10 +1,8 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790262613,
   "model_id": "minimax/minimax-m2",
   "canonical_model": "MiniMax-M2",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": false,
   "price": {
     "input": 3e-07,

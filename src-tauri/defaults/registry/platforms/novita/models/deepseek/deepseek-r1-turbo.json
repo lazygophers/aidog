@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "deepseek/deepseek-r1-turbo",
   "canonical_model": "deepseek-r1-turbo",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {
     "input": 7e-07,
-    "output": 2.5e-06
+    "output": 2.5e-06,
+    "cache_read": 0
   },
   "max_input_tokens": 64000,
   "context_window": 64000,

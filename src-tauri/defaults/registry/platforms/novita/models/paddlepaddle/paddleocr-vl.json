@@ -1,14 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790262613,
   "model_id": "paddlepaddle/paddleocr-vl",
   "canonical_model": "paddleocr-vl",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text", "vision"],
   "official": true,
   "price": {
     "input": 2e-08,
-    "output": 2e-08
+    "output": 2e-08,
+    "cache_read": 0
   },
   "max_input_tokens": 16384,
   "context_window": 16384,
