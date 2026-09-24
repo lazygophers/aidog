@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "cc-MiniMax-M2",
   "canonical_model": "MiniMax-M2",
+  "family": "minimax",
+  "version": "2",
   "display_name": "CC MiniMax M2",
   "capabilities": [
     "text"

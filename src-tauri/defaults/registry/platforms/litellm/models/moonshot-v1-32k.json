@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790185833,
+  "last_updated": 1790277180,
   "model_id": "moonshot-v1-32k",
   "canonical_model": "moonshot-v1-32k",
+  "family": "moonshot",
+  "version": "1",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790277180,
   "model_id": "cogview-3-flash",
   "canonical_model": "cogview-3-flash",
+  "family": "cogview",
+  "version": "3",
   "capabilities": [
     "text_to_image"
   ],

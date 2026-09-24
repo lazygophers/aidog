@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790277180,
   "model_id": "cc-glm-5-turbo",
   "canonical_model": "glm-5-turbo",
+  "family": "glm",
+  "version": "5",
   "display_name": "CC GLM 5 Turbo",
   "thinking_supported": true,
   "capabilities": [
