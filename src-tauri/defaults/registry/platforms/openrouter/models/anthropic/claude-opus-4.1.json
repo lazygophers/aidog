@@ -1,7 +1,7 @@
 {
   "model_id": "anthropic/claude-opus-4.1",
   "display_name": "Anthropic: Claude Opus 4.1",
-  "canonical_model": "claude-opus-4.1",
+  "canonical_model": "claude-opus-4-1",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 0.000075,
     "cache_read": 0.0000015
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]

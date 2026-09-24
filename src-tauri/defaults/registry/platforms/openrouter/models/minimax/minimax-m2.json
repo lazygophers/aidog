@@ -1,7 +1,7 @@
 {
   "model_id": "minimax/minimax-m2",
   "display_name": "MiniMax: MiniMax M2",
-  "canonical_model": "minimax-m2",
+  "canonical_model": "MiniMax-M2",
   "max_input_tokens": 204800,
   "context_window": 204800,
   "official": true,
@@ -10,7 +10,7 @@
     "input": 2.55e-7,
     "output": 0.00000102
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text"
   ]

@@ -1,7 +1,7 @@
 {
   "model_id": "meituan/longcat-2.0",
   "display_name": "Meituan: LongCat 2.0",
-  "canonical_model": "longcat-2.0",
+  "canonical_model": "LongCat-2.0",
   "max_input_tokens": 1048756,
   "context_window": 1048756,
   "official": true,
@@ -11,7 +11,7 @@
     "output": 0.0000012,
     "cache_read": 6e-9
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790245754,
   "capabilities": [
     "text",
     "tool_use",
