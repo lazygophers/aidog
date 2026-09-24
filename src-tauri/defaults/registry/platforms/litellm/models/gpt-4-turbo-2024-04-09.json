@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790272826,
   "model_id": "gpt-4-turbo-2024-04-09",
   "canonical_model": "gpt-4-turbo-2024-04-09",
+  "family": "gpt",
+  "version": "4",
   "capabilities": [
     "text",
     "vision",
