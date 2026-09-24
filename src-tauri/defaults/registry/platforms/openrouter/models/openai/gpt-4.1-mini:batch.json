@@ -1,0 +1,14 @@
+{
+  "model_id": "openai/gpt-4.1-mini:batch",
+  "display_name": "OpenAI: GPT-4.1 Mini (batch)",
+  "context_window": 1047576,
+  "official": true,
+  "price": {
+    "input": 2e-7,
+    "output": 8e-7,
+    "cache_read": 5e-8
+  },
+  "canonical_model": "openai/gpt-4.1-mini-2025-04-14",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

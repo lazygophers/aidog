@@ -1,0 +1,14 @@
+{
+  "model_id": "inclusionai/ling-3.0-flash-fin",
+  "display_name": "inclusionAI: Ling 3.0 Flash Fin",
+  "context_window": 262144,
+  "official": false,
+  "price": {
+    "input": 6e-8,
+    "output": 1.8e-7,
+    "cache_read": 1.2e-8
+  },
+  "canonical_model": "inclusionai/ling-3.0-flash-fin-20260827",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

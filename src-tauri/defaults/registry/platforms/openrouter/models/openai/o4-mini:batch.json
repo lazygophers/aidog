@@ -1,0 +1,14 @@
+{
+  "model_id": "openai/o4-mini:batch",
+  "display_name": "OpenAI: o4 Mini (batch)",
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 5.5e-7,
+    "output": 0.0000022,
+    "cache_read": 1.375e-7
+  },
+  "canonical_model": "openai/o4-mini-2025-04-16",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

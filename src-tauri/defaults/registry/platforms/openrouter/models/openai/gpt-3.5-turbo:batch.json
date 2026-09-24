@@ -1,0 +1,13 @@
+{
+  "model_id": "openai/gpt-3.5-turbo:batch",
+  "display_name": "OpenAI: GPT-3.5 Turbo (batch)",
+  "context_window": 16385,
+  "official": true,
+  "price": {
+    "input": 2.5e-7,
+    "output": 7.5e-7
+  },
+  "canonical_model": "gpt-3.5-turbo",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

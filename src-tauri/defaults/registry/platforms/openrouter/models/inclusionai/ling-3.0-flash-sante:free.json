@@ -1,0 +1,12 @@
+{
+  "model_id": "inclusionai/ling-3.0-flash-sante:free",
+  "display_name": "inclusionAI: Ling 3.0 Flash Sante (free)",
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 1e-8
+  },
+  "canonical_model": "inclusionai/ling-3.0-flash-sante-20260904",
+  "last_updated": 1790232770,
+  "capabilities": []
+}

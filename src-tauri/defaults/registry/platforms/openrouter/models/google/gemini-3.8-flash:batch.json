@@ -1,0 +1,15 @@
+{
+  "model_id": "google/gemini-3.8-flash:batch",
+  "display_name": "Google: Gemini 3.8 Flash (batch)",
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 3.75e-7,
+    "output": 0.000001875,
+    "cache_read": 3.75e-8,
+    "cache_write": 4.16666666666667e-8
+  },
+  "canonical_model": "google/gemini-3.8-flash-20260902",
+  "last_updated": 1790232770,
+  "capabilities": []
+}
