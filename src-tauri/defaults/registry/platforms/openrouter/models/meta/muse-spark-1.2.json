@@ -2,6 +2,8 @@
   "model_id": "meta/muse-spark-1.2",
   "display_name": "Meta: Muse Spark 1.2",
   "canonical_model": "muse-spark-1.2",
+  "family": "muse",
+  "version": "1.2",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.00000425,
     "cache_read": 1.5e-7
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text",
     "vision",

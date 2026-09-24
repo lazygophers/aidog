@@ -2,6 +2,7 @@
   "model_id": "openai/gpt-oss-120b",
   "display_name": "OpenAI: gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
+  "family": "gpt",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -12,7 +13,7 @@
     "output": 6e-7,
     "cache_read": 7.5e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

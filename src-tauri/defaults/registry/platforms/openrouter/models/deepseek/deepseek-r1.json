@@ -2,6 +2,7 @@
   "model_id": "deepseek/deepseek-r1",
   "display_name": "DeepSeek: R1",
   "canonical_model": "DeepSeek-R1",
+  "family": "deepseek",
   "max_input_tokens": 64000,
   "context_window": 64000,
   "official": true,
@@ -10,7 +11,7 @@
     "input": 7e-7,
     "output": 0.0000025
   },
-  "last_updated": 1790245754,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

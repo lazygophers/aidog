@@ -2,6 +2,8 @@
   "model_id": "deepseek/deepseek-v4-pro",
   "display_name": "DeepSeek: DeepSeek V4 Pro 0423",
   "canonical_model": "deepseek-v4-pro",
+  "family": "deepseek",
+  "version": "4",
   "max_input_tokens": 1024000,
   "context_window": 1048576,
   "official": true,
@@ -12,7 +14,7 @@
     "output": 0.000001902864,
     "cache_read": 7.9286e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text"
   ]

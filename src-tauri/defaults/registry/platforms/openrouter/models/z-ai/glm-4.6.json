@@ -2,6 +2,8 @@
   "model_id": "z-ai/glm-4.6",
   "display_name": "Z.ai: GLM 4.6",
   "canonical_model": "glm-4.6",
+  "family": "glm",
+  "version": "4.6",
   "max_input_tokens": 198000,
   "context_window": 204800,
   "official": true,
@@ -11,7 +13,7 @@
     "output": 0.00000175,
     "cache_read": 8e-8
   },
-  "last_updated": 1790242626,
+  "last_updated": 1790268677,
   "capabilities": [
     "text",
     "tool_use",
