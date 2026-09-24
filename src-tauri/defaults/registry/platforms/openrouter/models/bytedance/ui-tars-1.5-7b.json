@@ -1,7 +1,7 @@
 {
   "model_id": "bytedance/ui-tars-1.5-7b",
   "display_name": "ByteDance: UI-TARS 7B ",
-  "canonical_model": "bytedance/ui-tars-1.5-7b",
+  "canonical_model": "ui-tars-1.5-7b",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 2e-7,
     "cache_read": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

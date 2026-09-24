@@ -1,7 +1,7 @@
 {
   "model_id": "z-ai/glm-5.2:free",
   "display_name": "Z.ai: GLM 5.2 (free)",
-  "canonical_model": "z-ai/glm-5.2-20260616",
+  "canonical_model": "glm-5.2:free",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,5 +11,10 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

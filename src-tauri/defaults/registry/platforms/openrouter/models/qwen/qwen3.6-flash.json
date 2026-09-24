@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3.6-flash",
   "display_name": "Qwen: Qwen3.6 Flash",
-  "canonical_model": "qwen/qwen3.6-flash",
+  "canonical_model": "qwen3.6-flash",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 1.875e-7,
     "output": 0.000001125
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "moonshotai/kimi-k2.7-code",
   "display_name": "MoonshotAI: Kimi K2.7 Code",
-  "canonical_model": "moonshotai/kimi-k2.7-code-20260612",
+  "canonical_model": "kimi-k2.7-code",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.0000033,
     "cache_read": 1.8e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

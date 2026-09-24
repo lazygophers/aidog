@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3-coder",
   "display_name": "Qwen: Qwen3 Coder 480B A35B",
-  "canonical_model": "qwen/qwen3-coder-480b-a35b-07-25",
+  "canonical_model": "qwen3-coder",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.000001,
     "cache_read": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

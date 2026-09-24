@@ -1,7 +1,7 @@
 {
   "model_id": "openai/o3-mini-high",
   "display_name": "OpenAI: o3 Mini High",
-  "canonical_model": "openai/o3-mini-high-2025-01-31",
+  "canonical_model": "o3-mini-high",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 0.0000044,
     "cache_read": 5.5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

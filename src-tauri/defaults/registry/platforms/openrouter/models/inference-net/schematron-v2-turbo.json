@@ -1,7 +1,7 @@
 {
   "model_id": "inference-net/schematron-v2-turbo",
   "display_name": "Inference.net: Schematron V2 Turbo",
-  "canonical_model": "inference-net/schematron-v2-turbo-20260902",
+  "canonical_model": "schematron-v2-turbo",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 1.5e-7,
     "cache_read": 3e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

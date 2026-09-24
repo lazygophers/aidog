@@ -1,7 +1,7 @@
 {
   "model_id": "upstage/solar-mini4",
   "display_name": "Upstage: Solar Mini 4",
-  "canonical_model": "upstage/solar-mini4-20260922",
+  "canonical_model": "solar-mini4",
   "max_input_tokens": 524288,
   "context_window": 524288,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 2e-7,
     "cache_read": 5e-9
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

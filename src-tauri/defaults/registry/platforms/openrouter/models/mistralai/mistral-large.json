@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/mistral-large",
   "display_name": "Mistral Large",
-  "canonical_model": "mistralai/mistral-large",
+  "canonical_model": "mistral-large",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.000006,
     "cache_read": 2e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

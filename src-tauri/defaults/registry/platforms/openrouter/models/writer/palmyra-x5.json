@@ -1,7 +1,7 @@
 {
   "model_id": "writer/palmyra-x5",
   "display_name": "Writer: Palmyra X5",
-  "canonical_model": "writer/palmyra-x5-20250428",
+  "canonical_model": "palmyra-x5",
   "max_input_tokens": 1040000,
   "context_window": 1040000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 6e-7,
     "output": 0.000006
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

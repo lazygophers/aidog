@@ -1,7 +1,7 @@
 {
   "model_id": "aion-labs/aion-3.5-mini",
   "display_name": "AionLabs: Aion 3.5 Mini",
-  "canonical_model": "aion-labs/aion-3.5-mini-20260923",
+  "canonical_model": "aion-3.5-mini",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 0.0000014,
     "cache_read": 1.8e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

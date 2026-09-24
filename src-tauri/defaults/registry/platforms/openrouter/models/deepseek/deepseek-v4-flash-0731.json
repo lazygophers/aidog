@@ -1,7 +1,7 @@
 {
   "model_id": "deepseek/deepseek-v4-flash-0731",
   "display_name": "DeepSeek: DeepSeek V4 Flash 0731",
-  "canonical_model": "deepseek/deepseek-v4-flash-20260731",
+  "canonical_model": "deepseek-v4-flash-0731",
   "max_input_tokens": 1048576,
   "context_window": 1310720,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 6.4e-7,
     "cache_read": 1.6e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "nex-agi/nex-n2.5-pro:free",
   "display_name": "Nex AGI: Nex-N2.5-Pro (free)",
-  "canonical_model": "nex-agi/nex-n2.5-pro-20260907",
+  "canonical_model": "nex-n2.5-pro:free",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,11 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

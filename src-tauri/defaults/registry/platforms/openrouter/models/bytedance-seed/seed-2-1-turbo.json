@@ -1,7 +1,7 @@
 {
   "model_id": "bytedance-seed/seed-2-1-turbo",
   "display_name": "ByteDance Seed: Seed 2.1 Turbo",
-  "canonical_model": "bytedance-seed/seed-2-1-turbo-20260810",
+  "canonical_model": "seed-2-1-turbo",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -10,5 +10,11 @@
     "input": 5e-7,
     "output": 0.0000025
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

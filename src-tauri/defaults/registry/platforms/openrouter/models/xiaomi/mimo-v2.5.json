@@ -1,7 +1,7 @@
 {
   "model_id": "xiaomi/mimo-v2.5",
   "display_name": "Xiaomi: MiMo-V2.5",
-  "canonical_model": "xiaomi/mimo-v2.5-20260422",
+  "canonical_model": "mimo-v2.5",
   "max_input_tokens": 1048576,
   "context_window": 1050000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 2.8e-7,
     "cache_read": 2.8e-9
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

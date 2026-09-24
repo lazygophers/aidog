@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-6-sol-pro:batch",
   "display_name": "OpenAI: GPT-6 Sol Pro (batch)",
-  "canonical_model": "openai/gpt-6-sol-pro-20260922",
+  "canonical_model": "gpt-6-sol-pro:batch",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 0.000005,
     "cache_read": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

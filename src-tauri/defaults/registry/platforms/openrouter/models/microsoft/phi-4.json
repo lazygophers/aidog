@@ -1,7 +1,7 @@
 {
   "model_id": "microsoft/phi-4",
   "display_name": "Microsoft: Phi 4",
-  "canonical_model": "microsoft/phi-4",
+  "canonical_model": "phi-4",
   "max_input_tokens": 16384,
   "context_window": 16384,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 7e-8,
     "output": 1.4e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

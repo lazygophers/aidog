@@ -1,7 +1,7 @@
 {
   "model_id": "qwen/qwen3-vl-235b-a22b-instruct",
   "display_name": "Qwen: Qwen3 VL 235B A22B Instruct",
-  "canonical_model": "qwen/qwen3-vl-235b-a22b-instruct",
+  "canonical_model": "qwen3-vl-235b-a22b-instruct",
   "max_input_tokens": 131072,
   "context_window": 262144,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.0000019,
     "cache_read": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

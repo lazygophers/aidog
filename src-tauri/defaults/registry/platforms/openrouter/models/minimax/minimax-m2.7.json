@@ -1,7 +1,7 @@
 {
   "model_id": "minimax/minimax-m2.7",
   "display_name": "MiniMax: MiniMax M2.7",
-  "canonical_model": "minimax/minimax-m2.7-20260318",
+  "canonical_model": "minimax-m2.7",
   "max_input_tokens": 204800,
   "context_window": 204800,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.0000012,
     "cache_read": 6e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

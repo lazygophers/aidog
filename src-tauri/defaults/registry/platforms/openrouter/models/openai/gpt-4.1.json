@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-4.1",
   "display_name": "OpenAI: GPT-4.1",
-  "canonical_model": "openai/gpt-4.1-2025-04-14",
+  "canonical_model": "gpt-4.1",
   "max_input_tokens": 1047576,
   "context_window": 1047576,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.000008,
     "cache_read": 5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

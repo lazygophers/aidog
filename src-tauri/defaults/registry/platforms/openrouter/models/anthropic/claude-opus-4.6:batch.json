@@ -1,7 +1,7 @@
 {
   "model_id": "anthropic/claude-opus-4.6:batch",
   "display_name": "Anthropic: Claude Opus 4.6 (batch)",
-  "canonical_model": "anthropic/claude-4.6-opus-20260205",
+  "canonical_model": "claude-opus-4.6:batch",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 0.0000125,
     "cache_read": 2.5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

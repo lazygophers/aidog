@@ -1,7 +1,7 @@
 {
   "model_id": "openai/gpt-6-astra",
   "display_name": "OpenAI: GPT-6 Astra",
-  "canonical_model": "openai/gpt-6-astra-20260903",
+  "canonical_model": "gpt-6-astra",
   "max_input_tokens": 1050000,
   "context_window": 1050000,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 0.00005,
     "cache_read": 0.000001
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ]
 }

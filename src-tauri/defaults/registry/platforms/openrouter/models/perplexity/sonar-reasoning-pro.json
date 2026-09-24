@@ -1,7 +1,7 @@
 {
   "model_id": "perplexity/sonar-reasoning-pro",
   "display_name": "Perplexity: Sonar Reasoning Pro",
-  "canonical_model": "perplexity/sonar-reasoning-pro",
+  "canonical_model": "sonar-reasoning-pro",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 0.000002,
     "output": 0.000008
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

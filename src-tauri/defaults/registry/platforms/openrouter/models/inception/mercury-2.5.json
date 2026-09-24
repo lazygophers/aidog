@@ -1,7 +1,7 @@
 {
   "model_id": "inception/mercury-2.5",
   "display_name": "Inception: Mercury 2.5",
-  "canonical_model": "inception/mercury-2.5-20260908",
+  "canonical_model": "mercury-2.5",
   "max_input_tokens": 260000,
   "context_window": 260000,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 1.5e-7,
     "cache_read": 4e-9
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

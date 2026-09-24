@@ -1,7 +1,7 @@
 {
   "model_id": "~z-ai/glm-flash-latest",
   "display_name": "Z.ai: GLM Flash Latest",
-  "canonical_model": "~z-ai/glm-flash-latest",
+  "canonical_model": "glm-flash-latest",
   "max_input_tokens": 1048576,
   "context_window": 1310720,
   "official": true,
@@ -12,5 +12,12 @@
     "output": 2.5e-7,
     "cache_read": 1.5e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ]
 }

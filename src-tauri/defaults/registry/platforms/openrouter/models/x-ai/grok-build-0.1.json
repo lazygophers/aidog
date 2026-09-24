@@ -1,7 +1,7 @@
 {
   "model_id": "x-ai/grok-build-0.1",
   "display_name": "SpaceXAI: Grok Build 0.1",
-  "canonical_model": "x-ai/grok-build-0.1-20260520",
+  "canonical_model": "grok-build-0.1",
   "max_input_tokens": 256000,
   "context_window": 256000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.000002,
     "cache_read": 2e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

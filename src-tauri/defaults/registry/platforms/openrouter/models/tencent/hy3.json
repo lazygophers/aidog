@@ -1,7 +1,7 @@
 {
   "model_id": "tencent/hy3",
   "display_name": "Tencent: Hy3",
-  "canonical_model": "tencent/hy3-20260706",
+  "canonical_model": "hy3",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,5 +12,10 @@
     "output": 3.3e-7,
     "cache_read": 2.0625e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

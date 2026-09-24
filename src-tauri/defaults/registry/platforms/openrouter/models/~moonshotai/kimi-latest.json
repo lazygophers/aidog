@@ -1,7 +1,7 @@
 {
   "model_id": "~moonshotai/kimi-latest",
   "display_name": "MoonshotAI: Kimi Latest",
-  "canonical_model": "~moonshotai/kimi-latest",
+  "canonical_model": "kimi-latest",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 0.000010758,
     "cache_read": 3e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

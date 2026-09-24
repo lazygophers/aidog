@@ -1,7 +1,7 @@
 {
   "model_id": "meta/muse-spark-1.3-contributor",
   "display_name": "Meta: Muse Spark 1.3 Contributor",
-  "canonical_model": "meta/muse-spark-1.3-contributor-20260902",
+  "canonical_model": "muse-spark-1.3-contributor",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 2e-7,
     "cache_read": 2e-9
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

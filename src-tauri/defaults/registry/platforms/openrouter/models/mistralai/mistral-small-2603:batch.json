@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/mistral-small-2603:batch",
   "display_name": "Mistral: Mistral Small 4 (batch)",
-  "canonical_model": "mistralai/mistral-small-2603",
+  "canonical_model": "mistral-small-2603:batch",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 3e-7,
     "cache_read": 7.5e-9
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

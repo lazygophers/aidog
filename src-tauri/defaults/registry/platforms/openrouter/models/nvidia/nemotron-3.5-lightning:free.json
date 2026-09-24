@@ -1,7 +1,7 @@
 {
   "model_id": "nvidia/nemotron-3.5-lightning:free",
   "display_name": "NVIDIA: Nemotron 3.5 Lightning (free)",
-  "canonical_model": "nvidia/nemotron-3.5-lightning-20260807",
+  "canonical_model": "nemotron-3.5-lightning:free",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -10,5 +10,10 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ]
 }

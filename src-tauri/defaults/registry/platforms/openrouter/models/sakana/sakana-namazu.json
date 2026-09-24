@@ -1,7 +1,7 @@
 {
   "model_id": "sakana/sakana-namazu",
   "display_name": "Sakana: Sakana Namazu",
-  "canonical_model": "sakana/namazu-20260811",
+  "canonical_model": "sakana-namazu",
   "max_input_tokens": 262144,
   "context_window": 262144,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 0.000004,
     "cache_read": 1.5e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

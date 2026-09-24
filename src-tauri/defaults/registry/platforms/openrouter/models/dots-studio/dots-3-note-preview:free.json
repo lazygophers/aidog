@@ -1,7 +1,7 @@
 {
   "model_id": "dots-studio/dots-3-note-preview:free",
   "display_name": "Dots Studio: Dots3-Note Preview (free)",
-  "canonical_model": "dots-studio/dots-3-note-preview-20260813",
+  "canonical_model": "dots-3-note-preview:free",
   "max_input_tokens": 512000,
   "context_window": 512000,
   "official": true,
@@ -10,5 +10,11 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

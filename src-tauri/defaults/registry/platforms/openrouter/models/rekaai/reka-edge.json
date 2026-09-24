@@ -1,7 +1,7 @@
 {
   "model_id": "rekaai/reka-edge",
   "display_name": "Reka Edge",
-  "canonical_model": "rekaai/reka-edge-2603",
+  "canonical_model": "reka-edge",
   "max_input_tokens": 16384,
   "context_window": 16384,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 1e-7,
     "output": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

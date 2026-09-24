@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/mistral-saba",
   "display_name": "Mistral: Saba",
-  "canonical_model": "mistralai/mistral-saba-2502",
+  "canonical_model": "mistral-saba",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 6e-7,
     "cache_read": 2e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

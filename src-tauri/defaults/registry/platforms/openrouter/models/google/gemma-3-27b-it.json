@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemma-3-27b-it",
   "display_name": "Google: Gemma 3 27B",
-  "canonical_model": "google/gemma-3-27b-it",
+  "canonical_model": "gemma-3-27b-it",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 4.5e-7,
     "cache_read": 4e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

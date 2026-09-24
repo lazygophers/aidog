@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/mistral-small-24b-instruct-2501",
   "display_name": "Mistral: Mistral Small 3",
-  "canonical_model": "mistralai/mistral-small-24b-instruct-2501",
+  "canonical_model": "mistral-small-24b-instruct-2501",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 5e-8,
     "output": 8e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

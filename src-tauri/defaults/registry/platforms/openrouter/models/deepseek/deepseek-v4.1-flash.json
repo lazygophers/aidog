@@ -1,7 +1,7 @@
 {
   "model_id": "deepseek/deepseek-v4.1-flash",
   "display_name": "DeepSeek: DeepSeek V4.1 Flash",
-  "canonical_model": "deepseek/deepseek-v4.1-flash-20260910",
+  "canonical_model": "deepseek-v4.1-flash",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 5e-7,
     "cache_read": 1e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

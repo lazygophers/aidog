@@ -1,7 +1,7 @@
 {
   "model_id": "aion-labs/aion-rp-llama-3.1-8b",
   "display_name": "AionLabs: Aion-RP 1.0 (8B)",
-  "canonical_model": "aion-labs/aion-rp-llama-3.1-8b",
+  "canonical_model": "aion-rp-llama-3.1-8b",
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 8e-7,
     "output": 0.0000016
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

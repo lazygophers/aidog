@@ -1,7 +1,7 @@
 {
   "model_id": "nousresearch/hermes-4-405b",
   "display_name": "Nous: Hermes 4 405B",
-  "canonical_model": "nousresearch/hermes-4-405b",
+  "canonical_model": "hermes-4-405b",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 0.000001,
     "output": 0.000003
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

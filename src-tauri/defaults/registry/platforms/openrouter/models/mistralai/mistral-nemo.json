@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/mistral-nemo",
   "display_name": "Mistral: Mistral Nemo",
-  "canonical_model": "mistralai/mistral-nemo",
+  "canonical_model": "mistral-nemo",
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 1.9e-8,
     "output": 3e-8
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

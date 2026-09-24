@@ -1,7 +1,7 @@
 {
   "model_id": "anthropic/claude-sonnet-5",
   "display_name": "Anthropic: Claude Sonnet 5",
-  "canonical_model": "anthropic/claude-sonnet-5-20260630",
+  "canonical_model": "claude-sonnet-5",
   "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": true,
@@ -12,5 +12,11 @@
     "output": 0.00001,
     "cache_read": 2e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "x-ai/grok-4.20-multi-agent",
   "display_name": "SpaceXAI: Grok 4.20 Multi-Agent",
-  "canonical_model": "x-ai/grok-4.20-multi-agent-20260309",
+  "canonical_model": "grok-4.20-multi-agent",
   "max_input_tokens": 2000000,
   "context_window": 2000000,
   "official": true,
@@ -12,5 +12,8 @@
     "output": 0.0000025,
     "cache_read": 2e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

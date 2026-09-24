@@ -1,7 +1,7 @@
 {
   "model_id": "cohere/command-r-08-2024",
   "display_name": "Cohere: Command R (08-2024)",
-  "canonical_model": "cohere/command-r-08-2024",
+  "canonical_model": "command-r-08-2024",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,5 +10,8 @@
     "input": 1.5e-7,
     "output": 6e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "nvidia/nemotron-3.5-content-safety:free",
   "display_name": "NVIDIA: Nemotron 3.5 Content Safety (free)",
-  "canonical_model": "nvidia/nemotron-3.5-content-safety-20260604",
+  "canonical_model": "nemotron-3.5-content-safety:free",
   "max_input_tokens": 128000,
   "context_window": 128000,
   "official": true,
@@ -10,5 +10,10 @@
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ]
 }

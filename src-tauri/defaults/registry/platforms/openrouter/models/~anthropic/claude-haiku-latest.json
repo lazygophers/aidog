@@ -1,7 +1,7 @@
 {
   "model_id": "~anthropic/claude-haiku-latest",
   "display_name": "Anthropic: Claude Haiku Latest",
-  "canonical_model": "~anthropic/claude-haiku-latest",
+  "canonical_model": "claude-haiku-latest",
   "max_input_tokens": 200000,
   "context_window": 200000,
   "official": true,
@@ -11,5 +11,8 @@
     "output": 0.000005,
     "cache_read": 1e-7
   },
-  "last_updated": 1790237684
+  "last_updated": 1790242626,
+  "capabilities": [
+    "text"
+  ]
 }
