@@ -342,7 +342,7 @@ void main() {
       await settle(tester);
       expect(find.text('fs'), findsOneWidget);
       expect(find.text('npx -y'), findsOneWidget);
-      expect(find.text('stdio'), findsWidgets);
+      expect(find.text('STDIO'), findsWidgets);
     });
 
     testWidgets('空列表给空态', (tester) async {
@@ -508,7 +508,7 @@ void main() {
       await settle(tester);
       // 一条两行：名字 + 传输徽标 + 来源 agent 徽标，第二行是它跑什么。
       expect(find.text('a'), findsOneWidget);
-      expect(find.text('stdio'), findsWidgets);
+      expect(find.text('STDIO'), findsWidgets);
       expect(find.text(c.t('mcp.agent.claude-code')), findsWidgets);
       expect(find.text('npx'), findsOneWidget);
       await tester.tap(find.text(c.t('mcp.import', {'count': 1})));
@@ -1128,7 +1128,7 @@ void main() {
       await tester.pumpWidget(wrapPage(ModelInfoPage(invoke: k.invoke), c));
       await settle(tester);
       expect(findStripped(find, '24h'), findsNothing);
-      await tester.tap(find.byType(Switch).first);
+      await tester.tap(find.byType(AidogSwitch).first);
       await settle(tester);
       expect(findStripped(find, '24h'), findsOneWidget);
       expect(k.countOf('price_sync_settings_set'), 1);

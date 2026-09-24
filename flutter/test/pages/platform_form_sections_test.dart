@@ -919,7 +919,7 @@ void main() {
     testWidgets('创建态有「创建默认分组」开关，可关', (tester) async {
       await bootWithGroups(tester);
       expect(find.text(t.t('platform.groupAssignAuto')), findsOneWidget);
-      await tester.tap(find.byType(Switch).first);
+      await tester.tap(find.byType(AidogSwitch).first);
       await settle(tester);
       expect(f.autoGroup, isFalse);
     });
@@ -953,7 +953,7 @@ void main() {
     testWidgets('开关 → 填日期 → 清空 → 关开关', (tester) async {
       await boot(tester);
       expect(fieldWithHint('YYYY-MM-DDTHH:MM'), findsNothing);
-      await tester.tap(find.byType(Switch).last);
+      await tester.tap(find.byType(AidogSwitch).last);
       await settle(tester);
       expect(f.expiryEnabled, isTrue);
 
@@ -976,7 +976,7 @@ void main() {
       await settle(tester);
       expect(f.expiresAt, 0);
 
-      await tester.tap(find.byType(Switch).last);
+      await tester.tap(find.byType(AidogSwitch).last);
       await settle(tester);
       expect(f.expiryEnabled, isFalse);
     });
@@ -1361,7 +1361,7 @@ void main() {
   group('票 31 ②③ 日期时间选择器', () {
     testWidgets('过期时间：手打合法写进字段，非法出红字且不动旧值', (tester) async {
       await boot(tester);
-      await tester.tap(find.byType(Switch).last);
+      await tester.tap(find.byType(AidogSwitch).last);
       await settle(tester);
 
       final input = find.descendant(
@@ -1388,7 +1388,7 @@ void main() {
 
     testWidgets('两处用的是同一个组件，且都带开选择器的按钮', (tester) async {
       await boot(tester, edit: true);
-      await tester.tap(find.byType(Switch).last);
+      await tester.tap(find.byType(AidogSwitch).last);
       await settle(tester);
       await tester.tap(find.text('+ ${t.t('platform.add_window')}'));
       await settle(tester);

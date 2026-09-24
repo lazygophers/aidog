@@ -1408,7 +1408,7 @@ void main() {
       expect(find.text(c.t('platform.quotaLabel')), findsNothing);
     });
 
-    testWidgets('配额档位块：倒计时与重置时刻同一行，前面一枚时钟图标', (tester) async {
+    testWidgets('配额档位块（紧凑态）：meta 无时钟图标，重置时刻另起一行 8px', (tester) async {
       final now = DateTime.now().millisecondsSinceEpoch;
       await mount(
         tester,
@@ -1424,14 +1424,19 @@ void main() {
           ],
         ),
       );
-      final clock = find.byIcon(Icons.schedule);
-      expect(clock, findsOneWidget);
-      // 同一行 = 图标与倒计时文本的纵向中心对得上。
-      final clockY = tester.getCenter(clock).dy;
-      final textY = tester
-          .getCenter(find.textContaining('·', findRichText: true).last)
-          .dy;
-      expect((clockY - textY).abs(), lessThan(4));
+      // React 紧凑态没有时钟图标，图标只在展开态（PlatformCard.tsx:540-547 vs :650-657）。
+      expect(find.byIcon(Icons.schedule), findsNothing);
+      // 重置时刻独立成 8px 一行，且在倒计时行之下（同一行才需要图标区分）。
+      final resetLine = find.byWidgetPredicate(
+        (w) => w is Text && w.style?.fontSize == 8,
+      );
+      expect(resetLine, findsOneWidget);
+      final countdownLine = find.textContaining(RegExp(r'\d+h \d+m|\dm'));
+      expect(countdownLine, findsOneWidget);
+      expect(
+        tester.getCenter(resetLine).dy,
+        greaterThan(tester.getCenter(countdownLine).dy),
+      );
     });
 
     testWidgets('上游速率限制：5 分钟内的快照才画，过期的不画', (tester) async {

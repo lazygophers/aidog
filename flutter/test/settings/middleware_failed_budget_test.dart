@@ -76,8 +76,8 @@ void main() {
   // 一屏规则里看不出哪几条其实没在跑（`MiddlewareRules.tsx:917,1007-1011`）。
   testWidgets('启停是开关，不是按钮；点一下发 middleware_update_rule', (tester) async {
     final (k, _) = await _mount(tester, failed: false);
-    final sw = find.byType(AidogSwitch);
-    expect(sw, findsOneWidget);
+    // 页面上还有 SwitchRow 的开关，规则自己的启停在列表后面，取最后一颗。
+    final sw = find.byType(AidogSwitch).last;
     expect(tester.widget<AidogSwitch>(sw).value, isTrue);
     await tester.tap(sw);
     await settle(tester);

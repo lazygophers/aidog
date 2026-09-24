@@ -6,11 +6,12 @@
 library;
 
 import 'package:aidog_flutter/i18n.dart';
+import 'package:aidog_flutter/src/pages/ui_bits.dart';
 import 'package:aidog_flutter/src/pages/settings/schema_config_page.dart';
 import 'package:aidog_flutter/src/pages/settings/statusline_model.dart';
 import 'package:aidog_flutter/src/pages/settings/statusline_panel.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_test/flutter_test.dart';
+import "package:flutter_test/flutter_test.dart";
 
 import '../pages/harness.dart';
 import 'fake_invoke.dart';
@@ -110,7 +111,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('sl-statusline-enable')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
@@ -127,7 +128,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('sl-statusline-enable')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
@@ -147,7 +148,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('sl-subagent-enable')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
@@ -585,7 +586,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('seg-edit-autocolor')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
@@ -633,7 +634,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('seg-edit-newline')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
@@ -732,7 +733,7 @@ void main() {
       await tester.tap(
         find.descendant(
           of: find.byKey(const ValueKey('sl-statusline-enable')),
-          matching: find.byType(Switch),
+          matching: find.byType(AidogSwitch),
         ),
       );
       await settle(tester);
