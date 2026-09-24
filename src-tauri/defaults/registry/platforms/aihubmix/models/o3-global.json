@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "o3-global",
+  "canonical_model": "o3-global",
+  "display_name": "O3 Global",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 8e-06,
+    "cache_read": 5e-07
+  }
+}

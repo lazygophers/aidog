@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "LongCat-Flash-Chat",
+  "canonical_model": "longcat-flash-chat",
+  "display_name": "Longcat Flash Chat",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 7e-07
+  }
+}

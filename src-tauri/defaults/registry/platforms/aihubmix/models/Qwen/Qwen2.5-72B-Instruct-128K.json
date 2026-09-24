@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Qwen/Qwen2.5-72B-Instruct-128K",
+  "canonical_model": "Qwen2.5-72B-Instruct-128K",
+  "display_name": "Qwen2.5 72B Instruct 128K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 8e-07,
+    "output": 8e-07
+  }
+}

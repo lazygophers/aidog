@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "stepfun-ai/step3",
+  "canonical_model": "step3",
+  "display_name": "Step3",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.1e-06,
+    "output": 2.75e-06
+  }
+}

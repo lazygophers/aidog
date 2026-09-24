@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "agnes-image-2.1-flash",
+  "canonical_model": "agnes-image-2.1-flash",
+  "display_name": "Agnes Image 2.1 Flash",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 2e-06
+  }
+}

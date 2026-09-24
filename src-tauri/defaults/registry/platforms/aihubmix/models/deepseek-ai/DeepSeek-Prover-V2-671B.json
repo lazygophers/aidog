@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
+  "canonical_model": "deepseek-prover-v2-671b",
+  "display_name": "DeepSeek Prover V2 671B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 1e-07
+  }
+}

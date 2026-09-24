@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "claude-3-opus@20240229",
+  "canonical_model": "claude-3-opus@20240229",
+  "display_name": "Claude 3 Opus@20240229",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.65e-05,
+    "output": 8.25e-05
+  }
+}

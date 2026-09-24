@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "tao-8k",
+  "canonical_model": "tao-8k",
+  "display_name": "Tao 8K",
+  "capabilities": [
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 6.8e-08,
+    "output": 6.8e-08
+  }
+}

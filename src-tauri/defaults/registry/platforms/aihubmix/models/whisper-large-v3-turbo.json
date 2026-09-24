@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "whisper-large-v3-turbo",
+  "canonical_model": "whisper-large-v3-turbo",
+  "display_name": "Whisper Large V3 Turbo",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 5.556e-06,
+    "output": 5.556e-06
+  }
+}

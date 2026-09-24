@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Qwen/Qwen2-57B-A14B-Instruct",
+  "canonical_model": "qwen2-57b-a14b-instruct",
+  "display_name": "Qwen2 57B A14B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.4e-07,
+    "output": 2.4e-07
+  }
+}

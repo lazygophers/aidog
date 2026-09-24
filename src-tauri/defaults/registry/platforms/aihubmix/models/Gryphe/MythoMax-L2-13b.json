@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "Gryphe/MythoMax-L2-13b",
+  "canonical_model": "mythomax-l2-13b",
+  "display_name": "Mythomax L2 13B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 4e-07
+  }
+}

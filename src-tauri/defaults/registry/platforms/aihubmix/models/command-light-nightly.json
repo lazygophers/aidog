@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "command-light-nightly",
+  "canonical_model": "command-light-nightly",
+  "display_name": "Command Light Nightly",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 2e-06
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen2.5-coder-7b-instruct",
+  "canonical_model": "qwen2.5-coder-7b-instruct",
+  "display_name": "Qwen2.5 Coder 7B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 4e-07
+  }
+}

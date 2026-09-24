@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790182696,
+  "last_updated": 1790223763,
   "model_id": "ernie-5.0-thinking-preview",
   "canonical_model": "ernie-5.0-thinking-preview",
   "display_name": "ERNIE 5.0 Thinking Preview",
@@ -15,9 +15,9 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8.2192e-7,
-    "output": 0.00000328768,
-  "cache_read": 8.219999999999999e-07,
+    "input": 8.22e-07,
+    "output": 3.288e-06,
+  "cache_read": 8.22e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,

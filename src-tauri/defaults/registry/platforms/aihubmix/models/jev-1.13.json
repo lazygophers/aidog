@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "jev-1.13",
+  "canonical_model": "jev-1.13",
+  "display_name": "Jev 1.13",
+  "context_window": 64000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 4.62e-08,
+    "output": 0
+  }
+}

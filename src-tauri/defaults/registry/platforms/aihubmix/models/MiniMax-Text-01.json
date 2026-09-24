@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "MiniMax-Text-01",
+  "canonical_model": "minimax-text-01",
+  "display_name": "MiniMax Text 01",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 1.12e-06
+  }
+}

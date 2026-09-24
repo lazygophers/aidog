@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "BAAI/bge-large-zh-v1.5",
+  "canonical_model": "bge-large-zh-v1.5",
+  "display_name": "Bge Large Zh V1.5",
+  "capabilities": [
+    "vision",
+    "tool_use",
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 3.4e-08,
+    "output": 3.4e-08
+  }
+}

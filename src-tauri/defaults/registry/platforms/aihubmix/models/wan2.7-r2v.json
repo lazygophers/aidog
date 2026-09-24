@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "wan2.7-r2v",
+  "canonical_model": "wan2.7-r2v",
+  "display_name": "Wan2.7 R2v",
+  "capabilities": [
+    "vision",
+    "text_to_video",
+    "image_to_video",
+    "audio",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0
+  }
+}

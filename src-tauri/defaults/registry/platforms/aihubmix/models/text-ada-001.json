@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "text-ada-001",
+  "canonical_model": "text-ada-001",
+  "display_name": "Text Ada 001",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-07,
+    "output": 4e-07
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gemini-embedding-2",
+  "canonical_model": "gemini-embedding-2",
+  "display_name": "Gemini Embedding 2",
+  "capabilities": [
+    "vision",
+    "audio",
+    "video",
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 0
+  }
+}

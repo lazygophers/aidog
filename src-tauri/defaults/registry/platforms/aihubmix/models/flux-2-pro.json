@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "flux-2-pro",
+  "canonical_model": "flux-2-pro",
+  "display_name": "Flux 2 Pro",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "nvidia-nemotron-3-nano-30b-a3b",
+  "canonical_model": "nvidia-nemotron-3-nano-30b-a3b",
+  "display_name": "Nvidia Nemotron 3 Nano 30B A3B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6.6e-08,
+    "output": 2.64e-07
+  }
+}

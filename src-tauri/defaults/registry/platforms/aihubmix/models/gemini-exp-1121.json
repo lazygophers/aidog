@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gemini-exp-1121",
+  "canonical_model": "gemini-exp-1121",
+  "display_name": "Gemini",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.25e-06,
+    "output": 5e-06
+  }
+}

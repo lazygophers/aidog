@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qianfan-chinese-llama-2-13b",
+  "canonical_model": "chinese-llama-2-13b",
+  "display_name": "Qianfan Chinese Llama 2 13B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 8.22e-07,
+    "output": 8.22e-07
+  }
+}

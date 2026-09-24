@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+  "canonical_model": "deepseek-r1-distill-llama-8b",
+  "display_name": "DeepSeek R1 Distill Llama 8B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-08,
+    "output": 1e-08
+  }
+}

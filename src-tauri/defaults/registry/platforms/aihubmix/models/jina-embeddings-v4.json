@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "jina-embeddings-v4",
+  "canonical_model": "jina-embeddings-v4",
+  "display_name": "Jina Embeddings V4",
+  "capabilities": [
+    "vision",
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 5e-08,
+    "output": 5e-08
+  }
+}

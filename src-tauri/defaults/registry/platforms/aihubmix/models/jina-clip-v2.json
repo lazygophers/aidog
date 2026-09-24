@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "jina-clip-v2",
+  "canonical_model": "jina-clip-v2",
+  "display_name": "Jina Clip V2",
+  "capabilities": [
+    "vision",
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 5e-08,
+    "output": 5e-08
+  }
+}

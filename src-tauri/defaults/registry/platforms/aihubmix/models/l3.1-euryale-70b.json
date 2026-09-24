@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "l3.1-euryale-70b",
+  "canonical_model": "l3.1-euryale-70b",
+  "display_name": "L3.1 Euryale 70B",
+  "context_window": 131072,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.48e-06,
+    "output": 1.48e-06
+  }
+}

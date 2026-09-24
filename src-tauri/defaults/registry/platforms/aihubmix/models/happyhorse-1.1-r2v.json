@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "happyhorse-1.1-r2v",
+  "canonical_model": "happyhorse-1.1-r2v",
+  "display_name": "Happyhorse 1.1 R2v",
+  "capabilities": [
+    "vision",
+    "text_to_video",
+    "image_to_video",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 0
+  }
+}

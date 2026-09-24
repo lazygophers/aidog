@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "ahm-Phi-3-5-mini-instruct",
+  "canonical_model": "phi-3-5-mini-instruct",
+  "display_name": "Ahm Phi 3.5 Mini Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 3e-06
+  }
+}

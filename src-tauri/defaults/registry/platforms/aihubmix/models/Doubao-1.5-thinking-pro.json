@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-1.5-thinking-pro",
+  "canonical_model": "doubao-1.5-thinking-pro",
+  "display_name": "Doubao 1.5 Thinking Pro",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6.2e-07,
+    "output": 2.48e-06
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama3-groq-70b-8192-tool-use-preview",
+  "canonical_model": "llama3-groq-70b-8192-tool-use-preview",
+  "display_name": "Llama3 Groq 70B 8192 Tool Use Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 8.9e-10,
+    "output": 8.9e-10
+  }
+}

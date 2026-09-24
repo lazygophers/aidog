@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gemini-pro",
+  "canonical_model": "gemini-pro",
+  "display_name": "Gemini Pro",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 6e-07
+  }
+}

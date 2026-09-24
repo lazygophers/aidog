@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "paddleocr-vl-0.9b",
+  "canonical_model": "paddleocr-vl-0.9b",
+  "display_name": "Paddleocr VL 0.9b",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 0
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-image-1-mini",
+  "canonical_model": "gpt-image-1-mini",
+  "display_name": "GPT Image 1 Mini",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 4e-05
+  }
+}

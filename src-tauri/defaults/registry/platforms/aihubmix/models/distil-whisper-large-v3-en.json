@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "distil-whisper-large-v3-en",
+  "canonical_model": "distil-whisper-large-v3-en",
+  "display_name": "Distil Whisper Large V3 En",
+  "capabilities": [
+    "audio"
+  ],
+  "official": false,
+  "price": {
+    "input": 5.556e-06,
+    "output": 5.556e-06
+  }
+}

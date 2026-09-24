@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "ernie-x1.1-preview",
+  "canonical_model": "ernie-x1.1-preview",
+  "display_name": "ERNIE X1.1 Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.36e-07,
+    "output": 5.44e-07
+  }
+}

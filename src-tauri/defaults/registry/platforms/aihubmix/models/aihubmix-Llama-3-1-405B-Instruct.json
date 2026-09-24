@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "aihubmix-Llama-3-1-405B-Instruct",
+  "canonical_model": "llama-3.1-405b-instruct",
+  "display_name": "Aihubmix Llama 3.1 405B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5e-06,
+    "output": 1.5e-05
+  }
+}

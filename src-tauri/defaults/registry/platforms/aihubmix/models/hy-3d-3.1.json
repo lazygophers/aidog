@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "hy-3d-3.1",
+  "canonical_model": "hy-3d-3.1",
+  "display_name": "Hy 3d 3.1",
+  "capabilities": [
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-06,
+    "output": 2e-06
+  }
+}

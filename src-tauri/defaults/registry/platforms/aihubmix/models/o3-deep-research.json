@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "o3-deep-research",
+  "canonical_model": "o3-deep-research",
+  "display_name": "O3 Deep Research",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-05,
+    "output": 4e-05,
+    "cache_read": 2.5e-06
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "cohere-rerank-v4.0-fast",
+  "canonical_model": "cohere-rerank-v4.0-fast",
+  "display_name": "Cohere Rerank V4.0 Fast",
+  "context_window": 32768,
+  "capabilities": [
+    "rerank"
+  ],
+  "official": false,
+  "price": {
+    "input": 6.8e-08,
+    "output": 0
+  }
+}

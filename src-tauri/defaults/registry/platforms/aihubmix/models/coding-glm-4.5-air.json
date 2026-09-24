@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "coding-glm-4.5-air",
+  "canonical_model": "glm-4.5-air",
+  "display_name": "Coding GLM 4.5 Air",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-08,
+    "output": 8.4e-08
+  }
+}

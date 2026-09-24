@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "qwen-max-longcontext",
+  "canonical_model": "qwen-max-longcontext",
+  "display_name": "Qwen Max Longcontext",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 7e-06,
+    "output": 2.1e-05
+  }
+}

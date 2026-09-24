@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "deepinfra-llama-4-scout-17b-16e-instruct",
+  "canonical_model": "llama-4-scout-17b-16e-instruct",
+  "display_name": "Deepinfra Llama 4 Scout 17B 16e Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 8.8e-08,
+    "output": 3.3e-07
+  }
+}

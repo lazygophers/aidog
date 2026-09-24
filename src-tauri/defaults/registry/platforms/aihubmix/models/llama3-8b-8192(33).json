@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama3-8b-8192(33)",
+  "canonical_model": "llama3-8b-8192(33)",
+  "display_name": "Llama3 8B 8192(33)",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-07,
+    "output": 3e-07
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "sora-2-pro",
+  "canonical_model": "sora-2-pro",
+  "display_name": "Sora 2 Pro",
+  "capabilities": [
+    "text_to_video",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 2e-06
+  }
+}

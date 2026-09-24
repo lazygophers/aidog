@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Qwen/Qwen3-30B-A3B",
+  "canonical_model": "qwen3-30b-a3b",
+  "display_name": "Qwen3 30B A3B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-06,
+    "output": 1e-06
+  }
+}

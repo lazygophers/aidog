@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "deepinfra-llama-4-maverick-17b-128e-instruct",
+  "canonical_model": "llama-4-maverick-17b-128e-instruct",
+  "display_name": "Deepinfra Llama 4 Maverick 17B 128e Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3.3e-07,
+    "output": 1.32e-06
+  }
+}

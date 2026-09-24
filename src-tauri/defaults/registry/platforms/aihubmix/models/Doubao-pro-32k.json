@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "Doubao-pro-32k",
+  "canonical_model": "doubao-pro-32k",
+  "display_name": "Doubao Pro 32K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.4e-07,
+    "output": 3.5e-07,
+    "cache_read": 2.8e-08
+  }
+}

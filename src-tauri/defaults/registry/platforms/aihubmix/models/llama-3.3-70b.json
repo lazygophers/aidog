@@ -1,0 +1,14 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama-3.3-70b",
+  "canonical_model": "llama-3.3-70b",
+  "display_name": "Llama 3.3 70B",
+  "max_output_tokens": 8192,
+  "context_window": 65536,
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 6e-07,
+    "output": 6e-07
+  }
+}

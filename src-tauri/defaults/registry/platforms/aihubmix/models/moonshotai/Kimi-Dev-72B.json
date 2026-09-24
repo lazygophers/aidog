@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "moonshotai/Kimi-Dev-72B",
+  "canonical_model": "kimi-dev-72b",
+  "display_name": "Kimi Dev 72B",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3.2e-07,
+    "output": 1.28e-06
+  }
+}

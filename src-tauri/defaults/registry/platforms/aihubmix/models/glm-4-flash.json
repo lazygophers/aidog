@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "glm-4-flash",
+  "canonical_model": "glm-4-flash",
+  "display_name": "GLM 4 Flash",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1e-07,
+    "output": 1e-07
+  }
+}

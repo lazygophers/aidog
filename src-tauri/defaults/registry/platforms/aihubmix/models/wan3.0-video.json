@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "wan3.0-video",
+  "canonical_model": "wan3.0-video",
+  "display_name": "Wan3.0 Video",
+  "capabilities": [
+    "vision",
+    "text_to_video",
+    "image_to_video",
+    "audio",
+    "video"
+  ],
+  "official": false,
+  "price": {
+    "unit": "second",
+    "unit_price": 2e-06
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "mercury-2.5",
+  "canonical_model": "mercury-2.5",
+  "display_name": "Mercury 2.5",
+  "context_window": 260000,
+  "capabilities": [
+    "text"
+  ],
+  "official": false,
+  "price": {
+    "input": 2e-07,
+    "output": 7.5e-07,
+    "cache_read": 2e-08
+  }
+}

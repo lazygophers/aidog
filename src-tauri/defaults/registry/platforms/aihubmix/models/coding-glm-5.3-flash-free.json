@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "coding-glm-5.3-flash-free",
+  "canonical_model": "glm-5.3-flash-free",
+  "display_name": "Coding GLM 5.3 Flash (free)",
+  "max_output_tokens": 131072,
+  "context_window": 1000000,
+  "capabilities": [
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

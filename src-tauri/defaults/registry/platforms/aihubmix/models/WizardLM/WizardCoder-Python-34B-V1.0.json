@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223339,
+  "model_id": "WizardLM/WizardCoder-Python-34B-V1.0",
+  "canonical_model": "wizardcoder-python-34b-v1.0",
+  "display_name": "Wizardcoder Python 34B V1.0",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 9e-07,
+    "output": 9e-07
+  }
+}

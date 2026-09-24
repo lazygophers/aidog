@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "alicloud-glm-5",
+  "canonical_model": "glm-5",
+  "display_name": "Alicloud Glm 5",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 5.634e-07,
+    "output": 2.5353e-06,
+    "cache_read": 1.1268e-07
+  }
+}

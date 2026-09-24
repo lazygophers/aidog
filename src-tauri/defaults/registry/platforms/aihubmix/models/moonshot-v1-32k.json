@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "moonshot-v1-32k",
+  "canonical_model": "moonshot-v1-32k",
+  "display_name": "Moonshot V1 32K",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-06,
+    "output": 4e-06
+  }
+}

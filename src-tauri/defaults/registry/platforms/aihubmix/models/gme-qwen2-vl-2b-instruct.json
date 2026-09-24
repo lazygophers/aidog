@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gme-qwen2-vl-2b-instruct",
+  "canonical_model": "gme-qwen2-vl-2b-instruct",
+  "display_name": "Gme Qwen2 VL 2B Instruct",
+  "capabilities": [
+    "vision",
+    "video",
+    "embedding"
+  ],
+  "official": false,
+  "price": {
+    "input": 1.38e-07,
+    "output": 1.38e-07
+  }
+}

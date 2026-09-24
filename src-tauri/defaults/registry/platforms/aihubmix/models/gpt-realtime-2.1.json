@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-realtime-2.1",
+  "canonical_model": "gpt-realtime-2.1",
+  "display_name": "GPT Realtime 2.1",
+  "max_output_tokens": 32000,
+  "context_window": 128000,
+  "capabilities": [
+    "vision",
+    "reasoning",
+    "audio"
+  ],
+  "thinking_supported": true,
+  "official": false,
+  "price": {
+    "input": 4e-06,
+    "output": 2.4e-05,
+    "cache_read": 4e-07
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "deepseek-v3",
+  "canonical_model": "DeepSeek-V3",
+  "display_name": "DeepSeek V3",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.72e-07,
+    "output": 1.088e-06
+  }
+}

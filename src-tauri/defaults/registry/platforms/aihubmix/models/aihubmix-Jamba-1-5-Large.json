@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "aihubmix-Jamba-1-5-Large",
+  "canonical_model": "jamba-1.5-large",
+  "display_name": "Aihubmix Jamba 1.5 Large",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 2.2e-06,
+    "output": 8.8e-06
+  }
+}

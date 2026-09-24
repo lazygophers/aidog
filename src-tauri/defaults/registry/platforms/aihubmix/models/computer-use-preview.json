@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "computer-use-preview",
+  "canonical_model": "computer-use-preview",
+  "display_name": "Computer Use Preview",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-06,
+    "output": 1.2e-05
+  }
+}

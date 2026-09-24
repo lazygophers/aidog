@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "gpt-4o-mini-global",
+  "canonical_model": "gpt-4o-mini-global",
+  "display_name": "GPT 4o Mini Global",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.5e-07,
+    "output": 6e-07,
+    "cache_read": 7.5e-08
+  }
+}

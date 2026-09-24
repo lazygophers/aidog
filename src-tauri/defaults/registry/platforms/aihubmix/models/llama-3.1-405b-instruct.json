@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "llama-3.1-405b-instruct",
+  "canonical_model": "llama-3.1-405b-instruct",
+  "display_name": "Llama 3.1 405B Instruct",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 4e-06,
+    "output": 4e-06
+  }
+}

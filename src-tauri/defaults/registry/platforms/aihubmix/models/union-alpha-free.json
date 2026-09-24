@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "union-alpha-free",
+  "canonical_model": "union-alpha-free",
+  "display_name": "Union Alpha (free)",
+  "context_window": 262144,
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

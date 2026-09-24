@@ -1,0 +1,13 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "glm-4.5-airx",
+  "canonical_model": "glm-4.5-airx",
+  "display_name": "GLM 4.5 Airx",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 1.1e-06,
+    "output": 4.51e-06,
+    "cache_read": 2.2e-07
+  }
+}

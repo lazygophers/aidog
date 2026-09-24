@@ -1,0 +1,12 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "grok-3-mini",
+  "canonical_model": "grok-3-mini",
+  "display_name": "Grok 3 Mini",
+  "capabilities": [],
+  "official": false,
+  "price": {
+    "input": 3e-07,
+    "output": 5.01e-07
+  }
+}

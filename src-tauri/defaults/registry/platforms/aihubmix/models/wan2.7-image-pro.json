@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790223763,
+  "model_id": "wan2.7-image-pro",
+  "canonical_model": "wan2.7-image-pro",
+  "display_name": "Wan2.7 Image Pro",
+  "capabilities": [
+    "vision",
+    "text_to_image",
+    "image_edit"
+  ],
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 2e-06
+  }
+}
