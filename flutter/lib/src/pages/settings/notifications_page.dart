@@ -171,6 +171,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                       padding: const EdgeInsets.only(top: AidogSpace.smd),
                       child: InlineRow(
                         label: t.t('notif.retentionDaysLabel'),
+                        unit: t.t('notif.retentionDaysUnit'),
                         child: NumberInput(
                           key: const ValueKey('inbox-retention'),
                           value: '${s.inboxRetentionDays}',
@@ -183,7 +184,6 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                             _c.setInboxRetentionDays(n.clamp(1, 3650));
                           },
                         ),
-                        unit: t.t('notif.retentionDaysUnit'),
                       ),
                     ),
                   ),
