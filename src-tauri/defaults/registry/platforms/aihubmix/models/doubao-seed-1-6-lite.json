@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790282598,
   "model_id": "doubao-seed-1-6-lite",
   "canonical_model": "doubao-seed-1-6-lite",
 
   "family": "doubao-lite",  "display_name": "Doubao Seed 1.6 Lite",
+  "version": "1.6",
   "thinking_supported": true,
   "max_output_tokens": 32000,
   "context_window": 256000,

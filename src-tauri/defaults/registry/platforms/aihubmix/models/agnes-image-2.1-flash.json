@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790282598,
   "model_id": "agnes-image-2.1-flash",
   "canonical_model": "agnes-image-2.1-flash",
 
   "family": "agnes",  "display_name": "Agnes Image 2.1 Flash",
+  "version": "2.1",
   "capabilities": [
     "vision",
     "text_to_image",

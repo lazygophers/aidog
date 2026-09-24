@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790282598,
   "model_id": "groq-llama-3.3-70b-versatile",
   "canonical_model": "llama-3.3-70b-versatile",
 
   "family": "llama",  "display_name": "Groq Llama 3.3 70B Versatile",
+  "version": "3.3",
   "capabilities": [],
   "official": false,
   "price": {
