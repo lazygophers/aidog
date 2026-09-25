@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790329690,
   "model_id": "deepinfra/meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-fp8",
   "capabilities": [
@@ -13,5 +13,7 @@
   "price": {
     "input": 2e-7,
     "output": 8e-7
-  }
+  },
+  "family": "llama",
+  "version": "4"
 }

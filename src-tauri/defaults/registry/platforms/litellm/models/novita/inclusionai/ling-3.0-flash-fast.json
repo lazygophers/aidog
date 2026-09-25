@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/inclusionai/ling-3.0-flash-fast",
   "canonical_model": "ling-3.0-flash-fast",
   "capabilities": [
@@ -16,5 +16,7 @@
   "price": {
     "input": 6e-8,
     "output": 1.8e-7
-  }
+  },
+  "family": "ling",
+  "version": "3.0"
 }

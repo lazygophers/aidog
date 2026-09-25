@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790329690,
   "model_id": "mistral-large@latest",
   "canonical_model": "mistral-large@latest",
   "family": "mistral",
@@ -13,5 +13,6 @@
   "price": {
     "input": 2e-06,
     "output": 6e-06
-  }
+  },
+  "version": "3"
 }

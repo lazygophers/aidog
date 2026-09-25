@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790329690,
   "model_id": "aihubmix/doubao-seed-2-1-turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
   "capabilities": [
@@ -17,5 +17,7 @@
   "price": {
     "input": 4.6475e-7,
     "output": 0.00000232375
-  }
+  },
+  "family": "doubao-seed",
+  "version": "2.1"
 }
