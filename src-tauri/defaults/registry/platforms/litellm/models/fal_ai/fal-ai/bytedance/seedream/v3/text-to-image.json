@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/fal-ai/bytedance/seedream/v3/text-to-image",
-  "canonical_model": "text-to-image",
+  "canonical_model": "seedream-3.0",
   "family": "seedream",
+  "version": "3.0",
   "capabilities": [
     "text_to_image"
   ],

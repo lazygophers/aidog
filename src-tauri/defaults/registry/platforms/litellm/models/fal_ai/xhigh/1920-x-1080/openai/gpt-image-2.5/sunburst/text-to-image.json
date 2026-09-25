@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/xhigh/1920-x-1080/openai/gpt-image-2.5/sunburst/text-to-image",
-  "canonical_model": "text-to-image",
-  "family": "seedream",
+  "canonical_model": "gpt-image-2.5-sunburst",
+  "family": "gpt",
+  "version": "2.5",
   "capabilities": [
     "text_to_image"
   ],

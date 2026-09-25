@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/fal-ai/flux-pro/v1.1",
-  "canonical_model": "v1.1",
+  "canonical_model": "flux-1.1-pro",
   "family": "flux",
   "version": "1.1",
   "capabilities": [

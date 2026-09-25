@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/low/1024-x-1024/openai/gpt-image-2.5/sunburst/edit",
-  "canonical_model": "edit",
+  "canonical_model": "gpt-image-2.5-sunburst",
   "family": "gpt",
-  "version": "2",
+  "version": "2.5",
   "capabilities": [
     "text_to_image"
   ],

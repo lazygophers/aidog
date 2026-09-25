@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/bytedance/seedance-2.0/image-to-video",
-  "canonical_model": "image-to-video",
+  "canonical_model": "seedance-2.0",
   "family": "seedance",
   "version": "2.0",
   "capabilities": [

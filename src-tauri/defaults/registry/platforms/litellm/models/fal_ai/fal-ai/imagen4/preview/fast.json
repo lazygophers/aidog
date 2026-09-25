@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/fal-ai/imagen4/preview/fast",
-  "canonical_model": "fast",
-  "family": "stable",
-  "version": "1",
+  "canonical_model": "imagen-4.0-fast-generate-preview-06-06",
+  "family": "imagen",
+  "version": "4.0",
   "capabilities": [
     "text_to_image"
   ],
