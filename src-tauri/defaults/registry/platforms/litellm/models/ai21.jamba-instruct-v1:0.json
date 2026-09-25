@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790313539,
   "model_id": "ai21.jamba-instruct-v1:0",
   "canonical_model": "ai21.jamba-instruct-v1:0",
+  "version": "1",
   "family": "jamba",
   "capabilities": [
     "text"

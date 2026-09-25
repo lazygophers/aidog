@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790313539,
   "model_id": "gemini-3.1-flash-tts-preview",
   "canonical_model": "gemini-3.1-flash-tts-preview",
+  "context_window": 8192,
   "family": "gemini",
   "version": "3.1",
   "display_name": "Gemini 3.1 Flash TTS",

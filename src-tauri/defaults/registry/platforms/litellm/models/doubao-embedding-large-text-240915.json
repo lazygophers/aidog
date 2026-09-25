@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790313539,
   "model_id": "doubao-embedding-large-text-240915",
   "canonical_model": "doubao-embedding-large-text-240915",
+  "version": "24.09",
   "family": "doubao-embedding",
   "capabilities": [
     "embedding"
