@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "Mistral-large-2407",
   "canonical_model": "mistral-large-2407",
 
@@ -11,6 +11,8 @@
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-06,
     "output": 9e-06

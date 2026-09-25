@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "gmi/moonshotai/Kimi-K2-Thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
@@ -11,6 +11,8 @@
   "context_window": 262144,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-7,
     "output": 0.0000012

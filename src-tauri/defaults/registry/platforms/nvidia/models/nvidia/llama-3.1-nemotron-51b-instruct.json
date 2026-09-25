@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790340078,
   "model_id": "nvidia/llama-3.1-nemotron-51b-instruct",
   "canonical_model": "llama-3.1-nemotron-51b-instruct",
   "family": "nemotron",
@@ -10,6 +10,8 @@
   "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0,
     "output": 0.0

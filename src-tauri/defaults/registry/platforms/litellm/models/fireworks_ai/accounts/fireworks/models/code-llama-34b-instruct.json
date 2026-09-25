@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/code-llama-34b-instruct",
   "canonical_model": "code-llama-34b-instruct",
   "family": "codellama",
@@ -10,6 +10,8 @@
   "context_window": 16384,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-7,
     "output": 9e-7

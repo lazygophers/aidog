@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/cohere-command-a",
   "canonical_model": "command-a",
   "family": "command",
@@ -11,6 +11,8 @@
   "context_window": 131072,
   "max_output_tokens": 8182,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000025,
     "output": 0.00001

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340079,
   "model_id": "zai-org/GLM-4.5-Air",
   "canonical_model": "glm-4.5-air",
   "family": "glm",
@@ -11,6 +11,8 @@
   "max_output_tokens": 131072,
   "context_window": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.4e-7,
     "output": 8.6e-7

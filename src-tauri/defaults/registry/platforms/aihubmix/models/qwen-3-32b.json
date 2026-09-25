@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen-3-32b",
   "canonical_model": "qwen-3-32b",
 
@@ -7,6 +7,8 @@
   "family": "qwen",  "display_name": "Qwen 3 32B",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4e-07,
     "output": 1.6e-06

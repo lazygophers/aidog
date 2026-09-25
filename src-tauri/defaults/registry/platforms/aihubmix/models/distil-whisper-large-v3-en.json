@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "distil-whisper-large-v3-en",
   "canonical_model": "distil-whisper-large-v3-en",
 
@@ -9,6 +9,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.556e-06,
     "output": 5.556e-06

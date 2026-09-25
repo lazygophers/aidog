@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 1048576,
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "xiaomi/mimo-v2.5-pro",
   "canonical_model": "mimo-v2.5-pro",
   "version": "2.5",
@@ -9,6 +9,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 9.722222222222222e-07,
     "output": 2.9166666666666666e-06,

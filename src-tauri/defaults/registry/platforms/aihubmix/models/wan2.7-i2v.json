@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "wan2.7-i2v",
   "canonical_model": "wan2.7-i2v",
   "display_name": "Wan2.7 I2v",
@@ -13,6 +13,8 @@
     "video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0

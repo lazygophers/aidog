@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/Qwen/Qwen2.5-VL-32B-Instruct",
   "canonical_model": "Qwen2.5-VL-32B-Instruct",
   "family": "qwen",
@@ -13,6 +13,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 6e-7

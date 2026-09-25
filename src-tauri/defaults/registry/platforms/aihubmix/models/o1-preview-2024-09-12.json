@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "o1-preview-2024-09-12",
   "canonical_model": "o1-preview-2024-09-12",
 
@@ -7,6 +7,7 @@
   "family": "o",  "display_name": "O1 Preview 2024 09-12",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 1.5e-05,
     "output": 6e-05,

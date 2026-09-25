@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "ling-3.0-flash",
   "canonical_model": "ling-3.0-flash",
 
@@ -11,6 +11,8 @@
   ],
   "max_input_tokens": 262144,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-08,
     "output": 1.8e-07,

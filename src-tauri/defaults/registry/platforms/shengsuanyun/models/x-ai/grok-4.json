@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790340079,
   "model_id": "x-ai/grok-4",
   "canonical_model": "grok-4",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.91667e-06,
     "output": 1.45833e-05

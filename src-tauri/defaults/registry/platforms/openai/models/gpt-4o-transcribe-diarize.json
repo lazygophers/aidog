@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "gpt-4o-transcribe-diarize",
   "canonical_model": "gpt-4o-transcribe-diarize",
   "display_name": "GPT-4o Transcribe Diarize",
@@ -7,6 +7,7 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 0.0000025,
     "output": 0.00001

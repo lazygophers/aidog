@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "doubao-seed-character",
   "canonical_model": "doubao-seed-character",
   "family": "doubao-seed-character",
@@ -10,6 +10,8 @@
   "max_output_tokens": 65536,
   "context_window": 262144,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4.444444444444445e-07,
     "output": 2.2222222222222225e-06

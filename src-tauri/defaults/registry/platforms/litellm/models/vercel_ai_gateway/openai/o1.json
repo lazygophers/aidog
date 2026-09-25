@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790340078,
   "model_id": "vercel_ai_gateway/openai/o1",
   "canonical_model": "o1",
   "family": "o",
@@ -13,6 +13,8 @@
   "context_window": 200000,
   "max_output_tokens": 100000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000015,
     "output": 0.00006

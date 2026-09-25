@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "qwen.qwen3-vl-235b-a22b",
   "canonical_model": "qwen.qwen3-vl-235b-a22b",
   "family": "qwen",
@@ -13,6 +13,8 @@
   "context_window": 256000,
   "max_output_tokens": 8000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.3e-7,
     "output": 0.00000266

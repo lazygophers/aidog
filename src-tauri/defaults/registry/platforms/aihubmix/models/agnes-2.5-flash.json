@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "agnes-2.5-flash",
   "canonical_model": "agnes-2.5-flash",
   "display_name": "Agnes 2.5 Flash",
@@ -13,6 +13,7 @@
   ],
   "max_input_tokens": 512000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-8,
     "output": 1.5e-7

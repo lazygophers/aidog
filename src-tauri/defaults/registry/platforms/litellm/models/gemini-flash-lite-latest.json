@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gemini-flash-lite-latest",
   "canonical_model": "gemini-flash-lite-latest",
   "family": "gemini",
@@ -11,6 +11,7 @@
   "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 2.5e-06,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "gpt-5.2-pro",
   "canonical_model": "gpt-5.2-pro",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 128000,
   "context_window": 400000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000021,
     "output": 0.000168,

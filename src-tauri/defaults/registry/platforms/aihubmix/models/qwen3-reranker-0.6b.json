@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "qwen3-reranker-0.6b",
   "canonical_model": "Qwen3-Reranker-0.6B",
   "family": "qwen",
@@ -13,6 +13,8 @@
   ],
   "max_input_tokens": 16000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.1e-07,
     "output": 1.1e-07

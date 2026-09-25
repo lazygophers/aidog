@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790340078,
   "model_id": "gemini-3.1-flash-tts-preview",
   "canonical_model": "gemini-3.1-flash-tts-preview",
   "context_window": 8192,
@@ -10,6 +10,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-06,
     "output": 2e-05

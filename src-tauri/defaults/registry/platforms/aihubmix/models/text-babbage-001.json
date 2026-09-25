@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "text-babbage-001",
   "canonical_model": "text-babbage-001",
 
   "family": "babbage",  "display_name": "Text Babbage 001",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-07,
     "output": 5e-07

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790340078,
   "model_id": "glm-ocr",
   "canonical_model": "glm-ocr",
   "family": "glm",
@@ -11,6 +11,8 @@
   "max_output_tokens": 16000,
   "context_window": 66000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-08,
     "output": 3e-08

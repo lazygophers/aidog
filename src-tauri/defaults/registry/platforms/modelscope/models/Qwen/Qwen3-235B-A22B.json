@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "Qwen/Qwen3-235B-A22B",
   "canonical_model": "qwen3-235b-a22b",
   "family": "qwen",
@@ -10,6 +10,8 @@
   "max_input_tokens": 131072,
   "max_output_tokens": 16384,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0,
     "output": 0.0

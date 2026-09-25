@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790340078,
   "model_id": "MiniMax/MiniMax-M1-80k",
   "canonical_model": "minimax-m1-80k",
   "family": "minimax",
@@ -11,6 +11,8 @@
   "max_output_tokens": 40000,
   "context_window": 1000000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0,
     "output": 0.0

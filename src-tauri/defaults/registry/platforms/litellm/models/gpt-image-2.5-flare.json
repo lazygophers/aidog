@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gpt-image-2.5-flare",
   "canonical_model": "gpt-image-2.5-flare",
   "family": "gpt",
@@ -8,6 +8,8 @@
     "text_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000005,
     "output": 0.00003

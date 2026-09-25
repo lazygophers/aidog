@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "xiaomimimo/mimo-v2.5-pro",
   "canonical_model": "mimo-v2.5-pro",
   "version": "2.5",
   "family": "mimo",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.22e-07,
     "output": 1.044e-06,

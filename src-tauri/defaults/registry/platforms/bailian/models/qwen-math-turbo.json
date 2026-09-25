@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "qwen-math-turbo",
   "canonical_model": "qwen-math-turbo",
   "family": "qwen",
@@ -10,6 +10,8 @@
   "max_output_tokens": 3072,
   "context_window": 4096,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.77778e-07,
     "output": 8.33333e-07,

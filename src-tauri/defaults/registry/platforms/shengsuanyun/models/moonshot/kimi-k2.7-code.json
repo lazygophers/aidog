@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "moonshot/kimi-k2.7-code",
   "canonical_model": "kimi-k2.7-code",
   "version": "2.7",
@@ -9,6 +9,7 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 9.02778e-07,
     "output": 3.75e-06

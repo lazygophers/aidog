@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "gpt-3.5-turbo-0125",
   "canonical_model": "gpt-3.5-turbo-0125",
   "family": "gpt",
@@ -12,6 +12,8 @@
   "context_window": 16385,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-7,
     "output": 0.0000015

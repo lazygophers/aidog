@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "moonshot/moonshot-v1-8k",
   "canonical_model": "moonshot-v1-8k",
   "family": "moonshot",
@@ -12,6 +12,8 @@
   "context_window": 8192,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 0.000002

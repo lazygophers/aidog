@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790268689,
+  "last_updated": 1790340078,
   "model_id": "deepseek-v3.1",
   "canonical_model": "DeepSeek-V3.1",
   "family": "deepseek",
@@ -11,6 +11,8 @@
   ],
   "context_window": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.739999999999999e-7,
     "output": 0.0000017210000000000001

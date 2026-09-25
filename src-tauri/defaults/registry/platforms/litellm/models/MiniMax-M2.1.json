@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "MiniMax-M2.1",
   "canonical_model": "MiniMax-M2.1",
   "family": "minimax",
@@ -12,6 +12,7 @@
   "max_output_tokens": 8192,
   "context_window": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 1.2e-06,

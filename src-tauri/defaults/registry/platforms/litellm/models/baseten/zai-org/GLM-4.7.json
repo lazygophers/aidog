@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "baseten/zai-org/GLM-4.7",
   "canonical_model": "glm-4.7",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 200000,
   "max_output_tokens": 200000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-7,
     "output": 0.0000022

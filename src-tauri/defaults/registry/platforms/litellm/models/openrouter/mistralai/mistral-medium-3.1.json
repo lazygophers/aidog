@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "openrouter/mistralai/mistral-medium-3.1",
   "canonical_model": "mistral-medium-3.1",
   "family": "mistral",
@@ -13,6 +13,8 @@
   "context_window": 131072,
   "max_output_tokens": 104857,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-7,
     "output": 0.000002

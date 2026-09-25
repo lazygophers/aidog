@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "replicate/meta/llama-3-8b",
   "canonical_model": "llama-3-8b",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 8086,
   "max_output_tokens": 8086,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8,
     "output": 2.5e-7

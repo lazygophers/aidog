@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "meta/llama-3.2-11b-vision-instruct",
   "canonical_model": "llama-3.2-11b-vision-instruct",
   "version": "3.2",
@@ -12,6 +12,7 @@
   "max_input_tokens": 131072,
   "max_output_tokens": 16384,
   "official": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0,
     "output": 0.0

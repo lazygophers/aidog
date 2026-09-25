@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790340078,
   "model_id": "google/recurrentgemma-2b",
   "canonical_model": "recurrentgemma-2b",
   "family": "gemma",
   "capabilities": [],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0,
     "output": 0.0

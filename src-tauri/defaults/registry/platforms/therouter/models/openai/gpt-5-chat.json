@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-5-chat",
   "canonical_model": "gpt-5-chat",
   "family": "gpt",
@@ -8,6 +8,7 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 1.35e-06,
     "output": 1.08e-05

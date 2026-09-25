@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790340078,
   "model_id": "amazon-nova/nova-micro-v1",
   "canonical_model": "nova-micro-v1",
   "family": "nova",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 10000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.5e-8,
     "output": 1.4e-7

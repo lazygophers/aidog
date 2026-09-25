@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "qwen3-30b-a3b-thinking-2507",
   "canonical_model": "qwen3-30b-a3b-thinking-2507",
   "capabilities": ["text"],
@@ -7,7 +7,10 @@
   "display_name": "Qwen3 30B A3B Thinking 2507",
   "family": "qwen",
 
-  "version": "3",  "official": false,
+  "version": "3",
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.2e-07,
     "output": 1.2e-06

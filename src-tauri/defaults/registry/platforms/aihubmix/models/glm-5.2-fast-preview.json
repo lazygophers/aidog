@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "glm-5.2-fast-preview",
   "canonical_model": "glm-5.2-fast-preview",
   "display_name": "GLM 5.2 Fast Preview",
@@ -13,6 +13,7 @@
   ],
   "max_input_tokens": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000002254,
     "output": 0.000007889,

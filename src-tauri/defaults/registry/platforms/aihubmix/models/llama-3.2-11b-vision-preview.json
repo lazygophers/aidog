@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790282454,
+  "last_updated": 1790340078,
   "model_id": "llama-3.2-11b-vision-preview",
   "canonical_model": "llama-3.2-11b-vision-preview",
   "version": "3.2",
@@ -7,6 +7,8 @@
   "family": "llama",  "display_name": "Llama 3.2 11B Vision Preview",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 2e-07

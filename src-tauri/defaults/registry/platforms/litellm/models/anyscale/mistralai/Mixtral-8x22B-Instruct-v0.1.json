@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "anyscale/mistralai/Mixtral-8x22B-Instruct-v0.1",
   "canonical_model": "Mixtral-8x22B-Instruct-v0.1",
   "family": "mixtral",
@@ -12,6 +12,8 @@
   "context_window": 65536,
   "max_output_tokens": 65536,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-7,
     "output": 9e-7

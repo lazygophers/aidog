@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "doubao-1-5-pro-32k-250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
   "capabilities": ["text","tool_use"],
@@ -8,6 +8,8 @@
   "version": "1.5",
   "display_name": "Doubao 1.5 Pro 32K 250115",
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.08e-07,
     "output": 2.7e-07

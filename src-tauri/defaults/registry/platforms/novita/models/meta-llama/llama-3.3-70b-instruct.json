@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "meta-llama/llama-3.3-70b-instruct",
   "canonical_model": "llama-3.3-70b-instruct",
   "family": "llama",
   "version": "3.3",
   "capabilities": ["text", "tool_use"],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.35e-07,
     "output": 4.0000000000000003e-07,

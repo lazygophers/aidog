@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790340078,
   "model_id": "together-ai-embedding-151m-to-350m",
   "canonical_model": "together-ai-embedding-151m-to-350m",
   "family": "embedding",
@@ -7,6 +7,8 @@
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.6e-8,
     "output": 0

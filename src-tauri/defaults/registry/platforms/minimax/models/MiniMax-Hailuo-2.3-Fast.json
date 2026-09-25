@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790340078,
   "model_id": "MiniMax-Hailuo-2.3-Fast",
   "canonical_model": "MiniMax-Hailuo-2.3-Fast",
   "family": "minimax",
@@ -9,6 +9,8 @@
     "image_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.1875

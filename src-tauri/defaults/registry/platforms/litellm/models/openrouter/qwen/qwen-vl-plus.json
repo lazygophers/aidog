@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790340078,
   "model_id": "openrouter/qwen/qwen-vl-plus",
   "canonical_model": "qwen-vl-plus",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "context_window": 8192,
   "max_output_tokens": 2048,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.1e-7,
     "output": 6.3e-7

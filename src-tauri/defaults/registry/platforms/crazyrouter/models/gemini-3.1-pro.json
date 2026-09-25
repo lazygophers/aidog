@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340078,
   "model_id": "gemini-3.1-pro",
   "canonical_model": "gemini-3.1-pro",
   "family": "gemini",
@@ -11,6 +11,8 @@
   "max_output_tokens": 65536,
   "context_window": 1048576,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.1e-06,
     "output": 6.6e-06,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "speech-2.8-turbo",
   "canonical_model": "speech-2.8-turbo",
   "family": "minimax",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.77778e-05,
     "output": 0.0

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-Codestral-2501",
   "canonical_model": "codestral-2501",
   "capabilities": ["text"],
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-07,
     "output": 1.2e-06

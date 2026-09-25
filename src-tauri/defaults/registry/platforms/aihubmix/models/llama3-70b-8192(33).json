@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "llama3-70b-8192(33)",
   "canonical_model": "llama3-70b-8192(33)",
 
@@ -7,6 +7,8 @@
   "family": "llama",  "display_name": "Llama3 70B 8192(33)",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.65e-06,
     "output": 2.65e-06

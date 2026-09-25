@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "deepseek/deepseek-v4.1-flash",
   "canonical_model": "deepseek-v4.1-flash",
   "version": "4.1",
@@ -11,6 +11,8 @@
     "reasoning"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 1.2e-06,

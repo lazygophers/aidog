@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "claude-opus-4-8",
   "canonical_model": "claude-opus-4-8",
   "version": "4.8",
@@ -10,6 +10,7 @@
   ],
   "context_window": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 0
   }

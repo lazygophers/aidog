@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "xiaomi-mimo-v2-pro-free",
   "canonical_model": "xiaomi-mimo-v2-pro-free",
 
@@ -11,6 +11,7 @@
   ],
   "max_input_tokens": 1000000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.0
   }

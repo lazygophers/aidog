@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "deepseek-ai/deepseek-r1-0528-maas",
   "canonical_model": "deepseek-r1-0528-maas",
   "family": "deepseek",
@@ -12,6 +12,7 @@
   "max_output_tokens": 8192,
   "context_window": 65336,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.35e-06,
     "output": 5.4e-06

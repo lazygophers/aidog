@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "scaleway/qwen/qwen3-embedding-8b",
   "canonical_model": "Qwen3-Embedding-8B",
   "capabilities": [
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 0

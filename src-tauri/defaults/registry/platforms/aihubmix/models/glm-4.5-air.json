@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "glm-4.5-air",
   "canonical_model": "glm-4.5-air",
   "capabilities": ["text","tool_use","reasoning"],
@@ -10,6 +10,8 @@
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.4e-07,
     "output": 8.4e-07

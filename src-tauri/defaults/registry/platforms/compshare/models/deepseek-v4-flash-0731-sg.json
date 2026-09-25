@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340078,
   "model_id": "deepseek-v4-flash-0731-sg",
   "canonical_model": "deepseek-v4-flash-0731-sg",
   "family": "deepseek",
@@ -11,6 +11,8 @@
   "max_output_tokens": 393216,
   "context_window": 1048576,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.22778e-07,
     "cache_read": 2.22222e-08,

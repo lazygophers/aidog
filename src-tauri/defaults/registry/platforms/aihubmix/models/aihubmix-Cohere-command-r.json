@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-Cohere-command-r",
   "canonical_model": "aihubmix-Cohere-command-r",
 
   "family": "command",  "display_name": "Aihubmix Cohere Command R",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.4e-7,
     "output": 0.00000192

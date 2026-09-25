@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "sf-kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
   "capabilities": ["text"],
@@ -8,6 +8,8 @@
   "version": "2",
   "display_name": "Sf Kimi K2 Thinking",
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.48e-07,
     "output": 2.192e-06

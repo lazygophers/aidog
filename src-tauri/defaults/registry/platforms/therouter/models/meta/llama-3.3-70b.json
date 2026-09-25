@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "meta/llama-3.3-70b",
   "canonical_model": "llama-3.3-70b",
   "family": "llama",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.776e-07,
     "output": 7.776e-07

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "jamba-1.5",
   "canonical_model": "jamba-1.5",
   "family": "jamba",
@@ -11,6 +11,8 @@
   "max_output_tokens": 256000,
   "context_window": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 4e-07

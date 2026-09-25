@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790340079,
   "model_id": "zhipu/glm-ocr",
   "canonical_model": "glm-ocr",
   "family": "glm",
@@ -8,6 +8,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.24e-08,
     "output": 3.24e-08

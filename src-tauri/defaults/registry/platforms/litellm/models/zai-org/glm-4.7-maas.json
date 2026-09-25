@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 200000,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "zai-org/glm-4.7-maas",
   "canonical_model": "glm-4.7-maas",
   "family": "glm",
@@ -11,6 +11,7 @@
   ],
   "official": false,
   "context_window": 200000,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-07,
     "output": 2.2e-06,

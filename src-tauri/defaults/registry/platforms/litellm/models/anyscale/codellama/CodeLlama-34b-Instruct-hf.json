@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "anyscale/codellama/CodeLlama-34b-Instruct-hf",
   "canonical_model": "CodeLlama-34b-Instruct-hf",
   "family": "codellama",
@@ -10,6 +10,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000001,
     "output": 0.000001

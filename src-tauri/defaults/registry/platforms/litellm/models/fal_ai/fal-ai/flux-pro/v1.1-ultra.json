@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790335307,
+  "last_updated": 1790340078,
   "model_id": "fal_ai/fal-ai/flux-pro/v1.1-ultra",
   "canonical_model": "flux-1.1-pro-ultra",
   "family": "flux",
@@ -8,6 +8,8 @@
     "text_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.06

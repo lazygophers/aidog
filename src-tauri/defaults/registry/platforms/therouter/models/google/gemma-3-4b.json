@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "google/gemma-3-4b",
   "canonical_model": "gemma-3-4b",
   "family": "gemma",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4.32e-08,
     "output": 8.64e-08

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "grok-code-fast-1",
   "canonical_model": "grok-code-fast-1",
 
@@ -12,6 +12,7 @@
   ],
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-06,
     "output": 2e-06,

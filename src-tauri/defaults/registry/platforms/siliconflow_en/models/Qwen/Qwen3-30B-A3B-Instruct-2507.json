@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3-30B-A3B-Instruct-2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
   "version": "3",
@@ -11,6 +11,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-8,
     "output": 3e-7

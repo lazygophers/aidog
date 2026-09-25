@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "vertex_ai/meta/llama3-8b-instruct-maas",
   "canonical_model": "llama-3-8b-instruct",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 32000,
   "max_output_tokens": 32000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

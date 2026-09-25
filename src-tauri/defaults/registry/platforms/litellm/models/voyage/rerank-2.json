@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790340078,
   "model_id": "voyage/rerank-2",
   "canonical_model": "rerank-2",
   "family": "rerank",
@@ -11,6 +11,8 @@
   "context_window": 16000,
   "max_output_tokens": 16000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8
   }

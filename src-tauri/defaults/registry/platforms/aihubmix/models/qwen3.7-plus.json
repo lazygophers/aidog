@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278047,
+  "last_updated": 1790340078,
   "model_id": "qwen3.7-plus",
   "canonical_model": "qwen3.7-plus",
   "display_name": "Qwen3.7 Plus",
@@ -13,6 +13,7 @@
   "max_output_tokens": 131072,
   "context_window": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.82e-7,
     "output": 0.000001128,

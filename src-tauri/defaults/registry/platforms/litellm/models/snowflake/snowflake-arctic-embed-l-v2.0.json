@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790340078,
   "model_id": "snowflake/snowflake-arctic-embed-l-v2.0",
   "canonical_model": "snowflake-arctic-embed-l-v2.0",
   "family": "arctic-embed",
@@ -11,6 +11,8 @@
   "context_window": 8192,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7e-8,
     "output": 0

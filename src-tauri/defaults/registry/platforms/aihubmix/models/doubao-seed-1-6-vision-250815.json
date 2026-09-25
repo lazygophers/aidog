@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790340078,
   "model_id": "doubao-seed-1-6-vision-250815",
   "canonical_model": "doubao-seed-1-6-vision-250815",
   "context_window": 262144,
@@ -8,6 +8,8 @@
   "display_name": "Doubao Seed 1.6 Vision 250815",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.0959e-07,
     "output": 1.0959e-06,

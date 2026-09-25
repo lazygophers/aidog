@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "mistral/mistral-ocr-latest",
   "canonical_model": "mistral-ocr-latest",
   "family": "mistral",
@@ -7,6 +7,8 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.004

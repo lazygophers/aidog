@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790335307,
+  "last_updated": 1790340078,
   "model_id": "aiml/flux-pro/v1.1",
   "canonical_model": "flux-1.1-pro",
   "capabilities": [
     "text_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.052

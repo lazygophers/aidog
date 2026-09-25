@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "novita/qwen/qwen3-vl-30b-a3b-instruct",
   "canonical_model": "qwen3-vl-30b-a3b-instruct",
   "family": "qwen",
@@ -14,6 +14,8 @@
   "context_window": 131072,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 7e-7

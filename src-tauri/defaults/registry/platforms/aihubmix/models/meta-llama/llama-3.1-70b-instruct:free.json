@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "meta-llama/llama-3.1-70b-instruct:free",
   "canonical_model": "llama-3.1-70b-instruct:free",
 
   "family": "llama",  "display_name": "Llama 3.1 70B Instruct (free)",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-08,
     "output": 2e-08

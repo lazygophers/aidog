@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "azure/gpt-audio-1.5-2026-02-23",
   "canonical_model": "gpt-audio-1.5",
   "family": "gpt",
@@ -12,6 +12,7 @@
   "context_window": 128000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.0000025,
     "output": 0.00001

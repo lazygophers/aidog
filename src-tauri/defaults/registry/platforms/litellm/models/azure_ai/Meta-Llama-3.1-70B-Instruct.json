@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/Meta-Llama-3.1-70B-Instruct",
   "canonical_model": "Meta-Llama-3.1-70B-Instruct",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 2048,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.00000268,
     "output": 0.00000354

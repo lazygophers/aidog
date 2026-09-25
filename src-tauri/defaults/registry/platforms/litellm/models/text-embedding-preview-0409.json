@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790340078,
   "model_id": "text-embedding-preview-0409",
   "canonical_model": "text-embedding-preview-0409",
   "family": "gemini",
@@ -10,6 +10,8 @@
   "context_window": 3072,
   "max_output_tokens": 3072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.25e-9,
     "output": 0

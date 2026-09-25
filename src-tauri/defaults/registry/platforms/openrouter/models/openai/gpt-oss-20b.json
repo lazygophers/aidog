@@ -8,11 +8,12 @@
   "official": true,
   "max_output_tokens": 32768,
   "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.8e-8,
     "output": 9e-8
   },
-  "last_updated": 1790339710,
+  "last_updated": 1790340079,
   "capabilities": [
     "reasoning",
     "text",

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/stable-diffusion-xl-1024-v1-0",
   "canonical_model": "stable-diffusion-xl-1024-v1-0",
   "family": "stable-diffusion",
@@ -11,6 +11,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.3e-10,
     "output": 1.3e-10

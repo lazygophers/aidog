@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "mimo-v2-flash",
   "canonical_model": "mimo-v2-flash",
 
@@ -13,6 +13,7 @@
   ],
   "max_input_tokens": 1048576,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.918e-7,
     "output": 5.754e-7,

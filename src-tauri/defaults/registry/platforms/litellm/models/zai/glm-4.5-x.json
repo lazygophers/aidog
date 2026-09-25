@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "zai/glm-4.5-x",
   "canonical_model": "glm-4.5-x",
   "family": "glm",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 32000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0000022,
     "output": 0.0000089

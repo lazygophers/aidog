@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790340078,
   "model_id": "text-embedding-async-v2",
   "canonical_model": "text-embedding-async-v2",
   "capabilities": [
     "embedding"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9.722222222222221e-08
   }

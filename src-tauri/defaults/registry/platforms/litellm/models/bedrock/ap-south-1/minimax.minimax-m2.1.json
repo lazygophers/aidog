@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/ap-south-1/minimax.minimax-m2.1",
   "canonical_model": "minimax.minimax-m2.1",
   "family": "minimax",
@@ -12,6 +12,8 @@
   "context_window": 196000,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.6e-7,
     "output": 0.00000144

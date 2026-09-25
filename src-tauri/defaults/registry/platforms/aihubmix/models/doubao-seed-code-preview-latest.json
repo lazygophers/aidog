@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "doubao-seed-code-preview-latest",
   "canonical_model": "doubao-seed-code-preview-latest",
 
   "family": "doubao-seed",  "display_name": "Doubao Seed Code Preview",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 2e-07

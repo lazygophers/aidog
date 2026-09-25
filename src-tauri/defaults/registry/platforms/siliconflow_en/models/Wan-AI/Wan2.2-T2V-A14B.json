@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790340079,
   "model_id": "Wan-AI/Wan2.2-T2V-A14B",
   "canonical_model": "Wan2.2-T2V-A14B",
   "version": "2.2",
@@ -8,6 +8,8 @@
     "text_to_video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.29

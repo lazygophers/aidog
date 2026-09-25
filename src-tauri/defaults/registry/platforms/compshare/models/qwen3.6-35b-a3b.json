@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen3.6-35b-a3b",
   "canonical_model": "qwen3.6-35b-a3b",
   "version": "3.6",
@@ -11,6 +11,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.5e-07,
     "output": 1.5e-06

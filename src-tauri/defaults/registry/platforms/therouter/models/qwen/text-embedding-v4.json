@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067652,
+  "last_updated": 1790340079,
   "model_id": "qwen/text-embedding-v4",
   "canonical_model": "text-embedding-v4",
   "capabilities": [
     "embedding"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.56e-08,
     "output": 0.0

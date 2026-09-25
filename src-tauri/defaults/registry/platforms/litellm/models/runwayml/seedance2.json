@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790336632,
+  "last_updated": 1790340078,
   "model_id": "runwayml/seedance2",
   "canonical_model": "seedance-2.0",
   "family": "seedance",
@@ -8,6 +8,8 @@
     "text_to_video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.36

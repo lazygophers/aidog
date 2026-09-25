@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "hyperbolic/Qwen/Qwen2.5-Coder-32B-Instruct",
   "canonical_model": "qwen2.5-coder-32b-instruct",
   "family": "qwen",
@@ -13,6 +13,8 @@
   "context_window": 32768,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.2e-7,
     "output": 3e-7

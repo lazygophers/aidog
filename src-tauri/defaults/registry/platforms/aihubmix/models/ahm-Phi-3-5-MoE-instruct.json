@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "ahm-Phi-3-5-MoE-instruct",
   "canonical_model": "phi-3.5-moe-instruct",
 
@@ -7,6 +7,8 @@
   "family": "phi",  "display_name": "Ahm Phi 3.5 Moe Instruct",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-07,
     "output": 1.6e-06

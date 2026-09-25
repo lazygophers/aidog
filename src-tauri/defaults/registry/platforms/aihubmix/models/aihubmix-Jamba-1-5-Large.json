@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-Jamba-1-5-Large",
   "canonical_model": "jamba-1.5-large",
   "capabilities": ["text"],
@@ -12,6 +12,8 @@
   "context_window": 256000,
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.2e-06,
     "output": 8.8e-06

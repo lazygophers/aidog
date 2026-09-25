@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790340078,
   "model_id": "vercel_ai_gateway/meta/llama-3.2-90b",
   "canonical_model": "llama-3.2-90b",
   "capabilities": [
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.2e-7,
     "output": 7.2e-7

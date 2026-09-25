@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "Qwen/Qwen2-1.5B-Instruct",
   "canonical_model": "qwen2-1.5b-instruct",
 
@@ -7,6 +7,8 @@
   "family": "qwen",  "display_name": "Qwen2 1.5b Instruct",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 2e-07

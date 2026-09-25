@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "gemini-2.5-flash-native-audio-latest",
   "canonical_model": "gemini-2.5-flash-native-audio-latest",
   "family": "gemini",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8192,
   "context_window": 8192,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-07,
     "output": 2.5e-06,

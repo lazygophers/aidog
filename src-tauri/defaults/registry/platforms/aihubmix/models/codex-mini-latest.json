@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "codex-mini-latest",
   "canonical_model": "codex-mini-latest",
   "display_name": "Codex Mini",
@@ -12,6 +12,7 @@
   "max_output_tokens": 100000,
   "context_window": 200000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 1.5e-06,
     "output": 6e-06,

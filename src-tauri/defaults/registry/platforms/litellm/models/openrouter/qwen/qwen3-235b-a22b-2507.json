@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790340078,
   "model_id": "openrouter/qwen/qwen3-235b-a22b-2507",
   "canonical_model": "qwen3-235b-a22b-2507",
   "family": "qwen",
@@ -12,6 +12,8 @@
   "context_window": 262144,
   "max_output_tokens": 235929,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 8.75e-8,
     "output": 3.5e-7

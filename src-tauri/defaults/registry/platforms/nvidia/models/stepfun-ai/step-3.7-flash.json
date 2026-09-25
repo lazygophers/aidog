@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "stepfun-ai/step-3.7-flash",
   "canonical_model": "step-3.7-flash",
   "version": "3.7",
@@ -12,6 +12,7 @@
   "max_input_tokens": 262144,
   "max_output_tokens": 256000,
   "official": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0,
     "output": 0.0

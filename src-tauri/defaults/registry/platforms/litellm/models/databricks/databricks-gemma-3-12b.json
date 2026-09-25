@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790340078,
   "model_id": "databricks/databricks-gemma-3-12b",
   "canonical_model": "gemma-3-12b",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 128000,
   "max_output_tokens": 32000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.5000999999999998e-7,
     "output": 5.0001e-7

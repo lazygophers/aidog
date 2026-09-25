@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340079,
   "model_id": "Pro/MiniMaxAI/MiniMax-M2.5",
   "canonical_model": "MiniMax-M2.5",
   "version": "2.5",
@@ -12,6 +12,7 @@
   "max_output_tokens": 196608,
   "context_window": 204800,
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 2.91667e-7,
     "output": 0.00000116667,

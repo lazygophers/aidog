@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790268689,
+  "last_updated": 1790340078,
   "model_id": "qwen-deep-research",
   "canonical_model": "qwen-deep-research",
   "family": "qwen",
@@ -10,6 +10,7 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.000007742,
     "output": 0.000023367000000000002

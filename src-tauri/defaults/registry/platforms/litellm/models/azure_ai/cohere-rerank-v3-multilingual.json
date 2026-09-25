@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/cohere-rerank-v3-multilingual",
   "canonical_model": "cohere-rerank-v3-multilingual",
   "family": "rerank",
@@ -11,6 +11,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

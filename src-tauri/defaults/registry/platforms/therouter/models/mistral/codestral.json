@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "mistral/codestral",
   "canonical_model": "codestral",
   "family": "codestral",
@@ -7,6 +7,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.24e-07,
     "output": 9.72e-07

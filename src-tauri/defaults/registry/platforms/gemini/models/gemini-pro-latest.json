@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "gemini-pro-latest",
   "canonical_model": "gemini-pro-latest",
   "family": "gemini",
@@ -10,6 +10,8 @@
   "max_output_tokens": 65535,
   "context_window": 65535,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.25e-06,
     "output": 1e-05,

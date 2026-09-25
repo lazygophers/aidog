@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "mistral/mistral-moderation-2603",
   "canonical_model": "mistral-moderation-2603",
   "capabilities": [
@@ -8,6 +8,8 @@
   "max_input_tokens": 131072,
   "context_window": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

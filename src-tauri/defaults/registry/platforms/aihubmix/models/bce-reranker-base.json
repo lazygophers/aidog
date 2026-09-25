@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278047,
+  "last_updated": 1790340078,
   "model_id": "bce-reranker-base",
   "canonical_model": "bce-reranker-base",
   "family": "bce",
@@ -9,6 +9,8 @@
     "rerank"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.8e-08,
     "output": 0

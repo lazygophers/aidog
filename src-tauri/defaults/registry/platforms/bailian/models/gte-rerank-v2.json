@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "gte-rerank-v2",
   "canonical_model": "gte-rerank-v2",
   "family": "gte",
@@ -8,6 +8,8 @@
     "rerank"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.11111e-7
   }

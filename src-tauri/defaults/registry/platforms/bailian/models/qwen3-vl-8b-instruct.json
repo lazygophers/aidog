@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen3-vl-8b-instruct",
   "canonical_model": "qwen3-vl-8b-instruct",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "max_output_tokens": 32768,
   "context_window": 256000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-08,
     "output": 5e-07,

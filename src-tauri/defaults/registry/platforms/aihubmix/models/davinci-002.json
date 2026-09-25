@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
   "capabilities": ["embedding"],
@@ -10,6 +10,8 @@
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-06,
     "output": 2e-06

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "command-nightly",
   "canonical_model": "command-nightly",
 
   "family": "command",  "display_name": "Command Nightly",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-06,
     "output": 2e-06

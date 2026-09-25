@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3-8B",
   "canonical_model": "qwen3-8b",
   "version": "3",
@@ -12,6 +12,8 @@
   "max_output_tokens": 8192,
   "context_window": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0,
     "output": 0

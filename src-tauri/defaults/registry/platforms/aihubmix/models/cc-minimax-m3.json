@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "cc-minimax-m3",
   "canonical_model": "MiniMax-M3",
   "display_name": "CC MiniMax M3",
@@ -12,6 +12,8 @@
   "max_output_tokens": 524288,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-7,
     "output": 1e-7

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/Qwen/Qwen3-235B-A22B",
   "canonical_model": "qwen3-235b-a22b",
   "family": "qwen",
@@ -12,6 +12,8 @@
   "context_window": 40960,
   "max_output_tokens": 40960,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.8e-7,
     "output": 5.4e-7

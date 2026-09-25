@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "codestral-2",
   "canonical_model": "codestral-2",
   "family": "codestral",
@@ -11,6 +11,8 @@
   "max_output_tokens": 128000,
   "context_window": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-07,
     "output": 9e-07

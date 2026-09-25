@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "mimo-v2-flash-free",
   "canonical_model": "mimo-v2-flash-free",
 
@@ -12,6 +12,7 @@
   ],
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.0
   }
