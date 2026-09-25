@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790322188,
   "model_id": "deepseek/deepseek-r1-turbo",
   "canonical_model": "deepseek-r1-turbo",
+  "version": "r1",
+  "family": "deepseek",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
   "price": {

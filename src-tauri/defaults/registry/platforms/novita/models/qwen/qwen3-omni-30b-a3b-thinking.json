@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790322188,
   "model_id": "qwen/qwen3-omni-30b-a3b-thinking",
   "canonical_model": "Qwen3-Omni-30B-A3B-Thinking",
+  "version": "3",
+  "family": "qwen",
   "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
   "price": {

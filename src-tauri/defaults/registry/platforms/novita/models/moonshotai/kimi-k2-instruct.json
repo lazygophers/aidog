@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790322188,
   "model_id": "moonshotai/kimi-k2-instruct",
   "canonical_model": "kimi-k2-instruct",
+  "version": "2",
+  "family": "kimi",
   "capabilities": ["text", "tool_use"],
   "official": true,
   "price": {

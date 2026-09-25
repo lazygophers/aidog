@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790322188,
   "model_id": "deepseek/deepseek-prover-v2-671b",
   "canonical_model": "deepseek-prover-v2-671b",
+  "version": "2",
+  "family": "deepseek",
   "capabilities": [
     "text"
   ],
