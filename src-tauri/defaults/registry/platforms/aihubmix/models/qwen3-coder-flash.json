@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790343206,
   "model_id": "qwen3-coder-flash",
   "canonical_model": "qwen3-coder-flash",
   "display_name": "Qwen3 Coder Flash",
@@ -12,6 +12,8 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.36e-07,
     "output": 5.44e-07,

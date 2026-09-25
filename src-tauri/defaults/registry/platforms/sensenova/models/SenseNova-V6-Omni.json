@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790343206,
   "model_id": "SenseNova-V6-Omni",
   "canonical_model": "SenseNova-V6-Omni",
   "family": "sensenova",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.000462963

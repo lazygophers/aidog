@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790343206,
   "model_id": "fireworks_ai/accounts/fireworks/models/llama4-maverick-instruct-basic",
   "canonical_model": "llama4-maverick-instruct-basic",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.2e-7,
     "output": 8.8e-7

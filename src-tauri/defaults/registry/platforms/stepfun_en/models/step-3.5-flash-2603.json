@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790343206,
   "model_id": "step-3.5-flash-2603",
   "canonical_model": "step-3.5-flash-2603",
   "family": "stepfun",
@@ -11,6 +11,8 @@
   "max_output_tokens": 16384,
   "context_window": 262144,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.0000000000000001e-07,
     "output": 3e-07,

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790343206,
   "model_id": "gpt-realtime-mini",
   "canonical_model": "gpt-realtime-mini",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6e-7,
     "output": 0.0000024,
