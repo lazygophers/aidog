@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "wanx2.1-i2v-turbo",
+  "display_name": "Wanx2.1-I2V-Turbo",
   "canonical_model": "wanx2.1-i2v-turbo",
   "family": "wan",
   "version": "2.1",

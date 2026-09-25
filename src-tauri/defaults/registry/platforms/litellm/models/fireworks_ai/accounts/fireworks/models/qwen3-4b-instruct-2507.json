@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-4b-instruct-2507",
+  "display_name": "Qwen3-4B-Instruct-2507",
   "canonical_model": "qwen3-4b-instruct-2507",
   "family": "qwen",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "deepinfra/deepseek-ai/DeepSeek-R1-Turbo",
+  "display_name": "DeepSeek-R1-Turbo",
   "canonical_model": "deepseek-r1-turbo",
   "family": "deepseek",
   "version": "r1",

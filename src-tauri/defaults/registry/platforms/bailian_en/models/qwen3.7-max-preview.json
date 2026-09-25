@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790346351,
   "model_id": "qwen3.7-max-preview",
+  "display_name": "Qwen3.7-Max-Preview",
   "canonical_model": "qwen3.7-max-preview",
   "family": "qwen",
 

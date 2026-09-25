@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790346352,
   "model_id": "gemini-3-flash",
+  "display_name": "Gemini 3 Flash",
   "canonical_model": "gemini-3-flash",
   "capabilities": [
     "text"

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "paraformer-mtl-v1",
+  "display_name": "Paraformer-MTL",
   "canonical_model": "paraformer-mtl-v1",
   "family": "paraformer",
   "version": "1",

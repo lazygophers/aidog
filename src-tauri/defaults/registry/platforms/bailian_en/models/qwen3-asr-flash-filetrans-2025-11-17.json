@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen3-asr-flash-filetrans-2025-11-17",
+  "display_name": "Qwen3-ASR-Flash-Filetrans (2025-11-17)",
   "canonical_model": "qwen3-asr-flash-filetrans-2025-11-17",
   "family": "qwen",
 

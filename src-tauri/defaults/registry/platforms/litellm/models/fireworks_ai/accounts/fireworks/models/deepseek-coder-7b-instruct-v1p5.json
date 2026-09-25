@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-coder-7b-instruct-v1p5",
+  "display_name": "DeepSeek-Coder-7B-Instruct-v1.5",
   "canonical_model": "deepseek-coder-7b-instruct-v1p5",
   "family": "deepseek",
   "capabilities": [

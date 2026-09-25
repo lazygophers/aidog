@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790346352,
   "model_id": "vertex_ai/deepseek-ai/deepseek-r1-0528-maas",
+  "display_name": "DeepSeek-R1-0528",
   "canonical_model": "deepseek-r1-0528-maas",
   "family": "deepseek",
   "version": "1",

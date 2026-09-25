@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen2p5-coder-0p5b",
+  "display_name": "Qwen2.5-Coder-0.5B",
   "canonical_model": "qwen2p5-coder-0p5b",
   "family": "qwen",
   "version": "2.5",

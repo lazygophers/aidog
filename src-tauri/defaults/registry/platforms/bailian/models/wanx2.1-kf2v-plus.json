@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "wanx2.1-kf2v-plus",
+  "display_name": "Wanx2.1-KF2V-Plus",
   "canonical_model": "wanx2.1-kf2v-plus",
   "family": "wan",
   "version": "2.1",

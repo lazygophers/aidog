@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790346352,
   "model_id": "deepseek/deepseek-reasoner",
+  "display_name": "DeepSeek-Reasoner",
   "canonical_model": "deepseek-reasoner",
   "family": "deepseek",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790346352,
   "model_id": "together_ai/arize-ai/qwen-2-1.5b-instruct",
+  "display_name": "Qwen2-1.5B-Instruct",
   "canonical_model": "qwen-2-1.5b-instruct",
   "family": "qwen",
   "version": "2",

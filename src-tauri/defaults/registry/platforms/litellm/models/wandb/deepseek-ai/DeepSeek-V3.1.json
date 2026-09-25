@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790346352,
   "model_id": "wandb/deepseek-ai/DeepSeek-V3.1",
+  "display_name": "DeepSeek-V3.1",
   "canonical_model": "DeepSeek-V3.1",
   "family": "deepseek",
   "version": "3.1",

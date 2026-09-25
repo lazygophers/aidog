@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwq-plus",
+  "display_name": "QwQ-Plus",
   "canonical_model": "qwq-plus",
   "family": "qwen",
   "capabilities": [

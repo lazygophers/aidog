@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "animate-anyone-gen2",
+  "display_name": "Animate-Anyone-Gen2",
   "canonical_model": "animate-anyone-gen2",
   "version": "2",
   "family": "animate-anyone",

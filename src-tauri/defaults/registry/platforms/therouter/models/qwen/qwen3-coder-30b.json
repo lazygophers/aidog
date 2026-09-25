@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790346352,
   "model_id": "qwen/qwen3-coder-30b",
+  "display_name": "Qwen3-Coder-30B",
   "canonical_model": "qwen3-coder-30b",
   "family": "qwen",
   "version": "3",

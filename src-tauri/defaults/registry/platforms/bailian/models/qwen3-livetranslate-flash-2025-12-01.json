@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen3-livetranslate-flash-2025-12-01",
+  "display_name": "Qwen3-LiveTranslate-Flash (2025-12-01)",
   "canonical_model": "qwen3-livetranslate-flash-2025-12-01",
   "family": "qwen",
 

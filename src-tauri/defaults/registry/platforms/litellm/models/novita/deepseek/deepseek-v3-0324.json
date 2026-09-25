@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790346352,
   "model_id": "novita/deepseek/deepseek-v3-0324",
+  "display_name": "DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",
   "family": "deepseek",
   "capabilities": [

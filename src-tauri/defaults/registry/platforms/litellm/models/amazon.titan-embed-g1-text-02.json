@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "amazon.titan-embed-g1-text-02",
+  "display_name": "Titan Embeddings G1 - Text",
   "canonical_model": "amazon.titan-embed-g1-text-02",
   "family": "titan",
   "version": "1",

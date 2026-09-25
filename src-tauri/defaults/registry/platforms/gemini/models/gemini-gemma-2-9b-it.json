@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "gemini-gemma-2-9b-it",
+  "display_name": "Gemma 2 9B IT",
   "canonical_model": "gemini-gemma-2-9b-it",
   "family": "gemma",
   "version": "2",

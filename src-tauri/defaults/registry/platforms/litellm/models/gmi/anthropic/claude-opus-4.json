@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "gmi/anthropic/claude-opus-4",
+  "display_name": "Claude Opus 4",
   "canonical_model": "claude-opus-4",
   "capabilities": [
     "text",

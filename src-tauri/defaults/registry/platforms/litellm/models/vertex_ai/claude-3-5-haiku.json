@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "vertex_ai/claude-3-5-haiku",
+  "display_name": "Claude 3.5 Haiku",
   "canonical_model": "claude-3-5-haiku",
   "family": "claude",
   "version": "3.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "openrouter/mistralai/mistral-7b-instruct",
+  "display_name": "Mistral 7B Instruct",
   "canonical_model": "mistral-7b-instruct",
   "family": "mistral",
   "capabilities": [

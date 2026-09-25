@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "wanx-v1",
+  "display_name": "Wanx-V1",
   "canonical_model": "wanx-v1",
   "family": "wan",
   "version": "1",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790346351,
   "model_id": "gpt-oss-120b-250805",
+  "display_name": "gpt-oss-120b (250805)",
   "canonical_model": "gpt-oss-120b-250805",
   "family": "gpt-oss",
   "capabilities": [

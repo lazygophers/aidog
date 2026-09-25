@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "gemini/gemini-2.5-flash-native-audio-latest",
+  "display_name": "Gemini 2.5 Flash Native Audio (latest)",
   "canonical_model": "gemini-2.5-flash-native-audio-latest",
   "family": "gemini",
   "version": "2.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-mt-lite",
+  "display_name": "Qwen-MT-Lite",
   "canonical_model": "qwen-mt-lite",
   "family": "qwen",
   "capabilities": [

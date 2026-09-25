@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790346352,
   "model_id": "mistral/mistral-medium-2604",
+  "display_name": "Mistral Medium 3.5",
   "canonical_model": "mistral-medium-2604",
   "capabilities": [
     "text",

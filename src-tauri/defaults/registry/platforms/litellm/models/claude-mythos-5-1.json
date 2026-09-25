@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "claude-mythos-5-1",
+  "display_name": "Claude Mythos 5.1",
   "canonical_model": "claude-mythos-5-1",
   "family": "claude",
   "version": "5.1",

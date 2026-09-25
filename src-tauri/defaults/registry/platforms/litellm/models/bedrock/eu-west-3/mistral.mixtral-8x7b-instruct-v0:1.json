@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "bedrock/eu-west-3/mistral.mixtral-8x7b-instruct-v0:1",
+  "display_name": "Mixtral 8x7B Instruct",
   "canonical_model": "mistral.mixtral-8x7b-instruct-v0:1",
   "family": "mixtral",
   "version": "0.1",

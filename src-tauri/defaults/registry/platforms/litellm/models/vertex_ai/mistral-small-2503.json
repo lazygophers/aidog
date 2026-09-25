@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "vertex_ai/mistral-small-2503",
+  "display_name": "Mistral Small 3.1",
   "canonical_model": "mistral-small-2503",
   "family": "mistral",
   "version": "3.1",

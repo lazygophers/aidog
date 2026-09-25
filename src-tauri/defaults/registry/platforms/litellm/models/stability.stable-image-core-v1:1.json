@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "stability.stable-image-core-v1:1",
+  "display_name": "Stable Image Core v1.1",
   "canonical_model": "stability.stable-image-core-v1:1",
   "family": "stable",
   "version": "1",
