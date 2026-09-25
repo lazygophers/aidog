@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/MAI-Image-2.5",
+  "display_name": "MAI-Image-2.5",
   "canonical_model": "mai-image-2.5",
   "version": "2.5",
   "capabilities": [

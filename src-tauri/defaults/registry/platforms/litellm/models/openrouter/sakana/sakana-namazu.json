@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/sakana/sakana-namazu",
+  "display_name": "Sakana: Sakana Namazu",
   "canonical_model": "sakana-namazu",
   "family": "namazu",
   "capabilities": [

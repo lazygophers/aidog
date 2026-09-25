@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790342182,
   "model_id": "openai/codex-mini-latest",
+  "display_name": "Codex Mini",
   "canonical_model": "codex-mini-latest",
   "family": "codex",
   "version": "mini",

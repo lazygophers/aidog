@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/gemini-embedding-2",
+  "display_name": "Gemini Embedding 2",
   "canonical_model": "gemini-embedding-2",
   "family": "gemini",
   "version": "2",

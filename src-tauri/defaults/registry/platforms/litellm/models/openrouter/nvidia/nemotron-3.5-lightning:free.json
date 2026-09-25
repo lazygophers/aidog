@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+  "display_name": "NVIDIA: Nemotron 3.5 Lightning (free)",
   "canonical_model": "nemotron-3.5-lightning:free",
   "family": "nemotron",
   "version": "3.5",

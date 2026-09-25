@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790342182,
   "model_id": "aiml/dall-e-2",
+  "display_name": "Dall E 2",
   "canonical_model": "dall-e-2",
   "capabilities": [
     "text_to_image"

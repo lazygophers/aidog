@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788103292,
+  "last_updated": 1790342182,
   "model_id": "grok-4-0709",
+  "display_name": "Grok 4",
   "canonical_model": "grok-4",
   "capabilities": [
     "text"

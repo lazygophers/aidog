@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/qwen/qwen3-max-thinking",
+  "display_name": "Qwen: Qwen3 Max Thinking",
   "canonical_model": "qwen3-max-thinking",
   "family": "qwen",
   "version": "3",

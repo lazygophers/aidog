@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "zhipu/viduq1-start-end",
+  "display_name": "ViduQ1-Start-End",
   "canonical_model": "viduq1-start-end",
   "family": "vidu",
   "version": "q1",

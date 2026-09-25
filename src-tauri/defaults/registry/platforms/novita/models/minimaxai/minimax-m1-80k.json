@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "minimaxai/minimax-m1-80k",
+  "display_name": "MiniMax M1 80K",
   "canonical_model": "minimax-m1-80k",
   "family": "minimax",
   "version": "1",

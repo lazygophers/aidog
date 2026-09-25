@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "xai/grok-4.20-reasoning-latest",
+  "display_name": "Grok 4 20 (reasoning)",
   "canonical_model": "grok-4.20-reasoning",
   "family": "grok",
   "version": "4.20",

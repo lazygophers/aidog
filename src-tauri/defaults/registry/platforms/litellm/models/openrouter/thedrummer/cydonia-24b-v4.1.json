@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/thedrummer/cydonia-24b-v4.1",
+  "display_name": "TheDrummer: Cydonia 24B V4.1",
   "canonical_model": "cydonia-24b-v4.1",
   "family": "cydonia",
   "version": "4.1",

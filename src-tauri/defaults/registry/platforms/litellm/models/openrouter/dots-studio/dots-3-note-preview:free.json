@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/dots-studio/dots-3-note-preview:free",
+  "display_name": "Dots Studio: Dots3-Note Preview (free)",
   "canonical_model": "dots-3-note-preview:free",
   "family": "dots",
   "version": "3",

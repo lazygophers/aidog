@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790342182,
   "model_id": "anyscale/google/gemma-7b-it",
+  "display_name": "Gemma 7B It",
   "canonical_model": "gemma-7b-it",
   "capabilities": [
     "text"

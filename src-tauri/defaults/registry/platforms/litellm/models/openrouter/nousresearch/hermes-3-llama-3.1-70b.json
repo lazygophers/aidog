@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/nousresearch/hermes-3-llama-3.1-70b",
+  "display_name": "Nous: Hermes 3 70B Instruct",
   "canonical_model": "hermes-3-llama-3.1-70b",
   "family": "hermes",
   "version": "3",

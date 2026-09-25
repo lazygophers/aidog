@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/qwen/qwen3.6-27b",
+  "display_name": "Qwen3.6-27B",
   "canonical_model": "qwen3.6-27b",
   "family": "qwen",
   "version": "3.6",

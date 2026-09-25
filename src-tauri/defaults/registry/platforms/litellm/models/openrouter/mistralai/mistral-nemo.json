@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/mistral-nemo",
+  "display_name": "Mistral: Mistral Nemo",
   "canonical_model": "mistral-nemo",
   "family": "mistral",
   "capabilities": [

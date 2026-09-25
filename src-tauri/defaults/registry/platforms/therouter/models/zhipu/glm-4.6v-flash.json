@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "zhipu/glm-4.6v-flash",
+  "display_name": "GLM-4.6V-Flash",
   "canonical_model": "glm-4.6v-flash",
   "family": "glm",
   "version": "4.6",

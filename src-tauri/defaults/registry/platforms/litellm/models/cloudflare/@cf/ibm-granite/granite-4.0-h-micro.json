@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/ibm-granite/granite-4.0-h-micro",
+  "display_name": "IBM: Granite 4.0 Micro",
   "canonical_model": "granite-4.0-h-micro",
   "family": "granite",
   "version": "4.0",

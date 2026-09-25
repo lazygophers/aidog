@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~openai/gpt-mini-latest",
+  "display_name": "OpenAI: GPT Mini Latest",
   "canonical_model": "gpt-mini-latest",
   "family": "gpt",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "ali/qwen3.6-max-preview",
+  "display_name": "Qwen3.6-Max-Preview",
   "canonical_model": "qwen3.6-max-preview",
   "version": "3.6",
   "family": "qwen",

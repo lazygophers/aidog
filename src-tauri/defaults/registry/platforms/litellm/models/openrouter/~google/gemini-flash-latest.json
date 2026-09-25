@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~google/gemini-flash-latest",
+  "display_name": "Google: Gemini Flash Latest",
   "canonical_model": "gemini-flash-latest",
   "family": "gemini",
   "capabilities": [

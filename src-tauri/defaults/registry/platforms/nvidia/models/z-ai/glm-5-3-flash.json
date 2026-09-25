@@ -1,7 +1,8 @@
 {
   "version": "5.3",
-  "last_updated": 1790287585,
+  "last_updated": 1790342182,
   "model_id": "z-ai/glm-5-3-flash",
+  "display_name": "GLM-5.3-Flash",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",
   "thinking_supported": true,

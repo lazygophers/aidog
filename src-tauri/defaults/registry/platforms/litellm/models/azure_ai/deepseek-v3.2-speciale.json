@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/deepseek-v3.2-speciale",
+  "display_name": "Azure Deepseek V3.2 Speciale",
   "canonical_model": "deepseek-v3.2-speciale",
   "family": "deepseek",
   "version": "3.2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/gpt-oss-20b:batch",
+  "display_name": "OpenAI: gpt-oss-20b (batch)",
   "canonical_model": "gpt-oss-20b:batch",
   "family": "gpt",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openrouter/free",
+  "display_name": "Free Models Router",
   "canonical_model": "free",
   "family": "openrouter",
   "capabilities": [

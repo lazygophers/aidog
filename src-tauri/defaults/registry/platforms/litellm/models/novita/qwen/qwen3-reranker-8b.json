@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790342182,
   "model_id": "novita/qwen/qwen3-reranker-8b",
+  "display_name": "Qwen3 Reranker 8B",
   "canonical_model": "Qwen3-Reranker-8B",
   "capabilities": [
     "rerank"

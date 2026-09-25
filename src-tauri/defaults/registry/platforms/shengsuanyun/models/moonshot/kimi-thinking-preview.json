@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "moonshot/kimi-thinking-preview",
+  "display_name": "Kimi Thinking Preview",
   "canonical_model": "kimi-thinking-preview",
   "family": "kimi",
   "capabilities": [

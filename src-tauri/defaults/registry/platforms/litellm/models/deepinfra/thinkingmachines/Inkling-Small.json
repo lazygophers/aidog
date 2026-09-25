@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "deepinfra/thinkingmachines/Inkling-Small",
+  "display_name": "Thinking Machines: Inkling Small",
   "canonical_model": "inkling-small",
   "family": "inkling",
   "capabilities": [

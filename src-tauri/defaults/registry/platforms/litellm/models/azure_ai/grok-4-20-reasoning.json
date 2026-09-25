@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/grok-4-20-reasoning",
+  "display_name": "Grok 4 20 (reasoning)",
   "canonical_model": "grok-4.20-reasoning",
   "family": "grok",
   "version": "4.20",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790342182,
   "model_id": "aihubmix/command-a-plus-05-2026",
+  "display_name": "Command A Plus 05 2026",
   "canonical_model": "command-a-plus-05-2026",
   "capabilities": [
     "text",

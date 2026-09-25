@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "databricks/databricks-inkling",
+  "display_name": "Thinking Machines: Inkling",
   "canonical_model": "inkling",
   "family": "inkling",
   "capabilities": [

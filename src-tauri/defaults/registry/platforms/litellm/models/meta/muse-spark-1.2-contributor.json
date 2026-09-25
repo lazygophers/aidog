@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "meta/muse-spark-1.2-contributor",
+  "display_name": "Meta: Muse Spark 1.2 Contributor",
   "canonical_model": "muse-spark-1.2-contributor",
   "family": "muse-spark",
   "version": "1.2",

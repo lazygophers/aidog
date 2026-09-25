@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "zhipu/viduq1-image",
+  "display_name": "ViduQ1-Image",
   "canonical_model": "viduq1-image",
   "family": "vidu",
   "version": "q1",

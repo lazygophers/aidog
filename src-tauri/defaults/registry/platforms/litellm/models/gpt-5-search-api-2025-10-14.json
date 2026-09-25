@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "gpt-5-search-api-2025-10-14",
+  "display_name": "GPT-5 Search API",
   "canonical_model": "gpt-5-search-api",
   "family": "gpt",
   "version": "5",

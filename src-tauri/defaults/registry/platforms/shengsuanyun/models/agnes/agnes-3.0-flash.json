@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790187143,
+  "last_updated": 1790342182,
   "model_id": "agnes/agnes-3.0-flash",
+  "display_name": "Agnes 3.0 Flash",
   "canonical_model": "agnes-3.0-flash",
   "capabilities": [
     "text"

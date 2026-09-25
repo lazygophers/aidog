@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "zhipu/glm-image",
+  "display_name": "GLM-Image",
   "canonical_model": "glm-image",
   "family": "glm",
   "capabilities": [

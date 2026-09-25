@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-audio-mini-2025-10-06",
+  "display_name": "OpenAI: GPT Audio Mini",
   "canonical_model": "gpt-audio-mini",
   "family": "gpt",
   "version": "audio",

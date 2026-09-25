@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/minimax/minimax-01",
+  "display_name": "MiniMax: MiniMax-01",
   "canonical_model": "minimax-01",
   "family": "minimax",
   "version": "01",

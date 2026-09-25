@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/unbiased/pareto",
+  "display_name": "Pareto",
   "canonical_model": "pareto",
   "family": "pareto",
   "capabilities": [

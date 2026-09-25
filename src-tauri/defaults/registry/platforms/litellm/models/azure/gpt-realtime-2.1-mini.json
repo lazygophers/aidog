@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-realtime-2.1-mini",
+  "display_name": "GPT Realtime 2.1 Mini",
   "canonical_model": "gpt-realtime-2.1-mini",
   "family": "gpt",
   "version": "2.1",

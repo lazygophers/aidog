@@ -1,6 +1,7 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790342182,
   "model_id": "glm-5.2",
+  "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
   "family": "glm",
   "version": "5.2",

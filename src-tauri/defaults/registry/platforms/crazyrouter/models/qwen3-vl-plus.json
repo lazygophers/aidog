@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "qwen3-vl-plus",
+  "display_name": "Qwen3 VL Plus",
   "canonical_model": "qwen3-vl-plus",
   "version": "3",
   "family": "qwen",

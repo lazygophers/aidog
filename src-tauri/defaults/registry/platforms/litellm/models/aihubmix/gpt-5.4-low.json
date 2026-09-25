@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790342182,
   "model_id": "aihubmix/gpt-5.4-low",
+  "display_name": "GPT 5.4 Low",
   "canonical_model": "gpt-5.4-low",
   "capabilities": [
     "text",

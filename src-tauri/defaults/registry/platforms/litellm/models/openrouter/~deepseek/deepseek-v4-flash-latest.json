@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~deepseek/deepseek-v4-flash-latest",
+  "display_name": "DeepSeek: DeepSeek V4 Flash Latest",
   "canonical_model": "deepseek-v4-flash-latest",
   "family": "deepseek",
   "version": "4",

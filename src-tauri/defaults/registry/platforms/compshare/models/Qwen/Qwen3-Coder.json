@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790342182,
   "model_id": "Qwen/Qwen3-Coder",
+  "display_name": "Qwen: Qwen3 Coder 480B A35B",
   "canonical_model": "qwen3-coder",
   "version": "3",
   "family": "qwen",

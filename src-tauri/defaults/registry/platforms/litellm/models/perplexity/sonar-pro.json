@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "perplexity/sonar-pro",
+  "display_name": "Perplexity: Sonar Pro",
   "canonical_model": "sonar-pro",
   "family": "sonar",
   "capabilities": [

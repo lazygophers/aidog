@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "moonshot/moonshot-v1-128k",
+  "display_name": "Moonshot V1 128K",
   "canonical_model": "moonshot-v1-128k",
   "family": "moonshot",
   "version": "1",

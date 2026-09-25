@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790269990,
+  "last_updated": 1790342182,
   "model_id": "glm-5.3-flashx",
+  "display_name": "GLM-5.3-FlashX",
   "canonical_model": "glm-5.3-flashx",
   "family": "glm",
   "version": "5.3",

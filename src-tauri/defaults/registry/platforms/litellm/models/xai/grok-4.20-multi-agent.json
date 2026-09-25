@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "xai/grok-4.20-multi-agent",
+  "display_name": "SpaceXAI: Grok 4.20 Multi-Agent",
   "canonical_model": "grok-4.20-multi-agent",
   "family": "grok",
   "version": "4.20",

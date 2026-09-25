@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790342182,
   "model_id": "doubao/doubao-1-5-lite-32k",
+  "display_name": "Doubao 1.5 Lite 32K",
   "canonical_model": "doubao-1-5-lite-32k",
   "capabilities": [
     "text"

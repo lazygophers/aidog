@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790342182,
   "model_id": "grok-4-1-fast-reasoning",
+  "display_name": "Grok 4.1 Fast (reasoning)",
   "canonical_model": "grok-4.1-fast-reasoning",
   "family": "grok",
   "version": "4.1",

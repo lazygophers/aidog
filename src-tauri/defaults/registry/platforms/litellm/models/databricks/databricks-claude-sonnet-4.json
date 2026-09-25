@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "databricks/databricks-claude-sonnet-4",
+  "display_name": "Anthropic: Claude Sonnet 4",
   "canonical_model": "claude-sonnet-4",
   "family": "claude",
   "version": "4",

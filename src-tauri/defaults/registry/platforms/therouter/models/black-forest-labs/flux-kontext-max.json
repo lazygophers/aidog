@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790342182,
   "model_id": "black-forest-labs/flux-kontext-max",
+  "display_name": "Flux Kontext Max",
   "canonical_model": "flux-kontext-max",
   "capabilities": [
     "text_to_image",

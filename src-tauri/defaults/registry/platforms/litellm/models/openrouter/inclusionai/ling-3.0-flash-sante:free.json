@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/inclusionai/ling-3.0-flash-sante:free",
+  "display_name": "inclusionAI: Ling 3.0 Flash Sante (free)",
   "canonical_model": "ling-3.0-flash-sante:free",
   "family": "ling",
   "version": "3.0",

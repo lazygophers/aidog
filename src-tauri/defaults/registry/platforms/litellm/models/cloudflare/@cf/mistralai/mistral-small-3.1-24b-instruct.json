@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/mistralai/mistral-small-3.1-24b-instruct",
+  "display_name": "Mistral: Mistral Small 3.1 24B",
   "canonical_model": "mistral-small-3.1-24b-instruct",
   "family": "mistral",
   "version": "3.1",

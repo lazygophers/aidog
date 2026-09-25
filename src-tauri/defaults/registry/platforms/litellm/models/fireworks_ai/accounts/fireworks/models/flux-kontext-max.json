@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790342182,
   "model_id": "fireworks_ai/accounts/fireworks/models/flux-kontext-max",
+  "display_name": "Flux Kontext Max",
   "canonical_model": "flux-kontext-max",
   "family": "flux",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/meta-llama/llama-guard-4-12b",
+  "display_name": "Meta: Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",
   "family": "llama",
   "version": "4",

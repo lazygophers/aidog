@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-4o-mini-tts",
+  "display_name": "GPT-4o Mini TTS",
   "canonical_model": "gpt-4o-mini-tts",
   "family": "gpt",
   "version": "4o",

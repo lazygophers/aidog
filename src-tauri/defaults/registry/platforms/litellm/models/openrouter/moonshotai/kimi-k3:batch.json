@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/moonshotai/kimi-k3:batch",
+  "display_name": "MoonshotAI: Kimi K3 (batch)",
   "canonical_model": "kimi-k3:batch",
   "family": "kimi",
   "version": "3",

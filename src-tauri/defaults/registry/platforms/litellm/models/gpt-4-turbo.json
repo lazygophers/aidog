@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790342182,
   "model_id": "gpt-4-turbo",
+  "display_name": "OpenAI: GPT-4 Turbo",
   "canonical_model": "gpt-4-turbo",
   "family": "gpt",
   "version": "4",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/cohere/command-a-plus",
+  "display_name": "Cohere: Command A+",
   "canonical_model": "command-a-plus",
   "family": "command",
   "capabilities": [

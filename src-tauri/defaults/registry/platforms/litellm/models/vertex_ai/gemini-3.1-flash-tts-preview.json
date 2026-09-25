@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/gemini-3.1-flash-tts-preview",
+  "display_name": "Gemini 3.1 Flash TTS",
   "canonical_model": "gemini-3.1-flash-tts-preview",
   "family": "gemini",
   "version": "3.1",

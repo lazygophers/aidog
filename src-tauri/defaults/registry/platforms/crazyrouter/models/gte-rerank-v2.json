@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790269990,
+  "last_updated": 1790342182,
   "model_id": "gte-rerank-v2",
+  "display_name": "Gte Rerank V2",
   "canonical_model": "gte-rerank-v2",
   "family": "gte",
   "version": "2",

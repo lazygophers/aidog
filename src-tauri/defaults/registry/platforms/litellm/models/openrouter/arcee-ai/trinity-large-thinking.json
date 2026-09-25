@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/arcee-ai/trinity-large-thinking",
+  "display_name": "Arcee AI: Trinity Large Thinking",
   "canonical_model": "trinity-large-thinking",
   "family": "trinity",
   "capabilities": [

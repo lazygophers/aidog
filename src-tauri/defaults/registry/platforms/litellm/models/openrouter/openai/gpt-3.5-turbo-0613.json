@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/gpt-3.5-turbo-0613",
+  "display_name": "OpenAI: GPT-3.5 Turbo (older v0613)",
   "canonical_model": "gpt-3.5-turbo-0613",
   "family": "gpt",
   "version": "3.5",

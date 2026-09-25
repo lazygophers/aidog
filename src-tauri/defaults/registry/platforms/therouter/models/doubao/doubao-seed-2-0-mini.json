@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "doubao/doubao-seed-2-0-mini",
+  "display_name": "Doubao Seed 2.0 Mini",
   "canonical_model": "doubao-seed-2-0-mini",
   "family": "doubao-seed",
   "version": "2.0",

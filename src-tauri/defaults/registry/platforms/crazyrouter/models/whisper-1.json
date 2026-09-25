@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790342182,
   "model_id": "whisper-1",
+  "display_name": "Whisper-1",
   "canonical_model": "whisper-1",
   "family": "whisper",
   "version": "1",

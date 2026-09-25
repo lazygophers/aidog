@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/codestral-2508:batch",
+  "display_name": "Mistral: Codestral 2508 (batch)",
   "canonical_model": "codestral-2508:batch",
   "family": "codestral",
   "version": "25.08",
