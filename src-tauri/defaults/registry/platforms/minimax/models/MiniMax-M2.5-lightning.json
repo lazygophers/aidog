@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "MiniMax-M2.5-lightning",
   "canonical_model": "MiniMax-M2.5-lightning",
   "family": "minimax",
@@ -16,5 +16,6 @@
     "output": 2.4e-06,
     "cache_read": 3e-08,
     "cache_write": 3.75e-07
-  }
+  },
+  "display_name": "MiniMax M2.5 Lightning"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287023,
+  "last_updated": 1790351264,
   "model_id": "glm-5.3-flash",
   "canonical_model": "glm-5.3-flash",
   "family": "glm",
@@ -20,5 +20,6 @@
     "input": 7.5e-08,
     "output": 2.5e-07,
     "cache_read": 1.5e-08
-  }
+  },
+  "display_name": "GLM-5.3-Flash"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "llama-3.2-11b-vision-instruct",
   "canonical_model": "llama-3.2-11b-vision-instruct",
   "family": "llama",
@@ -15,5 +15,6 @@
     "input": 3.45e-07,
     "output": 3.45e-07,
     "cache_read": 0
-  }
+  },
+  "display_name": "Llama 3.2 11B Vision Instruct"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "minimax-m2-her",
   "canonical_model": "minimax-m2-her",
   "family": "minimax",
@@ -15,5 +15,6 @@
     "input": 3e-07,
     "output": 1.2e-06,
     "cache_read": 3e-08
-  }
+  },
+  "display_name": "MiniMax M2 Her"
 }

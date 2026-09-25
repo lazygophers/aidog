@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "llama-4-maverick",
   "canonical_model": "llama-4-maverick",
   "family": "llama",
@@ -15,5 +15,6 @@
     "input": 1.5e-07,
     "output": 6e-07,
     "cache_read": 0
-  }
+  },
+  "display_name": "Llama 4 Maverick"
 }
