@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790313539,
   "model_id": "omni-moderation-latest",
   "canonical_model": "omni-moderation-latest",
+  "version": "latest",
   "family": "text-moderation",
   "capabilities": [
     "text"
