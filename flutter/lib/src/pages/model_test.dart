@@ -57,6 +57,13 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
       maxWidth: 560,
       onBarrierTap: _c.running ? null : widget.onClose,
       child: ModalCard(
+        // `ModelTestPanel.tsx:146-150`：radius 16（非 glass-elevated 的 24）、
+        // 标题 15 w700（非 DialogTitle 默认 17 w600）。
+        radius: 16,
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
         title: t.t('test.title'),
         meta: '${widget.platform.name} · ${widget.platform.platformType}',
         child: Column(
@@ -68,9 +75,12 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
               runSpacing: AidogSpace.sxs,
               children: [
                 for (final m in kTestModes)
+                  // `ModelTestPanel.tsx:161`：11、pad 4/8。
                   SmallButton(
                     label: t.t('test.mode${_modeSuffix(m)}'),
                     active: _c.mode == m,
+                    fontSize: 11,
+                    padding: (8, 4),
                     onTap: () => _c.setMode(m),
                   ),
               ],
@@ -83,9 +93,12 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
                 runSpacing: AidogSpace.sxs,
                 children: [
                   for (final m in widget.platform.allModels)
+                    // `ModelTestPanel.tsx:173`：11、pad 3/8。
                     SmallButton(
                       label: m,
                       active: _c.selectedModels.contains(m),
+                      fontSize: 11,
+                      padding: (8, 3),
                       onTap: () => _c.toggleModel(m),
                     ),
                 ],
@@ -107,11 +120,16 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
             const SizedBox(height: AidogSpace.ssm),
             Row(
               children: [
+                // `ModelTestPanel.tsx:188`：13、pad 8/16，默认变体 = 实心。
                 SmallButton(
                   label: _c.running
                       ? '${t.t('test.running')}'
                             '${_c.currentIdx >= 0 ? ltr(' (${_c.currentIdx + 1}/${_c.models.length})') : ''}'
                       : t.t('test.run'),
+                  filled: true,
+                  active: true,
+                  fontSize: 13,
+                  padding: (16, 8),
                   onTap: _c.runDisabled ? null : _c.run,
                 ),
                 const Spacer(),
@@ -124,62 +142,102 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
             if (_c.results.isNotEmpty) ...[
               const SizedBox(height: AidogSpace.ssm),
               TileMeta(t.t('test.results')),
-              for (final r in _c.results)
-                Padding(
-                  padding: const EdgeInsets.only(top: AidogSpace.sxs),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            r.success ? Icons.check_circle : Icons.error,
-                            size: 13,
+              for (final (i, r) in _c.results.indexed)
+                // `ModelTestPanel.tsx:122-141`：glass-surface 行卡 pad 10/14 +
+                // 左缘 3px 成败色 + reveal stagger 60。
+                Reveal(
+                  delayMs: i * 60,
+                  child: Padding(
+                    // React 结果列表 gap 6（`ModelTestPanel.tsx:198`）。
+                    padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                    // 左缘 3px 成败色：与通知卡同一条路（notifications.dart:166，
+                    // 非 uniform Border 配不了圆角，竖条画在卡外）。
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: BorderDirectional(
+                          start: BorderSide(
+                            width: 3,
                             color: r.success ? theme.c.ok : theme.c.bad,
                           ),
-                          const SizedBox(width: AidogSpace.sxs),
-                          Expanded(
-                            child: Text(
-                              r.model,
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.fg,
-                              ),
+                        ),
+                      ),
+                      child: Tile(
+                        // `ModelTestPanel.tsx:126`：pad 10/14（竖/横）。
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AidogSpace.slg,
+                          vertical: AidogSpace.smd,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  r.success ? Icons.check_circle : Icons.error,
+                                  size: 13,
+                                  color: r.success ? theme.c.ok : theme.c.bad,
+                                ),
+                                const SizedBox(width: AidogSpace.sxs),
+                                Expanded(
+                                  child: Text(
+                                    r.model,
+                                    // `ModelTestPanel.tsx:130`：12 w600。
+                                    style: AidogType.caption.copyWith(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.c.fg,
+                                    ),
+                                  ),
+                                ),
+                                // 零值不渲染（React 的 `> 0 &&`）：没测到就别画一个假的 0ms。
+                                // 元信息 11 fg2（`:131`）。
+                                if (r.durationMs > 0)
+                                  Text(
+                                    ltr('${r.durationMs}ms'),
+                                    style: AidogType.micro.copyWith(
+                                      color: theme.c.fg2,
+                                    ),
+                                  ),
+                                if (r.outputTokens > 0)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                      left: AidogSpace.ssm,
+                                    ),
+                                    child: Text(
+                                      ltr(
+                                        '${r.inputTokens + r.outputTokens} tok',
+                                      ),
+                                      style: AidogType.micro.copyWith(
+                                        color: theme.c.fg2,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          ),
-                          // 零值不渲染（React 的 `> 0 &&`）：没测到就别画一个假的 0ms。
-                          if (r.durationMs > 0)
-                            Text(
-                              ltr('${r.durationMs}ms'),
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.fg3,
-                              ),
-                            ),
-                          if (r.outputTokens > 0)
-                            Padding(
-                              padding: const EdgeInsets.only(
-                                left: AidogSpace.sxs,
-                              ),
-                              child: Text(
-                                ltr('${r.inputTokens + r.outputTokens} tok'),
-                                style: AidogType.micro.copyWith(
-                                  color: theme.c.fg3,
+                            if (r.error.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(
+                                  top: AidogSpace.sxs,
+                                ),
+                                child: Text(
+                                  r.error,
+                                  style: AidogType.micro.copyWith(
+                                    color: theme.c.bad,
+                                  ),
                                 ),
                               ),
-                            ),
-                        ],
+                            if (r.responsePreview.isNotEmpty)
+                              Text(
+                                r.responsePreview,
+                                style: AidogType.micro.copyWith(
+                                  color: theme.c.fg2,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                      if (r.error.isNotEmpty)
-                        Text(
-                          r.error,
-                          style: AidogType.micro.copyWith(color: theme.c.bad),
-                        ),
-                      if (r.responsePreview.isNotEmpty)
-                        Text(
-                          r.responsePreview,
-                          style: AidogType.micro.copyWith(color: theme.c.fg2),
-                        ),
-                    ],
+                    ),
                   ),
                 ),
             ],
