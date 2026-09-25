@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790343206,
   "model_id": "Qwen/Qwen3-Coder-480B-A35B",
   "canonical_model": "Qwen3-Coder-480B-A35B",
   "version": "3",
@@ -11,6 +11,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.5e-7,
     "output": 0.000001

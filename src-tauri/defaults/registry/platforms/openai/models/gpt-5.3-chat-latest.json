@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790343206,
   "model_id": "gpt-5.3-chat-latest",
   "canonical_model": "gpt-5.3-chat-latest",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 128000,
   "context_window": 400000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.00000175,
     "output": 0.000014,

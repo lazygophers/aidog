@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790343206,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-coder-480b-instruct-bf16",
   "canonical_model": "qwen3-coder-480b-instruct-bf16",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-7,
     "output": 9e-7

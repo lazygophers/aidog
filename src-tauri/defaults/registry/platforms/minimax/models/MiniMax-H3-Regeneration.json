@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790343206,
   "model_id": "MiniMax-H3-Regeneration",
   "canonical_model": "MiniMax-H3-Regeneration",
   "family": "minimax",
@@ -8,6 +8,8 @@
     "video_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0416667

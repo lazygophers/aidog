@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790343206,
   "model_id": "meta/llama-4-maverick",
   "canonical_model": "llama-4-maverick",
   "family": "llama",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.592e-07,
     "output": 1.05e-06

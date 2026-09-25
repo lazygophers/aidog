@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790343206,
   "model_id": "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-fp8",
   "version": "4",
   "family": "llama",
   "capabilities": ["text", "vision"],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.7e-07,
     "output": 8.5e-07,
