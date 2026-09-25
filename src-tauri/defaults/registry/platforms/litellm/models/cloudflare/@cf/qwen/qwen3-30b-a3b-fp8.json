@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790346352,
   "model_id": "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
+  "display_name": "Qwen3-30B-A3B-FP8",
   "canonical_model": "qwen3-30b-a3b-fp8",
   "family": "qwen",
   "version": "3",

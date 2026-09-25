@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "fun-asr-mtl",
+  "display_name": "Fun-ASR-MTL",
   "canonical_model": "fun-asr-mtl",
   "family": "fun-asr",
   "capabilities": [

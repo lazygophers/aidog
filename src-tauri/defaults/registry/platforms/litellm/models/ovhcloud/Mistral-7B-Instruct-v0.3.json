@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "ovhcloud/Mistral-7B-Instruct-v0.3",
+  "display_name": "Mistral 7B Instruct v0.3",
   "canonical_model": "mistral-7b-instruct-v0.3",
   "family": "mistral",
   "version": "0.3",

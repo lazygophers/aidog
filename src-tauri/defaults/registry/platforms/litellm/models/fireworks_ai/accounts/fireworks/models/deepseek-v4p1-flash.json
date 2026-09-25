@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-v4p1-flash",
+  "display_name": "DeepSeek-V4.1-Flash",
   "canonical_model": "deepseek-v4p1-flash",
   "family": "deepseek",
   "version": "4.1",

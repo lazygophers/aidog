@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "gpt-4o-audio-preview-2024-12-17",
+  "display_name": "GPT-4o Audio Preview",
   "canonical_model": "gpt-4o-audio-preview",
   "family": "gpt",
   "version": "4o",

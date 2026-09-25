@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "text-embedding-async-v2",
+  "display_name": "Text-Embedding-Async-V2",
   "canonical_model": "text-embedding-async-v2",
   "capabilities": [
     "embedding"

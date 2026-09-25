@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790346351,
   "model_id": "claude-3-7-sonnet@20250219",
+  "display_name": "Claude 3.7 Sonnet (20250219)",
   "canonical_model": "claude-3-7-sonnet@20250219",
   "family": "claude",
   "version": "3.7",

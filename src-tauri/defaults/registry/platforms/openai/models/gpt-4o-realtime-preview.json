@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790346352,
   "model_id": "gpt-4o-realtime-preview",
+  "display_name": "GPT-4o Realtime Preview",
   "canonical_model": "gpt-4o-realtime-preview",
   "capabilities": [
     "audio"

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-v2-lite-chat",
+  "display_name": "DeepSeek-V2-Lite-Chat",
   "canonical_model": "deepseek-v2-lite-chat",
   "family": "deepseek",
   "version": "2",

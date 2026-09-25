@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "stability.stable-style-transfer-v1:0",
+  "display_name": "Stable Image Style Transfer",
   "canonical_model": "stability.stable-style-transfer-v1:0",
   "family": "stable",
   "version": "1",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790346352,
   "model_id": "gemini/gemini-2.5-computer-use-preview-10-2025",
+  "display_name": "Gemini 2.5 Computer Use Preview (10-2025)",
   "canonical_model": "gemini-2.5-computer-use-preview-10-2025",
   "family": "gemini",
   "version": "2.5",

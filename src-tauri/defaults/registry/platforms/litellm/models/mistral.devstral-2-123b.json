@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "mistral.devstral-2-123b",
+  "display_name": "Devstral 2 123B",
   "canonical_model": "mistral.devstral-2-123b",
   "family": "devstral",
   "version": "2",

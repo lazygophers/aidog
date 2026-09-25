@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "ollama/mistral-7B-Instruct-v0.2",
+  "display_name": "Mistral 7B Instruct v0.2",
   "canonical_model": "mistral-7B-Instruct-v0.2",
   "family": "mistral",
   "version": "0.2",

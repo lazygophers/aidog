@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "mistral.voxtral-mini-3b-2507",
+  "display_name": "Voxtral Mini",
   "canonical_model": "mistral.voxtral-mini-3b-2507",
   "family": "voxtral",
   "version": "25.07",

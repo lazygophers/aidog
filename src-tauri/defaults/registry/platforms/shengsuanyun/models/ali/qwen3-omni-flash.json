@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790346352,
   "model_id": "ali/qwen3-omni-flash",
+  "display_name": "Qwen3-Omni-Flash",
   "canonical_model": "qwen3-omni-flash",
   "capabilities": [
     "text",

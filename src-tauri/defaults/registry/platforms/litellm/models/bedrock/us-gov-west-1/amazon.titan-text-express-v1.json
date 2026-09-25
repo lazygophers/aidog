@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "bedrock/us-gov-west-1/amazon.titan-text-express-v1",
+  "display_name": "Titan Text G1 - Express",
   "canonical_model": "amazon.titan-text-express-v1",
   "family": "titan",
   "version": "1",

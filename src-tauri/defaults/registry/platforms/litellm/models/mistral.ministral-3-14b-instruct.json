@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "mistral.ministral-3-14b-instruct",
+  "display_name": "Ministral 14B 3.0",
   "canonical_model": "mistral.ministral-3-14b-instruct",
   "family": "ministral",
   "version": "3",

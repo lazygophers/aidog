@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790346352,
   "model_id": "vercel_ai_gateway/anthropic/claude-4-sonnet",
+  "display_name": "Claude Sonnet 4",
   "canonical_model": "claude-4-sonnet",
   "family": "claude",
   "version": "4",

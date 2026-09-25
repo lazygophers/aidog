@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "fun-asr-realtime-2025-11-07",
+  "display_name": "Fun-ASR-Realtime (2025-11-07)",
   "canonical_model": "fun-asr-realtime-2025-11-07",
   "family": "fun-asr",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "vertex_ai/mistral-nemo@2407",
+  "display_name": "Mistral NeMo",
   "canonical_model": "mistral-nemo@2407",
   "family": "mistral",
   "version": "24.07",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen3.5-ocr",
+  "display_name": "Qwen3.5-OCR",
   "canonical_model": "qwen3.5-ocr",
   "family": "qwen",
 

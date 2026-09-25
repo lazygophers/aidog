@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790346351,
   "model_id": "qwen-coder-turbo",
+  "display_name": "Qwen-Coder-Turbo",
   "canonical_model": "qwen-coder-turbo",
   "family": "qwen",
   "capabilities": [

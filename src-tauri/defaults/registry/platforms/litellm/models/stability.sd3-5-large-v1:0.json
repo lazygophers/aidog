@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790346352,
   "model_id": "stability.sd3-5-large-v1:0",
+  "display_name": "SD 3.5 Large",
   "canonical_model": "stability.sd3-5-large-v1:0",
   "family": "stable",
   "version": "3.5",

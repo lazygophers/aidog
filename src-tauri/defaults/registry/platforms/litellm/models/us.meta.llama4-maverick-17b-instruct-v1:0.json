@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "us.meta.llama4-maverick-17b-instruct-v1:0",
+  "display_name": "Llama 4 Maverick 17B Instruct",
   "canonical_model": "us.meta.llama4-maverick-17b-instruct-v1:0",
   "family": "llama",
   "version": "4",

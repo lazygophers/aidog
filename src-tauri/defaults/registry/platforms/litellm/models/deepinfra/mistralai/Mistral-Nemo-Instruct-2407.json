@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "deepinfra/mistralai/Mistral-Nemo-Instruct-2407",
+  "display_name": "Mistral NeMo",
   "canonical_model": "Mistral-Nemo-Instruct-2407",
   "family": "mistral",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790346352,
   "model_id": "vertex_ai/gemini-3-pro-preview",
+  "display_name": "Gemini 3 Pro Preview",
   "canonical_model": "gemini-3-pro-preview",
   "family": "gemini",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/mistral-large-3-fp8",
+  "display_name": "Mistral Large 3 FP8",
   "canonical_model": "mistral-large-3-fp8",
   "family": "mistral",
   "version": "3",

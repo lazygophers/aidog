@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-math-turbo",
+  "display_name": "Qwen-Math-Turbo",
   "canonical_model": "qwen-math-turbo",
   "family": "qwen",
   "capabilities": [

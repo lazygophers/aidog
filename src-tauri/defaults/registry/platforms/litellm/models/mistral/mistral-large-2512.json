@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "mistral/mistral-large-2512",
+  "display_name": "Mistral Large 3",
   "canonical_model": "mistral-large-2512",
   "family": "mistral",
   "version": "3",
