@@ -7,6 +7,7 @@ library;
 
 import 'dart:async';
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
@@ -18,6 +19,10 @@ import '../ui_bits.dart';
 import 'bits.dart';
 import 'notification_events.dart';
 import 'notifications_logic.dart';
+
+/// 卡与卡之间的间距：React 三个设置 tab 的容器全是 `gap: 20`
+/// （`src/pages/AppSettings.tsx:71`、`NotificationSettings.tsx:270`）。
+const double _cardGap = 20;
 
 class NotificationsSettingsPage extends StatefulWidget {
   const NotificationsSettingsPage({
@@ -79,7 +84,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     if (_c.loading) {
       return SettingsPageBody(
         title: t.t('appSettings.notificationsTab'),
-        children: [CenteredNote(text: t.t('status.loading'))],
+        // React 加载态继承正文字号（`NotificationSettings.tsx:263`）。
+        children: [CenteredNote(text: t.t('status.loading'), fontSize: 13)],
       );
     }
     final s = _c.settings;
@@ -90,25 +96,34 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           key: const ValueKey('notif-master'),
           label: t.t('notif.masterToggle'),
           descriptions: [t.t('notif.masterToggleDesc')],
+          bottomGap: _cardGap,
+          hoverLift: true,
           value: s.enabled,
           onChanged: (_) => _c.toggleEnabled(),
         ),
-        HeaderCard(
-          title: t.t('notif.permGuideTitle'),
-          descriptions: [t.t('notif.permGuideDesc')],
-          trailing: SmallButton(
-            key: const ValueKey('open-system-notif'),
-            ghost: true,
-            fontSize: 12,
-            padding: (12, 6),
-            label: t.t('notif.permGuideButton'),
-            onTap: _c.openSystemNotificationSettings,
+        // 🔴 仅 macOS 渲染这张引导卡：React 的 `IS_MACOS` 门
+        //（`NotificationSettings.tsx:54,289`），Windows / Linux 通知一般默认可用。
+        if (defaultTargetPlatform == TargetPlatform.macOS)
+          HeaderCard(
+            title: t.t('notif.permGuideTitle'),
+            descriptions: [t.t('notif.permGuideDesc')],
+            bottomGap: _cardGap,
+            hoverLift: true,
+            trailing: SmallButton(
+              key: const ValueKey('open-system-notif'),
+              ghost: true,
+              fontSize: 12,
+              padding: (12, 6),
+              label: t.t('notif.permGuideButton'),
+              onTap: _c.openSystemNotificationSettings,
+            ),
+            child: const SizedBox.shrink(),
           ),
-          child: const SizedBox.shrink(),
-        ),
         // TTS 独立卡；总开关关掉后压暗（`NotificationSettings.tsx:313`）。
         HeaderCard(
           dimmed: !s.enabled,
+          bottomGap: _cardGap,
+          hoverLift: true,
           title: t.t('notif.ttsToggle'),
           descriptions: [t.t('notif.ttsToggleDesc')],
           trailing: AidogSwitch(
@@ -118,8 +133,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             onChanged: () => _c.toggleTts(),
           ),
           child: s.ttsEnabled
+              // 展开区：线上 12（卡的 `gap: 12`）/ 线下 8（`paddingTop: 8`），
+              // `NotificationSettings.tsx:328`。
               ? Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border(
@@ -127,13 +144,20 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                       ),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.only(top: AidogSpace.smd),
+                      padding: const EdgeInsets.only(top: 8),
                       child: InlineRow(
                         label: t.t('notif.ttsBackendLabel'),
                         child: InlineSelect<String>(
                           value: s.ttsBackend,
                           options: kTtsBackends,
                           width: 220,
+                          // React `SelectTrigger` 描边盒 + `padding: "4px 8px"`
+                          //（`NotificationSettings.tsx:338`）。
+                          bordered: true,
+                          boxPadding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           labelOf: (b) => tOr(t, 'notif.ttsBackend.$b', b),
                           onChanged: (v) => _c.setTtsBackend(v!),
                         ),
@@ -151,6 +175,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
           key: const ValueKey('inbox-retention-on'),
           title: t.t('notif.retentionTitle'),
           descriptions: [t.t('notif.retentionDesc')],
+          bottomGap: _cardGap,
+          hoverLift: true,
           trailing: AidogSwitch(
             // 关 → 0（不清理）；开 → 回 7 天默认。
             value: s.inboxRetentionDays > 0,
@@ -159,8 +185,9 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                 _c.setInboxRetentionDays(s.inboxRetentionDays > 0 ? 0 : 7),
           ),
           child: s.inboxRetentionDays > 0
+              // 线上 12 / 线下 8（`NotificationSettings.tsx:400,417`）。
               ? Padding(
-                  padding: const EdgeInsets.only(top: 8),
+                  padding: const EdgeInsets.only(top: 12),
                   child: Container(
                     decoration: BoxDecoration(
                       border: Border(
@@ -168,10 +195,13 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                       ),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.only(top: AidogSpace.smd),
+                      padding: const EdgeInsets.only(top: 8),
                       child: InlineRow(
                         label: t.t('notif.retentionDaysLabel'),
                         unit: t.t('notif.retentionDaysUnit'),
+                        // 本页这个单位 React 是 secondary，不是 tertiary
+                        //（`NotificationSettings.tsx:434`）。
+                        unitColor: AidogTheme.of(context).c.fg2,
                         child: NumberInput(
                           key: const ValueKey('inbox-retention'),
                           value: '${s.inboxRetentionDays}',
@@ -192,6 +222,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
         ),
         ToggleCard(
           key: const ValueKey('default-hooks'),
+          bottomGap: _cardGap,
+          hoverLift: true,
           label: t.t('notif.defaultHooksTitle'),
           descriptions: [
             _c.hooksDisabled
@@ -206,7 +238,8 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
               : (_) => _c.toggleDefaultHooks(texts),
         ),
         const Padding(
-          padding: EdgeInsets.only(bottom: AidogSpace.smd),
+          // 页容器 gap 20（`NotificationSettings.tsx:270`）。
+          padding: EdgeInsets.only(bottom: _cardGap),
           child: PiUnsupportedNote(
             reasonKey: 'pi.unsupportedHooks',
             reasonFallback: 'pi 没有配置式 hooks，事件处理只能写在 extension 的 TypeScript 里，aidog 无法代为注入。',
@@ -214,10 +247,18 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
         ),
         _eventList(t, s),
         if (_c.uvPrompt != null) _uvPrompt(t, texts),
-        if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
+        // 错误 / 提示都是页面流里的 `.toast` 方条（`NotificationSettings.tsx:473-478`），
+        // 不是浮在窗口顶部的胶囊。
+        if (_c.error.isNotEmpty)
+          InlineNote(
+            text: _c.error,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            fontSize: 12,
+          ),
         if (_c.message.isNotEmpty)
           AutoToast(
             text: _c.message,
+            inline: true,
             onDone: () => setState(() => _c.message = ''),
           ),
       ],
@@ -232,12 +273,14 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
       key: const ValueKey('notif-test-bar-dim'),
       opacity: s.enabled ? 1 : 0.55,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-        child: Tile(
+        padding: const EdgeInsets.only(bottom: _cardGap),
+        child: HoverLift(
+          child: Tile(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           child: Wrap(
-            spacing: AidogSpace.ssm,
-            runSpacing: AidogSpace.sxs,
+            // 条内元素间距横竖同为 8（`NotificationSettings.tsx:352`）。
+            spacing: 8,
+            runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
@@ -285,6 +328,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -293,8 +337,10 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
   Widget _eventList(I18nController t, NotificationSettings s) {
     final disabled = !s.enabled;
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-      child: Tile(
+      padding: const EdgeInsets.only(bottom: _cardGap),
+      // 列表卡 React 也挂 `hover-lift`（`NotificationEventList.tsx:185`）。
+      child: HoverLift(
+        child: Tile(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -348,6 +394,7 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
             ),
           ],
         ),
+        ),
       ),
     );
   }
@@ -381,24 +428,36 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
                 color: theme.c.fg2,
               ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            // `DialogContent` 的 `gap-4` = 16（`src/components/ui/dialog.tsx:41`）。
+            const SizedBox(height: 16),
+            // 三颗都是 12 / 6-12，彼此 gap 8；前两颗 ghost、第三颗实心
+            //（`NotificationSettings.tsx:490-514`）。
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 SmallButton(
                   key: const ValueKey('uv-cancel'),
+                  ghost: true,
+                  fontSize: 12,
+                  padding: (12, 6),
                   label: t.t('notif.uvModalCancel'),
                   onTap: _c.uvInstalling ? null : _c.cancelUvPrompt,
                 ),
-                const SizedBox(width: AidogSpace.ssm),
+                const SizedBox(width: 8),
                 SmallButton(
                   key: const ValueKey('uv-python3'),
+                  ghost: true,
+                  fontSize: 12,
+                  padding: (12, 6),
                   label: t.t('notif.uvModalUsePython'),
                   onTap: _c.uvInstalling ? null : _c.chooseUsePython3,
                 ),
-                const SizedBox(width: AidogSpace.ssm),
+                const SizedBox(width: 8),
                 SmallButton(
                   key: const ValueKey('uv-install'),
+                  filled: true,
+                  fontSize: 12,
+                  padding: (12, 6),
                   label: _c.uvInstalling
                       ? t.t('notif.uvModalInstalling')
                       : t.t('notif.uvModalInstall'),
@@ -441,10 +500,14 @@ class _EventRow extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final chDisabled = disabled || !setting.enabled;
     return Container(
-      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      // 行间 gap 8（`NotificationEventList.tsx:196`）。
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        // React 是 `var(--bg-subtle, rgba(127,127,127,0.06))`，而 `--bg-subtle`
+        // 全库没有定义 —— 实际生效的是回退值「中性灰 6%」
+        //（`NotificationEventList.tsx:142`）。
+        color: theme.c.fg.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
       child: Column(
@@ -453,8 +516,9 @@ class _EventRow extends StatelessWidget {
         children: [
           // 第一行：启用开关 + 事件名（CC 官方名，不翻译）+ 三通道。
           Wrap(
+            // `gap: 12` 同时管列与行（`NotificationEventList.tsx:203`）。
             spacing: 12,
-            runSpacing: AidogSpace.ssm,
+            runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               AidogSwitch(
@@ -466,8 +530,10 @@ class _EventRow extends StatelessWidget {
                     : () =>
                           onUpdate(setting.copyWith(enabled: !setting.enabled)),
               ),
-              SizedBox(
-                width: 150,
+              ConstrainedBox(
+                // React 是 `minWidth: 150`，长事件名照样撑开
+                //（`NotificationEventList.tsx:211`）；原来的固定宽会把它截掉。
+                constraints: const BoxConstraints(minWidth: 150),
                 child: Text(
                   event,
                   style: AidogType.numMd.copyWith(
@@ -505,7 +571,8 @@ class _EventRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AidogSpace.ssm),
+          // 行容器 `gap: 8`（`NotificationEventList.tsx:139`）。
+          const SizedBox(height: 8),
           // 第二行：模板 textarea，placeholder = 该事件专属默认模板。
           Tooltip(
             message: t.t('notif.fieldTemplate'),
@@ -515,16 +582,19 @@ class _EventRow extends StatelessWidget {
               hint: defaultTemplateForEvent(event),
               enabled: setting.enabled,
               mono: true,
+              // React textarea 是 12（`NotificationEventList.tsx:245`）。
+              fontSize: 12,
               maxLines: null,
               minLines: 2,
               onSubmitted: (v) => onUpdate(setting.copyWith(template: v)),
             ),
           ),
-          const SizedBox(height: AidogSpace.ssm),
+          const SizedBox(height: 8),
           // 第三行：该事件专属可用入参提示（每事件不同）。
           Wrap(
+            // `gap: 6` 横竖同值（`NotificationEventList.tsx:254`）。
             spacing: 6,
-            runSpacing: 4,
+            runSpacing: 6,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               Text(
@@ -542,7 +612,8 @@ class _EventRow extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: theme.c.accentWash,
-                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    // `var(--radius-sm)` = 6（`NotificationEventList.tsx:262`）。
+                    borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     v,
@@ -568,29 +639,31 @@ class _EventRow extends StatelessWidget {
     required VoidCallback onToggle,
   }) {
     final theme = AidogTheme.of(context);
-    return Opacity(
-      opacity: disabled ? 0.5 : 1,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: Text(
-              label,
-              style: AidogType.caption.copyWith(
-                fontSize: 12,
-                color: theme.c.fg2,
-              ),
+    // 只有开关自己压暗（shadcn `disabled:opacity-50`），「语音 / 弹窗 / 提示音」
+    // 三个标签不变灰（`NotificationEventList.tsx:213-239`）。
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(right: 6),
+          child: Text(
+            label,
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              color: theme.c.fg2,
             ),
           ),
-          AidogSwitch(
+        ),
+        Opacity(
+          opacity: disabled ? 0.5 : 1,
+          child: AidogSwitch(
             key: key,
             value: on,
             compact: true,
             onChanged: disabled ? null : onToggle,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

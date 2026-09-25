@@ -34,7 +34,12 @@ class SmallButton extends StatelessWidget {
     this.fontSize,
     this.padding,
     this.minWidth,
+    this.icon,
   });
+
+  /// 文字**前**的小图标，与文字隔 6。关于页的四颗 GitHub 按钮每颗带一枚
+  /// `<IconGlobe size={14}>`（`src/pages/About.tsx:318,321`）。null = 纯文字。
+  final IconData? icon;
 
   final String label;
   final VoidCallback? onTap;
@@ -160,7 +165,9 @@ class SmallButton extends StatelessWidget {
                 ),
           child: _MinWidthText(
             minWidth: minWidth,
-            child: Text(
+            child: _labelWithIcon(
+              fg,
+              Text(
               label,
               // 覆盖字号时同时清字距：React 按钮 ls 0，micro 档的 0.66em
               // 字距只在默认档（micro 标签风）有意义。
@@ -178,10 +185,26 @@ class SmallButton extends StatelessWidget {
                               letterSpacing: 0,
                             ))
                       .copyWith(color: fg),
+              ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  /// [icon] 为 null 时原样透传，不额外垫一层 Row（热路径按钮成百上千颗）。
+  /// React 的 icon 按钮是 `inline-flex; gap: 6`（`About.tsx:318`）。
+  Widget _labelWithIcon(Color fg, Widget label) {
+    final ic = icon;
+    if (ic == null) return label;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(ic, size: 14, color: fg),
+        const SizedBox(width: 6),
+        label,
+      ],
     );
   }
 }
@@ -445,8 +468,13 @@ class ModalCard extends StatelessWidget {
     this.description,
     this.descriptionStyle,
     this.titleTrailing,
+    this.titleGap,
     required this.child,
   });
+
+  /// 标题与正文之间的距离。缺省 16（`DialogContent` 的 gap-4）；
+  /// 中间件规则弹窗 React 显式写了 `gap: 12`（`MiddlewareRules.tsx:883`）。
+  final double? titleGap;
 
   /// 标题行最右端的控件。MCP 扫描弹窗的「全选/反选」就排在标题行里
   /// （`McpModals.tsx:55-82`：标题 + 计数 + `flex:1` 撑开 + 按钮，同一行）。
@@ -540,7 +568,9 @@ class ModalCard extends StatelessWidget {
             // React DialogContent 是 gap-4 的 grid，标题与正文隔 16。
             // 带 description 时这 16 挪到 description 下面。
             Padding(
-              padding: EdgeInsets.only(bottom: description == null ? 16 : 2),
+              padding: EdgeInsets.only(
+                bottom: description == null ? (titleGap ?? 16) : 2,
+              ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -608,7 +638,20 @@ class ConfirmCard extends StatelessWidget {
     this.bodyStyle,
     this.buttonFontSize,
     this.buttonPadding,
+    this.padding,
+    this.radius,
+    this.onClose,
   });
+
+  /// 卡片内衬 / 圆角覆盖（透传 [ModalCard]）。缺省 null = 24 / 24；
+  /// MITM 清空确认 React 是 `padding: 20` + `--radius-lg` 16
+  /// （`MitmConfig.tsx:610`）。
+  final EdgeInsetsGeometry? padding;
+  final double? radius;
+
+  /// 右上角关闭 ✕（透传 [ModalCard.onClose]）。React 的 `AlertDialog` 没有这颗，
+  /// 但用普通 `Dialog` 做确认的那几处有（`MitmConfig.tsx:609` → `ui/dialog.tsx:47`）。
+  final VoidCallback? onClose;
 
   /// 面板最大宽度。缺省 420 = React `AlertDialogContent` 的常见值；
   /// 清理失效那处显式写了 440（`GroupListItem.tsx:560`）。
@@ -668,6 +711,9 @@ class ConfirmCard extends StatelessWidget {
       child: ModalCard(
         title: title,
         titleStyle: titleStyle,
+        padding: padding,
+        radius: radius,
+        onClose: onClose,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -1163,7 +1209,16 @@ class NumberInput extends StatefulWidget {
     this.decimal = false,
     this.hint,
     this.width,
+    this.fontSize,
+    this.height,
   });
+
+  /// 字号 / 盒高覆盖。null = 主题默认（label 13.5、高度自适应）。
+  /// React 保留期那几格显式写了 `height: 28, fontSize: 12`
+  /// （`LogSettingsSection.tsx:155,176,196,299`），超时两格是 `<Input>` 裸默认
+  /// = shadcn `h-9`(36) / `text-sm`(14)（`SystemMiscSection.tsx:43-49,56-62`）。
+  final double? fontSize;
+  final double? height;
 
   /// 当前值的显示文本。
   final String value;
@@ -1332,12 +1387,16 @@ class _NumberInputState extends State<NumberInput> {
               ),
             ],
             style: AidogType.label.copyWith(
+              fontSize: widget.fontSize,
               color: enabled ? theme.c.fg : theme.c.fg3,
             ),
             decoration: InputDecoration(
               isDense: true,
               hintText: widget.hint,
-              hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
+              hintStyle: AidogType.label.copyWith(
+                fontSize: widget.fontSize,
+                color: theme.c.fg3,
+              ),
             ),
             onChanged: _onTyped,
             onSubmitted: _commit,
@@ -1360,9 +1419,9 @@ class _NumberInputState extends State<NumberInput> {
         ),
       ],
     );
-    final sized = widget.width == null
+    final sized = widget.width == null && widget.height == null
         ? field
-        : SizedBox(width: widget.width, child: field);
+        : SizedBox(width: widget.width, height: widget.height, child: field);
     if (!_clamped) return sized;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
