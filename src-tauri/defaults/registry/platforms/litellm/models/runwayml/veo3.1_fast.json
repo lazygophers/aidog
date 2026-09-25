@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "runwayml/veo3.1_fast",
   "canonical_model": "veo3.1_fast",
+  "family": "veo",
+  "version": "3.1",
   "capabilities": [
     "text_to_video"
   ],

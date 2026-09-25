@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790304201,
   "model_id": "fireworks_ai/accounts/fireworks/models/mistral-nemo-instruct-2407",
   "canonical_model": "Mistral-Nemo-Instruct-2407",
   "family": "mistral",
+  "version": "24.07",
   "capabilities": [
     "text"
   ],

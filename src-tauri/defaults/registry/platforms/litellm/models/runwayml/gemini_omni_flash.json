@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "runwayml/gemini_omni_flash",
   "canonical_model": "gemini_omni_flash",
+  "family": "gemini",
   "capabilities": [
     "text_to_video"
   ],

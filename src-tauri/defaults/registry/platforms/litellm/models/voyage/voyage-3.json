@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "voyage/voyage-3",
   "canonical_model": "voyage-3",
+  "family": "voyage",
+  "version": "3",
   "capabilities": [
     "embedding"
   ],
