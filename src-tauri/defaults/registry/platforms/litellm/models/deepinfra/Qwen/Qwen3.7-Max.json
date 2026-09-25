@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/Qwen/Qwen3.7-Max",
   "canonical_model": "qwen3.7-max",
   "version": "3.7",
@@ -11,6 +11,8 @@
   "context_window": 256000,
   "max_output_tokens": 256000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0000025,
     "output": 0.0000075

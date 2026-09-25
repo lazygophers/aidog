@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "speech-2.8-hd",
   "canonical_model": "speech-2.8-hd",
   "version": "2.8",
@@ -9,6 +9,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "char",
     "unit_price": 0.0486111

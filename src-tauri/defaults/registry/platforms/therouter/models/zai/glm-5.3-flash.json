@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790269367,
+  "last_updated": 1790340079,
   "model_id": "zai/glm-5.3-flash",
   "canonical_model": "glm-5.3-flash",
   "version": "5.3",
@@ -8,6 +8,7 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 1.62e-07,
     "output": 5.4e-07

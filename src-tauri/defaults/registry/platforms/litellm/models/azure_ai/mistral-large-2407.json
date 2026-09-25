@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/mistral-large-2407",
   "canonical_model": "mistral-large-2407",
   "family": "mistral",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000002,
     "output": 0.000006

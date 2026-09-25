@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "glm-4.5",
   "canonical_model": "glm-4.5",
   "display_name": "GLM 4.5",
@@ -10,6 +10,8 @@
   "capabilities": [],
   "max_input_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4e-07,
     "output": 1.6e-06

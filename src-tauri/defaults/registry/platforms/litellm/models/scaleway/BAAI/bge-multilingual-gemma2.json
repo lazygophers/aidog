@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "scaleway/BAAI/bge-multilingual-gemma2",
   "canonical_model": "bge-multilingual-gemma2",
   "capabilities": [
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 0

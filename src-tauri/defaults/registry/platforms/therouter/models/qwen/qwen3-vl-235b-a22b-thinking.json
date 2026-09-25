@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
   "family": "qwen",
@@ -10,6 +10,7 @@
     "vision"
   ],
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.32e-07,
     "output": 4.32e-06

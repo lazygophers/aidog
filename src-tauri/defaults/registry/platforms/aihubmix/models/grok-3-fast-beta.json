@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "grok-3-fast-beta",
   "canonical_model": "grok-3-fast-beta",
 
@@ -7,6 +7,8 @@
   "family": "grok",  "display_name": "Grok 3 Fast Beta",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.5e-06,
     "output": 2.75e-05

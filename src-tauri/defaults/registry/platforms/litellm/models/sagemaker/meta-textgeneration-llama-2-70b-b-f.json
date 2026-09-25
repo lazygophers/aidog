@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "sagemaker/meta-textgeneration-llama-2-70b-b-f",
   "canonical_model": "meta-textgeneration-llama-2-70b-b-f",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

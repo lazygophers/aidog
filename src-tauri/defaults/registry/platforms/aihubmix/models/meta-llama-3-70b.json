@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "meta-llama-3-70b",
   "canonical_model": "meta-llama-3-70b",
 
@@ -7,6 +7,8 @@
   "family": "llama",  "display_name": "Meta Llama 3 70B",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4.795e-06,
     "output": 4.795e-06

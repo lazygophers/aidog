@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "oci/cohere.embed-multilingual-image-v3.0",
   "canonical_model": "cohere.embed-multilingual-image-v3.0",
   "family": "embed",
@@ -9,6 +9,8 @@
   "max_input_tokens": 512,
   "context_window": 512,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7
   }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen3-vl-plus-2025-09-23",
   "canonical_model": "qwen3-vl-plus-2025-09-23",
   "family": "qwen",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.388888888888889e-07,
     "output": 1.3888888888888887e-06,

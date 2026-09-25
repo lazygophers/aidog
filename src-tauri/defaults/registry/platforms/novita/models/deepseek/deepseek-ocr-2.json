@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "deepseek/deepseek-ocr-2",
   "canonical_model": "deepseek-ocr-2",
   "capabilities": ["text", "vision"],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-08,
     "output": 3e-08,

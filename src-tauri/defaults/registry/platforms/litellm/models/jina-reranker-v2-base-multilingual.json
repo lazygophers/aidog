@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "jina-reranker-v2-base-multilingual",
   "canonical_model": "jina-reranker-v2-base-multilingual",
   "family": "jina",
@@ -11,6 +11,8 @@
   "context_window": 1024,
   "max_output_tokens": 1024,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8
   }

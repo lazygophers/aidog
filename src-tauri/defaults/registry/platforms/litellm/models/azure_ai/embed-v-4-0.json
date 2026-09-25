@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/embed-v-4-0",
   "canonical_model": "embed-v-4-0",
   "family": "embed",
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.2e-7,
     "output": 0

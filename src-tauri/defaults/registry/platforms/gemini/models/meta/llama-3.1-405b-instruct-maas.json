@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "meta/llama-3.1-405b-instruct-maas",
   "canonical_model": "llama-3.1-405b-instruct-maas",
   "family": "llama",
@@ -11,6 +11,8 @@
   "max_output_tokens": 2048,
   "context_window": 2048,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-06,
     "output": 1.6e-05,

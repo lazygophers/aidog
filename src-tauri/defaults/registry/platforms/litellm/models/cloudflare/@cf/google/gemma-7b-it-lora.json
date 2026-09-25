@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "cloudflare/@cf/google/gemma-7b-it-lora",
   "canonical_model": "gemma-7b-it-lora",
   "family": "gemma",
@@ -10,6 +10,8 @@
   "context_window": 3500,
   "max_output_tokens": 3500,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

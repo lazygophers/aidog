@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "deep-research-max-preview-04-2026",
   "canonical_model": "deep-research-max-preview-04-2026",
   "family": "deep-research",
@@ -11,6 +11,7 @@
   "max_output_tokens": 32768,
   "context_window": 32768,
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 2e-06,
     "output": 1.2e-05,

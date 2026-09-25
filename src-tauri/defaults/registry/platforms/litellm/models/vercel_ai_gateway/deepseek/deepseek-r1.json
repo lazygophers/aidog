@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "vercel_ai_gateway/deepseek/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
@@ -11,6 +11,7 @@
   "context_window": 128000,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 5.5e-7,
     "output": 0.00000219

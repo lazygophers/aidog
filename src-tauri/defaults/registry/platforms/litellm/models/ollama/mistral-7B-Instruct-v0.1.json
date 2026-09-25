@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "ollama/mistral-7B-Instruct-v0.1",
   "canonical_model": "Mistral-7B-Instruct-v0.1",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 8192,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

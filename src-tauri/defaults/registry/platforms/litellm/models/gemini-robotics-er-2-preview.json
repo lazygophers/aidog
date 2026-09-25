@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gemini-robotics-er-2-preview",
   "canonical_model": "gemini-robotics-er-2-preview",
   "family": "robotics",
@@ -13,6 +13,7 @@
   "max_output_tokens": 65536,
   "context_window": 131072,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-06,
     "output": 5e-06,

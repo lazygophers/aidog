@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "moonshot/kimi-latest",
   "canonical_model": "kimi-latest",
   "family": "kimi",
@@ -7,6 +7,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.77778e-07,
     "output": 1.38889e-06

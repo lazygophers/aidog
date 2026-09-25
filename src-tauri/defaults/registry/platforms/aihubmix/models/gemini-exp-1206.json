@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "gemini-exp-1206",
   "canonical_model": "gemini-exp-1206",
 
   "family": "gemini",  "display_name": "Gemini",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.25e-06,
     "output": 5e-06

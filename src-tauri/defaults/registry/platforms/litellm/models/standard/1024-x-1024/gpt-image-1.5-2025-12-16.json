@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "standard/1024-x-1024/gpt-image-1.5-2025-12-16",
   "canonical_model": "gpt-image-1.5",
   "family": "gpt",
@@ -8,6 +8,8 @@
     "text_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.009

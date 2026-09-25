@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "text-davinci-002",
   "canonical_model": "text-davinci-002",
 
   "family": "davinci",  "display_name": "Text Davinci 002",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-05,
     "output": 2e-05

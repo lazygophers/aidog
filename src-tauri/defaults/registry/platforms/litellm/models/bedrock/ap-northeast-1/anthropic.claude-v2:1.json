@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "bedrock/ap-northeast-1/anthropic.claude-v2:1",
   "canonical_model": "anthropic.claude-v2:1",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 100000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000008,
     "output": 0.000024

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "together_ai/Qwen/Qwen2.5-7B-Instruct-Turbo",
   "canonical_model": "Qwen2.5-7B-Instruct-Turbo",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-7,
     "output": 3e-7

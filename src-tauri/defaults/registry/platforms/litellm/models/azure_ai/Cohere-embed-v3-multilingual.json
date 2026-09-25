@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "azure_ai/Cohere-embed-v3-multilingual",
   "canonical_model": "Cohere-embed-v3-multilingual",
   "family": "embed",
@@ -11,6 +11,8 @@
   "context_window": 512,
   "max_output_tokens": 512,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 0

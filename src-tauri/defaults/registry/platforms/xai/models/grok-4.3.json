@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790275340,
+  "last_updated": 1790340079,
   "model_id": "grok-4.3",
   "canonical_model": "grok-4.3",
   "family": "grok",
@@ -12,6 +12,8 @@
   "max_input_tokens": 1000000,
   "max_output_tokens": 66000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.25e-06,
     "output": 2.5e-06,

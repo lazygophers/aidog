@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790275571,
+  "last_updated": 1790340078,
   "model_id": "claude-sonnet-4-5-think",
   "canonical_model": "claude-sonnet-4-5",
   "version": "4.5",
@@ -13,6 +13,7 @@
   "context_window": 200000,
   "official": false,
   "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0000033,
     "output": 0.0000165,

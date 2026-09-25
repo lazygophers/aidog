@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-5.3-codex",
   "canonical_model": "gpt-5.3-codex",
   "version": "5.3",
@@ -9,6 +9,7 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 1.70139e-06,
     "output": 1.36111e-05,

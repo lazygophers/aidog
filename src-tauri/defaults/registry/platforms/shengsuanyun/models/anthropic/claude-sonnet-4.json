@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "anthropic/claude-sonnet-4",
   "canonical_model": "claude-sonnet-4",
   "family": "claude",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.91667e-06,
     "output": 1.45833e-05,

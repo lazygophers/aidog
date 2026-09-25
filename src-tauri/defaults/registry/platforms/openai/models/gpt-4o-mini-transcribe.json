@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "gpt-4o-mini-transcribe",
   "canonical_model": "gpt-4o-mini-transcribe",
   "display_name": "GPT-4o Mini Transcribe",
@@ -7,6 +7,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.00000125,
     "output": 0.000005

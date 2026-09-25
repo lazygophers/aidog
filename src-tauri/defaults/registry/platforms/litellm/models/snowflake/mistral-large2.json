@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "snowflake/mistral-large2",
   "canonical_model": "mistral-large2",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 128000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000002,
     "output": 0.000006

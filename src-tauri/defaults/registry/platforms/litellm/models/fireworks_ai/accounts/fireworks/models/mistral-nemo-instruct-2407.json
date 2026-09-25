@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/mistral-nemo-instruct-2407",
   "canonical_model": "Mistral-Nemo-Instruct-2407",
   "family": "mistral",
@@ -10,6 +10,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 2e-7

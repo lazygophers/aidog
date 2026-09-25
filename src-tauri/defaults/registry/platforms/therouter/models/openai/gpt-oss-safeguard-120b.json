@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-oss-safeguard-120b",
   "canonical_model": "gpt-oss-safeguard-120b",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.62e-07,
     "output": 6.48e-07

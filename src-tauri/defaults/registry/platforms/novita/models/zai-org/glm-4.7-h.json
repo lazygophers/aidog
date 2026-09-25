@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790340078,
   "model_id": "zai-org/glm-4.7-h",
   "canonical_model": "glm-4.7-h",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-07,
     "output": 2.2e-06,

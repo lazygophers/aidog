@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "oci/xai.grok-4",
   "canonical_model": "grok-4",
   "family": "grok",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000003,
     "output": 0.000015

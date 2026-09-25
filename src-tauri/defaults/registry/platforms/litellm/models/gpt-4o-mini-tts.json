@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gpt-4o-mini-tts",
   "canonical_model": "gpt-4o-mini-tts",
   "family": "gpt",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6e-7,
     "output": 0.00001

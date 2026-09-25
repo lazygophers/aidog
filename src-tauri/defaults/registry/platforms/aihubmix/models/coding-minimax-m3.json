@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "coding-minimax-m3",
   "canonical_model": "MiniMax-M3",
   "display_name": "Coding MiniMax M3",
@@ -13,6 +13,7 @@
   "max_output_tokens": 524288,
   "context_window": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-7,
     "output": 2e-7

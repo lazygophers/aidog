@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790340078,
   "model_id": "hailuo-h3",
   "canonical_model": "hailuo-h3",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0

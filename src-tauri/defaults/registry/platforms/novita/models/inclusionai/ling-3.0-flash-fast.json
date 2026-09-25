@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790340078,
   "model_id": "inclusionai/ling-3.0-flash-fast",
   "canonical_model": "ling-3.0-flash-fast",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-08,
     "output": 1.8e-07,

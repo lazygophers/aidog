@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "doubao-1-5-pro-256k-250115",
   "canonical_model": "doubao-1-5-pro-256k-250115",
 
@@ -7,6 +7,8 @@
   "family": "doubao-pro",  "display_name": "Doubao 1.5 Pro 256K 250115",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.84e-07,
     "output": 1.2312e-06

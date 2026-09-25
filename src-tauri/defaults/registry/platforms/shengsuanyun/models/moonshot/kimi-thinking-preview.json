@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "moonshot/kimi-thinking-preview",
   "canonical_model": "kimi-thinking-preview",
   "family": "kimi",
@@ -7,6 +7,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.77778e-05,
     "output": 2.77778e-05

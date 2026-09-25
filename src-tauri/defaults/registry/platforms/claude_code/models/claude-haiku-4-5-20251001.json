@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "claude-haiku-4-5-20251001",
   "canonical_model": "claude-haiku-4-5-20251001",
   "family": "claude",
@@ -9,6 +9,8 @@
   ],
   "context_window": 64000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0
   }

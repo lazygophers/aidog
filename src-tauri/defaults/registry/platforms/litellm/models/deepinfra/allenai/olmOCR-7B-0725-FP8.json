@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/allenai/olmOCR-7B-0725-FP8",
   "canonical_model": "olmOCR-7B-0725-FP8",
   "family": "olmocr",
@@ -10,6 +10,8 @@
   "context_window": 16384,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.7e-7,
     "output": 0.0000015

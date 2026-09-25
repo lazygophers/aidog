@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "nvidia-llama-3.3-nemotron-super-49b-v1.5",
   "canonical_model": "nvidia-llama-3.3-nemotron-super-49b-v1.5",
 
   "family": "nemotron",  "display_name": "Nvidia Llama 3.3 Nemotron Super 49B V1.5",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.1e-07,
     "output": 4.4e-07

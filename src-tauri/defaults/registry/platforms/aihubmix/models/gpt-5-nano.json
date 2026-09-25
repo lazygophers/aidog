@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gpt-5-nano",
   "canonical_model": "gpt-5-nano",
   "display_name": "GPT 5 Nano",
@@ -13,6 +13,7 @@
   "max_output_tokens": 128000,
   "context_window": 400000,
   "official": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8,
     "output": 4e-7,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "bytedance/doubao-seed-2-0-mini",
   "canonical_model": "doubao-seed-2-0-mini",
   "family": "doubao-seed",
@@ -10,6 +10,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.77778e-08,
     "output": 2.77778e-07,

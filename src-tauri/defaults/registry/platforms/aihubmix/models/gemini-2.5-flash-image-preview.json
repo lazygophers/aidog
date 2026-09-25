@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "gemini-2.5-flash-image-preview",
   "canonical_model": "gemini-2.5-flash-image-preview",
 
@@ -14,6 +14,8 @@
   ],
   "max_input_tokens": 32800,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 1.2e-06

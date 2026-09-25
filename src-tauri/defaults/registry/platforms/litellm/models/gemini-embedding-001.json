@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790340078,
   "model_id": "gemini-embedding-001",
   "canonical_model": "gemini-embedding-001",
   "family": "gemini",
@@ -10,6 +10,8 @@
   "max_input_tokens": 2048,
   "official": false,
   "context_window": 2048,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.5e-07,
     "output": 0

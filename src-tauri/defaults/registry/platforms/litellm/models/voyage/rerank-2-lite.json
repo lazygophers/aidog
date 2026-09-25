@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "voyage/rerank-2-lite",
   "canonical_model": "rerank-2-lite",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 8000,
   "max_output_tokens": 8000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-8
   }

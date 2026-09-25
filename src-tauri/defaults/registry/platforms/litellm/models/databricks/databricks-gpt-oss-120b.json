@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "databricks/databricks-gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
   "family": "gpt",
@@ -10,6 +10,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.5000999999999998e-7,
     "output": 5.9997e-7

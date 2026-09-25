@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340079,
   "model_id": "meituan-longcat/LongCat-2.0",
   "canonical_model": "LongCat-2.0",
   "version": "2.0",
@@ -11,6 +11,8 @@
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 7.5e-07,
     "output": 2.95e-06

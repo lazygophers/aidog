@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "bedrock/eu-west-1/qwen.qwen3-next-80b-a3b",
   "canonical_model": "qwen.qwen3-next-80b-a3b",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 128000,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.8e-7,
     "output": 0.00000141

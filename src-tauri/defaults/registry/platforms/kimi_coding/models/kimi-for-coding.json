@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790340078,
   "model_id": "kimi-for-coding",
   "canonical_model": "kimi-for-coding",
   "family": "kimi",
@@ -13,6 +13,7 @@
   ],
   "context_window": 262144,
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 0
   }

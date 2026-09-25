@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340078,
   "model_id": "minimaxai/minimax-m1-80k",
   "canonical_model": "minimax-m1-80k",
   "family": "minimax",
   "version": "1",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.5e-07,
     "output": 2.2e-06,

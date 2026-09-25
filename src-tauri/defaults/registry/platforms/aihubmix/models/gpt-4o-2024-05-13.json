@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "gpt-4o-2024-05-13",
   "canonical_model": "gpt-4o-2024-05-13",
   "display_name": "GPT 4o 2024 05-13",
@@ -10,6 +10,8 @@
   "capabilities": [],
   "max_input_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-06,
     "output": 1.5e-05,

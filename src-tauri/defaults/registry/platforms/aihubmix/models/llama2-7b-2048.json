@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "llama2-7b-2048",
   "canonical_model": "llama2-7b-2048",
 
@@ -7,6 +7,8 @@
   "family": "llama",  "display_name": "Llama2 7B 2048",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-07,
     "output": 1e-07

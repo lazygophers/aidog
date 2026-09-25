@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/meta-llama/Llama-3.2-3B-Instruct",
   "canonical_model": "llama-3.2-3b-instruct",
   "family": "llama",
@@ -12,6 +12,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-8,
     "output": 2e-8

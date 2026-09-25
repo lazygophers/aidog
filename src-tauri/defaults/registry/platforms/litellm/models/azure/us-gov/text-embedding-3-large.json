@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "azure/us-gov/text-embedding-3-large",
   "canonical_model": "text-embedding-3-large",
   "family": "text-embedding",
@@ -11,6 +11,8 @@
   "context_window": 8191,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.63e-7,
     "output": 0

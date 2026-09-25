@@ -6,11 +6,13 @@
   "max_input_tokens": 2000000,
   "context_window": 2000000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790280170,
+  "last_updated": 1790340079,
   "capabilities": [
     "text",
     "vision",

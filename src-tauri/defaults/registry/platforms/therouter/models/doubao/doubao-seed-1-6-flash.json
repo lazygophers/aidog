@@ -1,11 +1,12 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790340079,
   "model_id": "doubao/doubao-seed-1-6-flash",
   "canonical_model": "doubao-seed-1-6-flash",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 8.1e-08,
     "output": 3.24e-07

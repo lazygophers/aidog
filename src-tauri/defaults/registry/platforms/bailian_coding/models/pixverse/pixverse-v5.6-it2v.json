@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "pixverse/pixverse-v5.6-it2v",
   "canonical_model": "pixverse-v5.6-it2v",
   "family": "pixverse",
@@ -8,6 +8,8 @@
     "image_to_video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

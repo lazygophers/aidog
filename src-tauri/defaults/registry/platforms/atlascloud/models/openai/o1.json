@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "openai/o1",
   "canonical_model": "o1",
   "family": "o",
@@ -9,6 +9,7 @@
     "text"
   ],
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.5e-05,
     "output": 6e-05,

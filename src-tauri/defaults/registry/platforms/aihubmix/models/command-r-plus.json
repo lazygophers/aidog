@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "command-r-plus",
   "canonical_model": "command-r-plus",
 
   "family": "command",  "display_name": "Command R Plus",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.00000384,
     "output": 0.0000192

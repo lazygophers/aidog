@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788143594,
+  "last_updated": 1790340078,
   "model_id": "fun-music-v1",
   "canonical_model": "fun-music-v1",
   "capabilities": [
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.000275

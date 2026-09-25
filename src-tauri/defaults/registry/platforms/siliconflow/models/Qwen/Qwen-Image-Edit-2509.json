@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen-Image-Edit-2509",
   "canonical_model": "Qwen-Image-Edit-2509",
   "capabilities": [
@@ -7,6 +7,8 @@
     "image_to_image"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.0416667

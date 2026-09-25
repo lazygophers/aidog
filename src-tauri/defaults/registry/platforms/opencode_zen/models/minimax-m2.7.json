@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340079,
   "model_id": "minimax-m2.7",
   "canonical_model": "MiniMax-M2.7",
   "family": "minimax",
@@ -10,6 +10,8 @@
   "max_input_tokens": 204800,
   "max_output_tokens": 100000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 1.2e-06,

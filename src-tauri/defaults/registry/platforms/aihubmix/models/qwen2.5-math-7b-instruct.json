@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen2.5-math-7b-instruct",
   "canonical_model": "qwen2.5-math-7b-instruct",
 
@@ -7,6 +7,8 @@
   "family": "qwen",  "display_name": "Qwen2.5 Math 7B Instruct",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 4e-07

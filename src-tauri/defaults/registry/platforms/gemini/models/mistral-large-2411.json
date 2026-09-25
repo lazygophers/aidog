@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "mistral-large-2411",
   "canonical_model": "mistral-large-2411",
   "family": "mistral",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8191,
   "context_window": 8191,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-06,
     "output": 6e-06,

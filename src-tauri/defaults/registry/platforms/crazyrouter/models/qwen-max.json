@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790269990,
+  "last_updated": 1790340078,
   "model_id": "qwen-max",
   "canonical_model": "qwen-max",
   "family": "qwen",
@@ -10,6 +10,8 @@
   "max_output_tokens": 33000,
   "context_window": 131000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.6e-06,
     "output": 6.4e-06,

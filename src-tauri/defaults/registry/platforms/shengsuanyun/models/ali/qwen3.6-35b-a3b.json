@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "ali/qwen3.6-35b-a3b",
   "canonical_model": "qwen3.6-35b-a3b",
   "family": "qwen",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.5e-07,
     "output": 1.5e-06

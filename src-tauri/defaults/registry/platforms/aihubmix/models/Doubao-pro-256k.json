@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790340078,
   "model_id": "Doubao-pro-256k",
   "canonical_model": "doubao-pro-256k",
 
@@ -8,6 +8,8 @@
   "context_window": 256000,
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-07,
     "output": 1.44e-06

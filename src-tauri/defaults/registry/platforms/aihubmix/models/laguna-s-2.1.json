@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "laguna-s-2.1",
   "canonical_model": "laguna-s-2.1",
 
@@ -11,6 +11,8 @@
   ],
   "max_input_tokens": 1048576,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-07,
     "output": 2e-07,

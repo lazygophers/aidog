@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790340079,
   "model_id": "doubao/doubao-1-5-lite-32k",
   "canonical_model": "doubao-1-5-lite-32k",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4.86e-08,
     "output": 9.72e-08

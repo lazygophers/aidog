@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "xai/grok-4.20-experimental-beta-non-reasoning-latest",
   "canonical_model": "grok-4.20-experimental-beta-non-reasoning-latest",
   "capabilities": [
@@ -11,6 +11,7 @@
   "context_window": 1000000,
   "max_output_tokens": 1000000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.00000125,
     "output": 0.0000025

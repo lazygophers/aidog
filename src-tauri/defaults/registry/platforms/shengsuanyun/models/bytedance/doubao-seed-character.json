@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "bytedance/doubao-seed-character",
   "canonical_model": "doubao-seed-character",
   "family": "doubao-seed-character",
@@ -8,6 +8,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.11111e-07,
     "output": 2.77778e-07,

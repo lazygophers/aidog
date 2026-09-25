@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790340078,
   "model_id": "meta/llama-3.1-405b-instruct",
   "canonical_model": "llama-3.1-405b-instruct",
   "context_window": 128000,
@@ -8,6 +8,8 @@
   "version": "3.1",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-06,
     "output": 5e-06

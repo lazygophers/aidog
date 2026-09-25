@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790340078,
   "model_id": "nvidia/llama-3.1-nemotron-safety-guard-8b-v3",
   "canonical_model": "llama-3.1-nemotron-safety-guard-8b-v3",
   "family": "nemotron",
   "capabilities": [],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0,
     "output": 0.0

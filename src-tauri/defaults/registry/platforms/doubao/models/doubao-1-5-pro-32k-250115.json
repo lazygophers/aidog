@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "doubao-1-5-pro-32k-250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
   "family": "doubao-pro",
@@ -11,6 +11,8 @@
   "max_output_tokens": 16384,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.11111e-7,
     "output": 2.77778e-7

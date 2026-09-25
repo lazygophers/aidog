@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "ali/qwen3.5-122b-a10b",
   "canonical_model": "qwen3.5-122b-a10b",
   "family": "qwen",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.11111e-07,
     "output": 8.88889e-07

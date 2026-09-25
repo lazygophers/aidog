@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "alicloud-minimax-m2.5",
   "canonical_model": "MiniMax-M2.5",
   "display_name": "Alicloud Minimax M2.5",
@@ -7,6 +7,8 @@
   "family": "minimax",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.876e-07,
     "output": 1.1504e-06,

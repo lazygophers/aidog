@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "o1-mini",
   "canonical_model": "o1-mini",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 65536,
   "context_window": 128000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0000011,
     "output": 0.0000044,

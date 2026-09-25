@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "nvidia-nemotron-3-super-120b-a12b",
   "canonical_model": "nvidia-nemotron-3-super-120b-a12b",
 
@@ -10,6 +10,7 @@
   "capabilities": [],
   "max_input_tokens": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.1e-7,
     "output": 5.5e-7,

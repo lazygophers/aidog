@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "coding-xiaomi-mimo-v2.5",
   "canonical_model": "coding-xiaomi-mimo-v2.5",
 
@@ -11,6 +11,7 @@
   "capabilities": [],
   "max_input_tokens": 1048576,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 8e-8,
     "output": 1.6e-7,

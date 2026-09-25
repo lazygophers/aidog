@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790340078,
   "model_id": "Qwen/Qwen3-VL-8B-Thinking",
   "canonical_model": "qwen3-vl-8b-thinking",
   "family": "qwen",
@@ -10,6 +10,8 @@
   "max_input_tokens": 256000,
   "max_output_tokens": 32768,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0,
     "output": 0.0

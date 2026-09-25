@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "cloudflare/@cf/mistral/mistral-7b-instruct-v0.1",
   "canonical_model": "Mistral-7B-Instruct-v0.1",
   "family": "mistral",
@@ -11,6 +11,8 @@
   "context_window": 8192,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000001923,
     "output": 0.000001923

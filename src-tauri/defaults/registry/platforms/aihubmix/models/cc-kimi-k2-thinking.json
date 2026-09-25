@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "cc-kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
@@ -9,6 +9,7 @@
   "context_window": 262144,
   "thinking_supported": false,
   "official": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.480000000000001e-07,
     "output": 2.1920000000000004e-06

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "us.meta.llama3-2-1b-instruct-v1:0",
   "canonical_model": "us.meta.llama3-2-1b-instruct-v1:0",
   "family": "llama",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 1e-7
