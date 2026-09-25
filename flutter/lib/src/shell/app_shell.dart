@@ -1,7 +1,9 @@
-/// A′ 骨架：**标题栏 40px 通栏 → 其下是「侧栏 200px（可折叠 56px） + 内容区」**。
-/// 每一页只换格子内容，不换骨架，也**不再有第二套导航**（票 10 布局规则第 1 条）。
+/// A″ 壳骨架（用户 2026-09-24 裁决，推翻票 10 A′ Bento）：复刻 React 玻璃侧栏。
+/// **根 padding 12 + gap 12，侧栏浮起玻璃卡，无独立标题栏**（React `App.tsx:197-206`
+/// + `Sidebar.tsx:250-260`）。内容区 main padding 24/32 + radius-lg（`App.tsx:212-218`）。
+/// 每一页只换格子内容，不换骨架。
 ///
-/// 内容区 = 12 列 bento（[Bento]）、gap 10、page-pad 18、max-width 1180 居中。
+/// 窗口拖拽：macOS 原生标题栏（`MainMenu.xib` titled 窗口）承担，壳内没有也不需要拖拽热区。
 library;
 
 import 'package:flutter/material.dart';
@@ -12,114 +14,6 @@ import '../../i18n.dart' show kSupportedFlutterLocales;
 import 'nav.dart';
 import 'rail.dart';
 import 'theme.dart';
-import 'tiles.dart';
-
-/// 标题栏：通栏 40px，左侧品牌，右侧「活着」的状态点（呼吸）。
-class Titlebar extends StatelessWidget {
-  const Titlebar({
-    super.key,
-    required this.title,
-    this.status,
-    this.live = false,
-    this.leading,
-  });
-
-  final String title;
-
-  /// 形如 `127.0.0.1:8787 · 运行中`；URL / 端口是规则 6 第 ③ 类显式 LTR。
-  final String? status;
-
-  /// 代理是否在跑 —— 只有活着的东西才发光。
-  final bool live;
-  final Widget? leading;
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogTheme.of(context);
-    return Container(
-      height: AidogLayout.titlebarH,
-      padding: const EdgeInsets.symmetric(horizontal: AidogSpace.slg),
-      decoration: BoxDecoration(
-        color: t.c.bgChrome,
-        border: Border(bottom: BorderSide(color: t.c.line)),
-      ),
-      child: Row(
-        children: [
-          if (leading != null) ...[
-            leading!,
-            const SizedBox(width: AidogSpace.smd),
-          ],
-          // 品牌标，对应 React `Sidebar.tsx:268-277` 的 `<img src="/logo.svg">`。
-          // 资产由 `node scripts/gen-flutter-icons.mjs` 从 `src-tauri/icons/` 同步，
-          // 与 Tauri 壳同一个真值源；漂了 `--check` 会红。
-          Image.asset(
-            'assets/logo.webp',
-            width: 18,
-            height: 18,
-            filterQuality: FilterQuality.medium,
-          ),
-          const SizedBox(width: 7),
-          Text(
-            title,
-            style: AidogType.title.copyWith(color: t.c.fg, fontSize: 13),
-          ),
-          const Spacer(),
-          if (status != null) ...[
-            LiveDot(on: live),
-            const SizedBox(width: 7),
-            Ltr(
-              child: Text(status!, style: numStyle(AidogType.numSm, t.c.fg2)),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// 「活着」的圆点：ok 色 + live-ring + 3s 呼吸。熄灭时用 fg-3，不发光。
-class LiveDot extends StatefulWidget {
-  const LiveDot({super.key, required this.on, this.size = 7});
-
-  final bool on;
-  final double size;
-
-  @override
-  State<LiveDot> createState() => _LiveDotState();
-}
-
-class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _c = AnimationController(
-    vsync: this,
-    duration: AidogMotion.breathe,
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _c.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = AidogTheme.of(context);
-    final dot = Container(
-      width: widget.size,
-      height: widget.size,
-      decoration: BoxDecoration(
-        color: widget.on ? t.c.ok : t.c.fg3,
-        shape: BoxShape.circle,
-        boxShadow: widget.on ? t.liveRing : null,
-      ),
-    );
-    if (!widget.on) return dot;
-    // 深色是阴影扩散，浅色是不透明度 —— 两套都由 opacity 表达，token 决定有没有 halo。
-    return FadeTransition(
-      opacity: Tween<double>(begin: 1, end: 0.45).animate(_c),
-      child: dot,
-    );
-  }
-}
 
 /// 页头：大标题 + 一句话副标题 + 右侧的时间/维度切换。
 class PageHead extends StatelessWidget {
@@ -173,6 +67,51 @@ class PageHead extends StatelessWidget {
   }
 }
 
+/// 「活着」的圆点：ok 色 + live-ring + 3s 呼吸。熄灭时用 fg-3，不发光。
+/// （设置页的运行状态卡用它；壳骨架已无标题栏，这里只剩这个消费点。）
+class LiveDot extends StatefulWidget {
+  const LiveDot({super.key, required this.on, this.size = 7});
+
+  final bool on;
+  final double size;
+
+  @override
+  State<LiveDot> createState() => _LiveDotState();
+}
+
+class _LiveDotState extends State<LiveDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: AidogMotion.breathe,
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogTheme.of(context);
+    final dot = Container(
+      width: widget.size,
+      height: widget.size,
+      decoration: BoxDecoration(
+        color: widget.on ? t.c.ok : t.c.fg3,
+        shape: BoxShape.circle,
+        boxShadow: widget.on ? t.liveRing : null,
+      ),
+    );
+    if (!widget.on) return dot;
+    // 深色是阴影扩散，浅色是不透明度 —— 两套都由 opacity 表达，token 决定有没有 halo。
+    return FadeTransition(
+      opacity: Tween<double>(begin: 1, end: 0.45).animate(_c),
+      child: dot,
+    );
+  }
+}
+
 /// 整个外壳。页面票只提供 [pageBuilder]：拿到 activeId，返回那一页的内容。
 class AppShell extends StatefulWidget {
   const AppShell({
@@ -181,9 +120,6 @@ class AppShell extends StatefulWidget {
     required this.theme,
     required this.pageBuilder,
     this.t = _identity,
-    this.appTitle = '',
-    this.status,
-    this.live = false,
     this.localeLabel = '',
     this.onPickLocale,
     this.initialCollapsed = false,
@@ -194,11 +130,6 @@ class AppShell extends StatefulWidget {
   final Widget Function(BuildContext context, String activeId) pageBuilder;
   final String Function(String key) t;
 
-  /// 标题栏上的应用名。留空 = 取文案里的 `app.title`（八种语言都是 `AiDog`，
-  /// 与 React 侧栏同一句）。原先写死小写 `aidog`，与产品名不一致。
-  final String appTitle;
-  final String? status;
-  final bool live;
   final String localeLabel;
   final VoidCallback? onPickLocale;
 
@@ -313,99 +244,96 @@ class _AppShellState extends State<AppShell> {
         return _WindowBackground(
           theme: t,
           // 整个骨架统一给一层 Material（Scaffold 干的就是这件事，而这里自绘不走 Scaffold）。
-          // 少了它，顶栏与侧栏的每一行文字都会被 Flutter 画上「缺 Material 祖先」的黄色下划线
-          // —— 页面区之前单独包过一层，所以只有那一块是干净的，看起来像设计差异，其实是缺层。
+          // 少了它，侧栏的每一行文字都会被 Flutter 画上「缺 Material 祖先」的黄色下划线。
           // 透明色：底色仍由上面的 bg token 决定，Material 只负责提供墨层与默认文字样式。
           child: PageStickyHeader(
             slot: _sticky,
             child: Material(
               type: MaterialType.transparency,
-              child: Column(
-                children: [
-                  Titlebar(
-                    title: widget.appTitle.isEmpty
-                        ? widget.t('app.title')
-                        : widget.appTitle,
-                    status: widget.status,
-                    live: widget.live,
-                  ),
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Rail(
-                          items: widget.controller.items,
-                          activeId: widget.controller.activeId,
-                          onNavigate: widget.controller.navigate,
-                          collapsed: _collapsed,
-                          onToggleCollapsed: () =>
-                              setState(() => _collapsed = !_collapsed),
-                          isDark: widget.theme.isDark,
-                          onToggleTheme: widget.theme.toggle,
-                          localeLabel: widget.localeLabel,
-                          onPickLocale: widget.onPickLocale ?? () {},
-                          t: widget.t,
-                        ),
-                        Expanded(
-                          // 从 SingleChildScrollView 换成 CustomScrollView：页面仍是
-                          // 一整个 box（装在 SliverToBoxAdapter 里，写页面的方式不变），
-                          // 换的目的只有一个 —— 让页面能往视口顶部挂一条粘住的横条。
-                          child: ValueListenableBuilder<Widget?>(
-                            valueListenable: _sticky,
-                            builder: (context, sticky, _) => CustomScrollView(
-                              slivers: [
-                                if (sticky != null)
-                                  SliverPersistentHeader(
-                                    pinned: true,
-                                    delegate: _StickyHeaderDelegate(
-                                      background: t.c.bg,
-                                      child: Center(
-                                        child: ConstrainedBox(
-                                          constraints: const BoxConstraints(
-                                            maxWidth: AidogLayout.contentMax,
-                                          ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: AidogLayout.pagePad,
-                                            ),
-                                            child: sticky,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                SliverPadding(
-                                  padding: EdgeInsets.fromLTRB(
-                                    AidogLayout.pagePad,
-                                    // 横条在时它自己占掉了顶部留白。
-                                    sticky == null ? AidogLayout.pagePad : 0,
-                                    AidogLayout.pagePad,
-                                    40,
-                                  ),
-                                  sliver: SliverToBoxAdapter(
+              // React 根容器：padding 12 + gap 12（App.tsx:197-206），侧栏与内容
+              // 都是浮在窗口底上的玻璃卡。
+              child: Padding(
+                padding: const EdgeInsets.all(AidogLayout.shellInset),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Rail(
+                      items: widget.controller.items,
+                      activeId: widget.controller.activeId,
+                      onNavigate: widget.controller.navigate,
+                      collapsed: _collapsed,
+                      onToggleCollapsed: () =>
+                          setState(() => _collapsed = !_collapsed),
+                      isDark: widget.theme.isDark,
+                      onToggleTheme: widget.theme.toggle,
+                      localeLabel: widget.localeLabel,
+                      onPickLocale: widget.onPickLocale ?? () {},
+                      t: widget.t,
+                    ),
+                    const SizedBox(width: AidogLayout.shellGap),
+                    Expanded(
+                      // React main：padding 24/32 + radius-lg（App.tsx:212-218）。
+                      // main 本身无底色，radius 只裁滚动内容的角 —— ClipRRect 同理。
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AidogRadius.lg),
+                        // 从 SingleChildScrollView 换成 CustomScrollView：页面仍是
+                        // 一整个 box（装在 SliverToBoxAdapter 里，写页面的方式不变），
+                        // 换的目的只有一个 —— 让页面能往视口顶部挂一条粘住的横条。
+                        child: ValueListenableBuilder<Widget?>(
+                          valueListenable: _sticky,
+                          builder: (context, sticky, _) => CustomScrollView(
+                            slivers: [
+                              if (sticky != null)
+                                SliverPersistentHeader(
+                                  pinned: true,
+                                  delegate: _StickyHeaderDelegate(
+                                    background: t.c.bg,
                                     child: Center(
                                       child: ConstrainedBox(
                                         constraints: const BoxConstraints(
                                           maxWidth: AidogLayout.contentMax,
                                         ),
-                                        // Material 已由骨架根部统一提供（见上），
-                                        // 这里不再包第二层。
-                                        child: widget.pageBuilder(
-                                          context,
-                                          widget.controller.activeId,
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: AidogLayout.pagePadX,
+                                          ),
+                                          child: sticky,
                                         ),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                              SliverPadding(
+                                padding: EdgeInsets.fromLTRB(
+                                  AidogLayout.pagePadX,
+                                  // 横条在时它自己占掉了顶部留白。
+                                  sticky == null ? AidogLayout.pagePadY : 0,
+                                  AidogLayout.pagePadX,
+                                  AidogLayout.pagePadY,
+                                ),
+                                sliver: SliverToBoxAdapter(
+                                  child: Center(
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: AidogLayout.contentMax,
+                                      ),
+                                      // Material 已由骨架根部统一提供（见上），
+                                      // 这里不再包第二层。
+                                      child: widget.pageBuilder(
+                                        context,
+                                        widget.controller.activeId,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                      ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -424,8 +352,6 @@ class AidogShellApp extends StatelessWidget {
     required this.theme,
     required this.pageBuilder,
     this.t = AppShell._identity,
-    this.status,
-    this.live = false,
     this.localeLabel = '',
     this.onPickLocale,
     this.textDirection = TextDirection.ltr,
@@ -436,8 +362,6 @@ class AidogShellApp extends StatelessWidget {
   final ThemeController theme;
   final Widget Function(BuildContext context, String activeId) pageBuilder;
   final String Function(String key) t;
-  final String? status;
-  final bool live;
   final String localeLabel;
   final VoidCallback? onPickLocale;
 
@@ -473,8 +397,6 @@ class AidogShellApp extends StatelessWidget {
           theme: theme,
           pageBuilder: pageBuilder,
           t: t,
-          status: status,
-          live: live,
           localeLabel: localeLabel,
           onPickLocale: onPickLocale,
         ),

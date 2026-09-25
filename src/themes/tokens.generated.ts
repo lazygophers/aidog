@@ -27,6 +27,7 @@ export const tokens = {
     "live-edge": "rgba(255,255,255,.25)",
     "shadow-tile": "none",
     "shadow-float": "0 24px 64px -16px rgba(0,0,0,.9)",
+    "shadow-rail-card": "0 1px 3px rgba(0,0,0,.4)",
     "destructive": "#EB5757",
   },
   light: {
@@ -55,6 +56,7 @@ export const tokens = {
     "live-edge": "rgba(78,89,196,.40)",
     "shadow-tile": "0 1px 2px rgba(9,10,12,.05)",
     "shadow-float": "0 18px 44px -14px rgba(9,10,12,.22)",
+    "shadow-rail-card": "0 1px 3px rgba(28,25,23,.04), 0 1px 2px rgba(28,25,23,.02)",
     "destructive": "#C93B3B",
   },
 } as const;
