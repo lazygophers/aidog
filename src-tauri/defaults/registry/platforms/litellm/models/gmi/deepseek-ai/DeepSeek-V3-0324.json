@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790329690,
   "model_id": "gmi/deepseek-ai/DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",
   "family": "deepseek",
@@ -14,5 +14,6 @@
   "price": {
     "input": 2.8e-7,
     "output": 8.8e-7
-  }
+  },
+  "version": "3"
 }

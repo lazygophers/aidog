@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790329690,
   "model_id": "databricks/databricks-gemini-3-1-pro",
   "canonical_model": "gemini-3.1-pro",
   "capabilities": [
@@ -17,5 +17,7 @@
   "price": {
     "input": 0.00000249998,
     "output": 0.000015000020000000002
-  }
+  },
+  "family": "gemini",
+  "version": "3.1"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/meta-llama/llama-4-scout-17b-16e-instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
   "capabilities": [
@@ -13,5 +13,7 @@
   "price": {
     "input": 1.8e-7,
     "output": 5.9e-7
-  }
+  },
+  "family": "llama",
+  "version": "4"
 }

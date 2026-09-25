@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790329690,
   "model_id": "cerebras/llama3.1-70b",
   "canonical_model": "llama-3.1-70b",
   "capabilities": [
@@ -13,5 +13,7 @@
   "price": {
     "input": 6e-7,
     "output": 6e-7
-  }
+  },
+  "family": "llama",
+  "version": "3.1"
 }
