@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790307139,
   "model_id": "nemotron-3-ultra-free",
   "canonical_model": "nemotron-3-ultra-free",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text"
   ],

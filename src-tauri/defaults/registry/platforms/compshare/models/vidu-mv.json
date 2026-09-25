@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "vidu-mv",
   "canonical_model": "vidu-mv",
+  "family": "vidu",
   "capabilities": [
     "text_to_video"
   ],

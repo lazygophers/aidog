@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790307139,
   "model_id": "mj_upscale",
   "canonical_model": "mj_upscale",
+  "family": "midjourney",
   "capabilities": [
     "image_to_image"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790307139,
   "model_id": "nemotron-3.5-lightning-free",
   "canonical_model": "nemotron-3.5-lightning-free",
+  "family": "nemotron",
+  "version": "3.5",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790307139,
   "model_id": "inclusionai/ling-3.0-flash-sante",
   "canonical_model": "ling-3.0-flash-sante",
+  "family": "ling",
+  "version": "3.0",
   "capabilities": [
     "text",
     "tool_use",

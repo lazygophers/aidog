@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790307139,
   "model_id": "doubao/doubao-1-5-pro-32k",
   "canonical_model": "doubao-1-5-pro-32k",
+  "family": "doubao-pro",
+  "version": "1.5",
   "capabilities": [
     "text"
   ],

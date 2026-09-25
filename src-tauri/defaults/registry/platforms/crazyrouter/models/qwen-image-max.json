@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790307139,
   "model_id": "qwen-image-max",
   "canonical_model": "qwen-image-max",
+  "family": "qwen",
   "capabilities": [
     "text_to_image"
   ],

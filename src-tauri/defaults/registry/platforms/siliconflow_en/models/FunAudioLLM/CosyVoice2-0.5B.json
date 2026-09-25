@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788147245,
+  "last_updated": 1790307139,
   "model_id": "FunAudioLLM/CosyVoice2-0.5B",
   "canonical_model": "CosyVoice2-0.5B",
+  "family": "cosyvoice",
+  "version": "2",
   "capabilities": [
     "audio"
   ],

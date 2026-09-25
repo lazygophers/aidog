@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "kling-video-o1",
   "canonical_model": "kling-video-o1",
+  "family": "kling",
   "capabilities": [
     "text_to_video"
   ],

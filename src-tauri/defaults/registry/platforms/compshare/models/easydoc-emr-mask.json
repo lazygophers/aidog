@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "easydoc-emr-mask",
   "canonical_model": "easydoc-emr-mask",
+  "family": "easydoc",
   "capabilities": [],
   "official": true,
   "price": {

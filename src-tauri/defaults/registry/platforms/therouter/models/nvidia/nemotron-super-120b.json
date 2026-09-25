@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790307139,
   "model_id": "nvidia/nemotron-super-120b",
   "canonical_model": "nemotron-super-120b",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text"
   ],

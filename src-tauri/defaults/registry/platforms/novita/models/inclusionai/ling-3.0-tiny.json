@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "inclusionai/ling-3.0-tiny",
   "canonical_model": "ling-3.0-tiny",
+  "family": "ling",
+  "version": "3.0",
   "capabilities": [
     "text"
   ],

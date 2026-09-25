@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790307139,
   "model_id": "Tongyi-MAI/Z-Image",
   "canonical_model": "Z-Image",
+  "family": "z-image",
   "capabilities": [
     "text_to_image"
   ],

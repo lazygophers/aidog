@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790307139,
   "model_id": "aigc-image-kling-3.0",
   "canonical_model": "aigc-image-kling-3.0",
+  "family": "kling",
+  "version": "3.0",
   "capabilities": [
     "text_to_image"
   ],

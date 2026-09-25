@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790307139,
   "model_id": "anthropic/claude-3.7-sonnet:thinking",
   "canonical_model": "claude-3.7-sonnet:thinking",
+  "family": "claude",
+  "version": "3.7",
   "capabilities": [
     "text",
     "vision"
