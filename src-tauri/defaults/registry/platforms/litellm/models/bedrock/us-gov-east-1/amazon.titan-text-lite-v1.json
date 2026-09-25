@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/us-gov-east-1/amazon.titan-text-lite-v1",
   "canonical_model": "amazon.titan-text-lite-v1",
+  "family": "titan",
+  "version": "1",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790333168,
   "model_id": "watsonx/meta-llama/llama-guard-3-11b-vision",
   "canonical_model": "llama-guard-3-11b-vision",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text",
     "vision"

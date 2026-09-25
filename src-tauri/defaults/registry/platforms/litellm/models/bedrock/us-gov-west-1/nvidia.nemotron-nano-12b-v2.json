@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790333168,
   "model_id": "bedrock/us-gov-west-1/nvidia.nemotron-nano-12b-v2",
   "canonical_model": "nvidia.nemotron-nano-12b-v2",
   "family": "nemotron",
+  "version": "2",
   "capabilities": [
     "text",
     "vision",

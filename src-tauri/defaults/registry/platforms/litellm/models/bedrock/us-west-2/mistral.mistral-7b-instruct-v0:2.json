@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/us-west-2/mistral.mistral-7b-instruct-v0:2",
   "canonical_model": "mistral.mistral-7b-instruct-v0:2",
+  "family": "mistral",
+  "version": "0.2",
   "capabilities": [
     "text"
   ],

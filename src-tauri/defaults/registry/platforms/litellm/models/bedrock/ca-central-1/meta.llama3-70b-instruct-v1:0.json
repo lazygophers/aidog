@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/ca-central-1/meta.llama3-70b-instruct-v1:0",
   "canonical_model": "meta.llama3-70b-instruct-v1:0",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text"
   ],

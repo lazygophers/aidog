@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790333168,
   "model_id": "ovhcloud/Mistral-Small-3.2-24B-Instruct-2506",
   "canonical_model": "Mistral-Small-3.2-24B-Instruct-2506",
+  "family": "mistral",
+  "version": "3.2",
   "capabilities": [
     "text",
     "vision",
