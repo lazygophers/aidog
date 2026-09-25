@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790181902,
+  "last_updated": 1790318309,
   "model_id": "gui-plus",
   "canonical_model": "gui-plus",
   "capabilities": [
@@ -13,5 +13,5 @@
   },
   "max_input_tokens": 254976,
   "max_output_tokens": 32768,
-  "context_window": 256000
+  "context_window": 254976
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790318309,
   "model_id": "qwq-plus",
   "canonical_model": "qwq-plus",
   "family": "qwen",
@@ -12,5 +12,5 @@
   },
   "max_input_tokens": 131072,
   "max_output_tokens": 8192,
-  "context_window": 131072
+  "context_window": 98304
 }
