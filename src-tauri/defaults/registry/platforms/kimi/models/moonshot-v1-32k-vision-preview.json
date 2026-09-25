@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "moonshot-v1-32k-vision-preview",
   "canonical_model": "moonshot-v1-32k-vision-preview",
   "family": "moonshot",
@@ -15,5 +15,6 @@
     "input": 6.944444444444444e-07,
     "output": 2.7777777777777775e-06,
     "cache_read": 0
-  }
+  },
+  "display_name": "Moonshot V1 32K Vision Preview"
 }

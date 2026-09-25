@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790351264,
   "model_id": "MiniMax-M3",
   "canonical_model": "MiniMax-M3",
   "version": "3",
@@ -11,5 +11,6 @@
   "official": false,
   "price": {
     "input": 0
-  }
+  },
+  "display_name": "MiniMax M3"
 }
