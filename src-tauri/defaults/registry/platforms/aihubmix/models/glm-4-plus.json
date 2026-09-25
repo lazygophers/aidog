@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790312333,
   "model_id": "glm-4-plus",
   "canonical_model": "glm-4-plus",
+  "capabilities": ["text","tool_use"],
+  "context_window": 131072,
   "family": "glm",
   "version": "4",
   "display_name": "GLM 4 Plus",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 8e-06,

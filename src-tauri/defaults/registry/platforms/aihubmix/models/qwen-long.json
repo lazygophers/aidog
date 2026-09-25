@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790312333,
   "model_id": "qwen-long",
   "canonical_model": "qwen-long",
+  "capabilities": ["text"],
+  "context_window": 10000000,
   "display_name": "Qwen Long",
   "family": "qwen",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 1e-07,

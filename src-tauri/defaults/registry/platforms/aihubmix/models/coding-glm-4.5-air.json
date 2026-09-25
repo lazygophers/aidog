@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790312333,
   "model_id": "coding-glm-4.5-air",
   "canonical_model": "glm-4.5-air",
+  "capabilities": ["text","tool_use","reasoning"],
+  "context_window": 131072,
   "display_name": "Coding GLM 4.5 Air",
   "version": "4.5",
   "family": "glm",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 1.4e-08,
