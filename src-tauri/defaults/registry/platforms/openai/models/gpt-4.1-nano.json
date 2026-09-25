@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "gpt-4.1-nano",
+  "display_name": "GPT-4.1 Nano",
   "canonical_model": "gpt-4.1-nano",
   "capabilities": [
     "text"

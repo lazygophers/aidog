@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "openrouter/google/gemini-3-flash-preview",
+  "display_name": "Gemini 3 Flash Preview",
   "canonical_model": "gemini-3-flash-preview",
   "family": "gemini",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "nebius/deepseek-ai/DeepSeek-V3",
+  "display_name": "DeepSeek V3",
   "canonical_model": "DeepSeek-V3",
   "family": "deepseek",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "deepinfra/meta-llama/Llama-3.3-70B-Instruct",
+  "display_name": "Llama 3.3 70B Instruct",
   "canonical_model": "llama-3.3-70b-instruct",
   "family": "llama",
   "version": "3.3",

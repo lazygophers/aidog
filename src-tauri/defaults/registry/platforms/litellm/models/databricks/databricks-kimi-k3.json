@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "databricks/databricks-kimi-k3",
+  "display_name": "Kimi-K3",
   "canonical_model": "kimi-k3",
   "family": "kimi",
   "version": "3",

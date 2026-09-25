@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790275340,
+  "last_updated": 1790345089,
   "model_id": "mistral-small-2603",
+  "display_name": "Mistral Small 4",
   "canonical_model": "mistral-small-2603",
   "family": "mistral",
   "version": "4",

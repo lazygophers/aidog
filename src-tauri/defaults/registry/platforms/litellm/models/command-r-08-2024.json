@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "command-r-08-2024",
+  "display_name": "Command R (08-2024)",
   "canonical_model": "command-r-08-2024",
   "version": "24.08",
   "family": "command",

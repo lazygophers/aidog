@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "ernie-x1.1-preview",
+  "display_name": "ERNIE X1.1 Preview",
   "canonical_model": "ernie-x1.1-preview",
   "official": true,
   "thinking_supported": true,

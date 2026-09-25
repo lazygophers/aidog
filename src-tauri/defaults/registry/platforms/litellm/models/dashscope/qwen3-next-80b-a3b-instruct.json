@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "dashscope/qwen3-next-80b-a3b-instruct",
+  "display_name": "Qwen3 Next 80B A3B Instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
   "family": "qwen",
   "version": "3",

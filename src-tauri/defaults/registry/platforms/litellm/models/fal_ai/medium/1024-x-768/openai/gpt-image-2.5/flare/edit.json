@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "fal_ai/medium/1024-x-768/openai/gpt-image-2.5/flare/edit",
+  "display_name": "GPT Image 2.5 Flare",
   "canonical_model": "gpt-image-2.5-flare",
   "family": "gpt",
   "version": "2.5",

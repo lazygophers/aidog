@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "qwen3-vl-32b-instruct",
+  "display_name": "Qwen3 VL 32B Instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
   "family": "qwen",
 

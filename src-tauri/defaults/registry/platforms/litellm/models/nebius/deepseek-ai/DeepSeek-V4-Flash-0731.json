@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "nebius/deepseek-ai/DeepSeek-V4-Flash-0731",
+  "display_name": "DeepSeek V4 Flash 0731",
   "canonical_model": "deepseek-v4-flash-0731",
   "version": "4",
   "capabilities": [

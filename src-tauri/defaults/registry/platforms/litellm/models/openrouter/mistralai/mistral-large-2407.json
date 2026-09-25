@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "openrouter/mistralai/mistral-large-2407",
+  "display_name": "Mistral Large 2407",
   "canonical_model": "mistral-large-2407",
   "family": "mistral",
   "version": "2.0",

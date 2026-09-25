@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "deepinfra/moonshotai/Kimi-K2-Instruct",
+  "display_name": "Kimi K2 Instruct",
   "canonical_model": "kimi-k2-instruct",
   "capabilities": [
     "text",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "azure/gpt-5.2-codex",
+  "display_name": "GPT-5.2-Codex",
   "canonical_model": "gpt-5.2-codex",
   "family": "gpt",
   "version": "5.2",

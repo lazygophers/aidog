@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790345088,
   "model_id": "aihubmix/hy4-preview",
+  "display_name": "Hy4 preview",
   "canonical_model": "hy4-preview",
   "version": "4",
   "capabilities": [

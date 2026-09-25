@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "bedrock/us-east-2/moonshotai.kimi-k2.5",
+  "display_name": "Kimi-K2.5",
   "canonical_model": "kimi-k2.5",
   "family": "kimi",
   "version": "2.5",

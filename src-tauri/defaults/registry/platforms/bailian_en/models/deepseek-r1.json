@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790345088,
   "model_id": "deepseek-r1",
+  "display_name": "R1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
   "version": "r1",

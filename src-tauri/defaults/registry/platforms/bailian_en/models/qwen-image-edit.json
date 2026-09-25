@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "qwen-image-edit",
+  "display_name": "Qwen Image Edit",
   "canonical_model": "qwen-image-edit",
   "family": "qwen",
   "capabilities": [

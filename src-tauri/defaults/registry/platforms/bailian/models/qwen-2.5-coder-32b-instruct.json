@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790345088,
   "model_id": "qwen-2.5-coder-32b-instruct",
+  "display_name": "Qwen2.5 Coder 32B Instruct",
   "canonical_model": "qwen-2.5-coder-32b-instruct",
   "family": "qwen",
 

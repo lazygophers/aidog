@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790345089,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-32b",
+  "display_name": "Qwen3 32B",
   "canonical_model": "qwen3-32b",
   "family": "qwen",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "deepinfra/google/gemma-4-26B-A4B-it",
+  "display_name": "Gemma 4 26B A4B",
   "canonical_model": "gemma-4-26b-a4b-it",
   "capabilities": [
     "text",

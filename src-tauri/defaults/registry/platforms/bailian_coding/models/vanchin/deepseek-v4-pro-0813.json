@@ -1,7 +1,8 @@
 {
   "max_input_tokens": 1048576,
-  "last_updated": 1790287585,
+  "last_updated": 1790345088,
   "model_id": "vanchin/deepseek-v4-pro-0813",
+  "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "version": "4",
   "family": "deepseek",

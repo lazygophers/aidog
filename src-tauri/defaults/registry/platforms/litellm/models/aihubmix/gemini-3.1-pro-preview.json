@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345088,
   "model_id": "aihubmix/gemini-3.1-pro-preview",
+  "display_name": "Gemini 3.1 Pro Preview",
   "canonical_model": "gemini-3.1-pro-preview",
   "version": "3.1",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790345089,
   "model_id": "jp.anthropic.claude-opus-4-7",
+  "display_name": "Claude Opus 4.7",
   "canonical_model": "claude-opus-4-7",
   "family": "claude",
   "version": "4.7",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790345089,
   "model_id": "azure/gpt-35-turbo-16k-0613",
+  "display_name": "GPT-3.5 Turbo",
   "canonical_model": "gpt-3.5-turbo",
   "family": "gpt",
   "version": "3.5",

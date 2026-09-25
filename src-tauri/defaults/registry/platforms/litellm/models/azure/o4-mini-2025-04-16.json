@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "azure/o4-mini-2025-04-16",
+  "display_name": "o4 Mini",
   "canonical_model": "o4-mini",
   "family": "o",
   "version": "4",

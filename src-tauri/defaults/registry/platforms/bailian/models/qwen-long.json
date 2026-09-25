@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "qwen-long",
+  "display_name": "Qwen Long",
   "canonical_model": "qwen-long",
   "family": "qwen",
   "capabilities": [

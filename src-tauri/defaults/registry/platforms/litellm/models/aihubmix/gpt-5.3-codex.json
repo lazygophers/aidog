@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345088,
   "model_id": "aihubmix/gpt-5.3-codex",
+  "display_name": "GPT-5.3-Codex",
   "canonical_model": "gpt-5.3-codex",
   "version": "5.3",
   "capabilities": [

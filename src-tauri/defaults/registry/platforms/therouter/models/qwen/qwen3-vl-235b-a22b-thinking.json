@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "qwen/qwen3-vl-235b-a22b-thinking",
+  "display_name": "Qwen3 VL 235B A22B Thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
   "family": "qwen",
   "version": "3",

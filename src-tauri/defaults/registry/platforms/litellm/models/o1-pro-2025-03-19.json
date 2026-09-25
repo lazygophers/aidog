@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "o1-pro-2025-03-19",
+  "display_name": "o1-pro",
   "canonical_model": "o1-pro",
   "family": "o",
   "version": "1",

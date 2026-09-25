@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790273334,
+  "last_updated": 1790345089,
   "model_id": "bedrock/us-west-2/zai.glm-5",
+  "display_name": "GLM-5",
   "canonical_model": "glm-5",
   "family": "glm",
   "version": "5",

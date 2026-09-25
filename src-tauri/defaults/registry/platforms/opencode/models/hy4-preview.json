@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790345089,
   "model_id": "hy4-preview",
+  "display_name": "Hy4 preview",
   "canonical_model": "hy4-preview",
   "thinking_supported": true,
   "thinking_toggleable": true,

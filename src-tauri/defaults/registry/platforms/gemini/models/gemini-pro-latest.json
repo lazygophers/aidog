@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "gemini-pro-latest",
+  "display_name": "Gemini Pro Latest",
   "canonical_model": "gemini-pro-latest",
   "family": "gemini",
   "capabilities": [

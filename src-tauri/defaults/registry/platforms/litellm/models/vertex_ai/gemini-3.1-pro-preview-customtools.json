@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "vertex_ai/gemini-3.1-pro-preview-customtools",
+  "display_name": "Gemini 3.1 Pro Preview Custom Tools",
   "canonical_model": "gemini-3.1-pro-preview-customtools",
   "family": "gemini",
   "version": "3.1",

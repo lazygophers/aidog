@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790345089,
   "model_id": "tao-8k",
+  "display_name": "Tao 8K",
   "canonical_model": "tao-8k",
   "family": "tao",
   "capabilities": [

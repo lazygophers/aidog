@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "bedrock_mantle/us-gov-west-1/xai.grok-4.3",
+  "display_name": "Grok 4.3",
   "canonical_model": "grok-4.3",
   "family": "grok",
   "version": "4.3",

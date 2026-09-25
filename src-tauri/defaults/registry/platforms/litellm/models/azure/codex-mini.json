@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790345089,
   "model_id": "azure/codex-mini",
+  "display_name": "Codex Mini",
   "canonical_model": "codex-mini-latest",
   "family": "codex",
   "version": "mini",

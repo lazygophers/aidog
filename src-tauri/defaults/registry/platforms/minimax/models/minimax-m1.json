@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "minimax-m1",
+  "display_name": "MiniMax M1",
   "canonical_model": "minimax-m1",
   "family": "minimax",
   "version": "1",

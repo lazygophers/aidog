@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "wan2.6-i2v",
+  "display_name": "Wan2.6 I2v",
   "canonical_model": "wan2.6-i2v",
   "family": "wan",
   "version": "2.6",

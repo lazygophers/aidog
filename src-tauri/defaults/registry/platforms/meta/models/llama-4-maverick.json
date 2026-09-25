@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790345089,
   "model_id": "llama-4-maverick",
+  "display_name": "Llama 4 Maverick",
   "canonical_model": "llama-4-maverick",
   "family": "llama",
   "version": "4",

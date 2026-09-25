@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "qwen-mt-plus",
+  "display_name": "Qwen Mt Plus",
   "canonical_model": "qwen-mt-plus",
   "family": "qwen",
   "capabilities": [

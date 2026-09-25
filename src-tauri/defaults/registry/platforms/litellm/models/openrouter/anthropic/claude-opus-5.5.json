@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790345089,
   "model_id": "openrouter/anthropic/claude-opus-5.5",
+  "display_name": "Claude Opus 5.5",
   "canonical_model": "claude-opus-5-5",
   "family": "claude",
   "version": "5.5",

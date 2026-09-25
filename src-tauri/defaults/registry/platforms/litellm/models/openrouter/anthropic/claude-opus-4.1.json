@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "openrouter/anthropic/claude-opus-4.1",
+  "display_name": "Claude Opus 4.1",
   "canonical_model": "claude-opus-4-1",
   "family": "claude",
   "version": "4.1",

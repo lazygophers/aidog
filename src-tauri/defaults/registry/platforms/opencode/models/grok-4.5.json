@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790345089,
   "model_id": "grok-4.5",
+  "display_name": "Grok 4.5",
   "canonical_model": "grok-4.5",
   "family": "grok",
   "version": "4.5",

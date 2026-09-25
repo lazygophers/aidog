@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "novita/minimax/minimax-m2.5",
+  "display_name": "MiniMax M2.5",
   "canonical_model": "MiniMax-M2.5",
   "version": "2.5",
   "capabilities": [

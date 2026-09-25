@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "sambanova/gemma-4-31B-it",
+  "display_name": "Gemma 4 31B",
   "canonical_model": "gemma-4-31b-it",
   "capabilities": [
     "text",

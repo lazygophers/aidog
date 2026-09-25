@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "novita/minimax/minimax-m2.7-highspeed",
+  "display_name": "MiniMax M2.7 Highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",
   "version": "2.7",

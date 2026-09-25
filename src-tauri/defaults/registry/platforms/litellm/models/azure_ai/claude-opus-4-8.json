@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "azure_ai/claude-opus-4-8",
+  "display_name": "Claude Opus 4.8",
   "canonical_model": "claude-opus-4-8",
   "version": "4.8",
   "capabilities": [

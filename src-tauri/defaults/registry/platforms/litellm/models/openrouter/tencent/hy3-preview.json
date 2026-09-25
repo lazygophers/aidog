@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "openrouter/tencent/hy3-preview",
+  "display_name": "Hy3-preview",
   "canonical_model": "hy3-preview",
   "capabilities": [
     "text",

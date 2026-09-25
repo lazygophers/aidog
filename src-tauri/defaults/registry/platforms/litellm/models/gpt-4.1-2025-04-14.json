@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "gpt-4.1-2025-04-14",
+  "display_name": "GPT-4.1",
   "canonical_model": "gpt-4.1",
   "family": "gpt",
   "version": "4.1",

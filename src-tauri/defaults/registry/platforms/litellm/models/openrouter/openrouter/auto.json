@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790345089,
   "model_id": "openrouter/openrouter/auto",
+  "display_name": "Auto Router",
   "canonical_model": "auto",
   "family": "auto",
   "capabilities": [

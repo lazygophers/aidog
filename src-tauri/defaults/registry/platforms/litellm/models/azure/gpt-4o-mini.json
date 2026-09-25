@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "azure/gpt-4o-mini",
+  "display_name": "GPT-4o-mini",
   "canonical_model": "gpt-4o-mini",
   "family": "gpt",
   "version": "4o",

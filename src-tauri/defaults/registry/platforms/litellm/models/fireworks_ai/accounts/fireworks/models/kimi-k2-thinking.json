@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "fireworks_ai/accounts/fireworks/models/kimi-k2-thinking",
+  "display_name": "Kimi K2 Thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
   "version": "2",

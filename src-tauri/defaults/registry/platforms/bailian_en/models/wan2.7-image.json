@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "wan2.7-image",
+  "display_name": "Wan2.7 Image",
   "canonical_model": "wan2.7-image",
   "family": "wan",
   "version": "2.7",

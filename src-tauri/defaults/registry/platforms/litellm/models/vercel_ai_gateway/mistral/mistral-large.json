@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "vercel_ai_gateway/mistral/mistral-large",
+  "display_name": "Mistral Large",
   "canonical_model": "mistral-large",
   "family": "mistral",
   "version": "3",
