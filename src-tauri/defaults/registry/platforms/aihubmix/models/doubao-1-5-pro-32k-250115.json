@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790312333,
   "model_id": "doubao-1-5-pro-32k-250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
+  "capabilities": ["text","tool_use"],
+  "context_window": 131072,
   "family": "doubao-pro",
   "version": "1.5",
   "display_name": "Doubao 1.5 Pro 32K 250115",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 1.08e-07,

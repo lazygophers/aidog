@@ -1,11 +1,11 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790312333,
   "model_id": "computer-use-preview",
   "canonical_model": "computer-use-preview",
+  "capabilities": ["text","vision","reasoning"],
   "display_name": "Computer Use Preview",
   "family": "computer-use",
   "version": "preview",
-  "capabilities": [],
   "context_window": 8192,
   "max_input_tokens": 8192,
   "official": false,

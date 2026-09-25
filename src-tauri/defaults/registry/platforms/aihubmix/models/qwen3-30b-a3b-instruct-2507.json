@@ -1,12 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790312333,
   "model_id": "qwen3-30b-a3b-instruct-2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
+  "capabilities": ["text"],
+  "context_window": 131072,
   "display_name": "Qwen3 30B A3B Instruct 2507",
   "family": "qwen",
 
-  "version": "3",  "capabilities": [],
-  "official": false,
+  "version": "3",  "official": false,
   "price": {
     "input": 1.028e-07,
     "output": 4.112e-07

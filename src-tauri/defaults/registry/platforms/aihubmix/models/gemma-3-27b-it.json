@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790312333,
   "model_id": "gemma-3-27b-it",
   "canonical_model": "gemma-3-27b-it",
+  "capabilities": ["text"],
+  "context_window": 131072,
   "display_name": "Gemma 3 27B It",
   "family": "gemma",
   "version": "3",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 2e-07,
