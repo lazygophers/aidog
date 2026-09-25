@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "soniox/stt-async-v5",
   "canonical_model": "stt-async-v5",
   "capabilities": [
@@ -7,6 +7,8 @@
   ],
   "max_output_tokens": 8000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0

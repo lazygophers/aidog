@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790340078,
   "model_id": "snowflake/openai-gpt-4.1",
   "canonical_model": "openai-gpt-4.1",
   "family": "gpt",
@@ -13,6 +13,8 @@
   "context_window": 300000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000002,
     "output": 0.000008

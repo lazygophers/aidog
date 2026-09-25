@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/invoke/anthropic.claude-3-5-sonnet-20240620-v1:0",
   "canonical_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
   "family": "claude",
@@ -13,6 +13,8 @@
   "context_window": 200000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000003,
     "output": 0.000015

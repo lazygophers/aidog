@@ -9,12 +9,13 @@
   "official": true,
   "max_output_tokens": 900000,
   "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000001,
     "output": 0.000002,
     "cache_read": 1.6e-7
   },
-  "last_updated": 1790279933,
+  "last_updated": 1790340079,
   "capabilities": [
     "text",
     "vision",

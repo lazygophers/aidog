@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790275340,
+  "last_updated": 1790340078,
   "model_id": "voxtral-small-24b-2507",
   "canonical_model": "voxtral-small-24b-2507",
   "family": "voxtral",
@@ -10,6 +10,8 @@
   "max_input_tokens": 32000,
   "context_window": 32000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-07,
     "output": 3e-07,

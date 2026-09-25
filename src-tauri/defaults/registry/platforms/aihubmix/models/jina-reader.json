@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "jina-reader",
   "canonical_model": "jina-reader",
 
   "family": "jina",  "display_name": "Jina Reader",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-08,
     "output": 5e-08

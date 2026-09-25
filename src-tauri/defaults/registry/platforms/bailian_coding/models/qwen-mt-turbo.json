@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "qwen-mt-turbo",
   "canonical_model": "qwen-mt-turbo",
   "family": "qwen",
@@ -7,6 +7,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   },

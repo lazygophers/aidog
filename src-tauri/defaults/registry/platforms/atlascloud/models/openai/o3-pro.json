@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "openai/o3-pro",
   "canonical_model": "o3-pro",
   "family": "o",
@@ -9,6 +9,7 @@
     "text"
   ],
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-05,
     "output": 8e-05

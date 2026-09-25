@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "qwen-max",
   "canonical_model": "qwen-max",
   "capabilities": ["text"],
@@ -7,6 +7,8 @@
   "display_name": "Qwen Max",
   "family": "qwen",
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3.8e-07,
     "output": 1.52e-06

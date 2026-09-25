@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "qwen3-30b-a3b",
   "canonical_model": "qwen3-30b-a3b",
   "capabilities": ["text"],
@@ -9,6 +9,8 @@
 
   "version": "3",
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.2e-07,
     "output": 1.2e-06

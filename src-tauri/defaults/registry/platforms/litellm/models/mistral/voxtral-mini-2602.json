@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "mistral/voxtral-mini-2602",
   "canonical_model": "voxtral-mini-2602",
   "family": "voxtral",
@@ -7,6 +7,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.00005

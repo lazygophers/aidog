@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "oci/cohere.embed-english-light-image-v3.0",
   "canonical_model": "cohere.embed-english-light-image-v3.0",
   "family": "embed",
@@ -10,6 +10,8 @@
   "context_window": 512,
   "max_output_tokens": 512,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 0

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "vertex_ai/jamba-1.5-mini",
   "canonical_model": "jamba-1.5-mini",
   "family": "jamba",
@@ -11,6 +11,8 @@
   "context_window": 256000,
   "max_output_tokens": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 4e-7

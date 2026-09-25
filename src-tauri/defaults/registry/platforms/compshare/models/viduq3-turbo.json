@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340078,
   "model_id": "viduq3-turbo",
   "canonical_model": "viduq3-turbo",
   "family": "vidu",
@@ -8,6 +8,8 @@
     "text_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0520833

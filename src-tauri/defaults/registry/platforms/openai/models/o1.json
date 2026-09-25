@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "o1",
   "canonical_model": "o1",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 100000,
   "context_window": 200000,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000015,
     "output": 0.00006,

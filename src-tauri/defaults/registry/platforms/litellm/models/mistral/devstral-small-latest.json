@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "mistral/devstral-small-latest",
   "canonical_model": "devstral-small-latest",
   "family": "devstral",
@@ -11,6 +11,8 @@
   "context_window": 256000,
   "max_output_tokens": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 3e-7

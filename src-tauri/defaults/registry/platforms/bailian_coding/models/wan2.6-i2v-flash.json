@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "wan2.6-i2v-flash",
   "canonical_model": "wan2.6-i2v-flash",
   "family": "wan",
@@ -8,6 +8,8 @@
     "image_to_video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

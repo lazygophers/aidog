@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "codestral/codestral-2405",
   "canonical_model": "codestral-2405",
   "family": "codestral",
@@ -10,6 +10,8 @@
   "context_window": 32000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

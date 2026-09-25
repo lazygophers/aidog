@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-gov-east-1/nvidia.nemotron-nano-3-30b",
   "canonical_model": "nvidia.nemotron-nano-3-30b",
   "family": "nemotron",
@@ -12,6 +12,7 @@
   "context_window": 262144,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 7.2e-8,
     "output": 2.88e-7

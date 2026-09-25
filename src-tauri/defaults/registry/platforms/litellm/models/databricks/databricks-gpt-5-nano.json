@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "databricks/databricks-gpt-5-nano",
   "canonical_model": "gpt-5-nano",
   "family": "gpt",
@@ -12,6 +12,7 @@
   "context_window": 272000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 4.998e-8,
     "output": 3.9998000000000007e-7

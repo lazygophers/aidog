@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "bytedance/doubao-seed-2.1-pro-260628",
   "canonical_model": "doubao-seed-2-1-pro-260628",
   "family": "doubao-seed",
@@ -9,6 +9,7 @@
     "text"
   ],
   "official": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 9e-07,
     "output": 4.5e-06,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790340078,
   "model_id": "deepinfra/mistralai/Mistral-Small-24B-Instruct-2501",
   "canonical_model": "mistral-small-24b-instruct-2501",
   "family": "mistral",
@@ -12,6 +12,8 @@
   "context_window": 32768,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8,
     "output": 8e-8

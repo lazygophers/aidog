@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790340078,
   "model_id": "xiaomimimo/mimo-v2-flash",
   "canonical_model": "mimo-v2-flash",
   "version": "2",
@@ -9,6 +9,7 @@
   ],
   "thinking_supported": true,
   "official": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.1e-07,
     "output": 3.3e-07,

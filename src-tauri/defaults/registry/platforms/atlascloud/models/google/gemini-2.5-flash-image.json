@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "google/gemini-2.5-flash-image",
   "canonical_model": "gemini-2.5-flash-image",
   "family": "gemini",
@@ -9,6 +9,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-07,
     "output": 2.5e-06

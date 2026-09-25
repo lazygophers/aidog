@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "wan2.2-t2v-plus",
   "canonical_model": "wan2.2-t2v-plus",
   "family": "wan",
@@ -8,6 +8,8 @@
     "text_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.09722222222222221

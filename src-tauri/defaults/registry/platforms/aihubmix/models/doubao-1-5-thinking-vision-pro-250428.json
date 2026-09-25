@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "doubao-1-5-thinking-vision-pro-250428",
   "canonical_model": "doubao-1-5-thinking-vision-pro-250428",
 
@@ -7,6 +7,8 @@
   "family": "doubao-vision",  "display_name": "Doubao 1.5 Thinking Vision Pro 250428",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-06,
     "output": 2e-06

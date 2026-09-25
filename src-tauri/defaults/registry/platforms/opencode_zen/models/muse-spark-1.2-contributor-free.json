@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "muse-spark-1.2-contributor-free",
   "canonical_model": "muse-spark-1.2-contributor-free",
   "family": "muse-spark",
@@ -10,6 +10,8 @@
   "max_input_tokens": 1048576,
   "context_window": 1048576,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0,
     "output": 0.0

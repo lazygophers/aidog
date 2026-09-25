@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/eu-west-3/mistral.mistral-7b-instruct-v0:2",
   "canonical_model": "mistral.mistral-7b-instruct-v0:2",
   "family": "mistral",
@@ -11,6 +11,8 @@
   "context_window": 32000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 2.6e-7

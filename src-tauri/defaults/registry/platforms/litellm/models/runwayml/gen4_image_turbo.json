@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790340078,
   "model_id": "runwayml/gen4_image_turbo",
   "canonical_model": "gen4_image_turbo",
   "family": "gen",
@@ -8,6 +8,8 @@
     "text_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.02

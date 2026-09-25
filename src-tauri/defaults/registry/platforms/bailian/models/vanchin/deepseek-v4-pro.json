@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 1048576,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "vanchin/deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
   "version": "4",
@@ -9,6 +9,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.6666666666666665e-06,
     "output": 3.333333333333333e-06

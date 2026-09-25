@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1790340078,
   "model_id": "muse-voice-transcribe-1.0",
   "canonical_model": "muse-voice-transcribe-1.0",
   "display_name": "Muse Voice Transcribe 1.0",
@@ -9,6 +9,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 5e-05

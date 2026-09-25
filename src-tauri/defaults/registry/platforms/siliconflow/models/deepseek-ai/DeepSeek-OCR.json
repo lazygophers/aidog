@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790340079,
   "model_id": "deepseek-ai/DeepSeek-OCR",
   "canonical_model": "DeepSeek-OCR",
   "family": "deepseek",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8192,
   "context_window": 8192,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

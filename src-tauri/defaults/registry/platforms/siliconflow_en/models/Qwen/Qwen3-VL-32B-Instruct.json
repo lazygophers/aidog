@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3-VL-32B-Instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
   "version": "3",
@@ -12,6 +12,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 6e-7

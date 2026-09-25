@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen3-max",
   "canonical_model": "qwen3-max",
   "version": "3",
@@ -11,6 +11,8 @@
   "max_output_tokens": 65536,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.11e-06,
     "output": 8.43e-06,

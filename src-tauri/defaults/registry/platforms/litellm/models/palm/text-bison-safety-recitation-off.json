@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "palm/text-bison-safety-recitation-off",
   "canonical_model": "text-bison-safety-recitation-off",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 8192,
   "max_output_tokens": 1024,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.25e-7,
     "output": 1.25e-7

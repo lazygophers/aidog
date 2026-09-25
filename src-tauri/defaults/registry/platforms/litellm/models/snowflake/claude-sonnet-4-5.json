@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "snowflake/claude-sonnet-4-5",
   "canonical_model": "claude-sonnet-4-5",
   "capabilities": [
@@ -11,6 +11,8 @@
   "context_window": 200000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000003,
     "output": 0.000015

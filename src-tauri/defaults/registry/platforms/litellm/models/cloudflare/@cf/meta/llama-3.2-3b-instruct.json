@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "cloudflare/@cf/meta/llama-3.2-3b-instruct",
   "canonical_model": "llama-3.2-3b-instruct",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 80000,
   "max_output_tokens": 80000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.09e-8,
     "output": 3.35e-7

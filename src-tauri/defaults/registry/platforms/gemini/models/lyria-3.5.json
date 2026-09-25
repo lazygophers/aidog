@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "lyria-3.5",
   "canonical_model": "lyria-3.5",
   "family": "lyria",
@@ -10,6 +10,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.08

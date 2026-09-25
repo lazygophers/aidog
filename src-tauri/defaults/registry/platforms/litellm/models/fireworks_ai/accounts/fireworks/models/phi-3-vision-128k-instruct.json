@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/phi-3-vision-128k-instruct",
   "canonical_model": "phi-3-vision-128k-instruct",
   "version": "3",
@@ -11,6 +11,7 @@
   "context_window": 32064,
   "max_output_tokens": 32064,
   "official": false,
+  "thinking_supported": false,
   "price": {
     "input": 2e-7,
     "output": 2e-7

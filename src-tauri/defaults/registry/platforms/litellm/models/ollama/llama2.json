@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790340078,
   "model_id": "ollama/llama2",
   "canonical_model": "llama2",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

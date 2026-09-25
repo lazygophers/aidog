@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790340078,
   "model_id": "doubao-embedding-text-240715",
   "canonical_model": "doubao-embedding-text-240715",
   "version": "24.07",
@@ -11,6 +11,8 @@
   "context_window": 4096,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

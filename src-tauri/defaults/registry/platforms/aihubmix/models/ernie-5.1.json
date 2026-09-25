@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "ernie-5.1",
   "canonical_model": "ernie-5.1",
   "display_name": "ERNIE 5.1",
@@ -13,6 +13,7 @@
   "max_output_tokens": 65536,
   "context_window": 119000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.634e-7,
     "output": 0.0000025353,

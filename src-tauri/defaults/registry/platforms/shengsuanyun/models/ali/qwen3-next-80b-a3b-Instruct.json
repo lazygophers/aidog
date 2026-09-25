@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "ali/qwen3-next-80b-a3b-Instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
   "family": "qwen",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.38889e-07,
     "output": 5.55556e-07

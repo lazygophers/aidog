@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/ca-central-1/meta.llama3-8b-instruct-v1:0",
   "canonical_model": "meta.llama3-8b-instruct-v1:0",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 8192,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.5e-7,
     "output": 6.9e-7

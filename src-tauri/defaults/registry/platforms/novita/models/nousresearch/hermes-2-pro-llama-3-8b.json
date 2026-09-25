@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "nousresearch/hermes-2-pro-llama-3-8b",
   "canonical_model": "hermes-2-pro-llama-3-8b",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.4e-07,
     "output": 1.4e-07,

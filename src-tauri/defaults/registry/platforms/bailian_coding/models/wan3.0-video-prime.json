@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790282454,
+  "last_updated": 1790340078,
   "model_id": "wan3.0-video-prime",
   "canonical_model": "wan3.0-video-prime",
   "family": "wan",
@@ -8,6 +8,8 @@
     "video_edit"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

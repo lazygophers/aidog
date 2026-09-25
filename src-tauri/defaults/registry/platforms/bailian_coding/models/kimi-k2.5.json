@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790318309,
+  "last_updated": 1790340078,
   "model_id": "kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "family": "kimi",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0
   },

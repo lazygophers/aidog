@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "happyhorse-1.1-t2v",
   "canonical_model": "happyhorse-1.1-t2v",
   "display_name": "Happyhorse 1.1 T2v",
@@ -10,6 +10,8 @@
     "video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0

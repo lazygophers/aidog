@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "nebius/meta-llama/Llama-Guard-3-8B",
   "canonical_model": "llama-guard-3-8b",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-8,
     "output": 6e-8

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "ft:davinci-002",
   "canonical_model": "ft:davinci-002",
   "family": "davinci",
@@ -11,6 +11,8 @@
   "context_window": 16384,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000012,
     "output": 0.000012

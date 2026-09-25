@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790340078,
   "model_id": "Qwen3-235B-A22B-Thinking-2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",
   "capabilities": ["text"],
@@ -7,7 +7,10 @@
   "display_name": "Qwen3 235B A22B Thinking 2507",
   "family": "qwen",
 
-  "version": "3",  "official": false,
+  "version": "3",
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.8e-07,
     "output": 2.8e-06

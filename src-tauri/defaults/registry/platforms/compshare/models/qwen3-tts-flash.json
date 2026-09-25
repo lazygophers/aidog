@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340078,
   "model_id": "qwen3-tts-flash",
   "canonical_model": "qwen3-tts-flash",
   "family": "qwen",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.11111e-05,
     "output": 1.11111e-05

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "deepseek-chat",
   "canonical_model": "deepseek-chat",
   "family": "deepseek",
@@ -10,6 +10,8 @@
   "max_output_tokens": 8192,
   "context_window": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.8e-07,
     "output": 4.2e-07,

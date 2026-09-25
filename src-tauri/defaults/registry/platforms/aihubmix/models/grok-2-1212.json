@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "grok-2-1212",
   "canonical_model": "grok-2-1212",
 
@@ -7,6 +7,8 @@
   "family": "grok",  "display_name": "Grok 2 1212",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.8e-06,
     "output": 9e-06

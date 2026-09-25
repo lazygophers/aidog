@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "crusoe/google/gemma-3-12b-it",
   "canonical_model": "gemma-3-12b-it",
   "family": "gemma",
@@ -13,6 +13,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 1e-7

@@ -8,12 +8,14 @@
   "context_window": 65536,
   "official": true,
   "max_output_tokens": 32768,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000002,
     "output": 0.000012,
     "cache_read": 2e-7
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790340079,
   "capabilities": [
     "text_to_image",
     "image_to_image",

@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 163840,
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "siliconflow/deepseek-r1-0528",
   "canonical_model": "deepseek-r1-0528",
   "version": "r1",
@@ -9,6 +9,7 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 5.555555555555556e-07,
     "output": 2.2222222222222225e-06

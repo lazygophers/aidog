@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790275340,
+  "last_updated": 1790340078,
   "model_id": "voxtral-mini-transcribe-realtime-2602",
   "canonical_model": "voxtral-mini-transcribe-realtime-2602",
   "capabilities": [
@@ -8,6 +8,8 @@
   "official": true,
   "family": "voxtral",
   "version": "2",
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0001

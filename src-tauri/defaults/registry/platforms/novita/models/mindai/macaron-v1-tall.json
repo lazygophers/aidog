@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "mindai/macaron-v1-tall",
   "canonical_model": "macaron-v1-tall",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.475e-07,
     "output": 1.4299999999999999e-06,

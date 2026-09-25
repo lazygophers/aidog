@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-235b-a22b-fp8",
   "canonical_model": "qwen3-235b-a22b-fp8",
   "version": "3",
   "family": "qwen",
   "capabilities": ["text", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.0000000000000002e-07,
     "output": 8.000000000000001e-07,

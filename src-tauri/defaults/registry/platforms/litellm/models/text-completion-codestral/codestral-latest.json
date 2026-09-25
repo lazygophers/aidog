@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790340078,
   "model_id": "text-completion-codestral/codestral-latest",
   "canonical_model": "codestral",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 32000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

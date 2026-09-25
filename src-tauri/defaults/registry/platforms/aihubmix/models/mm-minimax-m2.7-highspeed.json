@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "mm-minimax-m2.7-highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",
@@ -12,6 +12,8 @@
   "max_output_tokens": 204800,
   "context_window": 204800,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-7,
     "output": 1e-7

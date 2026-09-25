@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790282454,
+  "last_updated": 1790340078,
   "model_id": "llama-3.1-405b-reasoning",
   "canonical_model": "llama-3.1-405b-reasoning",
   "version": "3.1",
@@ -7,6 +7,7 @@
   "family": "llama",  "display_name": "Llama 3.1 405B (reasoning)",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 4e-06,
     "output": 4e-06

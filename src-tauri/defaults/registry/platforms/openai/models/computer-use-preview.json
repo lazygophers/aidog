@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "computer-use-preview",
   "canonical_model": "computer-use-preview",
   "capabilities": [
@@ -11,6 +11,8 @@
   "max_output_tokens": 1024,
   "context_window": 8192,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000003,
     "output": 0.000012

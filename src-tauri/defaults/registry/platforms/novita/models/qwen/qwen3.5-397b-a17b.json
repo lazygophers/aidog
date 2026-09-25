@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
   "version": "3.5",
   "family": "qwen",
   "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-07,
     "output": 3.6000000000000003e-06,

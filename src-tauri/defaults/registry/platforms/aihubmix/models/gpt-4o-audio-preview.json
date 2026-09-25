@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gpt-4o-audio-preview",
   "canonical_model": "gpt-4o",
   "display_name": "GPT 4o Audio Preview",
@@ -12,6 +12,8 @@
   "max_output_tokens": 16384,
   "context_window": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000025,
     "output": 0.00001

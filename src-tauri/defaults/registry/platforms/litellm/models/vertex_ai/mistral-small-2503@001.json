@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "vertex_ai/mistral-small-2503@001",
   "canonical_model": "mistral-small-2503@001",
   "family": "mistral",
@@ -12,6 +12,8 @@
   "context_window": 32000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 3e-7

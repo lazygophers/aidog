@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-4b",
   "canonical_model": "qwen3-4b",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "context_window": 40960,
   "max_output_tokens": 40960,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-7,
     "output": 2e-7

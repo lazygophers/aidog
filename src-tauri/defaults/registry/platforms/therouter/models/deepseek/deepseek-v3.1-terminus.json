@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "deepseek/deepseek-v3.1-terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "family": "deepseek",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.916e-07,
     "output": 1.08e-06

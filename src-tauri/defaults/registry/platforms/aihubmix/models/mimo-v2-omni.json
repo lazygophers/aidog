@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "mimo-v2-omni",
   "canonical_model": "mimo-v2-omni",
   "family": "mimo",
@@ -11,6 +11,7 @@
   "context_window": 256000,
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 4.4e-7,
     "output": 0.0000022,

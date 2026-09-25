@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen3-vl-30b-a3b-thinking",
   "canonical_model": "qwen3-vl-30b-a3b-thinking",
   "display_name": "Qwen3 VL 30B A3B Thinking",
@@ -13,6 +13,7 @@
   "context_window": 131072,
   "official": false,
   "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.028e-7,
     "output": 0.000001028

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "google/gemma-2-27b-it",
   "canonical_model": "gemma-2-27b-it",
   "context_window": 8192,
@@ -10,6 +10,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-07,
     "output": 8e-07

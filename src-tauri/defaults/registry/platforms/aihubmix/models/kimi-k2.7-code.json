@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790340078,
   "model_id": "kimi-k2.7-code",
   "canonical_model": "kimi-k2.7-code",
   "thinking_supported": true,
@@ -12,6 +12,7 @@
   "max_input_tokens": 262144,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9.499999999999999e-07,
     "output": 3.9994999999999996e-06,

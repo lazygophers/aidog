@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "tencent/Hy3",
   "canonical_model": "hy3",
   "family": "hunyuan",
@@ -11,6 +11,8 @@
   "max_output_tokens": 262144,
   "context_window": 262144,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.32e-7,
     "output": 5.28e-7

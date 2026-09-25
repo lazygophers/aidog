@@ -8,11 +8,13 @@
   "context_window": 1048576,
   "official": true,
   "max_output_tokens": 65536,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790340079,
   "capabilities": [
     "audio"
   ]

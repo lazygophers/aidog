@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "codestral-latest",
   "canonical_model": "codestral",
   "context_window": 256000,
@@ -9,6 +9,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-07,
     "output": 1.2e-06

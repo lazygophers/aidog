@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "qianfan-ocr-fast",
   "canonical_model": "ocr-fast",
 
@@ -11,6 +11,8 @@
   ],
   "max_input_tokens": 32000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.64e-07,
     "output": 2.738336e-06

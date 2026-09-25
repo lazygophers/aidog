@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-coder-480b-a35b-instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "version": "3",
   "family": "qwen",
   "capabilities": ["text", "tool_use"],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.8e-07,
     "output": 1.55e-06,

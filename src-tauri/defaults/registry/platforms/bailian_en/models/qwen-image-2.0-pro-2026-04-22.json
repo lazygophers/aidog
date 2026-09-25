@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen-image-2.0-pro-2026-04-22",
   "canonical_model": "qwen-image-2.0-pro-2026-04-22",
   "family": "qwen",
@@ -9,6 +9,8 @@
     "image_to_image"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.075

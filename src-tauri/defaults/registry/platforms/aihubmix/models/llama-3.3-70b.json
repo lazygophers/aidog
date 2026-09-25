@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "llama-3.3-70b",
   "canonical_model": "llama-3.3-70b",
   "version": "3.3",
@@ -12,6 +12,8 @@
   ],
   "max_input_tokens": 65536,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6e-07,
     "output": 6e-07

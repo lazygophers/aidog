@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790340079,
   "model_id": "nvidia/synthetic-video-detector",
   "canonical_model": "synthetic-video-detector",
   "family": "nvidia",
   "capabilities": [
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0,
     "output": 0.0

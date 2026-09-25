@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "wandb/meta-llama/Llama-3.3-70B-Instruct",
   "canonical_model": "llama-3.3-70b-instruct",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.1e-7,
     "output": 7.1e-7

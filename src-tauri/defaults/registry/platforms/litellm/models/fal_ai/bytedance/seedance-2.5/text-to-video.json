@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790335307,
+  "last_updated": 1790340078,
   "model_id": "fal_ai/bytedance/seedance-2.5/text-to-video",
   "canonical_model": "seedance-2.5",
   "family": "seedance",
@@ -8,6 +8,8 @@
     "text_to_video"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.473

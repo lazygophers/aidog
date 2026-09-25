@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-west-2/minimax.minimax-m2.5",
   "canonical_model": "minimax.minimax-m2.5",
   "family": "minimax",
@@ -12,6 +12,7 @@
   "context_window": 1000000,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 3e-7,
     "output": 0.0000012

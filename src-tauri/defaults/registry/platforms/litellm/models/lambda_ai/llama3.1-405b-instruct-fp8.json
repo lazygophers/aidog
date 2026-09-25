@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790340078,
   "model_id": "lambda_ai/llama3.1-405b-instruct-fp8",
   "canonical_model": "llama3.1-405b-instruct-fp8",
   "family": "llama",
@@ -12,6 +12,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-7,
     "output": 8e-7

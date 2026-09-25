@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790340079,
   "model_id": "black-forest-labs/flux-kontext-max",
   "canonical_model": "flux-kontext-max",
   "family": "flux",
@@ -9,6 +9,8 @@
     "image_edit"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8.64e-08,
     "output": 0.0

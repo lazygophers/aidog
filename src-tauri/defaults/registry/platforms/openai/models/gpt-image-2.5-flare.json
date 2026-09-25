@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "gpt-image-2.5-flare",
   "canonical_model": "gpt-image-2.5-flare",
   "display_name": "GPT Image 2.5 Flare",
@@ -11,6 +11,8 @@
     "image_to_image"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000005,
     "cache_read": 0.00000125,

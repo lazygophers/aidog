@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "vercel_ai_gateway/zai/glm-4.6",
   "canonical_model": "glm-4.6",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 200000,
   "max_output_tokens": 200000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.5e-7,
     "output": 0.0000018

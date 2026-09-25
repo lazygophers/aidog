@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1-distill-llama-70b",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "family": "deepseek",
@@ -11,6 +11,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 9e-7,
     "output": 9e-7

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790340078,
   "model_id": "gemini-3.5-live-translate-preview",
   "canonical_model": "gemini-3.5-live-translate-preview",
   "context_window": 131072,
@@ -10,6 +10,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.5e-06,
     "output": 2.1e-05

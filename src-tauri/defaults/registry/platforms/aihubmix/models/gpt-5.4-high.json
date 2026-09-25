@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "gpt-5.4-high",
   "canonical_model": "gpt-5.4-high",
 
@@ -16,6 +16,7 @@
   ],
   "max_input_tokens": 1050000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.0000025,
     "output": 0.000015,

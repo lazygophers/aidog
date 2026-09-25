@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/dolphin-2-9-2-qwen2-72b",
   "canonical_model": "dolphin-2-9-2-qwen2-72b",
   "family": "dolphin",
@@ -10,6 +10,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-7,
     "output": 9e-7

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "glm-5.2-fast-preview",
   "canonical_model": "glm-5.2-fast-preview",
   "family": "glm",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.2222222222222225e-06,
     "output": 7.777777777777777e-06

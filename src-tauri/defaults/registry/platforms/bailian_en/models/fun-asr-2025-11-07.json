@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790268689,
+  "last_updated": 1790340078,
   "model_id": "fun-asr-2025-11-07",
   "canonical_model": "fun-asr-2025-11-07",
   "family": "fun-asr",
@@ -7,6 +7,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.000035

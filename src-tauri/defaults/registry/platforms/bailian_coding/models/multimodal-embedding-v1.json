@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790340078,
   "model_id": "multimodal-embedding-v1",
   "canonical_model": "multimodal-embedding-v1",
   "capabilities": [
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

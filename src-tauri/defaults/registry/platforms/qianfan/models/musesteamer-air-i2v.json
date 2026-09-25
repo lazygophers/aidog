@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790340079,
   "model_id": "musesteamer-air-i2v",
   "canonical_model": "musesteamer-air-i2v",
   "family": "musesteamer",
@@ -7,6 +7,8 @@
     "image_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0277778

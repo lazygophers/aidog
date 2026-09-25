@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-Llama-3-70B-Instruct",
   "canonical_model": "llama-3-70b-instruct",
 
@@ -11,6 +11,8 @@
   "context_window": 8192,
   "max_input_tokens": 8192,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7e-07,
     "output": 7e-07

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "qwen-turbo-2025-04-28",
   "canonical_model": "qwen-turbo",
   "display_name": "Qwen Turbo 2025 04-28",
@@ -11,6 +11,8 @@
   "max_output_tokens": 16384,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.6e-8,
     "output": 9.2e-8

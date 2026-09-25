@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "qwen-mt-plus",
   "canonical_model": "qwen-mt-plus",
   "display_name": "Qwen Mt Plus",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8000,
   "context_window": 16000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4.92e-7,
     "output": 0.000001476

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "mistral/codestral-2508",
   "canonical_model": "codestral-2508",
   "family": "codestral",
@@ -12,6 +12,8 @@
   "context_window": 128000,
   "max_output_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3e-7,
     "output": 9e-7

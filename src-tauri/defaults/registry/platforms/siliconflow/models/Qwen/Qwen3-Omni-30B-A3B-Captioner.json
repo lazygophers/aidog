@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3-Omni-30B-A3B-Captioner",
   "canonical_model": "Qwen3-Omni-30B-A3B-Captioner",
   "family": "qwen",
@@ -13,6 +13,8 @@
   "max_output_tokens": 16384,
   "context_window": 65536,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9.72222e-8,
     "output": 3.88889e-7
