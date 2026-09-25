@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790351264,
   "model_id": "grok-4.6",
   "display_name": "Grok 4.6",
   "canonical_model": "grok-4.6",
@@ -27,5 +27,6 @@
         "cache_read": 1e-06
       }
     ]
-  }
+  },
+  "display_name": "Grok 4.6"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790351264,
   "model_id": "glm-5v-turbo",
   "display_name": "GLM-5V-Turbo",
   "canonical_model": "glm-5v-turbo",
@@ -21,5 +21,6 @@
     "input": 6.944444444444444e-07,
     "output": 3.055555555555555e-06,
     "cache_read": 1.6666666666666665e-07
-  }
+  },
+  "display_name": "GLM-5V-Turbo"
 }

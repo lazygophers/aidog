@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790351264,
   "model_id": "moonshot-v1-8k-0430",
   "canonical_model": "moonshot-v1-8k-0430",
   "family": "moonshot",
@@ -17,5 +17,6 @@
     "input": 2e-07,
     "output": 2e-06,
     "cache_read": 0
-  }
+  },
+  "display_name": "Moonshot V1 8K 0430"
 }

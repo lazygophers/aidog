@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790351264,
   "model_id": "grok-tts",
   "canonical_model": "grok-tts",
   "capabilities": [
@@ -12,5 +12,6 @@
   "price": {
     "unit": "char",
     "unit_price": 0.015
-  }
+  },
+  "display_name": "Grok TTS"
 }
