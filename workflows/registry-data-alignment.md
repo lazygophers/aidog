@@ -343,3 +343,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   legacy 前推理时代 false/false ~500）。遗留：~1186 文件 thinking 缺省（devin/SenseNova/
   step/llama-4/realtime/别名系）；Bedrock qwen3-coder 既有 True/True 与 Qwen 官方卡
   False/False 冲突（两官方源冲突，per-platform 保留各自值待裁决）。
+- 2026-09-25 r76-r77（全绿）：r76 thinking 终扫（3c1807916，210 文件：SenseNova 8/
+  step-3.5 3/llama-4 46/realtime/chat-latest 翻 false/qwen3-coder 全族 false 含
+  Bedrock 冲突按 Qwen 官方卡裁决/MiniMax-H3 视频模型 false；sup 86.4%→88.5%、
+  tog 83.0%→85.1%）；r77 display_name 补齐（ed90f65c4，1455 条 19.7%→36.3%，
+  官方组>全库单值平移，官方平台目录只收官方组名）。剩余缺省归因：thinking ~1135
+  文件官方无明文（devin/live/antigravity/别名/镜像杂项）；display_name 多值排版
+  变体 2144 + 零先例 3044 需逐官方页取证。
