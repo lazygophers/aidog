@@ -81,7 +81,8 @@ class CodingToolsTexts {
 }
 
 class CodingToolsController {
-  CodingToolsController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  CodingToolsController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -148,13 +149,20 @@ class CodingToolsController {
     Map<String, Object?>? cfg;
     Map<String, Object?>? cx;
     try {
-      final r = await _invoke('settings_get', {'scope': 'global', 'key': 'claude_code'});
+      final r = await _invoke('settings_get', {
+        'scope': 'global',
+        'key': 'claude_code',
+      });
       cfg = r is Map ? Map<String, Object?>.from(r) : null;
-    } catch (_) {/* 读失败不阻塞其余：language 留空 */}
+    } catch (_) {
+      /* 读失败不阻塞其余：language 留空 */
+    }
     try {
       final r = await _invoke('codex_config_read');
       cx = r is Map ? Map<String, Object?>.from(r) : null;
-    } catch (_) {/* 同上 */}
+    } catch (_) {
+      /* 同上 */
+    }
 
     // 遗留键清理，**先于 dirty 闸门**执行 —— 它不碰界面状态，用户已操作也无妨。
     await _cleanLegacyKeys(cfg, cx);
@@ -173,11 +181,12 @@ class CodingToolsController {
     // 三个 URL 键不一致时取**首个非空**作显示值。
     final env = cfg?['env'];
     final envMap = env is Map ? env : const {};
-    final url = kProxyUrlKeys
-        .map((k) => envMap[k])
-        .whereType<String>()
-        .where((v) => v.isNotEmpty)
-        .firstOrNull ??
+    final url =
+        kProxyUrlKeys
+            .map((k) => envMap[k])
+            .whereType<String>()
+            .where((v) => v.isNotEmpty)
+            .firstOrNull ??
         '';
     final noV = envMap[kNoProxyKey];
     final loaded = ProxyDraft(url: url, no: noV is String ? noV : '');
@@ -185,7 +194,10 @@ class CodingToolsController {
     proxyApplied = loaded;
   }
 
-  Future<void> _cleanLegacyKeys(Map<String, Object?>? cfg, Map<String, Object?>? cx) async {
+  Future<void> _cleanLegacyKeys(
+    Map<String, Object?>? cfg,
+    Map<String, Object?>? cx,
+  ) async {
     final env = cfg?['env'];
     final envVal = env is Map ? env[kLegacyClaudeCompactEnvKey] : null;
     if (envVal != null && envVal != '') {
@@ -195,22 +207,32 @@ class CodingToolsController {
           e.remove(kLegacyClaudeCompactEnvKey);
           return {...c, 'env': e};
         });
-      } catch (_) {/* 静默：清理不阻塞加载 */}
+      } catch (_) {
+        /* 静默：清理不阻塞加载 */
+      }
     }
     if (cx != null && cx[kLegacyCodexCompactKey] != null) {
-      final rest = Map<String, Object?>.from(cx)..remove(kLegacyCodexCompactKey);
+      final rest = Map<String, Object?>.from(cx)
+        ..remove(kLegacyCodexCompactKey);
       try {
         await _invoke('codex_config_write', {'value': rest});
-      } catch (_) {/* 同上 */}
+      } catch (_) {
+        /* 同上 */
+      }
     }
   }
 
   Future<void> _loadBtcGlobal() async {
     try {
-      final v = await _invoke('settings_get', {'scope': 'proxy', 'key': 'builtin_tool_compat'});
+      final v = await _invoke('settings_get', {
+        'scope': 'proxy',
+        'key': 'builtin_tool_compat',
+      });
       if (_blocked) return;
       btcGlobal = v is Map && v['enabled'] == true;
-    } catch (_) {/* 读失败保持默认关闭，不阻塞其余开关 */}
+    } catch (_) {
+      /* 读失败保持默认关闭，不阻塞其余开关 */
+    }
   }
 
   Future<void> _loadDateRewriteRule() async {
@@ -222,7 +244,9 @@ class CodingToolsController {
         dateRewriteRuleId = (r['id'] as num).toInt();
         dateRewriteEnabled = r['enabled'] == true;
       }
-    } catch (_) {/* 读失败时 dateRewriteEnabled 保持 null → 开关不响应 */}
+    } catch (_) {
+      /* 读失败时 dateRewriteEnabled 保持 null → 开关不响应 */
+    }
   }
 
   static Map<String, Object?>? _findDateRule(Object? rules) {
@@ -269,34 +293,53 @@ class CodingToolsController {
   Future<void> _writeClaudeConfigField(
     Map<String, Object?> Function(Map<String, Object?> cfg) mutator,
   ) async {
-    final raw = await _invoke('settings_get', {'scope': 'global', 'key': 'claude_code'});
-    final cfg = raw is Map ? Map<String, Object?>.from(raw) : <String, Object?>{};
+    final raw = await _invoke('settings_get', {
+      'scope': 'global',
+      'key': 'claude_code',
+    });
+    final cfg = raw is Map
+        ? Map<String, Object?>.from(raw)
+        : <String, Object?>{};
     await _invoke('settings_set', {
       'input': {'scope': 'global', 'key': 'claude_code', 'value': mutator(cfg)},
     });
     try {
       await _invoke('sync_group_settings');
-    } catch (_) {/* sync 失败不阻断（与 React 一致） */}
+    } catch (_) {
+      /* sync 失败不阻断（与 React 一致） */
+    }
   }
 
-  Future<void> toggleApplyToClaudePlugin(bool next, CodingToolsTexts texts) => _runCommit(
+  Future<void> toggleApplyToClaudePlugin(bool next, CodingToolsTexts texts) =>
+      _runCommit(
         () => applyToClaudePlugin = next,
         () => applyToClaudePlugin = !next,
         () async {
-          final u = _map(await _invoke('coding_tools_settings_set', {'applyToClaudePlugin': next}));
+          final u = _map(
+            await _invoke('coding_tools_settings_set', {
+              'applyToClaudePlugin': next,
+            }),
+          );
           applyToClaudePlugin = u['apply_to_claude_plugin'] as bool? ?? next;
-          skipClaudeOnboarding = u['skip_claude_onboarding'] as bool? ?? skipClaudeOnboarding;
+          skipClaudeOnboarding =
+              u['skip_claude_onboarding'] as bool? ?? skipClaudeOnboarding;
           return next;
         },
         texts,
       );
 
-  Future<void> toggleSkipOnboarding(bool next, CodingToolsTexts texts) => _runCommit(
+  Future<void> toggleSkipOnboarding(bool next, CodingToolsTexts texts) =>
+      _runCommit(
         () => skipClaudeOnboarding = next,
         () => skipClaudeOnboarding = !next,
         () async {
-          final u = _map(await _invoke('coding_tools_settings_set', {'skipClaudeOnboarding': next}));
-          applyToClaudePlugin = u['apply_to_claude_plugin'] as bool? ?? applyToClaudePlugin;
+          final u = _map(
+            await _invoke('coding_tools_settings_set', {
+              'skipClaudeOnboarding': next,
+            }),
+          );
+          applyToClaudePlugin =
+              u['apply_to_claude_plugin'] as bool? ?? applyToClaudePlugin;
           skipClaudeOnboarding = u['skip_claude_onboarding'] as bool? ?? next;
           return next;
         },
@@ -314,19 +357,22 @@ class CodingToolsController {
         final rules = await _invoke('middleware_list_rules');
         final r = _findDateRule(rules);
         if (r == null) throw StateError('builtin date-rewrite rule not found');
-        final updated = _map(await _invoke('middleware_update_rule', {
-          'input': {
-            'id': r['id'],
-            'name': r['name'],
-            'description': r['description'],
-            'conditions': r['conditions'],
-            'actions': r['actions'],
-            'applies_to': r['applies_to'],
-            'priority': r['priority'],
-            'enabled': next,
-          },
-        }));
-        dateRewriteRuleId = (updated['id'] as num?)?.toInt() ?? dateRewriteRuleId;
+        final updated = _map(
+          await _invoke('middleware_update_rule', {
+            'input': {
+              'id': r['id'],
+              'name': r['name'],
+              'description': r['description'],
+              'conditions': r['conditions'],
+              'actions': r['actions'],
+              'applies_to': r['applies_to'],
+              'priority': r['priority'],
+              'enabled': next,
+            },
+          }),
+        );
+        dateRewriteRuleId =
+            (updated['id'] as num?)?.toInt() ?? dateRewriteRuleId;
         dateRewriteEnabled = updated['enabled'] == true;
         return next;
       },
@@ -335,53 +381,41 @@ class CodingToolsController {
   }
 
   /// 两级 AND 的第一级：关掉后所有平台级配置都不生效。与系统页同一个 setting。
-  Future<void> toggleBtcGlobal(bool next, CodingToolsTexts texts) => _runCommit(
-        () => btcGlobal = next,
-        () => btcGlobal = !next,
-        () async {
-          await _invoke('settings_set', {
-            'input': {
-              'scope': 'proxy',
-              'key': 'builtin_tool_compat',
-              'value': {'enabled': next},
-            },
-          });
-          return next;
-        },
-        texts,
-      );
+  Future<void> toggleBtcGlobal(bool next, CodingToolsTexts texts) =>
+      _runCommit(() => btcGlobal = next, () => btcGlobal = !next, () async {
+        await _invoke('settings_set', {
+          'input': {
+            'scope': 'proxy',
+            'key': 'builtin_tool_compat',
+            'value': {'enabled': next},
+          },
+        });
+        return next;
+      }, texts);
 
   Future<void> setLanguage(String next, CodingToolsTexts texts) {
     if (busy || next == language) return Future.value();
     final prev = language;
-    return _runCommit(
-      () => language = next,
-      () => language = prev,
-      () async {
-        await _writeClaudeConfigField((c) => {...c, 'language': next});
-        return true;
-      },
-      texts,
-    );
+    return _runCommit(() => language = next, () => language = prev, () async {
+      await _writeClaudeConfigField((c) => {...c, 'language': next});
+      return true;
+    }, texts);
   }
 
   /// 努力级别：单值双写 claude `effortLevel` + codex `model_reasoning_effort`。
   Future<void> setEffort(String next, CodingToolsTexts texts) {
     if (busy || next == effort) return Future.value();
     final prev = effort;
-    return _runCommit(
-      () => effort = next,
-      () => effort = prev,
-      () async {
-        await _writeClaudeConfigField((c) => {...c, 'effortLevel': next});
-        final raw = await _invoke('codex_config_read');
-        final cx = raw is Map ? Map<String, Object?>.from(raw) : <String, Object?>{};
-        cx['model_reasoning_effort'] = next;
-        await _invoke('codex_config_write', {'value': cx});
-        return true;
-      },
-      texts,
-    );
+    return _runCommit(() => effort = next, () => effort = prev, () async {
+      await _writeClaudeConfigField((c) => {...c, 'effortLevel': next});
+      final raw = await _invoke('codex_config_read');
+      final cx = raw is Map
+          ? Map<String, Object?>.from(raw)
+          : <String, Object?>{};
+      cx['model_reasoning_effort'] = next;
+      await _invoke('codex_config_write', {'value': cx});
+      return true;
+    }, texts);
   }
 
   void setProxyUrl(String v) {
@@ -402,7 +436,9 @@ class CodingToolsController {
     final next = proxyDraft;
     if (!next.differsFrom(prev)) return Future.value();
     return _runCommit(
-      () {/* draft 保持用户输入；applied 等 persist 确认后再写 */},
+      () {
+        /* draft 保持用户输入；applied 等 persist 确认后再写 */
+      },
       () {
         proxyDraft = prev;
         proxyApplied = prev;

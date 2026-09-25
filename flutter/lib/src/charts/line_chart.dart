@@ -143,8 +143,9 @@ class _AidogLineChartState extends State<AidogLineChart> {
                   s.rightAxis ? mapToLeft(p.y, rightAxis, leftAxis) : p.y,
                 ),
           ],
-          isCurved: true,
-          preventCurveOverShooting: true,
+          // React 的 `<Line>` 不传 `type`，recharts 缺省是 `linear` = 直线折线
+          //（`LineChart.tsx:210-221`）。曲线会把没发生过的中间值画出来。
+          isCurved: false,
           color: s.color,
           barWidth: 2,
           dashArray: s.dashed ? const [3, 3] : null,
@@ -205,94 +206,125 @@ class _AidogLineChartState extends State<AidogLineChart> {
 
     // 图表自持重绘边界：hover 指示线 / tooltip 不再触发整页重绘（性能审计 #8）。
     return RepaintBoundary(
-      child: LineChart(
-        LineChartData(
-          minX: xAxis.min,
-          maxX: xAxis.max,
-          minY: leftAxis.min,
-          maxY: leftAxis.max,
-          lineBarsData: d.bars,
-          gridData: FlGridData(
-            show: !widget.mini,
-            drawVerticalLine: false,
-            horizontalInterval: leftAxis.interval,
-            getDrawingHorizontalLine: (_) => FlLine(
-              color: t.c.line,
-              strokeWidth: 1,
-              dashArray: const [3, 3],
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            show: !widget.mini,
-            topTitles: const AxisTitles(),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: !widget.mini,
-                interval: xAxis.interval,
-                reservedSize: 24,
-                getTitlesWidget: (v, meta) =>
-                    _tick(formatTimeTick(v, spanMs), labelStyle),
+      // React 的 `margin={{top:8,right:12,bottom:0,left:0}}`（mini 4/4，
+      // `LineChart.tsx:125`）。fl_chart 的 `LineChartData` 没有外边距字段，
+      // recharts 的 margin 本来也是**整块图**（含轴）的外留白，所以包一层 Padding。
+      child: Padding(
+        padding: widget.mini
+            ? const EdgeInsets.only(top: 4, right: 4)
+            : const EdgeInsets.only(top: 8, right: 12),
+        child: LineChart(
+          LineChartData(
+            minX: xAxis.min,
+            maxX: xAxis.max,
+            minY: leftAxis.min,
+            maxY: leftAxis.max,
+            lineBarsData: d.bars,
+            gridData: FlGridData(
+              show: !widget.mini,
+              drawVerticalLine: false,
+              horizontalInterval: leftAxis.interval,
+              getDrawingHorizontalLine: (_) => FlLine(
+                // `stroke-border/50`（`ui/chart.tsx:67`）：网格线是 border 的一半浓度。
+                color: t.c.line.withValues(alpha: .5),
+                strokeWidth: 1,
+                dashArray: const [3, 3],
               ),
             ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: !widget.mini,
-                interval: leftAxis.interval,
-                reservedSize: 48,
-                getTitlesWidget: (v, meta) => _tick(
-                  (left.firstOrNull ?? rows.first).format(v),
-                  labelStyle,
+            borderData: FlBorderData(show: false),
+            titlesData: FlTitlesData(
+              show: !widget.mini,
+              topTitles: const AxisTitles(),
+              bottomTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: !widget.mini,
+                  interval: xAxis.interval,
+                  reservedSize: 24,
+                  getTitlesWidget: (v, meta) =>
+                      _tick(formatTimeTick(v, spanMs), labelStyle),
+                ),
+              ),
+              leftTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  showTitles: !widget.mini,
+                  interval: leftAxis.interval,
+                  reservedSize: 48,
+                  getTitlesWidget: (v, meta) => _tick(
+                    (left.firstOrNull ?? rows.first).format(v),
+                    labelStyle,
+                  ),
+                ),
+              ),
+              rightTitles: AxisTitles(
+                sideTitles: SideTitles(
+                  // 右轴刻度标**原值**：位置在左轴坐标系里，文字反解回右轴域。
+                  showTitles: !widget.mini && right.isNotEmpty,
+                  interval: leftAxis.interval,
+                  reservedSize: 48,
+                  getTitlesWidget: (v, meta) => _tick(
+                    right.isEmpty
+                        ? ''
+                        : right.first.format(mapToLeft(v, leftAxis, rightAxis)),
+                    labelStyle,
+                  ),
                 ),
               ),
             ),
-            rightTitles: AxisTitles(
-              sideTitles: SideTitles(
-                // 右轴刻度标**原值**：位置在左轴坐标系里，文字反解回右轴域。
-                showTitles: !widget.mini && right.isNotEmpty,
-                interval: leftAxis.interval,
-                reservedSize: 48,
-                getTitlesWidget: (v, meta) => _tick(
-                  right.isEmpty
-                      ? ''
-                      : right.first.format(mapToLeft(v, leftAxis, rightAxis)),
-                  labelStyle,
+            lineTouchData: LineTouchData(
+              // 盒样式对齐 `ui/chart.tsx:186` 的
+              // `rounded-lg border-border/50 bg-background px-2.5 py-1.5`
+              // + `charts/tooltip.tsx:30` 的 `max-w-64`。
+              touchTooltipData: LineTouchTooltipData(
+                getTooltipColor: (_) => t.c.surface,
+                tooltipBorder: BorderSide(
+                  color: t.c.line.withValues(alpha: .5),
                 ),
-              ),
-            ),
-          ),
-          lineTouchData: LineTouchData(
-            touchTooltipData: LineTouchTooltipData(
-              getTooltipColor: (_) => t.c.surface2,
-              tooltipBorder: BorderSide(color: t.c.line),
-              maxContentWidth: 260,
-              fitInsideHorizontally: true,
-              fitInsideVertically: true,
-              getTooltipItems: (spots) => [
-                for (var i = 0; i < spots.length; i++)
-                  chartTooltipItem(
-                    tooltipRowAtSpot(
-                      rows,
-                      spots[i].barIndex,
-                      spots[i].spotIndex,
+                tooltipPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                tooltipBorderRadius: BorderRadius.circular(AidogRadius.sm),
+                maxContentWidth: 256,
+                fitInsideHorizontally: true,
+                fitInsideVertically: true,
+                getTooltipItems: (spots) => [
+                  for (var i = 0; i < spots.length; i++)
+                    chartTooltipItem(
+                      tooltipRowAtSpot(
+                        rows,
+                        spots[i].barIndex,
+                        spots[i].spotIndex,
+                      ),
+                      // 表头只挂第一行（fl_chart 每个触点一行，没有独立表头槽）。
+                      header: i == 0
+                          ? formatTimeTick(spots[i].x, spanMs)
+                          : null,
+                      c: t.c,
                     ),
-                    // 表头只挂第一行（fl_chart 每个触点一行，没有独立表头槽）。
-                    header: i == 0 ? formatTimeTick(spots[i].x, spanMs) : null,
-                    c: t.c,
+                ],
+              ),
+              getTouchedSpotIndicator: (bar, indexes) => [
+                for (final _ in indexes)
+                  TouchedSpotIndicatorData(
+                    FlLine(
+                      color: t.c.line,
+                      strokeWidth: 1,
+                      dashArray: const [4, 3],
+                    ),
+                    // React `activeDot={{ r: mini ? 2.5 : 3 }}`
+                    //（`LineChart.tsx:219`）；fl_chart 缺省半径是 4。
+                    FlDotData(
+                      show: true,
+                      getDotPainter: (spot, pct, barData, index) =>
+                          FlDotCirclePainter(
+                            radius: widget.mini ? 2.5 : 3,
+                            color: barData.color ?? t.c.accent,
+                            strokeWidth: 0,
+                          ),
+                    ),
                   ),
               ],
             ),
-            getTouchedSpotIndicator: (bar, indexes) => [
-              for (final _ in indexes)
-                TouchedSpotIndicatorData(
-                  FlLine(
-                    color: t.c.line,
-                    strokeWidth: 1,
-                    dashArray: const [4, 3],
-                  ),
-                  FlDotData(show: true),
-                ),
-            ],
           ),
         ),
       ),

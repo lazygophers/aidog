@@ -16,7 +16,12 @@ const int kTrayDefaultFontSize = 9;
 
 // 票 I15：预置色 / 预置分隔符 / 对齐选项随二维网格编辑器一起删除
 // （菜单栏只画固定三段，这些都不再可选；存量配置里的对应字段原样留在 DB 里）。
-const List<String> kTrayTodayMetrics = ['tokens', 'cache_rate', 'cost', 'requests'];
+const List<String> kTrayTodayMetrics = [
+  'tokens',
+  'cache_rate',
+  'cost',
+  'requests',
+];
 
 /// 去掉小数点后多余的零：`0.111000` → `0.111`，`10.10100` → `10.101`，`0.000` → `0`。
 String trimZeros(String s) {
@@ -59,7 +64,8 @@ class TrayItem {
 
   static Map<String, Object?> defaultColor() => {'mode': 'follow', 'value': ''};
 
-  factory TrayItem.platform(int platformId, String display, int order) => TrayItem(
+  factory TrayItem.platform(int platformId, String display, int order) =>
+      TrayItem(
         itemType: 'platform',
         platformId: platformId,
         display: display,
@@ -67,51 +73,51 @@ class TrayItem {
       );
 
   factory TrayItem.todayUsage(String metric, int order) => TrayItem(
-        itemType: 'today_usage',
-        display: '',
-        metric: metric,
-        order: order,
-      );
+    itemType: 'today_usage',
+    display: '',
+    metric: metric,
+    order: order,
+  );
 
   /// 票 I15 的无参段：`routed_platform`（当前命中平台）/ `peak`（高峰指示）。
   factory TrayItem.simple(String itemType, int order) => TrayItem(
-        itemType: itemType,
-        display: '',
-        lineMode: 'single',
-        order: order,
-      );
+    itemType: itemType,
+    display: '',
+    lineMode: 'single',
+    order: order,
+  );
 
   factory TrayItem.fromJson(Map<String, Object?> j) => TrayItem(
-        itemType: j['item_type'] as String? ?? 'platform',
-        platformId: (j['platform_id'] as num?)?.toInt(),
-        display: j['display'] as String? ?? '',
-        metric: j['metric'] as String?,
-        label: j['label'] as String?,
-        decimals: (j['decimals'] as num?)?.toInt(),
-        color: Map<String, Object?>.from((j['color'] as Map?) ?? defaultColor()),
-        fontSize: (j['font_size'] as num?)?.toInt() ?? kTrayDefaultFontSize,
-        lineMode: j['line_mode'] as String? ?? 'two',
-        align: j['align'] as String? ?? 'left',
-        alignRow2: j['align_row2'] as String?,
-        enabled: j['enabled'] as bool? ?? true,
-        order: (j['order'] as num?)?.toInt() ?? 0,
-      );
+    itemType: j['item_type'] as String? ?? 'platform',
+    platformId: (j['platform_id'] as num?)?.toInt(),
+    display: j['display'] as String? ?? '',
+    metric: j['metric'] as String?,
+    label: j['label'] as String?,
+    decimals: (j['decimals'] as num?)?.toInt(),
+    color: Map<String, Object?>.from((j['color'] as Map?) ?? defaultColor()),
+    fontSize: (j['font_size'] as num?)?.toInt() ?? kTrayDefaultFontSize,
+    lineMode: j['line_mode'] as String? ?? 'two',
+    align: j['align'] as String? ?? 'left',
+    alignRow2: j['align_row2'] as String?,
+    enabled: j['enabled'] as bool? ?? true,
+    order: (j['order'] as num?)?.toInt() ?? 0,
+  );
 
   Map<String, Object?> toJson() => {
-        'item_type': itemType,
-        'platform_id': platformId,
-        'display': display,
-        'metric': metric,
-        'label': label,
-        'decimals': decimals,
-        'color': color,
-        'font_size': fontSize,
-        'line_mode': lineMode,
-        'align': align,
-        'align_row2': alignRow2,
-        'enabled': enabled,
-        'order': order,
-      };
+    'item_type': itemType,
+    'platform_id': platformId,
+    'display': display,
+    'metric': metric,
+    'label': label,
+    'decimals': decimals,
+    'color': color,
+    'font_size': fontSize,
+    'line_mode': lineMode,
+    'align': align,
+    'align_row2': alignRow2,
+    'enabled': enabled,
+    'order': order,
+  };
 
   TrayItem copyWith({
     String? display,
@@ -125,22 +131,21 @@ class TrayItem {
     String? alignRow2,
     bool? enabled,
     int? order,
-  }) =>
-      TrayItem(
-        itemType: itemType,
-        platformId: platformId,
-        display: display ?? this.display,
-        metric: metric ?? this.metric,
-        label: label ?? this.label,
-        decimals: decimals ?? this.decimals,
-        color: color ?? this.color,
-        fontSize: fontSize ?? this.fontSize,
-        lineMode: lineMode ?? this.lineMode,
-        align: align ?? this.align,
-        alignRow2: alignRow2 ?? this.alignRow2,
-        enabled: enabled ?? this.enabled,
-        order: order ?? this.order,
-      );
+  }) => TrayItem(
+    itemType: itemType,
+    platformId: platformId,
+    display: display ?? this.display,
+    metric: metric ?? this.metric,
+    label: label ?? this.label,
+    decimals: decimals ?? this.decimals,
+    color: color ?? this.color,
+    fontSize: fontSize ?? this.fontSize,
+    lineMode: lineMode ?? this.lineMode,
+    align: align ?? this.align,
+    alignRow2: alignRow2 ?? this.alignRow2,
+    enabled: enabled ?? this.enabled,
+    order: order ?? this.order,
+  );
 }
 
 /// 今日统计摘要（`types/manual.ts::TodayStats`）。
@@ -158,14 +163,19 @@ class TodayStats {
   final int totalRequests;
 
   /// React 的 `todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 }`。
-  static const zero = TodayStats(tokens: 0, cacheRate: 0, cost: 0, totalRequests: 0);
+  static const zero = TodayStats(
+    tokens: 0,
+    cacheRate: 0,
+    cost: 0,
+    totalRequests: 0,
+  );
 
   factory TodayStats.fromJson(Map<String, Object?> j) => TodayStats(
-        tokens: (j['tokens'] as num?)?.toInt() ?? 0,
-        cacheRate: (j['cache_rate'] as num?)?.toDouble() ?? 0,
-        cost: (j['cost'] as num?)?.toDouble() ?? 0,
-        totalRequests: (j['total_requests'] as num?)?.toInt() ?? 0,
-      );
+    tokens: (j['tokens'] as num?)?.toInt() ?? 0,
+    cacheRate: (j['cache_rate'] as num?)?.toDouble() ?? 0,
+    cost: (j['cost'] as num?)?.toDouble() ?? 0,
+    totalRequests: (j['total_requests'] as num?)?.toInt() ?? 0,
+  );
 }
 
 /// 展示项的预览文本。标签留空时用自动标签。
@@ -188,18 +198,24 @@ class TodayStats {
     final s = todayStats ?? TodayStats.zero;
     final auto = switch (item.metric ?? 'tokens') {
       'cache_rate' => (
-          label: t('tray.metric.cache_rate', 'Cache'),
-          value: '${s.cacheRate.toStringAsFixed(0)}%'
-        ),
+        label: t('tray.metric.cache_rate', 'Cache'),
+        value: '${s.cacheRate.toStringAsFixed(0)}%',
+      ),
       'cost' => (
-          label: t('tray.metric.cost', '花费'),
-          value: '\$${trimZeros(s.cost.toStringAsFixed(item.decimals ?? 5))}'
-        ),
-      'requests' => (label: t('tray.metric.requests', '请求'), value: '${s.totalRequests}'),
+        label: t('tray.metric.cost', '花费'),
+        value: '\$${trimZeros(s.cost.toStringAsFixed(item.decimals ?? 5))}',
+      ),
+      'requests' => (
+        label: t('tray.metric.requests', '请求'),
+        value: '${s.totalRequests}',
+      ),
       _ => (label: t('tray.metric.today', '今日'), value: '${s.tokens} tok'),
     };
     final lbl = item.label;
-    return (label: lbl != null && lbl.isNotEmpty ? lbl : auto.label, value: auto.value);
+    return (
+      label: lbl != null && lbl.isNotEmpty ? lbl : auto.label,
+      value: auto.value,
+    );
   }
   if (platform == null) {
     final lbl = item.label;
@@ -223,7 +239,10 @@ class TodayStats {
       ? '${(100 - util).clamp(0, double.infinity).toStringAsFixed(0)}%'
       : '\$${trimZeros(platform.balance.toStringAsFixed(2))}';
   final lbl = item.label;
-  return (label: lbl != null && lbl.isNotEmpty ? lbl : platform.name, value: autoValue);
+  return (
+    label: lbl != null && lbl.isNotEmpty ? lbl : platform.name,
+    value: autoValue,
+  );
 }
 
 /// 取 coding plan 的首档使用率。解析不出来就当没有 coding plan
@@ -254,40 +273,39 @@ typedef TraySegmentOption = ({String key, String label, TrayItem item});
 
 /// 某个已存配置项对应的段 key。
 String traySegmentKey(TrayItem item) => switch (item.itemType) {
-      'today_usage' => 'today_usage:${item.metric ?? 'tokens'}',
-      'platform' => 'platform:${item.platformId}',
-      _ => item.itemType,
-    };
+  'today_usage' => 'today_usage:${item.metric ?? 'tokens'}',
+  'platform' => 'platform:${item.platformId}',
+  _ => item.itemType,
+};
 
 /// 候选段清单：今日统计 4 项 + 当前命中平台 + 高峰指示 + 每个已启用平台。
 List<TraySegmentOption> traySegmentOptions(
   List<({int id, String name, double balance, String? codingPlan})> platforms,
   String Function(String key, String fallback) t,
-) =>
-    [
-      for (final m in kTrayTodayMetrics)
-        (
-          key: 'today_usage:$m',
-          label: '${t('tray.todayUsage', '今日消耗')} — ${t('tray.metric.$m', m)}',
-          item: TrayItem.todayUsage(m, 0),
-        ),
-      (
-        key: 'routed_platform',
-        label: t('tray.segment.routed', '当前命中平台'),
-        item: TrayItem.simple('routed_platform', 0),
-      ),
-      (
-        key: 'peak',
-        label: t('tray.segment.peak', '高峰指示'),
-        item: TrayItem.simple('peak', 0),
-      ),
-      for (final p in platforms)
-        (
-          key: 'platform:${p.id}',
-          label: p.name,
-          item: TrayItem.platform(p.id, 'balance', 0),
-        ),
-    ];
+) => [
+  for (final m in kTrayTodayMetrics)
+    (
+      key: 'today_usage:$m',
+      label: '${t('tray.todayUsage', '今日消耗')} — ${t('tray.metric.$m', m)}',
+      item: TrayItem.todayUsage(m, 0),
+    ),
+  (
+    key: 'routed_platform',
+    label: t('tray.segment.routed', '当前命中平台'),
+    item: TrayItem.simple('routed_platform', 0),
+  ),
+  (
+    key: 'peak',
+    label: t('tray.segment.peak', '高峰指示'),
+    item: TrayItem.simple('peak', 0),
+  ),
+  for (final p in platforms)
+    (
+      key: 'platform:${p.id}',
+      label: p.name,
+      item: TrayItem.platform(p.id, 'balance', 0),
+    ),
+];
 
 /// 勾选 / 取消一个段。**只翻 enabled，不删项**（票 I15 的迁移规则）：
 /// 取消勾选的项留在 items 里，标签 / 颜色 / 行模式原样保留，勾回来还是老样子。
@@ -319,13 +337,15 @@ List<TrayItem> toggleTraySegment(List<TrayItem> items, TraySegmentOption opt) {
 }
 
 class TrayController {
-  TrayController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  TrayController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
 
   /// 只保留 enabled 的平台。
-  List<({int id, String name, double balance, String? codingPlan})> platforms = const [];
+  List<({int id, String name, double balance, String? codingPlan})> platforms =
+      const [];
   String separator = '  ';
   List<TrayItem> items = const [];
   TodayStats? todayStats;
@@ -345,12 +365,14 @@ class TrayController {
       platforms = (list is List ? list : const [])
           .whereType<Map>()
           .where((p) => p['enabled'] == true)
-          .map((p) => (
-                id: (p['id'] as num).toInt(),
-                name: '${p['name']}',
-                balance: (p['est_balance_remaining'] as num?)?.toDouble() ?? 0,
-                codingPlan: p['est_coding_plan'] as String?,
-              ))
+          .map(
+            (p) => (
+              id: (p['id'] as num).toInt(),
+              name: '${p['name']}',
+              balance: (p['est_balance_remaining'] as num?)?.toDouble() ?? 0,
+              codingPlan: p['est_coding_plan'] as String?,
+            ),
+          )
           .toList();
       final cfg = _map(results[1]);
       separator = cfg['separator'] as String? ?? '  ';
@@ -358,7 +380,9 @@ class TrayController {
           .map((e) => TrayItem.fromJson(Map<String, Object?>.from(e as Map)))
           .toList();
       todayStats = TodayStats.fromJson(_map(results[2]));
-    } catch (_) {/* console.error；页面留空 */}
+    } catch (_) {
+      /* console.error；页面留空 */
+    }
     loading = false;
     _notify();
   }
@@ -368,12 +392,15 @@ class TrayController {
     try {
       todayStats = TodayStats.fromJson(_map(await _invoke('tray_today_stats')));
       _notify();
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
   }
 
   /// order 按下标重写 —— 不这么做，拖拽后的顺序在后端就是乱的。
-  static List<TrayItem> withOrders(List<TrayItem> src) =>
-      [for (var i = 0; i < src.length; i++) src[i].copyWith(order: i)];
+  static List<TrayItem> withOrders(List<TrayItem> src) => [
+    for (var i = 0; i < src.length; i++) src[i].copyWith(order: i),
+  ];
 
   Future<void> persist(List<TrayItem> next, {String? sep}) async {
     items = withOrders(next);
@@ -381,7 +408,10 @@ class TrayController {
     _notify();
     try {
       await _invoke('tray_config_set', {
-        'config': {'separator': separator, 'items': items.map((e) => e.toJson()).toList()},
+        'config': {
+          'separator': separator,
+          'items': items.map((e) => e.toJson()).toList(),
+        },
       });
     } catch (e) {
       message = '$e';

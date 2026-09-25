@@ -23,7 +23,8 @@ class PopoverItem {
 }
 
 class PopoverController {
-  PopoverController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  PopoverController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -39,9 +40,11 @@ class PopoverController {
   Map<String, Object?> trayToday = const {};
   List<Map<String, Object?>> groupDetails = const [];
   List<Object?> statsBatch = const [];
+
   /// `popover_data` 整份（entries / proxy 状态 / 今日统计 / 各平台今日）。
   Map<String, Object?> popoverData = const {};
   List<Map<String, Object?>> groupList = const [];
+
   /// item.id → StatsResult（由 [statsBatch] 按 itemIds 顺序映射而来）。
   Map<String, Map<String, Object?>> stats = const {};
   bool statsLoaded = false;
@@ -53,7 +56,9 @@ class PopoverController {
   Future<void> load() async {
     try {
       config = _map(await _invoke('popover_config_get'));
-    } catch (_) {/* 读失败留空配置，页面显示默认布局 */}
+    } catch (_) {
+      /* 读失败留空配置，页面显示默认布局 */
+    }
     loading = false;
     _notify();
   }
@@ -65,25 +70,41 @@ class PopoverController {
   Future<void> loadPreview() async {
     try {
       final r = await _invoke('popover_platform_today');
-      platformToday =
-          (r is List ? r : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
-    } catch (_) {/* */}
+      platformToday = (r is List ? r : const [])
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList();
+    } catch (_) {
+      /* */
+    }
     try {
       trayToday = _map(await _invoke('tray_today_stats'));
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     try {
       popoverData = _map(await _invoke('popover_data'));
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     try {
       final r = await _invoke('group_list');
-      groupList =
-          (r is List ? r : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
-    } catch (_) {/* */}
+      groupList = (r is List ? r : const [])
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList();
+    } catch (_) {
+      /* */
+    }
     try {
       final r = await _invoke('group_detail_list');
-      groupDetails =
-          (r is List ? r : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
-    } catch (_) {/* */}
+      groupDetails = (r is List ? r : const [])
+          .whereType<Map>()
+          .map(Map<String, Object?>.from)
+          .toList();
+    } catch (_) {
+      /* */
+    }
     final q = popoverStatsQueries(config);
     if (q.queries.isNotEmpty) {
       try {
@@ -96,7 +117,9 @@ class PopoverController {
           if (v is Map) m[q.itemIds[i]] = Map<String, Object?>.from(v);
         }
         stats = m;
-      } catch (_) {/* */}
+      } catch (_) {
+        /* */
+      }
     } else {
       statsBatch = const [];
       stats = const {};
@@ -108,19 +131,19 @@ class PopoverController {
   /// 实时预览那一帧。与小窗本体同一份渲染（`PopoverGrid`）——
   /// 单一事实源，预览与实际不会漂移。`config` 用编辑中的那份覆盖后端返回的。
   PopoverFrame get previewFrame => PopoverFrame(
-        data: {
-          ...popoverData,
-          'config': config,
-          // popover_data 没拿到时用另外两路兜住今日统计与各平台今日。
-          if (!popoverData.containsKey('today_stats')) 'today_stats': trayToday,
-          if (!popoverData.containsKey('platform_today'))
-            'platform_today': platformToday,
-        },
-        groups: groupList,
-        groupDetails: groupDetails,
-        stats: stats,
-        statsLoaded: statsLoaded,
-      );
+    data: {
+      ...popoverData,
+      'config': config,
+      // popover_data 没拿到时用另外两路兜住今日统计与各平台今日。
+      if (!popoverData.containsKey('today_stats')) 'today_stats': trayToday,
+      if (!popoverData.containsKey('platform_today'))
+        'platform_today': platformToday,
+    },
+    groups: groupList,
+    groupDetails: groupDetails,
+    stats: stats,
+    statsLoaded: statsLoaded,
+  );
 
   /// 选择器的数据源。
   Future<void> loadPickers() async {
@@ -130,18 +153,24 @@ class PopoverController {
           .whereType<Map>()
           .map((p) => (id: (p['id'] as num).toInt(), name: '${p['name']}'))
           .toList();
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     try {
       final gs = await _invoke('group_list');
       groups = (gs is List ? gs : const [])
           .whereType<Map>()
-          .map((g) => (
-                id: (g['id'] as num).toInt(),
-                name: '${g['name']}',
-                groupKey: '${g['group_key']}',
-              ))
+          .map(
+            (g) => (
+              id: (g['id'] as num).toInt(),
+              name: '${g['name']}',
+              groupKey: '${g['group_key']}',
+            ),
+          )
           .toList();
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     _notify();
   }
 

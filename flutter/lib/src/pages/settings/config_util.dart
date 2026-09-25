@@ -40,7 +40,10 @@ bool _isPlainObject(Object? v) => v is Map;
 
 /// 深合并两份配置。override 胜；嵌套普通对象递归合并；
 /// **数组与标量整体替换，不取并集**；只在 base 里的键原样保留。
-Map<String, Object?> deepMerge(Map<String, Object?> base, Map<String, Object?> override) {
+Map<String, Object?> deepMerge(
+  Map<String, Object?> base,
+  Map<String, Object?> override,
+) {
   final result = Map<String, Object?>.from(base);
   for (final key in override.keys) {
     final overrideVal = override[key];
@@ -69,7 +72,12 @@ enum PairKind { boolean, value }
 enum Polarity { same, inverted }
 
 class SettingEnvPair {
-  const SettingEnvPair(this.settingKey, this.envKey, this.kind, [this.polarity]);
+  const SettingEnvPair(
+    this.settingKey,
+    this.envKey,
+    this.kind, [
+    this.polarity,
+  ]);
 
   final String settingKey;
   final String envKey;
@@ -81,19 +89,78 @@ class SettingEnvPair {
 
 /// 逐条对齐 `settings-env-pairs.ts::SETTING_ENV_PAIRS`（14 对，顺序一致）。
 const List<SettingEnvPair> kSettingEnvPairs = [
-  SettingEnvPair('fastMode', 'CLAUDE_CODE_DISABLE_FAST_MODE', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('autoCompactEnabled', 'DISABLE_AUTO_COMPACT', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('autoMemoryEnabled', 'CLAUDE_CODE_DISABLE_AUTO_MEMORY', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('fileCheckpointingEnabled', 'CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('includeGitInstructions', 'CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('syntaxHighlightingDisabled', 'CLAUDE_CODE_SYNTAX_HIGHLIGHT', PairKind.boolean, Polarity.inverted),
-  SettingEnvPair('autoConnectIde', 'CLAUDE_CODE_AUTO_CONNECT_IDE', PairKind.boolean, Polarity.same),
-  SettingEnvPair('disableArtifact', 'CLAUDE_CODE_DISABLE_ARTIFACT', PairKind.boolean, Polarity.same),
-  SettingEnvPair('disableWorkflows', 'CLAUDE_CODE_DISABLE_WORKFLOWS', PairKind.boolean, Polarity.same),
-  SettingEnvPair('disableBundledSkills', 'CLAUDE_CODE_DISABLE_BUNDLED_SKILLS', PairKind.boolean, Polarity.same),
-  SettingEnvPair('disableAgentView', 'CLAUDE_CODE_DISABLE_AGENT_VIEW', PairKind.boolean, Polarity.same),
+  SettingEnvPair(
+    'fastMode',
+    'CLAUDE_CODE_DISABLE_FAST_MODE',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'autoCompactEnabled',
+    'DISABLE_AUTO_COMPACT',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'autoMemoryEnabled',
+    'CLAUDE_CODE_DISABLE_AUTO_MEMORY',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'fileCheckpointingEnabled',
+    'CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'includeGitInstructions',
+    'CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'syntaxHighlightingDisabled',
+    'CLAUDE_CODE_SYNTAX_HIGHLIGHT',
+    PairKind.boolean,
+    Polarity.inverted,
+  ),
+  SettingEnvPair(
+    'autoConnectIde',
+    'CLAUDE_CODE_AUTO_CONNECT_IDE',
+    PairKind.boolean,
+    Polarity.same,
+  ),
+  SettingEnvPair(
+    'disableArtifact',
+    'CLAUDE_CODE_DISABLE_ARTIFACT',
+    PairKind.boolean,
+    Polarity.same,
+  ),
+  SettingEnvPair(
+    'disableWorkflows',
+    'CLAUDE_CODE_DISABLE_WORKFLOWS',
+    PairKind.boolean,
+    Polarity.same,
+  ),
+  SettingEnvPair(
+    'disableBundledSkills',
+    'CLAUDE_CODE_DISABLE_BUNDLED_SKILLS',
+    PairKind.boolean,
+    Polarity.same,
+  ),
+  SettingEnvPair(
+    'disableAgentView',
+    'CLAUDE_CODE_DISABLE_AGENT_VIEW',
+    PairKind.boolean,
+    Polarity.same,
+  ),
   SettingEnvPair('effortLevel', 'CLAUDE_CODE_EFFORT_LEVEL', PairKind.value),
-  SettingEnvPair('autoCompactWindow', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW', PairKind.value),
+  SettingEnvPair(
+    'autoCompactWindow',
+    'CLAUDE_CODE_AUTO_COMPACT_WINDOW',
+    PairKind.value,
+  ),
   SettingEnvPair('model', 'ANTHROPIC_MODEL', PairKind.value),
 ];
 
@@ -257,7 +324,9 @@ Map<String, Object?> _deepCopy(Map<String, Object?> src) =>
 
 Object? _copyValue(Object? v) {
   if (v is Map) {
-    return <String, Object?>{for (final e in v.entries) '${e.key}': _copyValue(e.value)};
+    return <String, Object?>{
+      for (final e in v.entries) '${e.key}': _copyValue(e.value),
+    };
   }
   if (v is List) return <Object?>[for (final e in v) _copyValue(e)];
   return v;

@@ -19,14 +19,20 @@ enum RetentionUnit {
   week;
 
   String get wire => name;
-  static RetentionUnit parse(Object? v) =>
-      RetentionUnit.values.firstWhere((e) => e.name == v, orElse: () => RetentionUnit.day);
+  static RetentionUnit parse(Object? v) => RetentionUnit.values.firstWhere(
+    (e) => e.name == v,
+    orElse: () => RetentionUnit.day,
+  );
 }
 
 /// `types/manual.ts::ProxyStartError`。`message` 是英文调试串，**禁直接展示给用户**
 /// （用户可见文案按 kind + port 拼 i18n 模板）。
 class ProxyStartError {
-  const ProxyStartError({required this.kind, required this.port, required this.message});
+  const ProxyStartError({
+    required this.kind,
+    required this.port,
+    required this.message,
+  });
 
   final String kind; // "addr_in_use" | "other"
   final int port;
@@ -82,7 +88,8 @@ class ProxyClientSettings {
   final bool dnsOverProxy;
   final String noProxy;
 
-  factory ProxyClientSettings.fromJson(Map<String, Object?> j) => ProxyClientSettings(
+  factory ProxyClientSettings.fromJson(Map<String, Object?> j) =>
+      ProxyClientSettings(
         enabled: j['enabled'] as bool? ?? false,
         proxyType: j['proxy_type'] as String? ?? 'socks5',
         host: j['host'] as String? ?? '127.0.0.1',
@@ -94,15 +101,15 @@ class ProxyClientSettings {
       );
 
   Map<String, Object?> toJson() => {
-        'enabled': enabled,
-        'proxy_type': proxyType,
-        'host': host,
-        'port': port,
-        'username': username,
-        'password': password,
-        'dns_over_proxy': dnsOverProxy,
-        'no_proxy': noProxy,
-      };
+    'enabled': enabled,
+    'proxy_type': proxyType,
+    'host': host,
+    'port': port,
+    'username': username,
+    'password': password,
+    'dns_over_proxy': dnsOverProxy,
+    'no_proxy': noProxy,
+  };
 
   ProxyClientSettings copyWith({
     bool? enabled,
@@ -113,17 +120,16 @@ class ProxyClientSettings {
     String? password,
     bool? dnsOverProxy,
     String? noProxy,
-  }) =>
-      ProxyClientSettings(
-        enabled: enabled ?? this.enabled,
-        proxyType: proxyType ?? this.proxyType,
-        host: host ?? this.host,
-        port: port ?? this.port,
-        username: username ?? this.username,
-        password: password ?? this.password,
-        dnsOverProxy: dnsOverProxy ?? this.dnsOverProxy,
-        noProxy: noProxy ?? this.noProxy,
-      );
+  }) => ProxyClientSettings(
+    enabled: enabled ?? this.enabled,
+    proxyType: proxyType ?? this.proxyType,
+    host: host ?? this.host,
+    port: port ?? this.port,
+    username: username ?? this.username,
+    password: password ?? this.password,
+    dnsOverProxy: dnsOverProxy ?? this.dnsOverProxy,
+    noProxy: noProxy ?? this.noProxy,
+  );
 }
 
 /// 三级日志开关 + 三级 retention，字段名照 `generated/ProxyLogSettings.ts`。
@@ -151,16 +157,16 @@ class ProxyLogSettings {
   final RetentionUnit retentionUnit;
 
   Map<String, Object?> toJson() => {
-        'enabled': enabled,
-        'log_user_request': logUserRequest,
-        'log_upstream_request': logUpstreamRequest,
-        'user_request_retention_days': userRequestRetentionDays,
-        'user_request_retention_unit': userRequestRetentionUnit.wire,
-        'upstream_request_retention_days': upstreamRequestRetentionDays,
-        'upstream_request_retention_unit': upstreamRequestRetentionUnit.wire,
-        'retention_days': retentionDays,
-        'retention_unit': retentionUnit.wire,
-      };
+    'enabled': enabled,
+    'log_user_request': logUserRequest,
+    'log_upstream_request': logUpstreamRequest,
+    'user_request_retention_days': userRequestRetentionDays,
+    'user_request_retention_unit': userRequestRetentionUnit.wire,
+    'upstream_request_retention_days': upstreamRequestRetentionDays,
+    'upstream_request_retention_unit': upstreamRequestRetentionUnit.wire,
+    'retention_days': retentionDays,
+    'retention_unit': retentionUnit.wire,
+  };
 }
 
 /// 系统设置控制器。UI 只读这些字段、只调这些方法。
@@ -239,7 +245,9 @@ class SystemSettingsController {
       silentLaunch = s['silent_launch'] as bool? ?? false;
       bindLan = s['bind_lan'] as bool? ?? false;
       proxyPort = (s['port'] as num?)?.toInt() ?? 9890;
-    } catch (_) {/* defaults */}
+    } catch (_) {
+      /* defaults */
+    }
     try {
       running = await _invoke('proxy_status') as bool? ?? false;
     } catch (_) {
@@ -253,9 +261,13 @@ class SystemSettingsController {
         silentLaunch = false;
         try {
           await _invoke('app_set_silent_launch', {'enabled': false});
-        } catch (_) {/* ignore */}
+        } catch (_) {
+          /* ignore */
+        }
       }
-    } catch (_) {/* defaults */}
+    } catch (_) {
+      /* defaults */
+    }
     try {
       final ls = _map(await _invoke('proxy_log_settings_get'));
       logEnabled = ls['enabled'] as bool? ?? false;
@@ -263,36 +275,64 @@ class SystemSettingsController {
       logRetentionUnit = RetentionUnit.parse(ls['retention_unit']);
       logUserReq = ls['log_user_request'] as bool? ?? true;
       logUpstreamReq = ls['log_upstream_request'] as bool? ?? true;
-      userReqRetention = (ls['user_request_retention_days'] as num?)?.toInt() ?? 7;
-      userReqRetentionUnit = RetentionUnit.parse(ls['user_request_retention_unit']);
-      upstreamReqRetention = (ls['upstream_request_retention_days'] as num?)?.toInt() ?? 7;
-      upstreamReqRetentionUnit = RetentionUnit.parse(ls['upstream_request_retention_unit']);
-    } catch (_) {/* defaults */}
+      userReqRetention =
+          (ls['user_request_retention_days'] as num?)?.toInt() ?? 7;
+      userReqRetentionUnit = RetentionUnit.parse(
+        ls['user_request_retention_unit'],
+      );
+      upstreamReqRetention =
+          (ls['upstream_request_retention_days'] as num?)?.toInt() ?? 7;
+      upstreamReqRetentionUnit = RetentionUnit.parse(
+        ls['upstream_request_retention_unit'],
+      );
+    } catch (_) {
+      /* defaults */
+    }
     try {
       final ts = _map(await _invoke('proxy_timeout_get'));
       reqTimeout = (ts['request_timeout_secs'] as num?)?.toInt() ?? 300;
       connTimeout = (ts['connect_timeout_secs'] as num?)?.toInt() ?? 10;
-    } catch (_) {/* defaults */}
+    } catch (_) {
+      /* defaults */
+    }
     try {
-      final btc = await _invoke('settings_get', {'scope': 'proxy', 'key': 'builtin_tool_compat'});
-      btcGlobalEnabled = btc is Map ? (btc['enabled'] as bool? ?? false) : false;
-    } catch (_) {/* defaults */}
+      final btc = await _invoke('settings_get', {
+        'scope': 'proxy',
+        'key': 'builtin_tool_compat',
+      });
+      btcGlobalEnabled = btc is Map
+          ? (btc['enabled'] as bool? ?? false)
+          : false;
+    } catch (_) {
+      /* defaults */
+    }
     try {
       final ls = _map(await _invoke('app_log_settings_get'));
       logFileEnabled = ls['file_enabled'] as bool? ?? true;
       logLevel = ls['level'] as String? ?? 'info';
       logRetHours = (ls['retention_hours'] as num?)?.toInt() ?? 3;
-    } catch (_) {/* defaults */}
+    } catch (_) {
+      /* defaults */
+    }
     try {
-      proxyClient = ProxyClientSettings.fromJson(_map(await _invoke('proxy_client_get_settings')));
-    } catch (_) {/* defaults */}
+      proxyClient = ProxyClientSettings.fromJson(
+        _map(await _invoke('proxy_client_get_settings')),
+      );
+    } catch (_) {
+      /* defaults */
+    }
     try {
       final ss = _map(await _invoke('stats_settings_get'));
       statsRetention = (ss['retention_days'] as num?)?.toInt() ?? 365;
-    } catch (_) {/* defaults */}
+    } catch (_) {
+      /* defaults */
+    }
     try {
-      autoUpdateEnabled = await _invoke('get_auto_update_enabled') as bool? ?? true;
-    } catch (_) {/* defaults: keep true */}
+      autoUpdateEnabled =
+          await _invoke('get_auto_update_enabled') as bool? ?? true;
+    } catch (_) {
+      /* defaults: keep true */
+    }
     _notify();
   }
 
@@ -359,7 +399,9 @@ class SystemSettingsController {
         try {
           await _invoke('app_set_silent_launch', {'enabled': false});
           silentLaunch = false;
-        } catch (_) {/* ignore */}
+        } catch (_) {
+          /* ignore */
+        }
       }
     } catch (e) {
       message = '$e';
@@ -391,16 +433,16 @@ class SystemSettingsController {
   }
 
   ProxyLogSettings buildLogSettings() => ProxyLogSettings(
-        enabled: logEnabled,
-        logUserRequest: logUserReq,
-        logUpstreamRequest: logUpstreamReq,
-        userRequestRetentionDays: userReqRetention,
-        userRequestRetentionUnit: userReqRetentionUnit,
-        upstreamRequestRetentionDays: upstreamReqRetention,
-        upstreamRequestRetentionUnit: upstreamReqRetentionUnit,
-        retentionDays: logRetention,
-        retentionUnit: logRetentionUnit,
-      );
+    enabled: logEnabled,
+    logUserRequest: logUserReq,
+    logUpstreamRequest: logUpstreamReq,
+    userRequestRetentionDays: userReqRetention,
+    userRequestRetentionUnit: userReqRetentionUnit,
+    upstreamRequestRetentionDays: upstreamReqRetention,
+    upstreamRequestRetentionUnit: upstreamReqRetentionUnit,
+    retentionDays: logRetention,
+    retentionUnit: logRetentionUnit,
+  );
 
   Future<void> setLogEnabled(bool val) async {
     try {
@@ -430,7 +472,9 @@ class SystemSettingsController {
   /// （React 是 `window.confirm`，Flutter 侧走 AlertDialog）。
   ///
   /// [doneText] 是已经填好 before/after/pct 的成品串 —— 模板在 UI 层套，这层不碰 i18n。
-  Future<void> compactDb(String Function(String before, String after, String pct) doneText) async {
+  Future<void> compactDb(
+    String Function(String before, String after, String pct) doneText,
+  ) async {
     dbCompacting = true;
     _notify();
     try {
@@ -516,7 +560,11 @@ class SystemSettingsController {
     _notify();
   }
 
-  Future<void> updateAppLogSettings({bool? fileEnabled, String? level, int? retentionHours}) async {
+  Future<void> updateAppLogSettings({
+    bool? fileEnabled,
+    String? level,
+    int? retentionHours,
+  }) async {
     logFileEnabled = fileEnabled ?? logFileEnabled;
     logLevel = level ?? logLevel;
     logRetHours = retentionHours ?? logRetHours;
@@ -538,7 +586,8 @@ class SystemSettingsController {
   // ── 日志维护（LogSettingsSection 用）──
 
   /// 只读预估：超期行数 + 这些行 body 字节总和 + log.db 当前大小。
-  Future<Map<String, Object?>> cleanupEstimate() async => _map(await _invoke('proxy_log_cleanup_estimate'));
+  Future<Map<String, Object?>> cleanupEstimate() async =>
+      _map(await _invoke('proxy_log_cleanup_estimate'));
 
   Future<void> cleanupExpired() => _logMaint('proxy_log_cleanup_expired');
 

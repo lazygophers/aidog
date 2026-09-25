@@ -34,19 +34,20 @@ class MiddlewareRule {
 
   /// 全量覆盖用的入参（字段集与 React `handleToggle` 逐条一致）。
   Map<String, Object?> toUpdateInput({bool? enabled}) => {
-        'id': raw['id'],
-        'name': raw['name'],
-        'description': raw['description'],
-        'conditions': raw['conditions'],
-        'actions': raw['actions'],
-        'applies_to': raw['applies_to'],
-        'priority': raw['priority'],
-        'enabled': enabled ?? raw['enabled'],
-      };
+    'id': raw['id'],
+    'name': raw['name'],
+    'description': raw['description'],
+    'conditions': raw['conditions'],
+    'actions': raw['actions'],
+    'applies_to': raw['applies_to'],
+    'priority': raw['priority'],
+    'enabled': enabled ?? raw['enabled'],
+  };
 }
 
 class MiddlewareController {
-  MiddlewareController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  MiddlewareController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -91,7 +92,9 @@ class MiddlewareController {
           for (final b in (st is List ? st : const []).whereType<Map>())
             (b['rule_id'] as num).toInt(): Map<String, Object?>.from(b),
         };
-      } catch (_) {/* console.error；列表照常渲染 */}
+      } catch (_) {
+        /* console.error；列表照常渲染 */
+      }
     } catch (e) {
       error = '$e';
     } finally {
@@ -132,18 +135,24 @@ class MiddlewareController {
           .whereType<Map>()
           .map((p) => (id: (p['id'] as num).toInt(), name: '${p['name']}'))
           .toList();
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     try {
       final gs = await _invoke('group_list');
       groups = (gs is List ? gs : const [])
           .whereType<Map>()
-          .map((g) => (
-                id: (g['id'] as num).toInt(),
-                name: '${g['name']}',
-                groupKey: '${g['group_key']}',
-              ))
+          .map(
+            (g) => (
+              id: (g['id'] as num).toInt(),
+              name: '${g['name']}',
+              groupKey: '${g['group_key']}',
+            ),
+          )
           .toList();
-    } catch (_) {/* */}
+    } catch (_) {
+      /* */
+    }
     _notify();
   }
 

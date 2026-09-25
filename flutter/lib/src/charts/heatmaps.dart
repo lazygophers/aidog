@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
+import '../shell/tiles.dart';
 import 'empty.dart';
 import 'palette.dart';
 
@@ -17,6 +18,29 @@ const List<int> kDayRows = [1, 2, 3, 4, 5, 6, 0];
 
 /// 顶部小时刻度只标 0/6/12/18，其余留空防挤。
 const Set<int> kHourLabelAt = {0, 6, 12, 18};
+
+/// 热力图轴 / 行名字样：React 两张图的容器都是 `fontSize: 9` + `--text-tertiary`
+/// + `tabular-nums`（`HourHeatmap.tsx:57-59`、`DimensionHeatmap.tsx:64-66`），
+/// 字体族是系统 sans，字距 0 —— `AidogType.micro` 的 11 + ls0.66 在 React 侧无对应物。
+TextStyle heatAxisStyle(AidogColors c) =>
+    counterStyle(fontSize: 9, color: c.fg3, fontWeight: FontWeight.w400);
+
+/// 把格子压成正方形（React 的 `aspectRatio: "1"`，
+/// `HourHeatmap.tsx:105` / `DimensionHeatmap.tsx:129`）。
+///
+/// `Align` 先把紧约束放松，`AspectRatio` 才有取边长的自由 —— 直接套在
+/// `Expanded` 下会被紧约束原样顶回去。
+class _SquareCell extends StatelessWidget {
+  const _SquareCell({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Align(
+    alignment: AlignmentDirectional.topStart,
+    child: AspectRatio(aspectRatio: 1, child: child),
+  );
+}
 
 /// 单个热力格。`tooltip` 走 Flutter 的 [Tooltip]（对应 React 的 `title` 属性）。
 class HeatCell extends StatelessWidget {
@@ -67,23 +91,32 @@ class HourHeatmap extends StatelessWidget {
     final t = AidogTheme.of(context);
     final cells = {for (final d in data) d.day * 24 + d.hour: d.value};
     final max = data.fold<double>(0, (m, d) => d.value > m ? d.value : m);
-    final axis = AidogType.micro.copyWith(color: t.c.fg3);
+    final axis = heatAxisStyle(t.c);
 
     Widget row(List<Widget> children) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 34,
-                  child: Align(alignment: Alignment.centerLeft, child: children.first),
-                ),
-                for (final c in children.skip(1))
-                  Expanded(child: Padding(padding: const EdgeInsets.only(left: 2), child: c)),
-              ],
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Row(
+          children: [
+            SizedBox(
+              // 星期名列 `3.5em` @9px = 31.5（`HourHeatmap.tsx:55`）。
+              width: 31.5,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: children.first,
+              ),
             ),
-          ),
-        );
+            for (final c in children.skip(1))
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: c,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
 
     return Column(
       children: [
@@ -98,10 +131,12 @@ class HourHeatmap extends StatelessWidget {
           row([
             Text(dayLabel(d), style: axis),
             for (var h = 0; h < 24; h++)
-              HeatCell(
-                t: max > 0 ? (cells[d * 24 + h] ?? 0) / max : 0,
-                tooltip:
-                    '${dayLabel(d)} ${pad(h)}:00 · ${formatValue(cells[d * 24 + h] ?? 0)}',
+              _SquareCell(
+                child: HeatCell(
+                  t: max > 0 ? (cells[d * 24 + h] ?? 0) / max : 0,
+                  tooltip:
+                      '${dayLabel(d)} ${pad(h)}:00 · ${formatValue(cells[d * 24 + h] ?? 0)}',
+                ),
               ),
           ]),
       ],
@@ -191,22 +226,28 @@ class DimensionHeatmap extends StatelessWidget {
     final max = data.fold<double>(0, (m, d) => d.value > m ? d.value : m);
     // 列刻度稀疏标注：只标每 labelEvery 列，防 "MM-DD" 串挤叠。
     final labelEvery = (days.length / 10).ceil().clamp(1, 1 << 30);
-    final axis = AidogType.micro.copyWith(color: t.c.fg3);
+    final axis = heatAxisStyle(t.c);
 
     Widget row(Widget head, List<Widget> cols) => Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 2),
-            child: Row(
-              children: [
-                SizedBox(width: 88, child: head),
-                for (final c in cols)
-                  Expanded(
-                    child: Padding(padding: const EdgeInsets.only(left: 2), child: c),
-                  ),
-              ],
-            ),
-          ),
-        );
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 2),
+        child: Row(
+          children: [
+            // 维度名列 `minmax(6em, 12em)` @9px = 54–108 弹性
+            //（`DimensionHeatmap.tsx:62`）。这里取弹性下限：Row 里
+            // 没有 grid 的 minmax，固定 54 让其余宽度全给格子。
+            SizedBox(width: 54, child: head),
+            for (final c in cols)
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 2),
+                  child: c,
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
 
     return Column(
       children: [
@@ -237,10 +278,12 @@ class DimensionHeatmap extends StatelessWidget {
             ),
             [
               for (final d in days)
-                HeatCell(
-                  t: max > 0 ? (cells[(name, d)] ?? 0) / max : 0,
-                  tooltip:
-                      '$name ${formatDay(d)} · ${formatValue(cells[(name, d)] ?? 0)}',
+                _SquareCell(
+                  child: HeatCell(
+                    t: max > 0 ? (cells[(name, d)] ?? 0) / max : 0,
+                    tooltip:
+                        '$name ${formatDay(d)} · ${formatValue(cells[(name, d)] ?? 0)}',
+                  ),
                 ),
             ],
           ),

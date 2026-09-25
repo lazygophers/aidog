@@ -26,7 +26,11 @@ enum EditorMode { gui, json }
 
 /// 待处理的导入差异（弹窗的数据源）。
 class PendingImportDiff {
-  PendingImportDiff({required this.source, required this.diff, required this.recommended});
+  PendingImportDiff({
+    required this.source,
+    required this.diff,
+    required this.recommended,
+  });
 
   final Map<String, Object?> source;
   final List<DiffNode> diff;
@@ -97,8 +101,8 @@ class SchemaConfigWiring {
 }
 
 Map<String, Object?> _claudeWriteArgs(Map<String, Object?> v) => {
-      'input': {'scope': 'global', 'key': 'claude_code', 'value': v},
-    };
+  'input': {'scope': 'global', 'key': 'claude_code', 'value': v},
+};
 Map<String, Object?> _valueArgs(Map<String, Object?> v) => {'value': v};
 Map<String, Object?> _configArgs(Map<String, Object?> v) => {'config': v};
 
@@ -158,9 +162,13 @@ class SchemaConfigController {
   Future<void> load() async {
     try {
       final stored = await _invoke(wiring.readCmd, wiring.readArgs);
-      final map = stored is Map ? Map<String, Object?>.from(stored) : <String, Object?>{};
+      final map = stored is Map
+          ? Map<String, Object?>.from(stored)
+          : <String, Object?>{};
       // 从未配置过 → 默认填入推荐配置，便于一键起步。
-      final data = map.isNotEmpty ? deepCopyConfig(map) : deepCopyConfig(recommendedConfig);
+      final data = map.isNotEmpty
+          ? deepCopyConfig(map)
+          : deepCopyConfig(recommendedConfig);
       config = data;
       editJson = _pretty(data);
       baseline = stableStringify(data);
@@ -222,7 +230,9 @@ class SchemaConfigController {
         // best-effort：同步失败绝不阻断保存本身（与 React 一致）。
         try {
           await _invoke('sync_group_settings');
-        } catch (_) {/* console.error 等价物 */}
+        } catch (_) {
+          /* console.error 等价物 */
+        }
       }
       toast = savedText;
       saving = false;
@@ -263,7 +273,11 @@ class SchemaConfigController {
       _notify();
       return;
     }
-    importDiff = PendingImportDiff(source: recommendedConfig, diff: diff, recommended: true);
+    importDiff = PendingImportDiff(
+      source: recommendedConfig,
+      diff: diff,
+      recommended: true,
+    );
     _notify();
   }
 
@@ -277,7 +291,9 @@ class SchemaConfigController {
   }) async {
     try {
       final raw = await _invoke('read_claude_code_settings');
-      final source = raw is Map ? Map<String, Object?>.from(raw) : <String, Object?>{};
+      final source = raw is Map
+          ? Map<String, Object?>.from(raw)
+          : <String, Object?>{};
       final managed = await readManagedPaths(_invoke);
       final diff = buildImportDiffTree(config, source, managed);
       if (diff.isEmpty) {
@@ -285,7 +301,11 @@ class SchemaConfigController {
         _notify();
         return;
       }
-      importDiff = PendingImportDiff(source: source, diff: diff, recommended: false);
+      importDiff = PendingImportDiff(
+        source: source,
+        diff: diff,
+        recommended: false,
+      );
     } catch (e) {
       toast = failedText?.call('$e') ?? '$e';
     }
@@ -365,10 +385,11 @@ class SchemaConfigController {
   }
 
   static Map<String, Object?> _pickAidogKeys(Map<String, Object?> source) => {
-        for (final e in source.entries)
-          if (e.key.startsWith('_aidog_')) e.key: e.value,
-      };
+    for (final e in source.entries)
+      if (e.key.startsWith('_aidog_')) e.key: e.value,
+  };
 
   /// 与 `JSON.stringify(x, null, 2)` 一致的两空格缩进。
-  static String _pretty(Object? v) => const JsonEncoder.withIndent('  ').convert(v);
+  static String _pretty(Object? v) =>
+      const JsonEncoder.withIndent('  ').convert(v);
 }

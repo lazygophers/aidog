@@ -72,7 +72,7 @@ class ChartPalette {
   /// 取 3 位小数：React 版落到 CSS 时写的是 `alpha.toFixed(3)`，那一步同时也吃掉了
   /// 浮点累加噪声（0.92 会算成 0.9200000000000002）。这里复刻同一个精度。
   static double heatAlpha(double t) => double.parse(
-        (kHeatMinAlpha + (kHeatMaxAlpha - kHeatMinAlpha) * _clamp01(t))
-            .toStringAsFixed(3),
-      );
+    (kHeatMinAlpha + (kHeatMaxAlpha - kHeatMinAlpha) * _clamp01(t))
+        .toStringAsFixed(3),
+  );
 }

@@ -29,6 +29,252 @@ String tOr(I18nController t, String key, String fallback) {
   return s == key ? fallback : s;
 }
 
+/// editors 域输入框的内边距 —— React `S.inputPad` = `10px 14px`
+/// （`editors/tokens.ts:19`），配 `F.body` 15 一起用。
+const EdgeInsets kEditorInputPad = EdgeInsets.symmetric(
+  horizontal: 14,
+  vertical: 10,
+);
+
+/// editors 域输入框的字号 —— React `F.body`（`editors/tokens.ts:9`）。
+const double kEditorInputFontSize = 15;
+
+/// editors 域的分区副标题 —— 对齐 React `SubHeading`
+/// （`editors/_shared.tsx:523-533`：`F.label` 15 w600 fg1 + 1px 底边 +
+/// paddingBottom 6 + marginBottom 4 + icon 15 gap 6，**正常大小写**）。
+///
+/// 别拿 [TileMeta] 顶替：它是格子右上角的元信息件（micro 11 + 强制大写 +
+/// ls 0.66 + fg3），三重差（大小写 / 字号 / 色阶）。
+class SubHeading extends StatelessWidget {
+  const SubHeading(this.text, {super.key, this.icon});
+
+  final String text;
+
+  /// 行首图标，React 各分区标题都带一枚 15px SVG（`SandboxSection.tsx:235` 等）。
+  final IconData? icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final label = HighlightedText(
+      text,
+      style: AidogType.label.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        color: theme.c.fg,
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: theme.c.line)),
+        ),
+        child: icon == null
+            ? label
+            : Row(
+                children: [
+                  Icon(icon, size: 15, color: theme.c.fg3),
+                  const SizedBox(width: 6),
+                  Flexible(child: label),
+                ],
+              ),
+      ),
+    );
+  }
+}
+
+/// editors 域的说明小字 —— 对齐 React `Hint`（`editors/_shared.tsx:537`：
+/// `F.small` 12 fg3 lineHeight 1.4，**ls 0**）。
+/// `AidogType.micro`（11 + ls 0.66）是标签风，拿来当说明文字会偏小且字距过宽。
+class EditorHint extends StatelessWidget {
+  const EditorHint(this.text, {super.key});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Text(text, style: editorHintStyle(theme));
+  }
+}
+
+/// [EditorHint] 的样式本体，给需要自己组 `Text` / `RichText` 的调用方。
+TextStyle editorHintStyle(AidogTheme theme) => AidogType.caption.copyWith(
+  fontSize: 12,
+  letterSpacing: 0,
+  height: 1.4,
+  color: theme.c.fg3,
+);
+
+/// editors 域的分段卡 —— 对齐 React 在这个域的「一段一张 bg-glass 卡」
+/// （`SandboxSection.tsx:230,276,329,375`：pad 14/16 + r-md 12；
+/// `PluginsSection.tsx:300` 的市场卡 pad 10/12 无边框）。
+///
+/// `var(--bg-glass)` = `var(--card)`（`globals.css:134-135`），对应
+/// `theme.c.surface`（**不是 surface2**）。
+class EditorCard extends StatelessWidget {
+  const EditorCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    this.radius = AidogRadius.md,
+    this.bordered = false,
+    this.background,
+    this.margin,
+  });
+
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+  final double radius;
+
+  /// 是否画 1px 描边。React 只有 hooks 事件卡 / 状态栏段行 / 自定义模式卡带边。
+  final bool bordered;
+
+  /// 底色覆盖。null = `theme.c.surface`（= `--bg-glass`）。
+  final Color? background;
+  final EdgeInsetsGeometry? margin;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Container(
+      margin: margin,
+      padding: padding,
+      decoration: BoxDecoration(
+        color: background ?? theme.c.surface,
+        borderRadius: BorderRadius.circular(radius),
+        border: bordered ? Border.all(color: theme.c.line) : null,
+      ),
+      child: child,
+    );
+  }
+}
+
+/// 贴着触发按钮弹出的浮层菜单 —— 对齐 React 在 editors 域的三个下拉
+/// （`PermissionsSection.tsx:340-348` 规则模板、`EnvEditor.tsx:271-278`
+/// 「+ 添加已知变量」、`StatusLinePanel.tsx:249-256`「添加段」）：
+/// `position:absolute` + zIndex 100 + `0 8px 32px` 阴影 + 一层点击遮罩。
+///
+/// Flutter 侧原先三处都渲染成行下方的内联 `Container`，会把后面的内容顶下去。
+class AnchoredMenu extends StatefulWidget {
+  const AnchoredMenu({
+    super.key,
+    required this.open,
+    required this.onDismiss,
+    required this.anchor,
+    required this.menuBuilder,
+    this.above = true,
+    this.alignRight = true,
+    this.minWidth = 280,
+    this.maxHeight = 360,
+  });
+
+  final bool open;
+  final VoidCallback onDismiss;
+
+  /// 触发控件（按钮本体），常驻渲染。
+  final Widget anchor;
+
+  /// 浮层内容。只有 [open] 为真时才构建。
+  final WidgetBuilder menuBuilder;
+
+  /// 向上弹（React 的 `bottom: 100%`）。false = 向下（`top: 100%`）。
+  final bool above;
+
+  /// 右对齐（React 的 `right: 0`）。
+  final bool alignRight;
+  final double minWidth;
+  final double maxHeight;
+
+  @override
+  State<AnchoredMenu> createState() => _AnchoredMenuState();
+}
+
+class _AnchoredMenuState extends State<AnchoredMenu> {
+  // 🔴 portal 常开，开合由 `overlayChildBuilder` 里返回空盒子决定。
+  // 别改回「在 didUpdateWidget 里 show()/hide()」：
+  // `OverlayPortalController.show()` 在 build 阶段调用会直接断言失败
+  // （`overlay.dart:2070`），而父级 setState 重建正好落在那个阶段。
+  final OverlayPortalController _ctrl = OverlayPortalController();
+  final LayerLink _link = LayerLink();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.show();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return CompositedTransformTarget(
+      link: _link,
+      child: OverlayPortal(
+        controller: _ctrl,
+        overlayChildBuilder: (overlayContext) => !widget.open
+            ? const SizedBox.shrink()
+            : Stack(
+          children: [
+            // 点击遮罩：React 的 `position: fixed; inset: 0`。
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.onDismiss,
+              ),
+            ),
+            CompositedTransformFollower(
+              link: _link,
+              targetAnchor: widget.above
+                  ? (widget.alignRight ? Alignment.topRight : Alignment.topLeft)
+                  : (widget.alignRight
+                        ? Alignment.bottomRight
+                        : Alignment.bottomLeft),
+              followerAnchor: widget.above
+                  ? (widget.alignRight
+                        ? Alignment.bottomRight
+                        : Alignment.bottomLeft)
+                  : (widget.alignRight
+                        ? Alignment.topRight
+                        : Alignment.topLeft),
+              child: Align(
+                alignment: widget.alignRight
+                    ? Alignment.bottomRight
+                    : Alignment.bottomLeft,
+                child: Material(
+                  color: theme.c.surface,
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(AidogRadius.md),
+                  child: Container(
+                    constraints: BoxConstraints(
+                      minWidth: widget.minWidth,
+                      maxWidth: 560,
+                      maxHeight: widget.maxHeight,
+                    ),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(AidogRadius.md),
+                      border: Border.all(color: theme.c.line),
+                    ),
+                    padding: const EdgeInsets.all(4),
+                    child: SingleChildScrollView(
+                      child: widget.menuBuilder(overlayContext),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        child: widget.anchor,
+      ),
+    );
+  }
+}
+
 /// 一块设置分区：标题 + 说明 + 若干行。
 class SettingsCard extends StatelessWidget {
   const SettingsCard({
@@ -39,6 +285,14 @@ class SettingsCard extends StatelessWidget {
     this.dimmed = false,
     this.icon,
     this.emphasized = false,
+    this.padding,
+    this.gap,
+    this.bottomGap,
+    this.titleStyle,
+    this.titleGap,
+    this.iconSize,
+    this.iconColor,
+    this.descriptionStyle,
     required this.children,
   });
 
@@ -51,6 +305,33 @@ class SettingsCard extends StatelessWidget {
 
   /// 大节标题：20px w600（editors 的 F.title）。缺省 false = Tile 的 13.5。
   final bool emphasized;
+
+  // ── 下面七个都是「本页的壳和设置页其余分区不是一档」时的逐项覆盖。
+  // 缺省全 null = 现状不变。导入导出页的 React 壳是 `.glass` 的
+  // `padding 20 + gap 16 + h3 18 + desc 13`（`ImportExportTab.tsx:378,488`
+  // + `ImportExport/primitives.tsx:11-20`），与 `S.pad=28` 的设置分区卡两档。
+
+  /// 卡内衬。null = 28（`editors/tokens.ts:15` 的 `S.pad`）。
+  final EdgeInsetsGeometry? padding;
+
+  /// 说明与正文、正文各行之间的统一间距。null = 现状（说明下 6、各行之间 0）。
+  final double? gap;
+
+  /// 卡与下一张卡之间的间距。null = 18。
+  final double? bottomGap;
+
+  /// [emphasized] 标题的样式覆盖。null = title 档 20 w600 ls-0.2。
+  final TextStyle? titleStyle;
+
+  /// [emphasized] 标题行的下距。null = 22。
+  final double? titleGap;
+
+  /// 标题行首图标的尺寸 / 颜色。null = 20 / fg。
+  final double? iconSize;
+  final Color? iconColor;
+
+  /// 说明文字样式。null = micro 11 fg3。
+  final TextStyle? descriptionStyle;
 
   /// 总开关关掉后压暗这张卡（React 四处 `opacity: 0.55 / 0.5`：
   /// `SchedulingSettings.tsx:142`、`NotificationEventList.tsx:196`、
@@ -67,46 +348,61 @@ class SettingsCard extends StatelessWidget {
       child: Padding(
         // React 设置页 section 卡间距 20（AppSettings.tsx:71 的 gap: 20、
         // editors/tokens.ts 的 S.sectionGap）。
-        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+        padding: EdgeInsets.only(bottom: bottomGap ?? AidogSpace.sxl),
         child: Tile(
           // 大节标题不借 Tile 自带的 13.5 标题，自己在正文顶上画 20px 那行。
           title: emphasized ? null : title,
           meta: meta,
           // React 设置分区卡 padding 28（editors/tokens.ts:15 的 S.pad）。
-          padding: const EdgeInsets.all(28),
+          padding: padding ?? const EdgeInsets.all(28),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
               if (emphasized && title != null)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 22),
+                  padding: EdgeInsets.only(bottom: titleGap ?? 22),
                   child: Row(
                     children: [
                       if (icon != null) ...[
-                        Icon(icon, size: 20, color: theme.c.fg),
+                        Icon(
+                          icon,
+                          size: iconSize ?? 20,
+                          color: iconColor ?? theme.c.fg,
+                        ),
                         const SizedBox(width: 8),
                       ],
                       Text(
                         title!,
-                        style: AidogType.title.copyWith(
-                          fontSize: 20,
-                          letterSpacing: -0.2,
-                          color: theme.c.fg,
-                        ),
+                        style:
+                            titleStyle ??
+                            AidogType.title.copyWith(
+                              fontSize: 20,
+                              letterSpacing: -0.2,
+                              color: theme.c.fg,
+                            ),
                       ),
                     ],
                   ),
                 ),
               if (description != null && description!.isNotEmpty)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                  padding: EdgeInsets.only(bottom: gap ?? AidogSpace.ssm),
                   child: Text(
                     description!,
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    style:
+                        descriptionStyle ??
+                        AidogType.micro.copyWith(color: theme.c.fg3),
                   ),
                 ),
-              ...children,
+              // [gap] 给了就在各行之间插同一档间距（React 的 `gap: 16`）。
+              if (gap == null)
+                ...children
+              else
+                for (var i = 0; i < children.length; i++) ...[
+                  if (i > 0) SizedBox(height: gap),
+                  children[i],
+                ],
             ],
           ),
         ),
@@ -680,9 +976,11 @@ class SegmentedRow<T> extends StatelessWidget {
                     style: AidogType.caption.copyWith(
                       fontSize: fontSize,
                       color: o == value ? theme.c.accentText : theme.c.fg2,
+                      // React `fontWeight: active ? 600 : 500`
+                      //（`ImportExport/primitives.tsx:270`）—— 未选也是 w500。
                       fontWeight: o == value
                           ? FontWeight.w600
-                          : FontWeight.w400,
+                          : FontWeight.w500,
                     ),
                   ),
                 ),
@@ -711,7 +1009,18 @@ class TextRow extends StatefulWidget {
     this.mono = false,
     this.obscure = false,
     this.trailing,
+    this.fontSize,
+    this.contentPadding,
+    this.labelFontSize,
   });
+
+  /// 输入框字号 / 内边距 / 标签字号覆盖。null = 缺省（13.5 · 主题 h12/v8 ·
+  /// caption 12.5）。React 在 editors 域把输入框抬到 `F.body` 15 +
+  /// `S.inputPad` 10px 14px、子字段标签用 `F.hint` 13
+  ///（`editors/tokens.ts:9,19`、`PluginsSection.tsx:87`）。
+  final double? fontSize;
+  final EdgeInsets? contentPadding;
+  final double? labelFontSize;
 
   /// 输入框右侧的附加按钮（环境变量编辑器的「移除」× 就挂这里）。
   final Widget? trailing;
@@ -793,7 +1102,11 @@ class _TextRowState extends State<TextRow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          FieldLabel(widget.label, icon: widget.labelIcon),
+          FieldLabel(
+            widget.label,
+            icon: widget.labelIcon,
+            fontSize: widget.labelFontSize,
+          ),
           if (widget.description != null && widget.description!.isNotEmpty)
             Text(
               widget.description!,
@@ -813,11 +1126,18 @@ class _TextRowState extends State<TextRow> {
                       : (widget.minLines ?? 1),
                   obscureText: widget.obscure,
                   style: (widget.mono ? AidogType.numSm : AidogType.label)
-                      .copyWith(color: enabled ? theme.c.fg : theme.c.fg3),
+                      .copyWith(
+                        fontSize: widget.fontSize,
+                        color: enabled ? theme.c.fg : theme.c.fg3,
+                      ),
                   decoration: InputDecoration(
                     isDense: true,
+                    contentPadding: widget.contentPadding,
                     hintText: widget.hint,
-                    hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
+                    hintStyle: AidogType.label.copyWith(
+                      fontSize: widget.fontSize,
+                      color: theme.c.fg3,
+                    ),
                   ),
                   onChanged: widget.onChanged,
                   onSubmitted: (v) {
@@ -1242,13 +1562,26 @@ class InfoRow extends StatelessWidget {
 
 /// 常驻错误条（写失败之类，不自动消失）。与 [ToastBar] 的区别是它不带计时器。
 class ErrorNote extends StatelessWidget {
-  const ErrorNote({super.key, required this.text, this.action});
+  const ErrorNote({
+    super.key,
+    required this.text,
+    this.action,
+    this.fontSize,
+    this.padding,
+  });
 
   final String text;
 
   /// 右侧的补救动作（如代理起不来时的「重试」）。报了错却没有出口，
   /// 用户只能去别处找按钮（`ProxyStatusSection.tsx:97-99`）。
   final Widget? action;
+
+  /// 字号 / 内衬覆盖。null = 现状（micro 11 / 10-6）。React 的错误条有两档：
+  /// 页面级 `"10px 14px"` + 13（`ImportExportTab.tsx:601-607`）、
+  /// 卡内级 `"8px 12px"` + 12（`Sub2ApiImport.tsx:313-320`、
+  /// `JsonCodeEditor.tsx:227` 的 12）。
+  final double? fontSize;
+  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
@@ -1257,10 +1590,12 @@ class ErrorNote extends StatelessWidget {
       padding: const EdgeInsets.only(top: AidogSpace.ssm),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.smd,
-          vertical: AidogSpace.ssm,
-        ),
+        padding:
+            padding ??
+            const EdgeInsets.symmetric(
+              horizontal: AidogSpace.smd,
+              vertical: AidogSpace.ssm,
+            ),
         decoration: BoxDecoration(
           color: theme.c.surface2,
           border: Border.all(color: theme.c.bad),
@@ -1271,7 +1606,11 @@ class ErrorNote extends StatelessWidget {
             Expanded(
               child: Text(
                 text,
-                style: AidogType.micro.copyWith(color: theme.c.bad),
+                style: AidogType.micro.copyWith(
+                  fontSize: fontSize,
+                  letterSpacing: fontSize == null ? null : 0,
+                  color: theme.c.bad,
+                ),
               ),
             ),
             if (action != null) ...[
@@ -1443,8 +1782,14 @@ class PlainTextField extends StatefulWidget {
     this.obscure = false,
     this.mono = false,
     this.fontSize,
+    this.contentPadding,
     this.options = const [],
   });
+
+  /// 内边距覆盖。null = 主题缺省 h12/v8（`theme.dart:189`）。
+  /// React 在 editors 域把输入框统一抬到 `S.inputPad` = `10px 14px`
+  /// （`editors/tokens.ts:19`），比全局 `.input` 大一档。
+  final EdgeInsets? contentPadding;
 
   /// 候选补全项，对齐 React `<input list="…">` + `<datalist>`
   /// （CLI 集成页的代理 URL 四个本地端口，`CodingToolsSettings.tsx:505,516-520`）。
@@ -1583,6 +1928,7 @@ class _PlainTextFieldState extends State<PlainTextField> {
       ),
       decoration: InputDecoration(
         isDense: true,
+        contentPadding: widget.contentPadding,
         hintText: widget.hint,
         hintStyle: (widget.mono ? AidogType.numSm : AidogType.label).copyWith(
           fontSize: widget.fontSize,

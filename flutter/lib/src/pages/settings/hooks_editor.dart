@@ -384,9 +384,9 @@ class _HooksEditorState extends State<HooksEditor> {
           Text(
             '${tOr(t, 'settings.hooks.introLine1', 'Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。')}\n'
             '${tOr(t, 'settings.hooks.introLine2', '选择事件类型开始配置。')}',
-            style: AidogType.micro.copyWith(
-              color: AidogTheme.of(context).c.fg3,
-            ),
+            // B4：React 是 `F.hint` 13 lh1.5（`HooksSectionInline.tsx:126`）。
+            style: editorHintStyle(AidogTheme.of(context))
+                .copyWith(fontSize: 13, height: 1.5),
           ),
         for (final eventId in events) _eventCard(t, eventId),
       ],
@@ -397,15 +397,13 @@ class _HooksEditorState extends State<HooksEditor> {
   Widget _notifyQuickBar(I18nController t) {
     final theme = AidogTheme.of(context);
     final injected = _hasNotifyHooks(widget.hooks);
-    return Container(
+    // B30：卡容器与事件卡同族 —— surface（= bg-glass）+ 1px 边 + r-md 12 +
+    // pad 16/20（`HooksSectionInline.tsx:139-143`），不是 all 6 + surface2 + r-sm。
+    return EditorCard(
       key: const ValueKey('hooks-notify-bar'),
-      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
-      decoration: BoxDecoration(
-        color: theme.c.surface2,
-        border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
-      ),
+      margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      bordered: true,
       child: Row(
         children: [
           Expanded(
@@ -499,75 +497,116 @@ class _HooksEditorState extends State<HooksEditor> {
       (s, g) => s + (g['hooks'] as List? ?? const []).length,
     );
     final expanded = !(_collapsed[eventId] ?? false);
-    return Container(
+    // B26：React 是 bg-glass + 1px 边 + r-md 12 + pad 16/20 + gap 14
+    //（`HooksSectionInline.tsx:139-143`）。
+    return EditorCard(
       key: ValueKey('hooks-event-$eventId'),
-      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
-      decoration: BoxDecoration(
-        color: theme.c.surface2,
-        border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
-      ),
+      margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      bordered: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
+              // B33：React 是 `▶` 文本 `F.small` 12 fg3 + rotate(90deg) 0.2s
+              //（`HooksSectionInline.tsx:146-148`），不是 Material 的展开图标。
               InkWell(
                 onTap: () => setState(() => _collapsed[eventId] = expanded),
-                child: Icon(
-                  expanded ? Icons.expand_less : Icons.expand_more,
-                  size: 16,
-                  color: theme.c.fg3,
+                child: AnimatedRotation(
+                  turns: expanded ? 0.25 : 0,
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    '▶',
+                    style: AidogType.label.copyWith(
+                      fontSize: 12,
+                      color: theme.c.fg3,
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(width: AidogSpace.sxs),
+              const SizedBox(width: AidogSpace.smd),
+              // B27：React 事件名 16 w600 accent（`HooksSectionInline.tsx:149`）。
               Text(
                 eventId,
-                style: AidogType.label.copyWith(color: theme.c.accentText),
+                style: AidogType.label.copyWith(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.accentText,
+                ),
               ),
               if (meta != null)
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.only(left: AidogSpace.sxs),
+                    padding: const EdgeInsets.only(left: AidogSpace.s_8),
                     child: Text(
-                      tOr(t, 'settings.hooks.event.$eventId.desc', meta.desc),
+                      '— ${tOr(t, 'settings.hooks.event.$eventId.desc', meta.desc)}',
                       overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                      style: editorHintStyle(theme).copyWith(fontSize: 13),
                     ),
                   ),
                 )
               else
                 const Spacer(),
-              Text(
-                '$count',
+              // A24：React 是一枚徽标 —— 12 w600 · pad 2/10 · r10 ·
+              // accent-subtle 底 · accent 字，文案 `N handlers`
+              //（`HooksSectionInline.tsx:151-154`），原先是裸数字。
+              Container(
                 key: ValueKey('hooks-count-$eventId'),
-                style: AidogType.micro.copyWith(color: theme.c.accentText),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 2,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.accentWash,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count handler${count == 1 ? '' : 's'}',
+                  style: AidogType.label.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.accentText,
+                  ),
+                ),
               ),
               const SizedBox(width: AidogSpace.ssm),
+              // B31：React 删除 × 是 26×26 · fontSize 14 · padding 0 · fg3
+              //（`HooksSectionInline.tsx:155-157`）。
               SmallButton(
                 key: ValueKey('hooks-del-event-$eventId'),
                 label: '×',
+                fontSize: 14,
+                padding: (0, 0),
+                minWidth: 26,
                 onTap: () => _writeGroups(eventId, const []),
               ),
             ],
           ),
           if (expanded) ...[
+            const SizedBox(height: 14),
             for (var gi = 0; gi < groups.length; gi++)
               _matcherGroup(t, eventId, gi),
-            SmallButton(
-              key: ValueKey('hooks-add-group-$eventId'),
-              label: tOr(t, 'settings.hooks.addMatcherGroup', '+ 匹配器组'),
-              onTap: () => _writeGroups(eventId, [
-                ...groups,
-                {
-                  'matcher': '',
-                  'hooks': [
-                    {'type': 'command', 'command': ''},
-                  ],
-                },
-              ]),
+            // B32：React「+ 匹配器组」是 `F.hint` 13 · pad 6/14
+            //（`HooksSectionInline.tsx:325-327`）。
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SmallButton(
+                key: ValueKey('hooks-add-group-$eventId'),
+                label: tOr(t, 'settings.hooks.addMatcherGroup', '+ 匹配器组'),
+                fontSize: 13,
+                padding: (14, 6),
+                onTap: () => _writeGroups(eventId, [
+                  ...groups,
+                  {
+                    'matcher': '',
+                    'hooks': [
+                      {'type': 'command', 'command': ''},
+                    ],
+                  },
+                ]),
+              ),
             ),
           ],
         ],
@@ -602,7 +641,9 @@ class _HooksEditorState extends State<HooksEditor> {
             children: [
               Text(
                 tOr(t, 'settings.hooks.matcher', '匹配器'),
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
+                // C7：React 是 `F.hint` 13 w500 fg3（`HooksSectionInline.tsx:171`）。
+                style: editorHintStyle(theme)
+                    .copyWith(fontSize: 13, fontWeight: FontWeight.w500),
               ),
               const SizedBox(width: AidogSpace.ssm),
               Expanded(
@@ -613,9 +654,14 @@ class _HooksEditorState extends State<HooksEditor> {
                   children: [
                     if (meta != null && meta.matcherOptions.isNotEmpty)
                       for (final opt in meta.matcherOptions)
+                        // B28：React matcher chip 是 13 · pad 4/12 · r16 胶囊
+                        //（`HooksSectionInline.tsx:177-183`），不是 r8 方角 11。
                         SmallButton(
                           key: ValueKey('hooks-matcher-$eventId-$gi-$opt'),
                           label: opt,
+                          pill: true,
+                          fontSize: 13,
+                          padding: (12, 4),
                           active: tags.contains(opt),
                           onTap: () {
                             final next = tags.contains(opt)
@@ -633,6 +679,10 @@ class _HooksEditorState extends State<HooksEditor> {
                         width: 260,
                         child: PlainTextField(
                           value: matcher,
+                          // B1：editors 域输入框 15 + pad 10/14
+                          //（`HooksSectionInline.tsx:103,188`）。
+                          fontSize: kEditorInputFontSize,
+                          contentPadding: kEditorInputPad,
                           hint: eventId == 'FileChanged'
                               ? tOr(
                                   t,
@@ -654,14 +704,18 @@ class _HooksEditorState extends State<HooksEditor> {
                     else
                       Text(
                         tOr(t, 'settings.hooks.matchAll', '匹配所有'),
-                        style: AidogType.micro.copyWith(color: theme.c.fg3),
+                        style: editorHintStyle(theme).copyWith(fontSize: 13),
                       ),
                   ],
                 ),
               ),
+              // B31：同事件删除 ×（`HooksSectionInline.tsx:194-196`）。
               SmallButton(
                 key: ValueKey('hooks-del-group-$eventId-$gi'),
                 label: '×',
+                fontSize: 14,
+                padding: (0, 0),
+                minWidth: 26,
                 onTap: () => _writeGroups(
                   eventId,
                   [..._groupsOf(eventId)]..removeAt(gi),
@@ -671,21 +725,28 @@ class _HooksEditorState extends State<HooksEditor> {
           ),
           for (var hi = 0; hi < handlers.length; hi++)
             _handler(t, eventId, gi, hi),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SmallButton(
-              key: ValueKey('hooks-add-handler-$eventId-$gi'),
-              label: tOr(t, 'settings.hooks.addHandler', '+ 处理器'),
-              onTap: () => _patchGroup(
-                eventId,
-                gi,
-                (g) => {
-                  ...g,
-                  'hooks': [
-                    ..._handlersOf(eventId, gi),
-                    {'type': 'command', 'command': ''},
-                  ],
-                },
+          // A26/B32：React「+ 处理器」与 handler 卡同缩进 72、`F.hint` 13 · pad 6/14
+          //（`HooksSectionInline.tsx:317-319`）。
+          Padding(
+            padding: const EdgeInsetsDirectional.only(start: 72),
+            child: Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SmallButton(
+                key: ValueKey('hooks-add-handler-$eventId-$gi'),
+                label: tOr(t, 'settings.hooks.addHandler', '+ 处理器'),
+                fontSize: 13,
+                padding: (14, 6),
+                onTap: () => _patchGroup(
+                  eventId,
+                  gi,
+                  (g) => {
+                    ...g,
+                    'hooks': [
+                      ..._handlersOf(eventId, gi),
+                      {'type': 'command', 'command': ''},
+                    ],
+                  },
+                ),
               ),
             ),
           ),
@@ -699,25 +760,47 @@ class _HooksEditorState extends State<HooksEditor> {
     final h = _handlersOf(eventId, gi)[hi];
     final type = '${h['type'] ?? 'command'}';
     final meta = _eventMeta(eventId);
-    return Container(
+    // A26/B29：React handler 卡缩进 72 + bg-surface 底 + 1px 边 + r-sm +
+    // pad 14/16（`HooksSectionInline.tsx:202-206`）。
+    return EditorCard(
       key: ValueKey('hooks-handler-$eventId-$gi-$hi'),
-      margin: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
+      margin: const EdgeInsetsDirectional.only(
+        start: 72,
+        top: AidogSpace.ssm,
+        bottom: AidogSpace.ssm,
       ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      radius: AidogRadius.sm,
+      bordered: true,
+      background: theme.c.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
-              Text(
-                _handlerLabel(t, type),
-                style: AidogType.micro.copyWith(color: theme.c.accentText),
+              // A25：React 类型徽标是 13 w600 · pad 3/10 · r6 · bg-glass 底 +
+              // 1px 边 · accent 字（`HooksSectionInline.tsx:208-211`）。
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 3,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.surface,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: theme.c.line),
+                ),
+                child: Text(
+                  _handlerLabel(t, type),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.accentText,
+                  ),
+                ),
               ),
-              const SizedBox(width: AidogSpace.ssm),
+              const SizedBox(width: AidogSpace.s_8),
               DropdownButton<String>(
                 value: kHandlerTypes.any((x) => x.$1 == type) ? type : null,
                 items: [
@@ -745,9 +828,13 @@ class _HooksEditorState extends State<HooksEditor> {
                 iconSize: 16,
               ),
               const Spacer(),
+              // B31：同上（`HooksSectionInline.tsx:219-221`）。
               SmallButton(
                 key: ValueKey('hooks-del-handler-$eventId-$gi-$hi'),
                 label: '×',
+                fontSize: 14,
+                padding: (0, 0),
+                minWidth: 26,
                 onTap: () => _patchGroup(
                   eventId,
                   gi,

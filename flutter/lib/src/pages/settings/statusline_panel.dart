@@ -190,38 +190,69 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SwitchRow(
-          key: ValueKey('sl-${widget.scriptType}-enable'),
-          label: _isMain
-              ? t.t('statusline.useBuiltin')
-              : t.t('statusline.useBuiltinSubagent'),
-          description: _isMain
-              ? t.t('statusline.builtinDesc')
-              : t.t('statusline.builtinSubagentDesc'),
-          value: _enabled,
-          onChanged: _handleToggle,
+        // 与沙箱同款：React 把开关 / 标题 / 描述 /「● 已启用」徽标放进同一张
+        // bg-glass 卡（pad 12/16 + r-md，`StatusLinePanel.tsx:42-61`）。
+        EditorCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Row(
+            children: [
+              Expanded(
+                child: SwitchRow(
+                  key: ValueKey('sl-${widget.scriptType}-enable'),
+                  label: _isMain
+                      ? t.t('statusline.useBuiltin')
+                      : t.t('statusline.useBuiltinSubagent'),
+                  description: _isMain
+                      ? t.t('statusline.builtinDesc')
+                      : t.t('statusline.builtinSubagentDesc'),
+                  value: _enabled,
+                  onChanged: _handleToggle,
+                ),
+              ),
+              if (_enabled) ...[
+                const SizedBox(width: AidogSpace.ssm),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.c.ok.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  ),
+                  child: Text(
+                    '● ${t.t('statusline.enabled')}',
+                    style: AidogType.label.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.ok,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         if (_enabled)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-            child: Text(
-              '● ${t.t('statusline.enabled')}',
-              style: AidogType.micro.copyWith(color: theme.c.ok),
-            ),
-          ),
-        if (_enabled)
+          // React 两颗模式按钮是 `flex: 1` 等宽 · pad 8/12 · `F.body` 15
+          //（`StatusLinePanel.tsx:66-85`）。
           Row(
             children: [
               for (final m in const ['builtin', 'custom'])
-                Padding(
-                  padding: const EdgeInsets.only(right: AidogSpace.ssm),
-                  child: SmallButton(
-                    key: ValueKey('sl-${widget.scriptType}-mode-$m'),
-                    label: m == 'builtin'
-                        ? t.t('statusline.modeBuiltin')
-                        : t.t('statusline.modeCustom'),
-                    active: _mode == m,
-                    onTap: () => _switchMode(m),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: AidogSpace.ssm),
+                    child: SmallButton(
+                      key: ValueKey('sl-${widget.scriptType}-mode-$m'),
+                      label: m == 'builtin'
+                          ? t.t('statusline.modeBuiltin')
+                          : t.t('statusline.modeCustom'),
+                      fontSize: kEditorInputFontSize,
+                      padding: (12, 8),
+                      active: _mode == m,
+                      onTap: () => _switchMode(m),
+                    ),
                   ),
                 ),
             ],
@@ -232,29 +263,45 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
     );
   }
 
+  /// A19：React 自定义模式是一张 bg-surface 卡（pad 12/16 + 1px 边 + r-md +
+  /// gap 12，`StatusLinePanel.tsx:90-93`），Flutter 原先是裸的几行。
   List<Widget> _customMode(I18nController t) => [
-    Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.ssm),
-      child: Text(
-        t.t('statusline.customDesc'),
-        style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
-      ),
-    ),
-    InfoRow(label: t.t('statusline.customType'), value: 'command'),
-    TextRow(
-      key: ValueKey('sl-${widget.scriptType}-custom-cmd'),
-      label: t.t('statusline.customCommand'),
-      description: t.t('statusline.customCommandDesc'),
-      hint: t.t('statusline.customPlaceholder'),
-      value: _customCommand,
-      onChanged: (v) => _setStored({'customCommand': v}),
-    ),
-    Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: SmallButton(
-        key: ValueKey('sl-${widget.scriptType}-apply-custom'),
-        label: t.t('statusline.applyCustom'),
-        onTap: _applyCustom,
+    EditorCard(
+      margin: const EdgeInsets.only(top: AidogSpace.smd),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      bordered: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          EditorHint(t.t('statusline.customDesc')),
+          const SizedBox(height: AidogSpace.smd),
+          InfoRow(label: t.t('statusline.customType'), value: 'command'),
+          TextRow(
+            key: ValueKey('sl-${widget.scriptType}-custom-cmd'),
+            label: t.t('statusline.customCommand'),
+            labelFontSize: 13,
+            fontSize: kEditorInputFontSize,
+            contentPadding: kEditorInputPad,
+            description: t.t('statusline.customCommandDesc'),
+            hint: t.t('statusline.customPlaceholder'),
+            value: _customCommand,
+            onChanged: (v) => _setStored({'customCommand': v}),
+          ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: SmallButton(
+              key: ValueKey('sl-${widget.scriptType}-apply-custom'),
+              label: t.t('statusline.applyCustom'),
+              // React 是 `variant="default"` 实心 + `F.body` 15 + `S.btnPad` 8/18
+              //（`StatusLinePanel.tsx:111`）。
+              filled: true,
+              fontSize: kEditorInputFontSize,
+              padding: (18, 8),
+              onTap: _applyCustom,
+            ),
+          ),
+        ],
       ),
     ),
   ];
@@ -264,14 +311,29 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
     AidogTheme theme,
     List<StatusLineSegment> segments,
   ) => [
-    const SizedBox(height: AidogSpace.ssm),
-    TileMeta(t.t('statusline.preview')),
-    StatusLinePreview(
-      key: ValueKey('sl-${widget.scriptType}-preview'),
-      segments: segments,
-      empty: t.t('statusline.previewEmpty'),
+    // A18：React 预览是一张 bg-surface 卡（pad 12/16 + 1px 边 + r-md），
+    // 标题是正体 `F.hint` 13（`StatusLinePanel.tsx:122-133`），不是 TileMeta。
+    EditorCard(
+      margin: const EdgeInsets.only(top: AidogSpace.smd, bottom: AidogSpace.smd),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      bordered: true,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            t.t('statusline.preview'),
+            style: editorHintStyle(theme).copyWith(fontSize: 13),
+          ),
+          const SizedBox(height: AidogSpace.ssm),
+          StatusLinePreview(
+            key: ValueKey('sl-${widget.scriptType}-preview'),
+            segments: segments,
+            empty: t.t('statusline.previewEmpty'),
+          ),
+        ],
+      ),
     ),
-    const SizedBox(height: AidogSpace.smd),
     _SegmentList(
       scriptType: widget.scriptType,
       segments: segments,
@@ -294,6 +356,7 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
       onCycleAlign: (id) => _updateSegments(cycleRowAlign(segments, id)),
       onDeleteRow: (id) => _updateSegments(deleteRow(segments, id)),
     ),
+    // React 三颗按钮都是 `F.body` 15 · pad 6/14（`StatusLinePanel.tsx:236-248`）。
     Row(
       children: [
         Tooltip(
@@ -301,6 +364,8 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
           child: SmallButton(
             key: ValueKey('sl-${widget.scriptType}-reset-layout'),
             label: t.t('statusline.resetLayout'),
+            fontSize: kEditorInputFontSize,
+            padding: (14, 6),
             onTap: _resetToDefaultLayout,
           ),
         ),
@@ -308,56 +373,116 @@ class _StatusLinePanelState extends State<StatusLinePanel> {
         SmallButton(
           key: ValueKey('sl-${widget.scriptType}-add-row'),
           label: t.t('statusline.addRow'),
+          fontSize: kEditorInputFontSize,
+          padding: (14, 6),
           onTap: _addRow,
         ),
-        const SizedBox(width: AidogSpace.ssm),
-        SmallButton(
-          key: ValueKey('sl-${widget.scriptType}-add-segment'),
-          label: t.t('statusline.addSegment'),
-          active: _showAddMenu,
-          onTap: () => setState(() => _showAddMenu = !_showAddMenu),
+        const SizedBox(width: AidogSpace.s_8),
+        // A16：React 的「添加段」菜单是 `bottom:100%; right:0; zIndex:100` 浮层
+        //（minWidth 280 / maxHeight 360 / 阴影，`StatusLinePanel.tsx:249-256`）。
+        AnchoredMenu(
+          open: _showAddMenu,
+          onDismiss: () => setState(() => _showAddMenu = false),
+          minWidth: 280,
+          maxHeight: 360,
+          menuBuilder: (_) => _AddSegmentMenu(
+            key: ValueKey('sl-${widget.scriptType}-add-menu'),
+            onPick: (type) => _addSegment(type),
+          ),
+          anchor: SmallButton(
+            key: ValueKey('sl-${widget.scriptType}-add-segment'),
+            label: t.t('statusline.addSegment'),
+            fontSize: kEditorInputFontSize,
+            padding: (14, 6),
+            active: _showAddMenu,
+            onTap: () => setState(() => _showAddMenu = !_showAddMenu),
+          ),
         ),
       ],
     ),
-    if (_showAddMenu)
-      _AddSegmentMenu(
-        key: ValueKey('sl-${widget.scriptType}-add-menu'),
-        onPick: (type) => _addSegment(type),
-      ),
-    const SizedBox(height: AidogSpace.ssm),
-    Align(
-      alignment: AlignmentDirectional.centerStart,
-      child: SmallButton(
-        key: ValueKey('sl-${widget.scriptType}-toggle-script'),
-        label:
-            '${_showScript ? '▾' : '▸'} ${t.t('statusline.scriptPreview')}  '
-            '~/.aidog/scripts/aidog-'
-            '${widget.scriptType == 'subagent' ? 'subagent-' : ''}statusline.py',
-        active: _showScript,
-        onTap: () => setState(() => _showScript = !_showScript),
-      ),
-    ),
-    if (_showScript)
-      Container(
-        key: ValueKey('sl-${widget.scriptType}-script-body'),
-        width: double.infinity,
-        margin: const EdgeInsets.only(top: AidogSpace.sxs),
-        padding: const EdgeInsets.all(AidogSpace.smd),
-        decoration: BoxDecoration(
-          color: theme.c.surface2,
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        constraints: const BoxConstraints(maxHeight: 320),
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: SingleChildScrollView(
-            child: Text(
-              _scriptPreview,
-              style: AidogType.numSm.copyWith(color: theme.c.fg),
+    const SizedBox(height: AidogSpace.smd),
+    // A20：React 把折叠头与脚本体一起包进一张 bg-glass 卡（pad 10/16 + r-md），
+    // 头行左右分置：左边是箭头 + 标题，**右端**是 mono `F.small` 12 的脚本路径
+    //（`StatusLinePanel.tsx:290-303`）。
+    EditorCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            key: ValueKey('sl-${widget.scriptType}-toggle-script'),
+            onTap: () => setState(() => _showScript = !_showScript),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  AnimatedRotation(
+                    turns: _showScript ? 0.25 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    child: Text(
+                      '▶',
+                      style: AidogType.label.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AidogSpace.sxs),
+                  Text(
+                    t.t('statusline.scriptPreview'),
+                    style: AidogType.label.copyWith(
+                      fontSize: kEditorInputFontSize,
+                      color: theme.c.fg,
+                    ),
+                  ),
+                  const Spacer(),
+                  Flexible(
+                    child: Text(
+                      '~/.aidog/scripts/aidog-'
+                      '${widget.scriptType == 'subagent' ? 'subagent-' : ''}'
+                      'statusline.py',
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+          if (_showScript)
+            // B39：React 脚本体是 `F.hint` 13 mono lh1.6 · bg-surface · pad 12 ·
+            // marginTop 8（`StatusLinePanel.tsx:305-313`）。
+            Container(
+              key: ValueKey('sl-${widget.scriptType}-script-body'),
+              width: double.infinity,
+              margin: const EdgeInsets.only(top: AidogSpace.s_8),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: theme.c.surface,
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+              ),
+              constraints: const BoxConstraints(maxHeight: 320),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SingleChildScrollView(
+                  child: Text(
+                    _scriptPreview,
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 13,
+                      height: 1.6,
+                      color: theme.c.fg,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       ),
+    ),
     if (_editSegId != null)
       () {
         final seg = segments.where((s) => s.id == _editSegId).firstOrNull;
@@ -496,32 +621,60 @@ class _SegmentList extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (leader)
-              Row(
-                children: [
-                  Text(
-                    t.t('statusline.rowLabel'),
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
-                  ),
-                  const SizedBox(width: AidogSpace.ssm),
-                  SmallButton(
-                    key: ValueKey('sl-$scriptType-align-${seg.id}'),
-                    label: t.t(
-                      'statusline.align.${rowAlignName(seg.align ?? RowAlign.left)}',
+              // B36/C9：React 行标签栏 pad `2px 4px 4px` · `F.hint` 13 fg3 ·
+              //「行」w600；两颗按钮 13 · pad 2/8（accent / fg3）
+              //（`StatusLinePanel.tsx:149-165`）。
+              Padding(
+                padding: const EdgeInsets.fromLTRB(4, 2, 4, 4),
+                child: Row(
+                  children: [
+                    Text(
+                      t.t('statusline.rowLabel'),
+                      style: editorHintStyle(theme).copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    onTap: () => onCycleAlign(seg.id),
-                  ),
-                  const SizedBox(width: AidogSpace.sxs),
-                  SmallButton(
-                    key: ValueKey('sl-$scriptType-delrow-${seg.id}'),
-                    label: t.t('statusline.deleteRow'),
-                    onTap: () => onDeleteRow(seg.id),
-                  ),
-                ],
+                    const SizedBox(width: AidogSpace.s_8),
+                    SmallButton(
+                      key: ValueKey('sl-$scriptType-align-${seg.id}'),
+                      label: t.t(
+                        'statusline.align.${rowAlignName(seg.align ?? RowAlign.left)}',
+                      ),
+                      fontSize: 13,
+                      padding: (8, 2),
+                      ghost: true,
+                      color: theme.c.accentText,
+                      onTap: () => onCycleAlign(seg.id),
+                    ),
+                    const SizedBox(width: AidogSpace.s_8),
+                    SmallButton(
+                      key: ValueKey('sl-$scriptType-delrow-${seg.id}'),
+                      label: t.t('statusline.deleteRow'),
+                      fontSize: 13,
+                      padding: (8, 2),
+                      ghost: true,
+                      onTap: () => onDeleteRow(seg.id),
+                    ),
+                  ],
+                ),
               ),
+            // A17：React 每行是一张 `glass-surface` 卡（pad 10/12 + r-md +
+            // 1px 边），拖拽中边框换 accent + `0 6px 20px` 阴影
+            //（`StatusLinePanel.tsx:168-176`）。
             Opacity(
               opacity: seg.enabled ? 1 : 0.45,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.surface,
+                  borderRadius: BorderRadius.circular(AidogRadius.md),
+                  border: Border.all(color: theme.c.line),
+                ),
                 child: Row(
                   children: [
                     ReorderableDragStartListener(
@@ -543,19 +696,25 @@ class _SegmentList extends StatelessWidget {
                       onChanged: () => onToggle(seg.id, !seg.enabled),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
+                    // B34：React 段名 `F.body` 15 w600 fg1（`StatusLinePanel.tsx:196`）。
                     Flexible(
                       child: Text(
                         segName(t, def),
-                        style: AidogType.label.copyWith(color: theme.c.fg),
+                        style: AidogType.label.copyWith(
+                          fontSize: kEditorInputFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: AidogSpace.ssm),
+                    const SizedBox(width: AidogSpace.smd),
+                    // B35：内联预览 `F.hint` 13 mono（`StatusLinePanel.tsx:201`）。
                     Expanded(
                       child: Text(
                         def.toPreview(effectiveOptions(def, seg)),
                         style: _mono.copyWith(
-                          fontSize: 11,
+                          fontSize: 13,
                           color: segColor ?? theme.c.fg3,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -566,21 +725,42 @@ class _SegmentList extends StatelessWidget {
                       child: SmallButton(
                         key: ValueKey('sl-$scriptType-nl-${seg.id}'),
                         label: '↵',
+                        fontSize: 13,
+                        padding: (0, 0),
+                        minWidth: 24,
                         active: seg.newline,
                         onTap: () => onToggleNewline(seg.id),
                       ),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
-                    SmallButton(
+                    // A21：React 编辑 / 删除是 13px 图标按钮
+                    //（`StatusLinePanel.tsx:220,226`），不是文字。
+                    IconButton(
                       key: ValueKey('sl-$scriptType-edit-${seg.id}'),
-                      label: t.t('action.edit'),
-                      onTap: () => onEdit(seg.id),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 24,
+                        minHeight: 24,
+                      ),
+                      iconSize: 13,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: t.t('action.edit'),
+                      icon: Icon(Icons.edit_outlined, color: theme.c.accentText),
+                      onPressed: () => onEdit(seg.id),
                     ),
                     const SizedBox(width: AidogSpace.sxs),
-                    SmallButton(
+                    IconButton(
                       key: ValueKey('sl-$scriptType-del-${seg.id}'),
-                      label: '×',
-                      onTap: () => onDelete(seg.id),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 24,
+                        minHeight: 24,
+                      ),
+                      iconSize: 13,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: t.t('action.delete'),
+                      icon: Icon(Icons.close, color: theme.c.fg3),
+                      onPressed: () => onDelete(seg.id),
                     ),
                   ],
                 ),
@@ -603,59 +783,67 @@ class _AddSegmentMenu extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(top: AidogSpace.sxs),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
-      constraints: const BoxConstraints(maxHeight: 360),
-      decoration: BoxDecoration(
-        color: theme.c.surface2,
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
-        border: Border.all(color: theme.c.line),
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            for (final cat in kSegmentCategories) ...[
-              Padding(
-                padding: const EdgeInsets.only(top: AidogSpace.sxs),
-                child: Text(
-                  tOr(t, 'statusline.segCat.${cat.id}', cat.label),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+    // 浮层外壳由 [AnchoredMenu] 负责，这里只出内容。
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final cat in kSegmentCategories) ...[
+          // B37：React 分类标题 `F.small` 12 w600 **大写 + ls 0.4** fg3 ·
+          // pad `6px 12px 2px`（`StatusLinePanel.tsx:259-262`）。
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 2),
+            child: Text(
+              tOr(t, 'statusline.segCat.${cat.id}', cat.label).toUpperCase(),
+              style: AidogType.label.copyWith(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.4,
+                color: theme.c.fg3,
+              ),
+            ),
+          ),
+          for (final type in cat.types)
+            if (kSegmentDefMap[type] case final def?)
+              // B38：React 菜单项 pad 6/12 · 名字 `F.body` 15 w500 ·
+              // desc `F.hint` 13 marginLeft 8（`StatusLinePanel.tsx:267-277`）。
+              InkWell(
+                key: ValueKey('sl-add-$type'),
+                onTap: () => onPick(type),
+                hoverColor: theme.c.surface2,
+                borderRadius: BorderRadius.circular(AidogRadius.sm),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        segName(t, def),
+                        style: AidogType.label.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w500,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          segDesc(t, def),
+                          style: AidogType.label.copyWith(
+                            fontSize: 13,
+                            color: theme.c.fg3,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              for (final type in cat.types)
-                if (kSegmentDefMap[type] case final def?)
-                  InkWell(
-                    key: ValueKey('sl-add-$type'),
-                    onTap: () => onPick(type),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 3),
-                      child: Row(
-                        children: [
-                          Text(
-                            segName(t, def),
-                            style: AidogType.label.copyWith(color: theme.c.fg),
-                          ),
-                          const SizedBox(width: AidogSpace.ssm),
-                          Flexible(
-                            child: Text(
-                              segDesc(t, def),
-                              style: AidogType.micro.copyWith(
-                                color: theme.c.fg3,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-            ],
-          ],
-        ),
-      ),
+        ],
+      ],
     );
   }
 }
@@ -739,22 +927,45 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            SwitchRow(
-              key: const ValueKey('seg-edit-newline'),
-              label: t.t('statusline.segNewline'),
-              value: _newline,
-              onChanged: (v) => setState(() => _newline = v),
-            ),
-            if (widget.isRowLeader || _newline)
-              ChoiceRow(
-                key: const ValueKey('seg-edit-align'),
-                label: t.t('statusline.rowAlign'),
-                options: [for (final a in RowAlign.values) a.name],
-                labelOf: (o) => t.t('statusline.align.$o'),
-                value: _align.name,
-                onChanged: (v) =>
-                    setState(() => _align = rowAlignFrom(v) ?? RowAlign.left),
+            // A22：React 整行是一个 label —— pad 8/12 + bg-glass 底 + r-sm +
+            // `F.body` 15（`SegmentEditModal.tsx:63-70`）。
+            EditorCard(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              radius: AidogRadius.sm,
+              margin: const EdgeInsets.only(bottom: 16),
+              child: SwitchRow(
+                key: const ValueKey('seg-edit-newline'),
+                label: t.t('statusline.segNewline'),
+                value: _newline,
+                onChanged: (v) => setState(() => _newline = v),
               ),
+            ),
+            if (widget.isRowLeader || _newline) ...[
+              // B40：React 三颗对齐按钮是 `flex:1` **等宽** · pad 6/10 ·
+              // `F.body` 15（`SegmentEditModal.tsx:80-88`），不是 Wrap。
+              FieldLabel(t.t('statusline.rowAlign'), fontSize: 13),
+              const SizedBox(height: AidogSpace.ssm),
+              Row(
+                key: const ValueKey('seg-edit-align'),
+                children: [
+                  for (final a in RowAlign.values)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: AidogSpace.ssm),
+                        child: SmallButton(
+                          key: ValueKey('seg-edit-align-${a.name}'),
+                          label: t.t('statusline.align.${a.name}'),
+                          fontSize: kEditorInputFontSize,
+                          padding: (10, 6),
+                          active: _align == a,
+                          onTap: () => setState(() => _align = a),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
             if (canAutoColor)
               SwitchRow(
                 key: const ValueKey('seg-edit-autocolor'),
@@ -797,25 +1008,46 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
               ],
             ),
             for (final f in def.fields) _fieldRow(t, def, f),
-            TileMeta(t.t('statusline.preview')),
+            // B2：标题是正体 `F.hint` 13（`SegmentEditModal.tsx:168`），不是大写 meta。
             Text(
-              def.toPreview(_opts),
-              key: const ValueKey('seg-edit-preview'),
-              style: _mono.copyWith(color: effective ?? theme.c.fg),
+              t.t('statusline.preview'),
+              style: editorHintStyle(theme).copyWith(fontSize: 13),
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            const SizedBox(height: AidogSpace.sxs),
+            // A23：React 预览带框 —— pad 8/14 + bg-surface + r-sm + `F.body` 15 mono
+            //（`SegmentEditModal.tsx:169-178`）。
+            EditorCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              radius: AidogRadius.sm,
+              child: Text(
+                def.toPreview(_opts),
+                key: const ValueKey('seg-edit-preview'),
+                style: _mono.copyWith(
+                  fontSize: kEditorInputFontSize,
+                  color: effective ?? theme.c.fg,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // B41：React 页脚 `F.body` 15 · pad 8/18，保存是实心
+            //（`SegmentEditModal.tsx:182-185`）。
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 SmallButton(
                   key: const ValueKey('seg-edit-cancel'),
                   label: t.t('statusline.cancel'),
+                  fontSize: kEditorInputFontSize,
+                  padding: (18, 8),
                   onTap: widget.onCancel,
                 ),
-                const SizedBox(width: AidogSpace.ssm),
+                const SizedBox(width: AidogSpace.s_8),
                 SmallButton(
                   key: const ValueKey('seg-edit-save'),
                   label: t.t('statusline.save'),
+                  filled: true,
+                  fontSize: kEditorInputFontSize,
+                  padding: (18, 8),
                   onTap: () => widget.onSave(
                     widget.segment.copyWith(
                       options: _opts,

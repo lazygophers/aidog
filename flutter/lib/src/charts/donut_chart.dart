@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
+import '../shell/tiles.dart';
 import 'empty.dart';
 import 'palette.dart';
 
@@ -137,7 +138,10 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
                 PieChartData(
                   sectionsSpace: 2,
                   centerSpaceRadius: size * 0.31, // 内径 62% 直径的一半
-                  startDegreeOffset: -90,
+                  // React `<Pie>` 不传 `startAngle`，recharts 缺省 0° =
+                  // **3 点方向**起画（`DonutChart.tsx:101-110`）；fl_chart 的
+                  // `startDegreeOffset` 缺省 0 同样是 3 点，所以这里不再偏移。
+                  // 旋向（fl_chart 恒顺时针 / recharts 逆时针）框架不可调。
                   // 原先只写了 `enabled: true` 却没给 touchCallback ——
                   // 等于开了个没人接的开关，碰扇区什么都不出。
                   pieTouchData: PieTouchData(
@@ -146,7 +150,8 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
                       final i =
                           response?.touchedSection?.touchedSectionIndex ?? -1;
                       // 抬手 / 移出即复位，否则中央会一直停在最后碰过的那块。
-                      final next = event is FlPointerExitEvent ||
+                      final next =
+                          event is FlPointerExitEvent ||
                               event is FlTapUpEvent ||
                               event is FlLongPressEnd ||
                               event is FlPanEndEvent
@@ -179,16 +184,16 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
                   return Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // 中央总值：React `fontSize: mini ? 12 : 15, fontWeight: 600`
+                      // + `tabular-nums`，字体族是系统 sans（`DonutChart.tsx:128`），
+                      // 不是等宽 —— 所以走 counterStyle 而不是 numMd/numSm。
                       Text(
                         formatValue(hit?.value ?? total),
-                        style: (mini ? AidogType.numSm : AidogType.numMd)
-                            .copyWith(
-                              color: t.c.fg,
-                              fontWeight: FontWeight.w600,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
+                        style: counterStyle(
+                          fontSize: mini ? 12 : 15,
+                          color: t.c.fg,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                       if (hit != null) ...[
                         SizedBox(
@@ -198,17 +203,14 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             textAlign: TextAlign.center,
-                            style: AidogType.micro.copyWith(color: t.c.fg2),
+                            style: _centerHintStyle(mini, t.c.fg2),
                           ),
                         ),
-                        Text(
-                          pct,
-                          style: AidogType.micro.copyWith(color: t.c.fg3),
-                        ),
+                        Text(pct, style: _centerHintStyle(mini, t.c.fg3)),
                       ] else if (centerLabel != null)
                         Text(
                           centerLabel,
-                          style: AidogType.micro.copyWith(color: t.c.fg3),
+                          style: _centerHintStyle(mini, t.c.fg3),
                         ),
                     ],
                   );
@@ -218,47 +220,68 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
           ),
         ),
         if (showLegend) ...[
-          const SizedBox(width: AidogSpace.s_2xl),
+          // 图例↔环 `gap: mini ? 12 : 24`（`DonutChart.tsx:88`）。
+          SizedBox(width: mini ? 12 : AidogSpace.s_2xl),
+          // React：`flex: 1; minWidth: mini ? 120 : 180`（`DonutChart.tsx:137`）。
+          //
+          // 外层的 `flexWrap: "wrap"`（同上 :88，窄容器时图例掉到环下方）**没做**：
+          // 要知道剩余宽度只能上 `LayoutBuilder`，而它不支持 dry layout ——
+          // 托盘浮窗的卡片外面是 `IntrinsicHeight`（`popover/cards.dart:154`），
+          // 一放进去整张卡就崩。`Wrap` 也不行：它给子项的是松约束，
+          // 里面的 `Expanded`（百分比靠它右对齐）没有确定宽度可用。
           Expanded(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final d in slices)
-                  Container(
-                    padding: const EdgeInsets.symmetric(vertical: 5),
-                    decoration: BoxDecoration(
-                      border: Border(bottom: BorderSide(color: t.c.line)),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minWidth: mini ? 120 : 180),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final d in slices)
+                    Container(
+                      // React `padding: mini ? "3px 0" : "5px 0"`
+                      //（`DonutChart.tsx:145`）。
+                      padding: EdgeInsets.symmetric(vertical: mini ? 3 : 5),
+                      decoration: BoxDecoration(
+                        border: Border(bottom: BorderSide(color: t.c.line)),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: d.color,
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                          ),
+                          // React 行内 `gap: 8`（`DonutChart.tsx:144`）。
+                          const SizedBox(width: AidogSpace.s_8),
+                          Expanded(
+                            child: Text(
+                              d.name,
+                              overflow: TextOverflow.ellipsis,
+                              maxLines: 1,
+                              // 图例容器 `fontSize: mini ? 11 : 12`
+                              //（`DonutChart.tsx:137`）。
+                              style: AidogType.caption.copyWith(
+                                fontSize: mini ? 11 : 12,
+                                color: t.c.fg,
+                              ),
+                            ),
+                          ),
+                          Text(
+                            formatPercent(d.percent),
+                            // 百分比继承同一档，只多 tabular-nums（系统 sans）。
+                            style: counterStyle(
+                              fontSize: mini ? 11 : 12,
+                              color: t.c.fg2,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: d.color,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(width: AidogSpace.ssm),
-                        Expanded(
-                          child: Text(
-                            d.name,
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                            style: AidogType.caption.copyWith(color: t.c.fg),
-                          ),
-                        ),
-                        Text(
-                          formatPercent(d.percent),
-                          style: AidogType.numSm.copyWith(
-                            color: t.c.fg2,
-                            fontFeatures: const [FontFeature.tabularFigures()],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -266,3 +289,12 @@ class _AidogDonutChartState extends State<AidogDonutChart> {
     );
   }
 }
+
+/// 环心说明字：React `fontSize: mini ? 9 : 10` + `--text-tertiary`
+/// （`DonutChart.tsx:132`），字距 0 —— `AidogType.micro` 的 11 + ls0.66 在
+/// React 侧没有对应物。
+TextStyle _centerHintStyle(bool mini, Color color) => AidogType.micro.copyWith(
+  fontSize: mini ? 9 : 10,
+  letterSpacing: 0,
+  color: color,
+);

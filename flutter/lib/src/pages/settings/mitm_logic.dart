@@ -46,12 +46,12 @@ class WhitelistEntry {
   final WhitelistRuleType ruleType;
 
   factory WhitelistEntry.fromJson(Map<String, Object?> j) => WhitelistEntry(
-        hostPattern: '${j['host_pattern']}',
-        enabled: j['enabled'] as bool? ?? false,
-        source: j['source'] as String? ?? 'user',
-        // React：`e.rule_type ?? "suffix"`。
-        ruleType: WhitelistRuleType.parse(j['rule_type']),
-      );
+    hostPattern: '${j['host_pattern']}',
+    enabled: j['enabled'] as bool? ?? false,
+    source: j['source'] as String? ?? 'user',
+    // React：`e.rule_type ?? "suffix"`。
+    ruleType: WhitelistRuleType.parse(j['rule_type']),
+  );
 }
 
 class MitmStatus {
@@ -70,19 +70,25 @@ class MitmStatus {
   final List<WhitelistEntry> whitelist;
 
   factory MitmStatus.fromJson(Map<String, Object?> j) => MitmStatus(
-        enabled: j['enabled'] as bool? ?? false,
-        caPresent: j['ca_present'] as bool? ?? false,
-        caInstalled: j['ca_installed'] as bool? ?? false,
-        caFingerprint: j['ca_fingerprint'] as String? ?? '',
-        whitelist: (j['whitelist'] as List? ?? const [])
-            .map((e) => WhitelistEntry.fromJson(Map<String, Object?>.from(e as Map)))
-            .toList(),
-      );
+    enabled: j['enabled'] as bool? ?? false,
+    caPresent: j['ca_present'] as bool? ?? false,
+    caInstalled: j['ca_installed'] as bool? ?? false,
+    caFingerprint: j['ca_fingerprint'] as String? ?? '',
+    whitelist: (j['whitelist'] as List? ?? const [])
+        .map(
+          (e) => WhitelistEntry.fromJson(Map<String, Object?>.from(e as Map)),
+        )
+        .toList(),
+  );
 }
 
 /// 手动安装兜底弹窗的数据（`CaCommandSpec`）。
 class CaCommandSpec {
-  const CaCommandSpec({required this.name, required this.caPemPath, required this.manualDisplay});
+  const CaCommandSpec({
+    required this.name,
+    required this.caPemPath,
+    required this.manualDisplay,
+  });
 
   final String name;
   final String caPemPath;
@@ -91,10 +97,10 @@ class CaCommandSpec {
   final String manualDisplay;
 
   factory CaCommandSpec.fromJson(Map<String, Object?> j) => CaCommandSpec(
-        name: '${j['name']}',
-        caPemPath: '${j['ca_pem_path']}',
-        manualDisplay: '${j['manual_display']}',
-      );
+    name: '${j['name']}',
+    caPemPath: '${j['ca_pem_path']}',
+    manualDisplay: '${j['manual_display']}',
+  );
 }
 
 /// `mitm_install_ca` 的执行结果。`code` 被信号杀死时为 null。
@@ -112,11 +118,11 @@ class CaInstallOutcome {
   final String program;
 
   factory CaInstallOutcome.fromJson(Map<String, Object?> j) => CaInstallOutcome(
-        code: (j['code'] as num?)?.toInt(),
-        stdout: j['stdout'] as String? ?? '',
-        stderr: j['stderr'] as String? ?? '',
-        program: j['program'] as String? ?? '',
-      );
+    code: (j['code'] as num?)?.toInt(),
+    stdout: j['stdout'] as String? ?? '',
+    stderr: j['stderr'] as String? ?? '',
+    program: j['program'] as String? ?? '',
+  );
 }
 
 /// 一次 URL 命中测试的结果行。
@@ -127,9 +133,9 @@ class MatchedRule {
   final WhitelistRuleType ruleType;
 
   factory MatchedRule.fromJson(Map<String, Object?> j) => MatchedRule(
-        hostPattern: '${j['host_pattern']}',
-        ruleType: WhitelistRuleType.parse(j['rule_type']),
-      );
+    hostPattern: '${j['host_pattern']}',
+    ruleType: WhitelistRuleType.parse(j['rule_type']),
+  );
 }
 
 /// CA 安装失败的分类文案。UI 传进来，这一层不碰 i18n。
@@ -150,7 +156,8 @@ class MitmInstallTexts {
 }
 
 class MitmController {
-  MitmController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  MitmController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -189,7 +196,9 @@ class MitmController {
   List<WhitelistEntry> get filteredWhitelist {
     final key = search.trim().toLowerCase();
     if (key.isEmpty) return whitelist;
-    return whitelist.where((e) => e.hostPattern.toLowerCase().contains(key)).toList();
+    return whitelist
+        .where((e) => e.hostPattern.toLowerCase().contains(key))
+        .toList();
   }
 
   bool get canAdd => !busy && newPattern.trim().isNotEmpty;
@@ -243,18 +252,19 @@ class MitmController {
     _notify();
     try {
       // spec 只为兜底弹窗的文案；真正的执行在后端。
-      final spec = CaCommandSpec.fromJson(_map(await _invoke('mitm_install_ca_prepare')));
-      final out = CaInstallOutcome.fromJson(_map(await _invoke('mitm_install_ca')));
+      final spec = CaCommandSpec.fromJson(
+        _map(await _invoke('mitm_install_ca_prepare')),
+      );
+      final out = CaInstallOutcome.fromJson(
+        _map(await _invoke('mitm_install_ca')),
+      );
       final ok = out.code == 0;
       installResult = out;
       await _invoke('mitm_set_ca_installed', {'installed': ok});
       if (!ok) {
         manualInstall = spec;
-        final kind = '${await _invoke('mitm_classify_trust_error', {
-              'name': spec.name,
-              'code': out.code,
-              'stderr': out.stderr,
-            })}';
+        final kind =
+            '${await _invoke('mitm_classify_trust_error', {'name': spec.name, 'code': out.code, 'stderr': out.stderr})}';
         final base = switch (kind) {
           'cancel' => texts.cancel,
           'auth_fail' => texts.authFail,
@@ -262,19 +272,25 @@ class MitmController {
           _ => texts.failed('${out.code}'),
         };
         // cmd_fail 附原始 stderr 辅助诊断；其余分类不堆 stderr（用户无需看）。
-        final detail = kind == 'cmd_fail' && out.stderr.isNotEmpty ? '$base\n${out.stderr}' : base;
+        final detail = kind == 'cmd_fail' && out.stderr.isNotEmpty
+            ? '$base\n${out.stderr}'
+            : base;
         error = detail.trim().isNotEmpty
             ? detail
             : 'exit=${out.code} stderr=${out.stderr.isEmpty ? '(empty)' : out.stderr} '
-                'stdout=${out.stdout.isEmpty ? '(empty)' : out.stdout}';
+                  'stdout=${out.stdout.isEmpty ? '(empty)' : out.stdout}';
       }
       await refresh();
     } catch (e) {
       final s = '$e';
       error = s.isNotEmpty ? s : '(reject 无 message)';
       try {
-        manualInstall = CaCommandSpec.fromJson(_map(await _invoke('mitm_install_ca_prepare')));
-      } catch (_) {/* ignore secondary error */}
+        manualInstall = CaCommandSpec.fromJson(
+          _map(await _invoke('mitm_install_ca_prepare')),
+        );
+      } catch (_) {
+        /* ignore secondary error */
+      }
     } finally {
       busy = false;
       _notify();
@@ -336,7 +352,10 @@ class MitmController {
   Future<void> toggleEntry(String hostPattern, bool enabled) async {
     error = '';
     try {
-      await _invoke('mitm_whitelist_toggle', {'hostPattern': hostPattern, 'enabled': enabled});
+      await _invoke('mitm_whitelist_toggle', {
+        'hostPattern': hostPattern,
+        'enabled': enabled,
+      });
       await refresh();
     } catch (e) {
       error = '$e';
@@ -357,7 +376,9 @@ class MitmController {
 
   /// 导入默认白名单（37 条，INSERT OR IGNORE，幂等可重复点）。
   /// [doneText] 接 (imported, skipped) 返回成品文案。
-  Future<void> importDefaults(String Function(int imported, int skipped) doneText) async {
+  Future<void> importDefaults(
+    String Function(int imported, int skipped) doneText,
+  ) async {
     busy = true;
     error = '';
     message = '';

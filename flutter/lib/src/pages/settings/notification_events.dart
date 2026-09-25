@@ -60,10 +60,7 @@ kEventCatalog = {
     defaultTemplate: '{project} 已加载 {memory_type}',
     vars: ['{file_path}', '{memory_type}', '{load_reason}'],
   ),
-  'UserPromptSubmit': (
-    defaultTemplate: '{project} 收到新指令',
-    vars: ['{prompt}'],
-  ),
+  'UserPromptSubmit': (defaultTemplate: '{project} 收到新指令', vars: ['{prompt}']),
   'UserPromptExpansion': (
     defaultTemplate: '{project} 展开命令 {command_name}',
     vars: ['{command_name}', '{command_args}'],

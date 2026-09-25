@@ -115,7 +115,6 @@ class SchemaSection {
       .toList();
 }
 
-
 /// 各 schema 节的标题图标（React `SectionIcon name=<section.id>`，icons.tsx）。
 /// Flutter 侧用 Material 图标近似同一语义；认不出的节不给图标。
 const Map<String, IconData> kSectionIcons = {
@@ -651,7 +650,6 @@ class _SchemaConfigPageState extends State<SchemaConfigPage> {
     );
   }
 
-
   /// schema 节卡：大节标题（20px w600 + 20px 图标，React `Settings.tsx:527-531`）。
   Widget _sectionCard(
     I18nController t,
@@ -1068,7 +1066,7 @@ class JsonField extends StatefulWidget {
     this.description,
     this.error,
     this.text,
-    this.height = 260,
+    this.height = 140,
     this.onChanged,
     this.syncExternal = true,
     this.hint,
@@ -1084,7 +1082,8 @@ class JsonField extends StatefulWidget {
   /// 没有已解码的对象）。给了就忽略 [value]。
   final String? text;
 
-  /// 编辑区高度。整页模式比字段级的高。
+  /// 编辑区高度。缺省 140 = React `JsonCodeEditor` 的 `minHeight` 缺省
+  /// （`shared/JsonCodeEditor.tsx:140`）；整页 / 粘贴模式的调用点自己传更高的值。
   final double height;
   final ValueChanged<String> onSubmitted;
 
@@ -1281,8 +1280,17 @@ class _JsonFieldState extends State<JsonField> {
               ),
             Row(
               children: [
-                SmallButton(label: t.t('jsonEditor.format'), onTap: _format),
-                const SizedBox(width: AidogSpace.ssm),
+                SmallButton(
+                  label: t.t('jsonEditor.format'),
+                  // `variant="ghost"` + `fontSize: F.small = 12` +
+                  // `padding: "2px 8px"`（`JsonCodeEditor.tsx:184-191`）。
+                  ghost: true,
+                  fontSize: 12,
+                  padding: (8, 2),
+                  onTap: _format,
+                ),
+                // 按钮↔提示 `gap: 8`（`JsonCodeEditor.tsx:183`）。
+                const SizedBox(width: AidogSpace.s_8),
                 Expanded(
                   child: Text(
                     t.t('jsonEditor.searchHint'),
@@ -1356,19 +1364,27 @@ class _JsonFieldState extends State<JsonField> {
                     key: const ValueKey('json-code-editor'),
                     controller: _ctrl,
                     focusNode: _focus,
-                    padding: const EdgeInsets.all(AidogSpace.ssm),
+                    // `.cm-content { padding: "8px 0" }` —— 上下 8、左右 0
+                    //（`JsonCodeEditor.tsx:44`）。
+                    padding: const EdgeInsets.symmetric(vertical: 8),
                     border: Border.all(color: theme.c.line),
                     borderRadius: BorderRadius.circular(AidogRadius.sm),
                     // `{}` / `[]` 自动识别折叠区间。
                     chunkAnalyzer: const DefaultCodeChunkAnalyzer(),
                     style: CodeEditorStyle(
-                      fontSize: AidogType.numSm.fontSize,
+                      // 正文 `fontSize: F.body = 15`（`JsonCodeEditor.tsx:39`
+                      // + `domains/shared/tokens.ts:4`），不是 numSm 的 12.5。
+                      fontSize: 15,
                       fontFamily: AidogType.familyMono,
                       fontFamilyFallback: AidogType.familyMonoFallback,
                       textColor: theme.c.fg,
-                      backgroundColor: theme.c.surface2,
+                      // `glass-surface` = `--bg-surface`（`JsonCodeEditor.tsx:199`）。
+                      backgroundColor: theme.c.surface,
                       cursorColor: theme.c.accentText,
                       selectionColor: theme.c.accentWash,
+                      // 当前行底色 `.cm-activeLine { --accent-subtle }`
+                      //（`JsonCodeEditor.tsx:52`）= Flutter 的 accentWash。
+                      cursorLineColor: theme.c.accentWash,
                       codeTheme: CodeHighlightTheme(
                         languages: {
                           'json': CodeHighlightThemeMode(mode: langJson),
@@ -1384,11 +1400,27 @@ class _JsonFieldState extends State<JsonField> {
                           notifier,
                         ) => Row(
                           children: [
-                            DefaultCodeLineNumber(
-                              controller: editingController,
-                              notifier: notifier,
-                              textStyle: AidogType.numSm.copyWith(
-                                color: theme.c.fg3,
+                            // 行号列右侧一道 `--border` 40% 的分隔线
+                            //（`JsonCodeEditor.tsx:50` 的 `borderInlineEnd`）。
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  right: BorderSide(
+                                    color: theme.c.line.withValues(alpha: .4),
+                                  ),
+                                ),
+                              ),
+                              child: DefaultCodeLineNumber(
+                                controller: editingController,
+                                notifier: notifier,
+                                textStyle: AidogType.numSm.copyWith(
+                                  color: theme.c.fg3,
+                                ),
+                                // 当前行的行号用 accent 字
+                                //（`.cm-activeLineGutter`，`JsonCodeEditor.tsx:53`）。
+                                focusedTextStyle: AidogType.numSm.copyWith(
+                                  color: theme.c.accentText,
+                                ),
                               ),
                             ),
                             DefaultCodeChunkIndicator(
@@ -1417,7 +1449,9 @@ class _JsonFieldState extends State<JsonField> {
                 ],
               ),
             ),
-            if (widget.error != null) ErrorNote(text: widget.error!),
+            if (widget.error != null)
+              // 错误文案 `fontSize: F.small = 12`（`JsonCodeEditor.tsx:227`）。
+              ErrorNote(text: widget.error!, fontSize: 12),
           ],
         ),
       ),
@@ -1463,70 +1497,123 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     final all = _allLeaves();
     // React 是普通 `Dialog` + createPortal（`ImportDiff.tsx:361`，width 680），
     // 点遮罩可关。
+    // B42：React 弹窗是 width 680 · maxHeight 85vh · padding 0 · r-lg 16；
+    // header pad 16/20 + 1px 底边，footer pad 12/20 + 1px 顶边
+    //（`ImportDiff.tsx:362-369,427-430`）。
+    final allSelected = _selected.length == all.length;
     return AidogModal(
       maxWidth: 680,
       onBarrierTap: widget.onCancel,
       child: ModalCard(
-        title: widget.pending.recommended
+        padding: EdgeInsets.zero,
+        radius: AidogRadius.lg,
+        semanticLabel: widget.pending.recommended
             ? t.t('settings.editor.recommendTitle')
             : t.t('settings.editor.importTitle'),
-        meta:
-            '${t.t('settings.editor.selectedPrefix')} ${_selected.length} '
-            '${t.t('settings.editor.selectedSuffix')}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                SmallButton(
-                  label: t.t('settings.editor.selectAll'),
-                  onTap: () => setState(() => _selected = all),
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                SmallButton(
-                  label: t.t('settings.editor.deselectAll'),
-                  onTap: () => setState(() => _selected = {}),
-                ),
-              ],
+            // ── header ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              decoration: BoxDecoration(
+                border: Border(bottom: BorderSide(color: theme.c.line)),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      widget.pending.recommended
+                          ? t.t('settings.editor.recommendTitle')
+                          : t.t('settings.editor.importTitle'),
+                      style: AidogType.title.copyWith(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                        color: theme.c.fg,
+                      ),
+                    ),
+                  ),
+                  // A27：React 只有**一颗**切换按钮，文案随状态在「全选 / 取消全选」
+                  // 之间切（`ImportDiff.tsx:375-378`）。
+                  SmallButton(
+                    key: const ValueKey('diff-toggle-all'),
+                    label: allSelected
+                        ? t.t('settings.editor.deselectAll')
+                        : t.t('settings.editor.selectAll'),
+                    fontSize: 13,
+                    padding: (10, 4),
+                    onTap: () =>
+                        setState(() => _selected = allSelected ? {} : all),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 320),
-              child: SingleChildScrollView(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final n in widget.pending.diff) ..._nodeRows(t, n, 0),
-                  ],
+            // ── diff 列表 ──
+            // React 滚动区吃 `flex:1` + 外层 maxHeight 85vh；Flutter 没有 vh，
+            // 按窗口高度的 85% 减去 header/footer 估算，比原先写死的 320 接近。
+            Flexible(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85 - 140,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final n in widget.pending.diff)
+                        ..._nodeRows(t, n, 0),
+                    ],
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                SmallButton(
-                  label: t.t('action.cancel'),
-                  onTap: widget.onCancel,
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                // 一项都没勾就点不动 —— 应用空集合只会白跑一趟。
-                SmallButton(
-                  label: widget.pending.recommended
-                      ? t.t('settings.editor.applySelected')
-                      : t.t('settings.editor.importSelected'),
-                  onTap: _selected.isEmpty
-                      ? null
-                      : () => widget.onApply(_selected),
-                ),
-              ],
-            ),
-            Text(
-              '${t.t('settings.editor.diffCurrent')} → '
-              '${widget.pending.recommended ? t.t('settings.editor.diffRecommended') : t.t('settings.editor.diffIncoming')}',
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
+            // ── footer ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: theme.c.line)),
+              ),
+              child: Row(
+                children: [
+                  // B49：React 计数在页脚，正体 13，带 `/总数`
+                  //（`ImportDiff.tsx:431-433`）。
+                  Expanded(
+                    child: Text(
+                      '${t.t('settings.editor.selectedPrefix')} '
+                      '${_selected.length}/${all.length} '
+                      '${t.t('settings.editor.selectedSuffix')}',
+                      style: AidogType.label.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ),
+                  // B50：React 页脚按钮 `F.body` 15 · pad 8/18，应用是实心 +
+                  // 文案带 `(N)`（`ImportDiff.tsx:435-441`）。
+                  SmallButton(
+                    label: t.t('action.cancel'),
+                    fontSize: 15,
+                    padding: (18, 8),
+                    onTap: widget.onCancel,
+                  ),
+                  const SizedBox(width: AidogSpace.s_8),
+                  // 一项都没勾就点不动 —— 应用空集合只会白跑一趟。
+                  SmallButton(
+                    label:
+                        '${widget.pending.recommended ? t.t('settings.editor.applySelected') : t.t('settings.editor.importSelected')}'
+                        ' (${_selected.length})',
+                    filled: true,
+                    fontSize: 15,
+                    padding: (18, 8),
+                    onTap: _selected.isEmpty
+                        ? null
+                        : () => widget.onApply(_selected),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1571,43 +1658,58 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
       final badgeText = state == 'partial'
           ? t.t('settings.editor.diffPartial')
           : t.t('settings.editor.diffObject');
+      // B46：React 父节点是一张卡 —— margin `4px 12px` · pad 10/14 · bg-glass ·
+      // 1px 边 · r-sm · off 时 opacity .6（`ImportDiff.tsx:392-399`）。
       return [
-        InkWell(
-          key: ValueKey('diff-group-${n.path}'),
-          onTap: () => _toggleNode(n),
-          child: Padding(
-            padding: EdgeInsets.only(left: depth * 12.0, top: AidogSpace.sxs),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
+        Opacity(
+          opacity: state == 'off' ? 0.6 : 1,
+          child: Container(
+            margin: const EdgeInsets.fromLTRB(12, 4, 12, 4),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  state == 'off'
-                      ? Icons.check_box_outline_blank
-                      : Icons.check_box,
-                  size: 14,
-                  color: state == 'off' ? theme.c.fg3 : theme.c.accentText,
-                ),
-                const SizedBox(width: AidogSpace.sxs),
-                Text(
-                  n.label,
-                  style: AidogType.micro.copyWith(
-                    color: theme.c.fg2,
-                    fontWeight: FontWeight.w600,
+                InkWell(
+                  key: ValueKey('diff-group-${n.path}'),
+                  onTap: () => _toggleNode(n),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      // B47：React 用的是 `Toggle`（shadcn Switch 36×20），
+                      // 不是 14px 勾选框（`ImportDiff.tsx:404`）。
+                      AidogSwitch(
+                        value: state != 'off',
+                        compact: true,
+                        onChanged: () => _toggleNode(n),
+                      ),
+                      const SizedBox(width: AidogSpace.s_8),
+                      // B43：叶子 / 父节点标签都是 `F.body` 15 w600 mono
+                      //（`ImportDiff.tsx:406-409`）。
+                      Text(
+                        n.label,
+                        style: AidogType.numSm.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                      const SizedBox(width: AidogSpace.s_8),
+                      _changeBadge(badgeText, badgeColor, theme),
+                    ],
                   ),
                 ),
-                const SizedBox(width: AidogSpace.sxs),
-                Text(
-                  badgeText,
-                  style: AidogType.micro.copyWith(
-                    color: badgeColor,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                const SizedBox(height: 6),
+                for (final ch in children) ..._nodeRows(t, ch, depth + 1),
               ],
             ),
           ),
         ),
-        for (final ch in children) ..._nodeRows(t, ch, depth + 1),
       ];
     }
     final on = _selected.contains(n.path);
@@ -1622,57 +1724,77 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
       'removed' => t.t('settings.editor.diffRemoved'),
       _ => t.t('settings.editor.diffChanged'),
     };
+    // B45：React 叶子是一张卡 —— margin `4px 12px`（嵌套 `4px 0 4px 28px`）·
+    // pad 8/12 · added→success 6% / removed→danger 6% / 其余 bg-glass 底 ·
+    // 1px 边 · 未选降 opacity .5 + bg-surface 底（`ImportDiff.tsx:304-312`）。
+    final nested = depth > 0;
+    final bg = switch (changeType) {
+      'added' => theme.c.ok.withValues(alpha: 0.06),
+      'removed' => theme.c.bad.withValues(alpha: 0.06),
+      _ => theme.c.surface,
+    };
     return [
-      InkWell(
-        key: ValueKey('diff-${n.path}'),
-        onTap: () => setState(() {
-          final next = {..._selected};
-          on ? next.remove(n.path) : next.add(n.path);
-          _selected = next;
-        }),
-        child: Padding(
-          padding: EdgeInsets.only(left: depth * 12.0, top: 2, bottom: 2),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      Opacity(
+        opacity: on ? 1 : 0.5,
+        child: Container(
+          margin: nested
+              ? const EdgeInsetsDirectional.fromSTEB(28, 4, 0, 4)
+              : const EdgeInsets.fromLTRB(12, 4, 12, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: on ? bg : theme.c.surface,
+            border: Border.all(color: on ? theme.c.line : Colors.transparent),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                on ? Icons.check_box : Icons.check_box_outline_blank,
-                size: 14,
-                color: on ? theme.c.accentText : theme.c.fg3,
-              ),
-              const SizedBox(width: AidogSpace.sxs),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
+              InkWell(
+                key: ValueKey('diff-${n.path}'),
+                onTap: () => setState(() {
+                  final next = {..._selected};
+                  on ? next.remove(n.path) : next.add(n.path);
+                  _selected = next;
+                }),
+                child: Row(
                   children: [
-                    Row(
-                      children: [
-                        Text(
-                          n.label,
-                          style: AidogType.micro.copyWith(color: theme.c.fg),
-                        ),
-                        const SizedBox(width: AidogSpace.sxs),
-                        Text(
-                          changeLabel,
-                          style: AidogType.micro.copyWith(
-                            color: labelColor,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                    // B47：React 用 `Toggle`（shadcn Switch），不是勾选框图标。
+                    AidogSwitch(
+                      value: on,
+                      compact: true,
+                      onChanged: () => setState(() {
+                        final next = {..._selected};
+                        on ? next.remove(n.path) : next.add(n.path);
+                        _selected = next;
+                      }),
                     ),
-                    // 收起时给一行截断摘要当索引；展开后换成下面的完整两栏，
-                    // 免得同一个值以截断和完整两种形态并排出现。
-                    if (!on)
-                      Text(
-                        '${_short(n.current, t)} → ${_short(n.incoming, t)}',
-                        style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    const SizedBox(width: AidogSpace.s_8),
+                    // B43：叶子 label `F.body` 15 w600 mono（`ImportDiff.tsx:319-322`）。
+                    Flexible(
+                      child: Text(
+                        n.label,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.numSm.copyWith(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
                       ),
-                    if (on) _valuePanes(t, theme, n),
+                    ),
+                    const SizedBox(width: AidogSpace.s_8),
+                    _changeBadge(changeLabel, labelColor, theme),
                   ],
                 ),
               ),
+              // 收起时给一行截断摘要当索引；展开后换成下面的完整两栏，
+              // 免得同一个值以截断和完整两种形态并排出现。
+              if (!on)
+                Text(
+                  '${_short(n.current, t)} → ${_short(n.incoming, t)}',
+                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                ),
+              if (on) _valuePanes(t, theme, n),
             ],
           ),
         ),
@@ -1680,12 +1802,32 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     ];
   }
 
+  /// B44：变更徽标 —— `F.hint` 13 w600 · pad 1/6 · `${色}18` 底 · r-sm
+  /// （`ImportDiff.tsx:323-326`），原先是没有底色的纯文字。
+  Widget _changeBadge(String text, Color color, AidogTheme theme) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.094),
+      borderRadius: BorderRadius.circular(AidogRadius.sm),
+    ),
+    child: Text(
+      text,
+      style: AidogType.label.copyWith(
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
+        color: color,
+      ),
+    ),
+  );
+
   /// 选中即展开的「当前 / 导入」两栏（`ImportDiff.tsx:329-352`）。
   ///
   /// **导入是覆盖操作**，一行 60 字符的摘要（对象干脆只写「对象」二字）看不出
   /// 要把什么覆盖成什么，按不下去。这里给完整值，超高就在栏内滚。
+  /// B48：React 两栏 grid `1fr 1fr` · gap 8 · **marginLeft 36** · marginTop 8
+  /// （`ImportDiff.tsx:329`），Flutter 原先 gap 6 且无左缩进。
   Widget _valuePanes(I18nController t, AidogTheme theme, DiffNode n) => Padding(
-    padding: const EdgeInsets.only(top: AidogSpace.sxs),
+    padding: const EdgeInsetsDirectional.only(start: 36, top: 8),
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1698,7 +1840,7 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
             value: n.current,
           ),
         ),
-        const SizedBox(width: AidogSpace.ssm),
+        const SizedBox(width: 8),
         Expanded(
           child: _valuePane(
             t,
@@ -1722,15 +1864,19 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+      Text(
+        label,
+        style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg3),
+      ),
       const SizedBox(height: 2),
+      // B48：pre 是 `F.hint` 13 mono lh1.5 · **bg-surface** 底（React 无描边）·
+      // r-sm · pad 8 · maxHeight 120（`ImportDiff.tsx:332-339`）。
       Container(
         width: double.infinity,
         constraints: const BoxConstraints(maxHeight: 120),
-        padding: const EdgeInsets.all(AidogSpace.ssm),
+        padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: theme.c.surface2,
-          border: Border.all(color: theme.c.line),
+          color: theme.c.surface,
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: SingleChildScrollView(
@@ -1738,6 +1884,8 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
             _formatValue(value, t),
             key: ValueKey(keyName),
             style: AidogType.numSm.copyWith(
+              fontSize: 13,
+              height: 1.5,
               // 没有值的那一侧压暗，与 React 的 `text-tertiary` 同义。
               color: value == null ? theme.c.fg3 : theme.c.fg,
             ),

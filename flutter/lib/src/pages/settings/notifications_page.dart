@@ -276,58 +276,58 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
         padding: const EdgeInsets.only(bottom: _cardGap),
         child: HoverLift(
           child: Tile(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Wrap(
-            // 条内元素间距横竖同为 8（`NotificationSettings.tsx:352`）。
-            spacing: 8,
-            runSpacing: 8,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            children: [
-              Text(
-                t.t('notif.testChannels'),
-                style: AidogType.caption.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: AidogTheme.of(context).c.fg,
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Wrap(
+              // 条内元素间距横竖同为 8（`NotificationSettings.tsx:352`）。
+              spacing: 8,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  t.t('notif.testChannels'),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AidogTheme.of(context).c.fg,
+                  ),
                 ),
-              ),
-              SmallButton(
-                ghost: true,
-                key: const ValueKey('test-tts'),
-                fontSize: 12,
-                padding: (10, 4),
-                label: '🔊 ${t.t('notif.testTtsLabel')}',
-                tooltip: t.t('notif.testTtsTip'),
-                onTap: s.enabled ? () => _c.testTts(texts) : null,
-              ),
-              SmallButton(
-                ghost: true,
-                key: const ValueKey('test-popup'),
-                fontSize: 12,
-                padding: (10, 4),
-                label: '🪟 ${t.t('notif.testPopupLabel')}',
-                tooltip: t.t('notif.testPopupTip'),
-                onTap: s.enabled ? () => _c.testPopup(texts) : null,
-              ),
-              SmallButton(
-                ghost: true,
-                key: const ValueKey('test-beep'),
-                fontSize: 12,
-                padding: (10, 4),
-                label: '🔔 ${t.t('notif.testBeepLabel')}',
-                tooltip: t.t('notif.testBeepTip'),
-                onTap: s.enabled ? _c.testBeep : null,
-              ),
-              SmallButton(
-                ghost: true,
-                key: const ValueKey('test-notify'),
-                fontSize: 12,
-                padding: (10, 4),
-                label: t.t('notif.test'),
-                onTap: s.enabled ? () => _c.testNotify(texts) : null,
-              ),
-            ],
-          ),
+                SmallButton(
+                  ghost: true,
+                  key: const ValueKey('test-tts'),
+                  fontSize: 12,
+                  padding: (10, 4),
+                  label: '🔊 ${t.t('notif.testTtsLabel')}',
+                  tooltip: t.t('notif.testTtsTip'),
+                  onTap: s.enabled ? () => _c.testTts(texts) : null,
+                ),
+                SmallButton(
+                  ghost: true,
+                  key: const ValueKey('test-popup'),
+                  fontSize: 12,
+                  padding: (10, 4),
+                  label: '🪟 ${t.t('notif.testPopupLabel')}',
+                  tooltip: t.t('notif.testPopupTip'),
+                  onTap: s.enabled ? () => _c.testPopup(texts) : null,
+                ),
+                SmallButton(
+                  ghost: true,
+                  key: const ValueKey('test-beep'),
+                  fontSize: 12,
+                  padding: (10, 4),
+                  label: '🔔 ${t.t('notif.testBeepLabel')}',
+                  tooltip: t.t('notif.testBeepTip'),
+                  onTap: s.enabled ? _c.testBeep : null,
+                ),
+                SmallButton(
+                  ghost: true,
+                  key: const ValueKey('test-notify'),
+                  fontSize: 12,
+                  padding: (10, 4),
+                  label: t.t('notif.test'),
+                  onTap: s.enabled ? () => _c.testNotify(texts) : null,
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -341,59 +341,59 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
       // 列表卡 React 也挂 `hover-lift`（`NotificationEventList.tsx:185`）。
       child: HoverLift(
         child: Tile(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              t.t('notif.eventListTitle'),
-              style: AidogType.label.copyWith(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: AidogTheme.of(context).c.fg,
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(top: 2),
-              child: Text(
-                disabled
-                    ? '${t.t('notif.eventListDesc')} · '
-                          '${t.t('notif.defaultHooksDisabledHint')}'
-                    : t.t('notif.eventListDesc'),
-                style: AidogType.caption.copyWith(
-                  fontSize: 12,
-                  color: AidogTheme.of(context).c.fg2,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                t.t('notif.eventListTitle'),
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: AidogTheme.of(context).c.fg,
                 ),
               ),
-            ),
-            const SizedBox(height: AidogSpace.smd),
-            // 总开关关掉后整块压暗（`NotificationEventList.tsx:196`）。
-            Opacity(
-              key: const ValueKey('notif-event-list-dim'),
-              opacity: disabled ? 0.5 : 1,
-              child: IgnorePointer(
-                ignoring: disabled,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (final event in orderedHookEvents())
-                      _EventRow(
-                        key: ValueKey('event-$event'),
-                        event: event,
-                        setting: effectiveEventSetting(s.perEvent, event),
-                        disabled: disabled,
-                        // 首次改动即把该事件的当前展示态整份物化进 per_event。
-                        onUpdate: (next) =>
-                            _c.updateEvent(event, next.toJson()),
-                      ),
-                  ],
+              Padding(
+                padding: const EdgeInsets.only(top: 2),
+                child: Text(
+                  disabled
+                      ? '${t.t('notif.eventListDesc')} · '
+                            '${t.t('notif.defaultHooksDisabledHint')}'
+                      : t.t('notif.eventListDesc'),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: AidogTheme.of(context).c.fg2,
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
+              const SizedBox(height: AidogSpace.smd),
+              // 总开关关掉后整块压暗（`NotificationEventList.tsx:196`）。
+              Opacity(
+                key: const ValueKey('notif-event-list-dim'),
+                opacity: disabled ? 0.5 : 1,
+                child: IgnorePointer(
+                  ignoring: disabled,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (final event in orderedHookEvents())
+                        _EventRow(
+                          key: ValueKey('event-$event'),
+                          event: event,
+                          setting: effectiveEventSetting(s.perEvent, event),
+                          disabled: disabled,
+                          // 首次改动即把该事件的当前展示态整份物化进 per_event。
+                          onUpdate: (next) =>
+                              _c.updateEvent(event, next.toJson()),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -648,10 +648,7 @@ class _EventRow extends StatelessWidget {
           padding: const EdgeInsets.only(right: 6),
           child: Text(
             label,
-            style: AidogType.caption.copyWith(
-              fontSize: 12,
-              color: theme.c.fg2,
-            ),
+            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg2),
           ),
         ),
         Opacity(

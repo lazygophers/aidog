@@ -52,21 +52,24 @@ class SchedulingSettings {
   final int breakerHalfOpenMax;
   final bool enabled;
 
-  factory SchedulingSettings.fromJson(Map<String, Object?> j) => SchedulingSettings(
-        defaultRoutingMode: j['default_routing_mode'] as String? ?? 'health_aware',
-        breakerFailureThreshold: (j['breaker_failure_threshold'] as num?)?.toInt() ?? 5,
+  factory SchedulingSettings.fromJson(Map<String, Object?> j) =>
+      SchedulingSettings(
+        defaultRoutingMode:
+            j['default_routing_mode'] as String? ?? 'health_aware',
+        breakerFailureThreshold:
+            (j['breaker_failure_threshold'] as num?)?.toInt() ?? 5,
         breakerOpenSecs: (j['breaker_open_secs'] as num?)?.toInt() ?? 60,
         breakerHalfOpenMax: (j['breaker_half_open_max'] as num?)?.toInt() ?? 2,
         enabled: j['enabled'] as bool? ?? true,
       );
 
   Map<String, Object?> toJson() => {
-        'default_routing_mode': defaultRoutingMode,
-        'breaker_failure_threshold': breakerFailureThreshold,
-        'breaker_open_secs': breakerOpenSecs,
-        'breaker_half_open_max': breakerHalfOpenMax,
-        'enabled': enabled,
-      };
+    'default_routing_mode': defaultRoutingMode,
+    'breaker_failure_threshold': breakerFailureThreshold,
+    'breaker_open_secs': breakerOpenSecs,
+    'breaker_half_open_max': breakerHalfOpenMax,
+    'enabled': enabled,
+  };
 
   SchedulingSettings copyWith({
     String? defaultRoutingMode,
@@ -74,14 +77,14 @@ class SchedulingSettings {
     int? breakerOpenSecs,
     int? breakerHalfOpenMax,
     bool? enabled,
-  }) =>
-      SchedulingSettings(
-        defaultRoutingMode: defaultRoutingMode ?? this.defaultRoutingMode,
-        breakerFailureThreshold: breakerFailureThreshold ?? this.breakerFailureThreshold,
-        breakerOpenSecs: breakerOpenSecs ?? this.breakerOpenSecs,
-        breakerHalfOpenMax: breakerHalfOpenMax ?? this.breakerHalfOpenMax,
-        enabled: enabled ?? this.enabled,
-      );
+  }) => SchedulingSettings(
+    defaultRoutingMode: defaultRoutingMode ?? this.defaultRoutingMode,
+    breakerFailureThreshold:
+        breakerFailureThreshold ?? this.breakerFailureThreshold,
+    breakerOpenSecs: breakerOpenSecs ?? this.breakerOpenSecs,
+    breakerHalfOpenMax: breakerHalfOpenMax ?? this.breakerHalfOpenMax,
+    enabled: enabled ?? this.enabled,
+  );
 }
 
 /// 数字框的校验：`Math.max(0, Math.floor(Number(v) || 0))`。
@@ -97,7 +100,8 @@ int clampNonNegativeInt(String raw) {
 }
 
 class SchedulingController {
-  SchedulingController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  SchedulingController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -110,7 +114,9 @@ class SchedulingController {
 
   Future<void> load() async {
     try {
-      settings = SchedulingSettings.fromJson(_map(await _invoke('scheduling_settings_get')));
+      settings = SchedulingSettings.fromJson(
+        _map(await _invoke('scheduling_settings_get')),
+      );
     } catch (_) {
       // React：console.error 后退回默认值（不在界面上报错）。
       settings = SchedulingSettings.defaults;
@@ -133,12 +139,15 @@ class SchedulingController {
     }
   }
 
-  Future<void> toggleEnabled() => persist(settings.copyWith(enabled: !settings.enabled));
+  Future<void> toggleEnabled() =>
+      persist(settings.copyWith(enabled: !settings.enabled));
 
-  Future<void> setRoutingMode(String mode) => persist(settings.copyWith(defaultRoutingMode: mode));
+  Future<void> setRoutingMode(String mode) =>
+      persist(settings.copyWith(defaultRoutingMode: mode));
 
-  Future<void> setFailureThreshold(String raw) =>
-      persist(settings.copyWith(breakerFailureThreshold: clampNonNegativeInt(raw)));
+  Future<void> setFailureThreshold(String raw) => persist(
+    settings.copyWith(breakerFailureThreshold: clampNonNegativeInt(raw)),
+  );
 
   Future<void> setOpenSecs(String raw) =>
       persist(settings.copyWith(breakerOpenSecs: clampNonNegativeInt(raw)));

@@ -12,12 +12,31 @@ import 'package:aidog_flutter/src/pages/settings/bits.dart';
 import 'package:aidog_flutter/src/pages/settings/coding_tools_logic.dart'
     show kDateRewriteRuleName;
 import 'package:aidog_flutter/src/pages/settings/importexport_logic.dart'
-    show kInitialScopes;
+    show kImportExportScopes, kInitialScopes;
+import 'package:aidog_flutter/src/pages/settings/importexport_page.dart'
+    show scopeCardGroups;
+import 'package:aidog_flutter/src/pages/settings/schema_config_page.dart'
+    show JsonField;
 import 'package:aidog_flutter/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:re_editor/re_editor.dart' show CodeEditor;
 
 import '../pages/harness.dart';
+
+/// 往 sub2api 粘贴框里灌文本。它是 re_editor 的 `CodeEditor`，没有可以
+/// `enterText` 的 `TextField`，得直接写它的 controller（与
+/// `json_editor_widget_test.dart:104-110` 同手法）。
+Future<void> enterPaste(WidgetTester tester, String text) async {
+  final editor = tester.widget<CodeEditor>(
+    find.descendant(
+      of: find.byKey(const ValueKey('sub2api-paste')),
+      matching: find.byType(CodeEditor),
+    ),
+  );
+  editor.controller!.text = text;
+  await tester.pumpAndSettle();
+}
 
 /// 各页首屏要的载荷。给全了才不会被 [FakeKernel] 的「没摆载荷」断言打断。
 Map<String, Object? Function(Map<String, Object?>?)> baseResponses() => {
@@ -344,12 +363,11 @@ void main() {
 
       bool obscured(String key) => switch (key) {
         // 批三重构后：令牌仍是 TextRow，上游密码换成了横排 PlainTextField。
-        'kernel-token' => tester.widget<TextRow>(
-            find.byKey(const ValueKey('kernel-token')),
-          ).obscure,
-        _ => tester.widget<PlainTextField>(
-            find.byKey(ValueKey(key)),
-          ).obscure,
+        'kernel-token' =>
+          tester
+              .widget<TextRow>(find.byKey(const ValueKey('kernel-token')))
+              .obscure,
+        _ => tester.widget<PlainTextField>(find.byKey(ValueKey(key))).obscure,
       };
 
       // 密文是常态。
@@ -965,13 +983,15 @@ void main() {
     testWidgets('通知总开关开着 → 一张都不压暗', (tester) async {
       await mount(tester);
       expect(
-        tester.widget<Opacity>(find.byKey(const ValueKey('notif-test-bar-dim'))).opacity,
+        tester
+            .widget<Opacity>(find.byKey(const ValueKey('notif-test-bar-dim')))
+            .opacity,
         1.0,
       );
       expect(
-        tester.widget<Opacity>(
-          find.byKey(const ValueKey('notif-event-list-dim')),
-        ).opacity,
+        tester
+            .widget<Opacity>(find.byKey(const ValueKey('notif-event-list-dim')))
+            .opacity,
         1.0,
       );
     });
@@ -1589,14 +1609,7 @@ void main() {
         },
       );
       final i18n = await makeI18n(tester);
-      await tester.enterText(
-        find.descendant(
-          of: find.byKey(const ValueKey('sub2api-paste')),
-          matching: find.byType(TextField),
-        ),
-        '{"accounts":[]}',
-      );
-      await settle(tester);
+      await enterPaste(tester, '{"accounts":[]}');
       await tester.tap(find.byKey(const ValueKey('sub2api-parse')));
       await settle(tester);
 
@@ -1661,14 +1674,7 @@ void main() {
             'group_detail_list': (_) => <Object?>[],
           },
         );
-        await tester.enterText(
-          find.descendant(
-            of: find.byKey(const ValueKey('sub2api-paste')),
-            matching: find.byType(TextField),
-          ),
-          '{"accounts":[]}',
-        );
-        await settle(tester);
+        await enterPaste(tester, '{"accounts":[]}');
         await tester.tap(find.byKey(const ValueKey('sub2api-parse')));
         await settle(tester);
 
@@ -1693,12 +1699,18 @@ void main() {
     testWidgets('取消勾选全部范围 → 报错且不许导出', (tester) async {
       await mount(tester);
       final i18n = await makeI18n(tester);
-      // 初始只勾 kInitialScopes 三项（对齐 React），其余本来就关，
-      // 逐个点会反把它们打开。只点开着的。
-      for (final s in kInitialScopes) {
-        await tester.tap(find.byKey(ValueKey('scope-$s')));
+      // scope 卡按菜单组聚合（`ImportExportTab.tsx:398-429`）：点一张卡翻转
+      // 整组。初始勾的 platform / group / group_platform / setting 分别落在
+      // 前三张单 scope 卡和 system 卡上；system 组里 setting 勾着、codex 等
+      // 没勾 = 半选，点它是「全开」，所以要点两次才清空。
+      for (final gid in ['platform', 'group', 'group_platform']) {
+        await tester.tap(find.byKey(ValueKey('scope-$gid')));
         await settle(tester);
       }
+      await tester.tap(find.byKey(const ValueKey('scope-system'))); // 半选 → 全开
+      await settle(tester);
+      await tester.tap(find.byKey(const ValueKey('scope-system'))); // 全开 → 全关
+      await settle(tester);
       expect(find.text(i18n.t('importExport.error.noScope')), findsOneWidget);
       expect(
         tester
@@ -1712,9 +1724,10 @@ void main() {
       final k = await mount(tester);
       final i18n = await makeI18n(tester);
       final before = k.countOf('export_preview');
-      await tester.tap(find.byKey(ValueKey('scope-skills')));
+      // skills / mcp 现在同属「扩展」聚合卡（`meta.ts:58-69`），连点两张不同的卡。
+      await tester.tap(find.byKey(const ValueKey('scope-extension')));
       // 300ms 内连点不重复拉：防抖只发最后一次。
-      await tester.tap(find.byKey(ValueKey('scope-mcp')));
+      await tester.tap(find.byKey(const ValueKey('scope-rules')));
       // settle 一轮只走 240ms，不够 300ms 防抖到期，再补一泵。
       await tester.pump(const Duration(milliseconds: 400));
       await settle(tester);
@@ -1735,23 +1748,32 @@ void main() {
       // 单数 wire 名（'platform' 而非 'platforms'），否则 collect 全空。
       await tester.pump(const Duration(milliseconds: 400));
       await settle(tester);
-      final scopes =
-          (k.lastArgsOf('export_preview')!['scopes']! as List).cast<String>();
+      final scopes = (k.lastArgsOf('export_preview')!['scopes']! as List)
+          .cast<String>();
       expect(scopes.toSet(), kInitialScopes);
-      // 10 个 scope 的 chip 全在场（`meta.ts:16-26` 的 ALL_SCOPES）。
-      for (final s in [
+      // 卡片按菜单组聚合（`ImportExportTab.tsx:351-360` 的 scopeCardGroups）：
+      // 10 个 scope 并成 6 张卡，platform / group / group_platform 各自独立。
+      expect(scopeCardGroups().map((g) => g.gid).toList(), [
         'platform',
         'group',
         'group_platform',
-        'setting',
-        'codex',
-        'claude_code',
-        'model_price',
-        'mcp',
-        'middleware',
-        'skills',
+        'system',
+        'extension',
+        'rules',
+      ]);
+      expect(
+        scopeCardGroups().expand((g) => g.scopeIds).toSet(),
+        kImportExportScopes.toSet(),
+      );
+      for (final gid in [
+        'platform',
+        'group',
+        'group_platform',
+        'system',
+        'extension',
+        'rules',
       ]) {
-        expect(find.byKey(ValueKey('scope-$s')), findsOneWidget, reason: s);
+        expect(find.byKey(ValueKey('scope-$gid')), findsOneWidget, reason: gid);
       }
     });
 
@@ -1762,7 +1784,7 @@ void main() {
       // 下面的错误清空 —— 页面真用起来初始预览早就拉完了。
       await tester.pump(const Duration(milliseconds: 400));
       await settle(tester);
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
       expect(k.countOf('import_read_file'), 0);
       expect(find.text(i18n.t('importExport.error.notAidogx')), findsOneWidget);
@@ -1792,7 +1814,7 @@ void main() {
           'import_apply': (_) => <String, Object?>{},
         },
       );
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
       expect(k.countOf('import_read_file'), 1);
       // 对齐 React（`ImportExportTab.tsx:568`）：只看跑着没 / 有没有预览 /
@@ -1823,18 +1845,21 @@ void main() {
 
     // 回归 2026-09-23：粘贴框原先 `maxLines: 4`，粘一份账号导出 JSON 只看得见
     // 四行。React 那边是 120–320px 的 JSON 编辑器（`Sub2ApiImport.tsx:195-201`）。
-    testWidgets('sub2api 粘贴框有 JSON 编辑器那么高，且是等宽字', (tester) async {
+    testWidgets('sub2api 粘贴框就是 JSON 编辑器本体（高亮 / 行号 / 折叠 / 搜索）', (tester) async {
       await mount(tester);
-      final field = tester.widget<TextField>(
+      // React 这里是 `JsonCodeEditor`（`Sub2ApiImport.tsx:195-201`），不是
+      // 纯文本域；Flutter 同一件东西是 re_editor 版 `JsonField`，上限 320。
+      final field = tester.widget<JsonField>(
+        find.byKey(const ValueKey('sub2api-paste')),
+      );
+      expect(field.height, 320);
+      expect(
         find.descendant(
           of: find.byKey(const ValueKey('sub2api-paste')),
-          matching: find.byType(TextField),
+          matching: find.byType(CodeEditor),
         ),
+        findsOneWidget,
       );
-      // 7 行 ≈ 119px 起、19 行 ≈ 323px 封顶（等宽行高 12.5×1.35）。
-      expect(field.minLines, greaterThanOrEqualTo(6));
-      expect(field.maxLines, greaterThanOrEqualTo(18));
-      expect(field.style?.fontFamily, AidogType.numSm.fontFamily);
     });
 
     testWidgets('条目按菜单组折叠：组级三态 + 收起后组内行不渲染', (tester) async {
@@ -1853,7 +1878,7 @@ void main() {
           'import_apply': (_) => <String, Object?>{},
         },
       );
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
 
       // 批三后组级三态是自绘 _CheckBox（16px、半选横线），
@@ -1922,7 +1947,7 @@ void main() {
         },
       );
       final i18n = await makeI18n(tester);
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
 
       // 本地现有那条长什么样 —— 没有它就得闭着眼睛决定要不要覆盖。
@@ -2022,7 +2047,7 @@ void main() {
         },
       );
       final i18n = await makeI18n(tester);
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
       await tester.tap(
         find.byKey(const ValueKey('decide-platform p1-keepBoth')),
@@ -2059,7 +2084,7 @@ void main() {
           'import_apply': (_) => <String, Object?>{},
         },
       );
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
 
       await tester.tap(
@@ -2111,7 +2136,7 @@ void main() {
         },
       );
       final i18n = await makeI18n(tester);
-      await tester.tap(find.byKey(const ValueKey('import-pick')));
+      await tester.tap(find.byKey(const ValueKey('import-dropzone')));
       await settle(tester);
       expect(k.countOf('import_read_file'), 1);
 

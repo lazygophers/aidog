@@ -896,7 +896,8 @@ String conditionsSummary(Map<String, Object?> node) {
   // 括号，空树则渲染成 `()`。
   final children = node['children'] as List? ?? const [];
   final joined = [
-    for (final c in children) conditionsSummary(Map<String, Object?>.from(c as Map)),
+    for (final c in children)
+      conditionsSummary(Map<String, Object?>.from(c as Map)),
   ].join(kind == 'all' ? ' AND ' : ' OR ');
   if (children.length > 1) return '($joined)';
   return joined.isEmpty ? '∅' : joined;

@@ -54,14 +54,16 @@ class FilterDropdown extends StatefulWidget {
     required this.searchPlaceholder,
     required this.options,
     required this.emptyLabel,
-    this.height = 30,
-    this.padX = AidogSpace.smd,
-    this.fontSize,
+    this.height = 36,
+    this.padX = 16,
+    this.fontSize = 14,
   });
 
-  /// 触发钮高度 / 水平内衬 / 字号。缺省 30 / 10 / caption 12.5；模型信息页的
-  /// `SelectTrigger` 是 `height 32, padding "6px 8px", fontSize 12`
-  /// （`src/pages/ModelInfo/ModelInfoTab.tsx:225,236`）。
+  /// 触发钮高度 / 水平内衬 / 字号。缺省 36 / 16 / 14 —— React 的
+  /// `style={{ fontSize: 14, lineHeight: 1.5, height: 36 }}` + shadcn `<Button>`
+  /// 缺省 `px-4`（`src/components/shared/FilterDropdown.tsx:50`、`ui/button.tsx`）。
+  /// 模型信息页的 `SelectTrigger` 是 `height 32, padding "6px 8px", fontSize 12`
+  /// （`src/pages/ModelInfo/ModelInfoTab.tsx:225,236`），那边逐项覆盖。
   final double height;
   final double padX;
   final double? fontSize;
@@ -140,9 +142,11 @@ class _FilterDropdownState extends State<FilterDropdown> {
               child: Container(
                 width: width,
                 constraints: const BoxConstraints(maxHeight: 320),
-                padding: const EdgeInsets.all(AidogSpace.ssm),
+                // 浮层 `padding: 8` + `bg-popover`（`FilterDropdown.tsx:78-79`）；
+                // `--bg-glass` / `--card` / `bg-popover` 在 Flutter 一律是 surface。
+                padding: const EdgeInsets.all(AidogSpace.s_8),
                 decoration: BoxDecoration(
-                  color: t.c.surface2,
+                  color: t.c.surface,
                   border: Border.all(color: t.c.line),
                   borderRadius: BorderRadius.circular(AidogRadius.md),
                   boxShadow: t.shadowFloat,
@@ -158,14 +162,23 @@ class _FilterDropdownState extends State<FilterDropdown> {
                         TextField(
                           controller: _search,
                           autofocus: true,
-                          style: AidogType.label.copyWith(color: t.c.fg),
+                          // 搜索框 `<Input style={{ fontSize: 14 }}>`，内衬走
+                          // `.input` 的 `padding: 8px 12px`
+                          //（`FilterDropdown.tsx:81-87` + `globals.css:433-450`）。
+                          style: AidogType.label.copyWith(
+                            fontSize: 14,
+                            color: t.c.fg,
+                          ),
                           decoration: InputDecoration(
                             isDense: true,
                             hintText: widget.searchPlaceholder,
-                            hintStyle: AidogType.label.copyWith(color: t.c.fg3),
+                            hintStyle: AidogType.label.copyWith(
+                              fontSize: 14,
+                              color: t.c.fg3,
+                            ),
                             contentPadding: const EdgeInsets.symmetric(
-                              horizontal: AidogSpace.ssm,
-                              vertical: AidogSpace.ssm,
+                              horizontal: 12,
+                              vertical: AidogSpace.s_8,
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderSide: BorderSide(color: t.c.line),
@@ -181,34 +194,48 @@ class _FilterDropdownState extends State<FilterDropdown> {
                             ),
                           ),
                         ),
+                        // 搜索框↔列表 `gap: 6`（`FilterDropdown.tsx:79`）。
                         const SizedBox(height: AidogSpace.ssm),
                         Flexible(
-                          child: ListView(
-                            shrinkWrap: true,
-                            children: [
-                              _row(t, widget.allLabel, widget.value.isEmpty, ''),
-                              if (hits.isEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: AidogSpace.smd,
-                                    vertical: AidogSpace.ssm,
-                                  ),
-                                  child: Text(
-                                    widget.emptyLabel,
-                                    style: AidogType.caption.copyWith(
-                                      color: t.c.fg3,
+                          // 列表自身 `maxHeight: 250`（`FilterDropdown.tsx:88`），
+                          // 与浮层的 320 上限是两道，不是一道。
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 250),
+                            child: ListView(
+                              shrinkWrap: true,
+                              children: [
+                                _row(
+                                  t,
+                                  widget.allLabel,
+                                  widget.value.isEmpty,
+                                  '',
+                                ),
+                                if (hits.isEmpty)
+                                  Padding(
+                                    // 空态 `fontSize: 12, padding: "6px 8px"`
+                                    //（`FilterDropdown.tsx:91`）。
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: AidogSpace.s_8,
+                                      vertical: AidogSpace.ssm,
                                     ),
-                                  ),
-                                )
-                              else
-                                for (final o in hits)
-                                  _row(
-                                    t,
-                                    o.label,
-                                    widget.value == o.value,
-                                    o.value,
-                                  ),
-                            ],
+                                    child: Text(
+                                      widget.emptyLabel,
+                                      style: AidogType.caption.copyWith(
+                                        fontSize: 12,
+                                        color: t.c.fg3,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  for (final o in hits)
+                                    _row(
+                                      t,
+                                      o.label,
+                                      widget.value == o.value,
+                                      o.value,
+                                    ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -224,25 +251,31 @@ class _FilterDropdownState extends State<FilterDropdown> {
   }
 
   Widget _row(AidogTheme t, String label, bool active, String value) {
-    return InkWell(
-      onTap: () => _pick(value),
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.smd,
-          vertical: AidogSpace.ssm,
-        ),
-        decoration: BoxDecoration(
-          color: active ? t.c.accentWash : null,
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: AidogType.label.copyWith(
-            color: active ? t.c.accentText : t.c.fg,
-            fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+    return Padding(
+      // 选项之间 `gap: 2`（`FilterDropdown.tsx:88`）。
+      padding: const EdgeInsets.only(bottom: 2),
+      child: InkWell(
+        onTap: () => _pick(value),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.smd,
+            vertical: AidogSpace.ssm,
+          ),
+          decoration: BoxDecoration(
+            color: active ? t.c.accentWash : null,
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            // 选项 `fontSize: 14, lineHeight: 1.5`（`FilterDropdown.tsx:129`）。
+            style: AidogType.label.copyWith(
+              fontSize: 14,
+              color: active ? t.c.accentText : t.c.fg,
+              fontWeight: active ? FontWeight.w500 : FontWeight.w400,
+            ),
           ),
         ),
       ),
@@ -266,9 +299,21 @@ class _FilterDropdownState extends State<FilterDropdown> {
           height: widget.height,
           padding: EdgeInsets.symmetric(horizontal: widget.padX),
           decoration: BoxDecoration(
-            color: t.c.surface2,
+            // `bg-card`（`FilterDropdown.tsx:48`）= Flutter 的 surface。
+            color: t.c.surface,
             border: Border.all(color: open ? t.c.accentEdge : t.c.line),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
+            // 展开时 `shadow-[0_0_0_3px_var(--accent-subtle)]` 外发光（同上 :48）：
+            // 零模糊、零偏移、外扩 3 —— 是光环不是投影。
+            boxShadow: open
+                ? [
+                    BoxShadow(
+                      color: t.c.accentWash,
+                      spreadRadius: 3,
+                      blurRadius: 0,
+                    ),
+                  ]
+                : null,
           ),
           child: Row(
             children: [
@@ -283,11 +328,17 @@ class _FilterDropdownState extends State<FilterDropdown> {
                   ),
                 ),
               ),
-              const SizedBox(width: AidogSpace.ssm),
-              Icon(
-                open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                size: 16,
-                color: t.c.fg3,
+              // 箭头是 8 宽 × 5 高的 CSS 三角 + `marginLeft: 8`，展开时
+              // `rotate(180deg)` 200ms 过渡（`FilterDropdown.tsx:57-69`）——
+              // Material 的 arrow_drop_down 是另一个形状，且切图标没有过渡。
+              const SizedBox(width: AidogSpace.s_8),
+              AnimatedRotation(
+                turns: open ? 0.5 : 0,
+                duration: const Duration(milliseconds: 200),
+                child: CustomPaint(
+                  size: const Size(8, 5),
+                  painter: _CaretPainter(t.c.fg3),
+                ),
               ),
             ],
           ),
@@ -295,6 +346,27 @@ class _FilterDropdownState extends State<FilterDropdown> {
       ),
     );
   }
+}
+
+/// 下三角箭头：8 宽 × 5 高实心三角，对应 React 用 border 拼出来的 CSS 三角
+/// （`src/components/shared/FilterDropdown.tsx:57-69`）。
+class _CaretPainter extends CustomPainter {
+  const _CaretPainter(this.color);
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_CaretPainter old) => old.color != color;
 }
 
 /// 协议跨语言搜索词（registry 的 8 locale name + keywords）。

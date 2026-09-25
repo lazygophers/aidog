@@ -5,7 +5,6 @@
 library;
 
 import 'package:aidog_flutter/i18n.dart';
-import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/pages/settings/schema_config_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -141,13 +140,14 @@ void main() {
       );
       await tester.tap(find.byKey(const ValueKey('perm-view-json')));
       await settle(tester);
-      final field = find.descendant(
-        of: find.byKey(const ValueKey('perm-json')),
-        matching: find.byType(TextField),
+      // 审计 C9-A6：JSON 回退已从纯文本 `PlainTextField` 换成 `JsonField`
+      //（re_editor：行号 / 高亮 / 搜索替换），对齐 React 的 `JsonCodeEditor`
+      //（`editors/_shared.tsx:210-229`）。原先断言的是 `TextField` 的 controller。
+      final field = tester.widget<JsonField>(
+        find.byKey(const ValueKey('perm-json')),
       );
-      final ctrl = tester.widget<TextField>(field).controller!;
-      expect(ctrl.text, contains('"Bash(git *)"'));
-      expect(ctrl.text, contains('"plan"'));
+      expect(field.text, contains('"Bash(git *)"'));
+      expect(field.text, contains('"plan"'));
       expect(t.t('settings.permissionsVisualView'), isNotEmpty);
     });
   });
