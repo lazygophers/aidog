@@ -1642,6 +1642,7 @@ class _DetailPanelState extends State<_DetailPanel> {
               text,
               style: TextStyle(
                 fontFamily: AidogType.familyMono,
+                fontFamilyFallback: AidogType.familyMonoFallback,
                 fontSize: 12,
                 height: 1.7,
                 color: empty ? theme.c.fg3 : theme.c.fg,

@@ -682,6 +682,7 @@ TextStyle _panelMono(
   double tracking = 0,
 }) => TextStyle(
   fontFamily: AidogType.familyMono,
+  fontFamilyFallback: AidogType.familyMonoFallback,
   fontSize: size,
   fontWeight: w,
   letterSpacing: tracking * size,

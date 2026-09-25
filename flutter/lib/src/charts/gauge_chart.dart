@@ -103,6 +103,7 @@ class GaugeChart extends StatelessWidget {
                       formatPercent(fraction * 100, 0),
                       style: TextStyle(
                         fontFamily: AidogType.familyMono,
+                        fontFamilyFallback: AidogType.familyMonoFallback,
                         fontSize: size / 7,
                         fontWeight: FontWeight.w600,
                         color: t.c.fg,

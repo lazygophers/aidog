@@ -1,7 +1,7 @@
 /* 由 build-tokens.mjs 从 tokens.json 生成，禁止手改 */
 :root {
-  --family-sans: Inter, -apple-system, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-  --family-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --family-sans: -apple-system, system-ui, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --family-mono: 'SF Mono', ui-monospace, monospace;
   --bg: #08090A;
   --bg-chrome: #0C0D0F;
   --surface: #111214;
