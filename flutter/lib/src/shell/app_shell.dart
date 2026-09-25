@@ -116,7 +116,9 @@ class PageHead extends StatelessWidget {
           ),
           if (trailing != null) ...[
             const SizedBox(width: AidogSpace.s_2xl),
-            trailing!,
+            // 小窗（托盘 500px）里 trailing 自然宽可能超过剩余空间，把 Expanded
+            // 压到 0 后 Row 整体溢出；Flexible 让 Wrap 换行而不是撑破。
+            Flexible(child: trailing!),
           ],
         ],
       ),
