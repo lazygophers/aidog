@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790343206,
   "model_id": "vertex_ai/meta/llama-4-scout-17b-128e-instruct-maas",
   "canonical_model": "llama-4-scout-17b-128e-instruct-maas",
   "family": "llama",
@@ -12,6 +12,8 @@
   "context_window": 10000000,
   "max_output_tokens": 10000000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.5e-7,
     "output": 7e-7

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790343206,
   "model_id": "gpt-realtime-2025-08-28",
   "canonical_model": "gpt-realtime",
   "family": "gpt",
@@ -12,6 +12,8 @@
   "context_window": 32000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000004,
     "output": 0.000016

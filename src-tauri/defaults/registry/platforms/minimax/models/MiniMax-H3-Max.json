@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790343206,
   "model_id": "MiniMax-H3-Max",
   "canonical_model": "MiniMax-H3-Max",
   "family": "minimax",
@@ -9,6 +9,8 @@
     "image_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0458333

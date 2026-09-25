@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790343206,
   "model_id": "SenseNova-V6-Reasoner",
   "canonical_model": "SenseNova-V6-Reasoner",
   "family": "sensenova",
@@ -12,6 +12,7 @@
   "max_input_tokens": 32768,
   "context_window": 32768,
   "official": true,
+  "thinking_toggleable": false,
   "thinking_supported": true,
   "price": {
     "input": 5.55556e-7,

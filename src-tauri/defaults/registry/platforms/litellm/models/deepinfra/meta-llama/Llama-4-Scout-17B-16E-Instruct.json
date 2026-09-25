@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790343206,
   "model_id": "deepinfra/meta-llama/Llama-4-Scout-17B-16E-Instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 327680,
   "max_output_tokens": 327680,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-7,
     "output": 3e-7

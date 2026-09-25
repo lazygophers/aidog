@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790343206,
   "model_id": "chat-latest",
   "canonical_model": "chat-latest",
   "family": "chat",
@@ -12,8 +12,8 @@
   "context_window": 400000,
   "context_window": 400000,
   "official": true,
-  "thinking_supported": true,
-  "thinking_toggleable": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-06,
     "output": 3e-05,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790343206,
   "model_id": "novita/qwen/qwen3-coder-30b-a3b-instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
   "family": "qwen",
@@ -12,6 +12,8 @@
   "context_window": 160000,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7e-8,
     "output": 2.7e-7
