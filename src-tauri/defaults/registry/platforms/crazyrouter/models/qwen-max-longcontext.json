@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790343206,
   "model_id": "qwen-max-longcontext",
   "canonical_model": "qwen-max-longcontext",
   "family": "qwen",
@@ -7,6 +7,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-07,
     "output": 1.2e-06

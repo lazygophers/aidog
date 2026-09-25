@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790343206,
   "model_id": "azure_ai/Llama-4-Maverick-17B-128E-Instruct-FP8",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-fp8",
   "family": "llama",
@@ -13,6 +13,8 @@
   "context_window": 1000000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.5e-7,
     "output": 0.000001

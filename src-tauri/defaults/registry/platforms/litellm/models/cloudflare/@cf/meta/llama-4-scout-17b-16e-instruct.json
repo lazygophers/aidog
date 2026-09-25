@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790343206,
   "model_id": "cloudflare/@cf/meta/llama-4-scout-17b-16e-instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
   "family": "llama",
@@ -12,6 +12,8 @@
   "context_window": 131000,
   "max_output_tokens": 131000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.7e-7,
     "output": 8.5e-7

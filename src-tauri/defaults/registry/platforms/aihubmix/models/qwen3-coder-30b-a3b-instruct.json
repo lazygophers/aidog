@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790343206,
   "model_id": "qwen3-coder-30b-a3b-instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
   "display_name": "Qwen3 Coder 30B A3B Instruct",
@@ -12,6 +12,8 @@
   "max_output_tokens": 262000,
   "context_window": 262144,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.0000000000000002e-07,
     "output": 8.000000000000001e-07,

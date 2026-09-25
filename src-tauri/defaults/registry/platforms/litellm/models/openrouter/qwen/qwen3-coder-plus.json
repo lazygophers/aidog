@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790343206,
   "model_id": "openrouter/qwen/qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "family": "qwen",
@@ -12,6 +12,8 @@
   "context_window": 1000000,
   "max_output_tokens": 65536,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.5e-7,
     "output": 0.00000325

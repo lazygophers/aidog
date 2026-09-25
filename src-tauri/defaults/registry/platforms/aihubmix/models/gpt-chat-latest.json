@@ -1,10 +1,10 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790343206,
   "model_id": "gpt-chat-latest",
   "canonical_model": "gpt-chat-latest",
 
   "family": "gpt",  "display_name": "GPT Chat",
-  "thinking_supported": true,
+  "thinking_supported": false,
   "capabilities": [
     "text"
   ],
@@ -12,7 +12,7 @@
   "max_output_tokens": 128000,
   "context_window": 400000,
   "official": false,
-  "thinking_toggleable": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000005,
     "output": 0.00003,

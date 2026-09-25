@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790343206,
   "model_id": "meta/llama-4-maverick-17b-128e-instruct-maas",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-maas",
   "family": "llama",
@@ -11,6 +11,8 @@
   "max_output_tokens": 1000000,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 3.5e-07,
     "output": 1.15e-06

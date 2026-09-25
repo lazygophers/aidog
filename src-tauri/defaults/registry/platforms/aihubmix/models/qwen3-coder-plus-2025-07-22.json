@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790343206,
   "model_id": "qwen3-coder-plus-2025-07-22",
   "canonical_model": "qwen3-coder-plus",
   "display_name": "Qwen3 Coder Plus 2025 07-22",
@@ -12,6 +12,8 @@
   "max_output_tokens": 65536,
   "context_window": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.4e-07,
     "output": 2.16e-06,

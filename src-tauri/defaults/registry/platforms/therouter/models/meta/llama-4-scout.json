@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790343206,
   "model_id": "meta/llama-4-scout",
   "canonical_model": "llama-4-scout",
   "family": "llama",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.836e-07,
     "output": 7.128e-07
