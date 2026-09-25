@@ -116,12 +116,11 @@ class _SharePanelState extends State<SharePanel> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // 安全警示：分享内容含明文 API Key。
+            // `ShareModal.tsx:162-172`：12.5 danger、pad 8/12、带 bg-glass 底。
             Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AidogSpace.smd,
-                vertical: AidogSpace.ssm,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
+                color: theme.c.surface2,
                 border: Border.all(color: theme.c.bad),
                 borderRadius: BorderRadius.circular(AidogRadius.sm),
               ),
@@ -135,18 +134,26 @@ class _SharePanelState extends State<SharePanel> {
               spacing: AidogSpace.ssm,
               children: [
                 for (final f in _formats)
+                  // 格式 tab：`ShareModal.tsx:137-147`：12.5、pad 5/14。
                   SmallButton(
                     label: t.t('platform.share.format.${f.name}'),
                     active: _format == f,
+                    fontSize: 12.5,
+                    padding: (14, 5),
                     onTap: () => setState(() => _format = f),
                   ),
               ],
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            // 格式切换器下方 12（`ShareModal.tsx:180::marginBottom`）。
+            const SizedBox(height: 12),
             Container(
               constraints: const BoxConstraints(minHeight: 120, maxHeight: 260),
               width: double.infinity,
-              padding: const EdgeInsets.all(AidogSpace.smd),
+              // `ShareModal.tsx:205`：pad 12/14（竖/横）。
+              padding: const EdgeInsets.symmetric(
+                horizontal: AidogSpace.slg,
+                vertical: 12,
+              ),
               decoration: BoxDecoration(
                 color: theme.c.surface2,
                 border: Border.all(color: theme.c.line),
@@ -161,11 +168,13 @@ class _SharePanelState extends State<SharePanel> {
             ),
             // 二维码区块（仅 urlScheme 存在时出现；超长 → 降级成一行提示）。
             if (widget.urlScheme != null) ...[
-              const SizedBox(height: AidogSpace.ssm),
+              // `ShareModal.tsx:225`：marginTop 12。
+              const SizedBox(height: 12),
               Container(
+                // `ShareModal.tsx:226`：pad 12/14（竖/横）。
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AidogSpace.smd,
-                  vertical: AidogSpace.ssm,
+                  horizontal: AidogSpace.slg,
+                  vertical: 12,
                 ),
                 decoration: BoxDecoration(
                   color: theme.c.surface2,
@@ -177,7 +186,11 @@ class _SharePanelState extends State<SharePanel> {
                   children: [
                     Text(
                       t.t('platform.share.scanToImport'),
-                      style: AidogType.caption.copyWith(color: theme.c.fg2),
+                      // `ShareModal.tsx:236`：12.5 w600。
+                      style: AidogType.caption.copyWith(
+                        color: theme.c.fg2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                     const SizedBox(height: AidogSpace.ssm),
                     if (_deepLink case final link?)
@@ -209,12 +222,16 @@ class _SharePanelState extends State<SharePanel> {
                 ),
               ),
             ],
-            const SizedBox(height: AidogSpace.ssm),
+            // `ShareModal.tsx:265-270`：上距 18，两颗 13/6/14，主按钮 minWidth 96。
+            const SizedBox(height: AidogSpace.sxl),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 SmallButton(
                   label: t.t('action.close'),
+                  ghost: true,
+                  fontSize: 13,
+                  padding: (14, 6),
                   onTap: widget.onClose,
                 ),
                 const SizedBox(width: AidogSpace.ssm),
@@ -222,6 +239,11 @@ class _SharePanelState extends State<SharePanel> {
                   label: _copied
                       ? t.t('platform.share.copiedBtn')
                       : t.t('platform.share.copyBtn'),
+                  filled: true,
+                  active: true,
+                  fontSize: 13,
+                  padding: (14, 6),
+                  minWidth: 96,
                   onTap: () => _doCopy(auto: false),
                 ),
               ],
