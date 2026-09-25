@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "ali/qwen3-next-80b-a3b-Instruct",
+  "display_name": "Qwen3 Next 80B A3B Instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
   "family": "qwen",
   "version": "3",

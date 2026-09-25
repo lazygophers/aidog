@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "qwencloud/qwen-turbo-2024-11-01",
+  "display_name": "Qwen Turbo 2024 11-01",
   "canonical_model": "qwen-turbo",
   "family": "qwen",
   "capabilities": [

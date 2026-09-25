@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "openrouter/moonshotai/kimi-k2.7-code",
+  "display_name": "Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",
   "version": "2.7",
   "capabilities": [

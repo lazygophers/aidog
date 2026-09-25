@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "gemini-3.1-flash-lite-preview",
+  "display_name": "Gemini 3.1 Flash Lite Preview",
   "canonical_model": "gemini-3.1-flash-lite-preview",
   "family": "gemini",
   "version": "3.1",

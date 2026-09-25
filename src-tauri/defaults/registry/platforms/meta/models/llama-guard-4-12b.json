@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "llama-guard-4-12b",
+  "display_name": "Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",
   "family": "llama",
   "version": "4",

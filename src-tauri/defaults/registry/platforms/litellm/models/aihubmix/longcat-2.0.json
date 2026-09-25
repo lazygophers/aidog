@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345088,
   "model_id": "aihubmix/longcat-2.0",
+  "display_name": "LongCat 2.0",
   "canonical_model": "LongCat-2.0",
   "version": "2.0",
   "capabilities": [

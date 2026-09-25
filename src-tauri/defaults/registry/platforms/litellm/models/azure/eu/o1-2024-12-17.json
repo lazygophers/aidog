@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "azure/eu/o1-2024-12-17",
+  "display_name": "O1 2024 12-17",
   "canonical_model": "o1",
   "family": "o",
   "version": "1",

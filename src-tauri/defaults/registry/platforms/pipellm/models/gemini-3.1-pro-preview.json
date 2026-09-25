@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790345089,
   "model_id": "gemini-3.1-pro-preview",
+  "display_name": "Gemini 3.1 Pro Preview",
   "canonical_model": "gemini-3.1-pro-preview",
   "family": "gemini",
   "version": "3.1",

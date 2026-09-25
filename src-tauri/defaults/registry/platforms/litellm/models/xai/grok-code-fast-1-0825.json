@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790345089,
   "model_id": "xai/grok-code-fast-1-0825",
+  "display_name": "Grok Code Fast 1",
   "canonical_model": "grok-code-fast-1",
   "family": "grok",
   "capabilities": [

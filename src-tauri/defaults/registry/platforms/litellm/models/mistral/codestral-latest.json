@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "mistral/codestral-latest",
+  "display_name": "Codestral",
   "canonical_model": "codestral",
   "capabilities": [
     "text",

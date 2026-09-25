@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "xiaomi/mimo-v2.6-pro-ultraspeed",
+  "display_name": "MiMo-V2.6-Pro-UltraSpeed",
   "canonical_model": "mimo-v2.6-pro-ultraspeed",
   "family": "mimo",
   "version": "2.6",

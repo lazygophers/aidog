@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790345089,
   "model_id": "mistral/zai-glm-5-3",
+  "display_name": "GLM 5.3",
   "canonical_model": "glm-5.3",
   "family": "glm",
   "version": "5.3",

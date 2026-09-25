@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "gpt-audio",
+  "display_name": "GPT Audio",
   "canonical_model": "gpt-audio",
   "family": "gpt",
   "version": "audio",

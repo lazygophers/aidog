@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790345089,
   "model_id": "qwen_ai_platform/qwen-turbo-2025-04-28",
+  "display_name": "Qwen Turbo 2025 04-28",
   "canonical_model": "qwen-turbo",
   "family": "qwen",
   "capabilities": [

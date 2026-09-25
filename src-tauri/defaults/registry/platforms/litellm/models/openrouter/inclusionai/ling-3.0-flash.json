@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790345089,
   "model_id": "openrouter/inclusionai/ling-3.0-flash",
+  "display_name": "Ling 3.0 Flash",
   "canonical_model": "ling-3.0-flash",
   "family": "ling",
   "version": "3.0",

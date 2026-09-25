@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "openrouter/openai/gpt-4.1",
+  "display_name": "GPT-4.1",
   "canonical_model": "gpt-4.1",
   "family": "gpt",
   "version": "4.1",

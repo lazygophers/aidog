@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "wan2.5-i2v-preview",
+  "display_name": "Wan2.5 I2v Preview",
   "canonical_model": "wan2.5-i2v-preview",
   "family": "wan",
   "version": "2.5",

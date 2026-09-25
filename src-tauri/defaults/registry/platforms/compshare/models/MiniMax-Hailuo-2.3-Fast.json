@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "MiniMax-Hailuo-2.3-Fast",
+  "display_name": "MiniMax-Hailuo-2.3-Fast",
   "canonical_model": "MiniMax-Hailuo-2.3-Fast",
   "family": "minimax",
   "version": "2.3",

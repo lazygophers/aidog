@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "oci/meta.llama-4-scout-17b-16e-instruct",
+  "display_name": "Llama 4 Scout 17B 16e Instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
   "family": "llama",
   "version": "4",

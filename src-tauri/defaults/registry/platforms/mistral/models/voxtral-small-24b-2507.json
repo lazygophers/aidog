@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "voxtral-small-24b-2507",
+  "display_name": "Voxtral Small 24B 2507",
   "canonical_model": "voxtral-small-24b-2507",
   "family": "voxtral",
   "version": "25.07",

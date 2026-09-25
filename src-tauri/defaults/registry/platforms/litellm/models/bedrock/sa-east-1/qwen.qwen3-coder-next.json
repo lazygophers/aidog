@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790345089,
   "model_id": "bedrock/sa-east-1/qwen.qwen3-coder-next",
+  "display_name": "Qwen3 Coder Next",
   "canonical_model": "qwen3-coder-next",
   "family": "qwen",
   "version": "3",

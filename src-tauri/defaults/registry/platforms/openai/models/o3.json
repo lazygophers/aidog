@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790345089,
   "model_id": "o3",
+  "display_name": "o3",
   "canonical_model": "o3",
   "capabilities": [
     "text"

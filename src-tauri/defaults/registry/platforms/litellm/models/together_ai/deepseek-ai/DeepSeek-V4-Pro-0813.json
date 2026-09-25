@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "together_ai/deepseek-ai/DeepSeek-V4-Pro-0813",
+  "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "version": "4",
   "capabilities": [

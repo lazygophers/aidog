@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790345089,
   "model_id": "bedrock/us-gov-west-1/openai.gpt-oss-120b-1:0",
+  "display_name": "gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
   "family": "gpt",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "nebius/Qwen/Qwen3-30B-A3B",
+  "display_name": "Qwen3 30B A3B",
   "canonical_model": "qwen3-30b-a3b",
   "family": "qwen",
   "version": "3",

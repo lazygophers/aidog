@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "deepseek-v3.1-terminus",
+  "display_name": "DeepSeek V3.1 Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "family": "deepseek",
   "version": "3.1",

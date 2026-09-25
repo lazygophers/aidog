@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345088,
   "model_id": "gemma-2-27b-it",
+  "display_name": "Gemma 2 27B",
   "canonical_model": "gemma-2-27b-it",
   "family": "gemma",
   "version": "2",

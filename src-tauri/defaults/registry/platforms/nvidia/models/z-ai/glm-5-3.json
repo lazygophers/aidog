@@ -1,7 +1,8 @@
 {
   "version": "5.3",
-  "last_updated": 1790287585,
+  "last_updated": 1790345089,
   "model_id": "z-ai/glm-5-3",
+  "display_name": "GLM 5.3",
   "canonical_model": "glm-5.3",
   "family": "glm",
   "thinking_supported": true,

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790345089,
   "model_id": "databricks/databricks-gpt-5-5",
+  "display_name": "GPT-5.5",
   "canonical_model": "gpt-5.5",
   "family": "gpt",
   "version": "5.5",

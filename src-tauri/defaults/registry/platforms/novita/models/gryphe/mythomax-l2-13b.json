@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790345089,
   "model_id": "gryphe/mythomax-l2-13b",
+  "display_name": "MythoMax 13B",
   "canonical_model": "mythomax-l2-13b",
   "family": "mythomax",
   "capabilities": [

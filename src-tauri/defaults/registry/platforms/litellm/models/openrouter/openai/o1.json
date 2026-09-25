@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790345089,
   "model_id": "openrouter/openai/o1",
+  "display_name": "o1",
   "canonical_model": "o1",
   "family": "o",
   "version": "1",

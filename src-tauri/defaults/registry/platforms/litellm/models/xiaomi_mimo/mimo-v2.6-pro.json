@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790345089,
   "model_id": "xiaomi_mimo/mimo-v2.6-pro",
+  "display_name": "MiMo-V2.6-Pro",
   "canonical_model": "mimo-v2.6-pro",
   "family": "mimo",
   "version": "2.6",

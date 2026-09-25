@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790345089,
   "model_id": "minimax/minimax-m2.7",
+  "display_name": "MiniMax M2.7",
   "canonical_model": "MiniMax-M2.7",
   "family": "minimax",
   "version": "2.7",

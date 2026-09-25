@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "mistral/open-mistral-nemo",
+  "display_name": "Mistral Nemo",
   "canonical_model": "mistral-nemo",
   "family": "mistral",
   "capabilities": [

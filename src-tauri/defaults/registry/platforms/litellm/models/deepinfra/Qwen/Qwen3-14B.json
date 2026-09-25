@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "deepinfra/Qwen/Qwen3-14B",
+  "display_name": "Qwen3 14B",
   "canonical_model": "qwen3-14b",
   "family": "qwen",
   "version": "3",

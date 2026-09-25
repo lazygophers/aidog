@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790345089,
   "model_id": "vercel_ai_gateway/openai/o4-mini",
+  "display_name": "o4 Mini",
   "canonical_model": "o4-mini",
   "family": "o",
   "version": "4",
