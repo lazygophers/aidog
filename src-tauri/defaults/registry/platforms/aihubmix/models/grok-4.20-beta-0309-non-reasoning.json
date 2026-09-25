@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "grok-4.20-beta-0309-non-reasoning",
   "canonical_model": "grok-4.20-beta-0309-non-reasoning",
 
@@ -7,7 +7,12 @@
   "family": "grok",  "display_name": "Grok 4.20 Beta 0309",
   "max_output_tokens": 2000000,
   "context_window": 2000000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 2000000,
   "official": false,
   "thinking_supported": true,

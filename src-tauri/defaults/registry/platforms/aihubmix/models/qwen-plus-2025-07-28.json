@@ -1,10 +1,13 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790329630,
   "model_id": "qwen-plus-2025-07-28",
   "canonical_model": "qwen-plus-2025-07-28",
   "capabilities": ["text"],
   "display_name": "Qwen Plus 2025 07-28",
   "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
   "context_window": 1000000,
   "max_input_tokens": 1000000,
   "official": false,

@@ -1,11 +1,14 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790329630,
   "model_id": "aihubmix-Codestral-2501",
   "canonical_model": "codestral-2501",
   "capabilities": ["text"],
   "display_name": "Aihubmix Codestral 2501",
   "family": "codestral",
   "version": "2",
+  "capabilities": [
+    "text"
+  ],
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,

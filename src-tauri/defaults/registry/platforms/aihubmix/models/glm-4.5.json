@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790329630,
   "model_id": "glm-4.5",
   "canonical_model": "glm-4.5",
   "capabilities": ["text","tool_use","reasoning"],
@@ -8,6 +8,11 @@
   "family": "glm",
   "max_output_tokens": 98304,
   "context_window": 131072,
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 131072,
   "official": false,
   "price": {

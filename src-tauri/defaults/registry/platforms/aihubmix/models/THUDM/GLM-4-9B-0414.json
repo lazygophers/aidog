@@ -1,13 +1,15 @@
 {
   "context_window": 32000,
   "max_input_tokens": 32000,
-  "last_updated": 1790287585,
+  "last_updated": 1790329630,
   "model_id": "THUDM/GLM-4-9B-0414",
   "canonical_model": "GLM-4-9B-0414",
 
   "version": "4",
   "family": "glm",  "display_name": "GLM 4 9B 0414",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 5e-08,
