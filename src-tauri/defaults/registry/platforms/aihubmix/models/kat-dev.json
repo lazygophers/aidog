@@ -1,11 +1,14 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "kat-dev",
   "canonical_model": "kat-dev",
 
   "family": "kat",  "display_name": "Kat Dev",
   "context_window": 128000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
   "max_input_tokens": 128000,
   "official": false,
   "price": {

@@ -1,11 +1,14 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790329630,
   "model_id": "llama-3.1-405b-instruct",
   "canonical_model": "llama-3.1-405b-instruct",
   "capabilities": ["text"],
   "display_name": "Llama 3.1 405B Instruct",
   "family": "llama",
   "version": "3.1",
+  "capabilities": [
+    "text"
+  ],
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,

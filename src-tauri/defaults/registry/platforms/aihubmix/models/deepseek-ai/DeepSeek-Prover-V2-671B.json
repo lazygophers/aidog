@@ -1,13 +1,15 @@
 {
   "context_window": 160000,
   "max_input_tokens": 160000,
-  "last_updated": 1790287585,
+  "last_updated": 1790329630,
   "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
   "canonical_model": "deepseek-prover-v2-671b",
 
   "version": "2",
   "family": "deepseek",  "display_name": "DeepSeek Prover V2 671B",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 1e-07,

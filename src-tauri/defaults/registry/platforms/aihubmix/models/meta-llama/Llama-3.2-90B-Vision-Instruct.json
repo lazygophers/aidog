@@ -1,13 +1,16 @@
 {
   "context_window": 131072,
   "max_input_tokens": 131072,
-  "last_updated": 1790287585,
+  "last_updated": 1790329630,
   "model_id": "meta-llama/Llama-3.2-90B-Vision-Instruct",
   "canonical_model": "llama-3.2-90b-vision-instruct",
   "display_name": "Llama 3.2 90B Vision Instruct",
   "family": "llama",
   "version": "3.2",
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": false,
   "price": {
     "input": 5e-07,

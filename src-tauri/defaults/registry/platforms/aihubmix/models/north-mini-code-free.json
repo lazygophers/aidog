@@ -1,12 +1,16 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "north-mini-code-free",
   "canonical_model": "north-mini-code-free",
 
   "family": "north",  "display_name": "North Mini Code (free)",
   "max_output_tokens": 64000,
   "context_window": 256000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 256000,
   "official": false,
   "price": {

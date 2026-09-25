@@ -1,11 +1,14 @@
 {
-  "last_updated": 1790312333,
+  "last_updated": 1790329630,
   "model_id": "gpt-4o-2024-08-06",
   "canonical_model": "gpt-4o-2024-08-06",
   "capabilities": ["text"],
   "display_name": "GPT 4o 2024 08-06",
   "family": "gpt",
   "version": "4o",
+  "capabilities": [
+    "text"
+  ],
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,

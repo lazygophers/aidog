@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "aihub-Phi-4-mini-instruct",
   "canonical_model": "aihub-Phi-4-mini-instruct",
 
@@ -7,7 +7,9 @@
   "family": "phi",  "display_name": "Aihub Phi 4 Mini Instruct",
   "max_output_tokens": 4000,
   "context_window": 128000,
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "max_input_tokens": 128000,
   "official": false,
   "price": {

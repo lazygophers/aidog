@@ -1,12 +1,16 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "nemotron-nano-9b-v2-free",
   "canonical_model": "nemotron-nano-9b-v2-free",
 
   "version": "2",
   "family": "nemotron",  "display_name": "Nemotron Nano 9B V2 (free)",
   "context_window": 131072,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 131072,
   "official": false,
   "price": {

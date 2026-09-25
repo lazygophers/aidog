@@ -1,13 +1,15 @@
 {
   "context_window": 131072,
   "max_input_tokens": 131072,
-  "last_updated": 1790287585,
+  "last_updated": 1790329630,
   "model_id": "Qwen/Qwen2.5-32B-Instruct",
   "canonical_model": "qwen2.5-32b-instruct",
   "display_name": "Qwen2.5 32B Instruct",
   "family": "qwen",
 
-  "version": "2.5",  "capabilities": [],
+  "version": "2.5",  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 6e-07,

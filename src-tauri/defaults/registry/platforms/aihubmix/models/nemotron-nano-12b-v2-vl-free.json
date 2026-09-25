@@ -1,12 +1,18 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "nemotron-nano-12b-v2-vl-free",
   "canonical_model": "nemotron-nano-12b-v2-vl-free",
 
   "version": "2",
   "family": "nemotron",  "display_name": "Nemotron Nano 12B V2 VL (free)",
   "context_window": 131072,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
   "max_input_tokens": 131072,
   "official": false,
   "price": {

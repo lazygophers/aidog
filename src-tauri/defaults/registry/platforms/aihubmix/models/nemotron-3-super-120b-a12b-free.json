@@ -1,12 +1,16 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "nemotron-3-super-120b-a12b-free",
   "canonical_model": "nemotron-3-super-120b-a12b-free",
 
   "version": "3",
   "family": "nemotron",  "display_name": "Nemotron 3 Super 120B A12B (free)",
   "context_window": 1048576,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 1048576,
   "official": false,
   "price": {
