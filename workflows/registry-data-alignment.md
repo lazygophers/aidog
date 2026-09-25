@@ -358,3 +358,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   -latest 剥除>p 记号归一>HF repo 去 org；doubao 81 条官方无 per-model 名留缺省合法）。
   合并后 display_name 79.0%。r80 处理 r79 未触及族（llama/glm/kimi/grok/minimax/
   ernie/cohere/gemma/jamba/step/mimo/aigc/meta 镜像，~1835 条）。
+- 2026-09-26 r80-r81（全绿）：r80 余族五家（c280b59a9→ac79f28a6，154 条：llama 11/
+  glm 69/kimi 32/grok 16/minimax 26；首轮 API 502 失败重跑缩小范围；146 冲突 merge 只
+  收 display_name 新值）；r81 尾族（4f15ee68c，125 条：ernie/cohere/gemma/jamba/step/
+  mimo/meta 镜像/aigc 视频，79.6%→81.0%）。display_name 累计 19.7%→81.0%。
+  剩余 ~19% 归因：doubao 81 官方仅 id 无人类名、embedding/rerank 泛匹配、镜像长尾
+  无源（r78 跳 72 + r81 留 45 族外）。r78 另发现 54 文件缺 canonical_model 字段（r82）。
