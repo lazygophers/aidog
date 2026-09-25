@@ -80,6 +80,65 @@ void main() {
     expect(deco.boxShadow, isNotEmpty, reason: '玻璃卡要浮起来（shadow-sm）');
   });
 
+  testWidgets('节头可点折叠：子项藏起、active 所在节不受折叠影响（Sidebar.tsx:296-320）', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final nav = ShellController();
+    await tester.pumpWidget(host(nav: nav, theme: ThemeController()));
+    await tester.pumpAndSettle();
+
+    // 初始：日志与统计节的项都在。
+    expect(find.text('nav.logs'), findsOneWidget);
+    await tester.tap(find.text('NAV.SECTION.LOGSTATS'));
+    await tester.pumpAndSettle();
+
+    // 折叠后该节的项全部藏起。
+    expect(find.text('nav.logs'), findsNothing);
+    expect(find.text('nav.stats'), findsNothing);
+
+    // active 在「概览」节：折叠它不生效。
+    expect(find.text('nav.home'), findsOneWidget);
+    await tester.tap(find.text('NAV.SECTION.OVERVIEW'));
+    await tester.pumpAndSettle();
+    expect(find.text('nav.home'), findsOneWidget, reason: 'active 所在节不吃折叠');
+
+    // 再点一次展开日志与统计节。
+    await tester.tap(find.text('NAV.SECTION.LOGSTATS'));
+    await tester.pumpAndSettle();
+    expect(find.text('nav.logs'), findsOneWidget);
+  });
+
+  testWidgets('点设置展开 13 个子页，分 5 组；点子页切到对应 activeId', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1440, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final nav = ShellController();
+    await tester.pumpWidget(host(nav: nav, theme: ThemeController()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('nav.settings'));
+    await tester.pumpAndSettle();
+
+    // 13 个子页标签全在。
+    final settings = kBaseNav.firstWhere((n) => n.id == 'settings');
+    for (final c in settings.children) {
+      expect(find.text(c.labelKey), findsOneWidget, reason: c.id);
+    }
+    // 5 个组头（micro 全大写）。
+    for (final g in {for (final c in settings.children) c.group}) {
+      expect(find.text(g.toUpperCase()), findsOneWidget, reason: g);
+    }
+
+    // 展开时自动跳首个子页。
+    expect(nav.activeId, 'settings/system');
+
+    await tester.tap(find.text('appSettings.claudeTab'));
+    await tester.pumpAndSettle();
+    expect(nav.activeId, 'settings/claude');
+    expect(nav.settingsTab, 'claude');
+  });
+
   testWidgets('底部主题按钮切深浅，界面底色跟着换', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));

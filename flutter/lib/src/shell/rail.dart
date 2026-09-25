@@ -66,6 +66,9 @@ class _RailState extends State<Rail> {
   /// 子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开（同 Sidebar.tsx:322）。
   final Map<String, bool> _expanded = {};
 
+  /// 节折叠态（用户 2026-09-24 加回，推翻 2026-09-21「不允许折叠」禁令）：
+  /// 点击节头切换；active 所在的节永远展开（同 Sidebar.tsx:301 的 `&& !activeInSection`）。
+  final Map<String, bool> _sectionCollapsed = {};
 
   String get _topId => widget.activeId.split('/').first;
 
@@ -175,34 +178,58 @@ class _RailState extends State<Rail> {
     final out = <Widget>[];
     for (final sec in sections) {
       // 空 section key = 平铺区，不渲染节头（与 Sidebar.tsx:289 同规则）。
-      if (sec.key.isNotEmpty && !mini) {
-        out.add(_sectionHead(t, sec.key));
+      final hasHeader = sec.key.isNotEmpty && !mini;
+      // active 所在的节不吃折叠（Sidebar.tsx:299-302）。
+      final activeInSection = sec.items.any(
+        (i) => i.id == _topId || widget.activeId.startsWith('${i.id}/'),
+      );
+      final collapsed = (_sectionCollapsed[sec.key] ?? false) && !activeInSection;
+      if (hasHeader) {
+        out.add(_sectionHead(t, sec.key, collapsed));
       }
-      for (final item in sec.items) {
-        out.addAll(_navItem(t, item, mini));
+      if (!hasHeader || !collapsed) {
+        for (final item in sec.items) {
+          out.addAll(_navItem(t, item, mini));
+        }
       }
     }
     return out;
   }
 
-  /// 节头：10/700/ls .5 全大写，对齐 `Sidebar.tsx:296-320` 的样式。
-  Widget _sectionHead(AidogTheme t, String key) {
-    return Padding(
+  /// 节头：10/700/ls .5 全大写，可点折叠（用户 2026-09-24 加回），
+  /// 对齐 `Sidebar.tsx:296-320`。折叠态箭头收起（React rotate(-90deg)）。
+  Widget _sectionHead(AidogTheme t, String key, bool collapsed) {
+    return _Tappable(
+      key: Key('rail-section-$key'),
+      onTap: () => setState(
+        () => _sectionCollapsed[key] = !(_sectionCollapsed[key] ?? false),
+      ),
+      radius: AidogRadius.sm,
       // React 节头 padding 8px 10px 4px（Sidebar.tsx:302）；8/4 不在 6 档 space
       // 刻度里，这里跟 React 字面值，不往档上凑。
       padding: const EdgeInsets.fromLTRB(AidogSpace.smd, 8, AidogSpace.smd, AidogSpace.sxs),
-      child: Opacity(
-        opacity: 0.7,
-        child: Text(
-          widget.t(key).toUpperCase(),
-          style: AidogType.micro.copyWith(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
-            color: t.c.fg3,
+      child: Row(
+        children: [
+          Expanded(
+            child: Opacity(
+              opacity: 0.7,
+              child: Text(
+                widget.t(key).toUpperCase(),
+                style: AidogType.micro.copyWith(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                  color: t.c.fg3,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
           ),
-          overflow: TextOverflow.ellipsis,
-        ),
+          Opacity(
+            opacity: 0.5,
+            child: _Chevron(open: !collapsed, color: t.c.fg3),
+          ),
+        ],
       ),
     );
   }
