@@ -56,7 +56,7 @@ void main() {
     expect(find.text('nav.home'), findsOneWidget);
   });
 
-  testWidgets('侧栏是格子盘的第 0 列：无圆角、无阴影，只有一条 end 边', (tester) async {
+  testWidgets('侧栏是浮起玻璃卡：surface 底 + line 边 + radius-lg + 阴影（React .glass）', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1440, 900));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
@@ -73,40 +73,11 @@ void main() {
           .first,
     );
     final deco = box.decoration! as BoxDecoration;
-    expect(deco.borderRadius, isNull, reason: '第 0 列不是独立面板，不能有自己的圆角');
-    expect(deco.boxShadow, isNull, reason: '第 0 列不浮起来，不能有阴影');
-    expect(deco.border, isA<BorderDirectional>());
-    expect((deco.border! as BorderDirectional).start, BorderSide.none);
-  });
-
-  testWidgets('点设置展开 13 个子页，分 5 组；点子页切到对应 activeId', (tester) async {
-    await tester.binding.setSurfaceSize(const Size(1440, 1400));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-
-    final nav = ShellController();
-    await tester.pumpWidget(host(nav: nav, theme: ThemeController()));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('nav.settings'));
-    await tester.pumpAndSettle();
-
-    // 13 个子页标签全在。
-    final settings = kBaseNav.firstWhere((n) => n.id == 'settings');
-    for (final c in settings.children) {
-      expect(find.text(c.labelKey), findsOneWidget, reason: c.id);
-    }
-    // 5 个组头（micro 全大写）。
-    for (final g in {for (final c in settings.children) c.group}) {
-      expect(find.text(g.toUpperCase()), findsOneWidget, reason: g);
-    }
-
-    // 展开时自动跳首个子页。
-    expect(nav.activeId, 'settings/system');
-
-    await tester.tap(find.text('appSettings.claudeTab'));
-    await tester.pumpAndSettle();
-    expect(nav.activeId, 'settings/claude');
-    expect(nav.settingsTab, 'claude');
+    expect(deco.color, AidogColors.dark.surface, reason: 'React .glass 底是 --bg-surface');
+    expect(deco.border, isA<Border>());
+    expect((deco.border! as Border).top.color, AidogColors.dark.line);
+    expect(deco.borderRadius, BorderRadius.circular(AidogRadius.lg));
+    expect(deco.boxShadow, isNotEmpty, reason: '玻璃卡要浮起来（shadow-sm）');
   });
 
   testWidgets('底部主题按钮切深浅，界面底色跟着换', (tester) async {

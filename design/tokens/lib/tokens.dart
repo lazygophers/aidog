@@ -31,6 +31,7 @@ class AidogColors {
   final String liveRing; // 阴影/none，按平台自行解析
   final String shadowTile; // 阴影/none，按平台自行解析
   final String shadowFloat; // 阴影/none，按平台自行解析
+  final String shadowRailCard; // 阴影/none，按平台自行解析
 
   const AidogColors({
     required this.bg,
@@ -59,6 +60,7 @@ class AidogColors {
     required this.liveRing,
     required this.shadowTile,
     required this.shadowFloat,
+    required this.shadowRailCard,
   });
 
   static const dark = AidogColors(
@@ -88,6 +90,7 @@ class AidogColors {
     liveRing: "0 0 0 3px rgba(90,138,106,.16)",
     shadowTile: "none",
     shadowFloat: "0 24px 64px -16px rgba(0,0,0,.9)",
+    shadowRailCard: "0 1px 3px rgba(0,0,0,.4)",
   );
 
   static const light = AidogColors(
@@ -117,6 +120,7 @@ class AidogColors {
     liveRing: "0 0 0 3px rgba(107,158,122,.18)",
     shadowTile: "0 1px 2px rgba(9,10,12,.05)",
     shadowFloat: "0 18px 44px -14px rgba(9,10,12,.22)",
+    shadowRailCard: "0 1px 3px rgba(28,25,23,.04), 0 1px 2px rgba(28,25,23,.02)",
   );
 }
 
@@ -140,12 +144,14 @@ class AidogRadius {
 class AidogLayout {
   static const double railW = 200.0;
   static const double railWCollapsed = 56.0;
-  static const double titlebarH = 40.0;
+  static const double shellInset = 12.0;
+  static const double shellGap = 12.0;
   static const double gridCols = 12.0;
   static const double gridGap = 10.0;
   static const double tilePadX = 16.0;
   static const double tilePadY = 14.0;
-  static const double pagePad = 18.0;
+  static const double pagePadX = 32.0;
+  static const double pagePadY = 24.0;
   static const double rowH = 9.0;
   static const double contentMax = 1180.0;
   static const double trayW = 328.0;

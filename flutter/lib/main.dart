@@ -108,31 +108,17 @@ class _AidogAppState extends State<AidogApp> {
   @override
   Widget build(BuildContext context) {
     // i18n 是 ChangeNotifier：切语言要连带换 textDirection 与整棵树的文案。
+    // 内核连接态不进壳：React 无标题栏，运行态/地址在 Home 的状态格里展示（同构）。
     return AnimatedBuilder(
       animation: i18n,
-      builder: (context, _) => StreamBuilder<KernelState>(
-        stream: kernel.states,
-        initialData: kernel.state,
-        builder: (context, snap) {
-          final connected = snap.data == KernelState.connected;
-          return AidogShellApp(
-            controller: _nav,
-            theme: _theme,
-            t: i18n.t,
-            locale: i18n.flutterLocale,
-            textDirection: i18n.textDirection,
-            localeLabel: i18n.locale,
-            live: connected,
-            // 地址是内部标识，不翻译，也不该被 bidi 重排。
-            status: connected
-                ? ltr(
-                    '${kernel.process.address?.host}:'
-                    '${kernel.process.address?.port}',
-                  )
-                : i18n.t('common.loading'),
-            pageBuilder: _page,
-          );
-        },
+      builder: (context, _) => AidogShellApp(
+        controller: _nav,
+        theme: _theme,
+        t: i18n.t,
+        locale: i18n.flutterLocale,
+        textDirection: i18n.textDirection,
+        localeLabel: i18n.locale,
+        pageBuilder: _page,
       ),
     );
   }

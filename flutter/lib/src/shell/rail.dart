@@ -1,12 +1,12 @@
-/// 侧栏 = 格子盘的**第 0 列**，不是一块独立玻璃面板。
+/// 侧栏 = 浮起玻璃卡（用户 2026-09-24 裁决，推翻票 10 A′「第 0 列不能是独立面板」）。
 ///
-/// 它没有自己的「面板」外观：没有玻璃底、没有独立圆角、没有阴影，只靠一条与格子同色的
-/// hairline 与内容区分开（`A2-bento-sidebar.html` 的 `.rail`）。现仓 `Sidebar.tsx:247`
-/// 的 `glass glass-highlight` 正是**不能**搬过来的那一条 —— 搬了母题当场碎。
+/// 对齐 React `Sidebar.tsx:250-260` 的 `glass glass-highlight`：surface 底 + 1px line
+/// 边 + radius-lg 16 + shadow-sm，宽 200、padding 16/10、gap 4。logo 28px + 17px/700
+/// 标题在侧栏内（`Sidebar.tsx:263-283`），壳内无独立标题栏。
 ///
 /// 沿用现仓的信息结构（5 个 section / 可折叠 / 13 个设置子页分 5 组 / badge / 底部主题与
 /// 语言切换），不沿用它的实现（自写 Dropdown、11 个内联 SVG）。
-/// **没有 44px 横向 chip 轨**：两套导航只能活一套，而 chip 轨装不下设置的 13 个子页。
+/// A′ 特有保留：56px 折叠态（React 无折叠侧栏）。
 library;
 
 import 'package:flutter/material.dart';
@@ -66,6 +66,7 @@ class _RailState extends State<Rail> {
   /// 子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开（同 Sidebar.tsx:322）。
   final Map<String, bool> _expanded = {};
 
+
   String get _topId => widget.activeId.split('/').first;
 
   @override
@@ -76,11 +77,18 @@ class _RailState extends State<Rail> {
       duration: AidogMotion.base,
       curve: AidogMotion.easeStandard,
       width: mini ? AidogLayout.railWCollapsed : AidogLayout.railW,
-      padding: const EdgeInsets.all(AidogSpace.smd),
+      // React aside：padding 16px 10px、gap 4（Sidebar.tsx:258-262）。16 不在
+      // 6 档 space 刻度里，跟 React 字面值。
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: AidogSpace.smd),
+      // React `.glass`（globals.css:251-256）：surface 底 + 1px line 边 + radius-lg
+      // + shadow-sm + 顶发丝。顶发丝（inset 0 1px 0）由 1px 边近似，不另画。
       decoration: BoxDecoration(
-        color: t.c.bgChrome,
-        // 方向无关（规则 6）：BorderDirectional.end 在 RTL 下自动落到另一侧。
-        border: BorderDirectional(end: BorderSide(color: t.c.line)),
+        color: t.c.surface,
+        border: Border.all(color: t.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.lg),
+        // token 表没有 shadow-sm（mono.ts:31-35 的三档是现仓原值未进表），按
+        // mono.ts 的值解析，不现编第二套。
+        boxShadow: parseShadow(t.c.shadowRailCard),
       ),
       // 内容按**终态**宽度排版，多出来的由 ClipRect 盖掉。
       // 不这么做的话，AnimatedContainer 收宽的中途子项还在按展开态排版，
@@ -93,6 +101,7 @@ class _RailState extends State<Rail> {
           child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _brand(t, mini),
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -114,6 +123,53 @@ class _RailState extends State<Rail> {
       (mini ? AidogLayout.railWCollapsed : AidogLayout.railW) -
       AidogSpace.smd * 2;
 
+  /// Logo + 应用名（React `Sidebar.tsx:263-283`）：logo 28、标题 17/700/-0.3、
+  /// padding 10/12/20、gap 8。折叠态只留居中 logo。
+  Widget _brand(AidogTheme t, bool mini) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        mini ? 0 : AidogSpace.smd,
+        AidogSpace.smd,
+        mini ? 0 : AidogSpace.smd,
+        AidogSpace.s_2xl,
+      ),
+      child: mini
+          ? Center(
+              child: Image.asset(
+                'assets/logo.webp',
+                width: 28,
+                height: 28,
+                filterQuality: FilterQuality.medium,
+              ),
+            )
+          : Row(
+              children: [
+                // 资产由 `node scripts/gen-flutter-icons.mjs` 从 `src-tauri/icons/`
+                // 同步，与 Tauri 壳同一个真值源；漂了 `--check` 会红。
+                Image.asset(
+                  'assets/logo.webp',
+                  width: 28,
+                  height: 28,
+                  filterQuality: FilterQuality.medium,
+                ),
+                const SizedBox(width: AidogSpace.smd - 2),
+                Expanded(
+                  child: Text(
+                    widget.t('app.title'),
+                    style: AidogType.title.copyWith(
+                      color: t.c.fg,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+
   List<Widget> _sections(AidogTheme t, bool mini) {
     final sections = groupAdjacent(widget.items, (NavItem i) => i.section ?? '');
     final out = <Widget>[];
@@ -122,7 +178,6 @@ class _RailState extends State<Rail> {
       if (sec.key.isNotEmpty && !mini) {
         out.add(_sectionHead(t, sec.key));
       }
-      // 节不再折叠，整节的项一律渲染。
       for (final item in sec.items) {
         out.addAll(_navItem(t, item, mini));
       }
@@ -130,20 +185,24 @@ class _RailState extends State<Rail> {
     return out;
   }
 
-  /// 节头是**纯标题**，不可点、不可折叠（用户 2026-09-21 定：「概览、集成这样的，不允许折叠」）。
-  /// 这是对 `Sidebar.tsx:287` 的有意偏离——那边节头点一下会把整节收起来。
+  /// 节头：10/700/ls .5 全大写，对齐 `Sidebar.tsx:296-320` 的样式。
   Widget _sectionHead(AidogTheme t, String key) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AidogSpace.smd,
-        AidogSpace.smd,
-        AidogSpace.smd,
-        AidogSpace.sxs,
-      ),
-      child: Text(
-        widget.t(key).toUpperCase(),
-        style: AidogType.micro.copyWith(color: t.c.fg3),
-        overflow: TextOverflow.ellipsis,
+      // React 节头 padding 8px 10px 4px（Sidebar.tsx:302）；8/4 不在 6 档 space
+      // 刻度里，这里跟 React 字面值，不往档上凑。
+      padding: const EdgeInsets.fromLTRB(AidogSpace.smd, 8, AidogSpace.smd, AidogSpace.sxs),
+      child: Opacity(
+        opacity: 0.7,
+        child: Text(
+          widget.t(key).toUpperCase(),
+          style: AidogType.micro.copyWith(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.5,
+            color: t.c.fg3,
+          ),
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
     );
   }
@@ -206,15 +265,22 @@ class _RailState extends State<Rail> {
               for (final c in g.items)
                 _Tappable(
                   onTap: () => widget.onNavigate(c.id),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 5,
-                    horizontal: AidogSpace.ssm,
+                  // React 子项 padding 7px 10px 7px 26px（Sidebar.tsx:431）。
+                  padding: const EdgeInsetsDirectional.only(
+                    start: 26,
+                    top: 7,
+                    bottom: 7,
+                    end: AidogSpace.smd,
                   ),
                   radius: AidogRadius.sm,
                   background: widget.activeId == c.id ? t.c.liveFill : null,
                   child: Text(
                     widget.t(c.labelKey),
-                    style: AidogType.label.copyWith(
+                    // React 子项 12.5px、活跃 w600（Sidebar.tsx:432-433）。
+                    style: AidogType.caption.copyWith(
+                      fontWeight: widget.activeId == c.id
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                       color: widget.activeId == c.id ? t.c.fg : t.c.fg2,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -237,13 +303,16 @@ class _RailState extends State<Rail> {
           _FootButton(
             key: const Key('rail-theme-toggle'),
             mini: mini,
+            // React 主题图标 16（Sidebar icons.sun/moon，Sidebar.tsx:465-498）。
             icon: widget.isDark ? Icons.dark_mode_outlined : Icons.light_mode_outlined,
+            iconSize: 16,
             label: widget.t(widget.isDark ? 'theme.dark' : 'theme.light'),
             onTap: widget.onToggleTheme,
           ),
           _FootButton(
             key: const Key('rail-locale'),
             mini: mini,
+            // React IconGlobe size 14。
             icon: Icons.language_outlined,
             label: widget.localeLabel,
             onTap: widget.onPickLocale,
@@ -292,22 +361,30 @@ class _NavButton extends StatelessWidget {
         border: active ? t.c.liveEdge : null,
         // 深色下发光，浅色下 token 把 halo 置 none、由 fill + edge 接替。
         shadow: active ? t.liveHalo : null,
+        // React 行 padding 10px 12px（Sidebar.tsx:335）。
         padding: EdgeInsets.symmetric(
-          vertical: 7,
-          horizontal: mini ? 0 : AidogSpace.smd,
+          vertical: mini ? 7 : 10,
+          horizontal: mini ? 0 : 12,
         ),
         child: Row(
           mainAxisAlignment:
               mini ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
-            Icon(icon, size: 16, color: active ? t.c.fg : t.c.fg2),
+            // React 图标 18（Sidebar.tsx:13），非活跃 60% 透明（Sidebar.tsx:373-378）。
+            // mini 时包 Flexible：折叠动画中 _Tappable 的水平 padding 从 12 渐变到 0，
+            // 中段行宽会短暂小于 18，不兜就抛 overflow 断言（终态 36 宽不受影响）。
+            mini
+                ? Flexible(child: Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2))
+                : Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2),
             if (!mini) ...[
-              const SizedBox(width: 9),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   label,
                   style: AidogType.body.copyWith(
                     fontSize: 13,
+                    // React 活跃 w600（Sidebar.tsx:336）。
+                    fontWeight: active ? FontWeight.w600 : FontWeight.w400,
                     color: active ? t.c.fg : t.c.fg2,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -317,14 +394,17 @@ class _NavButton extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                   decoration: BoxDecoration(
-                    color: t.c.accent,
+                    // React badge 亮底深字（Sidebar.tsx:385-402）：底 --accent
+                    // = accent-text（深色 #E6E8EC 亮），字 --accent-foreground
+                    // （mono.ts:72，深色 bg / 浅色 surface）。
+                    color: t.c.accentText,
                     borderRadius: BorderRadius.circular(AidogRadius.pill),
                   ),
                   child: Text(
                     badge! > 99 ? '99+' : '$badge',
-                    // badge 底是 accent（两套模式下都偏深），文字取深色模式的 fg。
-                    // 仍是 token 值，不是硬编码 —— token 表没有 on-accent 这一项。
-                    style: numStyleSmall(AidogColors.dark.fg),
+                    style: numStyleSmall(
+                      t.mode == AidogMode.dark ? t.c.bg : t.c.surface,
+                    ),
                   ),
                 ),
               if (chevron != null) _Chevron(open: chevron!, color: t.c.fg3),
@@ -347,12 +427,16 @@ class _FootButton extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.onTap,
+    this.iconSize = 14,
   });
 
   final bool mini;
   final IconData icon;
   final String label;
   final VoidCallback onTap;
+
+  /// React 底部按钮图标 16/14（主题 16、语言 14，Sidebar.tsx:465-498）。
+  final double iconSize;
 
   @override
   Widget build(BuildContext context) {
@@ -370,7 +454,7 @@ class _FootButton extends StatelessWidget {
           mainAxisAlignment:
               mini ? MainAxisAlignment.center : MainAxisAlignment.start,
           children: [
-            Icon(icon, size: 14, color: t.c.fg2),
+            Icon(icon, size: iconSize, color: t.c.fg2),
             if (!mini) ...[
               const SizedBox(width: AidogSpace.ssm),
               Expanded(
@@ -408,6 +492,7 @@ class _Chevron extends StatelessWidget {
 /// 一块可点的表面。hover 时 surface-2 底（规则 4：hover 不发光）。
 class _Tappable extends StatefulWidget {
   const _Tappable({
+    super.key,
     required this.child,
     required this.onTap,
     required this.padding,
