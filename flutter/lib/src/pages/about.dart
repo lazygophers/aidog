@@ -83,14 +83,23 @@ class _AboutPageState extends State<AboutPage> {
             (label: t.t('about.arch'), value: info.arch, mono: true),
             (label: t.t('about.profile'), value: info.profile, mono: true),
             (label: t.t('about.gitCommit'), value: info.gitCommit, mono: true),
-            (label: t.t('about.buildTime'), value: _buildTimeText(t), mono: false),
+            (
+              label: t.t('about.buildTime'),
+              value: _buildTimeText(t),
+              mono: false,
+            ),
           ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PageHead(title: t.t('about.title'), subtitle: t.t('about.subtitle')),
+        // 页容器 `gap: 20`（`src/pages/About.tsx:221`）。
+        PageHead(
+          title: t.t('about.title'),
+          subtitle: t.t('about.subtitle'),
+          bottom: 20,
+        ),
 
         // ── 版本信息 ──
         // 四个区块入场错峰 0/80/160/240ms + 悬停抬升（`About.tsx:50-53,278`）。
@@ -142,16 +151,17 @@ class _AboutPageState extends State<AboutPage> {
                                   child: Text(
                                     ltr(r.value),
                                     textAlign: TextAlign.end,
-                                    style: (r.mono
-                                            ? AidogType.numSm.copyWith(
-                                                fontFamily:
-                                                    AidogType.familyMono,
-                                              )
-                                            : AidogType.caption)
-                                        .copyWith(
-                                          fontSize: 13,
-                                          color: theme.c.fg2,
-                                        ),
+                                    style:
+                                        (r.mono
+                                                ? AidogType.numSm.copyWith(
+                                                    fontFamily:
+                                                        AidogType.familyMono,
+                                                  )
+                                                : AidogType.caption)
+                                            .copyWith(
+                                              fontSize: 13,
+                                              color: theme.c.fg2,
+                                            ),
                                   ),
                                 ),
                               ],
@@ -215,8 +225,11 @@ class _AboutPageState extends State<AboutPage> {
                             //（`About.tsx:292,314,343,352,402,415,428`）。
                             SmallButton(
                               filled: true,
-                              fontSize: 13, // React 关于页按钮 13 / 6px 12px（About.tsx:292）
-                              padding: (12, 6),
+                              // 这颗**没有**内联 style（`About.tsx:292-299`），
+                              // 吃 shadcn `<Button>` 默认档 36 高 / px-4 / text-sm；
+                              // 旁边 GitHub 四颗与 CLI 两颗才是 13 / 6-12。
+                              fontSize: 14,
+                              padding: (16, 8),
                               label: busy
                                   ? t.t('about.checking')
                                   : t.t('about.checkUpdate'),
@@ -244,8 +257,9 @@ class _AboutPageState extends State<AboutPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Wrap(
-                    spacing: AidogSpace.ssm,
-                    runSpacing: AidogSpace.sxs,
+                    // `gap: 8` 横竖同值（`About.tsx:312`）。
+                    spacing: 8,
+                    runSpacing: 8,
                     children: [
                       for (final b in const [
                         ('repo', 'about.repo'),
@@ -257,6 +271,9 @@ class _AboutPageState extends State<AboutPage> {
                           filled: true,
                           fontSize: 13, // About.tsx:318
                           padding: (12, 6),
+                          // 每颗前面一枚 14px 地球图标，与文字隔 6
+                          //（`About.tsx:318,321` 的 `<IconGlobe size={14}>`）。
+                          icon: Icons.public,
                           label: t.t(b.$2),
                           onTap: () => native.openUrl(kGithubLinks[b.$1]!),
                         ),
@@ -292,7 +309,8 @@ class _AboutPageState extends State<AboutPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Wrap(
-                    spacing: AidogSpace.ssm,
+                    // 两颗按钮 `gap: 8`（`About.tsx:342`）。
+                    spacing: 8,
                     children: [
                       SmallButton(
                         filled: true,
@@ -305,6 +323,9 @@ class _AboutPageState extends State<AboutPage> {
                       ),
                       SmallButton(
                         filled: true,
+                        // 与「检查版本」同档（`About.tsx:355`），原先漏传吃了缺省。
+                        fontSize: 13,
+                        padding: (12, 6),
                         label: _c.cliBusy == 'diagnose'
                             ? t.t('about.localEnv.diagnosing')
                             : t.t('about.localEnv.diagnose'),
@@ -321,9 +342,29 @@ class _AboutPageState extends State<AboutPage> {
                       onInstall: () => _c.installCli(s.name),
                       onUpgrade: () => _c.upgradeCli(s.name),
                     ),
-                  if (_c.cliMsg.isNotEmpty) ToastBar(text: _c.cliMsg, ok: true),
+                  // 提示 / 错误是卡尾**页面流**里的 `.toast` 方条
+                  //（`About.tsx:550-559`：pad 12/16、12px、成功绿 / 失败红），
+                  // 不是浮在窗口顶部的胶囊。
+                  if (_c.cliMsg.isNotEmpty)
+                    InlineNote(
+                      text: _c.cliMsg,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      fontSize: 12,
+                      color: theme.c.ok,
+                    ),
                   if (_c.cliErr.isNotEmpty)
-                    ToastBar(text: _c.cliErr, ok: false),
+                    InlineNote(
+                      text: _c.cliErr,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      fontSize: 12,
+                      color: theme.c.bad,
+                    ),
                 ],
               ),
             ),
@@ -380,15 +421,14 @@ class _CliToolRow extends StatelessWidget {
                   color: theme.c.fg,
                 ),
               ),
-              const SizedBox(width: AidogSpace.smd),
-              // 状态 chip：11px、padding 2/8、radius 4、带底色（About.tsx:386-394）。
+              // 工具名↔状态 chip `gap: 8`（`About.tsx:381`）。
+              const SizedBox(width: 8),
+              // 状态 chip：11px、padding 2/8、radius 4、底 `--bg-glass`（= `--card`
+              // ≈ surface，不是 surface2）（About.tsx:386-394）。
               Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 2,
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
-                  color: theme.c.surface2,
+                  color: theme.c.surface,
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
@@ -434,21 +474,36 @@ class _CliToolRow extends StatelessWidget {
                 ),
             ],
           ),
-          Text(
-            '${t.t('about.localEnv.version')}: '
-            '${status.version ?? (status.installed ? t.t('about.localEnv.unknown') : '—')}'
-            '${status.latestVersion != null ? '  ${t.t('about.localEnv.latest', {'version': status.latestVersion})}' : ''}',
-            style: AidogType.caption.copyWith(
-              fontSize: 12,
-              color: theme.c.fg2,
+          // 两行同在 `color: var(--text-secondary)` 的容器里，只有
+          // 「版本：」「路径：」两个前缀是 tertiary（`About.tsx:443-460`）——
+          // 原先整条路径行都是 fg3。
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${t.t('about.localEnv.version')}: ',
+                  style: TextStyle(color: theme.c.fg3),
+                ),
+                TextSpan(
+                  text:
+                      '${status.version ?? (status.installed ? t.t('about.localEnv.unknown') : '—')}'
+                      '${status.latestVersion != null ? '  ${t.t('about.localEnv.latest', {'version': status.latestVersion})}' : ''}',
+                ),
+              ],
             ),
+            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg2),
           ),
-          Text(
-            '${t.t('about.localEnv.path')}: ${status.path ?? '—'}',
-            style: AidogType.caption.copyWith(
-              fontSize: 12,
-              color: theme.c.fg3,
+          Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: '${t.t('about.localEnv.path')}: ',
+                  style: TextStyle(color: theme.c.fg3),
+                ),
+                TextSpan(text: status.path ?? '—'),
+              ],
             ),
+            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg2),
           ),
           if (conflict != null && conflict!.installations.isNotEmpty)
             // 冲突诊断（`About.tsx:464-537`）：整块有警示边框与底色，
@@ -457,11 +512,14 @@ class _CliToolRow extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.only(top: AidogSpace.sxs),
               child: Container(
-                padding: const EdgeInsets.all(AidogSpace.ssm),
+                // `padding: 10`（`About.tsx:467`）。
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
+                  // 非冲突态 React 是 `--bg-glass`（= `--card` ≈ surface），
+                  // 不是 surface2（`About.tsx:474`）。
                   color: conflict!.isConflicting
                       ? theme.c.peak.withValues(alpha: 0.08)
-                      : theme.c.surface2,
+                      : theme.c.surface,
                   border: Border.all(
                     color: conflict!.isConflicting
                         ? theme.c.peak
@@ -497,10 +555,12 @@ class _CliToolRow extends StatelessWidget {
                     ),
                     for (final inst in conflict!.installations)
                       Padding(
-                        padding: const EdgeInsets.only(top: 3),
+                        // 块内 `gap: 6`（`About.tsx:479`），行内 `gap: 8`
+                        //（`About.tsx:504`）横竖同值。
+                        padding: const EdgeInsets.only(top: 6),
                         child: Wrap(
-                          spacing: AidogSpace.ssm,
-                          runSpacing: 2,
+                          spacing: 8,
+                          runSpacing: 8,
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
                             Text(
@@ -509,7 +569,15 @@ class _CliToolRow extends StatelessWidget {
                                 color: theme.c.fg2,
                               ),
                             ),
-                            MiniBadge(text: inst.source, color: theme.c.fg3),
+                            // source 徽标：`padding: "1px 6px"`、radius 3、
+                            // 底 `--bg-glass`、字 11 secondary（`About.tsx:511-520`）。
+                            MiniBadge(
+                              text: inst.source,
+                              color: theme.c.fg2,
+                              background: theme.c.surface,
+                              radius: 3,
+                              fontSize: 11,
+                            ),
                             if (inst.version != null)
                               Text(
                                 'v${inst.version}',

@@ -112,17 +112,24 @@ class _NotificationsPageState extends State<NotificationsPage> {
       children: [
         PageHead(
           title: t.t('notif.inboxTitle'),
+          // 页容器 `gap: 16`（`Notifications.tsx:97`）。
+          bottom: 16,
           trailing: Wrap(
-            spacing: AidogSpace.ssm,
+            // 头部两颗按钮 `gap: 8`（`Notifications.tsx:101`）。
+            spacing: 8,
             children: [
               if (widget.onNavigate != null)
                 SmallButton(
-                  fontSize: 12, // React 12 / 4px 10px（Notifications.tsx:103-119）
+                  // React 两颗都是 `variant="ghost"` + 12 / 4px 10px
+                  //（`Notifications.tsx:103-119`）。
+                  ghost: true,
+                  fontSize: 12,
                   padding: (10, 4),
                   label: t.t('notifications.goSettings'),
                   onTap: () => widget.onNavigate!('settings/notifications'),
                 ),
               SmallButton(
+                ghost: true,
                 fontSize: 12,
                 padding: (10, 4),
                 label: t.t('notif.clear'),
@@ -136,10 +143,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
           CenteredNote(text: t.t('status.loading'))
         else if (_items.isEmpty)
           Tile(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 40,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
             child: Text(
               t.t('notif.inboxEmpty'),
               textAlign: TextAlign.center,
@@ -161,78 +165,76 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     child: Padding(
                       // 卡间 gap 8（Notifications.tsx:131）
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: Container(
-                        // 整条左侧 2px accent 竖条（`Notifications.tsx:31`；
-                        // React --accent 在 mono 主题下映射 accent-text）。
-                        decoration: BoxDecoration(
-                          border: BorderDirectional(
-                            start: BorderSide(
-                              color: theme.c.accentText,
-                              width: 2,
-                            ),
-                          ),
+                      // 竖条是卡**自身**起始侧的 2px 边，替换掉该侧的 1px line
+                      // 并跟着卡的圆角（`Notifications.tsx:31`）——原先外包一层
+                      // 容器会得到「2px 直角条 + 卡自己的 1px 边」双线。
+                      child: Tile(
+                        leadingAccent: theme.c.accentText,
+                        // 卡 padding 12/16（Notifications.tsx:23）
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
                         ),
-                        child: Tile(
-                          // 卡 padding 12/16（Notifications.tsx:23）
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Row(
-                                children: [
-                                  Flexible(
-                                    child: Text(
-                                      // 有标题就「标题 · 类型」，没有就只有类型（React 同）。
-                                      item.title.isNotEmpty
-                                          ? '${item.title} · ${notifTypeLabel(item.notifType, t.t)}'
-                                          : notifTypeLabel(item.notifType, t.t),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AidogType.caption.copyWith(
-                                        fontSize: 13, // Notifications.tsx:36
-                                        fontWeight: FontWeight.w600,
-                                        color: theme.c.fg,
-                                      ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    // 有标题就「标题 · 类型」，没有就只有类型（React 同）。
+                                    item.title.isNotEmpty
+                                        ? '${item.title} · ${notifTypeLabel(item.notifType, t.t)}'
+                                        : notifTypeLabel(item.notifType, t.t),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AidogType.caption.copyWith(
+                                      fontSize: 13, // Notifications.tsx:36
+                                      fontWeight: FontWeight.w600,
+                                      color: theme.c.fg,
                                     ),
                                   ),
-                                  const SizedBox(width: AidogSpace.sxs),
-                                  // 类型徽标（`Notifications.tsx:41-51`）。
-                                  MiniBadge(
-                                    text: notifTypeLabel(item.notifType, t.t),
-                                    color: theme.c.accentText,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              if (item.body.isNotEmpty) ...[
-                                Text(
-                                  item.body,
-                                  style: AidogType.caption.copyWith(
-                                    fontSize: 12, // Notifications.tsx:54
-                                    color: theme.c.fg2,
-                                  ),
+                                ),
+                                // 标题↔徽标 `gap: 8`（`Notifications.tsx:35`）。
+                                const SizedBox(width: 8),
+                                // 类型徽标（`Notifications.tsx:41-51`）：
+                                // 圆角是 `--radius-sm` = 6，不是 MiniBadge 缺省的 5。
+                                MiniBadge(
+                                  text: notifTypeLabel(item.notifType, t.t),
+                                  color: theme.c.accentText,
+                                  radius: 6,
                                 ),
                               ],
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  // 时间戳缺省时 React 渲染 "-"。
-                                  ltr(
-                                    formatDateTime(item.createdAt).isEmpty
-                                        ? '-'
-                                        : formatDateTime(item.createdAt),
-                                  ),
-                                  style: AidogType.micro.copyWith(
-                                    color: theme.c.fg3,
-                                  ),
+                            ),
+                            const SizedBox(height: 2),
+                            if (item.body.isNotEmpty) ...[
+                              Text(
+                                item.body,
+                                style: AidogType.caption.copyWith(
+                                  fontSize: 12, // Notifications.tsx:54
+                                  color: theme.c.fg2,
                                 ),
                               ),
                             ],
-                          ),
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text(
+                                // 时间戳缺省时 React 渲染 "-"。
+                                ltr(
+                                  formatDateTime(item.createdAt).isEmpty
+                                      ? '-'
+                                      : formatDateTime(item.createdAt),
+                                ),
+                                style: AidogType.micro.copyWith(
+                                  // React 时间戳只有 `fontSize: 11`，字距是
+                                  // normal（`Notifications.tsx:58`）。
+                                  letterSpacing: 0,
+                                  color: theme.c.fg3,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ),

@@ -25,6 +25,10 @@ import 'bits.dart';
 import 'notifications_logic.dart' show KernelSettingsController;
 import 'system_logic.dart';
 
+/// 卡与卡之间的间距：React System tab 容器 `gap: 20`
+/// （`src/pages/AppSettings.tsx:71`），不是 `AidogSpace.sxl` 的 18。
+const double _cardGap = 20;
+
 /// 保留期单位选择器的三个档。
 const List<RetentionUnit> _kUnits = RetentionUnit.values;
 
@@ -99,8 +103,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         _proxyStatus(t),
         // 启动失败错误条紧跟状态卡之下（`ProxyStatusSection.tsx:80-101`），
         // 不再沉到页尾。
-        if (_c.proxyStartError != null)
-          _startError(t),
+        if (_c.proxyStartError != null) _startError(t),
         ..._startup(t),
         _upstreamProxy(t),
         _kernel(t),
@@ -110,10 +113,19 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         _appLogs(t),
         _dbCompact(t),
         _stats(t),
+        // 提示条是页面流里的 `.toast` 方条，排在 `VersionToastSection` **顶部**
+        //（`SystemMiscSection.tsx:211`），不是浮在窗口顶部的胶囊。
+        if (_c.message.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: _cardGap),
+            child: InlineNote(
+              text: _c.message,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            ),
+          ),
         _autoUpdate(t),
         _version(t),
         if (_confirm != null) _confirmCard(t),
-        if (_c.message.isNotEmpty) ToastBar(text: _c.message, ok: true),
       ],
     );
   }
@@ -123,84 +135,85 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   Widget _proxyStatus(I18nController t) {
     final theme = AidogTheme.of(context);
     return Padding(
-    key: const ValueKey('proxy-status-card'),
-    padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-    child: Tile(
-      // React 是 24/20 的 hero 卡，比普通开关卡的 16/20 高一档。
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-      child: Row(
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: _c.running ? theme.c.liveFill : theme.c.surface2,
-              border: Border.all(
-                color: _c.running ? theme.c.liveEdge : theme.c.line,
-              ),
-              // 「只有活着的东西才发光」：停着的时候没有外发光。
-              boxShadow: _c.running ? theme.liveHalo : const [],
-            ),
-            child: LiveDot(on: _c.running, size: 16),
-          ),
-          const SizedBox(width: 20),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _c.running ? t.t('proxy.running') : t.t('proxy.stopped'),
-                  // React 状态字 14 w700（`ProxyStatusSection.tsx:45`）。
-                  style: AidogType.label.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: theme.c.fg,
-                  ),
+      key: const ValueKey('proxy-status-card'),
+      padding: const EdgeInsets.only(bottom: _cardGap),
+      child: Tile(
+        // React 是 24/20 的 hero 卡，比普通开关卡的 16/20 高一档。
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: _c.running ? theme.c.liveFill : theme.c.surface2,
+                border: Border.all(
+                  color: _c.running ? theme.c.liveEdge : theme.c.line,
                 ),
-                if (_c.running)
+                // 「只有活着的东西才发光」：停着的时候没有外发光。
+                boxShadow: _c.running ? theme.liveHalo : const [],
+              ),
+              child: LiveDot(on: _c.running, size: 16),
+            ),
+            const SizedBox(width: 20),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   Text(
-                    // 地址是标识串，RTL 下不该被重排。
-                    ltr('localhost:${_c.proxyPort}'),
-                    style: AidogType.caption.copyWith(
-                      fontSize: 12,
-                      color: theme.c.fg2,
+                    _c.running ? t.t('proxy.running') : t.t('proxy.stopped'),
+                    // React 状态字 14 w700（`ProxyStatusSection.tsx:45`）。
+                    style: AidogType.label.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: theme.c.fg,
                     ),
                   ),
-              ],
+                  if (_c.running)
+                    Text(
+                      // 地址是标识串，RTL 下不该被重排。
+                      ltr('localhost:${_c.proxyPort}'),
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg2,
+                      ),
+                    ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: AidogSpace.smd),
-          // 端口输入 + 启停按钮在状态行右侧同排，不另起一行。
-          InlineRow(
-            label: t.t('proxy.port'),
-            child: NumberInput(
-              key: const ValueKey('proxy-port'),
-              value: '${_c.proxyPort}',
-              // 代理跑着时不许改端口（要先停）—— 改了也不会生效。
-              onChanged: _c.running
-                  ? null
-                  : (v) => setState(() => _c.proxyPort = int.tryParse(v) ?? 0),
-              width: 80,
+            const SizedBox(width: AidogSpace.smd),
+            // 端口输入 + 启停按钮在状态行右侧同排，不另起一行。
+            InlineRow(
+              label: t.t('proxy.port'),
+              child: NumberInput(
+                key: const ValueKey('proxy-port'),
+                value: '${_c.proxyPort}',
+                // 代理跑着时不许改端口（要先停）—— 改了也不会生效。
+                onChanged: _c.running
+                    ? null
+                    : (v) =>
+                          setState(() => _c.proxyPort = int.tryParse(v) ?? 0),
+                width: 80,
+              ),
             ),
-          ),
-          const SizedBox(width: AidogSpace.ssm),
-          SmallButton(
-            key: const ValueKey('proxy-toggle'),
-            // 启动是默认变体（实心），停止是 destructive（实心红）
-            //（`ProxyStatusSection.tsx:67,71`）。
-            filled: true,
-            danger: _c.running,
-            label: _c.running ? t.t('proxy.stop') : t.t('proxy.start'),
-            onTap: () => _c.running
-                ? _c.stopProxy(t.t('proxy.stopped'))
-                : _c.startProxy(),
-          ),
-        ],
+            const SizedBox(width: AidogSpace.ssm),
+            SmallButton(
+              key: const ValueKey('proxy-toggle'),
+              // 启动是默认变体（实心），停止是 destructive（实心红）
+              //（`ProxyStatusSection.tsx:67,71`）。
+              filled: true,
+              danger: _c.running,
+              label: _c.running ? t.t('proxy.stop') : t.t('proxy.start'),
+              onTap: () => _c.running
+                  ? _c.stopProxy(t.t('proxy.stopped'))
+                  : _c.startProxy(),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -209,12 +222,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   Widget _startError(I18nController t) {
     final theme = AidogTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      padding: const EdgeInsets.only(bottom: _cardGap),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
           color: theme.c.surface,
           border: Border.all(color: theme.c.bad),
@@ -251,6 +261,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
 
   List<Widget> _startup(I18nController t) => [
     ToggleCard(
+      bottomGap: _cardGap,
       key: const ValueKey('proxy-autostart'),
       label: t.t('proxy.autostart'),
       descriptions: [t.t('proxy.autostartDesc')],
@@ -258,6 +269,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       onChanged: _c.setAutostart,
     ),
     ToggleCard(
+      bottomGap: _cardGap,
       key: const ValueKey('proxy-bindlan'),
       label: t.t('proxy.bindLan'),
       descriptions: [t.t('proxy.bindLanDesc'), t.t('proxy.bindLanSecurity')],
@@ -265,6 +277,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       onChanged: (v) => _c.setBindLan(v, t.t('proxy.bindLanApplied')),
     ),
     ToggleCard(
+      bottomGap: _cardGap,
       key: const ValueKey('app-autolaunch'),
       label: t.t('proxy.autolaunch'),
       descriptions: [t.t('proxy.autolaunchDesc')],
@@ -274,6 +287,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     // 静默启动只在开机自启开着时才有意义（关掉时逻辑层已强制置 false）。
     if (_c.autolaunch)
       ToggleCard(
+        bottomGap: _cardGap,
         key: const ValueKey('app-silent-launch'),
         label: t.t('proxy.silentLaunch'),
         descriptions: [t.t('proxy.silentLaunchDesc')],
@@ -294,17 +308,14 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          padding: const EdgeInsets.only(bottom: _cardGap),
           child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  t.t('kernel.loopbackOnly'),
-                  style: _titleStyle(theme),
-                ),
+                Text(t.t('kernel.loopbackOnly'), style: _titleStyle(theme)),
                 _desc(t.t('kernel.loopbackOnlyDesc')),
                 _desc(t.t('kernel.remoteAccess')),
                 _desc(t.t('kernel.notProxy')),
@@ -313,7 +324,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           ),
         ),
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          padding: const EdgeInsets.only(bottom: _cardGap),
           child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
@@ -350,10 +361,15 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   // ── 超时（`SystemMiscSection.tsx:38-65`：两组横排同一行）──────────
 
   Widget _timeouts(I18nController t) => HeaderCard(
+    bottomGap: _cardGap,
     title: t.t('proxy.timeout'),
     descriptions: [t.t('proxy.timeoutDesc')],
+    // 说明是卡里的**独立子元素**，与标题隔卡的 `gap: 12`，不是贴着标题的
+    // 副标题（`SystemMiscSection.tsx:28-37`）。
+    descGap: 12,
     child: Padding(
-      padding: const EdgeInsets.only(top: 4),
+      // `gap: 12` + `marginTop: 4` = 16（`SystemMiscSection.tsx:38`）。
+      padding: const EdgeInsets.only(top: 16),
       child: Wrap(
         spacing: 16,
         runSpacing: AidogSpace.ssm,
@@ -367,6 +383,10 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               onChanged: (v) =>
                   _c.setTimeouts(int.tryParse(v) ?? 0, _c.connTimeout),
               width: 80,
+              // 超时两格是 `<Input>` 裸默认 = shadcn `h-9`(36) / `text-sm`(14)
+              //（`SystemMiscSection.tsx:43-49,56-62`）。
+              height: 36,
+              fontSize: 14,
             ),
           ),
           InlineRow(
@@ -378,6 +398,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
               onChanged: (v) =>
                   _c.setTimeouts(_c.reqTimeout, int.tryParse(v) ?? 0),
               width: 80,
+              height: 36,
+              fontSize: 14,
             ),
           ),
         ],
@@ -390,6 +412,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   Widget _upstreamProxy(I18nController t) {
     final p = _c.proxyClient;
     return HeaderCard(
+      bottomGap: _cardGap,
       title: t.t('proxy.upstreamProxy'),
       descriptions: [t.t('proxy.upstreamProxyDesc')],
       trailing: AidogSwitch(
@@ -400,7 +423,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       ),
       child: p.enabled
           ? Padding(
-              padding: const EdgeInsets.only(top: 8),
+              // 展开区：线上 12（卡的 `gap: 12`）/ 线下 8（`paddingTop: 8`），
+              // 对齐 `LogSettingsSection.tsx:122`；原先是上 8 / 下 10。
+              padding: const EdgeInsets.only(top: 12),
               child: Container(
                 // 展开区与页头之间一道上边框（React `borderTop`）。
                 decoration: BoxDecoration(
@@ -409,7 +434,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   ),
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.only(top: AidogSpace.smd),
+                  padding: const EdgeInsets.only(top: 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -438,8 +463,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                               width: 120,
                               child: PlainTextField(
                                 value: p.host,
-                                onSubmitted: (v) =>
-                                    _c.updateProxyClient(p.copyWith(host: v.trim())),
+                                onSubmitted: (v) => _c.updateProxyClient(
+                                  p.copyWith(host: v.trim()),
+                                ),
                               ),
                             ),
                           ),
@@ -467,8 +493,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                               child: PlainTextField(
                                 value: p.username,
                                 hint: t.t('proxy.proxyUserPlaceholder'),
-                                onSubmitted: (v) =>
-                                    _c.updateProxyClient(p.copyWith(username: v)),
+                                onSubmitted: (v) => _c.updateProxyClient(
+                                  p.copyWith(username: v),
+                                ),
                               ),
                             ),
                           ),
@@ -483,8 +510,9 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                                 // React 是 `<input type="password">`
                                 //（`ProxyStatusSection.tsx:187`），无明文切换。
                                 obscure: true,
-                                onSubmitted: (v) =>
-                                    _c.updateProxyClient(p.copyWith(password: v)),
+                                onSubmitted: (v) => _c.updateProxyClient(
+                                  p.copyWith(password: v),
+                                ),
                               ),
                             ),
                           ),
@@ -575,6 +603,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   Widget _proxyLogs(I18nController t) {
     final theme = AidogTheme.of(context);
     return HeaderCard(
+      bottomGap: _cardGap,
       title: t.t('proxy.logRequests'),
       descriptions: [t.t('proxy.logRequestsDesc')],
       trailing: AidogSwitch(
@@ -601,7 +630,21 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 _c.updateLogSettings({'log_user_request': v});
               },
             ),
-            // 保留期跟着它那一类的开关走（`LogSettingsSection.tsx:145`）：
+            _subSwitch(
+              key: const ValueKey('log-upstream-req'),
+              label: t.t('proxy.logUpstreamReq'),
+              description: t.t('proxy.logUpstreamReqDesc'),
+              value: _c.logUpstreamReq,
+              onChanged: (v) {
+                setState(() => _c.logUpstreamReq = v);
+                _c.updateLogSettings({'log_upstream_request': v});
+              },
+            ),
+            // 保留期是**独立的第二组**，自带 `paddingTop: 8 + borderTop`
+            //（`LogSettingsSection.tsx:144`）：React 把三条保留期一起摆在两个
+            // 子开关**之后**，不是各跟各的开关。原先少这条线、顺序也是交错的。
+            _sectionDivider(),
+            // 保留期跟着它那一类的开关走（`LogSettingsSection.tsx:145,166`）：
             // 关掉这类记录后，它的保留期还摆着可改，是改了也没用的旋钮。
             if (_c.logUserReq)
               _retentionRow(
@@ -619,17 +662,6 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   _c.updateLogSettings({'user_request_retention_unit': u.wire});
                 },
               ),
-            _subSwitch(
-              key: const ValueKey('log-upstream-req'),
-              label: t.t('proxy.logUpstreamReq'),
-              description: t.t('proxy.logUpstreamReqDesc'),
-              value: _c.logUpstreamReq,
-              onChanged: (v) {
-                setState(() => _c.logUpstreamReq = v);
-                _c.updateLogSettings({'log_upstream_request': v});
-              },
-            ),
-            // 同上，`LogSettingsSection.tsx:166`。
             if (_c.logUpstreamReq)
               _retentionRow(
                 t,
@@ -639,9 +671,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 unit: _c.upstreamReqRetentionUnit,
                 onDays: (v) {
                   setState(() => _c.upstreamReqRetention = v);
-                  _c.updateLogSettings({
-                    'upstream_request_retention_days': v,
-                  });
+                  _c.updateLogSettings({'upstream_request_retention_days': v});
                 },
                 onUnit: (u) {
                   setState(() => _c.upstreamReqRetentionUnit = u);
@@ -692,15 +722,19 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                       : t.t('logs.cleanupExpired'),
                   onTap: (_c.logRetention == 0 || _c.logMaintBusy)
                       ? null
-                      : () => setState(() => _confirm = _Confirm.cleanupExpired),
+                      : () =>
+                            setState(() => _confirm = _Confirm.cleanupExpired),
                 ),
               ),
-              const SizedBox(width: AidogSpace.ssm),
+              // 两颗按钮 `gap: 8`（`LogSettingsSection.tsx:212`）。
+              const SizedBox(width: 8),
               SmallButton(
                 key: const ValueKey('clear-logs'),
                 fontSize: 12,
                 padding: (12, 4),
-                label: _c.logMaintBusy ? t.t('logs.cleaning') : t.t('logs.clear'),
+                label: _c.logMaintBusy
+                    ? t.t('logs.cleaning')
+                    : t.t('logs.clear'),
                 // React `variant="destructive"`（`LogSettingsSection.tsx:221`）；
                 // 旁边的「清理过期」是 outline，保持描边。
                 danger: true,
@@ -739,13 +773,12 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     );
   }
 
-  /// 展开区的上边框分隔（React `borderTop: 1px solid var(--border)` + paddingTop 8）。
+  /// 展开区的上边框分隔：线**上**留白 = 卡的 `gap: 12`，线**下** `paddingTop: 8`
+  /// （`LogSettingsSection.tsx:122,144,211`）。原先是上 8 / 下 0。
   Widget _sectionDivider() => Container(
-    margin: const EdgeInsets.only(top: 8),
+    margin: const EdgeInsets.only(top: 12, bottom: 8),
     decoration: BoxDecoration(
-      border: Border(
-        top: BorderSide(color: AidogTheme.of(context).c.line),
-      ),
+      border: Border(top: BorderSide(color: AidogTheme.of(context).c.line)),
     ),
   );
 
@@ -773,6 +806,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                   color: AidogTheme.of(context).c.fg,
                 ),
               ),
+              // 说明上距 `marginTop: 1`（`LogSettingsSection.tsx:126,135`）。
+              const SizedBox(height: 1),
               Text(
                 description,
                 style: AidogType.caption.copyWith(
@@ -825,10 +860,13 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             ),
       child: NumberInput(
         value: '$days',
-        onChanged: (v) => onDays(
-          (int.tryParse(v) ?? 0) < 0 ? 0 : int.tryParse(v) ?? 0,
-        ),
+        onChanged: (v) =>
+            onDays((int.tryParse(v) ?? 0) < 0 ? 0 : int.tryParse(v) ?? 0),
         width: 70,
+        // 保留期三格显式 `height: 28, fontSize: 12`
+        //（`LogSettingsSection.tsx:155,176,196`）。
+        height: 28,
+        fontSize: 12,
       ),
     ),
   );
@@ -836,6 +874,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   // ── 应用日志文件（`LogSettingsSection.tsx:248-309`）──────────────
 
   Widget _appLogs(I18nController t) => HeaderCard(
+    bottomGap: _cardGap,
     title: t.t('appLog.title'),
     descriptions: [t.t('appLog.desc')],
     trailing: AidogSwitch(
@@ -846,7 +885,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     ),
     child: _c.logFileEnabled
         ? Padding(
-            padding: const EdgeInsets.only(top: 8),
+            // 线上 12（卡的 `gap: 12`）/ 线下 8（`LogSettingsSection.tsx:274`）。
+            padding: const EdgeInsets.only(top: 12),
             child: Container(
               decoration: BoxDecoration(
                 border: Border(
@@ -854,10 +894,11 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                 ),
               ),
               child: Padding(
-                padding: const EdgeInsets.only(top: AidogSpace.smd),
+                padding: const EdgeInsets.only(top: 8),
                 child: Wrap(
+                  // `gap: 16` 横竖同值（`LogSettingsSection.tsx:274`）。
                   spacing: 16,
-                  runSpacing: AidogSpace.ssm,
+                  runSpacing: 16,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                     InlineRow(
@@ -876,10 +917,15 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
                       child: NumberInput(
                         value: '${_c.logRetHours}',
                         onChanged: (v) => _c.updateAppLogSettings(
-                          retentionHours:
-                              (int.tryParse(v) ?? 0) < 0 ? 0 : int.tryParse(v) ?? 0,
+                          retentionHours: (int.tryParse(v) ?? 0) < 0
+                              ? 0
+                              : int.tryParse(v) ?? 0,
                         ),
                         width: 70,
+                        // 同保留期档：`height: 28, fontSize: 12`
+                        //（`LogSettingsSection.tsx:299`）。
+                        height: 28,
+                        fontSize: 12,
                       ),
                     ),
                     if (_c.logRetHours == 0)
@@ -901,6 +947,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   // ── 聚合统计（`SystemMiscSection.tsx` 的 DbStatsSection）──────────
 
   Widget _stats(I18nController t) => HeaderCard(
+    bottomGap: _cardGap,
     title: t.t('stats.aggSettings'),
     descriptions: [t.t('stats.aggSettingsHint')],
     child: Column(
@@ -908,7 +955,8 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: AidogSpace.smd),
+          // 卡 `gap: 12`（`SystemMiscSection.tsx:154-197`）。
+          padding: const EdgeInsets.only(top: 12),
           child: InlineRow(
             label: t.t('stats.aggRetention'),
             labelWidth: 120,
@@ -932,7 +980,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
             ),
           ),
         ),
-        const SizedBox(height: AidogSpace.smd),
+        const SizedBox(height: 12),
         // 文字左、按钮右（React space-between，`SystemMiscSection.tsx:181-196`）。
         Row(
           children: [
@@ -968,6 +1016,7 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   // 压缩数据库 → 聚合统计 → 自动更新 → 版本。
 
   Widget _btcGlobal(I18nController t) => ToggleCard(
+    bottomGap: _cardGap,
     key: const ValueKey('btc-global'),
     label: t.t('proxy.btcGlobal'),
     descriptions: [t.t('proxy.btcGlobalDesc')],
@@ -976,26 +1025,27 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
   );
 
   Widget _dbCompact(I18nController t) => HeaderCard(
+    bottomGap: _cardGap,
     title: t.t('settings.dbCompact'),
     descriptions: [t.t('settings.dbCompactHint')],
-    // 卡内 space-between：文字左、按钮右（`SystemMiscSection.tsx:102-125`）。
-    child: Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: SmallButton(
-        key: const ValueKey('db-compact'),
-        fontSize: 13,
-        padding: (16, 7),
-        label: _c.dbCompacting
-            ? t.t('common.loading')
-            : t.t('settings.dbCompact'),
-        onTap: _c.dbCompacting
-            ? null
-            : () => setState(() => _confirm = _Confirm.compactDb),
-      ),
+    // 卡是 `space-between`：文字左、按钮右，**同一行**
+    //（`SystemMiscSection.tsx:102-125`）。挂在 child 上会被排到标题行下面。
+    trailing: SmallButton(
+      key: const ValueKey('db-compact'),
+      fontSize: 13,
+      padding: (16, 7),
+      label: _c.dbCompacting
+          ? t.t('common.loading')
+          : t.t('settings.dbCompact'),
+      onTap: _c.dbCompacting
+          ? null
+          : () => setState(() => _confirm = _Confirm.compactDb),
     ),
+    child: const SizedBox.shrink(),
   );
 
   Widget _autoUpdate(I18nController t) => ToggleCard(
+    bottomGap: _cardGap,
     key: const ValueKey('auto-update'),
     label: t.t('settings.autoUpdate'),
     descriptions: [t.t('settings.autoUpdateHint')],
@@ -1007,19 +1057,18 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     if (_c.appVersion.isEmpty) return const SizedBox.shrink();
     final theme = AidogTheme.of(context);
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+      padding: const EdgeInsets.only(bottom: _cardGap),
       child: Tile(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         child: Row(
           children: [
             Text(t.t('app.version'), style: _titleStyle(theme)),
+            // 卡是 `space-between`，版本号贴右（`SystemMiscSection.tsx:232-244`）。
+            const Spacer(),
             // 版本号 mono 13 secondary（`SystemMiscSection.tsx:238-244`）。
             Text(
               ltr('v${_c.appVersion}'),
-              style: AidogType.numMd.copyWith(
-                fontSize: 13,
-                color: theme.c.fg2,
-              ),
+              style: AidogType.numMd.copyWith(fontSize: 13, color: theme.c.fg2),
             ),
           ],
         ),
@@ -1041,10 +1090,31 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
     ),
   );
 
+  /// 三个确认框的共同档位：maxWidth **380**、padding **20**、标题 **13 w600**、
+  /// 正文 **12 lh1.6 secondary**、页脚按钮 **12 / 6-14**
+  /// （`SystemMiscSection.tsx:129-149`、`LogSettingsSection.tsx:314-345,350-376`）。
+  /// 原先三处一个覆盖都没传，吃的是 420 / 24 / 17 / micro 11 那一档。
+  TextStyle get _confirmTitleStyle =>
+      AidogType.title.copyWith(fontSize: 13, fontWeight: FontWeight.w600);
+
+  TextStyle get _confirmBodyStyle => AidogType.caption.copyWith(
+    fontSize: 12,
+    height: 1.6,
+    color: AidogTheme.of(context).c.fg2,
+  );
+
   Widget _confirmCard(I18nController t) {
     final e = _estimate;
     return switch (_confirm!) {
+      // 压缩确认是 `AlertDialog`（`SystemMiscSection.tsx:128`）：没有 ✕、
+      // 点遮罩不关、确认键是默认变体不是 destructive。
       _Confirm.compactDb => ConfirmCard(
+        maxWidth: 380,
+        padding: const EdgeInsets.all(20),
+        titleStyle: _confirmTitleStyle,
+        bodyStyle: _confirmBodyStyle,
+        buttonFontSize: 12,
+        buttonPadding: (14, 6),
         title: t.t('settings.dbCompact'),
         body: t.t('settings.dbCompactHint'),
         confirmLabel: _c.dbCompacting
@@ -1065,7 +1135,19 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
           if (mounted) setState(() => _confirm = null);
         },
       ),
+      // 清空 / 清理过期两处是普通 `Dialog`（`LogSettingsSection.tsx:313,349`）：
+      // `DialogContent` 自带右上角 ✕、点遮罩即关（busy 时都拦住），
+      // 确认键是 `variant="destructive"`（`:367`、`:337`）。
       _Confirm.clearLogs => ConfirmCard(
+        maxWidth: 380,
+        padding: const EdgeInsets.all(20),
+        titleStyle: _confirmTitleStyle,
+        bodyStyle: _confirmBodyStyle,
+        buttonFontSize: 12,
+        buttonPadding: (14, 6),
+        dismissOnBarrier: true,
+        dangerConfirm: true,
+        onClose: _c.logMaintBusy ? null : () => setState(() => _confirm = null),
         title: t.t('logs.clearConfirmTitle'),
         body: t.t('logs.clearConfirm'),
         confirmLabel: _c.logMaintBusy
@@ -1084,6 +1166,15 @@ class _SystemSettingsPageState extends State<SystemSettingsPage> {
         },
       ),
       _Confirm.cleanupExpired => ConfirmCard(
+        maxWidth: 380,
+        padding: const EdgeInsets.all(20),
+        titleStyle: _confirmTitleStyle,
+        bodyStyle: _confirmBodyStyle,
+        buttonFontSize: 12,
+        buttonPadding: (14, 6),
+        dismissOnBarrier: true,
+        dangerConfirm: true,
+        onClose: _c.logMaintBusy ? null : () => setState(() => _confirm = null),
         title: t.t('logs.cleanupConfirmTitle'),
         body: e == null
             ? t.t('logs.cleanupConfirmNoEstimate')

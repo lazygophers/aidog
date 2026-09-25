@@ -113,6 +113,7 @@ export 'src/pages/ui_bits.dart'
         CenteredNote,
         ConfirmCard,
         DashedBorder,
+        InlineNote,
         NumberInput,
         SmallButton,
         ToastBar;
