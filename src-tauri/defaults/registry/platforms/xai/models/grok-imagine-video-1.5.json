@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790351264,
   "model_id": "grok-imagine-video-1.5",
   "canonical_model": "grok-imagine-video-1.5",
   "capabilities": [
@@ -13,5 +13,6 @@
   "price": {
     "unit": "second",
     "unit_price": 0.08
-  }
+  },
+  "display_name": "Grok Imagine Video 1.5"
 }

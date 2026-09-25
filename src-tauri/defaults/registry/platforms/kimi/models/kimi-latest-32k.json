@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790351264,
   "model_id": "kimi-latest-32k",
   "canonical_model": "kimi-latest-32k",
   "family": "kimi",
@@ -14,5 +14,6 @@
     "input": 1e-06,
     "output": 3e-06,
     "cache_read": 1.5e-07
-  }
+  },
+  "display_name": "Kimi Latest 32K"
 }

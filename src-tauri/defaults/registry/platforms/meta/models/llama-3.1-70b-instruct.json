@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790351264,
   "model_id": "llama-3.1-70b-instruct",
   "display_name": "Llama 3.1 70B Instruct",
   "canonical_model": "llama-3.1-70b-instruct",
@@ -18,5 +18,6 @@
     "input": 4e-07,
     "output": 4e-07,
     "cache_read": 0
-  }
+  },
+  "display_name": "Llama 3.1 70B Instruct"
 }

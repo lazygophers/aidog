@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790351264,
   "model_id": "glm-4.5-x",
   "display_name": "GLM 4.5 X",
   "canonical_model": "glm-4.5-x",
@@ -18,5 +18,6 @@
     "input": 2.2e-06,
     "output": 8.900000000000001e-06,
     "cache_read": 4.5000000000000003e-07
-  }
+  },
+  "display_name": "GLM-4.5-X"
 }

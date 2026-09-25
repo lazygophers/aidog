@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790351264,
   "model_id": "MiniMax-M2",
   "display_name": "MiniMax M2",
   "canonical_model": "MiniMax-M2",
@@ -18,5 +18,6 @@
     "input": 3e-07,
     "output": 1.2e-06,
     "cache_read": 3e-08
-  }
+  },
+  "display_name": "MiniMax M2"
 }

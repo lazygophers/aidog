@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790351264,
   "model_id": "glm-5-turbo",
   "display_name": "GLM 5 Turbo",
   "canonical_model": "glm-5-turbo",
@@ -26,5 +26,6 @@
         "cache_read": 2.5e-07
       }
     ]
-  }
+  },
+  "display_name": "GLM-5-Turbo"
 }
