@@ -350,3 +350,11 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   官方组>全库单值平移，官方平台目录只收官方组名）。剩余缺省归因：thinking ~1135
   文件官方无明文（devin/live/antigravity/别名/镜像杂项）；display_name 多值排版
   变体 2144 + 零先例 3044 需逐官方页取证。
+- 2026-09-25 r78-r79（全绿）：r78 display_name 变体基准化（92bdd168a，2649 条
+  36.3%→66.6%：「排版变体冲突」实为镜像站装饰前缀噪音，规范化折叠+剥装饰后 385/392
+  canonical 收敛；官方组拼写>多数拼写；无官方锚不写官方平台目录）；r79 零先例取证
+  （ee9f358d7，445 canonical 1084 条：Aliyun EN 计价/Anthropic/DeepSeek/Mistral/
+  OpenAI/Gemini/Bedrock 15 族官方页逐字，命名约定=官方产品线名逐字>快照(YYYY-MM-DD)>
+  -latest 剥除>p 记号归一>HF repo 去 org；doubao 81 条官方无 per-model 名留缺省合法）。
+  合并后 display_name 79.0%。r80 处理 r79 未触及族（llama/glm/kimi/grok/minimax/
+  ernie/cohere/gemma/jamba/step/mimo/aigc/meta 镜像，~1835 条）。
