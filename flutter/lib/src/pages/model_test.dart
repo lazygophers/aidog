@@ -51,11 +51,11 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
-    // React 侧是普通 `Dialog`（`ModelTestPanel.tsx:145`，width 560）。跑测试中
-    // 关闭按钮本就禁用，遮罩同步不可关。
+    // React 侧是普通 `Dialog`（`ModelTestPanel.tsx:144-145`，width 560）：
+    // `onOpenChange` 没有 running 守卫，跑测试中照样能关（遮罩 / Esc / ✕）。
     return AidogModal(
       maxWidth: 560,
-      onBarrierTap: _c.running ? null : widget.onClose,
+      onBarrierTap: widget.onClose,
       child: ModalCard(
         // `ModelTestPanel.tsx:146-150`：radius 16（非 glass-elevated 的 24）、
         // 标题 15 w700（非 DialogTitle 默认 17 w600）。
@@ -66,6 +66,8 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
         ),
         title: t.t('test.title'),
         meta: '${widget.platform.name} · ${widget.platform.platformType}',
+        // 关闭走 DialogContent 自带的右上角 ✕。
+        onClose: widget.onClose,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

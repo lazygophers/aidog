@@ -16,7 +16,8 @@ library;
 
 export 'src/popover/app.dart'
     show PopoverApp, PopoverDataController, runPopoverApp;
-export 'src/popover/cards.dart' show PopoverCard, PopoverFrame, PopoverGrid;
+export 'src/popover/cards.dart'
+    show PopoverCard, PopoverFrame, PopoverGrid, PopoverRoot;
 export 'src/popover/model.dart'
     show
         PopoverSize,

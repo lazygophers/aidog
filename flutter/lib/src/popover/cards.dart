@@ -14,8 +14,76 @@ import '../../charts.dart';
 import '../../i18n.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
-import '../shell/tiles.dart' show numStyle;
 import 'model.dart';
+
+/// CSS grid 的 `gap: 6px`（`src/styles/popover.css:103`）。
+const double _gridGap = 6;
+
+/// `.popover-root`：底色 var(--popover)=surface、圆角 --radius-lg 16、
+/// 内边距上下 10 左右 14、宽 280..480、**无边框**
+/// （popover.css:27-43 + `src/themes/mono.ts:25,54`；那句
+/// `border: var(--glass-border)` 少了 border-style，浏览器按 none 处理）。
+///
+/// 小窗本体（`app.dart`）与设置页实时预览（`tray_pages.dart`）共用这一层，
+/// 与 React 两处都套 `.popover-root` 对齐。
+class PopoverRoot extends StatelessWidget {
+  const PopoverRoot({super.key, required this.child});
+
+  static const double padY = 10;
+  static const double padX = 14;
+  static const double minW = 280;
+  static const double maxW = 480;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minWidth: minW, maxWidth: maxW),
+    padding: const EdgeInsets.symmetric(vertical: padY, horizontal: padX),
+    decoration: BoxDecoration(
+      color: AidogTheme.of(context).c.surface,
+      borderRadius: BorderRadius.circular(AidogRadius.lg),
+    ),
+    child: child,
+  );
+}
+
+/// 小窗专用字阶：**不走主界面的 `AidogType`**。
+///
+/// React 小窗是独立 bundle，根字体就是系统 sans 13px（`src/styles/popover.css:34-35`），
+/// 数字靠 `font-variant-numeric: tabular-nums` 等宽，**不换等宽字族**。行高不设，
+/// 走浏览器 `normal`（字体自然行高）—— 所以这里 `height` 留空，不写 1.55。
+TextStyle _pt(
+  double size, {
+  FontWeight weight = FontWeight.w400,
+  Color? color,
+  double? letterSpacing,
+  bool tabular = false,
+  FontStyle? fontStyle,
+}) => TextStyle(
+  fontFamily: AidogType.familySans,
+  fontSize: size,
+  fontWeight: weight,
+  color: color,
+  letterSpacing: letterSpacing,
+  fontStyle: fontStyle,
+  fontFeatures: tabular ? const [FontFeature.tabularFigures()] : null,
+);
+
+/// `.popover-section` 的上下内边距：m 6 / s 3 / l 8（popover.css:92,124,138）。
+double _sectionPadY(PopoverSize size) => switch (size) {
+  PopoverSize.s => 3,
+  PopoverSize.m => 6,
+  PopoverSize.l => 8,
+};
+
+/// `.popover-metric-value` / `.popover-platform-value` 的字号随 s/m/l 变
+/// （popover.css:126-129,140-143）。基准 14 / 12 由调用方给。
+double _valueSize(PopoverSize size, double base) => switch (size) {
+  PopoverSize.s => 13,
+  PopoverSize.m => base,
+  PopoverSize.l => 16,
+};
 
 /// 小窗一帧的全部数据。整份读整份用，不拆成 14 个 model 类。
 @immutable
@@ -77,16 +145,20 @@ class PopoverGrid extends StatelessWidget {
         for (final r in rows)
           for (var i = 0; i < r.items.length; i += r.cols)
             Padding(
-              padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              // CSS grid 的 gap 6px 同时管行列：**同一 row 折下来的隐式行**之间有
+              // 6px，不同 `.popover-grid-row` 之间没有（它们是普通兄弟 div，无
+              // margin）—— `src/styles/popover.css:101-105`。
+              padding: EdgeInsets.only(bottom: i + r.cols < r.items.length ? _gridGap : 0),
+              // `align-items: stretch`（popover.css:104）：同一行的卡等高。
+              // Row 在 Column 里高度无约束，stretch 需要 IntrinsicHeight 定高。
+              child: IntrinsicHeight(
+                child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   for (var j = 0; j < r.cols; j++)
                     Expanded(
                       child: Padding(
-                        padding: EdgeInsets.only(
-                          left: j == 0 ? 0 : AidogSpace.sxs,
-                        ),
+                        padding: EdgeInsets.only(left: j == 0 ? 0 : _gridGap),
                         child: i + j < r.items.length
                             ? PopoverCard(
                                 key: ValueKey('${r.items[i + j]['id']}'),
@@ -97,6 +169,7 @@ class PopoverGrid extends StatelessWidget {
                       ),
                     ),
                 ],
+                ),
               ),
             ),
       ],
@@ -150,12 +223,14 @@ class PopoverCard extends StatelessWidget {
         color: color,
       ),
       'cost_trend' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s ? null : _trendTitle(context, item, frame),
         stats: stats,
         loaded: frame.statsLoaded,
         builder: (s) => _trendBody(context, s, size, color),
       ),
       'platform_share' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s
             ? null
             : AidogI18n.of(context).t('popover.itemPlatformShare'),
@@ -164,12 +239,14 @@ class PopoverCard extends StatelessWidget {
         builder: (s) => _shareBody(context, s, size),
       ),
       'hour_heatbar' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s ? null : AidogI18n.of(context).t('popover.itemHourHeat'),
         stats: stats,
         loaded: frame.statsLoaded,
         builder: (s) => _heatBody(context, s),
       ),
       'platform_metric' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s
             ? null
             : AidogI18n.of(context).t('popover.platformMetricTitle', {
@@ -180,6 +257,7 @@ class PopoverCard extends StatelessWidget {
         builder: (s) => _platformMetricBody(context, s, size, color),
       ),
       'group_cost' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s
             ? null
             : AidogI18n.of(context).t('popover.groupCostTitle', {'name': _groupName(context, item)}),
@@ -188,6 +266,7 @@ class PopoverCard extends StatelessWidget {
         builder: (s) => _groupCostBody(context, s, size, color),
       ),
       'group_tokens' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s
             ? null
             : AidogI18n.of(context).t('popover.groupTokensTitle', {'name': _groupName(context, item)}),
@@ -196,6 +275,7 @@ class PopoverCard extends StatelessWidget {
         builder: (s) => _groupTokensBody(context, s, size, color),
       ),
       'group_requests' => _StatsCard(
+        size: size,
         title: size == PopoverSize.s
             ? null
             : AidogI18n.of(context).t('popover.groupRequestsTitle', {'name': _groupName(context, item)}),
@@ -358,14 +438,26 @@ Widget _platformMetricBody(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      Row(
-        children: [
-          _Value(formatCostUsd(_num(o['total_cost'])), color),
-          if (size != PopoverSize.s) ...[
-            const SizedBox(width: AidogSpace.sxs),
-            _SubInline('${formatNumber(tokens)} tok'),
+      // React 这张卡用的是 `.popover-platform-row`（上下 3、间距 10、基线对齐、
+      // 值走 platform-value 12 档），不是 metric-row。
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 3),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            _Value(
+              formatCostUsd(_num(o['total_cost'])),
+              color,
+              size: size,
+              base: 12,
+            ),
+            if (size != PopoverSize.s) ...[
+              const SizedBox(width: 10),
+              _SubInline('${formatNumber(tokens)} tok'),
+            ],
           ],
-        ],
+        ),
       ),
       if (size == PopoverSize.l)
         _Sub(
@@ -387,7 +479,7 @@ Widget _groupCostBody(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _Value(formatCostUsd(_num(o['total_cost'])), color),
+      _MetricValueRow(size: size, child: _Value(formatCostUsd(_num(o['total_cost'])), color, size: size)),
       if (size == PopoverSize.l)
         _Sub(
           '${formatNumber(_num(o['total_requests']))} ${AidogI18n.of(context).t('popover.reqUnit')}'
@@ -408,7 +500,7 @@ Widget _groupTokensBody(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _Value('${formatNumber(popoverOverviewTokens(o))} tok', color),
+      _MetricValueRow(size: size, child: _Value('${formatNumber(popoverOverviewTokens(o))} tok', color, size: size)),
       if (size == PopoverSize.l)
         _Sub(
           '${AidogI18n.of(context).t('popover.tokenIn')} ${formatNumber(_num(o['total_input_tokens']))}'
@@ -429,7 +521,7 @@ Widget _groupRequestsBody(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
-      _Value(formatNumber(_num(o['total_requests'])), color),
+      _MetricValueRow(size: size, child: _Value(formatNumber(_num(o['total_requests'])), color, size: size)),
       if (size == PopoverSize.l)
         _Sub(
           '${AidogI18n.of(context).t('popover.successRate')} '
@@ -451,24 +543,88 @@ class _ProxyStatus extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
     final running = frame.proxyRunning;
-    return _Section(
+    // `.popover-header`：不是 section，自带下边框 + 上下 8（popover.css:54-61）。
+    return Container(
+      padding: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: c.line)),
+      ),
       child: Row(
         children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: running ? c.ok : c.fg3,
-            ),
-          ),
-          const SizedBox(width: AidogSpace.sxs),
+          _StatusDot(running: running, color: running ? c.ok : c.fg3),
+          const SizedBox(width: 6),
           Text(
             running ? ltr('Running :${frame.proxyPort}') : 'Stopped',
-            style: AidogType.caption.copyWith(color: c.fg2),
+            style: _pt(12, weight: FontWeight.w500, color: c.fg2, letterSpacing: 0.24),
           ),
         ],
       ),
+    );
+  }
+}
+
+/// 运行中的状态点会呼吸（`statusPulse` 2s，opacity 1 → 0.5）并带一圈辉光
+/// （popover.css:63-82 + PopoverCards.tsx:88-92）。系统「减少动态效果」时不动画。
+class _StatusDot extends StatefulWidget {
+  const _StatusDot({required this.running, required this.color});
+
+  final bool running;
+  final Color color;
+
+  @override
+  State<_StatusDot> createState() => _StatusDotState();
+}
+
+class _StatusDotState extends State<_StatusDot> with SingleTickerProviderStateMixin {
+  late final AnimationController _ctrl = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final reduce = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (widget.running && !reduce) {
+      if (!_ctrl.isAnimating) _ctrl.repeat(reverse: true);
+    } else {
+      _ctrl.stop();
+      _ctrl.value = 0;
+    }
+  }
+
+  @override
+  void didUpdateWidget(_StatusDot old) {
+    super.didUpdateWidget(old);
+    if (old.running != widget.running) didChangeDependencies();
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final dot = Container(
+      width: 7,
+      height: 7,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: widget.color,
+        boxShadow: widget.running
+            ? [BoxShadow(color: widget.color.withValues(alpha: 0.5), blurRadius: 8)]
+            : null,
+      ),
+    );
+    if (!widget.running) return dot;
+    return FadeTransition(
+      opacity: Tween<double>(begin: 1, end: 0.5).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
+      ),
+      child: dot,
     );
   }
 }
@@ -484,12 +640,14 @@ class _PlatformBalance extends StatelessWidget {
     final c = AidogTheme.of(context).c;
     if (frame.entries.isEmpty) return const SizedBox.shrink();
     return _Section(
+      size: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // `.popover-entry`：上下 4、间距 6（popover.css:156-161）。
           for (final e in frame.entries)
             Padding(
-              padding: const EdgeInsets.only(bottom: 2),
+              padding: const EdgeInsets.symmetric(vertical: 4),
               child: Row(
                 children: [
                   Container(
@@ -500,20 +658,25 @@ class _PlatformBalance extends StatelessWidget {
                       color: popoverEntryColor(e['color'], c),
                     ),
                   ),
-                  const SizedBox(width: AidogSpace.sxs),
+                  const SizedBox(width: 6),
                   if (size != PopoverSize.s)
                     Expanded(
                       child: Text(
                         '${e['name'] ?? ''}',
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.caption.copyWith(color: c.fg3),
+                        style: _pt(12, color: c.fg2),
                       ),
                     )
                   else
                     const Spacer(),
                   Text(
                     ltr('${e['value'] ?? ''}'),
-                    style: numStyle(AidogType.numSm, popoverEntryColor(e['color'], c)),
+                    style: _pt(
+                      13,
+                      weight: FontWeight.w600,
+                      color: popoverEntryColor(e['color'], c),
+                      tabular: true,
+                    ),
                   ),
                 ],
               ),
@@ -539,6 +702,7 @@ class _PlatformToday extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
     return _Section(
+      size: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -546,10 +710,13 @@ class _PlatformToday extends StatelessWidget {
           if (frame.platformToday.isEmpty)
             _Empty(AidogI18n.of(context).t('popover.noUsageToday'))
           else
+            // `.popover-platform-row`：上下 3、间距 10（popover.css:247-253）。
             for (final p in frame.platformToday)
               Padding(
-                padding: const EdgeInsets.only(bottom: 2),
+                padding: const EdgeInsets.symmetric(vertical: 3),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
                     Expanded(
                       child: Text(
@@ -557,19 +724,22 @@ class _PlatformToday extends StatelessWidget {
                             ? AidogI18n.of(context).t('popover.unknownPlatform')
                             : '${p['platform_name']}',
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.caption.copyWith(color: c.fg3),
+                        style: _pt(12, color: c.fg2),
                       ),
                     ),
-                    Text(
-                      ltr(formatCostUsd(_num(p['cost']))),
-                      style: numStyle(AidogType.numSm, color ?? c.fg),
+                    const SizedBox(width: 10),
+                    _Value(
+                      formatCostUsd(_num(p['cost'])),
+                      color,
+                      size: size,
+                      base: 12,
                     ),
                     if (size != PopoverSize.s) ...[
-                      const SizedBox(width: AidogSpace.sxs),
+                      const SizedBox(width: 10),
                       _SubInline('${formatNumber(_num(p['tokens']))} tok'),
                     ],
                     if (size == PopoverSize.l) ...[
-                      const SizedBox(width: AidogSpace.sxs),
+                      const SizedBox(width: 10),
                       _SubInline(
                         '${formatNumber(_num(p['requests']))} '
                         '${AidogI18n.of(context).t('popover.reqUnit')}',
@@ -615,6 +785,7 @@ class _GroupBalance extends StatelessWidget {
       (sum, p) => sum + _num(_mapOf(p['platform'])['est_balance_remaining']),
     );
     return _Section(
+      size: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -625,7 +796,7 @@ class _GroupBalance extends StatelessWidget {
           else if (detail == null)
             _Empty(AidogI18n.of(context).t('popover.trendNoGroup'))
           else ...[
-            _Value(formatCostUsd(balance), color),
+            _MetricValueRow(child: _Value(formatCostUsd(balance), color, size: size)),
             if (size == PopoverSize.l)
               _Sub(
                 '${platforms.length} ${AidogI18n.of(context).t('popover.platformsUnit')}',
@@ -648,17 +819,20 @@ class _StatsCard extends StatelessWidget {
     required this.stats,
     required this.loaded,
     required this.builder,
+    required this.size,
   });
 
   final String? title;
   final Map<String, Object?>? stats;
   final bool loaded;
   final Widget Function(Map<String, Object?>) builder;
+  final PopoverSize size;
 
   @override
   Widget build(BuildContext context) {
     final s = stats;
     return _Section(
+      size: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -694,24 +868,30 @@ class _MetricRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
     // s: 仅大数值（无标签）；m: 标签 + 值；l: 标签 + 值 + 副标。
+    // s 档的 section 不带 pc-s（React 只把 pc-s 给了里面的 metric-row，
+    // `PopoverCards.tsx:132-139`），所以外壳按 m 的 6px 走。
     if (size == PopoverSize.s) {
-      return _Section(child: _Value(value, color));
+      return _Section(
+        size: PopoverSize.m,
+        child: _MetricValueRow(
+          size: size,
+          child: _Value(value, color, size: size),
+        ),
+      );
     }
     return _Section(
+      size: size,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: AidogType.caption.copyWith(color: c.fg3),
-                ),
-              ),
-              _Value(value, color),
-            ],
+          _MetricValueRow(
+            size: size,
+            label: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: _pt(12, color: c.fg2),
+            ),
+            child: _Value(value, color, size: size),
           ),
           if (size == PopoverSize.l) _Sub(sub, null),
         ],
@@ -720,26 +900,48 @@ class _MetricRow extends StatelessWidget {
   }
 }
 
+/// `.popover-section`：只有上下内边距，**没有底色 / 边框 / 圆角**
+/// （`src/styles/popover.css:91-93`；grid 模式下相邻 section 的分隔线也被
+/// `:116-119` 去掉了，所以这里一条线都不画）。
 class _Section extends StatelessWidget {
-  const _Section({required this.child});
+  const _Section({required this.size, required this.child});
 
+  final PopoverSize size;
   final Widget child;
 
   @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.symmetric(vertical: _sectionPadY(size)),
+    child: child,
+  );
+}
+
+/// `.popover-metric-row`：上下 4（s 档 2），基线对齐，标签与值之间 12
+/// （popover.css:130-132,221-227）。
+class _MetricValueRow extends StatelessWidget {
+  const _MetricValueRow({required this.child, this.size = PopoverSize.m, this.label});
+
+  final Widget child;
+  final PopoverSize size;
+  final Widget? label;
+
+  @override
   Widget build(BuildContext context) {
-    final t = AidogTheme.of(context);
-    return Container(
-      padding: const EdgeInsets.all(AidogSpace.ssm),
-      decoration: BoxDecoration(
-        color: t.c.surface,
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
-        border: Border.all(color: t.c.line),
-      ),
-      child: child,
+    final l = label;
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: size == PopoverSize.s ? 2 : 4),
+      child: l == null
+          ? child
+          : Row(
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [Expanded(child: l), const SizedBox(width: 12), child],
+            ),
     );
   }
 }
 
+/// `.popover-stats-title`：11 w600 全大写 ls 0.06em fg3，下距 6。
 class _Title extends StatelessWidget {
   const _Title(this.text);
 
@@ -747,32 +949,45 @@ class _Title extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 4),
+    padding: const EdgeInsets.only(bottom: 6),
     child: Text(
-      text,
+      text.toUpperCase(),
       overflow: TextOverflow.ellipsis,
-      style: AidogType.caption.copyWith(color: AidogTheme.of(context).c.fg3),
+      style: _pt(
+        11,
+        weight: FontWeight.w600,
+        color: AidogTheme.of(context).c.fg3,
+        letterSpacing: 0.66,
+      ),
     ),
   );
 }
 
+/// `.popover-metric-value`：w600 tabular，字号随 s/m/l 为 13/14/16。
 class _Value extends StatelessWidget {
-  const _Value(this.text, this.color);
+  const _Value(this.text, this.color, {required this.size, this.base = 14});
 
   final String text;
   final Color? color;
+  final PopoverSize size;
+
+  /// m 档字号：指标值 14，平台行金额 12（popover.css:238,265）。
+  final double base;
 
   @override
   Widget build(BuildContext context) => Text(
     ltr(text),
     overflow: TextOverflow.ellipsis,
-    style: numStyle(
-      AidogType.numMd,
-      color ?? AidogTheme.of(context).c.fg,
+    style: _pt(
+      _valueSize(size, base),
+      weight: FontWeight.w600,
+      color: color ?? AidogTheme.of(context).c.fg,
+      tabular: true,
     ),
   );
 }
 
+/// `.popover-metric-sub`：11 fg3 tabular，上距 3。
 class _Sub extends StatelessWidget {
   const _Sub(this.text, this.color);
 
@@ -781,17 +996,20 @@ class _Sub extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(top: 2),
+    padding: const EdgeInsets.only(top: 3),
     child: Text(
       text,
       overflow: TextOverflow.ellipsis,
-      style: AidogType.caption.copyWith(
+      style: _pt(
+        11,
         color: color ?? AidogTheme.of(context).c.fg3,
+        tabular: true,
       ),
     ),
   );
 }
 
+/// `.popover-platform-sub`：同 11 fg3 tabular，行内不带上距。
 class _SubInline extends StatelessWidget {
   const _SubInline(this.text);
 
@@ -800,19 +1018,27 @@ class _SubInline extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Text(
     ltr(text),
-    style: AidogType.caption.copyWith(color: AidogTheme.of(context).c.fg3),
+    style: _pt(11, color: AidogTheme.of(context).c.fg3, tabular: true),
   );
 }
 
+/// `.popover-empty`：11 斜体 fg3，上下内边距 4。
 class _Empty extends StatelessWidget {
   const _Empty(this.text);
 
   final String text;
 
   @override
-  Widget build(BuildContext context) => Text(
-    text,
-    style: AidogType.caption.copyWith(color: AidogTheme.of(context).c.fg3),
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Text(
+      text,
+      style: _pt(
+        11,
+        color: AidogTheme.of(context).c.fg3,
+        fontStyle: FontStyle.italic,
+      ),
+    ),
   );
 }
 

@@ -1320,7 +1320,9 @@ void main() {
         ),
       );
       await settle(tester);
-      await tester.tap(find.text(c.t('action.close')));
+      // 关闭走 DialogContent 自带的右上角 ✕（`ui/dialog.tsx:47-50`），
+      // React 页脚只有「开始测试」一颗，没有第二颗关闭按钮。
+      await tester.tap(find.byIcon(Icons.close));
       await settle(tester);
       expect(closed, isTrue);
     });

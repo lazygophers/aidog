@@ -95,9 +95,10 @@ class PopoverDataController extends ChangeNotifier {
       .toList(growable: false);
 }
 
-/// 小窗外框的边宽。`Border.all` 默认 1px，而它是会算进布局的 ——
-/// 上报尺寸时必须把上下 / 左右各一份加回去。
-const double _borderWidth = 1;
+/// 外壳内边距取自 [PopoverRoot]（与设置页预览同一份真值）。
+/// 宽高的上下限不在这里夹，由 `panel_channel.dart` 按 React 的 MIN_W/MAX_W 夹。
+const double _rootPadY = PopoverRoot.padY;
+const double _rootPadX = PopoverRoot.padX;
 
 /// 小窗的根。固定深色（与 React 版 `applyTheme("dark")` 一致，不跟随主窗口 themeMode）。
 class PopoverApp extends StatefulWidget {
@@ -161,15 +162,16 @@ class _PopoverAppState extends State<PopoverApp> {
   ///
   /// **高**取当前布局下的实测高度（跟着宽走，宽变了下一帧会重算）。
   ///
-  /// 两者都要加上外壳自己占的那一圈：[SingleChildScrollView] 的 padding ×2 +
-  /// `Container` 的 1px 边框 ×2。少算边框就会差 2px，内容被裁掉一线。
+  /// 两者都要加上外壳自己占的那一圈：[SingleChildScrollView] 的 padding ×2
+  /// （左右 14、上下 10，与 `.popover-root` 同值）。外框无边线（React 那条
+  /// `border: var(--glass-border)` 少了 border-style，浏览器按 `none` 处理，
+  /// 不画线），所以不再补边宽。
   void _syncSize() {
     final box = _contentKey.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
-    const chrome = 2 * AidogSpace.smd + 2 * _borderWidth;
     final size = Size(
-      box.getMaxIntrinsicWidth(double.infinity) + chrome,
-      box.size.height + chrome,
+      box.getMaxIntrinsicWidth(double.infinity) + 2 * _rootPadX,
+      box.size.height + 2 * _rootPadY,
     );
     if ((size.width - _lastSize.width).abs() <= 1 &&
         (size.height - _lastSize.height).abs() <= 1) {
@@ -207,20 +209,35 @@ class _PopoverAppState extends State<PopoverApp> {
       final t = AidogTheme.of(context);
       final frame = _c.frame;
       return Container(
+        // `.popover-root`：底色 var(--popover)=surface、圆角 --radius-lg 16、
+        // **无边框**（popover.css:38-40 的 `border: var(--glass-border)` 缺
+        // border-style，浏览器按 none 处理）。`--shadow-lg` 画在盒子外面，
+        // 而窗口就贴着盒子，两边都看不见，所以不画。
         decoration: BoxDecoration(
-          color: t.c.bg,
-          borderRadius: BorderRadius.circular(AidogRadius.md),
-          border: Border.all(color: t.c.line, width: _borderWidth),
+          color: t.c.surface,
+          borderRadius: BorderRadius.circular(AidogRadius.lg),
         ),
         clipBehavior: Clip.antiAlias,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AidogSpace.smd),
+          padding: const EdgeInsets.symmetric(
+            vertical: _rootPadY,
+            horizontal: _rootPadX,
+          ),
           child: KeyedSubtree(
             key: _contentKey,
             child: frame == null
-                ? Text(
-                    AidogI18n.of(context).t('common.loading'),
-                    style: AidogType.caption.copyWith(color: t.c.fg3),
+                // `.popover-loading`：12 fg2，居中，最小高 80（popover.css:45-52）。
+                ? Container(
+                    constraints: const BoxConstraints(minHeight: 80),
+                    alignment: Alignment.center,
+                    child: Text(
+                      AidogI18n.of(context).t('common.loading'),
+                      style: TextStyle(
+                        fontFamily: AidogType.familySans,
+                        fontSize: 12,
+                        color: t.c.fg2,
+                      ),
+                    ),
                   )
                 : PopoverGrid(frame: frame),
           ),

@@ -671,7 +671,9 @@ void main() {
         ),
       );
       expect(
-        find.text(t.t('popover.groupCostTitle', {'name': 'gk_x'})),
+        // 卡片标题走 `.popover-stats-title` 的 `text-transform: uppercase`
+        //（`src/styles/popover.css:191`），拉丁字母会被顶成大写。
+        find.text(t.t('popover.groupCostTitle', {'name': 'gk_x'}).toUpperCase()),
         findsOneWidget,
       );
 
