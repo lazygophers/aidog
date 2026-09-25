@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/poolside/laguna-xs-2.1:free",
+  "display_name": "Poolside: Laguna XS 2.1 (free)",
   "canonical_model": "laguna-xs-2.1:free",
   "family": "laguna",
   "version": "2.1",

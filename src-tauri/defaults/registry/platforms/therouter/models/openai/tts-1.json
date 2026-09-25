@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "openai/tts-1",
+  "display_name": "TTS-1",
   "canonical_model": "tts-1",
   "family": "tts",
   "version": "1",

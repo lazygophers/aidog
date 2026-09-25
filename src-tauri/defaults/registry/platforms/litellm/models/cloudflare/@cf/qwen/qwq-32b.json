@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/qwen/qwq-32b",
+  "display_name": "QwQ 32B",
   "canonical_model": "qwq-32b",
   "family": "qwen",
   "capabilities": [

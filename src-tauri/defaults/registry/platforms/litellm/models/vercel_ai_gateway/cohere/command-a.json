@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/cohere/command-a",
+  "display_name": "Cohere: Command A",
   "canonical_model": "command-a",
   "family": "command",
   "capabilities": [

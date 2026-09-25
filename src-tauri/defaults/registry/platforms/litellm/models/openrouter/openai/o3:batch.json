@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/o3:batch",
+  "display_name": "OpenAI: o3 (batch)",
   "canonical_model": "o3:batch",
   "family": "o",
   "version": "3",

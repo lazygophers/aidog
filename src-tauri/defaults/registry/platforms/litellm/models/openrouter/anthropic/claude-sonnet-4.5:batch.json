@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/anthropic/claude-sonnet-4.5:batch",
+  "display_name": "Anthropic: Claude Sonnet 4.5 (batch)",
   "canonical_model": "claude-sonnet-4.5:batch",
   "family": "claude",
   "version": "4.5",

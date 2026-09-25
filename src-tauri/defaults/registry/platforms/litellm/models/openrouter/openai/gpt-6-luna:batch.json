@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/gpt-6-luna:batch",
+  "display_name": "OpenAI: GPT-6 Luna (batch)",
   "canonical_model": "gpt-6-luna:batch",
   "family": "gpt",
   "version": "6",

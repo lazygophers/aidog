@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790342182,
   "model_id": "dashscope/qwen-turbo-latest",
+  "display_name": "Qwen Turbo",
   "canonical_model": "qwen-turbo-latest",
   "capabilities": [
     "text",

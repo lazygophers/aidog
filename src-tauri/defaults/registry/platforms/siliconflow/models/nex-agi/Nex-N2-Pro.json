@@ -1,7 +1,8 @@
 {
   "max_input_tokens": 262000,
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "nex-agi/Nex-N2-Pro",
+  "display_name": "Nex-N2-Pro",
   "canonical_model": "Nex-N2-Pro",
   "family": "nex",
   "capabilities": [

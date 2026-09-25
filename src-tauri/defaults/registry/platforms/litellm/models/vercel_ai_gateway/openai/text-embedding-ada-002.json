@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/openai/text-embedding-ada-002",
+  "display_name": "Text Embedding Ada-002",
   "canonical_model": "text-embedding-ada-002",
   "family": "text-embedding",
   "version": "2",

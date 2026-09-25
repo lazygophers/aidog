@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "novita/moonshotai/kimi-k2-0905",
+  "display_name": "MoonshotAI: Kimi K2 0905",
   "canonical_model": "kimi-k2-0905",
   "family": "kimi",
   "version": "2",

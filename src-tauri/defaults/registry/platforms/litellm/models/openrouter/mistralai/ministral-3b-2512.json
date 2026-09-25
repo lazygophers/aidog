@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/ministral-3b-2512",
+  "display_name": "Mistral: Ministral 3 3B 2512",
   "canonical_model": "ministral-3b-2512",
   "family": "ministral",
   "version": "3",

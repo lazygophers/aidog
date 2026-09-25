@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790342182,
   "model_id": "aihubmix/coding-xiaomi-mimo-v2.5",
   "canonical_model": "mimo-v2.5",
   "family": "mimo",
   "version": "2.5",
+  "display_name": "Coding Xiaomi Mimo V2.5",
   "capabilities": [
     "text",
     "vision",

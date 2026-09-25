@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "ali/qwen-plus-latest",
+  "display_name": "Qwen Plus",
   "canonical_model": "qwen-plus-latest",
   "family": "qwen",
   "capabilities": [

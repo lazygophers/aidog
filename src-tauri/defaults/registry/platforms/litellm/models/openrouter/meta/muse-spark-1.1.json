@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790342182,
   "model_id": "openrouter/meta/muse-spark-1.1",
+  "display_name": "Muse Spark 1.1",
   "canonical_model": "muse-spark-1.1",
   "capabilities": [
     "text",

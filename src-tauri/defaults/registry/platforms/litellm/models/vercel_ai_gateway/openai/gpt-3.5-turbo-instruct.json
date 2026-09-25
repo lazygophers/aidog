@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/openai/gpt-3.5-turbo-instruct",
+  "display_name": "OpenAI: GPT-3.5 Turbo Instruct",
   "canonical_model": "gpt-3.5-turbo-instruct",
   "family": "gpt",
   "version": "3.5",

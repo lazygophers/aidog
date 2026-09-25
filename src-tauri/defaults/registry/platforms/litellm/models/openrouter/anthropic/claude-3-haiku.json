@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/anthropic/claude-3-haiku",
+  "display_name": "Anthropic: Claude 3 Haiku",
   "canonical_model": "claude-3-haiku",
   "family": "claude",
   "version": "3",

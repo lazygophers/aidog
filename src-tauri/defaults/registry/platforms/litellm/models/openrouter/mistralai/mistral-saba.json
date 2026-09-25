@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/mistral-saba",
+  "display_name": "Mistral: Saba",
   "canonical_model": "mistral-saba",
   "family": "mistral",
   "capabilities": [

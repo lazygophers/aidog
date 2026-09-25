@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "nebius/nvidia/Nemotron-3_5-Lightning",
+  "display_name": "NVIDIA: Nemotron 3.5 Lightning",
   "canonical_model": "nemotron-3.5-lightning",
   "family": "nemotron",
   "version": "3.5",

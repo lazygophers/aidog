@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/thedrummer/unslopnemo-12b",
+  "display_name": "TheDrummer: UnslopNemo 12B",
   "canonical_model": "unslopnemo-12b",
   "family": "unslopnemo",
   "capabilities": [

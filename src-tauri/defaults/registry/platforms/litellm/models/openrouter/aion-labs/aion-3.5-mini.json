@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/aion-labs/aion-3.5-mini",
+  "display_name": "AionLabs: Aion 3.5 Mini",
   "canonical_model": "aion-3.5-mini",
   "family": "aion",
   "version": "3.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/deepseek/deepseek-chat-v3-0324",
+  "display_name": "DeepSeek: DeepSeek V3 0324",
   "canonical_model": "deepseek-chat-v3-0324",
   "family": "deepseek",
   "version": "3",

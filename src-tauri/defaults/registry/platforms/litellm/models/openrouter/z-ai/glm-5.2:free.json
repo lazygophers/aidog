@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/z-ai/glm-5.2:free",
+  "display_name": "Z.ai: GLM 5.2 (free)",
   "canonical_model": "glm-5.2:free",
   "family": "glm",
   "version": "5.2",

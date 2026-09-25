@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "happyhorse-1.0-video-edit",
+  "display_name": "Happyhorse 1.0 Video Edit",
   "canonical_model": "happyhorse-1.0-video-edit",
   "family": "happyhorse",
   "version": "1.0",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/amazon/nova-lite-v1",
+  "display_name": "Amazon: Nova Lite 1.0",
   "canonical_model": "nova-lite-v1",
   "family": "nova",
   "version": "1",

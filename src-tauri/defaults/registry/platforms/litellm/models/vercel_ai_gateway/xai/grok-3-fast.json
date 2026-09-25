@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/xai/grok-3-fast",
+  "display_name": "Grok 3 Fast",
   "canonical_model": "grok-3-fast",
   "capabilities": [
     "text",

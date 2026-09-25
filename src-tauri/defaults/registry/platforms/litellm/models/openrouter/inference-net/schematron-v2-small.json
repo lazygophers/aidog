@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/inference-net/schematron-v2-small",
+  "display_name": "Inference.net: Schematron V2 Small",
   "canonical_model": "schematron-v2-small",
   "family": "schematron",
   "version": "2",

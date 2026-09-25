@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/bytedance-seed/seed-2.0-lite",
+  "display_name": "ByteDance Seed: Seed-2.0-Lite",
   "canonical_model": "seed-2.0-lite",
   "family": "seed",
   "version": "2.0",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "gemini/gemini-3.5-live-translate-preview",
+  "display_name": "Gemini 3.5 Live Translate",
   "canonical_model": "gemini-3.5-live-translate-preview",
   "family": "gemini",
   "version": "3.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/mistral-ocr-2505",
+  "display_name": "Mistral OCR (25.05)",
   "canonical_model": "mistral-ocr-2505",
   "family": "mistral",
   "version": "25.05",

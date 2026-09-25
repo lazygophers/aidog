@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~openai/gpt-sol-latest",
+  "display_name": "OpenAI: GPT Sol Latest",
   "canonical_model": "gpt-sol-latest",
   "family": "gpt",
   "capabilities": [

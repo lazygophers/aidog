@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "command-r7b-12-2024",
+  "display_name": "Cohere: Command R7B (12-2024)",
   "canonical_model": "command-r7b-12-2024",
   "version": "24.12",
   "family": "command",

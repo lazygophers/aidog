@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "novita/meta-llama/llama-3.2-1b-instruct",
+  "display_name": "Meta: Llama 3.2 1B Instruct",
   "canonical_model": "llama-3.2-1b-instruct",
   "family": "llama",
   "version": "3.2",

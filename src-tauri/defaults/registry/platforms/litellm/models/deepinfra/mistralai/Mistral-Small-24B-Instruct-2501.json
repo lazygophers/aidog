@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "deepinfra/mistralai/Mistral-Small-24B-Instruct-2501",
+  "display_name": "Mistral: Mistral Small 3",
   "canonical_model": "mistral-small-24b-instruct-2501",
   "family": "mistral",
   "version": "3",

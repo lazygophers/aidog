@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/gpt-4o:batch",
+  "display_name": "OpenAI: GPT-4o (batch)",
   "canonical_model": "gpt-4o:batch",
   "family": "gpt",
   "version": "4o",

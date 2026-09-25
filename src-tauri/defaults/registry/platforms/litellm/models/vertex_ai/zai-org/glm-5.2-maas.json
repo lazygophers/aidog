@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/zai-org/glm-5.2-maas",
+  "display_name": "GLM-5.2",
   "canonical_model": "glm-5-2-maas",
   "family": "glm",
   "version": "5.2",

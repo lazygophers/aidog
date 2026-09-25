@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "inclusionai/ling-3.0-flash-vl",
+  "display_name": "inclusionAI: Ling 3.0 Flash VL",
   "canonical_model": "ling-3.0-flash-vl",
   "family": "ling",
   "version": "3.0",

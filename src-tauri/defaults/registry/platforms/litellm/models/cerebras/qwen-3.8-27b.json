@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790342182,
   "model_id": "cerebras/qwen-3.8-27b",
+  "display_name": "Qwen 3.8 27B",
   "canonical_model": "qwen-3.8-27b",
   "family": "qwen",
   "version": "3.8",

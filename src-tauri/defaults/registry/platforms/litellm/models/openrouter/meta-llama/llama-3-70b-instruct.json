@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/meta-llama/llama-3-70b-instruct",
+  "display_name": "Aihubmix Llama 3 70B Instruct",
   "canonical_model": "llama-3-70b-instruct",
   "capabilities": [
     "text"

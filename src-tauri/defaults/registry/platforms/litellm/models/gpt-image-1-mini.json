@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "gpt-image-1-mini",
+  "display_name": "GPT Image 1 Mini",
   "canonical_model": "gpt-image-1-mini",
   "family": "gpt",
   "version": "1",

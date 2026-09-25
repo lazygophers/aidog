@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "bigmodel/glm-z1-air",
+  "display_name": "GLM-Z1-Air",
   "canonical_model": "glm-z1-air",
   "family": "glm",
   "version": "z1",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/sakana/fugu-ultra",
+  "display_name": "Sakana: Fugu Ultra",
   "canonical_model": "fugu-ultra",
   "family": "fugu",
   "capabilities": [

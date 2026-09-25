@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "oci/xai.grok-4.20",
+  "display_name": "SpaceXAI: Grok 4.20",
   "canonical_model": "grok-4.20",
   "family": "grok",
   "version": "4.20",

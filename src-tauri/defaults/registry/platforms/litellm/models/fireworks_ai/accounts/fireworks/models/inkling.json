@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "fireworks_ai/accounts/fireworks/models/inkling",
+  "display_name": "Thinking Machines: Inkling",
   "canonical_model": "inkling",
   "family": "inkling",
   "capabilities": [

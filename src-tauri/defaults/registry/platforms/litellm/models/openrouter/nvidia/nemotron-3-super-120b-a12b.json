@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/nvidia/nemotron-3-super-120b-a12b",
+  "display_name": "NVIDIA: Nemotron 3 Super",
   "canonical_model": "nemotron-3-super-120b-a12b",
   "family": "nemotron",
   "version": "3",

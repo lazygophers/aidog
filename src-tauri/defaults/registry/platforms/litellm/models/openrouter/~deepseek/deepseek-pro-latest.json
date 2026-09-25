@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~deepseek/deepseek-pro-latest",
+  "display_name": "DeepSeek: DeepSeek Pro Latest",
   "canonical_model": "deepseek-pro-latest",
   "family": "deepseek",
   "capabilities": [

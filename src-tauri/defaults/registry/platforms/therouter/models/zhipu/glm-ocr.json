@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "zhipu/glm-ocr",
+  "display_name": "GLM-OCR",
   "canonical_model": "glm-ocr",
   "family": "glm",
   "capabilities": [

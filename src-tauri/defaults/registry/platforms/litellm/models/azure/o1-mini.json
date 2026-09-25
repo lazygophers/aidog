@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/o1-mini",
+  "display_name": "O1 Mini",
   "canonical_model": "o1-mini",
   "family": "o",
   "version": "1",

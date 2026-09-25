@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/mistral-medium-3.1",
+  "display_name": "Mistral: Mistral Medium 3.1",
   "canonical_model": "mistral-medium-3.1",
   "family": "mistral",
   "version": "3.1",
