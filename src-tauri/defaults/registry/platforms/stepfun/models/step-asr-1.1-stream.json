@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-asr-1.1-stream",
+  "display_name": "Step ASR 1.1 Stream",
   "canonical_model": "step-asr-1.1-stream",
   "family": "stepfun",
   "version": "1.1",

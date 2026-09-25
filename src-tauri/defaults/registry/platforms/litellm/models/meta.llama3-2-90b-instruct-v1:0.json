@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "meta.llama3-2-90b-instruct-v1:0",
+  "display_name": "Llama 3.2 90B Instruct",
   "canonical_model": "meta.llama3-2-90b-instruct-v1:0",
   "family": "llama",
   "version": "3.2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "ai21.j2-ultra-v1",
+  "display_name": "J2 Ultra",
   "canonical_model": "ai21.j2-ultra-v1",
   "family": "j2",
   "version": "2",

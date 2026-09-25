@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-image-edit-2",
+  "display_name": "Step Image Edit 2",
   "canonical_model": "step-image-edit-2",
   "family": "stepfun",
   "version": "2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-kling-o1",
+  "display_name": "Kling O1 (Video)",
   "canonical_model": "aigc-video-kling-o1",
   "family": "kling",
   "capabilities": [

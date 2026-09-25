@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "cohere.command-light-text-v14",
+  "display_name": "Command Light",
   "canonical_model": "cohere.command-light-text-v14",
   "family": "command",
   "version": "14",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-kling-avatar",
+  "display_name": "Kling Avatar (Video)",
   "canonical_model": "aigc-video-kling-avatar",
   "family": "kling",
   "capabilities": [

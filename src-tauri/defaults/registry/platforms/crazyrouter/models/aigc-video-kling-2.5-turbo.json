@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-kling-2.5-turbo",
+  "display_name": "Kling 2.5 Turbo (Video)",
   "canonical_model": "aigc-video-kling-2.5-turbo",
   "family": "kling",
   "version": "2.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "jamba-mini-1.6",
+  "display_name": "Jamba Mini 1.6",
   "canonical_model": "jamba-mini-1.6",
   "family": "jamba",
   "version": "1.6",

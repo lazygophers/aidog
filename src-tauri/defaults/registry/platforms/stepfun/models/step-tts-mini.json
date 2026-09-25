@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-tts-mini",
+  "display_name": "Step TTS Mini",
   "canonical_model": "step-tts-mini",
   "family": "stepfun",
   "capabilities": [

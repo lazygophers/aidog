@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "kling-v3",
+  "display_name": "Kling V3",
   "canonical_model": "kling-v3",
   "family": "kling",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "stepaudio-2.5-realtime",
+  "display_name": "StepAudio 2.5 Realtime",
   "canonical_model": "stepaudio-2.5-realtime",
   "family": "stepfun",
   "version": "2.5",

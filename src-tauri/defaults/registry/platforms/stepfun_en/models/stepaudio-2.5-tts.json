@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "stepaudio-2.5-tts",
+  "display_name": "StepAudio 2.5 TTS",
   "canonical_model": "stepaudio-2.5-tts",
   "family": "stepfun",
   "version": "2.5",

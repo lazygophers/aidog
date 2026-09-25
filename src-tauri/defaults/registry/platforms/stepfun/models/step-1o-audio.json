@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-1o-audio",
+  "display_name": "Step-1o Audio",
   "canonical_model": "step-1o-audio",
   "family": "stepfun",
   "version": "1o",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "cohere.rerank-v3-5:0",
+  "display_name": "Rerank 3.5",
   "canonical_model": "cohere.rerank-v3-5:0",
   "family": "rerank",
   "version": "3.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-audio-r1.5",
+  "display_name": "Step Audio R1.5",
   "canonical_model": "step-audio-r1.5",
   "family": "stepfun",
   "version": "r1.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-gv-3.1-fast",
+  "display_name": "GV 3.1 Fast (Video)",
   "canonical_model": "aigc-video-gv-3.1-fast",
   "capabilities": [
     "text_to_video"

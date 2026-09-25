@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-tts-2",
+  "display_name": "Step TTS 2",
   "canonical_model": "step-tts-2",
   "family": "stepfun",
   "version": "2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "meta.llama2-70b-chat-v1",
+  "display_name": "Llama 2 70B Chat",
   "canonical_model": "meta.llama2-70b-chat-v1",
   "family": "llama",
   "version": "2",
