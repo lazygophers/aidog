@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "ernie-x1-turbo",
   "canonical_model": "ernie-x1-turbo",
 
@@ -8,7 +8,11 @@
   "thinking_supported": true,
   "max_output_tokens": 28000,
   "context_window": 50500,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 50500,
   "official": false,
   "price": {

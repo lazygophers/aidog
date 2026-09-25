@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "doubao-seed-2-0-code-preview",
   "canonical_model": "doubao-seed-2-0-code-preview",
 
@@ -8,7 +8,13 @@
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "context_window": 256000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning",
+    "video"
+  ],
   "max_input_tokens": 256000,
   "official": false,
   "price": {

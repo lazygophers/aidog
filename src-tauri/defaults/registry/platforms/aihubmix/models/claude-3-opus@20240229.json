@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790329630,
   "model_id": "claude-3-opus@20240229",
   "canonical_model": "claude-3-opus@20240229",
   "display_name": "Claude 3 Opus@20240229",
   "family": "claude",
   "version": "3",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "context_window": 4096,
   "max_input_tokens": 200000,
   "official": false,

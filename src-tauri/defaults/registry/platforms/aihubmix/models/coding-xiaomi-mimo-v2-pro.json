@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "coding-xiaomi-mimo-v2-pro",
   "canonical_model": "coding-xiaomi-mimo-v2-pro",
 
@@ -7,7 +7,11 @@
   "family": "mimo",  "display_name": "Coding Xiaomi Mimo V2 Pro",
   "thinking_supported": true,
   "context_window": 1000000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 1000000,
   "official": false,
   "price": {

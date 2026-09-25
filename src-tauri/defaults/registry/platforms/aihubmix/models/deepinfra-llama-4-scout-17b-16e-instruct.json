@@ -1,11 +1,14 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790329630,
   "model_id": "deepinfra-llama-4-scout-17b-16e-instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
 
   "version": "4",
   "family": "llama",  "display_name": "Deepinfra Llama 4 Scout 17B 16e Instruct",
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,
