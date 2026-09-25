@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "viduq2-pro",
   "canonical_model": "viduq2-pro",
+  "family": "vidu",
+  "version": "2",
   "capabilities": [
     "text_to_video"
   ],

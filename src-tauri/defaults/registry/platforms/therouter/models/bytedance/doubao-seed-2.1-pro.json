@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790307139,
   "model_id": "bytedance/doubao-seed-2.1-pro",
   "canonical_model": "doubao-seed-2-1-pro",
+  "family": "doubao-seed",
+  "version": "2.1",
   "capabilities": [
     "text"
   ],

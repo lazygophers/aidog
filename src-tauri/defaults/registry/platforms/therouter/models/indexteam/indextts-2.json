@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790307139,
   "model_id": "indexteam/indextts-2",
   "canonical_model": "IndexTTS-2",
+  "family": "indextts",
+  "version": "2",
   "capabilities": [
     "audio"
   ],

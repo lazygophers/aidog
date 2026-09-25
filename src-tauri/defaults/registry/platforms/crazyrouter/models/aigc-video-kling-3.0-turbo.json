@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790307139,
   "model_id": "aigc-video-kling-3.0-turbo",
   "canonical_model": "aigc-video-kling-3.0-turbo",
+  "family": "kling",
+  "version": "3.0",
   "capabilities": [
     "text_to_video",
     "image_to_video"

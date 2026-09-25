@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788070590,
+  "last_updated": 1790307139,
   "model_id": "laguna-s-2.1-free",
   "canonical_model": "laguna-s-2.1-free",
+  "family": "laguna",
+  "version": "2.1",
   "capabilities": [
     "text"
   ],

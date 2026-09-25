@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788072476,
+  "last_updated": 1790307139,
   "model_id": "youtu-vita",
   "canonical_model": "youtu-vita",
+  "family": "youtu",
   "capabilities": [
     "text",
     "vision"

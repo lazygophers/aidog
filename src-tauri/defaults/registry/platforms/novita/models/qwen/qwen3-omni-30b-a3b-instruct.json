@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790307139,
   "model_id": "qwen/qwen3-omni-30b-a3b-instruct",
   "canonical_model": "Qwen3-Omni-30B-A3B-Instruct",
+  "family": "qwen",
+  "version": "3",
   "capabilities": ["text", "vision", "tool_use"],
   "official": true,
   "price": {

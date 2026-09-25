@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790307139,
   "model_id": "qwen/qwen3-next-80b",
   "canonical_model": "qwen3-next-80b",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

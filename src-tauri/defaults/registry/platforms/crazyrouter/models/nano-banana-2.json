@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790250918,
+  "last_updated": 1790307139,
   "model_id": "nano-banana-2",
   "canonical_model": "nano-banana-2",
+  "family": "gemini",
   "capabilities": [
     "text_to_image"
   ],
