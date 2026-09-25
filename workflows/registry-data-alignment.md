@@ -364,3 +364,6 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   mimo/meta 镜像/aigc 视频，79.6%→81.0%）。display_name 累计 19.7%→81.0%。
   剩余 ~19% 归因：doubao 81 官方仅 id 无人类名、embedding/rerank 泛匹配、镜像长尾
   无源（r78 跳 72 + r81 留 45 族外）。r78 另发现 54 文件缺 canonical_model 字段（r82）。
+- 2026-09-26 r82 canonical_model 修复：0 改动——r78 的「54 缺失」是口径误算
+  （54 = platform.json 数量，平台条目本就无 canonical_model；8739 模型文件全部带
+  非空 canonical，⑥⑦⑧全过）。教训：跨轮口径引用（文件数 vs 模型条目数）先复算再立项。
