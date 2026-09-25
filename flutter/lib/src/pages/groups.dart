@@ -248,29 +248,47 @@ class _GroupListView extends StatelessWidget {
             if (c.details.isNotEmpty) ...[
               Text(
                 '${c.details.length} ${t.t('nav.groups')}',
-                style: AidogType.micro.copyWith(
+                // 计数是 13 w400 ls0 tertiary（GroupListView.tsx:164），
+                // 不是 micro 的 11 w500 ls0.66。
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  letterSpacing: 0,
                   color: AidogTheme.of(context).c.fg3,
                 ),
               ),
             ],
             const Spacer(),
+            // base_url 是 `<code>`：12 fg2 + bg-glass 底 + 4/8 内衬 + radius-sm
+            //（GroupListView.tsx:172-175）。
             Flexible(
-              child: Text(
-                c.proxyBaseUrl,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AidogType.micro.copyWith(
-                  color: AidogTheme.of(context).c.fg3,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AidogTheme.of(context).c.surface,
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                ),
+                child: Text(
+                  c.proxyBaseUrl,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: AidogTheme.of(context).c.fg2,
+                  ),
                 ),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
-            Tooltip(
-              message: t.t('group.copyBaseUrlTitle'),
-              child: SmallButton(
-                label: t.t('group.copyBaseUrl'),
-                onTap: () => copyText(c.proxyBaseUrl),
-              ),
+            // code 与复制按钮之间 gap 6（GroupListView.tsx:171）。
+            const SizedBox(width: AidogSpace.ssm),
+            // React 这里是 `CopyButton`：复制图标 14 + 文字 12，点完换对勾
+            //（CopyButton.tsx:112-123）。原先是纯文字按钮、无图标无反馈。
+            _CopyChip(
+              tooltip: t.t('group.copyBaseUrlTitle'),
+              label: t.t('group.copyBaseUrl'),
+              copyIcon: true,
+              copyText: copyText,
+              textOf: () => c.proxyBaseUrl,
             ),
             // 🔴 这里**没有**「添加分组」按钮，故意的。
             // `GroupsSection` 只有一个挂载点（`platforms.dart` 的平台页内嵌，
@@ -280,14 +298,19 @@ class _GroupListView extends StatelessWidget {
             // 建组入口由 `onCreateGroupReady` 把 `c.openCreate` 交给页头那颗。
           ],
         ),
-        const SizedBox(height: AidogSpace.ssm),
+        // 页面根是 `gap: 20` 的纵向 flex（GroupListView.tsx:159）。
+        const SizedBox(height: 20),
         if (c.loading)
-          CenteredNote(text: t.t('status.loading'))
+          // 加载态是裸 `<div padding 20>` + text-secondary 正文，不是整张卡
+          //（GroupListView.tsx:195）。
+          _PlainNote(text: t.t('status.loading'), padding: 20)
         else if (c.details.isEmpty)
-          CenteredNote(text: t.t('group.empty'))
+          // 空态是 glass-surface 卡 padding 40、正文 13 tertiary
+          //（GroupListView.tsx:199-201）。
+          CenteredNote(text: t.t('group.empty'), padding: 40, fontSize: 13)
         // 搜了但一个组都没命中：不能显「还没有分组」，那会让人以为分组全没了。
         else if (rows.isEmpty)
-          CenteredNote(text: t.t('logs.empty'))
+          CenteredNote(text: t.t('logs.empty'), padding: 40, fontSize: 13)
         else
           // 分组列表拖拽排序（`Groups.tsx:517-524` 的 SortableList）：
           // 搜索态在本页尚未接入（无搜索入口），故不设 no-op 分支。
@@ -316,7 +339,8 @@ class _GroupListView extends StatelessWidget {
               final d = rows[i];
               return Padding(
                 key: ValueKey(d.group.id),
-                padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                // 分组卡之间 gap 12（GroupListView.tsx:197）。
+                padding: const EdgeInsets.only(bottom: 12),
                 // 逐卡错峰淡入 + 悬停抬升（React 列表行的既定约定：`index * 60`）。
                 child: Reveal(
                   delayMs: i * 60,
@@ -347,14 +371,19 @@ class _GroupListView extends StatelessWidget {
         // 「加载更多」按钮，对齐 React：那边只有哨兵 + 拉取中的这一行「加载中…」
         //（`GroupListView.tsx:281-285`）。
         if (c.loadingMore)
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.ssm),
-            child: CenteredNote(text: t.t('status.loading')),
+          // 分页加载中也是裸文字行：padding 12 居中 12 号 tertiary
+          //（GroupListView.tsx:281-285）。
+          _PlainNote(
+            text: t.t('status.loading'),
+            padding: 12,
+            fontSize: 12,
+            tertiary: true,
           ),
         // 虚拟桶「未匹配」（MITM fallback 直通）：`GroupListView.tsx:276-279`。
         if (c.unmatchedStat != null && c.unmatchedStat!.totalRequests > 0)
           Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.ssm),
+            // 与上一张分组卡之间同列表 gap 12（GroupListView.tsx:197）。
+            padding: const EdgeInsets.only(top: 12),
             child: _UnmatchedBucketCard(stat: c.unmatchedStat!),
           ),
         // ── 破坏性确认：互斥，同一时刻最多一个 ──
@@ -419,6 +448,9 @@ class _GroupListView extends StatelessWidget {
         if (c.batchMoveGroupTarget != null) _BatchMoveGroupCard(controller: c),
         if (c.purgeTarget != null || c.purgePreviewLoading)
           ConfirmCard(
+            // 清理失效那张弹窗 React 写的是 440（GroupListItem.tsx:560），
+            // 不是其余确认弹窗的 420。
+            maxWidth: 440,
             title: t.t('group.purgeDisabled'),
             body: c.purgePreviewLoading
                 ? t.t('status.loading')
@@ -454,6 +486,46 @@ class _GroupListView extends StatelessWidget {
           ),
         if (c.groupTest != null) _GroupTestPanel(controller: c),
       ],
+    );
+  }
+}
+
+/// 无卡的居中一行小字。
+///
+/// 列表的加载态与分页加载中在 React 里就是两个裸 `<div>`
+/// （`GroupListView.tsx:195` 的 padding 20、`:281-285` 的 padding 12 + 12 号），
+/// 不是 [CenteredNote] 那张整卡 —— 拉下一页时凭空多出一张卡会把列表顶一下。
+class _PlainNote extends StatelessWidget {
+  const _PlainNote({
+    required this.text,
+    required this.padding,
+    this.fontSize,
+    this.tertiary = false,
+  });
+
+  final String text;
+  final double padding;
+
+  /// null = 走 React 的正文字阶（加载态没写 fontSize，继承 14）。
+  final double? fontSize;
+
+  /// true = `--text-tertiary`（分页加载中那行）；false = `--text-secondary`（加载态）。
+  final bool tertiary;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Padding(
+      padding: EdgeInsets.all(padding),
+      child: Center(
+        child: Text(
+          text,
+          style: AidogType.caption.copyWith(
+            fontSize: fontSize ?? 14,
+            color: tertiary ? c.fg3 : c.fg2,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -512,22 +584,86 @@ class _UnmatchedBucketCard extends StatelessWidget {
           radius: AidogRadius.md,
         ),
         child: Tile(
-      title: t.t('group.unmatched'),
-      meta: t.t('group.unmatchedBadge'),
-      // React 未分组桶与组卡同为 CompactCard padding 20（GroupListView.tsx:446-449）。
-      padding: const EdgeInsets.all(20),
+      // 未分组桶是 `padding: "14px 18px"`（GroupListView.tsx:447），**不是**
+      // 组卡那张 CompactCard 的 20 —— 原注释把两者写成同一个值，是错的。
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 标题行：14 w600 + 「虚拟桶」实底 secondary 徽标 10 w500
+          //（GroupListView.tsx:451-455）。原先走 Tile.title/meta，徽标被画成
+          // 右端的全大写 micro 元信息。
+          Row(
+            children: [
+              Flexible(
+                child: Text(
+                  t.t('group.unmatched'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.tile.copyWith(
+                    fontSize: 14,
+                    color: theme.c.fg,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              MiniBadge(
+                text: t.t('group.unmatchedBadge'),
+                color: theme.c.surface2,
+                solid: true,
+              ),
+            ],
+          ),
+          // 卡内各段 gap 8（GroupListView.tsx:447,450,458）。
+          const SizedBox(height: 8),
           Text(
             t.t('group.unmatchedHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            // 说明是 12 / lineHeight 1.5（GroupListView.tsx:459）。
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              height: 1.5,
+              color: theme.c.fg3,
+            ),
           ),
-          const SizedBox(height: AidogSpace.sxs),
-          Text(
-            formatNumber(stat.totalRequests),
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+          const SizedBox(height: 8),
+          // 三枚 StatChip（tokens / cost / ok），gap 6（GroupListView.tsx:462-468）。
+          // 原先这里只有一行没标签的请求总数裸数字。
+          Wrap(
+            spacing: AidogSpace.ssm,
+            runSpacing: AidogSpace.ssm,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              StatChip(
+                icon: Icons.bolt,
+                value: formatNumber(
+                  stat.totalInputTokens + stat.totalOutputTokens,
+                ),
+                label: 'tokens',
+                labelGap: AidogSpace.ssm,
+              ),
+              StatChip(
+                icon: Icons.attach_money,
+                value: formatCostUsd(stat.totalCost),
+                label: 'cost',
+                level: costLevel(stat.totalCost),
+                labelGap: AidogSpace.ssm,
+              ),
+              if (stat.totalRequests > 0)
+                StatChip(
+                  icon: Icons.check_circle_outline,
+                  value: formatPercent(
+                    successRate(stat.successCount, stat.totalRequests),
+                    0,
+                  ),
+                  label: 'ok',
+                  level: successRateLevel(
+                    successRate(stat.successCount, stat.totalRequests),
+                    stat.totalRequests,
+                  ),
+                  labelGap: AidogSpace.ssm,
+                ),
+            ],
           ),
         ],
       ),
@@ -579,19 +715,36 @@ class _GroupCard extends StatelessWidget {
     return DragTarget<int>(
       onWillAcceptWithDetails: (d) => !memberIds.contains(d.data),
       onAcceptWithDetails: (d) => onPlatformDropped!(d.data, gid),
-      builder: (context, candidate, _) => Container(
-        decoration: candidate.isEmpty
-            ? null
-            : BoxDecoration(
-                // React 那边是 `outline: 2px solid var(--accent)` + 2px offset。
-                border: Border.all(
-                  color: AidogTheme.of(context).c.accentEdge,
-                  width: 2,
+      // `outline: 2px solid var(--accent)` + `outlineOffset: 2`
+      //（GroupListItem.tsx:368）：outline 画在盒子**外面**，不占布局。
+      // 用负 margin 把描边盒外扩 4（2 offset + 2 宽），卡本身尺寸不变。
+      builder: (context, candidate, _) => candidate.isEmpty
+          ? card
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                card,
+                Positioned(
+                  left: -4,
+                  right: -4,
+                  top: -4,
+                  bottom: -4,
+                  child: IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        border: Border.all(
+                          color: AidogTheme.of(context).c.accent,
+                          width: 2,
+                        ),
+                        borderRadius: BorderRadius.circular(
+                          AidogRadius.md + 4,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                borderRadius: BorderRadius.circular(AidogRadius.md),
-              ),
-        child: card,
-      ),
+              ],
+            ),
     );
   }
 
@@ -616,36 +769,22 @@ class _GroupCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                iconSize: 16,
-                color: theme.c.fg3,
-                tooltip: t.t('group.toggleDetails'),
-                icon: Icon(folded ? Icons.chevron_right : Icons.expand_more),
-                // 多选时不许折叠（React 同处：`mode === "select"` 压过展开态）。
-                onPressed: selecting
-                    ? null
-                    : () {
-                        final next = c.toggleGroupCollapsed(g.id);
-                        c.persistGroupCollapsed(g.id, next);
-                      },
-              ),
-              const SizedBox(width: AidogSpace.sxs),
               // 分组排序拖拽把手（`Groups.tsx:186-195` 的 drag-handle）。
               // 卡片整体不可拖（`buildDefaultDragHandles: false`），只有这个把手能起拖，
               // 否则卡内的按钮会被拖拽手势吃掉。
+              // 6 点点阵 14×20（GroupListItem.tsx:194），不是三横线。
               ReorderableDragStartListener(
                 index: index,
                 child: Tooltip(
                   message: t.t('group.dragToReorder'),
-                  child: const Icon(Icons.drag_handle, size: 16),
+                  child: const Icon(Icons.drag_indicator, size: 14),
                 ),
               ),
-              const SizedBox(width: AidogSpace.sxs),
+              // 头部行内 gap 10（GroupListItem.tsx:183）。
+              const SizedBox(width: AidogSpace.smd),
               // 组图标（`GroupListItem.tsx:197`）：单平台组跟随该平台 logo。
               GroupIcon(detail: detail),
-              const SizedBox(width: AidogSpace.ssm),
+              const SizedBox(width: AidogSpace.smd),
               // 点组名区域整块切换展开（`GroupListItem.tsx:199-201`）：
               // 原先只有最左那颗 chevron 能切，点名字没反应。
               Expanded(
@@ -668,8 +807,11 @@ class _GroupCard extends StatelessWidget {
                               g.name,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                              // 组名 14 w600 **ls 0**（GroupListItem.tsx:205）——
+                              // body 档自带 -0.16 字距，不清掉就比 React 紧一档。
                               style: AidogType.body.copyWith(
                                 fontSize: 14,
+                                letterSpacing: 0,
                                 color: theme.c.fg,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -704,32 +846,49 @@ class _GroupCard extends StatelessWidget {
                               padding: const EdgeInsets.only(
                                 left: AidogSpace.sxs,
                               ),
+                              // `Badge variant="secondary"` = **实底** secondary，
+                              // 10 w500 padding 0 5px（GroupListItem.tsx:211）。
                               child: MiniBadge(
                                 text: 'auto',
-                                color: theme.c.fg3,
+                                color: theme.c.surface2,
+                                solid: true,
+                                padX: 5,
+                                padY: 0,
                               ),
                             ),
                         ],
                       ),
+                      // 副标题行与组名行之间 marginTop 1（GroupListItem.tsx:214）。
+                      const SizedBox(height: 1),
                       // 🔴 副标题里**不印 group_key**：它就是这个分组的 API Key，
                       // 印在列表上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
                       // React 只把它放在复制按钮和编辑页里（`GroupListItem.tsx:224-235`）。
                       // 这里照 React 的副标题来：路由模式 badge + 「N 平台」。
                       Row(
                         children: [
+                          // 同为 `Badge variant="secondary"` 实底，字阶走 badge
+                          // 默认 text-xs 12 w600、padding 0 6px
+                          //（GroupListItem.tsx:215 + badge.tsx:8-19）。
                           MiniBadge(
                             text: routingLabel(t, g.routingMode),
-                            color: theme.c.fg3,
+                            color: theme.c.surface2,
+                            solid: true,
+                            fontSize: 12,
+                            padX: 6,
+                            padY: 0,
                           ),
                           if (detail.platforms.isNotEmpty) ...[
-                            const SizedBox(width: AidogSpace.sxs),
+                            // 副标题行内 gap 8（GroupListItem.tsx:214）。
+                            const SizedBox(width: 8),
                             Flexible(
                               child: Text(
                                 '${detail.platforms.length} ${t.t('group.platforms')}',
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                // 12 + tertiary（GroupListItem.tsx:214,219）。
                                 style: AidogType.caption.copyWith(
-                                  color: theme.c.fg2,
+                                  fontSize: 12,
+                                  color: theme.c.fg3,
                                 ),
                               ),
                             ),
@@ -747,8 +906,9 @@ class _GroupCard extends StatelessWidget {
               //（`Wrap` 本身会换行，只需给它参与 flex 分配的机会）。
               Flexible(
                 child: Wrap(
-                  spacing: AidogSpace.sxs,
-                  runSpacing: AidogSpace.sxs,
+                  // 快操作之间的间距由父级 `gap: 10` 决定（GroupListItem.tsx:183）。
+                  spacing: AidogSpace.smd,
+                  runSpacing: AidogSpace.smd,
                   crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
                   _CopyCommandMenu(
@@ -831,6 +991,28 @@ class _GroupCard extends StatelessWidget {
                       danger: true,
                       onTap: () => c.askDeleteGroup(g.id),
                     ),
+                  // 展开/收起箭头在卡片头部**最右端**，单图标 + 180° 旋转过渡
+                  //（CompactCard.tsx:80-111）。原先在最左端、切换两个不同图标。
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    iconSize: 16,
+                    color: theme.c.fg3,
+                    tooltip: t.t('group.toggleDetails'),
+                    icon: AnimatedRotation(
+                      turns: folded ? 0 : 0.5,
+                      duration: const Duration(milliseconds: 250),
+                      curve: const Cubic(0.4, 0, 0.2, 1),
+                      child: const Icon(Icons.expand_more),
+                    ),
+                    // 多选时不许折叠（React 同处：`mode === "select"` 压过展开态）。
+                    onPressed: selecting
+                        ? null
+                        : () {
+                            final next = c.toggleGroupCollapsed(g.id);
+                            c.persistGroupCollapsed(g.id, next);
+                          },
+                  ),
                 ],
                 ),
               ),
@@ -840,46 +1022,68 @@ class _GroupCard extends StatelessWidget {
           // 原先这里只有一个没标签的请求总数裸数字和一个裸金额 —— tokens / 花费 /
           // 成功率三个 chip 全丢了，余额也没有进度条和分级配色。
           if (stats != null || balance != null) ...[
-            const SizedBox(height: AidogSpace.sxs),
+            // 头部两行之间 gap 10（GroupListItem.tsx:181）。
+            const SizedBox(height: AidogSpace.smd),
             Padding(
               padding: const EdgeInsetsDirectional.only(start: 26),
               child: Wrap(
-                spacing: AidogSpace.ssm,
-                runSpacing: AidogSpace.sxs,
+                // 外层 gap 10：chip 组与余额条之间（GroupListItem.tsx:319）。
+                spacing: AidogSpace.smd,
+                runSpacing: AidogSpace.smd,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
-                  if (stats != null) ...[
-                    StatChip(
-                      icon: Icons.bolt,
-                      value: formatNumber(
-                        stats.totalInputTokens + stats.totalOutputTokens,
-                      ),
-                      label: 'tokens',
-                    ),
-                    StatChip(
-                      icon: Icons.attach_money,
-                      value: formatCostUsd(stats.totalCost),
-                      label: 'cost',
-                      level: costLevel(stats.totalCost),
-                    ),
-                    // 一次请求都没有时不画成功率（0% 会被读成「全失败」）。
-                    if (stats.totalRequests > 0)
-                      StatChip(
-                        icon: Icons.check_circle_outline,
-                        value: formatPercent(
-                          successRate(stats.successCount, stats.totalRequests),
-                          0,
+                  // chip 组自己是 gap 6 的一段（GroupListItem.tsx:322），
+                  // 与余额之间才是 10 —— 原先一视同仁全 6。
+                  if (stats != null)
+                    Wrap(
+                      spacing: AidogSpace.ssm,
+                      runSpacing: AidogSpace.ssm,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        StatChip(
+                          icon: Icons.bolt,
+                          value: formatNumber(
+                            stats.totalInputTokens + stats.totalOutputTokens,
+                          ),
+                          label: 'tokens',
+                          // chip 内部一律 gap 6（StatChip.tsx:43-44）。
+                          labelGap: AidogSpace.ssm,
                         ),
-                        label: 'ok',
-                        level: successRateLevel(
-                          successRate(stats.successCount, stats.totalRequests),
-                          stats.totalRequests,
+                        StatChip(
+                          icon: Icons.attach_money,
+                          value: formatCostUsd(stats.totalCost),
+                          label: 'cost',
+                          level: costLevel(stats.totalCost),
+                          labelGap: AidogSpace.ssm,
                         ),
-                      ),
-                  ],
+                        // 一次请求都没有时不画成功率（0% 会被读成「全失败」）。
+                        if (stats.totalRequests > 0)
+                          StatChip(
+                            icon: Icons.check_circle_outline,
+                            value: formatPercent(
+                              successRate(
+                                stats.successCount,
+                                stats.totalRequests,
+                              ),
+                              0,
+                            ),
+                            label: 'ok',
+                            level: successRateLevel(
+                              successRate(
+                                stats.successCount,
+                                stats.totalRequests,
+                              ),
+                              stats.totalRequests,
+                            ),
+                            labelGap: AidogSpace.ssm,
+                          ),
+                      ],
+                    ),
                   if (balance != null)
-                    SizedBox(
-                      width: 90,
+                    // `minWidth: 90`（GroupListItem.tsx:333）：长金额要能撑宽，
+                    // 死宽 90 会把它截掉。
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 90),
                       child: BalanceBar(remaining: balance, showTotal: false),
                     ),
                 ],
@@ -887,7 +1091,10 @@ class _GroupCard extends StatelessWidget {
             ),
           ],
           if (!folded) ...[
-            const SizedBox(height: AidogSpace.ssm),
+            // 展开区上方一条分隔线，上下各 12（CompactCard.tsx:117-121）。
+            const SizedBox(height: 12),
+            Divider(height: 1, thickness: 1, color: theme.c.line),
+            const SizedBox(height: 12),
             if (selecting)
               _BatchToolbar(
                 controller: c,
@@ -1025,50 +1232,82 @@ class _BatchToolbar extends StatelessWidget {
     final c = controller;
     final selected = c.selectedIdsOf(gid);
     final hasSelection = selected.isNotEmpty;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: AidogSpace.sxs,
-        runSpacing: AidogSpace.sxs,
+    // 工具栏按钮一律 ghost + 12 号 + padding 4/10（GroupListItem.tsx:379-411）。
+    SmallButton bar(String label, VoidCallback? onTap) => SmallButton(
+      label: label,
+      ghost: true,
+      fontSize: 12,
+      padding: (10, 4),
+      onTap: onTap,
+    );
+    return Container(
+      // `padding: "8px 0"` + 底部 1px 分隔线（GroupListItem.tsx:375-378）。
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: theme.c.line)),
+      ),
+      // 左段三项 + 弹性空档 + 右段四颗（`<div style={{flex:1}}/>`，
+      // GroupListItem.tsx:390）。原先全部左排成一条 Wrap。
+      child: Row(
         children: [
-          SmallButton(
-            label: t.t('action.cancel'),
-            onTap: () => c.exitBatchSelect(gid),
-          ),
-          SmallButton(
-            label: t.t('group.selectAll'),
-            onTap: () =>
+          bar(t.t('action.cancel'), () => c.exitBatchSelect(gid)),
+          // 工具栏内 gap 6（GroupListItem.tsx:376）。
+          const SizedBox(width: AidogSpace.ssm),
+          bar(
+            t.t('group.selectAll'),
+            () =>
                 c.selectAll(gid, [for (final gp in platforms) gp.platform.id]),
           ),
+          const SizedBox(width: AidogSpace.ssm),
           Text(
             t.t('group.selectedCount', {'count': '${selected.length}'}),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            // 12 + secondary（GroupListItem.tsx:387）。
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              color: theme.c.fg2,
+            ),
           ),
-          SmallButton(
-            label: t.t('group.batchDelete'),
-            danger: true,
-            onTap: hasSelection
-                ? () => c.askBatchDelete(selected.toList())
-                : null,
-          ),
-          SmallButton(
-            label: t.t('group.batchOverrideModels'),
-            onTap: hasSelection
-                ? () => c.askBatchOverrideModels(selected.toList())
-                : null,
-          ),
-          SmallButton(
-            label: t.t('group.batchSetStatus'),
-            onTap: hasSelection
-                ? () => c.askBatchSetStatus(selected.toList(), gid)
-                : null,
-          ),
-          SmallButton(
-            label: t.t('group.batchMoveGroup'),
-            onTap: hasSelection
-                ? () => c.askBatchMoveGroup(selected.toList(), gid)
-                : null,
+          // 弹性空档把四颗批量操作推到右端；窄窗时它们换行（React 同处
+          // `flexWrap: "wrap"`），不撑爆整行。
+          Expanded(
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: AidogSpace.ssm,
+                runSpacing: AidogSpace.ssm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  // 「删除」与其余三颗同款 ghost，**不是红的** —— 红留给确认弹窗
+                  //（GroupListItem.tsx:392-396）。
+                  bar(
+                    t.t('group.batchDelete'),
+                    hasSelection
+                        ? () => c.askBatchDelete(selected.toList())
+                        : null,
+                  ),
+                  bar(
+                    t.t('group.batchOverrideModels'),
+                    hasSelection
+                        ? () => c.askBatchOverrideModels(selected.toList())
+                        : null,
+                  ),
+                  bar(
+                    t.t('group.batchSetStatus'),
+                    hasSelection
+                        ? () => c.askBatchSetStatus(selected.toList(), gid)
+                        : null,
+                  ),
+                  bar(
+                    t.t('group.batchMoveGroup'),
+                    hasSelection
+                        ? () => c.askBatchMoveGroup(selected.toList(), gid)
+                        : null,
+                  ),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -1110,9 +1349,11 @@ class _PlatformRow extends StatelessWidget {
     final pid = gp.platform.id;
     final t = AidogI18n.of(context);
     final row = Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      // 组内平台行之间 gap 8（GroupListItem.tsx:416）= 上下各 4。
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        // 把手与勾选框都是 `alignSelf: "center"`（GroupListItem.tsx:425,440）。
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           // 多选态的勾选框（`GroupListItem.tsx:425-434`）。非多选态不再画状态小圆点 ——
           // 卡片 logo 右上角那颗健康点信息更全，画两颗只会互相打架。
@@ -1129,7 +1370,9 @@ class _PlatformRow extends StatelessWidget {
             // 与分组卡自己的排序把手是**两个不同的节点**，所以两套拖拽不打架 ——
             // React 的 `usePlatformDrag.ts` 抬头写的就是这件事。
             Padding(
-              padding: const EdgeInsets.only(right: AidogSpace.sxs, top: 6),
+              // React 是 `alignSelf: "center"`（GroupListItem.tsx:440），
+              // 不是往下偏 6px。
+              padding: const EdgeInsets.only(right: AidogSpace.sxs),
               child: Draggable<int>(
                 data: pid,
                 dragAnchorStrategy: pointerDragAnchorStrategy,
@@ -1139,9 +1382,10 @@ class _PlatformRow extends StatelessWidget {
                   message: t.t('group.dragPlatform'),
                   child: MouseRegion(
                     cursor: SystemMouseCursors.grab,
+                    // 6 点把手 12×18（GroupListItem.tsx:443），比分组卡那颗小一号。
                     child: Icon(
                       Icons.drag_indicator,
-                      size: 14,
+                      size: 12,
                       color: AidogTheme.of(context).c.fg3,
                     ),
                   ),
@@ -1221,14 +1465,22 @@ class _DropLine extends StatelessWidget {
   const _DropLine();
 
   @override
-  Widget build(BuildContext context) => Opacity(
-    opacity: 0.7,
-    child: Container(
-      height: 2,
-      margin: const EdgeInsets.symmetric(vertical: 1),
-      decoration: BoxDecoration(
-        color: AidogTheme.of(context).c.accentEdge,
-        borderRadius: BorderRadius.circular(1),
+  Widget build(BuildContext context) => SizedBox(
+    // React 是 `margin: "-3px 0"`（GroupListItem.tsx:420）：线吃掉行间距、
+    // 贴在缝里，不把列表撑开。Flutter 不收负 margin，用零高盒 + 溢出绘制等价。
+    height: 0,
+    child: OverflowBox(
+      minHeight: 2,
+      maxHeight: 2,
+      child: Opacity(
+        opacity: 0.7,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            // 实色 accent（GroupListItem.tsx:420），不是淡一档的 accentEdge。
+            color: AidogTheme.of(context).c.accent,
+            borderRadius: BorderRadius.circular(1),
+          ),
+        ),
       ),
     ),
   );
@@ -1257,6 +1509,9 @@ class _RemovePlatformConfirm extends StatelessWidget {
     return AidogModal(
       onEscape: controller.cancelRemovePlatform,
       child: ModalCard(
+        // `AlertDialogContent` 这处写的是 `padding: "20px 22px"`
+        //（GroupListView.tsx:324），不是 Dialog 缺省的 p-6 = 24。
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 20),
         title: multi
             ? t.t('group.deletePlatformMultiTitle')
             : t.t('group.deletePlatformTitle'),
@@ -1274,7 +1529,13 @@ class _RemovePlatformConfirm extends StatelessWidget {
                   : t.t('group.deletePlatformConfirm', {
                       'name': target.platform.name,
                     }),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              // `AlertDialogDescription` 是 text-sm 14 正体
+              //（GroupListView.tsx:331），不是 micro 11 w500 ls0.66。
+              style: AidogType.body.copyWith(
+                fontSize: 14,
+                letterSpacing: 0,
+                color: theme.c.fg2,
+              ),
             ),
             const SizedBox(height: AidogSpace.ssm),
             Row(
@@ -1761,63 +2022,138 @@ class _GroupTestPanel extends StatelessWidget {
     // 点遮罩即关（`onClick={onClose}` 挂在遮罩上）。
     return AidogModal(
       maxWidth: 560,
+      // 手写遮罩是 `rgba(0,0,0,0.45)`（GroupTestPanel.tsx:55），
+      // 不是 shadcn overlay 的 bg-black/80。
+      barrierOpacity: 0.45,
       onBarrierTap: controller.closeGroupTest,
       child: ModalCard(
+        // 面板 padding 20 + glass-surface 的 radius-md（GroupTestPanel.tsx:58-62）。
+        padding: const EdgeInsets.all(20),
+        radius: AidogRadius.md,
         title: '${t.t('group.testAllTitle')}：${gt.groupName}',
-        meta: gt.running
-            ? t.t('group.testAllProgress', {
-                'done': '${ok + fail}',
-                'total': '${gt.rows.length}',
-              })
-            : t.t('group.testAllSummary', {
-                'ok': '$ok',
-                'fail': '$fail',
-                'total': '${gt.rows.length}',
-              }),
+        // 标题 15 w700（GroupTestPanel.tsx:64）。
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w700,
+        ),
+        // 标题行右侧的 ✕（GroupTestPanel.tsx:67-69）。
+        onClose: controller.closeGroupTest,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 进度 / 汇总是标题**下面独立一行**、12 号 secondary
+            //（GroupTestPanel.tsx:71-75）。原先塞进 meta，被画成标题行右端的
+            // 全大写 micro 元信息。
+            Text(
+              gt.running
+                  ? t.t('group.testAllProgress', {
+                      'done': '${ok + fail}',
+                      'total': '${gt.rows.length}',
+                    })
+                  : t.t('group.testAllSummary', {
+                      'ok': '$ok',
+                      'fail': '$fail',
+                      'total': '${gt.rows.length}',
+                    }),
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                color: theme.c.fg2,
+              ),
+            ),
+            // 面板内各段 gap 10（GroupTestPanel.tsx:60）。
+            const SizedBox(height: AidogSpace.smd),
             for (final r in gt.rows)
               Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Row(
+                // 结果行之间 gap 6（GroupTestPanel.tsx:76）。
+                padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                // 每行是一张小卡：6/8 内衬 + radius-sm + bg-glass 底 +
+                // 左侧 3px 语义色条（GroupTestPanel.tsx:78-84）。
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.c.surface2,
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  ),
+                  // 色条走独立的 3px 子项而不是 `Border(left:)`：非均匀 Border
+                  // 与 borderRadius 不能共存（BoxDecoration 的断言）。
+                  child: IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: Text(
-                            r.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
-                          ),
-                        ),
-                        Text(
-                          statusText(r),
-                          style: AidogType.micro.copyWith(
+                        Container(
+                          width: 3,
+                          decoration: BoxDecoration(
                             color: switch (r.status) {
                               'ok' => theme.c.ok,
                               'fail' => theme.c.bad,
-                              _ => theme.c.fg3,
+                              _ => Colors.transparent,
                             },
+                            borderRadius:
+                                const BorderRadiusDirectional.horizontal(
+                                  start: Radius.circular(AidogRadius.sm),
+                                ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 6,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              r.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              // 平台名 13 正体（GroupTestPanel.tsx:86-89）。
+                              style: AidogType.label.copyWith(
+                                fontSize: 13,
+                                color: theme.c.fg,
+                              ),
+                            ),
+                          ),
+                          // 名与状态之间 gap 10（GroupTestPanel.tsx:85）。
+                          const SizedBox(width: AidogSpace.smd),
+                          Text(
+                            statusText(r),
+                            // 状态 12 w600（GroupTestPanel.tsx:43-46）。
+                            style: AidogType.caption.copyWith(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: switch (r.status) {
+                                'ok' => theme.c.ok,
+                                'fail' => theme.c.bad,
+                                _ => theme.c.fg3,
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                                if (r.status == 'fail' &&
+                                    (r.error ?? '').isNotEmpty)
+                                  Text(
+                                    r.error!,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AidogType.micro.copyWith(
+                                      color: theme.c.bad,
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
                     ),
-                    if (r.status == 'fail' && (r.error ?? '').isNotEmpty)
-                      Text(
-                        r.error!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AidogType.micro.copyWith(color: theme.c.bad),
-                      ),
-                  ],
+                  ),
                 ),
               ),
-            const SizedBox(height: AidogSpace.ssm),
             Align(
               alignment: Alignment.centerRight,
               child: SmallButton(
@@ -1844,89 +2180,240 @@ class _GroupCreatePanel extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final c = controller;
-    return Tile(
-      title: t.t('group.add'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          TileMeta(t.t('group.basicInfo')),
-          const SizedBox(height: AidogSpace.sxs),
-          _Field(
-            label: t.t('group.name'),
-            hint: t.t('group.nameHint'),
-            value: c.createName,
-            onChanged: c.setCreateName,
-          ),
-          _Field(
-            label: t.t('group.groupKey'),
-            hint: t.t('group.groupKeyHint'),
-            // 输入即过滤非法字符：密钥创建后锁定不可改，放进去一个空格就废了。
-            value: c.createGroupKey,
-            onChanged: c.setCreateGroupKey,
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('group.routingMode')),
-          const SizedBox(height: AidogSpace.sxs),
-          // 下拉，与编辑面板一致 —— React 两处都是 `<Select>`
-          //（`GroupCreateModal.tsx:88-95`、`GroupEditPanel.tsx:97-106`）。
-          // 原先这里是一排互斥按钮，同一个字段在同一页有两种长相。
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              key: const ValueKey('create-routing-mode'),
-              isExpanded: true,
-              value: c.createMode,
-              items: [
-                for (final m in kRoutingModes)
-                  DropdownMenuItem(value: m, child: Text(routingLabel(t, m))),
-              ],
-              onChanged: (v) {
-                if (v != null) c.setCreateMode(v);
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.sxs),
-            child: Text(
-              routingDesc(t, c.createMode),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('group.platforms')),
-          Text(
-            t.t('group.platformsHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          // 只列 enabled 的平台（与 React 的 `GroupCreateModal.tsx:33` 同口径）。
-          _PlatformPicker(
-            platformIds: c.createPlatformIds,
-            options: c.enabledPlatformOptions,
-            onChange: c.setCreatePlatformIds,
-          ),
-          const SizedBox(height: AidogSpace.smd),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 页头：返回箭头 + 20 w700 标题 + 取消 / 创建（GroupCreateModal.tsx:45-56）。
+        // 原先标题走 Tile.title（13.5）、两颗按钮在面板**最底部**。
+        _PanelHeader(
+          title: t.t('group.add'),
+          onBack: c.closeCreate,
+          backTooltip: t.t('action.cancel'),
+          onCancel: c.closeCreate,
+          cancelLabel: t.t('action.cancel'),
+          // 名字为空就点不动 —— React 的 `disabled={!cName}`。
+          // `GroupCreateModal.tsx:55` 没写 variant = 默认实心；
+          // 旁边的「取消」是 `variant="outline"`，保持描边。
+          confirmLabel: t.t('action.create'),
+          onConfirm: c.canCreate
+              ? () => c.createGroup(failText: t.t('group.createFailed'))
+              : null,
+        ),
+        // 分区之间 gap 20（GroupCreateModal.tsx:43）。
+        const SizedBox(height: 20),
+        // 分区各自一张 glass-surface 卡，padding S.pad=28（GroupCreateModal.tsx:59）。
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              SmallButton(label: t.t('action.cancel'), onTap: c.closeCreate),
-              const SizedBox(width: AidogSpace.ssm),
-              // 名字为空就点不动 —— React 的 `disabled={!cName}`。
-              SmallButton(
-                label: t.t('action.create'),
-                // `GroupCreateModal.tsx:55` 没写 variant = 默认实心；
-                // 旁边的「取消」是 `variant="outline"`，保持描边。
-                filled: true,
-                onTap: c.canCreate
-                    ? () => c.createGroup(failText: t.t('group.createFailed'))
-                    : null,
+              _SectionTitle(t.t('group.basicInfo')),
+              const SizedBox(height: AidogSpace.sxl),
+              _Field(
+                label: t.t('group.name'),
+                // 说明常驻在输入框**下方**，不是框内 placeholder
+                //（GroupCreateModal.tsx:68-70）——placeholder 一打字就没了。
+                desc: t.t('group.nameHint'),
+                value: c.createName,
+                onChanged: c.setCreateName,
+              ),
+              _Field(
+                label: t.t('group.groupKey'),
+                desc: t.t('group.groupKeyHint'),
+                // 输入即过滤非法字符：密钥创建后锁定不可改，放进去一个空格就废了。
+                value: c.createGroupKey,
+                onChanged: c.setCreateGroupKey,
+              ),
+              _FieldRow(
+                label: t.t('group.routingMode'),
+                // 下拉，与编辑面板一致 —— React 两处都是 `<Select>`
+                //（`GroupCreateModal.tsx:88-95`、`GroupEditPanel.tsx:97-106`）。
+                // 原先这里是一排互斥按钮，同一个字段在同一页有两种长相。
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        key: const ValueKey('create-routing-mode'),
+                        isExpanded: true,
+                        value: c.createMode,
+                        items: [
+                          for (final m in kRoutingModes)
+                            DropdownMenuItem(
+                              value: m,
+                              child: Text(routingLabel(t, m)),
+                            ),
+                        ],
+                        onChanged: (v) {
+                          if (v != null) c.setCreateMode(v);
+                        },
+                      ),
+                    ),
+                    // 说明 12 / lineHeight 1.4，与下拉隔 4（GroupCreateModal.tsx:97）。
+                    const SizedBox(height: AidogSpace.sxs),
+                    Text(
+                      routingDesc(t, c.createMode),
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        height: 1.4,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SectionTitle(t.t('group.platforms')),
+              // 提示贴着标题（`marginTop: -8`，GroupCreateModal.tsx:104），
+              // 13 号 tertiary。
+              Padding(
+                padding: const EdgeInsets.only(top: AidogSpace.sxl - 8),
+                child: Text(
+                  t.t('group.platformsHint'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AidogSpace.sxl),
+              // 只列 enabled 的平台（与 React 的 `GroupCreateModal.tsx:33` 同口径）。
+              _PlatformPicker(
+                platformIds: c.createPlatformIds,
+                options: c.enabledPlatformOptions,
+                onChange: c.setCreatePlatformIds,
+                protocolLabels: {
+                  for (final o in c.defaults.protocolOptions(t.locale))
+                    o.value: o.label,
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
+}
+
+/// 编辑 / 创建面板的页头：返回箭头 + 标题（+ `#id` 副标题）+ 右侧按钮组
+/// （`GroupEditPanel.tsx:53-69`、`GroupCreateModal.tsx:45-56`，两处同构）。
+class _PanelHeader extends StatelessWidget {
+  const _PanelHeader({
+    required this.title,
+    required this.onBack,
+    required this.backTooltip,
+    required this.onCancel,
+    required this.cancelLabel,
+    required this.confirmLabel,
+    required this.onConfirm,
+    this.subtitle,
+    this.extras = const [],
+  });
+
+  final String title;
+
+  /// `#<id>`。创建态没有 id，所以可空。
+  final String? subtitle;
+  final VoidCallback onBack;
+  final String backTooltip;
+  final VoidCallback onCancel;
+  final String cancelLabel;
+  final String confirmLabel;
+  final VoidCallback? onConfirm;
+
+  /// 标题与按钮之间的东西（编辑页头那四颗复制按钮）。
+  final List<Widget> extras;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Row(
+      children: [
+        IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          iconSize: 18,
+          color: theme.c.fg2,
+          tooltip: backTooltip,
+          icon: const Icon(Icons.arrow_back),
+          onPressed: onBack,
+        ),
+        // 页头行内 gap 12（GroupEditPanel.tsx:53）。
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                // F.title = 20 w700（GroupEditPanel.tsx:60）。
+                style: AidogType.display.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                  color: theme.c.fg,
+                ),
+              ),
+              if (subtitle != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: Text(
+                    subtitle!,
+                    // F.hint = 13 secondary（GroupEditPanel.tsx:61）。
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      color: theme.c.fg2,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        for (final w in extras) ...[const SizedBox(width: 12), w],
+        const SizedBox(width: 12),
+        SmallButton(label: cancelLabel, onTap: onCancel),
+        const SizedBox(width: 12),
+        SmallButton(
+          label: confirmLabel,
+          filled: true,
+          onTap: onConfirm,
+        ),
+      ],
+    );
+  }
+}
+
+/// 分区标题：F.label = 15 w600、正常大小写（`GroupEditPanel.tsx:73,164,179,263`）。
+/// 不是 [TileMeta] 的 micro 11 全大写元信息。
+class _SectionTitle extends StatelessWidget {
+  const _SectionTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: AidogType.body.copyWith(
+      fontSize: 15,
+      letterSpacing: 0,
+      fontWeight: FontWeight.w600,
+      color: AidogTheme.of(context).c.fg,
+    ),
+  );
 }
 
 /// 关联平台选择器（`src/domains/groups/PlatformPicker.tsx`）：
@@ -1936,11 +2423,18 @@ class _PlatformPicker extends StatelessWidget {
     required this.platformIds,
     required this.options,
     required this.onChange,
+    this.protocolLabels = const {},
   });
 
   final List<int> platformIds;
   final List<PlatformRow> options;
   final ValueChanged<List<int>> onChange;
+
+  /// 协议 → 本地化 label（`PlatformPicker.tsx:28` 的 `labelMap`）。
+  /// 缺省回落协议 key 本身，与 React 的二级回退链同范式。
+  final Map<String, String> protocolLabels;
+
+  String _protoLabel(String proto) => protocolLabels[proto] ?? proto;
 
   String _nameOf(int pid) {
     for (final p in options) {
@@ -1982,61 +2476,98 @@ class _PlatformPicker extends StatelessWidget {
               for (final o in options) {
                 if (o.id == pid) p = o;
               }
+              // 每行是一张小卡：8/12 内衬 + radius-sm + bg-glass 底 + 1px 边 +
+              // marginBottom 4、行内 gap 10（PlatformPicker.tsx:42-49）。
+              // 原先是裸 Row，只有 4px 底距。
               return Padding(
                 key: ValueKey(pid),
-                padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.surface2,
+                  border: Border.all(color: theme.c.line),
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                ),
                 child: Row(
                   children: [
                     ReorderableDragStartListener(
                       index: i,
                       child: Tooltip(
                         message: t.t('group.dragToReorder'),
+                        // 点阵把手，与分组卡 / 组内行统一（React 这里是 `⠿`
+                        // 字符 14 号，PlatformPicker.tsx:50-59）。
                         child: Icon(
-                          Icons.drag_handle,
+                          Icons.drag_indicator,
                           size: 14,
                           color: theme.c.fg3,
                         ),
                       ),
                     ),
-                    const SizedBox(width: AidogSpace.sxs),
-                    Text(
-                      '${i + 1}',
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+                    const SizedBox(width: AidogSpace.smd),
+                    SizedBox(
+                      // 序号 13、宽 20、居中（PlatformPicker.tsx:60-62）。
+                      width: 20,
+                      child: Text(
+                        '${i + 1}',
+                        textAlign: TextAlign.center,
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg3,
+                        ),
+                      ),
                     ),
-                    const SizedBox(width: AidogSpace.sxs),
+                    const SizedBox(width: AidogSpace.smd),
                     // 协议双字母徽标（`PlatformPicker.tsx:63-71`）：同名不同协议的
                     // 两个平台在这张列表里本来长得一模一样，选错了只能退出去看平台页。
+                    // 固定 28×28、居中、11 w700。
                     if (p != null)
                       Container(
-                        width: 26,
+                        width: 28,
+                        height: 28,
                         alignment: Alignment.center,
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        margin: const EdgeInsets.only(right: AidogSpace.sxs),
                         decoration: BoxDecoration(
                           color: theme.c.accentWash,
                           borderRadius: BorderRadius.circular(AidogRadius.sm),
                         ),
                         child: Text(
-                          p.platformType.characters.take(2).toString().toUpperCase(),
+                          p.platformType.characters
+                              .take(2)
+                              .toString()
+                              .toUpperCase(),
                           style: AidogType.micro.copyWith(
+                            fontWeight: FontWeight.w700,
                             color: theme.c.accentText,
                           ),
                         ),
                       ),
+                    const SizedBox(width: AidogSpace.smd),
                     Expanded(
                       child: Text(
                         p?.name ?? '#$pid',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.micro.copyWith(color: theme.c.fg2),
+                        // PICKER_F.body = 15 w500（PlatformPicker.tsx:71）。
+                        style: AidogType.body.copyWith(
+                          fontSize: 15,
+                          letterSpacing: 0,
+                          fontWeight: FontWeight.w500,
+                          color: theme.c.fg,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: AidogSpace.smd),
                     // 上下移：与拖拽并存的第二条路（`PlatformPicker.tsx:72-92`）。
                     // 这个顺序就是路由优先级，只有拖拽的话，拖不稳的人和用键盘
                     // 的人根本改不了优先级。
                     _PickerIconButton(
                       key: ValueKey('picker-up-$pid'),
                       icon: Icons.arrow_upward,
+                      // 上下移的 svg 是 10×10（PlatformPicker.tsx:79,90）。
+                      iconSize: 10,
                       tooltip: t.t('action.moveUp'),
                       onPressed: i == 0
                           ? null
@@ -2045,6 +2576,7 @@ class _PlatformPicker extends StatelessWidget {
                     _PickerIconButton(
                       key: ValueKey('picker-down-$pid'),
                       icon: Icons.arrow_downward,
+                      iconSize: 10,
                       tooltip: t.t('action.moveDown'),
                       onPressed: i == platformIds.length - 1
                           ? null
@@ -2053,6 +2585,8 @@ class _PlatformPicker extends StatelessWidget {
                     _PickerIconButton(
                       key: ValueKey('picker-remove-$pid'),
                       icon: Icons.close,
+                      // 移除是 `IconClose size={12}`（PlatformPicker.tsx:97）。
+                      iconSize: 12,
                       tooltip: t.t('action.delete'),
                       onPressed: () => onChange([
                         for (final id in platformIds)
@@ -2061,22 +2595,49 @@ class _PlatformPicker extends StatelessWidget {
                     ),
                   ],
                 ),
+                ),
               );
             },
           ),
         if (remaining.isNotEmpty)
-          DropdownButtonHideUnderline(
-            child: DropdownButton<int>(
-              isExpanded: true,
-              hint: Text(t.t('group.addPlatform')),
-              value: null,
-              items: [
-                for (final p in remaining)
-                  DropdownMenuItem(value: p.id, child: Text(p.name)),
-              ],
-              onChanged: (v) {
-                if (v != null) onChange([...platformIds, v]);
-              },
+          // 下拉挂 `.input`：surface 底 + 1px 边 + radius-sm + `padding: "6px 10px"`
+          //（PlatformPicker.tsx:115）。原先是无描边的裸 DropdownButton。
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<int>(
+                isExpanded: true,
+                isDense: true,
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  color: theme.c.fg,
+                ),
+                hint: Text(
+                  t.t('group.addPlatform'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg2,
+                  ),
+                ),
+                value: null,
+                items: [
+                  for (final p in remaining)
+                    DropdownMenuItem(
+                      value: p.id,
+                      // 选项文案带协议 label：`名称 (协议)`
+                      //（PlatformPicker.tsx:121）。同名不同协议才分得开。
+                      child: Text('${p.name} (${_protoLabel(p.platformType)})'),
+                    ),
+                ],
+                onChanged: (v) {
+                  if (v != null) onChange([...platformIds, v]);
+                },
+              ),
             ),
           ),
       ],
@@ -2115,220 +2676,322 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
     final g = e.target!.group;
     final envVars = [...e.envVars, ...c.proxyEnvVars];
     final hasReserved = e.envVars.any((ev) => kReservedEnvKeys.contains(ev.key));
-    return Tile(
-      title: t.t('group.edit'),
-      // 副标题是 `#<id>`（`GroupEditPanel.tsx:61`）。
-      // 🔴 这里**不印 group_key**：它就是这个分组的 API Key，
-      // 印在标题栏上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
-      meta: '#${g.id}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 头部复制按钮组（`GroupEditPanel.tsx:63-66`）。
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
+    // 一句话说明 + 下拉的组合（路由模式 / pi 线路协议两处同构，
+    // `GroupEditPanel.tsx:96-108`、`:114-124`）：说明 12 / lineHeight 1.4 / gap 4。
+    Widget selectWithDesc({required Widget select, required String desc}) =>
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            select,
+            const SizedBox(height: AidogSpace.sxs),
+            Text(
+              desc,
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                height: 1.4,
+                color: theme.c.fg3,
+              ),
+            ),
+          ],
+        );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 页头：返回箭头 18 + 当前组名 20 w700 + `#id` 13 + 四颗复制 +
+        // 取消 / 保存（`GroupEditPanel.tsx:53-69`）。原先标题是静态「编辑分组」、
+        // 两颗按钮在面板最底部。
+        _PanelHeader(
+          title: e.name.isEmpty ? t.t('group.edit') : e.name,
+          // 副标题是 `#<id>`（`GroupEditPanel.tsx:61`）。
+          // 🔴 这里**不印 group_key**：它就是这个分组的 API Key，
+          // 印在标题栏上意味着截图 / 录屏 / 投屏都会连 key 一起泄出去。
+          subtitle: '#${g.id}',
+          onBack: c.cancelEdit,
+          backTooltip: t.t('action.cancel'),
+          onCancel: c.cancelEdit,
+          cancelLabel: t.t('action.cancel'),
+          confirmLabel: t.t('action.save'),
+          // 名字为空就点不动 —— React 的 `disabled={!editName}`。
+          onConfirm: e.canSave
+              ? () => c.saveEdit(failText: t.t('group.saveFailed'))
+              : null,
+          // 头部复制按钮组（`GroupEditPanel.tsx:63-66`）：「API Key」那颗带文字，
+          // Claude / Codex / pi 三颗**只有 14px 图标**（传了 icon 即不渲染 label，
+          // `CopyButton.tsx:124`）。
+          extras: [
+            _CopyChip(
+              tooltip: t.t('group.copyApiKeyTitle'),
+              label: t.t('group.apiKey'),
+              copyIcon: true,
+              copyText: widget.copyText,
+              textOf: () => g.groupKey,
+            ),
+            _CopyChip(
+              tooltip: t.t('group.copyCommand'),
+              icon: _logoIcon('claude_code'),
+              copyText: widget.copyText,
+              textOf: () => buildClaudeCommand(g.groupKey),
+            ),
+            _CopyChip(
+              tooltip: t.t('group.copyCodexCommand'),
+              icon: _logoIcon('openai'),
+              copyText: widget.copyText,
+              textOf: () => buildCodexCommand(g.groupKey, envVars),
+            ),
+            _CopyChip(
+              tooltip: t.t('group.copyPiCommand'),
+              icon: _logoIcon('pi'),
+              copyText: widget.copyText,
+              textOf: () => buildPiCommand(g.groupKey, envVars),
+            ),
+          ],
+        ),
+        // 四张分区卡之间 gap 20（`GroupEditPanel.tsx:51`）。
+        const SizedBox(height: 20),
+        // ── 基本信息 ──
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
             children: [
-              // 三颗命令按钮用的就是 React 那三份同名 svg，且点完给「已复制」反馈
-              //（`GroupEditPanel.tsx:63-66` 的 CopyButton）。
-              _CopyChip(
-                tooltip: t.t('group.copyApiKeyTitle'),
-                label: t.t('group.apiKey'),
-                copyText: widget.copyText,
-                textOf: () => g.groupKey,
+              _SectionTitle(t.t('group.basicInfo')),
+              const SizedBox(height: AidogSpace.sxl),
+              _Field(
+                label: t.t('group.name'),
+                value: e.name,
+                onChanged: (v) => c.patchEdit(e.patch(name: v)),
               ),
-              _CopyChip(
-                tooltip: t.t('group.copyCommand'),
-                label: 'Claude',
-                icon: _logoIcon('claude_code'),
-                copyText: widget.copyText,
-                textOf: () => buildClaudeCommand(g.groupKey),
-              ),
-              _CopyChip(
-                tooltip: t.t('group.copyCodexCommand'),
-                label: 'Codex',
-                icon: _logoIcon('openai'),
-                copyText: widget.copyText,
-                textOf: () => buildCodexCommand(g.groupKey, envVars),
-              ),
-              _CopyChip(
-                tooltip: t.t('group.copyPiCommand'),
-                label: 'pi',
-                icon: _logoIcon('pi'),
-                copyText: widget.copyText,
-                textOf: () => buildPiCommand(g.groupKey, envVars),
-              ),
-            ],
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('group.basicInfo')),
-          const SizedBox(height: AidogSpace.sxs),
-          _Field(
-            label: t.t('group.name'),
-            value: e.name,
-            onChanged: (v) => c.patchEdit(e.patch(name: v)),
-          ),
-          // 分组密钥：创建后锁定不可改（只读展示 + 说明）。
-          FieldLabel(t.t('group.groupKey')),
-          // 密钥旁边就要有复制（`GroupEditPanel.tsx:85-90`）：
-          // 只读一行字没法选，之前得滚回页头那颗 API Key 按钮。
-          Row(
-            children: [
-              Flexible(
-                child: Text(
-                  g.groupKey,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AidogType.micro.copyWith(color: theme.c.fg2),
+              // 分组密钥：创建后锁定不可改 —— React 用的是**禁用态输入框**，
+              // 锁定说明收进悬浮提示，不常驻一行（`GroupEditPanel.tsx:86-89`）。
+              _FieldRow(
+                label: t.t('group.groupKey'),
+                child: Tooltip(
+                  message: t.t('group.groupKeyLocked'),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _Field(
+                          enabled: false,
+                          value: g.groupKey,
+                          onChanged: (_) {},
+                        ),
+                      ),
+                      // 密钥旁边就要有复制（`GroupEditPanel.tsx:85-90`）：
+                      // 行内 gap 6，只有 14px 图标、无文案。
+                      const SizedBox(width: AidogSpace.ssm),
+                      _CopyChip(
+                        tooltip: t.t('group.copyApiKeyTitle'),
+                        copyIcon: true,
+                        copyText: widget.copyText,
+                        textOf: () => g.groupKey,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(width: AidogSpace.sxs),
-              _CopyChip(
-                tooltip: t.t('group.copyApiKeyTitle'),
-                label: t.t('action.copy'),
-                copyText: widget.copyText,
-                textOf: () => g.groupKey,
+              _FieldRow(
+                label: t.t('group.routingMode'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                // 下拉而不是一排互斥按钮（`GroupEditPanel.tsx:97-106`）：
+                // 平铺会把选项全堆在表单里，当前选的是哪个反而要扫一遍才看出来。
+                child: selectWithDesc(
+                  select: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: e.mode,
+                      items: [
+                        for (final m in kRoutingModes)
+                          DropdownMenuItem(
+                            value: m,
+                            child: Text(routingLabel(t, m)),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) c.patchEdit(e.patch(mode: v));
+                      },
+                    ),
+                  ),
+                  desc: routingDesc(t, e.mode),
+                ),
+              ),
+              // pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集）。
+              _FieldRow(
+                label: t.t('group.piApiLabel'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                // 同上（`GroupEditPanel.tsx:115-122`）。
+                child: selectWithDesc(
+                  select: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _piApi,
+                      items: [
+                        for (final api in kPiApis)
+                          DropdownMenuItem(
+                            value: api,
+                            child: Text(piApiLabel(t.t, api)),
+                          ),
+                      ],
+                      onChanged: (v) {
+                        if (v == null) return;
+                        setState(() => _piApi = v);
+                        unawaited(c.setGroupPiApi(g.id, v));
+                      },
+                    ),
+                  ),
+                  desc: t.t('group.piApiHint'),
+                ),
+              ),
+              // 字段顺序照 React：超时在前、最大重试在后
+              //（`GroupEditPanel.tsx:127-151`）。原先两者颠倒。
+              _NumField(
+                label: t.t('group.timeout'),
+                value: e.reqTimeout,
+                blankWhenZero: true,
+                hint: t.t('group.reqTimeout'),
+                onChanged: (v) => c.patchEdit(e.patch(reqTimeout: v)),
+                second: _NumSlot(
+                  value: e.connTimeout,
+                  blankWhenZero: true,
+                  hint: t.t('group.connTimeout'),
+                  onChanged: (v) => c.patchEdit(e.patch(connTimeout: v)),
+                ),
+                note: t.t('group.timeoutDefault'),
+              ),
+              _NumField(
+                label: t.t('group.maxRetries'),
+                value: e.maxRetries,
+                // 上限 10（`GroupEditPanel.tsx:145-148` 的 `max={10}`）：
+                // 没有上限时填个 999 会让一次失败重试到天荒地老。
+                max: 10,
+                onChanged: (v) => c.patchEdit(e.patch(maxRetries: v)),
+                note: t.t('group.maxRetriesHint'),
+              ),
+              // 自动建组的说明（`GroupEditPanel.tsx:154-159`）。
+              if (g.autoFromPlatform.isNotEmpty)
+                // 说明前挂一枚 auto 徽标（`GroupEditPanel.tsx:154-159`），
+                // 与列表卡上的那枚同一个标识。
+                Row(
+                  children: [
+                    MiniBadge(
+                      text: 'auto',
+                      color: theme.c.surface2,
+                      solid: true,
+                      padX: 5,
+                      padY: 0,
+                    ),
+                    const SizedBox(width: AidogSpace.ssm),
+                    Flexible(
+                      child: Text(
+                        t.t('group.autoFromPlatform'),
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _LegacyEditSections(controller: c, edit: e, hasReserved: hasReserved),
+      ],
+    );
+  }
+}
+
+/// 编辑面板后三张分区卡：关联平台 / 模型映射 / 环境变量
+/// （`GroupEditPanel.tsx:162-310`，每张 `glass-surface` + padding 28，卡间 gap 20）。
+/// 与基本信息那张拆开只是为了让 `build` 别长到读不完。
+class _LegacyEditSections extends StatelessWidget {
+  const _LegacyEditSections({
+    required this.controller,
+    required this.edit,
+    required this.hasReserved,
+  });
+
+  final GroupsController controller;
+  final GroupEditState edit;
+  final bool hasReserved;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final e = edit;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // ── 关联平台 ──
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SectionTitle(t.t('group.platforms')),
+              // 提示贴着标题（`marginTop: -8`，GroupEditPanel.tsx:165-167）。
+              Padding(
+                padding: const EdgeInsets.only(top: AidogSpace.sxl - 8),
+                child: Text(
+                  t.t('group.platformsHint'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AidogSpace.sxl),
+              // 只列 enabled 的（`GroupEditPanel.tsx:34`）——原先是全量 `c.platforms`。
+              _PlatformPicker(
+                platformIds: e.platformIds,
+                options: c.enabledPlatformOptions,
+                onChange: (ids) => c.patchEdit(e.patch(platformIds: ids)),
+                protocolLabels: {
+                  for (final o in c.defaults.protocolOptions(t.locale))
+                    o.value: o.label,
+                },
               ),
             ],
           ),
-          Text(
-            t.t('group.groupKeyLocked'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          FieldLabel(t.t('group.routingMode')),
-          const SizedBox(height: AidogSpace.sxs),
-          // 下拉而不是一排互斥按钮（`GroupEditPanel.tsx:97-106`）：
-          // 平铺会把选项全堆在表单里，当前选的是哪个反而要扫一遍才看出来。
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: e.mode,
-              items: [
-                for (final m in kRoutingModes)
-                  DropdownMenuItem(value: m, child: Text(routingLabel(t, m))),
-              ],
-              onChanged: (v) {
-                if (v != null) c.patchEdit(e.patch(mode: v));
-              },
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: AidogSpace.sxs),
-            child: Text(
-              routingDesc(t, e.mode),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
-            ),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          // pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集）。
-          FieldLabel(t.t('group.piApiLabel')),
-          const SizedBox(height: AidogSpace.sxs),
-          // 同上（`GroupEditPanel.tsx:115-122`）。
-          DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              isExpanded: true,
-              value: _piApi,
-              items: [
-                for (final api in kPiApis)
-                  DropdownMenuItem(
-                    value: api,
-                    child: Text(piApiLabel(t.t, api)),
+        ),
+        const SizedBox(height: 20),
+        // ── 模型映射：逐行可编辑 + 删除 + 新增一行空映射 ──
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SectionTitle(t.t('group.modelMappings')),
+              Padding(
+                padding: const EdgeInsets.only(top: AidogSpace.sxl - 8),
+                child: Text(
+                  t.t('group.mappingsHint'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg3,
                   ),
-              ],
-              onChanged: (v) {
-                if (v == null) return;
-                setState(() => _piApi = v);
-                unawaited(c.setGroupPiApi(g.id, v));
-              },
-            ),
-          ),
-          Text(
-            t.t('group.piApiHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          _NumField(
-            label: t.t('group.maxRetries'),
-            value: e.maxRetries,
-            // 上限 10（`GroupEditPanel.tsx:145-148` 的 `max={10}`）：
-            // 没有上限时填个 999 会让一次失败重试到天荒地老。
-            max: 10,
-            onChanged: (v) => c.patchEdit(e.patch(maxRetries: v)),
-          ),
-          Text(
-            t.t('group.maxRetriesHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          TileMeta(t.t('group.timeout')),
-          _NumField(
-            label: t.t('group.reqTimeout'),
-            value: e.reqTimeout,
-            blankWhenZero: true,
-            hint: t.t('group.reqTimeout'),
-            onChanged: (v) => c.patchEdit(e.patch(reqTimeout: v)),
-          ),
-          _NumField(
-            label: t.t('group.connTimeout'),
-            value: e.connTimeout,
-            blankWhenZero: true,
-            hint: t.t('group.connTimeout'),
-            onChanged: (v) => c.patchEdit(e.patch(connTimeout: v)),
-          ),
-          Text(
-            t.t('group.timeoutDefault'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          // 自动建组的说明（`GroupEditPanel.tsx:154-159`）。
-          if (g.autoFromPlatform.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AidogSpace.sxs),
-              // 说明前挂一枚 auto 徽标（`GroupEditPanel.tsx:154-159`），
-              // 与列表卡上的那枚同一个标识。
-              child: Row(
-                children: [
-                  MiniBadge(text: 'auto', color: theme.c.fg3),
-                  const SizedBox(width: AidogSpace.sxs),
-                  Flexible(
-                    child: Text(
-                      t.t('group.autoFromPlatform'),
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('group.platforms')),
-          Text(
-            t.t('group.platformsHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          // 只列 enabled 的（`GroupEditPanel.tsx:34`）——原先是全量 `c.platforms`。
-          _PlatformPicker(
-            platformIds: e.platformIds,
-            options: c.enabledPlatformOptions,
-            onChange: (ids) => c.patchEdit(e.patch(platformIds: ids)),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          // 模型映射：逐行可编辑 + 删除 + 新增一行空映射。
-          TileMeta(t.t('group.modelMappings')),
-          Text(
-            t.t('group.mappingsHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          for (var i = 0; i < e.mappings.length; i++)
+              const SizedBox(height: AidogSpace.sxl),
+              for (var i = 0; i < e.mappings.length; i++)
             // 一行一张小卡（`GroupEditPanel.tsx:189-193`）：裸 Row 只隔 2px，
             // 三四行挤在一起分不清哪个输入属于哪条映射。
             _RowCard(
               child: Row(
                 children: [
                   SizedBox(
-                    width: 130,
+                    // 源模型输入 `width: 140`（GroupEditPanel.tsx:194）。
+                    width: 140,
                     child: _Field(
+                      dense: true,
                       hint: t.t('mapping.source'),
                       value: e.mappings[i].sourceModel,
                       onChanged: (v) {
@@ -2344,9 +3007,14 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                       },
                     ),
                   ),
-                  const SizedBox(width: AidogSpace.sxs),
-                  DropdownButtonHideUnderline(
+                  // 行内 gap 8（GroupEditPanel.tsx:190）。
+                  const SizedBox(width: 8),
+                  SizedBox(
+                    // 目标平台下拉 `width: 140`（GroupEditPanel.tsx:213）。
+                    width: 140,
+                    child: DropdownButtonHideUnderline(
                     child: DropdownButton<int>(
+                      isExpanded: true,
                       hint: Text(t.t('mapping.targetPlatform')),
                       value: e.mappings[i].targetPlatformId == 0
                           ? null
@@ -2375,7 +3043,8 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                       },
                     ),
                   ),
-                  const SizedBox(width: AidogSpace.sxs),
+                  ),
+                  const SizedBox(width: 8),
                   // 目标模型：目标平台配过模型就给下拉，没配才退回文本框
                   // （`GroupEditPanel.tsx:221-239` 的两条分支）。原先恒为文本框，
                   // 模型名打错了当场没有任何提示，要等真发请求才失败。
@@ -2399,6 +3068,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
 
                         if (models.isEmpty) {
                           return _Field(
+                            dense: true,
                             hint: t.t('mapping.target'),
                             value: e.mappings[i].targetModel,
                             onChanged: setTarget,
@@ -2426,6 +3096,7 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                       },
                     ),
                   ),
+                  const SizedBox(width: 8),
                   SmallButton(
                     label: t.t('action.delete'),
                     danger: true,
@@ -2437,113 +3108,136 @@ class _GroupEditPanelState extends State<_GroupEditPanel> {
                 ],
               ),
             ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SmallButton(
-              label: '+ ${t.t('mapping.add')}',
-              onTap: () => c.patchEdit(
-                e.patch(
-                  mappings: [
-                    ...e.mappings,
-                    const ModelMapping(
-                      sourceModel: '',
-                      targetPlatformId: 0,
-                      targetModel: '',
-                      requestTimeoutSecs: 0,
-                      connectTimeoutSecs: 0,
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                // ghost + F.hint 13 + `padding: "6px 12px"`
+                //（GroupEditPanel.tsx:254-257）。
+                child: SmallButton(
+                  label: '+ ${t.t('mapping.add')}',
+                  ghost: true,
+                  fontSize: 13,
+                  padding: (12, 6),
+                  onTap: () => c.patchEdit(
+                    e.patch(
+                      mappings: [
+                        ...e.mappings,
+                        const ModelMapping(
+                          sourceModel: '',
+                          targetPlatformId: 0,
+                          targetModel: '',
+                          requestTimeoutSecs: 0,
+                          connectTimeoutSecs: 0,
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AidogSpace.ssm),
-          // 分组维度环境变量：sync 注入 Claude settings.env，复制 Codex 命令时前置 export。
-          TileMeta(t.t('group.envVars')),
-          Text(
-            t.t('group.envVarsHint'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          for (var i = 0; i < e.envVars.length; i++)
-            // 同上 + 保留字那几行整行描边换 warning 色
-            //（`GroupEditPanel.tsx:270-276`）：底下那句全局红字说不清是哪一行。
-            _RowCard(
-              warn: kReservedEnvKeys.contains(e.envVars[i].key),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 190,
-                    child: _Field(
-                      hint: t.t('group.envVarKey'),
-                      value: e.envVars[i].key,
-                      onChanged: (v) {
-                        final next = [...e.envVars];
-                        next[i] = EnvVar(key: v, value: next[i].value);
-                        c.patchEdit(e.patch(envVars: next));
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: AidogSpace.sxs),
-                  Expanded(
-                    child: _Field(
-                      hint: t.t('group.envVarValue'),
-                      value: e.envVars[i].value,
-                      onChanged: (v) {
-                        final next = [...e.envVars];
-                        next[i] = EnvVar(key: next[i].key, value: v);
-                        c.patchEdit(e.patch(envVars: next));
-                      },
-                    ),
-                  ),
-                  SmallButton(
-                    label: t.t('action.delete'),
-                    danger: true,
-                    onTap: () {
-                      final next = [...e.envVars]..removeAt(i);
-                      c.patchEdit(e.patch(envVars: next));
-                    },
-                  ),
-                ],
-              ),
-            ),
-          if (hasReserved)
-            Text(
-              t.t('group.envVarReservedHint'),
-              style: AidogType.micro.copyWith(color: theme.c.bad),
-            ),
-          Align(
-            alignment: Alignment.centerLeft,
-            child: SmallButton(
-              label: '+ ${t.t('group.addEnvVar')}',
-              onTap: () => c.patchEdit(
-                e.patch(
-                  envVars: [
-                    ...e.envVars,
-                    const EnvVar(key: '', value: ''),
-                  ],
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AidogSpace.smd),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              SmallButton(label: t.t('action.cancel'), onTap: c.cancelEdit),
-              const SizedBox(width: AidogSpace.ssm),
-              // 名字为空就点不动 —— React 的 `disabled={!editName}`。
-              SmallButton(
-                label: t.t('action.save'),
-                // `GroupEditPanel.tsx:68` 没写 variant = 默认实心。
-                filled: true,
-                onTap: e.canSave
-                    ? () => c.saveEdit(failText: t.t('group.saveFailed'))
-                    : null,
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 20),
+        // ── 环境变量：sync 注入 Claude settings.env，复制 Codex 命令时前置 export ──
+        Tile(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SectionTitle(t.t('group.envVars')),
+              Padding(
+                padding: const EdgeInsets.only(top: AidogSpace.sxl - 8),
+                child: Text(
+                  t.t('group.envVarsHint'),
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AidogSpace.sxl),
+              for (var i = 0; i < e.envVars.length; i++)
+                // 同上 + 保留字那几行整行描边换 warning 色
+                //（`GroupEditPanel.tsx:270-276`）：底下那句全局红字说不清是哪一行。
+                _RowCard(
+                  warn: kReservedEnvKeys.contains(e.envVars[i].key),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        // 键输入 `width: 200` + 等宽字体（GroupEditPanel.tsx:277）。
+                        width: 200,
+                        child: _Field(
+                          dense: true,
+                          mono: true,
+                          hint: t.t('group.envVarKey'),
+                          value: e.envVars[i].key,
+                          onChanged: (v) {
+                            final next = [...e.envVars];
+                            next[i] = EnvVar(key: v, value: next[i].value);
+                            c.patchEdit(e.patch(envVars: next));
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _Field(
+                          dense: true,
+                          mono: true,
+                          hint: t.t('group.envVarValue'),
+                          value: e.envVars[i].value,
+                          onChanged: (v) {
+                            final next = [...e.envVars];
+                            next[i] = EnvVar(key: next[i].key, value: v);
+                            c.patchEdit(e.patch(envVars: next));
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SmallButton(
+                        label: t.t('action.delete'),
+                        danger: true,
+                        onTap: () {
+                          final next = [...e.envVars]..removeAt(i);
+                          c.patchEdit(e.patch(envVars: next));
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              if (hasReserved)
+                Text(
+                  t.t('group.envVarReservedHint'),
+                  // F.small = 12 + `--color-warning`（GroupEditPanel.tsx:300-302），
+                  // 不是 bad 红。
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: theme.c.peak,
+                  ),
+                ),
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                // 同「+ 添加映射」：ghost + 13 + `padding: "6px 12px"`
+                //（GroupEditPanel.tsx:305-308）。
+                child: SmallButton(
+                  label: '+ ${t.t('group.addEnvVar')}',
+                  ghost: true,
+                  fontSize: 13,
+                  padding: (12, 6),
+                  onTap: () => c.patchEdit(
+                    e.patch(
+                      envVars: [
+                        ...e.envVars,
+                        const EnvVar(key: '', value: ''),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2570,10 +3264,14 @@ class _PickerIconButton extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onPressed,
+    required this.iconSize,
   });
 
   final IconData icon;
   final String tooltip;
+
+  /// 图标本体尺寸：上下移 10、移除 12（`PlatformPicker.tsx:79,90,97`）。
+  final double iconSize;
 
   /// null = 禁用（第一行不能上移、最后一行不能下移）。
   final VoidCallback? onPressed;
@@ -2581,11 +3279,56 @@ class _PickerIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => IconButton(
     padding: EdgeInsets.zero,
-    constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-    iconSize: 14,
+    // 三颗按钮都是 24×24（`PlatformPicker.tsx:72,83,94`）。
+    constraints: const BoxConstraints.tightFor(width: 24, height: 24),
+    iconSize: iconSize,
     tooltip: tooltip,
     icon: Icon(icon),
     onPressed: onPressed,
+  );
+}
+
+/// 表单里「标签一列、控件一列」的那一行（`GroupEditPanel.tsx:76-77` 的
+/// `grid-template-columns: "auto 1fr"` + `gap: 12`），字段之间 `gap S.gap=18`。
+/// 标签宽度**由内容决定**（auto），不钉死。
+class _FieldRow extends StatelessWidget {
+  const _FieldRow({
+    required this.label,
+    required this.child,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+  });
+
+  final String label;
+  final Widget child;
+  final CrossAxisAlignment crossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+    child: Row(
+      crossAxisAlignment: crossAxisAlignment,
+      children: [
+        _FieldLabelText(label),
+        const SizedBox(width: 12),
+        Expanded(child: child),
+      ],
+    ),
+  );
+}
+
+/// 字段标签：F.hint = 13 secondary（`GroupEditPanel.tsx:77`）。
+class _FieldLabelText extends StatelessWidget {
+  const _FieldLabelText(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    text,
+    style: AidogType.label.copyWith(
+      fontSize: 13,
+      color: AidogTheme.of(context).c.fg2,
+    ),
   );
 }
 
@@ -2595,12 +3338,33 @@ class _Field extends StatefulWidget {
     required this.onChanged,
     this.label,
     this.hint,
+    this.desc,
+    this.mono = false,
+    this.enabled = true,
+    this.dense = false,
   });
+
+  /// 行卡里的小输入框：F.hint = 13 + `padding: "6px 10px"`
+  ///（`GroupEditPanel.tsx:194,213,238,277,285`）。false = 表单字段档
+  /// F.body = 15 + `S.inputPad = "10px 14px"`。
+  final bool dense;
 
   /// null = 不画标题行（映射 / 环境变量这种行内小框，React 那边也只有 placeholder）。
   final String? label;
   final String value;
   final String? hint;
+
+  /// 输入框**下方**常驻的说明（`GroupCreateModal.tsx:68-70`）。
+  /// 与 [hint]（框内 placeholder，一打字就消失）是两件事。
+  final String? desc;
+
+  /// 等宽字体（环境变量的键 / 值两格，`GroupEditPanel.tsx:277,285`）。
+  final bool mono;
+
+  /// false = 禁用态只读框（分组密钥，`GroupEditPanel.tsx:86-88` 的 `disabled`
+  /// + `opacity: 0.7`）。
+  final bool enabled;
+
   final ValueChanged<String> onChanged;
 
   @override
@@ -2631,35 +3395,64 @@ class _FieldState extends State<_Field> {
     super.dispose();
   }
 
-  Widget _input(AidogTheme theme) => TextField(
-    controller: _ctrl,
-    style: AidogType.label.copyWith(color: theme.c.fg),
-    decoration: InputDecoration(
-      isDense: true,
-      hintText: widget.hint,
-      hintStyle: AidogType.label.copyWith(color: theme.c.fg3),
-    ),
-    onChanged: widget.onChanged,
-  );
+  Widget _input(AidogTheme theme) {
+    // 输入框 F.body = 15、内衬 `S.inputPad = "10px 14px"`
+    //（`GroupEditPanel.tsx:78`）。主题缺省是 13.5 + 12/8。
+    final style = AidogType.body.copyWith(
+      color: theme.c.fg,
+      fontSize: widget.dense ? 13 : 15,
+      letterSpacing: 0,
+      fontFamily: widget.mono ? AidogType.familyMono : null,
+      fontFamilyFallback: widget.mono ? AidogType.familyMonoFallback : null,
+    );
+    return Opacity(
+      // 禁用态 `opacity: 0.7`（GroupEditPanel.tsx:86）。
+      opacity: widget.enabled ? 1 : 0.7,
+      child: TextField(
+        controller: _ctrl,
+        enabled: widget.enabled,
+        style: style,
+        decoration: InputDecoration(
+          isDense: true,
+          contentPadding: widget.dense
+              ? const EdgeInsets.symmetric(horizontal: 10, vertical: 6)
+              : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          hintText: widget.hint,
+          hintStyle: style.copyWith(color: theme.c.fg3),
+        ),
+        onChanged: widget.onChanged,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      // 有标签时走两列：标签左、输入右（`GroupEditPanel.tsx:76` 起各字段的
-      // `grid-template-columns: auto 1fr`）。原先标签在上输入在下，同样的表单高一倍。
-      child: widget.label == null
-          ? _input(theme)
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                SizedBox(width: 96, child: FieldLabel(widget.label!)),
-                const SizedBox(width: AidogSpace.ssm),
-                Expanded(child: _input(theme)),
-              ],
-            ),
-    );
+    final desc = widget.desc;
+    final input = desc == null
+        ? _input(theme)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _input(theme),
+              // 说明在输入框下方常驻：F.small = 12 tertiary
+              //（GroupCreateModal.tsx:68-70、:79-81）。
+              const SizedBox(height: AidogSpace.ssm),
+              Text(
+                desc,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
+                ),
+              ),
+            ],
+          );
+    // 无标签 = 行内小框（映射 / 环境变量行卡），不带字段间距。
+    if (widget.label == null) return input;
+    // 有标签时走两列：标签左、输入右（`GroupEditPanel.tsx:76` 起各字段的
+    // `grid-template-columns: auto 1fr`）。原先标签在上输入在下，同样的表单高一倍。
+    return _FieldRow(label: widget.label!, child: input);
   }
 }
 
@@ -2671,11 +3464,19 @@ class _NumField extends StatelessWidget {
     this.max,
     this.blankWhenZero = false,
     this.hint,
+    this.second,
+    this.note,
   });
 
   final String label;
   final int value;
   final ValueChanged<int> onChanged;
+
+  /// 同一行的第二个数字格（超时那行）。null = 只有一格。
+  final _NumSlot? second;
+
+  /// 输入格右侧那句 F.small = 12 tertiary 提示（`GroupEditPanel.tsx:137,149`）。
+  final String? note;
 
   /// 上限（对齐 React 那边 `<Input type="number" max=...>`）。null = 不封顶。
   final int? max;
@@ -2689,39 +3490,75 @@ class _NumField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      // 布局照 [_Field]：标签左、输入右（`GroupEditPanel.tsx:76` 的两列 grid）。
+    // 布局照 [_Field]：标签左、输入右（`GroupEditPanel.tsx:76` 的两列 grid）；
+    // 输入格 `width: 80`、行内 gap 10、右侧跟一句 12 号 tertiary 提示
+    //（`GroupEditPanel.tsx:128-151`）。原先输入格占满整行、提示另起一行。
+    return _FieldRow(
+      label: label,
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 96,
-            child: Text(
-              label,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
-          ),
-          const SizedBox(width: AidogSpace.ssm),
           // 数字过滤 + 夹取 + ± / ↑↓ 步进都在 [NumberInput] 里（React 那边是
           // `<input type="number" min max>` 自带的四样）。原先是普通文本框 +
           // `tryParse ?? 0`：敲错一个字符，超时 / 重试次数静默变成 0。
-          Expanded(
-            child: NumberInput(
-              value: blankWhenZero && value == 0 ? '' : '$value',
-              hint: hint,
+          NumberInput(
+            width: 80,
+            value: blankWhenZero && value == 0 ? '' : '$value',
+            hint: hint,
+            min: 0,
+            max: max,
+            onChanged: (v) {
+              final n = int.tryParse(v.trim());
+              if (n != null) onChanged(n);
+            },
+          ),
+          if (second != null) ...[
+            const SizedBox(width: AidogSpace.smd),
+            NumberInput(
+              width: 80,
+              value: second!.blankWhenZero && second!.value == 0
+                  ? ''
+                  : '${second!.value}',
+              hint: second!.hint,
               min: 0,
-              max: max,
               onChanged: (v) {
                 final n = int.tryParse(v.trim());
-                if (n != null) onChanged(n);
+                if (n != null) second!.onChanged(n);
               },
             ),
-          ),
+          ],
+          if (note != null) ...[
+            const SizedBox(width: AidogSpace.smd),
+            Flexible(
+              child: Text(
+                note!,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
+}
+
+/// [_NumField] 同一行里的第二个数字格（超时那行是「请求(s)」「连接(s)」两格并排，
+/// `GroupEditPanel.tsx:130-136`）。
+@immutable
+class _NumSlot {
+  const _NumSlot({
+    required this.value,
+    required this.onChanged,
+    this.blankWhenZero = false,
+    this.hint,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+  final bool blankWhenZero;
+  final String? hint;
 }
 
 /// 分组环境变量里的保留字：这几个键由 aidog 自己注入，用户再写一遍会互相覆盖。
@@ -2744,11 +3581,10 @@ class _RowCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return Container(
-      margin: const EdgeInsets.only(bottom: 4),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AidogSpace.ssm,
-        vertical: 4,
-      ),
+      // 行卡 `padding: "8px 12px"`、行间 `gap: 6`
+      //（GroupEditPanel.tsx:189-193、:272-276）。
+      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: theme.c.surface2,
         border: Border.all(color: warn ? theme.c.peak : theme.c.line),
@@ -2764,15 +3600,24 @@ class _RowCard extends StatelessWidget {
 class _CopyChip extends StatefulWidget {
   const _CopyChip({
     required this.tooltip,
-    required this.label,
     required this.copyText,
     required this.textOf,
+    this.label,
     this.icon,
+    this.copyIcon = false,
   });
 
   final String tooltip;
-  final String label;
+
+  /// null = 只画图标、不出文案。React 的 `CopyButton` 传了 `icon` 就不渲染 label
+  ///（`CopyButton.tsx:124`），编辑页头的 Claude / Codex / pi 三颗正是这样
+  ///（`GroupEditPanel.tsx:64-66`）。
+  final String? label;
   final Widget? icon;
+
+  /// 用内置的复制图标（14），点完换成 success 色对勾（`CopyButton.tsx:112-123`）。
+  final bool copyIcon;
+
   final Future<void> Function(String text) copyText;
 
   /// 延迟取值：命令要按当前的环境变量现拼。
@@ -2805,23 +3650,41 @@ class _CopyChipState extends State<_CopyChip> {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
-    final button = SmallButton(
-      label: _done ? t.t('logs.copied') : widget.label,
-      active: _done,
-      onTap: () => unawaited(_copy()),
-    );
-    if (widget.icon == null) {
-      return Tooltip(message: widget.tooltip, child: button);
-    }
+    final theme = AidogTheme.of(context);
+    final label = widget.label;
+    final icon = widget.copyIcon
+        ? Icon(
+            _done ? Icons.check : Icons.content_copy,
+            size: 14,
+            color: _done ? theme.c.ok : theme.c.fg2,
+          )
+        : widget.icon;
     return Tooltip(
       message: widget.tooltip,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          SizedBox(width: 14, height: 14, child: widget.icon),
-          const SizedBox(width: 3),
-          button,
-        ],
+      // React 的 `CopyButton` 是 `variant="ghost"`：无底无边，
+      // `gap: 5` + 12 号文字 + `padding: "4px 10px"`（CopyButton.tsx:112）。
+      child: InkWell(
+        onTap: () => unawaited(_copy()),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (icon != null) SizedBox(width: 14, height: 14, child: icon),
+              if (icon != null && label != null) const SizedBox(width: 5),
+              if (label != null)
+                Text(
+                  _done ? t.t('logs.copied') : label,
+                  style: AidogType.micro.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0,
+                    color: _done ? theme.c.ok : theme.c.fg2,
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2953,12 +3816,17 @@ class _PurgeCandidateList extends StatelessWidget {
         children: [
           Text(
             t.t(titleKey),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            // 分段标题 11 **w600** tertiary（GroupListItem.tsx:578）。
+            style: AidogType.micro.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.c.fg3,
+            ),
           ),
-          const SizedBox(height: AidogSpace.sxs),
+          // 段内行间 gap 6（GroupListItem.tsx:577）。
+          const SizedBox(height: AidogSpace.ssm),
           for (final c in items)
             Padding(
-              padding: const EdgeInsets.only(bottom: 3),
+              padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
               child: Row(
                 children: [
                   Expanded(
@@ -2966,7 +3834,11 @@ class _PurgeCandidateList extends StatelessWidget {
                       (c['name'] as String?) ?? '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AidogType.caption.copyWith(color: theme.c.fg2),
+                      // 行文字 12（GroupListItem.tsx:582）。
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg2,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AidogSpace.ssm),
@@ -2979,7 +3851,8 @@ class _PurgeCandidateList extends StatelessWidget {
                 ],
               ),
             ),
-          const SizedBox(height: AidogSpace.sxs),
+          // 两段之间 gap 10（GroupListItem.tsx:567）。
+          const SizedBox(height: AidogSpace.smd),
         ],
       );
     }
@@ -3054,7 +3927,9 @@ class GroupIcon extends StatelessWidget {
         detail.group.name.characters.take(3).toString(),
         maxLines: 1,
         overflow: TextOverflow.clip,
+        // 13 w700（GroupIcon.tsx:37-38），不是 caption 的 12.5。
         style: AidogType.caption.copyWith(
+          fontSize: 13,
           color: auto ? theme.c.fg2 : theme.c.accentText,
           fontWeight: FontWeight.w700,
         ),
@@ -3118,8 +3993,21 @@ class _GroupIconAction extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AidogRadius.sm),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+        child: Container(
+          // `Button size="icon"` 宽 36（`ui/button.tsx:32`，height 被
+          // `height:auto` 覆盖）—— 原先约 24×20，命中区比 React 小一半。
+          width: 36,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(vertical: 3),
+          // 「设为默认」选中态：accent 文字 + 14% accent 底 + 35% accent 边 +
+          // radius-sm（GroupListItem.tsx:285-302）。原先只换了图标颜色。
+          decoration: active
+              ? BoxDecoration(
+                  color: c.accentWash,
+                  border: Border.all(color: c.accentEdge),
+                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                )
+              : null,
           child: Icon(
             icon,
             size: 14,

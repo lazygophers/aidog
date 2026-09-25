@@ -32,6 +32,23 @@ TextStyle numStyle(TextStyle base, Color color) => base.copyWith(
   fontFeatures: const [FontFeature.tabularFigures()],
 );
 
+/// React 的 `.counter`（`src/styles/globals.css:954`）：**只加**
+/// `font-variant-numeric: tabular-nums`，字体族仍是系统 sans。
+///
+/// 余额、StatChip 值这类位置在 React 里挂的是 `.counter`，不是等宽族 ——
+/// 用 [numStyle] 会把它们换成 SF Mono，一眼就是另一个界面。
+TextStyle counterStyle({
+  required double fontSize,
+  required Color color,
+  FontWeight fontWeight = FontWeight.w700,
+}) => TextStyle(
+  fontFamily: AidogType.familySans,
+  fontSize: fontSize,
+  fontWeight: fontWeight,
+  color: color,
+  fontFeatures: const [FontFeature.tabularFigures()],
+);
+
 /// 格子右上角的元信息：micro 字阶 / 全大写 / fg-3。
 class TileMeta extends StatelessWidget {
   const TileMeta(this.text, {super.key, this.icon});
@@ -72,19 +89,24 @@ class TileMeta extends StatelessWidget {
 /// 从来不是全大写——之前全站拿 [TileMeta]（micro 11 + toUpperCase + ls 0.66）当
 /// 字段标签用，三重差（大小写 / 字号 / 色阶）。[TileMeta] 留给格子右上角的元信息。
 class FieldLabel extends StatelessWidget {
-  const FieldLabel(this.text, {super.key, this.icon});
+  const FieldLabel(this.text, {super.key, this.icon, this.fontSize});
 
   final String text;
 
   /// 行首图标（同 [TileMeta.icon] 的用法）。
   final IconData? icon;
 
+  /// 字号覆盖。null = caption 12.5；React 各处是裸值 11 / 12 / 13
+  /// （`SkillInstallView.tsx:444` 的 11、`McpModals.tsx:250` 的 12、
+  /// `SkillsView.tsx:261` 的 13）。
+  final double? fontSize;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
     final label = HighlightedText(
       text,
-      style: AidogType.caption.copyWith(color: t.c.fg2),
+      style: AidogType.caption.copyWith(color: t.c.fg2, fontSize: fontSize),
     );
     if (icon == null) return label;
     return Row(

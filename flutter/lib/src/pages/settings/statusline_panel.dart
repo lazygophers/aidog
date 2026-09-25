@@ -724,8 +724,17 @@ class _SegmentEditCardState extends State<SegmentEditCard> {
     return AidogModal(
       onBarrierTap: widget.onCancel,
       child: ModalCard(
+        // `DialogContent` 自带 ✕（`SegmentEditModal.tsx:49`，另有一颗手绘 ×）。
+        onClose: widget.onCancel,
+        // 标题 F.title = 20 w600（`SegmentEditModal.tsx:53`）。
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
         title: segName(t, def),
-        meta: segDesc(t, def),
+        // 说明是 F.hint = 13 正体（`SegmentEditModal.tsx:54`），不是大写 meta。
+        description: segDesc(t, def),
+        descriptionStyle: AidogType.caption.copyWith(fontSize: 13),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

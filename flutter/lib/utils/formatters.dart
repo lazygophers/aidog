@@ -81,3 +81,38 @@ String formatDateTime(int msSinceEpoch) {
   return '${d.year}/${d.month}/${d.day} '
       '${pad(d.hour)}:${pad(d.minute)}:${pad(d.second)}';
 }
+
+/// ISO 串（后端 skill 锁文件里的 `installed_at` / `updated_at` 就是这形态）
+/// → 可读时刻。解析不出来就返空串。对应 `formatters.ts::formatDateTime`
+/// 的 `string` 入参分支（`formatters.ts:105-110`）。
+String formatDateTimeIso(String? iso) {
+  final ms = _isoMs(iso);
+  return ms == null ? '' : formatDateTime(ms);
+}
+
+/// ISO 串 → 相对时间（「3 天前」/「刚刚」）。
+/// 对应 `formatters.ts::formatRelativeTime`（`formatters.ts:119-139`），
+/// 粒度与进位判据逐条照抄（月按 30 天、年按 365 天，未来时间兜底「刚刚」）。
+///
+/// 文案跟 React 一样是写死的中文 —— 那边就没有走 i18n，这里照它的真值来。
+String formatRelativeTimeIso(String? iso, {int? nowMs}) {
+  final ms = _isoMs(iso);
+  if (ms == null) return '';
+  final now = nowMs ?? DateTime.now().millisecondsSinceEpoch;
+  final past = (now - ms) < 0 ? 0 : now - ms;
+  final sec = past ~/ 1000;
+  if (sec < 60) return '刚刚';
+  final min = sec ~/ 60;
+  if (min < 60) return '$min 分钟前';
+  final hr = min ~/ 60;
+  if (hr < 24) return '$hr 小时前';
+  final day = hr ~/ 24;
+  if (day < 30) return '$day 天前';
+  if (day < 365) return '${day ~/ 30} 个月前';
+  return '${day ~/ 365} 年前';
+}
+
+int? _isoMs(String? iso) {
+  if (iso == null || iso.isEmpty) return null;
+  return DateTime.tryParse(iso)?.millisecondsSinceEpoch;
+}

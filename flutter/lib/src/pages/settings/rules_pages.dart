@@ -644,12 +644,25 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   Widget _form(I18nController t, _RuleDraft d) => AidogModal(
     key: ValueKey('rule-form-${_c.editingRule?['id'] ?? 'new'}'),
     maxWidth: 720,
+    // React 的 `onOpenChange` 没有守卫（`MiddlewareRules.tsx:874`）：
+    // 点遮罩、按 Esc 都能关。原先两条都没接，弹窗只能靠底部按钮关。
+    onBarrierTap: _closeForm,
+    onEscape: _closeForm,
     child: ModalCard(
+      // `DialogContent` 自带 ✕。
+      onClose: _closeForm,
       title: _readOnly
           ? t.t('middleware.viewRule')
           : _c.editingRule != null
           ? t.t('middleware.editRule')
           : t.t('middleware.addRule'),
+      // 这个弹窗挂的是 glass-surface，圆角 `--radius-lg` 16；
+      // 标题 F.label = 15 w600（`MiddlewareRules.tsx:874-880`）。
+      radius: AidogRadius.lg,
+      titleStyle: AidogType.title.copyWith(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+      ),
       padding: const EdgeInsets.all(20),
       child: _readOnly
           ? Column(

@@ -149,7 +149,10 @@ class PlatformCard extends StatelessWidget {
         rl != null;
 
     final card = Tile(
-      live: p.status == 'enabled',
+      // React 的 `CompactCard` 恒 `.glass-surface`，启用 / 停用只差 `opacity`
+      //（`CompactCard.tsx:71-79` + `PlatformCard.tsx:202`）——**启用态不换底色**，
+      // 所以这里不能传 `live: true`（那会换成 liveFill 底 + liveEdge 边 + halo）。
+      live: false,
       // React CompactCard 卡壳 padding 20（CompactCard.tsx:71）。
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -179,7 +182,8 @@ class PlatformCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: AidogSpace.ssm),
+                  // 行 1 内部统一 gap 12（`PlatformCard.tsx:215`）。
+                  const SizedBox(width: 12),
                 ],
                 _LogoDot(
                   protocol: p.platformType,
@@ -198,7 +202,7 @@ class PlatformCard extends StatelessWidget {
                   lastError: p.lastError,
                   lastErrorAt: p.lastErrorAt,
                 ),
-                const SizedBox(width: AidogSpace.smd),
+                const SizedBox(width: 12),
                 Expanded(
                   child: _Identity(
                     platform: p,
@@ -208,22 +212,6 @@ class PlatformCard extends StatelessWidget {
                     nowMs: now,
                   ),
                 ),
-                // 展开态的指示箭头。React 那边点头部任意空白处就切，没有独立按钮
-                //（`PlatformCard.tsx:207-209`），所以这里只当指示器画，不再单独接手势
-                // —— 点它落在外层那层 GestureDetector 上，行为一模一样。
-                // tooltip 保留：它是这颗图标唯一的文字说明。
-                if (hasDetail)
-                  Tooltip(
-                    message: t.t('platform.toggleDetail'),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      child: Icon(
-                        expanded ? Icons.expand_less : Icons.expand_more,
-                        size: 16,
-                        color: theme.c.fg3,
-                      ),
-                    ),
-                  ),
                 _QuickActions(
                   testing: testing,
                   quotaCapable: quotaCapable,
@@ -239,6 +227,23 @@ class PlatformCard extends StatelessWidget {
                   onDuplicate: onDuplicate,
                   onDelete: onDelete,
                 ),
+                // 展开态的指示箭头排在整行**最右端**（`CompactCard.tsx:87-113` 把
+                // 切换按钮摆在 header 内容之后）。React 那边点头部任意空白处就切，
+                // 没有独立按钮（`PlatformCard.tsx:207-209`），所以这里只当指示器画，
+                // 不再单独接手势 —— 点它落在外层那层 GestureDetector 上，行为一样。
+                // tooltip 保留：它是这颗图标唯一的文字说明。
+                if (hasDetail)
+                  Tooltip(
+                    message: t.t('platform.toggleDetail'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        expanded ? Icons.expand_less : Icons.expand_more,
+                        size: 16,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -385,6 +390,8 @@ class _QuickActions extends StatelessWidget {
         if (quotaCapable)
           _IconAction(
             icon: Icons.refresh,
+            // 刷新那颗 React 是 13×13（`PlatformCard.tsx:799`），其余都是 14。
+            size: 13,
             tooltip: t.t('platform.quotaRefresh'),
             spinning: quotaRefreshing,
             onTap: quotaRefreshing ? null : onRefreshQuota,
@@ -450,6 +457,7 @@ class _IconAction extends StatelessWidget {
     required this.onTap,
     this.danger = false,
     this.spinning = false,
+    this.size = 14,
   });
 
   final IconData icon;
@@ -460,6 +468,9 @@ class _IconAction extends StatelessWidget {
   /// 刷新中转圈，对齐 React 的 `.spin`（`PlatformCard.tsx:787`）。
   final bool spinning;
 
+  /// 图标边长。缺省 14；刷新那颗 React 写的是 13。
+  final double size;
+
   @override
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
@@ -468,9 +479,9 @@ class _IconAction extends StatelessWidget {
         : danger
         ? c.bad
         : c.fg2;
-    final glyph = Icon(icon, size: 14, color: color);
+    final glyph = Icon(icon, size: size, color: color);
     return IconButton(
-      iconSize: 14,
+      iconSize: size,
       padding: const EdgeInsets.all(AidogSpace.sxs),
       constraints: const BoxConstraints(),
       visualDensity: VisualDensity.compact,
@@ -528,13 +539,11 @@ class _TestSegment extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = AidogTheme.of(context).c;
-    const r = Radius.circular(AidogRadius.sm);
+    // React 这两颗是 ghost 按钮，**没有外框**，只有中间那条 1px 竖缝，圆角 6
+    //（`PlatformCard.tsx:817-838`）。
+    const r = Radius.circular(6);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AidogSpace.sxs),
-      decoration: BoxDecoration(
-        border: Border.all(color: c.line),
-        borderRadius: const BorderRadius.all(r),
-      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -542,6 +551,8 @@ class _TestSegment extends StatelessWidget {
             icon: Icons.bolt,
             tooltip: quickLabel,
             onTap: testing ? null : onTest,
+            // 左半 `3px 8px`、右半 `3px 6px`（`PlatformCard.tsx:820,831`）。
+            padX: 8,
             radius: const BorderRadius.only(topLeft: r, bottomLeft: r),
           ),
           Container(width: 1, height: 18, color: c.line),
@@ -549,6 +560,7 @@ class _TestSegment extends StatelessWidget {
             icon: Icons.arrow_drop_down,
             tooltip: customLabel,
             onTap: onModelTest,
+            padX: 6,
             radius: const BorderRadius.only(topRight: r, bottomRight: r),
           ),
         ],
@@ -563,12 +575,14 @@ class _SegmentHalf extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     required this.radius,
+    required this.padX,
   });
 
   final IconData icon;
   final String tooltip;
   final VoidCallback? onTap;
   final BorderRadius radius;
+  final double padX;
 
   @override
   Widget build(BuildContext context) {
@@ -579,7 +593,7 @@ class _SegmentHalf extends StatelessWidget {
         onTap: onTap,
         borderRadius: radius,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 3),
+          padding: EdgeInsets.symmetric(horizontal: padX, vertical: 3),
           child: Icon(icon, size: 14, color: onTap == null ? c.fg3 : c.fg2),
         ),
       ),
@@ -632,8 +646,10 @@ class _LogoDot extends StatelessWidget {
                 .replaceAll('{{time}}', formatDateTime(lastErrorAt))
                 .replaceAll('{{error}}', lastError),
       child: SizedBox(
-        width: 40,
-        height: 40,
+        // logo 框就是 36×36，健康点靠 `top:-3 right:-3` 凸出框外
+        //（`PlatformCard.tsx:232,256`），不额外占位。
+        width: 36,
+        height: 36,
         child: Stack(
           clipBehavior: Clip.none,
           children: [
@@ -669,8 +685,8 @@ class _LogoDot extends StatelessWidget {
                     ),
             ),
             Positioned(
-              top: 0,
-              right: 0,
+              top: -3,
+              right: -3,
               child: Container(
                 width: 10,
                 height: 10,
@@ -805,7 +821,10 @@ class _Identity extends StatelessWidget {
               t
                   .t('platform.expiresAtBadge')
                   .replaceAll('{{time}}', formatDateTime(p.expiresAt)),
+              // 「到期 …」是 10px、字距 0（`PlatformCard.tsx:381`）。
               style: AidogType.micro.copyWith(
+                fontSize: 10,
+                letterSpacing: 0,
                 color: soon ? theme.c.peak : theme.c.fg3,
                 fontWeight: soon ? FontWeight.w600 : FontWeight.w500,
               ),
@@ -849,7 +868,9 @@ class _Identity extends StatelessWidget {
           p.name,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
+          // 平台名 14 w600（`PlatformCard.tsx:270`）。
           style: AidogType.body.copyWith(
+            fontSize: 14,
             color: theme.c.fg,
             fontWeight: FontWeight.w600,
           ),
@@ -859,7 +880,11 @@ class _Identity extends StatelessWidget {
           '${getPrimaryBaseUrl(p.platformType, p.endpoints).isEmpty ? p.baseUrl : getPrimaryBaseUrl(p.platformType, p.endpoints)}',
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+          // 协议·base_url 行是 `text-secondary`（= fg2）、字距 0（`PlatformCard.tsx:286`）。
+          style: AidogType.micro.copyWith(
+            color: theme.c.fg2,
+            letterSpacing: 0,
+          ),
         ),
         if (badges.isNotEmpty)
           Padding(
@@ -931,14 +956,16 @@ class _LastTestBadgeState extends State<_LastTestBadge> {
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Container(
+              // `.glass-surface` + `padding: 6px 8px` + 圆角 6
+              // （`PlatformCard.tsx:1018`）。
               padding: const EdgeInsets.symmetric(
-                horizontal: AidogSpace.ssm,
-                vertical: AidogSpace.sxs,
+                horizontal: 8,
+                vertical: 6,
               ),
               decoration: BoxDecoration(
-                color: theme.c.surface2,
+                color: theme.c.surface,
                 border: Border.all(color: theme.c.line),
-                borderRadius: BorderRadius.circular(AidogRadius.sm),
+                borderRadius: BorderRadius.circular(6),
               ),
               child: TestResultBody(body: lt.responseBody),
             ),
@@ -976,12 +1003,17 @@ class LevelPriorityControl extends StatelessWidget {
           message: t.t('group.levelPriorityHint'),
           child: Text(
             t.t('group.levelPriority'),
+            // 10 w600 ls0.3（`PlatformCard.tsx:928`）。
             style: AidogType.micro.copyWith(
+              fontSize: 10,
+              letterSpacing: 0.3,
               color: theme.c.fg3,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
+        // 标签 / 步进器 / 尾注三者之间 gap 8（`PlatformCard.tsx:923`）。
+        const SizedBox(width: 8),
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
@@ -990,6 +1022,8 @@ class LevelPriorityControl extends StatelessWidget {
           onPressed: value <= 1 ? null : () => onChanged(value - 1),
           icon: const Icon(Icons.remove),
         ),
+        // 按钮组内 gap 2（`PlatformCard.tsx:933`）。
+        const SizedBox(width: 2),
         SizedBox(
           width: 38,
           child: PlainTextField(
@@ -1001,6 +1035,7 @@ class LevelPriorityControl extends StatelessWidget {
             },
           ),
         ),
+        const SizedBox(width: 2),
         IconButton(
           padding: EdgeInsets.zero,
           constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
@@ -1009,9 +1044,18 @@ class LevelPriorityControl extends StatelessWidget {
           onPressed: value >= 10 ? null : () => onChanged(value + 1),
           icon: const Icon(Icons.add),
         ),
-        Text(
-          t.t('group.levelPriorityMax'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+        const SizedBox(width: 8),
+        // 尾注「10=最高优先」9px + opacity .7（`PlatformCard.tsx:972`）。
+        Opacity(
+          opacity: 0.7,
+          child: Text(
+            t.t('group.levelPriorityMax'),
+            style: AidogType.micro.copyWith(
+              fontSize: 9,
+              letterSpacing: 0,
+              color: theme.c.fg3,
+            ),
+          ),
         ),
       ],
     );
@@ -1080,7 +1124,10 @@ class _BalanceRow extends StatelessWidget {
               Text(
                 '${mb.depleted ? t.t('platform.manualBudgetDepleted') : t.t('platform.manualBudgetLabel')}'
                 '${mb.unit == 'token' ? ' · ${t.t('platform.manualBudgetTokenApprox')}' : ''}',
+                // 「手动预算」/「额度耗尽」9 w700（`PlatformCard.tsx:480`）。
                 style: AidogType.micro.copyWith(
+                  fontSize: 9,
+                  letterSpacing: 0,
                   color: mb.depleted ? theme.c.bad : theme.c.fg3,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1100,20 +1147,37 @@ class _BalanceRow extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              // icon↔数值 gap 3、两组之间 gap 8、数值 11 w700、`tok` 9 w600 .6
+              // （`PlatformCard.tsx:490-499`）。
               Icon(Icons.bolt, size: 12, color: theme.c.fg2),
+              const SizedBox(width: 3),
               Text(
                 formatNumber(u.totalInputTokens + u.totalOutputTokens),
                 style: AidogType.numSm.copyWith(
+                  fontSize: 11,
                   color: theme.c.fg2,
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              Text('tok', style: AidogType.micro.copyWith(color: theme.c.fg3)),
-              const SizedBox(width: AidogSpace.ssm),
+              Opacity(
+                opacity: 0.6,
+                child: Text(
+                  'tok',
+                  style: AidogType.micro.copyWith(
+                    fontSize: 9,
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               Icon(Icons.attach_money, size: 12, color: theme.c.fg2),
+              const SizedBox(width: 3),
               Text(
                 formatCostUsd(u.totalCost),
                 style: AidogType.numSm.copyWith(
+                  fontSize: 11,
                   color: theme.c.fg2,
                   fontWeight: FontWeight.w700,
                 ),
@@ -1131,7 +1195,12 @@ class _BalanceRow extends StatelessWidget {
         Text(
           '${t.t('platform.codingWindowCost')} ${formatCostUsd(p.codingWindowCost)}'
           '${planPrice == null ? '' : ' · ${t.t('platform.codingPlanPrice')} ¥$planPrice/月'}',
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+          // 10px 字距 0（`PlatformCard.tsx:504`）。
+          style: AidogType.micro.copyWith(
+            fontSize: 10,
+            letterSpacing: 0,
+            color: theme.c.fg3,
+          ),
         ),
       );
     }
@@ -1181,7 +1250,12 @@ class _BalanceRow extends StatelessWidget {
               .replaceAll('{{vendor}}', rl.vendor),
           child: Text(
             '${t.t('platform.rateLimit')} $text',
-            style: AidogType.micro.copyWith(color: color),
+            // 10px 字距 0（`PlatformCard.tsx:559`）。
+            style: AidogType.micro.copyWith(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: color,
+            ),
           ),
         ),
       );
@@ -1190,8 +1264,9 @@ class _BalanceRow extends StatelessWidget {
     return Padding(
       padding: const EdgeInsetsDirectional.only(start: 24),
       child: Wrap(
-        spacing: AidogSpace.smd,
-        runSpacing: AidogSpace.ssm,
+        // React 的 `gap: 10` 同时管列与行（`PlatformCard.tsx:445`）。
+        spacing: 10,
+        runSpacing: 10,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: items,
       ),
@@ -1225,7 +1300,9 @@ class _TokenBudgetBar extends StatelessWidget {
           children: [
             Text(
               formatNumber(mb.remaining < 0 ? 0 : mb.remaining),
+              // 主数 12 w700（`PlatformCard.tsx:469`）。
               style: AidogType.numSm.copyWith(
+                fontSize: 12,
                 color: color,
                 fontWeight: FontWeight.w700,
               ),
@@ -1236,7 +1313,12 @@ class _TokenBudgetBar extends StatelessWidget {
                 '${mb.unit == 'count' ? t.t('platform.manualBudgetUnitCountShort') : 'tok'}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
+                // 「/ 总额 单位」9px 字距 0（`PlatformCard.tsx:471`）。
+                style: AidogType.micro.copyWith(
+                  fontSize: 9,
+                  letterSpacing: 0,
+                  color: theme.c.fg3,
+                ),
               ),
             ),
           ],
@@ -1253,7 +1335,9 @@ class _TokenBudgetBar extends StatelessWidget {
             builder: (context, v, _) => LinearProgressIndicator(
               value: v,
               minHeight: 4,
-              backgroundColor: theme.c.surface2,
+              // 槽色是 --bg-glass（= --card = surface），不是 surface2
+              // （`PlatformCard.tsx:475`）。
+              backgroundColor: theme.c.surface,
               valueColor: AlwaysStoppedAnimation<Color>(
                 mb.depleted
                     ? theme.c.bad
@@ -1315,8 +1399,9 @@ class _DetailSection extends StatelessWidget {
         // 品牌外链（registry homepage + source_urls.docs/pricing；未配置的不渲染）。
         if (links.isNotEmpty) ...[
           Wrap(
-            spacing: AidogSpace.smd,
-            runSpacing: AidogSpace.sxs,
+            // 外链行两向 gap 12（`PlatformCard.tsx:581`）。
+            spacing: 12,
+            runSpacing: 12,
             children: [
               for (final (href, label) in links)
                 InkWell(
@@ -1331,10 +1416,12 @@ class _DetailSection extends StatelessWidget {
                           size: 11,
                           color: theme.c.accentText,
                         ),
-                        const SizedBox(width: 3),
+                        // icon↔文字 gap 4（`PlatformCard.tsx:594`）。
+                        const SizedBox(width: 4),
                         Text(
                           label,
                           style: AidogType.micro.copyWith(
+                            letterSpacing: 0,
                             color: theme.c.accentText,
                           ),
                         ),
@@ -1344,7 +1431,8 @@ class _DetailSection extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: AidogSpace.smd),
+          // 展开区外层 gap 10（`PlatformCard.tsx:578`）。
+          const SizedBox(height: 10),
         ],
         // 已使用（总计）+ 今日。
         if (u != null) ...[
@@ -1375,7 +1463,7 @@ class _DetailSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: AidogSpace.ssm),
+          const SizedBox(height: 10),
           _LabeledChips(
             label: t.t('platform.todayUsageLabel'),
             chips: [
@@ -1409,7 +1497,7 @@ class _DetailSection extends StatelessWidget {
         //（`PlatformCard.tsx:154,618`：`showQuota = quotaCapable && hasData`）：
         // 不支持配额查询的平台，哪怕留着历史 est 档位也不展开显示。
         if (quotaCapable && quota.hasData && quota.tiers.isNotEmpty) ...[
-          const SizedBox(height: AidogSpace.ssm),
+          const SizedBox(height: 10),
           _LabeledChips(
             label: t.t('platform.quotaLabel'),
             chips: [
@@ -1425,12 +1513,17 @@ class _DetailSection extends StatelessWidget {
         ],
         // 端点 badge（协议名 + Code 角标）。
         if (p.endpoints.isNotEmpty) ...[
-          const SizedBox(height: AidogSpace.ssm),
+          const SizedBox(height: 10),
           _LabeledChips(
             label: t.t('platform.endpoints'),
+            // 端点段 chip 间距 4（`PlatformCard.tsx:695`）。
+            chipSpacing: 4,
             chips: [
               for (final ep in p.endpoints)
-                MiniBadge(
+                // React 端点 badge 整枚 `opacity: 0.85`（`PlatformCard.tsx:697`）。
+                Opacity(
+                  opacity: 0.85,
+                  child: MiniBadge(
                   text: meta.label(ep.protocol),
                   color: theme.c.fg3,
                   // `Code` 是角标，只有它变绿；整枚徽标保持中性
@@ -1438,17 +1531,26 @@ class _DetailSection extends StatelessWidget {
                   accentText: ep.codingPlan ? 'Code' : null,
                   accentColor: theme.c.ok,
                 ),
+                ),
             ],
           ),
         ],
         // 已配置模型 badge。
         if (configuredModels.isNotEmpty) ...[
-          const SizedBox(height: AidogSpace.ssm),
+          const SizedBox(height: 10),
           _LabeledChips(
             label: t.t('platform.models'),
+            // 模型段 chip 间距 4（`PlatformCard.tsx:708`）。
+            chipSpacing: 4,
             chips: [
               for (final m in configuredModels)
-                MiniBadge(text: m, color: theme.c.fg3),
+                // 模型 badge `fontSize: 11, padding: 2px 6px`（`PlatformCard.tsx:710`）。
+                MiniBadge(
+                  text: m,
+                  color: theme.c.fg3,
+                  fontSize: 11,
+                  padY: 2,
+                ),
             ],
           ),
         ],
@@ -1459,10 +1561,17 @@ class _DetailSection extends StatelessWidget {
 
 /// 小标题 + 一行 chip（展开区各段共用的形状）。
 class _LabeledChips extends StatelessWidget {
-  const _LabeledChips({required this.label, required this.chips});
+  const _LabeledChips({
+    required this.label,
+    required this.chips,
+    this.chipSpacing = AidogSpace.ssm,
+  });
 
   final String label;
   final List<Widget> chips;
+
+  /// chip 之间的间距。用量 / 额度段 6；端点与模型段 React 写的是 4。
+  final double chipSpacing;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -1471,11 +1580,18 @@ class _LabeledChips extends StatelessWidget {
     children: [
       Text(
         label,
-        style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
+        // 分段小标题 10 w600 ls0.3 tertiary
+        // （`PlatformCard.tsx:620,694,707,742,750`）。
+        style: AidogType.micro.copyWith(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.3,
+          color: AidogTheme.of(context).c.fg3,
+        ),
       ),
       const SizedBox(height: AidogSpace.sxs),
       Wrap(
-        spacing: AidogSpace.ssm,
+        spacing: chipSpacing,
         runSpacing: AidogSpace.sxs,
         children: chips,
       ),

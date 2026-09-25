@@ -397,6 +397,14 @@ class PlatformDefaults {
     for (final p in _protocols.keys) p: protocolLabel(p, locale),
   };
 
+  /// 协议 → 品牌色（registry `platform.json` 的 `color`）。
+  /// `ProtocolLogo.tsx:26` 的 `getProtocolColorMap` 同一份数据。
+  Map<String, String> protocolColorMap() => {
+    for (final e in _protocols.entries)
+      if (e.value['color'] is String && '${e.value['color']}'.isNotEmpty)
+        e.key: '${e.value['color']}',
+  };
+
   /// `defaults.ts:412::isCodingPlanProtocol`。
   bool isCodingPlanProtocol(String protocol) =>
       _entry(protocol)?['is_coding_plan'] == true;

@@ -18,6 +18,7 @@ import 'package:flutter/material.dart';
 import '../../i18n.dart';
 import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
+import '../../utils/hex_color.dart';
 import '../shell/theme.dart';
 import '../utils/pinyin.dart';
 import '../shell/tiles.dart';
@@ -182,7 +183,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         mainAxisSize: MainAxisSize.min,
         children: [
           _header(t),
-          const SizedBox(height: AidogSpace.smd),
+          // 页容器 gap 20（`PlatformEditForm.tsx:96`）。
+          const SizedBox(height: 20),
           _basicSection(t),
           if (c.isMock) _mockSection(t),
           if (!c.isMock && !c.isPassthrough) _quotaScriptSection(t),
@@ -226,8 +228,14 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               : t.t('action.create'));
     return Row(
       children: [
-        SmallButton(label: '← ${t.t('action.back')}', onTap: c.resetForm),
-        const SizedBox(width: AidogSpace.smd),
+        // 返回按钮 `padding: 4px 8px`、14（`PlatformEditForm.tsx:99`）。
+        SmallButton(
+          label: '← ${t.t('action.back')}',
+          fontSize: 14,
+          padding: (8, 4),
+          onTap: c.resetForm,
+        ),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -235,13 +243,23 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             children: [
               Text(
                 editing != null ? editing.name : t.t('platform.add'),
-                style: AidogType.title.copyWith(color: theme.c.fg),
+                // `.section-title` = 18 w700 ls-0.02em（`globals.css:702-707`）。
+                style: AidogType.title.copyWith(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.36,
+                  color: theme.c.fg,
+                ),
               ),
               if (editing != null)
                 Text(
                   '${c.protocolLabelMap[editing.platformType] ?? editing.platformType}'
                   ' · ${_primaryBaseUrlOf(editing.platformType)}',
-                  style: AidogType.caption.copyWith(color: theme.c.fg3),
+                  // `.section-desc` = 13 secondary（`globals.css:709-712`）。
+                  style: AidogType.caption.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg2,
+                  ),
                 ),
             ],
           ),
@@ -249,16 +267,28 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         // 「智能识别」只在**新建**态出现（`PlatformEditForm.tsx:109`）：
         // 编辑已有平台时整段灌入会把用户改过的字段冲掉。
         if (editing == null) ...[
+          // 这三颗都是 shadcn `<Button>` 默认 / outline 档：
+          // h-9(36) px-4(16) py-2(8) text-sm(14)（`ui/button.tsx:27`）。
           SmallButton(
             label: t.t('platform.paste.title'),
+            fontSize: 14,
+            padding: (16, 8),
             onTap: () => setState(() => _showPaste = true),
           ),
-          const SizedBox(width: AidogSpace.ssm),
+          const SizedBox(width: 8),
         ],
-        SmallButton(label: t.t('action.cancel'), onTap: c.resetForm),
-        const SizedBox(width: AidogSpace.ssm),
+        SmallButton(
+          label: t.t('action.cancel'),
+          fontSize: 14,
+          padding: (16, 8),
+          onTap: c.resetForm,
+        ),
+        const SizedBox(width: 8),
         SmallButton(
           label: saveLabel,
+          fontSize: 14,
+          padding: (16, 8),
+          filled: true,
           onTap: (c.canSave && !c.saving) ? _save : null,
         ),
       ],
@@ -304,19 +334,33 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           // 创建后协议锁定：只读展示，不给选择器。
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AidogSpace.ssm,
-                  vertical: 2,
-                ),
-                decoration: BoxDecoration(
-                  color: theme.c.accentWash,
-                  borderRadius: BorderRadius.circular(AidogRadius.sm),
-                ),
-                child: Text(
-                  c.protocolLabelMap[c.protocol] ?? c.protocol,
-                  style: AidogType.micro.copyWith(color: theme.c.accentText),
-                ),
+              Builder(
+                builder: (context) {
+                  // 锁定徽标：`padding: 2px 8px`、11 w700，底 = 协议色 12%、
+                  // 字 = 协议色（`PlatformEditForm.tsx:150-155`）。
+                  final brand =
+                      parseHexColor(c.defaults.protocolColorMap()[c.protocol]) ??
+                      theme.c.accentText;
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: brand.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                    child: Text(
+                      c.protocolLabelMap[c.protocol] ?? c.protocol,
+                      style: AidogType.micro.copyWith(
+                        fontSize: 11,
+                        letterSpacing: 0,
+                        fontWeight: FontWeight.w700,
+                        color: brand,
+                      ),
+                    ),
+                  );
+                },
               ),
               const SizedBox(width: AidogSpace.ssm),
               Expanded(
@@ -335,6 +379,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             // React 这一行是写死的英文字面量（`SearchableProtocolSelect.tsx:216`），
             // 不走 i18n —— 这里照抄，保持零差。
             noMatchText: 'No match',
+            // logo 缺图时的品牌色圆圈（`ProtocolLogo.tsx:26` 的 color map）。
+            colors: {
+              for (final e in c.defaults.protocolColorMap().entries)
+                if (parseHexColor(e.value) != null)
+                  e.key: parseHexColor(e.value)!,
+            },
             options: [
               for (final p in c.defaults.protocolOptions(t.locale))
                 (
@@ -1241,7 +1291,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             },
           ),
           FormDropdown(
-            width: 100,
+            // 单位下拉 90（`formSections.tsx:482`）。
+            width: 90,
             value: b.unit,
             options: kManualBudgetUnits,
             labelOf: (v) => switch (v) {
@@ -1263,7 +1314,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           ),
           if (needsWindow) ...[
             DecimalField(
-              width: 90,
+              // 窗口数值框 80（`formSections.tsx:508`）。
+              width: 80,
               value: b.windowHours == null ? '' : '${b.windowHours}',
               hint: t.t('platform.manualBudgetWindow'),
               invalidText: t.t('platform.numberInvalid'),
@@ -1274,7 +1326,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               ),
             ),
             FormDropdown(
-              width: 100,
+              // 单位下拉 90（`formSections.tsx:517`）。
+              width: 90,
               value: b.windowUnit,
               options: kWindowUnits,
               labelOf: (v) => switch (v) {
@@ -1364,15 +1417,32 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         runSpacing: AidogSpace.sxs,
         alignment: WrapAlignment.end,
         children: [
-          SmallButton(
-            label: t.t('platform.timezone_local'),
-            active: c.windowsTz == TzMode.local,
-            onTap: () => c.setWindowsTz(TzMode.local),
-          ),
-          SmallButton(
-            label: t.t('platform.timezone_utc'),
-            active: c.windowsTz == TzMode.utc,
-            onTap: () => c.setWindowsTz(TzMode.utc),
+          // 两颗时区按钮包在一个分段容器里：`padding 2` + bg-glass + 1px 边 +
+          // 圆角 8，按钮本身 `2px 8px` / 11（`formSections.tsx:732-744`）。
+          Container(
+            padding: const EdgeInsets.all(2),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SmallButton(
+                  label: t.t('platform.timezone_local'),
+                  padding: (8, 2),
+                  active: c.windowsTz == TzMode.local,
+                  onTap: () => c.setWindowsTz(TzMode.local),
+                ),
+                SmallButton(
+                  label: t.t('platform.timezone_utc'),
+                  padding: (8, 2),
+                  active: c.windowsTz == TzMode.utc,
+                  onTap: () => c.setWindowsTz(TzMode.utc),
+                ),
+              ],
+            ),
           ),
           Tooltip(
             message: presetPeak.isEmpty ? t.t('platform.peak_no_default') : '',
@@ -1386,8 +1456,16 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         ],
       ),
       children: [
-        // 高峰禁用开关 + 实时态。
-        Row(
+        // 高峰禁用开关 + 实时态。整行 `padding 8` + bg-glass + 边 + 圆角 8
+        //（`formSections.tsx:760`）。
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: theme.c.surface,
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Row(
           children: [
             // 同上：复选框（`formSections.tsx:760-767`）。
             _CheckRow(
@@ -1408,6 +1486,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               ),
             ],
           ],
+          ),
         ),
         FormHint(t.t('platform.disable_during_peak_desc')),
         if (c.peak.isEmpty) FormHint(t.t('platform.peak_empty')),
@@ -1473,9 +1552,10 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
+      // 窗口卡 `padding: 8`、底 --bg-glass（= surface）（`formSections.tsx:797`）。
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
@@ -1492,11 +1572,11 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 t.t('platform.start_hour'),
                 style: AidogType.label.copyWith(color: theme.c.fg2),
               ),
-              numBox(slot: 'start-hour', max: 23, 88, startDisp.hour, (v) {
+              numBox(slot: 'start-hour', max: 23, 64, startDisp.hour, (v) {
                 final u = fromDisp(clampInt(v, 0, 23), startDisp.minute);
                 update(update0(w, startHour: u.hour, startMinute: u.minute));
               }),
-              numBox(slot: 'start-minute', max: 59, 88, startDisp.minute, (v) {
+              numBox(slot: 'start-minute', max: 59, 64, startDisp.minute, (v) {
                 final u = fromDisp(startDisp.hour, clampInt(v, 0, 59));
                 update(update0(w, startHour: u.hour, startMinute: u.minute));
               }),
@@ -1504,11 +1584,11 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 t.t('platform.end_hour'),
                 style: AidogType.label.copyWith(color: theme.c.fg2),
               ),
-              numBox(slot: 'end-hour', max: 24, 88, endDisp.hour, (v) {
+              numBox(slot: 'end-hour', max: 24, 64, endDisp.hour, (v) {
                 final u = fromDisp(clampInt(v, 0, 24), endDisp.minute);
                 update(update0(w, endHour: u.hour, endMinute: u.minute));
               }),
-              numBox(slot: 'end-minute', max: 59, 88, endDisp.minute, (v) {
+              numBox(slot: 'end-minute', max: 59, 64, endDisp.minute, (v) {
                 final u = fromDisp(endDisp.hour, clampInt(v, 0, 59));
                 update(update0(w, endHour: u.hour, endMinute: u.minute));
               }),
@@ -1518,7 +1598,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
               ),
               NumberField(
                 key: ValueKey('peak-$idx-multiplier'),
-                width: 108,
+                // 倍率框 84（`formSections.tsx:857`）。
+                width: 84,
                 value: '${w.multiplier}',
                 min: 0,
                 step: 0.1,
@@ -1628,7 +1709,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
-                width: 230,
+                // 生效起始 / 截止输入 180（`formSections.tsx:986-1001`）。
+                width: 180,
                 child: DateTimeField(
                   idPrefix: 'peak-$idx-start-at',
                   label: t.t('platform.peak_start_at'),
@@ -1646,7 +1728,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 ),
               ),
               SizedBox(
-                width: 230,
+                // 生效起始 / 截止输入 180（`formSections.tsx:986-1001`）。
+                width: 180,
                 child: DateTimeField(
                   idPrefix: 'peak-$idx-end-at',
                   label: t.t('platform.peak_end_at'),
@@ -2042,6 +2125,16 @@ class WindowsEditorState extends State<WindowsEditor> {
       maxWidth: 500,
       onBarrierTap: widget.onCancel,
       child: ModalCard(
+        // `DialogContent` 自带 ✕。
+        onClose: widget.onCancel,
+        // 这个弹窗没挂 glass 类：圆角 `sm:rounded-lg` 16、padding 16、
+        // 标题 14 w600（`WindowsEditModal.tsx:123-128`）。
+        radius: AidogRadius.lg,
+        padding: const EdgeInsets.all(16),
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         title: t.t('platform.windows_edit_title'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2127,9 +2220,10 @@ class WindowsEditorState extends State<WindowsEditor> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
+      // 窗口卡 `padding: 8`、底 --bg-glass（= surface）（`formSections.tsx:797`）。
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
@@ -2350,7 +2444,8 @@ class _BreakerRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
+    // 行间 10、列间 12、标签 12（`formSections.tsx:568-569`）。
+    padding: const EdgeInsets.only(bottom: 10),
     child: Row(
       children: [
         SizedBox(
@@ -2358,11 +2453,12 @@ class _BreakerRow extends StatelessWidget {
           child: Text(
             label,
             style: AidogType.label.copyWith(
+              fontSize: 12,
               color: AidogTheme.of(context).c.fg2,
             ),
           ),
         ),
-        const SizedBox(width: AidogSpace.ssm),
+        const SizedBox(width: 12),
         NumberField(
           key: fieldKey,
           width: 140,
@@ -2393,16 +2489,26 @@ class _ModelChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return Container(
-      padding: const EdgeInsets.only(left: AidogSpace.ssm, right: 3),
+      // `.badge badge-muted`：10px、`2px 6px`、gap 4、圆角 6、底 --bg-glass
+      //（`globals.css:542-560` + `formSections.tsx:934-935`）。
+      padding: const EdgeInsets.only(left: 6, right: 3, top: 2, bottom: 2),
       decoration: BoxDecoration(
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(label, style: AidogType.micro.copyWith(color: theme.c.fg2)),
-          const SizedBox(width: 3),
+          Text(
+            label,
+            style: AidogType.micro.copyWith(
+              fontSize: 10,
+              letterSpacing: 0,
+              color: theme.c.fg2,
+            ),
+          ),
+          const SizedBox(width: 4),
           Tooltip(
             message: removeTooltip,
             child: InkWell(

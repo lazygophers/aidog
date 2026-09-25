@@ -65,7 +65,10 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
           fontWeight: FontWeight.w700,
         ),
         title: t.t('test.title'),
-        meta: '${widget.platform.name} · ${widget.platform.platformType}',
+        // `DialogDescription` 是 12 正体、上距 2（`ModelTestPanel.tsx:151-153`），
+        // 不是全大写的 meta 行。
+        description:
+            '${widget.platform.name} · ${widget.platform.platformType}',
         // 关闭走 DialogContent 自带的右上角 ✕。
         onClose: widget.onClose,
         child: Column(

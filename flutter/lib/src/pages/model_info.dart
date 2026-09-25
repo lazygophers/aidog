@@ -619,10 +619,22 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
       maxWidth: 720,
       onBarrierTap: () => _c.select(null),
       child: ModalCard(
+        // `DialogContent` 自带 ✕（`ui/dialog.tsx:47-50`）。
+        onClose: () => _c.select(null),
+        // 这个弹窗没挂 glass-elevated，圆角是 `sm:rounded-lg` = 16；
+        // 标题 `text-lg` 18 w600（`ModelDetailDialog.tsx:42-48`）。
+        radius: AidogRadius.lg,
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
         title: title.primary,
-        meta: title.secondary == null
+        // React 把 canonical 放在标题里的 `<code>`（`ModelDetailDialog.tsx:46`），
+        // 是正体等宽，不是全大写的 meta 行。
+        description: title.secondary == null
             ? null
             : '${t.t('modelInfo.canonical')}: ${title.secondary}',
+        descriptionStyle: AidogType.numSm.copyWith(fontSize: 12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,

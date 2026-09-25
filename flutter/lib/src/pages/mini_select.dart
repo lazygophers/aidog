@@ -13,12 +13,17 @@ class MiniSelect extends StatelessWidget {
     required this.options,
     required this.onChanged,
     this.labelOf,
+    this.fontSize,
   });
 
   final String value;
   final List<String> options;
   final ValueChanged<String?> onChanged;
   final String Function(String option)? labelOf;
+
+  /// 字号覆盖。null = 缺省 micro 11；Skills / MCP 的 `SelectTrigger` React 显式
+  /// 写 13（`SkillsView.tsx:264,299`、`SkillModals.tsx:146`、`McpModals.tsx:263`）。
+  final double? fontSize;
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +38,11 @@ class MiniSelect extends StatelessWidget {
       underline: const SizedBox.shrink(),
       isDense: true,
       dropdownColor: theme.c.surface2,
-      style: AidogType.micro.copyWith(color: theme.c.fg),
+      style: AidogType.micro.copyWith(
+        color: theme.c.fg,
+        fontSize: fontSize,
+        letterSpacing: fontSize == null ? null : 0,
+      ),
       onChanged: onChanged,
       items: [
         for (final o in items)

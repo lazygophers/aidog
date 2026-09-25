@@ -1027,13 +1027,21 @@ class _DetailPanelState extends State<_DetailPanel> {
     // React 现在也是居中 Dialog（`Logs/DetailPanel.tsx:40-50`，2026-09-22 改），
     // 不再是右侧 Sheet —— 旧注释已随 React 侧改动过期。
     return AidogModal(
+      // `width: min(900, 90vw)`（`DetailPanel.tsx:46-47`）。React 另写了
+      // `maxHeight: 85vh` + 面板内滚；Flutter 这边整张面板本来就装在
+      // `AidogModal` 的滚动视口里（视口高 = 窗口高），再套一层限高只会多一层
+      // 裁剪，观感一致，所以不加。
       maxWidth: 900,
+      maxWidthFactor: 0.9,
       onBarrierTap: onClose,
       child: ModalCard(
         // React DialogContent padding 20（DetailPanel.tsx:53）
         padding: const EdgeInsets.all(20),
-        title: t.t('logs.detail'),
-        meta: detail.id,
+        // `DialogContent` 自带 ✕。
+        onClose: onClose,
+        // React 的标题与描述都挂 `sr-only`（`DetailPanel.tsx:58-59`）：
+        // 只给读屏，视觉上没有标题行。所以这里不画标题，改成语义标签。
+        semanticLabel: '${t.t('logs.detail')} ${detail.id}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
@@ -1043,7 +1051,9 @@ class _DetailPanelState extends State<_DetailPanel> {
             // 请求 ID 行是一张卡片：padding 12/20、label 12 w600、id 13 mono
             //（`DetailPanel.tsx:147-149`）。
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              // 右侧多留 24：`DialogContent` 自带的 ✕ 浮在右上角
+              //（`ui/dialog.tsx:47`，right-4 top-4），不留出来会压住复制按钮。
+              padding: const EdgeInsets.fromLTRB(20, 12, 24, 12),
               decoration: BoxDecoration(
                 color: theme.c.surface2,
                 border: Border.all(color: theme.c.line),
@@ -1471,13 +1481,17 @@ class _DetailPanelState extends State<_DetailPanel> {
                 ),
               ),
               const SizedBox(width: AidogSpace.smd),
-              Text(
-                ltr(subtitle),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AidogType.caption.copyWith(
-                  fontSize: 12,
-                  color: theme.c.fg3,
+              // 副标题也要能收：窄窗下（弹窗宽是 `min(900, 90vw)`）标题 + 副标题
+              // + 徽标三件挤不下，React 那边靠 flex 收缩，这里对应 Flexible。
+              Flexible(
+                child: Text(
+                  ltr(subtitle),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: theme.c.fg3,
+                  ),
                 ),
               ),
               if (protocol.isNotEmpty) ...[
