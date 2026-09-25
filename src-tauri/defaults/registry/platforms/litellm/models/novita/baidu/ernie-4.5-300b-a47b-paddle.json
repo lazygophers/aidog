@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/baidu/ernie-4.5-300b-a47b-paddle",
   "canonical_model": "ernie-4.5-300b-a47b-paddle",
   "capabilities": [
@@ -12,5 +12,7 @@
   "price": {
     "input": 2.8e-7,
     "output": 0.0000011
-  }
+  },
+  "family": "ernie",
+  "version": "4.5"
 }
