@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/sa-east-1/minimax.minimax-m2.5",
   "canonical_model": "minimax.minimax-m2.5",
+  "family": "minimax",
+  "version": "2.5",
   "capabilities": [
     "text",
     "tool_use",

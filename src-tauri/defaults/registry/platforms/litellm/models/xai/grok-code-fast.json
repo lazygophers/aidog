@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790333168,
   "model_id": "xai/grok-code-fast",
   "canonical_model": "grok-code-fast",
+  "family": "grok",
   "capabilities": [
     "text",
     "vision",
