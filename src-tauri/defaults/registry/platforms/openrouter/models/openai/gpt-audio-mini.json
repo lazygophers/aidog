@@ -12,8 +12,9 @@
     "input": 6e-7,
     "output": 0.0000024
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790339710,
   "capabilities": [
-    "audio"
+    "audio",
+    "tool_use"
   ]
 }

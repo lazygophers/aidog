@@ -14,8 +14,11 @@
     "output": 0.000025,
     "cache_read": 5e-7
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790339710,
   "capabilities": [
-    "text"
+    "reasoning",
+    "text",
+    "tool_use",
+    "vision"
   ]
 }

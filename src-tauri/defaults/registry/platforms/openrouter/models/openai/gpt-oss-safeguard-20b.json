@@ -12,8 +12,9 @@
     "output": 3e-7,
     "cache_read": 3.75e-8
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790339710,
   "capabilities": [
+    "reasoning",
     "text"
   ]
 }
