@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/anthracite-org/magnum-v4-72b",
+  "display_name": "Magnum v4 72B",
   "canonical_model": "magnum-v4-72b",
   "family": "magnum",
   "version": "4",

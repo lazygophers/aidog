@@ -1,6 +1,7 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790342182,
   "model_id": "doubao-seedream-4-0",
+  "display_name": "Doubao Seedream 4.0",
   "canonical_model": "doubao-seedream-4-0",
   "capabilities": [
     "text_to_image"

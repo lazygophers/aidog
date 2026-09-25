@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/x-ai/grok-4.3:batch",
+  "display_name": "SpaceXAI: Grok 4.3 (batch)",
   "canonical_model": "grok-4.3:batch",
   "family": "grok",
   "version": "4.3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/cohere/north-mini-code:free",
+  "display_name": "Cohere: North Mini Code (free)",
   "canonical_model": "north-mini-code:free",
   "family": "north",
   "capabilities": [

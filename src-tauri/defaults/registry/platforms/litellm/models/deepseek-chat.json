@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790342182,
   "model_id": "deepseek-chat",
+  "display_name": "DeepSeek: DeepSeek V3",
   "canonical_model": "deepseek-chat",
   "family": "deepseek",
   "capabilities": [

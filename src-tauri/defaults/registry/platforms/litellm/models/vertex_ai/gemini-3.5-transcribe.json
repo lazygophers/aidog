@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/gemini-3.5-transcribe",
+  "display_name": "Gemini 3.5 Transcribe",
   "canonical_model": "gemini-3.5-transcribe",
   "family": "gemini",
   "version": "3.5",

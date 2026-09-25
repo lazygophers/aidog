@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/mistral-small-2603:batch",
+  "display_name": "Mistral: Mistral Small 4 (batch)",
   "canonical_model": "mistral-small-2603:batch",
   "family": "mistral",
   "version": "4",

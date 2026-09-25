@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/minimax/minimax-m2-her",
+  "display_name": "MiniMax: MiniMax M2-her",
   "canonical_model": "minimax-m2-her",
   "family": "minimax",
   "version": "2",

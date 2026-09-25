@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790342182,
   "model_id": "zai-org/GLM-4.5V",
+  "display_name": "GLM-4.5V",
   "canonical_model": "glm-4.5v",
   "family": "glm",
   "version": "4.5",

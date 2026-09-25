@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-4",
+  "display_name": "OpenAI: GPT-4",
   "canonical_model": "gpt-4",
   "family": "gpt",
   "version": "4",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "eu.anthropic.claude-haiku-4-5-20251001-v1:0",
+  "display_name": "Claude Haiku 4.5",
   "canonical_model": "claude-haiku-4-5-20251001",
   "family": "claude",
   "version": "4.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "gpt-image-2-2026-04-21",
+  "display_name": "GPT-Image-2",
   "canonical_model": "gpt-image-2",
   "family": "gpt",
   "version": "2",

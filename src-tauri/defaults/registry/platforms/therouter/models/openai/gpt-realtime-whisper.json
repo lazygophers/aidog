@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790342182,
   "model_id": "openai/gpt-realtime-whisper",
+  "display_name": "GPT Realtime Whisper",
   "canonical_model": "gpt-realtime-whisper",
   "context_window": 16000,
   "family": "gpt",

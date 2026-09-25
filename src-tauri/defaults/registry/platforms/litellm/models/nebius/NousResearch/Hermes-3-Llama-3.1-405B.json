@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "nebius/NousResearch/Hermes-3-Llama-3.1-405B",
+  "display_name": "Nous: Hermes 3 405B Instruct",
   "canonical_model": "hermes-3-llama-3.1-405b",
   "family": "hermes",
   "version": "3",

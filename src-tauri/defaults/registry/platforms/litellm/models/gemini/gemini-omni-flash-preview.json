@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "gemini/gemini-omni-flash-preview",
+  "display_name": "Gemini Omni Flash (preview)",
   "canonical_model": "gemini-omni-flash-preview",
   "family": "gemini",
   "capabilities": [

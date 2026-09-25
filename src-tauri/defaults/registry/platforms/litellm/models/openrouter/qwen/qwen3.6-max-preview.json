@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/qwen/qwen3.6-max-preview",
+  "display_name": "Qwen3.6-Max-Preview",
   "canonical_model": "qwen3.6-max-preview",
   "family": "qwen",
   "version": "3.6",

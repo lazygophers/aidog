@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/tencent/hy-mt2-30b-a3b",
+  "display_name": "Tencent: Hy-MT2-30B-A3B",
   "canonical_model": "hy-mt2-30b-a3b",
   "family": "hunyuan",
   "capabilities": [

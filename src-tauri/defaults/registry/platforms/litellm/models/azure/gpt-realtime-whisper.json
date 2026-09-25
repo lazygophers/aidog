@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-realtime-whisper",
+  "display_name": "GPT Realtime Whisper",
   "canonical_model": "gpt-realtime-whisper",
   "family": "gpt",
   "version": "realtime",

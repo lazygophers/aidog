@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790342182,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-reranker-8b",
+  "display_name": "Qwen3 Reranker 8B",
   "canonical_model": "Qwen3-Reranker-8B",
   "family": "qwen",
   "version": "3",

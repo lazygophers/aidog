@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790342182,
   "model_id": "mistralai/mistral-medium-3",
+  "display_name": "Mistral: Mistral Medium 3",
   "canonical_model": "mistral-medium-3",
   "family": "mistral",
   "version": "3",

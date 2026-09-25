@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "wandb/Qwen/Qwen3.8-27B",
+  "display_name": "Qwen3.8-27B",
   "canonical_model": "qwen3.8-27b",
   "capabilities": [
     "text",

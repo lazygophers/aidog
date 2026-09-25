@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openrouter/bodybuilder",
+  "display_name": "Body Builder (beta)",
   "canonical_model": "bodybuilder",
   "family": "openrouter",
   "capabilities": [

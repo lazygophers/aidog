@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790342182,
   "model_id": "snowflake/llama3.1-8b",
+  "display_name": "Llama3.1 8B",
   "canonical_model": "llama3.1-8b",
   "capabilities": [
     "text"

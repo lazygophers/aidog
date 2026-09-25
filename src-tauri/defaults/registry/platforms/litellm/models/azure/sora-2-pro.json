@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "azure/sora-2-pro",
+  "display_name": "Sora 2 Pro",
   "canonical_model": "sora-2-pro",
   "family": "sora",
   "version": "2",

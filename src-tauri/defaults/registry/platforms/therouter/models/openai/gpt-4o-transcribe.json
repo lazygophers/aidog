@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790342182,
   "model_id": "openai/gpt-4o-transcribe",
+  "display_name": "GPT-4o Transcribe",
   "canonical_model": "gpt-4o-transcribe",
   "context_window": 16000,
   "family": "gpt",

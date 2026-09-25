@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790342182,
   "model_id": "nebius/Qwen/Qwen3-235B-A22B-Instruct-2507",
+  "display_name": "Qwen3 235B A22B Instruct 2507",
   "canonical_model": "qwen3-235b-a22b-instruct-2507",
   "family": "qwen",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790342182,
   "model_id": "text-embedding-3-small",
+  "display_name": "Text Embedding 3 Small",
   "canonical_model": "text-embedding-3-small",
   "family": "text-embedding",
   "version": "3",

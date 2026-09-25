@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/meta/llama-3.2-3b-instruct",
+  "display_name": "Meta: Llama 3.2 3B Instruct",
   "canonical_model": "llama-3.2-3b-instruct",
   "family": "llama",
   "version": "3.2",

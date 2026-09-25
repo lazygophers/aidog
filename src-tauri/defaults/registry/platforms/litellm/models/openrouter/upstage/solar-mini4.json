@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/upstage/solar-mini4",
+  "display_name": "Upstage: Solar Mini 4",
   "canonical_model": "solar-mini4",
   "family": "solar",
   "version": "4",

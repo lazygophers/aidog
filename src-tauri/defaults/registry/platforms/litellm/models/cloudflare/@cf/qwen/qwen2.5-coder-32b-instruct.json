@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/qwen/qwen2.5-coder-32b-instruct",
+  "display_name": "Qwen2.5 Coder 32B Instruct",
   "canonical_model": "qwen2.5-coder-32b-instruct",
   "family": "qwen",
   "version": "2.5",

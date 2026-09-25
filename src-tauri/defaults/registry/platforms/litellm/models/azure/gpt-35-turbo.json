@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "azure/gpt-35-turbo",
+  "display_name": "OpenAI: GPT-3.5 Turbo",
   "canonical_model": "gpt-3.5-turbo",
   "family": "gpt",
   "version": "3.5",

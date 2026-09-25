@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/google/gemini-embedding-001",
+  "display_name": "Gemini Embedding 001",
   "canonical_model": "gemini-embedding-001",
   "family": "gemini",
   "capabilities": [

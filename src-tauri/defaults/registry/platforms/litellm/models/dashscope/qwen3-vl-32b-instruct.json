@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "dashscope/qwen3-vl-32b-instruct",
+  "display_name": "Qwen: Qwen3 VL 32B Instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
   "family": "qwen",
   "version": "3",

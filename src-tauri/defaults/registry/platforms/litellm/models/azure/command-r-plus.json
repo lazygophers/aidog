@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790342182,
   "model_id": "azure/command-r-plus",
+  "display_name": "Command R Plus",
   "canonical_model": "command-r-plus",
   "capabilities": [
     "text",

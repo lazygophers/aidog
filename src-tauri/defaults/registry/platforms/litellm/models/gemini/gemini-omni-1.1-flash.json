@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "gemini/gemini-omni-1.1-flash",
+  "display_name": "Gemini Omni Flash",
   "canonical_model": "gemini-omni-1.1-flash",
   "family": "gemini",
   "version": "1.1",

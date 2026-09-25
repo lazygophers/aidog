@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/flux.2-pro",
+  "display_name": "Flux 2 Pro",
   "canonical_model": "flux-2-pro",
   "family": "flux",
   "version": "2",

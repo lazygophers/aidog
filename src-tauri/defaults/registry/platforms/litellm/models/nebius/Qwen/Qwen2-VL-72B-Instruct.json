@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790342182,
   "model_id": "nebius/Qwen/Qwen2-VL-72B-Instruct",
+  "display_name": "Qwen2 VL 72B Instruct",
   "canonical_model": "qwen2-vl-72b-instruct",
   "capabilities": [
     "text",

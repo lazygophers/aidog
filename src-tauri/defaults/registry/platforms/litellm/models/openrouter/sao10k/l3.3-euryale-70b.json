@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/sao10k/l3.3-euryale-70b",
+  "display_name": "Sao10K: Llama 3.3 Euryale 70B",
   "canonical_model": "l3.3-euryale-70b",
   "family": "euryale",
   "version": "3.3",

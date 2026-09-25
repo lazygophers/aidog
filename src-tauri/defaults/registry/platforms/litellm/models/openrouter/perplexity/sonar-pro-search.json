@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/perplexity/sonar-pro-search",
+  "display_name": "Perplexity: Sonar Pro Search",
   "canonical_model": "sonar-pro-search",
   "family": "sonar",
   "capabilities": [

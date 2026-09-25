@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~openai/gpt-terra-latest",
+  "display_name": "OpenAI: GPT Terra Latest",
   "canonical_model": "gpt-terra-latest",
   "family": "gpt",
   "capabilities": [

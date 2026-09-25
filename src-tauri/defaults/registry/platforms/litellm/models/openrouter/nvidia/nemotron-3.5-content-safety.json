@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790342182,
   "model_id": "openrouter/nvidia/nemotron-3.5-content-safety",
+  "display_name": "NVIDIA: Nemotron 3.5 Content Safety",
   "canonical_model": "nemotron-3.5-content-safety",
   "family": "nemotron",
   "version": "3.5",

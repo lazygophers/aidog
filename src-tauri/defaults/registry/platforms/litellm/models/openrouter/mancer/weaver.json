@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mancer/weaver",
+  "display_name": "Mancer: Weaver (alpha)",
   "canonical_model": "weaver",
   "family": "weaver",
   "capabilities": [

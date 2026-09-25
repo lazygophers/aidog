@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790342182,
   "model_id": "deepinfra/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+  "display_name": "Nvidia Nemotron Nano 9B V2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
   "capabilities": [
     "text",
