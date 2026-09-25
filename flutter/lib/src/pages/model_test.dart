@@ -132,11 +132,8 @@ class _ModelTestPanelState extends State<ModelTestPanel> {
                   padding: (16, 8),
                   onTap: _c.runDisabled ? null : _c.run,
                 ),
-                const Spacer(),
-                SmallButton(
-                  label: t.t('action.close'),
-                  onTap: _c.running ? null : widget.onClose,
-                ),
+                // React 页脚只有「跑测试」一颗（`ModelTestPanel.tsx:126-133`），
+                // 关闭走标题栏 X / 遮罩，这里不补第二颗。
               ],
             ),
             if (_c.results.isNotEmpty) ...[
