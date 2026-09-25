@@ -1,8 +1,8 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/minimax/h3/reference-to-video",
-  "canonical_model": "reference-to-video",
-  "family": "seedance",
+  "canonical_model": "MiniMax-H3",
+  "family": "minimax",
   "capabilities": [
     "text_to_video"
   ],
