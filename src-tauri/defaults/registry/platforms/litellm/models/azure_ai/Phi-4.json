@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/Phi-4",
+  "display_name": "Microsoft: Phi 4",
   "canonical_model": "phi-4",
   "family": "phi",
   "version": "4",

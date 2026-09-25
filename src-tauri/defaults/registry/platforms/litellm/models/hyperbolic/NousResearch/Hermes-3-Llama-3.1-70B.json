@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "hyperbolic/NousResearch/Hermes-3-Llama-3.1-70B",
+  "display_name": "Nous: Hermes 3 70B Instruct",
   "canonical_model": "hermes-3-llama-3.1-70b",
   "family": "hermes",
   "version": "3",

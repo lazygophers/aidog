@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "fireworks_ai/accounts/fireworks/models/gpt-oss-safeguard-20b",
+  "display_name": "OpenAI: gpt-oss-safeguard-20b",
   "canonical_model": "gpt-oss-safeguard-20b",
   "family": "gpt",
   "capabilities": [

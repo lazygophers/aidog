@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/amazon/nova-premier-v1",
+  "display_name": "Amazon: Nova Premier 1.0",
   "canonical_model": "nova-premier-v1",
   "family": "nova",
   "version": "1",

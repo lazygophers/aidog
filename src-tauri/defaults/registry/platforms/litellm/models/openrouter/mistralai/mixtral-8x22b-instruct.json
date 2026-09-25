@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/mistralai/mixtral-8x22b-instruct",
+  "display_name": "Mistral: Mixtral 8x22B Instruct",
   "canonical_model": "mixtral-8x22b-instruct",
   "family": "mixtral",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/morph/morph-v3-large",
+  "display_name": "Morph: Morph V3 Large",
   "canonical_model": "morph-v3-large",
   "family": "morph",
   "version": "3",

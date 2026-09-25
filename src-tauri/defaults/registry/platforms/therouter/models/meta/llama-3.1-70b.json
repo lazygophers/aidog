@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "meta/llama-3.1-70b",
+  "display_name": "Llama 3.1 70B",
   "canonical_model": "llama-3.1-70b",
   "family": "llama",
   "version": "3.1",

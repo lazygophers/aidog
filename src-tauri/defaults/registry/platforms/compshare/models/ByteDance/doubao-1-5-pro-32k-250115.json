@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "ByteDance/doubao-1-5-pro-32k-250115",
+  "display_name": "Doubao 1.5 Pro 32K 250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
   "family": "doubao-pro",
   "version": "1.5",

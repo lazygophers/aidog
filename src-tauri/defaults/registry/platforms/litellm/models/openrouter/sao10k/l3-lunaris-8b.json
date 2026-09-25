@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/sao10k/l3-lunaris-8b",
+  "display_name": "Sao10K: Llama 3 8B Lunaris",
   "canonical_model": "l3-lunaris-8b",
   "family": "lunaris",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790342182,
   "model_id": "watsonx/mistralai/mistral-small-3-1-24b-instruct-2503",
+  "display_name": "Mistral Small 3.1 24B Instruct 2503",
   "canonical_model": "mistral-small-3.1-24b-instruct-2503",
   "family": "mistral",
   "version": "3.1",

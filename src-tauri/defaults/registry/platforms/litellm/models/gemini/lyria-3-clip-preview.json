@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "gemini/lyria-3-clip-preview",
+  "display_name": "Lyria 3 Clip",
   "canonical_model": "lyria-3-clip-preview",
   "family": "lyria",
   "version": "3",

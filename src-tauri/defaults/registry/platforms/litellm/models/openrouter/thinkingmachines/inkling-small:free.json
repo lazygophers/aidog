@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/thinkingmachines/inkling-small:free",
+  "display_name": "Thinking Machines: Inkling Small (free)",
   "canonical_model": "inkling-small:free",
   "family": "inkling",
   "capabilities": [

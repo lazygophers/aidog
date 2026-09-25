@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
+  "display_name": "Seed-OSS-36B-Instruct",
   "canonical_model": "Seed-OSS-36B-Instruct",
   "family": "seed",
   "capabilities": [

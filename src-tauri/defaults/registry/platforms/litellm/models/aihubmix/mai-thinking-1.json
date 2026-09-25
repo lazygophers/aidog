@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790342182,
   "model_id": "aihubmix/mai-thinking-1",
+  "display_name": "Mai Thinking 1",
   "canonical_model": "mai-thinking-1",
   "family": "mai-thinking",
   "capabilities": [

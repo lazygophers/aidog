@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "novita/qwen/qwen-2.5-72b-instruct",
+  "display_name": "Qwen2.5 72B Instruct",
   "canonical_model": "qwen-2.5-72b-instruct",
   "family": "qwen",
   "version": "2.5",

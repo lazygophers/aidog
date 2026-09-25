@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/inference-net/schematron-v2-turbo",
+  "display_name": "Inference.net: Schematron V2 Turbo",
   "canonical_model": "schematron-v2-turbo",
   "family": "schematron",
   "version": "2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/Phi-3.5-MoE-instruct",
+  "display_name": "Ahm Phi 3.5 Moe Instruct",
   "canonical_model": "phi-3.5-moe-instruct",
   "family": "phi",
   "version": "3",

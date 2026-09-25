@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "us.amazon.nova-micro-v1:0",
+  "display_name": "Amazon: Nova Micro 1.0",
   "canonical_model": "nova-micro-v1",
   "family": "nova",
   "version": "1",

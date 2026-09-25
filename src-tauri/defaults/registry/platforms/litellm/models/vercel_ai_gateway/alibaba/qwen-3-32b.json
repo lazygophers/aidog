@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/alibaba/qwen-3-32b",
+  "display_name": "Qwen 3 32B",
   "canonical_model": "qwen-3-32b",
   "family": "qwen",
   "version": "3",

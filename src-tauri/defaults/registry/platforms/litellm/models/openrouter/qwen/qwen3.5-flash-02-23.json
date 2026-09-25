@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/qwen/qwen3.5-flash-02-23",
+  "display_name": "Qwen: Qwen3.5-Flash",
   "canonical_model": "qwen3.5-flash-02-23",
   "family": "qwen",
   "version": "3.5",

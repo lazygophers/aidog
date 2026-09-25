@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "gemini/gemini-robotics-er-2-preview",
+  "display_name": "Gemini Robotics ER 2",
   "canonical_model": "gemini-robotics-er-2-preview",
   "family": "robotics",
   "version": "2",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "ali/qwen-turbo-latest",
+  "display_name": "Qwen Turbo",
   "canonical_model": "qwen-turbo-latest",
   "family": "qwen",
   "capabilities": [

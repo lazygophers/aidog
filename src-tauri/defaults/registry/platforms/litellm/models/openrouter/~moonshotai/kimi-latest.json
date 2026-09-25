@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~moonshotai/kimi-latest",
+  "display_name": "MoonshotAI: Kimi Latest",
   "canonical_model": "kimi-latest",
   "family": "kimi",
   "capabilities": [

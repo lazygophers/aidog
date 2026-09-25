@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "Qwen/Qwen3.5-35B-A3B",
+  "display_name": "Qwen3.5-35B-A3B",
   "canonical_model": "qwen3.5-35b-a3b",
   "family": "qwen",
   "version": "3.5",

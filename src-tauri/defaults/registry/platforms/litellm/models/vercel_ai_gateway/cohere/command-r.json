@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vercel_ai_gateway/cohere/command-r",
+  "display_name": "Command R",
   "canonical_model": "command-r",
   "family": "command",
   "capabilities": [

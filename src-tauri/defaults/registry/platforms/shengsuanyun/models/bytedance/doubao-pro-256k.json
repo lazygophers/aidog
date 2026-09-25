@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "bytedance/doubao-pro-256k",
+  "display_name": "Doubao Pro 256K",
   "canonical_model": "doubao-pro-256k",
   "capabilities": [
     "text"

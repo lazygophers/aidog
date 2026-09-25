@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790342182,
   "model_id": "fireworks_ai/accounts/fireworks/models/muse-glimmer-30b",
+  "display_name": "Meta: Muse Glimmer 30B",
   "canonical_model": "muse-glimmer-30b",
   "family": "muse",
   "capabilities": [

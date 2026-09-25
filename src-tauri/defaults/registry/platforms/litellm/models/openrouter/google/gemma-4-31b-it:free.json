@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/google/gemma-4-31b-it:free",
+  "display_name": "Google: Gemma 4 31B (free)",
   "canonical_model": "gemma-4-31b-it:free",
   "family": "gemma",
   "version": "4",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/Codestral-2501",
+  "display_name": "Aihubmix Codestral 2501",
   "canonical_model": "codestral-2501",
   "family": "codestral",
   "version": "2",

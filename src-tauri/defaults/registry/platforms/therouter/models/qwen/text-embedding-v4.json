@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "qwen/text-embedding-v4",
+  "display_name": "Text Embedding V4",
   "canonical_model": "text-embedding-v4",
   "capabilities": [
     "embedding"

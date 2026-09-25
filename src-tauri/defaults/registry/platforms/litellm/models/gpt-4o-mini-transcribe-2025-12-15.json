@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "gpt-4o-mini-transcribe-2025-12-15",
+  "display_name": "GPT-4o Mini Transcribe",
   "canonical_model": "gpt-4o-mini-transcribe",
   "family": "gpt",
   "version": "4o",

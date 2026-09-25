@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790342182,
   "model_id": "novita/xiaomimimo/mimo-v2-flash",
+  "display_name": "MiMo V2 Flash",
   "canonical_model": "mimo-v2-flash",
   "capabilities": [
     "text",

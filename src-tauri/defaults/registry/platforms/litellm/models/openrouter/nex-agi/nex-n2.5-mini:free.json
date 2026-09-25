@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/nex-agi/nex-n2.5-mini:free",
+  "display_name": "Nex AGI: Nex-N2.5-Mini (free)",
   "canonical_model": "nex-n2.5-mini:free",
   "family": "nex",
   "version": "2.5",

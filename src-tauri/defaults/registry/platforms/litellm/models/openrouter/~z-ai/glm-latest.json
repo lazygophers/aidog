@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~z-ai/glm-latest",
+  "display_name": "Z.ai: GLM Latest",
   "canonical_model": "glm-latest",
   "family": "glm",
   "capabilities": [

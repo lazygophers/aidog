@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790342182,
   "model_id": "openrouter/x-ai/grok-4",
+  "display_name": "Grok 4",
   "canonical_model": "grok-4",
   "capabilities": [
     "text",

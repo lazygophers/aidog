@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "qwen3-embedding-8b",
+  "display_name": "Qwen3 Embedding 8B",
   "canonical_model": "Qwen3-Embedding-8B",
   "family": "qwen",
   "version": "3",

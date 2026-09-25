@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "vertex_ai/lyria-3-pro-preview",
+  "display_name": "Lyria 3 Pro",
   "canonical_model": "lyria-3-pro-preview",
   "family": "lyria",
   "version": "3",

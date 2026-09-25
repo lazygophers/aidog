@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "bytedance/doubao-seed-2-1-turbo",
+  "display_name": "Doubao Seed 2.1 Turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
   "capabilities": [
     "text",

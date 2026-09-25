@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "deepinfra/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
+  "display_name": "Nvidia Nemotron 3 Super 120B A12B",
   "canonical_model": "nvidia-nemotron-3-super-120b-a12b",
   "family": "nemotron",
   "version": "3",

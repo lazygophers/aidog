@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/undi95/remm-slerp-l2-13b",
+  "display_name": "ReMM SLERP 13B",
   "canonical_model": "remm-slerp-l2-13b",
   "family": "remm",
   "capabilities": [

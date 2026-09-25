@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/anthropic/claude-fable-5.1:batch",
+  "display_name": "Anthropic: Claude Fable 5.1 (batch)",
   "canonical_model": "claude-fable-5.1:batch",
   "family": "claude",
   "version": "5.1",

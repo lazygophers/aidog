@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790342182,
   "model_id": "bedrock/us-gov-west-1/nvidia.nemotron-nano-9b-v2",
+  "display_name": "Nvidia Nemotron Nano 9B V2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
   "family": "nemotron",
   "version": "2",

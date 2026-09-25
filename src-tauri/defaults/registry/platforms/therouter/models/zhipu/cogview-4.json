@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "zhipu/cogview-4",
+  "display_name": "CogView-4",
   "canonical_model": "cogview-4",
   "family": "cogview",
   "version": "4",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "moonshot/kimi-latest",
+  "display_name": "MoonshotAI: Kimi Latest",
   "canonical_model": "kimi-latest",
   "family": "kimi",
   "capabilities": [

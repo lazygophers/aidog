@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/~anthropic/claude-sonnet-latest",
+  "display_name": "Anthropic: Claude Sonnet Latest",
   "canonical_model": "claude-sonnet-latest",
   "family": "claude",
   "capabilities": [

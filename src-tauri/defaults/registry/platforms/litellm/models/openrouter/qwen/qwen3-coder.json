@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/qwen/qwen3-coder",
+  "display_name": "Qwen: Qwen3 Coder 480B A35B",
   "canonical_model": "qwen3-coder",
   "family": "qwen",
   "version": "3",

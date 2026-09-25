@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/bytedance/ui-tars-1.5-7b",
+  "display_name": "ByteDance: UI-TARS 7B ",
   "canonical_model": "ui-tars-1.5-7b",
   "family": "ui-tars",
   "version": "1.5",

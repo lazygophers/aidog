@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "deepinfra/Qwen/Qwen3.8-2.4T-A95B",
+  "display_name": "Qwen3.8-2.4T-A95B",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "family": "qwen",
   "version": "3.8",

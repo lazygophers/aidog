@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "oci/meta.llama-3.2-90b-vision-instruct",
+  "display_name": "Llama 3.2 90B Vision Instruct",
   "canonical_model": "llama-3.2-90b-vision-instruct",
   "family": "llama",
   "version": "3.2",

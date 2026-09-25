@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790342182,
   "model_id": "openrouter/openai/gpt-5.6-terra:batch",
+  "display_name": "OpenAI: GPT-5.6 Terra (batch)",
   "canonical_model": "gpt-5.6-terra:batch",
   "family": "gpt",
   "version": "5.6",

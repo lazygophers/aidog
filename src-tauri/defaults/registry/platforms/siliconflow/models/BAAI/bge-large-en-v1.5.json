@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790342182,
   "model_id": "BAAI/bge-large-en-v1.5",
+  "display_name": "Bge Large En V1.5",
   "canonical_model": "bge-large-en-v1.5",
   "family": "bge",
   "version": "1.5",

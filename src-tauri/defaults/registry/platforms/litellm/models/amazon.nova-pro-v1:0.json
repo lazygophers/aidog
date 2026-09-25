@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "amazon.nova-pro-v1:0",
+  "display_name": "Amazon: Nova Pro 1.0",
   "canonical_model": "nova-pro-v1",
   "family": "nova",
   "version": "1",

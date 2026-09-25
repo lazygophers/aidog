@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/FLUX-1.1-pro",
+  "display_name": "Flux 1.1 Pro",
   "canonical_model": "flux-1.1-pro",
   "family": "flux",
   "version": "1.1",

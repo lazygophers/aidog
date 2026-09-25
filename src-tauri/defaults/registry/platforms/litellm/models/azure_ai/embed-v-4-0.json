@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "azure_ai/embed-v-4-0",
+  "display_name": "Embed V 4.0",
   "canonical_model": "embed-v-4-0",
   "family": "embed",
   "version": "4.0",

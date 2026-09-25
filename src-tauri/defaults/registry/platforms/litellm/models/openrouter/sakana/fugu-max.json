@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/sakana/fugu-max",
+  "display_name": "Sakana: Fugu Max",
   "canonical_model": "fugu-max",
   "family": "fugu",
   "capabilities": [

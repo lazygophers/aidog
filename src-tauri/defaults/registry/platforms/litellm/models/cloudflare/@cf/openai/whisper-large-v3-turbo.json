@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "cloudflare/@cf/openai/whisper-large-v3-turbo",
+  "display_name": "Whisper Large V3 Turbo",
   "canonical_model": "whisper-large-v3-turbo",
   "family": "whisper",
   "capabilities": [

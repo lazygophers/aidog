@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "jamba-1.5-large",
+  "display_name": "Aihubmix Jamba 1.5 Large",
   "canonical_model": "jamba-1.5-large",
   "family": "jamba",
   "version": "1.5",

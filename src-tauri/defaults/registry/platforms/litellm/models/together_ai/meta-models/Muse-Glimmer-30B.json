@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "together_ai/meta-models/Muse-Glimmer-30B",
+  "display_name": "Meta: Muse Glimmer 30B",
   "canonical_model": "muse-glimmer-30b",
   "family": "muse",
   "capabilities": [

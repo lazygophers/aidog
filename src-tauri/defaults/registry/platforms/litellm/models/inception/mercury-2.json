@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "inception/mercury-2",
+  "display_name": "Inception: Mercury 2",
   "canonical_model": "mercury-2",
   "family": "mercury",
   "version": "2",

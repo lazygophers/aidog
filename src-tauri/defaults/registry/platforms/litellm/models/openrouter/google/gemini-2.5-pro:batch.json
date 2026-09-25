@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790342182,
   "model_id": "openrouter/google/gemini-2.5-pro:batch",
+  "display_name": "Google: Gemini 2.5 Pro (batch)",
   "canonical_model": "gemini-2.5-pro:batch",
   "family": "gemini",
   "version": "2.5",

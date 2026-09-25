@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790342182,
   "model_id": "openrouter/aion-labs/aion-rp-llama-3.1-8b",
+  "display_name": "AionLabs: Aion-RP 1.0 (8B)",
   "canonical_model": "aion-rp-llama-3.1-8b",
   "family": "aion",
   "version": "1.0",
