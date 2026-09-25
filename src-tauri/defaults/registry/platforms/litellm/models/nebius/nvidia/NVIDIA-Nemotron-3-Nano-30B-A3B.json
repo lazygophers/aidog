@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790333168,
   "model_id": "nebius/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
   "canonical_model": "nvidia-nemotron-3-nano-30b-a3b",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use",

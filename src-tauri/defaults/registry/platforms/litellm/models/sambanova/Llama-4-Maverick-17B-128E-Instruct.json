@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790248000,
+  "last_updated": 1790333168,
   "model_id": "sambanova/Llama-4-Maverick-17B-128E-Instruct",
   "canonical_model": "llama-4-maverick-17b-128e-instruct",
+  "family": "llama",
+  "version": "4",
   "capabilities": [
     "text",
     "vision",

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "anyscale/codellama/CodeLlama-70b-Instruct-hf",
   "canonical_model": "CodeLlama-70b-Instruct-hf",
+  "family": "codellama",
   "capabilities": [
     "text"
   ],
