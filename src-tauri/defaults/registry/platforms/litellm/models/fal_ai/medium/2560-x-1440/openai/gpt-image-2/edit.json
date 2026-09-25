@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/medium/2560-x-1440/openai/gpt-image-2/edit",
-  "canonical_model": "edit",
+  "canonical_model": "gpt-image-2",
   "family": "gpt",
   "version": "2",
   "capabilities": [

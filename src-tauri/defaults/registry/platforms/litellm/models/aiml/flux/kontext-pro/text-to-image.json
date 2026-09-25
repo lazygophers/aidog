@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790335307,
   "model_id": "aiml/flux/kontext-pro/text-to-image",
-  "canonical_model": "text-to-image",
+  "canonical_model": "flux-kontext-pro",
   "capabilities": [
     "text_to_image"
   ],

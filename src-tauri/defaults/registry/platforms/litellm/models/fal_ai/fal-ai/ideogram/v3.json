@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/fal-ai/ideogram/v3",
-  "canonical_model": "v3",
+  "canonical_model": "ideogram-3.0",
+  "family": "ideogram",
+  "version": "3.0",
   "capabilities": [
     "text_to_image"
   ],

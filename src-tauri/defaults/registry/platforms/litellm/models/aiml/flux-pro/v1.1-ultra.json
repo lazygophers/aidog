@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790335307,
   "model_id": "aiml/flux-pro/v1.1-ultra",
-  "canonical_model": "v1.1-ultra",
+  "canonical_model": "flux-1.1-pro-ultra",
   "capabilities": [
     "text_to_image"
   ],
