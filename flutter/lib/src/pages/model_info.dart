@@ -16,6 +16,8 @@ import 'filter_dropdown.dart';
 import 'mini_select.dart';
 import 'invoke.dart';
 import 'model_info_logic.dart';
+import 'platform_card_bits.dart';
+import 'platform_logo.dart';
 import 'ui_bits.dart';
 
 class ModelInfoPage extends StatefulWidget {
@@ -72,24 +74,31 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
         if (_c.loading)
           CenteredNote(text: t.t('status.loading'))
         else if (_c.groups.isEmpty)
-          CenteredNote(text: t.t('modelInfo.empty'))
+          // 全页空态：`glass-surface` + padding 40 + 13（`ModelInfoTab.tsx:260-262`）。
+          CenteredNote(text: t.t('modelInfo.empty'), padding: 40, fontSize: 13)
         else ...[
-          Wrap(
-            spacing: AidogSpace.ssm,
-            children: [
-              SmallButton(
-                label: t.t('modelInfo.tabModels'),
-                active: _c.tab == 'models',
-                onTap: () => _c.setTab('models'),
+          // shadcn `TabsList` 是一条分段容器：bg-muted 底 + p-1 + rounded-lg，
+          // active 项 bg-background + shadow（`ModelInfoTab.tsx:265-268`
+          // → `src/components/ui/tabs.tsx:16,33`）。原先是两颗独立按钮，没有容器底。
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: AidogTheme.of(context).c.surface2,
+                borderRadius: BorderRadius.circular(AidogRadius.lg),
               ),
-              SmallButton(
-                label: t.t('modelInfo.tabPlatforms'),
-                active: _c.tab == 'platforms',
-                onTap: () => _c.setTab('platforms'),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _tabTrigger(t.t('modelInfo.tabModels'), 'models'),
+                  _tabTrigger(t.t('modelInfo.tabPlatforms'), 'platforms'),
+                ],
               ),
-            ],
+            ),
           ),
-          const SizedBox(height: AidogSpace.ssm),
+          // `TabsContent` 的 `mt-2` = 8（`src/components/ui/tabs.tsx:50`）。
+          const SizedBox(height: 8),
           if (_c.tab == 'models') ...[
             _modelTable(t),
             const SizedBox(height: 16),
@@ -100,6 +109,34 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
         if (_c.selectedGroup != null) _detailCard(t, _c.selectedGroup!),
         if (_c.message.isNotEmpty) ToastBar(text: _c.message, ok: false),
       ],
+    );
+  }
+
+  /// 一颗 `TabsTrigger`：`px-3 py-1` = 12/4、14 w500，选中时 `bg-background` + 阴影
+  /// （`src/components/ui/tabs.tsx:33`）。选中态不是 accent 底 —— 它是「纸抬起来」。
+  Widget _tabTrigger(String label, String key) {
+    final theme = AidogTheme.of(context);
+    final on = _c.tab == key;
+    return InkWell(
+      key: ValueKey('model-info-tab-$key'),
+      onTap: () => _c.setTab(key),
+      borderRadius: BorderRadius.circular(AidogRadius.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: on ? theme.c.surface : null,
+          borderRadius: BorderRadius.circular(AidogRadius.md),
+          boxShadow: on ? theme.shadowTile : null,
+        ),
+        child: Text(
+          label,
+          style: AidogType.label.copyWith(
+            fontSize: 14,
+            fontWeight: FontWeight.w500,
+            color: on ? theme.c.fg : theme.c.fg2,
+          ),
+        ),
+      ),
     );
   }
 
@@ -263,32 +300,57 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
   // ── 筛选栏 ──
   Widget _filterBar(I18nController t) {
     final theme = AidogTheme.of(context);
+    // 筛选卡：`padding "10px 16px"` + 两向 `gap 10`（`ModelInfoTab.tsx:217`）。
+    // 搜索框是 `flex "1 1 180px"`（同上 :222）—— 弹性撑满，不是固定宽，
+    // 所以这里是 Row + Expanded，其余控件仍可自行折行。
     return Tile(
-      child: Wrap(
-        spacing: AidogSpace.ssm,
-        runSpacing: AidogSpace.sxs,
-        crossAxisAlignment: WrapCrossAlignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: 200,
-            child: TextField(
-              key: const Key('model-info-search'),
-              decoration: InputDecoration(
-                isDense: true,
-                hintText: t.t('modelInfo.searchPlaceholder'),
+          Expanded(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 180),
+              child: SizedBox(
+                height: 32,
+                child: TextField(
+                  key: const Key('model-info-search'),
+                  decoration: InputDecoration(
+                    isDense: true,
+                    // React `padding: "6px 10px"`（同上 :222）。
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    hintText: t.t('modelInfo.searchPlaceholder'),
+                  ),
+                  style: AidogType.label.copyWith(
+                    fontSize: 12,
+                    color: theme.c.fg,
+                  ),
+                  onChanged: _c.setQuery,
+                ),
               ),
-              style: AidogType.label.copyWith(color: theme.c.fg),
-              onChanged: _c.setQuery,
             ),
           ),
+          const SizedBox(width: 10),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
           // 平台筛选走下拉，不是一排按钮。
           //
           // 原先是 `platformCodes.take(12)` 铺成按钮 —— registry 现在有 65 个协议，
           // **第 13 个往后在界面上完全没有入口**，筛不到就是筛不到。
           // React 是全量下拉（`ModelInfoTab.tsx:224-234`），这里照它做，
           // 顺带拿到搜索框（65 项靠肉眼找也不现实）。
+          // 触发器 `height 32, padding "6px 8px", fontSize 12`（同上 :225）。
           FilterDropdown(
             width: 160,
+            height: 32,
+            padX: 8,
+            fontSize: 12,
             value: _c.platformFilter,
             onChanged: _c.setPlatformFilter,
             allLabel: t.t('modelInfo.allPlatforms'),
@@ -301,8 +363,12 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
           ),
           // 一个下拉而不是十几颗平铺按钮（`ModelInfoTab.tsx:235-237`）：
           // 平铺会把筛选栏撑成好几行，真正在筛什么反而看不出来。
+          // 能力下拉 React 是 `width: 140`（同上 :236），比平台那颗窄。
           FilterDropdown(
-            width: 160,
+            width: 140,
+            height: 32,
+            padX: 8,
+            fontSize: 12,
             value: _c.capabilityFilter,
             onChanged: _c.setCapabilityFilter,
             allLabel: t.t('modelInfo.allCapabilities'),
@@ -329,25 +395,41 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  // shadcn `Switch` 是 36×20（同上 :247），比缺省的 40×22 小一档。
                   AidogSwitch(
                     value: _c.officialOnly,
+                    compact: true,
                     onChanged: () => _c.setOfficialOnly(!_c.officialOnly),
                   ),
-                  const SizedBox(width: AidogSpace.sxs),
+                  // 开关↔文字 `gap: 6`、文字 12 正文色（同上 :246）。
+                  const SizedBox(width: 6),
                   Text(
                     t.t('modelInfo.officialOnly'),
-                    style: AidogType.micro.copyWith(color: theme.c.fg2),
+                    style: AidogType.micro.copyWith(
+                      fontSize: 12,
+                      letterSpacing: 0,
+                      color: theme.c.fg,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
           // 「清除筛选」只在真有筛选时才出现。
+          // `fontSize 12, padding "4px 8px", color --text-tertiary` + 一枚
+          // 11px 的 ✕（同上 :251-252）。
           if (_c.hasFilter)
             SmallButton(
               label: t.t('modelInfo.clearFilter'),
+              icon: Icons.close,
+              iconSize: 11,
+              fontSize: 12,
+              padding: (8, 4),
+              color: theme.c.fg3,
               onTap: _c.clearFilter,
             ),
+            ],
+          ),
         ],
       ),
     );
@@ -355,8 +437,25 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
 
   // ── 模型维度表 ──
   Widget _modelTable(I18nController t) {
-    final theme = AidogTheme.of(context);
     return ListingTile.table(
+      // 表头原文直出不大写、12 w600 fg2，全列左对齐，内衬 8/12，
+      // 底色 `--primary 5%` 兑 surface（`ModelInfoTab.tsx:462-475`
+      // + `src/styles/globals.css:290-292`）。
+      uppercaseHeaders: false,
+      startAlignAll: true,
+      headerStyle: AidogType.micro.copyWith(
+        fontSize: 12,
+        letterSpacing: 0,
+        fontWeight: FontWeight.w600,
+        color: AidogTheme.of(context).c.fg2,
+      ),
+      // `--primary 5%` 兑 surface，本项目最接近的既有 token 是 accentWash。
+      headerBackground: AidogTheme.of(context).c.accentWash,
+      cellPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+      // 整行热区（`ModelInfoTab.tsx:343-347`），原先只有第一列的模型名可点。
+      onRowTap: [
+        for (final g in _c.pageRows) () => _c.select(g.canonicalModel),
+      ],
       columns: [
         t.t('modelInfo.colModel'),
         t.t('modelInfo.colPlatform'),
@@ -372,43 +471,105 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
             final price = parsePriceData(primary?.priceData ?? '');
             final extra = g.entries.length - 1;
             return <Widget>[
-              InkWell(
-                onTap: () => _c.select(g.canonicalModel),
-                child: _ModelNameCell(canonicalModel: g.canonicalModel),
-              ),
-              Text(
-                '${primary == null ? '-' : _c.platformLabel(primary.platformCode)}'
-                '${primary?.official == true ? ' · ${t.t('modelInfo.official')}' : ''}'
-                // 第二个及以后的平台折叠成「还有 N 个平台」。
-                '${extra > 0 ? ' · ${t.t('modelInfo.morePlatforms').replaceAll('{count}', '$extra')}' : ''}',
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
-              ),
-              Text(
-                _capText(t, primary?.capabilities ?? const []),
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
-              ),
-              Text(
-                ltr(fmtTokens(primary?.contextWindow)),
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
-              ),
-              Text(
-                ltr(fmtPricePerM(price.input)),
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
-              ),
-              Text(
-                ltr(fmtPricePerM(price.output)),
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
-              ),
+              _ModelNameCell(canonicalModel: g.canonicalModel),
+              _platformCell(t, primary, extra),
+              _capBadges(t, primary?.capabilities ?? const []),
+              _cellText(ltr(fmtTokens(primary?.contextWindow)), size: 12),
+              _cellText(ltr(fmtPricePerM(price.input))),
+              _cellText(ltr(fmtPricePerM(price.output))),
             ];
           }(),
       ],
     );
   }
 
-  /// 能力徽标：空清单渲染 `-`，未知枚举原样显示裸值。
-  String _capText(I18nController t, List<String> caps) => caps.isEmpty
-      ? '-'
-      : [for (final c in caps) capabilityLabel(t.t, c)].join(' · ');
+  /// 表格数据格：`<Table style={{fontSize: F.hint}}>` = 13；「上下文」列显式 12
+  /// 且用 secondary 色（`ModelInfoTab.tsx:273,371`）。
+  Widget _cellText(String text, {double size = 13}) => Text(
+    text,
+    style: AidogType.micro.copyWith(
+      fontSize: size,
+      letterSpacing: 0,
+      color: size == 13
+          ? AidogTheme.of(context).c.fg
+          : AidogTheme.of(context).c.fg2,
+    ),
+  );
+
+  /// 平台列：logo 16 + 名称 12 + official 徽标 +「还有 N 个」11 tertiary，
+  /// 四段各自成形（`ModelInfoTab.tsx:353-367`），不是拼成一行纯文本。
+  Widget _platformCell(I18nController t, ModelEntry? primary, int extra) {
+    final theme = AidogTheme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (primary != null) ...[
+          ProtocolLogo(protocol: primary.platformCode, size: 16),
+          const SizedBox(width: 6),
+        ],
+        Text(
+          primary == null ? '-' : _c.platformLabel(primary.platformCode),
+          style: AidogType.micro.copyWith(
+            fontSize: 12,
+            letterSpacing: 0,
+            color: theme.c.fg,
+          ),
+        ),
+        if (primary?.official == true) ...[
+          const SizedBox(width: 6),
+          // `Badge variant="secondary"`：10px / `1px 5px` / 无描边（同上 :359）。
+          MiniBadge(
+            text: t.t('modelInfo.official'),
+            color: theme.c.fg2,
+            background: theme.c.surface2,
+            borderColor: Colors.transparent,
+            padX: 5,
+          ),
+        ],
+        if (extra > 0) ...[
+          const SizedBox(width: 6),
+          Text(
+            t.t('modelInfo.morePlatforms').replaceAll('{count}', '$extra'),
+            style: AidogType.micro.copyWith(
+              fontSize: 11,
+              letterSpacing: 0,
+              color: theme.c.fg3,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// 能力徽标：一个能力一枚 `Badge`（10px / `1px 6px` / gap 4 / 无描边，
+  /// `CapabilityBadges.tsx:28-34`）；空清单渲染 `-`，未知枚举原样显示裸值。
+  Widget _capBadges(I18nController t, List<String> caps) {
+    final theme = AidogTheme.of(context);
+    if (caps.isEmpty) {
+      return Text(
+        '-',
+        style: AidogType.micro.copyWith(
+          fontSize: 13,
+          letterSpacing: 0,
+          color: theme.c.fg3,
+        ),
+      );
+    }
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        for (final c in caps)
+          MiniBadge(
+            text: capabilityLabel(t.t, c),
+            color: theme.c.fg2,
+            background: theme.c.surface2,
+            borderColor: Colors.transparent,
+            padX: 6,
+          ),
+      ],
+    );
+  }
 
   // ── 分页 ──
   Widget _pagination(I18nController t) {
@@ -531,6 +692,9 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                           ),
                           child: Row(
                             children: [
+                              // 行首 16px logo（`ModelInfoTab.tsx:414`），原先只有名字。
+                              ProtocolLogo(protocol: code, size: 16),
+                              const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
                                   _c.platformLabel(code),
@@ -564,11 +728,30 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
             ),
           ),
         ),
-        const SizedBox(width: AidogSpace.ssm),
+        // 左右两栏 `gap: 12`（`ModelInfoTab.tsx:396`）。
+        const SizedBox(width: 12),
         Expanded(
           child: _c.activePlatform == null || entries.isEmpty
-              ? CenteredNote(text: t.t('modelInfo.selectPlatform'))
+              // 右侧空态 `padding 30, fontSize 13`（同上 :425-427）。
+              ? CenteredNote(
+                  text: t.t('modelInfo.selectPlatform'),
+                  padding: 30,
+                  fontSize: 13,
+                )
               : ListingTile.table(
+                  uppercaseHeaders: false,
+                  startAlignAll: true,
+                  headerStyle: AidogType.micro.copyWith(
+                    fontSize: 12,
+                    letterSpacing: 0,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg2,
+                  ),
+                  headerBackground: theme.c.accentWash,
+                  cellPadding: const EdgeInsets.symmetric(
+                    vertical: 8,
+                    horizontal: 12,
+                  ),
                   columns: [
                     t.t('modelInfo.colModel'),
                     t.t('modelInfo.colCapabilities'),
@@ -582,22 +765,10 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
                         final price = parsePriceData(e.priceData);
                         return <Widget>[
                           _ModelNameCell(canonicalModel: e.canonicalModel),
-                          Text(
-                            _capText(t, e.capabilities),
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
-                          ),
-                          Text(
-                            ltr(fmtTokens(e.contextWindow)),
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
-                          ),
-                          Text(
-                            ltr(fmtPricePerM(price.input)),
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
-                          ),
-                          Text(
-                            ltr(fmtPricePerM(price.output)),
-                            style: AidogType.micro.copyWith(color: theme.c.fg2),
-                          ),
+                          _capBadges(t, e.capabilities),
+                          _cellText(ltr(fmtTokens(e.contextWindow)), size: 12),
+                          _cellText(ltr(fmtPricePerM(price.input))),
+                          _cellText(ltr(fmtPricePerM(price.output))),
                         ];
                       }(),
                   ],
@@ -611,60 +782,128 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
   Widget _detailCard(I18nController t, ModelEntryGroup g) {
     final theme = AidogTheme.of(context);
     final entries = _c.detailEntries(g);
-    final title = nameParts(g.displayName, g.canonicalModel);
     final active = _c.activeDetailEntry(g);
     if (active == null) return const SizedBox.shrink();
     // React 是普通 `Dialog`（`ModelDetailDialog.tsx:43`，maxWidth 720），点遮罩可关。
     return AidogModal(
       maxWidth: 720,
       onBarrierTap: () => _c.select(null),
-      child: ModalCard(
-        // `DialogContent` 自带 ✕（`ui/dialog.tsx:47-50`）。
-        onClose: () => _c.select(null),
-        // 这个弹窗没挂 glass-elevated，圆角是 `sm:rounded-lg` = 16；
-        // 标题 `text-lg` 18 w600（`ModelDetailDialog.tsx:42-48`）。
-        radius: AidogRadius.lg,
-        titleStyle: AidogType.title.copyWith(
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
+      // `maxHeight: "82vh"` + `overflow: auto`（`ModelDetailDialog.tsx:42`）：
+      // 内容长了在面板内滚，不把弹窗撑出屏幕。
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.sizeOf(context).height * 0.82,
         ),
-        title: title.primary,
-        // React 把 canonical 放在标题里的 `<code>`（`ModelDetailDialog.tsx:46`），
-        // 是正体等宽，不是全大写的 meta 行。
-        description: title.secondary == null
-            ? null
-            : '${t.t('modelInfo.canonical')}: ${title.secondary}',
-        descriptionStyle: AidogType.numSm.copyWith(fontSize: 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+        child: ModalCard(
+          // `DialogContent` 自带 ✕（`ui/dialog.tsx:47-50`）。
+          onClose: () => _c.select(null),
+          // 这个弹窗没挂 glass-elevated，圆角是 `sm:rounded-lg` = 16；
+          // 标题 `text-lg` 18 w600，内容恒是 `<code>{canonical_model}</code>`
+          //（`ModelDetailDialog.tsx:42-46`）—— 等宽，且没有副标题。
+          radius: AidogRadius.lg,
+          titleStyle: AidogType.numSm.copyWith(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+          ),
+          title: g.canonicalModel,
+          child: Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // `TabsList`：bg-muted 底 + p-1 + rounded-lg，可折行
+                  //（`ModelDetailDialog.tsx:50`）。
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: theme.c.surface2,
+                        borderRadius: BorderRadius.circular(AidogRadius.lg),
+                      ),
+                      child: Wrap(
+                        spacing: 2,
+                        runSpacing: 2,
+                        children: [
+                          for (final e in entries) _detailTab(t, g, e, active),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AidogSpace.sxs),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: SmallButton(
+                      label: t.t('action.close'),
+                      onTap: () => _c.select(null),
+                    ),
+                  ),
+                  const SizedBox(height: AidogSpace.ssm),
+                  _entryDetail(t, theme, active),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 一颗平台 tab：14px logo + 平台名 12 + `· model_id` 后缀 10 tertiary
+  /// （`ModelDetailDialog.tsx:52-62`）。后缀独立成段，不与平台名同色同字号。
+  Widget _detailTab(
+    I18nController t,
+    ModelEntryGroup g,
+    ModelEntry e,
+    ModelEntry active,
+  ) {
+    final theme = AidogTheme.of(context);
+    final key = ModelInfoController.detailTabKey(e);
+    final on = key == ModelInfoController.detailTabKey(active);
+    return InkWell(
+      onTap: () => _c.setDetailTab(key),
+      borderRadius: BorderRadius.circular(AidogRadius.md),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: on ? theme.c.surface : null,
+          borderRadius: BorderRadius.circular(AidogRadius.md),
+          boxShadow: on ? theme.shadowTile : null,
+        ),
+        child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Wrap(
-              spacing: AidogSpace.sxs,
-              runSpacing: AidogSpace.sxs,
-              children: [
-                for (final e in entries)
-                  SmallButton(
-                    // 同平台多 SKU：model_id ≠ canonical 时补后缀区分，
-                    // 否则三条 SKU 的 tab 会长得一模一样（已修过的 bug）。
-                    label:
-                        '${_c.platformLabel(e.platformCode)}'
-                        '${e.modelId != g.canonicalModel ? '· ${e.modelId}' : ''}'
-                        '${_c.pricingOnly.contains(e.platformCode) ? ' ${t.t('modelInfo.priceRefOnly')}' : ''}',
-                    active:
-                        ModelInfoController.detailTabKey(e) ==
-                        ModelInfoController.detailTabKey(active),
-                    onTap: () =>
-                        _c.setDetailTab(ModelInfoController.detailTabKey(e)),
-                  ),
-                SmallButton(
-                  label: t.t('action.close'),
-                  onTap: () => _c.select(null),
-                ),
-              ],
+            ProtocolLogo(protocol: e.platformCode, size: 14),
+            const SizedBox(width: 5),
+            Text(
+              _c.platformLabel(e.platformCode),
+              style: AidogType.micro.copyWith(
+                fontSize: 12,
+                letterSpacing: 0,
+                color: on ? theme.c.fg : theme.c.fg2,
+              ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
-            _entryDetail(t, theme, active),
+            // 同平台多 SKU：model_id ≠ canonical 时补后缀区分，
+            // 否则三条 SKU 的 tab 会长得一模一样（已修过的 bug）。
+            if (e.modelId != g.canonicalModel)
+              Text(
+                ' · ${e.modelId}',
+                style: AidogType.micro.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 0,
+                  color: theme.c.fg3,
+                ),
+              ),
+            if (_c.pricingOnly.contains(e.platformCode))
+              Text(
+                ' ${t.t('modelInfo.priceRefOnly')}',
+                style: AidogType.micro.copyWith(
+                  fontSize: 10,
+                  letterSpacing: 0,
+                  color: theme.c.fg3,
+                ),
+              ),
           ],
         ),
       ),
@@ -682,103 +921,218 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
         : t.t('common.no');
     final secondary = nameParts(e.displayName, e.modelId).secondary;
 
-    Widget field(String label, String value) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(
-              label,
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
+    // 一行字段：`gap 10`、13、标签 minWidth 96 tertiary（`ModelDetailDialog.tsx:193-195`）。
+    Widget fieldOf(String label, Widget value) => Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 96),
+          child: Text(
+            label,
+            style: AidogType.micro.copyWith(
+              fontSize: 13,
+              letterSpacing: 0,
+              color: theme.c.fg3,
             ),
           ),
-          Expanded(
-            child: Text(
-              value,
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
-            ),
-          ),
-        ],
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: value),
+      ],
+    );
+
+    Widget valueText(String value) => Text(
+      value,
+      style: AidogType.micro.copyWith(
+        fontSize: 13,
+        letterSpacing: 0,
+        color: theme.c.fg,
       ),
     );
 
-    String priceRow(PriceTier? tier) =>
-        '${t.t('modelInfo.colInput')}: ${fmtPricePerM(tier?.input)}  '
-        '${t.t('modelInfo.colOutput')}: ${fmtPricePerM(tier?.output)}  '
-        '${t.t('modelInfo.colCacheRead')}: ${fmtPricePerM(tier?.cacheRead)}';
+    Widget field(String label, String value) =>
+        fieldOf(label, valueText(value));
 
-    return Column(
+    // 三段价格是三个独立片段、`gap: 12`（同上 :159-167），不是一串空格分隔的文本。
+    Widget priceRow(PriceTier? tier) => Wrap(
+      spacing: 12,
+      runSpacing: 4,
+      children: [
+        for (final seg in [
+          '${t.t('modelInfo.colInput')}: ${fmtPricePerM(tier?.input)}',
+          '${t.t('modelInfo.colOutput')}: ${fmtPricePerM(tier?.output)}',
+          '${t.t('modelInfo.colCacheRead')}: ${fmtPricePerM(tier?.cacheRead)}',
+        ])
+          valueText(seg),
+      ],
+    );
+
+    // 一个分区 = 标题（12 w700 fg2，不大写）+ 半透明面板，面板内字段 gap 6
+    //（同上 :174-188）。原先分区标题走 TileMeta（micro 全大写）、字段裸排无面板。
+    Widget section(String title, List<Widget> fields) => Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TileMeta(t.t('modelInfo.basics')),
-        Row(
-          children: [
-            Expanded(child: field(t.t('modelInfo.requestName'), e.modelId)),
-            SmallButton(
-              label: t.t('modelInfo.copyRequestName'),
-              onTap: () => native.writeText(e.modelId),
-            ),
-          ],
-        ),
-        // 展示名与请求名同串时不重复出一行（回落已在后端读取层）。
-        if (secondary != null)
-          field(t.t('modelInfo.displayName'), e.displayName),
-        field(
-          t.t('modelInfo.official'),
-          e.official
-              ? t.t('modelInfo.officialYes')
-              : t.t('modelInfo.officialNo'),
-        ),
-        TileMeta(t.t('modelInfo.versionChain')),
-        field(t.t('modelInfo.family'), e.family.isEmpty ? '-' : e.family),
-        field(t.t('modelInfo.version'), e.version.isEmpty ? '-' : e.version),
-        field(
-          t.t('modelInfo.predecessor'),
-          e.predecessor.isEmpty ? '-' : e.predecessor,
-        ),
-        TileMeta(t.t('modelInfo.capabilities')),
-        field('', _capText(t, e.capabilities)),
-        field(
-          t.t('modelInfo.thinkingSupported'),
-          flag(flags.thinkingSupported),
-        ),
-        field(
-          t.t('modelInfo.thinkingToggleable'),
-          flag(flags.thinkingToggleable),
-        ),
-        field(
-          t.t('modelInfo.builtinTools'),
-          e.builtinToolsExcluded.isEmpty
-              ? t.t('modelInfo.builtinToolsAll')
-              : e.builtinToolsExcluded.join(', '),
-        ),
-        TileMeta(t.t('modelInfo.limits')),
-        field(t.t('modelInfo.maxInput'), fmtTokens(e.maxInputTokens)),
-        field(t.t('modelInfo.maxOutput'), fmtTokens(e.maxOutputTokens)),
-        field(t.t('modelInfo.contextWindow'), fmtTokens(e.contextWindow)),
-        TileMeta(t.t('modelInfo.prices')),
-        // 非 token 计价（图像 / 视频 / 搜索）走 $/unit，token 价字段不适用。
-        field(
-          t.t('modelInfo.priceDefault'),
-          price.unit != null && price.unit != 'token'
-              ? fmtPricePerUnit(price.unitPrice, price.unit)
-              : priceRow(price),
-        ),
-        if (price.peak != null)
-          field(t.t('modelInfo.pricePeak'), priceRow(price.peak)),
-        for (final tier in price.contextTiers)
-          field(
-            t
-                .t('modelInfo.priceContextTier')
-                .replaceAll('{tokens}', fmtTokens(tier.minTokens)),
-            priceRow(tier),
+        Text(
+          title,
+          style: AidogType.micro.copyWith(
+            fontSize: 12,
+            letterSpacing: 0,
+            fontWeight: FontWeight.w700,
+            color: theme.c.fg2,
           ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: theme.c.surface.withValues(alpha: 0.6),
+            border: Border.all(color: theme.c.line.withValues(alpha: 0.4)),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (var i = 0; i < fields.length; i++) ...[
+                if (i > 0) const SizedBox(height: 6),
+                fields[i],
+              ],
+            ],
+          ),
+        ),
       ],
     );
+
+    return Padding(
+      // 正文区 `paddingTop: 8`（同上 :89）。
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: _gapped(14, [
+                section(t.t('modelInfo.basics'), [
+                  fieldOf(
+                    t.t('modelInfo.requestName'),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Flexible(child: valueText(e.modelId)),
+                        const SizedBox(width: 4),
+                        // `CopyButton size={12}` 紧贴 `<code>` 右侧（同上 :92-95），
+                        // 原先是整行右端一颗「复制请求名」文字按钮。
+                        IconButton(
+                          icon: const Icon(Icons.copy_outlined, size: 12),
+                          color: theme.c.fg3,
+                          padding: EdgeInsets.zero,
+                          splashRadius: 12,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 18,
+                            height: 18,
+                          ),
+                          tooltip: t.t('modelInfo.copyRequestName'),
+                          onPressed: () => native.writeText(e.modelId),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // 展示名与请求名同串时不重复出一行（回落已在后端读取层）。
+                  if (secondary != null)
+                    field(t.t('modelInfo.displayName'), e.displayName),
+                  field(
+                    t.t('modelInfo.official'),
+                    e.official
+                        ? t.t('modelInfo.officialYes')
+                        : t.t('modelInfo.officialNo'),
+                  ),
+                ]),
+                section(t.t('modelInfo.versionChain'), [
+                  field(
+                    t.t('modelInfo.family'),
+                    e.family.isEmpty ? '-' : e.family,
+                  ),
+                  field(
+                    t.t('modelInfo.version'),
+                    e.version.isEmpty ? '-' : e.version,
+                  ),
+                  field(
+                    t.t('modelInfo.predecessor'),
+                    e.predecessor.isEmpty ? '-' : e.predecessor,
+                  ),
+                ]),
+                section(t.t('modelInfo.capabilities'), [
+                  _capBadges(t, e.capabilities),
+                  field(
+                    t.t('modelInfo.thinkingSupported'),
+                    flag(flags.thinkingSupported),
+                  ),
+                  field(
+                    t.t('modelInfo.thinkingToggleable'),
+                    flag(flags.thinkingToggleable),
+                  ),
+                  fieldOf(
+                    t.t('modelInfo.builtinTools'),
+                    e.builtinToolsExcluded.isEmpty
+                        ? valueText(t.t('modelInfo.builtinToolsAll'))
+                        // 一个工具一枚 10px 徽标（同上 :117-120），不是逗号串。
+                        : Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            children: [
+                              for (final tool in e.builtinToolsExcluded)
+                                MiniBadge(
+                                  text: tool,
+                                  color: theme.c.fg2,
+                                  background: theme.c.surface2,
+                                  borderColor: Colors.transparent,
+                                ),
+                            ],
+                          ),
+                  ),
+                ]),
+                section(t.t('modelInfo.limits'), [
+                  field(t.t('modelInfo.maxInput'), fmtTokens(e.maxInputTokens)),
+                  field(
+                    t.t('modelInfo.maxOutput'),
+                    fmtTokens(e.maxOutputTokens),
+                  ),
+                  field(
+                    t.t('modelInfo.contextWindow'),
+                    fmtTokens(e.contextWindow),
+                  ),
+                ]),
+                section(t.t('modelInfo.prices'), [
+                  // 非 token 计价（图像 / 视频 / 搜索）走 $/unit，token 价字段不适用。
+                  fieldOf(
+                    t.t('modelInfo.priceDefault'),
+                    price.unit != null && price.unit != 'token'
+                        ? valueText(
+                            fmtPricePerUnit(price.unitPrice, price.unit),
+                          )
+                        : priceRow(price),
+                  ),
+                  if (price.peak != null)
+                    fieldOf(t.t('modelInfo.pricePeak'), priceRow(price.peak)),
+                  for (final tier in price.contextTiers)
+                    fieldOf(
+                      t
+                          .t('modelInfo.priceContextTier')
+                          .replaceAll('{tokens}', fmtTokens(tier.minTokens)),
+                      priceRow(tier),
+                    ),
+                ]),
+        ]),
+      ),
+    );
   }
+
+  /// 在相邻元素之间插等距间隔（React 那边是 flex `gap`）。
+  static List<Widget> _gapped(double gap, List<Widget> items) => [
+    for (var i = 0; i < items.length; i++) ...[
+      if (i > 0) SizedBox(height: gap),
+      items[i],
+    ],
+  ];
 }
 
 /// 表格始终展示统一 canonical_model；请求名只在详情中展示。
@@ -790,9 +1144,15 @@ class _ModelNameCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
+    // React 是 `<code>` → 等宽、12 w500（`ModelInfoTab.tsx:350`
+    // → `ModelName.tsx:21`），不是 sans 的 micro。
     return Text(
       canonicalModel,
-      style: AidogType.micro.copyWith(color: theme.c.fg),
+      style: AidogType.numSm.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: theme.c.fg,
+      ),
     );
   }
 }

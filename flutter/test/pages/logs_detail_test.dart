@@ -197,12 +197,17 @@ void main() {
 
   testWidgets('长正文整段铺开，不再 14 行封顶', (tester) async {
     await openDetail(tester);
+    // headers / body 现在走 `SelectableText.rich`（JSON 分色，对齐 React 的
+    // `JsonCodeEditor`，`Logs/primitives.tsx:192`），文本要从 textSpan 取，
+    // `data` 恒为 null。
+    String plain(SelectableText w) =>
+        w.data ?? (w.textSpan?.toPlainText() ?? '');
     final body = tester.widgetList<SelectableText>(find.byType(SelectableText));
-    final long = body.firstWhere((w) => (w.data ?? '').contains('line-59'));
+    final long = body.firstWhere((w) => plain(w).contains('line-59'));
     // 没有行数上限，60 行全在。
     expect(long.maxLines, isNull);
-    expect(long.data, contains('line-0'));
-    expect(long.data, contains('line-59'));
+    expect(plain(long), contains('line-0'));
+    expect(plain(long), contains('line-59'));
   });
 
   testWidgets('每个区块各带一个复制按钮，点它只复制本块', (tester) async {
@@ -253,7 +258,9 @@ void main() {
     // 空的原因不一样，写成一句话会让人以为日志坏了（`DetailPanel.tsx:100`）。
     await tester.tap(find.byKey(const ValueKey('detail-tab-1')));
     await settle(tester);
-    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(4));
+    // 四块，不是五块：URL 为空时整块不渲染（React `{url && (...)}`，
+    // `Logs/primitives.tsx:178`），不画「未捕获」占位框。
+    expect(find.text(c.t('logs.noUpstream')), findsNWidgets(3));
     expect(find.text(c.t('logs.streamResponse')), findsOneWidget);
     expect(panelCopies(c), findsNothing);
   });

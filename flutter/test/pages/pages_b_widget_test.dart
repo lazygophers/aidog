@@ -454,7 +454,9 @@ void main() {
       await tester.pumpWidget(wrapPage(RequestLogPage(invoke: k.fn), c));
       await settle(tester);
       final before = k.callsTo('request_log_list').length;
-      await tester.tap(find.text(c.t('action.refresh')));
+      // React 这颗是**只有 14px 图标、无文字**的实心按钮
+      //（`RequestLog.tsx:203-205`），所以按 key 点而不是按文案点。
+      await tester.tap(find.byKey(const ValueKey('request-log-refresh')));
       await settle(tester);
       expect(k.callsTo('request_log_list').length, before + 1);
     });

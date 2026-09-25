@@ -1092,7 +1092,12 @@ class MiniBadge extends StatelessWidget {
     this.radius = 5,
     this.background,
     this.letterSpacing = 0,
+    this.fontWeight = FontWeight.w600,
   });
+
+  /// 字重。缺省 w600（shadcn `Badge` 的 `font-semibold`）；多 key 预览的协议
+  /// 徽标 React 写的是 700（`MultiKeyPreview.tsx:69`）。
+  final FontWeight fontWeight;
 
   /// 圆角。缺省 5；Skills / MCP 两页的中性 chip React 写的是 4 或 3
   /// （`SkillDetailView.tsx:138,152`、`McpModals.tsx:128`）。
@@ -1201,7 +1206,7 @@ class MiniBadge extends StatelessWidget {
                 fontSize: fontSize,
                 letterSpacing: letterSpacing,
                 color: solid ? onSolid : color,
-                fontWeight: FontWeight.w600,
+                fontWeight: fontWeight,
               ),
             ),
           ),

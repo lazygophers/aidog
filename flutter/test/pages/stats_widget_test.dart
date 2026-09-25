@@ -449,7 +449,7 @@ void main() {
     expect(find.text(c.t('popover.unknownPlatform')), findsOneWidget);
   });
 
-  testWidgets('环比：当前 150 / 上周期 100 → +50.0%', (tester) async {
+  testWidgets('环比：当前 150 / 上周期 100 → 50.0%（方向由箭头给）', (tester) async {
     var first = true;
     final r = statsResponses();
     r['stats_query'] = (_) {
@@ -461,7 +461,10 @@ void main() {
       );
     };
     await mountStats(tester, responses: r);
-    expect(find.text('+50.0%'), findsOneWidget);
+    // React 文本是 `|delta|.toFixed(1)%`，**不带正负号** —— 涨跌由那颗 11px
+    // 箭头表达（`Stats.tsx:963-969`）。2026-09-25 像素对齐时跟着改。
+    expect(find.text('50.0%'), findsOneWidget);
+    expect(find.byIcon(Icons.arrow_upward), findsWidgets);
   });
 
   testWidgets('环比：上一周期为 0 → 无对比基准，不显示 delta', (tester) async {

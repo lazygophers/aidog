@@ -179,6 +179,8 @@ class AppShell extends StatefulWidget {
     this.t = _identity,
     this.localeLabel = '',
     this.onPickLocale,
+    this.locales = const [],
+    this.onSelectLocale,
     this.initialCollapsed = false,
   });
 
@@ -189,6 +191,11 @@ class AppShell extends StatefulWidget {
 
   final String localeLabel;
   final VoidCallback? onPickLocale;
+
+  /// 语言下拉的候选与选中回调（React `Sidebar.tsx:520-531` 的 `ALL_LOCALES`
+  /// + `setLocale`）。透传给 [Rail]；不传就退回 [onPickLocale]。
+  final List<String> locales;
+  final void Function(String locale)? onSelectLocale;
 
   /// 侧栏**默认展开 200px**（票 10 用户 2026-09-18 定）；折叠态 56px 也在。
   final bool initialCollapsed;
@@ -273,12 +280,48 @@ class _WindowBackground extends StatelessWidget {
                 child: DecoratedBox(decoration: BoxDecoration(gradient: g)),
               ),
             ),
+          // 侧栏↔内容的分隔光晕：React 是根容器的
+          // `linear-gradient(90deg, transparent 200px, primary 8% 212px, transparent 224px)`
+          //（`App.tsx:203-205`）。200 正是 railW，带子落在轨与内容之间。
+          // `--primary` = `c.accent`（`mono.ts:56`）；此处沿用本批次 #72 / #77 的
+          // 裁决，用 accentText（暗色 accent 近黑，8% 叠在暗底上看不见）。
+          PositionedDirectional(
+            start: AidogLayout.railW,
+            top: 0,
+            bottom: 0,
+            width: 24,
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: AlignmentDirectional.centerStart,
+                    end: AlignmentDirectional.centerEnd,
+                    colors: [
+                      theme.c.accentText.withValues(alpha: 0),
+                      theme.c.accentText.withValues(alpha: 0.08),
+                      theme.c.accentText.withValues(alpha: 0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
           child,
         ],
       ),
     );
   }
 }
+
+/// 页级内容宽上限。`AidogLayout.contentMax`(1180) 是壳的缺省，React 侧各页
+/// 自带的值不一样：Home 是 `maxWidth: 1200`（`Home.tsx:265`），Stats / Logs /
+/// RequestLog **不设上限**（`Stats.tsx:477`、`Logs/ListView.tsx:56`、
+/// `RequestLog.tsx:193`）。
+double _contentMaxFor(String activeId) => switch (activeId.split('/').first) {
+  'home' => 1200,
+  'stats' || 'logs' || 'request-log' => double.infinity,
+  _ => AidogLayout.contentMax,
+};
 
 class _AppShellState extends State<AppShell> {
   late bool _collapsed = widget.initialCollapsed;
@@ -325,6 +368,8 @@ class _AppShellState extends State<AppShell> {
                       onToggleTheme: widget.theme.toggle,
                       localeLabel: widget.localeLabel,
                       onPickLocale: widget.onPickLocale ?? () {},
+                      locales: widget.locales,
+                      onSelectLocale: widget.onSelectLocale,
                       t: widget.t,
                     ),
                     const SizedBox(width: AidogLayout.shellGap),
@@ -371,14 +416,27 @@ class _AppShellState extends State<AppShell> {
                                 sliver: SliverToBoxAdapter(
                                   child: Center(
                                     child: ConstrainedBox(
-                                      constraints: const BoxConstraints(
-                                        maxWidth: AidogLayout.contentMax,
+                                      constraints: BoxConstraints(
+                                        maxWidth: _contentMaxFor(
+                                          widget.controller.activeId,
+                                        ),
                                       ),
                                       // Material 已由骨架根部统一提供（见上），
                                       // 这里不再包第二层。
-                                      child: widget.pageBuilder(
-                                        context,
-                                        widget.controller.activeId,
+                                      // 切页淡入：React 是
+                                      // `<div className="animate-fade-in" key={nav}>`
+                                      //（`App.tsx:222`），每次换页重播。
+                                      child: AnimatedSwitcher(
+                                        duration: AidogMotion.base,
+                                        child: KeyedSubtree(
+                                          key: ValueKey(
+                                            widget.controller.activeId,
+                                          ),
+                                          child: widget.pageBuilder(
+                                            context,
+                                            widget.controller.activeId,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -411,6 +469,8 @@ class AidogShellApp extends StatelessWidget {
     this.t = AppShell._identity,
     this.localeLabel = '',
     this.onPickLocale,
+    this.locales = const [],
+    this.onSelectLocale,
     this.textDirection = TextDirection.ltr,
     this.locale,
   });
@@ -421,6 +481,10 @@ class AidogShellApp extends StatelessWidget {
   final String Function(String key) t;
   final String localeLabel;
   final VoidCallback? onPickLocale;
+
+  /// 透传给 [AppShell] → [Rail] 的语言下拉数据。
+  final List<String> locales;
+  final void Function(String locale)? onSelectLocale;
 
   /// 票 I03 接 8 语言时把阿拉伯语切成 rtl。
   final TextDirection textDirection;
@@ -456,6 +520,8 @@ class AidogShellApp extends StatelessWidget {
           t: t,
           localeLabel: localeLabel,
           onPickLocale: onPickLocale,
+          locales: locales,
+          onSelectLocale: onSelectLocale,
         ),
       ),
     );

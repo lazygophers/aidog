@@ -25,6 +25,12 @@ import 'models.dart';
 import 'platform_card_bits.dart' show MiniBadge;
 import 'ui_bits.dart';
 
+/// 日志两页页头按钮的字阶 / 内衬：React 是 `fontSize: F.hint(13)` +
+/// `padding: "4px 10px"`（`ListView.tsx:70,75,78`），不是 [SmallButton] 缺省的
+/// micro 11 + 10/5。
+const double kLogsBtnFontSize = 13;
+const (double, double) kLogsBtnPadding = (10, 4);
+
 // ── Logs 主页 ──────────────────────────────────────────────────────
 
 class LogsPage extends StatefulWidget {
@@ -108,27 +114,31 @@ class _LogsPageState extends State<LogsPage> {
           subtitle: _c.logs.isEmpty
               ? t.t('logs.empty')
               : t.t('logs.totalUnknown'),
+          bottom: 16, // React 全页 gap 16（ListView.tsx:56）
           trailing: Wrap(
-            spacing: AidogSpace.ssm,
+            spacing: 8, // ListView.tsx:66 gap 8
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               if (_c.cleanupMessage.isNotEmpty)
                 Text(
                   _c.cleanupMessage,
-                  style: AidogType.micro.copyWith(color: theme.c.ok),
+                  // F.hint 13 secondary（ListView.tsx:68），不是绿色 micro。
+                  style: AidogType.caption.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg2,
+                  ),
                 ),
-              // 刷新按钮（`ListView.tsx:70-72`）：原先主日志页只能等事件流推送，
-              // 想立刻看一眼最新的没有任何入口。载入中禁用，防止连点堆查询。
               // 三颗都是实心（React `variant="default"` ×2 + `destructive`，
-              // `ListView.tsx:70,75,78`）。
-              Tooltip(
-                message: t.t('logs.refresh'),
-                child: IconButton(
-                  key: const ValueKey('logs-refresh'),
-                  icon: const Icon(Icons.refresh, size: 16),
-                  onPressed: _c.loading ? null : () => _c.load(),
-                  visualDensity: VisualDensity.compact,
-                ),
+              // `ListView.tsx:70,75,78`），字阶 13 / padding 10-4。
+              SmallButton(
+                key: const ValueKey('logs-refresh'),
+                label: '',
+                icon: Icons.refresh,
+                filled: true,
+                fontSize: kLogsBtnFontSize,
+                padding: kLogsBtnPadding,
+                tooltip: t.t('logs.refresh'),
+                onTap: _c.loading ? null : () => _c.load(),
               ),
               // 一条日志都没有时这两颗不出现（`ListView.tsx:73`）：
               // 没东西可清，摆两颗按钮在那儿只会让人以为清失败了。
@@ -136,6 +146,8 @@ class _LogsPageState extends State<LogsPage> {
                 SmallButton(
                   label: t.t('logs.cleanupExpired'),
                   filled: true,
+                  fontSize: kLogsBtnFontSize,
+                  padding: kLogsBtnPadding,
                   onTap: () => _c.cleanupExpired(
                     doneText: t.t('logs.cleanupExpiredDone'),
                   ),
@@ -144,6 +156,8 @@ class _LogsPageState extends State<LogsPage> {
                   label: t.t('logs.clear'),
                   danger: true,
                   filled: true,
+                  fontSize: kLogsBtnFontSize,
+                  padding: kLogsBtnPadding,
                   onTap: () => setState(() => _c.showClearConfirm = true),
                 ),
               ],
@@ -151,11 +165,19 @@ class _LogsPageState extends State<LogsPage> {
           ),
         ),
         _LogsFilterBar(controller: _c),
-        const SizedBox(height: AidogSpace.smd),
+        const SizedBox(height: 16), // React 全页 gap 16（ListView.tsx:56）
         if (_c.loading)
-          CenteredNote(text: t.t('status.loading'))
+          // React 是裸 div：padding 20、继承 15 正体 secondary（ListView.tsx:191）。
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              t.t('status.loading'),
+              style: AidogType.body.copyWith(color: theme.c.fg2),
+            ),
+          )
         else if (_c.logs.isEmpty)
-          CenteredNote(text: t.t('logs.empty'))
+          // glass-surface + padding 40 + 居中 + 13 tertiary（ListView.tsx:193-195）
+          CenteredNote(text: t.t('logs.empty'), padding: 40, fontSize: 13)
         else ...[
           _LogTable(
             rows: _c.logs,
@@ -167,7 +189,7 @@ class _LogsPageState extends State<LogsPage> {
               _flashCopied();
             },
           ),
-          const SizedBox(height: AidogSpace.smd),
+          const SizedBox(height: 16), // React 全页 gap 16（ListView.tsx:56）
           // Logs 主页没有精确总数（后端只回 has_more），所以分页只有上一页 / 下一页。
           _Pager(
             currentPage: _c.currentPage,
@@ -179,10 +201,28 @@ class _LogsPageState extends State<LogsPage> {
           ),
         ],
         if (_c.showClearConfirm)
+          // shadcn AlertDialog：maxWidth 380 / padding 20、标题 13 w600、
+          // 正文 12 secondary lh1.6、按钮 12 / 6-14、确认键实心红
+          //（`ListView.tsx:247-270`）。
           ConfirmCard(
             title: t.t('logs.clearConfirmTitle'),
             body: t.t('logs.clearConfirm'),
             confirmLabel: t.t('logs.clear'),
+            maxWidth: 380,
+            padding: const EdgeInsets.all(20),
+            titleStyle: AidogType.label.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: theme.c.fg,
+            ),
+            bodyStyle: AidogType.caption.copyWith(
+              fontSize: 12,
+              height: 1.6,
+              color: theme.c.fg2,
+            ),
+            buttonFontSize: 12,
+            buttonPadding: (14, 6),
+            dangerConfirm: true,
             onCancel: () => setState(() => _c.showClearConfirm = false),
             onConfirm: _c.confirmClear,
           ),
@@ -261,43 +301,38 @@ class _LogsFilterBar extends StatelessWidget {
               FilterOption(value: kNoGroupSentinel, label: t.t('logs.noGroup')),
             ],
           ),
-          FilterDropdown(
+          // 状态 / 时间 / 中间件三项在 React 是**无搜索框**的 `FilterSelect`
+          //（`ListView.tsx:117-147` → `primitives.tsx:414-428`）：选项只有两三条，
+          // 搭一个搜索框反而多一步。
+          _Select(
             width: 130,
             value: f.status,
+            placeholder: t.t('logs.filterStatus'),
             onChanged: (v) => controller.setFilters(f.copyWith(status: v)),
-            allLabel: t.t('logs.filterStatus'),
-            searchPlaceholder: t.t('logs.filterStatus'),
-            emptyLabel: t.t('logs.empty'),
-            options: [
-              FilterOption(value: 'success', label: t.t('logs.statusSuccess')),
-              FilterOption(value: 'error', label: t.t('logs.statusError')),
+            items: [
+              (value: 'success', label: t.t('logs.statusSuccess')),
+              (value: 'error', label: t.t('logs.statusError')),
             ],
           ),
-          FilterDropdown(
+          _Select(
             width: 110,
             value: f.time == 'all' ? '' : f.time,
+            placeholder: t.t('logs.filterTime'),
             onChanged: (v) =>
                 controller.setFilters(f.copyWith(time: v.isEmpty ? 'all' : v)),
-            allLabel: t.t('logs.filterTime'),
-            searchPlaceholder: t.t('logs.filterTime'),
-            emptyLabel: t.t('logs.empty'),
-            options: [
+            items: [
               for (final p in kTimePresets)
-                if (p != 'all') FilterOption(value: p, label: p),
+                if (p != 'all') (value: p, label: p),
             ],
           ),
           // 中间件观察模式命中（票 04）：只看「规则命中但放行」的请求。
           // 筛选逻辑早就在 `LogsFilterState.observed`，之前没有入口，点不到。
-          FilterDropdown(
+          _Select(
             width: 150,
             value: f.observed,
+            placeholder: t.t('logs.filterMiddleware'),
             onChanged: (v) => controller.setFilters(f.copyWith(observed: v)),
-            allLabel: t.t('logs.filterMiddleware'),
-            searchPlaceholder: t.t('logs.filterMiddleware'),
-            emptyLabel: t.t('stats.noMatch'),
-            options: [
-              FilterOption(value: 'observed', label: t.t('logs.observedOnly')),
-            ],
+            items: [(value: 'observed', label: t.t('logs.observedOnly'))],
           ),
           // 模型名按「实际发给上游的」还是「客户端原始请求的」匹配
           //（`ListView.tsx:148-161`）。两者在有模型改写时不是一回事。
@@ -413,15 +448,25 @@ class _RequestLogPageState extends State<RequestLogPage> {
           subtitle: _c.total > 0
               ? '${_c.total} ${t.t('logs.total')}'
               : t.t('requestLog.empty'),
+          bottom: 16, // React 全页 gap 16（RequestLog.tsx:193）
+          // 带 14px 刷新图标的实心按钮、无文字（`RequestLog.tsx:203-205`）。
           trailing: SmallButton(
-            label: t.t('action.refresh'),
+            key: const ValueKey('request-log-refresh'),
+            label: '',
+            icon: Icons.refresh,
+            filled: true,
+            fontSize: kLogsBtnFontSize,
+            padding: kLogsBtnPadding,
+            tooltip: t.t('action.refresh'),
             onTap: _c.loading ? null : () => _c.load(),
           ),
         ),
         Tile(
+          // React glass-surface：padding 12/16、gap 10（RequestLog.tsx:210）
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Wrap(
-            spacing: AidogSpace.ssm,
-            runSpacing: AidogSpace.ssm,
+            spacing: 10,
+            runSpacing: 10,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               FilterDropdown(
@@ -443,7 +488,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
                 ],
               ),
               FilterDropdown(
-                width: 160,
+                width: 140, // React FilterSelect max-width 140（primitives.tsx:419）
                 value: _c.filterPlatform,
                 onChanged: _c.setFilterPlatform,
                 allLabel: t.t('logs.filterPlatform'),
@@ -489,11 +534,21 @@ class _RequestLogPageState extends State<RequestLogPage> {
             ],
           ),
         ),
-        const SizedBox(height: AidogSpace.smd),
+        const SizedBox(height: 16), // React 全页 gap 16（RequestLog.tsx:193）
         if (_c.loading)
-          CenteredNote(text: t.t('status.loading'))
+          // 裸 div：padding 20、15 正体 secondary（RequestLog.tsx 同 ListView.tsx:191）
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              t.t('status.loading'),
+              style: AidogType.body.copyWith(
+                color: AidogTheme.of(context).c.fg2,
+              ),
+            ),
+          )
         else if (_c.logs.isEmpty)
-          CenteredNote(text: t.t('requestLog.empty'))
+          // glass-surface + padding 40 + 13 tertiary（RequestLog.tsx:262-264）
+          CenteredNote(text: t.t('requestLog.empty'), padding: 40, fontSize: 13)
         else ...[
           _LogTable(
             rows: _c.logs,
@@ -505,7 +560,7 @@ class _RequestLogPageState extends State<RequestLogPage> {
               _flashCopied();
             },
           ),
-          const SizedBox(height: AidogSpace.smd),
+          const SizedBox(height: 16), // React 全页 gap 16（RequestLog.tsx:193）
           // 本页有精确 total，所以分页是「第 N / 共 M 页」。
           _Pager(
             currentPage: _c.currentPage,
@@ -611,8 +666,14 @@ class _LogTableState extends State<_LogTable> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        SizedBox(
+                        // 表头下边框 1px --border（`primitives.tsx:237`）。
+                        Container(
                           height: _kRowHeight,
+                          decoration: BoxDecoration(
+                            border: Border(
+                              bottom: BorderSide(color: theme.c.line),
+                            ),
+                          ),
                           child: Row(
                             children: [
                               _Cell(t.t('logs.time'), width: 150, header: true),
@@ -665,8 +726,20 @@ class _LogTableState extends State<_LogTable> {
                         // 入场错峰 + 悬停抬升（`primitives.tsx:284-290` 的
                         // `useReveal(idx*60)` + `hover-lift`）。
                         for (final (i, log) in widget.rows.indexed)
-                          SizedBox(
+                          Container(
                             height: _kRowHeight,
+                            // 行分隔线：shadcn `TableRow` 的 `border-b`，被
+                            // `.glass-table tbody tr` 压到 --border 40%
+                            //（`globals.css:282-284`）。
+                            decoration: BoxDecoration(
+                              border: Border(
+                                bottom: BorderSide(
+                                  color: theme.c.line.withValues(
+                                    alpha: theme.c.line.a * 0.4,
+                                  ),
+                                ),
+                              ),
+                            ),
                             child: Reveal(
                               delayMs: i * 60,
                               child: HoverLift(
@@ -680,14 +753,25 @@ class _LogTableState extends State<_LogTable> {
                                       ),
                                       SizedBox(
                                         width: 110,
-                                        child: Align(
-                                          alignment:
-                                              AlignmentDirectional.centerStart,
-                                          child: MiniBadge(
-                                            text: widget.groupName(
-                                              log.groupKey,
+                                        child: Padding(
+                                          padding: _kCellPad,
+                                          child: Align(
+                                            alignment: AlignmentDirectional
+                                                .centerStart,
+                                            // `.badge badge-accent`：11 w600
+                                            // ls0.02em / pad 2-8 / radius 6 /
+                                            // 底 accent-subtle（globals.css:542-556）。
+                                            child: MiniBadge(
+                                              text: widget.groupName(
+                                                log.groupKey,
+                                              ),
+                                              color: theme.c.accentText,
+                                              fontSize: 11,
+                                              padX: 8,
+                                              padY: 2,
+                                              radius: 6,
+                                              background: theme.c.accentWash,
                                             ),
-                                            color: theme.c.accentText,
                                           ),
                                         ),
                                       ),
@@ -698,9 +782,13 @@ class _LogTableState extends State<_LogTable> {
                                           log.platformId,
                                         ),
                                         width: 130,
+                                        // 平台名 12 secondary（primitives.tsx:27）
+                                        textColor: theme.c.fg2,
                                         badge: log.retryCount > 0
                                             ? '↻${log.retryCount}'
                                             : null,
+                                        // 重试徽标是 warning 语义色（primitives.tsx:28）
+                                        badgeColor: theme.c.peak,
                                         badgeTooltip: t.t('logs.retriedHint', {
                                           'n': '${log.retryCount}',
                                         }),
@@ -712,7 +800,12 @@ class _LogTableState extends State<_LogTable> {
                                             ? '-'
                                             : log.model,
                                         width: 170,
+                                        // 模型名 12 w500（primitives.tsx:29）
+                                        fontWeight: FontWeight.w500,
                                         badge: log.isStream ? 'SSE' : null,
+                                        // SSE 徽标是 accent 语义色（primitives.tsx:30）
+                                        badgeColor: theme.c.accentText,
+                                        badgeBackground: theme.c.accentWash,
                                         badgeTooltip: t.t('logs.streaming'),
                                       ),
                                       _Cell(
@@ -720,6 +813,9 @@ class _LogTableState extends State<_LogTable> {
                                             ? '-'
                                             : log.actualModel,
                                         width: 170,
+                                        // 实际模型也是 12 w500（primitives.tsx:312）
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
                                       ),
                                       // 状态码（primitives.tsx:314-320）：
                                       // 0 →「未完成」、499 →「已中断」、
@@ -766,7 +862,9 @@ class _LogTableState extends State<_LogTable> {
               // 的 `position: sticky; right: 0`；Flutter 没有 CSS sticky，
               // 把它画在滚动区外就是等价实现）。首格对齐表头行高。
               SizedBox(
-                width: 28,
+                // 按钮 padding 2 + 14px 图标，外层 TdCell 10/14 → 约 42
+                //（`primitives.tsx:31,252,333`）。
+                width: 42,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -797,12 +895,20 @@ class _LogTableState extends State<_LogTable> {
 
 /// 一格文字 + 可选的行内徽标（重试 ↻N / 流式 SSE）。
 /// 徽标为 null 时与 [_Cell] 完全一样。
+/// 单元格内边距：React `ThCell` / `TdCell` 都是 `padding: 10px 14px`
+/// （`primitives.tsx:235,252`）。
+const EdgeInsets _kCellPad = EdgeInsets.symmetric(horizontal: 14, vertical: 10);
+
 class _CellWithBadge extends StatelessWidget {
   const _CellWithBadge({
     required this.text,
     required this.width,
     required this.badge,
     required this.badgeTooltip,
+    this.textColor,
+    this.fontWeight,
+    this.badgeColor,
+    this.badgeBackground,
   });
 
   final String text;
@@ -810,32 +916,50 @@ class _CellWithBadge extends StatelessWidget {
   final String? badge;
   final String badgeTooltip;
 
+  /// 文字色 / 字重覆盖：平台名是 12 secondary、模型名是 12 w500
+  /// （`primitives.tsx:27,29`）。
+  final Color? textColor;
+  final FontWeight? fontWeight;
+
+  /// 徽标语义色：重试是 warning、SSE 是 accent（`primitives.tsx:28,30`）。
+  /// 原先两枚共用一个灰徽标，语义全丢。
+  final Color? badgeColor;
+  final Color? badgeBackground;
+
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return SizedBox(
       width: width,
-      child: Row(
-        children: [
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AidogType.caption.copyWith(
-                fontSize: 13,
-                color: theme.c.fg,
+      child: Padding(
+        padding: _kCellPad,
+        child: Row(
+          children: [
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12, // F.small（primitives.tsx:27,29）
+                  fontWeight: fontWeight,
+                  color: textColor ?? theme.c.fg,
+                ),
               ),
             ),
-          ),
-          if (badge case final b?) ...[
-            const SizedBox(width: AidogSpace.sxs),
-            Tooltip(
-              message: badgeTooltip,
-              child: MiniBadge(text: b, color: theme.c.fg3),
-            ),
+            if (badge case final b?) ...[
+              const SizedBox(width: 6), // INLINE_FLEX_STYLE gap 6（primitives.tsx:26）
+              Tooltip(
+                message: badgeTooltip,
+                child: MiniBadge(
+                  text: b,
+                  color: badgeColor ?? theme.c.fg3,
+                  background: badgeBackground,
+                ),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -847,34 +971,42 @@ class _Cell extends StatelessWidget {
     required this.width,
     this.header = false,
     this.color,
+    this.fontSize,
+    this.fontWeight,
   });
 
   final String text;
   final double width;
   final bool header;
   final Color? color;
+  final double? fontSize;
+  final FontWeight? fontWeight;
 
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return SizedBox(
       width: width,
-      child: Text(
-        text, // 混合大小写：React 表头与正文都不大写
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: header
-            ? AidogType.caption.copyWith(
-                // React ThCell：12 w600 secondary（primitives.tsx:232-241）
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: theme.c.fg2,
-              )
-            : AidogType.caption.copyWith(
-                // React 行 13px（ListView.tsx:200 表 fontSize F.hint）
-                fontSize: 13,
-                color: color ?? theme.c.fg,
-              ),
+      child: Padding(
+        padding: _kCellPad,
+        child: Text(
+          text, // 混合大小写：React 表头与正文都不大写
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: header
+              ? AidogType.caption.copyWith(
+                  // React ThCell：12 w600 secondary（primitives.tsx:232-241）
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg2,
+                )
+              : AidogType.caption.copyWith(
+                  // React 行 13px（ListView.tsx:200 表 fontSize F.hint）
+                  fontSize: fontSize ?? 13,
+                  fontWeight: fontWeight,
+                  color: color ?? theme.c.fg,
+                ),
+        ),
       ),
     );
   }
@@ -907,62 +1039,303 @@ class _Pager extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final rangeStart = (currentPage - 1) * pageSize + 1;
     final rangeEnd = rangeStart + resultCount - 1;
+    // 分页文字统一 12 / ls0 / tertiary，正常大小写（`primitives.tsx:366,371`）。
+    final noteStyle = AidogType.micro.copyWith(
+      fontSize: 12,
+      letterSpacing: 0,
+      color: theme.c.fg3,
+    );
+    // React 是 space-between：**左**边区间 + 每页选择器，**右**边 ⟪ ← →
+    //（`primitives.tsx:364-397`）。原先两组位置是反的。
     return Row(
       children: [
-        SmallButton(
-          label: '⟪',
-          fontSize: 12,
-          padding: (8, 4),
-          // 首页直达（`primitives.tsx:383-385`）：原先只有 ← / →，
-          // 回第一页要一路点到底。
-          onTap: currentPage > 1 ? () => onPage(1) : null,
-        ),
-        const SizedBox(width: AidogSpace.ssm),
-        SmallButton(
-          label: t.t('action.prev'),
-          fontSize: 12,
-          padding: (8, 4),
-          onTap: currentPage > 1 ? () => onPage(currentPage - 1) : null,
-        ),
-        const SizedBox(width: AidogSpace.ssm),
-        Text(
-          totalPages == null ? '$currentPage' : '$currentPage / $totalPages',
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
-        ),
-        const SizedBox(width: AidogSpace.ssm),
-        SmallButton(
-          label: t.t('action.next'),
-          fontSize: 12,
-          padding: (8, 4),
-          onTap: hasMore ? () => onPage(currentPage + 1) : null,
-        ),
-        const Spacer(),
-        // 区间 + 有无更多（`primitives.tsx:359-364`）：`rangeStart–rangeEnd`
-        // 尾随 `· 还有更多 / · 已到底`（首页且无更多时省略）。
         Text(
           resultCount > 0 ? '$rangeStart–$rangeEnd' : '$rangeStart',
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+          style: noteStyle,
         ),
         if (hasMore || currentPage > 1)
           Text(
             ' · ${t.t(hasMore ? 'logs.hasMore' : 'logs.noMore')}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            style: noteStyle,
           ),
+        if (totalPages != null) ...[
+          const SizedBox(width: 8),
+          Text('$currentPage / $totalPages', style: noteStyle),
+        ],
+        const SizedBox(width: 8), // primitives.tsx:365 gap 8
         // 三个裸数字看不出是什么，React 在它们前面写着「每页」
         //（`primitives.tsx:371`）。
-        TileMeta(t.t('logs.pageSize')),
-        for (final size in const [20, 50, 100])
-          Padding(
-            padding: const EdgeInsets.only(left: 4),
-            child: SmallButton(
-              label: '$size',
-              fontSize: 12,
-              padding: (8, 4),
-              active: size == pageSize,
-              onTap: () => onPageSize(size),
+        Text(t.t('logs.pageSize'), style: noteStyle),
+        const SizedBox(width: 4), // primitives.tsx:370 gap 4
+        // 每页条数是一个 80×28 的下拉（`primitives.tsx:372-387`），
+        // 不是三颗并排按钮。
+        _Select(
+          width: 80,
+          height: 28,
+          value: '$pageSize',
+          placeholder: '$pageSize',
+          showAll: false,
+          onChanged: (v) => onPageSize(int.parse(v)),
+          items: [
+            for (final size in const [20, 50, 100])
+              (value: '$size', label: '$size'),
+          ],
+        ),
+        const Spacer(),
+        // ghost 档 12 / 4-8 / minWidth 28（`primitives.tsx:359-361`）。
+        SmallButton(
+          label: '⟪',
+          fontSize: 12,
+          padding: (8, 4),
+          minWidth: 28,
+          ghost: true,
+          // 首页直达（`primitives.tsx:391-392`）。
+          onTap: currentPage > 1 ? () => onPage(1) : null,
+        ),
+        const SizedBox(width: 4), // primitives.tsx:390 gap 4
+        SmallButton(
+          label: t.t('action.prev'),
+          fontSize: 12,
+          padding: (8, 4),
+          minWidth: 28,
+          ghost: true,
+          onTap: currentPage > 1 ? () => onPage(currentPage - 1) : null,
+        ),
+        const SizedBox(width: 4),
+        SmallButton(
+          label: t.t('action.next'),
+          fontSize: 12,
+          padding: (8, 4),
+          minWidth: 28,
+          ghost: true,
+          onTap: hasMore ? () => onPage(currentPage + 1) : null,
+        ),
+      ],
+    );
+  }
+}
+
+/// React 的 `btn-icon` ghost 图标按钮（详情工具栏的刷新 / 复制、请求 ID 的复制）。
+/// [onTap] 为 null = 禁用。
+class _IconBtn extends StatelessWidget {
+  const _IconBtn({
+    super.key,
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+    this.size = 16,
+    this.color,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback? onTap;
+  final double size;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) => IconButton(
+    padding: EdgeInsets.zero,
+    constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+    iconSize: size,
+    visualDensity: VisualDensity.compact,
+    tooltip: tooltip,
+    color: color,
+    icon: Icon(icon),
+    onPressed: onTap,
+  );
+}
+
+/// 浮在代码块 / 尝试行**右上角**的 24×24 半透明复制按钮
+/// （React `CopyButton` 的 `COPY_ICON_STYLE`，`primitives.tsx:35-42`：
+/// `top:4; right:4; 24×24; 底 bg-surface 70%; 1px border; radius 6; opacity .55`）。
+class _CopyOverlayBtn extends StatelessWidget {
+  const _CopyOverlayBtn({
+    super.key,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Tooltip(
+      message: tooltip,
+      child: Opacity(
+        opacity: 0.55,
+        child: Material(
+          color: c.surface.withValues(alpha: 0.7),
+          shape: RoundedRectangleBorder(
+            side: BorderSide(color: c.line),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: Icon(Icons.copy_outlined, size: 14, color: c.fg2),
             ),
           ),
-      ],
+        ),
+      ),
+    );
+  }
+}
+
+/// JSON 极简高亮：key / 字符串 / 数字 / 字面量各一色。
+///
+/// React 那四块 headers / body 走的是 `JsonCodeEditor`（`primitives.tsx:192` 等），
+/// 带完整语法高亮；Flutter 侧没有等价渲染器，这里按同一套语义分色 ——
+/// 分不出 key 与值的一整块灰是最难读的那种。解析失败 / 非 JSON 原样返回。
+TextSpan jsonSpan(String src, TextStyle base, AidogColors c) {
+  final spans = <TextSpan>[];
+  var i = 0;
+  // 未上色的一段（括号、逗号、空白）攒着一次性提交，少建 span。
+  var plainFrom = 0;
+  void flushPlain(int end) {
+    if (end > plainFrom) {
+      spans.add(TextSpan(text: src.substring(plainFrom, end), style: base));
+    }
+  }
+
+  while (i < src.length) {
+    final ch = src[i];
+    if (ch == '"') {
+      // 扫到配对的引号（跳过转义）。
+      var j = i + 1;
+      while (j < src.length && src[j] != '"') {
+        j += src[j] == r'\' ? 2 : 1;
+      }
+      final end = j < src.length ? j + 1 : src.length;
+      // 引号后（跳空白）跟冒号的是 key。
+      var k = end;
+      while (k < src.length && (src[k] == ' ' || src[k] == '\t')) {
+        k++;
+      }
+      final isKey = k < src.length && src[k] == ':';
+      flushPlain(i);
+      spans.add(
+        TextSpan(
+          text: src.substring(i, end),
+          style: base.copyWith(color: isKey ? c.accentText : c.ok),
+        ),
+      );
+      i = plainFrom = end;
+      continue;
+    }
+    if (_isNumStart(src, i)) {
+      var j = i + 1;
+      while (j < src.length && _isNumBody(src[j])) {
+        j++;
+      }
+      flushPlain(i);
+      spans.add(
+        TextSpan(text: src.substring(i, j), style: base.copyWith(color: c.peak)),
+      );
+      i = plainFrom = j;
+      continue;
+    }
+    final lit = _literalAt(src, i);
+    if (lit != null) {
+      flushPlain(i);
+      spans.add(TextSpan(text: lit, style: base.copyWith(color: c.accentText)));
+      i = plainFrom = i + lit.length;
+      continue;
+    }
+    i++;
+  }
+  flushPlain(src.length);
+  return TextSpan(children: spans, style: base);
+}
+
+bool _isDigit(String ch) => ch.codeUnitAt(0) >= 0x30 && ch.codeUnitAt(0) <= 0x39;
+
+bool _isNumStart(String s, int i) =>
+    _isDigit(s[i]) ||
+    (s[i] == '-' && i + 1 < s.length && _isDigit(s[i + 1]));
+
+bool _isNumBody(String ch) =>
+    _isDigit(ch) || ch == '.' || ch == 'e' || ch == 'E' || ch == '+' ||
+    ch == '-';
+
+String? _literalAt(String s, int i) {
+  for (final lit in const ['true', 'false', 'null']) {
+    if (s.startsWith(lit, i)) return lit;
+  }
+  return null;
+}
+
+/// 无搜索框的下拉（状态 / 时间 / 中间件筛选、每页条数）。
+///
+/// React 这几处是 shadcn `<Select>`（`primitives.tsx:372-387,414-428`），
+/// 不是带搜索框的 `FilterDropdown` —— 选项只有两三条，搜索框反而多一步。
+class _Select extends StatelessWidget {
+  const _Select({
+    required this.width,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+    required this.placeholder,
+    this.height = 30,
+    this.showAll = true,
+  });
+
+  final double width;
+  final double height;
+  final String value;
+  final List<({String value, String label})> items;
+  final ValueChanged<String> onChanged;
+
+  /// 未选中时显示的占位；[showAll] 时它同时是「全部」那一项的文案
+  /// （React 的 `SelectItem value={NONE}`，`primitives.tsx:423`）。
+  final String placeholder;
+  final bool showAll;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogTheme.of(context);
+    return Container(
+      width: width,
+      height: height,
+      // shadcn SelectTrigger：bg-card + 1px --input + rounded-md(12)
+      //（`ui/select.tsx:24`）；这几处另写了 padding 4/8（`primitives.tsx:378,419`）。
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      decoration: BoxDecoration(
+        color: t.c.surface,
+        border: Border.all(color: t.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          isDense: true,
+          dropdownColor: t.c.surface,
+          iconSize: 16,
+          iconEnabledColor: t.c.fg3,
+          style: AidogType.caption.copyWith(fontSize: 12, color: t.c.fg),
+          items: [
+            if (showAll)
+              DropdownMenuItem<String>(
+                value: '',
+                child: Text(placeholder, overflow: TextOverflow.ellipsis),
+              ),
+            for (final i in items)
+              DropdownMenuItem<String>(
+                value: i.value,
+                child: Text(i.label, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      ),
     );
   }
 }
@@ -1039,13 +1412,48 @@ class _DetailPanelState extends State<_DetailPanel> {
         padding: const EdgeInsets.all(20),
         // `DialogContent` 自带 ✕。
         onClose: onClose,
-        // React 的标题与描述都挂 `sr-only`（`DetailPanel.tsx:58-59`）：
-        // 只给读屏，视觉上没有标题行。所以这里不画标题，改成语义标签。
+        // `DialogTitle` 那个 sr-only 是另一个元素（`DetailPanel.tsx:58`）；
+        // 可见标题「请求详情」在工具栏行里（`:141-143`），见下。
         semanticLabel: '${t.t('logs.detail')} ${detail.id}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 工具栏：两颗 16px 图标按钮 + 可见标题（`DetailPanel.tsx:130-143`）。
+            // 关闭由 `ModalCard` 右上角的 ✕ 承担，这里不再摆第三颗文字按钮。
+            Row(
+              children: [
+                _IconBtn(
+                  key: const ValueKey('detail-refresh'),
+                  icon: Icons.refresh,
+                  size: 16,
+                  tooltip: t.t('logs.refresh'),
+                  onTap: onRefresh,
+                  color: theme.c.fg2,
+                ),
+                const SizedBox(width: 12), // DetailPanel.tsx:130 gap 12
+                _IconBtn(
+                  key: const ValueKey('detail-copy-all'),
+                  icon: copied ? Icons.check : Icons.copy_outlined,
+                  size: 16,
+                  tooltip: t.t('logs.copyAll'),
+                  onTap: onCopyAll,
+                  color: copied ? theme.c.ok : theme.c.fg2,
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    t.t('logs.detail'),
+                    style: AidogType.display.copyWith(
+                      fontSize: 20, // F.title w700（DetailPanel.tsx:142）
+                      fontWeight: FontWeight.w700,
+                      color: theme.c.fg,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
             // 请求 ID 独占一行：等宽 + 复制成 `request_id=<id>`
             //（`DetailPanel.tsx:146-167`）。原先只作标题旁的小字，复制不了。
             // 请求 ID 行是一张卡片：padding 12/20、label 12 w600、id 13 mono
@@ -1055,7 +1463,9 @@ class _DetailPanelState extends State<_DetailPanel> {
               //（`ui/dialog.tsx:47`，right-4 top-4），不留出来会压住复制按钮。
               padding: const EdgeInsets.fromLTRB(20, 12, 24, 12),
               decoration: BoxDecoration(
-                color: theme.c.surface2,
+                // `.glass-surface` 的底是 --bg-surface（globals.css:265-271），
+                // 不是更深的 surface2。
+                color: theme.c.surface,
                 border: Border.all(color: theme.c.line),
                 borderRadius: BorderRadius.circular(AidogRadius.md),
               ),
@@ -1079,38 +1489,22 @@ class _DetailPanelState extends State<_DetailPanel> {
                       ),
                     ),
                   ),
-                  SmallButton(
+                  // React 是 `btn-icon` 图标按钮（`DetailPanel.tsx:150-166`）。
+                  _IconBtn(
                     key: const ValueKey('detail-copy-id'),
-                    label: t.t('logs.copy'),
+                    icon: Icons.copy_outlined,
+                    size: 16,
                     tooltip: t.t('logs.copyRequestId'),
+                    color: theme.c.fg2,
                     onTap: () => onCopy('request_id=${detail.id}'),
                   ),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            Row(
-              children: [
-                SmallButton(
-                  label: copied ? t.t('logs.copied') : t.t('logs.copyAll'),
-                  onTap: onCopyAll,
-                ),
-                const SizedBox(width: AidogSpace.ssm),
-                // 重新拉这一条详情（`DetailPanel.tsx:131-133`）：
-                // 流式请求还在跑时，原先只能关掉重开才能看到新状态。
-                if (onRefresh != null)
-                  SmallButton(
-                    key: const ValueKey('detail-refresh'),
-                    label: t.t('logs.refresh'),
-                    onTap: onRefresh,
-                  ),
-                const Spacer(),
-                SmallButton(label: t.t('action.close'), onTap: onClose),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // 元信息 grid：`repeat(auto-fill, minmax(160px, 1fr))` gap 14
-            //（`DetailPanel.tsx:170`），label 12 tertiary / 值 15 w600。
+            // 元信息 grid 是一张 `.glass-surface hover-lift` 卡、padding 20
+            //（`DetailPanel.tsx:170`）；格内 label 12 tertiary / 值 15 w600，
+            // `minmax(160px, 1fr)` gap 14。
             _metaGrid(theme, [
               _kv(
                 theme,
@@ -1218,33 +1612,67 @@ class _DetailPanelState extends State<_DetailPanel> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
+                  // React 两颗按内容宽、靠左排（inline-flex，`primitives.tsx:106-118`），
+                  // 不是各占半条宽。
+                  mainAxisSize: MainAxisSize.min,
+                  // Flexible(loose) = CSS flex item 的默认 `flex-shrink: 1`：
+                  // 按内容宽，装不下时才收（不是 Expanded 的各占一半）。
                   children: [
-                    _tabButton(
-                      t,
-                      theme,
-                      index: 0,
-                      title: t.t('logs.userRequest'),
-                      subtitle: 'Client → Proxy',
-                      protocol: protocolLabel(detail.sourceProtocol),
-                      statusCode: detail.statusCode,
+                    Flexible(
+                      child: _tabButton(
+                        t,
+                        theme,
+                        index: 0,
+                        title: t.t('logs.userRequest'),
+                        subtitle: 'Client → Proxy',
+                        protocol: protocolLabel(detail.sourceProtocol),
+                        statusCode: detail.statusCode,
+                      ),
                     ),
-                    _tabButton(
-                      t,
-                      theme,
-                      index: 1,
-                      title: t.t('logs.upstreamRequest'),
-                      subtitle: 'Proxy → Platform',
-                      protocol: protocolLabel(detail.targetProtocol),
-                      statusCode: detail.upstreamStatusCode,
+                    Flexible(
+                      child: _tabButton(
+                        t,
+                        theme,
+                        index: 1,
+                        title: t.t('logs.upstreamRequest'),
+                        subtitle: 'Proxy → Platform',
+                        protocol: protocolLabel(detail.targetProtocol),
+                        statusCode: detail.upstreamStatusCode,
+                      ),
                     ),
                   ],
                 ),
-                const Divider(height: 1, thickness: 1),
+                // 底边 1px --border（`primitives.tsx:101`）；不指定 color
+                // 会吃 Material 默认灰。
+                Divider(height: 1, thickness: 1, color: theme.c.line),
               ],
             ),
-            const SizedBox(height: 16),
-            if (_tab == 0) ...[
-              _section(t, theme, 'URL', detail.requestUrl),
+            // tab 正文是 `.glass-surface hover-lift` + padding 20 + gap 12
+            //（`primitives.tsx:136`）。
+            HoverLift(
+              child: Tile(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: _tab == 0
+                      ? _userSections(t, theme, detail)
+                      : _upstreamSections(t, theme, detail),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _userSections(
+    I18nController t,
+    AidogTheme theme,
+    ProxyLogDetail detail,
+  ) => [
+              _section(t, theme, 'URL', detail.requestUrl, hideWhenEmpty: true),
               _section(
                 t,
                 theme,
@@ -1267,8 +1695,14 @@ class _DetailPanelState extends State<_DetailPanel> {
                     : detail.userResponseBody,
                 emptyText: t.t('logs.streamResponse'),
               ),
-            ] else ...[
-              _section(t, theme, 'URL', detail.upstreamRequestUrl),
+  ];
+
+  List<Widget> _upstreamSections(
+    I18nController t,
+    AidogTheme theme,
+    ProxyLogDetail detail,
+  ) => [
+              _section(t, theme, 'URL', detail.upstreamRequestUrl, hideWhenEmpty: true),
               _section(
                 t,
                 theme,
@@ -1294,38 +1728,47 @@ class _DetailPanelState extends State<_DetailPanel> {
                 detail.responseBody,
                 emptyText: t.t('logs.streamResponse'),
               ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
+  ];
 
   /// 尝试记录（`DetailPanel.tsx:218-261`）：多平台重试时逐次列出平台 / 状态码 /
   /// 耗时 / 错误原文。**失败排障时最关键的一块** —— 没有它只知道「失败了」，
   /// 不知道试了哪几个平台、各自怎么失败的。
   Widget _attempts(I18nController t, AidogTheme theme) => Padding(
     padding: const EdgeInsets.only(top: AidogSpace.smd),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+    // `.glass-surface hover-lift` + padding 20（`DetailPanel.tsx:219`）。
+    child: HoverLift(
+      child: Tile(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            TileMeta(t.t('logs.attempts')),
-            const SizedBox(width: AidogSpace.sxs),
-            MiniBadge(
-              text: t
-                  .t('logs.attemptCount')
-                  .replaceAll('{{n}}', '${widget.detail.attempts.length}'),
-              color: theme.c.peak,
+            Row(
+              children: [
+                // 区标题是 F.body 15 w600 正常大小写（`DetailPanel.tsx:221`），
+                // 不是全大写 micro。
+                Text(
+                  t.t('logs.attempts'),
+                  style: AidogType.body.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg,
+                  ),
+                ),
+                const SizedBox(width: 8), // DetailPanel.tsx:220 gap 8
+                MiniBadge(
+                  text: t
+                      .t('logs.attemptCount')
+                      .replaceAll('{{n}}', '${widget.detail.attempts.length}'),
+                  color: theme.c.peak,
+                ),
+              ],
             ),
+            const SizedBox(height: 10), // DetailPanel.tsx:219 容器 gap 10
+            for (var i = 0; i < widget.detail.attempts.length; i++)
+              _attemptRow(t, theme, i, widget.detail.attempts[i]),
           ],
         ),
-        const SizedBox(height: AidogSpace.sxs),
-        for (var i = 0; i < widget.detail.attempts.length; i++)
-          _attemptRow(t, theme, i, widget.detail.attempts[i]),
-      ],
+      ),
     ),
   );
 
@@ -1350,86 +1793,96 @@ class _DetailPanelState extends State<_DetailPanel> {
       if (a.error.isNotEmpty) a.error,
     ].join(' | ');
     return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-      child: Container(
-        key: ValueKey('attempt-$i'),
-        padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.ssm,
-          vertical: AidogSpace.sxs,
-        ),
-        decoration: BoxDecoration(
-          // React：底 = 语义色 8%、边 = 语义色 25%（原先边是全强度，视觉重一截）
-          color: tone.withValues(alpha: 0.08),
-          border: Border.all(color: tone.withValues(alpha: 0.25)),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 24,
-              child: Text(
-                '#${i + 1}',
-                style: AidogType.numSm.copyWith(
-                  fontSize: 11,
-                  color: theme.c.fg3,
-                ),
-              ),
+      padding: const EdgeInsets.only(bottom: 6), // 行间 gap 6（DetailPanel.tsx:226）
+      // 复制按钮浮在行右上角（React 的 `CopyButton` 是 `position:absolute;
+      // top:4; right:4`，`primitives.tsx:36-37`）。
+      child: Stack(
+        children: [
+          Container(
+            key: ValueKey('attempt-$i'),
+            // padding 6px 28px 6px 10px —— 右侧 28 是给浮动复制按钮留的
+            //（`DetailPanel.tsx:236`）。
+            padding: const EdgeInsets.fromLTRB(10, 6, 28, 6),
+            decoration: BoxDecoration(
+              // React：底 = 语义色 8%、边 = 语义色 25%（原先边是全强度，视觉重一截）
+              color: tone.withValues(alpha: 0.08),
+              border: Border.all(color: tone.withValues(alpha: 0.25)),
+              borderRadius: BorderRadius.circular(8),
             ),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AidogType.caption.copyWith(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: theme.c.fg,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 24,
+                  child: Text(
+                    '#${i + 1}',
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 11,
+                      color: theme.c.fg3,
                     ),
                   ),
-                  if (a.error.isNotEmpty)
-                    Text(
-                      a.error,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(
-                        fontSize: 10,
-                        color: theme.c.bad,
+                ),
+                const SizedBox(width: 10), // grid gap 10（DetailPanel.tsx:235）
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.caption.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                          color: theme.c.fg,
+                        ),
                       ),
-                    ),
-                ],
-              ),
+                      if (a.error.isNotEmpty)
+                        Text(
+                          a.error,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AidogType.micro.copyWith(
+                            fontSize: 10,
+                            color: theme.c.bad,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  status,
+                  style: AidogType.caption.copyWith(
+                    fontSize: 12,
+                    color: tone,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  '${a.durationMs}ms',
+                  // React 这一格是 sans 11 tertiary（`DetailPanel.tsx:254`），
+                  // 不是等宽。
+                  style: AidogType.caption.copyWith(
+                    fontSize: 11,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: AidogSpace.ssm),
-            Text(
-              status,
-              style: AidogType.caption.copyWith(
-                fontSize: 12,
-                color: tone,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(width: AidogSpace.ssm),
-            Text(
-              '${a.durationMs}ms',
-              style: AidogType.numSm.copyWith(fontSize: 11, color: theme.c.fg3),
-            ),
-            IconButton(
+          ),
+          Positioned(
+            top: 4,
+            right: 4,
+            child: _CopyOverlayBtn(
               key: ValueKey('attempt-copy-$i'),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 13,
-              visualDensity: VisualDensity.compact,
               tooltip: t.t('logs.copy'),
-              icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
-              onPressed: () => widget.onCopy(summary),
+              onTap: () => widget.onCopy(summary),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1452,23 +1905,23 @@ class _DetailPanelState extends State<_DetailPanel> {
     final statusText = '$statusCode';
     // React（primitives.tsx:104-121）：padding 10/20、13px、激活 w700 +
     // 底边 2px accent、未激活底边 2px 透明；没有盒子边框，没有淡底。
-    return Expanded(
-      child: InkWell(
-        key: ValueKey('detail-tab-$index'),
-        onTap: () => setState(() => _tab = index),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-          decoration: BoxDecoration(
-            border: Border(
-              bottom: BorderSide(
-                width: 2,
-                color: active ? theme.c.accentText : Colors.transparent,
-              ),
+    return InkWell(
+      key: ValueKey('detail-tab-$index'),
+      onTap: () => setState(() => _tab = index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              width: 2,
+              color: active ? theme.c.accentText : Colors.transparent,
             ),
           ),
-          child: Row(
-            children: [
-              Flexible(
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
                 child: Text(
                   title,
                   maxLines: 1,
@@ -1479,41 +1932,48 @@ class _DetailPanelState extends State<_DetailPanel> {
                     fontWeight: active ? FontWeight.w700 : FontWeight.w400,
                   ),
                 ),
-              ),
-              const SizedBox(width: AidogSpace.smd),
-              // 副标题也要能收：窄窗下（弹窗宽是 `min(900, 90vw)`）标题 + 副标题
-              // + 徽标三件挤不下，React 那边靠 flex 收缩，这里对应 Flexible。
-              Flexible(
-                child: Text(
-                  ltr(subtitle),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AidogType.caption.copyWith(
-                    fontSize: 12,
-                    color: theme.c.fg3,
-                  ),
+            ),
+            const SizedBox(width: 8), // primitives.tsx:117 gap 8
+            // 副标题也要能收：窄窗下（弹窗宽是 `min(900, 90vw)`）标题 + 副标题
+            // + 徽标三件挤不下，React 那边靠 flex 收缩，这里对应 Flexible。
+            Flexible(
+              child: Text(
+                ltr(subtitle),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  color: theme.c.fg3,
                 ),
               ),
-              if (protocol.isNotEmpty) ...[
-                const SizedBox(width: AidogSpace.smd),
-                MiniBadge(text: protocol, color: theme.c.fg3),
-              ],
-              if (showStatus) ...[
-                const SizedBox(width: AidogSpace.smd),
-                Text(
-                  statusText,
-                  style: AidogType.caption.copyWith(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    // 2xx 绿、其余一律红（`primitives.tsx:131-133`）。
-                    color: statusCode >= 200 && statusCode < 300
-                        ? theme.c.ok
-                        : theme.c.bad,
-                  ),
-                ),
-              ],
+            ),
+            if (protocol.isNotEmpty) ...[
+              const SizedBox(width: 8),
+              // `.badge` + 10 / 1-5，底 --bg-glass 字 secondary
+              //（`primitives.tsx:122`）。
+              MiniBadge(
+                text: protocol,
+                color: theme.c.fg2,
+                padX: 5,
+                radius: 6,
+                background: theme.c.surface,
+              ),
             ],
-          ),
+            if (showStatus) ...[
+              const SizedBox(width: 8),
+              Text(
+                statusText,
+                style: AidogType.caption.copyWith(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  // 2xx 绿、其余一律红（`primitives.tsx:131-133`）。
+                  color: statusCode >= 200 && statusCode < 300
+                      ? theme.c.ok
+                      : theme.c.bad,
+                ),
+              ),
+            ],
+          ],
         ),
       ),
     );
@@ -1554,7 +2014,8 @@ class _DetailPanelState extends State<_DetailPanel> {
             ),
             if (copyText != null && copyText.isNotEmpty)
               SizedBox(
-                width: 22,
+                // React 给复制按钮留 24（`primitives.tsx:79`）
+                width: 24,
                 child: IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -1570,20 +2031,26 @@ class _DetailPanelState extends State<_DetailPanel> {
     );
   }
 
-  /// 元信息区网格：`minmax(160px, 1fr)` gap 14 的 auto-fill 等价实现。
-  Widget _metaGrid(AidogTheme theme, List<Widget> items) => LayoutBuilder(
-    builder: (context, cons) {
-      final cols = (((cons.maxWidth + 14) / (160 + 14)).floor()).clamp(
-        1,
-        items.length,
-      );
-      final w = (cons.maxWidth - (cols - 1) * 14) / cols;
-      return Wrap(
-        spacing: 14,
-        runSpacing: 14,
-        children: [for (final it in items) SizedBox(width: w, child: it)],
-      );
-    },
+  /// 元信息区网格：`minmax(160px, 1fr)` gap 14 的 auto-fill 等价实现，
+  /// 外面是 `.glass-surface hover-lift` + padding 20（`DetailPanel.tsx:170`）。
+  Widget _metaGrid(AidogTheme theme, List<Widget> items) => HoverLift(
+    child: Tile(
+      padding: const EdgeInsets.all(20),
+      child: LayoutBuilder(
+        builder: (context, cons) {
+          final cols = (((cons.maxWidth + 14) / (160 + 14)).floor()).clamp(
+            1,
+            items.length,
+          );
+          final w = (cons.maxWidth - (cols - 1) * 14) / cols;
+          return Wrap(
+            spacing: 14,
+            runSpacing: 14,
+            children: [for (final it in items) SizedBox(width: w, child: it)],
+          );
+        },
+      ),
+    ),
   );
 
   /// 一个正文区块：小标题 + 正文 + **本块自己的**复制按钮。
@@ -1600,68 +2067,80 @@ class _DetailPanelState extends State<_DetailPanel> {
     /// 空块的占位说明。响应正文为空的原因和请求正文不一样 —— 流式响应本来就
     /// 不落正文，写「未捕获」会让人以为日志坏了（`DetailPanel.tsx:100-107`）。
     String? emptyText,
+
+    /// URL 块在 React 是 `{url && (...)}`：为空时整块不出现
+    /// （`primitives.tsx:178`），不画「未捕获」占位框。
+    bool hideWhenEmpty = false,
   }) {
     final empty = body.trim().isEmpty;
+    if (empty && hideWhenEmpty) return const SizedBox.shrink();
     final text = empty
         ? (emptyText ?? t.t('logs.noUpstream'))
         : prettyJsonOrRaw(body);
+    final baseStyle = TextStyle(
+      fontFamily: AidogType.familyMono,
+      fontFamilyFallback: AidogType.familyMonoFallback,
+      fontSize: 12,
+      height: 1.7,
+      color: empty ? theme.c.fg3 : theme.c.fg,
+    );
     return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+      // 容器 gap 12（`primitives.tsx:136`）
+      padding: const EdgeInsets.only(top: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Row(
-            children: [
-              // React 段落小标题：12 w600 secondary（primitives.tsx:180-183）
-              Text(
-                title,
-                style: AidogType.caption.copyWith(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: theme.c.fg2,
-                ),
-              ),
-              const Spacer(),
-              // 空块没什么可复制的，不画按钮（React：占位串不给复制）。
-              if (!empty)
-                IconButton(
-                  key: ValueKey('sec-copy-$title-${body.hashCode}'),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(
-                    minWidth: 22,
-                    minHeight: 22,
-                  ),
-                  iconSize: 13,
-                  visualDensity: VisualDensity.compact,
-                  tooltip: t.t('logs.copy'),
-                  icon: Icon(Icons.copy_outlined, color: theme.c.fg3),
-                  onPressed: () => widget.onCopy(text),
-                ),
-            ],
+          // React 段落小标题：12 w600 secondary（primitives.tsx:180-183）
+          Text(
+            title,
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: theme.c.fg2,
+            ),
           ),
           const SizedBox(height: 4),
           // React `.code-block`（globals.css:565-576）：mono 12 lh1.7、
           // padding 14/16、底 bg-base、1px 边、radius 8；编辑器 minHeight 60。
-          Container(
-            width: double.infinity,
-            constraints: const BoxConstraints(minHeight: 60),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: theme.c.bg,
-              border: Border.all(color: theme.c.line),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: SelectableText(
-              text,
-              style: TextStyle(
-                fontFamily: AidogType.familyMono,
-                fontFamilyFallback: AidogType.familyMonoFallback,
-                fontSize: 12,
-                height: 1.7,
-                color: empty ? theme.c.fg3 : theme.c.fg,
+          // 复制按钮浮在块**右上角**（`primitives.tsx:36-37`），不排在标题行里。
+          Stack(
+            children: [
+              Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(minHeight: 60),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                decoration: BoxDecoration(
+                  color: theme.c.bg,
+                  border: Border.all(color: theme.c.line),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: SelectableText.rich(
+                  // headers / body 在 React 走 `JsonCodeEditor`（带语法高亮，
+                  // `primitives.tsx:192,203,215,224`）；Flutter 没有那个渲染器，
+                  // 这里至少把 key / 字符串 / 数字 / 字面量分色。URL 块不高亮
+                  // （React 那块用的是纯 `.code-block`，`:182`）。
+                  empty || title == 'URL'
+                      ? TextSpan(text: text, style: baseStyle)
+                      : jsonSpan(text, baseStyle, theme.c),
+                  style: baseStyle,
+                ),
               ),
-            ),
+              // 空块没什么可复制的，不画按钮（React：占位串不给复制）。
+              if (!empty)
+                Positioned(
+                  top: 4,
+                  right: 4,
+                  child: _CopyOverlayBtn(
+                    key: ValueKey('sec-copy-$title-${body.hashCode}'),
+                    tooltip: t.t('logs.copy'),
+                    onTap: () => widget.onCopy(text),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

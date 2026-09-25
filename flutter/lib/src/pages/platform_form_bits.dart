@@ -224,7 +224,22 @@ class FormDropdown extends StatelessWidget {
     this.labelOf,
     this.label,
     this.width,
+    this.boxed = false,
+    this.fontSize,
+    this.hint,
   });
+
+  /// 未选中时的占位文案。null = `—`；React 的 `SelectValue placeholder`
+  /// 写了实义文案（`BatchOverrideModelsModal.tsx:156,171`）。
+  final String? hint;
+
+  /// 描边盒：React 的 `SelectTrigger className="input"` 就是一个 `.input` 盒
+  /// （8/12 + r8 + 1px border + surface 底，`src/styles/globals.css:433-445`）。
+  /// 缺省 false = 裸下拉（历史形态，改动其余调用点前保持原样）。
+  final bool boxed;
+
+  /// 字号覆盖。null = 缺省 label 13.5；`.input` 是 13，时段窗口的时区下拉是 11。
+  final double? fontSize;
 
   final String value;
   final List<String> options;
@@ -249,8 +264,12 @@ class FormDropdown extends StatelessWidget {
       // 恒 true：给了 width 还让它按最宽选项撑开，IANA 时区名那一排必溢出。
       isExpanded: true,
       dropdownColor: theme.c.surface2,
-      style: AidogType.label.copyWith(color: theme.c.fg),
-      hint: Text('—', style: AidogType.label.copyWith(color: theme.c.fg3)),
+      style: AidogType.label.copyWith(fontSize: fontSize, color: theme.c.fg),
+      hint: Text(
+        hint ?? '—',
+        overflow: TextOverflow.ellipsis,
+        style: AidogType.label.copyWith(fontSize: fontSize, color: theme.c.fg3),
+      ),
       onChanged: onChanged == null
           ? null
           : (v) {
@@ -264,7 +283,21 @@ class FormDropdown extends StatelessWidget {
           ),
       ],
     );
-    final sized = width == null ? dd : SizedBox(width: width, child: dd);
+    // `.input` 盒：内衬 8/12、r8、1px line、surface 底。
+    final boxedDd = !boxed
+        ? dd
+        : Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: dd,
+          );
+    final sized = width == null
+        ? boxedDd
+        : SizedBox(width: width, child: boxedDd);
     if (label == null) return sized;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -276,10 +309,23 @@ class FormDropdown extends StatelessWidget {
 
 /// 一行「说明文字」（分区里的 hint / 空态）。
 class FormHint extends StatelessWidget {
-  const FormHint(this.text, {super.key, this.danger = false});
+  const FormHint(
+    this.text, {
+    super.key,
+    this.danger = false,
+    this.fontSize,
+    this.italic = false,
+  });
 
   final String text;
   final bool danger;
+
+  /// 字号覆盖。null = 缺省 11；端点空态与矩阵取模型报错 React 写的是 12
+  /// （`formSectionsEndpoints.tsx:63`、`ModelsMatrixSection.tsx:319`）。
+  final double? fontSize;
+
+  /// 斜体。React 的空态文案普遍带 `fontStyle: italic`（同上 :63）。
+  final bool italic;
 
   @override
   Widget build(BuildContext context) {
@@ -290,8 +336,9 @@ class FormHint extends StatelessWidget {
         text,
         // 表单 hint 11、行高 1.5（`formSections.tsx:194,214,234,347,355`）。
         style: AidogType.caption.copyWith(
-          fontSize: 11,
+          fontSize: fontSize ?? 11,
           height: 1.5,
+          fontStyle: italic ? FontStyle.italic : null,
           color: danger ? theme.c.bad : theme.c.fg3,
         ),
       ),
@@ -423,7 +470,8 @@ class _ModelCellState extends State<ModelCell> {
           link: _link,
           targetAnchor: Alignment.bottomLeft,
           followerAnchor: Alignment.topLeft,
-          offset: const Offset(0, 2),
+          // Radix `PopoverContent` 的默认 sideOffset = 4（`ModelsMatrixSection.tsx:231`）。
+          offset: const Offset(0, 4),
           child: Align(
             alignment: AlignmentDirectional.topStart,
             child: Material(
@@ -431,15 +479,18 @@ class _ModelCellState extends State<ModelCell> {
               child: Container(
                 width: width,
                 constraints: const BoxConstraints(maxHeight: 200),
+                // 浮层是 `glass-elevated`：底 `--bg-floating`（= surface）、
+                // 圆角 24、内衬 4（`ModelsMatrixSection.tsx:233-234`
+                // + `src/styles/globals.css:299-306`）。
                 decoration: BoxDecoration(
-                  color: theme.c.surface2,
+                  color: theme.c.surface,
                   border: Border.all(color: theme.c.line),
-                  borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  borderRadius: BorderRadius.circular(AidogRadius.xl),
                   boxShadow: theme.shadowFloat,
                 ),
                 child: ListView(
                   shrinkWrap: true,
-                  padding: const EdgeInsets.all(2),
+                  padding: const EdgeInsets.all(4),
                   children: [
                     for (final m in filtered)
                       InkWell(
@@ -447,14 +498,24 @@ class _ModelCellState extends State<ModelCell> {
                           widget.onChanged(m);
                           _hide();
                         },
-                        child: Padding(
+                        child: Container(
+                          // 选项 `padding "8px 12px", fontSize 13`；选中项另有
+                          // accent-subtle 底 + accent 字 + w600（同上 :243-249）。
                           padding: const EdgeInsets.symmetric(
-                            horizontal: AidogSpace.ssm,
-                            vertical: AidogSpace.sxs,
+                            horizontal: 12,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: m == widget.value ? theme.c.accentWash : null,
+                            borderRadius: BorderRadius.circular(AidogRadius.sm),
                           ),
                           child: Text(
                             m,
                             style: AidogType.label.copyWith(
+                              fontSize: 13,
+                              fontWeight: m == widget.value
+                                  ? FontWeight.w600
+                                  : FontWeight.w400,
                               color: m == widget.value
                                   ? theme.c.accentText
                                   : theme.c.fg,
@@ -478,40 +539,53 @@ class _ModelCellState extends State<ModelCell> {
     final hasDropdown = widget.candidates.isNotEmpty;
     return CompositedTransformTarget(
       link: _link,
-      child: Row(
+      // 箭头**压在输入框内部右侧**（`position:absolute; right:2; top:50%`，
+      // `ModelsMatrixSection.tsx:214-228`），输入框右内衬让出 24 给它
+      //（同上 :200 的 `paddingRight: 24`）。原先它排在输入框外面，抢单元格宽度。
+      child: Stack(
+        alignment: AlignmentDirectional.centerEnd,
         children: [
-          Expanded(
-            child: PlatformField(
-              focusNode: _focus,
-              value: widget.value,
-              hint: widget.hint,
-              // 输入即弹（`ModelsMatrixSection.tsx:203` 的 onChange 同款）。
-              onChanged: (v) {
-                widget.onChanged(v);
-                if (_open) {
-                  _scheduleSync();
-                } else {
-                  _show();
-                }
-              },
+          PlatformField(
+            focusNode: _focus,
+            value: widget.value,
+            hint: widget.hint,
+            // 单元格输入框 `fontSize 13, padding "6px 8px"`（同上 :200）。
+            fontSize: 13,
+            contentPadding: EdgeInsets.only(
+              left: 8,
+              right: hasDropdown ? 24 : 8,
+              top: 6,
+              bottom: 6,
             ),
+            // 输入即弹（`ModelsMatrixSection.tsx:203` 的 onChange 同款）。
+            onChanged: (v) {
+              widget.onChanged(v);
+              if (_open) {
+                _scheduleSync();
+              } else {
+                _show();
+              }
+            },
           ),
           if (hasDropdown)
-            Tooltip(
-              message: widget.pickTooltip,
-              child: IconButton(
-                iconSize: 14,
-                visualDensity: VisualDensity.compact,
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 22,
-                  minHeight: 22,
+            PositionedDirectional(
+              end: 2,
+              child: Tooltip(
+                message: widget.pickTooltip,
+                child: IconButton(
+                  iconSize: 14,
+                  visualDensity: VisualDensity.compact,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(
+                    minWidth: 22,
+                    minHeight: 22,
+                  ),
+                  color: theme.c.fg3,
+                  icon: Icon(
+                    _open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
+                  ),
+                  onPressed: () => _open ? _hide() : _show(),
                 ),
-                color: theme.c.fg3,
-                icon: Icon(
-                  _open ? Icons.arrow_drop_up : Icons.arrow_drop_down,
-                ),
-                onPressed: () => _open ? _hide() : _show(),
               ),
             ),
         ],
@@ -930,7 +1004,14 @@ class WeekdayToggles extends StatelessWidget {
     required this.selected,
     required this.onToggle,
     required this.tooltipOf,
+    this.fontSize,
+    this.padding,
   });
+
+  /// 字号与内衬覆盖。null = 缺省（22×22 方块、11）；时段窗口弹窗里 React 写的是
+  /// `padding "1px 5px", fontSize 10, minWidth 22`（`WindowsEditModal.tsx:291`）。
+  final double? fontSize;
+  final (double, double)? padding;
 
   static const List<String> labels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
@@ -945,17 +1026,29 @@ class WeekdayToggles extends StatelessWidget {
       for (var d = 0; d < 7; d++)
         Tooltip(
           message: tooltipOf(d),
-          // 22×22 方块、`padding 0`、11（`formSections.tsx:893`）。
-          child: SizedBox(
-            width: 22,
-            height: 22,
-            child: SmallButton(
-              label: labels[d],
-              padding: (0, 0),
-              active: selected.contains(d),
-              onTap: () => onToggle(d),
-            ),
-          ),
+          // 选中态是**实心 primary** 底 + 反色字（`formSections.tsx:893-897`
+          // 的 `background: var(--primary)`，`WindowsEditModal.tsx:289` 的
+          // `variant="default"`），不是淡底描边。
+          // 缺省 22×22 方块、`padding 0`、11（同上）。
+          child: padding == null
+              ? SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: SmallButton(
+                    label: labels[d],
+                    padding: (0, 0),
+                    filled: selected.contains(d),
+                    onTap: () => onToggle(d),
+                  ),
+                )
+              : SmallButton(
+                  label: labels[d],
+                  padding: padding,
+                  fontSize: fontSize,
+                  minWidth: 22,
+                  filled: selected.contains(d),
+                  onTap: () => onToggle(d),
+                ),
         ),
     ],
   );

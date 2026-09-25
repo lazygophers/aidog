@@ -282,14 +282,119 @@ class _HomePageState extends State<HomePage> {
           ]
         : const <({String label, String value, Widget? spark})>[];
 
+    // ③ 趋势区（`Home.tsx:346-399`）：meta 串是「HOURLY · 请求数 / 花费」，
+    // 有数据时再追加「· 峰值 N」（`Home.tsx:353-356`）。
+    final trendSection = _PanelSection(
+      title: tr.t('home.trend24h'),
+      headGap: 10, // Home.tsx:351 marginBottom 10
+      meta:
+          'HOURLY · ${tr.t('home.trendRequests')} / ${tr.t('home.trendCost')}'
+          '${trendOk ? ' · ${tr.t('home.trendPeak')} ${formatNumber(peak)}' : ''}',
+      child: trendOk
+          ? SizedBox(
+              height: 88 + 12, // 图 88（Home.tsx:364）+ 小时轴行 12（:373）
+              child: Column(
+                children: [
+                  SizedBox(
+                    height: 88,
+                    child: AidogLineChart(
+                      mini: true,
+                      area: true,
+                      series: [
+                        ChartSeries(
+                          key: 'req',
+                          label: tr.t('home.trendRequests'),
+                          color: _panelAccent,
+                          points: [
+                            for (final b in _trend)
+                              ChartPoint(
+                                bucketMs(b.timeBucket),
+                                b.totalRequests.toDouble(),
+                              ),
+                          ],
+                          format: formatNumber,
+                        ),
+                        ChartSeries(
+                          key: 'cost',
+                          label: tr.t('home.trendCost'),
+                          color: _panelAux,
+                          points: [
+                            for (final b in _trend)
+                              ChartPoint(bucketMs(b.timeBucket), b.totalCost),
+                          ],
+                          format: formatCostUsd,
+                          dashed: true,
+                          rightAxis: true,
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(height: 12, child: _HourAxis(buckets: _trend)),
+                ],
+              ),
+            )
+          // 空态 13 + 竖向 padding 8（Home.tsx:395）。
+          : Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                emptyText,
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  color: _panelMuted,
+                ),
+              ),
+            ),
+    );
+
+    // ④ 平台 Top4（`Home.tsx:401-456`）。标题行下距 4（`:407`）= _PanelSection 缺省。
+    final platformSection = _PanelSection(
+      title: tr.t('home.topPlatforms'),
+      meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
+      child: top.isEmpty
+          // 空态 13 + 竖向 padding 4（Home.tsx:452）。
+          ? Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                emptyText,
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  color: _panelMuted,
+                ),
+              ),
+            )
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < top.length; i++) ...[
+                  if (i > 0)
+                    const Divider(
+                      height: 1,
+                      thickness: 1,
+                      color: Color(0x0DFFFFFF), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
+                    ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 9, // Home.tsx:417
+                    ),
+                    child: _platformRow(top[i], maxCost, costSum),
+                  ),
+                ],
+              ],
+            ),
+    );
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        PageHead(title: tr.t('page.home'), subtitle: tr.t('home.desc')),
+        PageHead(
+          title: tr.t('page.home'),
+          subtitle: tr.t('home.desc'),
+          bottom: 16, // React 全页 gap 16（Home.tsx:265）
+        ),
         // 琥珀渐变眉条（`Home.tsx:273`）。
         Container(
           height: 3,
-          margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+          margin: const EdgeInsets.only(bottom: 16), // 同上：全页 gap 16（Home.tsx:265）
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
             gradient: const LinearGradient(
@@ -335,200 +440,105 @@ class _HomePageState extends State<HomePage> {
                         ),
                         child: Text(
                           emptyText,
-                          style: AidogType.caption.copyWith(color: _panelMuted),
+                          // 空态 F.hint = 13（Home.tsx:329）
+                          style: AidogType.caption.copyWith(
+                            fontSize: 13,
+                            color: _panelMuted,
+                          ),
                         ),
                       )
-                    : IntrinsicHeight(
+                    : _KpiGrid(cells: kpis),
+              ),
+              const _PanelDivider(),
+              // ③+④ 趋势与平台：React 是 `repeat(auto-fit, minmax(420px, 1fr))`
+              // （`Home.tsx:340`）—— 塞得下两栏就并排（竖线分隔），塞不下叠成一栏
+              // （横线分隔）。reveal 也分家：趋势 140、平台 210（`Home.tsx:222-223`）。
+              LayoutBuilder(
+                builder: (context, c) {
+                  final trend = Reveal(delayMs: 140, child: trendSection);
+                  final plats = Reveal(delayMs: 210, child: platformSection);
+                  // 两栏各至少 420 + 中间 1px gap。
+                  if (c.maxWidth < 420 * 2 + 1) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [trend, const _PanelDivider(), plats],
+                    );
+                  }
+                  return IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Expanded(child: trend),
+                        const VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: _panelLine,
+                        ),
+                        Expanded(child: plats),
+                      ],
+                    ),
+                  );
+                },
+              ),
+              const _PanelDivider(),
+              // ⑤+⑥ 总余额行与快捷键 footer 同属 280ms 那一块（`Home.tsx:460`）。
+              Reveal(
+                delayMs: 280,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (balance > 0) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
                         child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          crossAxisAlignment: CrossAxisAlignment.baseline,
+                          textBaseline: TextBaseline.alphabetic,
                           children: [
-                            for (var i = 0; i < kpis.length; i++) ...[
-                              Expanded(
-                                child: _KpiCell(
-                                  label: kpis[i].label,
-                                  value: kpis[i].value,
-                                  spark: kpis[i].spark,
+                            Expanded(
+                              child: Text(
+                                tr.t('home.totalBalance'),
+                                // F.small = 12（Home.tsx:470）
+                                style: AidogType.caption.copyWith(
+                                  fontSize: 12,
+                                  color: _panelMuted,
                                 ),
                               ),
-                              if (i < kpis.length - 1)
-                                const VerticalDivider(
-                                  width: 1,
-                                  thickness: 1,
-                                  color: _panelLine,
+                            ),
+                            Ltr(
+                              child: Text(
+                                formatCostUsd(balance),
+                                style: _panelMono(
+                                  17,
+                                  _panelFg,
+                                  w: FontWeight.w700,
                                 ),
-                            ],
+                              ),
+                            ),
                           ],
                         ),
                       ),
-              ),
-              const _PanelDivider(),
-              // ③+④ 趋势与平台并排，中间一条竖线
-              Reveal(
-                delayMs: 140,
-                child: IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        child: _PanelSection(
-                          title: tr.t('home.trend24h'),
-                          meta: trendOk
-                              ? 'HOURLY · ${tr.t('home.trendPeak')} '
-                                    '${formatNumber(peak)}'
-                              : 'HOURLY',
-                          child: trendOk
-                              ? SizedBox(
-                                  height: 88 + 12, // 图 88（Home.tsx:364）+ 小时轴行 12（:373）
-                                  child: Column(
-                                    children: [
-                                      SizedBox(
-                                        height: 88,
-                                        child: AidogLineChart(
-                                          mini: true,
-                                          area: true,
-                                          series: [
-                                            ChartSeries(
-                                              key: 'req',
-                                              label: tr.t('home.trendRequests'),
-                                              color: _panelAccent,
-                                              points: [
-                                                for (final b in _trend)
-                                                  ChartPoint(
-                                                    bucketMs(b.timeBucket),
-                                                    b.totalRequests.toDouble(),
-                                                  ),
-                                              ],
-                                              format: formatNumber,
-                                            ),
-                                            ChartSeries(
-                                              key: 'cost',
-                                              label: tr.t('home.trendCost'),
-                                              color: _panelAux,
-                                              points: [
-                                                for (final b in _trend)
-                                                  ChartPoint(
-                                                    bucketMs(b.timeBucket),
-                                                    b.totalCost,
-                                                  ),
-                                              ],
-                                              format: formatCostUsd,
-                                              dashed: true,
-                                              rightAxis: true,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      SizedBox(
-                                        height: 12,
-                                        child: _HourAxis(buckets: _trend),
-                                      ),
-                                    ],
-                                  ),
-                                )
-                              : Text(
-                                  emptyText,
-                                  style: AidogType.caption.copyWith(
-                                    color: _panelMuted,
-                                  ),
-                                ),
-                        ),
-                      ),
-                      const VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: _panelLine,
-                      ),
-                      Expanded(
-                        child: _PanelSection(
-                          title: tr.t('home.topPlatforms'),
-                          meta:
-                              'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
-                          child: top.isEmpty
-                              ? Text(
-                                  emptyText,
-                                  style: AidogType.caption.copyWith(
-                                    color: _panelMuted,
-                                  ),
-                                )
-                              : Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    for (var i = 0; i < top.length; i++) ...[
-                                      if (i > 0)
-                                        const Divider(
-                                          height: 1,
-                                          thickness: 1,
-                                          color: Color(0x0DFFFFFF), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
-                                        ),
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 9, // Home.tsx:417
-                                        ),
-                                        child: _platformRow(
-                                          top[i],
-                                          maxCost,
-                                          costSum,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                        ),
-                      ),
+                      const _PanelDivider(),
                     ],
-                  ),
-                ),
-              ),
-              const _PanelDivider(),
-              // ⑤ 总余额行
-              if (balance > 0) ...[
-                Reveal(
-                  delayMs: 210,
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      child: Wrap(
+                        spacing: 8, // Home.tsx:480 gap 8
+                        runSpacing: 8,
+                        children: [
+                          for (final c in _chips(tr))
+                            _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.baseline,
-                      textBaseline: TextBaseline.alphabetic,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            tr.t('home.totalBalance'),
-                            style: AidogType.caption.copyWith(
-                              color: _panelMuted,
-                            ),
-                          ),
-                        ),
-                        Ltr(
-                          child: Text(
-                            formatCostUsd(balance),
-                            style: _panelMono(17, _panelFg, w: FontWeight.w700),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const _PanelDivider(),
-              ],
-              // ⑥ 快捷键 footer
-              Reveal(
-                delayMs: 280,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 12,
-                  ),
-                  child: Wrap(
-                    spacing: AidogSpace.ssm,
-                    runSpacing: AidogSpace.ssm,
-                    children: [
-                      for (final c in _chips(tr))
-                        _Chip(label: c.label, kbd: c.kbd, onTap: c.run),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ],
@@ -579,6 +589,7 @@ class _HomePageState extends State<HomePage> {
                 style: AidogType.body.copyWith(
                   color: _panelFg,
                   fontWeight: FontWeight.w600, // Home.tsx:301
+                  letterSpacing: 0, // React 默认 normal（Home.tsx:301）
                 ),
               ),
             ),
@@ -589,6 +600,9 @@ class _HomePageState extends State<HomePage> {
             child: _Chip(
               label: _copied ? '✓' : tr.t('home.copyBaseUrl'),
               kbd: '⌘C',
+              // 状态行这颗键帽排在文案**前**（`Home.tsx:311-312`），
+              // 与 footer 的「文案 + 键帽」（`:483`）顺序相反。
+              kbdFirst: true,
               onTap: _copyUrl,
             ),
           ),
@@ -607,47 +621,49 @@ class _HomePageState extends State<HomePage> {
           child: CustomPaint(
             painter: _RingPainter(
               share: costSum > 0 ? p.cost / costSum : 0,
-              track: _panelLine,
+              track: _panelTrack, // 白 .14（Home.tsx:122），不是面板 hairline
               arc: _panelAccent,
             ),
           ),
         ),
-        const SizedBox(width: AidogSpace.smd),
+        const SizedBox(width: 12), // Home.tsx:421 gap 12
         Expanded(
           child: Text(
             p.platformName,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: AidogType.label.copyWith(
+              fontSize: 13, // F.small + 1（Home.tsx:427）
               color: _panelFg,
               fontWeight: FontWeight.w600,
             ),
           ),
         ),
-        const SizedBox(width: AidogSpace.smd),
+        const SizedBox(width: 12),
         Expanded(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(2),
             child: LinearProgressIndicator(
               value: maxCost > 0 ? (p.cost / maxCost).clamp(0.0, 1.0) : 0,
               minHeight: 3,
-              backgroundColor: _panelLine,
+              // 槽色是琥珀兑水 rgba(232,197,71,.12)（Home.tsx:430），不是白 .07。
+              backgroundColor: const Color(0x1FE8C547),
               valueColor: const AlwaysStoppedAnimation<Color>(_panelAccent),
             ),
           ),
         ),
-        const SizedBox(width: AidogSpace.smd),
+        const SizedBox(width: 12),
         Ltr(
           child: Text(
             '${formatNumber(p.requests)} · ${formatNumber(p.tokens)}',
-            style: numStyle(AidogType.numSm, _panelMuted),
+            style: _panelMono(11, _panelMuted), // Home.tsx:442
           ),
         ),
-        const SizedBox(width: AidogSpace.smd),
+        const SizedBox(width: 12),
         Ltr(
           child: Text(
             formatCostUsd(p.cost),
-            style: numStyle(AidogType.numMd, _panelAccent),
+            style: _panelMono(12, _panelAccent), // Home.tsx:445
           ),
         ),
       ],
@@ -700,6 +716,45 @@ class _PanelDivider extends StatelessWidget {
       const Divider(height: 1, thickness: 1, color: _panelLine);
 }
 
+/// KPI 行的响应式栅格：React 是 `repeat(auto-fit, minmax(140px, 1fr))`
+/// （`Home.tsx:320`）—— 窄窗自动降成 3 / 2 / 1 列，不是恒四列压扁到读不出数。
+class _KpiGrid extends StatelessWidget {
+  const _KpiGrid({required this.cells});
+
+  final List<({String label, String value, Widget? spark})> cells;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, c) {
+      final cols = (c.maxWidth / 140).floor().clamp(1, cells.length);
+      // 向下取整到 0.01：浮点余数会让最后一格挤不进同一行。
+      final w = (c.maxWidth / cols * 100).floorToDouble() / 100;
+      return Wrap(
+        children: [
+          for (var i = 0; i < cells.length; i++)
+            Container(
+              width: w,
+              // 格间竖线：React 给除末格外的每格画 borderInlineEnd（`Home.tsx:324`）。
+              // 走 foregroundDecoration，这条边不占布局宽度。
+              foregroundDecoration: i == cells.length - 1
+                  ? null
+                  : const BoxDecoration(
+                      border: BorderDirectional(
+                        end: BorderSide(color: _panelLine),
+                      ),
+                    ),
+              child: _KpiCell(
+                label: cells[i].label,
+                value: cells[i].value,
+                spark: cells[i].spark,
+              ),
+            ),
+        ],
+      );
+    },
+  );
+}
+
 /// 面板里的一格 KPI：标签 + 大数 + 行内 sparkline。
 class _KpiCell extends StatelessWidget {
   const _KpiCell({required this.label, required this.value, this.spark});
@@ -742,11 +797,15 @@ class _PanelSection extends StatelessWidget {
     required this.title,
     required this.meta,
     required this.child,
+    this.headGap = 4,
   });
 
   final String title;
   final String meta;
   final Widget child;
+
+  /// 标题行与正文的间距。趋势区 10（`Home.tsx:351`）、平台区 4（`:407`）。
+  final double headGap;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -755,22 +814,23 @@ class _PanelSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
+        // React 是 `flexWrap: wrap` 的 space-between 行（`Home.tsx:351,407`）：
+        // 两段塞不下时 meta 落到下一行，不挤扁标题。
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.end,
+          spacing: 12, // Home.tsx:351,407 gap 12
           children: [
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AidogType.label.copyWith(
-                  color: _panelFg,
-                  fontWeight: FontWeight.w700,
-                ),
+            Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.label.copyWith(
+                fontSize: 13, // F.small + 1（Home.tsx:352,408）
+                color: _panelFg,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(width: AidogSpace.ssm),
             Ltr(
               child: Text(
                 meta,
@@ -779,7 +839,7 @@ class _PanelSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AidogSpace.sxs),
+        SizedBox(height: headGap),
         child,
       ],
     ),
@@ -913,11 +973,24 @@ class _HourAxis extends StatelessWidget {
 
 /// 快捷键 chip：文案 + 键位。键位符号是规则 6 第 ① 类显式 LTR。
 class _Chip extends StatelessWidget {
-  const _Chip({required this.label, required this.kbd, required this.onTap});
+  const _Chip({
+    required this.label,
+    required this.kbd,
+    required this.onTap,
+    this.kbdFirst = false,
+  });
 
   final String label;
   final String kbd;
   final VoidCallback onTap;
+
+  /// 键帽排在文案前。状态行那颗是这个顺序（`Home.tsx:311-312`），
+  /// footer 四颗是反的（`:483`）。
+  final bool kbdFirst;
+
+  List<Widget> _parts(Widget text, Widget kb) => kbdFirst
+      ? [kb, const SizedBox(width: 7), text]
+      : [text, const SizedBox(width: 7), kb];
 
   @override
   Widget build(BuildContext context) {
@@ -938,29 +1011,31 @@ class _Chip extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _panelFg,
-              ),
-            ),
-            const SizedBox(width: 7),
-            // 键帽：mono 10、白 .14 边、radius 4、padding 1/5（`.cmd-kb .k`）。
-            Ltr(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 5,
-                  vertical: 1,
+            for (final w in _parts(
+              Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: _panelFg,
                 ),
-                decoration: BoxDecoration(
-                  border: Border.all(color: _panelTrack),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(kbd, style: _panelMono(10, _panelMuted)),
               ),
-            ),
+              // 键帽：mono 10、白 .14 边、radius 4、padding 1/5（`.cmd-kb .k`）。
+              Ltr(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 5,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: _panelTrack),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(kbd, style: _panelMono(10, _panelMuted)),
+                ),
+              ),
+            ))
+              w,
           ],
         ),
       ),

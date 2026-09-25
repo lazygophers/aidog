@@ -23,6 +23,7 @@ import 'groups_logic.dart';
 import 'invoke.dart';
 import 'models.dart';
 import 'platform_card_bits.dart' show BalanceBar, MiniBadge, StatChip;
+import 'platform_form_bits.dart' show FormDropdown;
 import 'platform_logo.dart';
 import 'platform_defaults.dart' show kModelSlots;
 import 'ui_bits.dart';
@@ -1664,8 +1665,21 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
           ? t.t('group.batchOverrideApplying')
           : t.t('group.batchOverrideConfirm', {'count': '${target.length}'}),
       busy: c.batchOverrideBusy,
-      // React 是普通 `Dialog`（`BatchOverrideModelsModal.tsx:123`），执行中不许关。
+      // React 是普通 `Dialog`（`BatchOverrideModelsModal.tsx:123`），执行中不许关；
+      // 普通 Dialog 自带右上 ✕（`ui/dialog.tsx:47-50`）。
       dismissOnBarrier: true,
+      onClose: c.batchOverrideBusy ? null : c.cancelBatchOverrideModels,
+      // `maxWidth: 560` + `padding "20px 22px"`（同上 :122）；描述行是
+      // `DialogDescription` = 14 正体 muted（同上 :128-130）；页脚按钮默认档 14/16-8。
+      maxWidth: 560,
+      padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 20),
+      bodyStyle: AidogType.micro.copyWith(
+        fontSize: 14,
+        letterSpacing: 0,
+        color: theme.c.fg2,
+      ),
+      buttonFontSize: 14,
+      buttonPadding: (16, 8),
       onCancel: c.cancelBatchOverrideModels,
       onConfirm: (c.batchOverrideBusy || allEmpty)
           ? null
@@ -1685,8 +1699,11 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 三来源 radio：组内 `gap: 16`、`marginBottom: 10`；每项圆点 16、
+          // 项内 `gap 5`、字 13（`BatchOverrideModelsModal.tsx:136-140`）。
           Wrap(
-            spacing: AidogSpace.sxs,
+            spacing: 16,
+            runSpacing: AidogSpace.sxs,
             children: [
               for (final s in const ['manual', 'preset', 'copy'])
                 // radio 组（`BatchOverrideModelsModal.tsx`）：三选一是互斥语义，
@@ -1697,109 +1714,280 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                     'preset' => t.t('group.batchOverrideSourcePreset'),
                     _ => t.t('group.batchOverrideSourceCopy'),
                   },
+                  dotSize: 16,
+                  gap: 5,
+                  fontSize: 13,
                   selected: _source == s,
                   onTap: () => _setSource(s),
                 ),
             ],
           ),
-          if (_source == 'preset')
-            DropdownButtonHideUnderline(
-              child: DropdownButton<String>(
-                isExpanded: true,
-                hint: Text(t.t('group.batchOverridePresetSelect')),
-                value: _presetProtocol.isEmpty ? null : _presetProtocol,
-                items: [
-                  for (final o in c.defaults.protocolOptions())
-                    DropdownMenuItem(value: o.value, child: Text(o.label)),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  setState(() {
-                    _presetProtocol = v;
-                    _slots = c.defaults.defaultModels(v);
-                  });
-                },
-              ),
+          const SizedBox(height: 10),
+          // preset / copy 下拉是 `SelectTrigger className="input"` = 描边盒 + 13，
+          // 下距 10（同上 :155,170）。原先是裸 `DropdownButton`，无描边无底色。
+          if (_source == 'preset') ...[
+            FormDropdown(
+              boxed: true,
+              fontSize: 13,
+              hint: t.t('group.batchOverridePresetSelect'),
+              value: _presetProtocol,
+              options: [for (final o in c.defaults.protocolOptions()) o.value],
+              labelOf: (v) {
+                for (final o in c.defaults.protocolOptions()) {
+                  if (o.value == v) return o.label;
+                }
+                return v;
+              },
+              onChanged: (v) => setState(() {
+                _presetProtocol = v;
+                _slots = c.defaults.defaultModels(v);
+              }),
             ),
-          if (_source == 'copy')
-            DropdownButtonHideUnderline(
-              child: DropdownButton<int>(
-                isExpanded: true,
-                hint: Text(t.t('group.batchOverrideCopySelect')),
-                value: _copyPlatformId,
-                items: [
-                  for (final p in c.platforms)
-                    DropdownMenuItem(value: p.id, child: Text(p.name)),
-                ],
-                onChanged: (v) {
-                  if (v == null) return;
-                  PlatformRow? src;
-                  for (final p in c.platforms) {
-                    if (p.id == v) src = p;
-                  }
-                  setState(() {
-                    _copyPlatformId = v;
-                    if (src != null) _slots = _modelsOf(src.models);
-                  });
-                },
-              ),
+            const SizedBox(height: 10),
+          ],
+          if (_source == 'copy') ...[
+            FormDropdown(
+              boxed: true,
+              fontSize: 13,
+              hint: t.t('group.batchOverrideCopySelect'),
+              value: _copyPlatformId == null ? '' : '$_copyPlatformId',
+              options: [for (final p in c.platforms) '${p.id}'],
+              labelOf: (v) {
+                for (final p in c.platforms) {
+                  if ('${p.id}' == v) return p.name;
+                }
+                return v;
+              },
+              onChanged: (v) {
+                final id = int.tryParse(v);
+                if (id == null) return;
+                PlatformRow? src;
+                for (final p in c.platforms) {
+                  if (p.id == id) src = p;
+                }
+                setState(() {
+                  _copyPlatformId = id;
+                  if (src != null) _slots = _modelsOf(src.models);
+                });
+              },
             ),
-          const SizedBox(height: AidogSpace.ssm),
-          for (final s in kModelSlots)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 70,
-                    child: Text(
-                      t.t(s.labelKey),
-                      style: AidogType.micro.copyWith(color: theme.c.fg3),
+            const SizedBox(height: 10),
+          ],
+          // 槽位区是一块描边面板：`padding "8px 10px"` + r8 + surface 底 +
+          // 1px border + `marginBottom 12`，网格 `gap "6px 10px"`（同上 :181-186）。
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.sm),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final s in kModelSlots)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      bottom: s == kModelSlots.last ? 0 : 6,
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 70,
+                          // 槽位标签 12 w500 secondary（同上 :189-191）。
+                          child: Text(
+                            t.t(s.labelKey),
+                            style: AidogType.micro.copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0,
+                              fontWeight: FontWeight.w500,
+                              color: theme.c.fg2,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          // 🔴 控制器必须活在 State 里（`KeptTextField`）。
+                          // 这里原先是 `TextField(controller: TextEditingController(...))`，
+                          // 而本 widget 的 onChanged 自己就 setState —— 每敲一个字重建一个
+                          // 新控制器并把光标按到末尾，于是**改不了中间的字**，中文输入法
+                          // 的候选串也会被打断。这正是 `KeptTextField` 存在的理由。
+                          child: KeptTextField(
+                            key: ValueKey('batch-override-${s.key}'),
+                            value: _slots[s.key] ?? '',
+                            // 输入框 12 / `padding "4px 8px"`（同上 :194）。
+                            fontSize: 12,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            onChanged: (v) =>
+                                setState(() => _slots = {..._slots, s.key: v}),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  Expanded(
-                    // 🔴 控制器必须活在 State 里（`KeptTextField`）。
-                    // 这里原先是 `TextField(controller: TextEditingController(...))`，
-                    // 而本 widget 的 onChanged 自己就 setState —— 每敲一个字重建一个
-                    // 新控制器并把光标按到末尾，于是**改不了中间的字**，中文输入法
-                    // 的候选串也会被打断。这正是 `KeptTextField` 存在的理由。
-                    child: KeptTextField(
-                      key: ValueKey('batch-override-${s.key}'),
-                      value: _slots[s.key] ?? '',
-                      onChanged: (v) =>
-                          setState(() => _slots = {..._slots, s.key: v}),
-                    ),
-                  ),
-                ],
-              ),
+              ],
             ),
+          ),
           // 全空 → 确认按钮禁用，把原因写出来（React 是按钮 title，这里是一行提示）。
           if (allEmpty)
             Text(
               t.t('group.batchOverrideAllEmptyHint'),
               style: AidogType.micro.copyWith(color: theme.c.bad),
             ),
+          // diff 标题 12.5 secondary + 下距 6（同上 :202）。
           Text(
             t.t('group.batchOverrideDiffTitle'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            style: AidogType.micro.copyWith(
+              fontSize: 12.5,
+              letterSpacing: 0,
+              color: theme.c.fg2,
+            ),
           ),
-          for (final p in target)
-            for (final s in kModelSlots)
-              if ((p.models.toJson()[s.key] as String? ?? '').isNotEmpty ||
-                  (_slots[s.key] ?? '').isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(
-                    left: AidogSpace.ssm,
-                    bottom: 1,
+          const SizedBox(height: 6),
+          _diffPanel(t, theme, target),
+        ],
+      ),
+    );
+  }
+
+  /// 覆盖预览。React 是一块**带高度上限的描边面板**（`maxHeight: 32vh` + 滚动 +
+  /// `padding "6px 10px"` + surface 底 + 1px border），面板内**按平台分块**：
+  /// 平台名单独一行 12.5 w600，块间一条下边框，块内每槽一行四列
+  /// （标签 / 旧值 / → / 新值），变了的项箭头与新值染 accent 且新值加粗
+  /// （`BatchOverrideModelsModal.tsx:205-253`）。
+  /// 原先是把 `名 · 槽: 旧 → 新` 拼成一行纯文本、全同色，既看不出哪项会变，
+  /// 也没有高度上限——平台一多弹窗被撑出屏幕。
+  Widget _diffPanel(
+    I18nController t,
+    AidogTheme theme,
+    List<PlatformRow> target,
+  ) {
+    final empty = t.t('group.batchOverrideEmpty');
+    Widget value(String text, Color color, {bool bold = false}) => Text(
+      text.isEmpty ? empty : text,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AidogType.micro.copyWith(
+        fontSize: 11.5,
+        letterSpacing: 0,
+        fontWeight: bold ? FontWeight.w600 : FontWeight.w400,
+        fontStyle: text.isEmpty ? FontStyle.italic : null,
+        color: color,
+      ),
+    );
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.32,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.c.surface,
+          border: Border.all(color: theme.c.line),
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final p in target)
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  decoration: BoxDecoration(
+                    border: Border(bottom: BorderSide(color: theme.c.line)),
                   ),
-                  child: Text(
-                    '${p.name} · ${t.t(s.labelKey)}: '
-                    '${(p.models.toJson()[s.key] as String?) ?? t.t('group.batchOverrideEmpty')} → '
-                    '${(_slots[s.key]?.isNotEmpty ?? false) ? _slots[s.key] : t.t('group.batchOverrideEmpty')}',
-                    style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        p.name,
+                        style: AidogType.micro.copyWith(
+                          fontSize: 12.5,
+                          letterSpacing: 0,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                      for (final s in kModelSlots)
+                        if (((p.models.toJson()[s.key] as String?) ?? '')
+                                .isNotEmpty ||
+                            (_slots[s.key] ?? '').isNotEmpty)
+                          Builder(
+                            builder: (_) {
+                              final cur =
+                                  (p.models.toJson()[s.key] as String?) ?? '';
+                              final next = _slots[s.key] ?? '';
+                              final changed = cur != next;
+                              return Padding(
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 8,
+                                  top: 2,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.baseline,
+                                  textBaseline: TextBaseline.alphabetic,
+                                  children: [
+                                    Text(
+                                      t.t(s.labelKey),
+                                      style: AidogType.micro.copyWith(
+                                        fontSize: 11.5,
+                                        letterSpacing: 0,
+                                        fontWeight: FontWeight.w500,
+                                        color: theme.c.fg3,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: value(
+                                        cur,
+                                        cur.isEmpty
+                                            ? theme.c.fg3
+                                            : theme.c.fg2,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      '→',
+                                      style: AidogType.micro.copyWith(
+                                        fontSize: 11.5,
+                                        letterSpacing: 0,
+                                        color: changed
+                                            ? theme.c.accentText
+                                            : theme.c.fg3,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: value(
+                                        next,
+                                        next.isEmpty
+                                            ? theme.c.fg3
+                                            : changed
+                                            ? theme.c.accentText
+                                            : theme.c.fg2,
+                                        bold: changed,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                    ],
                   ),
                 ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -4033,7 +4221,16 @@ class _RadioChoice extends StatelessWidget {
     required this.label,
     required this.selected,
     required this.onTap,
+    this.dotSize = 14,
+    this.gap = 4,
+    this.fontSize,
   });
+
+  /// 圆点直径 / 圆点↔文字间距 / 文字字号。缺省是历史档；批量覆盖弹窗按
+  /// React 的 `RadioGroupItem` 16×16 + `gap 5` + 13（`BatchOverrideModelsModal.tsx:139-140`）。
+  final double dotSize;
+  final double gap;
+  final double? fontSize;
 
   final String label;
   final bool selected;
@@ -4053,13 +4250,15 @@ class _RadioChoice extends StatelessWidget {
           // 拉一层祖先不值当。
           Icon(
             selected ? Icons.radio_button_checked : Icons.radio_button_off,
-            size: 14,
+            size: dotSize,
             color: selected ? theme.c.accentText : theme.c.fg3,
           ),
-          const SizedBox(width: 4),
+          SizedBox(width: gap),
           Text(
             label,
             style: AidogType.micro.copyWith(
+              fontSize: fontSize,
+              letterSpacing: fontSize == null ? null : 0,
               color: selected ? theme.c.fg : theme.c.fg2,
             ),
           ),
