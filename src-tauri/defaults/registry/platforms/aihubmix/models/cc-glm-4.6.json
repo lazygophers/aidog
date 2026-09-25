@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790312333,
   "model_id": "cc-glm-4.6",
   "canonical_model": "glm-4.6",
+  "capabilities": ["text","tool_use","reasoning"],
+  "context_window": 200000,
   "display_name": "CC GLM 4.6",
   "version": "4.6",
   "family": "glm",
-  "capabilities": [],
   "official": false,
   "price": {
     "input": 6e-08,
