@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
+import '../shell/tiles.dart';
 import 'empty.dart';
 import 'palette.dart';
 
@@ -70,13 +71,16 @@ class GaugeChart extends StatelessWidget {
           SizedBox(
             width: size,
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 4),
+              // 卡标题在 React 由 `ChartCard` 画：13 w600 + `marginBottom: 12`
+              //（`ChartCard.tsx:25-28`）。
+              padding: const EdgeInsets.only(bottom: 12),
               child: Text(
                 tt,
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AidogType.label.copyWith(
+                  fontSize: 13,
                   color: t.c.fg,
                   fontWeight: FontWeight.w600,
                 ),
@@ -99,22 +103,27 @@ class GaugeChart extends StatelessWidget {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // 三行全是系统 sans + tabular-nums，不是等宽族
+                    //（`GaugeChart.tsx:86-96`）；行间 `gap: 2`（`:85`）。
                     Text(
                       formatPercent(fraction * 100, 0),
-                      style: TextStyle(
-                        fontFamily: AidogType.familyMono,
-                        fontFamilyFallback: AidogType.familyMonoFallback,
+                      style: counterStyle(
                         fontSize: size / 7,
-                        fontWeight: FontWeight.w600,
                         color: t.c.fg,
-                        fontFeatures: const [FontFeature.tabularFigures()],
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
+                    const SizedBox(height: 2),
                     Text(
                       formatValue(value),
-                      style: AidogType.numSm.copyWith(color: t.c.fg2),
+                      style: counterStyle(
+                        fontSize: 11,
+                        color: t.c.fg2,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
-                    if (label != null)
+                    if (label != null) ...[
+                      const SizedBox(height: 2),
                       SizedBox(
                         width: size * 0.7,
                         child: Text(
@@ -122,9 +131,15 @@ class GaugeChart extends StatelessWidget {
                           textAlign: TextAlign.center,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: AidogType.micro.copyWith(color: t.c.fg3),
+                          // `fontSize: 10` + tertiary，字距 0（`GaugeChart.tsx:94`）。
+                          style: AidogType.micro.copyWith(
+                            fontSize: 10,
+                            letterSpacing: 0,
+                            color: t.c.fg3,
+                          ),
                         ),
                       ),
+                    ],
                   ],
                 ),
               ),

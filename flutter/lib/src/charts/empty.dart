@@ -17,16 +17,29 @@ class ChartEmpty extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(text, style: AidogType.label.copyWith(color: t.c.fg2)),
-          if (hint != null) ...[
-            const SizedBox(height: AidogSpace.sxs),
-            Text(hint!, style: AidogType.caption.copyWith(color: t.c.fg3)),
+    // React 的空态盒是 `minHeight: 160` 的居中列（`ChartCard.tsx:32-48`）：
+    // 没有这个下限，无数据的卡会塌成两行字，整页高度跟着跳。
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minHeight: 160),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              // 空态主文案 13（`ChartCard.tsx:44`）。
+              text,
+              style: AidogType.label.copyWith(fontSize: 13, color: t.c.fg2),
+            ),
+            if (hint != null) ...[
+              const SizedBox(height: AidogSpace.sxs),
+              Text(
+                // 副行 11（`ChartCard.tsx:46`）。
+                hint!,
+                style: AidogType.caption.copyWith(fontSize: 11, color: t.c.fg3),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

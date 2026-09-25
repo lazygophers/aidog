@@ -101,18 +101,19 @@ class StatusLineSegment {
     align: clearAlign ? null : (align ?? this.align),
   );
 
-  static StatusLineSegment fromJson(Map<String, Object?> j) => StatusLineSegment(
-    id: '${j['id']}',
-    type: '${j['type']}',
-    enabled: j['enabled'] == true,
-    newline: j['newline'] == true,
-    options: j['options'] is Map
-        ? Map<String, Object?>.from(j['options']! as Map)
-        : const {},
-    color: j['color'] as String?,
-    autoColor: j['autoColor'] as bool?,
-    align: rowAlignFrom(j['align']),
-  );
+  static StatusLineSegment fromJson(Map<String, Object?> j) =>
+      StatusLineSegment(
+        id: '${j['id']}',
+        type: '${j['type']}',
+        enabled: j['enabled'] == true,
+        newline: j['newline'] == true,
+        options: j['options'] is Map
+            ? Map<String, Object?>.from(j['options']! as Map)
+            : const {},
+        color: j['color'] as String?,
+        autoColor: j['autoColor'] as bool?,
+        align: rowAlignFrom(j['align']),
+      );
 
   /// 回写形状与 React 一致：`undefined` 的键不落盘（Dart 这边就是不写这个键）。
   Map<String, Object?> toJson() => {
@@ -167,15 +168,28 @@ class SegmentDef {
 
 /// 值可驱动自动上色的段类型。
 const kValueColorable = <String>{
-  'context-pct', 'context-bar', 'cost', 'rate-limits',
-  'cost-usd', 'context-remaining', 'rate-limit-5h', 'rate-limit-7d',
-  'session-duration', 'api-duration',
+  'context-pct',
+  'context-bar',
+  'cost',
+  'rate-limits',
+  'cost-usd',
+  'context-remaining',
+  'rate-limit-5h',
+  'rate-limit-7d',
+  'session-duration',
+  'api-duration',
 };
 
 /// 消费 aidog group-info 端点的段类型。
 const kGroupSegTypes = <String>{
-  'group-balance', 'group-spent', 'group-window-cost', 'group-coding',
-  'group-requests', 'group-cache', 'group-tokens', 'group-route',
+  'group-balance',
+  'group-spent',
+  'group-window-cost',
+  'group-coding',
+  'group-requests',
+  'group-cache',
+  'group-tokens',
+  'group-route',
 };
 
 String _str(Object? v, String fallback) =>
@@ -201,7 +215,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'format': 'short'},
     toPreview: (o) => o['format'] == 'full' ? 'claude-sonnet-4-6' : 'Opus',
     fields: const [
-      SegmentField(key: 'format', label: '格式', type: 'select', options: ['short', 'full']),
+      SegmentField(
+        key: 'format',
+        label: '格式',
+        type: 'select',
+        options: ['short', 'full'],
+      ),
     ],
   ),
   SegmentDef(
@@ -214,14 +233,30 @@ final List<SegmentDef> kSegmentDefs = [
       final w = (wRaw is num && wRaw != 0) ? wRaw.round() : 10;
       const pct = 65;
       final filled = (pct * w / 100).round();
-      final bar = _falsy(o, 'filled', '▓') * filled +
+      final bar =
+          _falsy(o, 'filled', '▓') * filled +
           _falsy(o, 'empty', '░') * (w - filled);
       return '$bar $pct%';
     },
     fields: const [
-      SegmentField(key: 'width', label: '宽度', type: 'number', placeholder: '10'),
-      SegmentField(key: 'filled', label: '填充字符', type: 'string', placeholder: '▓'),
-      SegmentField(key: 'empty', label: '空字符', type: 'string', placeholder: '░'),
+      SegmentField(
+        key: 'width',
+        label: '宽度',
+        type: 'number',
+        placeholder: '10',
+      ),
+      SegmentField(
+        key: 'filled',
+        label: '填充字符',
+        type: 'string',
+        placeholder: '▓',
+      ),
+      SegmentField(
+        key: 'empty',
+        label: '空字符',
+        type: 'string',
+        placeholder: '░',
+      ),
     ],
   ),
   SegmentDef(
@@ -300,7 +335,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'char': '·'},
     toPreview: (o) => o['char'] is String ? o['char']! as String : '·',
     fields: const [
-      SegmentField(key: 'char', label: '分隔符字符', type: 'string', placeholder: '·'),
+      SegmentField(
+        key: 'char',
+        label: '分隔符字符',
+        type: 'string',
+        placeholder: '·',
+      ),
     ],
   ),
   SegmentDef(
@@ -310,7 +350,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': '余额 ', 'dynamicColor': false},
     toPreview: (o) => '${_nullish(o, 'prefix', '余额 ')}48.20',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: '余额 '),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: '余额 ',
+      ),
       SegmentField(
         key: 'dynamicColor',
         label: '动态色 (按可用天数)',
@@ -326,7 +371,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': r'$'},
     toPreview: (o) => '${_nullish(o, 'prefix', r'$')}1.23',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: r'$'),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: r'$',
+      ),
     ],
   ),
   SegmentDef(
@@ -336,7 +386,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': '折算\$'},
     toPreview: (o) => '${_nullish(o, 'prefix', '折算\$')}4.56',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: '折算\$'),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: '折算\$',
+      ),
     ],
   ),
   SegmentDef(
@@ -373,7 +428,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': '缓存 '},
     toPreview: (o) => '${_nullish(o, 'prefix', '缓存 ')}37%',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: '缓存 '),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: '缓存 ',
+      ),
     ],
   ),
   SegmentDef(
@@ -394,7 +454,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': r'$'},
     toPreview: (o) => '${_nullish(o, 'prefix', r'$')}0.12',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: r'$'),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: r'$',
+      ),
     ],
   ),
   SegmentDef(
@@ -404,7 +469,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'format': 'human'},
     toPreview: (o) => o['format'] == 'ms' ? '285000ms' : '4m45s',
     fields: const [
-      SegmentField(key: 'format', label: '格式', type: 'select', options: ['human', 'ms']),
+      SegmentField(
+        key: 'format',
+        label: '格式',
+        type: 'select',
+        options: ['human', 'ms'],
+      ),
     ],
   ),
   SegmentDef(
@@ -414,7 +484,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'format': 'human'},
     toPreview: (o) => o['format'] == 'ms' ? '15300ms' : '15s',
     fields: const [
-      SegmentField(key: 'format', label: '格式', type: 'select', options: ['human', 'ms']),
+      SegmentField(
+        key: 'format',
+        label: '格式',
+        type: 'select',
+        options: ['human', 'ms'],
+      ),
     ],
   ),
   SegmentDef(
@@ -432,7 +507,12 @@ final List<SegmentDef> kSegmentDefs = [
         ? (jsTruthy(o['abbrev']) ? '101.9K' : '101900')
         : (jsTruthy(o['abbrev']) ? '89.5K/12.4K' : '89500/12400'),
     fields: const [
-      SegmentField(key: 'mode', label: '模式', type: 'select', options: ['split', 'sum']),
+      SegmentField(
+        key: 'mode',
+        label: '模式',
+        type: 'select',
+        options: ['split', 'sum'],
+      ),
       SegmentField(
         key: 'abbrev',
         label: '缩写 (K/M)',
@@ -483,7 +563,12 @@ final List<SegmentDef> kSegmentDefs = [
         type: 'select',
         options: ['true', 'false'],
       ),
-      SegmentField(key: 'prefix', label: '命中率前缀', type: 'string', placeholder: '缓存 '),
+      SegmentField(
+        key: 'prefix',
+        label: '命中率前缀',
+        type: 'string',
+        placeholder: '缓存 ',
+      ),
     ],
   ),
   SegmentDef(
@@ -653,7 +738,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': '#'},
     toPreview: (o) => '${_nullish(o, 'prefix', '#')}123',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: '#'),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: '#',
+      ),
     ],
   ),
   SegmentDef(
@@ -675,7 +765,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'prefix': 'v'},
     toPreview: (o) => '${_nullish(o, 'prefix', 'v')}2.1.90',
     fields: const [
-      SegmentField(key: 'prefix', label: '前缀', type: 'string', placeholder: 'v'),
+      SegmentField(
+        key: 'prefix',
+        label: '前缀',
+        type: 'string',
+        placeholder: 'v',
+      ),
     ],
   ),
   SegmentDef(
@@ -691,7 +786,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'label': 'thinking'},
     toPreview: (o) => _nullish(o, 'label', 'thinking'),
     fields: const [
-      SegmentField(key: 'label', label: '文案', type: 'string', placeholder: 'thinking'),
+      SegmentField(
+        key: 'label',
+        label: '文案',
+        type: 'string',
+        placeholder: 'thinking',
+      ),
     ],
   ),
   SegmentDef(
@@ -701,7 +801,12 @@ final List<SegmentDef> kSegmentDefs = [
     defaultOptions: const {'label': '⚠200k'},
     toPreview: (o) => _nullish(o, 'label', '⚠200k'),
     fields: const [
-      SegmentField(key: 'label', label: '文案', type: 'string', placeholder: '⚠200k'),
+      SegmentField(
+        key: 'label',
+        label: '文案',
+        type: 'string',
+        placeholder: '⚠200k',
+      ),
     ],
   ),
   SegmentDef(
@@ -747,83 +852,212 @@ class SegmentCategory {
 
 const kSegmentCategories = <SegmentCategory>[
   SegmentCategory('common', '常用', [
-    'model', 'context-bar', 'context-pct', 'git', 'cost', 'rate-limits',
-    'effort', 'vim', 'separator',
+    'model',
+    'context-bar',
+    'context-pct',
+    'git',
+    'cost',
+    'rate-limits',
+    'effort',
+    'vim',
+    'separator',
   ]),
   SegmentCategory('cost', '成本 / 执行', [
-    'cost-usd', 'session-duration', 'api-duration', 'lines-changed',
+    'cost-usd',
+    'session-duration',
+    'api-duration',
+    'lines-changed',
   ]),
   SegmentCategory('context', '上下文', [
-    'context-tokens', 'context-max', 'context-remaining', 'context-cache',
+    'context-tokens',
+    'context-max',
+    'context-remaining',
+    'context-cache',
   ]),
   SegmentCategory('rate', '速率限制', ['rate-limit-5h', 'rate-limit-7d']),
   SegmentCategory('git', 'Git', [
-    'git-branch', 'git-host', 'git-owner', 'git-repo', 'git-repo-full',
+    'git-branch',
+    'git-host',
+    'git-owner',
+    'git-repo',
+    'git-repo-full',
     'git-worktree',
   ]),
   SegmentCategory('session', '目录 / 会话', [
-    'cwd', 'project-dir', 'added-dirs', 'session-id', 'session-name',
+    'cwd',
+    'project-dir',
+    'added-dirs',
+    'session-id',
+    'session-name',
     'transcript-path',
   ]),
   SegmentCategory('worktree', 'Worktree', [
-    'worktree-name', 'worktree-branch', 'worktree-original-branch',
+    'worktree-name',
+    'worktree-branch',
+    'worktree-original-branch',
   ]),
   SegmentCategory('pr', 'Pull Request', ['pr-number', 'pr-url', 'pr-state']),
   SegmentCategory('other', '其他', [
-    'version', 'output-style', 'thinking', 'token-warn', 'agent',
-    'agent-badge', 'custom',
+    'version',
+    'output-style',
+    'thinking',
+    'token-warn',
+    'agent',
+    'agent-badge',
+    'custom',
   ]),
 ];
 
 /// 内置默认 3 行布局（PRD）。只在首次运行或显式「恢复默认布局」时应用。
 const kDefaultSegments = <StatusLineSegment>[
-  StatusLineSegment(id: 'd-model', type: 'model', enabled: true, newline: false,
-      color: '#4A9EFF', options: {'format': 'short'}),
-  StatusLineSegment(id: 'd-sep1', type: 'separator', enabled: true, newline: false,
-      options: {'char': ' · '}),
-  StatusLineSegment(id: 'd-tokens', type: 'context-tokens', enabled: true,
-      newline: false, color: '#BF5AF2', options: {'mode': 'sum', 'abbrev': true}),
-  StatusLineSegment(id: 'd-cost', type: 'cost-usd', enabled: true, newline: false,
-      color: '#8E8E93', options: {'prefix': r'$', 'affixPre': '[', 'affixSuf': ']·'}),
-  StatusLineSegment(id: 'd-ctx', type: 'context-pct', enabled: true, newline: false,
-      color: '#34C759', options: {}),
-  StatusLineSegment(id: 'd-cache', type: 'context-cache', enabled: true,
-      newline: false, color: '#34C759',
-      options: {'mode': 'hitrate', 'prefix': '缓存 ', 'affixPre': '·'}),
-  StatusLineSegment(id: 'd-branch', type: 'git-branch', enabled: true, newline: true,
-      color: '#FFD60A', options: {}),
-  StatusLineSegment(id: 'd-worktree', type: 'worktree-name', enabled: true,
-      newline: false, options: {'affixPre': '·'}),
-  StatusLineSegment(id: 'd-cwd', type: 'cwd', enabled: true, newline: false,
-      options: {'format': 'full', 'affixPre': '|'}),
-  StatusLineSegment(id: 'd-coding', type: 'group-coding', enabled: true,
-      newline: true, options: {'dynamicColor': true}),
-  StatusLineSegment(id: 'd-balance', type: 'group-balance', enabled: true,
-      newline: false,
-      options: {'dynamicColor': true, 'prefix': r'$', 'affixPre': '·'}),
-  StatusLineSegment(id: 'd-wcost', type: 'group-window-cost', enabled: true,
-      newline: false, options: {'prefix': r'$', 'affixPre': '·'}),
-  StatusLineSegment(id: 'd-route', type: 'group-route', enabled: true,
-      newline: false, options: {'affixPre': '·'}),
-  StatusLineSegment(id: 'd-version', type: 'version', enabled: true, newline: false,
-      color: '#8E8E93', options: {'prefix': 'v', 'affixPre': ' · '}),
+  StatusLineSegment(
+    id: 'd-model',
+    type: 'model',
+    enabled: true,
+    newline: false,
+    color: '#4A9EFF',
+    options: {'format': 'short'},
+  ),
+  StatusLineSegment(
+    id: 'd-sep1',
+    type: 'separator',
+    enabled: true,
+    newline: false,
+    options: {'char': ' · '},
+  ),
+  StatusLineSegment(
+    id: 'd-tokens',
+    type: 'context-tokens',
+    enabled: true,
+    newline: false,
+    color: '#BF5AF2',
+    options: {'mode': 'sum', 'abbrev': true},
+  ),
+  StatusLineSegment(
+    id: 'd-cost',
+    type: 'cost-usd',
+    enabled: true,
+    newline: false,
+    color: '#8E8E93',
+    options: {'prefix': r'$', 'affixPre': '[', 'affixSuf': ']·'},
+  ),
+  StatusLineSegment(
+    id: 'd-ctx',
+    type: 'context-pct',
+    enabled: true,
+    newline: false,
+    color: '#34C759',
+    options: {},
+  ),
+  StatusLineSegment(
+    id: 'd-cache',
+    type: 'context-cache',
+    enabled: true,
+    newline: false,
+    color: '#34C759',
+    options: {'mode': 'hitrate', 'prefix': '缓存 ', 'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'd-branch',
+    type: 'git-branch',
+    enabled: true,
+    newline: true,
+    color: '#FFD60A',
+    options: {},
+  ),
+  StatusLineSegment(
+    id: 'd-worktree',
+    type: 'worktree-name',
+    enabled: true,
+    newline: false,
+    options: {'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'd-cwd',
+    type: 'cwd',
+    enabled: true,
+    newline: false,
+    options: {'format': 'full', 'affixPre': '|'},
+  ),
+  StatusLineSegment(
+    id: 'd-coding',
+    type: 'group-coding',
+    enabled: true,
+    newline: true,
+    options: {'dynamicColor': true},
+  ),
+  StatusLineSegment(
+    id: 'd-balance',
+    type: 'group-balance',
+    enabled: true,
+    newline: false,
+    options: {'dynamicColor': true, 'prefix': r'$', 'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'd-wcost',
+    type: 'group-window-cost',
+    enabled: true,
+    newline: false,
+    options: {'prefix': r'$', 'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'd-route',
+    type: 'group-route',
+    enabled: true,
+    newline: false,
+    options: {'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'd-version',
+    type: 'version',
+    enabled: true,
+    newline: false,
+    color: '#8E8E93',
+    options: {'prefix': 'v', 'affixPre': ' · '},
+  ),
 ];
 
 /// 内置默认 SubagentStatusLine 布局（单行）。
 const kDefaultSubagentSegments = <StatusLineSegment>[
-  StatusLineSegment(id: 'sa-badge', type: 'agent-badge', enabled: true,
-      newline: false, options: {}),
-  StatusLineSegment(id: 'sa-name', type: 'custom', enabled: true, newline: false,
-      color: '#4A9EFF', options: {'expr': '.label // .name // .id // "?"'}),
-  StatusLineSegment(id: 'sa-ctx', type: 'context-pct', enabled: true, newline: false,
-      color: '#34C759',
-      options: {'suffix': '%', 'degradeZero': true, 'affixPre': '·'}),
-  StatusLineSegment(id: 'sa-tokens', type: 'context-tokens', enabled: true,
-      newline: false, color: '#BF5AF2',
-      options: {'mode': 'sum', 'abbrev': true, 'affixPre': '·'}),
-  StatusLineSegment(id: 'sa-dur', type: 'session-duration', enabled: true,
-      newline: false, color: '#8E8E93',
-      options: {'format': 'human', 'affixPre': '·'}),
+  StatusLineSegment(
+    id: 'sa-badge',
+    type: 'agent-badge',
+    enabled: true,
+    newline: false,
+    options: {},
+  ),
+  StatusLineSegment(
+    id: 'sa-name',
+    type: 'custom',
+    enabled: true,
+    newline: false,
+    color: '#4A9EFF',
+    options: {'expr': '.label // .name // .id // "?"'},
+  ),
+  StatusLineSegment(
+    id: 'sa-ctx',
+    type: 'context-pct',
+    enabled: true,
+    newline: false,
+    color: '#34C759',
+    options: {'suffix': '%', 'degradeZero': true, 'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'sa-tokens',
+    type: 'context-tokens',
+    enabled: true,
+    newline: false,
+    color: '#BF5AF2',
+    options: {'mode': 'sum', 'abbrev': true, 'affixPre': '·'},
+  ),
+  StatusLineSegment(
+    id: 'sa-dur',
+    type: 'session-duration',
+    enabled: true,
+    newline: false,
+    color: '#8E8E93',
+    options: {'format': 'human', 'affixPre': '·'},
+  ),
 ];
 
 /// 可用数据字段参考表。
@@ -966,10 +1200,8 @@ Color? previewColor(StatusLineSegment seg, AidogColors c) {
 }
 
 /// 段的有效选项 = 定义的默认 + 用户覆盖。
-Map<String, Object?> effectiveOptions(SegmentDef def, StatusLineSegment seg) => {
-  ...def.defaultOptions,
-  ...seg.options,
-};
+Map<String, Object?> effectiveOptions(SegmentDef def, StatusLineSegment seg) =>
+    {...def.defaultOptions, ...seg.options};
 
 // ── 段列表的结构性变更（useStatusLinePanel 的纯计算部分） ──
 
@@ -1019,7 +1251,11 @@ List<StatusLineSegment> cycleRowAlign(
 }
 
 /// 新建一个段。[id] 由调用方给（React 用 `s${Date.now()}`）。
-StatusLineSegment? makeSegment(String type, {bool newline = false, required String id}) {
+StatusLineSegment? makeSegment(
+  String type, {
+  bool newline = false,
+  required String id,
+}) {
   final def = kSegmentDefMap[type];
   if (def == null) return null;
   return StatusLineSegment(

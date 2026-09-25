@@ -60,8 +60,7 @@ class ChartSeries {
   final bool rightAxis;
 
   /// 本序列 y 值之和（堆叠 / 排序用）。
-  double get total =>
-      points.fold(0, (s, p) => p.missing ? s : s + p.y);
+  double get total => points.fold(0, (s, p) => p.missing ? s : s + p.y);
 }
 
 /// 一个数据点。x 一般是毫秒时间戳（走 `charts/ticks.dart::xNum` 归一）。

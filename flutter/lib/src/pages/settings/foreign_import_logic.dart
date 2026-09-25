@@ -147,8 +147,10 @@ class ForeignImportController {
 
   void _takeProviders(Map<String, Object?> r) {
     final list = r['providers'] ?? r['accounts'] ?? r['items'];
-    providers =
-        (list is List ? list : const []).whereType<Map>().map(Map<String, Object?>.from).toList();
+    providers = (list is List ? list : const [])
+        .whereType<Map>()
+        .map(Map<String, Object?>.from)
+        .toList();
     // 默认全选。
     selected = {for (var i = 0; i < providers.length; i++) i};
     decisions = {};
@@ -192,7 +194,8 @@ class ForeignImportController {
   /// 把勾中的 provider 转成 Platform JSON 交给后端 apply。
   /// [toPlatformPayload] 由 UI 层提供（形状与页面上的表单绑定）。
   Future<void> runImport(
-    List<Map<String, Object?>> Function(List<Map<String, Object?>> chosen) toPlatformPayload,
+    List<Map<String, Object?>> Function(List<Map<String, Object?>> chosen)
+    toPlatformPayload,
   ) async {
     if (!canImport) return;
     busy = true;
@@ -203,22 +206,20 @@ class ForeignImportController {
         for (var i = 0; i < providers.length; i++)
           if (selected.contains(i)) providers[i],
       ];
-      report = _map(await _invoke(source.importCmd, {
-        'platformPayload': toPlatformPayload(chosen),
-        // 后端收的是 `Vec<ConflictDecision>`，**三个字段都必填**
-        //（`gateway/import_export/mod.rs:190-195`）：原先漏了 `scope`，
-        // 且 `decision` 发的是裸字符串，两处都会让反序列化失败。
-        // 异源导入进来的都是平台，scope 固定 `platform`（`mod.rs:31`，单数）。
-        'decisions': [
-          for (final e in decisions.entries)
-            {
-              'scope': 'platform',
-              'key': e.key,
-              'decision': e.value.toWire(),
-            },
-        ],
-        'autoGroup': autoGroup,
-      }));
+      report = _map(
+        await _invoke(source.importCmd, {
+          'platformPayload': toPlatformPayload(chosen),
+          // 后端收的是 `Vec<ConflictDecision>`，**三个字段都必填**
+          //（`gateway/import_export/mod.rs:190-195`）：原先漏了 `scope`，
+          // 且 `decision` 发的是裸字符串，两处都会让反序列化失败。
+          // 异源导入进来的都是平台，scope 固定 `platform`（`mod.rs:31`，单数）。
+          'decisions': [
+            for (final e in decisions.entries)
+              {'scope': 'platform', 'key': e.key, 'decision': e.value.toWire()},
+          ],
+          'autoGroup': autoGroup,
+        }),
+      );
     } catch (e) {
       error = '$e';
     } finally {

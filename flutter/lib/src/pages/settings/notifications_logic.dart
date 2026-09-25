@@ -48,23 +48,26 @@ class NotificationSettings {
   final Map<String, Object?> perEvent;
   final int inboxRetentionDays;
 
-  factory NotificationSettings.fromJson(Map<String, Object?> j) => NotificationSettings(
+  factory NotificationSettings.fromJson(Map<String, Object?> j) =>
+      NotificationSettings(
         enabled: j['enabled'] as bool? ?? true,
         ttsEnabled: j['tts_enabled'] as bool? ?? true,
         ttsBackend: j['tts_backend'] as String? ?? 'cross_platform',
         perType: Map<String, Object?>.from((j['per_type'] as Map?) ?? const {}),
-        perEvent: Map<String, Object?>.from((j['per_event'] as Map?) ?? const {}),
+        perEvent: Map<String, Object?>.from(
+          (j['per_event'] as Map?) ?? const {},
+        ),
         inboxRetentionDays: (j['inbox_retention_days'] as num?)?.toInt() ?? 7,
       );
 
   Map<String, Object?> toJson() => {
-        'enabled': enabled,
-        'tts_enabled': ttsEnabled,
-        'tts_backend': ttsBackend,
-        'per_type': perType,
-        'per_event': perEvent,
-        'inbox_retention_days': inboxRetentionDays,
-      };
+    'enabled': enabled,
+    'tts_enabled': ttsEnabled,
+    'tts_backend': ttsBackend,
+    'per_type': perType,
+    'per_event': perEvent,
+    'inbox_retention_days': inboxRetentionDays,
+  };
 
   NotificationSettings copyWith({
     bool? enabled,
@@ -73,15 +76,14 @@ class NotificationSettings {
     Map<String, Object?>? perType,
     Map<String, Object?>? perEvent,
     int? inboxRetentionDays,
-  }) =>
-      NotificationSettings(
-        enabled: enabled ?? this.enabled,
-        ttsEnabled: ttsEnabled ?? this.ttsEnabled,
-        ttsBackend: ttsBackend ?? this.ttsBackend,
-        perType: perType ?? this.perType,
-        perEvent: perEvent ?? this.perEvent,
-        inboxRetentionDays: inboxRetentionDays ?? this.inboxRetentionDays,
-      );
+  }) => NotificationSettings(
+    enabled: enabled ?? this.enabled,
+    ttsEnabled: ttsEnabled ?? this.ttsEnabled,
+    ttsBackend: ttsBackend ?? this.ttsBackend,
+    perType: perType ?? this.perType,
+    perEvent: perEvent ?? this.perEvent,
+    inboxRetentionDays: inboxRetentionDays ?? this.inboxRetentionDays,
+  );
 }
 
 /// uv 缺失时要用户拍板的三选一。
@@ -116,8 +118,8 @@ class NotificationsController {
     this.onEnabledChanged,
     this.openUrlFn,
     Duration? persistDebounce,
-  })  : _invoke = invoke ?? kernelInvoke,
-        persistDebounce = persistDebounce ?? const Duration(milliseconds: 200);
+  }) : _invoke = invoke ?? kernelInvoke,
+       persistDebounce = persistDebounce ?? const Duration(milliseconds: 200);
 
   final InvokeFn _invoke;
   final void Function()? onChanged;
@@ -150,17 +152,26 @@ class NotificationsController {
 
   Future<void> load() async {
     try {
-      settings = NotificationSettings.fromJson(_map(await _invoke('notification_settings_get')));
-    } catch (_) {/* console.error；保留默认值 */}
+      settings = NotificationSettings.fromJson(
+        _map(await _invoke('notification_settings_get')),
+      );
+    } catch (_) {
+      /* console.error；保留默认值 */
+    }
     try {
-      defaultHooks = await _invoke('get_default_hooks_enabled') as bool? ?? false;
-    } catch (_) {/* console.error；保留 false */}
+      defaultHooks =
+          await _invoke('get_default_hooks_enabled') as bool? ?? false;
+    } catch (_) {
+      /* console.error；保留 false */
+    }
     loading = false;
     _notify();
   }
 
   /// 乐观改本地值 → 防抖写 DB → 失败回滚到写前快照。
-  void persist(NotificationSettings Function(NotificationSettings prev) updater) {
+  void persist(
+    NotificationSettings Function(NotificationSettings prev) updater,
+  ) {
     final prev = settings;
     final next = updater(prev);
     settings = next;
@@ -171,7 +182,9 @@ class NotificationsController {
     _persistTimer?.cancel();
     _persistTimer = Timer(persistDebounce, () async {
       try {
-        await _invoke('notification_settings_set', {'settings': settings.toJson()});
+        await _invoke('notification_settings_set', {
+          'settings': settings.toJson(),
+        });
       } catch (e) {
         // 回滚到写前快照，界面与 DB 一致。
         settings = prev;
@@ -186,7 +199,9 @@ class NotificationsController {
     if (_persistTimer?.isActive ?? false) {
       _persistTimer!.cancel();
       try {
-        await _invoke('notification_settings_set', {'settings': settings.toJson()});
+        await _invoke('notification_settings_set', {
+          'settings': settings.toJson(),
+        });
       } catch (e) {
         error = '$e';
         _notify();
@@ -202,18 +217,21 @@ class NotificationsController {
 
   void setTtsBackend(String b) => persist((p) => p.copyWith(ttsBackend: b));
 
-  void setInboxRetentionDays(int d) => persist((p) => p.copyWith(inboxRetentionDays: d));
+  void setInboxRetentionDays(int d) =>
+      persist((p) => p.copyWith(inboxRetentionDays: d));
 
   /// 逐事件配置写进 `per_event[event]`。
-  void updateEvent(String event, Map<String, Object?> setting) => persist(
-        (p) => p.copyWith(perEvent: {...p.perEvent, event: setting}),
-      );
+  void updateEvent(String event, Map<String, Object?> setting) =>
+      persist((p) => p.copyWith(perEvent: {...p.perEvent, event: setting}));
 
   // ── 四个独立通道测试（绕过 dispatch，便于诊断）──
 
   Future<void> testNotify(NotificationTexts texts) async {
     try {
-      await _invoke('notification_test', {'notifType': 'task_complete', 'content': null});
+      await _invoke('notification_test', {
+        'notifType': 'task_complete',
+        'content': null,
+      });
       message = texts.testSent;
     } catch (e) {
       message = '$e';
@@ -257,7 +275,9 @@ class NotificationsController {
   Future<bool> ensureExecutorReady() async {
     try {
       if (await _invoke('check_uv') as bool? ?? false) return true;
-    } catch (_) {/* console.error，继续弹框 */}
+    } catch (_) {
+      /* console.error，继续弹框 */
+    }
     final c = Completer<UvChoice>();
     uvPrompt = c;
     _notify();
@@ -278,7 +298,9 @@ class NotificationsController {
       message = texts.uvInstallFailed;
       try {
         await _invoke('set_script_executor', {'executor': 'python3'});
-      } catch (_) {/* best-effort */}
+      } catch (_) {
+        /* best-effort */
+      }
     }
     uvInstalling = false;
     uvPrompt = null;
@@ -291,7 +313,9 @@ class NotificationsController {
     if (p == null) return;
     try {
       await _invoke('set_script_executor', {'executor': 'python3'});
-    } catch (_) {/* console.error */}
+    } catch (_) {
+      /* console.error */
+    }
     uvPrompt = null;
     p.complete(UvChoice.usePython3);
     _notify();
@@ -349,7 +373,8 @@ class NotificationsController {
 /// 管理面永远只监听 127.0.0.1，**没有开放到局域网的开关**。
 /// `StartupSection` 里代理的「局域网访问」管的是转发端口，是另一个维度。
 class KernelSettingsController {
-  KernelSettingsController({InvokeFn? invoke, this.onChanged}) : _invoke = invoke ?? kernelInvoke;
+  KernelSettingsController({InvokeFn? invoke, this.onChanged})
+    : _invoke = invoke ?? kernelInvoke;
 
   final InvokeFn _invoke;
   final void Function()? onChanged;

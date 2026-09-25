@@ -96,7 +96,10 @@ const _ccRuntimeIgnoreExact = <String>{
   'skipWebFetchPreflight',
   'workflowKeywordTriggerEnabled',
 };
-const _ccRuntimeIgnorePrefixes = <String>['fileSuggestion.', 'env.ANTHROPIC_DEFAULT_'];
+const _ccRuntimeIgnorePrefixes = <String>[
+  'fileSuggestion.',
+  'env.ANTHROPIC_DEFAULT_',
+];
 
 bool _isCcRuntimeIgnored(String path) {
   if (_ccRuntimeIgnoreExact.contains(path)) return true;
@@ -142,16 +145,26 @@ List<DiffNode> buildImportDiffTree(
           continue;
         }
         if (_sameJson(curObj[ck], incObj[ck])) continue;
-        children.add(DiffNode(
-          path: childPath,
-          label: ck,
-          current: curObj[ck],
-          incoming: incObj[ck],
-        ));
+        children.add(
+          DiffNode(
+            path: childPath,
+            label: ck,
+            current: curObj[ck],
+            incoming: incObj[ck],
+          ),
+        );
       }
       // 有差异的子节点全被排除 → 父节点整个丢掉。
       if (children.isNotEmpty) {
-        nodes.add(DiffNode(path: key, label: key, current: cur, incoming: inc, children: children));
+        nodes.add(
+          DiffNode(
+            path: key,
+            label: key,
+            current: cur,
+            incoming: inc,
+            children: children,
+          ),
+        );
       }
       continue;
     }
@@ -172,7 +185,8 @@ const _derivedKeys = <String>{'statusLine', 'subagentStatusLine', 'hooks'};
 List<DiffNode> buildRecommendedDiffTree(
   Map<String, Object?> current,
   Map<String, Object?> recommended,
-) =>
-    buildImportDiffTree(current, recommended, <String>{})
-        .where((n) => !_derivedKeys.contains(n.path))
-        .toList();
+) => buildImportDiffTree(
+  current,
+  recommended,
+  <String>{},
+).where((n) => !_derivedKeys.contains(n.path)).toList();

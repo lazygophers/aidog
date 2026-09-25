@@ -65,11 +65,7 @@ class AidogScatterChart extends StatelessWidget {
 
     // 轴域钉在 bin 边界（服务端算好的 nice 边界），空矩阵退化 [0,1] —— 与 React 版同规则。
     final xAxis = axisFromTicks(
-      niceTicks(
-        histogram.durationBins.first,
-        histogram.durationBins.last,
-        5,
-      ),
+      niceTicks(histogram.durationBins.first, histogram.durationBins.last, 5),
       fallbackMax: 1,
     );
     final yAxis = axisFromTicks(
@@ -101,10 +97,17 @@ class AidogScatterChart extends StatelessWidget {
           show: true,
           horizontalInterval: yAxis.interval,
           verticalInterval: xAxis.interval,
-          getDrawingHorizontalLine: (_) =>
-              FlLine(color: t.c.line, strokeWidth: 1, dashArray: const [3, 3]),
-          getDrawingVerticalLine: (_) =>
-              FlLine(color: t.c.line, strokeWidth: 1, dashArray: const [3, 3]),
+          // `stroke-border/50`（`ui/chart.tsx:67`）。
+          getDrawingHorizontalLine: (_) => FlLine(
+            color: t.c.line.withValues(alpha: .5),
+            strokeWidth: 1,
+            dashArray: const [3, 3],
+          ),
+          getDrawingVerticalLine: (_) => FlLine(
+            color: t.c.line.withValues(alpha: .5),
+            strokeWidth: 1,
+            dashArray: const [3, 3],
+          ),
         ),
         borderData: FlBorderData(show: false),
         titlesData: FlTitlesData(
@@ -112,9 +115,11 @@ class AidogScatterChart extends StatelessWidget {
           rightTitles: const AxisTitles(),
           bottomTitles: AxisTitles(
             axisNameSize: 16,
+            // React 轴名 `label.fontSize = 11` + `--text-tertiary`
+            //（`ScatterChart.tsx:111`）。
             axisNameWidget: Text(
               xLabel,
-              style: AidogType.caption.copyWith(color: t.c.fg3),
+              style: AidogType.caption.copyWith(fontSize: 11, color: t.c.fg3),
             ),
             sideTitles: SideTitles(
               showTitles: true,
@@ -126,9 +131,10 @@ class AidogScatterChart extends StatelessWidget {
           ),
           leftTitles: AxisTitles(
             axisNameSize: 16,
+            // 同上（`ScatterChart.tsx:121`）。
             axisNameWidget: Text(
               yLabel,
-              style: AidogType.caption.copyWith(color: t.c.fg3),
+              style: AidogType.caption.copyWith(fontSize: 11, color: t.c.fg3),
             ),
             sideTitles: SideTitles(
               showTitles: true,
@@ -140,9 +146,15 @@ class AidogScatterChart extends StatelessWidget {
           ),
         ),
         scatterTouchData: ScatterTouchData(
+          // 盒样式对齐 `ui/chart.tsx:186`（同折线图）。
           touchTooltipData: ScatterTouchTooltipData(
-            getTooltipColor: (_) => t.c.surface2,
-            tooltipBorder: BorderSide(color: t.c.line),
+            getTooltipColor: (_) => t.c.surface,
+            tooltipBorder: BorderSide(color: t.c.line.withValues(alpha: .5)),
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: 6,
+            ),
+            tooltipBorderRadius: BorderRadius.circular(AidogRadius.sm),
             fitInsideHorizontally: true,
             fitInsideVertically: true,
             // 触点自带坐标（不是位置索引），按坐标回查 count。
@@ -150,7 +162,8 @@ class AidogScatterChart extends StatelessWidget {
             getTooltipItems: (spot) => scatterTooltipItem(
               points.firstWhere(
                 (p) => p.x == spot.x && p.y == spot.y,
-                orElse: () => throw StateError('散点 (${spot.x}, ${spot.y}) 不在点集里'),
+                orElse: () =>
+                    throw StateError('散点 (${spot.x}, ${spot.y}) 不在点集里'),
               ),
               xLabel: xLabel,
               yLabel: yLabel,

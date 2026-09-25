@@ -125,6 +125,7 @@ class AidogColors {
 }
 
 class AidogSpace {
+  static const double s_8 = 8.0;
   static const double sxs = 4.0;
   static const double ssm = 6.0;
   static const double smd = 10.0;

@@ -15,26 +15,30 @@ LineTooltipItem chartTooltipItem(
   TooltipRow row, {
   String? header,
   required AidogColors c,
-}) =>
-    LineTooltipItem(
-      header == null ? '' : '$header\n',
-      AidogType.caption.copyWith(color: c.fg3),
-      textAlign: TextAlign.left,
-      children: [
-        TextSpan(
-          text: '$kTooltipSwatch ',
-          style: AidogType.caption.copyWith(color: row.color),
-        ),
-        TextSpan(
-          text: '${row.label}  ',
-          style: AidogType.caption.copyWith(color: c.fg2),
-        ),
-        TextSpan(
-          text: row.value,
-          style: AidogType.numSm.copyWith(
-            color: c.fg,
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-      ],
-    );
+}) => LineTooltipItem(
+  header == null ? '' : '$header\n',
+  // 盒内一律 `text-xs` = 12（`ui/chart.tsx:186`），不是 caption 的 12.5。
+  AidogType.caption.copyWith(fontSize: 12, color: c.fg3),
+  textAlign: TextAlign.left,
+  children: [
+    TextSpan(
+      text: '$kTooltipSwatch ',
+      style: AidogType.caption.copyWith(fontSize: 12, color: row.color),
+    ),
+    TextSpan(
+      text: '${row.label}  ',
+      style: AidogType.caption.copyWith(fontSize: 12, color: c.fg2),
+    ),
+    TextSpan(
+      // 数值行 `font-mono font-medium tabular-nums`（`charts/tooltip.tsx:55`）：
+      // 等宽 + **w500**，numSm 缺省是 w400。
+      text: row.value,
+      style: AidogType.numSm.copyWith(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: c.fg,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      ),
+    ),
+  ],
+);

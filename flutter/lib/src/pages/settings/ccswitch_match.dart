@@ -291,7 +291,8 @@ Map<String, Object?> sub2apiAccountToPlatformJson(
   String? protocolOverride,
 }) {
   final protocol =
-      protocolOverride ?? mapSub2apiPlatform(_str(account['platform'])).protocol;
+      protocolOverride ??
+      mapSub2apiPlatform(_str(account['platform'])).protocol;
   final provided = _str(account['baseUrl'] ?? account['base_url']);
   final match = _buildMatch(
     protocol,

@@ -94,72 +94,87 @@ class AidogStackedAreaChart extends StatelessWidget {
         }(),
     ];
 
-    return LineChart(
-      LineChartData(
-        minX: xAxis.min,
-        maxX: xAxis.max,
-        minY: yAxis.min,
-        maxY: yAxis.max,
-        lineBarsData: bars,
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: yAxis.interval,
-          getDrawingHorizontalLine: (_) =>
-              FlLine(color: t.c.line, strokeWidth: 1, dashArray: const [3, 3]),
-        ),
-        borderData: FlBorderData(show: false),
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(),
-          rightTitles: const AxisTitles(),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: xAxis.interval,
-              reservedSize: 24,
-              getTitlesWidget: (v, meta) => Text(
-                formatTimeTick(v, spanMs),
-                style: labelStyle,
-                maxLines: 1,
-                softWrap: false,
-              ),
+    // React `margin={{top:8,right:12,bottom:0,left:0}}`
+    //（`StackedAreaChart.tsx:92`）—— fl_chart 没有外边距字段，包一层 Padding。
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, right: 12),
+      child: LineChart(
+        LineChartData(
+          minX: xAxis.min,
+          maxX: xAxis.max,
+          minY: yAxis.min,
+          maxY: yAxis.max,
+          lineBarsData: bars,
+          gridData: FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: yAxis.interval,
+            getDrawingHorizontalLine: (_) => FlLine(
+              // `stroke-border/50`（`ui/chart.tsx:67`）。
+              color: t.c.line.withValues(alpha: .5),
+              strokeWidth: 1,
+              dashArray: const [3, 3],
             ),
           ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              interval: yAxis.interval,
-              reservedSize: 48,
-              getTitlesWidget: (v, meta) => Text(
-                rows.first.format(v),
-                style: labelStyle,
-                maxLines: 1,
-                softWrap: false,
-              ),
-            ),
-          ),
-        ),
-        lineTouchData: LineTouchData(
-          touchTooltipData: LineTouchTooltipData(
-            getTooltipColor: (_) => t.c.surface2,
-            tooltipBorder: BorderSide(color: t.c.line),
-            maxContentWidth: 260,
-            fitInsideHorizontally: true,
-            fitInsideVertically: true,
-            // 触点 y 是**累加后**的栈顶高度，不是该层自己的值；
-            // tooltipRowAtSpot 回到序列点集取原值。
-            getTooltipItems: (spots) => [
-              for (var i = 0; i < spots.length; i++)
-                chartTooltipItem(
-                  tooltipRowAtSpot(
-                    drawn,
-                    spots[i].barIndex,
-                    spots[i].spotIndex,
-                  ),
-                  header: i == 0 ? formatTimeTick(spots[i].x, spanMs) : null,
-                  c: t.c,
+          borderData: FlBorderData(show: false),
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(),
+            rightTitles: const AxisTitles(),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: xAxis.interval,
+                reservedSize: 24,
+                getTitlesWidget: (v, meta) => Text(
+                  formatTimeTick(v, spanMs),
+                  style: labelStyle,
+                  maxLines: 1,
+                  softWrap: false,
                 ),
-            ],
+              ),
+            ),
+            leftTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: yAxis.interval,
+                reservedSize: 48,
+                getTitlesWidget: (v, meta) => Text(
+                  rows.first.format(v),
+                  style: labelStyle,
+                  maxLines: 1,
+                  softWrap: false,
+                ),
+              ),
+            ),
+          ),
+          lineTouchData: LineTouchData(
+            // 盒样式对齐 `ui/chart.tsx:186` + `charts/tooltip.tsx:30`（同折线图）。
+            touchTooltipData: LineTouchTooltipData(
+              getTooltipColor: (_) => t.c.surface,
+              tooltipBorder: BorderSide(color: t.c.line.withValues(alpha: .5)),
+              tooltipPadding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 6,
+              ),
+              tooltipBorderRadius: BorderRadius.circular(AidogRadius.sm),
+              maxContentWidth: 256,
+              fitInsideHorizontally: true,
+              fitInsideVertically: true,
+              // 触点 y 是**累加后**的栈顶高度，不是该层自己的值；
+              // tooltipRowAtSpot 回到序列点集取原值。
+              getTooltipItems: (spots) => [
+                for (var i = 0; i < spots.length; i++)
+                  chartTooltipItem(
+                    tooltipRowAtSpot(
+                      drawn,
+                      spots[i].barIndex,
+                      spots[i].spotIndex,
+                    ),
+                    header: i == 0 ? formatTimeTick(spots[i].x, spanMs) : null,
+                    c: t.c,
+                  ),
+              ],
+            ),
           ),
         ),
       ),

@@ -228,8 +228,7 @@ class _PathInputRowState extends State<PathInputRow> {
   Future<void> _pick() async {
     final picker =
         widget.pick ??
-        (bool dir) =>
-            pickPath(PickPathOptions(directory: dir)).then((v) => v);
+        (bool dir) => pickPath(PickPathOptions(directory: dir)).then((v) => v);
     final selected = await picker(_isDirPicker);
     if (selected != null && selected.isNotEmpty) _setText(selected);
   }
@@ -285,11 +284,15 @@ class _PathInputRowState extends State<PathInputRow> {
 
   Widget _field(I18nController t, AidogTheme theme) => Shortcuts(
     shortcuts: const {
-      SingleActivator(LogicalKeyboardKey.arrowDown): _PathKeyIntent(PathKey.down),
+      SingleActivator(LogicalKeyboardKey.arrowDown): _PathKeyIntent(
+        PathKey.down,
+      ),
       SingleActivator(LogicalKeyboardKey.arrowUp): _PathKeyIntent(PathKey.up),
       SingleActivator(LogicalKeyboardKey.tab): _PathKeyIntent(PathKey.tab),
       SingleActivator(LogicalKeyboardKey.enter): _PathKeyIntent(PathKey.enter),
-      SingleActivator(LogicalKeyboardKey.escape): _PathKeyIntent(PathKey.escape),
+      SingleActivator(LogicalKeyboardKey.escape): _PathKeyIntent(
+        PathKey.escape,
+      ),
     },
     child: Actions(
       actions: {
@@ -343,53 +346,49 @@ class _PathInputRowState extends State<PathInputRow> {
     ),
   );
 
-  Widget _row(
-    I18nController t,
-    AidogTheme theme,
-    PathSuggestion s,
-    int i,
-  ) => InkWell(
-    key: ValueKey('path-sugg-$i'),
-    onTap: () => _select(s),
-    child: Container(
-      // 键盘高亮行：淡底 + 左侧亮竖条。只有淡底的话对表面只有 1.15:1，
-      // 到不了 1.4.11 要求的 3:1 —— 键盘用户看不出光标停在哪一行。
-      // 透明边常驻，高亮时才上色，避免行宽在高亮切换时跳。
-      decoration: BoxDecoration(
-        color: i == _hl ? theme.c.accentWash : null,
-        border: Border(
-          left: BorderSide(
-            color: i == _hl ? theme.c.accentEdge : Colors.transparent,
-            width: 2,
-          ),
-        ),
-      ),
-      padding: const EdgeInsets.symmetric(
-        horizontal: AidogSpace.ssm,
-        vertical: AidogSpace.sxs,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            s.isDir ? Icons.folder : Icons.insert_drive_file_outlined,
-            size: 13,
-            color: theme.c.fg3,
-          ),
-          const SizedBox(width: AidogSpace.sxs),
-          Expanded(
-            child: Text(
-              s.name,
-              style: AidogType.micro.copyWith(color: theme.c.fg),
-              overflow: TextOverflow.ellipsis,
+  Widget _row(I18nController t, AidogTheme theme, PathSuggestion s, int i) =>
+      InkWell(
+        key: ValueKey('path-sugg-$i'),
+        onTap: () => _select(s),
+        child: Container(
+          // 键盘高亮行：淡底 + 左侧亮竖条。只有淡底的话对表面只有 1.15:1，
+          // 到不了 1.4.11 要求的 3:1 —— 键盘用户看不出光标停在哪一行。
+          // 透明边常驻，高亮时才上色，避免行宽在高亮切换时跳。
+          decoration: BoxDecoration(
+            color: i == _hl ? theme.c.accentWash : null,
+            border: Border(
+              left: BorderSide(
+                color: i == _hl ? theme.c.accentEdge : Colors.transparent,
+                width: 2,
+              ),
             ),
           ),
-          const SizedBox(width: AidogSpace.sxs),
-          Text(
-            formatSuggestionTime(t, s.modified),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AidogSpace.ssm,
+            vertical: AidogSpace.sxs,
           ),
-        ],
-      ),
-    ),
-  );
+          child: Row(
+            children: [
+              Icon(
+                s.isDir ? Icons.folder : Icons.insert_drive_file_outlined,
+                size: 13,
+                color: theme.c.fg3,
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              Expanded(
+                child: Text(
+                  s.name,
+                  style: AidogType.micro.copyWith(color: theme.c.fg),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              Text(
+                formatSuggestionTime(t, s.modified),
+                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              ),
+            ],
+          ),
+        ),
+      );
 }

@@ -9,6 +9,7 @@ library;
 import 'package:flutter/widgets.dart';
 
 import '../shell/theme.dart';
+import '../shell/tiles.dart';
 
 /// 一条轴的可画参数。[ticks] 保留原列表，供测试逐值断言（与 React 版同一套期望）。
 @immutable
@@ -57,8 +58,10 @@ AxisSpec axisFromTicks(
   );
 }
 
-/// 轴刻度文字样式（等宽 + tabular，与格子里的数字同一套）。
-TextStyle axisLabelStyle(AidogColors c) => AidogType.numSm.copyWith(
-      color: c.fg3,
-      fontFeatures: const [FontFeature.tabularFigures()],
-    );
+/// 轴刻度文字样式。
+///
+/// React 的刻度继承 `ChartContainer` 的 `text-xs` = 12 **系统 sans** +
+/// `fill-muted-foreground`（`src/components/ui/chart.tsx:67`），只是 tabular-nums；
+/// 用等宽族会让整屏字体观感与 React 不同 —— 所以走 [counterStyle] 而不是 numSm。
+TextStyle axisLabelStyle(AidogColors c) =>
+    counterStyle(fontSize: 12, color: c.fg2, fontWeight: FontWeight.w400);

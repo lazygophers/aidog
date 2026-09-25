@@ -19,7 +19,8 @@ import '../../shell/theme.dart';
 import '../../shell/tiles.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
-import 'sandbox_editor.dart' show SandboxTagList;
+import 'field_editors.dart' show StringListEditor;
+import 'schema_config_page.dart' show JsonField;
 
 /// 市场来源的九种形态。顺序与 React 的 `MARKETPLACE_SOURCE_TYPES` 一致。
 const _sourceTypes = <String>[
@@ -138,95 +139,114 @@ class MarketplaceSourceEditor extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     final fields = _sourceFields[_type] ?? const [];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        SelectRow(
-          key: ValueKey('$idPrefix-type'),
-          label: 'Type',
-          options: _sourceTypes,
-          value: _type,
-          labelOf: (o) => _sourceTypeLabels[o] ?? o,
-          // 换类型只保留 source 本身，类型专属字段全清（React 同规则）。
-          onChanged: (v) => onChanged({'source': v ?? 'github'}),
+    // B18：React 子字段标签是 `F.hint` 13 fg2、标签列定宽 80（compact 50）
+    //（`PluginsSection.tsx:87,107,119,128`），不是 micro 11 ls0.66。
+    const labelSize = 13.0;
+    // A13：React 是 `paddingLeft: 8` + `borderLeft: 2px var(--border)`
+    //（`PluginsSection.tsx:84`），Flutter 原先改成了末尾一条 Divider。
+    return Container(
+      padding: const EdgeInsetsDirectional.only(start: AidogSpace.s_8),
+      decoration: BoxDecoration(
+        border: BorderDirectional(
+          start: BorderSide(color: theme.c.line, width: 2),
         ),
-        for (final (key, label, placeholder, required) in fields)
-          TextRow(
-            key: ValueKey('$idPrefix-$key'),
-            label: required ? '$label *' : label,
-            hint: placeholder,
-            value: '${source[key] ?? ''}',
-            onSubmitted: (v) => _setField(key, v.trim()),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SelectRow(
+            key: ValueKey('$idPrefix-type'),
+            label: 'Type',
+            options: _sourceTypes,
+            value: _type,
+            labelOf: (o) => _sourceTypeLabels[o] ?? o,
+            // 换类型只保留 source 本身，类型专属字段全清（React 同规则）。
+            onChanged: (v) => onChanged({'source': v ?? 'github'}),
           ),
-        if (_type == 'github' || _type == 'git')
-          SwitchRow(
-            key: ValueKey('$idPrefix-skip-lfs'),
-            label: 'skipLfs',
-            description: t.t('settings.plugins.skipLfs'),
-            value: source['skipLfs'] == true,
-            onChanged: (v) => _setField('skipLfs', v),
-          ),
-        if (_type == 'url')
-          TextRow(
-            key: ValueKey('$idPrefix-headers'),
-            label: 'Headers',
-            hint: '{"Authorization": "Bearer \${TOKEN}"}',
-            value: source['headers'] == null
-                ? ''
-                : jsonEncode(source['headers']),
-            // 非法 JSON 保持原值不写（React：`catch { /* keep as-is */ }`）。
-            onSubmitted: (v) {
-              if (v.trim().isEmpty) return;
-              try {
-                _setField('headers', jsonDecode(v));
-              } catch (_) {
-                /* 保持原值 */
-              }
-            },
-          ),
-        // `settings` 源可以在一条来源里内联定义多个插件，每个插件自己又是一个
-        // 完整的来源编辑器（递归嵌套）。`PluginsSection.tsx:139-176`。
-        if (_type == 'settings') ...[
-          for (var pi = 0; pi < _plugins.length; pi++)
-            _InlinePluginRow(
-              key: ValueKey('$idPrefix-plugin-$pi'),
-              idPrefix: '$idPrefix-plugin-$pi',
-              plugin: _plugins[pi],
-              onChanged: (next) {
-                final plugs = _plugins;
-                plugs[pi] = next;
-                _setPlugins(plugs);
-              },
-              onRemove: () {
-                final plugs = _plugins..removeAt(pi);
-                _setPlugins(plugs);
+          for (final (key, label, placeholder, required) in fields)
+            TextRow(
+              key: ValueKey('$idPrefix-$key'),
+              label: required ? '$label *' : label,
+              labelFontSize: labelSize,
+              fontSize: compact ? 13 : kEditorInputFontSize,
+              hint: placeholder,
+              value: '${source[key] ?? ''}',
+              onSubmitted: (v) => _setField(key, v.trim()),
+            ),
+          if (_type == 'github' || _type == 'git')
+            SwitchRow(
+              key: ValueKey('$idPrefix-skip-lfs'),
+              label: 'skipLfs',
+              description: t.t('settings.plugins.skipLfs'),
+              value: source['skipLfs'] == true,
+              onChanged: (v) => _setField('skipLfs', v),
+            ),
+          if (_type == 'url')
+            TextRow(
+              key: ValueKey('$idPrefix-headers'),
+              label: 'Headers',
+              labelFontSize: labelSize,
+              fontSize: compact ? 13 : kEditorInputFontSize,
+              hint: '{"Authorization": "Bearer \${TOKEN}"}',
+              value: source['headers'] == null
+                  ? ''
+                  : jsonEncode(source['headers']),
+              // 非法 JSON 保持原值不写（React：`catch { /* keep as-is */ }`）。
+              onSubmitted: (v) {
+                if (v.trim().isEmpty) return;
+                try {
+                  _setField('headers', jsonDecode(v));
+                } catch (_) {
+                  /* 保持原值 */
+                }
               },
             ),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SmallButton(
-              key: ValueKey('$idPrefix-plugin-add'),
-              label: '+ Plugin',
-              onTap: () => _setPlugins([
-                ..._plugins,
-                {
-                  'name': '',
-                  'source': {'source': 'github'},
+          // `settings` 源可以在一条来源里内联定义多个插件，每个插件自己又是一个
+          // 完整的来源编辑器（递归嵌套）。`PluginsSection.tsx:139-176`。
+          if (_type == 'settings') ...[
+            for (var pi = 0; pi < _plugins.length; pi++)
+              _InlinePluginRow(
+                key: ValueKey('$idPrefix-plugin-$pi'),
+                idPrefix: '$idPrefix-plugin-$pi',
+                plugin: _plugins[pi],
+                onChanged: (next) {
+                  final plugs = _plugins;
+                  plugs[pi] = next;
+                  _setPlugins(plugs);
                 },
-              ]),
+                onRemove: () {
+                  final plugs = _plugins..removeAt(pi);
+                  _setPlugins(plugs);
+                },
+              ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SmallButton(
+                key: ValueKey('$idPrefix-plugin-add'),
+                label: '+ Plugin',
+                // B19：React `F.small` 12 · pad 4/10（`PluginsSection.tsx:171`）。
+                fontSize: 12,
+                padding: (10, 4),
+                onTap: () => _setPlugins([
+                  ..._plugins,
+                  {
+                    'name': '',
+                    'source': {'source': 'github'},
+                  },
+                ]),
+              ),
             ),
+          ],
+          SwitchRow(
+            key: ValueKey('$idPrefix-auto-update'),
+            label: 'auto',
+            description: t.t('settings.plugins.autoRefresh'),
+            value: source['autoUpdate'] == true,
+            onChanged: (v) => _setField('autoUpdate', v),
           ),
         ],
-        SwitchRow(
-          key: ValueKey('$idPrefix-auto-update'),
-          label: 'auto',
-          description: t.t('settings.plugins.autoRefresh'),
-          value: source['autoUpdate'] == true,
-          onChanged: (v) => _setField('autoUpdate', v),
-        ),
-        if (!compact) Divider(height: AidogSpace.smd, color: theme.c.line),
-      ],
+      ),
     );
   }
 }
@@ -269,11 +289,12 @@ class _InlinePluginRow extends StatelessWidget {
             hint: 'plugin-name',
             value: '${plugin['name'] ?? ''}',
             onSubmitted: (v) => onChanged({...plugin, 'name': v.trim()}),
+            // B20：React 是 `IconClose size={12}` + pad 4（`PluginsSection.tsx:162-168`）。
             trailing: IconButton(
               key: ValueKey('$idPrefix-remove'),
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
-              iconSize: 14,
+              iconSize: 12,
               visualDensity: VisualDensity.compact,
               tooltip: t.t('action.remove'),
               icon: Icon(Icons.close, color: theme.c.fg3),
@@ -386,38 +407,59 @@ class _PluginsEditorState extends State<PluginsEditor> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // ── Enabled Plugins ──
-        const TileMeta('Enabled Plugins', icon: Icons.extension_outlined),
-        Text(
-          t.t('settings.plugins.enabledHint'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
-        ),
-        const SizedBox(height: AidogSpace.sxs),
+        // B2/B4：分区副标题走 `SubHeading`（15 w600 + 底边），说明走 `Hint` 12 ls0。
+        const SubHeading('Enabled Plugins', icon: Icons.extension_outlined),
+        EditorHint(t.t('settings.plugins.enabledHint')),
+        const SizedBox(height: AidogSpace.s_8),
         for (final e in enabled.entries)
           Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+            // C6：React `gap: 4`（`PluginsSection.tsx:251`）。
+            padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
             child: Row(
               children: [
+                // A9：React 每项是一枚 `<code>` chip（`PluginsSection.tsx:254-259`）。
                 Expanded(
-                  child: Text(
-                    e.key,
-                    style: AidogType.numSm.copyWith(color: theme.c.fg),
-                    overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.c.surface,
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                    child: Text(
+                      e.key,
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
+                const SizedBox(width: AidogSpace.s_8),
                 AidogSwitch(
                   key: ValueKey('plugin-on-${e.key}'),
                   value: e.value == true,
                   compact: true,
                   onChanged: () => _setEnabled(e.key, e.value != true),
                 ),
-                Tooltip(
-                  message: t.t('settings.plugins.removePlugin'),
-                  child: SmallButton(
-                    key: ValueKey('plugin-del-${e.key}'),
-                    label: '×',
-                    danger: true,
-                    onTap: () => _removePlugin(e.key),
+                // A11：React 是一枚 15px trash 图标（常态 fg2、hover danger），
+                // 不是文字 ×（`PluginsSection.tsx:263-273`）。
+                IconButton(
+                  key: ValueKey('plugin-del-${e.key}'),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(
+                    minWidth: 23,
+                    minHeight: 23,
                   ),
+                  iconSize: 15,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: t.t('settings.plugins.removePlugin'),
+                  hoverColor: theme.c.bad.withValues(alpha: 0.12),
+                  icon: Icon(Icons.delete_outline, color: theme.c.fg2),
+                  onPressed: () => _removePlugin(e.key),
                 ),
               ],
             ),
@@ -428,31 +470,39 @@ class _PluginsEditorState extends State<PluginsEditor> {
               child: TextField(
                 key: const ValueKey('plugin-new'),
                 controller: _newPlugin,
-                style: AidogType.label.copyWith(color: theme.c.fg),
+                // React 这个框是 `F.hint` 13 + pad 6/10（`PluginsSection.tsx:279`）。
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  color: theme.c.fg,
+                ),
                 decoration: const InputDecoration(
                   isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   hintText: 'plugin-name@marketplace',
                 ),
                 onSubmitted: (_) => _addPlugin(),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
+            const SizedBox(width: AidogSpace.ssm),
+            // B19：React `F.small` 12 · pad 4/12（`PluginsSection.tsx:285-286`）。
             SmallButton(
               key: const ValueKey('plugin-add'),
               label: '+',
+              fontSize: 12,
+              padding: (12, 4),
               onTap: _addPlugin,
             ),
           ],
         ),
 
         // ── Extra Marketplaces ──
-        const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Extra Marketplaces', icon: Icons.folder_outlined),
-        Text(
-          t.t('settings.plugins.marketplacesHint'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
-        ),
-        const SizedBox(height: AidogSpace.sxs),
+        const SizedBox(height: AidogSpace.sxl),
+        const SubHeading('Extra Marketplaces', icon: Icons.folder_outlined),
+        EditorHint(t.t('settings.plugins.marketplacesHint')),
+        const SizedBox(height: AidogSpace.s_8),
         for (final e in markets.entries)
           _marketCard(
             t,
@@ -466,38 +516,50 @@ class _PluginsEditorState extends State<PluginsEditor> {
               child: TextField(
                 key: const ValueKey('market-new'),
                 controller: _newMarket,
-                style: AidogType.label.copyWith(color: theme.c.fg),
+                style: AidogType.label.copyWith(
+                  fontSize: 13,
+                  color: theme.c.fg,
+                ),
                 decoration: const InputDecoration(
                   isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   hintText: 'marketplace-name',
                 ),
                 onSubmitted: (_) => _addMarket(),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
+            const SizedBox(width: AidogSpace.ssm),
+            // B19：同上（`PluginsSection.tsx:346-347`）。
             SmallButton(
               key: const ValueKey('market-add'),
               label: '+',
+              fontSize: 12,
+              padding: (12, 4),
               onTap: _addMarket,
             ),
           ],
         ),
 
         // ── Plugin Configs ──
-        const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Plugin Configs', icon: Icons.tune),
-        Text(
-          t.t('settings.plugins.configsHint'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
-        ),
-        TextRow(
+        const SizedBox(height: AidogSpace.sxl),
+        const SubHeading('Plugin Configs', icon: Icons.tune),
+        EditorHint(t.t('settings.plugins.configsHint')),
+        const SizedBox(height: AidogSpace.s_8),
+        // A6：React 这里是 `JsonEditor` → `JsonCodeEditor`（行号 / 高亮 / 搜索替换，
+        // `PluginsSection.tsx:360-364`），不是一个 6 行的纯文本框。
+        JsonField(
           key: const ValueKey('plugin-configs'),
           label: 'pluginConfigs',
-          value: widget.config['pluginConfigs'] == null
+          height: 200,
+          error: _pluginConfigsError,
+          hint: '{}',
+          text: widget.config['pluginConfigs'] == null
               ? ''
               : const JsonEncoder.withIndent('  ')
                     .convert(widget.config['pluginConfigs']),
-          maxLines: 6,
           onSubmitted: (text) {
             final raw = text.trim();
             if (raw.isEmpty) {
@@ -514,32 +576,31 @@ class _PluginsEditorState extends State<PluginsEditor> {
             }
           },
         ),
-        if (_pluginConfigsError != null) ErrorNote(text: _pluginConfigsError!),
 
         // ── Skipped ──
-        const SizedBox(height: AidogSpace.smd),
-        const TileMeta('Skipped', icon: Icons.delete_outline),
-        Text(
-          t.t('settings.plugins.skippedHint'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
-        ),
-        const SizedBox(height: AidogSpace.sxs),
-        const TileMeta('skippedPlugins'),
-        SandboxTagList(
+        const SizedBox(height: AidogSpace.sxl),
+        const SubHeading('Skipped', icon: Icons.delete_outline),
+        EditorHint(t.t('settings.plugins.skippedHint')),
+        const SizedBox(height: AidogSpace.s_8),
+        // A12：React 这两个清单用 `StringListEditor` —— 每项是可就地改的 `<Input>`
+        //（`PluginsSection.tsx:378-390` → `_shared.tsx:325-336`），
+        // 原先复用 `SandboxTagList`（只读文本，只能删+加）。
+        const FieldLabel('skippedPlugins', fontSize: 13),
+        StringListEditor(
           key: const ValueKey('skipped-plugins'),
           items: _strList('skippedPlugins'),
-          hint: 'plugin-name@marketplace',
-          onChanged: (v) =>
-              widget.updateField('skippedPlugins', v.isEmpty ? null : v),
+          addLabel: 'plugin-name@marketplace',
+          idPrefix: 'skipped-plugins',
+          onChanged: (v) => widget.updateField('skippedPlugins', v),
         ),
-        const SizedBox(height: AidogSpace.sxs),
-        const TileMeta('skippedMarketplaces'),
-        SandboxTagList(
+        const SizedBox(height: AidogSpace.smd),
+        const FieldLabel('skippedMarketplaces', fontSize: 13),
+        StringListEditor(
           key: const ValueKey('skipped-marketplaces'),
           items: _strList('skippedMarketplaces'),
-          hint: 'marketplace-name',
-          onChanged: (v) =>
-              widget.updateField('skippedMarketplaces', v.isEmpty ? null : v),
+          addLabel: 'marketplace-name',
+          idPrefix: 'skipped-marketplaces',
+          onChanged: (v) => widget.updateField('skippedMarketplaces', v),
         ),
       ],
     );
@@ -550,62 +611,74 @@ class _PluginsEditorState extends State<PluginsEditor> {
     AidogTheme theme,
     String name,
     Map<String, Object?> cfg,
-  ) => Container(
-    key: ValueKey('market-$name'),
-    margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-    padding: const EdgeInsets.all(AidogSpace.ssm),
-    decoration: BoxDecoration(
-      color: theme.c.surface2,
-      border: Border.all(color: theme.c.line),
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+  ) =>
+      // B16：React 是 pad 10/12 · bg-glass 底 · r-md 12 · **无边框**
+      //（`PluginsSection.tsx:300-303`），原先是 all 6 · surface2 · r-sm · 有边。
+      EditorCard(
+        key: ValueKey('market-$name'),
+        margin: const EdgeInsets.only(bottom: AidogSpace.smd),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: Text(
-                name,
-                style: AidogType.numSm.copyWith(color: theme.c.accentText),
-                overflow: TextOverflow.ellipsis,
-              ),
+            Row(
+              children: [
+                // B17：React 是 `F.body` 15 w600 accent mono（`PluginsSection.tsx:305-308`）。
+                Expanded(
+                  child: Text(
+                    name,
+                    style: AidogType.numSm.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.accentText,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                // A11：删除按钮是 15px trash 图标（`PluginsSection.tsx:320`）。
+                IconButton(
+                  key: ValueKey('market-del-$name'),
+                  padding: const EdgeInsets.all(4),
+                  constraints: const BoxConstraints(
+                    minWidth: 23,
+                    minHeight: 23,
+                  ),
+                  iconSize: 15,
+                  visualDensity: VisualDensity.compact,
+                  tooltip: t.t('settings.plugins.removeMarketplace'),
+                  hoverColor: theme.c.bad.withValues(alpha: 0.12),
+                  icon: Icon(Icons.delete_outline, color: theme.c.fg2),
+                  onPressed: () => _removeMarket(name),
+                ),
+              ],
             ),
-            Tooltip(
-              message: t.t('settings.plugins.removeMarketplace'),
-              child: SmallButton(
-                key: ValueKey('market-del-$name'),
-                label: '×',
-                danger: true,
-                onTap: () => _removeMarket(name),
-              ),
+            MarketplaceSourceEditor(
+              idPrefix: 'market-$name',
+              source: cfg['source'] is Map
+                  ? Map<String, Object?>.from(cfg['source'] as Map)
+                  : {'source': 'github'},
+              onChanged: (s) => _updateMarket(name, {...cfg, 'source': s}),
+            ),
+            TextRow(
+              key: ValueKey('market-path-$name'),
+              label: 'Path',
+              // B18：标签 `F.hint` 13（`PluginsSection.tsx:328`）。
+              labelFontSize: 13,
+              fontSize: 13,
+              hint: t.t('settings.plugins.localPathPh'),
+              value: '${cfg['path'] ?? ''}',
+              onSubmitted: (v) {
+                final next = {...cfg};
+                if (v.trim().isEmpty) {
+                  next.remove('path');
+                } else {
+                  next['path'] = v.trim();
+                }
+                _updateMarket(name, next);
+              },
             ),
           ],
         ),
-        MarketplaceSourceEditor(
-          idPrefix: 'market-$name',
-          source: cfg['source'] is Map
-              ? Map<String, Object?>.from(cfg['source'] as Map)
-              : {'source': 'github'},
-          onChanged: (s) => _updateMarket(name, {...cfg, 'source': s}),
-        ),
-        TextRow(
-          key: ValueKey('market-path-$name'),
-          label: 'Path',
-          hint: t.t('settings.plugins.localPathPh'),
-          value: '${cfg['path'] ?? ''}',
-          onSubmitted: (v) {
-            final next = {...cfg};
-            if (v.trim().isEmpty) {
-              next.remove('path');
-            } else {
-              next['path'] = v.trim();
-            }
-            _updateMarket(name, next);
-          },
-        ),
-      ],
-    ),
-  );
+      );
 }

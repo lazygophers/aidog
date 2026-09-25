@@ -34,7 +34,12 @@ Map<String, Object?> makePopoverItem(
   };
   switch (type) {
     case 'cost_trend':
-      return {...base, 'scope': 'overall', 'scope_ref': null, 'time_window': '7d'};
+      return {
+        ...base,
+        'scope': 'overall',
+        'scope_ref': null,
+        'time_window': '7d',
+      };
     case 'platform_share':
       return {...base, 'time_window': '7d'};
     case 'hour_heatbar':
@@ -47,7 +52,12 @@ Map<String, Object?> makePopoverItem(
         'time_window': 'today',
       };
   }
-  const groupTypes = {'group_cost', 'group_tokens', 'group_requests', 'group_balance'};
+  const groupTypes = {
+    'group_cost',
+    'group_tokens',
+    'group_requests',
+    'group_balance',
+  };
   if (groupTypes.contains(type)) {
     final ref = groups.isEmpty ? null : groups.first.groupKey;
     return {
@@ -80,8 +90,9 @@ Map<String, Object?> normalizePopoverConfig(
   for (var newRow = 0; newRow < rowNums.length; newRow++) {
     final list = byRow[rowNums[newRow]]!
       ..sort(
-        (a, b) => ((a['order'] as num?)?.toInt() ?? 0)
-            .compareTo((b['order'] as num?)?.toInt() ?? 0),
+        (a, b) => ((a['order'] as num?)?.toInt() ?? 0).compareTo(
+          (b['order'] as num?)?.toInt() ?? 0,
+        ),
       );
     for (var idx = 0; idx < list.length; idx++) {
       nextItems.add({...list[idx], 'row': newRow, 'order': idx});
@@ -106,13 +117,15 @@ List<Map<String, Object?>> movePopoverItemToRow(
   final activeIdx = items.indexWhere((i) => '${i['id']}' == activeId);
   if (activeIdx < 0) return items;
   final active = items[activeIdx];
-  if (effRow(active) == targetRow && (beforeId == null || beforeId == activeId)) {
+  if (effRow(active) == targetRow &&
+      (beforeId == null || beforeId == activeId)) {
     return items;
   }
   final rest = items.where((i) => '${i['id']}' != activeId).toList()
     ..sort(
-      (a, b) => ((a['order'] as num?)?.toInt() ?? 0)
-          .compareTo((b['order'] as num?)?.toInt() ?? 0),
+      (a, b) => ((a['order'] as num?)?.toInt() ?? 0).compareTo(
+        (b['order'] as num?)?.toInt() ?? 0,
+      ),
     );
   final targetItems = rest.where((i) => effRow(i) == targetRow).toList();
   var insertIdx = targetItems.length;

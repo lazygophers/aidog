@@ -121,5 +121,6 @@ double Function(int) rowTotalOf(List<ChartSeries> series) =>
 }
 
 /// 图例项（喂 `SeriesTile.legend`）。顺序 = 序列顺序 = 堆叠顺序。
-List<({Color color, String label})> legendOf(List<ChartSeries> series) =>
-    [for (final s in series) (color: s.color, label: s.label)];
+List<({Color color, String label})> legendOf(List<ChartSeries> series) => [
+  for (final s in series) (color: s.color, label: s.label),
+];

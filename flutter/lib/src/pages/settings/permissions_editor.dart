@@ -18,6 +18,7 @@ import '../../../i18n.dart';
 import '../../shell/theme.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
+import 'schema_config_page.dart' show JsonField;
 
 const List<String> kRuleModes = ['allow', 'ask', 'deny'];
 
@@ -197,10 +198,14 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        PlainTextField(
+        // A6：React 的 JSON 回退走 `JsonEditor` → `JsonCodeEditor`（行号 / 高亮 /
+        // 搜索替换 / 行内标红，`_shared.tsx:210-229`）。Flutter 侧同一件东西是
+        // `JsonField`（re_editor），原先这里只是一个 10 行的纯文本框。
+        JsonField(
           key: const ValueKey('perm-json'),
-          value: _jsonText,
-          maxLines: 10,
+          text: _jsonText,
+          height: 240,
+          error: _jsonError,
           hint: '{ "allow": [], "ask": [], "deny": [], "defaultMode": "default" }',
           onSubmitted: (text) {
             final raw = text.trim();
@@ -219,7 +224,6 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
             }
           },
         ),
-        if (_jsonError != null) ErrorNote(text: _jsonError!),
       ],
     );
   }
@@ -264,13 +268,38 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
             return e == null ? v : tOr(t, 'settings.perm.mode_${e.$1}', e.$2);
           },
         ),
-        Text(
-          '${tOr(t, 'settings.perm.priorityLabel', '规则优先级')}: '
-          '${tOr(t, 'settings.permissionsDeny', 'deny')} → '
-          '${tOr(t, 'settings.permissionsAsk', 'ask')} → '
-          '${tOr(t, 'settings.permissionsAllow', 'allow')}'
-          '${tOr(t, 'settings.perm.priorityNote', '。第一个匹配的规则生效。')}',
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+        // B8：React 是 `F.hint` 13 · lineHeight 1.6 · paddingLeft 92，
+        // deny/ask/allow 三词各按 MODE_COLORS w600 着色
+        //（`PermissionsSection.tsx:209-213`）。
+        Padding(
+          padding: const EdgeInsets.only(left: 92),
+          child: Text.rich(
+            TextSpan(
+              style: editorHintStyle(theme).copyWith(height: 1.6),
+              children: [
+                TextSpan(
+                  text: '${tOr(t, 'settings.perm.priorityLabel', '规则优先级')}: ',
+                ),
+                for (final m in const ['deny', 'ask', 'allow']) ...[
+                  TextSpan(
+                    text: tOr(
+                      t,
+                      'settings.permissions${m[0].toUpperCase()}${m.substring(1)}',
+                      m,
+                    ),
+                    style: TextStyle(
+                      color: modeColor(m),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (m != 'allow') const TextSpan(text: ' → '),
+                ],
+                TextSpan(
+                  text: tOr(t, 'settings.perm.priorityNote', '。第一个匹配的规则生效。'),
+                ),
+              ],
+            ),
+          ),
         ),
         // ── 安全开关 ──
         SwitchRow(
@@ -290,43 +319,84 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
               _updatePermKey('disableAutoMode', v ? 'disable' : null),
         ),
         // ── 工具组页签 ──
-        Wrap(
-          spacing: AidogSpace.sxs,
-          children: [
-            for (final g in kToolGroups)
-              SmallButton(
-                key: ValueKey('perm-tab-${g.tool}'),
-                label:
-                    tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label) +
-                    ((grouped[g.tool] ?? 0) > 0 ? ' ${grouped[g.tool]}' : ''),
-                active: _activeTool == g.tool,
-                onTap: () => setState(() {
-                  _activeTool = g.tool;
-                  _showTemplates = false;
-                }),
-              ),
-          ],
-        ),
+        // A1/A2/B6：React 是一条 1px 底线的 tab 栏，active 项带 2px accent 下边框，
+        // 计数是独立徽标（`PermissionsSection.tsx:234-256`）。
         Container(
-          padding: const EdgeInsets.all(AidogSpace.ssm),
           decoration: BoxDecoration(
-            color: theme.c.surface2,
+            border: Border(bottom: BorderSide(color: theme.c.line)),
+          ),
+          // 7 个页签在窄窗口下放不满一行，React 靠 flex 溢出、Flutter 会抛
+          // overflow —— 横向滚动是等价的降级，不改视觉节奏。
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final g in kToolGroups)
+                  _ToolTab(
+                    key: ValueKey('perm-tab-${g.tool}'),
+                    label: tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label),
+                    count: grouped[g.tool] ?? 0,
+                    active: _activeTool == g.tool,
+                    onTap: () => setState(() {
+                      _activeTool = g.tool;
+                      _showTemplates = false;
+                    }),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        // B7：React 是 `F.hint` 13 mono · pad 8/12 · bg-glass 底 · r-sm，
+        // 工具名 w600 accent 色（`PermissionsSection.tsx:263-268`）。
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: theme.c.surface,
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
-          child: Text(
-            '${tOr(t, 'settings.perm.toolLabel_${active.tool}', active.label)}: '
-            '${tOr(t, 'settings.perm.syntax_${active.tool}', active.syntax)}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          child: Text.rich(
+            TextSpan(
+              style: AidogType.numSm.copyWith(
+                fontSize: 13,
+                letterSpacing: 0,
+                height: 1.5,
+                color: theme.c.fg3,
+              ),
+              children: [
+                TextSpan(
+                  text: tOr(
+                    t,
+                    'settings.perm.toolLabel_${active.tool}',
+                    active.label,
+                  ),
+                  style: TextStyle(
+                    color: theme.c.accentText,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                TextSpan(
+                  text:
+                      ': ${tOr(t, 'settings.perm.syntax_${active.tool}', active.syntax)}',
+                ),
+              ],
+            ),
           ),
         ),
         const SizedBox(height: AidogSpace.sxs),
         // ── 当前组的规则 ──
         if (groupRules.isEmpty)
-          Text(
-            '${tOr(t, 'settings.perm.noRulesPrefix', '暂无')} '
-            '${tOr(t, 'settings.perm.toolLabel_${active.tool}', active.label)} '
-            '${tOr(t, 'settings.perm.noRulesSuffix', '规则。使用下方输入框添加。')}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+          // B9：React 是 `F.hint` 13 · padding 12px 0 · 居中
+          //（`PermissionsSection.tsx:275-277`）。
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            child: Text(
+              '${tOr(t, 'settings.perm.noRulesPrefix', '暂无')} '
+              '${tOr(t, 'settings.perm.toolLabel_${active.tool}', active.label)} '
+              '${tOr(t, 'settings.perm.noRulesSuffix', '规则。使用下方输入框添加。')}',
+              textAlign: TextAlign.center,
+              style: editorHintStyle(theme),
+            ),
           )
         else
           for (final (idx, r) in groupRules)
@@ -339,6 +409,10 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
                     child: PlainTextField(
                       key: ValueKey('perm-rule-$idx-pattern'),
                       value: r.$1,
+                      // B1：editors 域输入框 15 + pad 10/14（`_shared.tsx:285`）。
+                      mono: true,
+                      fontSize: kEditorInputFontSize,
+                      contentPadding: kEditorInputPad,
                       onSubmitted: (v) {
                         final next = [...rules];
                         next[idx] = (v, r.$2);
@@ -376,6 +450,10 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
                 key: const ValueKey('perm-add-pattern'),
                 value: _draftRule,
                 hint: active.examples.first,
+                // B1：同上（`PermissionsSection.tsx:318`）。
+                mono: true,
+                fontSize: kEditorInputFontSize,
+                contentPadding: kEditorInputPad,
                 onChanged: (v) => setState(() => _draftRule = v),
                 onSubmitted: _addRule,
               ),
@@ -396,67 +474,129 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
               onTap: () => _addRule(_draftRule),
             ),
             const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              key: const ValueKey('perm-templates'),
-              label: tOr(t, 'settings.perm.ruleTemplates', '规则模板'),
-              active: _showTemplates,
-              onTap: () => setState(() => _showTemplates = !_showTemplates),
+            // A5：React 模板是带点击遮罩的浮层（`PermissionsSection.tsx:340-348`），
+            // 不是把后面内容顶下去的内联块。
+            AnchoredMenu(
+              open: _showTemplates,
+              onDismiss: () => setState(() => _showTemplates = false),
+              above: false,
+              minWidth: 320,
+              maxHeight: 300,
+              menuBuilder: (_) => _templatesMenu(t, theme),
+              anchor: SmallButton(
+                key: const ValueKey('perm-templates'),
+                label: tOr(t, 'settings.perm.ruleTemplates', '规则模板'),
+                active: _showTemplates,
+                onTap: () => setState(() => _showTemplates = !_showTemplates),
+              ),
             ),
           ],
         ),
-        if (_showTemplates)
-          for (final g in kToolGroups)
-            Padding(
-              key: ValueKey('perm-tpl-${g.tool}'),
-              padding: const EdgeInsets.only(top: AidogSpace.sxs),
-              child: Wrap(
-                spacing: AidogSpace.sxs,
-                runSpacing: AidogSpace.sxs,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label),
-                    style: AidogType.micro.copyWith(color: theme.c.accentText),
-                  ),
-                  for (final ex in g.examples)
-                    SmallButton(
-                      label: ex,
-                      onTap: () => setState(() {
-                        _draftRule = ex;
-                        _showTemplates = false;
-                      }),
-                    ),
-                ],
-              ),
-            ),
         // ── 全部规则摘要 ──
         if (rules.isNotEmpty)
           Container(
             key: const ValueKey('perm-summary'),
             margin: const EdgeInsets.only(top: AidogSpace.ssm),
-            padding: const EdgeInsets.all(AidogSpace.ssm),
+            // B10：React 是 pad 10/12 + bg-glass（= surface），不是 all 6 + surface2
+            //（`PermissionsSection.tsx:394-397`）。
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: theme.c.surface2,
+              color: theme.c.surface,
               borderRadius: BorderRadius.circular(AidogRadius.sm),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${tOr(t, 'settings.perm.totalRulesPrefix', '共')} '
-                  '${rules.length} '
-                  '${tOr(t, 'settings.perm.totalRulesSuffix', '条规则')}   '
-                  'deny: ${rules.where((r) => r.$2 == 'deny').length}   '
-                  'ask: ${rules.where((r) => r.$2 == 'ask').length}   '
-                  'allow: ${rules.where((r) => r.$2 == 'allow').length}',
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                // A4：三档计数各缀一枚 12px 图标并分色（`PermissionsSection.tsx:400-402`）。
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Wrap(
+                    spacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${tOr(t, 'settings.perm.totalRulesPrefix', '共')} '
+                        '${rules.length} '
+                        '${tOr(t, 'settings.perm.totalRulesSuffix', '条规则')}',
+                        style: editorHintStyle(theme),
+                      ),
+                      for (final (mode, icon) in const [
+                        ('deny', Icons.close),
+                        ('ask', null),
+                        ('allow', Icons.check),
+                      ])
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (icon != null) ...[
+                              Icon(icon, size: 12, color: modeColor(mode)),
+                              const SizedBox(width: 4),
+                            ] else
+                              Text(
+                                '? ',
+                                style: editorHintStyle(theme)
+                                    .copyWith(color: modeColor(mode)),
+                              ),
+                            Text(
+                              '$mode: ${rules.where((r) => r.$2 == mode).length}',
+                              style: editorHintStyle(theme)
+                                  .copyWith(color: modeColor(mode)),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
+                // A3/B11：每行 3px 左色条 + 8% 底 + pad 3/8 + r-sm，
+                // 行内三段字号各异（`PermissionsSection.tsx:406-423`）。
                 for (final r in rules)
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 1),
-                    child: Text(
-                      ltr('${r.$2}  ${r.$1}  ${ruleToolGroup(r.$1)}'),
-                      style: AidogType.micro.copyWith(color: modeColor(r.$2)),
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: modeColor(r.$2).withValues(alpha: 0.03),
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                      border: Border(
+                        left: BorderSide(color: modeColor(r.$2), width: 3),
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 32,
+                          child: Text(
+                            r.$2.toUpperCase(),
+                            style: AidogType.label.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: modeColor(r.$2),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            ltr(r.$1),
+                            overflow: TextOverflow.ellipsis,
+                            style: AidogType.numSm.copyWith(
+                              fontSize: 12,
+                              letterSpacing: 0,
+                              color: theme.c.fg,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          ruleToolGroup(r.$1),
+                          style: AidogType.label.copyWith(
+                            fontSize: 10,
+                            color: theme.c.fg3,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],
@@ -465,6 +605,69 @@ class _PermissionsEditorState extends State<PermissionsEditor> {
       ],
     );
   }
+
+  /// 规则模板浮层的内容（React `TOOL_GROUPS.map`，`PermissionsSection.tsx:350-373`）。
+  Widget _templatesMenu(I18nController t, AidogTheme theme) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (final g in kToolGroups)
+        Padding(
+          key: ValueKey('perm-tpl-${g.tool}'),
+          padding: const EdgeInsets.only(bottom: AidogSpace.s_8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // C8：工具名 12 w600 accent + 语法串 10 mono fg3
+              //（`PermissionsSection.tsx:352-356`），原先只有工具名一档。
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    tOr(t, 'settings.perm.toolLabel_${g.tool}', g.label),
+                    style: AidogType.label.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.accentText,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      tOr(t, 'settings.perm.syntax_${g.tool}', g.syntax),
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 10,
+                        letterSpacing: 0,
+                        color: theme.c.fg3,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AidogSpace.sxs),
+              Wrap(
+                spacing: AidogSpace.sxs,
+                runSpacing: AidogSpace.sxs,
+                children: [
+                  for (final ex in g.examples)
+                    SmallButton(
+                      label: ex,
+                      fontSize: 13,
+                      padding: (8, 3),
+                      onTap: () => setState(() {
+                        _draftRule = ex;
+                        _showTemplates = false;
+                      }),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+    ],
+  );
 
   void _addRule(String raw) {
     final v = raw.trim();
@@ -495,24 +698,111 @@ class _ModeSelect extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    return DropdownButton<String>(
-      value: value,
-      items: [
-        for (final m in kRuleModes)
-          DropdownMenuItem(
-            value: m,
-            child: Text(
-              labelOf(m),
-              style: AidogType.micro.copyWith(color: color),
+    // B5：React 是 `F.small` 12 w600 · minWidth 72 · pad 4/8 · r-sm ·
+    // 底 12% · 字 mode 色 · 边 35%（`PermissionsSection.tsx:131-138`）。
+    final style = AidogType.label.copyWith(
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      color: color,
+    );
+    return Container(
+      constraints: const BoxConstraints(minWidth: 72),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        border: Border.all(color: color.withValues(alpha: 0.21)),
+      ),
+      child: DropdownButton<String>(
+        value: value,
+        isDense: true,
+        items: [
+          for (final m in kRuleModes)
+            DropdownMenuItem(
+              value: m,
+              child: Text(labelOf(m), style: style),
+            ),
+        ],
+        selectedItemBuilder: (_) => [
+          for (final m in kRuleModes) Text(labelOf(m), style: style),
+        ],
+        onChanged: (m) {
+          if (m != null) onChanged(m);
+        },
+        style: style,
+        dropdownColor: theme.c.surface2,
+        underline: const SizedBox.shrink(),
+        icon: Icon(Icons.arrow_drop_down, size: 16, color: color),
+        iconSize: 16,
+      ),
+    );
+  }
+}
+
+/// 权限工具组页签（React `PermissionsSection.tsx:234-258`）：
+/// pad 6/12 · `F.small` 12 · active w600 accent 字 + 2px accent 下边框；
+/// 计数是独立徽标（10 w600 · pad 1/5 · r8）。
+class _ToolTab extends StatelessWidget {
+  const _ToolTab({
+    super.key,
+    required this.label,
+    required this.count,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final int count;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              width: 2,
+              color: active ? theme.c.accentText : Colors.transparent,
             ),
           ),
-      ],
-      onChanged: (m) {
-        if (m != null) onChanged(m);
-      },
-      style: AidogType.micro.copyWith(color: theme.c.fg),
-      underline: const SizedBox.shrink(),
-      iconSize: 16,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AidogType.label.copyWith(
+                fontSize: 12,
+                fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+                color: active ? theme.c.accentText : theme.c.fg2,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 4),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: active ? theme.c.accent : theme.c.surface,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '$count',
+                  style: AidogType.label.copyWith(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: active ? AidogColors.light.surface : theme.c.fg3,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

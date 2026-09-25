@@ -27,9 +27,11 @@ class _RemoveButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
+    // C5：React 是 `S.btnIcon` 34×34 的 ghost 按钮（`_shared.tsx:266,340,408`），
+    // 原先 24×24，env 侧另有一档 22×22 —— 现已一并统一到 34。
     return IconButton(
       padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 24, minHeight: 24),
+      constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
       iconSize: 14,
       visualDensity: VisualDensity.compact,
       tooltip: t.t('action.remove'),
@@ -151,7 +153,13 @@ class _KvEditorState extends State<KvEditor> {
               children: [
                 Expanded(
                   flex: 2,
-                  child: PlainTextField(value: e.key, enabled: false),
+                  child: PlainTextField(
+                    value: e.key,
+                    enabled: false,
+                    // B1：editors 域输入框 15 + pad 10/14（`_shared.tsx:253`）。
+                    fontSize: kEditorInputFontSize,
+                    contentPadding: kEditorInputPad,
+                  ),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 Expanded(
@@ -159,6 +167,9 @@ class _KvEditorState extends State<KvEditor> {
                   child: PlainTextField(
                     key: ValueKey('${widget.idPrefix}-val-${e.key}'),
                     value: e.value,
+                    // B1：同上（`_shared.tsx:259`）。
+                    fontSize: kEditorInputFontSize,
+                    contentPadding: kEditorInputPad,
                     onSubmitted: (v) => _write({...widget.items, e.key: v}),
                   ),
                 ),
@@ -275,7 +286,13 @@ class _KvSelectEditorState extends State<KvSelectEditor> {
               children: [
                 Expanded(
                   flex: 2,
-                  child: PlainTextField(value: e.key, enabled: false),
+                  child: PlainTextField(
+                    value: e.key,
+                    enabled: false,
+                    // B1：editors 域输入框 15 + pad 10/14（`_shared.tsx:253`）。
+                    fontSize: kEditorInputFontSize,
+                    contentPadding: kEditorInputPad,
+                  ),
                 ),
                 const SizedBox(width: AidogSpace.sxs),
                 Expanded(
@@ -284,8 +301,7 @@ class _KvSelectEditorState extends State<KvSelectEditor> {
                     key: ValueKey('${widget.idPrefix}-val-${e.key}'),
                     value: e.value,
                     options: widget.valueOptions,
-                    onChanged: (v) =>
-                        _write({...widget.items, e.key: v ?? ''}),
+                    onChanged: (v) => _write({...widget.items, e.key: v ?? ''}),
                   ),
                 ),
                 _RemoveButton(
@@ -385,6 +401,9 @@ class _StringListEditorState extends State<StringListEditor> {
                 child: PlainTextField(
                   key: ValueKey('${widget.idPrefix}-item-$i'),
                   value: widget.items[i],
+                  // B1：同上（`_shared.tsx:329`）。
+                  fontSize: kEditorInputFontSize,
+                  contentPadding: kEditorInputPad,
                   onSubmitted: (v) {
                     final next = [...widget.items];
                     next[i] = v;
@@ -469,7 +488,8 @@ class ObjectEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     return Container(
-      padding: const EdgeInsets.only(left: AidogSpace.ssm),
+      // C4：React `paddingLeft: 8`（`_shared.tsx:462`），不是 AidogSpace.ssm 6。
+      padding: const EdgeInsetsDirectional.only(start: AidogSpace.s_8),
       decoration: BoxDecoration(
         border: BorderDirectional(
           start: BorderSide(color: theme.c.line, width: 2),
@@ -478,18 +498,12 @@ class ObjectEditor extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final f in fields) _sub(context, theme, f),
-        ],
+        children: [for (final f in fields) _sub(context, theme, f)],
       ),
     );
   }
 
-  Widget _sub(
-    BuildContext context,
-    AidogTheme theme,
-    Map<String, Object?> f,
-  ) {
+  Widget _sub(BuildContext context, AidogTheme theme, Map<String, Object?> f) {
     final key = '${f['key']}';
     final type = '${f['type']}';
     final label = '${f['label'] ?? key}';
@@ -525,6 +539,9 @@ class ObjectEditor extends StatelessWidget {
         key: ValueKey('$idPrefix-$key'),
         value: v == null ? '' : '$v',
         hint: f['placeholder'] as String?,
+        // B1：同上（`_shared.tsx:484`）。
+        fontSize: kEditorInputFontSize,
+        contentPadding: kEditorInputPad,
         onSubmitted: (nv) => _setKey(key, nv.trim()),
       ),
     };
@@ -539,9 +556,15 @@ class ObjectEditor extends StatelessWidget {
             width: 110,
             child: Padding(
               padding: EdgeInsets.only(top: type == 'string[]' ? 6 : 0),
+              // C3：React 子字段标签是 `F.hint` 13 fg2（`_shared.tsx:465`），
+              // 不是 micro 11 ls0.66。
               child: Text(
                 label,
-                style: AidogType.micro.copyWith(color: theme.c.fg2),
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  letterSpacing: 0,
+                  color: theme.c.fg2,
+                ),
               ),
             ),
           ),
@@ -592,7 +615,8 @@ class FieldShell extends StatelessWidget {
           SizedBox(
             width: 200,
             child: Padding(
-              padding: const EdgeInsets.only(top: 6),
+              // B51：React `paddingTop: 10`（`_shared.tsx:138`），不是 6。
+              padding: const EdgeInsets.only(top: 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
@@ -619,6 +643,9 @@ class FieldShell extends StatelessWidget {
                         ltr(fieldKey!),
                         style: AidogType.numSm.copyWith(
                           fontSize: 13,
+                          // C2：React 这行 ls 0（`_shared.tsx:163`），
+                          // numSm 自带的 -0.25 是数字列对齐用的。
+                          letterSpacing: 0,
                           color: theme.c.fg3,
                         ),
                       ),

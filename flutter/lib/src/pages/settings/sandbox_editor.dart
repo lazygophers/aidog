@@ -71,16 +71,33 @@ class _SandboxTagListState extends State<SandboxTagList> {
       children: [
         for (var i = 0; i < widget.items.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+            // C6：React 列表 `gap: 6`（`SandboxSection.tsx:32`），不是 2。
+            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
             child: Row(
               children: [
+                // A9/B15：React 每项是一枚 `<code>` chip —— bg-glass 底 + r-sm +
+                // pad 6/10 + `F.hint` 13 mono（`SandboxSection.tsx:35-41`）。
                 Expanded(
-                  child: Text(
-                    widget.items[i],
-                    style: AidogType.numSm.copyWith(color: theme.c.fg),
-                    overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.c.surface,
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                    child: Text(
+                      widget.items[i],
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
+                const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
                   key: ValueKey('sandbox-tag-del-$i'),
                   label: '×',
@@ -97,18 +114,31 @@ class _SandboxTagListState extends State<SandboxTagList> {
             Expanded(
               child: TextField(
                 controller: _draft,
-                style: AidogType.label.copyWith(color: theme.c.fg),
+                // React 草稿框也是 13 mono + pad 6/10（`SandboxSection.tsx:57`）。
+                style: AidogType.numSm.copyWith(
+                  fontSize: 13,
+                  color: theme.c.fg,
+                ),
                 decoration: InputDecoration(
                   isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   hintText: widget.hint,
                 ),
                 onChanged: (_) => setState(() {}),
                 onSubmitted: (_) => _add(),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
+            const SizedBox(width: AidogSpace.ssm),
+            // B14：React 的 `+` 是 `--primary` 实心 + `F.hint` 13 + pad 5/10
+            //（`SandboxSection.tsx:59-64`），不是缺省描边档。
             SmallButton(
               label: '+',
+              filled: true,
+              fontSize: 13,
+              padding: (10, 5),
               onTap: _draft.text.trim().isEmpty ? null : _add,
             ),
           ],
@@ -163,16 +193,32 @@ class _SandboxPathListState extends State<SandboxPathList> {
       children: [
         for (var i = 0; i < widget.items.length; i++)
           Padding(
-            padding: const EdgeInsets.only(bottom: 2),
+            // C6：React `gap: 6`（`SandboxSection.tsx:89`）。
+            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
             child: Row(
               children: [
+                // A9/B15：同 TagList，React 是 chip（`SandboxSection.tsx:92-97`）。
                 Expanded(
-                  child: Text(
-                    widget.items[i],
-                    style: AidogType.numSm.copyWith(color: theme.c.fg),
-                    overflow: TextOverflow.ellipsis,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: theme.c.surface,
+                      borderRadius: BorderRadius.circular(AidogRadius.sm),
+                    ),
+                    child: Text(
+                      widget.items[i],
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
+                const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
                   key: ValueKey('sandbox-path-del-$i'),
                   label: '×',
@@ -201,9 +247,13 @@ class _SandboxPathListState extends State<SandboxPathList> {
                 onChanged: (v) => setState(() => _draft = v),
               ),
             ),
-            const SizedBox(width: AidogSpace.sxs),
+            const SizedBox(width: AidogSpace.ssm),
+            // B14：同上（`SandboxSection.tsx:116-121`）。
             SmallButton(
               label: '+',
+              filled: true,
+              fontSize: 13,
+              padding: (10, 5),
               onTap: (_draft ?? '').trim().isEmpty ? null : _add,
             ),
           ],
@@ -314,169 +364,256 @@ class SandboxEditor extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        SwitchRow(
-          key: const ValueKey('sandbox-enabled'),
-          label: t.t('settings.sandbox.enable'),
-          description: t.t('settings.sandbox.enableDesc'),
-          value: _enabled,
-          onChanged: (v) => _sync({'enabled': v}),
+        // A7：React 把开关 / 标题 / 描述 /「● 已启用」徽标放进**同一张** bg-glass
+        // 卡（pad 12/16 + r-md），徽标在行尾（`SandboxSection.tsx:199-216`）。
+        EditorCard(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          child: Row(
+            children: [
+              Expanded(
+                child: SwitchRow(
+                  key: const ValueKey('sandbox-enabled'),
+                  label: t.t('settings.sandbox.enable'),
+                  description: t.t('settings.sandbox.enableDesc'),
+                  value: _enabled,
+                  onChanged: (v) => _sync({'enabled': v}),
+                ),
+              ),
+              if (_enabled) ...[
+                const SizedBox(width: AidogSpace.ssm),
+                // B12：React 是 `F.small` 12 w600 success 字 + 12% 底 + pad 2/8 + r-sm
+                //（`SandboxSection.tsx:211-214`），原先是裸的 micro 11 文字。
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.c.ok.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AidogRadius.sm),
+                  ),
+                  child: Text(
+                    '● ${t.t('settings.sandbox.enabled')}',
+                    style: AidogType.label.copyWith(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.ok,
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        if (_enabled)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-            child: Text(
-              '● ${t.t('settings.sandbox.enabled')}',
-              style: AidogType.micro.copyWith(color: theme.c.ok),
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+        // B13：禁用提示是 `F.hint` 13 lh1.6 + pad 10/14 + bg-glass 卡
+        //（`SandboxSection.tsx:218-224`），不是裸的 micro 11。
+        if (!_enabled)
+          EditorCard(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            radius: AidogRadius.sm,
+            margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
             child: Text(
               t.t('settings.sandbox.disabledHint'),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
+              style: editorHintStyle(theme).copyWith(fontSize: 13, height: 1.6),
             ),
           ),
         if (_enabled) ...[
+          // A8：React 四个分区各一张 bg-glass 卡（pad 14/16 + r-md）
+          //（`SandboxSection.tsx:230,276,329,375`），Flutter 原先全是裸行。
           // ── 文件系统隔离 ──
-          TileMeta(
-            t.t('settings.sandbox.fsIsolation'),
-            icon: Icons.folder_outlined,
-          ),
-          Text(
-            t.t('settings.sandbox.fsIsolationDesc'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          _pathField(
-            t,
-            'allowWrite',
-            'settings.sandbox.allowWrite',
-            'settings.sandbox.allowWritePh',
-          ),
-          _pathField(
-            t,
-            'denyWrite',
-            'settings.sandbox.denyWrite',
-            'settings.sandbox.denyWritePh',
-          ),
-          _pathField(
-            t,
-            'allowRead',
-            'settings.sandbox.allowRead',
-            'settings.sandbox.allowReadPh',
-          ),
-          _pathField(
-            t,
-            'denyRead',
-            'settings.sandbox.denyRead',
-            'settings.sandbox.denyReadPh',
+          EditorCard(
+            margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // B2：React 是 `SubHeading` 15 w600 + 1px 底边 + 正常大小写，
+                // 不是 TileMeta 的 micro 11 全大写（`_shared.tsx:523-533`）。
+                SubHeading(
+                  t.t('settings.sandbox.fsIsolation'),
+                  icon: Icons.folder_outlined,
+                ),
+                // B4：说明文字是 `F.small` 12 ls0（`_shared.tsx:537`）。
+                EditorHint(t.t('settings.sandbox.fsIsolationDesc')),
+                const SizedBox(height: AidogSpace.smd),
+                _pathField(
+                  t,
+                  'allowWrite',
+                  'settings.sandbox.allowWrite',
+                  'settings.sandbox.allowWritePh',
+                ),
+                _pathField(
+                  t,
+                  'denyWrite',
+                  'settings.sandbox.denyWrite',
+                  'settings.sandbox.denyWritePh',
+                ),
+                _pathField(
+                  t,
+                  'allowRead',
+                  'settings.sandbox.allowRead',
+                  'settings.sandbox.allowReadPh',
+                ),
+                _pathField(
+                  t,
+                  'denyRead',
+                  'settings.sandbox.denyRead',
+                  'settings.sandbox.denyReadPh',
+                ),
+              ],
+            ),
           ),
 
           // ── 网络隔离 ──
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.netIsolation'), icon: Icons.public),
-          Text(
-            t.t('settings.sandbox.netIsolationDesc'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          _tagField(
-            t,
-            'allowedDomains',
-            'settings.sandbox.allowedDomains',
-            'settings.sandbox.allowedDomainsPh',
-          ),
-          _tagField(
-            t,
-            'deniedDomains',
-            'settings.sandbox.deniedDomains',
-            'settings.sandbox.deniedDomainsPh',
-          ),
-          TextRow(
-            key: const ValueKey('sandbox-http-proxy'),
-            label: t.t('settings.sandbox.httpProxy'),
-            hint: t.t('settings.sandbox.port'),
-            value: '${_net['httpProxyPort'] ?? ''}',
-            onSubmitted: (v) => _setPort('httpProxyPort', v.trim()),
-          ),
-          TextRow(
-            key: const ValueKey('sandbox-socks-proxy'),
-            label: t.t('settings.sandbox.socksProxy'),
-            hint: t.t('settings.sandbox.port'),
-            value: '${_net['socksProxyPort'] ?? ''}',
-            onSubmitted: (v) => _setPort('socksProxyPort', v.trim()),
+          EditorCard(
+            margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SubHeading(
+                  t.t('settings.sandbox.netIsolation'),
+                  icon: Icons.public,
+                ),
+                EditorHint(t.t('settings.sandbox.netIsolationDesc')),
+                const SizedBox(height: AidogSpace.smd),
+                _tagField(
+                  t,
+                  'allowedDomains',
+                  'settings.sandbox.allowedDomains',
+                  'settings.sandbox.allowedDomainsPh',
+                ),
+                _tagField(
+                  t,
+                  'deniedDomains',
+                  'settings.sandbox.deniedDomains',
+                  'settings.sandbox.deniedDomainsPh',
+                ),
+                // A10：React 把两个端口放在同一个 flex 行，输入框各宽 100
+                //（`SandboxSection.tsx:304-325`），原先是两条全宽行上下排。
+                Wrap(
+                  spacing: 16,
+                  runSpacing: AidogSpace.ssm,
+                  children: [
+                    SizedBox(
+                      width: 140,
+                      child: TextRow(
+                        key: const ValueKey('sandbox-http-proxy'),
+                        label: t.t('settings.sandbox.httpProxy'),
+                        labelFontSize: 13,
+                        fontSize: 13,
+                        hint: t.t('settings.sandbox.port'),
+                        value: '${_net['httpProxyPort'] ?? ''}',
+                        onSubmitted: (v) => _setPort('httpProxyPort', v.trim()),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 140,
+                      child: TextRow(
+                        key: const ValueKey('sandbox-socks-proxy'),
+                        label: t.t('settings.sandbox.socksProxy'),
+                        labelFontSize: 13,
+                        fontSize: 13,
+                        hint: t.t('settings.sandbox.port'),
+                        value: '${_net['socksProxyPort'] ?? ''}',
+                        onSubmitted: (v) =>
+                            _setPort('socksProxyPort', v.trim()),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
 
           // ── 安全与策略 ──
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.safety'), icon: Icons.shield_outlined),
-          SwitchRow(
-            key: const ValueKey('sandbox-fail-if-unavailable'),
-            label: t.t('settings.sandbox.failIfUnavailable'),
-            description: t.t('settings.sandbox.failIfUnavailableDesc'),
-            value: sandbox['failIfUnavailable'] == true,
-            onChanged: (v) => _sync({'failIfUnavailable': v}),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-no-escape'),
-            label: t.t('settings.sandbox.noEscape'),
-            description: t.t('settings.sandbox.noEscapeDesc'),
-            // 反向开关：开 = 禁止逃逸 = allowUnsandboxedCommands: false。
-            value: sandbox['allowUnsandboxedCommands'] == false,
-            onChanged: (v) => _sync({'allowUnsandboxedCommands': !v}),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-lock-domains'),
-            label: t.t('settings.sandbox.lockDomains'),
-            description: t.t('settings.sandbox.lockDomainsDesc'),
-            value: _net['allowManagedDomainsOnly'] == true,
-            onChanged: (v) => _sync({
-              'network': {..._net, 'allowManagedDomainsOnly': v},
-            }),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-lock-read-paths'),
-            label: t.t('settings.sandbox.lockReadPaths'),
-            description: t.t('settings.sandbox.lockReadPathsDesc'),
-            value: sandbox['allowManagedReadPathsOnly'] == true,
-            onChanged: (v) => _sync({'allowManagedReadPathsOnly': v}),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-weak-net'),
-            label: t.t('settings.sandbox.weakNet'),
-            description: t.t('settings.sandbox.weakNetDesc'),
-            value: sandbox['enableWeakerNetworkIsolation'] == true,
-            onChanged: (v) => _sync({'enableWeakerNetworkIsolation': v}),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-weak-nested'),
-            label: t.t('settings.sandbox.weakNested'),
-            description: t.t('settings.sandbox.weakNestedDesc'),
-            value: sandbox['enableWeakerNestedSandbox'] == true,
-            onChanged: (v) => _sync({'enableWeakerNestedSandbox': v}),
-          ),
-          SwitchRow(
-            key: const ValueKey('sandbox-unix-sockets'),
-            label: t.t('settings.sandbox.unixSockets'),
-            description: t.t('settings.sandbox.unixSocketsDesc'),
-            value: sandbox['allowUnixSockets'] == true,
-            onChanged: (v) => _sync({'allowUnixSockets': v}),
+          EditorCard(
+            margin: const EdgeInsets.only(bottom: AidogSpace.sxl),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SubHeading(
+                  t.t('settings.sandbox.safety'),
+                  icon: Icons.shield_outlined,
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-fail-if-unavailable'),
+                  label: t.t('settings.sandbox.failIfUnavailable'),
+                  description: t.t('settings.sandbox.failIfUnavailableDesc'),
+                  value: sandbox['failIfUnavailable'] == true,
+                  onChanged: (v) => _sync({'failIfUnavailable': v}),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-no-escape'),
+                  label: t.t('settings.sandbox.noEscape'),
+                  description: t.t('settings.sandbox.noEscapeDesc'),
+                  // 反向开关：开 = 禁止逃逸 = allowUnsandboxedCommands: false。
+                  value: sandbox['allowUnsandboxedCommands'] == false,
+                  onChanged: (v) => _sync({'allowUnsandboxedCommands': !v}),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-lock-domains'),
+                  label: t.t('settings.sandbox.lockDomains'),
+                  description: t.t('settings.sandbox.lockDomainsDesc'),
+                  value: _net['allowManagedDomainsOnly'] == true,
+                  onChanged: (v) => _sync({
+                    'network': {..._net, 'allowManagedDomainsOnly': v},
+                  }),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-lock-read-paths'),
+                  label: t.t('settings.sandbox.lockReadPaths'),
+                  description: t.t('settings.sandbox.lockReadPathsDesc'),
+                  value: sandbox['allowManagedReadPathsOnly'] == true,
+                  onChanged: (v) => _sync({'allowManagedReadPathsOnly': v}),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-weak-net'),
+                  label: t.t('settings.sandbox.weakNet'),
+                  description: t.t('settings.sandbox.weakNetDesc'),
+                  value: sandbox['enableWeakerNetworkIsolation'] == true,
+                  onChanged: (v) => _sync({'enableWeakerNetworkIsolation': v}),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-weak-nested'),
+                  label: t.t('settings.sandbox.weakNested'),
+                  description: t.t('settings.sandbox.weakNestedDesc'),
+                  value: sandbox['enableWeakerNestedSandbox'] == true,
+                  onChanged: (v) => _sync({'enableWeakerNestedSandbox': v}),
+                ),
+                SwitchRow(
+                  key: const ValueKey('sandbox-unix-sockets'),
+                  label: t.t('settings.sandbox.unixSockets'),
+                  description: t.t('settings.sandbox.unixSocketsDesc'),
+                  value: sandbox['allowUnixSockets'] == true,
+                  onChanged: (v) => _sync({'allowUnixSockets': v}),
+                ),
+              ],
+            ),
           ),
 
           // ── 排除命令 ──
-          const SizedBox(height: AidogSpace.ssm),
-          TileMeta(t.t('settings.sandbox.excludedCommands'), icon: Icons.block),
-          Text(
-            t.t('settings.sandbox.excludedCommandsDesc'),
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          SandboxTagList(
-            key: const ValueKey('sandbox-excluded-commands'),
-            items: _list(sandbox, 'excludedCommands'),
-            hint: t.t('settings.sandbox.excludedCommandsPh'),
-            onChanged: (v) => _sync({'excludedCommands': v}),
+          EditorCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SubHeading(
+                  t.t('settings.sandbox.excludedCommands'),
+                  icon: Icons.block,
+                ),
+                EditorHint(t.t('settings.sandbox.excludedCommandsDesc')),
+                const SizedBox(height: AidogSpace.smd),
+                SandboxTagList(
+                  key: const ValueKey('sandbox-excluded-commands'),
+                  items: _list(sandbox, 'excludedCommands'),
+                  hint: t.t('settings.sandbox.excludedCommandsPh'),
+                  onChanged: (v) => _sync({'excludedCommands': v}),
+                ),
+              ],
+            ),
           ),
         ],
       ],
@@ -494,7 +631,9 @@ class SandboxEditor extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TileMeta(t.t(labelKey)),
+        // B2：字段行标签走 `FieldRow` 的 `F.hint` 13 正体（`_shared.tsx:510`），
+        // 不是 TileMeta 的 micro 11 全大写。
+        FieldLabel(t.t(labelKey), fontSize: 13),
         SandboxPathList(
           key: ValueKey('sandbox-fs-$key'),
           items: _list(_fs, key),
@@ -518,7 +657,8 @@ class SandboxEditor extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        TileMeta(t.t(labelKey)),
+        // B2：同 `_pathField`。
+        FieldLabel(t.t(labelKey), fontSize: 13),
         SandboxTagList(
           key: ValueKey('sandbox-net-$key'),
           items: _list(_net, key),

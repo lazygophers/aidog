@@ -584,7 +584,8 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
                     ),
                   )
                 else
-                  for (var r = 0; r < groups.length; r++) _rowEditor(t, r, groups[r]),
+                  for (var r = 0; r < groups.length; r++)
+                    _rowEditor(t, r, groups[r]),
                 // 布局说明压底（`PopoverLayout.tsx:169-175` 的 ghost 11px）。
                 // 说明改成按钮，点了把那段提示发成 toast
                 //（`usePopoverConfig.ts:202-204`）。原先常驻一行小字占屏。

@@ -14,8 +14,12 @@ library;
 import 'dart:convert';
 
 const List<String> kDslTargets = [
-  'request_body', 'request_headers', 'response_body', 'response_headers',
-  'status', 'model',
+  'request_body',
+  'request_headers',
+  'response_body',
+  'response_headers',
+  'status',
+  'model',
 ];
 const List<String> kDslOps = ['contains', 'regex', 'exact'];
 const List<String> kDslValidators = ['luhn', 'iban', 'cn_id'];
@@ -35,8 +39,9 @@ String treeToDsl(Map<String, Object?> node) {
   final kind = '${node['kind']}';
   if (kind == 'leaf') {
     final field = '${node['field'] ?? ''}'.isEmpty ? '' : '.${node['field']}';
-    final checksum =
-        '${node['validator'] ?? ''}'.isEmpty ? '' : ' checksum ${node['validator']}';
+    final checksum = '${node['validator'] ?? ''}'.isEmpty
+        ? ''
+        : ' checksum ${node['validator']}';
     return '${node['target']}$field ${node['match_type']} '
         '${jsonEncode(node['pattern'])}$checksum';
   }
@@ -57,15 +62,15 @@ class _Tok {
   const _Tok.word(this.v) : isStr = false, isLParen = false, isRParen = false;
   const _Tok.str(this.v) : isStr = true, isLParen = false, isRParen = false;
   const _Tok.lParen()
-      : v = '',
-        isStr = false,
-        isLParen = true,
-        isRParen = false;
+    : v = '',
+      isStr = false,
+      isLParen = true,
+      isRParen = false;
   const _Tok.rParen()
-      : v = '',
-        isStr = false,
-        isLParen = false,
-        isRParen = true;
+    : v = '',
+      isStr = false,
+      isLParen = false,
+      isRParen = true;
   final String v;
   final bool isStr;
   final bool isLParen;
@@ -147,7 +152,10 @@ class _Parser {
       final children = <Map<String, Object?>>[];
       while (true) {
         final n = peek();
-        if (n.tok.v.isEmpty && !n.tok.isStr && !n.tok.isLParen && !n.tok.isRParen) {
+        if (n.tok.v.isEmpty &&
+            !n.tok.isStr &&
+            !n.tok.isLParen &&
+            !n.tok.isRParen) {
           throw DslException(n.pos, "缺 ')'");
         }
         if (n.tok.isRParen) {
@@ -166,7 +174,9 @@ class _Parser {
 
   Map<String, Object?> parseLeaf() {
     final p = peek();
-    if (p.tok.isStr || p.tok.isLParen || p.tok.isRParen ||
+    if (p.tok.isStr ||
+        p.tok.isLParen ||
+        p.tok.isRParen ||
         (p.tok.v.isEmpty && !p.tok.isStr)) {
       throw DslException(p.pos, '期望条件（target op "pattern"）');
     }
@@ -175,10 +185,15 @@ class _Parser {
     final target = segs[0];
     final field = segs.sublist(1).join('.');
     if (!kDslTargets.contains(target)) {
-      throw DslException(p.pos, "未知 target '$target'（可选: ${kDslTargets.join(' / ')}）");
+      throw DslException(
+        p.pos,
+        "未知 target '$target'（可选: ${kDslTargets.join(' / ')}）",
+      );
     }
     final opTok = take();
-    if (opTok.isStr || opTok.isLParen || opTok.isRParen ||
+    if (opTok.isStr ||
+        opTok.isLParen ||
+        opTok.isRParen ||
         !kDslOps.contains(opTok.v)) {
       throw DslException(p.pos, '期望算子（${kDslOps.join(' / ')}）');
     }
@@ -189,7 +204,9 @@ class _Parser {
     if (after.tok.v == 'checksum' && !after.tok.isStr) {
       take();
       final nameTok = take();
-      if (nameTok.isStr || nameTok.isLParen || nameTok.isRParen ||
+      if (nameTok.isStr ||
+          nameTok.isLParen ||
+          nameTok.isRParen ||
           nameTok.v.isEmpty) {
         throw DslException(after.pos, 'checksum 后缺校验器名');
       }
@@ -217,7 +234,10 @@ Map<String, Object?> parseDsl(String src) {
   final parser = _Parser(_Lexer(src));
   final tree = parser.parseExpr();
   final rest = parser.peek();
-  if (rest.tok.v.isNotEmpty || rest.tok.isStr || rest.tok.isLParen || rest.tok.isRParen) {
+  if (rest.tok.v.isNotEmpty ||
+      rest.tok.isStr ||
+      rest.tok.isLParen ||
+      rest.tok.isRParen) {
     throw DslException(rest.pos, '条件后有多余内容');
   }
   return tree;
@@ -235,9 +255,7 @@ String? mixedPhase(Map<String, Object?> node) {
     _walk(node, (leaf) {
       final p = isResponseTarget('${leaf['target']}');
       if (phase != null && phase != p) {
-        throw StateError(
-          "混阶段条件被拒：'${leaf['target']}' 与请求侧条件不能同树",
-        );
+        throw StateError("混阶段条件被拒：'${leaf['target']}' 与请求侧条件不能同树");
       }
       phase = p;
     });

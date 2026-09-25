@@ -18,6 +18,7 @@ import '../../../i18n.dart';
 import '../../../platform.dart' as native;
 import '../../../utils/formatters.dart';
 import '../../shell/theme.dart';
+import '../filter_dropdown.dart';
 import '../invoke.dart';
 import '../ui_bits.dart';
 import '../platform_card_bits.dart' show MiniBadge, ProtocolMetaTable;
@@ -26,6 +27,7 @@ import 'bits.dart';
 import 'ccswitch_match.dart';
 import 'foreign_import_logic.dart';
 import 'importexport_logic.dart';
+import 'schema_config_page.dart' show JsonField;
 
 /// 选一个 .aidogx 路径。抽成函数是为了让 widget 测试能整体替换掉原生面板。
 typedef PickPathFn = Future<String?> Function({bool save, String? suggested});
@@ -214,28 +216,30 @@ class _ImportExportPageState extends State<ImportExportPage> {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        DropdownButton<String>(
-          key: ValueKey('sub2api-protocol-$i'),
-          value: options.contains(current) ? current : null,
-          hint: Text(
-            current,
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+        // React 这里是 shadcn `SelectTrigger`：`fontSize: 12, padding: "4px 8px",
+        // minWidth: 140`（`Sub2ApiImport.tsx:266`）。Material 的 `DropdownButton`
+        // 是另一套形状（无描边盒、无最小宽），换成本仓库自己的 [FilterDropdown]。
+        SizedBox(
+          width: 140,
+          child: FilterDropdown(
+            key: ValueKey('sub2api-protocol-$i'),
+            width: 140,
+            height: 26, // 12px 字 × 1.5 + 上下 4 内衬
+            padX: 8,
+            fontSize: 12,
+            value: options.contains(current) ? current : '',
+            onChanged: (v) {
+              if (v.isEmpty) return;
+              setState(() => _subProtocolOverrides[i] = v);
+            },
+            allLabel: current,
+            searchPlaceholder: t.t('importExport.sub2api.title'),
+            emptyLabel: t.t('importExport.sub2api.unrecognized'),
+            options: [
+              for (final o in options)
+                FilterOption(value: o, label: _meta.labels[o] ?? o),
+            ],
           ),
-          underline: const SizedBox.shrink(),
-          isDense: true,
-          dropdownColor: theme.c.surface2,
-          style: AidogType.micro.copyWith(color: theme.c.fg),
-          items: [
-            for (final o in options)
-              DropdownMenuItem<String>(
-                value: o,
-                child: Text(_meta.labels[o] ?? o),
-              ),
-          ],
-          onChanged: (v) {
-            if (v == null) return;
-            setState(() => _subProtocolOverrides[i] = v);
-          },
         ),
         // 手改过就不再提「未识别」——那条提示说的是自动映射的结果。
         if (!mapped.recognized && !_subProtocolOverrides.containsKey(i)) ...[
@@ -401,19 +405,19 @@ class _ImportExportPageState extends State<ImportExportPage> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 粘的是 sub2api 导出的整份账号 JSON，`maxLines: 4` 只看得见
-              // 四行 —— 粘全没粘全、括号对不对都得靠猜。React 那边是
-              // `JsonCodeEditor`，高度 120–320px（`Sub2ApiImport.tsx:195-201`）。
-              // 等宽行高 12.5×1.35 ≈ 17px：7 行 ≈ 119px 起、19 行 ≈ 323px 封顶。
-              TextRow(
+              // 粘的是 sub2api 导出的整份账号 JSON：React 用的是
+              // `JsonCodeEditor`（语法高亮 + 行号 + 折叠 + Cmd+F 搜索，
+              // 高度 120–320，`Sub2ApiImport.tsx:195-201`），不是纯文本域。
+              // 这里复用 schema 页的 re_editor 版 [JsonField]，取上限 320。
+              JsonField(
                 key: const ValueKey('sub2api-paste'),
-                label: t.t('importExport.sub2api.title'),
+                text: _pasteText,
+                height: 320,
                 hint: t.t('importExport.sub2api.pastePlaceholder'),
-                value: _pasteText,
-                minLines: 7,
-                maxLines: 19,
-                mono: true,
+                // 内容完全归用户：失焦后父级重建不能把粘进去的东西清空。
+                syncExternal: false,
                 onChanged: (v) => setState(() => _pasteText = v),
+                onSubmitted: (v) => setState(() => _pasteText = v),
               ),
               Row(
                 children: [
@@ -457,21 +461,52 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ],
           ),
         ),
-        if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
-        if (_c.message.isNotEmpty)
-          AutoToast(
-            text: _c.message,
-            onDone: () => setState(() => _c.message = ''),
+        if (_c.error.isNotEmpty)
+          ErrorNote(
+            text: _c.error,
+            // 页面级错误条（`ImportExportTab.tsx:601-607`）。
+            fontSize: 13,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           ),
+        // 导出成功走导出卡里的 `_SuccessPathCard`，不再另出一条会自己消失的 toast。
       ],
     );
   }
+
+  /// 文字按钮（全选 / 反选 / 批量决策）：React 的 `TextButton` 是
+  /// accent 色 13 w500、`padding: 0`、无边框无底
+  /// （`ImportExport/primitives.tsx:24-41`）——`SmallButton` 的缺省档
+  /// （micro 11 + ls0.66 + 10/5 内衬）是另一个东西。
+  Widget _textButton({
+    Key? key,
+    required String label,
+    required VoidCallback onTap,
+  }) => SmallButton(
+    key: key,
+    ghost: true,
+    label: label,
+    fontSize: 13,
+    fontWeight: FontWeight.w500,
+    padding: (0, 0),
+    color: AidogTheme.of(context).c.accentText,
+    onTap: onTap,
+  );
 
   // ── 导出 ────────────────────────────────────────────────
 
   Widget _exportCard(I18nController t) => SettingsCard(
     title: t.t('importExport.exportTitle'),
     description: t.t('importExport.exportDesc'),
+    emphasized: true,
+    icon: Icons.folder_outlined,
+    padding: kIeCardPad,
+    gap: kIeCardGap,
+    bottomGap: kIeSectionGap,
+    titleGap: AidogSpace.ssm,
+    titleStyle: kIeTitleStyle,
+    iconSize: 18,
+    iconColor: AidogTheme.of(context).c.accentText,
+    descriptionStyle: kIeDescStyle(AidogTheme.of(context)),
     children: [
       // scope 区头：标题 14 w600 + 全选/反选 + 选中计数
       //（`ImportExportTab.tsx:381-395`）。
@@ -486,64 +521,105 @@ class _ImportExportPageState extends State<ImportExportPage> {
             ),
           ),
           const SizedBox(width: AidogSpace.smd),
-          SmallButton(
+          _textButton(
             key: const ValueKey('scope-select-all'),
-            ghost: true,
             label: t.t('importExport.selectAll'),
             onTap: () => _c.setAllScopes(true),
           ),
-          const SizedBox(width: AidogSpace.sxs),
-          SmallButton(
+          const SizedBox(width: AidogSpace.smd),
+          _textButton(
             key: const ValueKey('scope-deselect-all'),
-            ghost: true,
             label: t.t('importExport.deselectAll'),
             onTap: () => _c.setAllScopes(false),
           ),
           const Spacer(),
           MiniBadge(
-            text:
-                '${_c.scopes.length} / ${kImportExportScopes.length}',
+            text: '${_c.scopes.length} / ${kImportExportScopes.length}',
             color: _c.scopes.isNotEmpty
                 ? AidogTheme.of(context).c.ok
                 : AidogTheme.of(context).c.fg3,
           ),
         ],
       ),
-      const SizedBox(height: AidogSpace.smd),
       // scope 网格卡（`repeat(auto-fill,minmax(220px,1fr))`、gap 10，
       // `ImportExportTab.tsx:398-430` + primitives 的 ScopeCard）。
+      // 卡片按菜单组聚合：单 scope 组用自身 label/desc，多 scope 组用菜单组
+      // 标题 + 子 scope 串（同上 :399-429）。
       LayoutBuilder(
         builder: (context, constraints) {
-          final perRow = (constraints.maxWidth / 230).floor().clamp(1, 99);
+          final groups = scopeCardGroups();
+          // `auto-fill, minmax(220px,1fr)` + gap 10 的列数：
+          // floor((W + gap) / (220 + gap))，原先漏了 `+ gap`。
+          final perRow = ((constraints.maxWidth + 10) / 230).floor().clamp(
+            1,
+            99,
+          );
           return Wrap(
             spacing: 10,
             runSpacing: 10,
             children: [
-              for (final s in kImportExportScopes)
+              for (final g in groups)
                 SizedBox(
                   width: (constraints.maxWidth - 10 * (perRow - 1)) / perRow,
-                  child: _ScopeCard(
-                    key: ValueKey('scope-$s'),
-                    icon: scopeIcon(s),
-                    label: tOr(t, scopeLabelKey(s), s),
-                    desc: tOr(t, scopeDescKey(s), s),
-                    selected: _c.scopes.contains(s),
-                    onTap: () =>
-                        _c.toggleScope(s, !_c.scopes.contains(s)),
-                  ),
+                  child: () {
+                    final multi = g.scopeIds.length > 1;
+                    final allOn = g.scopeIds.every(_c.scopes.contains);
+                    final someOn = g.scopeIds.any(_c.scopes.contains) && !allOn;
+                    final one = g.scopeIds.first;
+                    return _ScopeCard(
+                      // React 的 key 恒是菜单组 id（`ImportExportTab.tsx:408,420`
+                      // 的 `key={g.gid}`），单 scope 组也一样。
+                      key: ValueKey('scope-${g.gid}'),
+                      icon: multi ? menuGroupIcon(g.gid) : scopeIcon(one),
+                      label: multi
+                          ? t.t(menuGroupLabelKey(g.gid))
+                          : tOr(t, scopeLabelKey(one), one),
+                      desc: multi
+                          ? [
+                              for (final s in g.scopeIds)
+                                tOr(t, scopeLabelKey(s), s),
+                            ].join(' · ')
+                          : tOr(t, scopeDescKey(one), one),
+                      selected: allOn,
+                      indeterminate: someOn,
+                      onTap: () {
+                        for (final s in g.scopeIds) {
+                          _c.toggleScope(s, !allOn);
+                        }
+                      },
+                    );
+                  }(),
                 ),
             ],
           );
         },
       ),
-      Text(
-        t.t('importExport.skillsScopeHint'),
-        style: AidogType.caption.copyWith(
-          fontSize: 12,
-          color: AidogTheme.of(context).c.fg3,
+      // 拉预览时一行 spinner + 13px 文案（`ImportExportTab.tsx:433-448`）。
+      // 原先只把按钮文案改成「加载中…」，网格下方什么都不出。
+      if (_c.busy && _c.preview == null)
+        Row(
+          key: const ValueKey('export-preview-loading'),
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AidogTheme.of(context).c.accentText,
+                backgroundColor: AidogTheme.of(context).c.line,
+              ),
+            ),
+            const SizedBox(width: AidogSpace.s_8),
+            Text(
+              t.t('importExport.loadingPreview'),
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                color: AidogTheme.of(context).c.fg3,
+              ),
+            ),
+          ],
         ),
-      ),
-      const SizedBox(height: AidogSpace.ssm),
+      if (_c.preview != null && !_c.previewIsImport) _itemPicker(t),
       // 没有手动预览按钮：scope 勾选变化经控制器 300ms 防抖自动拉预览
       // （`ImportExportTab.tsx:112-126`），预览期间 busy 顶掉导出。
       // 页尾右对齐 default 按钮（`ImportExportTab.tsx:469-482`）。
@@ -552,6 +628,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
         child: SmallButton(
           key: const ValueKey('export-run'),
           filled: true,
+          // shadcn `<Button variant="default">` = 高 36 / `px-4` 16 / `text-sm` 14
+          //（`ImportExportTab.tsx:469`）。
+          fontSize: 14,
+          padding: (16, 8),
           // 三态照抄 `ImportExportTab.tsx:467-473`：跑着的时候说「导出中」，
           // 预览出来之后按钮上直接带上会导几项 —— 光写「导出」看不出导什么。
           label: _c.busy
@@ -580,8 +660,16 @@ class _ImportExportPageState extends State<ImportExportPage> {
               : null,
         ),
       ),
-      if (_c.scopes.isEmpty) ErrorNote(text: t.t('importExport.error.noScope')),
-      if (_c.preview != null && !_c.previewIsImport) _itemPicker(t),
+      if (_c.scopes.isEmpty)
+        ErrorNote(
+          text: t.t('importExport.error.noScope'),
+          // 页面级错误条 `padding "10px 14px"` + 13（`ImportExportTab.tsx:601-607`）。
+          fontSize: 13,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        ),
+      // 导出成功不只是一句会消失的 toast：React 留一张带文件路径的成功卡
+      //（`ImportExport/primitives.tsx:119-148`），路径要能被读、被复制。
+      if (_c.message.isNotEmpty) _SuccessPathCard(message: _c.message),
     ],
   );
 
@@ -592,6 +680,16 @@ class _ImportExportPageState extends State<ImportExportPage> {
     return SettingsCard(
       title: t.t('importExport.importTitle'),
       description: t.t('importExport.importDesc'),
+      emphasized: true,
+      icon: Icons.account_tree_outlined,
+      padding: kIeCardPad,
+      gap: kIeCardGap,
+      bottomGap: kIeSectionGap,
+      titleGap: AidogSpace.ssm,
+      titleStyle: kIeTitleStyle,
+      iconSize: 18,
+      iconColor: AidogTheme.of(context).c.accentText,
+      descriptionStyle: kIeDescStyle(AidogTheme.of(context)),
       children: [
         _DropZone(
           active: _dragActive,
@@ -611,49 +709,13 @@ class _ImportExportPageState extends State<ImportExportPage> {
             unawaited(_loadImportFile(target));
           },
         ),
-        const SizedBox(height: AidogSpace.ssm),
-        // 页尾右对齐：应用是 default（实心），选文件是 outline
-        //（`ImportExportTab.tsx:575-584`）。
-        const SizedBox(height: AidogSpace.ssm),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            SmallButton(
-              key: const ValueKey('import-pick'),
-              label: t.t('importExport.pickFile'),
-              onTap: _c.busy ? null : _pickImportFile,
-            ),
-            const SizedBox(width: AidogSpace.ssm),
-            SmallButton(
-              key: const ValueKey('import-apply'),
-              filled: true,
-              // 三态照抄 React（`ImportExportTab.tsx:566-578`）：跑着说「导入中」，
-              // 平时按钮上直接带会导几项。点了直接执行，没有二次确认卡。
-              label: _c.busy
-                  ? t.t('importExport.applying')
-                  : t.t('importExport.applyN', {'n': _c.selected.length}),
-              // 冲突没定完 / 一项没选就点不动（`canApplyImport`）。
-              onTap: _c.canApplyImport && _importPath != null
-                  ? () {
-                      final p = _importPath;
-                      if (p != null) {
-                        _c.applyImport(
-                          p,
-                          renameRequiredText: t.t('importExport.renameRequired'),
-                        );
-                      }
-                    }
-                  : null,
-            ),
-          ],
-        ),
-        if (_importPath != null)
-          InfoRow(
-            label: t.t('importExport.pickFile'),
-            value: ltr(_importPath!),
-          ),
-        // 概要卡 + 逐项勾选（`ImportExportTab.tsx:506-537`）：光有一条文件路径
+        // 概要卡 + 逐项勾选（`ImportExportTab.tsx:513-545`）：光有一条文件路径
         // 看不出这份备份是谁、什么时候、导进来会动多少东西。
+        //
+        // React 这里**没有**独立的「选择文件」按钮，也不回显路径：`DropZone`
+        // 本身就是入口（`ImportExportTab.tsx:503-510`），选完由概要卡交代
+        // 「这份备份是谁的」。原先 Flutter 多出的那颗 outline 按钮 + `InfoRow`
+        // 路径行按真值源收掉。
         if (_c.preview != null && _c.previewIsImport) ...[
           _previewSummary(t),
           _itemPicker(t),
@@ -676,9 +738,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   ),
                 ),
               ),
-              SmallButton(
+              _textButton(
                 key: const ValueKey('bulk-overwrite'),
-                ghost: true,
                 label: t.t('importExport.bulkOverwrite'),
                 onTap: () {
                   for (final k in _c.conflictKeys) {
@@ -686,10 +747,10 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   }
                 },
               ),
-              const SizedBox(width: AidogSpace.sxs),
-              SmallButton(
+              // 两颗批量按钮之间 `gap: 8`（`ImportExportTab.tsx:553`）。
+              const SizedBox(width: AidogSpace.s_8),
+              _textButton(
                 key: const ValueKey('bulk-skip'),
-                ghost: true,
                 label: t.t('importExport.bulkSkip'),
                 onTap: () {
                   for (final k in _c.conflictKeys) {
@@ -706,10 +767,13 @@ class _ImportExportPageState extends State<ImportExportPage> {
                 final k = row.key;
                 final theme = AidogTheme.of(context);
                 return Container(
-                  margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                  // 冲突行之间 `gap: 8`（`ImportExportTab.tsx:548`）；
+                  // 底色 `glass-surface` = `--bg-surface`（`ConflictRow.tsx:29`），
+                  // 不是 surface2。
+                  margin: const EdgeInsets.only(bottom: AidogSpace.s_8),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: theme.c.surface2,
+                    color: theme.c.surface,
                     border: Border.all(color: theme.c.line),
                     borderRadius: BorderRadius.circular(AidogRadius.md),
                   ),
@@ -720,14 +784,13 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       Row(
                         children: [
                           MiniBadge(
-                            text: tOr(
-                              t,
-                              scopeLabelKey(row.scope),
-                              row.scope,
-                            ),
+                            text: tOr(t, scopeLabelKey(row.scope), row.scope),
+                            // scope 徽标带图标（`ConflictRow.tsx:41` 的
+                            // `StatChip icon={<SectionIcon size={12}>}`）。
+                            icon: scopeIcon(row.scope),
                             color: theme.c.fg3,
                           ),
-                          const SizedBox(width: AidogSpace.ssm),
+                          const SizedBox(width: AidogSpace.s_8),
                           Expanded(
                             child: Text(
                               ltr(k),
@@ -742,7 +805,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                       ),
                       if (row.existing.isNotEmpty)
                         Padding(
-                          padding: const EdgeInsets.only(top: 4),
+                          // 行内 `gap: 8`（`ConflictRow.tsx:33`）。
+                          padding: const EdgeInsets.only(top: AidogSpace.s_8),
                           // 本地现有那条的摘要（`ConflictRow.tsx:46`）：不给它，
                           // 用户就得闭着眼睛决定要不要覆盖自己的配置。
                           child: Text(
@@ -760,7 +824,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           // 三段分段控件（覆盖 / 跳过 / 重命名，
                           // `ConflictRow.tsx:48-59` 的 Segmented）。
                           SegmentedRow<ConflictDecisionKind>(
-                            value: _c.decisions[k]?.kind ??
+                            value:
+                                _c.decisions[k]?.kind ??
                                 ConflictDecisionKind.useIncoming,
                             options: ConflictDecisionKind.values,
                             labelOf: (d) => switch (d) {
@@ -775,7 +840,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                               ),
                             },
                             onChanged: (d) => _c.decide(k, d),
-                            segmentKeyOf: (d) => ValueKey('decide-$k-${d.name}'),
+                            segmentKeyOf: (d) =>
+                                ValueKey('decide-$k-${d.name}'),
                           ),
                           const SizedBox(width: AidogSpace.smd),
                           // 选了「重命名」才出新名输入框（`ConflictRow.tsx:62-67`）。
@@ -798,6 +864,38 @@ class _ImportExportPageState extends State<ImportExportPage> {
               },
             ),
         ],
+        // 应用按钮压在预览块**末尾**、右对齐（`ImportExportTab.tsx:575-584`），
+        // 不是落区正下方 —— 先看完概要 / 勾选 / 冲突再按。
+        if (_c.preview != null && _c.previewIsImport)
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: SmallButton(
+              key: const ValueKey('import-apply'),
+              filled: true,
+              // shadcn `<Button variant="default">` = 36 / px-4 16 / text-sm 14。
+              fontSize: 14,
+              padding: (16, 8),
+              // 三态照抄 React（`ImportExportTab.tsx:581-583`）：跑着说「导入中」，
+              // 平时按钮上直接带会导几项。点了直接执行，没有二次确认卡。
+              label: _c.busy
+                  ? t.t('importExport.applying')
+                  : t.t('importExport.applyN', {'n': _c.selected.length}),
+              // 冲突没定完 / 一项没选就点不动（`canApplyImport`）。
+              onTap: _c.canApplyImport && _importPath != null
+                  ? () {
+                      final p = _importPath;
+                      if (p != null) {
+                        _c.applyImport(
+                          p,
+                          renameRequiredText: t.t(
+                            'importExport.renameRequired',
+                          ),
+                        );
+                      }
+                    }
+                  : null,
+            ),
+          ),
         // 导入结果：三个计数 + 三个分区 + 错误原文逐条（`ReportView.tsx:24-61`）。
         // 原先是把整个 map 直接 `InfoRow(key, '$value')` 铺开，屏幕上出现的是
         // `applied → {platform: 3}` 这种 Dart toString —— 错误原文读不出来。
@@ -825,85 +923,135 @@ class _ImportExportPageState extends State<ImportExportPage> {
     ];
     int total(Map<String, int> m) => m.values.fold(0, (a, b) => a + b);
 
-    // 三语义色分区卡（`ReportView.tsx:24-101`）：success / neutral / danger
-    // 各自的 wash 底 + 同色边，标题 12 w600，行 12。
-    Widget section(String title, Color color, List<String> rows) => Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.ssm),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          border: Border.all(color: color.withValues(alpha: 0.35)),
-          borderRadius: BorderRadius.circular(AidogRadius.md),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: AidogType.caption.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            for (final r in rows)
+    // 三语义色分区卡（`ReportView.tsx:79-101`）：`--color-*-bg` 是语义色 **10%**、
+    // 边是**实色**、内衬 10、标题 13 w600、行 12、行间 4、带图标时行左缩进 19。
+    Widget section(
+      String title,
+      Color color,
+      List<String> rows, {
+      IconData? icon,
+    }) => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        border: Border.all(color: color),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              if (icon != null) ...[
+                Icon(icon, size: 13, color: color),
+                // 图标↔标题 `gap: 6`（`ReportView.tsx:91`）。
+                const SizedBox(width: AidogSpace.ssm),
+              ],
               Text(
+                title,
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+          for (final r in rows)
+            Padding(
+              // 行之间 `gap: 4`，带图标时 `paddingLeft: 19`
+              //（`ReportView.tsx:87,96`）。
+              padding: EdgeInsetsDirectional.only(
+                top: AidogSpace.sxs,
+                start: icon == null ? 0 : 19,
+              ),
+              child: Text(
                 r,
                 style: AidogType.caption.copyWith(
                   fontSize: 12,
                   color: theme.c.fg2,
                 ),
               ),
-          ],
-        ),
+            ),
+        ],
       ),
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        TileMetaLine(t.t('importExport.reportTitle')),
-        Wrap(
-          spacing: AidogSpace.ssm,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            MiniBadge(
-              text: '${t.t('importExport.applied')} ${total(applied)}',
-              color: theme.c.ok,
-            ),
-            MiniBadge(
-              text: '${t.t('importExport.skipped')} ${total(skipped)}',
-              color: theme.c.fg3,
-            ),
-            if (errors.isNotEmpty)
-              MiniBadge(
-                text: '${t.t('importExport.errorsLabel')} ${errors.length}',
-                color: theme.c.bad,
+    // 分区之间 `gap: 12`（`ReportView.tsx:24`）。
+    Widget gap12(Widget w) =>
+        Padding(padding: const EdgeInsets.only(top: 12), child: w);
+
+    // 整份结果是一张 `glass-surface` 外卡：padding 14 / r-lg / gap 12
+    //（`ReportView.tsx:24`）。原先是裸 Column，与上面的冲突行分不开。
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.c.surface,
+        border: Border.all(color: theme.c.line),
+        borderRadius: BorderRadius.circular(AidogRadius.lg),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 标题行：`<strong fontSize: 14>` 正常大小写 + 三颗 StatChip，gap 10
+          //（`ReportView.tsx:26-36`），不是全大写的 micro 小节标题。
+          Wrap(
+            spacing: AidogSpace.smd,
+            runSpacing: AidogSpace.sxs,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                t.t('importExport.reportTitle'),
+                style: AidogType.label.copyWith(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg,
+                ),
               ),
-          ],
-        ),
-        if (applied.isNotEmpty)
-          section(t.t('importExport.applied'), theme.c.ok, [
-            for (final e in applied.entries)
-              '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
-          ]),
-        if (skipped.isNotEmpty)
-          section(t.t('importExport.skipped'), theme.c.fg3, [
-            for (final e in skipped.entries)
-              '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
-          ]),
-        // 错误原文逐条列出来 —— 这是导入失败时唯一能查的东西。
-        if (errors.isNotEmpty)
-          section(
-            t.t('importExport.errors', {'n': '${errors.length}'}),
-            theme.c.bad,
-            errors,
+              MiniBadge(
+                text: '${t.t('importExport.applied')} ${total(applied)}',
+                color: theme.c.ok,
+              ),
+              MiniBadge(
+                text: '${t.t('importExport.skipped')} ${total(skipped)}',
+                color: theme.c.fg3,
+              ),
+              if (errors.isNotEmpty)
+                MiniBadge(
+                  text: '${t.t('importExport.errorsLabel')} ${errors.length}',
+                  color: theme.c.bad,
+                ),
+            ],
           ),
-      ],
+          if (applied.isNotEmpty)
+            gap12(
+              section(t.t('importExport.applied'), theme.c.ok, [
+                for (final e in applied.entries)
+                  '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
+              ], icon: Icons.check),
+            ),
+          if (skipped.isNotEmpty)
+            gap12(
+              section(t.t('importExport.skipped'), theme.c.fg3, [
+                for (final e in skipped.entries)
+                  '${tOr(t, scopeLabelKey(e.key), e.key)}: ${e.value}',
+              ], icon: Icons.bolt_outlined),
+            ),
+          // 错误原文逐条列出来 —— 这是导入失败时唯一能查的东西。
+          // React 的错误区**不带图标**（`ReportView.tsx:53-59` 无 icon 参数）。
+          if (errors.isNotEmpty)
+            gap12(
+              section(
+                t.t('importExport.errors', {'n': '${errors.length}'}),
+                theme.c.bad,
+                errors,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -913,20 +1061,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
     final theme = AidogTheme.of(context);
     final manifest = _c.preview!['manifest'];
     final counts = _c.preview!['counts'];
+    // 标签↔值 `gap: 8`，标签 `minWidth: 72`（**弹性**，不是死宽；
+    // `ImportExport/primitives.tsx:235-236`）。
     Widget metaRow(String label, String value) => Row(
       crossAxisAlignment: CrossAxisAlignment.baseline,
       textBaseline: TextBaseline.alphabetic,
       children: [
-        SizedBox(
-          width: 72,
+        ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 72),
           child: Text(
             label,
-            style: AidogType.label.copyWith(
-              fontSize: 13,
-              color: theme.c.fg3,
-            ),
+            style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg3),
           ),
         ),
+        const SizedBox(width: AidogSpace.s_8),
         Expanded(
           child: Text(
             value,
@@ -940,12 +1088,13 @@ class _ImportExportPageState extends State<ImportExportPage> {
       ],
     );
     return Container(
-      margin: const EdgeInsets.only(top: AidogSpace.smd),
+      // `glass-surface` 底 + `--radius-lg` 16 + `gap: 12`
+      //（`ImportExportTab.tsx:516`）。
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.md),
+        borderRadius: BorderRadius.circular(AidogRadius.lg),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -956,7 +1105,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
               t.t('importExport.sourceMachine'),
               ltr('${manifest['source_machine'] ?? ''}'),
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 12),
             metaRow(
               t.t('importExport.createdAt'),
               ltr('${manifest['created_at'] ?? ''}'),
@@ -964,16 +1113,19 @@ class _ImportExportPageState extends State<ImportExportPage> {
           ],
           if (counts is Map && counts.isNotEmpty)
             Padding(
-              padding: const EdgeInsets.only(top: AidogSpace.ssm),
+              padding: const EdgeInsets.only(top: 12),
               child: Wrap(
-                spacing: AidogSpace.sxs,
-                runSpacing: AidogSpace.sxs,
+                // counts 徽标之间 `gap: 8`（`ImportExportTab.tsx:519`），
+                // 每颗带 scope 图标（同上 :523）。
+                spacing: AidogSpace.s_8,
+                runSpacing: AidogSpace.s_8,
                 children: [
                   for (final e in counts.entries)
                     MiniBadge(
                       text:
                           '${tOr(t, scopeLabelKey(e.key), '${e.key}')} '
                           '${e.value}',
+                      icon: scopeIcon('${e.key}'),
                       color: theme.c.fg3,
                     ),
                 ],
@@ -1018,56 +1170,43 @@ class _ImportExportPageState extends State<ImportExportPage> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        // 标题 + 「已选 n / 共 m」（`ItemSelector.tsx:63-72`）：只报已选数看不出
-        // 还剩多少没勾。
-        Padding(
-          padding: const EdgeInsets.only(top: AidogSpace.ssm),
-          child: Row(
-            children: [
-              Text(
-                t.t('importExport.selectItems'),
-                style: AidogType.label.copyWith(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: theme.c.fg,
-                ),
+        // 头部：左 = 标题 14 w600；右 = 全选 / 反选 + 「已选 n / m」徽标
+        //（`ItemSelector.tsx:63-74`）。计数在最右，两颗文字按钮在它左边。
+        Row(
+          children: [
+            Text(
+              t.t('importExport.selectItems'),
+              style: AidogType.label.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: theme.c.fg,
               ),
-              const SizedBox(width: AidogSpace.smd),
-              Text(
-                '${t.t('importExport.selectedLabel')} '
-                '${_c.selected.length} / ${items.length}',
-                style: AidogType.caption.copyWith(
-                  fontSize: 12,
-                  color: theme.c.fg3,
-                ),
-              ),
-              const Spacer(),
-              SmallButton(
-                ghost: true,
-                label: t.t('importExport.selectAll'),
-                onTap: () => setMany(items, true),
-              ),
-              const SizedBox(width: AidogSpace.sxs),
-              SmallButton(
-                ghost: true,
-                label: t.t('importExport.deselectAll'),
-                onTap: () => setMany(items, false),
-              ),
-            ],
-          ),
-        ),
-        ConstrainedBox(
-          constraints: const BoxConstraints(maxHeight: 360),
-          child: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (final entry in groups.entries)
-                  _itemGroup(t, theme, entry.key, entry.value, keyOf, setMany),
-              ],
             ),
-          ),
+            const Spacer(),
+            _textButton(
+              label: t.t('importExport.selectAll'),
+              onTap: () => setMany(items, true),
+            ),
+            // 右组内 `gap: 10`（`ItemSelector.tsx:69`）。
+            const SizedBox(width: AidogSpace.smd),
+            _textButton(
+              label: t.t('importExport.deselectAll'),
+              onTap: () => setMany(items, false),
+            ),
+            const SizedBox(width: AidogSpace.smd),
+            MiniBadge(
+              text:
+                  '${t.t('importExport.selectedLabel')} '
+                  '${_c.selected.length} / ${items.length}',
+              color: _c.selected.isNotEmpty ? theme.c.ok : theme.c.fg3,
+            ),
+          ],
         ),
+        // React 的组列表没有高度上限、随内容长高（`ItemSelector.tsx:76-170`）；
+        // 组卡之间 `gap: 8`（同上 :64）。
+        const SizedBox(height: AidogSpace.s_8),
+        for (final entry in groups.entries)
+          _itemGroup(t, theme, entry.key, entry.value, keyOf, setMany),
       ],
     );
   }
@@ -1093,68 +1232,93 @@ class _ImportExportPageState extends State<ImportExportPage> {
         .where((e) => _c.selected.contains(keyOf(e)))
         .length;
     return Container(
-      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      // 组卡之间 `gap: 8`（`ItemSelector.tsx:64`）。整卡不铺底：React 只有
+      // 组头带 `--bg-glass`，组体透明（同上 :87,98）。
+      margin: const EdgeInsets.only(bottom: AidogSpace.s_8),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.md),
       ),
+      clipBehavior: Clip.antiAlias,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          InkWell(
-            key: ValueKey('item-group-$gid'),
-            onTap: () => setState(
-              () => open
-                  ? _collapsedGroups.add(gid)
-                  : _collapsedGroups.remove(gid),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 10,
+          Material(
+            color: theme.c.surface,
+            child: InkWell(
+              key: ValueKey('item-group-$gid'),
+              onTap: () => setState(
+                () => open
+                    ? _collapsedGroups.add(gid)
+                    : _collapsedGroups.remove(gid),
               ),
-              child: Row(
-                children: [
-                  Icon(
-                    open ? Icons.expand_more : Icons.chevron_right,
-                    size: 14,
-                    color: theme.c.fg3,
-                  ),
-                  const SizedBox(width: AidogSpace.sxs),
-                  // 组级三态：全选 / 半选 / 全不选。点它整组翻转。
-                  GestureDetector(
-                    key: ValueKey('item-group-check-$gid'),
-                    onTap: () => setMany(rows, !allOn),
-                    child: ImportCheckBox(checked: allOn, indeterminate: someOn),
-                  ),
-                  const SizedBox(width: AidogSpace.ssm),
-                  Expanded(
-                    child: Text(
-                      t.t(menuGroupLabelKey(gid)),
-                      style: AidogType.label.copyWith(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: theme.c.fg,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    // 折叠箭头：12px 的 ▸，open 时转 90°（不是换一枚图标，
+                    // `ImportExport/primitives.tsx:214-229`）。
+                    AnimatedRotation(
+                      turns: open ? 0.25 : 0,
+                      duration: AidogMotion.base,
+                      curve: AidogMotion.easeStandard,
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 12,
+                        color: theme.c.fg3,
                       ),
                     ),
-                  ),
-                  if (skills.isNotEmpty && skillsSelected == 0) ...[
-                    MiniBadge(
-                      text: t.t('importExport.skillsScopeHint'),
-                      color: theme.c.peak,
+                    // 组头一律 `gap: 8`（`ItemSelector.tsx:95`）。
+                    const SizedBox(width: AidogSpace.s_8),
+                    // 组级三态：全选 / 半选 / 全不选。点它整组翻转。
+                    GestureDetector(
+                      key: ValueKey('item-group-check-$gid'),
+                      onTap: () => setMany(rows, !allOn),
+                      child: ImportCheckBox(
+                        checked: allOn,
+                        indeterminate: someOn,
+                      ),
                     ),
-                    const SizedBox(width: AidogSpace.sxs),
+                    const SizedBox(width: AidogSpace.s_8),
+                    // 组名前 14px 图标（`ItemSelector.tsx:112`）：纯文字组头
+                    // 在一长串分组里扫不动。
+                    Icon(menuGroupIcon(gid), size: 14, color: theme.c.fg2),
+                    const SizedBox(width: AidogSpace.s_8),
+                    Expanded(
+                      child: Text(
+                        t.t(menuGroupLabelKey(gid)),
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
+                      ),
+                    ),
+                    if (skills.isNotEmpty && skillsSelected == 0) ...[
+                      MiniBadge(
+                        text: t.t('importExport.skillsScopeHint'),
+                        // `fontSize: 11`、`padding: "2px 6px"`、`radius-sm` 8
+                        //（`ItemSelector.tsx:121-131`）。
+                        fontSize: 11,
+                        padY: 2,
+                        radius: AidogRadius.sm,
+                        color: theme.c.peak,
+                      ),
+                      const SizedBox(width: AidogSpace.sxs),
+                    ],
+                    Text(
+                      ltr('$selected / ${rows.length}'),
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: theme.c.fg3,
+                      ),
+                    ),
                   ],
-                  Text(
-                    ltr('$selected / ${rows.length}'),
-                    style: AidogType.caption.copyWith(
-                      fontSize: 12,
-                      color: theme.c.fg3,
-                    ),
-                  ),
-                ],
+                ),
               ),
             ),
           ),
@@ -1173,48 +1337,55 @@ class _ImportExportPageState extends State<ImportExportPage> {
       '${e['scope'] ?? ''}',
       '${e['key'] ?? ''}',
     );
-    return InkWell(
-      key: ValueKey('item-$k'),
-      onTap: () => _c.toggleSelected(k, !on),
-      child: Padding(
-        padding: const EdgeInsets.only(
-          left: 34,
-          right: 12,
-          top: 2,
-          bottom: 2,
-        ),
-        child: Row(
-          children: [
-            ImportCheckBox(checked: on),
-            const SizedBox(width: AidogSpace.sxs),
-            // scope 图标（`ItemSelector.tsx:155`）：混在一张清单里时，
-            // 图标比 scope 名更快认出这条是平台还是设置。
-            Icon(scopeIcon('${e['scope']}'), size: 12, color: theme.c.fg3),
-            const SizedBox(width: AidogSpace.sxs),
-            Expanded(
-              child: Text(
-                // 后端给了人话标签（平台名 / 分组名 / 文件名），
-                // 只画 `scope key` 的话用户认不出这条是什么。
-                ltr(
-                  localized.isEmpty ? label : t.t(localized),
-                ),
-                overflow: TextOverflow.ellipsis,
-                style: AidogType.label.copyWith(
-                  fontSize: 13,
-                  color: theme.c.fg2,
+    return DecoratedBox(
+      // 每条一道上分隔线（`ItemSelector.tsx:153`）：没有它，一组几十条是一团。
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: theme.c.line)),
+      ),
+      child: InkWell(
+        key: ValueKey('item-$k'),
+        onTap: () => _c.toggleSelected(k, !on),
+        child: Padding(
+          // `padding: "8px 12px 8px 34px"`（`ItemSelector.tsx:151`）。
+          padding: const EdgeInsets.only(
+            left: 34,
+            right: 12,
+            top: AidogSpace.s_8,
+            bottom: AidogSpace.s_8,
+          ),
+          child: Row(
+            children: [
+              ImportCheckBox(checked: on),
+              // 行内一律 `gap: 10`（`ItemSelector.tsx:150`）。
+              const SizedBox(width: AidogSpace.smd),
+              // scope 图标（`ItemSelector.tsx:158`）：混在一张清单里时，
+              // 图标比 scope 名更快认出这条是平台还是设置。
+              Icon(scopeIcon('${e['scope']}'), size: 12, color: theme.c.fg3),
+              const SizedBox(width: AidogSpace.smd),
+              Expanded(
+                child: Text(
+                  // 后端给了人话标签（平台名 / 分组名 / 文件名），
+                  // 只画 `scope key` 的话用户认不出这条是什么。
+                  ltr(localized.isEmpty ? label : t.t(localized)),
+                  overflow: TextOverflow.ellipsis,
+                  // `--text-primary`（`ItemSelector.tsx:159`），不是次级灰。
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    color: theme.c.fg,
+                  ),
                 ),
               ),
-            ),
-            // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名条目，
-            // 导入时要在上面的冲突区逐条定夺。
-            if (e['conflict'] == true) ...[
-              const SizedBox(width: AidogSpace.sxs),
-              MiniBadge(
-                text: t.t('importExport.conflictTag'),
-                color: theme.c.peak,
-              ),
+              // 冲突徽标（`ItemSelector.tsx:160-162`）：本地已有同名条目，
+              // 导入时要在上面的冲突区逐条定夺。
+              if (e['conflict'] == true) ...[
+                const SizedBox(width: AidogSpace.smd),
+                MiniBadge(
+                  text: t.t('importExport.conflictTag'),
+                  color: theme.c.peak,
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -1236,6 +1407,18 @@ class _ImportExportPageState extends State<ImportExportPage> {
     return SettingsCard(
       title: t.t('settings.backup.title'),
       description: t.t('settings.backup.desc'),
+      // 同上：`.glass` 20/16 + `SectionHeader icon="backup"`
+      //（`ImportExport/ScheduledBackupSection.tsx:89-95`）。
+      emphasized: true,
+      icon: Icons.backup_outlined,
+      padding: kIeCardPad,
+      gap: kIeCardGap,
+      bottomGap: kIeSectionGap,
+      titleGap: AidogSpace.ssm,
+      titleStyle: kIeTitleStyle,
+      iconSize: 18,
+      iconColor: AidogTheme.of(context).c.accentText,
+      descriptionStyle: kIeDescStyle(AidogTheme.of(context)),
       children: [
         SwitchRow(
           key: const ValueKey('backup-enabled'),
@@ -1253,9 +1436,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
               key: const ValueKey('backup-interval'),
               value: '${s.intervalHours}',
               width: 90,
-              onChanged: (v) => _b.persist(
-                s.copyWith(intervalHours: int.tryParse(v) ?? 0),
-              ),
+              onChanged: (v) =>
+                  _b.persist(s.copyWith(intervalHours: int.tryParse(v) ?? 0)),
             ),
           ),
         ),
@@ -1293,9 +1475,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
               key: const ValueKey('backup-retention'),
               value: '${s.retentionDays}',
               width: 90,
-              onChanged: (v) => _b.persist(
-                s.copyWith(retentionDays: int.tryParse(v) ?? 0),
-              ),
+              onChanged: (v) =>
+                  _b.persist(s.copyWith(retentionDays: int.tryParse(v) ?? 0)),
             ),
           ),
         ),
@@ -1304,10 +1485,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
           //（`ScheduledBackupSection.tsx:176-187`）。
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 10,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: AidogTheme.of(context).c.surface2,
               borderRadius: BorderRadius.circular(AidogRadius.md),
@@ -1461,16 +1639,37 @@ class _ImportExportPageState extends State<ImportExportPage> {
     return SettingsCard(
       title: title,
       description: description,
+      // 同上：`.glass` 20/16 + `SectionHeader icon="download"`
+      //（`CcSwitchImport.tsx:229-241`、`Sub2ApiImport.tsx:150-168`）。
+      emphasized: true,
+      icon: Icons.download_outlined,
+      padding: kIeCardPad,
+      gap: kIeCardGap,
+      bottomGap: kIeSectionGap,
+      titleGap: AidogSpace.ssm,
+      titleStyle: kIeTitleStyle,
+      iconSize: 18,
+      iconColor: theme.c.accentText,
+      descriptionStyle: kIeDescStyle(AidogTheme.of(context)),
       children: [
         header,
-        const SizedBox(height: AidogSpace.ssm),
         // 这个开关是**批量**的：作用于本次导入的全部平台，不是当前这一条。
         // 不写这句，用户会以为它跟着某一行走（`CcSwitchImport.tsx:357-361`）。
         if (groupAssignHint.isNotEmpty) TileMetaLine(groupAssignHint),
-        SwitchRow(
-          label: autoGroupLabel,
-          value: c.autoGroup,
-          onChanged: c.setAutoGroup,
+        // 「加入分组」在 React 是一张独立行卡：`padding "10px 12px"` +
+        // 1px border + r-md + 13px 文字（`Sub2ApiImport.tsx:290-293`），
+        // 不是裸开关行。
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.md),
+          ),
+          child: SwitchRow(
+            label: autoGroupLabel,
+            value: c.autoGroup,
+            onChanged: c.setAutoGroup,
+          ),
         ),
         // 已有分组的 chip 多选（`CcSwitchImport.tsx:365-391`）：
         // 只有那个开关的话，导进来的平台只能进固定的自动分组，
@@ -1559,13 +1758,16 @@ class _ImportExportPageState extends State<ImportExportPage> {
                   // 十几条里选了哪几条要逐行去找。
                   child: Container(
                     decoration: BoxDecoration(
-                      color: on ? theme.c.accentWash : theme.c.surface2,
+                      // 未选是**透明**，不是 surface2（`Sub2ApiImport.tsx:241`
+                      // 的 `background: isSelected ? accent-subtle : transparent`）。
+                      color: on ? theme.c.accentWash : Colors.transparent,
                       border: Border.all(
                         color: on ? theme.c.accentEdge : theme.c.line,
                       ),
                       borderRadius: BorderRadius.circular(AidogRadius.md),
                     ),
-                    margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                    // 行之间 `gap: 8`（`Sub2ApiImport.tsx:228`）。
+                    margin: const EdgeInsets.only(bottom: AidogSpace.s_8),
                     padding: const EdgeInsets.all(12),
                     child: Row(
                       children: [
@@ -1576,9 +1778,7 @@ class _ImportExportPageState extends State<ImportExportPage> {
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             border: Border.all(
-                              color: on
-                                  ? theme.c.accentEdge
-                                  : theme.c.line,
+                              color: on ? theme.c.accentEdge : theme.c.line,
                             ),
                             color: on ? theme.c.accent : Colors.transparent,
                           ),
@@ -1590,7 +1790,8 @@ class _ImportExportPageState extends State<ImportExportPage> {
                                 )
                               : null,
                         ),
-                        const SizedBox(width: AidogSpace.ssm),
+                        // 行内元素间距 `gap: 10`（`Sub2ApiImport.tsx:242`）。
+                        const SizedBox(width: AidogSpace.smd),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1627,14 +1828,20 @@ class _ImportExportPageState extends State<ImportExportPage> {
                         // 的 StatChip level="warning"）。
                         maskedKey.isEmpty
                             ? MiniBadge(
-                              key: const ValueKey('provider-no-key'),
-                              text: t.t(noKeyKey),
-                              color: theme.c.peak,
-                            )
+                                key: const ValueKey('provider-no-key'),
+                                text: t.t(noKeyKey),
+                                color: theme.c.peak,
+                              )
                             : Text(
-                              maskedKey,
-                              style: AidogType.micro.copyWith(color: theme.c.fg3),
-                            ),
+                                maskedKey,
+                                // `<code fontSize: 11>` + tertiary，字距 0
+                                //（`Sub2ApiImport.tsx:280`）。
+                                style: AidogType.micro.copyWith(
+                                  fontSize: 11,
+                                  letterSpacing: 0,
+                                  color: theme.c.fg3,
+                                ),
+                              ),
                       ],
                     ),
                   ),
@@ -1647,6 +1854,9 @@ class _ImportExportPageState extends State<ImportExportPage> {
             child: SmallButton(
               filled: true,
               key: ValueKey('foreign-import-${c.source.autoGroupName}'),
+              // `padding: "7px 16px", fontSize: 13`（`Sub2ApiImport.tsx:302`）。
+              fontSize: 13,
+              padding: (16, 7),
               label: t.t('importExport.ccswitch.importBtn', {
                 'n': c.selected.length,
               }),
@@ -1675,8 +1885,111 @@ class _ImportExportPageState extends State<ImportExportPage> {
         if (report != null)
           for (final e in report.entries)
             InfoRow(label: e.key, value: '${e.value}'),
-        if (c.error.isNotEmpty) ErrorNote(text: c.error),
+        if (c.error.isNotEmpty)
+          ErrorNote(
+            text: c.error,
+            // 卡内错误条是另一档：`padding "8px 12px"` + 12
+            //（`Sub2ApiImport.tsx:313-320`），比页面级那条小一号。
+            fontSize: 12,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          ),
       ],
+    );
+  }
+}
+
+// ── 本页壳的四个常量（React `.glass` 区块 + `SectionHeader`）─────────────
+//
+// `ImportExportTab.tsx:376,378,488` + `ImportExport/primitives.tsx:11-20`：
+// 根容器 `gap: 24`、区块 `padding: 20` + `gap: 16`、`h3` 18 w600、说明 13/1.5。
+// 与设置页其余 `S.pad=28` / `sectionGap=18` 的分区卡不是同一档。
+
+const EdgeInsets kIeCardPad = EdgeInsets.all(20);
+const double kIeCardGap = 16;
+const double kIeSectionGap = 24;
+const TextStyle kIeTitleStyle = TextStyle(
+  fontFamily: AidogType.familySans,
+  fontSize: 18,
+  fontWeight: FontWeight.w600,
+  height: 1.55,
+);
+
+TextStyle kIeDescStyle(AidogTheme theme) => AidogType.label.copyWith(
+  fontSize: 13,
+  letterSpacing: 0,
+  height: 1.5,
+  color: theme.c.fg2,
+);
+
+/// 菜单组 id → 图标（`ImportExport/meta.ts:45-54` 的 `icon` 字段逐条对应，
+/// 取 Material 里语义最近的一枚，与 [scopeIcon] 同一套口径）。
+IconData menuGroupIcon(String gid) => switch (gid) {
+  'platform' => Icons.lan_outlined, // network
+  'group' => Icons.workspaces_outlined, // team
+  'group_platform' => Icons.account_tree_outlined, // worktree
+  'extension' => Icons.extension_outlined, // plugins
+  'rules' => Icons.rule_outlined, // rules
+  'scheduling' => Icons.account_tree_outlined, // worktree
+  'uiPref' => Icons.bolt_outlined, // bolt
+  _ => Icons.settings_outlined, // system
+};
+
+/// 导出范围卡按菜单组聚合（`ImportExportTab.tsx:351-360` 的 `scopeCardGroups`）：
+/// platform / group / group_platform 各自独立一张，其余按菜单组并成一张。
+/// 组序 = scope 首现序，不重排。
+List<({String gid, List<String> scopeIds})> scopeCardGroups() {
+  final out = <({String gid, List<String> scopeIds})>[];
+  for (final s in kImportExportScopes) {
+    // React 这里用的是 `SCOPE_MENU_GROUP[s.id]`，setting 走兜底 system；
+    // `menuGroupOf(s, '')` 的 setting 分支拿空前缀查表也落 system，同解。
+    final gid = menuGroupOf(s, '');
+    final hit = out.where((g) => g.gid == gid).firstOrNull;
+    if (hit == null) {
+      out.add((gid: gid, scopeIds: [s]));
+    } else {
+      hit.scopeIds.add(s);
+    }
+  }
+  return out;
+}
+
+/// 导出成功卡（`ImportExport/primitives.tsx:119-148`）：`glass-elevated`、
+/// padding 12、r-md、1px 成功色边 + 成功色 10% 底 + ✓16 + 13px 路径。
+class _SuccessPathCard extends StatelessWidget {
+  const _SuccessPathCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    return Tooltip(
+      message: message,
+      child: Container(
+        key: const ValueKey('export-success-path'),
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: c.ok.withValues(alpha: 0.10),
+          border: Border.all(color: c.ok),
+          borderRadius: BorderRadius.circular(AidogRadius.md),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check, size: 16, color: c.ok),
+            // ✓↔文字 `gap: 10`（`primitives.tsx:130`）。
+            const SizedBox(width: AidogSpace.smd),
+            Expanded(
+              child: Text(
+                ltr(message),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AidogType.label.copyWith(fontSize: 13, color: c.fg),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -1712,12 +2025,17 @@ class _ScopeCard extends StatefulWidget {
     required this.desc,
     required this.selected,
     required this.onTap,
+    this.indeterminate = false,
   });
 
   final IconData icon;
   final String label;
   final String desc;
   final bool selected;
+
+  /// 半选（多 scope 聚合卡里只勾了一部分）：右上角圆形指示画一条 8×2 横线
+  /// （`ImportExport/primitives.tsx:49,108`）。
+  final bool indeterminate;
   final VoidCallback? onTap;
 
   @override
@@ -1730,7 +2048,9 @@ class _ScopeCardState extends State<_ScopeCard> {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
-    final on = widget.selected;
+    // React：`const on = selected || indeterminate`（`primitives.tsx:60`）——
+    // 半选也走高亮态的边与底。
+    final on = widget.selected || widget.indeterminate;
     return HoverLift(
       child: InkWell(
         onTap: widget.onTap,
@@ -1741,14 +2061,13 @@ class _ScopeCardState extends State<_ScopeCard> {
           curve: AidogMotion.easeStandard,
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            border: Border.all(
-              color: on ? theme.c.accentEdge : theme.c.line,
-            ),
+            border: Border.all(color: on ? theme.c.accentEdge : theme.c.line),
             color: on ? theme.c.accentWash : Colors.transparent,
             borderRadius: BorderRadius.circular(AidogRadius.lg),
             boxShadow: _hover ? theme.shadowFloat : theme.shadowTile,
           ),
           child: Stack(
+            clipBehavior: Clip.none,
             children: [
               Padding(
                 padding: const EdgeInsets.only(right: 24),
@@ -1761,7 +2080,9 @@ class _ScopeCardState extends State<_ScopeCard> {
                       size: 20,
                       color: on ? theme.c.accentText : theme.c.fg2,
                     ),
-                    const SizedBox(height: 8),
+                    // 三块（icon / label / desc）统一 `gap: 8`
+                    //（`primitives.tsx:87`），label→desc 原先只有 2。
+                    const SizedBox(height: AidogSpace.s_8),
                     Text(
                       widget.label,
                       style: AidogType.label.copyWith(
@@ -1770,21 +2091,25 @@ class _ScopeCardState extends State<_ScopeCard> {
                         color: theme.c.fg,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: AidogSpace.s_8),
                     Text(
                       widget.desc,
                       style: AidogType.caption.copyWith(
                         fontSize: 12,
+                        // `lineHeight: 1.4`（`primitives.tsx:113`）。
+                        height: 1.4,
                         color: theme.c.fg3,
                       ),
                     ),
                   ],
                 ),
               ),
-              // 右上角选中指示：18px 圆形勾。
+              // 右上角选中指示：18px 圆形勾。React 是 `top:10; right:10` ——
+              // 距**卡边** 10，而这个 Stack 在 padding 14 之内，所以往外挪 4
+              //（`primitives.tsx:94-95`）。
               PositionedDirectional(
-                top: 0,
-                end: 0,
+                top: -4,
+                end: -4,
                 child: Container(
                   width: 18,
                   height: 18,
@@ -1796,7 +2121,17 @@ class _ScopeCardState extends State<_ScopeCard> {
                     ),
                     color: on ? theme.c.accent : Colors.transparent,
                   ),
-                  child: on
+                  child: widget.indeterminate
+                      // 半选画一条 8×2 r1 的横线（`primitives.tsx:108`）。
+                      ? Container(
+                          width: 8,
+                          height: 2,
+                          decoration: BoxDecoration(
+                            color: AidogColors.light.surface,
+                            borderRadius: BorderRadius.circular(1),
+                          ),
+                        )
+                      : widget.selected
                       ? Icon(
                           Icons.check,
                           size: 12,
@@ -1816,7 +2151,11 @@ class _ScopeCardState extends State<_ScopeCard> {
 /// 自绘 16px 复选框（React `primitives.tsx:225-243` 的 CheckBox）：
 /// accent 选中态 + 半选横线。逐项勾选器与 cc-switch provider 行用它。
 class ImportCheckBox extends StatelessWidget {
-  const ImportCheckBox({super.key, required this.checked, this.indeterminate = false});
+  const ImportCheckBox({
+    super.key,
+    required this.checked,
+    this.indeterminate = false,
+  });
 
   final bool checked;
   final bool indeterminate;
@@ -1831,9 +2170,7 @@ class ImportCheckBox extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AidogRadius.sm),
-        border: Border.all(
-          color: on ? theme.c.accentEdge : theme.c.line,
-        ),
+        border: Border.all(color: on ? theme.c.accentEdge : theme.c.line),
         color: on ? theme.c.accent : Colors.transparent,
       ),
       child: checked && !indeterminate
@@ -1894,49 +2231,54 @@ class _DropZone extends StatelessWidget {
         // React DropZone：1.5px 虚线、padding 28/20、r-lg、icon 28
         //（`primitives.tsx:151-187`），不是实线 1px 小框。
         borderRadius: BorderRadius.circular(AidogRadius.lg),
-        child: CustomPaint(
-          foregroundPainter: DashedBorder(
-            color: active ? theme.c.accentEdge : theme.c.line,
-            radius: AidogRadius.lg,
-          ),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(
-              horizontal: 20,
-              vertical: 28,
+        // 拖入时 `transform: scale(1.01)`（`primitives.tsx:174`）。
+        child: AnimatedScale(
+          scale: active ? 1.01 : 1,
+          duration: AidogMotion.base,
+          curve: AidogMotion.easeStandard,
+          child: CustomPaint(
+            foregroundPainter: DashedBorder(
+              color: active ? theme.c.accentEdge : theme.c.line,
+              radius: AidogRadius.lg,
             ),
-            decoration: BoxDecoration(
-              color: active ? theme.c.accentWash : theme.c.surface2,
-              borderRadius: BorderRadius.circular(AidogRadius.lg),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.file_upload_outlined,
-                  size: 28,
-                  color: active ? theme.c.accentText : theme.c.fg2,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: AidogType.label.copyWith(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: theme.c.fg,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
+              decoration: BoxDecoration(
+                // 未激活底是 `var(--bg-glass)`（`primitives.tsx:171`）= surface。
+                color: active ? theme.c.accentWash : theme.c.surface,
+                borderRadius: BorderRadius.circular(AidogRadius.lg),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.file_upload_outlined,
+                    size: 28,
+                    color: active ? theme.c.accentText : theme.c.fg2,
                   ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  hint,
-                  textAlign: TextAlign.center,
-                  style: AidogType.caption.copyWith(
-                    fontSize: 12,
-                    color: theme.c.fg3,
+                  // 三块统一 `gap: 8`（`primitives.tsx:178`），标题→提示原先只有 2。
+                  const SizedBox(height: AidogSpace.s_8),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: AidogType.label.copyWith(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: theme.c.fg,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: AidogSpace.s_8),
+                  Text(
+                    hint,
+                    textAlign: TextAlign.center,
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: theme.c.fg3,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1976,7 +2318,11 @@ class _MatchReadout extends StatelessWidget {
         children: [
           Text(
             match.matchedLabel ?? match.protocol,
-            style: AidogType.micro.copyWith(color: c.fg2),
+            style: AidogType.micro.copyWith(
+              fontSize: 11,
+              letterSpacing: 0,
+              color: c.fg2,
+            ),
           ),
           MiniBadge(text: label, color: color),
           // `Wrap` 里不能用 `Flexible`（它只认 Flex 的 ParentData）——
@@ -1988,7 +2334,12 @@ class _MatchReadout extends StatelessWidget {
                 ltr(match.baseUrl),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AidogType.micro.copyWith(color: c.fg3),
+                // `<code fontSize: 11>` + tertiary，字距 0（`Sub2ApiImport.tsx:277`）。
+                style: AidogType.micro.copyWith(
+                  fontSize: 11,
+                  letterSpacing: 0,
+                  color: c.fg3,
+                ),
               ),
             ),
         ],
