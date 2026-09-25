@@ -13,8 +13,11 @@
     "input": 0.00003,
     "output": 0.00018
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790339710,
   "capabilities": [
-    "text"
+    "reasoning",
+    "text",
+    "tool_use",
+    "vision"
   ]
 }
