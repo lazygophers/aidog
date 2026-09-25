@@ -161,10 +161,15 @@ class SmallButton extends StatelessWidget {
             minWidth: minWidth,
             child: Text(
               label,
+              // 覆盖字号时同时清字距：React 按钮 ls 0，micro 档的 0.66em
+              // 字距只在默认档（micro 标签风）有意义。
               style:
                   (fontSize == null
                           ? AidogType.micro
-                          : AidogType.micro.copyWith(fontSize: fontSize))
+                          : AidogType.micro.copyWith(
+                              fontSize: fontSize,
+                              letterSpacing: 0,
+                            ))
                       .copyWith(color: fg),
             ),
           ),
