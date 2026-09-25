@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/ap-northeast-1/qwen.qwen3-next-80b-a3b",
   "canonical_model": "qwen.qwen3-next-80b-a3b",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "bedrock/ap-northeast-1/anthropic.claude-v1",
   "canonical_model": "anthropic.claude-v1",
+  "family": "claude",
+  "version": "1",
   "capabilities": [
     "text"
   ],

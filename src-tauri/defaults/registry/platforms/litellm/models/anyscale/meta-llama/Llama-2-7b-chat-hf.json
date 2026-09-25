@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790333168,
   "model_id": "anyscale/meta-llama/Llama-2-7b-chat-hf",
   "canonical_model": "Llama-2-7b-chat-hf",
+  "family": "llama",
+  "version": "2",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790333168,
   "model_id": "wandb/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
   "canonical_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
+  "family": "nemotron",
+  "version": "3",
   "capabilities": [
     "text",
     "reasoning"
