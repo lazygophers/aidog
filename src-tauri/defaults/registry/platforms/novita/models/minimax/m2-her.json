@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "minimax/m2-her",
   "canonical_model": "m2-her",
-  "family": "minimax",
   "version": "2",
+  "family": "minimax",
   "capabilities": [
     "text"
   ],

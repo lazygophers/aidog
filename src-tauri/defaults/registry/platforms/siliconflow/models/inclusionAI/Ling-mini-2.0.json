@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "inclusionAI/Ling-mini-2.0",
   "canonical_model": "Ling-mini-2.0",
-  "family": "ling",
   "version": "2.0",
+  "family": "ling",
   "capabilities": [
     "text"
   ],
