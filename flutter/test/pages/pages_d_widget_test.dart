@@ -12,7 +12,7 @@ import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/pages.dart';
 import 'package:aidog_flutter/src/pages/settings/schema_config_page.dart'
     show JsonField;
-import 'package:aidog_flutter/shell.dart' show AidogType;
+import 'package:aidog_flutter/shell.dart' show AidogType, Tile;
 import 'package:aidog_flutter/src/updater.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/material.dart';
@@ -829,7 +829,9 @@ void main() {
       await settle(tester);
       await tester.tap(find.text(c.t('about.localEnv.diagnose')));
       await settle(tester);
-      expect(find.byType(ToastBar), findsOneWidget);
+      // 错误条是卡尾**页面流**里的 `.toast` 方条（`About.tsx:555-559`），
+      // 不是浮到窗口顶部的 ToastBar。
+      expect(find.byType(InlineNote), findsOneWidget);
     });
   });
 
@@ -899,16 +901,13 @@ void main() {
       await tester.pumpWidget(wrapPage(NotificationsPage(invoke: k.invoke), c));
       await settle(tester);
       expect(find.byType(MiniBadge), findsOneWidget);
-      // 左侧 2px accent 竖条。
-      final bar = tester.widgetList<Container>(find.byType(Container)).where((
-        w,
-      ) {
-        final d = w.decoration;
-        return d is BoxDecoration &&
-            d.border is BorderDirectional &&
-            (d.border! as BorderDirectional).start.width == 2;
-      });
-      expect(bar, hasLength(1));
+      // 左侧 2px accent 竖条是**卡自身**起始侧的边（`Notifications.tsx:31` 的
+      // `borderInlineStart: 2px`），由 `Tile.leadingAccent` 画在条内，
+      // 不再外包一层 `BorderDirectional` 容器（那样会与卡自己的 1px 边成双线）。
+      final tiles = tester
+          .widgetList<Tile>(find.byType(Tile))
+          .where((w) => w.leadingAccent != null);
+      expect(tiles, hasLength(1));
     });
 
     testWidgets('清空：发命令并重查一遍', (tester) async {

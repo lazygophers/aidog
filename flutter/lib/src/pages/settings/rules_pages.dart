@@ -481,7 +481,16 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
             },
             onCancel: () => setState(() => _pendingNav = null),
           ),
-        if (_c.error.isNotEmpty) ErrorNote(text: _c.error),
+        // 这处 React 挂的是中性 `.toast`（12px、1px `--border`、`bg-floating`
+        //（= surface）、`radius-md`），不是红框（`MiddlewareRules.tsx:1177`
+        // + `globals.css:588-597`）。
+        if (_c.error.isNotEmpty)
+          InlineNote(
+            text: _c.error,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            fontSize: 12,
+            radius: AidogRadius.md,
+          ),
       ],
     );
   }
@@ -739,16 +748,22 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
       PlainTextField(
         key: const ValueKey('rule-name'),
         value: d.name,
+        // 规则名 `fontSize: F.body` = 15（`MiddlewareRules.tsx:731`）。
+        fontSize: 15,
         hint: t.t('middleware.name'),
         onChanged: (v) => setState(() => d.name = v),
       ),
-      const SizedBox(height: AidogSpace.smd),
+      // 表单各字段之间是 `gap: S.gap` = 18（`MiddlewareRules.tsx:721,729`），
+      // 不是 10。
+      const SizedBox(height: 18),
       PlainTextField(
         value: d.description,
+        // 描述 `fontSize: F.hint` = 13（`MiddlewareRules.tsx:737`）。
+        fontSize: 13,
         hint: tOr(t, 'middleware.description', '描述（可选）'),
         onChanged: (v) => setState(() => d.description = v),
       ),
-      const SizedBox(height: AidogSpace.smd),
+      const SizedBox(height: 18),
       Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -789,7 +804,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           ),
         ],
       ),
-      const SizedBox(height: AidogSpace.ssm),
+      const SizedBox(height: 18),
       if (_condMode == 'cards')
         ConditionTreeEditor(
           node: _draft!.conditions,
@@ -798,12 +813,18 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           removeLabel: tOr(t, 'middleware.clearConditions', '清空条件'),
         )
       else if (_condMode == 'dsl') ...[
-        TextRow(
+        // React 这格是**无标签**的裸 Textarea：mono 12、行高 1.6、
+        // `minHeight: 120`、可竖向拖高（`MiddlewareRules.tsx:769-790`）。
+        // 上方标题行已经有一个「条件」了，`TextRow` 会再画一遍。
+        // `maxLines: null` + `minLines: 6` ≈ 12px × 1.6 × 6 = 115，最接近的
+        // 「装得下 120px 且不封顶」形态（Flutter 无原生 resize 手柄）。
+        PlainTextField(
           key: const ValueKey('rule-conditions-dsl'),
-          label: t.t('middleware.conditions'),
-          description: t.t('middleware.dslHint'),
+          mono: true,
+          fontSize: 12,
+          maxLines: null,
+          minLines: 6,
           value: _dslText,
-          maxLines: 6,
           onChanged: (v) {
             setState(() {
               _dslText = v;
@@ -811,7 +832,26 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
             });
           },
         ),
-        if (_dslError != null) ErrorNote(text: _dslError!),
+        // 语法提示 11 tertiary，与文本域隔 4（`MiddlewareRules.tsx:768,791`）。
+        const SizedBox(height: AidogSpace.sxs),
+        Text(
+          t.t('middleware.dslHint'),
+          style: AidogType.micro.copyWith(
+            letterSpacing: 0,
+            color: AidogTheme.of(context).c.fg3,
+          ),
+        ),
+        // 解析错误是**裸文字** 11 danger，不是红框盒（`MiddlewareRules.tsx:795`）。
+        if (_dslError != null) ...[
+          const SizedBox(height: AidogSpace.sxs),
+          Text(
+            _dslError!,
+            style: AidogType.micro.copyWith(
+              letterSpacing: 0,
+              color: AidogTheme.of(context).c.bad,
+            ),
+          ),
+        ],
       ] else
         TextRow(
           key: const ValueKey('rule-conditions'),
@@ -820,8 +860,18 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           maxLines: 6,
           onChanged: (v) => setState(() => _condJsonText = v),
         ),
-      if (d.phaseError != null) ErrorNote(text: d.phaseError!),
-      const SizedBox(height: AidogSpace.smd),
+      // 混阶段提示同样是裸文字 11 danger（`MiddlewareRules.tsx:800`）。
+      if (d.phaseError != null) ...[
+        const SizedBox(height: AidogSpace.sxs),
+        Text(
+          d.phaseError!,
+          style: AidogType.micro.copyWith(
+            letterSpacing: 0,
+            color: AidogTheme.of(context).c.bad,
+          ),
+        ),
+      ],
+      const SizedBox(height: 18),
       Row(
         children: [
           Expanded(
@@ -852,7 +902,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           ),
         ],
       ),
-      const SizedBox(height: AidogSpace.ssm),
+      const SizedBox(height: 18),
       if (_actionsMode == 'cards')
         ActionChainEditor(
           steps: _draft!.actions,
@@ -866,7 +916,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           maxLines: 6,
           onChanged: (v) => setState(() => _actionsJsonText = v),
         ),
-      const SizedBox(height: AidogSpace.smd),
+      const SizedBox(height: 18),
       Text(
         t.t('middleware.appliesTo'),
         style: AidogType.label.copyWith(
@@ -874,39 +924,76 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           color: AidogTheme.of(context).c.fg2,
         ),
       ),
-      const SizedBox(height: AidogSpace.ssm),
+      const SizedBox(height: 18),
       AppliesToEditor(
         value: _draft!.applies,
         onChanged: (a) => setState(() => _draft!.applies = a),
         platforms: _c.platforms,
         groups: _c.groups,
       ),
-      const SizedBox(height: AidogSpace.smd),
-      // 优先级：label 13 + 宽 120 的数字框（`MiddlewareRules.tsx:828-840`）。
-      InlineRow(
-        label: t.t('middleware.priority'),
-        child: NumberInput(
-          value: '${d.priority}',
-          width: 120,
-          onChanged: (v) => setState(() => d.priority = int.tryParse(v) ?? 0),
-        ),
+      const SizedBox(height: 18),
+      // 优先级是**纵向**的：label 在上、输入框在下，整块宽 120、label→框 4
+      //（`MiddlewareRules.tsx:815-825`），不是左右横排。
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            t.t('middleware.priority'),
+            style: AidogType.label.copyWith(
+              fontSize: 13,
+              color: AidogTheme.of(context).c.fg2,
+            ),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
+          NumberInput(
+            value: '${d.priority}',
+            width: 120,
+            onChanged: (v) => setState(() => d.priority = int.tryParse(v) ?? 0),
+          ),
+        ],
       ),
-      const SizedBox(height: AidogSpace.smd),
-      SwitchRow(
-        label: t.t('middleware.enabled'),
-        value: d.enabled,
-        onChanged: (v) => setState(() => d.enabled = v),
+      const SizedBox(height: 18),
+      // 「启用」这行 React 是普通区块标题口径：13 **w400** + `--text-secondary`
+      //（`MiddlewareRules.tsx:828`），不是 `SwitchRow` 的 13 w600 + fg。
+      Row(
+        children: [
+          Expanded(
+            child: Text(
+              t.t('middleware.enabled'),
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                color: AidogTheme.of(context).c.fg2,
+              ),
+            ),
+          ),
+          AidogSwitch(
+            key: const ValueKey('rule-enabled'),
+            compact: true,
+            value: d.enabled,
+            onChanged: () => setState(() => d.enabled = !d.enabled),
+          ),
+        ],
       ),
       if (!_readOnly) ...[
-        const SizedBox(height: AidogSpace.ssm),
+        const SizedBox(height: 18),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
-            SmallButton(label: t.t('action.cancel'), onTap: _closeForm),
-            const SizedBox(width: AidogSpace.ssm),
+            // 页脚两颗都是 shadcn 默认档 13 / 16-8，彼此隔 8
+            //（`MiddlewareRules.tsx:839-853`）。
+            SmallButton(
+              label: t.t('action.cancel'),
+              fontSize: 13,
+              padding: (16, 8),
+              onTap: _closeForm,
+            ),
+            const SizedBox(width: 8),
             SmallButton(
               key: const ValueKey('rule-save'),
               filled: true,
+              fontSize: 13,
+              padding: (16, 8),
               label: t.t('action.save'),
               // 名字为空、条件 / 动作在当前模式下解析不了、或混阶段，就点不动。
               onTap: _draftValid()

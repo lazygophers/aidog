@@ -178,7 +178,9 @@ class SwitchRow extends StatelessWidget {
                     children: [
                       Icon(labelIcon, size: 13, color: theme.c.fg3),
                       const SizedBox(width: 5),
-                      Flexible(child: HighlightedText(label, style: titleStyle)),
+                      Flexible(
+                        child: HighlightedText(label, style: titleStyle),
+                      ),
                     ],
                   ),
                 if (description != null && description!.isNotEmpty) ...[
@@ -266,63 +268,63 @@ class ToggleCard extends StatelessWidget {
     final descs = descriptions ?? const <String>[];
     final fg = onChanged == null ? theme.c.fg3 : theme.c.fg;
     final tile = Tile(
-        // React 的开关卡是 `padding: "16px 20px"`（竖 16 / 横 20），
-        // 不是 editors 分区卡的 28。
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    label,
-                    style: AidogType.label.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: fg,
+      // React 的开关卡是 `padding: "16px 20px"`（竖 16 / 横 20），
+      // 不是 editors 分区卡的 28。
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  label,
+                  style: AidogType.label.copyWith(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: fg,
+                  ),
+                ),
+                for (final d in descs.where((e) => e.isNotEmpty))
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      d,
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: onChanged == null ? theme.c.fg3 : theme.c.fg2,
+                      ),
                     ),
                   ),
-                  for (final d in descs.where((e) => e.isNotEmpty))
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        d,
-                        style: AidogType.caption.copyWith(
-                          fontSize: 12,
-                          color: onChanged == null ? theme.c.fg3 : theme.c.fg2,
-                        ),
+                if (hint != null && hint!.isNotEmpty)
+                  Padding(
+                    // hint 上距 6、字号 11（`CodingToolsSettings.tsx:102`）。
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      ltr(hint!),
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 11,
+                        color: theme.c.fg3,
                       ),
                     ),
-                  if (hint != null && hint!.isNotEmpty)
-                    Padding(
-                      // hint 上距 6、字号 11（`CodingToolsSettings.tsx:102`）。
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        ltr(hint!),
-                        style: AidogType.numSm.copyWith(
-                          fontSize: 11,
-                          color: theme.c.fg3,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+                  ),
+              ],
             ),
-            SizedBox(width: gap ?? AidogSpace.smd),
-            Opacity(
-              opacity: onChanged == null ? 0.5 : 1,
-              child: AidogSwitch(
-                value: value,
-                compact: true,
-                onChanged: onChanged == null ? null : () => onChanged!(!value),
-              ),
+          ),
+          SizedBox(width: gap ?? AidogSpace.smd),
+          Opacity(
+            opacity: onChanged == null ? 0.5 : 1,
+            child: AidogSwitch(
+              value: value,
+              compact: true,
+              onChanged: onChanged == null ? null : () => onChanged!(!value),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
     return Padding(
       padding: EdgeInsets.only(bottom: bottomGap ?? AidogSpace.sxl),
       child: hoverLift ? HoverLift(child: tile) : tile,
@@ -368,51 +370,51 @@ class HeaderCard extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final descs = descriptions ?? const <String>[];
     final tile = Tile(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          title,
-                          style: AidogType.label.copyWith(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: theme.c.fg,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: AidogType.label.copyWith(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: theme.c.fg,
+                      ),
+                    ),
+                    for (final d in descs.where((e) => e.isNotEmpty))
+                      Padding(
+                        padding: EdgeInsets.only(top: descGap ?? 2),
+                        child: Text(
+                          d,
+                          style: AidogType.caption.copyWith(
+                            fontSize: 12,
+                            color: theme.c.fg2,
                           ),
                         ),
-                        for (final d in descs.where((e) => e.isNotEmpty))
-                          Padding(
-                            padding: EdgeInsets.only(top: descGap ?? 2),
-                            child: Text(
-                              d,
-                              style: AidogType.caption.copyWith(
-                                fontSize: 12,
-                                color: theme.c.fg2,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  if (trailing != null) ...[
-                    const SizedBox(width: AidogSpace.smd),
-                    trailing!,
+                      ),
                   ],
-                ],
+                ),
               ),
-              child,
+              if (trailing != null) ...[
+                const SizedBox(width: AidogSpace.smd),
+                trailing!,
+              ],
             ],
           ),
-        );
+          child,
+        ],
+      ),
+    );
     return Opacity(
       opacity: dimmed ? 0.55 : 1,
       child: Padding(
@@ -538,24 +540,21 @@ class InlineSelect<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     final dropdown = DropdownButton<T>(
-        value: value,
-        underline: const SizedBox.shrink(),
-        isDense: true,
-        isExpanded: true,
-        dropdownColor: theme.c.surface2,
-        style: AidogType.caption.copyWith(
-          fontSize: fontSize ?? 12,
-          color: theme.c.fg,
-        ),
-        onChanged: onChanged,
-        items: [
-          for (final o in options)
-            DropdownMenuItem<T>(
-              value: o,
-              child: Text(labelOf?.call(o) ?? '$o'),
-            ),
-        ],
-      );
+      value: value,
+      underline: const SizedBox.shrink(),
+      isDense: true,
+      isExpanded: true,
+      dropdownColor: theme.c.surface2,
+      style: AidogType.caption.copyWith(
+        fontSize: fontSize ?? 12,
+        color: theme.c.fg,
+      ),
+      onChanged: onChanged,
+      items: [
+        for (final o in options)
+          DropdownMenuItem<T>(value: o, child: Text(labelOf?.call(o) ?? '$o')),
+      ],
+    );
     final boxed = bordered
         ? Container(
             padding:
@@ -606,8 +605,7 @@ class IconGhostButton extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final color = onTap == null
         ? theme.c.fg3
-        : this.color ??
-              (danger ? theme.c.bad : theme.c.fg2);
+        : this.color ?? (danger ? theme.c.bad : theme.c.fg2);
     final btn = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AidogRadius.sm),
@@ -662,9 +660,7 @@ class SegmentedRow<T> extends StatelessWidget {
                     ? null
                     : Border(left: BorderSide(color: theme.c.line)),
                 borderRadius: BorderRadius.horizontal(
-                  left: i == 0
-                      ? Radius.circular(AidogRadius.sm)
-                      : Radius.zero,
+                  left: i == 0 ? Radius.circular(AidogRadius.sm) : Radius.zero,
                   right: i == options.length - 1
                       ? Radius.circular(AidogRadius.sm)
                       : Radius.zero,
@@ -684,7 +680,9 @@ class SegmentedRow<T> extends StatelessWidget {
                     style: AidogType.caption.copyWith(
                       fontSize: fontSize,
                       color: o == value ? theme.c.accentText : theme.c.fg2,
-                      fontWeight: o == value ? FontWeight.w600 : FontWeight.w400,
+                      fontWeight: o == value
+                          ? FontWeight.w600
+                          : FontWeight.w400,
                     ),
                   ),
                 ),
@@ -1445,7 +1443,13 @@ class PlainTextField extends StatefulWidget {
     this.obscure = false,
     this.mono = false,
     this.fontSize,
+    this.options = const [],
   });
+
+  /// 候选补全项，对齐 React `<input list="…">` + `<datalist>`
+  /// （CLI 集成页的代理 URL 四个本地端口，`CodingToolsSettings.tsx:505,516-520`）。
+  /// 缺省空 = 纯输入框，行为与原先完全一致。
+  final List<String> options;
 
   /// 字号覆盖。null = 缺省（label 13.5 / mono 12.5）。React 各输入框是裸值：
   /// 规则名称 `F.body` 15、描述 `F.hint` 13、DSL 源码 12
@@ -1508,6 +1512,56 @@ class _PlainTextFieldState extends State<PlainTextField> {
 
   @override
   Widget build(BuildContext context) {
+    final field = _field(context);
+    if (widget.options.isEmpty) return field;
+    // datalist 语义：候选只是提示，输入框仍可自由填任何值 —— 所以补全层
+    // 复用同一个 controller / focusNode（`RawAutocomplete` 支持外部传入），
+    // 不另起一套状态，否则「放弃更改」回写的值补全层看不到。
+    return RawAutocomplete<String>(
+      textEditingController: _ctrl,
+      focusNode: _focus,
+      optionsBuilder: (v) =>
+          widget.options.where((o) => v.text.isEmpty || o.contains(v.text)),
+      onSelected: (v) => widget.onChanged?.call(v),
+      fieldViewBuilder: (_, _, _, _) => field,
+      optionsViewBuilder: (context, onSelected, options) => Align(
+        alignment: Alignment.topLeft,
+        child: Material(
+          color: AidogTheme.of(context).c.surface2,
+          elevation: 4,
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200, maxWidth: 260),
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.zero,
+              children: [
+                for (final o in options)
+                  InkWell(
+                    onTap: () => onSelected(o),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        o,
+                        style: AidogType.label.copyWith(
+                          fontSize: 13,
+                          color: AidogTheme.of(context).c.fg,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _field(BuildContext context) {
     final theme = AidogTheme.of(context);
     return TextField(
       controller: _ctrl,
@@ -1530,8 +1584,10 @@ class _PlainTextFieldState extends State<PlainTextField> {
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: (widget.mono ? AidogType.numSm : AidogType.label)
-            .copyWith(fontSize: widget.fontSize, color: theme.c.fg3),
+        hintStyle: (widget.mono ? AidogType.numSm : AidogType.label).copyWith(
+          fontSize: widget.fontSize,
+          color: theme.c.fg3,
+        ),
       ),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,

@@ -136,32 +136,32 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           // React 这一页的卡全挂 `hover-lift`（`CodingToolsSettings.tsx:49,93`）。
           child: HoverLift(
             child: Tile(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  t.t('codingTools.cliIntegrationTitle'),
-                  style: AidogType.label.copyWith(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AidogTheme.of(context).c.fg,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    t.t('codingTools.introDesc'),
-                    style: AidogType.caption.copyWith(
-                      fontSize: 12,
-                      color: AidogTheme.of(context).c.fg2,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    t.t('codingTools.cliIntegrationTitle'),
+                    style: AidogType.label.copyWith(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AidogTheme.of(context).c.fg,
                     ),
                   ),
-                ),
-              ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      t.t('codingTools.introDesc'),
+                      style: AidogType.caption.copyWith(
+                        fontSize: 12,
+                        color: AidogTheme.of(context).c.fg2,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         ),
         // 四张一开关一卡（`CodingToolsSettings.tsx:374-415` 的 ToggleCard），
@@ -221,48 +221,48 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           padding: const EdgeInsets.only(bottom: _cardGap),
           child: HoverLift(
             child: Tile(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.t('codingTools.language.title'),
-                        style: AidogType.label.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AidogTheme.of(context).c.fg,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          t.t('codingTools.language.desc'),
-                          style: AidogType.caption.copyWith(
-                            fontSize: 12,
-                            color: AidogTheme.of(context).c.fg2,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          t.t('codingTools.language.title'),
+                          style: AidogType.label.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AidogTheme.of(context).c.fg,
                           ),
                         ),
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            t.t('codingTools.language.desc'),
+                            style: AidogType.caption.copyWith(
+                              fontSize: 12,
+                              color: AidogTheme.of(context).c.fg2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // 卡内左右 `gap: 16`（`CodingToolsSettings.tsx:424`）。
-                const SizedBox(width: 16),
-                _LanguageGroupSelect(
-                  key: const ValueKey('cli-language'),
-                  groups: _langGroups,
-                  value: _c.language,
-                  onChanged: _c.busy
-                      ? null
-                      : (v) => _c.setLanguage(v ?? '', texts),
-                ),
-              ],
+                  // 卡内左右 `gap: 16`（`CodingToolsSettings.tsx:424`）。
+                  const SizedBox(width: 16),
+                  _LanguageGroupSelect(
+                    key: const ValueKey('cli-language'),
+                    groups: _langGroups,
+                    value: _c.language,
+                    onChanged: _c.busy
+                        ? null
+                        : (v) => _c.setLanguage(v ?? '', texts),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         ),
         // 努力级别卡：标题 + 落点 hint 左、下拉右
@@ -271,70 +271,73 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
           padding: const EdgeInsets.only(bottom: _cardGap),
           child: HoverLift(
             child: Tile(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        t.t('codingTools.effort.title'),
-                        style: AidogType.label.copyWith(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AidogTheme.of(context).c.fg,
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 2),
-                        child: Text(
-                          t.t('codingTools.effort.desc'),
-                          style: AidogType.caption.copyWith(
-                            fontSize: 12,
-                            color: AidogTheme.of(context).c.fg2,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          t.t('codingTools.effort.title'),
+                          style: AidogType.label.copyWith(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AidogTheme.of(context).c.fg,
                           ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          ltr(
-                            'claude · effortLevel · codex · model_reasoning_effort',
-                          ),
-                          style: AidogType.numSm.copyWith(
-                            fontSize: 11,
-                            color: AidogTheme.of(context).c.fg3,
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: Text(
+                            t.t('codingTools.effort.desc'),
+                            style: AidogType.caption.copyWith(
+                              fontSize: 12,
+                              color: AidogTheme.of(context).c.fg2,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                        Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            ltr(
+                              'claude · effortLevel · codex · model_reasoning_effort',
+                            ),
+                            style: AidogType.numSm.copyWith(
+                              fontSize: 11,
+                              color: AidogTheme.of(context).c.fg3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: AidogSpace.smd),
-                // 首项「—」= 不设置（`__none__` → 写空串）。
-                // 没有它设过一次就清不回不设置。
-                InlineSelect<String>(
-                  key: const ValueKey('cli-effort'),
-                  value: _c.effort,
-                  options: ['', ...kEffortOptions],
-                  width: 120,
-                  labelOf: (v) => v.isEmpty ? '—' : v,
-                  onChanged: _c.busy
-                      ? null
-                      : (v) => _c.setEffort(v ?? '', texts),
-                ),
-              ],
+                  // 卡内左右 `gap: 16`（`CodingToolsSettings.tsx:459`）。
+                  const SizedBox(width: 16),
+                  // 首项「—」= 不设置（`__none__` → 写空串）。
+                  // 没有它设过一次就清不回不设置。
+                  InlineSelect<String>(
+                    key: const ValueKey('cli-effort'),
+                    value: _c.effort,
+                    options: ['', ...kEffortOptions],
+                    width: 120,
+                    // `SelectTrigger` 显式 13（`CodingToolsSettings.tsx:477`）。
+                    fontSize: 13,
+                    labelOf: (v) => v.isEmpty ? '—' : v,
+                    onChanged: _c.busy
+                        ? null
+                        : (v) => _c.setEffort(v ?? '', texts),
+                  ),
+                ],
+              ),
             ),
-          ),
           ),
         ),
         // 代理卡：两列 grid（label 11 w600 + Input 13），预设走不可见的
         // datalist（`CodingToolsSettings.tsx:497-540`），不再平铺成常驻 chips。
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          padding: const EdgeInsets.only(bottom: _cardGap),
           child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
@@ -371,7 +374,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: AidogSpace.smd),
+                // 两列 grid 的上距 `marginTop: 12`（`CodingToolsSettings.tsx:497`）。
+                const SizedBox(height: 12),
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -393,6 +397,11 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                             key: const ValueKey('cli-proxy-url'),
                             value: _c.proxyDraft.url,
                             hint: 'http://host:port',
+                            // `style={{ fontSize: 13 }}`（`CodingToolsSettings.tsx:506`）。
+                            fontSize: 13,
+                            // React 的 `<Input list="coding-proxy-url-presets">`
+                            // 挂了四个本地端口 datalist（`:505,516-520`）。
+                            options: kProxyUrlPresets,
                             onChanged: _c.setProxyUrl,
                             onSubmitted: (_) => _c.commitProxy(texts),
                           ),
@@ -407,7 +416,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                         children: [
                           Text(
                             'NO_PROXY',
-                            style: AidogType.numSm.copyWith(
+                            // 与左列同一个 `<label className="text-secondary">`
+                            // ——**sans** 11 w600，不是等宽（`:523-525`）。
+                            style: AidogType.caption.copyWith(
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: AidogTheme.of(context).c.fg2,
@@ -418,6 +429,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                             key: const ValueKey('cli-proxy-no'),
                             value: _c.proxyDraft.no,
                             hint: 'localhost,127.0.0.1,*.local',
+                            // `style={{ fontSize: 13 }}`（`CodingToolsSettings.tsx:529`）。
+                            fontSize: 13,
                             onChanged: _c.setProxyNo,
                             onSubmitted: (_) => _c.commitProxy(texts),
                           ),
@@ -433,13 +446,21 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
         // 常驻错误卡：danger 边 + 底三行（`CodingToolsSettings.tsx:545-569`）。
         if (_c.error.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+            padding: const EdgeInsets.only(bottom: _cardGap),
             child: Container(
-              padding: const EdgeInsets.all(AidogSpace.smd),
+              // `.toast` 的 `padding: 12px 16px` + `--radius-md` = 10
+              //（`globals.css:589-590`）；底色是 `--color-danger-bg`
+              //（亮 `rgba(196,122,122,.10)` / 暗 `rgba(176,112,112,.12)`，
+              // `globals.css:81,834`），不是 bad 兑 8%。
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: AidogTheme.of(context).c.bad.withValues(alpha: 0.08),
+                color: AidogTheme.of(context).c.bad.withValues(
+                  alpha: AidogTheme.of(context).mode == AidogMode.dark
+                      ? 0.12
+                      : 0.10,
+                ),
                 border: Border.all(color: AidogTheme.of(context).c.bad),
-                borderRadius: BorderRadius.circular(AidogRadius.md),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,6 +474,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                       color: AidogTheme.of(context).c.bad,
                     ),
                   ),
+                  // 三行之间 `gap: 4`（`CodingToolsSettings.tsx:549-568`）。
+                  const SizedBox(height: 4),
                   Text(
                     ltr(_c.error),
                     style: AidogType.numSm.copyWith(
@@ -460,6 +483,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                       color: AidogTheme.of(context).c.bad,
                     ),
                   ),
+                  const SizedBox(height: 4),
                   Text(
                     t.t('codingTools.errorHint'),
                     style: AidogType.caption.copyWith(
@@ -494,9 +518,12 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
             },
             onCancel: () => setState(() => _pendingNav = null),
           ),
+        // 成功提示是页面流里的 `.toast` 方条（`CodingToolsSettings.tsx:572`），
+        // 不是浮在窗口顶部的胶囊。
         if (_c.message.isNotEmpty)
           AutoToast(
             text: _c.message,
+            inline: true,
             onDone: () => setState(() => _c.message = ''),
           ),
       ],
@@ -534,7 +561,14 @@ class _LanguageGroupSelect extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     final flat = [for (final g in groups) ...g.options.map((o) => o.value)];
-    final hintStyle = AidogType.micro.copyWith(color: theme.c.fg3);
+    // `SelectTrigger` 显式 `fontSize: 13`，字距 normal
+    //（`CodingToolsSettings.tsx:439`）——micro 的 11 + ls0.66 低一档。
+    final textStyle = AidogType.micro.copyWith(
+      fontSize: 13,
+      letterSpacing: 0,
+      color: theme.c.fg,
+    );
+    final hintStyle = textStyle.copyWith(color: theme.c.fg3);
     return SizedBox(
       width: 200,
       child: DropdownButton<String>(
@@ -543,7 +577,7 @@ class _LanguageGroupSelect extends StatelessWidget {
         isDense: true,
         isExpanded: true,
         dropdownColor: theme.c.surface2,
-        style: AidogType.micro.copyWith(color: theme.c.fg),
+        style: textStyle,
         hint: Text('—', style: hintStyle),
         onChanged: onChanged,
         items: [
