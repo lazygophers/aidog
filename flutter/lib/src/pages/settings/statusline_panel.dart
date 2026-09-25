@@ -36,7 +36,10 @@ String segDesc(I18nController t, SegmentDef d) =>
 String segFieldLabel(I18nController t, SegmentDef d, SegmentField f) =>
     tOr(t, 'statusline.seg.${d.type}.field.${f.key}', f.label);
 
-const _mono = TextStyle(fontFamily: AidogType.familyMono);
+const _mono = TextStyle(
+  fontFamily: AidogType.familyMono,
+  fontFamilyFallback: AidogType.familyMonoFallback,
+);
 
 /// 一个 statusline 面板（主状态栏 / 子代理状态栏共用一棵树）。
 class StatusLinePanel extends StatefulWidget {

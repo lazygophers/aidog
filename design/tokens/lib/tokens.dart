@@ -159,8 +159,11 @@ class AidogLayout {
 }
 
 class AidogType {
-  static const familySans = 'Inter';
-  static const familyMono = 'JetBrains Mono';
+  // 字体族跟系统走（用户 2026-09-24 定）：sans 不指定 family（null = 平台默认，
+  // macOS SF Pro / Windows Segoe UI）；mono 首选 SF Mono，其余平台走回落链。
+  static const String? familySans = null;
+  static const familyMono = 'SF Mono';
+  static const familyMonoFallback = ['Menlo', 'Consolas'];
   static const display = TextStyle(fontFamily: familySans, fontSize: 24.0, fontWeight: FontWeight.w600, letterSpacing: -0.60, height: 1.55);
   static const title = TextStyle(fontFamily: familySans, fontSize: 16.5, fontWeight: FontWeight.w600, letterSpacing: -0.25, height: 1.55);
   static const tile = TextStyle(fontFamily: familySans, fontSize: 13.5, fontWeight: FontWeight.w600, letterSpacing: 0.00, height: 1.55);
@@ -168,10 +171,10 @@ class AidogType {
   static const label = TextStyle(fontFamily: familySans, fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: 0.00, height: 1.55);
   static const caption = TextStyle(fontFamily: familySans, fontSize: 12.5, fontWeight: FontWeight.w400, letterSpacing: 0.00, height: 1.55);
   static const micro = TextStyle(fontFamily: familySans, fontSize: 11.0, fontWeight: FontWeight.w500, letterSpacing: 0.66, height: 1.55);
-  static const numXl = TextStyle(fontFamily: familyMono, fontSize: 28.0, fontWeight: FontWeight.w600, letterSpacing: -0.84, height: 1.35);
-  static const numLg = TextStyle(fontFamily: familyMono, fontSize: 18.5, fontWeight: FontWeight.w600, letterSpacing: -0.55, height: 1.35);
-  static const numMd = TextStyle(fontFamily: familyMono, fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: -0.27, height: 1.35);
-  static const numSm = TextStyle(fontFamily: familyMono, fontSize: 12.5, fontWeight: FontWeight.w400, letterSpacing: -0.25, height: 1.35);
+  static const numXl = TextStyle(fontFamily: familyMono, fontFamilyFallback: familyMonoFallback, fontSize: 28.0, fontWeight: FontWeight.w600, letterSpacing: -0.84, height: 1.35);
+  static const numLg = TextStyle(fontFamily: familyMono, fontFamilyFallback: familyMonoFallback, fontSize: 18.5, fontWeight: FontWeight.w600, letterSpacing: -0.55, height: 1.35);
+  static const numMd = TextStyle(fontFamily: familyMono, fontFamilyFallback: familyMonoFallback, fontSize: 13.5, fontWeight: FontWeight.w400, letterSpacing: -0.27, height: 1.35);
+  static const numSm = TextStyle(fontFamily: familyMono, fontFamilyFallback: familyMonoFallback, fontSize: 12.5, fontWeight: FontWeight.w400, letterSpacing: -0.25, height: 1.35);
 }
 
 class AidogMotion {

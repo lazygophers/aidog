@@ -1364,6 +1364,7 @@ class _JsonFieldState extends State<JsonField> {
                     style: CodeEditorStyle(
                       fontSize: AidogType.numSm.fontSize,
                       fontFamily: AidogType.familyMono,
+                      fontFamilyFallback: AidogType.familyMonoFallback,
                       textColor: theme.c.fg,
                       backgroundColor: theme.c.surface2,
                       cursorColor: theme.c.accentText,

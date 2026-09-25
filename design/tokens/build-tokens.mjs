@@ -109,10 +109,14 @@ ${Object.entries(drop(T.layout)).map(([k, v]) => `  static const double ${dartFi
 }
 
 class AidogType {
-  static const familySans = 'Inter';
-  static const familyMono = 'JetBrains Mono';
+  // 字体族跟系统走（用户 2026-09-24 定）：sans 不指定 family（null = 平台默认，
+  // macOS SF Pro / Windows Segoe UI）；mono 首选 SF Mono，其余平台走回落链。
+  static const String? familySans = null;
+  static const familyMono = 'SF Mono';
+  static const familyMonoFallback = ['Menlo', 'Consolas'];
 ${Object.entries(drop(T.type)).filter(([, v]) => typeof v === "object").map(([k, v]) =>
   `  static const ${dartField(k)} = TextStyle(fontFamily: ${v.mono ? "familyMono" : "familySans"}, ` +
+  (v.mono ? `fontFamilyFallback: familyMonoFallback, ` : ``) +
   `fontSize: ${v.size.toFixed(1)}, fontWeight: FontWeight.w${v.weight}, letterSpacing: ${(v.tracking * v.size).toFixed(2)}, height: ${leadingOf(v)});`).join("\n")}
 }
 

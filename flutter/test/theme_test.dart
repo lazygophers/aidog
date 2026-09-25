@@ -5,6 +5,40 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('字体族跟系统走（用户 2026-09-24 定）', () {
+    test('sans 不指定 family（null = 平台默认），mono 是 SF Mono + 回落链', () {
+      expect(AidogType.familySans, isNull, reason: '不指定 fontFamily 才会用系统默认（macOS SF Pro / Windows Segoe UI）');
+      expect(AidogType.familyMono, 'SF Mono');
+      expect(AidogType.familyMonoFallback, ['Menlo', 'Consolas'],
+          reason: 'Windows 没有 SF Mono，回落 Menlo(代理) → Consolas');
+      // 生成的字阶同步：mono 全系带回落链，sans 全系 family 为空。
+      expect(AidogType.numSm.fontFamilyFallback, AidogType.familyMonoFallback);
+      expect(AidogType.body.fontFamily, isNull);
+    });
+
+    testWidgets('默认文字渲染不抛、解析后的 family 为空；mono 文字渲染不抛', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: aidogThemeData(AidogMode.dark),
+          home: const Scaffold(body: Text('系统字体 123', style: AidogType.body)),
+        ),
+      );
+      // DefaultTextStyle 的 family 由 MaterialApp 的 Typography 补平台缺省
+      // （test 环境是 Roboto、macOS 是系统字体），不该由我们指定 —— 我们侧
+      // 的字阶 family 保持 null 即「不指定 = 平台默认」。
+      expect(AidogType.body.fontFamily, isNull);
+      // 渲染一帧 mono 不抛（test 环境字体是 Ahem，这里只验证样式管线不炸；
+      // 真机上 SF Mono 的实际解析见下条说明）。
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: aidogThemeData(AidogMode.dark),
+          home: const Scaffold(body: Text('mono 123', style: AidogType.numSm)),
+        ),
+      );
+      expect(find.text('mono 123'), findsOneWidget);
+    });
+  });
+
   group('ThemeController', () {
     test('默认深色（票 10 用户 2026-09-18 定：不跟随系统）', () {
       expect(ThemeController().mode, AidogMode.dark);
