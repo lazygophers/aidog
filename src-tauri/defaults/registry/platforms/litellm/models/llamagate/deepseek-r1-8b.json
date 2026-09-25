@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "llamagate/deepseek-r1-8b",
   "canonical_model": "deepseek-r1-8b",
+  "family": "deepseek",
+  "version": "r1",
   "capabilities": [
     "text",
     "tool_use",

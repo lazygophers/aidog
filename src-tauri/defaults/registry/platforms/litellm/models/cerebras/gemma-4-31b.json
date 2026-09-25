@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790304620,
   "model_id": "cerebras/gemma-4-31b",
   "canonical_model": "gemma-4-31b",
+  "family": "gemma",
+  "version": "4",
   "capabilities": [
     "text",
     "vision",

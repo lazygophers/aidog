@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790304620,
   "model_id": "aihubmix/coding-kimi-k3",
-  "canonical_model": "coding-kimi-k3",
+  "canonical_model": "kimi-k3",
+  "family": "kimi",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",

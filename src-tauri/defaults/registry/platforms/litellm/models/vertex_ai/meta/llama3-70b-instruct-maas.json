@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "vertex_ai/meta/llama3-70b-instruct-maas",
-  "canonical_model": "llama3-70b-instruct-maas",
+  "canonical_model": "llama-3-70b-instruct",
+  "family": "llama",
+  "version": "3",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "mistral/codestral-mamba-latest",
   "canonical_model": "codestral-mamba-latest",
+  "family": "codestral-mamba",
   "capabilities": [
     "text"
   ],

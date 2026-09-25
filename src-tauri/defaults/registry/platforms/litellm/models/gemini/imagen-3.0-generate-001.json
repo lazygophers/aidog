@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "gemini/imagen-3.0-generate-001",
   "canonical_model": "imagen-3.0-generate-001",
+  "family": "imagen",
+  "version": "3.0",
   "capabilities": [
     "text_to_image"
   ],

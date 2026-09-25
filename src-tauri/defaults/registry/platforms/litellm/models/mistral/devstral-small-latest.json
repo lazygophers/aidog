@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "mistral/devstral-small-latest",
   "canonical_model": "devstral-small-latest",
+  "family": "devstral",
   "capabilities": [
     "text",
     "tool_use"
