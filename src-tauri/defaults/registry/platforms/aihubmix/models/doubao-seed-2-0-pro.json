@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "doubao-seed-2-0-pro",
   "canonical_model": "doubao-seed-2-0-pro",
   "family": "doubao-seed",
@@ -13,6 +13,7 @@
   "max_output_tokens": 128000,
   "context_window": 256000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.822e-7,
     "output": 0.000002411,

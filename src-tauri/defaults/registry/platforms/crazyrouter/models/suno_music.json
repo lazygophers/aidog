@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790340078,
   "model_id": "suno_music",
   "canonical_model": "suno_music",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.1

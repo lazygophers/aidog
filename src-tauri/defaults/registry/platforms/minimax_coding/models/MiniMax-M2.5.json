@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "MiniMax-M2.5",
   "canonical_model": "MiniMax-M2.5",
   "version": "2.5",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8192,
   "context_window": 204800,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

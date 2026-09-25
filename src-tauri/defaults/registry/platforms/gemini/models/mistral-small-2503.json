@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "mistral-small-2503",
   "canonical_model": "mistral-small-2503",
   "family": "mistral",
@@ -11,6 +11,8 @@
   "max_output_tokens": 128000,
   "context_window": 128000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1e-06,
     "output": 3e-06,

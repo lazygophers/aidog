@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-command-r-plus-08-2024",
   "canonical_model": "aihubmix-command-r-plus-08-2024",
 
   "family": "command",  "display_name": "Aihubmix Command R Plus 08 2024",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000028,
     "output": 0.0000112

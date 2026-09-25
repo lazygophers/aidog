@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-image-1",
   "canonical_model": "gpt-image-1",
   "family": "gpt",
@@ -10,6 +10,8 @@
     "image_edit"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.4e-06,
     "output": 0.0

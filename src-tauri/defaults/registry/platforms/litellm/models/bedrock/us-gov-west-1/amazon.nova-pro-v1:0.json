@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-gov-west-1/amazon.nova-pro-v1:0",
   "canonical_model": "nova-pro-v1",
   "family": "nova",
@@ -13,6 +13,8 @@
   "context_window": 300000,
   "max_output_tokens": 10000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9.6e-7,
     "output": 0.00000384

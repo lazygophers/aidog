@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "Doubao-pro-128k",
   "canonical_model": "doubao-pro-128k",
 
   "family": "doubao-pro",  "display_name": "Doubao Pro 128K",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8e-07,
     "output": 1.44e-06

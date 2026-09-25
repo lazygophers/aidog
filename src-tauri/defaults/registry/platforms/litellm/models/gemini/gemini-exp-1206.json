@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "gemini/gemini-exp-1206",
   "canonical_model": "gemini-exp-1206",
   "capabilities": [
@@ -11,6 +11,8 @@
   "context_window": 2097152,
   "max_output_tokens": 8192,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0,
     "output": 0

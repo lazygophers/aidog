@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen2.5-32b-instruct",
   "canonical_model": "qwen2.5-32b-instruct",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.7777777777777776e-07,
     "output": 8.333333333333333e-07,

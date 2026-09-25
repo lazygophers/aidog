@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790340078,
   "model_id": "glm-5-2-260617",
   "canonical_model": "glm-5-2-260617",
   "family": "glm",
@@ -11,6 +11,8 @@
   "max_output_tokens": 131072,
   "context_window": 1048576,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.4e-06,
     "output": 4.4e-06,

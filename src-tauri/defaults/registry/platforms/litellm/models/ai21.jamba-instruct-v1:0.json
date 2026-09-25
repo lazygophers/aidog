@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790340078,
   "model_id": "ai21.jamba-instruct-v1:0",
   "canonical_model": "ai21.jamba-instruct-v1:0",
   "family": "jamba",
@@ -10,6 +10,8 @@
   "context_window": 70000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-7,
     "output": 7e-7

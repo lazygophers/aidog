@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "whisper-1",
   "canonical_model": "whisper-1",
   "family": "whisper",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0001

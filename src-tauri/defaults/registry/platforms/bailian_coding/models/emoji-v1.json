@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790340078,
   "model_id": "emoji-v1",
   "canonical_model": "emoji-v1",
   "family": "emoji",
@@ -8,6 +8,8 @@
     "video_edit"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0
   }

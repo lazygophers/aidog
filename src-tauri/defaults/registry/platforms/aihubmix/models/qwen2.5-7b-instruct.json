@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen2.5-7b-instruct",
   "canonical_model": "qwen2.5-7b-instruct",
   "display_name": "Qwen2.5 7B Instruct",
@@ -7,6 +7,8 @@
 
   "version": "2.5",  "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-07,
     "output": 8e-07

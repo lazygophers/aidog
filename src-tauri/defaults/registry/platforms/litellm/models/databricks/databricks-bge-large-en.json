@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "databricks/databricks-bge-large-en",
   "canonical_model": "bge-large-en",
   "family": "bge",
@@ -10,6 +10,8 @@
   "context_window": 512,
   "max_output_tokens": 512,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.0003e-7,
     "output": 0

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "tts-1-1106",
   "canonical_model": "tts-1-1106",
 
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "char",
     "unit_price": 1.5e-05

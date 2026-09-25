@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-32b-fp8",
   "canonical_model": "qwen3-32b-fp8",
   "capabilities": [
@@ -7,6 +7,7 @@
   ],
   "thinking_supported": true,
   "official": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1e-07,
     "output": 4.5e-07

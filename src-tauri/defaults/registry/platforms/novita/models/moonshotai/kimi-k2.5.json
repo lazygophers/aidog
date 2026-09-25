@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "moonshotai/kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "version": "2.5",
   "family": "kimi",
   "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-07,
     "output": 3e-06,

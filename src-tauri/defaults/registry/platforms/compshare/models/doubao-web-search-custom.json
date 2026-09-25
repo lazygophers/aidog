@@ -1,9 +1,11 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790340078,
   "model_id": "doubao-web-search-custom",
   "canonical_model": "doubao-web-search-custom",
   "capabilities": [],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.00277778

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "mimo-v2.6-pro-ultraspeed",
   "canonical_model": "mimo-v2.6-pro-ultraspeed",
 
@@ -17,6 +17,7 @@
   "thinking_supported": true,
   "max_input_tokens": 1048576,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.8e-06,
     "output": 9.6e-06,

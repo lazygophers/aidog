@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gemini-3.1-flash-image-preview",
   "canonical_model": "gemini-3.1-flash-image-preview",
   "display_name": "Gemini 3.1 Flash Image Preview",
@@ -15,6 +15,7 @@
   "max_output_tokens": 32768,
   "context_window": 32768,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 5e-7,
     "output": 0.000003

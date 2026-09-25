@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "qwen/qwen3.6-flash",
   "canonical_model": "qwen3.6-flash",
   "version": "3.6",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.7e-07,
     "output": 1.62e-06

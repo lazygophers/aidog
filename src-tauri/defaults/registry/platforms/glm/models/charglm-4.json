@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "charglm-4",
   "canonical_model": "charglm-4",
   "family": "charglm",
@@ -11,6 +11,8 @@
   "max_output_tokens": 4096,
   "context_window": 8192,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.38889e-7,
     "output": 1.38889e-7

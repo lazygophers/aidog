@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "doubao-seed3d-2-0-260328",
   "canonical_model": "doubao-seed3d-2-0-260328",
   "family": "doubao-seed3d",
   "version": "2.0",
   "capabilities": [],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.333333

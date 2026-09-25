@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-realtime-2.1",
   "canonical_model": "gpt-realtime-2.1",
   "context_window": 128000,
@@ -9,6 +9,7 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 4.32e-06,
     "output": 2.592e-05

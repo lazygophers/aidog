@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3.6-27B",
   "canonical_model": "qwen3.6-27b",
   "version": "3.6",
@@ -11,6 +11,8 @@
   "max_input_tokens": 262144,
   "max_output_tokens": 65536,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 3.2000000000000003e-06

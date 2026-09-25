@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "llama2-70b-40960",
   "canonical_model": "llama2-70b-40960",
 
@@ -7,6 +7,8 @@
   "family": "llama",  "display_name": "Llama2 70B 40960",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-7,
     "output": 5e-7

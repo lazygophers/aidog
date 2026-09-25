@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
@@ -11,6 +11,7 @@
   "context_window": 128000,
   "max_output_tokens": 20480,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.000003,
     "output": 0.000008

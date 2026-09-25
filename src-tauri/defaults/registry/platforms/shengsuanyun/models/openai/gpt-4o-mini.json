@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-4o-mini",
   "canonical_model": "gpt-4o-mini",
   "family": "gpt",
@@ -10,6 +10,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.45833e-07,
     "output": 5.83333e-07

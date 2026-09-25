@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "qwen/qwen3-vl-flash",
   "canonical_model": "qwen3-vl-flash",
   "family": "qwen",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.4e-08,
     "output": 4.32e-07

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "o3-global",
   "canonical_model": "o3-global",
 
@@ -7,6 +7,8 @@
   "family": "o",  "display_name": "O3 Global",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-06,
     "output": 8e-06,

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790340079,
   "model_id": "bytedance/doubao-seed-2.1-turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 5.4e-07,
     "output": 2.7e-06

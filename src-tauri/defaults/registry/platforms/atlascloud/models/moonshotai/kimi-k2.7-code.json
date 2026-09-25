@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "moonshotai/kimi-k2.7-code",
   "canonical_model": "kimi-k2.7-code",
   "version": "2.7",
@@ -9,6 +9,7 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 9.5e-07,
     "output": 4e-06,

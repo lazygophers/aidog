@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "glm-tts-clone",
   "canonical_model": "glm-tts-clone",
   "family": "glm",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.833333

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790340078,
   "model_id": "nvidia.nemotron-nano-12b-v2",
   "canonical_model": "nvidia.nemotron-nano-12b-v2",
   "family": "nemotron",
@@ -13,6 +13,8 @@
   "context_window": 128000,
   "max_output_tokens": 8000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-7,
     "output": 6e-7

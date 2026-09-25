@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "ovhcloud/Mixtral-8x7B-Instruct-v0.1",
   "canonical_model": "Mixtral-8x7B-Instruct-v0.1",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 32000,
   "max_output_tokens": 32000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.3e-7,
     "output": 6.3e-7

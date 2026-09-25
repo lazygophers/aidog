@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gemini-2.5-flash-preview-tts",
   "canonical_model": "gemini-2.5-flash-preview-tts",
   "display_name": "Gemini 2.5 Flash Preview Tts",
@@ -9,6 +9,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "char",
     "unit_price": 5e-07

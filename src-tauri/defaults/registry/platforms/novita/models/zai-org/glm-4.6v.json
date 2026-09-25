@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "zai-org/glm-4.6v",
   "canonical_model": "glm-4.6v",
   "family": "glm",
   "version": "4.6",
   "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 9.000000000000001e-07,

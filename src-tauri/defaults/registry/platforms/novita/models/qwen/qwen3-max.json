@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-max",
   "canonical_model": "qwen3-max",
   "version": "3",
   "family": "qwen",
   "capabilities": ["text", "tool_use", "reasoning"],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.1099999999999997e-06,
     "output": 8.449999999999999e-06,

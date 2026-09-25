@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "scaleway/openai/whisper-large-v3",
   "canonical_model": "whisper-large-v3",
   "capabilities": [
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

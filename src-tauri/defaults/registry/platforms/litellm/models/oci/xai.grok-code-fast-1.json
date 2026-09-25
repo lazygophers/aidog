@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "oci/xai.grok-code-fast-1",
   "canonical_model": "grok-code-fast-1",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 131072,
   "max_output_tokens": 131072,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000005,
     "output": 0.000025

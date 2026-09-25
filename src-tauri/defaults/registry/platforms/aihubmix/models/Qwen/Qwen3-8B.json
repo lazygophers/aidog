@@ -1,7 +1,7 @@
 {
   "context_window": 131072,
   "max_input_tokens": 131072,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "Qwen/Qwen3-8B",
   "canonical_model": "qwen3-8b",
   "display_name": "Qwen3 8B",
@@ -9,6 +9,8 @@
 
   "version": "3",  "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-07,
     "output": 2e-07

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790340078,
   "model_id": "together_ai/MiniMaxAI/MiniMax-M2.7",
   "canonical_model": "MiniMax-M2.7",
   "family": "minimax",
@@ -10,6 +10,8 @@
   "max_input_tokens": 196608,
   "context_window": 196608,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-7,
     "output": 0.0000012

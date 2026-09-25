@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "azure/us/gpt-4.1-2025-04-14",
   "canonical_model": "gpt-4.1",
   "family": "gpt",
@@ -13,6 +13,8 @@
   "context_window": 1047576,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000022,
     "output": 0.0000088

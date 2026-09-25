@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "ali/qwen3-235b-a22b",
   "canonical_model": "qwen3-235b-a22b",
   "family": "qwen",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.77778e-07,
     "output": 2.77778e-06

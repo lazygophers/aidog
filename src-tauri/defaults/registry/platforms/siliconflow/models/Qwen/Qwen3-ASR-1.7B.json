@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen3-ASR-1.7B",
   "canonical_model": "Qwen3-ASR-1.7B",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "char",
     "unit_price": 0

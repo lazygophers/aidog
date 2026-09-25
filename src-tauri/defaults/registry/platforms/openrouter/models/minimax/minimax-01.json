@@ -8,11 +8,13 @@
   "context_window": 1000192,
   "official": true,
   "max_output_tokens": 900172,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-7,
     "output": 0.0000011
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790340079,
   "capabilities": [
     "text"
   ]

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gpt-4o-mini",
   "canonical_model": "gpt-4o-mini",
   "family": "gpt",
@@ -11,6 +11,8 @@
   "max_output_tokens": 16384,
   "context_window": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9.75e-08,
     "output": 3.9e-07,

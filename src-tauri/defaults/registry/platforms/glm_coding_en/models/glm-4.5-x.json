@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287023,
+  "last_updated": 1790340078,
   "model_id": "glm-4.5-x",
   "canonical_model": "glm-4.5-x",
   "family": "glm",
@@ -11,6 +11,8 @@
   "max_output_tokens": 65535,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.1111111111111112e-06,
     "output": 3.888888888888889e-06,

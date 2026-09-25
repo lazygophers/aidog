@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-east-1/mistral.mistral-large-2402-v1:0",
   "canonical_model": "mistral.mistral-large-2402-v1:0",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 32000,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000004,
     "output": 0.000012

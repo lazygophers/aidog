@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 1047576,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "fal_ai/medium/1920-x-1080/openai/gpt-image-2",
   "canonical_model": "gpt-image-2",
   "family": "gpt",
@@ -10,6 +10,8 @@
   ],
   "context_window": 1047576,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "image",
     "unit_price": 0.04

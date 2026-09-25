@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790340078,
   "model_id": "ai21.j2-ultra-v1",
   "canonical_model": "ai21.j2-ultra-v1",
   "family": "j2",
@@ -11,6 +11,8 @@
   "context_window": 8191,
   "max_output_tokens": 8191,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000188,
     "output": 0.0000188

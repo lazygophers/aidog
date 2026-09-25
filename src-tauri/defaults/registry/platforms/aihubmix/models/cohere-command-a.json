@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "cohere-command-a",
   "canonical_model": "cohere-command-a",
 
@@ -9,6 +9,8 @@
   "capabilities": [],
   "max_input_tokens": 256000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000025,
     "output": 0.00001

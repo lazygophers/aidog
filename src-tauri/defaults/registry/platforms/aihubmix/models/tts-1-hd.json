@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "tts-1-hd",
   "canonical_model": "tts-1-hd",
   "display_name": "Tts 1 Hd",
@@ -9,6 +9,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "char",
     "unit_price": 3e-05

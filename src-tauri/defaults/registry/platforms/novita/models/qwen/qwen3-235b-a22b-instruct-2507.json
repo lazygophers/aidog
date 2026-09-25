@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-235b-a22b-instruct-2507",
   "canonical_model": "qwen3-235b-a22b-instruct-2507",
   "family": "qwen",
   "version": "3",
   "capabilities": ["text", "tool_use"],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 9e-08,
     "output": 5.8e-07,

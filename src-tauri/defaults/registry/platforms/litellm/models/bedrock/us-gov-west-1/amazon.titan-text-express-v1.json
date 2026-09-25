@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-gov-west-1/amazon.titan-text-express-v1",
   "canonical_model": "amazon.titan-text-express-v1",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 42000,
   "max_output_tokens": 8000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000013,
     "output": 0.0000017

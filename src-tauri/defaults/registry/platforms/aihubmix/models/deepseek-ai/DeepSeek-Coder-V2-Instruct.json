@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "deepseek-ai/DeepSeek-Coder-V2-Instruct",
   "canonical_model": "deepseek-coder-v2-instruct",
 
@@ -7,6 +7,8 @@
   "family": "deepseek",  "display_name": "DeepSeek Coder V2 Instruct",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.6e-07,
     "output": 3.2e-07

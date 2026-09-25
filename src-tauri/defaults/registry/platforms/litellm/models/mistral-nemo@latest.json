@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "mistral-nemo@latest",
   "canonical_model": "mistral-nemo@latest",
   "family": "mistral",
@@ -10,6 +10,8 @@
   "max_output_tokens": 128000,
   "context_window": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.5e-07,
     "output": 1.5e-07

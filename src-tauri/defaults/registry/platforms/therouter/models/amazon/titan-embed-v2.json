@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790340079,
   "model_id": "amazon/titan-embed-v2",
   "canonical_model": "titan-embed-v2",
   "capabilities": [
     "embedding"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.16e-08,
     "output": 0.0

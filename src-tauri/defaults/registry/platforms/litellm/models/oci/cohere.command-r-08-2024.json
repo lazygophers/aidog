@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "oci/cohere.command-r-08-2024",
   "canonical_model": "command-r-08-2024",
   "family": "command",
@@ -11,6 +11,8 @@
   "context_window": 128000,
   "max_output_tokens": 4000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.5e-7,
     "output": 1.5e-7

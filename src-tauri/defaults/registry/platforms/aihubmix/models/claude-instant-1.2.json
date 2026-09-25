@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "claude-instant-1.2",
   "canonical_model": "claude-instant-1.2",
 
@@ -7,6 +7,8 @@
   "family": "claude",  "display_name": "Claude Instant 1.2",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 8.8e-07,
     "output": 3.96e-06

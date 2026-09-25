@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790340078,
   "model_id": "gemma-2-27b-it",
   "canonical_model": "gemma-2-27b-it",
   "family": "gemma",
@@ -11,6 +11,8 @@
   "max_output_tokens": 2048,
   "context_window": 8192,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.5e-07,
     "output": 6.5e-07,

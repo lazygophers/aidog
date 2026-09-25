@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790340078,
   "model_id": "thudm/glm-4-32b-0414",
   "canonical_model": "glm-4-32b-0414",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.5e-07,
     "output": 1.66e-06

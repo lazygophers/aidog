@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790340078,
   "model_id": "viduq1-start-end",
   "canonical_model": "viduq1-start-end",
   "family": "vidu",
@@ -9,6 +9,8 @@
     "image_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 6.944444444444444e-07,
     "output": 3.055555555555555e-06,

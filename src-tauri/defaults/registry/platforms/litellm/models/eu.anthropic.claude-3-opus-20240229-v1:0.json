@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "eu.anthropic.claude-3-opus-20240229-v1:0",
   "canonical_model": "claude-3-opus-20240229",
   "family": "claude",
@@ -13,6 +13,8 @@
   "context_window": 200000,
   "max_output_tokens": 4096,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000015,
     "output": 0.000075

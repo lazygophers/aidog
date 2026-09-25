@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 256000,
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "kimi/kimi-k2.7-code-highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
   "version": "2.7",
@@ -9,6 +9,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.8055555555555555e-06,
     "output": 7.5e-06

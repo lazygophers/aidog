@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790340079,
   "model_id": "gpt-4o-realtime-preview",
   "canonical_model": "gpt-4o-realtime-preview",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000005,
     "output": 0.00002,

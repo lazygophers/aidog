@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 131072,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "openai/gpt-oss-20b-maas",
   "canonical_model": "gpt-oss-20b-maas",
   "family": "gpt",
@@ -10,6 +10,7 @@
   ],
   "official": false,
   "context_window": 131072,
+  "thinking_toggleable": true,
   "price": {
     "input": 7e-08,
     "output": 2.5e-07,

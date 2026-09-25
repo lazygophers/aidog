@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "together_ai/thinkingmachines/Inkling",
   "canonical_model": "inkling",
   "family": "inkling",
@@ -11,6 +11,7 @@
   "context_window": 524288,
   "max_output_tokens": 524288,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 0.000001,
     "output": 0.00000405

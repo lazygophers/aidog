@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790340079,
   "model_id": "Qwen/Qwen2.5-72B-Instruct-128K",
   "canonical_model": "Qwen2.5-72B-Instruct-128K",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.73611e-7,
     "output": 5.73611e-7

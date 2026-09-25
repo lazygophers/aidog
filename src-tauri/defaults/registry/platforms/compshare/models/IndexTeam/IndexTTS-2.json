@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790340078,
   "model_id": "IndexTeam/IndexTTS-2",
   "canonical_model": "IndexTTS-2",
   "capabilities": [
     "audio"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.55556e-06,
     "output": 0.0

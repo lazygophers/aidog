@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "vertex_ai/deep-research-pro-preview-12-2025",
   "canonical_model": "deep-research-pro-preview-12-2025",
   "family": "deep-research",
@@ -10,6 +10,7 @@
   "context_window": 65536,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": true,
   "price": {
     "unit": "image",
     "unit_price": 0.134

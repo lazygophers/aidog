@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 262000,
-  "last_updated": 1790287585,
+  "last_updated": 1790340079,
   "model_id": "nex-agi/Nex-N2-Pro",
   "canonical_model": "Nex-N2-Pro",
   "family": "nex",
@@ -9,6 +9,8 @@
   ],
   "context_window": 262144,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.4305555555555555e-07,
     "output": 9.722222222222222e-07

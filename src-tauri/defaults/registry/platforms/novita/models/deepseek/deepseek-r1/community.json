@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790340078,
   "model_id": "deepseek/deepseek-r1/community",
   "canonical_model": "community",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4e-06,
     "output": 4e-06

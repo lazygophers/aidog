@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790340078,
   "model_id": "azure/us/text-embedding-3-small",
   "canonical_model": "text-embedding-3-small",
   "family": "text-embedding",
@@ -8,6 +8,8 @@
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.2e-8
   }

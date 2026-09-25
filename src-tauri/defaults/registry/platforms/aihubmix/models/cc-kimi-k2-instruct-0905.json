@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "cc-kimi-k2-instruct-0905",
   "canonical_model": "cc-kimi-k2-instruct-0905",
 
@@ -7,6 +7,8 @@
   "family": "kimi",  "display_name": "CC Kimi K2 Instruct 0905",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000011,
     "output": 0.0000033

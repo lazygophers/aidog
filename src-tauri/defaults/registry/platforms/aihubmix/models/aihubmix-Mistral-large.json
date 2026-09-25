@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790340078,
   "model_id": "aihubmix-Mistral-large",
   "canonical_model": "mistral-large",
   "family": "mistral",
@@ -9,6 +9,8 @@
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 4e-06,
     "output": 1.2e-05

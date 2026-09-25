@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "gpt-5.6-sol-pro",
   "canonical_model": "gpt-5.6-sol-pro",
 
@@ -10,6 +10,7 @@
   "thinking_supported": false,
   "max_input_tokens": 1050000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 8e-06,
     "output": 4e-05,

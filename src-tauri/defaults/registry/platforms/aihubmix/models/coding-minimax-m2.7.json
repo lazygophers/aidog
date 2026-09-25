@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "coding-minimax-m2.7",
   "canonical_model": "MiniMax-M2.7",
   "display_name": "Coding MiniMax M2.7",
@@ -13,6 +13,7 @@
   "max_output_tokens": 204800,
   "context_window": 204800,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 2e-7,
     "output": 2e-7

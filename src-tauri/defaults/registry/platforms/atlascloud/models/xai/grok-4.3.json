@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "xai/grok-4.3",
   "canonical_model": "grok-4.3",
   "version": "4.3",
@@ -9,6 +9,8 @@
     "vision"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.25e-06,
     "output": 2.5e-06,

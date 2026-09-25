@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790340079,
   "model_id": "openai/gpt-5.2-pro",
   "canonical_model": "gpt-5.2-pro",
   "family": "gpt",
@@ -8,6 +8,7 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 2.268e-05,
     "output": 0.00018144

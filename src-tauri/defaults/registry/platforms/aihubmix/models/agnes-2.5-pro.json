@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790340078,
   "model_id": "agnes-2.5-pro",
   "canonical_model": "agnes-2.5-pro",
 
@@ -11,6 +11,7 @@
   "capabilities": [],
   "max_input_tokens": 1000000,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.5e-7,
     "output": 9e-7,

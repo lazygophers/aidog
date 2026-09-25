@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790340078,
   "model_id": "doubao-seedance-1-5-pro",
   "canonical_model": "doubao-seedance-1-5-pro",
   "capabilities": [
     "text_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0

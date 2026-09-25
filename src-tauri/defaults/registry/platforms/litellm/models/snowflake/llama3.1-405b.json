@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790340078,
   "model_id": "snowflake/llama3.1-405b",
   "canonical_model": "llama3.1-405b",
   "capabilities": [
@@ -10,6 +10,8 @@
   "context_window": 128000,
   "max_output_tokens": 16384,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.0000012,
     "output": 0.0000012

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790340078,
   "model_id": "nousresearch/nous-hermes-llama2-13b",
   "canonical_model": "nous-hermes-llama2-13b",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 1.7e-07,
     "output": 1.7e-07

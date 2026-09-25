@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "jina-embeddings-v3",
   "canonical_model": "jina-embeddings-v3",
 
@@ -9,6 +9,8 @@
     "embedding"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-08,
     "output": 5e-08

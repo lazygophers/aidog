@@ -1,7 +1,7 @@
 {
   "context_window": 64000,
   "max_input_tokens": 64000,
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
   "canonical_model": "deepseek-r1-distill-qwen-32b",
   "version": "r1",
@@ -9,6 +9,7 @@
   "family": "deepseek",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 2e-07,
     "output": 2e-07

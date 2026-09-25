@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "deepseek/deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "version": "r1",
@@ -8,6 +8,7 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": true,
   "price": {
     "input": 4e-06,
     "output": 4e-06

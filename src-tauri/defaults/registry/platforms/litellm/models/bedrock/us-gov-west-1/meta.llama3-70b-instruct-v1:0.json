@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790340078,
   "model_id": "bedrock/us-gov-west-1/meta.llama3-70b-instruct-v1:0",
   "canonical_model": "meta.llama3-70b-instruct-v1:0",
   "capabilities": [
@@ -9,6 +9,8 @@
   "context_window": 8000,
   "max_output_tokens": 2048,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.00000265,
     "output": 0.0000035

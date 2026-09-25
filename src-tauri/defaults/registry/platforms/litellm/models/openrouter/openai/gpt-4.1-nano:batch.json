@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281740,
+  "last_updated": 1790340078,
   "model_id": "openrouter/openai/gpt-4.1-nano:batch",
   "canonical_model": "gpt-4.1-nano:batch",
   "family": "gpt",
@@ -13,6 +13,8 @@
   "context_window": 1047576,
   "max_output_tokens": 32768,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-8,
     "output": 2e-7

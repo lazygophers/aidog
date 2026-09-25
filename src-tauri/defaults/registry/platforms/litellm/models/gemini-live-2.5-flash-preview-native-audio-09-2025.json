@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790340078,
   "model_id": "gemini-live-2.5-flash-preview-native-audio-09-2025",
   "canonical_model": "gemini-live-2.5-flash-preview-native-audio-09-2025",
   "family": "gemini",
@@ -13,6 +13,8 @@
   "context_window": 1048576,
   "max_output_tokens": 65535,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5e-7,
     "output": 0.000002

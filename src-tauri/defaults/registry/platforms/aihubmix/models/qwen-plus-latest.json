@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "qwen-plus-latest",
   "canonical_model": "qwen-plus-latest",
   "display_name": "Qwen Plus",
@@ -11,6 +11,8 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 1.126e-7,
     "output": 0.000001126,

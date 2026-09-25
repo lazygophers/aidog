@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790340078,
   "model_id": "llama-3.2-3b-instruct",
   "canonical_model": "llama-3.2-3b-instruct",
   "family": "llama",
@@ -11,6 +11,8 @@
   "max_output_tokens": 80000,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 5.09e-08,
     "output": 3.35e-07,

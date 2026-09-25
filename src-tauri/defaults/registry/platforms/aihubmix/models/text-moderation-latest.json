@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "text-moderation-latest",
   "canonical_model": "text-moderation-latest",
 
   "family": "text-moderation",  "display_name": "Text Moderation",
   "capabilities": [],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2e-07,
     "output": 2e-07

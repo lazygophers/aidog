@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790340079,
   "model_id": "google/gemma-3-27b",
   "canonical_model": "gemma-3-27b",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 2.484e-07,
     "output": 4.104e-07

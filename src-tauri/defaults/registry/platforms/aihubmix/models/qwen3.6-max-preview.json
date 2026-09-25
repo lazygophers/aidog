@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790340078,
   "model_id": "qwen3.6-max-preview",
   "canonical_model": "qwen3.6-max-preview",
   "display_name": "Qwen3.6 Max Preview",
@@ -13,6 +13,7 @@
   "max_output_tokens": 65536,
   "context_window": 262144,
   "official": false,
+  "thinking_toggleable": true,
   "price": {
     "input": 0.000001268,
     "output": 0.000007608,

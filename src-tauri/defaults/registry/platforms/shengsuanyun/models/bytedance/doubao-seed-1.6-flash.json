@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790084258,
+  "last_updated": 1790340079,
   "model_id": "bytedance/doubao-seed-1.6-flash",
   "canonical_model": "doubao-seed-1-6-flash",
   "capabilities": [
@@ -7,6 +7,7 @@
     "vision"
   ],
   "official": true,
+  "thinking_supported": true,
   "price": {
     "input": 2.08333e-08,
     "output": 2.08333e-07,

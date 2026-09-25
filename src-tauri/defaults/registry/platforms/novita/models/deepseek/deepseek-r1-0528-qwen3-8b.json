@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "deepseek/deepseek-r1-0528-qwen3-8b",
   "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
   "capabilities": [
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 6e-08,
     "output": 9e-08,

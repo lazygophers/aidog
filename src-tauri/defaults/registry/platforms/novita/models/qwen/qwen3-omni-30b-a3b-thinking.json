@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790340078,
   "model_id": "qwen/qwen3-omni-30b-a3b-thinking",
   "canonical_model": "Qwen3-Omni-30B-A3B-Thinking",
   "capabilities": ["text", "vision", "tool_use", "reasoning"],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.5e-07,
     "output": 9.7e-07,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790340078,
   "model_id": "glm-3-turbo",
   "canonical_model": "glm-3-turbo",
 
@@ -8,6 +8,8 @@
   "capabilities": [],
   "context_window": 131072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 7.1e-07,
     "output": 7.1e-07

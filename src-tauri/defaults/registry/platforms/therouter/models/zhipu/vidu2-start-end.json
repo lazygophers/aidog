@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790280349,
+  "last_updated": 1790340079,
   "model_id": "zhipu/vidu2-start-end",
   "canonical_model": "vidu2-start-end",
   "family": "vidu",
@@ -8,6 +8,8 @@
     "image_to_video"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "request",
     "unit_price": 0.216

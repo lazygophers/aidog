@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267844,
+  "last_updated": 1790340078,
   "model_id": "alicloud-glm-4.7",
   "canonical_model": "glm-4.7",
   "display_name": "Alicloud Glm 4.7",
@@ -7,6 +7,8 @@
   "family": "glm",
   "capabilities": [],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.1096e-07,
     "output": 1.917786e-06,

@@ -1,11 +1,13 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790340078,
   "model_id": "vidu-lip-sync",
   "canonical_model": "vidu-lip-sync",
   "capabilities": [
     "video_edit"
   ],
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.0173611

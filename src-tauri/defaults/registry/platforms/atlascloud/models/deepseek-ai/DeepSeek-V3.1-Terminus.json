@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267209,
+  "last_updated": 1790340078,
   "model_id": "deepseek-ai/DeepSeek-V3.1-Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
   "version": "3.1",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3e-07,
     "output": 9.5e-07,

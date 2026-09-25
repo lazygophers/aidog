@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790340079,
   "model_id": "THUDM/GLM-4-9B-0414",
   "canonical_model": "GLM-4-9B-0414",
   "capabilities": [
@@ -9,6 +9,8 @@
   "max_output_tokens": 32000,
   "context_window": 32000,
   "official": true,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0,
     "output": 0

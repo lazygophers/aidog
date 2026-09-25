@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790340078,
   "model_id": "cloudflare/@cf/meta/llama-2-7b-chat-fp16",
   "canonical_model": "llama-2-7b-chat-fp16",
   "family": "llama",
@@ -11,6 +11,8 @@
   "context_window": 3072,
   "max_output_tokens": 3072,
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "input": 0.000001923,
     "output": 0.000001923

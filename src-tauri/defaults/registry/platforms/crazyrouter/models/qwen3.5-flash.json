@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340078,
   "model_id": "qwen3.5-flash",
   "canonical_model": "qwen3.5-flash",
   "version": "3.5",
@@ -11,6 +11,8 @@
   "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.9e-08,
     "output": 2.87e-07

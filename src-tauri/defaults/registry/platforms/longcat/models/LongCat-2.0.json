@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790340078,
   "model_id": "LongCat-2.0",
   "canonical_model": "LongCat-2.0",
   "family": "longcat",
@@ -11,6 +11,8 @@
   "max_output_tokens": 32768,
   "context_window": 131072,
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 7.5e-07,
     "output": 2.95e-06,

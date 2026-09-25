@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 128000,
-  "last_updated": 1790287585,
+  "last_updated": 1790340078,
   "model_id": "vanchin/deepseek-v3.2-think",
   "canonical_model": "deepseek-v3.2-think",
   "family": "deepseek",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 2.777777777777778e-07,
     "output": 4.166666666666666e-07

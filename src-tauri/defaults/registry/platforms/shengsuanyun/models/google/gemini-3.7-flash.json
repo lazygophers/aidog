@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274366,
+  "last_updated": 1790340079,
   "model_id": "google/gemini-3.7-flash",
   "canonical_model": "gemini-3.7-flash",
   "family": "gemini",
@@ -8,6 +8,8 @@
     "text"
   ],
   "official": true,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 7.291666666666666e-07,
     "output": 3.6458333333333333e-06,

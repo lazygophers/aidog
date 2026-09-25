@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790340078,
   "model_id": "qwen3-4b",
   "canonical_model": "qwen3-4b",
 
@@ -11,6 +11,8 @@
     "text"
   ],
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 4.6e-8,
     "output": 4.6e-7

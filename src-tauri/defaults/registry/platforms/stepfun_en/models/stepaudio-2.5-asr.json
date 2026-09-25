@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790340079,
   "model_id": "stepaudio-2.5-asr",
   "canonical_model": "stepaudio-2.5-asr",
   "family": "stepfun",
@@ -8,6 +8,8 @@
     "audio"
   ],
   "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
   "price": {
     "unit": "second",
     "unit_price": 0.00000611111

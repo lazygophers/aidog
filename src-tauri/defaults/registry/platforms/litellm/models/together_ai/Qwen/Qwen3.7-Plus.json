@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790340078,
   "model_id": "together_ai/Qwen/Qwen3.7-Plus",
   "canonical_model": "qwen3.7-plus",
   "family": "qwen",
@@ -11,6 +11,8 @@
   "context_window": 1000000,
   "max_output_tokens": 1000000,
   "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
   "price": {
     "input": 3.2e-7,
     "output": 0.00000128
