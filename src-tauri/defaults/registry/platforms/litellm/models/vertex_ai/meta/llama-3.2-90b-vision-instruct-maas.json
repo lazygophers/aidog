@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "vertex_ai/meta/llama-3.2-90b-vision-instruct-maas",
-  "canonical_model": "llama-3.2-90b-vision-instruct-maas",
+  "canonical_model": "llama-3.2-90b-vision-instruct",
+  "family": "llama",
+  "version": "3.2",
   "capabilities": [
     "text",
     "vision"

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790304620,
   "model_id": "azure/gpt-3.5-turbo-instruct-0914",
-  "canonical_model": "gpt-3.5-turbo-instruct-0914",
+  "canonical_model": "gpt-3.5-turbo-instruct",
+  "family": "gpt",
+  "version": "3.5",
   "capabilities": [
     "text"
   ],

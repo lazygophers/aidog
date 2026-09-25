@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790304620,
   "model_id": "aihubmix/agnes-2.5-pro",
   "canonical_model": "agnes-2.5-pro",
+  "family": "agnes",
+  "version": "2.5",
   "capabilities": [
     "text",
     "vision",

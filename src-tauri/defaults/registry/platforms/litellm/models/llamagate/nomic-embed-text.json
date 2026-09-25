@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "llamagate/nomic-embed-text",
   "canonical_model": "nomic-embed-text",
+  "family": "nomic-embed",
   "capabilities": [
     "embedding"
   ],

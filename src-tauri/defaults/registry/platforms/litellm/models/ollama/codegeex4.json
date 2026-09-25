@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304620,
   "model_id": "ollama/codegeex4",
-  "canonical_model": "codegeex4",
+  "canonical_model": "codegeex-4",
+  "family": "codegeex",
+  "version": "4",
   "capabilities": [
     "text"
   ],

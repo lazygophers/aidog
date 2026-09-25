@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790304620,
   "model_id": "azure_ai/mistral-ocr-4-0",
-  "canonical_model": "mistral-ocr-4-0",
-  "family": "mistral-ocr",
-  "version": "4",
+  "canonical_model": "ocr-4-0",
+  "family": "mistral",
+  "version": "4.0",
   "capabilities": [
     "vision"
   ],
