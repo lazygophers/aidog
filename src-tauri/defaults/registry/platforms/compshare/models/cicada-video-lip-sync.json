@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "cicada-video-lip-sync",
+  "display_name": "Cicada Video Lip Sync",
   "canonical_model": "cicada-video-lip-sync",
   "capabilities": [
     "video_edit"

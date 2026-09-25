@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "stepaudio-2.5-asr-stream",
+  "display_name": "StepAudio 2.5 ASR Stream",
   "canonical_model": "stepaudio-2.5-asr-stream",
   "family": "stepfun",
   "version": "2.5",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790358006,
   "model_id": "ernie-4.5-turbo-32k",
+  "display_name": "ERNIE 4.5 Turbo 32K",
   "canonical_model": "ernie-4.5-turbo-32k",
   "max_input_tokens": 32000,
   "max_output_tokens": 27000,

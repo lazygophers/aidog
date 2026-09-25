@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-hailuo-h3",
+  "display_name": "Hailuo H3 (Video)",
   "canonical_model": "aigc-video-hailuo-h3",
   "family": "hailuo",
   "capabilities": [

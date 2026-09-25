@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790358006,
   "model_id": "aigc-video-kling-identifyface",
+  "display_name": "Kling Identify Face (Video)",
   "canonical_model": "aigc-video-kling-identifyface",
   "family": "kling",
   "capabilities": [

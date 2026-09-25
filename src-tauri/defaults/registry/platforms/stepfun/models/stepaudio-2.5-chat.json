@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "stepaudio-2.5-chat",
+  "display_name": "StepAudio 2.5 Chat",
   "canonical_model": "stepaudio-2.5-chat",
   "family": "stepfun",
   "version": "2.5",

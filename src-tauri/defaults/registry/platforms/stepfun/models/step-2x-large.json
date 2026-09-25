@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "step-2x-large",
+  "display_name": "Step 2X Large",
   "canonical_model": "step-2x-large",
   "family": "stepfun",
   "version": "2x",

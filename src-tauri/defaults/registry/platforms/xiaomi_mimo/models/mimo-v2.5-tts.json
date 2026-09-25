@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790358006,
   "model_id": "mimo-v2.5-tts",
+  "display_name": "MiMo-V2.5-TTS",
   "canonical_model": "mimo-v2.5-tts",
   "capabilities": [
     "audio"
