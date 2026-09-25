@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/kwaipilot/kat-coder-pro",
   "canonical_model": "kat-coder-pro",
   "capabilities": [
@@ -13,5 +13,6 @@
   "price": {
     "input": 3e-7,
     "output": 0.0000012
-  }
+  },
+  "family": "kat"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/moonshotai/kimi-k2-instruct",
   "canonical_model": "kimi-k2-instruct",
   "capabilities": [
@@ -13,5 +13,7 @@
   "price": {
     "input": 5.7e-7,
     "output": 0.0000023
-  }
+  },
+  "family": "kimi",
+  "version": "2"
 }

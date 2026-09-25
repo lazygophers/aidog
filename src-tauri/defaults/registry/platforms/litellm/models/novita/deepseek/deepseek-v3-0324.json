@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790329690,
   "model_id": "novita/deepseek/deepseek-v3-0324",
   "canonical_model": "deepseek-v3-0324",
   "family": "deepseek",
@@ -14,5 +14,6 @@
   "price": {
     "input": 2.7e-7,
     "output": 0.00000112
-  }
+  },
+  "version": "3"
 }

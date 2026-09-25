@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790329690,
   "model_id": "novita/qwen/qwen3-omni-30b-a3b-instruct",
   "canonical_model": "Qwen3-Omni-30B-A3B-Instruct",
   "capabilities": [
@@ -14,5 +14,7 @@
   "price": {
     "input": 2.5e-7,
     "output": 9.7e-7
-  }
+  },
+  "family": "qwen",
+  "version": "3"
 }

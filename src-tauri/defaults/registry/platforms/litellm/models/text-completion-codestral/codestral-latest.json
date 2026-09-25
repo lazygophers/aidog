@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790329690,
   "model_id": "text-completion-codestral/codestral-latest",
   "canonical_model": "codestral",
   "capabilities": [
@@ -12,5 +12,6 @@
   "price": {
     "input": 0,
     "output": 0
-  }
+  },
+  "family": "codestral"
 }

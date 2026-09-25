@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790329690,
   "model_id": "mistral/ministral-14b-latest",
   "canonical_model": "ministral-14b",
   "capabilities": [
@@ -14,5 +14,7 @@
   "price": {
     "input": 2e-7,
     "output": 2e-7
-  }
+  },
+  "family": "ministral",
+  "version": "3"
 }
