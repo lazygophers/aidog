@@ -1,24 +1,25 @@
 // 票 I20：小窗把自己的尺寸报给原生外壳这一段。
 //
 // 两件事值得钉死，因为它们都是「差一点就看不出来、但用户能看见」的：
-// 1. **高度要算上 Container 的 1px 边框 ×2**（I20 之前漏了，内容底下被裁掉一线）。
+// 1. **上下左右的内边距不同**：`.popover-root` 是 `padding: 10px 14px`
+//    （`src/styles/popover.css:33`），横竖各算各的，写成同一个数就会差 8px。
 // 2. **宽度要跟着内容走**，不是写死 340 —— 与 React 版 `clamp(offsetWidth, 300, 480)`
 //    同语义（`src/popover.tsx:180`）。
 //
 // 不起内核（假 invoke 顶掉传输层），不碰 9890 端口。
 import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/popover.dart';
-import 'package:aidog_flutter/shell.dart' show AidogSpace;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../pages/harness.dart';
 import 'popover_widget_test.dart' show cfgItem, popoverData;
 
-/// 外壳自己占的那一圈：SingleChildScrollView 的 padding ×2 + 边框 1px ×2。
-/// 与 `app.dart::_syncSize` 的 `chrome` 是同一笔账。边框那 2px 是 I20 修的 bug ——
-/// 写成 `2 * AidogSpace.smd` 就是回到老样子，测试会红。
-const double kChrome = 2 * AidogSpace.smd + 2 * 1;
+/// 外壳自己占的那一圈 = `.popover-root` 的内边距 ×2。**无边框**
+/// （popover.css:39 那句 `border: var(--glass-border)` 缺 border-style，
+/// 浏览器按 none 处理），所以不再加边宽。
+const double kChromeX = 2 * PopoverRoot.padX;
+const double kChromeY = 2 * PopoverRoot.padY;
 
 /// 挂一个 PopoverApp，收集它报上来的尺寸。
 Future<List<Size>> pumpPopover(
@@ -51,7 +52,7 @@ Future<List<Size>> pumpPopover(
 }
 
 void main() {
-  testWidgets('上报的高度含 padding 与 1px 边框（各两份）', (tester) async {
+  testWidgets('上报的高度含上下 padding（各一份）', (tester) async {
     final i18n = await makeI18n(tester);
     final reported = await pumpPopover(
       tester,
@@ -64,7 +65,7 @@ void main() {
     final content = tester.renderObject<RenderBox>(
       find.byType(PopoverGrid).first,
     );
-    expect(reported.last.height, content.size.height + kChrome);
+    expect(reported.last.height, content.size.height + kChromeY);
   });
 
   testWidgets('上报的宽度是内容想要的宽度，不是窗口宽也不是定宽', (tester) async {
@@ -85,7 +86,7 @@ void main() {
     );
     expect(
       reported.last.width,
-      content.getMaxIntrinsicWidth(double.infinity) + kChrome,
+      content.getMaxIntrinsicWidth(double.infinity) + kChromeX,
       reason: '宽度该取内容的 max-intrinsic 宽 + 外壳那一圈',
     );
     expect(

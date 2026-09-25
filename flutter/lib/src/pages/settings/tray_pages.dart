@@ -1085,11 +1085,14 @@ class _PopoverSettingsPageState extends State<PopoverSettingsPage> {
     // React 预览 hint 是 11px（`PopoverLayout.tsx:189`）。
     description: t.t('popover.previewHint'),
     children: [
-      ConstrainedBox(
-        // 预览按小窗能长到的最宽来框（真窗按内容在 min..max 之间自适应，
-        // 预览里没有那个测量循环，取上限即可）。
-        constraints: const BoxConstraints(maxWidth: kTrayPanelMaxWidth),
-        child: PopoverGrid(frame: _c.previewFrame),
+      // React 预览把 grid 套在 `.popover-root` 里居中摆（`PopoverLayout.tsx:184-193`，
+      // 外层 `padding: 8px 0` + `justify-content: center`），预览与真窗同一张卡。
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Align(
+          alignment: Alignment.center,
+          child: PopoverRoot(child: PopoverGrid(frame: _c.previewFrame)),
+        ),
       ),
     ],
   );

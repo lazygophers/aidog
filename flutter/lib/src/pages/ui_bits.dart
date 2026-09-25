@@ -411,6 +411,7 @@ class ModalCard extends StatelessWidget {
     this.padding,
     this.radius,
     this.titleStyle,
+    this.onClose,
     required this.child,
   });
 
@@ -428,11 +429,19 @@ class ModalCard extends StatelessWidget {
   /// 标题字阶覆盖。缺省 17 w600；模型测试弹窗是 15 w700（`ModelTestPanel.tsx:150`）。
   final TextStyle? titleStyle;
 
+  /// 传了就在右上角出关闭 ✕（React `Dialog` 自带，`AlertDialog` 没有）。
+  final VoidCallback? onClose;
+
   final Widget child;
+
+  EdgeInsets _pad(BuildContext context) =>
+      padding?.resolve(Directionality.of(context)) ??
+      const EdgeInsets.all(AidogSpace.s_2xl);
 
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
+    final close = onClose;
     return AnimatedContainer(
       duration: AidogMotion.base,
       curve: AidogMotion.easeStandard,
@@ -443,7 +452,33 @@ class ModalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius ?? AidogRadius.xl),
         boxShadow: t.shadowTile,
       ),
-      child: Column(
+      child: close == null ? _body(t) : Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _body(t),
+          // `DialogContent` 自带的关闭 ✕：距卡片边各 16、图标 16、透明度 .7
+          // （`src/components/ui/dialog.tsx:47-50`，`right-4 top-4` + `h-4 w-4`）。
+          // Stack 的原点已经在 padding 里面，所以要把那一圈减回去。
+          // AlertDialog（= [ConfirmCard]）没有这颗，所以由调用方传 onClose 决定。
+          Positioned(
+            top: 16 - _pad(context).top,
+            right: 16 - _pad(context).right,
+            child: IconButton(
+              icon: Icon(Icons.close, size: 16, color: t.c.fg.withValues(alpha: 0.7)),
+              onPressed: close,
+              splashRadius: 14,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints.tightFor(width: 20, height: 20),
+              tooltip: AidogI18n.of(context).t('action.close'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _body(AidogTheme t) {
+    return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -477,7 +512,6 @@ class ModalCard extends StatelessWidget {
             ),
           child,
         ],
-      ),
     );
   }
 }
