@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "perplexity/pplx-7b-chat",
   "canonical_model": "pplx-7b-chat",
+  "family": "pplx",
   "capabilities": [
     "text"
   ],

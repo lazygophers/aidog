@@ -1,7 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790304201,
   "model_id": "llamagate/deepseek-r1-7b-qwen",
-  "canonical_model": "deepseek-r1-distill-qwen-7b",
+  "canonical_model": "deepseek-r1-7b-qwen",
   "family": "deepseek",
   "version": "r1",
   "capabilities": [

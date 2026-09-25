@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "perplexity/sonar-reasoning",
   "canonical_model": "sonar-reasoning",
+  "family": "sonar",
   "capabilities": [
     "text",
     "reasoning"

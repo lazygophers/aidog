@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "snowflake/snowflake-arctic-embed-l-v2.0",
   "canonical_model": "snowflake-arctic-embed-l-v2.0",
+  "family": "arctic-embed",
+  "version": "2.0",
   "capabilities": [
     "embedding"
   ],
