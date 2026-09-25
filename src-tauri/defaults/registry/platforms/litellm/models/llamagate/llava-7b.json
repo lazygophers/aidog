@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "llamagate/llava-7b",
   "canonical_model": "llava-7b",
+  "family": "llava",
   "capabilities": [
     "text",
     "vision"

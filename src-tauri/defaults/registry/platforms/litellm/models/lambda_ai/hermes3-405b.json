@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "lambda_ai/hermes3-405b",
   "canonical_model": "hermes3-405b",
+  "family": "hermes",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

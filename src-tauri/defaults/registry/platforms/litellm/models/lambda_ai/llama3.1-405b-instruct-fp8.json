@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "lambda_ai/llama3.1-405b-instruct-fp8",
   "canonical_model": "llama3.1-405b-instruct-fp8",
+  "family": "llama",
+  "version": "3.1",
   "capabilities": [
     "text",
     "tool_use"
