@@ -355,17 +355,22 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
           key: const ValueKey('middleware-master'),
           label: t.t('middleware.masterToggle'),
           descriptions: [t.t('middleware.masterToggleDesc')],
+          // tab 内卡间距是 `gap: 20`（`MiddlewareRules.tsx:1228`），不是 18。
+          bottomGap: 20,
           value: _c.settingsEnabled,
           onChanged: _c.setSettingsEnabled,
         ),
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
+          padding: const EdgeInsets.only(bottom: 20),
           child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Opacity(
               // 同上（`MiddlewareRules.tsx:1246`）。
               opacity: _c.settingsEnabled ? 1 : 0.55,
+              // 卡自身 `gap: 12` + 面板 `gap: 12`（`MiddlewareRules.tsx:1246,1122`）：
+              // 标题↔说明、说明↔列表、列表↔新增按钮三处都是 12。
               child: Column(
+                spacing: 12,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -384,7 +389,6 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                       color: AidogTheme.of(context).c.fg3,
                     ),
                   ),
-                  const SizedBox(height: AidogSpace.ssm),
                   if (_c.loading)
                     Padding(
                       padding: const EdgeInsets.all(8),
@@ -408,15 +412,23 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                       ),
                     )
                   else
-                    for (final r in _c.rules) _ruleRow(t, r),
+                    // 规则行之间仍是 `gap: 6`（`MiddlewareRules.tsx:1132`），
+                    // 只有整块列表与上下文之间才是 12。
+                    Column(
+                      spacing: AidogSpace.ssm,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [for (final r in _c.rules) _ruleRow(t, r)],
+                    ),
                   // 新增入口在列表底部（React「+ 新增规则」ghost 按钮，
                   // `MiddlewareRules.tsx:1151-1155`），不在页头。
-                  const SizedBox(height: AidogSpace.ssm),
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: SmallButton(
                       key: const ValueKey('middleware-add'),
                       ghost: true,
+                      // ghost + `fontSize: F.hint` 13（`MiddlewareRules.tsx:1152`）。
+                      fontSize: 13,
                       label: '+ ${t.t('middleware.addRule')}',
                       onTap: () {
                         _c.openCreate();
@@ -481,19 +493,18 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     final applies = r.raw['applies_to'] is Map
         ? Map<String, Object?>.from(r.raw['applies_to'] as Map)
         : null;
-    return Padding(
+    return KeyedSubtree(
       key: ValueKey('rule-${r.id}'),
-      padding: const EdgeInsets.only(bottom: 6),
       // 停用的规则整行弱化（`MiddlewareRules.tsx:1007-1011` 的 opacity 0.55）：
       // 原先停用与启用长得一模一样，一屏规则里分不出哪几条其实没在跑。
       child: Opacity(
         opacity: r.enabled ? 1 : 0.55,
         child: Container(
-          // 玻璃盒行：r-sm、padding 10/14、1px 边框（failed 红）
-          //（`MiddlewareRules.tsx:905-914`）。
+          // 玻璃盒行：r-sm、padding 10/14、1px 边框（failed 红）、
+          // 底色 `--bg-glass`（= surface，与外层卡同底）（`MiddlewareRules.tsx:905-916`）。
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
-            color: theme.c.surface2,
+            color: theme.c.surface,
             border: Border.all(color: r.failed ? theme.c.bad : theme.c.line),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
@@ -527,18 +538,20 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                           ),
                         // 失效规则要一眼看得出来（`MiddlewareRules.tsx:930-933`）：
                         // 引擎跳过它，用户该做的是删掉重建，不是继续改。
+                        // `.badge` 本身**不定义 background**（`globals.css:542-551`）：
+                        // 除了 `badge-accent`，其余三枚都是透明底、只有文字着色。
                         if (r.failed)
                           _ruleBadge(
                             theme,
                             text: t.t('middleware.failed'),
                             fg: theme.c.bad,
-                            bg: theme.c.bad.withValues(alpha: 0.12),
+                            bg: Colors.transparent,
                           ),
                         _ruleBadge(
                           theme,
                           text: actionsSummary(t, actions),
                           fg: theme.c.fg2,
-                          bg: theme.c.fg3.withValues(alpha: 0.12),
+                          bg: Colors.transparent,
                         ),
                         if (hasObserveAction(actions))
                           Tooltip(
@@ -551,7 +564,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                               theme,
                               text: tOr(t, 'middleware.observe', '观察模式'),
                               fg: theme.c.peak,
-                              bg: theme.c.peak.withValues(alpha: 0.12),
+                              bg: Colors.transparent,
                             ),
                           ),
                         if (appliesSummary(applies).isNotEmpty)
@@ -559,7 +572,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                             theme,
                             text: appliesSummary(applies),
                             fg: theme.c.fg2,
-                            bg: theme.c.fg3.withValues(alpha: 0.12),
+                            bg: Colors.transparent,
                           ),
                       ],
                     ),
@@ -599,6 +612,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                 IconGhostButton(
                   key: ValueKey('rule-edit-${r.id}'),
                   icon: Icons.edit_outlined,
+                  // React 这颗没指定 color = 继承 foreground（`:1015`）。
+                  color: theme.c.fg,
                   tooltip: t.t('action.edit'),
                   onTap: () {
                     // 内置规则只读打开：看得到条件 / 动作，改不动
@@ -611,6 +626,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                 IconGhostButton(
                   key: ValueKey('rule-del-${r.id}'),
                   icon: Icons.close,
+                  // 删除那颗 React 写的是 `--text-tertiary`（`:1024`）。
+                  color: theme.c.fg3,
                   tooltip: t.t('action.delete'),
                   onTap: () => setState(() => _deleteTarget = r.id),
                 ),
@@ -628,14 +645,21 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
     required Color fg,
     required Color bg,
   }) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    // `.badge`：padding 2/8、radius 6、w600、ls .02em（10px 下 = 0.2）
+    //（`globals.css:546-550`，各处 inline 把字号压到 10）。
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
     decoration: BoxDecoration(
       color: bg,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(6),
     ),
     child: Text(
       text,
-      style: AidogType.caption.copyWith(fontSize: 10, color: fg),
+      style: AidogType.caption.copyWith(
+        fontSize: 10,
+        fontWeight: FontWeight.w600,
+        letterSpacing: 0.2,
+        color: fg,
+      ),
     ),
   );
 
@@ -644,6 +668,8 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
   Widget _form(I18nController t, _RuleDraft d) => AidogModal(
     key: ValueKey('rule-form-${_c.editingRule?['id'] ?? 'new'}'),
     maxWidth: 720,
+    // `width: min(92vw, 720px)`（`MiddlewareRules.tsx:879`）：窄窗要跟着收。
+    maxWidthFactor: 0.92,
     // React 的 `onOpenChange` 没有守卫（`MiddlewareRules.tsx:874`）：
     // 点遮罩、按 Esc 都能关。原先两条都没接，弹窗只能靠底部按钮关。
     onBarrierTap: _closeForm,
@@ -663,6 +689,9 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
         fontSize: 15,
         fontWeight: FontWeight.w600,
       ),
+      // `DialogContent` 这处显式写了 `gap: 12`（`MiddlewareRules.tsx:883`），
+      // 不是缺省的 16。
+      titleGap: 12,
       padding: const EdgeInsets.all(20),
       child: _readOnly
           ? Column(
@@ -677,7 +706,7 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                     color: AidogTheme.of(context).c.fg3,
                   ),
                 ),
-                const SizedBox(height: AidogSpace.ssm),
+                const SizedBox(height: AidogSpace.sxl),
                 // 文本仍可选中复制，只是所有控件点不动（React 用
                 // `pointerEvents: none` 达到同样效果）。
                 IgnorePointer(child: _formFields(t, d)),
@@ -686,6 +715,10 @@ class _MiddlewareSettingsPageState extends State<MiddlewareSettingsPage> {
                   children: [
                     SmallButton(
                       key: const ValueKey('rule-readonly-close'),
+                      // 页脚按钮是 shadcn 默认档 13 / 16-8
+                      //（`MiddlewareRules.tsx:840`）。
+                      fontSize: 13,
+                      padding: (16, 8),
                       label: t.t('action.close'),
                       onTap: _closeForm,
                     ),
@@ -993,36 +1026,50 @@ class _BudgetLine extends StatelessWidget {
     final ratio = limit <= 0 ? 0.0 : (spent / limit).clamp(0.0, 1.0);
     return Padding(
       padding: const EdgeInsets.only(top: AidogSpace.sxs),
+      // 行内 `gap: 8`（`MiddlewareRules.tsx:967`）。
       child: Wrap(
-        spacing: AidogSpace.ssm,
+        spacing: 8,
         runSpacing: AidogSpace.sxs,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           if (limit > 0)
-            SizedBox(
-              width: 140,
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(2),
-                child: LinearProgressIndicator(
-                  value: ratio,
-                  minHeight: 4,
-                  backgroundColor: theme.c.line,
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    over ? theme.c.bad : theme.c.accentText,
+            // 进度条 `flex: 1 1 120px; minWidth: 100; maxWidth: 220`
+            //（`MiddlewareRules.tsx:970-979`），不是 140 死宽。
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 100, maxWidth: 220),
+              child: SizedBox(
+                width: 220,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(2),
+                  child: LinearProgressIndicator(
+                    value: ratio,
+                    minHeight: 4,
+                    backgroundColor: theme.c.line,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      over ? theme.c.bad : theme.c.accentText,
+                    ),
                   ),
                 ),
               ),
             ),
+          // 预算文字 11px tertiary **无字距**（`MiddlewareRules.tsx:989,994`），
+          // micro 档自带的 w500 + ls .66 是标签风，这里不该有。
           Text(
             '${t.t('middleware.budgetUsed')} ${formatCostUsd(spent)}'
             '${limit > 0 ? ' / ${formatCostUsd(limit)}' : ''}',
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            style: AidogType.micro.copyWith(
+              letterSpacing: 0,
+              fontWeight: FontWeight.w400,
+              color: theme.c.fg3,
+            ),
           ),
           Text(
             over
                 ? t.t('middleware.budgetExceeded')
                 : '${t.t('middleware.budgetRemaining')} ${formatCostUsd(remaining)}',
             style: AidogType.micro.copyWith(
+              letterSpacing: 0,
+              fontWeight: FontWeight.w400,
               color: over ? theme.c.bad : theme.c.fg3,
             ),
           ),

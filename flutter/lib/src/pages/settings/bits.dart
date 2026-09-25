@@ -231,7 +231,24 @@ class ToggleCard extends StatelessWidget {
     required this.onChanged,
     this.descriptions,
     this.hint,
+    this.bottomGap,
+    this.gap,
+    this.hoverLift = false,
   });
+
+  /// 文字区与开关的间距。缺省 `smd`(10)；CLI 集成页 React 写的是
+  /// `paddingRight: 16`（`CodingToolsSettings.tsx:99`）。
+  final double? gap;
+
+  /// 悬停抬升 2px。React 只有通知页 / CLI 集成页的卡挂了 `hover-lift`
+  /// （`NotificationSettings.tsx:41`、`CodingToolsSettings.tsx:93`），
+  /// 系统页是裸 `glass-surface`，所以缺省 false。
+  final bool hoverLift;
+
+  /// 卡下间距。缺省 18；React 设置页 section 之间是 `gap: 20`
+  /// （`MiddlewareRules.tsx:1228`、`MitmConfig.tsx:257`、`tokens.ts` 的
+  /// `S.sectionGap`）—— 已对齐的页面显式传 20。
+  final double? bottomGap;
 
   final String label;
 
@@ -248,9 +265,7 @@ class ToggleCard extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final descs = descriptions ?? const <String>[];
     final fg = onChanged == null ? theme.c.fg3 : theme.c.fg;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-      child: Tile(
+    final tile = Tile(
         // React 的开关卡是 `padding: "16px 20px"`（竖 16 / 横 20），
         // 不是 editors 分区卡的 28。
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -283,16 +298,20 @@ class ToggleCard extends StatelessWidget {
                     ),
                   if (hint != null && hint!.isNotEmpty)
                     Padding(
-                      padding: const EdgeInsets.only(top: 4),
+                      // hint 上距 6、字号 11（`CodingToolsSettings.tsx:102`）。
+                      padding: const EdgeInsets.only(top: 6),
                       child: Text(
                         ltr(hint!),
-                        style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                        style: AidogType.numSm.copyWith(
+                          fontSize: 11,
+                          color: theme.c.fg3,
+                        ),
                       ),
                     ),
                 ],
               ),
             ),
-            const SizedBox(width: AidogSpace.smd),
+            SizedBox(width: gap ?? AidogSpace.smd),
             Opacity(
               opacity: onChanged == null ? 0.5 : 1,
               child: AidogSwitch(
@@ -303,7 +322,10 @@ class ToggleCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
+      );
+    return Padding(
+      padding: EdgeInsets.only(bottom: bottomGap ?? AidogSpace.sxl),
+      child: hoverLift ? HoverLift(child: tile) : tile,
     );
   }
 }
@@ -318,8 +340,22 @@ class HeaderCard extends StatelessWidget {
     this.descriptions,
     this.trailing,
     this.dimmed = false,
+    this.bottomGap,
+    this.descGap,
+    this.hoverLift = false,
     required this.child,
   });
+
+  /// 卡下间距。缺省 18；React 设置三个 tab 的容器是 `gap: 20`
+  /// （`src/pages/AppSettings.tsx:71`）。
+  final double? bottomGap;
+
+  /// 标题↔说明的间距。缺省 2（副标题形态）；超时卡 React 把说明当**独立子元素**
+  /// 摆在 `gap: 12` 的列里（`SystemMiscSection.tsx:28-37`）。
+  final double? descGap;
+
+  /// 悬停抬升 2px。见 [ToggleCard.hoverLift]。
+  final bool hoverLift;
 
   final String title;
   final List<String>? descriptions;
@@ -331,11 +367,7 @@ class HeaderCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
     final descs = descriptions ?? const <String>[];
-    return Opacity(
-      opacity: dimmed ? 0.55 : 1,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-        child: Tile(
+    final tile = Tile(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -359,7 +391,7 @@ class HeaderCard extends StatelessWidget {
                         ),
                         for (final d in descs.where((e) => e.isNotEmpty))
                           Padding(
-                            padding: const EdgeInsets.only(top: 2),
+                            padding: EdgeInsets.only(top: descGap ?? 2),
                             child: Text(
                               d,
                               style: AidogType.caption.copyWith(
@@ -380,7 +412,12 @@ class HeaderCard extends StatelessWidget {
               child,
             ],
           ),
-        ),
+        );
+    return Opacity(
+      opacity: dimmed ? 0.55 : 1,
+      child: Padding(
+        padding: EdgeInsets.only(bottom: bottomGap ?? AidogSpace.sxl),
+        child: hoverLift ? HoverLift(child: tile) : tile,
       ),
     );
   }
@@ -399,8 +436,14 @@ class InlineRow extends StatelessWidget {
     required this.child,
     this.labelWidth,
     this.unit,
+    this.unitColor,
     this.suffix,
   });
+
+  /// [unit] 的字色。null = fg3（`--text-tertiary`，系统页的「秒 / 天」就是这档，
+  /// `SystemMiscSection.tsx:50,63`）；通知页的「天」React 写的是 secondary
+  /// （`NotificationSettings.tsx:434`），那一处传 fg2。
+  final Color? unitColor;
 
   final String label;
 
@@ -443,7 +486,10 @@ class InlineRow extends StatelessWidget {
           const SizedBox(width: AidogSpace.ssm),
           Text(
             unit!,
-            style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg3),
+            style: AidogType.caption.copyWith(
+              fontSize: 12,
+              color: unitColor ?? theme.c.fg3,
+            ),
           ),
         ],
         if (suffix != null) ...[const SizedBox(width: AidogSpace.ssm), suffix!],
@@ -462,7 +508,23 @@ class InlineSelect<T> extends StatelessWidget {
     required this.onChanged,
     this.labelOf,
     this.width = 80,
+    this.bordered = false,
+    this.boxPadding,
+    this.fontSize,
   });
+
+  /// [bordered] 盒的内衬。null = 12/4；通知页的 TTS 后端下拉 React 显式写了
+  /// `padding: "4px 8px"`（`NotificationSettings.tsx:338`）。
+  final EdgeInsetsGeometry? boxPadding;
+
+  /// 字号。null = 12（React `UnitSelect` 那档）；CLI 集成页的语言 / 努力级别
+  /// 两个下拉 React 写的是 13（`CodingToolsSettings.tsx:439,477`）。
+  final double? fontSize;
+
+  /// 画成 shadcn `SelectTrigger` 的描边盒（1px line + r-md + surface 底 +
+  /// 8/12 内衬，`ui/select.tsx` 的 `h-9 border bg-card rounded-md`）。
+  /// 缺省 false = 裸下拉（历史形态，别处仍在用）。
+  final bool bordered;
 
   final T value;
   final List<T> options;
@@ -481,7 +543,10 @@ class InlineSelect<T> extends StatelessWidget {
         isDense: true,
         isExpanded: true,
         dropdownColor: theme.c.surface2,
-        style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg),
+        style: AidogType.caption.copyWith(
+          fontSize: fontSize ?? 12,
+          color: theme.c.fg,
+        ),
         onChanged: onChanged,
         items: [
           for (final o in options)
@@ -491,7 +556,20 @@ class InlineSelect<T> extends StatelessWidget {
             ),
         ],
       );
-    return width == null ? dropdown : SizedBox(width: width, child: dropdown);
+    final boxed = bordered
+        ? Container(
+            padding:
+                boxPadding ??
+                const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            decoration: BoxDecoration(
+              color: theme.c.surface,
+              border: Border.all(color: theme.c.line),
+              borderRadius: BorderRadius.circular(AidogRadius.md),
+            ),
+            child: dropdown,
+          )
+        : dropdown;
+    return width == null ? boxed : SizedBox(width: width, child: boxed);
   }
 }
 
@@ -505,7 +583,17 @@ class IconGhostButton extends StatelessWidget {
     this.tooltip,
     this.danger = false,
     this.size = 14,
+    this.color,
+    this.padding,
   });
+
+  /// 图标色覆盖。null = 缺省 fg2。React 的删除 ✕ 显式写了 `--text-tertiary`
+  /// （`MiddlewareRules.tsx:1024`、`MitmConfig.tsx:590`）= fg3。
+  final Color? color;
+
+  /// 内衬覆盖。null = 缺省四向 4。React 白名单行的 ✕ 是 `2px 6px`
+  /// （`MitmConfig.tsx:590`）。
+  final EdgeInsetsGeometry? padding;
 
   final IconData icon;
   final VoidCallback? onTap;
@@ -518,14 +606,13 @@ class IconGhostButton extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final color = onTap == null
         ? theme.c.fg3
-        : danger
-        ? theme.c.bad
-        : theme.c.fg2;
+        : this.color ??
+              (danger ? theme.c.bad : theme.c.fg2);
     final btn = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AidogRadius.sm),
       child: Padding(
-        padding: const EdgeInsets.all(4),
+        padding: padding ?? const EdgeInsets.all(4),
         child: Icon(icon, size: size, color: color),
       ),
     );
@@ -825,7 +912,7 @@ class NumberRow extends StatelessWidget {
 class MultiSelectRow extends StatelessWidget {
   const MultiSelectRow({
     super.key,
-    required this.label,
+    this.label,
     required this.options,
     required this.selected,
     required this.onToggle,
@@ -833,7 +920,9 @@ class MultiSelectRow extends StatelessWidget {
     this.itemKeyPrefix,
   });
 
-  final String label;
+  /// null = 不画标签也不占维度间距。mask 动作的字段多选就排在一行参数里、
+  /// 没有自己的标签（`MiddlewareRules.tsx:461-473`）。
+  final String? label;
 
   /// 候选。`value` 是 `Object`：平台维度是 `int` id，分组维度是 `String` key，
   /// 两者的类型要原样带到后端（见 `AppliesToEditor` 顶部那段注释）。
@@ -858,12 +947,19 @@ class MultiSelectRow extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(label, style: AidogType.micro.copyWith(color: theme.c.fg3)),
-        const SizedBox(height: AidogSpace.sxs),
+        // 维度标签是 `F.hint` 13 + `--text-secondary`（`MiddlewareRules.tsx:601`），
+        // 不是 micro 11 ls .66 fg3。
+        if (label != null) ...[
+          Text(
+            label!,
+            style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg2),
+          ),
+          const SizedBox(height: AidogSpace.sxs),
+        ],
         if (options.isEmpty)
           Text(
             emptyLabel,
-            style: AidogType.micro.copyWith(color: theme.c.fg3),
+            style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg3),
           )
         else
           PopupMenuButton<void>(
@@ -898,10 +994,15 @@ class MultiSelectRow extends StatelessWidget {
                                       : local.add(o.value);
                                 });
                               },
+                              // `DropdownMenuCheckboxItem` 是 `py-1.5 pl-8 pr-2
+                              // text-sm`（`ui/dropdown-menu.tsx:104`）：左侧 32px
+                              // 让位给勾选图标，文字 14。8 + 14 + 10 = 32。
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AidogSpace.ssm,
-                                  vertical: 6,
+                                padding: const EdgeInsetsDirectional.only(
+                                  start: 8,
+                                  end: 8,
+                                  top: 6,
+                                  bottom: 6,
                                 ),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
@@ -915,12 +1016,13 @@ class MultiSelectRow extends StatelessWidget {
                                           ? theme.c.accentText
                                           : theme.c.fg3,
                                     ),
-                                    const SizedBox(width: AidogSpace.sxs),
+                                    const SizedBox(width: 10),
                                     Flexible(
                                       child: Text(
                                         o.label,
                                         overflow: TextOverflow.ellipsis,
-                                        style: AidogType.micro.copyWith(
+                                        style: AidogType.label.copyWith(
+                                          fontSize: 14,
                                           color: theme.c.fg,
                                         ),
                                       ),
@@ -936,23 +1038,28 @@ class MultiSelectRow extends StatelessWidget {
                 ),
               ),
             ],
+            // 触发器是 `ghost` + `glass-surface`：surface 底 + 1px 边 + r-md，
+            // 整宽、`minHeight: 32`、`padding: 4px 8px`、13px 左对齐
+            //（`MiddlewareRules.tsx:128-145`）。
             child: Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AidogSpace.ssm,
-                vertical: 5,
-              ),
+              width: double.infinity,
+              constraints: const BoxConstraints(minHeight: 32),
+              alignment: AlignmentDirectional.centerStart,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
+                color: theme.c.surface,
                 border: Border.all(color: theme.c.line),
-                borderRadius: BorderRadius.circular(AidogRadius.sm),
+                borderRadius: BorderRadius.circular(AidogRadius.md),
               ),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
                 children: [
-                  Flexible(
+                  Expanded(
+                    // `whiteSpace: normal; wordBreak: break-all` —— 选了十个平台
+                    // 就把十个名字换行铺开，不是省略成第一个。
                     child: Text(
                       chosen.isEmpty ? emptyLabel : chosen.join('、'),
-                      overflow: TextOverflow.ellipsis,
-                      style: AidogType.micro.copyWith(
+                      style: AidogType.label.copyWith(
+                        fontSize: 13,
                         color: chosen.isEmpty ? theme.c.fg3 : theme.c.fg,
                       ),
                     ),
@@ -962,7 +1069,8 @@ class MultiSelectRow extends StatelessWidget {
               ),
             ),
           ),
-        const SizedBox(height: AidogSpace.ssm),
+        // 三个维度之间 `gap: 8`（`MiddlewareRules.tsx:599`）。
+        if (label != null) const SizedBox(height: 8),
       ],
     );
   }
@@ -1261,7 +1369,14 @@ class AutoToast extends StatefulWidget {
     required this.text,
     required this.onDone,
     this.ok = true,
+    this.inline = false,
   });
+
+  /// 排在**页面流**里而不是浮到窗口顶部。React 的 `.toast` 没有 `position`
+  /// （`src/styles/globals.css:588-597`），通知页 / CLI 集成页的提示就跟在
+  /// 页尾（`NotificationSettings.tsx:473-478`、`CodingToolsSettings.tsx:572`）。
+  /// 缺省 false = 浮层（平台页那种真 toast）。
+  final bool inline;
 
   final String text;
   final bool ok;
@@ -1300,8 +1415,15 @@ class _AutoToastState extends State<AutoToast> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ToastBar(text: widget.text, ok: widget.ok);
+  Widget build(BuildContext context) => widget.inline
+      // `.toast`：pad 12/16、r-md(=8)、13px、1px line 边（globals.css:588-596）；
+      // 调用点普遍再压到 12px。
+      ? InlineNote(
+          text: widget.text,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          fontSize: 12,
+        )
+      : ToastBar(text: widget.text, ok: widget.ok);
 }
 
 /// 无标签的受控文本框（编辑器内部的行用，如权限规则 pattern、hooks 命令）。
@@ -1322,7 +1444,13 @@ class PlainTextField extends StatefulWidget {
     this.enabled = true,
     this.obscure = false,
     this.mono = false,
+    this.fontSize,
   });
+
+  /// 字号覆盖。null = 缺省（label 13.5 / mono 12.5）。React 各输入框是裸值：
+  /// 规则名称 `F.body` 15、描述 `F.hint` 13、DSL 源码 12
+  /// （`MiddlewareRules.tsx:731,737,772`）。
+  final double? fontSize;
 
   final String value;
   final String? hint;
@@ -1396,13 +1524,14 @@ class _PlainTextFieldState extends State<PlainTextField> {
           ? TextInputType.text
           : TextInputType.multiline,
       style: (widget.mono ? AidogType.numSm : AidogType.label).copyWith(
+        fontSize: widget.fontSize,
         color: widget.enabled ? theme.c.fg : theme.c.fg3,
       ),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
         hintStyle: (widget.mono ? AidogType.numSm : AidogType.label)
-            .copyWith(color: theme.c.fg3),
+            .copyWith(fontSize: widget.fontSize, color: theme.c.fg3),
       ),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,

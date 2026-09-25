@@ -24,6 +24,19 @@ import 'bits.dart';
 import 'coding_tools_logic.dart';
 import 'schema_config_page.dart' show loadClaudeLanguageGroups;
 
+/// 卡与卡之间的间距：React 页容器 `gap: 20`（`CodingToolsSettings.tsx:366`）。
+const double _cardGap = 20;
+
+/// 代理 URL 的四个本地端口预设（Clash 7890 / 通用 8080 / SS 1080 /
+/// Clash Verge 7899），对齐 React 的 `PROXY_URL_PRESETS`
+/// （`CodingToolsSettings.tsx:74`）+ `<datalist>`（`:516-520`）。
+const List<String> kProxyUrlPresets = [
+  'http://127.0.0.1:7890',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:1080',
+  'http://127.0.0.1:7899',
+];
+
 class CodingToolsPage extends StatefulWidget {
   const CodingToolsPage({
     super.key,
@@ -110,7 +123,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
     if (_c.loading) {
       return SettingsPageBody(
         title: t.t('codingTools.cliIntegrationTitle'),
-        children: [CenteredNote(text: t.t('status.loading'))],
+        // React 加载态继承正文字号（`CodingToolsSettings.tsx:362`）。
+        children: [CenteredNote(text: t.t('status.loading'), fontSize: 13)],
       );
     }
     return SettingsPageBody(
@@ -118,8 +132,10 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
       children: [
         // 说明卡（`CodingToolsSettings.tsx:366-373`）。
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-          child: Tile(
+          padding: const EdgeInsets.only(bottom: _cardGap),
+          // React 这一页的卡全挂 `hover-lift`（`CodingToolsSettings.tsx:49,93`）。
+          child: HoverLift(
+            child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -146,11 +162,15 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               ],
             ),
           ),
+          ),
         ),
         // 四张一开关一卡（`CodingToolsSettings.tsx:374-415` 的 ToggleCard），
-        // 等宽 hint 是各开关的「落点」。
+        // 等宽 hint 是各开关的「落点」。文字区 `paddingRight: 16`（`:99`）。
         ToggleCard(
           key: const ValueKey('apply-to-claude-plugin'),
+          bottomGap: _cardGap,
+          gap: 16,
+          hoverLift: true,
           label: t.t('codingTools.applyPlugin.title'),
           descriptions: [t.t('codingTools.applyPlugin.desc')],
           hint: '~/.claude/config.json · primaryApiKey="any"',
@@ -161,6 +181,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
         ),
         ToggleCard(
           key: const ValueKey('skip-onboarding'),
+          bottomGap: _cardGap,
+          gap: 16,
+          hoverLift: true,
           label: t.t('codingTools.skipOnboarding.title'),
           descriptions: [t.t('codingTools.skipOnboarding.desc')],
           hint: '~/.claude.json · hasCompletedOnboarding=true',
@@ -169,6 +192,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
         ),
         ToggleCard(
           key: const ValueKey('date-rewrite'),
+          bottomGap: _cardGap,
+          gap: 16,
+          hoverLift: true,
           label: t.t('codingTools.dateRewrite.title'),
           descriptions: [t.t('codingTools.dateRewrite.desc')],
           hint: 'middleware · redaction · YYYY/MM/DD → YYYY-MM-DD',
@@ -181,6 +207,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
         // 内置工具兼容总开关：与「设置 → 系统」的同名开关同源（同一 setting）。
         ToggleCard(
           key: const ValueKey('btc-global'),
+          bottomGap: _cardGap,
+          gap: 16,
+          hoverLift: true,
           label: t.t('proxy.btcGlobal'),
           descriptions: [t.t('proxy.btcGlobalDesc')],
           hint: 'settings · proxy · builtin_tool_compat',
@@ -189,8 +218,9 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
         ),
         // 语言卡：标题左、下拉右（`CodingToolsSettings.tsx:419-451`）。
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-          child: Tile(
+          padding: const EdgeInsets.only(bottom: _cardGap),
+          child: HoverLift(
+            child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               children: [
@@ -220,7 +250,8 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                     ],
                   ),
                 ),
-                const SizedBox(width: AidogSpace.smd),
+                // 卡内左右 `gap: 16`（`CodingToolsSettings.tsx:424`）。
+                const SizedBox(width: 16),
                 _LanguageGroupSelect(
                   key: const ValueKey('cli-language'),
                   groups: _langGroups,
@@ -232,12 +263,14 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
               ],
             ),
           ),
+          ),
         ),
         // 努力级别卡：标题 + 落点 hint 左、下拉右
         //（`CodingToolsSettings.tsx:454-485`），不是平铺 chips。
         Padding(
-          padding: const EdgeInsets.only(bottom: AidogSpace.sxl),
-          child: Tile(
+          padding: const EdgeInsets.only(bottom: _cardGap),
+          child: HoverLift(
+            child: Tile(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -295,6 +328,7 @@ class _CodingToolsPageState extends State<CodingToolsPage> {
                 ),
               ],
             ),
+          ),
           ),
         ),
         // 代理卡：两列 grid（label 11 w600 + Input 13），预设走不可见的

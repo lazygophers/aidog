@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 
 import '../../../i18n.dart';
 import '../../shell/theme.dart';
-import '../../shell/tiles.dart';
 import '../ui_bits.dart';
 import 'bits.dart';
 import 'middleware_dsl.dart';
@@ -114,20 +113,26 @@ class ConditionTreeEditor extends StatelessWidget {
     );
     return Container(
       margin: EdgeInsets.only(left: depth * 12.0),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
+      // 组卡：padding 8、底色 `--bg-glass`（= surface，与外层卡同底，只靠 1px 边
+      // 分层）、子节点之间 gap 6（`MiddlewareRules.tsx:346-356`）。
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
-        color: theme.c.surface2,
+        color: theme.c.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 组头行 `gap: 8`（`MiddlewareRules.tsx:358`）。
           Row(
+            spacing: 8,
             children: [
               _smallDropdown(
                 context,
+                // kind 下拉 `minWidth: 92`（`MiddlewareRules.tsx:360`）。
+                minWidth: 92,
                 value: '${node['kind']}',
                 options: const ['all', 'any', 'not'],
                 labelOf: (v) => switch (v) {
@@ -146,12 +151,17 @@ class ConditionTreeEditor extends StatelessWidget {
               ),
               const Spacer(),
               if (!isNot) ...[
+                // `+ 条件` / `+ 子组` 是 ghost（无描边）11px
+                //（`MiddlewareRules.tsx:370-375`）。
                 SmallButton(
+                  ghost: true,
+                  fontSize: 11,
                   label: '+ ${tOr(t, 'middleware.addLeaf', '条件')}',
                   onTap: () => write([...children, emptyLeaf]),
                 ),
-                const SizedBox(width: AidogSpace.sxs),
                 SmallButton(
+                  ghost: true,
+                  fontSize: 11,
                   label: '+ ${tOr(t, 'middleware.addGroup', '子组')}',
                   onTap: () => write([
                     ...children,
@@ -161,30 +171,38 @@ class ConditionTreeEditor extends StatelessWidget {
                     },
                   ]),
                 ),
-                const SizedBox(width: AidogSpace.sxs),
               ],
+              // 删除是 ghost 图标键 `<IconClose size={12}>` + tertiary 色，
+              // 不是文字按钮（`MiddlewareRules.tsx:378-382`）。
               if (onRemove != null)
-                SmallButton(
-                  label: removeLabel ?? t.t('action.delete'),
+                IconGhostButton(
+                  icon: Icons.close,
+                  size: 12,
+                  color: theme.c.fg3,
+                  tooltip: removeLabel ?? t.t('action.delete'),
                   onTap: onRemove,
                 ),
             ],
           ),
           for (var i = 0; i < children.length; i++)
-            ConditionTreeEditor(
-              key: ValueKey('cond-node-$depth-$i'),
-              node: children[i],
-              onChanged: (n) => write([
-                for (var j = 0; j < children.length; j++)
-                  j == i ? n : children[j],
-              ]),
-              onRemove: isNot
-                  ? null
-                  : () => write([
-                      for (var j = 0; j < children.length; j++)
-                        if (j != i) children[j],
-                    ]),
-              depth: depth + 1,
+            Padding(
+              // 组内 `gap: 6`（`MiddlewareRules.tsx:352`）。
+              padding: const EdgeInsets.only(top: AidogSpace.ssm),
+              child: ConditionTreeEditor(
+                key: ValueKey('cond-node-$depth-$i'),
+                node: children[i],
+                onChanged: (n) => write([
+                  for (var j = 0; j < children.length; j++)
+                    j == i ? n : children[j],
+                ]),
+                onRemove: isNot
+                    ? null
+                    : () => write([
+                        for (var j = 0; j < children.length; j++)
+                          if (j != i) children[j],
+                      ]),
+                depth: depth + 1,
+              ),
             ),
         ],
       ),
@@ -208,24 +226,31 @@ class _LeafEditor extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
     final target = '${node['target']}';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
+      // 叶子行 `gap: 6`（`MiddlewareRules.tsx:262`）。
       child: Row(
+        spacing: AidogSpace.ssm,
         children: [
           _smallDropdown(
             context,
+            // target 下拉 `minWidth: 140`（`MiddlewareRules.tsx:264`）。
+            minWidth: 140,
             value: target,
             options: kMwTargets,
             labelOf: (v) => _targetLabel(t, v),
             onChanged: (v) => onChanged({...node, 'target': v, 'field': ''}),
           ),
-          const SizedBox(width: AidogSpace.sxs),
           if (_leafHasField(target))
             Expanded(
               child: PlainTextField(
                 // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
                 maxLines: null,
+                // React 这两格是 `AutoTextarea mono`
+                //（`MiddlewareRules.tsx:273,290`）。
+                mono: true,
                 key: const ValueKey('cond-leaf-field'),
                 value: '${node['field'] ?? ''}',
                 hint: tOr(
@@ -236,27 +261,27 @@ class _LeafEditor extends StatelessWidget {
                 onSubmitted: (v) => onChanged({...node, 'field': v}),
               ),
             ),
-          const SizedBox(width: AidogSpace.sxs),
           _smallDropdown(
             context,
+            // match 下拉 `minWidth: 100`（`MiddlewareRules.tsx:282`）。
+            minWidth: 100,
             value: '${node['match_type']}',
             options: kMwMatchTypes,
             onChanged: (v) => onChanged({...node, 'match_type': v}),
           ),
-          const SizedBox(width: AidogSpace.sxs),
           Expanded(
             flex: 2,
             child: PlainTextField(
               // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
               maxLines: null,
+              mono: true,
               key: const ValueKey('cond-leaf-pattern'),
               value: '${node['pattern'] ?? ''}',
               hint: tOr(t, 'middleware.pattern', '匹配模式'),
               onSubmitted: (v) => onChanged({...node, 'pattern': v}),
             ),
           ),
-          if ('${node['match_type']}' == 'regex') ...[
-            const SizedBox(width: AidogSpace.sxs),
+          if ('${node['match_type']}' == 'regex')
             // 「校验位」这一列光看下拉看不出是干嘛的，解释写在悬浮提示里
             //（`MiddlewareRules.tsx:299` 的 `title=`）。
             Tooltip(
@@ -267,6 +292,8 @@ class _LeafEditor extends StatelessWidget {
               ),
               child: _smallDropdown(
                 context,
+                // validator 下拉 `minWidth: 110`（`MiddlewareRules.tsx:299`）。
+                minWidth: 110,
                 value: '${node['validator'] ?? ''}'.isEmpty
                     ? 'none'
                     : '${node['validator']}',
@@ -281,14 +308,15 @@ class _LeafEditor extends StatelessWidget {
                     onChanged({...node, 'validator': v == 'none' ? '' : v}),
               ),
             ),
-          ],
-          if (onRemove != null) ...[
-            const SizedBox(width: AidogSpace.sxs),
-            SmallButton(
-              label: removeLabel ?? AidogI18n.of(context).t('action.delete'),
+          // 同组卡：ghost 图标键 12px tertiary（`MiddlewareRules.tsx:308-312`）。
+          if (onRemove != null)
+            IconGhostButton(
+              icon: Icons.close,
+              size: 12,
+              color: theme.c.fg3,
+              tooltip: removeLabel ?? AidogI18n.of(context).t('action.delete'),
               onTap: onRemove,
             ),
-          ],
         ],
       ),
     );
@@ -309,32 +337,46 @@ String _targetLabel(I18nController t, String v) => switch (v) {
   _ => v,
 };
 
+/// 条件 / 动作里的下拉。React 全是 shadcn `SelectTrigger`：`h-9` + 1px
+/// `border-input` + `bg-card` + `rounded-md` + 13px（`ui/select.tsx` +
+/// `MiddlewareRules.tsx:264,282,299,360,435,494` 的 inline `fontSize: F.hint`），
+/// 不是裸下拉。[minWidth] 逐处照抄 React 的 `minWidth`。
 Widget _smallDropdown(
   BuildContext context, {
   required String value,
   required List<String> options,
   required ValueChanged<String> onChanged,
   String Function(String)? labelOf,
+  double minWidth = 92,
 }) {
   final theme = AidogTheme.of(context);
   final items = <String>[
     if (value.isNotEmpty && !options.contains(value)) value,
     ...options,
   ];
-  return DropdownButton<String>(
-    value: value.isEmpty ? null : value,
-    isDense: true,
-    items: [
-      for (final o in items)
-        DropdownMenuItem(value: o, child: Text(labelOf?.call(o) ?? o)),
-    ],
-    onChanged: (v) {
-      if (v != null) onChanged(v);
-    },
-    style: AidogType.micro.copyWith(color: theme.c.fg),
-    dropdownColor: theme.c.surface2,
-    underline: const SizedBox.shrink(),
-    iconSize: 14,
+  return Container(
+    constraints: BoxConstraints(minWidth: minWidth),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+    decoration: BoxDecoration(
+      color: theme.c.surface,
+      border: Border.all(color: theme.c.line),
+      borderRadius: BorderRadius.circular(AidogRadius.md),
+    ),
+    child: DropdownButton<String>(
+      value: value.isEmpty ? null : value,
+      isDense: true,
+      items: [
+        for (final o in items)
+          DropdownMenuItem(value: o, child: Text(labelOf?.call(o) ?? o)),
+      ],
+      onChanged: (v) {
+        if (v != null) onChanged(v);
+      },
+      style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg),
+      dropdownColor: theme.c.surface2,
+      underline: const SizedBox.shrink(),
+      iconSize: 14,
+    ),
   );
 }
 
@@ -361,8 +403,11 @@ class ActionChainEditor extends StatelessWidget {
           _stepCard(context, t, i, steps[i]),
         Align(
           alignment: AlignmentDirectional.centerStart,
+          // `+ 动作` 是 ghost + `fontSize: F.hint` 13（`MiddlewareRules.tsx:570`）。
           child: SmallButton(
             key: const ValueKey('mw-add-action'),
+            ghost: true,
+            fontSize: 13,
             label: '+ ${tOr(t, 'middleware.addAction', '动作')}',
             onTap: () => onChanged([
               ...steps,
@@ -389,32 +434,45 @@ class ActionChainEditor extends StatelessWidget {
       for (var j = 0; j < steps.length; j++) j == i ? next : steps[j],
     ]);
     void setParams(Map<String, Object?> p) => setStep({...st, 'params': p});
+    // 参数行之间 `gap: 6`（`MiddlewareRules.tsx:431`）。
     Widget row(List<Widget> children) => Padding(
-      padding: const EdgeInsets.symmetric(vertical: AidogSpace.sxs),
-      child: Row(children: children),
+      padding: const EdgeInsets.only(top: AidogSpace.ssm),
+      child: Row(spacing: AidogSpace.ssm, children: children),
     );
     return Container(
       key: ValueKey('mw-action-$i'),
-      margin: const EdgeInsets.only(bottom: AidogSpace.sxs),
-      padding: const EdgeInsets.all(AidogSpace.ssm),
+      // 步骤卡：卡间 gap 6、padding 8、底色 `--bg-glass`（= surface）
+      //（`MiddlewareRules.tsx:429-431`）。
+      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
-        color: theme.c.surface2,
+        color: theme.c.surface,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
+            spacing: AidogSpace.ssm,
             children: [
-              Text(
-                '${i + 1}',
-                style: AidogType.micro.copyWith(color: theme.c.fg3),
+              // 序号列固定宽 18，多位数不把后面的下拉推挤走；11px 无字距
+              //（`MiddlewareRules.tsx:433`）。
+              SizedBox(
+                width: 18,
+                child: Text(
+                  '${i + 1}',
+                  style: AidogType.micro.copyWith(
+                    letterSpacing: 0,
+                    color: theme.c.fg3,
+                  ),
+                ),
               ),
-              const SizedBox(width: AidogSpace.ssm),
               _smallDropdown(
                 context,
+                // action kind 下拉 `minWidth: 110`（`MiddlewareRules.tsx:435`）。
+                minWidth: 110,
                 value: kind,
                 options: kMwActionKinds,
                 labelOf: (v) =>
@@ -423,7 +481,10 @@ class ActionChainEditor extends StatelessWidget {
                 onChanged: (v) => setStep({...st, 'kind': v}),
               ),
               const Spacer(),
+              // ↑ ↓ 是 ghost 11（`MiddlewareRules.tsx:443-444`）。
               SmallButton(
+                ghost: true,
+                fontSize: 11,
                 label: '↑',
                 onTap: i == 0
                     ? null
@@ -435,8 +496,9 @@ class ActionChainEditor extends StatelessWidget {
                         onChanged(next);
                       },
               ),
-              const SizedBox(width: AidogSpace.sxs),
               SmallButton(
+                ghost: true,
+                fontSize: 11,
                 label: '↓',
                 onTap: i == steps.length - 1
                     ? null
@@ -448,9 +510,12 @@ class ActionChainEditor extends StatelessWidget {
                         onChanged(next);
                       },
               ),
-              const SizedBox(width: AidogSpace.sxs),
-              SmallButton(
-                label: t.t('action.delete'),
+              // 删除是 ghost 图标键 12px tertiary（`MiddlewareRules.tsx:445-447`）。
+              IconGhostButton(
+                icon: Icons.close,
+                size: 12,
+                color: theme.c.fg3,
+                tooltip: t.t('action.delete'),
                 onTap: () => onChanged([
                   for (var j = 0; j < steps.length; j++)
                     if (j != i) steps[j],
@@ -464,82 +529,105 @@ class ActionChainEditor extends StatelessWidget {
                 child: PlainTextField(
                   // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
                   maxLines: null,
+                  // React 这格是 `AutoTextarea mono`（`MiddlewareRules.tsx:453`）。
+                  mono: true,
                   key: ValueKey('mw-action-$i-replacement'),
                   value: '${params['replacement'] ?? '****'}',
                   hint: 'replacement（默认 ****，regex 支持 \$1）',
                   onSubmitted: (v) => setParams({...params, 'replacement': v}),
                 ),
               ),
-              if (kind == 'mask') ...[
-                const SizedBox(width: AidogSpace.sxs),
-                // 一个都不勾 = 两个字段全脱敏。这条默认语义光看两颗按钮看不出来
-                //（`MiddlewareRules.tsx:471` 把它写成多选框的空态文案）。
-                if ((params['fields'] as List? ?? const []).isEmpty)
-                  TileMeta(
-                    tOr(
+              if (kind == 'mask')
+                // React 是收起式多选：触发器拼已选项，空态显示「全部字段
+                //（messages + system）」，展开才是带勾选框的清单
+                //（`MiddlewareRules.tsx:460-473`）。原先是两颗平铺按钮 + 一行
+                // 空态小字，与「应用范围」那三维不同构。
+                Expanded(
+                  child: MultiSelectRow(
+                    options: [
+                      for (final f in kMwMaskFields) (value: f, label: f),
+                    ],
+                    selected: [...(params['fields'] as List? ?? const [])],
+                    emptyLabel: tOr(
                       t,
                       'middleware.maskFieldsAll',
                       '全部字段（messages + system）',
                     ),
+                    itemKeyPrefix: 'mw-action-$i-field',
+                    onToggle: (f) {
+                      final cur = (params['fields'] as List? ?? const [])
+                          .toList();
+                      setParams({
+                        ...params,
+                        'fields': cur.contains(f)
+                            ? cur.where((x) => x != f).toList()
+                            : [...cur, f],
+                      });
+                    },
                   ),
-                for (final f in kMwMaskFields)
-                  Padding(
-                    padding: const EdgeInsets.only(left: AidogSpace.sxs),
-                    child: SmallButton(
-                      key: ValueKey('mw-action-$i-field-$f'),
-                      label: f,
-                      active: (params['fields'] as List? ?? const []).contains(
-                        f,
-                      ),
-                      onTap: () {
-                        final cur = (params['fields'] as List? ?? const [])
-                            .toList();
-                        setParams({
-                          ...params,
-                          'fields': cur.contains(f)
-                              ? cur.where((x) => x != f).toList()
-                              : [...cur, f],
-                        });
-                      },
-                    ),
-                  ),
-              ],
+                ),
             ]),
           if (kind == 'block')
-            SwitchRow(
-              key: ValueKey('mw-action-$i-observe'),
-              label: tOr(t, 'middleware.observe', '观察模式'),
-              description: tOr(
-                t,
-                'middleware.observeHint',
-                '开启后命中不拦截：请求照常转发并计费，只在日志里记一笔',
+            // React 是**行内**一行：`<label>` 里开关 + 11px 文字，后面接一段
+            // 11px tertiary 提示，整体 `gap: 6`（`MiddlewareRules.tsx:477-490`）。
+            // `SwitchRow` 是整行块（13 w600 标题在左、开关在右、提示另起一行），
+            // 形态完全不同。
+            row([
+              AidogSwitch(
+                key: ValueKey('mw-action-$i-observe'),
+                compact: true,
+                value: params['observe'] == true,
+                onChanged: () => setParams({
+                  ...params,
+                  'observe': params['observe'] != true,
+                }),
               ),
-              value: params['observe'] == true,
-              onChanged: (v) => setParams({...params, 'observe': v}),
-            ),
+              Text(
+                tOr(t, 'middleware.observe', '观察模式'),
+                style: AidogType.micro.copyWith(
+                  letterSpacing: 0,
+                  color: theme.c.fg,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  tOr(
+                    t,
+                    'middleware.observeHint',
+                    '开启后命中不拦截：请求照常转发并计费，只在日志里记一笔',
+                  ),
+                  style: AidogType.micro.copyWith(
+                    letterSpacing: 0,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+            ]),
           if (kind == 'inject') ...[
             row([
               _smallDropdown(
                 context,
+                // inject mode 下拉 `minWidth: 150`（`MiddlewareRules.tsx:494`）。
+                minWidth: 150,
                 value: '${params['inject_mode'] ?? ''}'.isEmpty
                     ? 'system_append'
                     : '${params['inject_mode']}',
                 options: const ['system_append', 'body_set', 'header_set'],
                 onChanged: (v) => setParams({...params, 'inject_mode': v}),
               ),
-              if ('${params['inject_mode']}' == 'body_set') ...[
-                const SizedBox(width: AidogSpace.sxs),
+              if ('${params['inject_mode']}' == 'body_set')
                 Expanded(
                   child: PlainTextField(
                     // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
                     maxLines: null,
+                    // target 那格 React 带 mono（`MiddlewareRules.tsx:503-508`）；
+                    // value / category / override body 三格不带。
+                    mono: true,
                     value: '${params['target'] ?? ''}',
                     hint: 'target JSON key',
                     onSubmitted: (v) => setParams({...params, 'target': v}),
                   ),
                 ),
-              ],
-              const SizedBox(width: AidogSpace.sxs),
               Expanded(
                 flex: 2,
                 child: PlainTextField(
@@ -555,15 +643,22 @@ class ActionChainEditor extends StatelessWidget {
           ],
           if (kind == 'budget_gate')
             row([
-              Text('\$', style: AidogType.micro.copyWith(color: theme.c.fg3)),
-              const SizedBox(width: AidogSpace.sxs),
+              // 辅助小字 11px tertiary **无字距**（`MiddlewareRules.tsx:522,534`）。
+              Text(
+                '\$',
+                style: AidogType.micro.copyWith(
+                  letterSpacing: 0,
+                  color: theme.c.fg3,
+                ),
+              ),
               // 🔴 这里原先是纯文本框 + `double.tryParse(v) ?? 0`：手滑写成
               // 「10 usd」会**静默变成 0**，预算闸门当场失效而界面一声不吭。
               // [NumberInput] 从源头堵死 —— 非数字敲不进来，空串不上报、
               // 输入框恢复原值，越界才夹取并显示范围。
               NumberInput(
                 key: ValueKey('mw-action-$i-budget'),
-                width: 140,
+                // `minWidth: 110; flex: "0 1 160px"`（`MiddlewareRules.tsx:524`）。
+                width: 160,
                 decimal: true,
                 min: 0,
                 value: '${params['budget_usd'] ?? 0}',
@@ -574,7 +669,6 @@ class ActionChainEditor extends StatelessWidget {
                   setParams({...params, 'budget_usd': parsed});
                 },
               ),
-              const SizedBox(width: AidogSpace.sxs),
               Expanded(
                 child: Text(
                   tOr(
@@ -582,7 +676,10 @@ class ActionChainEditor extends StatelessWidget {
                     'middleware.budgetHint',
                     '本自然月内作用范围的累计花费达到该金额后，请求被拒绝（每月 1 号归零）',
                   ),
-                  style: AidogType.micro.copyWith(color: theme.c.fg3),
+                  style: AidogType.micro.copyWith(
+                    letterSpacing: 0,
+                    color: theme.c.fg3,
+                  ),
                 ),
               ),
             ]),
@@ -598,27 +695,37 @@ class ActionChainEditor extends StatelessWidget {
                   onSubmitted: (v) => setParams({...params, 'category': v}),
                 ),
               ),
-              const SizedBox(width: AidogSpace.sxs),
-              // 必须限宽：SwitchRow 内部是一个带 Expanded 的 Row，直接当 Row 的
-              // 非 flex 子项会拿到无限宽约束，performLayout 当场抛
-              // 「RenderFlex children have non-zero flex but incoming width
-              // constraints are unbounded」——「分类」动作的编辑行一画就炸。
-              // 这条与本票的自增高改造无关，是顺手修掉的既有问题。
-              SizedBox(
-                width: 150,
-                child: SwitchRow(
-                  label: 'retryable',
-                  value: params['retryable'] != false,
-                  onChanged: (v) => setParams({...params, 'retryable': v}),
-                ),
+              // React 是行内 `<label gap:4 fontSize:11>` + Switch
+              //（`MiddlewareRules.tsx:548-551`），不是整行的 SwitchRow。
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                spacing: AidogSpace.sxs,
+                children: [
+                  AidogSwitch(
+                    key: ValueKey('mw-action-$i-retryable'),
+                    compact: true,
+                    value: params['retryable'] != false,
+                    onChanged: () => setParams({
+                      ...params,
+                      'retryable': params['retryable'] == false,
+                    }),
+                  ),
+                  Text(
+                    'retryable',
+                    style: AidogType.micro.copyWith(
+                      letterSpacing: 0,
+                      color: theme.c.fg,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: AidogSpace.sxs),
               // 同预算上限：原先 `int.tryParse(v) ?? 0` 会把打错的状态码变成
               // `0`（一个根本不存在的 HTTP 状态）。夹在 100–599 内，越界时
               // 输入框下面显示这个范围。
               NumberInput(
                 key: ValueKey('mw-action-$i-override-status'),
-                width: 120,
+                // `minWidth: 110; flex: "0 1 140px"`（`MiddlewareRules.tsx:553`）。
+                width: 140,
                 min: 100,
                 max: 599,
                 value: params['override_status'] == null
@@ -631,7 +738,6 @@ class ActionChainEditor extends StatelessWidget {
                   setParams({...params, 'override_status': parsed});
                 },
               ),
-              const SizedBox(width: AidogSpace.sxs),
               Expanded(
                 child: PlainTextField(
                   // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
@@ -726,14 +832,18 @@ class AppliesToEditor extends StatelessWidget {
         chips('groups', tOr(t, 'middleware.appliesGroups', '分组（空 = 全部）'), [
           for (final g in groups) (value: g.groupKey, label: g.name),
         ]),
+        // 三维标签一律 `F.hint` 13 + `--text-secondary`
+        //（`MiddlewareRules.tsx:601,612,623`），不是 micro 11 ls .66 fg3。
         Text(
           tOr(t, 'middleware.appliesModels', '模型（逗号分隔，空 = 全部）'),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+          style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg2),
         ),
         const SizedBox(height: AidogSpace.sxs),
         PlainTextField(
           // 对齐 React 的 AutoTextarea：长正则 / 多行值要看得全。
           maxLines: null,
+          // 模型清单也是 `AutoTextarea mono`（`MiddlewareRules.tsx:626-630`）。
+          mono: true,
           key: const ValueKey('mw-applies-models'),
           value: ((value['models'] as List? ?? const [])).join(','),
           onSubmitted: (v) => onChanged({
@@ -751,7 +861,8 @@ class AppliesToEditor extends StatelessWidget {
             'middleware.appliesModelsHint',
             '填上游实际模型名（配了模型重映射就填映射之后的那个）。预算闸门按这个名字统计花费。',
           ),
-          style: AidogType.micro.copyWith(color: theme.c.fg3),
+          // 口径提示也是 `F.hint` 13 + tertiary（`MiddlewareRules.tsx:632`）。
+          style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg3),
         ),
       ],
     );
@@ -780,11 +891,15 @@ String conditionsSummary(Map<String, Object?> node) {
   if (kind == 'not') {
     return 'NOT(${conditionsSummary(Map<String, Object?>.from(node['child'] as Map))})';
   }
+  // 括号按**子节点个数**判，不是按拼接串长度；一个子节点都没有时给 `∅`
+  //（`MiddlewareRules.tsx:213-214`）。原先「串长 > 1」会把单个子节点也套上
+  // 括号，空树则渲染成 `()`。
+  final children = node['children'] as List? ?? const [];
   final joined = [
-    for (final c in (node['children'] as List? ?? const []))
-      conditionsSummary(Map<String, Object?>.from(c as Map)),
+    for (final c in children) conditionsSummary(Map<String, Object?>.from(c as Map)),
   ].join(kind == 'all' ? ' AND ' : ' OR ');
-  return joined.length > 1 || joined.isEmpty ? '($joined)' : joined;
+  if (children.length > 1) return '($joined)';
+  return joined.isEmpty ? '∅' : joined;
 }
 
 /// 动作链摘要：`脱敏 → 拦截`。

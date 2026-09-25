@@ -193,6 +193,7 @@ class Tile extends StatelessWidget {
     this.meta,
     this.live = false,
     this.padding,
+    this.leadingAccent,
     required this.child,
   });
 
@@ -200,6 +201,15 @@ class Tile extends StatelessWidget {
   final String? meta;
   final bool live;
   final EdgeInsetsGeometry? padding;
+
+  /// 卡自身**起始侧**的 2px 强调竖条，替换掉该侧的 1px `line`
+  /// （React 通知卡的 `borderInlineStart: 2px solid var(--accent)`，
+  /// `src/pages/Notifications.tsx:31`）。null = 四边都是 1px line。
+  ///
+  /// 画成条内第一个孩子而不是 `BorderDirectional(start: 2)`：非匀边 border
+  /// 叠 borderRadius 在 Flutter 里直接抛断言（同 [InlineNote] 的做法）。
+  final Color? leadingAccent;
+
   final Widget child;
 
   @override
@@ -229,26 +239,40 @@ class Tile extends StatelessWidget {
               ],
             ),
           );
+    final pad =
+        padding ??
+        const EdgeInsets.symmetric(
+          horizontal: AidogLayout.tilePadX,
+          vertical: AidogLayout.tilePadY,
+        );
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [?head, child],
+    );
+    final accent = leadingAccent;
     return AnimatedContainer(
       duration: AidogMotion.base,
       curve: AidogMotion.easeStandard,
-      padding:
-          padding ??
-          const EdgeInsets.symmetric(
-            horizontal: AidogLayout.tilePadX,
-            vertical: AidogLayout.tilePadY,
-          ),
+      clipBehavior: accent == null ? Clip.none : Clip.antiAlias,
+      padding: accent == null ? pad : null,
       decoration: BoxDecoration(
         color: live ? t.c.liveFill : t.c.surface,
         border: Border.all(color: live ? t.c.liveEdge : t.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.md),
         boxShadow: t.shadowTile,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [?head, child],
-      ),
+      child: accent == null
+          ? body
+          : IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 2, color: accent),
+                  Expanded(child: Padding(padding: pad, child: body)),
+                ],
+              ),
+            ),
     );
   }
 }
