@@ -1422,9 +1422,10 @@ class SettingsPageBody extends StatelessWidget {
     children: [
       PageHead(title: title, subtitle: subtitle, trailing: trailing),
       // 区块逐个错峰淡入（React 各设置页给每张卡传 `staggerMs`，
-      // 如 `CodingToolsSettings.tsx:376,384,394,408,420`）。这里在容器层统一
-      // 按下标错峰，页面不必逐张传值 —— 顺序就是下标，不会漏也不会重。
-      for (final (i, c) in children.indexed) Reveal(delayMs: i * 70, child: c),
+      // 如 `CodingToolsSettings.tsx:376,384,394,408,420`；步长取
+      // `CodexSettings.tsx:240` / `PiSettings.tsx:242` 的 idx * 60）。
+      // 这里在容器层统一按下标错峰，页面不必逐张传值 —— 顺序就是下标，不会漏也不会重。
+      for (final (i, c) in children.indexed) Reveal(delayMs: i * 60, child: c),
     ],
   );
 }
