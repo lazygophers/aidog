@@ -309,3 +309,29 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   .scratch/research/registry-coverage-attribution-2026-09-25.md。
   终态覆盖率 family 86.4% / version 73.1% / ctx 78.5%（绝对口径；按 2026-09-23
   拍板的「可公布字段清零率」口径达成：官方已公布值全部补齐）。循环终止条件满足。
+- 2026-09-25 用户重设 goal 后循环重启 r58-r73（全 16 轮三件套全绿）：
+  r60 修饰后缀+厂商族（e9bf71996→84d081104+1c73405f4，246 格，含 novita llama-3-70b
+  version 3.70→3 分裂修正）；r61 litellm（26d7f1cd7→2f70951b5，Cohere/Google 官方
+  32 格）；r62 aihubmix（68fb08fce→e527e6420，94 格官方 API/锚）；r63 bailian 系
+  （37ca5cae2→80386d532，官方 max_input 35 修正+2 新增）；r64 nvidia/compshare 零
+  安全值；r65 crazyrouter/shengsuanyun/therouter 零安全值；r66 openrouter 零安全值
+  （67 version 全官方未公布，229 capabilities 口径差留档）；r67 novita/siliconflow(_en)
+  （eb0c02ff2→a84d7032d，119 格）；r68 litellm 锚定终扫（ca6d0c20d→0b4ba47ce，
+  150 格）；r69 aihubmix 终扫（9aec83eb5→af3f92004，134 格）；r70 litellm legacy
+  存档取证（08c3334c5，296 格：AWS/Anthropic/Google web.archive.org 模型卡）；
+  r71 bailian_en 终扫（11401f4f1，5 格）；r72 canonical 混叠治理（ccea88cf8，6 组
+  混叠键拆分 162 条：v3/edit/text-to-image/text-to-video/v1.1/fast，解锁 200+ 格）；
+  r73 混叠遗留（3ce00bbc1，runwayml seedance 归并 + fal imagen4 preview 归位 6 条）。
+  终态覆盖率 family 95.5% / version 81.1% / capabilities 97.0% / ctx 78.9%
+  （2026-09-23 基线 15.8%/5.3%/96.6%/72.5%）。剩余缺口全平台逐格归因：官方未公布
+  （version 无数字版本号、latest/rolling 别名、退役 legacy）、非 token 计价模型
+  （图像/音频/视频按次计价无 token ctx）、无锚多值冲突（镜像平台间官方值真分裂）。
+  归因清单：/tmp/litellm-r68-facts.md、/tmp/litellm-r70-facts.md、
+  /tmp/aihubmix-r69-facts.md、/tmp/bailian-en-r71-facts.md、
+  /tmp/canonical-r72-facts.md、/tmp/nvidia-compshare-r64-facts.md、
+  /tmp/routers-r65-facts.md、/tmp/openrouter-r66-facts.md。
+  教训（r60-r73）：①共享 checkout 的 index.lock 高频被并行会话抢，merge/commit
+  需带锁重试循环，0 字节陈旧锁直接删；②冲突 resolver 最终版=JSON 对象化按键比较
+  （时间戳 max、超集侧、重复键已存在取 HEAD 侧），行级文本比较在字段挤行时失效；
+  ③worktree agent 的 git 写操作被 rtk guard 拦截时由主会话代 commit；④bump 必须在
+  merge commit 之后再跑，否则 stamps 进不了 merge commit 造成 254 文件悬空。
