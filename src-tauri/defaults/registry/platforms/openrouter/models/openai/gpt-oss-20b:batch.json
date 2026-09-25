@@ -12,9 +12,10 @@
     "input": 2.4e-8,
     "output": 1.12e-7
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790339710,
   "capabilities": [
+    "reasoning",
     "text",
-    "reasoning"
+    "tool_use"
   ]
 }

@@ -12,8 +12,9 @@
     "input": 3.5e-8,
     "output": 1.4e-7
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790339710,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use"
   ]
 }

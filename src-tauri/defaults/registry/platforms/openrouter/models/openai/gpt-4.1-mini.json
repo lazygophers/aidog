@@ -13,8 +13,10 @@
     "output": 0.0000016,
     "cache_read": 1e-7
   },
-  "last_updated": 1790273742,
+  "last_updated": 1790339710,
   "capabilities": [
-    "text"
+    "text",
+    "tool_use",
+    "vision"
   ]
 }

@@ -12,8 +12,11 @@
     "input": 3e-7,
     "output": 0.0000025
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790339710,
   "capabilities": [
-    "text"
+    "reasoning",
+    "text",
+    "tool_use",
+    "vision"
   ]
 }
