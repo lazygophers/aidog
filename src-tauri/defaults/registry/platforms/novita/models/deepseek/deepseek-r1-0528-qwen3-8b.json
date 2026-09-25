@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "deepseek/deepseek-r1-0528-qwen3-8b",
+  "display_name": "DeepSeek-R1-0528-Qwen3-8B",
   "canonical_model": "DeepSeek-R1-0528-Qwen3-8B",
   "version": "r1",
   "family": "deepseek",

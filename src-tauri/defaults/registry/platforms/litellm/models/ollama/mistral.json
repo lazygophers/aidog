@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790346352,
   "model_id": "ollama/mistral",
+  "display_name": "Mistral 7B",
   "canonical_model": "mistral",
   "family": "mistral",
   "capabilities": [

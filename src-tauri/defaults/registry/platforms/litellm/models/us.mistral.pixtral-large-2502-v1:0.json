@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "us.mistral.pixtral-large-2502-v1:0",
+  "display_name": "Pixtral Large",
   "canonical_model": "us.mistral.pixtral-large-2502-v1:0",
   "family": "pixtral",
   "version": "25.02",

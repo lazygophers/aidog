@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "mistral.magistral-small-2509",
+  "display_name": "Magistral Small 1.2",
   "canonical_model": "mistral.magistral-small-2509",
   "family": "magistral",
   "version": "25.09",

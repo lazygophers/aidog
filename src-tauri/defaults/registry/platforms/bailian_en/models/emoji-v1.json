@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "emoji-v1",
+  "display_name": "Emoji-V1",
   "canonical_model": "emoji-v1",
   "family": "emoji",
   "version": "1",

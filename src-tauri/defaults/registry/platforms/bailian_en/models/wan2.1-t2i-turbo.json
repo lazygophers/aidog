@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "wan2.1-t2i-turbo",
+  "display_name": "Wan2.1-T2I-Turbo",
   "canonical_model": "wan2.1-t2i-turbo",
   "family": "wan",
   "version": "2.1",

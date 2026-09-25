@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-audio-3.0-asr-flash",
+  "display_name": "Qwen-Audio-3.0-ASR-Flash",
   "canonical_model": "qwen-audio-3.0-asr-flash",
   "family": "qwen",
 

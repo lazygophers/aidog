@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-r1-0528-distill-qwen3-8b",
+  "display_name": "DeepSeek-R1-0528-Distill-Qwen3-8B",
   "canonical_model": "deepseek-r1-0528-distill-qwen3-8b",
   "family": "deepseek",
   "version": "r1",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "paraformer-8k-v1",
+  "display_name": "Paraformer-8K",
   "canonical_model": "paraformer-8k-v1",
   "family": "paraformer",
   "version": "1",

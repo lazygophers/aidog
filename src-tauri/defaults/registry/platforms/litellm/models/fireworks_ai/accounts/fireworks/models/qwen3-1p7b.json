@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-1p7b",
+  "display_name": "Qwen3-1.7B",
   "canonical_model": "qwen3-1p7b",
   "family": "qwen",
   "version": "3",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen3-vl-rerank",
+  "display_name": "Qwen3-VL-Rerank",
   "canonical_model": "qwen3-vl-rerank",
   "family": "qwen",
 

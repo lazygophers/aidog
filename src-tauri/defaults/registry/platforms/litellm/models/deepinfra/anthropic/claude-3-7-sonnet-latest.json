@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790346352,
   "model_id": "deepinfra/anthropic/claude-3-7-sonnet-latest",
+  "display_name": "Claude 3.7 Sonnet",
   "canonical_model": "claude-3-7-sonnet-latest",
   "family": "claude",
   "version": "3.7",

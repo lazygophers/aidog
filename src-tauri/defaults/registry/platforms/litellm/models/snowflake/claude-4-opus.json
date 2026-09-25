@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790346352,
   "model_id": "snowflake/claude-4-opus",
+  "display_name": "Claude Opus 4",
   "canonical_model": "claude-4-opus",
   "family": "claude",
   "version": "4",

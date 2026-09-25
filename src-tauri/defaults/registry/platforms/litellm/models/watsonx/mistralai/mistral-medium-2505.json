@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "watsonx/mistralai/mistral-medium-2505",
+  "display_name": "Mistral Medium 3",
   "canonical_model": "mistral-medium-2505",
   "capabilities": [
     "text",

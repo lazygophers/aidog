@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "openai.gpt-oss-safeguard-120b",
+  "display_name": "GPT OSS Safeguard 120B",
   "canonical_model": "gpt-oss-safeguard-120b",
   "family": "gpt",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-vl-max",
+  "display_name": "Qwen-VL-Max",
   "canonical_model": "qwen-vl-max",
   "family": "qwen",
   "capabilities": [

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen1p5-72b-chat",
+  "display_name": "Qwen1.5-72B-Chat",
   "canonical_model": "qwen1p5-72b-chat",
   "family": "qwen",
   "version": "1.5",

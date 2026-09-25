@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-omni-turbo-realtime-2025-05-08",
+  "display_name": "Qwen-Omni-Turbo-Realtime (2025-05-08)",
   "canonical_model": "qwen-omni-turbo-realtime-2025-05-08",
   "family": "qwen",
   "capabilities": [

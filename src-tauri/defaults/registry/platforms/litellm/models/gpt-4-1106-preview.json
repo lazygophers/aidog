@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "gpt-4-1106-preview",
+  "display_name": "GPT-4 1106 Preview",
   "canonical_model": "gpt-4-1106-preview",
   "family": "gpt",
   "version": "4",

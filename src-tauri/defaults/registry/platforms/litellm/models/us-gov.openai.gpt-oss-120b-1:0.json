@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790346352,
   "model_id": "us-gov.openai.gpt-oss-120b-1:0",
+  "display_name": "gpt-oss-120b",
   "canonical_model": "us-gov.openai.gpt-oss-120b-1:0",
   "version": "1",
   "family": "gpt",

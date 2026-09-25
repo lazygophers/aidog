@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "stability.stable-image-ultra-v1:0",
+  "display_name": "Stable Image Ultra",
   "canonical_model": "stability.stable-image-ultra-v1:0",
   "family": "stable",
   "version": "1",

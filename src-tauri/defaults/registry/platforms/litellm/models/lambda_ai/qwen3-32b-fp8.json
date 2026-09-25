@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790346352,
   "model_id": "lambda_ai/qwen3-32b-fp8",
+  "display_name": "Qwen3-32B-FP8",
   "canonical_model": "qwen3-32b-fp8",
   "family": "qwen",
   "version": "3",

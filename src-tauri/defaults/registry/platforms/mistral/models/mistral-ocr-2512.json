@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "mistral-ocr-2512",
+  "display_name": "OCR 3",
   "canonical_model": "mistral-ocr-2512",
   "capabilities": [],
   "official": true,
