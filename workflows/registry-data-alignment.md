@@ -335,3 +335,11 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   （时间戳 max、超集侧、重复键已存在取 HEAD 侧），行级文本比较在字段挤行时失效；
   ③worktree agent 的 git 写操作被 rtk guard 拦截时由主会话代 commit；④bump 必须在
   merge commit 之后再跑，否则 stamps 进不了 merge commit 造成 254 文件悬空。
+- 2026-09-25 用户第三次设 goal 后 r74-r75（全绿）：r74 OpenRouter capabilities 终审
+  （b749a74d6→e3fcdda2a，236 差集中 76 条按原厂明文修正：OpenAI 44/Anthropic 12/
+  Google 10/Nova 5/Mistral 5，160 条原厂无明文保持）；r75 thinking 字段全库补齐
+  （8f86d991e→9e7f6da85，5260 文件：sup 31.3%→86.4%、tog 25.2%→83.0%；来源=canonical
+  平移 ~6700 + 7 家官方 thinking 文档 ~400 + :thinking 后缀 16 + 模态定义级排除 ~1600 +
+  legacy 前推理时代 false/false ~500）。遗留：~1186 文件 thinking 缺省（devin/SenseNova/
+  step/llama-4/realtime/别名系）；Bedrock qwen3-coder 既有 True/True 与 Qwen 官方卡
+  False/False 冲突（两官方源冲突，per-platform 保留各自值待裁决）。
