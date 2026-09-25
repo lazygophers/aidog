@@ -35,7 +35,24 @@ class SmallButton extends StatelessWidget {
     this.padding,
     this.minWidth,
     this.icon,
+    this.color,
+    this.iconSize,
+    this.fontWeight,
   });
+
+  /// 字重覆盖。null = 缺省 micro 的 w500；端点的 Coding Plan「C」React 是 700
+  /// （`formSectionsEndpoints.tsx:148`）。
+  final FontWeight? fontWeight;
+
+  /// 文字色覆盖（仅非 filled / 非 danger / 可点时生效）。React 各处按钮直接写
+  /// `color: var(--accent)`（`ModelsMatrixSection.tsx:291,310`、
+  /// `formSectionsEndpoints.tsx:53`）或 `var(--text-tertiary)`
+  /// （`ModelInfoTab.tsx:251`）。null = 缺省语义色。
+  final Color? color;
+
+  /// [icon] 的尺寸。缺省 14；「清除筛选」的 ✕ React 是 11
+  /// （`ModelInfoTab.tsx:252` 的 `<IconClose size={11} />`）。
+  final double? iconSize;
 
   /// 文字**前**的小图标，与文字隔 6。关于页的四颗 GitHub 按钮每颗带一枚
   /// `<IconGlobe size={14}>`（`src/pages/About.tsx:318,321`）。null = 纯文字。
@@ -110,9 +127,8 @@ class SmallButton extends StatelessWidget {
         ? theme.c.bad
         : active
         ? (activeTone ?? theme.c.accentText)
-        : ghost
-        ? theme.c.fg3
-        : theme.c.fg2;
+        : color ??
+              (ghost ? theme.c.fg3 : theme.c.fg2);
     final radius = BorderRadius.circular(pill ? 999 : AidogRadius.sm);
     final bg = filled
         ? (onTap == null ? fillColor.withValues(alpha: 0.4) : fillColor)
@@ -184,7 +200,7 @@ class SmallButton extends StatelessWidget {
                               fontSize: fontSize,
                               letterSpacing: 0,
                             ))
-                      .copyWith(color: fg),
+                      .copyWith(color: fg, fontWeight: fontWeight),
               ),
             ),
           ),
@@ -198,10 +214,13 @@ class SmallButton extends StatelessWidget {
   Widget _labelWithIcon(Color fg, Widget label) {
     final ic = icon;
     if (ic == null) return label;
+    // 纯图标按钮（React 日志页头的刷新只有一枚 14px SVG，`ListView.tsx:70-72`）：
+    // 文案为空时不留 gap，也不垫一个零宽 Text。
+    if (this.label.isEmpty) return Icon(ic, size: iconSize ?? 14, color: fg);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(ic, size: 14, color: fg),
+        Icon(ic, size: iconSize ?? 14, color: fg),
         const SizedBox(width: 6),
         label,
       ],
@@ -1098,7 +1117,12 @@ class KeptTextField extends StatefulWidget {
     this.fontSize,
     this.minLines,
     this.monospace = false,
+    this.contentPadding,
   });
+
+  /// 内衬覆盖。null = 主题缺省（12/8）；批量覆盖弹窗的槽位输入框 React 是
+  /// `padding "4px 8px"`（`BatchOverrideModelsModal.tsx:194`）。
+  final EdgeInsetsGeometry? contentPadding;
 
   /// 最少显示几行（多行输入框的最小高度）。React 的 `<Textarea minHeight>`。
   final int? minLines;
@@ -1168,6 +1192,7 @@ class _KeptTextFieldState extends State<KeptTextField> {
       style: base.copyWith(fontSize: widget.fontSize, color: theme.c.fg),
       decoration: InputDecoration(
         isDense: true,
+        contentPadding: widget.contentPadding,
         hintText: widget.hint,
         hintStyle: base.copyWith(
           fontSize: widget.fontSize,

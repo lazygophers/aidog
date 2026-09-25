@@ -125,9 +125,10 @@ void main() {
     for (final c in settings.children) {
       expect(find.text(c.labelKey), findsOneWidget, reason: c.id);
     }
-    // 5 个组头（micro 全大写）。
+    // 5 个组头。React 这一处**不大写**（`Sidebar.tsx:416-425` 无 textTransform），
+    // 2026-09-25 像素对齐时跟着改了回来。
     for (final g in {for (final c in settings.children) c.group}) {
-      expect(find.text(g.toUpperCase()), findsOneWidget, reason: g);
+      expect(find.text(g), findsOneWidget, reason: g);
     }
 
     // 展开时自动跳首个子页。

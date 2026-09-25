@@ -26,10 +26,18 @@ import 'platform_form_logic_test.dart'
 
 // ── WindowsEditModal 的 6 条翻译 ──────────────────────────────────────
 
-/// 维度 radio 的等价物：`dim-<widx>-<none|week|month>` 这个 key 上的按钮，
-/// `active` 就是 React 的 `data-state="checked"`。
-SmallButton dimButton(WidgetTester tester, int widx, String dim) =>
-    tester.widget<SmallButton>(find.byKey(ValueKey('dim-$widx-$dim')));
+/// 维度 radio：`dim-<widx>-<none|week|month>` 这个 key 上的单选项，
+/// 圆点画成实心（`radio_button_checked`）就是 React 的 `data-state="checked"`。
+bool dimSelected(WidgetTester tester, int widx, String dim) =>
+    tester
+        .widget<Icon>(
+          find.descendant(
+            of: find.byKey(ValueKey('dim-$widx-$dim')),
+            matching: find.byType(Icon),
+          ),
+        )
+        .icon ==
+    Icons.radio_button_checked;
 
 /// 周几 toggle 组（React 里是 7 个带 `title=platform.weekday_short.N` 的按钮）。
 Finder weekGroups() => find.byType(WeekdayToggles);
@@ -76,7 +84,7 @@ void main() {
       ], onSave: (_) {});
       await tester.tap(find.byKey(const ValueKey('dim-0-week')));
       await settle(tester);
-      expect(dimButton(tester, 0, 'week').active, isTrue);
+      expect(dimSelected(tester, 0, 'week'), isTrue);
       expect(weekGroups(), findsOneWidget);
       expect(monthButtonCount(tester), 0);
     });
@@ -134,10 +142,10 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('dim-0-week')));
       await settle(tester);
 
-      expect(dimButton(tester, 0, 'week').active, isTrue);
+      expect(dimSelected(tester, 0, 'week'), isTrue);
       // window 1 仍是初始「无」选中态，未被 window 0 的切换影响
-      expect(dimButton(tester, 1, 'none').active, isTrue);
-      expect(dimButton(tester, 1, 'week').active, isFalse);
+      expect(dimSelected(tester, 1, 'none'), isTrue);
+      expect(dimSelected(tester, 1, 'week'), isFalse);
       // 只有 window 0 露出了周几选择器（一组），不是两组
       expect(weekGroups(), findsOneWidget);
     });
@@ -162,9 +170,9 @@ void main() {
       await settle(tester);
       await pumpWindowsEditor(tester, i18n, windows, onSave: (_) {});
 
-      expect(dimButton(tester, 0, 'week').active, isTrue);
-      expect(dimButton(tester, 1, 'month').active, isTrue);
-      expect(dimButton(tester, 2, 'none').active, isTrue);
+      expect(dimSelected(tester, 0, 'week'), isTrue);
+      expect(dimSelected(tester, 1, 'month'), isTrue);
+      expect(dimSelected(tester, 2, 'none'), isTrue);
     });
 
     testWidgets('删中间窗口: 剩余窗口的选中态各自不变（不因数组前移而错位）', (tester) async {
@@ -192,10 +200,10 @@ void main() {
       await settle(tester);
 
       // 原 widx0(none) 仍是 dim-0-none，原 widx2(month) 现变成 dim-1-month
-      expect(dimButton(tester, 0, 'none').active, isTrue);
-      expect(dimButton(tester, 1, 'month').active, isTrue);
+      expect(dimSelected(tester, 0, 'none'), isTrue);
+      expect(dimSelected(tester, 1, 'month'), isTrue);
       // 不应错位成 dim-1-none 被选中
-      expect(dimButton(tester, 1, 'none').active, isFalse);
+      expect(dimSelected(tester, 1, 'none'), isFalse);
       expect(monthButtonCount(tester), 31);
       expect(weekGroups(), findsNothing);
     });

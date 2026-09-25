@@ -54,7 +54,17 @@ class FilterDropdown extends StatefulWidget {
     required this.searchPlaceholder,
     required this.options,
     required this.emptyLabel,
+    this.height = 30,
+    this.padX = AidogSpace.smd,
+    this.fontSize,
   });
+
+  /// 触发钮高度 / 水平内衬 / 字号。缺省 30 / 10 / caption 12.5；模型信息页的
+  /// `SelectTrigger` 是 `height 32, padding "6px 8px", fontSize 12`
+  /// （`src/pages/ModelInfo/ModelInfoTab.tsx:225,236`）。
+  final double height;
+  final double padX;
+  final double? fontSize;
 
   final double width;
 
@@ -253,8 +263,8 @@ class _FilterDropdownState extends State<FilterDropdown> {
         borderRadius: BorderRadius.circular(AidogRadius.sm),
         child: Container(
           width: widget.width,
-          height: 30,
-          padding: const EdgeInsets.symmetric(horizontal: AidogSpace.smd),
+          height: widget.height,
+          padding: EdgeInsets.symmetric(horizontal: widget.padX),
           decoration: BoxDecoration(
             color: t.c.surface2,
             border: Border.all(color: open ? t.c.accentEdge : t.c.line),
@@ -267,7 +277,10 @@ class _FilterDropdownState extends State<FilterDropdown> {
                   current?.label ?? widget.allLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AidogType.caption.copyWith(color: t.c.fg),
+                  style: AidogType.caption.copyWith(
+                    fontSize: widget.fontSize,
+                    color: t.c.fg,
+                  ),
                 ),
               ),
               const SizedBox(width: AidogSpace.ssm),

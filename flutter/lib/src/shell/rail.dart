@@ -11,6 +11,7 @@ library;
 
 import 'package:flutter/material.dart';
 
+import '../pages/ui_bits.dart' show HoverLift;
 import 'nav.dart';
 import 'theme.dart';
 
@@ -41,7 +42,15 @@ class Rail extends StatefulWidget {
     required this.localeLabel,
     required this.onPickLocale,
     this.t = _identity,
+    this.locales = const [],
+    this.onSelectLocale,
   });
+
+  /// 语言下拉的候选（locale code）。非空 + [onSelectLocale] 非空时，点语言按钮
+  /// 在侧栏内弹出面板（React `Sidebar.tsx:156-185,502-533` 的 `Dropdown`）；
+  /// 空时退回 [onPickLocale] 回调。
+  final List<String> locales;
+  final void Function(String locale)? onSelectLocale;
 
   final List<NavItem> items;
   final String activeId;
@@ -71,6 +80,108 @@ class _RailState extends State<Rail> {
   final Map<String, bool> _sectionCollapsed = {};
 
   String get _topId => widget.activeId.split('/').first;
+
+  /// 语言下拉浮层（React `Sidebar.tsx:156-185` 的 `Dropdown`：向**上**弹出的
+  /// `glass-elevated` 面板 + 一层全屏遮罩接点击关闭）。
+  final LayerLink _langLink = LayerLink();
+  OverlayEntry? _langEntry;
+
+  @override
+  void dispose() {
+    _closeLang();
+    super.dispose();
+  }
+
+  void _closeLang() {
+    _langEntry?.remove();
+    _langEntry = null;
+  }
+
+  void _toggleLang() {
+    if (_langEntry != null) {
+      setState(_closeLang);
+      return;
+    }
+    final onSelect = widget.onSelectLocale;
+    // 没接候选表时退回旧回调（Rail 的 widget 测试就是这么用的）。
+    if (onSelect == null || widget.locales.isEmpty) {
+      widget.onPickLocale();
+      return;
+    }
+    _langEntry = OverlayEntry(builder: (context) => _langPanel(onSelect));
+    Overlay.of(context).insert(_langEntry!);
+    setState(() {});
+  }
+
+  Widget _langPanel(void Function(String) onSelect) {
+    final t = AidogTheme.of(context);
+    return Stack(
+      children: [
+        // 全屏遮罩：点外面关掉（`Sidebar.tsx:162-165`）。
+        Positioned.fill(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(_closeLang),
+          ),
+        ),
+        CompositedTransformFollower(
+          link: _langLink,
+          // `bottom: 100%; marginBottom: 6`（`Sidebar.tsx:171-173`）：向上弹。
+          targetAnchor: Alignment.topLeft,
+          followerAnchor: Alignment.bottomLeft,
+          offset: const Offset(0, -6),
+          child: Align(
+            alignment: AlignmentDirectional.bottomStart,
+            child: Material(
+              type: MaterialType.transparency,
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 180),
+                padding: const EdgeInsets.all(AidogSpace.ssm), // padding 6
+                decoration: BoxDecoration(
+                  color: t.c.surface2,
+                  border: Border.all(color: t.c.line),
+                  borderRadius: BorderRadius.circular(AidogRadius.md),
+                  boxShadow: t.shadowFloat,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final loc in widget.locales)
+                      _Tappable(
+                        key: Key('rail-locale-$loc'),
+                        onTap: () {
+                          setState(_closeLang);
+                          onSelect(loc);
+                        },
+                        radius: AidogRadius.sm,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AidogSpace.smd,
+                          vertical: 7,
+                        ),
+                        background: loc == widget.localeLabel
+                            ? t.c.accentWash
+                            : null,
+                        child: Text(
+                          widget.t('lang.$loc'),
+                          style: AidogType.label.copyWith(
+                            fontSize: 12,
+                            color: loc == widget.localeLabel
+                                ? t.c.accentText
+                                : t.c.fg2,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -130,12 +241,8 @@ class _RailState extends State<Rail> {
   /// padding 10/12/20、gap 8。折叠态只留居中 logo。
   Widget _brand(AidogTheme t, bool mini) {
     return Padding(
-      padding: EdgeInsets.fromLTRB(
-        mini ? 0 : AidogSpace.smd,
-        AidogSpace.smd,
-        mini ? 0 : AidogSpace.smd,
-        AidogSpace.s_2xl,
-      ),
+      // React `padding: "10px 12px 20px"`（`Sidebar.tsx:264`）。
+      padding: EdgeInsets.fromLTRB(mini ? 0 : 12, 10, mini ? 0 : 12, 20),
       child: mini
           ? Center(
               child: Image.asset(
@@ -267,8 +374,9 @@ class _RailState extends State<Rail> {
     return [
       row,
       Padding(
+        // React 子容器 `paddingLeft: 12`（`Sidebar.tsx:406`）。
         padding: const EdgeInsetsDirectional.only(
-          start: AidogSpace.sxl,
+          start: 12,
           top: 2,
           bottom: AidogSpace.sxs,
         ),
@@ -276,17 +384,22 @@ class _RailState extends State<Rail> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             for (final g in groups) ...[
+              // 组标题：10 w600 ls0.3 secondary + opacity .6、**不大写**、
+              // padding 6px 10px 2px（`Sidebar.tsx:416-425`）。
               Padding(
-                padding: const EdgeInsets.fromLTRB(
-                  AidogSpace.ssm,
-                  AidogSpace.ssm,
-                  AidogSpace.ssm,
-                  2,
-                ),
-                child: Text(
-                  widget.t(g.key).toUpperCase(),
-                  style: AidogType.micro.copyWith(color: t.c.fg3),
-                  overflow: TextOverflow.ellipsis,
+                padding: const EdgeInsets.fromLTRB(10, 6, 10, 2),
+                child: Opacity(
+                  opacity: 0.6,
+                  child: Text(
+                    widget.t(g.key),
+                    style: AidogType.micro.copyWith(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                      color: t.c.fg2,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
               for (final c in g.items)
@@ -301,6 +414,12 @@ class _RailState extends State<Rail> {
                   ),
                   radius: AidogRadius.sm,
                   background: widget.activeId == c.id ? t.c.liveFill : null,
+                  // 子项左缘 2px：活跃 accent-edge、非活跃透明（位置照占，
+                  // `Sidebar.tsx:441`）。
+                  startBar: widget.activeId == c.id
+                      ? t.c.accentEdge
+                      : Colors.transparent,
+                  lift: widget.activeId != c.id, // Sidebar.tsx:428
                   child: Text(
                     widget.t(c.labelKey),
                     // React 子项 12.5px、活跃 w600（Sidebar.tsx:432-433）。
@@ -322,10 +441,12 @@ class _RailState extends State<Rail> {
 
   Widget _foot(AidogTheme t, bool mini) {
     return Container(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+      // React 底部区 paddingTop 12（Sidebar.tsx:465-471）。
+      padding: const EdgeInsets.only(top: 12),
       decoration: BoxDecoration(border: Border(top: BorderSide(color: t.c.line))),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 4, // React 底部区 gap 4（Sidebar.tsx:465-471）
         children: [
           _FootButton(
             key: const Key('rail-theme-toggle'),
@@ -335,14 +456,43 @@ class _RailState extends State<Rail> {
             iconSize: 16,
             label: widget.t(widget.isDark ? 'theme.dark' : 'theme.light'),
             onTap: widget.onToggleTheme,
+            // 右端 12×12 色点：白 / #0a0a0b 填充 + 1px border 光环
+            //（`Sidebar.tsx:491-498`）。
+            trailing: mini
+                ? null
+                : Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: widget.isDark
+                          ? AidogColors.dark.bg
+                          : AidogColors.light.surface,
+                      border: Border.all(color: t.c.line),
+                    ),
+                  ),
           ),
-          _FootButton(
-            key: const Key('rail-locale'),
-            mini: mini,
-            // React IconGlobe size 14。
-            icon: Icons.language_outlined,
-            label: widget.localeLabel,
-            onTap: widget.onPickLocale,
+          CompositedTransformTarget(
+            link: _langLink,
+            child: _FootButton(
+              key: const Key('rail-locale'),
+              mini: mini,
+              // React IconGlobe size 14。
+              icon: Icons.language_outlined,
+              label: widget.localeLabel,
+              onTap: _toggleLang,
+              // 右端 chevron，opacity .4（`Sidebar.tsx:517`）。
+              trailing: mini
+                  ? null
+                  : Opacity(
+                      opacity: 0.4,
+                      child: Icon(
+                        Icons.keyboard_arrow_down,
+                        size: 14,
+                        color: t.c.fg2,
+                      ),
+                    ),
+            ),
           ),
           _FootButton(
             key: const Key('rail-collapse'),
@@ -386,6 +536,10 @@ class _NavButton extends StatelessWidget {
         radius: AidogRadius.sm,
         background: active ? t.c.liveFill : null,
         border: active ? t.c.liveEdge : null,
+        // 活跃项左缘 2px 竖条：`inset 2px 0 0 var(--accent-edge)`（`Sidebar.tsx:345`）。
+        startBar: active ? t.c.accentEdge : null,
+        // React 只给非活跃项挂 hover-lift（`Sidebar.tsx:331`）。
+        lift: !active,
         // 深色下发光，浅色下 token 把 halo 置 none、由 fill + edge 接替。
         shadow: active ? t.liveHalo : null,
         // React 行 padding 10px 12px（Sidebar.tsx:335）。
@@ -400,9 +554,18 @@ class _NavButton extends StatelessWidget {
             // React 图标 18（Sidebar.tsx:13），非活跃 60% 透明（Sidebar.tsx:373-378）。
             // mini 时包 Flexible：折叠动画中 _Tappable 的水平 padding 从 12 渐变到 0，
             // 中段行宽会短暂小于 18，不兜就抛 overflow 断言（终态 36 宽不受影响）。
+            // 非活跃靠 opacity 0.6 压，不换色（`Sidebar.tsx:371`）。
             mini
-                ? Flexible(child: Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2))
-                : Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2),
+                ? Flexible(
+                    child: Opacity(
+                      opacity: active ? 1 : 0.6,
+                      child: Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2),
+                    ),
+                  )
+                : Opacity(
+                    opacity: active ? 1 : 0.6,
+                    child: Icon(icon, size: 18, color: active ? t.c.fg : t.c.fg2),
+                  ),
             if (!mini) ...[
               const SizedBox(width: 10),
               Expanded(
@@ -419,7 +582,11 @@ class _NavButton extends StatelessWidget {
               ),
               if (badge != null && badge! > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  // React 盒型：minWidth 16 / height 16 / padding 0 5px
+                  //（`Sidebar.tsx:387-399`）。
+                  constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                  alignment: Alignment.center,
+                  padding: const EdgeInsets.symmetric(horizontal: 5),
                   decoration: BoxDecoration(
                     // React badge 亮底深字（Sidebar.tsx:385-402）：底 --accent
                     // = accent-text（深色 #E6E8EC 亮），字 --accent-foreground
@@ -443,9 +610,13 @@ class _NavButton extends StatelessWidget {
   }
 }
 
-/// badge 数字：等宽 + 10px，色值来自 token。
-TextStyle numStyleSmall(Color color) =>
-    AidogType.numSm.copyWith(fontSize: 10, color: color);
+/// badge 数字：React 是 **sans** 10 w700（`Sidebar.tsx:387-389`），不是等宽族。
+TextStyle numStyleSmall(Color color) => AidogType.micro.copyWith(
+  fontSize: 10,
+  fontWeight: FontWeight.w700,
+  letterSpacing: 0,
+  color: color,
+);
 
 class _FootButton extends StatelessWidget {
   const _FootButton({
@@ -455,6 +626,7 @@ class _FootButton extends StatelessWidget {
     required this.label,
     required this.onTap,
     this.iconSize = 14,
+    this.trailing,
   });
 
   final bool mini;
@@ -462,38 +634,43 @@ class _FootButton extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
+  /// 行尾挂件：主题键的 12×12 色点、语言键的 chevron
+  /// （`Sidebar.tsx:491-498,517`）。mini 态两者都不画，调用方传 null。
+  final Widget? trailing;
+
   /// React 底部按钮图标 16/14（主题 16、语言 14，Sidebar.tsx:465-498）。
   final double iconSize;
 
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 2),
-      child: _Tappable(
-        onTap: onTap,
-        radius: AidogRadius.sm,
-        padding: EdgeInsets.symmetric(
-          vertical: 7,
-          horizontal: mini ? 0 : AidogSpace.smd,
-        ),
-        child: Row(
-          mainAxisAlignment:
-              mini ? MainAxisAlignment.center : MainAxisAlignment.start,
-          children: [
-            Icon(icon, size: iconSize, color: t.c.fg2),
-            if (!mini) ...[
-              const SizedBox(width: AidogSpace.ssm),
-              Expanded(
-                child: Text(
-                  label,
-                  style: AidogType.label.copyWith(color: t.c.fg2, fontSize: 12),
-                  overflow: TextOverflow.ellipsis,
-                ),
+    return _Tappable(
+      onTap: onTap,
+      radius: AidogRadius.sm,
+      padding: EdgeInsets.symmetric(
+        vertical: 7,
+        horizontal: mini ? 0 : AidogSpace.smd,
+      ),
+      child: Row(
+        mainAxisAlignment:
+            mini ? MainAxisAlignment.center : MainAxisAlignment.start,
+        children: [
+          Icon(icon, size: iconSize, color: t.c.fg2),
+          if (!mini) ...[
+            const SizedBox(width: AidogSpace.ssm),
+            Expanded(
+              child: Text(
+                label,
+                style: AidogType.label.copyWith(color: t.c.fg2, fontSize: 12),
+                overflow: TextOverflow.ellipsis,
               ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: AidogSpace.ssm),
+              trailing!,
             ],
           ],
-        ),
+        ],
       ),
     );
   }
@@ -527,6 +704,8 @@ class _Tappable extends StatefulWidget {
     this.background,
     this.border,
     this.shadow,
+    this.startBar,
+    this.lift = true,
   });
 
   final Widget child;
@@ -536,6 +715,15 @@ class _Tappable extends StatefulWidget {
   final Color? background;
   final Color? border;
   final List<BoxShadow>? shadow;
+
+  /// 左缘 2px 竖条。活跃 nav 项是 `inset 2px 0 0 var(--accent-edge)`
+  /// （`Sidebar.tsx:344-347`），子项是 `borderLeft: 2px solid`（`:441`，
+  /// 非活跃时透明，位置照占）。
+  final Color? startBar;
+
+  /// hover 抬升。React 只给**非活跃**项挂 `hover-lift`
+  /// （`Sidebar.tsx:331,428`：`isActive ? "ripple" : "ripple hover-lift"`）。
+  final bool lift;
 
   @override
   State<_Tappable> createState() => _TappableState();
@@ -547,26 +735,52 @@ class _TappableState extends State<_Tappable> {
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
-    return MouseRegion(
+    final radius = BorderRadius.circular(widget.radius);
+    final ring = widget.border;
+    final bar = widget.startBar;
+    final surface = MouseRegion(
       cursor: SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        onTap: widget.onTap,
-        behavior: HitTestBehavior.opaque,
-        child: AnimatedContainer(
-          duration: AidogMotion.fast,
-          curve: AidogMotion.easeStandard,
-          padding: widget.padding,
-          decoration: BoxDecoration(
-            color: widget.background ?? (_hover ? t.c.surface2 : null),
-            border: widget.border == null ? null : Border.all(color: widget.border!),
-            borderRadius: BorderRadius.circular(widget.radius),
-            boxShadow: widget.shadow,
+      child: AnimatedContainer(
+        duration: AidogMotion.fast,
+        curve: AidogMotion.easeStandard,
+        // 竖条画在容器**内部**（React 用的是 inset shadow，同样被圆角裁），
+        // 所以这里开裁剪、把它当行首的一个 2px 格子排。
+        clipBehavior: bar == null ? Clip.none : Clip.antiAlias,
+        decoration: BoxDecoration(
+          color: widget.background ?? (_hover ? t.c.surface2 : null),
+          border: ring == null ? null : Border.all(color: ring),
+          borderRadius: radius,
+          boxShadow: widget.shadow,
+        ),
+        // 涟漪：React 每颗侧栏按钮都挂 `ripple`（`Sidebar.tsx:331,428,477`）。
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: widget.onTap,
+            borderRadius: radius,
+            child: bar == null
+                ? Padding(padding: widget.padding, child: widget.child)
+                : Stack(
+                    children: [
+                      Padding(padding: widget.padding, child: widget.child),
+                      // 左缘 2px：`inset 2px 0 0 var(--accent-edge)`
+                      //（`Sidebar.tsx:345`）／子项的 `borderLeft`（`:441`）。
+                      // 与 inset shadow 同样是**盖**在内容上，不挤走文字。
+                      PositionedDirectional(
+                        start: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: 2,
+                        child: IgnorePointer(child: ColoredBox(color: bar)),
+                      ),
+                    ],
+                  ),
           ),
-          child: widget.child,
         ),
       ),
     );
+    return widget.lift ? HoverLift(child: surface) : surface;
   }
 }

@@ -352,8 +352,10 @@ void main() {
       await settle(tester);
       expect(f.endpoints.first.codingPlan, isTrue);
 
+      // 删除键是 `size="icon"` 的垃圾桶图标按钮（`formSectionsEndpoints.tsx:163-175`），
+      // 不再是带「删除」文案的 SmallButton。
       await tester.tap(
-        find.widgetWithText(SmallButton, t.t('action.delete')).first,
+        find.widgetWithIcon(IconButton, Icons.delete_outline).first,
       );
       await settle(tester);
       expect(f.endpoints.length, 1);

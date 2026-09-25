@@ -194,11 +194,18 @@ class Tile extends StatelessWidget {
     this.live = false,
     this.padding,
     this.leadingAccent,
+    this.metaStyle,
     required this.child,
   });
 
   final String? title;
   final String? meta;
+
+  /// meta 的字阶覆盖。给了就**不走 [TileMeta]**（也就不再全大写）——
+  /// React 有些位置的 meta 是正常大小写的正文，如统计页趋势图副标题
+  /// 「粒度：按小时」13 tertiary（`src/pages/Stats.tsx:730,748`）。
+  final TextStyle? metaStyle;
+
   final bool live;
   final EdgeInsetsGeometry? padding;
 
@@ -234,7 +241,17 @@ class Tile extends StatelessWidget {
                   const Spacer(),
                 if (meta != null) ...[
                   const SizedBox(width: AidogSpace.smd),
-                  TileMeta(meta!),
+                  if (metaStyle == null)
+                    TileMeta(meta!)
+                  else
+                    Flexible(
+                      child: Text(
+                        meta!,
+                        style: metaStyle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
                 ],
               ],
             ),
@@ -389,10 +406,14 @@ class SeriesTile extends StatelessWidget {
     this.chartHeight = 150,
     this.legend = const [],
     this.live = false,
+    this.metaStyle,
   });
 
   final String title;
   final String? meta;
+
+  /// 透传 [Tile.metaStyle]（给了就不全大写）。
+  final TextStyle? metaStyle;
 
   /// 图表插槽（I04 的 fl_chart / CustomPainter）。
   final Widget chart;
@@ -408,6 +429,7 @@ class SeriesTile extends StatelessWidget {
     return Tile(
       title: title,
       meta: meta,
+      metaStyle: metaStyle,
       live: live,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -466,7 +488,13 @@ class ListingTile extends StatelessWidget {
     this.footer,
     this.live = false,
   }) : columns = null,
-       cells = null;
+       cells = null,
+       uppercaseHeaders = true,
+       startAlignAll = false,
+       headerStyle = null,
+       headerBackground = null,
+       cellPadding = null,
+       onRowTap = null;
 
   /// 表格形态：表头 micro 全大写，首列 start 对齐、其余 end 对齐（数字列）。
   const ListingTile.table({
@@ -477,6 +505,12 @@ class ListingTile extends StatelessWidget {
     required List<List<Widget>> this.cells,
     this.footer,
     this.live = false,
+    this.uppercaseHeaders = true,
+    this.startAlignAll = false,
+    this.headerStyle,
+    this.headerBackground,
+    this.cellPadding,
+    this.onRowTap,
   }) : rows = const [];
 
   final String? title;
@@ -486,6 +520,29 @@ class ListingTile extends StatelessWidget {
   final List<List<Widget>>? cells;
   final Widget? footer;
   final bool live;
+
+  /// 表头是否转大写。缺省 true；模型信息页的 `<Th>` 是原文直出
+  /// （`src/pages/ModelInfo/ModelInfoTab.tsx:464-468`）。
+  final bool uppercaseHeaders;
+
+  /// 全列都按 start 对齐。缺省 false（首列 start、其余 end）；模型信息页两张表
+  /// 的 `Th` / `Td` 都没写 `textAlign`，六列一律左对齐（同上 :462-475）。
+  final bool startAlignAll;
+
+  /// 表头字阶覆盖。null = 缺省 micro 11 fg3；模型信息页是 12 w600 fg2（同上 :465-466）。
+  final TextStyle? headerStyle;
+
+  /// 表头行底色。null = 无底；React `.glass-table thead th` 是 accent 5% 兑 surface
+  /// （`src/styles/globals.css:290-292`）。
+  final Color? headerBackground;
+
+  /// 表头与单元格的内衬覆盖。null = 缺省（表头 7/6、单元格 rowH/6）；
+  /// 模型信息页两处都是 `padding: "8px 12px"`（同上 :465,474）。
+  final EdgeInsets? cellPadding;
+
+  /// 每行的整行点击回调（与 [cells] 同长）。null = 不可点。React 的 `<TableRow onClick>`
+  /// 是整行热区（同上 :343-347）。
+  final List<VoidCallback?>? onRowTap;
 
   @override
   Widget build(BuildContext context) {
@@ -531,28 +588,53 @@ class ListingTile extends StatelessWidget {
     ],
   );
 
+  /// 整行热区：React 把 onClick 挂在 `<TableRow>` 上，所以每一格都要接点击。
+  Widget _rowTap(int row, Widget cell) {
+    final tap = onRowTap == null || row >= onRowTap!.length
+        ? null
+        : onRowTap![row];
+    if (tap == null) return cell;
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: tap,
+        child: cell,
+      ),
+    );
+  }
+
   Widget _table(AidogTheme t) {
     final cols = columns!;
-    final headStyle = AidogType.micro.copyWith(color: t.c.fg3);
+    final headStyle =
+        headerStyle ?? AidogType.micro.copyWith(color: t.c.fg3);
+    // 全列 start / 首列 start 其余 end：由 [startAlignAll] 选一档。
+    AlignmentDirectional alignOf(int i) => startAlignAll || i == 0
+        ? AlignmentDirectional.centerStart
+        : AlignmentDirectional.centerEnd;
     return Table(
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         TableRow(
           decoration: BoxDecoration(
+            color: headerBackground,
             border: Border(bottom: BorderSide(color: t.c.lineStrong)),
           ),
           children: [
             for (var i = 0; i < cols.length; i++)
               Padding(
-                padding: const EdgeInsets.symmetric(
-                  vertical: 7,
-                  horizontal: AidogSpace.ssm,
-                ),
+                padding:
+                    cellPadding ??
+                    const EdgeInsets.symmetric(
+                      vertical: 7,
+                      horizontal: AidogSpace.ssm,
+                    ),
                 child: Align(
-                  alignment: i == 0
-                      ? AlignmentDirectional.centerStart
-                      : AlignmentDirectional.centerEnd,
-                  child: Text(cols[i].toUpperCase(), style: headStyle),
+                  alignment: alignOf(i),
+                  child: Text(
+                    uppercaseHeaders ? cols[i].toUpperCase() : cols[i],
+                    style: headStyle,
+                  ),
                 ),
               ),
           ],
@@ -566,18 +648,21 @@ class ListingTile extends StatelessWidget {
             ),
             children: [
               for (var i = 0; i < cols.length; i++)
-                Padding(
-                  padding: const EdgeInsets.symmetric(
-                    vertical: AidogLayout.rowH,
-                    horizontal: AidogSpace.ssm,
-                  ),
-                  child: Align(
-                    alignment: i == 0
-                        ? AlignmentDirectional.centerStart
-                        : AlignmentDirectional.centerEnd,
-                    child: i < cells![r].length
-                        ? cells![r][i]
-                        : const SizedBox.shrink(),
+                _rowTap(
+                  r,
+                  Padding(
+                    padding:
+                        cellPadding ??
+                        const EdgeInsets.symmetric(
+                          vertical: AidogLayout.rowH,
+                          horizontal: AidogSpace.ssm,
+                        ),
+                    child: Align(
+                      alignment: alignOf(i),
+                      child: i < cells![r].length
+                          ? cells![r][i]
+                          : const SizedBox.shrink(),
+                    ),
                   ),
                 ),
             ],

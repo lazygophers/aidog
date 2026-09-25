@@ -26,7 +26,7 @@ import '../shell/tiles.dart';
 import 'filter_dropdown.dart';
 import 'invoke.dart';
 import 'models.dart';
-import 'ui_bits.dart' show HoverLift;
+import 'ui_bits.dart' show HoverLift, Reveal;
 import 'stats_logic.dart';
 
 class StatsPage extends StatefulWidget {
@@ -338,32 +338,24 @@ class _StatsPageState extends State<StatsPage> {
           gap: 16, // React 全页 gap 16（Stats.tsx:477）
           children: [
             BentoCell(span: 12, child: _filters(t, tr)),
-            if (_loading)
-              BentoCell(
-                span: 12,
-                child: Tile(
-                  child: Center(
-                    child: Text(
-                      tr.t('stats.loading'),
-                      style: AidogType.caption.copyWith(color: t.c.fg2),
-                    ),
-                  ),
-                ),
-              )
-            else if (data == null)
-              BentoCell(
-                span: 12,
-                child: Tile(
-                  child: Center(
-                    child: Text(
-                      tr.t('stats.noData'),
-                      style: AidogType.caption.copyWith(color: t.c.fg2),
-                    ),
-                  ),
-                ),
-              ),
           ],
         ),
+        // loading / noData 在 React 是**裸 div**：居中、padding 40、13 secondary，
+        // 没有卡面（`Stats.tsx:582-585,925-927`）。
+        if (_loading || data == null)
+          Padding(
+            padding: const EdgeInsets.all(40),
+            child: Center(
+              child: Text(
+                _loading ? tr.t('stats.loading') : tr.t('stats.noData'),
+                textAlign: TextAlign.center,
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  color: t.c.fg2,
+                ),
+              ),
+            ),
+          ),
         if (!_loading && data != null) ...[
           // Overview 卡 wrap 行：`flex 1 1 120 + gap 12`（Stats.tsx:975-981）。
           // 不进 Bento —— Bento 的行内 IntrinsicHeight 不容 LayoutBuilder。
@@ -394,22 +386,22 @@ class _StatsPageState extends State<StatsPage> {
         runSpacing: 12,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Row(
-            mainAxisSize: MainAxisSize.min,
+          // 组内 gap 4、末颗后无间距（`Stats.tsx:487`）：原先每颗都挂 right 4，
+          // 末颗那 4px 会跟下一个筛选件的 12 叠成 16。
+          Wrap(
+            spacing: AidogSpace.sxs,
+            runSpacing: AidogSpace.sxs,
             children: [
               for (final p in TimePreset.values)
-                Padding(
-                  padding: const EdgeInsets.only(right: AidogSpace.sxs),
-                  child: _Pill(
-                    label: tr.t(presetKey(p)),
-                    active: _preset == p,
-                    // 切 preset 联动粒度：today→hourly（24 点），7d/30d→daily；
-                    // 手动选粒度仍可覆盖。
-                    onTap: () => _onFilterChanged(() {
-                      _preset = p;
-                      _granularity = granularityForPreset(p);
-                    }),
-                  ),
+                _Pill(
+                  label: tr.t(presetKey(p)),
+                  active: _preset == p,
+                  // 切 preset 联动粒度：today→hourly（24 点），7d/30d→daily；
+                  // 手动选粒度仍可覆盖。
+                  onTap: () => _onFilterChanged(() {
+                    _preset = p;
+                    _granularity = granularityForPreset(p);
+                  }),
                 ),
             ],
           ),
@@ -512,6 +504,7 @@ class _StatsPageState extends State<StatsPage> {
       ColorLevel? level,
       double? deltaPct,
       bool inverse = false,
+      double? countTo,
     }) => _OverviewCard(
       label: label,
       value: value,
@@ -519,6 +512,7 @@ class _StatsPageState extends State<StatsPage> {
       level: level,
       delta: deltaPct,
       deltaInverse: inverse,
+      countTo: countTo,
       deltaNote: tr.t('stats.vsPrevPeriod'),
     );
 
@@ -526,6 +520,8 @@ class _StatsPageState extends State<StatsPage> {
       card(
         tr.t('stats.totalRequests'),
         formatNumber(o.totalRequests),
+        // 只有首卡传 numericValue → useCounter 1200ms 滚动（`Stats.tsx:594,955,978-979`）。
+        countTo: o.totalRequests.toDouble(),
         deltaPct: delta(
           o.totalRequests.toDouble(),
           (p?.totalRequests ?? 0).toDouble(),
@@ -595,7 +591,17 @@ class _StatsPageState extends State<StatsPage> {
         return Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: [for (final cd in cards) SizedBox(width: w, child: cd)],
+          children: [
+            // 入场错峰 0/60/…/420 + 悬停抬升（`Stats.tsx:953,974`）。
+            for (var i = 0; i < cards.length; i++)
+              SizedBox(
+                width: w,
+                child: Reveal(
+                  delayMs: i * 60,
+                  child: HoverLift(child: cards[i]),
+                ),
+              ),
+          ],
         );
       },
     );
@@ -603,23 +609,22 @@ class _StatsPageState extends State<StatsPage> {
 
   // ── 主图区四 tab ──────────────────────────────────────────
 
-  Widget _tabBar(AidogTheme t, I18nController tr) => Tile(
-    child: Wrap(
-      spacing: AidogSpace.sxs,
-      runSpacing: AidogSpace.sxs,
-      children: [
-        for (final tab in StatsTab.values)
-          Semantics(
-            selected: _tab == tab,
-            button: true,
-            child: _Pill(
-              label: tr.t(statsTabKey(tab)),
-              active: _tab == tab,
-              onTap: () => _setTab(tab),
-            ),
+  // React 是**裸 flex 行**，没有卡面（`Stats.tsx:657`）。
+  Widget _tabBar(AidogTheme t, I18nController tr) => Wrap(
+    spacing: AidogSpace.sxs,
+    runSpacing: AidogSpace.sxs,
+    children: [
+      for (final tab in StatsTab.values)
+        Semantics(
+          selected: _tab == tab,
+          button: true,
+          child: _Pill(
+            label: tr.t(statsTabKey(tab)),
+            active: _tab == tab,
+            onTap: () => _setTab(tab),
           ),
-      ],
-    ),
+        ),
+    ],
   );
 
   String _granLabel(I18nController tr) {
@@ -689,56 +694,70 @@ class _StatsPageState extends State<StatsPage> {
           meta = '$meta · ${tr.t('charts.downsampled', {'count': '$kept'})}';
         }
         return [
-          if (trend.multi)
-            BentoCell(
-              span: 12,
-              child: Tile(
-                // 这两颗按钮是一组「视图」开关，读屏要读得出这一组是什么
-                //（React 挂在 `role="group"` 上的 aria-label，`Stats.tsx:688`）。
-                child: Semantics(
-                  label: tr.t('stats.viewMode'),
-                  container: true,
-                  child: Wrap(
-                    spacing: AidogSpace.sxs,
-                    children: [
-                      _Pill(
-                        label: tr.t('stats.viewLine'),
-                        active: !_trendStacked,
-                        onTap: () => setState(() => _trendStacked = false),
-                      ),
-                      _Pill(
-                        label: tr.t('stats.viewStacked'),
-                        active: _trendStacked,
-                        onTap: () => setState(() => _trendStacked = true),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
           BentoCell(
             span: 12,
-            child: Tooltip(
-              message: isFineGranularity(_effectiveGran)
-                  ? tr.t('stats.fineGranHint')
-                  : '',
-              child: SeriesTile(
-                title: tr.t('stats.requestTrend'),
-                meta: meta,
-                chartHeight: 240, // React LineChart 默认 240（LineChart.tsx:121）
-                legend: [
-                  for (final s in chartSeries) (color: s.color, label: s.label),
+            // React 是一个 `gap: 8` 的竖列：视图开关（裸行、右对齐）+ 图
+            //（`Stats.tsx:686-688`），不是两张分开的卡。
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (trend.multi) ...[
+                  // 这两颗按钮是一组「视图」开关，读屏要读得出这一组是什么
+                  //（React 挂在 `role="group"` 上的 aria-label，`Stats.tsx:688`）。
+                  Semantics(
+                    label: tr.t('stats.viewMode'),
+                    container: true,
+                    child: Wrap(
+                      alignment: WrapAlignment.end, // justifyContent: flex-end
+                      spacing: AidogSpace.sxs,
+                      runSpacing: AidogSpace.sxs,
+                      children: [
+                        _Pill(
+                          label: tr.t('stats.viewLine'),
+                          active: !_trendStacked,
+                          onTap: () => setState(() => _trendStacked = false),
+                        ),
+                        _Pill(
+                          label: tr.t('stats.viewStacked'),
+                          active: _trendStacked,
+                          onTap: () => setState(() => _trendStacked = true),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8), // Stats.tsx:686 gap 8
                 ],
-                chart: _trendStacked && trend.multi
-                    ? AidogStackedAreaChart(
-                        series: chartSeries,
-                        emptyText: tr.t('stats.noData'),
-                      )
-                    : AidogLineChart(
-                        series: chartSeries,
-                        emptyText: tr.t('stats.noData'),
-                      ),
-              ),
+                Tooltip(
+                  message: isFineGranularity(_effectiveGran)
+                      ? tr.t('stats.fineGranHint')
+                      : '',
+                  child: SeriesTile(
+                    title: tr.t('stats.requestTrend'),
+                    meta: meta,
+                    // 副标题「粒度：按小时」在 React 是正常大小写的 13 tertiary
+                    //（`Stats.tsx:730,748`），不是全大写 micro。
+                    metaStyle: AidogType.caption.copyWith(
+                      fontSize: 13,
+                      color: t.c.fg3,
+                    ),
+                    chartHeight: 240, // React LineChart 默认 240（LineChart.tsx:121）
+                    legend: [
+                      for (final s in chartSeries)
+                        (color: s.color, label: s.label),
+                    ],
+                    chart: _trendStacked && trend.multi
+                        ? AidogStackedAreaChart(
+                            series: chartSeries,
+                            emptyText: tr.t('stats.noData'),
+                          )
+                        : AidogLineChart(
+                            series: chartSeries,
+                            emptyText: tr.t('stats.noData'),
+                          ),
+                  ),
+                ),
+              ],
             ),
           ),
         ];
@@ -787,28 +806,28 @@ class _StatsPageState extends State<StatsPage> {
         return [
           BentoCell(
             span: 12,
-            child: Tile(
-              child: Wrap(
-                spacing: AidogSpace.sxs,
-                children: [
-                  _Pill(
-                    label: tr.t('stats.densityViewHeat'),
-                    active: _densityView == 'heat',
-                    onTap: () {
-                      setState(() => _densityView = 'heat');
-                      _refreshTabData();
-                    },
-                  ),
-                  _Pill(
-                    label: tr.t('stats.densityViewScatter'),
-                    active: _densityView == 'scatter',
-                    onTap: () {
-                      setState(() => _densityView = 'scatter');
-                      _refreshTabData();
-                    },
-                  ),
-                ],
-              ),
+            // React 是裸 flex 行，无卡面（`Stats.tsx:791`）。
+            child: Wrap(
+              spacing: AidogSpace.sxs,
+              runSpacing: AidogSpace.sxs,
+              children: [
+                _Pill(
+                  label: tr.t('stats.densityViewHeat'),
+                  active: _densityView == 'heat',
+                  onTap: () {
+                    setState(() => _densityView = 'heat');
+                    _refreshTabData();
+                  },
+                ),
+                _Pill(
+                  label: tr.t('stats.densityViewScatter'),
+                  active: _densityView == 'scatter',
+                  onTap: () {
+                    setState(() => _densityView = 'scatter');
+                    _refreshTabData();
+                  },
+                ),
+              ],
             ),
           ),
           BentoCell(
@@ -873,13 +892,26 @@ class _StatsPageState extends State<StatsPage> {
         return [
           BentoCell(
             span: 12,
-            child: Tile(
-              title: tr.t('stats.quotaTitle'),
-              meta: tr.t('stats.quotaPeakNote'),
-              child: Wrap(
-                spacing: AidogSpace.smd,
-                runSpacing: AidogSpace.smd,
-                children: [
+            // React 这块没有卡面：说明行是 gauge 上方的独立小字（13 tertiary、
+            // mb 8），gauge 组是裸 wrap（`Stats.tsx:847-863`）。
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    tr.t('stats.quotaPeakNote'),
+                    style: AidogType.caption.copyWith(
+                      fontSize: 13,
+                      color: t.c.fg3,
+                    ),
+                  ),
+                ),
+                Wrap(
+                  spacing: 12, // Stats.tsx:851 gap 12
+                  runSpacing: 12,
+                  children: [
                   for (final g in gauges)
                     // 平台名画在环**上方**（`Stats.tsx:853-860` 的 `title`），
                     // 不是塞进环心；整块带悬停抬升（同处 `className="hover-lift"`）。
@@ -903,8 +935,9 @@ class _StatsPageState extends State<StatsPage> {
                         ],
                       ),
                     ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ];
@@ -926,10 +959,11 @@ class _StatsPageState extends State<StatsPage> {
     final sorted = sortDimensions(dims, _sortKey, _sortDir);
     final pg = paginate(sorted, _page);
 
-    Widget head(String label, SortKey col) => _SortHead(
+    Widget head(String label, SortKey col, {bool end = true}) => _SortHead(
       label: label,
       active: _sortKey == col,
       dir: _sortDir,
+      end: end,
       onTap: () {
         final next = nextSort(_sortKey, _sortDir, col);
         setState(() {
@@ -940,106 +974,206 @@ class _StatsPageState extends State<StatsPage> {
       },
     );
 
-    // 表头是可点的排序控件，所以用 ListingTile.table 的 columns（纯文本）放不下 ——
-    // 标题行自己排一行 widget，正文仍走 ListingTile.table。
+    // React 这张卡是裸 `.glass-surface`（padding 16/20）自己排的标题行 + 表：
+    // 标题 15 w600 + 行内「共 N 条」13 tertiary，**分页器排在标题行右端**
+    // （`Stats.tsx:871-887`），不是卡底的 footer。所以不走 ListingTile。
     return [
       BentoCell(
         span: 12,
-        child: ListingTile(
-          title: '${tr.t('stats.dimensionRank')} — ${_byLabel(tr)}',
-          meta: tr.t('stats.totalRows', {'count': sorted.length}),
-          rows: [
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: head(tr.t('stats.dimName'), SortKey.name),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.requests'), SortKey.totalRequests),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.success'), SortKey.successCount),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.inputTokens'), SortKey.inputTokens),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.outputTokens'), SortKey.outputTokens),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.cacheTokens'), SortKey.cacheTokens),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.cacheRate'), SortKey.cacheRate),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.avgMs'), SortKey.avgDurationMs),
-                ),
-                Expanded(
-                  child: head(tr.t('stats.totalCost'), SortKey.totalCost),
-                ),
-              ],
-            ),
-            for (final d in pg.rows) _dimRow(t, d),
-          ],
-          footer: pg.pageCount > 1
-              ? Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+        child: Tile(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12), // Stats.tsx:871
+                child: Row(
                   children: [
-                    _Pill(
-                      label: tr.t('stats.prevPage'),
-                      active: false,
-                      onTap: pg.safePage <= 0
-                          ? null
-                          : () => setState(() => _page = pg.safePage - 1),
-                    ),
-                    const SizedBox(width: AidogSpace.ssm),
-                    Ltr(
-                      child: Text(
-                        tr.t('stats.pageOf', {
-                          'current': pg.safePage + 1,
-                          'total': pg.pageCount,
-                        }),
-                        style: numStyle(AidogType.numSm, t.c.fg2),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text:
+                              '${tr.t('stats.dimensionRank')} — ${_byLabel(tr)}',
+                          children: [
+                            // 左距 8（Stats.tsx:874）
+                            const WidgetSpan(child: SizedBox(width: 8)),
+                            TextSpan(
+                              // 「共 N 条」13 tertiary w400 正常大小写。
+                              text: tr.t('stats.totalRows', {
+                                'count': sorted.length,
+                              }),
+                              style: AidogType.caption.copyWith(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w400,
+                                color: t.c.fg3,
+                              ),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.label.copyWith(
+                          fontSize: 15, // F.label（Stats.tsx:872）
+                          fontWeight: FontWeight.w600,
+                          color: t.c.fg,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: AidogSpace.ssm),
-                    _Pill(
-                      label: tr.t('stats.nextPage'),
-                      active: false,
-                      onTap: pg.safePage >= pg.pageCount - 1
-                          ? null
-                          : () => setState(() => _page = pg.safePage + 1),
+                    if (pg.pageCount > 1) ...[
+                      const SizedBox(width: 8),
+                      _pager(t, tr, pg),
+                    ],
+                  ],
+                ),
+              ),
+              // 表头：下边框 1px border（Stats.tsx:888）。
+              Container(
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: t.c.line)),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: head(
+                        tr.t('stats.dimName'),
+                        SortKey.name,
+                        end: false, // align="left"（Stats.tsx:890）
+                      ),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.requests'), SortKey.totalRequests),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.success'), SortKey.successCount),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.inputTokens'), SortKey.inputTokens),
+                    ),
+                    Expanded(
+                      child: head(
+                        tr.t('stats.outputTokens'),
+                        SortKey.outputTokens,
+                      ),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.cacheTokens'), SortKey.cacheTokens),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.cacheRate'), SortKey.cacheRate),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.avgMs'), SortKey.avgDurationMs),
+                    ),
+                    Expanded(
+                      child: head(tr.t('stats.totalCost'), SortKey.totalCost),
                     ),
                   ],
-                )
-              : null,
+                ),
+              ),
+              for (final d in pg.rows)
+                // 正文行：下边框 + opacity 0.9（Stats.tsx:906）。
+                Opacity(
+                  opacity: 0.9,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border(bottom: BorderSide(color: t.c.line)),
+                    ),
+                    child: _dimRow(t, d),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     ];
   }
 
+  /// 分页器（`Stats.tsx:1030-1046` 的 `Pager`）：gap 8、按钮 outline 变体
+  /// （12 / 3-10）、页码 sans 12 secondary。
+  Widget _pager(
+    AidogTheme t,
+    I18nController tr,
+    ({int pageCount, int safePage, List<DimensionEntry> rows}) pg,
+  ) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _Pill(
+        label: tr.t('stats.prevPage'),
+        active: false,
+        outlined: true,
+        onTap: pg.safePage <= 0
+            ? null
+            : () => setState(() => _page = pg.safePage - 1),
+      ),
+      const SizedBox(width: 8),
+      Ltr(
+        child: Text(
+          tr.t('stats.pageOf', {
+            'current': pg.safePage + 1,
+            'total': pg.pageCount,
+          }),
+          style: counterStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            color: t.c.fg2,
+          ),
+        ),
+      ),
+      const SizedBox(width: 8),
+      _Pill(
+        label: tr.t('stats.nextPage'),
+        active: false,
+        outlined: true,
+        onTap: pg.safePage >= pg.pageCount - 1
+            ? null
+            : () => setState(() => _page = pg.safePage + 1),
+      ),
+    ],
+  );
+
   Widget _dimRow(AidogTheme t, DimensionEntry d) {
     final rate = successRate(d.successCount, d.totalRequests);
-    Widget num(String s, [Color? color]) => Align(
-      alignment: AlignmentDirectional.centerEnd,
-      child: Ltr(
-        child: Text(s, style: numStyle(AidogType.numSm, color ?? t.c.fg)),
+    // 单元格 padding 6/8（Stats.tsx:908-915）；表整体继承 13 sans，
+    // 数字**不换等宽族**（`.counter` 只加 tabular-nums）。
+    Widget cell(Widget child, {bool end = true}) => Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      child: Align(
+        alignment: end
+            ? AlignmentDirectional.centerEnd
+            : AlignmentDirectional.centerStart,
+        child: child,
+      ),
+    );
+    Widget num(String s, [Color? color]) => cell(
+      Ltr(
+        child: Text(
+          s,
+          style: counterStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w400,
+            color: color ?? t.c.fg,
+          ),
+        ),
       ),
     );
     return Row(
       children: [
         Expanded(
           flex: 3,
-          child: Text(
-            d.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AidogType.caption.copyWith(
-              color: t.c.fg,
-              fontWeight: FontWeight.w500,
+          child: cell(
+            Text(
+              d.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.caption.copyWith(
+                fontSize: 13, // 表继承 F.hint = 13（Stats.tsx:888）
+                color: t.c.fg,
+                fontWeight: FontWeight.w500,
+              ),
             ),
+            end: false,
           ),
         ),
         Expanded(child: num(formatNumber(d.totalRequests))),
@@ -1078,6 +1212,7 @@ class _OverviewCard extends StatelessWidget {
     this.level,
     this.delta,
     this.deltaInverse = false,
+    this.countTo,
   });
 
   final String label;
@@ -1088,80 +1223,190 @@ class _OverviewCard extends StatelessWidget {
   final bool deltaInverse;
   final String deltaNote;
 
+  /// 非 null = 这张卡的数字从 0 滚到这个值（1200ms）。只有「总请求」卡有
+  /// （React 的 `useCounter(numericValue, 0, 1200)`，`Stats.tsx:594,955`）。
+  final double? countTo;
+
   @override
   Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
     final d = delta;
     final lv = level;
     final show = d != null && d.abs() >= 0.05;
     // 正常指标：上升 = 好（ok）；反向指标（成本 / 延迟）：上升 = 差（bad）。
     final up = show && d > 0;
     final good = deltaInverse ? !up : up;
-    return ReadoutTile(
-      // React Overview 卡 padding 16/20（Stats.tsx:980）；值色 = levelColor（:977）。
+    final deltaColor = good ? c.ok : c.bad;
+    final u = unit;
+    // React 卡内是 `gap: 4` 的三段等距列（`Stats.tsx:975`）。
+    return Tile(
+      // React Overview 卡 padding 16/20（Stats.tsx:980）。
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      valueColor: lv == null ? null : levelColor(lv, AidogTheme.of(context).c),
-      label: label,
-      value: unit == null ? value : '$value$unit',
-      delta: show ? '${up ? '+' : '-'}${d.abs().toStringAsFixed(1)}%' : null,
-      trend: show ? (good ? Trend.up : Trend.down) : Trend.flat,
-      deltaNote: show ? deltaNote : null,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // F.hint = 13 secondary（Stats.tsx:976）
+          Text(
+            label,
+            style: AidogType.caption.copyWith(fontSize: 13, color: c.fg2),
+          ),
+          const SizedBox(height: 4),
+          // `.counter` 只加 tabular-nums，字体族仍是 sans（globals.css:954）。
+          Ltr(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                // 值可能比卡还宽（超长维度名 / 七位数）。React 那边是块级
+                // div 自然换行，这里给 Flexible 让 Text 同样能折。
+                Flexible(
+                  child: _CountText(
+                    text: value,
+                    countTo: countTo,
+                    style: counterStyle(
+                      fontSize: 20, // F.title（Stats.tsx:977）
+                      fontWeight: FontWeight.w700,
+                      color: lv == null ? c.fg : levelColor(lv, c),
+                    ),
+                  ),
+                ),
+                // 单位是独立 span：15 w400、左距 2（`Stats.tsx:980`）。
+                if (u != null) ...[
+                  const SizedBox(width: 2),
+                  Text(
+                    u,
+                    style: counterStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: lv == null ? c.fg : levelColor(lv, c),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          if (show) ...[
+            const SizedBox(height: 4),
+            Tooltip(
+              message: deltaNote,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // React 画的是 11px strokeWidth 3 的箭头 SVG，gap 2（`Stats.tsx:963-969`）。
+                  Icon(
+                    up ? Icons.arrow_upward : Icons.arrow_downward,
+                    size: 11,
+                    color: deltaColor,
+                  ),
+                  const SizedBox(width: 2),
+                  // 文本是 `|delta|.toFixed(1)%`，**无正负号**（方向由箭头表达）。
+                  Ltr(
+                    child: Text(
+                      '${d.abs().toStringAsFixed(1)}%',
+                      style: counterStyle(
+                        fontSize: 12, // F.small w600（Stats.tsx:964）
+                        fontWeight: FontWeight.w600,
+                        color: deltaColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 数字滚动：[countTo] 为 null 时原样印 [text]，否则 1200ms 从 0 数到 [countTo]
+/// （React 的 `useCounter`，`Stats.tsx:955`）。整数格式化沿用 [formatNumber]。
+class _CountText extends StatelessWidget {
+  const _CountText({required this.text, required this.style, this.countTo});
+
+  final String text;
+  final TextStyle style;
+  final double? countTo;
+
+  @override
+  Widget build(BuildContext context) {
+    final to = countTo;
+    // 关了动画（系统「减弱动态效果」／widget 测试）就直印终值，同 [HoverLift]。
+    if (to == null || MediaQuery.disableAnimationsOf(context)) {
+      return Text(text, style: style);
+    }
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: to),
+      duration: const Duration(milliseconds: 1200),
+      curve: Curves.easeOut,
+      builder: (context, v, _) => Text(formatNumber(v.round()), style: style),
     );
   }
 }
 
 /// 胶囊按钮（时间预设 / tab / 视图切换 / 翻页）。[onTap] 为 null = 禁用态。
 class _Pill extends StatelessWidget {
-  const _Pill({required this.label, required this.active, required this.onTap});
+  const _Pill({
+    required this.label,
+    required this.active,
+    required this.onTap,
+    this.outlined = false,
+  });
 
   final String label;
   final bool active;
   final VoidCallback? onTap;
 
+  /// shadcn `variant="outline"`（1px `--input` 边 + `bg-background` 底），
+  /// 维度表分页那两颗是这一档（`Stats.tsx:1033,1042`）；其余胶囊是
+  /// default / ghost，base 类里带 `border-0`，**两态都不画边**（`ui/button.tsx:10`）。
+  final bool outlined;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
     final disabled = onTap == null;
-    // 选中态是**淡底**：accent-subtle 底 + accent 字 + accent-edge 40% 边。
-    // React 虽然写的是默认变体，但 inline style 覆盖后实际渲染就是这组淡底
-    //（`Stats.tsx:496-502,668-674`；mono.ts 把 --accent 映射到 accent-text）。
-    final washEdge = _mixSrgb(t.c.accentEdge, t.c.line, 0.4);
+    // 选中态是**淡底**：accent-subtle 底 + accent 字（`Stats.tsx:496-502`；
+    // mono.ts 把 --accent 映射到 accent-text）。inline 的 borderColor 不带宽度，
+    // 被 base 的 border-0 吃掉，所以选中态也没有边。
+    // rounded-md = --radius-md = 12（`ui/button.tsx:10`、`mono.ts:24`）。
+    final radius = BorderRadius.circular(AidogRadius.md);
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AidogRadius.sm),
+      borderRadius: radius,
       child: Container(
-        padding: const EdgeInsets.symmetric(
+        padding: EdgeInsets.symmetric(
           horizontal: AidogSpace.smd,
-          vertical: AidogSpace.sxs,
+          // outline 档 React 是 3/10（`Stats.tsx:1033`），其余是 4/10（`:487`）。
+          vertical: outlined ? 3 : AidogSpace.sxs,
         ),
         decoration: BoxDecoration(
-          color: active ? t.c.accentWash : null,
-          border: Border.all(color: active ? washEdge : t.c.line),
-          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          color: active
+              ? t.c.accentWash
+              : outlined
+              ? t.c.surface
+              : null,
+          border: outlined ? Border.all(color: t.c.line) : null,
+          borderRadius: radius,
         ),
         child: Text(
           label,
           style: AidogType.caption.copyWith(
-            color: disabled ? t.c.fg3 : active ? t.c.accentText : t.c.fg2,
+            fontSize: 12, // Stats.tsx:493,666,693,798,1033
+            // ghost 档不覆盖 color → 继承 --text-primary。
+            color: disabled
+                ? t.c.fg3
+                : active
+                ? t.c.accentText
+                : t.c.fg,
           ),
         ),
       ),
     );
   }
-}
-
-/// `color-mix(in srgb, a t%, b)` 的等价实现（premultiplied alpha 线性插值）。
-/// 目前只有 _Pill 的选中态边（accent-edge 40% + border）在用。
-Color _mixSrgb(Color a, Color b, double t) {
-  double lerp(double x, double y) => x + (y - x) * t;
-  final alpha = lerp(a.a, b.a);
-  double comp(double ca, double cb) =>
-      alpha <= 0 ? 0 : lerp(ca * a.a, cb * b.a) / alpha;
-  return Color.fromARGB(
-    (alpha * 255).round(),
-    (comp(a.r, b.r) * 255).round(),
-    (comp(a.g, b.g) * 255).round(),
-    (comp(a.b, b.b) * 255).round(),
-  );
 }
 
 /// 无搜索的下拉（粒度 / 维度 / 计费类型）。走 Material 的 `DropdownButton`，
@@ -1185,11 +1430,12 @@ class _Select extends StatelessWidget {
     return Container(
       width: width,
       height: 30,
-      padding: const EdgeInsets.symmetric(horizontal: AidogSpace.ssm),
+      // shadcn SelectTrigger：px-3(12) + bg-card + rounded-md(12)（`ui/select.tsx:24`）。
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: t.c.surface2,
+        color: t.c.surface,
         border: Border.all(color: t.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        borderRadius: BorderRadius.circular(AidogRadius.md),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -1223,6 +1469,7 @@ class _SortHead extends StatelessWidget {
     required this.active,
     required this.dir,
     required this.onTap,
+    this.end = true,
   });
 
   final String label;
@@ -1230,33 +1477,52 @@ class _SortHead extends StatelessWidget {
   final SortDir dir;
   final VoidCallback onTap;
 
+  /// 右对齐列（数字列）。React 对它们用 `flexDirection: row-reverse`，
+  /// 箭头排在文字**左**侧（`Stats.tsx:1013`）。
+  final bool end;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
+    final text = Flexible(
+      child: Text(
+        label, // 混合大小写，不大写
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AidogType.caption.copyWith(
+          fontSize: 13, // 表头继承表的 F.hint = 13（Stats.tsx:888）
+          fontWeight: FontWeight.w600,
+          // 未选中是 --text-primary（Stats.tsx:1008）
+          color: active ? t.c.accentText : t.c.fg,
+        ),
+      ),
+    );
+    final arrow = active
+        ? Icon(
+            dir == SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward,
+            size: 11,
+            color: t.c.accentText,
+          )
+        : null;
     return InkWell(
       onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              label, // 混合大小写，不大写（React 表头 12 w600）
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AidogType.caption.copyWith(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: active ? t.c.accentText : t.c.fg2,
-              ),
-            ),
-          ),
-          if (active)
-            Icon(
-              dir == SortDir.asc ? Icons.arrow_upward : Icons.arrow_downward,
-              size: 11,
-              color: t.c.accentText,
-            ),
-        ],
+      child: Padding(
+        // 表头单元格 padding 6/8（Stats.tsx:1006）
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        child: Row(
+          mainAxisSize: MainAxisSize.max,
+          mainAxisAlignment: end
+              ? MainAxisAlignment.end
+              : MainAxisAlignment.start,
+          children: [
+            if (end && arrow != null) ...[
+              arrow,
+              const SizedBox(width: 3), // gap 3（Stats.tsx:1013）
+            ],
+            text,
+            if (!end && arrow != null) ...[const SizedBox(width: 3), arrow],
+          ],
+        ),
       ),
     );
   }

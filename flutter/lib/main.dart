@@ -118,6 +118,10 @@ class _AidogAppState extends State<AidogApp> {
         locale: i18n.flutterLocale,
         textDirection: i18n.textDirection,
         localeLabel: i18n.locale,
+        // 侧栏内的语言下拉（React `Sidebar.tsx:500-531`）：候选 = 8 个 locale，
+        // 选中直接切语言。
+        locales: kAllLocales,
+        onSelectLocale: i18n.setLocale,
         pageBuilder: _page,
       ),
     );

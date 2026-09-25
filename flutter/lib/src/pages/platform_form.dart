@@ -775,81 +775,108 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           : t.t('platform.endpointsHint'),
       action: locked
           ? null
+          // `size="sm"` + `fontSize 12, padding "4px 10px", color accent`
+          //（`formSectionsEndpoints.tsx:49-59`）。
           : SmallButton(
               label: '+ ${t.t('platform.addEndpoint')}',
+              fontSize: 12,
+              padding: (10, 4),
+              color: AidogTheme.of(context).c.accentText,
               onTap: c.addEndpoint,
             ),
       children: [
-        if (c.endpoints.isEmpty) FormHint(t.t('platform.noEndpoints')),
+        // 空态 12 + 斜体（同上 :62-66）。
+        if (c.endpoints.isEmpty)
+          FormHint(t.t('platform.noEndpoints'), fontSize: 12, italic: true),
+        // 端点行之间只有 FormSection 的 gap 12（`formSections.tsx:58`）；
+        // 原先每行还自带 bottom 6，叠出 18。
         for (var i = 0; i < c.endpoints.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
-            // 一条端点 = 一行五个控件（`formSectionsEndpoints.tsx:68-176`）。
-            // 原先拆成上下两行，多端点时整张表单被拉得很长。
-            child: Row(
-              children: [
-                FormDropdown(
-                  width: 120,
-                  value: c.endpoints[i].protocol,
-                  options: [for (final p in kEndpointProtocols) p.value],
-                  labelOf: (v) {
-                    for (final p in kEndpointProtocols) {
-                      if (p.value == v) return p.label;
-                    }
-                    return v;
-                  },
-                  onChanged: locked ? null : (v) => c.setEndpointProtocol(i, v),
+          // 一条端点 = 一行五个控件（`formSectionsEndpoints.tsx:68-176`），
+          // 控件间 `gap: 6`（同上 :68）。原先拆成上下两行，多端点时整张表单被拉得很长。
+          Row(
+            children: [
+              FormDropdown(
+                width: 120,
+                // `SelectTrigger className="input"` = 描边盒 + 13（同上 :80）。
+                boxed: true,
+                fontSize: 13,
+                value: c.endpoints[i].protocol,
+                options: [for (final p in kEndpointProtocols) p.value],
+                labelOf: (v) {
+                  for (final p in kEndpointProtocols) {
+                    if (p.value == v) return p.label;
+                  }
+                  return v;
+                },
+                onChanged: locked ? null : (v) => c.setEndpointProtocol(i, v),
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              Expanded(
+                child: PlatformField(
+                  value: c.endpoints[i].baseUrl,
+                  hint: 'Endpoint Base URL',
+                  enabled: !locked,
+                  onChanged: (v) => c.setEndpointBaseUrl(i, v),
                 ),
-                const SizedBox(width: AidogSpace.sxs),
-                Expanded(
-                  child: PlatformField(
-                    value: c.endpoints[i].baseUrl,
-                    hint: 'Endpoint Base URL',
-                    enabled: !locked,
-                    onChanged: (v) => c.setEndpointBaseUrl(i, v),
-                  ),
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              // 下拉本身没有标签，「这一列是干嘛的」只写在悬浮提示里
+              //（`formSectionsEndpoints.tsx:109` 的 `title=`）。
+              Tooltip(
+                message: t.t('platform.clientType'),
+                child: FormDropdown(
+                  width: 140,
+                  boxed: true,
+                  fontSize: 13,
+                  value: c.endpoints[i].clientType.isEmpty
+                      ? 'default'
+                      : c.endpoints[i].clientType,
+                  options: ctValues,
+                  labelOf: ctLabel,
+                  onChanged: locked
+                      ? null
+                      : (v) => c.setEndpointClientType(i, v),
                 ),
-                const SizedBox(width: AidogSpace.sxs),
-                // 下拉本身没有标签，「这一列是干嘛的」只写在悬浮提示里
-                //（`formSectionsEndpoints.tsx:109` 的 `title=`）。
-                Tooltip(
-                  message: t.t('platform.clientType'),
-                  child: FormDropdown(
-                    width: 140,
-                    value: c.endpoints[i].clientType.isEmpty
-                        ? 'default'
-                        : c.endpoints[i].clientType,
-                    options: ctValues,
-                    labelOf: ctLabel,
-                    onChanged: locked
-                        ? null
-                        : (v) => c.setEndpointClientType(i, v),
-                  ),
-                ),
-                const SizedBox(width: AidogSpace.sxs),
-                // Coding Plan 开关。开启时绿色，因为绿 = 走 coding 套餐
-                //（`formSectionsEndpoints.tsx:140-162`），通用高亮色讲不出这层语义。
-                Tooltip(
-                  message: c.endpoints[i].codingPlan
-                      ? 'Coding Plan ON'
-                      : 'Coding Plan',
+              ),
+              const SizedBox(width: AidogSpace.ssm),
+              // Coding Plan 开关。开启时绿色，因为绿 = 走 coding 套餐
+              //（`formSectionsEndpoints.tsx:140-162`），通用高亮色讲不出这层语义。
+              // 形状是固定 28×28 方块、`padding 0`、11 w700（同上 :144-153）。
+              Tooltip(
+                message: c.endpoints[i].codingPlan
+                    ? 'Coding Plan ON'
+                    : 'Coding Plan',
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
                   child: SmallButton(
                     label: 'C',
+                    padding: (0, 0),
+                    fontWeight: FontWeight.w700,
                     active: c.endpoints[i].codingPlan,
                     activeTone: AidogTheme.of(context).c.ok,
                     onTap: locked ? null : () => c.toggleEndpointCodingPlan(i),
                   ),
                 ),
-                if (!locked) ...[
-                  const SizedBox(width: AidogSpace.sxs),
-                  SmallButton(
-                    label: t.t('action.delete'),
-                    danger: true,
-                    onTap: () => c.removeEndpoint(i),
+              ),
+              if (!locked) ...[
+                const SizedBox(width: AidogSpace.ssm),
+                // React 是 `size="icon"`（36×36）+ 14×14 垃圾桶 SVG，不是文字按钮
+                //（同上 :163-175）—— 文字按钮把整行撑宽。
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, size: 14),
+                  color: AidogTheme.of(context).c.bad,
+                  padding: EdgeInsets.zero,
+                  splashRadius: 18,
+                  constraints: const BoxConstraints.tightFor(
+                    width: 36,
+                    height: 36,
                   ),
-                ],
+                  tooltip: t.t('action.delete'),
+                  onPressed: () => c.removeEndpoint(i),
+                ),
               ],
-            ),
+            ],
           ),
       ],
     );
@@ -870,9 +897,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     return Reveal(
       child: Container(
         margin: const EdgeInsets.only(bottom: AidogSpace.smd),
-        padding: const EdgeInsets.all(AidogSpace.smd),
+        // 外框 `padding: 14`、底 `--bg-glass`（= surface）（`MultiKeyPreview.tsx:39-40`）。
+        // 描边 React 写的是纯 `var(--accent)`，深色下 accent 近黑等于消失，
+        // 这里保留 accentEdge（同 `c1-platforms.md` #29 的裁决）。
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: theme.c.surface2,
+          color: theme.c.surface,
           border: Border.all(color: theme.c.accentEdge),
           borderRadius: BorderRadius.circular(AidogRadius.md),
         ),
@@ -880,71 +910,106 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 标题是 `.section-title` + 14 → 14 w700 ls -0.02em（同上 :44）。
             Text(
               t.t('platform.batch.previewTitle', {'count': keys.length}),
               style: AidogType.label.copyWith(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.28,
                 color: theme.c.fg,
-                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 2),
+            // 标题↔提示 `gap: 4`、提示 12（同上 :43,47）。
+            const SizedBox(height: 4),
             Text(
               t.t('platform.batch.previewHint', {'base': '{base}'}),
-              style: AidogType.caption.copyWith(color: theme.c.fg3),
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                color: theme.c.fg3,
+              ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            // 标题块↔列表 `gap: 10`（同上 :38）。
+            const SizedBox(height: 10),
             for (var i = 0; i < keys.length; i++)
               Container(
                 margin: const EdgeInsets.only(bottom: 4),
+                // 行 `padding "6px 8px"`、底 `--bg-elevated`（= surface）（同上 :61-62）。
                 padding: const EdgeInsets.symmetric(
-                  horizontal: AidogSpace.ssm,
+                  horizontal: 8,
                   vertical: 6,
                 ),
                 decoration: BoxDecoration(
-                  color: theme.c.bg,
+                  color: theme.c.surface,
                   borderRadius: BorderRadius.circular(AidogRadius.sm),
                 ),
                 child: Row(
                   children: [
+                    // 序号列 24 宽，行内字号继承 12（同上 :59,62）。
                     SizedBox(
-                      width: 28,
+                      width: 24,
                       child: Text(
                         '#${i + 1}',
-                        style: AidogType.caption.copyWith(color: theme.c.fg3),
+                        style: AidogType.caption.copyWith(
+                          fontSize: 12,
+                          color: theme.c.fg3,
+                        ),
                       ),
                     ),
+                    // 列间 `gap: 8`（同上 :60），原先五列直接相邻。
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 3,
                       child: Text(
                         i < names.length ? names[i] : '',
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.label.copyWith(color: theme.c.fg),
+                        style: AidogType.label.copyWith(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: theme.c.fg,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
                       child: Align(
                         alignment: AlignmentDirectional.centerStart,
+                        // 协议徽标：`padding "2px 6px"`、r8、底 --bg-glass、
+                        // 10 w700、**无描边**（同上 :67-70）。
                         child: MiniBadge(
                           text: c.protocol.toUpperCase(),
                           color: theme.c.fg2,
+                          background: theme.c.surface,
+                          borderColor: Colors.transparent,
+                          padY: 2,
+                          radius: AidogRadius.sm,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 3,
                       child: Text(
                         baseUrl.isEmpty ? '—' : baseUrl,
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.caption.copyWith(color: theme.c.fg2),
+                        style: AidogType.caption.copyWith(
+                          fontSize: 12,
+                          color: theme.c.fg2,
+                        ),
                       ),
                     ),
+                    const SizedBox(width: 8),
                     Expanded(
                       flex: 2,
                       child: Text(
                         maskTail(keys[i]),
                         overflow: TextOverflow.ellipsis,
-                        style: AidogType.numSm.copyWith(color: theme.c.fg3),
+                        style: AidogType.numSm.copyWith(
+                          fontSize: 12,
+                          color: theme.c.fg3,
+                        ),
                       ),
                     ),
                   ],
@@ -967,8 +1032,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
     //（`ModelsMatrixSection.tsx:266-271` 的 `flex:1` + `minWidth:80`）。
     // 原先恒 200，窄窗口下时段档列被推出可视区，必须横向拖才看得到。
     final cols = 1 + rules.length;
+    // 行内每列之间还有 8 的间距（`ModelsMatrixSection.tsx:270`），一并扣掉。
     final avail =
-        MediaQuery.sizeOf(context).width - labelW - 2 * AidogSpace.s_2xl;
+        MediaQuery.sizeOf(context).width -
+        labelW -
+        2 * AidogSpace.s_2xl -
+        8 * cols;
     final cellW = math.max(80.0, avail / cols);
 
     Widget cell(String value, ValueChanged<String> onChanged) => SizedBox(
@@ -984,15 +1053,19 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
     return FormSection(
       title: t.t('platform.models'),
+      // 四颗操作按钮：`size="sm"` + `fontSize 12, padding "4px 10px"`，组内 `gap: 6`；
+      // 「获取模型」「添加时段档」另染 accent（`ModelsMatrixSection.tsx:277-314`）。
       action: Wrap(
-        spacing: AidogSpace.sxs,
-        runSpacing: AidogSpace.sxs,
+        spacing: AidogSpace.ssm,
+        runSpacing: AidogSpace.ssm,
         alignment: WrapAlignment.end,
         children: [
           Tooltip(
             message: t.t('platform.fillAllHint'),
             child: SmallButton(
               label: t.t('platform.fillAll'),
+              fontSize: 12,
+              padding: (10, 4),
               onTap: c.models['default']!.trim().isEmpty
                   ? null
                   : c.handleFillAll,
@@ -1002,6 +1075,9 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             label: c.fetching
                 ? t.t('status.loading')
                 : t.t('platform.fetchModels'),
+            fontSize: 12,
+            padding: (10, 4),
+            color: theme.c.accentText,
             onTap: (c.apiKeyMissing || c.endpoints.isEmpty || c.fetching)
                 ? null
                 : () => c.handleFetchModels(
@@ -1014,6 +1090,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             message: c.peak.isEmpty ? t.t('platform.time_windows_no_peak') : '',
             child: SmallButton(
               label: t.t('platform.time_windows_import_peak'),
+              fontSize: 12,
+              padding: (10, 4),
               onTap: c.peak.isEmpty
                   ? null
                   : () => setState(() => _importPeakOpen = true),
@@ -1021,6 +1099,9 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           ),
           SmallButton(
             label: '+ ${t.t('platform.time_windows_add_rule')}',
+            fontSize: 12,
+            padding: (10, 4),
+            color: theme.c.accentText,
             onTap: () => c.setTimeModels([
               ...rules,
               const TimeModelRule(windows: [], models: {}),
@@ -1029,28 +1110,37 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
         ],
       ),
       children: [
-        if (c.fetchError.isNotEmpty) FormHint(c.fetchError, danger: true),
+        // 取模型报错行 12（`ModelsMatrixSection.tsx:319`）。
+        if (c.fetchError.isNotEmpty)
+          FormHint(c.fetchError, danger: true, fontSize: 12),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
+          // 横向滚动区 `paddingBottom: 4`（同上 :325）。
+          padding: const EdgeInsets.only(bottom: 4),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              // 列头行
+              // 列头行。行内 `gap: 8`、`alignItems: center`（同上 :269-271），
+              // 原先标签列与各单元格零间距、且顶边对齐。
               Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(width: labelW),
+                  const SizedBox(width: 8),
                   SizedBox(
                     width: cellW,
                     child: Center(
                       child: Text(
                         t.t('platform.modelDefault'),
-                        style: AidogType.tile.copyWith(color: theme.c.fg2),
+                        style: AidogType.tile.copyWith(
+                          fontSize: 13,
+                          color: theme.c.fg2,
+                        ),
                       ),
                     ),
                   ),
-                  for (var ri = 0; ri < rules.length; ri++)
+                  for (var ri = 0; ri < rules.length; ri++) ...[
+                    const SizedBox(width: 8),
                     SizedBox(
                       width: cellW,
                       child: Column(
@@ -1058,12 +1148,15 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                         children: [
                           Tooltip(
                             message: t.t('platform.time_windows_edit_windows'),
+                            // 列头按钮 `fontSize 12, padding "3px 4px"`（同上 :346-351）。
                             child: SmallButton(
                               label: describeWindows(
                                 rules[ri].windows,
                                 c.windowsTz,
                                 t,
                               ),
+                              fontSize: 12,
+                              padding: (4, 3),
                               onTap: () => setState(() => _editingRuleIdx = ri),
                             ),
                           ),
@@ -1073,15 +1166,19 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                             children: [
                               // 三颗按钮只有符号没有文字，解释全靠悬浮提示
                               //（React `ModelsMatrixSection.tsx:364/374/384`
-                              // 的 `title=`）。
+                              // 的 `title=`）；档位是 `padding "1px 4px", fontSize 12`。
                               SmallButton(
                                 label: '↑',
+                                fontSize: 12,
+                                padding: (4, 1),
                                 tooltip: t.t('action.moveUp'),
                                 onTap: ri == 0 ? null : () => _moveRule(ri, -1),
                               ),
                               const SizedBox(width: 2),
                               SmallButton(
                                 label: '↓',
+                                fontSize: 12,
+                                padding: (4, 1),
                                 tooltip: t.t('action.moveDown'),
                                 onTap: ri == rules.length - 1
                                     ? null
@@ -1091,6 +1188,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                               SmallButton(
                                 label: '×',
                                 danger: true,
+                                fontSize: 12,
+                                padding: (4, 1),
                                 tooltip: t.t('action.delete'),
                                 onTap: () => _removeRule(ri),
                               ),
@@ -1099,6 +1198,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                         ],
                       ),
                     ),
+                  ],
                 ],
               ),
               const SizedBox(height: AidogSpace.ssm),
@@ -1107,29 +1207,45 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
                 Padding(
                   padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
                   child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(
                         width: labelW,
                         child: Text(
                           t.t(slot.labelKey),
                           textAlign: TextAlign.right,
-                          style: AidogType.label.copyWith(color: theme.c.fg3),
+                          // slot 标签 13 w500 tertiary（同上 :397-401）。
+                          style: AidogType.label.copyWith(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            color: theme.c.fg3,
+                          ),
                         ),
                       ),
+                      const SizedBox(width: 8),
                       cell(
                         c.models[slot.key] ?? '',
                         (v) => c.setModel(slot.key, v),
                       ),
-                      for (var ri = 0; ri < rules.length; ri++)
+                      for (var ri = 0; ri < rules.length; ri++) ...[
+                        const SizedBox(width: 8),
                         cell(
                           rules[ri].models[slot.key] ?? '',
                           (v) => _updateRuleModel(ri, slot.key, v),
                         ),
+                      ],
                     ],
                   ),
                 ),
-              if (rules.isEmpty) FormHint(t.t('platform.time_windows_empty')),
+              // 空态 13 + 斜体 + 左缩进 LABEL_W+8 = 72（同上 :428）。
+              if (rules.isEmpty)
+                Padding(
+                  padding: const EdgeInsetsDirectional.only(start: 72),
+                  child: FormHint(
+                    t.t('platform.time_windows_empty'),
+                    fontSize: 13,
+                    italic: true,
+                  ),
+                ),
             ],
           ),
         ),
@@ -1150,12 +1266,27 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             },
           ),
         if (_importPeakOpen)
+          // React 是普通 `Dialog`：maxWidth 400、自带右上 ✕、标题 13、正文 12、
+          // 页脚按钮是默认档（14 / px16 / 实心确认）（`ModelsMatrixSection.tsx:450-473`）。
           ConfirmCard(
             title: t.t('platform.time_windows_import_confirm_title'),
             body: t.t('platform.time_windows_import_confirm_body', {
               'count': c.peak.length,
             }),
             confirmLabel: t.t('platform.time_windows_import_confirm_button'),
+            maxWidth: 400,
+            titleStyle: AidogType.title.copyWith(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+            bodyStyle: AidogType.micro.copyWith(
+              fontSize: 12,
+              letterSpacing: 0,
+              color: theme.c.fg2,
+            ),
+            buttonFontSize: 14,
+            buttonPadding: (16, 8),
+            onClose: () => setState(() => _importPeakOpen = false),
             onCancel: () => setState(() => _importPeakOpen = false),
             onConfirm: () {
               c.setTimeModels([
@@ -2135,34 +2266,68 @@ class WindowsEditorState extends State<WindowsEditor> {
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
+        // `DialogTitle` 自带 `margin 0 0 12px`（`WindowsEditModal.tsx:125`），
+        // 不是 `DialogContent` 的缺省 16。
+        titleGap: 12,
         title: t.t('platform.windows_edit_title'),
+        // tz 切换排在**标题行右端**，且两颗按钮包在一条 `padding 2` 的分段容器里
+        //（同上 :125-142）。原先是裸 Row，排在正文第一行。
+        titleTrailing: Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: theme.c.surface,
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 每颗 `padding "2px 8px", fontSize 11, fontWeight 400`（同上 :136）。
+              SmallButton(
+                label: t.t('platform.timezone_local'),
+                fontSize: 11,
+                padding: (8, 2),
+                fontWeight: FontWeight.w400,
+                active: widget.tzMode == TzMode.local,
+                onTap: () => widget.onTzMode(TzMode.local),
+              ),
+              const SizedBox(width: AidogSpace.sxs),
+              SmallButton(
+                label: t.t('platform.timezone_utc'),
+                fontSize: 11,
+                padding: (8, 2),
+                fontWeight: FontWeight.w400,
+                active: widget.tzMode == TzMode.utc,
+                onTap: () => widget.onTzMode(TzMode.utc),
+              ),
+            ],
+          ),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                SmallButton(
-                  label: t.t('platform.timezone_local'),
-                  active: widget.tzMode == TzMode.local,
-                  onTap: () => widget.onTzMode(TzMode.local),
-                ),
-                const SizedBox(width: AidogSpace.sxs),
-                SmallButton(
-                  label: t.t('platform.timezone_utc'),
-                  active: widget.tzMode == TzMode.utc,
-                  onTap: () => widget.onTzMode(TzMode.utc),
-                ),
-              ],
-            ),
-            if (_local.isEmpty) FormHint(t.t('platform.windows_edit_empty')),
+            // 空态 12 + 斜体 + 下距 8（同上 :147）。
+            if (_local.isEmpty) ...[
+              FormHint(
+                t.t('platform.windows_edit_empty'),
+                fontSize: 12,
+                italic: true,
+              ),
+              const SizedBox(height: 8),
+            ],
             for (var widx = 0; widx < _local.length; widx++)
               _windowCard(t, theme, widx),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: SmallButton(
-                label: '+ ${t.t('platform.windows_edit_add')}',
-                onTap: () => setState(() {
+            // 「添加窗口」`padding "4px 10px", fontSize 11, marginTop 10`（同上 :327-329）。
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SmallButton(
+                  label: '+ ${t.t('platform.windows_edit_add')}',
+                  fontSize: 11,
+                  padding: (10, 4),
+                  onTap: () => setState(() {
                   _local.add(
                     const TimeWindow(
                       startHour: 0,
@@ -2174,17 +2339,25 @@ class WindowsEditorState extends State<WindowsEditor> {
                 }),
               ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
+            ),
+            // 页脚 `marginTop 14, gap 8`，两颗都是默认档按钮（36 高 / px16 / 14），
+            // 确认是**实心**（`WindowsEditModal.tsx:336-342`）。
+            const SizedBox(height: 14),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
                 SmallButton(
                   label: t.t('action.cancel'),
+                  fontSize: 14,
+                  padding: (16, 8),
                   onTap: widget.onCancel,
                 ),
-                const SizedBox(width: AidogSpace.ssm),
+                const SizedBox(width: 8),
                 SmallButton(
                   label: t.t('action.confirm'),
+                  fontSize: 14,
+                  padding: (16, 8),
+                  filled: true,
                   onTap: () => widget.onSave([
                     for (final w in _local)
                       // multiplier 不在本编辑器里改；time_windows 的窗口默认 1.0，
@@ -2213,15 +2386,66 @@ class WindowsEditorState extends State<WindowsEditor> {
     final endDisp = toDisp(w.endHour, w.endMinute ?? 0);
     final isNextDay = w.endHour < w.startHour;
 
+    // 时分输入是 `.input` 13（`WindowsEditModal.tsx:180`）。
     Widget numBox(int value, ValueChanged<String> onChanged) => SizedBox(
       width: 64,
-      child: PlatformField(value: '$value', onChanged: onChanged),
+      child: PlatformField(
+        value: '$value',
+        fontSize: 13,
+        onChanged: onChanged,
+      ),
     );
 
+    // 「起」「止」标签 11 secondary，组内 `gap: 4`，时分之间还有一个冒号
+    //（`WindowsEditModal.tsx:178-197`）。
+    Widget timeGroup(String label, List<Widget> boxes) => Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          label,
+          style: AidogType.caption.copyWith(fontSize: 11, color: theme.c.fg2),
+        ),
+        const SizedBox(width: 4),
+        boxes[0],
+        const SizedBox(width: 4),
+        Text(':', style: TextStyle(fontSize: 11, color: theme.c.fg3)),
+        const SizedBox(width: 4),
+        boxes[1],
+      ],
+    );
+
+    // 生效日是 radio 三选一（`WindowsEditModal.tsx:258-277` 的 `RadioGroup`），
+    // 三颗描边按钮讲不出互斥语义。圆点 16、项内 `gap: 3`、字 11 secondary。
+    Widget radioChoice(String label, bool selected, VoidCallback onTap) =>
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                size: 16,
+                color: selected ? theme.c.accentText : theme.c.fg3,
+              ),
+              const SizedBox(width: 3),
+              Text(
+                label,
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  color: selected ? theme.c.fg : theme.c.fg2,
+                ),
+              ),
+            ],
+          ),
+        );
+
     return Container(
-      margin: const EdgeInsets.only(bottom: AidogSpace.ssm),
-      // 窗口卡 `padding: 8`、底 --bg-glass（= surface）（`formSections.tsx:797`）。
-      padding: const EdgeInsets.all(8),
+      // 卡间距 `gap: 10`、卡内衬 `padding: 10`、底 --bg-glass（= surface）
+      //（`WindowsEditModal.tsx:153,160-161`）。
+      // 末卡不带下距：列表的 10 是 `gap`，最后一张后面只剩按钮自己的 `marginTop 10`。
+      margin: EdgeInsets.only(bottom: widx == _local.length - 1 ? 0 : 10),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: theme.c.surface,
         border: Border.all(color: theme.c.line),
@@ -2231,49 +2455,70 @@ class WindowsEditorState extends State<WindowsEditor> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Wrap(
-            spacing: AidogSpace.ssm,
-            runSpacing: AidogSpace.sxs,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          // 起 / 止行：组间 `gap: 8`，删除 × 用 `marginLeft:auto` 贴行尾
+          //（`WindowsEditModal.tsx:177,226`）。Wrap 管折行，× 单独靠右。
+          Row(
             children: [
-              Text(
-                t.t('platform.start_hour'),
-                style: AidogType.caption.copyWith(color: theme.c.fg2),
-              ),
-              numBox(startDisp.hour, (v) {
-                final u = fromDisp(clampInt(v, 0, 23), startDisp.minute);
-                _update(
-                  widx,
-                  update0(w, startHour: u.hour, startMinute: u.minute),
-                );
-              }),
-              numBox(startDisp.minute, (v) {
-                final u = fromDisp(startDisp.hour, clampInt(v, 0, 59));
-                _update(
-                  widx,
-                  update0(w, startHour: u.hour, startMinute: u.minute),
-                );
-              }),
-              Text(
-                t.t('platform.end_hour'),
-                style: AidogType.caption.copyWith(color: theme.c.fg2),
-              ),
-              numBox(endDisp.hour, (v) {
-                final u = fromDisp(clampInt(v, 0, 24), endDisp.minute);
-                _update(widx, update0(w, endHour: u.hour, endMinute: u.minute));
-              }),
-              numBox(endDisp.minute, (v) {
-                final u = fromDisp(endDisp.hour, clampInt(v, 0, 59));
-                _update(widx, update0(w, endHour: u.hour, endMinute: u.minute));
-              }),
-              if (isNextDay)
-                Text(
-                  '（${t.t('platform.peak_next_day')}）',
-                  style: AidogType.caption.copyWith(color: theme.c.fg3),
+              Expanded(
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    timeGroup(t.t('platform.start_hour'), [
+                      numBox(startDisp.hour, (v) {
+                        final u = fromDisp(
+                          clampInt(v, 0, 23),
+                          startDisp.minute,
+                        );
+                        _update(
+                          widx,
+                          update0(w, startHour: u.hour, startMinute: u.minute),
+                        );
+                      }),
+                      numBox(startDisp.minute, (v) {
+                        final u = fromDisp(startDisp.hour, clampInt(v, 0, 59));
+                        _update(
+                          widx,
+                          update0(w, startHour: u.hour, startMinute: u.minute),
+                        );
+                      }),
+                    ]),
+                    timeGroup(t.t('platform.end_hour'), [
+                      numBox(endDisp.hour, (v) {
+                        final u = fromDisp(clampInt(v, 0, 24), endDisp.minute);
+                        _update(
+                          widx,
+                          update0(w, endHour: u.hour, endMinute: u.minute),
+                        );
+                      }),
+                      numBox(endDisp.minute, (v) {
+                        final u = fromDisp(endDisp.hour, clampInt(v, 0, 59));
+                        _update(
+                          widx,
+                          update0(w, endHour: u.hour, endMinute: u.minute),
+                        );
+                      }),
+                    ]),
+                    // 「次日」10 + 斜体 tertiary（同上 :219）。
+                    if (isNextDay)
+                      Text(
+                        '（${t.t('platform.peak_next_day')}）',
+                        style: AidogType.caption.copyWith(
+                          fontSize: 10,
+                          fontStyle: FontStyle.italic,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                  ],
                 ),
+              ),
+              // × 是 `padding "2px 6px", fontSize 10`、danger 色（同上 :223-231）。
               SmallButton(
                 label: '×',
                 danger: true,
+                fontSize: 10,
+                padding: (6, 2),
                 onTap: () => setState(() {
                   _local.removeAt(widx);
                   if (widx < _uiDim.length) _uiDim.removeAt(widx);
@@ -2281,48 +2526,74 @@ class WindowsEditorState extends State<WindowsEditor> {
               ),
             ],
           ),
-          const SizedBox(height: AidogSpace.sxs),
-          FormDropdown(
-            label: t.t('platform.window_timezone'),
-            width: 160,
-            value: w.timezone ?? '__utc__',
-            options: kWindowTimezones,
-            labelOf: (tz) => tz == '__utc__'
-                ? t.t('platform.window_timezone_utc_default')
-                : tz,
-            onChanged: (v) => _update(
-              widx,
-              v == '__utc__'
-                  ? w.copyWith(clearTimezone: true)
-                  : w.copyWith(timezone: v),
-            ),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          Wrap(
-            spacing: AidogSpace.sxs,
-            runSpacing: AidogSpace.sxs,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          // 卡内竖向 `gap: 8`（同上 :162）。
+          const SizedBox(height: 8),
+          // 时区是**横排**：11 的标签 + `gap 4` + 150 宽的 `.input` 下拉（同上 :238-254）。
+          Row(
             children: [
               Text(
+                t.t('platform.window_timezone'),
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  color: theme.c.fg2,
+                ),
+              ),
+              const SizedBox(width: 4),
+              FormDropdown(
+                width: 150,
+                boxed: true,
+                fontSize: 11,
+                value: w.timezone ?? '__utc__',
+                options: kWindowTimezones,
+                labelOf: (tz) => tz == '__utc__'
+                    ? t.t('platform.window_timezone_utc_default')
+                    : tz,
+                onChanged: (v) => _update(
+                  widx,
+                  v == '__utc__'
+                      ? w.copyWith(clearTimezone: true)
+                      : w.copyWith(timezone: v),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            // 维度行内 `gap: 8`（同上 :261）。
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              // 「生效日」11 w600 tertiary（同上 :263-265）。
+              Text(
                 t.t('platform.windows_dimension'),
-                style: AidogType.caption.copyWith(color: theme.c.fg3),
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: theme.c.fg3,
+                ),
               ),
               for (final opt in const [
                 (WindowDimension.none, 'platform.windows_dim_none'),
                 (WindowDimension.week, 'platform.windows_dim_week'),
                 (WindowDimension.month, 'platform.windows_dim_month'),
               ])
-                SmallButton(
+                KeyedSubtree(
                   key: ValueKey('dim-$widx-${opt.$1.name}'),
-                  label: t.t(opt.$2),
-                  active: dim == opt.$1,
-                  onTap: () => _switchDimension(widx, opt.$1),
+                  child: radioChoice(
+                    t.t(opt.$2),
+                    dim == opt.$1,
+                    () => _switchDimension(widx, opt.$1),
+                  ),
                 ),
             ],
           ),
           if (dim == WindowDimension.week) ...[
-            const SizedBox(height: AidogSpace.sxs),
+            const SizedBox(height: 8),
             WeekdayToggles(
+              // 周几按钮 `padding "1px 5px", fontSize 10`（同上 :291）。
+              fontSize: 10,
+              padding: (5, 1),
               selected: w.daysOfWeek ?? const [],
               tooltipOf: (d) => t.t('platform.weekday_short.$d'),
               onToggle: (day) {
@@ -2343,7 +2614,7 @@ class WindowsEditorState extends State<WindowsEditor> {
             ),
           ],
           if (dim == WindowDimension.month) ...[
-            const SizedBox(height: AidogSpace.sxs),
+            const SizedBox(height: 8),
             Wrap(
               spacing: 2,
               runSpacing: 2,
@@ -2351,7 +2622,12 @@ class WindowsEditorState extends State<WindowsEditor> {
                 for (var dom = 1; dom <= 31; dom++)
                   SmallButton(
                     label: '$dom',
-                    active: (w.daysOfMonth ?? const []).contains(dom),
+                    // 每月几日 `padding "1px 5px", fontSize 10, minWidth 26`
+                    //（`WindowsEditModal.tsx:312`），选中是实心 primary（同上 :310）。
+                    fontSize: 10,
+                    padding: (5, 1),
+                    minWidth: 26,
+                    filled: (w.daysOfMonth ?? const []).contains(dom),
                     onTap: () {
                       final cur = w.daysOfMonth ?? const <int>[];
                       final next = cur.contains(dom)
