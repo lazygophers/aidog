@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "meta-llama/llama-4-scout-17b-16e-instruct",
   "canonical_model": "llama-4-scout-17b-16e-instruct",
-  "family": "llama",
   "version": "4",
+  "family": "llama",
   "capabilities": ["text", "vision"],
   "official": true,
   "price": {

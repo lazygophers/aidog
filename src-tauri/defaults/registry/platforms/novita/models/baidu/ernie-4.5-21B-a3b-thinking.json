@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "baidu/ernie-4.5-21B-a3b-thinking",
   "canonical_model": "ernie-4.5-21b-a3b-thinking",
-  "family": "ernie",
   "version": "4.5",
+  "family": "ernie",
   "capabilities": [
     "text"
   ],

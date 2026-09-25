@@ -1,9 +1,9 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "xiaomimimo/mimo-v2-flash",
   "canonical_model": "mimo-v2-flash",
-  "family": "mimo",
   "version": "2",
+  "family": "mimo",
   "capabilities": [
     "text"
   ],

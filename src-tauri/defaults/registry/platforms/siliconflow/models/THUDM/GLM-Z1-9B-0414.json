@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790308205,
+  "last_updated": 1790322188,
   "model_id": "THUDM/GLM-Z1-9B-0414",
   "canonical_model": "GLM-Z1-9B-0414",
+  "version": "z1",
   "family": "glm",
   "capabilities": [
     "text",
