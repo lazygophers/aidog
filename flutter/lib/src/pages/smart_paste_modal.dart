@@ -17,7 +17,6 @@ import '../../platform.dart' as native;
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import 'invoke.dart';
-import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_paste_logic.dart';
 import 'ui_bits.dart';
 
@@ -243,7 +242,11 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
           children: [
             Text(
               t.t('platform.paste.hint'),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              // `DialogDescription` = text-sm 14 muted 正体（dialog.tsx:107）。
+              style: AidogType.caption.copyWith(
+                fontSize: 14,
+                color: theme.c.fg2,
+              ),
             ),
             const SizedBox(height: AidogSpace.smd),
             TextField(
@@ -273,14 +276,24 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
+                // 页脚三颗都是 13 正体 pad 6/14（`:374-382`），ghost 侧不描边。
                 if (widget.onManualEntry != null) ...[
                   SmallButton(
                     label: t.t('platform.paste.manualEntry'),
+                    ghost: true,
+                    fontSize: 13,
+                    padding: (14, 6),
                     onTap: widget.onManualEntry,
                   ),
                   const SizedBox(width: AidogSpace.ssm),
                 ],
-                SmallButton(label: t.t('action.cancel'), onTap: widget.onClose),
+                SmallButton(
+                  label: t.t('action.cancel'),
+                  ghost: true,
+                  fontSize: 13,
+                  padding: (14, 6),
+                  onTap: widget.onClose,
+                ),
                 const SizedBox(width: AidogSpace.ssm),
                 SmallButton(
                   label: t.t('platform.paste.apply'),
@@ -288,6 +301,9 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
                   // 同一行的「手动填写」「取消」都是 `variant="ghost"`。
                   filled: true,
                   active: true,
+                  fontSize: 13,
+                  padding: (14, 6),
+                  minWidth: 96,
                   onTap: _canApply ? _apply : null,
                 ),
               ],
@@ -312,24 +328,30 @@ class _ShareHit extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final type = (share['platform_type'] as String?) ?? '';
     return Padding(
-      padding: const EdgeInsets.only(top: AidogSpace.smd),
+      // `SmartPasteModal.tsx:219` 的 marginTop 16。
+      padding: const EdgeInsets.only(top: 16),
       child: Container(
+        // `SmartPasteModal.tsx:220` 的 padding 12/14（竖/横）。
         padding: const EdgeInsets.symmetric(
-          horizontal: AidogSpace.smd,
-          vertical: AidogSpace.ssm,
+          horizontal: AidogSpace.slg,
+          vertical: 12,
         ),
         decoration: BoxDecoration(
           color: theme.c.accentWash,
-          border: Border.all(color: theme.c.accentEdge),
+          // React 边是 `var(--accent)`（mono.ts:70 映射 accent-text），
+          // 暗色下 accentEdge 白 34% 会比 React 淡一截。
+          border: Border.all(color: theme.c.accentText),
           borderRadius: BorderRadius.circular(AidogRadius.sm),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // `SmartPasteModal.tsx:229-237`：13w600 / 12.5 / 12 三行。
             Text(
               t.t('platform.paste.shareDetected'),
               style: AidogType.caption.copyWith(
+                fontSize: 13,
                 color: theme.c.accentText,
                 fontWeight: FontWeight.w600,
               ),
@@ -337,11 +359,14 @@ class _ShareHit extends StatelessWidget {
             Text(
               '${(share['name'] as String?) ?? ''} · '
               '${protocolLabels[type] ?? type}',
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              style: AidogType.caption.copyWith(color: theme.c.fg2),
             ),
             Text(
               t.t('platform.paste.shareDetectedHint'),
-              style: AidogType.micro.copyWith(color: theme.c.fg3),
+              style: AidogType.caption.copyWith(
+                fontSize: 12,
+                color: theme.c.fg3,
+              ),
             ),
           ],
         ),
@@ -381,7 +406,8 @@ class _Detected extends StatelessWidget {
         if (!parsed.hasResult)
           Text(
             t.t('platform.paste.empty'),
-            style: AidogType.micro.copyWith(color: theme.c.fg2),
+            // `SmartPasteModal.tsx:247`：13 fg2。
+            style: AidogType.caption.copyWith(fontSize: 13, color: theme.c.fg2),
           ),
 
         // 平台
@@ -391,6 +417,7 @@ class _Detected extends StatelessWidget {
           if (parsed.platform != null)
             _OptionRow(
               selected: true,
+              selectedBorder: theme.c.accentText,
               child: Text(
                 parsed.platform!.label,
                 style: AidogType.caption.copyWith(
@@ -402,7 +429,8 @@ class _Detected extends StatelessWidget {
           else
             Text(
               t.t('platform.paste.noPlatform'),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              // `SmartPasteModal.tsx:261`：12.5 fg2。
+              style: AidogType.caption.copyWith(color: theme.c.fg2),
             ),
         ],
 
@@ -424,15 +452,16 @@ class _Detected extends StatelessWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  MiniBadge(
-                    text: kProtoLabel[b.protocol]!,
-                    color: theme.c.accentText,
-                  ),
+                  _ProtoChip(kProtoLabel[b.protocol]!),
                   const SizedBox(width: AidogSpace.ssm),
                   Flexible(
                     child: Text(
                       b.url,
-                      style: AidogType.micro.copyWith(color: theme.c.fg),
+                      // optRow 正文 13（`SmartPasteModal.tsx:180`）。
+                      style: AidogType.caption.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
                     ),
                   ),
                 ],
@@ -477,7 +506,11 @@ class _Detected extends StatelessWidget {
                         : Radio<String>(value: k),
                     child: Text(
                       k,
-                      style: AidogType.numSm.copyWith(color: theme.c.fg),
+                      // optRow 13 + mono（`SmartPasteModal.tsx:331`）。
+                      style: AidogType.numSm.copyWith(
+                        fontSize: 13,
+                        color: theme.c.fg,
+                      ),
                     ),
                   ),
               ],
@@ -491,6 +524,7 @@ class _Detected extends StatelessWidget {
           _SectionLabel(t.t('platform.expiresAt')),
           _OptionRow(
             selected: true,
+            selectedBorder: theme.c.accentText,
             child: Text(
               formatDateTime(expiresAt),
               style: AidogType.caption.copyWith(
@@ -506,6 +540,7 @@ class _Detected extends StatelessWidget {
 }
 
 /// 小标题（左侧标签 + 可选右侧灰字说明）。
+/// `SmartPasteModal.tsx:164-170::labelStyle`：12 w600 uppercase ls0.4。
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text, {this.hint});
 
@@ -520,17 +555,59 @@ class _SectionLabel extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            text,
+            text.toUpperCase(),
             style: AidogType.micro.copyWith(
+              fontSize: 12,
+              letterSpacing: 0.4,
               color: theme.c.fg2,
               fontWeight: FontWeight.w600,
             ),
           ),
           if (hint != null) ...[
             const Spacer(),
-            Text(hint!, style: AidogType.micro.copyWith(color: theme.c.fg3)),
+            // `SmartPasteModal.tsx:273`：10.5 w500 fg3，不跟随大写。
+            Text(
+              hint!,
+              style: AidogType.micro.copyWith(
+                fontSize: 10.5,
+                letterSpacing: 0,
+                color: theme.c.fg3,
+              ),
+            ),
           ],
         ],
+      ),
+    );
+  }
+}
+
+/// 协议小徽标（Base URL 行内的 Anthropic / OpenAI …）。
+/// `SmartPasteModal.tsx:288-296`：10.5、pad 1/6、r4、accent-subtle 底、无边。
+/// 与 [MiniBadge] 是两种形状（那边 10/r5/12% 底/30% 边），不共用。
+class _ProtoChip extends StatelessWidget {
+  const _ProtoChip(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AidogSpace.ssm,
+        vertical: 1,
+      ),
+      decoration: BoxDecoration(
+        color: theme.c.accentWash,
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: AidogType.micro.copyWith(
+          fontSize: 10.5,
+          letterSpacing: 0,
+          color: theme.c.accentText,
+        ),
       ),
     );
   }
@@ -543,6 +620,7 @@ class _OptionRow extends StatelessWidget {
     required this.child,
     this.leading,
     this.onTap,
+    this.selectedBorder,
   });
 
   final bool selected;
@@ -551,6 +629,11 @@ class _OptionRow extends StatelessWidget {
 
   /// null = 只读展示（平台 / 过期时间那两行）。
   final VoidCallback? onTap;
+
+  /// 选中态描边覆盖。null = accentEdge（可勾选行，React `:282` 的
+  /// `--accent-edge`）；只读展示行传 accentText（React `:257/:362` 的
+  /// `--accent`，mono.ts:70 映射 accent-text）。
+  final Color? selectedBorder;
 
   @override
   Widget build(BuildContext context) {
@@ -561,13 +644,18 @@ class _OptionRow extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AidogRadius.sm),
         child: Container(
+          // `SmartPasteModal.tsx:175`：padding 7px 10px（竖 7 / 横 10）。
           padding: const EdgeInsets.symmetric(
             horizontal: AidogSpace.smd,
-            vertical: AidogSpace.ssm,
+            vertical: 7,
           ),
           decoration: BoxDecoration(
             color: theme.c.surface2,
-            border: Border.all(color: selected ? theme.c.accentEdge : theme.c.line),
+            border: Border.all(
+              color: selected
+                  ? (selectedBorder ?? theme.c.accentEdge)
+                  : theme.c.line,
+            ),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
           child: Row(

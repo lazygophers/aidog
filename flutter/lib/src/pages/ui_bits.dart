@@ -32,6 +32,7 @@ class SmallButton extends StatelessWidget {
     this.filled = false,
     this.fontSize,
     this.padding,
+    this.minWidth,
   });
 
   final String label;
@@ -43,6 +44,10 @@ class SmallButton extends StatelessWidget {
 
   /// [padding] 是竖直 / 水平（水平在前）。null = 缺省 10/5（非 pill）。
   final (double, double)? padding;
+
+  /// 最小宽度（文字不够宽时补齐、居中）。React 弹窗页脚主按钮普遍写
+  /// `minWidth: 96`（`ShareModal.tsx:270`、`SmartPasteModal.tsx:382`）。
+  final double? minWidth;
 
   /// 破坏性动作（删除 / 清空）：用 bad 色，让它和旁边的按钮长得不一样。
   final bool danger;
@@ -152,15 +157,38 @@ class SmallButton extends StatelessWidget {
                   horizontal: padding!.$1,
                   vertical: padding!.$2,
                 ),
-          child: Text(
-            label,
-            style: (fontSize == null
-                ? AidogType.micro
-                : AidogType.micro.copyWith(fontSize: fontSize)
-            ).copyWith(color: fg),
+          child: _MinWidthText(
+            minWidth: minWidth,
+            child: Text(
+              label,
+              style:
+                  (fontSize == null
+                          ? AidogType.micro
+                          : AidogType.micro.copyWith(fontSize: fontSize))
+                      .copyWith(color: fg),
+            ),
           ),
         ),
       ),
+    );
+  }
+}
+
+/// [SmallButton.minWidth] 生效时把文字在补齐的宽度里居中；
+/// null 时原样透传（不额外垫一层 widget，热路径按钮成百上千颗）。
+class _MinWidthText extends StatelessWidget {
+  const _MinWidthText({this.minWidth, required this.child});
+
+  final double? minWidth;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = minWidth;
+    if (w == null) return child;
+    return ConstrainedBox(
+      constraints: BoxConstraints(minWidth: w),
+      child: Center(child: child),
     );
   }
 }
@@ -376,6 +404,8 @@ class ModalCard extends StatelessWidget {
     this.title,
     this.meta,
     this.padding,
+    this.radius,
+    this.titleStyle,
     required this.child,
   });
 
@@ -386,6 +416,13 @@ class ModalCard extends StatelessWidget {
 
   /// 缺省 24（React p-6）。分组删除等处 React 显式 20/22，由调用方传入。
   final EdgeInsetsGeometry? padding;
+
+  /// 缺省 24（glass-elevated）。模型测试弹窗 React 显式 16（`ModelTestPanel.tsx:147`）。
+  final double? radius;
+
+  /// 标题字阶覆盖。缺省 17 w600；模型测试弹窗是 15 w700（`ModelTestPanel.tsx:150`）。
+  final TextStyle? titleStyle;
+
   final Widget child;
 
   @override
@@ -398,7 +435,7 @@ class ModalCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: t.c.surface,
         border: Border.all(color: t.c.line),
-        borderRadius: BorderRadius.circular(AidogRadius.xl),
+        borderRadius: BorderRadius.circular(radius ?? AidogRadius.xl),
         boxShadow: t.shadowTile,
       ),
       child: Column(
@@ -416,10 +453,10 @@ class ModalCard extends StatelessWidget {
                     Expanded(
                       child: Text(
                         title!,
-                        style: AidogType.title.copyWith(
-                          fontSize: 17,
-                          color: t.c.fg,
-                        ),
+                        style:
+                            (titleStyle ??
+                                    AidogType.title.copyWith(fontSize: 17))
+                                .copyWith(color: t.c.fg),
                       ),
                     )
                   else
