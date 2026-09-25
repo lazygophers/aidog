@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790307139,
   "model_id": "mj_variation",
   "canonical_model": "mj_variation",
+  "family": "midjourney",
   "capabilities": [
     "image_to_image"
   ],

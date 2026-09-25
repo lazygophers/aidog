@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "inclusionai/ling-2.6-flash",
   "canonical_model": "ling-2.6-flash",
+  "family": "ling",
+  "version": "2.6",
   "capabilities": [
     "text"
   ],

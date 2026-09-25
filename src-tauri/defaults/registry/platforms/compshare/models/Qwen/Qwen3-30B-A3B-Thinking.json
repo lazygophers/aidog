@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067646,
+  "last_updated": 1790307139,
   "model_id": "Qwen/Qwen3-30B-A3B-Thinking",
   "canonical_model": "qwen3-30b-a3b-thinking",
+  "family": "qwen",
+  "version": "3",
   "capabilities": [
     "text"
   ],

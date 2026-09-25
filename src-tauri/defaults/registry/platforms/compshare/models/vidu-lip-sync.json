@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790307139,
   "model_id": "vidu-lip-sync",
   "canonical_model": "vidu-lip-sync",
+  "family": "vidu",
   "capabilities": [
     "video_edit"
   ],
