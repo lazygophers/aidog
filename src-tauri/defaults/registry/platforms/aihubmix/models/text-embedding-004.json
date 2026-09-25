@@ -1,9 +1,11 @@
 {
-  "last_updated": 1790223763,
+  "last_updated": 1790329630,
   "model_id": "text-embedding-004",
   "canonical_model": "text-embedding-004",
   "display_name": "Text Embedding 004",
-  "capabilities": [],
+  "capabilities": [
+    "embedding"
+  ],
   "official": false,
   "price": {
     "input": 2e-08,

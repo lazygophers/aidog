@@ -1,12 +1,14 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790329630,
   "model_id": "google/gemma-2-27b-it",
   "canonical_model": "gemma-2-27b-it",
   "context_window": 8192,
   "display_name": "Gemma 2 27B It",
   "family": "gemma",
   "version": "2",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 8e-07,

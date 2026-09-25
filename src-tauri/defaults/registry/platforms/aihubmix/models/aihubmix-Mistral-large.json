@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790329630,
   "model_id": "aihubmix-Mistral-large",
   "canonical_model": "mistral-large",
   "family": "mistral",
   "version": "3",
   "display_name": "Aihubmix Mistral Large",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,

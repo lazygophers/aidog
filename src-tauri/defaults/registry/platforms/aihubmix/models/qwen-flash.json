@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790288505,
+  "last_updated": 1790329630,
   "model_id": "qwen-flash",
   "canonical_model": "qwen-flash",
   "context_window": 1000000,
   "display_name": "Qwen Flash",
   "family": "qwen",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 2e-08,

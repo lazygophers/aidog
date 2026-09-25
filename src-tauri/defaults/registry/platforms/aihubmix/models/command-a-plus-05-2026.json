@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "command-a-plus-05-2026",
   "canonical_model": "command-a-plus-05-2026",
 
@@ -7,7 +7,12 @@
   "thinking_supported": true,
   "max_output_tokens": 64000,
   "context_window": 128000,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 128000,
   "official": false,
   "price": {

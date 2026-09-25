@@ -1,12 +1,16 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790329630,
   "model_id": "laguna-xs-2.1-free",
   "canonical_model": "laguna-xs-2.1-free",
 
   "version": "2.1",
   "family": "laguna",  "display_name": "Laguna Xs 2.1 (free)",
   "context_window": 262144,
-  "capabilities": [],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "max_input_tokens": 262144,
   "official": false,
   "price": {

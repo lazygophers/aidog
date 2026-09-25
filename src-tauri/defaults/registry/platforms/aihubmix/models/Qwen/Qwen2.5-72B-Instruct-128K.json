@@ -1,13 +1,15 @@
 {
   "context_window": 131072,
   "max_input_tokens": 131072,
-  "last_updated": 1790287585,
+  "last_updated": 1790329630,
   "model_id": "Qwen/Qwen2.5-72B-Instruct-128K",
   "canonical_model": "Qwen2.5-72B-Instruct-128K",
 
   "version": "2.5",
   "family": "qwen",  "display_name": "Qwen2.5 72B Instruct 128K",
-  "capabilities": [],
+  "capabilities": [
+    "text"
+  ],
   "official": false,
   "price": {
     "input": 8e-07,
