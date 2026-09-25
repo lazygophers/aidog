@@ -76,34 +76,59 @@ class _McpPageState extends State<McpPage> {
       children: [
         PageHead(
           title: t.t('mcp.title'),
+          // 页标题 22 w700 ls0（`McpView.tsx:21`）。
+          titleStyle: AidogType.display.copyWith(
+            fontSize: 22,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0,
+          ),
+          // 计数在标题**同一行右侧** 13 tertiary（`McpView.tsx:24-26`）。
           subtitle: ltr('${_c.servers.length}'),
+          subtitleStyle: AidogType.caption.copyWith(
+            fontSize: 13,
+            color: AidogTheme.of(context).c.fg3,
+          ),
+          inlineSubtitle: true,
           trailing: Wrap(
-            spacing: AidogSpace.ssm,
+            // 顶栏间距 12（`McpView.tsx:20`）。
+            spacing: 12,
+            runSpacing: 12,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              // React 顶栏四颗按钮全部 `disabled={busyKey !== null}`
-              //（`McpView.tsx`）：任何一个动作在忙时整栏锁定。
+              // 顺序照 `McpView.tsx:28-59`：添加 → 粘贴导入 → 重新同步 →
+              // 扫描导入。四颗都是 shadcn `<Button>` 默认档（36 高 / px-4 /
+              // py-2 / 14），这一栏**没有** fontSize 覆盖。
+              //
+              // 四颗全部 `disabled={busyKey !== null}`：任何一个动作在忙时整栏锁定。
               SmallButton(
                 label: t.t('mcp.add'),
+                fontSize: 14,
+                padding: (16, 8),
                 onTap: _c.busyKey == null ? _c.openAdd : null,
-              ),
-              // React 这颗没写 variant = 默认实心（`McpView.tsx:53-58`），
-              // 旁边三颗是 `variant="outline"`，保持描边。
-              SmallButton(
-                label: t.t('mcp.scanImport'),
-                filled: true,
-                onTap: _c.busyKey == null ? _c.openScan : null,
               ),
               SmallButton(
                 label: t.t('mcp.pasteImport'),
+                fontSize: 14,
+                padding: (16, 8),
                 onTap: _c.busyKey == null ? () => _c.setPasteOpen(true) : null,
               ),
               SmallButton(
                 label: t.t('mcp.resync'),
+                fontSize: 14,
+                padding: (16, 8),
                 // 这颗按钮会重写所有已启用 agent 的配置文件，解释尤其不能省
                 //（`Mcp/McpView.tsx:49` 的 `title=`）。
                 tooltip: t.t('mcp.resyncHint'),
                 onTap: _c.busyKey == null ? _c.resync : null,
+              ),
+              // React 这颗没写 variant = 默认实心（`McpView.tsx:53-59`），
+              // 旁边三颗是 `variant="outline"`，保持描边。
+              SmallButton(
+                label: t.t('mcp.scanImport'),
+                filled: true,
+                fontSize: 14,
+                padding: (16, 8),
+                onTap: _c.busyKey == null ? _c.openScan : null,
               ),
             ],
           ),
@@ -116,17 +141,27 @@ class _McpPageState extends State<McpPage> {
                 'pi 刻意不内置 MCP，能力靠 extension 直接写 TypeScript 提供，没有可写入的 MCP 配置文件。',
           ),
         ),
+        // React 的 loading 是**裸文字** 14 tertiary、没有卡面（`McpView.tsx:84-87`）。
         if (_c.loading)
-          CenteredNote(text: t.t('status.loading'))
+          Text(
+            t.t('status.loading'),
+            style: AidogType.label.copyWith(
+              fontSize: 14,
+              color: AidogTheme.of(context).c.fg3,
+            ),
+          )
+        // 空态是 **1px 虚线**框 + r12 + 32 内衬 + 14 tertiary（`McpView.tsx:89-100`），
+        // 不是实线卡。
         else if (_c.servers.isEmpty)
-          CenteredNote(text: t.t('mcp.empty'))
+          _McpEmptyNote(text: t.t('mcp.empty'))
         else
           Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               for (final s in _c.servers)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                  // 列表间距 8（`McpView.tsx:102`）。
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: _McpRow(
                     server: s,
                     busyKey: _c.busyKey,
@@ -146,163 +181,165 @@ class _McpPageState extends State<McpPage> {
             title: t.t('mcp.deleteTitle'),
             body: t.t('mcp.deleteConfirm', {'name': _c.deleteTarget!.name}),
             confirmLabel: t.t('action.delete'),
+            // 标题 16 w700 / 正文 13 tertiary lh1.5 / 页脚按钮 shadcn 默认档
+            //（`McpModals.tsx:212-215,222-232`）。
+            titleStyle: _mcpDialogTitleStyle,
+            bodyStyle: AidogType.label.copyWith(
+              fontSize: 13,
+              height: 1.5,
+              color: AidogTheme.of(context).c.fg3,
+            ),
+            buttonFontSize: 14,
+            buttonPadding: (16, 8),
             onCancel: _c.cancelDelete,
             onConfirm: _c.delete,
           ),
         if (_c.shareData != null) _shareCard(t),
+        // 消息条是**页内常驻**方条：8/12 + r8 + 1px 语义色边 + bg-elevated 底 +
+        // 13 语义色字（`McpView.tsx:68-81`），不是浮在窗口顶部的彩色胶囊。
         if (_c.message != null)
-          ToastBar(text: _c.message!.text, ok: _c.message!.ok),
+          Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.ssm),
+            child: InlineNote(
+              text: _c.message!.text,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 8,
+              ),
+              background: AidogTheme.of(context).c.surface2,
+              borderColor: _c.message!.ok
+                  ? AidogTheme.of(context).c.ok
+                  : AidogTheme.of(context).c.bad,
+              color: _c.message!.ok
+                  ? AidogTheme.of(context).c.ok
+                  : AidogTheme.of(context).c.bad,
+            ),
+          ),
       ],
     );
   }
 
-  // React 是普通 `Dialog`（`McpModals.tsx:54`，maxWidth 560）：导入中不许关。
-  Widget _scanCard(I18nController t) => AidogModal(
-    maxWidth: 560,
-    onBarrierTap: _c.importing ? null : _c.closeScan,
-    child: ModalCard(
-      title: t.t('mcp.scanTitle'),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // 全选 / 反选（`McpModals.tsx:63-81`）：十几条一条条点太慢。
-          // 已导入的不参与（它们本来就勾不动）。扫描中 / 导入中禁用。
-          Align(
-            alignment: AlignmentDirectional.centerEnd,
-            child: SmallButton(
-              label: t.t('mcp.toggleAll'),
-              onTap: (_c.scanning || _c.importing || _c.scanItems.isEmpty)
-                  ? null
-                  : _c.toggleSelectAll,
-            ),
-          ),
-          const SizedBox(height: AidogSpace.sxs),
-          if (_c.scanning)
-            Text(
-              t.t('status.loading'),
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg3,
+  /// 三个 `Dialog` 的标题：16 w700（`McpModals.tsx:56,176,243`）。
+  static final TextStyle _mcpDialogTitleStyle = AidogType.title.copyWith(
+    fontSize: 16,
+    fontWeight: FontWeight.w700,
+  );
+
+  // React 是普通 `Dialog`（`McpModals.tsx:50-54`，maxWidth 560 / maxHeight 80vh /
+  // gap 12）：导入中不许关，右上角自带 ✕。
+  Widget _scanCard(I18nController t) {
+    final theme = AidogTheme.of(context);
+    return AidogModal(
+      maxWidth: 560,
+      onBarrierTap: _c.importing ? null : _c.closeScan,
+      child: ModalCard(
+        title: t.t('mcp.scanTitle'),
+        titleStyle: _mcpDialogTitleStyle,
+        // 标题右侧的条目计数：扫描中显文案，否则显条数
+        //（`McpModals.tsx:59-61`）。原先完全没有。
+        meta: _c.scanning ? t.t('mcp.scanning') : '${_c.scanItems.length}',
+        // 全选 / 反选跟标题**同一行**（`McpModals.tsx:63-81`）：十几条一条条点太慢。
+        // 已导入的不参与（它们本来就勾不动）。扫描中 / 导入中禁用。
+        titleTrailing: SmallButton(
+          label: t.t('mcp.toggleAll'),
+          fontSize: 14,
+          padding: (16, 8),
+          onTap: (_c.scanning || _c.importing || _c.scanItems.isEmpty)
+              ? null
+              : _c.toggleSelectAll,
+        ),
+        onClose: _c.importing ? null : _c.closeScan,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // 列表区 50vh 上限、自己滚（`McpModals.tsx:84`）；
+            // 原先不限高，条目一多就把页脚顶出视野。
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.5,
               ),
-            )
-          else if (_c.scanItems.isEmpty)
-            Text(
-              t.t('mcp.scanEmpty'),
-              style: AidogType.micro.copyWith(
-                color: AidogTheme.of(context).c.fg3,
-              ),
-            )
-          else
-            for (final it in _c.scanItems)
-              // 已导入的那几条：勾选框禁用 + 整行压暗（`McpModals.tsx:100-112`）。
-              // 勾了也没用的东西不该还能勾。
-              Opacity(
-                opacity: it.alreadyImported ? 0.5 : 1,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: AidogSpace.sxs),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Checkbox(
-                        value:
-                            it.alreadyImported || _c.selected.contains(it.name),
-                        visualDensity: VisualDensity.compact,
-                        onChanged: (_c.importing || it.alreadyImported)
-                            ? null
-                            : (_) => _c.toggleSelect(it.name),
-                      ),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            // 第一行：名字 + 传输 + 来源 agent 徽标 + 已导入
-                            //（`McpModals.tsx:118-144`）。`foundInAgents` 早就解析
-                            // 进来了，之前只是没上屏。
-                            Wrap(
-                              spacing: AidogSpace.sxs,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Text(
-                                  it.name,
-                                  style: AidogType.label.copyWith(
-                                    color: AidogTheme.of(context).c.fg,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                MiniBadge(
-                                  text: it.transport,
-                                  color: AidogTheme.of(context).c.fg3,
-                                ),
-                                for (final a in it.foundInAgents)
-                                  MiniBadge(
-                                    text: t.t('mcp.agent.$a'),
-                                    color: AidogTheme.of(context).c.fg3,
-                                  ),
-                                if (it.alreadyImported)
-                                  Text(
-                                    t.t('mcp.alreadyImported'),
-                                    style: AidogType.micro.copyWith(
-                                      color: AidogTheme.of(context).c.ok,
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            // 第二行：跑的是什么（stdio 显命令 + 首参，
-                            // http / sse 显 url）。勾之前得看得出这条 MCP 是什么。
-                            Text(
-                              mcpSummaryOf(
-                                transport: it.transport,
-                                command: it.command,
-                                args: it.args,
-                                url: it.url,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: AidogType.micro.copyWith(
-                                color: AidogTheme.of(context).c.fg3,
-                              ),
-                            ),
-                          ],
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_c.scanning)
+                      _scanNote(theme, t.t('status.loading'))
+                    else if (_c.scanItems.isEmpty)
+                      _scanNote(theme, t.t('mcp.scanEmpty'))
+                    else
+                      for (final it in _c.scanItems)
+                        Padding(
+                          // 条目间距 6（`McpModals.tsx:84`）。
+                          padding: const EdgeInsets.only(bottom: 6),
+                          child: _ScanItemRow(
+                            item: it,
+                            checked:
+                                it.alreadyImported ||
+                                _c.selected.contains(it.name),
+                            onTap: (_c.importing || it.alreadyImported)
+                                ? null
+                                : () => _c.toggleSelect(it.name),
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
-          const SizedBox(height: AidogSpace.ssm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              SmallButton(
-                label: t.t('action.cancel'),
-                onTap: _c.importing ? null : _c.closeScan,
-              ),
-              const SizedBox(width: AidogSpace.ssm),
-              SmallButton(
-                // 弹窗主按钮实心、取消描边（`McpModals.tsx:153-160`）。
-                filled: true,
-                label: _c.importing
-                    ? t.t('mcp.importing')
-                    : t.t('mcp.import', {'count': _c.selected.length}),
-                // 一条都没勾就没得导（React 里 handleImport 直接 return）。
-                onTap: _c.importing || _c.selected.isEmpty
-                    ? null
-                    : _c.importSelected,
-              ),
-            ],
-          ),
-        ],
+            ),
+            // 页脚 gap 8 + marginTop 4（`McpModals.tsx:152`）。
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                SmallButton(
+                  label: t.t('action.cancel'),
+                  fontSize: 14,
+                  padding: (16, 8),
+                  onTap: _c.importing ? null : _c.closeScan,
+                ),
+                const SizedBox(width: 8),
+                SmallButton(
+                  // 弹窗主按钮实心、取消描边（`McpModals.tsx:153-164`）。
+                  filled: true,
+                  fontSize: 14,
+                  padding: (16, 8),
+                  label: _c.importing
+                      ? t.t('mcp.importing')
+                      : t.t('mcp.import', {'count': _c.selected.length}),
+                  // 一条都没勾就没得导（React 里 handleImport 直接 return）。
+                  onTap: _c.importing || _c.selected.isEmpty
+                      ? null
+                      : _c.importSelected,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// 扫描列表里的「扫描中 / 无结果」一句话（`McpModals.tsx:85-92`：24 内衬 + 13）。
+  Widget _scanNote(AidogTheme theme, String text) => Padding(
+    padding: const EdgeInsets.all(24),
+    child: Center(
+      child: Text(
+        text,
+        style: AidogType.label.copyWith(fontSize: 13, color: theme.c.fg3),
       ),
     ),
   );
 
-  // React 是普通 `Dialog`（`McpModals.tsx:174`，maxWidth 560）：导入中不许关。
+  // React 是普通 `Dialog`（`McpModals.tsx:170-174`，maxWidth 560）：导入中不许关，
+  // 右上角自带 ✕。
   Widget _pasteCard(I18nController t) => AidogModal(
     maxWidth: 560,
     onBarrierTap: _c.pasteBusy ? null : () => _c.setPasteOpen(false),
     child: ModalCard(
-      title: t.t('mcp.pasteImport'),
+      title: t.t('mcp.pasteTitle'),
+      titleStyle: _mcpDialogTitleStyle,
+      onClose: _c.pasteBusy ? null : () => _c.setPasteOpen(false),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -320,19 +357,26 @@ class _McpPageState extends State<McpPage> {
             onSubmitted: (_) {},
             onChanged: _c.setPasteText,
           ),
-          const SizedBox(height: AidogSpace.ssm),
+          // 页脚 gap 8 + marginTop 4（`McpModals.tsx:190`）。
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               SmallButton(
                 label: t.t('action.cancel'),
+                fontSize: 14,
+                padding: (16, 8),
                 onTap: _c.pasteBusy ? null : () => _c.setPasteOpen(false),
               ),
-              const SizedBox(width: AidogSpace.ssm),
+              const SizedBox(width: 8),
               SmallButton(
                 filled: true,
+                fontSize: 14,
+                padding: (16, 8),
+                // `mcp.import` 带 `{{count}}` 占位，这里没有条数可填 ——
+                // 沿用通用确认文案（React 那处走的是 i18next 的无参回落）。
                 label: _c.pasteBusy
-                    ? t.t('status.loading')
+                    ? t.t('mcp.importing')
                     : t.t('action.confirm'),
                 onTap: _c.pasteBusy || _c.pasteText.trim().isEmpty
                     ? null
@@ -345,134 +389,206 @@ class _McpPageState extends State<McpPage> {
     ),
   );
 
-  Widget _kvEditor(I18nController t, String label, List<KvRow> rows) => Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Row(
-        children: [
-          // 列表回传的是**脱敏值**（`***`），用户照原样保存就把字面 `***` 写进
-          // 配置、原密钥丢失。React 把这句提示写在标题旁（`Mcp/primitives.tsx:220-225`）。
-          Expanded(child: FieldLabel('$label（${t.t('mcp.maskedHint')}）')),
-          SmallButton(
-            label: t.t('mcp.addRow'),
-            onTap: () => setState(() => rows.add(KvRow('', ''))),
-          ),
-        ],
-      ),
-      for (var i = 0; i < rows.length; i++)
-        Padding(
-          padding: const EdgeInsets.only(top: AidogSpace.sxs),
-          child: Row(
+  Widget _kvEditor(I18nController t, String label, List<KvRow> rows) {
+    final theme = AidogTheme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 标题与提示是**两段**：标签 12 secondary + 提示 11 tertiary 左移 6
+        //（`Mcp/primitives.tsx:220-225`），原先拼成一个 12.5 的串。
+        // 列表回传的是**脱敏值**（`***`），用户照原样保存就把字面 `***` 写进
+        // 配置、原密钥丢失 —— 这句不能省。
+        Text.rich(
+          TextSpan(
             children: [
-              // key 只用下标，**不能把输入内容拼进去** —— 那样每敲一个字符 key
-              // 就变一次，State 跟着重建，等于没修。删掉某一行时下标会前移、
-              // State 被复用到新的那行上，靠 `didUpdateWidget` 里的值比对同步回来。
-              Expanded(
-                child: KeptTextField(
-                  key: ValueKey('kv-k-$i'),
-                  value: rows[i].k,
-                  hint: 'KEY',
-                  onChanged: (v) => rows[i].k = v,
+              TextSpan(text: label),
+              TextSpan(
+                text: '      (${t.t('mcp.maskedHint')})',
+                style: AidogType.caption.copyWith(
+                  fontSize: 11,
+                  color: theme.c.fg3,
                 ),
-              ),
-              const SizedBox(width: AidogSpace.sxs),
-              Expanded(
-                child: KeptTextField(
-                  key: ValueKey('kv-v-$i'),
-                  value: rows[i].v,
-                  hint: '***',
-                  onChanged: (v) => rows[i].v = v,
-                ),
-              ),
-              const SizedBox(width: AidogSpace.sxs),
-              SmallButton(
-                label: t.t('action.delete'),
-                danger: true,
-                onTap: () => setState(() => rows.removeAt(i)),
               ),
             ],
           ),
+          style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg2),
         ),
-    ],
-  );
+        for (var i = 0; i < rows.length; i++)
+          Padding(
+            // 行与行 6、行内 6（`Mcp/primitives.tsx:219,227`）。
+            padding: const EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                // key 只用下标，**不能把输入内容拼进去** —— 那样每敲一个字符 key
+                // 就变一次，State 跟着重建，等于没修。删掉某一行时下标会前移、
+                // State 被复用到新的那行上，靠 `didUpdateWidget` 里的值比对同步回来。
+                // key 列 flex 1、value 列 flex 1.4 且**等宽**
+                //（`Mcp/primitives.tsx:228-239`）。
+                Expanded(
+                  flex: 10,
+                  child: KeptTextField(
+                    key: ValueKey('kv-k-$i'),
+                    value: rows[i].k,
+                    hint: 'KEY',
+                    onChanged: (v) => rows[i].k = v,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  flex: 14,
+                  child: KeptTextField(
+                    key: ValueKey('kv-v-$i'),
+                    value: rows[i].v,
+                    hint: '***',
+                    monospace: true,
+                    onChanged: (v) => rows[i].v = v,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                SmallButton(
+                  // 删除键是 `outline` 变体的 `×`、6px 10px
+                  //（`Mcp/primitives.tsx:240-247`），不是红色的「删除」文字键。
+                  label: '×',
+                  tooltip: t.t('action.delete'),
+                  padding: (10, 6),
+                  onTap: () => setState(() => rows.removeAt(i)),
+                ),
+              ],
+            ),
+          ),
+        // 「+ 添加」排在**所有行之下**、左对齐、12 / 5px 10px
+        //（`Mcp/primitives.tsx:250-256`），原先排在标题行右端。
+        Padding(
+          padding: const EdgeInsets.only(top: 6),
+          child: Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: SmallButton(
+              label: '+ ${t.t('mcp.addRow')}',
+              fontSize: 12,
+              padding: (10, 5),
+              onTap: () => setState(() => rows.add(KvRow('', ''))),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   Widget _editCard(I18nController t) {
     final f = _c.editForm;
-    // React 是普通 `Dialog`（`McpModals.tsx:241`，maxWidth 560），点遮罩可关。
+    // React 是普通 `Dialog`（`McpModals.tsx:237-241`，maxWidth 560 /
+    // maxHeight 80vh / gap 12），点遮罩可关，右上角自带 ✕。
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: _c.closeEdit,
       child: ModalCard(
         title: _c.editTarget == null ? t.t('mcp.add') : t.t('mcp.edit'),
+        titleStyle: _mcpDialogTitleStyle,
+        onClose: _c.closeEdit,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            // 标签独立成行，不塞在 hint 里（`Mcp/primitives.tsx` 的 McpForm）：
-            // hint 一旦填了内容就没了，回头看不出这格是什么字段。
-            FieldLabel(t.t('mcp.field.name')),
-            KeptTextField(
-              key: const Key('mcp-name'),
-              value: f.name,
-              hint: t.t('mcp.field.name'),
-              onChanged: (v) => f.name = v,
-            ),
-            const SizedBox(height: AidogSpace.ssm),
-            Wrap(
-              spacing: AidogSpace.sxs,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                FieldLabel(t.t('mcp.field.transport')),
-                // React 是 `Select` 下拉（`McpModals.tsx:262-273`）。
-                MiniSelect(
-                  key: const ValueKey('mcp-transport'),
-                  value: f.transport,
-                  options: const ['stdio', 'http', 'sse'],
-                  onChanged: (v) => setState(() => f.transport = v!),
+            // 字段区自己滚（`McpModals.tsx:249` 的 `overflow: auto`）；
+            // 原先不限高，stdio + 一堆 env 行就把页脚顶出视野。
+            ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+              ),
+              child: SingleChildScrollView(
+                // React 这块右侧留了 4 给滚动条（`McpModals.tsx:249`）。
+                padding: const EdgeInsetsDirectional.only(end: 4),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 标签独立成行，不塞在 hint 里：hint 一旦填了内容就没了，
+                    // 回头看不出这格是什么字段。标签 12 secondary、
+                    // 标签↔输入 4、字段之间 10（`McpModals.tsx:249-250`）。
+                    FieldLabel(t.t('mcp.field.name'), fontSize: 12),
+                    const SizedBox(height: 4),
+                    KeptTextField(
+                      key: const Key('mcp-name'),
+                      value: f.name,
+                      hint: t.t('mcp.field.name'),
+                      onChanged: (v) => f.name = v,
+                    ),
+                    const SizedBox(height: 10),
+                    FieldLabel(t.t('mcp.field.transport'), fontSize: 12),
+                    const SizedBox(height: 4),
+                    // React 是**整宽** `Select` 下拉、13（`McpModals.tsx:259-271`），
+                    // 原先跟标签挤在一个 Wrap 里。
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: MiniSelect(
+                        key: const ValueKey('mcp-transport'),
+                        value: f.transport,
+                        fontSize: 13,
+                        options: const ['stdio', 'http', 'sse'],
+                        onChanged: (v) => setState(() => f.transport = v!),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    // stdio 用 command + args；http / sse 用 url + headers。
+                    if (f.transport == 'stdio') ...[
+                      FieldLabel(t.t('mcp.field.command'), fontSize: 12),
+                      const SizedBox(height: 4),
+                      KeptTextField(
+                        key: const Key('mcp-command'),
+                        value: f.command,
+                        hint: t.t('mcp.field.command'),
+                        onChanged: (v) => f.command = v,
+                      ),
+                      const SizedBox(height: 10),
+                      FieldLabel(t.t('mcp.field.args'), fontSize: 12),
+                      const SizedBox(height: 4),
+                      // `<Textarea minHeight 64>` + 等宽（`McpModals.tsx:285-289`）。
+                      SizedBox(
+                        height: 64,
+                        child: KeptTextField(
+                          key: const Key('mcp-args'),
+                          value: f.argsText,
+                          maxLines: null,
+                          monospace: true,
+                          hint: t.t('mcp.field.args'),
+                          onChanged: (v) => f.argsText = v,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _kvEditor(t, t.t('mcp.field.env'), f.envRows),
+                    ] else ...[
+                      FieldLabel(t.t('mcp.field.url'), fontSize: 12),
+                      const SizedBox(height: 4),
+                      KeptTextField(
+                        key: const Key('mcp-url'),
+                        value: f.url,
+                        hint: t.t('mcp.field.url'),
+                        onChanged: (v) => f.url = v,
+                      ),
+                      const SizedBox(height: 10),
+                      _kvEditor(t, t.t('mcp.field.headers'), f.headersRows),
+                    ],
+                  ],
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: AidogSpace.ssm),
-            // stdio 用 command + args；http / sse 用 url + headers。
-            if (f.transport == 'stdio') ...[
-              FieldLabel(t.t('mcp.field.command')),
-              KeptTextField(
-                key: const Key('mcp-command'),
-                value: f.command,
-                hint: t.t('mcp.field.command'),
-                onChanged: (v) => f.command = v,
-              ),
-              const SizedBox(height: AidogSpace.sxs),
-              FieldLabel(t.t('mcp.field.args')),
-              KeptTextField(
-                key: const Key('mcp-args'),
-                value: f.argsText,
-                maxLines: 3,
-                hint: t.t('mcp.field.args'),
-                onChanged: (v) => f.argsText = v,
-              ),
-              const SizedBox(height: AidogSpace.ssm),
-              _kvEditor(t, t.t('mcp.field.env'), f.envRows),
-            ] else ...[
-              FieldLabel(t.t('mcp.field.url')),
-              KeptTextField(
-                key: const Key('mcp-url'),
-                value: f.url,
-                hint: t.t('mcp.field.url'),
-                onChanged: (v) => f.url = v,
-              ),
-              const SizedBox(height: AidogSpace.ssm),
-              _kvEditor(t, t.t('mcp.field.headers'), f.headersRows),
-            ],
-            const SizedBox(height: AidogSpace.ssm),
+            // 页脚 gap 8 + marginTop 4（`McpModals.tsx:315`）。
+            const SizedBox(height: 16),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                SmallButton(label: t.t('action.cancel'), onTap: _c.closeEdit),
-                const SizedBox(width: AidogSpace.ssm),
+                SmallButton(
+                  label: t.t('action.cancel'),
+                  fontSize: 14,
+                  padding: (16, 8),
+                  onTap: _c.closeEdit,
+                ),
+                const SizedBox(width: 8),
                 SmallButton(
                   filled: true,
+                  fontSize: 14,
+                  padding: (16, 8),
                   label: _c.busyKey != null
                       ? t.t('mcp.saving')
                       : t.t('action.save'),
@@ -592,6 +708,9 @@ class _McpRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: AidogType.body.copyWith(
                         fontSize: 14,
+                        // React 这处是内联 14 w600、字距 normal
+                        //（`Mcp/primitives.tsx:52`），不带 body 档的 -0.16。
+                        letterSpacing: 0,
                         color: theme.c.fg,
                         fontWeight: FontWeight.w600,
                       ),
@@ -606,7 +725,11 @@ class _McpRow extends StatelessWidget {
                     server.summary,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AidogType.caption.copyWith(color: theme.c.fg3),
+                    // 摘要行 12（`Mcp/primitives.tsx:58`）。
+                    style: AidogType.caption.copyWith(
+                      fontSize: 12,
+                      color: theme.c.fg3,
+                    ),
                   ),
                 ),
                 // 行内 env chips（`Mcp/primitives.tsx:67-86`）：k=v 等宽小字胶囊，
@@ -644,8 +767,13 @@ class _McpRow extends StatelessWidget {
               ],
             ),
           ),
+          // 主区与操作区之间 10（卡内 gap，`Mcp/primitives.tsx:46`）。
+          const SizedBox(width: 10),
           Wrap(
-            spacing: AidogSpace.sxs,
+            // 行尾操作组 gap 6（`Mcp/primitives.tsx:90`）。
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               // codex 只支持 stdio。不支持的组合直接禁用并把原因写进 tooltip
               //（`Mcp/primitives.tsx:95-114`）——原先恒可点，点下去才弹错误。
@@ -720,9 +848,18 @@ class _RowIconButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(AidogRadius.sm),
-        child: SizedBox(
+        child: Container(
           width: 30,
           height: 30,
+          alignment: Alignment.center,
+          // React 这三颗是 `<Button variant="outline" size="icon">`：有描边、
+          // 有底（`Mcp/primitives.tsx:131-137,148-155,164-171`）。
+          // 原先是裸图标，跟旁边有边框的 agent 按钮不是一套。
+          decoration: BoxDecoration(
+            color: theme.c.surface,
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
           child: Icon(
             icon,
             size: 15,
@@ -731,6 +868,154 @@ class _RowIconButton extends StatelessWidget {
                 : danger
                 ? theme.c.bad
                 : theme.c.fg2,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// MCP 列表空态：**1px 虚线**框 + r12 + 32 内衬 + 14 tertiary
+///（`McpView.tsx:89-100`）。[CenteredNote] 那张是实线卡 + 阴影，不是这一款。
+class _McpEmptyNote extends StatelessWidget {
+  const _McpEmptyNote({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return CustomPaint(
+      painter: DashedBorder(color: theme.c.line, radius: AidogRadius.md),
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Center(
+          child: Text(
+            text,
+            style: AidogType.label.copyWith(
+              fontSize: 14,
+              color: theme.c.fg3,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 扫描列表的一行（`McpModals.tsx:98-146`）：整行是个 `<label>`，点哪都能勾 ——
+/// `8px 10px` 内衬、r8、1px 中性边，已导入的换 bg-elevated 底并压暗。
+class _ScanItemRow extends StatelessWidget {
+  const _ScanItemRow({
+    required this.item,
+    required this.checked,
+    required this.onTap,
+  });
+
+  final McpScanItem item;
+  final bool checked;
+
+  /// null = 已导入 / 正在导入，勾不动。
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final done = item.alreadyImported;
+    return Opacity(
+      opacity: done ? 0.5 : 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(AidogRadius.sm),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            color: done ? theme.c.surface2 : Colors.transparent,
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(AidogRadius.sm),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Checkbox(
+                value: checked,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                activeColor: theme.c.accent,
+                onChanged: onTap == null ? null : (_) => onTap!(),
+              ),
+              // 行内 gap 10（`McpModals.tsx:103`）。
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 第一行：名字 + 传输 + 来源 agent 徽标 + 已导入
+                    //（`McpModals.tsx:119-141`），行内 gap 6。
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          item.name,
+                          // 继承容器的 13 + w600（`McpModals.tsx:110,120`）。
+                          style: AidogType.label.copyWith(
+                            fontSize: 13,
+                            color: theme.c.fg,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        _TransportBadge(transport: item.transport),
+                        // 来源 agent chip：r4 / 1px 5px / bg-elevated 平底 /
+                        // 无描边 / 字 tertiary（`McpModals.tsx:122-135`）。
+                        for (final a in item.foundInAgents)
+                          MiniBadge(
+                            text: t.t('mcp.agent.$a'),
+                            color: theme.c.fg3,
+                            background: theme.c.surface2,
+                            borderColor: Colors.transparent,
+                            padX: 5,
+                            radius: 4,
+                          ),
+                        if (done)
+                          Text(
+                            t.t('mcp.alreadyImported'),
+                            // 10 success（`McpModals.tsx:137`）。
+                            style: AidogType.micro.copyWith(
+                              fontSize: 10,
+                              letterSpacing: 0,
+                              color: theme.c.ok,
+                            ),
+                          ),
+                      ],
+                    ),
+                    // 第二行：跑的是什么（stdio 显命令 + 首参，http / sse 显 url）。
+                    // 勾之前得看得出这条 MCP 是什么。11 tertiary + 上距 2
+                    //（`McpModals.tsx:142`）。
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        mcpSummaryOf(
+                          transport: item.transport,
+                          command: item.command,
+                          args: item.args,
+                          url: item.url,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AidogType.micro.copyWith(
+                          letterSpacing: 0,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

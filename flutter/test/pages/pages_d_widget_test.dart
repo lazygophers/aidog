@@ -417,7 +417,8 @@ void main() {
 
       // 键值行占位：key 一格写 KEY，value 一格写 ***（`Mcp/primitives.tsx:226-245`，
       // React 的 value 占位就是 ***，不是 VALUE）。先加一行才看得见。
-      await tester.tap(find.text(c.t('mcp.addRow')).first);
+      // 按钮文案带 `+ ` 前缀（`Mcp/primitives.tsx:255` 的 `+ {t("mcp.addRow")}`）。
+      await tester.tap(find.text('+ ${c.t('mcp.addRow')}').first);
       await settle(tester);
       expect(
         tester.widget<KeptTextField>(find.byKey(const ValueKey('kv-k-0'))).hint,

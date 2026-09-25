@@ -1204,14 +1204,24 @@ class UnsavedChangesCard extends StatelessWidget {
     return AidogModal(
       onBarrierTap: busy ? null : onCancel,
       child: ModalCard(
+        // `DialogContent` 自带 ✕（保存中不给关，与遮罩同口径）。
+        onClose: busy ? null : onCancel,
+        // `padding: "22px 24px"`、标题 F.title 20 w600
+        //（`UnsavedChangesModal.tsx:31-35`）。
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+        ),
         title: t.t('settings.unsavedTitle'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
+              // 正文 F.body = 15、行高 1.6（`UnsavedChangesModal.tsx:36`）。
               t.t('settings.unsavedBody'),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              style: AidogType.body.copyWith(height: 1.6, color: theme.c.fg2),
             ),
             const SizedBox(height: AidogSpace.ssm),
             Row(
@@ -1420,7 +1430,19 @@ class SettingsPageBody extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     mainAxisSize: MainAxisSize.min,
     children: [
-      PageHead(title: title, subtitle: subtitle, trailing: trailing),
+      // 设置页页头不是 `.section-title`：React 各设置页写的是
+      // `fontSize: F.title`(20) + w600（`CodexSettings.tsx:165`、
+      // `PiSettings.tsx` 同构）。
+      PageHead(
+        title: title,
+        subtitle: subtitle,
+        trailing: trailing,
+        titleStyle: AidogType.display.copyWith(
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0,
+        ),
+      ),
       // 区块逐个错峰淡入（React 各设置页给每张卡传 `staggerMs`，
       // 如 `CodingToolsSettings.tsx:376,384,394,408,420`；步长取
       // `CodexSettings.tsx:240` / `PiSettings.tsx:242` 的 idx * 60）。

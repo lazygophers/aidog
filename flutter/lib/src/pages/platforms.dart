@@ -208,14 +208,17 @@ class _PlatformsPageState extends State<PlatformsPage> {
       mainAxisSize: MainAxisSize.min,
       children: [
         PageHead(
+          // 页容器 gap 20（`PlatformListView.tsx:101`）。
+          bottom: 20,
           title: t.t('page.platforms'),
           // `PlatformListView.tsx:106-108`：有平台时「启用数 / 总数 active」，
           // 一个平台都没有时整句换成空态文案。
           subtitle: _c.platforms.isEmpty
               ? t.t('platform.empty')
               : '${_c.enabledCount} / ${_c.platforms.length} active',
+          // 页头右侧按钮间距 8（`PlatformListView.tsx:110`）。
           trailing: Wrap(
-            spacing: AidogSpace.ssm,
+            spacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               SizedBox(
@@ -224,11 +227,14 @@ class _PlatformsPageState extends State<PlatformsPage> {
                   decoration: InputDecoration(
                     isDense: true,
                     hintText: t.t('platform.searchPlaceholder'),
+                    // 搜索框 13（`PlatformListView.tsx:116`）。
                     hintStyle: AidogType.label.copyWith(
+                      fontSize: 13,
                       color: AidogTheme.of(context).c.fg3,
                     ),
                   ),
                   style: AidogType.label.copyWith(
+                    fontSize: 13,
                     color: AidogTheme.of(context).c.fg,
                   ),
                   onChanged: _c.setSearchQuery,
@@ -239,8 +245,12 @@ class _PlatformsPageState extends State<PlatformsPage> {
               if (widget.showGroups)
                 SmallButton(
                   label: '+ ${t.t('group.add')}',
-                  // `PlatformListView.tsx:118` 没写 variant = 默认实心。
+                  // `PlatformListView.tsx:118` 没写 variant / size = shadcn
+                  // `<Button>` 默认档：h-9(36) px-4(16) py-2(8) text-sm(14)
+                  //（`src/components/ui/button.tsx:10,27`）。
                   filled: true,
+                  fontSize: 14,
+                  padding: (16, 8),
                   onTap: _openCreateGroup,
                 ),
               // 缺口清单「平台页缺口」#2：页头「+ 添加平台」。
@@ -248,6 +258,8 @@ class _PlatformsPageState extends State<PlatformsPage> {
                 label: '+ ${t.t('platform.add')}',
                 // `PlatformListView.tsx:121` 同上。
                 filled: true,
+                fontSize: 14,
+                padding: (16, 8),
                 onTap: () => _form.openCreatePlatform(),
               ),
               // 破坏性动作排在两颗「添加」之后，并且弱化成 ghost
@@ -255,6 +267,8 @@ class _PlatformsPageState extends State<PlatformsPage> {
               SmallButton(
                 label: t.t('platform.purgeDisabled'),
                 ghost: true,
+                fontSize: 14,
+                padding: (16, 8),
                 onTap: _c.askPurgeDisabled,
               ),
             ],
@@ -299,13 +313,22 @@ class _PlatformsPageState extends State<PlatformsPage> {
           ),
           const SizedBox(height: AidogSpace.s_2xl),
         ],
-        // 未分组区没有标题，只有上面那条分隔线（`PlatformListView.tsx:140`）。
+        // 未分组区没有标题，只有上面那条分隔线（`PlatformListView.tsx:140`：
+        // `height:1; background:var(--border); margin:0 0 10px`，常驻）。
+        Container(height: 1, color: AidogTheme.of(context).c.line),
+        const SizedBox(height: 10),
         if (_c.loading)
           CenteredNote(text: t.t('status.loading'))
         // 空态看的是**全部**平台（`PlatformListView.tsx:147`）：平台都归好组之后
         // 这里不该常驻一句「暂无平台」，那时列表只是空着。
         else if (_c.platforms.isEmpty)
-          CenteredNote(text: t.t('platform.empty'))
+          // 空态是一张 `.glass-surface` 卡：padding 40、居中、13 tertiary
+          //（`PlatformListView.tsx:148-150`）。
+          CenteredNote(
+            text: t.t('platform.empty'),
+            padding: 40,
+            fontSize: 13,
+          )
         else
           // 拖拽排序（`usePlatformsState.ts:251::reorder`）：手柄在卡片最左侧，
           // 松手按新顺序把整串 id 发给后端。列表自身不滚动（外层已有滚动容器）。
@@ -328,7 +351,8 @@ class _PlatformsPageState extends State<PlatformsPage> {
               final dragging = _dragIdx != null;
               return Padding(
                 key: ValueKey(p.id),
-                padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+                // 平台卡之间 gap 8（`PlatformListView.tsx:146`）。
+                padding: const EdgeInsets.only(bottom: 8),
                 // 缺口 #8：按住卡片空白区拖到上方任一分组卡即加入该分组。
                 // 排序手柄自带 ReorderableDragStartListener（更靠内层，手势竞技场里
                 // 先注册先胜出），所以从手柄起手的拖拽仍然是排序不是入组。
@@ -387,14 +411,18 @@ class _PlatformsPageState extends State<PlatformsPage> {
                         children: [
                           Text(
                             t.t('platform.purgeDisabledListTitle'),
+                            // 标题 11 w600 tertiary（`PlatformListView.tsx:284`）。
                             style: AidogType.micro.copyWith(
+                              letterSpacing: 0,
+                              fontWeight: FontWeight.w600,
                               color: AidogTheme.of(context).c.fg3,
                             ),
                           ),
                           const SizedBox(height: AidogSpace.sxs),
                           for (final cand in _c.purgeCandidates!)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: 3),
+                              // 行间 gap 6（`PlatformListView.tsx:291`）。
+                              padding: const EdgeInsets.only(bottom: 6),
                               child: Row(
                                 children: [
                                   Expanded(
@@ -402,7 +430,9 @@ class _PlatformsPageState extends State<PlatformsPage> {
                                       cand.name,
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
+                                      // 行文字 12（`PlatformListView.tsx:293`）。
                                       style: AidogType.caption.copyWith(
+                                        fontSize: 12,
                                         color: AidogTheme.of(context).c.fg2,
                                       ),
                                     ),
@@ -483,10 +513,8 @@ class _DragLabel extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AidogSpace.smd,
-            vertical: AidogSpace.sxs,
-          ),
+          // `padding: 6px 12px`、字 12 w600（`PlatformListView.tsx:241-244`）。
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
             // React 用的是实心 accent + primary-foreground；token 表里没有
             // 「accent 上的前景色」，所以换成同一套里的 wash + 描边 + accentText。
@@ -497,6 +525,8 @@ class _DragLabel extends StatelessWidget {
           child: Text(
             name,
             style: AidogType.micro.copyWith(
+              fontSize: 12,
+              letterSpacing: 0,
               color: theme.c.accentText,
               fontWeight: FontWeight.w600,
             ),
@@ -531,10 +561,8 @@ class _GhostCard extends StatelessWidget {
           radius: AidogRadius.md,
         ),
         child: Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AidogSpace.smd,
-            vertical: AidogSpace.ssm,
-          ),
+          // `padding: 10px 16px`（`PlatformListView.tsx:160`）。
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           child: Row(
             children: [
               Container(
@@ -542,19 +570,22 @@ class _GhostCard extends StatelessWidget {
                 height: 10,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              const SizedBox(width: AidogSpace.smd),
+              // 圆点↔名字 gap 14（`PlatformListView.tsx:161`）。
+              const SizedBox(width: 14),
               Flexible(
                 child: Text(
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
+                  // 13 w600（`PlatformListView.tsx:169`）。
                   style: AidogType.label.copyWith(
+                    fontSize: 13,
                     color: theme.c.fg,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              const SizedBox(width: AidogSpace.ssm),
+              const SizedBox(width: 14),
               MiniBadge(text: label, color: theme.c.fg3),
             ],
           ),

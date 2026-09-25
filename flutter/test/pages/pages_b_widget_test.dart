@@ -183,10 +183,10 @@ Widget stubPlatformCard(
 );
 
 /// 组内拖放的插入线：2px 高、accent 底色的小条（私有 widget，按形状认）。
+// 插入线现在是「零高盒 + 2px 溢出绘制」（React 的 `margin: "-3px 0"` 等价物，
+// `GroupListItem.tsx:420`），外层不再是带 decoration 的 Container。
 bool _isDropLine(Widget w) =>
-    w is Container &&
-    w.constraints?.maxHeight == 2 &&
-    w.decoration is BoxDecoration;
+    w is OverflowBox && w.maxHeight == 2 && w.minHeight == 2;
 
 void main() {
   group('LogsPage', () {
@@ -365,7 +365,9 @@ void main() {
       await tester.tap(find.text('am').first);
       await settle(tester);
       expect(k.lastCallTo('proxy_log_get')!.args!['id'], 'a1');
-      expect(find.text(c.t('logs.detail')), findsOneWidget);
+      // React 的 `DialogTitle` 挂 `sr-only`（`Logs/DetailPanel.tsx:58`）：
+      // 详情面板没有可见标题行，所以按面板内的请求 ID 行断言它开了。
+      expect(find.byKey(const ValueKey('detail-copy-id')), findsOneWidget);
     });
 
     testWidgets('复制整条 → 走注入的剪贴板函数，内容是 markdown', (tester) async {
@@ -1140,12 +1142,13 @@ void main() {
       await tester.tap(find.byTooltip(c.t('action.edit')).first);
       await settle(tester);
 
-      // 页头四颗 + 密钥行一颗。
+      // 页头四颗 + 密钥行一颗。密钥行那颗是**纯图标**（React 的
+      // `CopyButton size={14}`，`GroupEditPanel.tsx:89`），点完图标换成对勾。
       expect(find.byTooltip(c.t('group.copyApiKeyTitle')), findsNWidgets(2));
-      await tester.tap(find.text(c.t('action.copy')));
+      await tester.tap(find.byTooltip(c.t('group.copyApiKeyTitle')).last);
       await tester.pump();
       expect(copied.single, 'gk10');
-      expect(find.text(c.t('logs.copied')), findsOneWidget, reason: '点完要有反馈');
+      expect(find.byIcon(Icons.check), findsOneWidget, reason: '点完要有反馈');
     });
 
     testWidgets('编辑页：最大重试封顶 10，填 99 也只记 10', (tester) async {
@@ -1488,7 +1491,9 @@ void main() {
       await tester.tap(find.byTooltip(c.t('action.edit')).first);
       await settle(tester);
 
-      expect(find.text(c.t('group.groupKeyLocked')), findsOneWidget);
+      // 锁定说明收进悬浮提示（React 只挂在 `title=`，`GroupEditPanel.tsx:88`），
+      // 不再常驻一行。
+      expect(find.byTooltip(c.t('group.groupKeyLocked')), findsOneWidget);
       expect(find.text(c.t('group.envVarsHint')), findsOneWidget);
       expect(find.text(c.t('group.piApiHint')), findsOneWidget);
       expect(find.text(c.t('group.timeoutDefault')), findsOneWidget);
@@ -1799,7 +1804,12 @@ void main() {
       await settle(tester);
       expect(find.text(c.t('group.unmatched')), findsOneWidget);
       expect(find.text(c.t('group.unmatchedHint')), findsOneWidget);
-      expect(find.text('7'), findsOneWidget);
+      // 虚拟桶那张卡画的是三枚 StatChip（tokens / cost / ok），
+      // **不是**一行裸请求数（`GroupListView.tsx:462-468`）。
+      expect(find.text('tokens'), findsOneWidget);
+      expect(find.text('cost'), findsOneWidget);
+      expect(find.text('ok'), findsOneWidget);
+      expect(find.text('100%'), findsOneWidget, reason: '7 次全成功 → 成功率 100%');
     });
 
     testWidgets('跨组拖：P1 落到 G11 的行上 → group_platform_move 带真实源组', (tester) async {
@@ -1920,7 +1930,8 @@ void main() {
       await settle(tester);
       await tester.tap(find.text(c.t('group.addPlatform')));
       await settle(tester);
-      await tester.tap(find.text('P1').last);
+      // 选项文案带协议 label：`名称 (协议)`（PlatformPicker.tsx:121）。
+      await tester.tap(find.textContaining('P1').last);
       await settle(tester);
       await tester.tap(find.text(c.t('action.create')));
       await settle(tester);
@@ -2016,16 +2027,18 @@ void main() {
       await settle(tester);
       expect(copied.last, 'gk10');
 
-      await tester.tap(find.text('Claude'));
+      // Claude / Codex / pi 三颗**只有 14px 图标**，无文案
+      //（传了 icon 即不渲染 label，`CopyButton.tsx:124`），所以按 tooltip 找。
+      await tester.tap(find.byTooltip(c.t('group.copyCommand')));
       await settle(tester);
       expect(copied.last, contains('settings.gk10.json'));
 
-      await tester.tap(find.text('Codex'));
+      await tester.tap(find.byTooltip(c.t('group.copyCodexCommand')));
       await settle(tester);
       expect(copied.last, startsWith("export MY_VAR='v';"));
       expect(copied.last, contains("AIDOG_KEY='gk10'"));
 
-      await tester.tap(find.text('pi'));
+      await tester.tap(find.byTooltip(c.t('group.copyPiCommand')));
       await settle(tester);
       expect(copied.last, endsWith("pi --provider 'aidog-gk10'"));
     });
@@ -2181,7 +2194,8 @@ void main() {
       // 更矮），固定距离会漂——落点太近没过换位线、太远越过末张卡又弹回原位
       //（2026-09-23 已两次因卡片变矮改数字：160→120→这次）。两张卡的中点
       // 永远在换位区内，怎么变版式都不漂。
-      final from = tester.getCenter(find.byIcon(Icons.drag_handle).first);
+      // 分组卡把手现在是点阵图标（React 是 6 点 svg，GroupListItem.tsx:194）。
+      final from = tester.getCenter(find.byIcon(Icons.drag_indicator).first);
       final mid =
           (tester.getRect(find.byKey(const ValueKey(10))).center.dy +
               tester.getRect(find.byKey(const ValueKey(11))).center.dy) /
@@ -2495,7 +2509,8 @@ void main() {
       // 下拉里只剩没被选中的 P2；选它 → 排在 P1 后面。
       await tester.tap(find.text(c.t('group.addPlatform')));
       await settle(tester);
-      await tester.tap(find.text('P2').last);
+      // 选项文案带协议 label：`名称 (协议)`（PlatformPicker.tsx:121）。
+      await tester.tap(find.textContaining('P2').last);
       await settle(tester);
       await tester.tap(find.text(c.t('action.save')));
       await settle(tester);
@@ -2581,17 +2596,26 @@ void main() {
       await settle(tester);
 
       // 选择器里第一行（P1）往下拖过第二行：分几步挪，让 reorderable 跟得上。
-      final handles = find.byIcon(Icons.drag_handle);
+      // 选择器把手也换成点阵（与分组卡 / 组内行统一）。
+      final handles = find.byIcon(Icons.drag_indicator);
       final start = tester.getCenter(handles.first);
+      // 小步挪到第二行下方：行卡加了内衬（8/12 + 底距 4）之后每行约 70 高，
+      // 按实测把手间距算总距离，不写死像素。
       final target = tester.getCenter(handles.at(1));
       final gesture = await tester.startGesture(start);
       await tester.pump(const Duration(milliseconds: 200));
-      final step = (target.dy - start.dy) / 4 + 4;
-      for (var i = 0; i < 5; i++) {
+      final step = (target.dy - start.dy + 8) / 10;
+      for (var i = 0; i < 10; i++) {
         await gesture.moveBy(Offset(0, step));
-        await tester.pump(const Duration(milliseconds: 60));
+        await tester.pump(const Duration(milliseconds: 40));
       }
       await gesture.up();
+      // 🔴 松手之后**必须把落位动画推完**再断言：`onReorderItem` 是在
+      // `SliverReorderableList` 的 drop 动画结束时才回调的，`settle` 只推零时长帧，
+      // 接不住它 —— 不推够时间的话保存发出去的还是拖拽前的顺序。
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 200));
+      }
       await settle(tester);
 
       await tester.tap(find.text(c.t('action.save')));

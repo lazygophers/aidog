@@ -235,6 +235,10 @@ class _SmartPasteModalState extends State<SmartPasteModal> {
       maxWidth: 540,
       onBarrierTap: widget.onClose,
       child: ModalCard(
+        // `DialogContent` 自带 ✕（`ui/dialog.tsx:47-50`）。
+        onClose: widget.onClose,
+        // `padding: "22px 24px"`（`SmartPasteModal.tsx:187`）。
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
         title: t.t('platform.paste.title'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,

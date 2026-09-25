@@ -8,6 +8,7 @@
 library;
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -163,9 +164,15 @@ class SmallButton extends StatelessWidget {
               label,
               // 覆盖字号时同时清字距：React 按钮 ls 0，micro 档的 0.66em
               // 字距只在默认档（micro 标签风）有意义。
+              // 胶囊档 React 是 12 w500 ls0（`formSections.tsx:1092`）。
               style:
                   (fontSize == null
-                          ? AidogType.micro
+                          ? (pill
+                                ? AidogType.micro.copyWith(
+                                    fontSize: 12,
+                                    letterSpacing: 0,
+                                  )
+                                : AidogType.micro)
                           : AidogType.micro.copyWith(
                               fontSize: fontSize,
                               letterSpacing: 0,
@@ -289,7 +296,13 @@ class AidogModal extends StatefulWidget {
     this.onBarrierTap,
     this.onEscape,
     this.maxWidth = 420,
+    this.barrierOpacity = 0.8,
+    this.maxWidthFactor,
   });
+
+  /// 宽度还要再按屏宽收一次：React 多处写 `min(560, 90vw)`（`McpModals.tsx:55`
+  /// 等）。给 0.9 就是 90vw。null = 不收。
+  final double? maxWidthFactor;
 
   final Widget child;
 
@@ -305,6 +318,10 @@ class AidogModal extends StatefulWidget {
 
   /// 面板最大宽度，对齐 React 各弹窗的 `maxWidth`。
   final double maxWidth;
+
+  /// 遮罩不透明度。缺省 0.8 = shadcn overlay 的 `bg-black/80`；手写遮罩的弹窗
+  /// 另有值（分组一键测试是 `rgba(0,0,0,0.45)`，`GroupTestPanel.tsx:55`）。
+  final double barrierOpacity;
 
   @override
   State<AidogModal> createState() => _AidogModalState();
@@ -338,17 +355,29 @@ class _AidogModalState extends State<AidogModal> {
                   // 深浅两套都一样。取深色模式的底色 token 当「黑」，不写字面色值。
                   child: ColoredBox(
                     // React shadcn overlay 是写死的 bg-black/80（两侧同值）。
-                    color: AidogColors.dark.bg.withValues(alpha: 0.8),
+                    color: AidogColors.dark.bg.withValues(
+                      alpha: widget.barrierOpacity,
+                    ),
                   ),
                 ),
               ),
               Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: widget.maxWidth),
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.all(AidogSpace.s_2xl),
-                    child: widget.child,
-                  ),
+                child: Builder(
+                  builder: (context) {
+                    final screen = MediaQuery.sizeOf(context);
+                    final wf = widget.maxWidthFactor;
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: wf == null
+                            ? widget.maxWidth
+                            : math.min(widget.maxWidth, screen.width * wf),
+                      ),
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(AidogSpace.s_2xl),
+                        child: widget.child,
+                      ),
+                    );
+                  },
                 ),
               ),
             ],
@@ -412,8 +441,25 @@ class ModalCard extends StatelessWidget {
     this.radius,
     this.titleStyle,
     this.onClose,
+    this.semanticLabel,
+    this.description,
+    this.descriptionStyle,
+    this.titleTrailing,
     required this.child,
   });
+
+  /// 标题行最右端的控件。MCP 扫描弹窗的「全选/反选」就排在标题行里
+  /// （`McpModals.tsx:55-82`：标题 + 计数 + `flex:1` 撑开 + 按钮，同一行）。
+  final Widget? titleTrailing;
+
+  /// 标题下面那行说明（React 的 `DialogDescription`）。与 [meta] 的区别：
+  /// [meta] 走 `TileMeta`（micro 11 **全大写**，画在标题行右端），
+  /// 这里是**正体**、另起一行 —— React 的 description 一律是正体。
+  final String? description;
+
+  /// [description] 的字阶覆盖。缺省 `caption` 12（`DialogDescription` 是 14，
+  /// 各调用点普遍显式压到 12-13）。
+  final TextStyle? descriptionStyle;
 
   final String? title;
 
@@ -431,6 +477,10 @@ class ModalCard extends StatelessWidget {
 
   /// 传了就在右上角出关闭 ✕（React `Dialog` 自带，`AlertDialog` 没有）。
   final VoidCallback? onClose;
+
+  /// 不画可见标题、只给读屏的名字。React 那边写成 `sr-only` 的
+  /// `DialogTitle`（日志详情弹窗，`Logs/DetailPanel.tsx:58-59`）对应本参数。
+  final String? semanticLabel;
 
   final Widget child;
 
@@ -452,10 +502,10 @@ class ModalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius ?? AidogRadius.xl),
         boxShadow: t.shadowTile,
       ),
-      child: close == null ? _body(t) : Stack(
+      child: close == null ? _wrap(_body(t)) : Stack(
         clipBehavior: Clip.none,
         children: [
-          _body(t),
+          _wrap(_body(t)),
           // `DialogContent` 自带的关闭 ✕：距卡片边各 16、图标 16、透明度 .7
           // （`src/components/ui/dialog.tsx:47-50`，`right-4 top-4` + `h-4 w-4`）。
           // Stack 的原点已经在 padding 里面，所以要把那一圈减回去。
@@ -477,15 +527,20 @@ class ModalCard extends StatelessWidget {
     );
   }
 
+  Widget _wrap(Widget child) => semanticLabel == null
+      ? child
+      : Semantics(label: semanticLabel, container: true, child: child);
+
   Widget _body(AidogTheme t) {
     return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (title != null || meta != null)
+          if (title != null || meta != null || titleTrailing != null)
             // React DialogContent 是 gap-4 的 grid，标题与正文隔 16。
+            // 带 description 时这 16 挪到 description 下面。
             Padding(
-              padding: const EdgeInsets.only(bottom: 16),
+              padding: EdgeInsets.only(bottom: description == null ? 16 : 2),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
@@ -507,7 +562,22 @@ class ModalCard extends StatelessWidget {
                     // Flexible + 单行省略，别让整行溢出。
                     Flexible(child: TileMeta(meta!)),
                   ],
+                  if (titleTrailing != null) ...[
+                    const SizedBox(width: AidogSpace.ssm),
+                    titleTrailing!,
+                  ],
                 ],
+              ),
+            ),
+          if (description != null)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Text(
+                description!,
+                style:
+                    (descriptionStyle ??
+                            AidogType.caption.copyWith(fontSize: 12))
+                        .copyWith(color: t.c.fg2),
               ),
             ),
           child,
@@ -533,7 +603,30 @@ class ConfirmCard extends StatelessWidget {
     this.extra,
     this.dismissOnBarrier = false,
     this.dangerConfirm = false,
+    this.maxWidth = 420,
+    this.titleStyle,
+    this.bodyStyle,
+    this.buttonFontSize,
+    this.buttonPadding,
   });
+
+  /// 面板最大宽度。缺省 420 = React `AlertDialogContent` 的常见值；
+  /// 清理失效那处显式写了 440（`GroupListItem.tsx:560`）。
+  final double maxWidth;
+
+  /// 标题字阶覆盖（透传 [ModalCard.titleStyle]）。缺省 17 w600；
+  /// Skills 三个卸载确认是 15 w700（`SkillModals.tsx:57,86,112`），
+  /// MCP 删除确认是 16 w700（`McpModals.tsx:212`）。
+  final TextStyle? titleStyle;
+
+  /// 正文字阶覆盖。缺省 micro 11 fg2；React 两页都是 13
+  /// （`SkillModals.tsx:60` 的 13 secondary lh1.6、`McpModals.tsx:215` 的 13 tertiary lh1.5）。
+  final TextStyle? bodyStyle;
+
+  /// 页脚按钮字号 / 内衬覆盖，对齐 shadcn `<Button>` 默认档（14 / 16-8）。
+  /// 缺省 null = [SmallButton] 自身缺省（micro 11 / 10-5）。
+  final double? buttonFontSize;
+  final (double, double)? buttonPadding;
 
   /// 确认键出**实心红**。缺省 false = 实心 accent。
   ///
@@ -567,17 +660,24 @@ class ConfirmCard extends StatelessWidget {
     final t = AidogI18n.of(context);
     final theme = AidogTheme.of(context);
     return AidogModal(
+      maxWidth: maxWidth,
       onBarrierTap: dismissOnBarrier && !busy ? onCancel : null,
       // 点遮罩关不关由 dismissOnBarrier 说了算，但 Esc 一律关（除非正忙）——
       // 与 Radix `AlertDialog` 同口径：外部点击不关，Escape 关。
       onEscape: busy ? null : onCancel,
       child: ModalCard(
         title: title,
+        titleStyle: titleStyle,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(body, style: AidogType.micro.copyWith(color: theme.c.fg2)),
+            Text(
+              body,
+              style:
+                  bodyStyle ??
+                  AidogType.micro.copyWith(color: theme.c.fg2),
+            ),
             if (extra != null) ...[
               const SizedBox(height: AidogSpace.ssm),
               extra!,
@@ -588,6 +688,8 @@ class ConfirmCard extends StatelessWidget {
               children: [
                 SmallButton(
                   label: t.t('action.cancel'),
+                  fontSize: buttonFontSize,
+                  padding: buttonPadding,
                   onTap: busy ? null : onCancel,
                 ),
                 const SizedBox(width: AidogSpace.ssm),
@@ -595,6 +697,8 @@ class ConfirmCard extends StatelessWidget {
                   label: confirmLabel,
                   filled: true,
                   danger: dangerConfirm,
+                  fontSize: buttonFontSize,
+                  padding: buttonPadding,
                   onTap: busy ? null : onConfirm,
                 ),
               ],
@@ -606,20 +710,129 @@ class ConfirmCard extends StatelessWidget {
   }
 }
 
-/// 空态 / 加载态的一句话。**不画零值假图**（与 I04 的 `ChartEmpty` 同一条规矩）。
-class CenteredNote extends StatelessWidget {
-  const CenteredNote({super.key, required this.text});
+/// 页内**常驻**提示条 —— 不是浮动 toast。
+///
+/// React 这几处是排在页面流里的 `.glass-surface` 方条（占布局位置、不自动消失）：
+/// Skills 环境缺失条（`SkillsView.tsx:140-152`，左侧 3px accent 竖条）、
+/// SkillInstall 的消息 / 错误条（`SkillInstallView.tsx:270-291`）、
+/// MCP 消息条（`McpView.tsx:68-81`，语义色描边 + bg-elevated 底）、
+/// Skill 详情读取失败条（`SkillDetailView.tsx:231-238`）。
+/// 原先这四处都走 [ToastBar]（浮在窗口顶部的彩色胶囊），语义与位置都不对。
+class InlineNote extends StatelessWidget {
+  const InlineNote({
+    super.key,
+    required this.text,
+    required this.padding,
+    this.fontSize = 13,
+    this.color,
+    this.background,
+    this.borderColor,
+    this.leadingBar,
+    this.radius = AidogRadius.sm,
+  });
 
   final String text;
 
+  /// 条内留白（React 各处 8/12、10/14、12/16 不一，由调用方给）。
+  final EdgeInsetsGeometry padding;
+  final double fontSize;
+
+  /// 文字色。null = fg2（React 的 `--text-secondary`）。
+  final Color? color;
+
+  /// 底色。null = surface（`.glass-surface`）。
+  final Color? background;
+
+  /// 描边色。null = line。
+  final Color? borderColor;
+
+  /// 行首 3px 竖条（React 的 `borderInlineStart: 3px solid var(--accent)`）。
+  final Color? leadingBar;
+
+  final double radius;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = AidogTheme.of(context).c;
+    final bar = leadingBar;
+    final label = Text(
+      text,
+      style: AidogType.micro.copyWith(
+        fontSize: fontSize,
+        letterSpacing: 0,
+        color: color ?? c.fg2,
+      ),
+    );
+    return Container(
+      // 竖条不能写成 `BorderDirectional(start: 3px)` —— 非匀边 + borderRadius
+      // 在 Flutter 里直接抛断言，只能画成条内的第一个孩子。
+      clipBehavior: bar == null ? Clip.none : Clip.antiAlias,
+      padding: bar == null ? padding : null,
+      decoration: BoxDecoration(
+        color: background ?? c.surface,
+        border: Border.all(color: borderColor ?? c.line),
+        borderRadius: BorderRadius.circular(radius),
+      ),
+      child: bar == null
+          ? label
+          : IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Container(width: 3, color: bar),
+                  Expanded(child: Padding(padding: padding, child: label)),
+                ],
+              ),
+            ),
+    );
+  }
+}
+
+/// 空态 / 加载态的一句话。**不画零值假图**（与 I04 的 `ChartEmpty` 同一条规矩）。
+class CenteredNote extends StatelessWidget {
+  const CenteredNote({
+    super.key,
+    required this.text,
+    this.padding,
+    this.fontSize,
+    this.vertical,
+  });
+
+  final String text;
+
+  /// 卡内四向留白。null = 缺省（Tile 自带 padding + 上下 24）。
+  /// 平台页空态 React 写的是 40（`PlatformListView.tsx:148`）。
+  final double? padding;
+
+  /// 竖向留白（水平仍是 Tile 的 16）。React 这两页写的是 `32px 16px`
+  /// （`SkillInstallView.tsx:297`）与 `24px 16px`（`SkillsView.tsx:316`）。
+  final double? vertical;
+
+  /// 文字字号。null = 缺省 micro 11。平台页空态是 13。
+  final double? fontSize;
+
   @override
   Widget build(BuildContext context) => Tile(
+    padding: padding != null
+        ? EdgeInsets.all(padding!)
+        : vertical != null
+        ? EdgeInsets.symmetric(
+            horizontal: AidogLayout.tilePadX,
+            vertical: vertical!,
+          )
+        : null,
     child: Padding(
-      padding: const EdgeInsets.symmetric(vertical: AidogSpace.s_2xl),
+      padding: padding == null && vertical == null
+          ? const EdgeInsets.symmetric(vertical: AidogSpace.s_2xl)
+          : EdgeInsets.zero,
       child: Center(
         child: Text(
           text,
-          style: AidogType.micro.copyWith(color: AidogTheme.of(context).c.fg3),
+          style: AidogType.micro.copyWith(
+            fontSize: fontSize,
+            letterSpacing: fontSize == null ? null : 0,
+            color: AidogTheme.of(context).c.fg3,
+          ),
         ),
       ),
     ),
@@ -710,10 +923,15 @@ class ToastBar extends StatefulWidget {
     required this.text,
     required this.ok,
     this.onDismiss,
+    this.top = 24,
   });
 
   final String text;
   final bool ok;
+
+  /// 距窗口顶部。缺省 24 = 平台页 toast（`PlatformListView.tsx:261`）；
+  /// Skills 页那条 React 写的是 16（`SkillsView.tsx:160`）。
+  final double top;
 
   /// 手动关掉这条提示。给了才画 ✕（React 技能页的提示条带这颗按钮，
   /// `SkillsView.tsx:181-196`）：长文案在屏幕上挡着内容时得有办法关掉，
@@ -742,7 +960,7 @@ class _ToastBarState extends State<ToastBar> {
       final theme = AidogTheme.of(context);
       final bg = widget.ok ? theme.c.ok : theme.c.bad;
       return Positioned(
-        top: 24,
+        top: widget.top,
         left: 0,
         right: 0,
         child: IgnorePointer(
@@ -832,7 +1050,16 @@ class KeptTextField extends StatefulWidget {
     this.textAlign = TextAlign.start,
     this.maxLines = 1,
     this.fontSize,
+    this.minLines,
+    this.monospace = false,
   });
+
+  /// 最少显示几行（多行输入框的最小高度）。React 的 `<Textarea minHeight>`。
+  final int? minLines;
+
+  /// 等宽字体。React 的 args / value 输入框写了 `fontFamily: var(--font-mono)`
+  /// （`McpModals.tsx:286`、`Mcp/primitives.tsx:235`）。
+  final bool monospace;
 
   final String value;
   final ValueChanged<String>? onChanged;
@@ -882,21 +1109,21 @@ class _KeptTextFieldState extends State<KeptTextField> {
   @override
   Widget build(BuildContext context) {
     final theme = AidogTheme.of(context);
+    // 等宽档接 numSm（SF Mono + 回落链），与 React 的 `var(--font-mono)` 同位。
+    final base = widget.monospace ? AidogType.numSm : AidogType.label;
     return TextField(
       controller: _ctrl,
       focusNode: _focus,
       keyboardType: widget.keyboardType,
       textAlign: widget.textAlign,
       maxLines: widget.maxLines,
+      minLines: widget.minLines,
       // React `.input` 是 13px（globals.css:441）；label 13.5 在 ±0.5 容差内。
-      style: AidogType.label.copyWith(
-        fontSize: widget.fontSize,
-        color: theme.c.fg,
-      ),
+      style: base.copyWith(fontSize: widget.fontSize, color: theme.c.fg),
       decoration: InputDecoration(
         isDense: true,
         hintText: widget.hint,
-        hintStyle: AidogType.label.copyWith(
+        hintStyle: base.copyWith(
           fontSize: widget.fontSize,
           color: theme.c.fg3,
         ),

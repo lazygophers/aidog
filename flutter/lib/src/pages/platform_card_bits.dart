@@ -20,6 +20,7 @@ import '../utils/contrast.dart';
 import '../../utils/formatters.dart';
 import '../../utils/hex_color.dart';
 import '../shell/theme.dart';
+import '../shell/tiles.dart' show counterStyle;
 import 'models.dart';
 import 'platform_paste_logic.dart';
 import 'time_window.dart';
@@ -931,11 +932,8 @@ class BalanceBar extends StatelessWidget {
           children: [
             Text(
               '$currency${formatCost(rem)}',
-              style: AidogType.numSm.copyWith(
-                fontSize: 12,
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+              // `.counter`：sans + tabular（`BalanceBar.tsx:60`）。
+              style: counterStyle(fontSize: 12, color: color),
             ),
             if (hasTotal && showTotal)
               Flexible(
@@ -960,7 +958,8 @@ class BalanceBar extends StatelessWidget {
             ratio: pct / 100,
             color: color,
             height: 6,
-            track: theme.c.surface2,
+            // 槽色是 --bg-glass（= surface），不是 surface2（`BalanceBar.tsx:69`）。
+            track: theme.c.surface,
           ),
         ],
         if (label != null)
@@ -1020,12 +1019,17 @@ class StatChip extends StatelessWidget {
     required this.value,
     required this.label,
     this.level,
+    this.labelGap = AidogSpace.sxs,
   });
 
   final IconData icon;
   final String value;
   final String label;
   final ColorLevel? level;
+
+  /// 值与标签之间的间距。React chip 内部一律 `gap: 6`（`StatChip.tsx:43-44`），
+  /// 分组页按该真值传 6；其余调用点保持原值，等各自的对齐批次再收。
+  final double labelGap;
 
   @override
   Widget build(BuildContext context) {
@@ -1034,8 +1038,14 @@ class StatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       decoration: BoxDecoration(
-        // React 中性档底是 --bg-glass（= card = surface），不是 surface2。
-        color: theme.c.surface,
+        // React 中性档底是 --bg-glass（= card = surface），不是 surface2；
+        // 带 level 的档走 `--color-*-bg`（浅色 0.10 / 深色 0.12，
+        // `globals.css:77-81` 与 `:830-834`）—— `StatChip.tsx:46` 的 levelBg。
+        color: level == null || level == ColorLevel.neutral
+            ? theme.c.surface
+            : levelColor(level!, theme.c).withValues(
+                alpha: theme.mode == AidogMode.dark ? 0.12 : 0.10,
+              ),
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.pill),
       ),
@@ -1046,13 +1056,10 @@ class StatChip extends StatelessWidget {
           const SizedBox(width: AidogSpace.ssm),
           Text(
             value,
-            style: AidogType.numSm.copyWith(
-              fontSize: 12,
-              color: valueColor,
-              fontWeight: FontWeight.w700,
-            ),
+            // React 挂 `.counter`：sans + tabular，不换等宽族（`StatChip.tsx:60`）。
+            style: counterStyle(fontSize: 12, color: valueColor),
           ),
-          const SizedBox(width: AidogSpace.sxs),
+          SizedBox(width: labelGap),
           Text(
             label,
             style: AidogType.micro.copyWith(
@@ -1079,7 +1086,36 @@ class MiniBadge extends StatelessWidget {
     this.accentColor,
     this.solid = false,
     this.borderColor,
+    this.fontSize = 10,
+    this.padY = 1,
+    this.padX = AidogSpace.ssm,
+    this.radius = 5,
+    this.background,
+    this.letterSpacing = 0,
   });
+
+  /// 圆角。缺省 5；Skills / MCP 两页的中性 chip React 写的是 4 或 3
+  /// （`SkillDetailView.tsx:138,152`、`McpModals.tsx:128`）。
+  final double radius;
+
+  /// 底色覆盖。null = 语义底（实心取 [color]，否则 [color] 12%）。
+  /// React 这两页的 chip 多是 `--bg-floating` / `--bg-elevated` / `--accent-subtle`
+  /// 这类**平底**，不是语义色兑水（`SkillsView.tsx:440`、`McpModals.tsx:129`）。
+  final Color? background;
+
+  /// 字距。缺省 0；sourceType 徽标 React 写的是 0.3（`SkillsView.tsx:442`）。
+  final double letterSpacing;
+
+  /// 字号。缺省 10；模型 badge React 写的是 11（`PlatformCard.tsx:710`）。
+  final double fontSize;
+
+  /// 左右内边距。缺省 6；shadcn `Badge` 在分组卡上被逐处覆盖成
+  /// `padding: "0 5px"`（auto 徽标，`GroupListItem.tsx:211`）或 `"0 6px"`
+  /// （路由模式徽标，`GroupListItem.tsx:215`）。
+  final double padX;
+
+  /// 上下内边距。缺省 1；模型 badge React 是 2。
+  final double padY;
 
   final String text;
   final Color color;
@@ -1122,12 +1158,9 @@ class MiniBadge extends StatelessWidget {
     // 描边，徽标与背景糊成一片 —— 这时借一条 lineStrong 把边缘划出来。
     final needsEdge = solid && contrastRatio(fill, theme0.c.surface) < 1.5;
     final body = Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AidogSpace.ssm,
-        vertical: 1,
-      ),
+      padding: EdgeInsets.symmetric(horizontal: padX, vertical: padY),
       decoration: BoxDecoration(
-        color: solid ? color : color.withValues(alpha: 0.12),
+        color: background ?? (solid ? color : color.withValues(alpha: 0.12)),
         border: Border.all(
           color: borderColor ??
               (needsEdge
@@ -1136,14 +1169,15 @@ class MiniBadge extends StatelessWidget {
                   ? color
                   : color.withValues(alpha: 0.30)),
         ),
-        borderRadius: BorderRadius.circular(5),
+        borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
             Icon(icon, size: 10, color: solid ? onSolid : color),
-            const SizedBox(width: 3),
+            // icon↔文字 gap 4（`PlatformCard.tsx:292,312,342`）。
+            const SizedBox(width: 4),
           ],
           Flexible(
             child: Text.rich(
@@ -1164,8 +1198,8 @@ class MiniBadge extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: AidogType.micro.copyWith(
-                fontSize: 10,
-                letterSpacing: 0,
+                fontSize: fontSize,
+                letterSpacing: letterSpacing,
                 color: solid ? onSolid : color,
                 fontWeight: FontWeight.w600,
               ),
@@ -1394,7 +1428,8 @@ class QuotaTierBlock extends StatelessWidget {
         vertical: expanded ? AidogSpace.ssm : 3,
       ),
       decoration: BoxDecoration(
-        color: theme.c.surface2,
+        // 底是 --bg-glass（= surface），不是 surface2（`PlatformCard.tsx:527,637`）。
+        color: theme.c.surface,
         border: Border.all(color: theme.c.line),
         borderRadius: BorderRadius.circular(AidogRadius.sm),
       ),
@@ -1408,7 +1443,8 @@ class QuotaTierBlock extends StatelessWidget {
             height: expanded ? 5 : 4,
             track: theme.c.bg,
           ),
-          const SizedBox(height: 2),
+          // 展开态块内竖向 gap 4（`PlatformCard.tsx:634`）；紧凑态仍是 2。
+          SizedBox(height: expanded ? 4 : 2),
           // 主数 11 w700 + 后缀独立 8px w600 半透明（PlatformCard.tsx:537-539；
           // 展开态主数 13 = numMd）。原先后缀与主数同号同阶。
           Text.rich(
@@ -1416,17 +1452,21 @@ class QuotaTierBlock extends StatelessWidget {
               text: value,
               children: [
                 TextSpan(
-                  text: remainSuffix,
+                  // 展开态后缀 9px + 左间距 2（`PlatformCard.tsx:648`）；
+                  // 紧凑态仍是 8px 无间距（`:539`）。
+                  text: expanded ? ' $remainSuffix' : remainSuffix,
                   style: TextStyle(
-                    fontSize: 8,
+                    fontSize: expanded ? 9 : 8,
                     fontWeight: FontWeight.w600,
                     color: theme.c.fg.withValues(alpha: 0.65),
                   ),
                 ),
               ],
             ),
+            // 展开态主数 13 w700 行高 1.1（`PlatformCard.tsx:647`）。
             style: (expanded ? AidogType.numMd : AidogType.numSm).copyWith(
-              fontSize: expanded ? null : 11,
+              fontSize: expanded ? 13 : 11,
+              height: 1.1,
               color: theme.c.fg,
               fontWeight: FontWeight.w700,
             ),
@@ -1442,7 +1482,8 @@ class QuotaTierBlock extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AidogType.micro.copyWith(
-                    fontSize: expanded ? null : 9,
+                    fontSize: expanded ? 11 : 9,
+                    letterSpacing: 0,
                     color: theme.c.fg3,
                   ),
                 ),
@@ -1455,13 +1496,19 @@ class QuotaTierBlock extends StatelessWidget {
                 ],
                 Flexible(
                   child: Text(
-                    expanded && resetClock.isNotEmpty
-                        ? '$countdown · $resetClock'
-                        : countdown,
+                    // 紧凑态档名与倒计时之间有一个 ` ·`（`PlatformCard.tsx:541`）；
+                    // 展开态是图标分隔，倒计时后再接重置时刻。
+                    expanded
+                        ? (resetClock.isNotEmpty
+                              ? '$countdown · $resetClock'
+                              : countdown)
+                        : ' ·$countdown',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
+                    // 展开态 11 / 紧凑态 9，字距 0（`PlatformCard.tsx:650`）。
                     style: AidogType.micro.copyWith(
-                      fontSize: expanded ? null : 9,
+                      fontSize: expanded ? 11 : 9,
+                      letterSpacing: 0,
                       color: theme.c.fg3,
                     ),
                   ),

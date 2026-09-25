@@ -23,7 +23,15 @@ class PageHead extends StatelessWidget {
     this.subtitle,
     this.trailing,
     this.bottom,
+    this.titleStyle,
+    this.subtitleStyle,
+    this.inlineSubtitle = false,
+    this.leading,
   });
+
+  /// 标题**左边**的控件。Skills 安装子视图的「← 返回」排在标题左侧
+  /// （`SkillInstallView.tsx:225-238`），不是右侧操作区。
+  final Widget? leading;
 
   final String title;
   final String? subtitle;
@@ -32,27 +40,76 @@ class PageHead extends StatelessWidget {
   /// 与后续内容的间距。缺省 2xl；React 页面全页 gap（如 Stats 的 16）经这里传入。
   final double? bottom;
 
+  /// 标题字阶覆盖。缺省 `.section-title` = 18 w700 ls-0.02em
+  /// （`src/styles/globals.css:702-707`，Home / Stats / Logs / About /
+  /// 平台页 / RequestLog 六页共用这一个类）；React 各页头另有不同档：
+  /// Skills 18 w700（`SkillsView.tsx:58`）、MCP 22 w700（`McpView.tsx:21`）、
+  /// 安装子视图 18 w700（`SkillInstallView.tsx:236`）。
+  final TextStyle? titleStyle;
+
+  /// 副标题字阶覆盖。缺省 `.section-desc` = 13 secondary
+  /// （`globals.css:709-712`）。
+  final TextStyle? subtitleStyle;
+
+  /// 副标题排在标题**同一行右侧**（MCP 的计数、Skills 的「刷新中…」都是这形态，
+  /// `McpView.tsx:24-26`、`SkillsView.tsx:59-63`）。缺省 false = 排在标题下一行。
+  final bool inlineSubtitle;
+
   @override
   Widget build(BuildContext context) {
     final t = AidogTheme.of(context);
+    final sub = subtitle;
+    final subText = sub == null
+        ? null
+        : Text(
+            sub,
+            style:
+                subtitleStyle ??
+                AidogType.caption.copyWith(fontSize: 13, color: t.c.fg2),
+          );
+    final titleText = Text(
+      title,
+      style:
+          (titleStyle ??
+                  AidogType.display.copyWith(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: -0.36,
+                  ))
+              .copyWith(color: t.c.fg),
+    );
     return Padding(
       padding: EdgeInsets.only(bottom: bottom ?? AidogSpace.s_2xl),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          if (leading != null) ...[
+            leading!,
+            // React 这一组的 gap 是 10（`SkillInstallView.tsx:225`）。
+            const SizedBox(width: AidogSpace.smd),
+          ],
           Expanded(
-            child: Column(
+            child: inlineSubtitle
+                ? Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Flexible(child: titleText),
+                      if (subText != null) ...[
+                        const SizedBox(width: AidogSpace.smd),
+                        Flexible(child: subText),
+                      ],
+                    ],
+                  )
+                : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(title, style: AidogType.display.copyWith(color: t.c.fg)),
-                if (subtitle != null)
+                titleText,
+                if (subText != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 3),
-                    child: Text(
-                      subtitle!,
-                      style: AidogType.caption.copyWith(color: t.c.fg2),
-                    ),
+                    child: subText,
                   ),
               ],
             ),

@@ -359,14 +359,27 @@ class _NotificationsSettingsPageState extends State<NotificationsSettingsPage> {
     return AidogModal(
       onBarrierTap: _c.uvInstalling ? null : _c.cancelUvPrompt,
       child: ModalCard(
+        // `DialogContent` 自带 ✕（安装中不给关，与遮罩同口径）。
+        onClose: _c.uvInstalling ? null : _c.cancelUvPrompt,
+        // `padding: "20px 24px"`、标题 15 w600（`NotificationSettings.tsx:483-488`）。
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+        titleStyle: AidogType.title.copyWith(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+        ),
         title: t.t('notif.uvModalTitle'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
+              // 说明 13、行高 1.5（`NotificationSettings.tsx:489`）。
               t.t('notif.uvModalDesc'),
-              style: AidogType.micro.copyWith(color: theme.c.fg2),
+              style: AidogType.caption.copyWith(
+                fontSize: 13,
+                height: 1.5,
+                color: theme.c.fg2,
+              ),
             ),
             const SizedBox(height: AidogSpace.ssm),
             Row(

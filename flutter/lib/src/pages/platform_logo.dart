@@ -208,6 +208,63 @@ Widget? platformLogo({
   return null;
 }
 
+/// 协议 logo 方块（`src/domains/platforms/ProtocolLogo.tsx`）。
+///
+/// 有图就画图（圆角 sm、contain）；没有图就画品牌色圆圈 + 首字母，
+/// 底是品牌色 0x25、字是品牌色、字号 `round(size * 0.45)` w700（`:50-69`）。
+class ProtocolLogo extends StatelessWidget {
+  const ProtocolLogo({
+    super.key,
+    required this.protocol,
+    this.size = 24,
+    this.color,
+  });
+
+  final String protocol;
+  final double size;
+
+  /// 品牌色（registry `platform.json` 的 `color`）。null = 回落 accent。
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final logo = platformLogo(
+      protocol: protocol,
+      cachedDataUrl: null,
+      baseUrl: '',
+    );
+    if (logo != null) {
+      return SizedBox(
+        width: size,
+        height: size,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AidogRadius.sm),
+          child: logo,
+        ),
+      );
+    }
+    final brand = color ?? AidogTheme.of(context).c.accentText;
+    return Container(
+      width: size,
+      height: size,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: brand.withValues(alpha: 0x25 / 255),
+        shape: BoxShape.circle,
+      ),
+      child: Text(
+        protocol.isEmpty ? '?' : protocol.substring(0, 1).toUpperCase(),
+        style: TextStyle(
+          fontFamily: AidogType.familySans,
+          fontSize: (size * 0.45).roundToDouble(),
+          fontWeight: FontWeight.w700,
+          color: brand,
+        ),
+      ),
+    );
+  }
+}
+
 /// agent（claude / codex）的图标按钮。30×30，图标 18×18，
 /// 对齐 `src/pages/Mcp/primitives.tsx:95-125`：
 /// 不支持 → 整体 0.3 且点不动；支持但没启用 → 0.55 + 去色；启用 → 全色。
@@ -223,11 +280,39 @@ class AgentIconButton extends StatelessWidget {
     required this.tooltip,
     required this.onTap,
     this.label,
+    this.iconSize = 18,
+    this.gap = 6,
+    this.fontSize,
+    this.padding,
+    this.lockHeight = true,
+    this.offOpacity = 0.55,
   });
 
   /// 图标右边的状态字（技能行是「启用 / 未启用」，`SkillsView.tsx:529-531`）。
   /// 不给就是纯图标按钮（MCP 行，`Mcp/primitives.tsx:95-125`）。
   final String? label;
+
+  /// 图标边长。缺省 18（MCP 行 / 技能行）；两处 agent 多选按钮 React 是 16
+  /// （`SkillModals.tsx:323`、`SkillInstallView.tsx:469`）。
+  final double iconSize;
+
+  /// 图标↔文字间距。缺省 6；安装页那排是 4（`SkillInstallView.tsx:458`）。
+  final double gap;
+
+  /// 文字字号。null = micro 11 缺省；导入弹窗那排是 12（`SkillModals.tsx:320`）。
+  final double? fontSize;
+
+  /// 内衬（水平, 竖直）。null = 缺省水平 8（配合 [lockHeight] 的 30 高）。
+  /// React 三处各不同：行内 5/10、导入 4/10、安装页 4/8。
+  final (double, double)? padding;
+
+  /// 锁死 30 高。带 [label] 时 React 写的是 `height: auto`，由内衬撑开
+  /// （`SkillsView.tsx:517`），此时传 false。
+  final bool lockHeight;
+
+  /// 支持但未启用时的透明度。缺省 0.55 = MCP 行（`Mcp/primitives.tsx:114`）；
+  /// 技能行 0.45（`SkillsView.tsx:519`）、安装页 0.4、导入弹窗 0.5。
+  final double offOpacity;
 
   /// `claude` / `claude-code` / `codex` 都认。
   final String agent;
@@ -249,8 +334,9 @@ class AgentIconButton extends StatelessWidget {
     final theme = AidogTheme.of(context);
     final asset = assetFor(agent);
     final icon = asset == null
-        ? Icon(Icons.smart_toy_outlined, size: 18, color: theme.c.fg2)
-        : SvgPicture.asset(asset, width: 18, height: 18);
+        ? Icon(Icons.smart_toy_outlined, size: iconSize, color: theme.c.fg2)
+        : SvgPicture.asset(asset, width: iconSize, height: iconSize);
+    final pad = padding;
     return Tooltip(
       message: tooltip,
       child: Opacity(
@@ -258,15 +344,17 @@ class AgentIconButton extends StatelessWidget {
             ? 0.3
             : enabled
             ? 1
-            : 0.55,
+            : offOpacity,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AidogRadius.sm),
           child: Container(
             width: label == null ? 30 : null,
-            height: 30,
+            height: lockHeight ? 30 : null,
             alignment: Alignment.center,
-            padding: label == null
+            padding: pad != null
+                ? EdgeInsets.symmetric(horizontal: pad.$1, vertical: pad.$2)
+                : label == null
                 ? null
                 : const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
@@ -293,12 +381,15 @@ class AgentIconButton extends StatelessWidget {
                     child: icon,
                   ),
                 if (label case final l?) ...[
-                  const SizedBox(width: 6),
+                  SizedBox(width: gap),
                   Text(
                     l,
                     style: AidogType.micro.copyWith(
                       color: enabled ? theme.c.accentText : theme.c.fg2,
                       fontWeight: FontWeight.w600,
+                      fontSize: fontSize,
+                      // React 按钮文字 ls 0；micro 档的 0.66 只在标签风里有意义。
+                      letterSpacing: fontSize == null ? null : 0,
                     ),
                   ),
                 ],

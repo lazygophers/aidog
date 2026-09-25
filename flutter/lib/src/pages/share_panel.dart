@@ -110,6 +110,10 @@ class _SharePanelState extends State<SharePanel> {
       maxWidth: 560,
       onBarrierTap: widget.onClose,
       child: ModalCard(
+        // `DialogContent` 自带 ✕（`ui/dialog.tsx:47-50`）。
+        onClose: widget.onClose,
+        // `padding: "22px 24px"`（`ShareModal.tsx:152`）。
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
         title: '${t.t(widget.titleKey)} · ${widget.title}',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
