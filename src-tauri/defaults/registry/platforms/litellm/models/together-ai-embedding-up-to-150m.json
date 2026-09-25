@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790313539,
   "model_id": "together-ai-embedding-up-to-150m",
   "canonical_model": "together-ai-embedding-up-to-150m",
+  "family": "embedding",
   "capabilities": [
     "embedding"
   ],

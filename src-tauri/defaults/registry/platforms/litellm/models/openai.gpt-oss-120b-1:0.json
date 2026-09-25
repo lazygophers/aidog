@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790313539,
   "model_id": "openai.gpt-oss-120b-1:0",
   "canonical_model": "openai.gpt-oss-120b-1:0",
+  "version": "1",
   "family": "gpt",
   "capabilities": [
     "text",

@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790313539,
   "model_id": "writer.palmyra-vision-7b",
   "canonical_model": "writer.palmyra-vision-7b",
+  "version": "7",
   "family": "palmyra",
   "capabilities": [
     "text",
