@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790322188,
   "model_id": "qwen/qwen3-8b-fp8",
   "canonical_model": "qwen3-8b-fp8",
+  "version": "3",
+  "family": "qwen",
   "capabilities": [
     "text"
   ],

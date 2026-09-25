@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790322188,
   "model_id": "THUDM/GLM-4-9B-0414",
   "canonical_model": "GLM-4-9B-0414",
+  "version": "4",
+  "family": "glm",
   "capabilities": [
     "text"
   ],

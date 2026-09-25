@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790322188,
   "model_id": "baidu/ernie-4.5-21B-a3b",
   "canonical_model": "ernie-4.5-21B-a3b",
+  "version": "4.5",
+  "family": "ernie",
   "capabilities": ["text", "tool_use"],
   "official": true,
   "price": {

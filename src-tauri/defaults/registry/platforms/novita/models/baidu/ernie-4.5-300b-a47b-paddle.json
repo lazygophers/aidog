@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788085396,
+  "last_updated": 1790322188,
   "model_id": "baidu/ernie-4.5-300b-a47b-paddle",
   "canonical_model": "ernie-4.5-300b-a47b-paddle",
+  "version": "4.5",
+  "family": "ernie",
   "capabilities": [
     "text"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790322188,
   "model_id": "Wan-AI/Wan2.2-I2V-A14B",
   "canonical_model": "Wan2.2-I2V-A14B",
+  "version": "2.2",
+  "family": "wan",
   "capabilities": [
     "image_to_video"
   ],
