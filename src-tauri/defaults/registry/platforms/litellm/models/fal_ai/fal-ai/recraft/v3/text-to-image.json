@@ -1,8 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790335307,
   "model_id": "fal_ai/fal-ai/recraft/v3/text-to-image",
-  "canonical_model": "text-to-image",
-  "family": "seedream",
+  "canonical_model": "recraftv3",
   "capabilities": [
     "text_to_image"
   ],
