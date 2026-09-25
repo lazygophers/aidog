@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790304201,
   "model_id": "llamagate/dolphin3-8b",
   "canonical_model": "dolphin3-8b",
-  "family": "dolphin3",
+  "family": "dolphin",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

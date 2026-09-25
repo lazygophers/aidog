@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "voyage/rerank-2-lite",
   "canonical_model": "rerank-2-lite",
+  "family": "rerank",
+  "version": "2",
   "capabilities": [
     "rerank"
   ],

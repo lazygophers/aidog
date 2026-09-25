@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "perplexity/codellama-70b-instruct",
   "canonical_model": "codellama-70b-instruct",
+  "family": "codellama",
   "capabilities": [
     "text"
   ],

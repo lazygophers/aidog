@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790304201,
   "model_id": "deepgram/base-general",
   "canonical_model": "base-general",
+  "family": "base",
   "capabilities": [
     "audio"
   ],

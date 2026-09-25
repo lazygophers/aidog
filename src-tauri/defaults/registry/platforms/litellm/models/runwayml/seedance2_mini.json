@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790304201,
   "model_id": "runwayml/seedance2_mini",
   "canonical_model": "seedance2_mini",
+  "family": "seedance",
+  "version": "2.0",
   "capabilities": [
     "text_to_video"
   ],

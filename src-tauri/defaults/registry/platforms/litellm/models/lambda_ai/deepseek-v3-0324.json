@@ -1,8 +1,9 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790304201,
   "model_id": "lambda_ai/deepseek-v3-0324",
   "canonical_model": "deepseek-v3-0324",
   "family": "deepseek",
+  "version": "3",
   "capabilities": [
     "text",
     "tool_use"

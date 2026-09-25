@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790304201,
   "model_id": "llamagate/gemma3-4b",
-  "canonical_model": "gemma-3-4b",
+  "canonical_model": "gemma3-4b",
+  "family": "gemma",
+  "version": "3",
   "capabilities": [
     "text",
     "vision",
