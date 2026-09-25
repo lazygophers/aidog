@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "bedrock/us-gov-west-1/amazon.titan-embed-text-v2:0",
+  "display_name": "Titan Text Embeddings V2",
   "canonical_model": "amazon.titan-embed-text-v2:0",
   "family": "titan",
   "version": "2",

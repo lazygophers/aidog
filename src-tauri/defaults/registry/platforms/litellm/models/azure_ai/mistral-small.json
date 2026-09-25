@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "azure_ai/mistral-small",
+  "display_name": "Mistral Small",
   "canonical_model": "mistral-small",
   "family": "mistral",
   "capabilities": [

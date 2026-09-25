@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-v3p1-terminus",
+  "display_name": "DeepSeek-V3.1-Terminus",
   "canonical_model": "deepseek-v3p1-terminus",
   "family": "deepseek",
   "version": "3.1",

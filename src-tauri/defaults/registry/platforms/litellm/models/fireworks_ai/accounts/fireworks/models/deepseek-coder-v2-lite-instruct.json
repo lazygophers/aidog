@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/deepseek-coder-v2-lite-instruct",
+  "display_name": "DeepSeek-Coder-V2-Lite-Instruct",
   "canonical_model": "deepseek-coder-v2-lite-instruct",
   "family": "deepseek",
   "version": "2",

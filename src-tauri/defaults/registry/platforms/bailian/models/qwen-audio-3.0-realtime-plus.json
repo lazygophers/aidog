@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-audio-3.0-realtime-plus",
+  "display_name": "Qwen-Audio-3.0-Realtime-Plus",
   "canonical_model": "qwen-audio-3.0-realtime-plus",
   "family": "qwen",
 

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790346352,
   "model_id": "novita/qwen/qwen3-4b-fp8",
+  "display_name": "Qwen3-4B-FP8",
   "canonical_model": "qwen3-4b-fp8",
   "capabilities": [
     "text",

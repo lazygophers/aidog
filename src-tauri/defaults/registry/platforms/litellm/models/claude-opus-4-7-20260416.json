@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790346352,
   "model_id": "claude-opus-4-7-20260416",
+  "display_name": "Claude Opus 4.7 (20260416)",
   "canonical_model": "claude-opus-4-7-20260416",
   "family": "claude",
   "version": "4.7",

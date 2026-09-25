@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790346352,
   "model_id": "novita/deepseek/deepseek-r1-turbo",
+  "display_name": "DeepSeek-R1-Turbo",
   "canonical_model": "deepseek-r1-turbo",
   "capabilities": [
     "text",

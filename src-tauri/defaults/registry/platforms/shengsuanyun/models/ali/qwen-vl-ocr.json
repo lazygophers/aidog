@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790346352,
   "model_id": "ali/qwen-vl-ocr",
+  "display_name": "Qwen-VL-OCR",
   "canonical_model": "qwen-vl-ocr",
   "family": "qwen",
   "capabilities": [

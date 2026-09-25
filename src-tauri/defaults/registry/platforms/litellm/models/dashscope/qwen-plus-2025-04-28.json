@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790346352,
   "model_id": "dashscope/qwen-plus-2025-04-28",
+  "display_name": "Qwen-Plus (2025-04-28)",
   "canonical_model": "qwen-plus-2025-04-28",
   "family": "qwen",
   "capabilities": [

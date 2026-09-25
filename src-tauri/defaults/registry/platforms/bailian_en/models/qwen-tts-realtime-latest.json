@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-tts-realtime-latest",
+  "display_name": "Qwen-TTS-Realtime",
   "canonical_model": "qwen-tts-realtime-latest",
   "family": "qwen",
   "capabilities": [

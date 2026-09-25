@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen2.5-omni-7b",
+  "display_name": "Qwen2.5-Omni-7B",
   "canonical_model": "qwen2.5-omni-7b",
   "family": "qwen",
 

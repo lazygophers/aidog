@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790346352,
   "model_id": "wan/wan2.2-t2i-flash",
+  "display_name": "Wan2.2-T2I-Flash",
   "canonical_model": "wan2.2-t2i-flash",
   "family": "wan",
   "version": "2.2",

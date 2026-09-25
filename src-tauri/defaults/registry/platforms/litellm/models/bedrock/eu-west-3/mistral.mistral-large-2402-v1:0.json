@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "bedrock/eu-west-3/mistral.mistral-large-2402-v1:0",
+  "display_name": "Mistral Large 1.0",
   "canonical_model": "mistral.mistral-large-2402-v1:0",
   "family": "mistral",
   "capabilities": [

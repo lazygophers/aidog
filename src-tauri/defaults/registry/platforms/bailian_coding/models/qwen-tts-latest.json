@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen-tts-latest",
+  "display_name": "Qwen-TTS",
   "canonical_model": "qwen-tts-latest",
   "family": "qwen",
   "capabilities": [

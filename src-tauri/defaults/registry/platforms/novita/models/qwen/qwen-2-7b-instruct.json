@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790346352,
   "model_id": "qwen/qwen-2-7b-instruct",
+  "display_name": "Qwen2-7B-Instruct",
   "canonical_model": "qwen-2-7b-instruct",
   "version": "2",
   "family": "qwen",

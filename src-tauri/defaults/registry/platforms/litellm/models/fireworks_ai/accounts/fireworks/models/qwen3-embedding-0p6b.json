@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-embedding-0p6b",
+  "display_name": "Qwen3-Embedding-0.6B",
   "canonical_model": "qwen3-embedding-0p6b",
   "family": "qwen",
   "version": "3",

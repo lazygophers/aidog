@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "mistral-embed-2312",
+  "display_name": "Mistral Embed",
   "canonical_model": "mistral-embed-2312",
   "capabilities": [
     "embedding"

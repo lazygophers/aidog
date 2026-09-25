@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "bedrock/us-gov-west-1/amazon.nova-2-multimodal-embeddings-v1:0",
+  "display_name": "Amazon Nova Multimodal Embeddings",
   "canonical_model": "amazon.nova-2-multimodal-embeddings-v1:0",
   "family": "nova",
   "version": "2",

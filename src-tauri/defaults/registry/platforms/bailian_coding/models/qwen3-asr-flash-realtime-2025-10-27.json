@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346351,
   "model_id": "qwen3-asr-flash-realtime-2025-10-27",
+  "display_name": "Qwen3-ASR-Flash-Realtime (2025-10-27)",
   "canonical_model": "qwen3-asr-flash-realtime-2025-10-27",
   "family": "qwen",
 

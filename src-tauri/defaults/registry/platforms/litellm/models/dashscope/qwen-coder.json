@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790346352,
   "model_id": "dashscope/qwen-coder",
+  "display_name": "Qwen-Coder",
   "canonical_model": "qwen-coder",
   "capabilities": [
     "text",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790346352,
   "model_id": "amazon.nova-canvas-v1:0",
+  "display_name": "Nova Canvas",
   "canonical_model": "amazon.nova-canvas-v1:0",
   "family": "nova",
   "version": "1",
