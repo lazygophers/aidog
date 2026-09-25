@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790307139,
   "model_id": "zai-org/glm-4.7-h",
   "canonical_model": "glm-4.7-h",
+  "family": "glm",
+  "version": "4.7",
   "capabilities": [
     "text"
   ],

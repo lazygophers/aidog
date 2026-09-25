@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067648,
+  "last_updated": 1790307139,
   "model_id": "dev/glm46",
   "canonical_model": "glm46",
+  "family": "glm",
+  "version": "4.6",
   "capabilities": [
     "text"
   ],

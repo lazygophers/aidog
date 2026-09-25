@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790307139,
   "model_id": "mistral/ministral-3b",
   "canonical_model": "ministral-3b",
+  "family": "ministral",
+  "version": "3",
   "capabilities": [
     "text"
   ],

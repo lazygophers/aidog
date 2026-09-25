@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790307139,
   "model_id": "deepseek/deepseek-ocr-2",
   "canonical_model": "deepseek-ocr-2",
+  "family": "deepseek",
   "capabilities": ["text", "vision"],
   "official": true,
   "price": {

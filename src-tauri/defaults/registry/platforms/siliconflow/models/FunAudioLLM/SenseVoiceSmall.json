@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790307139,
   "model_id": "FunAudioLLM/SenseVoiceSmall",
   "canonical_model": "SenseVoiceSmall",
+  "family": "sensevoice",
   "capabilities": [
     "audio"
   ],

@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067651,
+  "last_updated": 1790307139,
   "model_id": "amazon/titan-embed-v2",
   "canonical_model": "titan-embed-v2",
+  "family": "titan",
+  "version": "2",
   "capabilities": [
     "embedding"
   ],

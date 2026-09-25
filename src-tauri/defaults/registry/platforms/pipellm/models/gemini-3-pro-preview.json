@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788103292,
+  "last_updated": 1790307139,
   "model_id": "gemini-3-pro-preview",
   "canonical_model": "gemini-3-pro-preview",
+  "family": "gemini",
+  "version": "3",
   "capabilities": [
     "text"
   ],

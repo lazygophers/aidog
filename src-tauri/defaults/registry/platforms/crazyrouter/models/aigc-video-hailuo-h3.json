@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788086468,
+  "last_updated": 1790307139,
   "model_id": "aigc-video-hailuo-h3",
   "canonical_model": "aigc-video-hailuo-h3",
+  "family": "hailuo",
   "capabilities": [
     "text_to_video",
     "image_to_video"

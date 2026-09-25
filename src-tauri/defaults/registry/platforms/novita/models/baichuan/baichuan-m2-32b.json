@@ -1,7 +1,9 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790307139,
   "model_id": "baichuan/baichuan-m2-32b",
   "canonical_model": "baichuan-m2-32b",
+  "family": "baichuan",
+  "version": "2",
   "capabilities": [
     "text"
   ],

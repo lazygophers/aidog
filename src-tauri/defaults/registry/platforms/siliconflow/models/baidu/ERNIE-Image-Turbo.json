@@ -1,7 +1,8 @@
 {
-  "last_updated": 1788145821,
+  "last_updated": 1790307139,
   "model_id": "baidu/ERNIE-Image-Turbo",
   "canonical_model": "ERNIE-Image-Turbo",
+  "family": "ernie",
   "capabilities": [
     "text_to_image"
   ],

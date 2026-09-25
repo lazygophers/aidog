@@ -1,7 +1,9 @@
 {
-  "last_updated": 1788067649,
+  "last_updated": 1790307139,
   "model_id": "bytedance/doubao-seed-1.6:thinking",
   "canonical_model": "doubao-seed-1.6:thinking",
+  "family": "doubao-seed",
+  "version": "1.6",
   "capabilities": [
     "text",
     "vision"
