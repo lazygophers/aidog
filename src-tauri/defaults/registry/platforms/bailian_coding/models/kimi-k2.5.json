@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790318309,
   "model_id": "kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "family": "kimi",
@@ -14,5 +14,5 @@
   },
   "max_input_tokens": 229376,
   "max_output_tokens": 16384,
-  "context_window": 262144
+  "context_window": 229376
 }
