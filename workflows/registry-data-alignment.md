@@ -409,3 +409,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `32,768 max output tokens`；`platforms/openai/models/gpt-4.1.json` 原值 `33000` 修正为
   `32768`。DeepSeek R1 候选未修改：官方页面本轮无法直接给出 R1 精确 token 表，不能用记忆或
   兄弟模型推断。`deepseek-reasoner` 1M 窗口同样保留待核验。
+- 2026-09-26 r94 Anthropic thinking 表复核：官方 troubleshooting 表
+  https://platform.claude.com/docs/en/build-with-claude/thinking-troubleshooting 明确 Claude Fable 5
+  `Always on`，且 `enabled`/`disabled` 均返回 400；Anthropic 与 Gemini 两条镜像
+  `thinking_toggleable:true` 修正为 false。Claude 3 Haiku 是 pre-thinking 旧代，Anthropic 官方条目
+  补 `thinking_supported:false` / `thinking_toggleable:false`；DeepSeek Reasoner 未取到官方明确开关
+  语义，保持不改。
