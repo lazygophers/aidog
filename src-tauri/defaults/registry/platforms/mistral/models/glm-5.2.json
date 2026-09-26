@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790443216,
   "model_id": "glm-5.2",
   "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
@@ -12,7 +12,7 @@
   ],
   "official": false,
   "family": "glm",
-  "context_window": 1000000,
+  "context_window": 1048576,
   "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
   "thinking_supported": true,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790443216,
   "model_id": "gemini-2.5-computer-use-preview-10-2025",
   "display_name": "Gemini 2.5 Computer Use Preview (10-2025)",
   "canonical_model": "gemini-2.5-computer-use-preview-10-2025",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 128000,
   "max_output_tokens": 64000,
-  "context_window": 64000,
+  "context_window": 128000,
   "official": true,
   "price": {
     "input": 1.25e-06,

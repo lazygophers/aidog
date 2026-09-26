@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790443216,
   "model_id": "gemini-3.1-pro-preview-customtools",
   "display_name": "Gemini 3.1 Pro Preview Custom Tools",
   "canonical_model": "gemini-3.1-pro-preview-customtools",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 65536,
-  "context_window": 65536,
+  "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,

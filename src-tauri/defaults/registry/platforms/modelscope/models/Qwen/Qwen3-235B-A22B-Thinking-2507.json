@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790443216,
   "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507",
   "display_name": "Qwen3 235B A22B Thinking 2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",
@@ -17,5 +17,5 @@
     "input": 0.0,
     "output": 0.0
   },
-  "context_window": 131072
+  "context_window": 262144
 }

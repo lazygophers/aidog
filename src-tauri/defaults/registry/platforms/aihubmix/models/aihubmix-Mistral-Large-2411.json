@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790443216,
   "model_id": "aihubmix-Mistral-Large-2411",
   "canonical_model": "mistral-large-2411",
   "capabilities": ["text"],
@@ -8,7 +8,7 @@
   "version": "2.1",
   "capabilities": ["text"],
   "max_output_tokens": 8191,
-  "context_window": 8191,
+  "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,
   "thinking_supported": false,

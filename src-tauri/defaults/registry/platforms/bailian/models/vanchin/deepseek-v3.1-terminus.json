@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 163840,
-  "last_updated": 1790345088,
+  "last_updated": 1790443216,
   "model_id": "vanchin/deepseek-v3.1-terminus",
   "display_name": "DeepSeek V3.1 Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
@@ -16,5 +16,5 @@
     "input": 5.555555555555556e-07,
     "output": 1.6666666666666665e-06
   },
-  "context_window": 131072
+  "context_window": 163840
 }

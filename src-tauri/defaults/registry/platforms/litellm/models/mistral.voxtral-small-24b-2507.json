@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790443216,
   "model_id": "mistral.voxtral-small-24b-2507",
   "display_name": "Mistral: Voxtral Small 24B 2507",
   "canonical_model": "voxtral-small-24b-2507",
@@ -9,7 +9,7 @@
     "text"
   ],
   "max_input_tokens": 128000,
-  "context_window": 32000,
+  "context_window": 128000,
   "max_output_tokens": 8192,
   "official": false,
   "thinking_supported": false,

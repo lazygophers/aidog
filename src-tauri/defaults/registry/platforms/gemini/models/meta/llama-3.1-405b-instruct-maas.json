@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790443216,
   "model_id": "meta/llama-3.1-405b-instruct-maas",
   "canonical_model": "llama-3.1-405b-instruct-maas",
   "family": "llama",
@@ -9,7 +9,7 @@
   ],
   "max_input_tokens": 128000,
   "max_output_tokens": 2048,
-  "context_window": 2048,
+  "context_window": 128000,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

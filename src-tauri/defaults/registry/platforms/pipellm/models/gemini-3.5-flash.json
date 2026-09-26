@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790443216,
   "model_id": "gemini-3.5-flash",
   "display_name": "Gemini 3.5 Flash",
   "canonical_model": "gemini-3.5-flash",
@@ -12,7 +12,7 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 65535,
-  "context_window": 65535,
+  "context_window": 1048576,
   "official": false,
   "price": {
     "input": 0.0000015,
