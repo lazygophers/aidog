@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790400041,
   "model_id": "qwen-image-3.0-pro",
+  "display_name": "Qwen Image 3.0 Pro",
   "canonical_model": "qwen-image-3.0-pro",
   "family": "qwen",
 

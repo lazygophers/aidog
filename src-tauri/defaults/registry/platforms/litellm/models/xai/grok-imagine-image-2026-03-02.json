@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "xai/grok-imagine-image-2026-03-02",
+  "display_name": "Grok Imagine Image",
   "canonical_model": "grok-imagine-image",
   "family": "grok-imagine",
   "capabilities": [

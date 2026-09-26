@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790400041,
   "model_id": "o1-preview",
+  "display_name": "O1 Preview",
   "canonical_model": "o1-preview",
   "capabilities": [
     "text",

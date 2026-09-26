@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790400041,
   "model_id": "zai/glm-5-code",
+  "display_name": "GLM-5-Code",
   "canonical_model": "glm-5-code",
   "family": "glm",
   "version": "5",
