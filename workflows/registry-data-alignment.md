@@ -379,3 +379,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   遗留：qianfan/doubao/byteplus embedding 15 条未取证；qwen-plus-2025-04-28
   8192 vs 国际站 16384 待裁决；codex 实价待 platform.openai.com 可访问复核；
   glm_coding peak 倍率保留（占位价下无数值效果）。
+- 2026-09-26 r86 清尾（d535dea41→master，全绿）：emb/rerank output:0 12 条（qianfan 8/
+  doubao 2/byteplus 2，三官方页 input-only 计价）；qwen-plus-2025-04-28 裁决=两区官方
+  一致 max_in 98304/max_out 16384/ctx 131072（bailian 系 4 文件 8192→16384+补 max_in）；
+  codex 5 条官方价落地（developers.openai.com 新域逐模型页，gpt-5.5 含 272K tier；
+  gpt-5.3-codex-spark 无模型页维持占位）。新发现：developers.openai.com 列
+  gpt-5.6-cyber $12.5/$75 registry 未收（候选新条目）。
