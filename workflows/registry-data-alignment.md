@@ -367,3 +367,15 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
 - 2026-09-26 r82 canonical_model 修复：0 改动——r78 的「54 缺失」是口径误算
   （54 = platform.json 数量，平台条目本就无 canonical_model；8739 模型文件全部带
   非空 canonical，⑥⑦⑧全过）。教训：跨轮口径引用（文件数 vs 模型条目数）先复算再立项。
+- 2026-09-26 r83-r85（全绿）：r83 日期快照 version 官方映射（05608f887，Mistral 型号
+  表补 leanstral/voxtral 2 条；Cohere 实抓证明官方无版本列，11 条维持留缺）；
+  r84 token/price 完整性审计（e2301fe35，423 格：max_input 98/max_output 196/
+  price.output 129，阿里国际站逐模型 .md 页官方 Max Input/Output 原值 + 镜像语义）；
+  r85 Coding 套餐价目（ddc136bbe，624 文件：10 平台官方页判定订阅制→统一 1e-8 占位
+  673 条，拆 99 条无依据标准 API 价镜像，claude_code 补官方实价 10 条含 cache 价；
+  platform.openai.com 被 CF 拦 codex 5 条暂镜像 openai/ 平台）。
+  resolver 迭代教训：嵌套 price 块冲突渲染需剥悬空逗号；值冲突合并策略=取 theirs
+  （本轮=专职轮新值）需在 spec 注明与本轮 master-wins 版差异。
+  遗留：qianfan/doubao/byteplus embedding 15 条未取证；qwen-plus-2025-04-28
+  8192 vs 国际站 16384 待裁决；codex 实价待 platform.openai.com 可访问复核；
+  glm_coding peak 倍率保留（占位价下无数值效果）。
