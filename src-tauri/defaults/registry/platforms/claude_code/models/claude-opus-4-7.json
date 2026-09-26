@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790391379,
   "model_id": "claude-opus-4-7",
   "canonical_model": "claude-opus-4-7",
   "family": "claude",
@@ -11,6 +11,9 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07,
+    "cache_write": 6.25e-06
   }
 }

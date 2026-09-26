@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790391378,
   "model_id": "deepseek-r1",
   "canonical_model": "DeepSeek-R1",
   "family": "deepseek",
@@ -9,7 +9,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 65536,
   "max_output_tokens": 8192,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790391379,
   "model_id": "wanx2.1-t2i-turbo",
   "canonical_model": "wanx2.1-t2i-turbo",
   "family": "wan",
@@ -10,6 +10,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

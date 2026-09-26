@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790391379,
   "model_id": "deepseek-v4-flash",
   "canonical_model": "deepseek-v4-flash",
   "family": "deepseek",
@@ -12,6 +12,7 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

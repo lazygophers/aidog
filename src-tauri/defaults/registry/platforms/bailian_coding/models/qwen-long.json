@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790391378,
   "model_id": "qwen-long",
   "canonical_model": "qwen-long",
   "family": "qwen",
@@ -8,7 +8,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 10000000,
   "max_output_tokens": 32768,
