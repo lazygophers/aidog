@@ -18,9 +18,9 @@ import { Input } from "@/components/ui/input";
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
   FormSection, ApiKeyField,
-  QuotaScriptSection, DevinConfigSection, PassthroughConfigSection, EndpointsSection,
-  ManualBudgetsSection, BreakerSection, PeakSection, GroupAssignSection,
-  ExpirySection,
+  DevinConfigSection, PassthroughConfigSection, EndpointsSection,
+  BreakerSection, PeakSection, GroupAssignSection,
+  ExpirySection, QuotaSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
@@ -41,7 +41,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
-    quotaVariants, quotaVariantId, handleQuotaVariantChange,
+    quotaVariants, quotaVariantId, handleQuotaVariantChange, quotaSource, setQuotaSource,
     quotaCustomScript, setQuotaCustomScript,
     quotaRequires, setQuotaRequires,
     devinConfig, setDevinConfig,
@@ -176,24 +176,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
 
-        {/* 配额查询脚本（registry 变体 + 自定义伪变体 + requires 动态表单）。
-            registry 无内置变体的协议直接进自定义脚本编辑态（否则没法给这类平台写脚本）；
-            mock / 纯透传无上游配额可查，整块不渲染。 */}
-        {!isMock && !isPassthrough && (
-        <QuotaScriptSection
-          protocol={protocol}
-          variants={quotaVariants}
-          variantId={quotaVariantId}
-          onVariantChange={handleQuotaVariantChange}
-          customScript={quotaCustomScript}
-          onCustomScriptChange={setQuotaCustomScript}
-          requires={quotaRequires}
-          onRequiresChange={(k, v) => setQuotaRequires(prev => ({ ...prev, [k]: v }))}
-          locale={i18n.language}
-          t={t}
-        />
-        )}
-
         {/* Devin 平台配置（可选 timeout/mode，仅 devin 协议显示；org_id 走上方 requires 表单） */}
         {protocol === "devin" && (
           <DevinConfigSection config={devinConfig} onChange={setDevinConfig} t={t} />
@@ -252,9 +234,24 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </>
         )}
 
-        {/* Manual Budgets */}
-        {!isPassthrough && (
-          <ManualBudgetsSection budgets={manualBudgets} setBudgets={setManualBudgets} protocol={protocol} editing={!!editing} t={t} />
+        {/* 配额查询合区（quota-ia 票 03）：模型矩阵正下方，Tab「自动脚本 / 手动预算」互斥；
+            表单内切换只弹确认 + 记忆目标，清空在保存时由后端执行。mock / 透传无上游配额，整块不渲染。 */}
+        {!isMock && !isPassthrough && (
+          <QuotaSection
+            quotaSource={quotaSource} onSourceChange={setQuotaSource}
+            protocol={protocol}
+            variants={quotaVariants}
+            variantId={quotaVariantId}
+            onVariantChange={handleQuotaVariantChange}
+            customScript={quotaCustomScript}
+            onCustomScriptChange={setQuotaCustomScript}
+            requires={quotaRequires}
+            onRequiresChange={(k, v) => setQuotaRequires(prev => ({ ...prev, [k]: v }))}
+            locale={i18n.language}
+            budgets={manualBudgets} setBudgets={setManualBudgets}
+            editing={!!editing}
+            t={t}
+          />
         )}
 
         {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
