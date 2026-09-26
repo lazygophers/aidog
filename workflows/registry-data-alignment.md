@@ -404,3 +404,8 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   同 canonical 另外 14 条 Claude 条目按已有 max_input 与项目 context_window=max_input 口径修正。
   共 35 个模型文件（Claude 3 及其官方镜像字段修正）；context 覆盖
   79.7%→79.8%；check 8794 文件通过，aidog_db 354 passed。
+- 2026-09-26 r93 OpenAI GPT-4.1 官方模型页复核：
+  https://developers.openai.com/api/docs/models/gpt-4.1 明确 `1,047,576 context window` 与
+  `32,768 max output tokens`；`platforms/openai/models/gpt-4.1.json` 原值 `33000` 修正为
+  `32768`。DeepSeek R1 候选未修改：官方页面本轮无法直接给出 R1 精确 token 表，不能用记忆或
+  兄弟模型推断。`deepseek-reasoner` 1M 窗口同样保留待核验。
