@@ -1289,7 +1289,8 @@ class _SkillInstalledLine extends StatelessWidget {
                   // React 上 hash 片段自带 tooltip「内容 hash」（`SkillsView.tsx:485`），
                   // 时间戳的 tooltip 是 ISO 原串——由外层 Tooltip 提供。
                   WidgetSpan(
-                    alignment: PlaceholderAlignment.middle,
+                    alignment: PlaceholderAlignment.baseline,
+                    baseline: TextBaseline.alphabetic,
                     child: Tooltip(
                       message: t.t('skills.hash'),
                       child: Text(
