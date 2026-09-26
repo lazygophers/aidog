@@ -13,7 +13,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   },
   "max_output_tokens": 8192,
   "display_name": "MiniMax M2.5 Highspeed"

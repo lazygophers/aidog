@@ -9,6 +9,8 @@
     "vision",
     "reasoning"
   ],
+  "max_input_tokens": 106496,
+  "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,
   "thinking_supported": true,

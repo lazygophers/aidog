@@ -12,6 +12,8 @@
     "vision",
     "reasoning"
   ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
   "context_window": 1000000,
   "official": false,
   "price": {

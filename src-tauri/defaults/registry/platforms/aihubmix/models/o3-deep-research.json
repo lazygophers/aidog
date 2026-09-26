@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "o3-deep-research",
   "canonical_model": "o3-deep-research",
   "capabilities": ["text","vision","reasoning"],
   "display_name": "O3 Deep Research",
   "family": "o",
   "version": "3",
+  "max_output_tokens": 100000,
   "context_window": 200000,
   "max_input_tokens": 200000,
   "official": false,

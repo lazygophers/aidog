@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "doubao-1-5-pro-32k-250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",
   "capabilities": ["text","tool_use"],
@@ -7,6 +7,7 @@
   "family": "doubao-pro",
   "version": "1.5",
   "display_name": "Doubao 1.5 Pro 32K 250115",
+  "max_output_tokens": 16384,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

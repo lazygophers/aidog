@@ -10,6 +10,8 @@
     "tool_use",
     "reasoning"
   ],
+  "max_input_tokens": 98304,
+  "max_output_tokens": 65536,
   "context_window": 131072,
   "official": false,
   "thinking_supported": true,

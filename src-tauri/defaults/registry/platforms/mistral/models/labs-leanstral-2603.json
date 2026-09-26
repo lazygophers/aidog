@@ -7,6 +7,7 @@
   "family": "leanstral",
   "version": "26.03",
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

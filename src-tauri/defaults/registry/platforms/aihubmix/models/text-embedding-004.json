@@ -1,11 +1,10 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "text-embedding-004",
   "canonical_model": "text-embedding-004",
   "display_name": "Text Embedding 004",
-  "capabilities": [
-    "embedding"
-  ],
+  "capabilities": ["embedding"],
+  "max_output_tokens": 2048,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

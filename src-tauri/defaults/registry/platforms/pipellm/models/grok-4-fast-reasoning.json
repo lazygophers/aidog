@@ -6,6 +6,7 @@
   "family": "grok",
   "version": "4",
   "capabilities": [],
+  "max_output_tokens": 30000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790389813,
   "model_id": "nvidia-nemotron-nano-9b-v2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
 
   "version": "2",
   "family": "nemotron",  "display_name": "Nvidia Nemotron Nano 9B V2",
   "capabilities": [],
+  "max_output_tokens": 8000,
   "official": false,
   "price": {
     "input": 4.4e-08,

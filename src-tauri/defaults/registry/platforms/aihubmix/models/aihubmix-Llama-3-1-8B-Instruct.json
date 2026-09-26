@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "aihubmix-Llama-3-1-8B-Instruct",
   "canonical_model": "llama-3.1-8b-instruct",
   "capabilities": ["text"],
@@ -7,6 +7,7 @@
   "family": "llama",
   "version": "3.1",
   "display_name": "Aihubmix Llama 3.1 8B Instruct",
+  "max_output_tokens": 16384,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

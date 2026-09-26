@@ -1,14 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "qwen2.5-14b-instruct",
   "canonical_model": "qwen2.5-14b-instruct",
   "capabilities": ["text"],
   "version": "2.5",
   "display_name": "Qwen2.5 14B Instruct",
   "family": "qwen",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 8192,
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,

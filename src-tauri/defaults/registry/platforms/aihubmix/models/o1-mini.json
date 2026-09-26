@@ -1,14 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "o1-mini",
   "canonical_model": "o1-mini",
   "capabilities": ["text"],
   "display_name": "O1 Mini",
   "family": "o",
   "version": "1",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 65536,
   "context_window": 128000,
   "max_input_tokens": 128000,
   "official": false,

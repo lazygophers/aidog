@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "nemotron-3.5-content-safety-free",
   "canonical_model": "nemotron-3.5-content-safety-free",
 
@@ -16,6 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "qwen3-30b-a3b-instruct-2507",
   "canonical_model": "qwen3-30b-a3b-instruct-2507",
   "capabilities": ["text"],
@@ -8,6 +8,7 @@
   "family": "qwen",
 
   "version": "3",
+  "max_output_tokens": 32000,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -6,11 +6,13 @@
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 8191,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2e-8
+    "input": 2e-8,
+    "output": 0
   },
   "family": "text-embedding",
   "version": "3"

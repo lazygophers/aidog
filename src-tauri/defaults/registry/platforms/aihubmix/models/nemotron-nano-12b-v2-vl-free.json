@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790389813,
   "model_id": "nemotron-nano-12b-v2-vl-free",
   "canonical_model": "nemotron-nano-12b-v2-vl-free",
 
@@ -16,6 +16,7 @@
   "max_input_tokens": 131072,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

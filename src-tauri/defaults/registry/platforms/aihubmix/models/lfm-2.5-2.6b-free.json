@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790389813,
   "model_id": "lfm-2.5-2.6b-free",
   "canonical_model": "lfm-2.5-2.6b-free",
 
@@ -13,6 +13,7 @@
   "max_input_tokens": 131072,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

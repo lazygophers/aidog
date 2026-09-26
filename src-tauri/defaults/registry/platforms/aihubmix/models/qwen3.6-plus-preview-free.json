@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790389813,
   "model_id": "qwen3.6-plus-preview-free",
   "canonical_model": "qwen3.6-plus-preview-free",
 
@@ -15,6 +15,7 @@
   "max_input_tokens": 1000000,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

@@ -1,14 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "gemma-3-4b-it",
   "canonical_model": "gemma-3-4b-it",
   "capabilities": ["text"],
   "display_name": "Gemma 3 4B It",
   "family": "gemma",
   "version": "3",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 16384,
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,

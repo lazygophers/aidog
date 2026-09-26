@@ -8,6 +8,7 @@
   "capabilities": [
     "text_to_video"
   ],
+  "max_output_tokens": 1024,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

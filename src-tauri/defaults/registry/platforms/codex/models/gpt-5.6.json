@@ -8,12 +8,14 @@
   "capabilities": [
     "text"
   ],
+  "max_output_tokens": 128000,
   "context_window": 1050000,
   "max_input_tokens": 400000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

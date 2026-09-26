@@ -9,6 +9,7 @@
     "text",
     "reasoning"
   ],
+  "max_output_tokens": 16384,
   "context_window": 131072,
   "official": false,
   "thinking_supported": true,

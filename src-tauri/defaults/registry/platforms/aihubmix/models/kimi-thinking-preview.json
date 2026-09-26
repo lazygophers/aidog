@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "kimi-thinking-preview",
   "canonical_model": "kimi-thinking-preview",
   "capabilities": ["text"],
   "context_window": 131072,
   "family": "kimi",
   "display_name": "Kimi Thinking Preview",
+  "max_output_tokens": 131072,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": false,

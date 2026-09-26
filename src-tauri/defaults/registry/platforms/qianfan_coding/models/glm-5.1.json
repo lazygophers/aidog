@@ -15,6 +15,7 @@
   "context_window": 204800,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

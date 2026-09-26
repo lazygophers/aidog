@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790389813,
   "model_id": "coding-kimi-k3-free",
   "canonical_model": "kimi-k3",
   "display_name": "Coding Kimi K3 (free)",
@@ -15,6 +15,7 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790389813,
   "model_id": "deepseek-v4-flash-0731",
   "display_name": "DeepSeek V4 Flash 0731",
   "canonical_model": "deepseek-v4-flash-0731",
@@ -15,5 +15,6 @@
     "input": 2.0833333333333333e-07,
     "output": 6.25e-07
   },
+  "max_input_tokens": 1000000,
   "context_window": 1000000
 }
