@@ -7,13 +7,15 @@
 //
 // 差一条就是缺一块功能；多一条就是 React 没有的额外 IPC。两边都会让这条测试红。
 //
-// ── Home.tsx 调的命令（6 条）────────────────────────────────
+// ── Home.tsx 调的命令（7 条）────────────────────────────────
 //   proxyApi.status()              → proxy_status           Home.tsx:154
 //   proxyApi.getSettings()         → proxy_get_settings     Home.tsx:155
 //   trayConfigApi.todayStats()     → tray_today_stats       Home.tsx:156
 //   popoverConfigApi.platformToday() → popover_platform_today Home.tsx:157
 //   platformApi.list()             → platform_list          Home.tsx:158
 //   statsApi.query()               → stats_query            Home.tsx:159
+//   statsApi.queryBatch()          → stats_query_batch      Home.tsx:161
+//                                 （模型/分组维度，home-model-stats spec §1）
 //   （另有事件 proxy-log-updated   Home.tsx:167，非命令，单独断言）
 //
 // ── Stats.tsx 调的命令（6 条，与 Home 共用 2 条）─────────────
@@ -25,7 +27,7 @@
 //   getProtocolSearchTermsMap()    → get_defaults_json      Stats.tsx:266
 //                                     （defaults.ts::fetchDoc → platforms.ts:616）
 //
-// 两页共用 2 条（stats_query、platform_list），所以并集是 6 + 6 − 2 = **10 条**。
+// 两页共用 2 条（stats_query、platform_list），并集 7 + 6 − 2 = **11 条**。
 import 'package:aidog_flutter/pages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,7 +38,7 @@ import 'home_widget_test.dart' show homeResponses;
 /// React 版 Home.tsx 调的命令，排序后的规范串。
 const kHomeCommands =
     'platform_list,popover_platform_today,proxy_get_settings,'
-    'proxy_status,stats_query,tray_today_stats';
+    'proxy_status,stats_query,stats_query_batch,tray_today_stats';
 
 /// React 版 Stats.tsx 调的命令，排序后的规范串。
 const kStatsCommands =
@@ -49,7 +51,10 @@ void main() {
     final k = FakeKernel(homeResponses());
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
     expect(k.commandSetSignature, kHomeCommands);
@@ -77,21 +82,22 @@ void main() {
     expect(k.commandSetSignature, kStatsCommands);
   });
 
-  test('两页各 6 条、共用 2 条 → 并集 10 条（清单见本文件抬头，逐条标了 React 侧出处）', () {
+  test('Home 7 条、Stats 6 条、共用 2 条 → 并集 11 条（清单见本文件抬头，逐条标了 React 侧出处）', () {
     final home = kHomeCommands.split(',');
     final stats = kStatsCommands.split(',');
-    expect(home.length, 6);
+    expect(home.length, 7);
     expect(stats.length, 6);
     final shared = home.toSet().intersection(stats.toSet()).toList()..sort();
     expect(shared.join(','), 'platform_list,stats_query');
 
     final union = <String>{...home, ...stats}.toList()..sort();
-    expect(union.length, 10);
+    expect(union.length, 11);
     expect(
       union.join(','),
       'get_defaults_json,group_detail_list,platform_list,'
       'popover_platform_today,proxy_get_settings,proxy_status,'
-      'quota_snapshots,scatter_histogram,stats_query,tray_today_stats',
+      'quota_snapshots,scatter_histogram,stats_query,stats_query_batch,'
+      'tray_today_stats',
     );
   });
 
