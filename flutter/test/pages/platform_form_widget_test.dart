@@ -256,7 +256,9 @@ void main() {
       expect(find.text(i18n.t('platform.endpoints')), findsOneWidget);
       expect(find.text(i18n.t('platform.sectionAuth')), findsOneWidget);
       expect(find.text(i18n.t('platform.models')), findsOneWidget);
-      expect(find.text(i18n.t('platform.manualBudgetTitle')), findsOneWidget);
+      // quota-ia 合区：手动预算并入「配额查询」区（openai 有变体 → auto tab 默认，
+      // 预算字段不可见，只见合区标题）。
+      expect(find.text(i18n.t('platform.quotaSection.title')), findsOneWidget);
       expect(find.text(i18n.t('platform.groupAssignTitle')), findsOneWidget);
       expect(find.text(i18n.t('platform.expiresAt')), findsOneWidget);
       // 熔断与高峰只在编辑态出现。
@@ -329,6 +331,8 @@ void main() {
       final f = await bootForm(tester, formFake());
       f.openCreatePlatform();
       f.handleProtocolChange('newapi');
+      f.setQuotaSource('auto'); // 夹具无变体 → 默认 manual，显式切回脚本 tab
+      await tester.pump();
       await pumpForm(tester, i18n, f);
       expect(find.text(i18n.t('platform.newapiUserId')), findsOneWidget);
     });
@@ -341,8 +345,10 @@ void main() {
       final f = await bootForm(tester, formFake());
       f.openCreatePlatform();
       f.handleProtocolChange('devin'); // 夹具里 devin 没有 quota_scripts
+      f.setQuotaSource('auto'); // 无变体默认 manual，显式切脚本 tab 验证 customOnly 路径
+      await tester.pump();
       await pumpForm(tester, i18n, f);
-      expect(find.text(i18n.t('platform.quotaScript.title')), findsOneWidget);
+      expect(find.text(i18n.t('platform.quotaSection.title')), findsOneWidget);
       expect(
         find.text(i18n.t('platform.quotaScript.noBuiltin')),
         findsOneWidget,

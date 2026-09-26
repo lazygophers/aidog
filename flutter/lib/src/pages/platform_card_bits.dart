@@ -756,7 +756,10 @@ class ProtocolMetaTable {
 
   /// `defaults.ts:224::platformHasQuotaScript`：索引未就绪回落旧启发式
   /// （mock / claude_code 排除 —— 两协议本就无脚本，回落等价）。
-  bool hasQuotaScript(String protocol, String extra) {
+  /// manual 配额方式（quota-ia 票 03/07）恒 false：脚本侧整体不生效
+  /// （刷新按钮隐藏、余额区不渲染冻结的 est_balance，卡片只走预算块）。
+  bool hasQuotaScript(String protocol, String extra, [String quotaSource = '']) {
+    if (quotaSource == 'manual') return false;
     if (!loaded) return protocol != 'mock' && protocol != 'claude_code';
     return quotaScriptProtocols.contains(protocol) ||
         hasCustomQuotaScript(extra);

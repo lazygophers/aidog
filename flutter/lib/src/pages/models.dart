@@ -212,6 +212,7 @@ class PlatformRow {
     required this.sortOrder,
     this.autoDisabledUntil = 0,
     this.manualBudgets = const [],
+    this.quotaSource = '',
     this.codingWindowCost = 0,
     this.balanceLevel = '',
   });
@@ -247,6 +248,7 @@ class PlatformRow {
       for (final e in (j['manual_budgets'] as List?) ?? const [])
         ManualBudget.fromJson((e as Map).cast<String, dynamic>()),
     ],
+    quotaSource: (j['quota_source'] as String?) ?? '',
     codingWindowCost: (j['coding_window_cost'] as num?)?.toDouble() ?? 0,
     balanceLevel: (j['balance_level'] as String?) ?? '',
   );
@@ -279,6 +281,9 @@ class PlatformRow {
 
   /// 手动预算限额（卡片取「剩余比例最低」那条展示）。
   final List<ManualBudget> manualBudgets;
+
+  /// 配额方式（quota-ia spec）：'' 读侧当 auto；'manual' = 手动预算（脚本侧不生效）。
+  final String quotaSource;
 
   /// 本周期折算花费 $（非 DB 列，`platform_list` 对 coding plan 平台填充）。
   final double codingWindowCost;

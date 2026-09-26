@@ -277,6 +277,8 @@ void main() {
 
     testWidgets('newapi 的用户 ID 输入接到 user_id', (tester) async {
       await boot(tester, protocol: 'newapi');
+      f.setQuotaSource('auto'); // 夹具无变体 → 默认 manual，显式切回脚本 tab
+      await settle(tester);
       await tester.enterText(
         inputOf(fieldWithHint(t.t('platform.newapiUserIdPlaceholder'))),
         '42',
@@ -665,6 +667,8 @@ void main() {
 
     testWidgets('有内置档位时「填入内置额度」可用', (tester) async {
       await boot(tester);
+      f.setQuotaSource('manual'); // 预算字段在 manual tab
+      await settle(tester);
       f.setManualBudgets(const []);
       await settle(tester);
       await tester.tap(
@@ -1497,6 +1501,8 @@ void main() {
   group('控件族（React: formSections.tsx）', () {
     testWidgets('手动预算「启用」是复选框，点文字也切', (tester) async {
       await boot(tester, edit: true);
+      f.setQuotaSource('manual'); // 编辑态默认 auto tab，显式切预算 tab
+      await settle(tester);
       f.setManualBudgets(const []);
       await settle(tester);
       await tester.tap(find.text(t.t('platform.manualBudgetAdd')));

@@ -449,8 +449,13 @@ class _ModelInfoPageState extends State<ModelInfoPage> {
         fontWeight: FontWeight.w600,
         color: AidogTheme.of(context).c.fg2,
       ),
-      // `--primary 5%` 兑 surface，本项目最接近的既有 token 是 accentWash。
-      headerBackground: AidogTheme.of(context).c.accentWash,
+      // `--primary 5%` 兑 surface（`globals.css:290-292`）。原先回落到既有的
+      // accentWash；用户 2026-09-25 裁决与 React 逐字对齐，这里直接按 `c.accent`
+      // 5% 合成，不再换色。
+      headerBackground: Color.alphaBlend(
+        AidogTheme.of(context).c.accent.withValues(alpha: 0.05),
+        AidogTheme.of(context).c.surface,
+      ),
       cellPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       // 整行热区（`ModelInfoTab.tsx:343-347`），原先只有第一列的模型名可点。
       onRowTap: [

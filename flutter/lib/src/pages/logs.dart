@@ -1625,7 +1625,11 @@ class _DetailPanelState extends State<_DetailPanel> {
                         index: 0,
                         title: t.t('logs.userRequest'),
                         subtitle: 'Client → Proxy',
-                        protocol: protocolLabel(detail.sourceProtocol),
+                        // tab 徽标印的是**裸枚举大写**，不是本地化名
+                        //（`DetailPanel.tsx:268` 的 `source_protocol?.toUpperCase()`）。
+                        // 元信息区那两行仍走本地化名（`:175-176`），两处口径本就不同。
+                        // 用户 2026-09-25 拍板：逐字对齐 React。
+                        protocol: detail.sourceProtocol.toUpperCase(),
                         statusCode: detail.statusCode,
                       ),
                     ),
@@ -1636,7 +1640,8 @@ class _DetailPanelState extends State<_DetailPanel> {
                         index: 1,
                         title: t.t('logs.upstreamRequest'),
                         subtitle: 'Proxy → Platform',
-                        protocol: protocolLabel(detail.targetProtocol),
+                        // 同上（`DetailPanel.tsx:279`）。
+                        protocol: detail.targetProtocol.toUpperCase(),
                         statusCode: detail.upstreamStatusCode,
                       ),
                     ),

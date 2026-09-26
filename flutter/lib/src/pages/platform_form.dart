@@ -169,6 +169,8 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
   /// 智能识别弹窗开合（React 的 `showPaste`，`PlatformEditForm.tsx:129`）。
   bool _showPaste = false;
+  /// 配额方式切换确认弹窗目标（quota-ia 票 03；null = 关）。
+  String? _quotaSwitchTarget;
 
   PlatformFormController get c => widget.controller;
 
@@ -187,7 +189,6 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           const SizedBox(height: 20),
           _basicSection(t),
           if (c.isMock) _mockSection(t),
-          if (!c.isMock && !c.isPassthrough) _quotaScriptSection(t),
           if (c.protocol == 'devin') _devinSection(t),
           if (c.isPassthrough) _passthroughSection(t),
           if (!c.isMock && !c.isPassthrough) ...[
@@ -195,12 +196,43 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             _authSection(t),
             if (c.isBatch && !c.keyOptional) _multiKeyPreview(t),
             _modelsMatrixSection(t),
+            // 配额查询合区（quota-ia 票 03）：模型矩阵正下方，与 React 编排对称。
+            _quotaSection(t),
           ],
-          if (!c.isPassthrough) _manualBudgetsSection(t),
           if (c.editing != null && !c.isPassthrough) _breakerSection(t),
           if (c.editing != null && !c.isPassthrough) _peakSection(t),
           if (!c.isPassthrough) _groupAssignSection(t),
           _expirySection(t),
+          if (_quotaSwitchTarget != null)
+            ConfirmCard(
+              title: _quotaSwitchTarget == 'manual'
+                  ? t.t('platform.quotaSection.switchToManual')
+                  : t.t('platform.quotaSection.switchToAuto'),
+              body: _quotaSwitchTarget == 'manual'
+                  ? t.t('platform.quotaSection.clearScript')
+                  : t.t('platform.quotaSection.clearBudgets'),
+              confirmLabel: t.t('platform.quotaSection.switch'),
+              maxWidth: 400,
+              titleStyle: AidogType.title.copyWith(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+              bodyStyle: AidogType.micro.copyWith(
+                fontSize: 12,
+                letterSpacing: 0,
+                color: AidogTheme.of(context).c.fg2,
+              ),
+              buttonFontSize: 14,
+              buttonPadding: (16, 8),
+              onClose: () => setState(() => _quotaSwitchTarget = null),
+              onCancel: () => setState(() => _quotaSwitchTarget = null),
+              onConfirm: () {
+                setState(() {
+                  c.setQuotaSource(_quotaSwitchTarget!);
+                  _quotaSwitchTarget = null;
+                });
+              },
+            ),
           if (c.saveError.isNotEmpty) ToastBar(text: c.saveError, ok: false),
           // 智能识别弹窗（票 20）。浮层由 AidogModal 画，所以挂在树里哪一层都行。
           if (_showPaste)
@@ -570,15 +602,80 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
   // ── F3 配额查询脚本 ────────────────────────────────────────────
 
-  Widget _quotaScriptSection(I18nController t) {
+  /// 配额查询合区（quota-ia 票 03）：Tab「自动脚本 / 手动预算」互斥，位置 = 模型矩阵正下方。
+  /// 表单内切换只弹确认 + 记忆目标 tab（可反悔）；清空在保存时由后端按 quota_source 变化执行。
+  Widget _quotaSection(I18nController t) {
+    final theme = AidogTheme.of(context);
+    Widget tabLabel(String key, String value) {
+      final on = c.effectiveQuotaSource == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _trySwitchQuotaSource(value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  width: 2,
+                  color: on ? theme.c.accent : Colors.transparent,
+                ),
+              ),
+            ),
+            child: Text(
+              t.t(key),
+              textAlign: TextAlign.center,
+              style: AidogType.body.copyWith(
+                fontSize: 12,
+                fontWeight: on ? FontWeight.w600 : FontWeight.w400,
+                color: on ? theme.c.fg : theme.c.fg3,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return FormSection(
+      title: t.t('platform.quotaSection.title'),
+      desc: t.t('platform.quotaSection.desc'),
+      children: [
+        Row(children: [
+          tabLabel('platform.quotaSection.tabAuto', 'auto'),
+          tabLabel('platform.quotaSection.tabManual', 'manual'),
+        ]),
+        const SizedBox(height: AidogSpace.ssm),
+        ...(c.effectiveQuotaSource == 'manual'
+            ? _manualBudgetsFields(t)
+            : _quotaScriptFields(t)),
+      ],
+    );
+  }
+
+  /// 切 tab（票 03）：对侧有用户数据才弹确认；无配置静默切换。
+  void _trySwitchQuotaSource(String target) {
+    final current = c.effectiveQuotaSource;
+    if (target == current) return;
+    final scriptConfigured =
+        c.quotaCustomScript.trim().isNotEmpty ||
+        (c.quotaVariantId.isNotEmpty &&
+            c.quotaVariantId != kQuotaCustomVariant &&
+            c.quotaVariants.any((v) => v.id == c.quotaVariantId));
+    final oppositeHasData =
+        target == 'manual' ? scriptConfigured : c.manualBudgets.isNotEmpty;
+    if (oppositeHasData) {
+      setState(() => _quotaSwitchTarget = target);
+    } else {
+      setState(() => c.setQuotaSource(target));
+    }
+  }
+
+  /// 合区前的脚本字段列表（quota-ia 票 03：由 _quotaSection 的 auto tab 渲染）。
+  List<Widget> _quotaScriptFields(I18nController t) {
     final variants = c.quotaVariants;
     final customOnly = variants.isEmpty;
     final selection = c.quotaSelection;
     final selVariant = c.selectedQuotaVariant;
-    return FormSection(
-      title: t.t('platform.quotaScript.title'),
-      desc: t.t('platform.quotaScript.desc'),
-      children: [
+    return [
         if (customOnly)
           FormHint(t.t('platform.quotaScript.noBuiltin'))
         else ...[
@@ -627,8 +724,7 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
             value: c.quotaRequires['user_id'] ?? '',
             onChanged: (v) => c.setQuotaRequire('user_id', v),
           ),
-      ],
-    );
+    ];
   }
 
   // ── F4 Devin ───────────────────────────────────────────────────
@@ -898,12 +994,13 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
       child: Container(
         margin: const EdgeInsets.only(bottom: AidogSpace.smd),
         // 外框 `padding: 14`、底 `--bg-glass`（= surface）（`MultiKeyPreview.tsx:39-40`）。
-        // 描边 React 写的是纯 `var(--accent)`，深色下 accent 近黑等于消失，
-        // 这里保留 accentEdge（同 `c1-platforms.md` #29 的裁决）。
+        // 描边 React 写的是纯 `var(--accent)`；`mono.ts:70` 里 `--accent` =
+        // token accent-text，即 `accentText`，不是近黑的 `--primary`。
+        // 2026-09-25 用户裁决逐字对齐：accentEdge → accentText。
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: theme.c.surface,
-          border: Border.all(color: theme.c.accentEdge),
+          border: Border.all(color: theme.c.accentText),
           borderRadius: BorderRadius.circular(AidogRadius.md),
         ),
         child: Column(
@@ -1337,16 +1434,18 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
 
   // ── F10 手动预算 ───────────────────────────────────────────────
 
-  Widget _manualBudgetsSection(I18nController t) {
+  /// 合区前的预算字段列表（quota-ia 票 03：由 _quotaSection 的 manual tab 渲染；
+  /// 原表单 action 槽并入内容首行，与 React 侧一致）。
+  List<Widget> _manualBudgetsFields(I18nController t) {
     final tiers = c.planTiers;
     final selectedTier = c.selectedPlanTier;
-    return FormSection(
-      title: t.t('platform.manualBudgetTitle'),
-      desc: t.t('platform.manualBudgetDesc'),
-      action: Wrap(
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: AidogSpace.ssm),
+        child: Wrap(
         spacing: AidogSpace.sxs,
         runSpacing: AidogSpace.sxs,
-        alignment: WrapAlignment.end,
+        alignment: WrapAlignment.start,
         children: [
           if (tiers.length > 1)
             FormDropdown(
@@ -1377,13 +1476,12 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
           ),
         ],
       ),
-      children: [
-        if (c.manualBudgets.isEmpty)
-          FormHint(t.t('platform.manualBudgetEmpty')),
-        for (var i = 0; i < c.manualBudgets.length; i++)
-          _budgetRow(t, i, c.manualBudgets[i]),
-      ],
-    );
+      ),
+      if (c.manualBudgets.isEmpty)
+        FormHint(t.t('platform.manualBudgetEmpty')),
+      for (var i = 0; i < c.manualBudgets.length; i++)
+        _budgetRow(t, i, c.manualBudgets[i]),
+    ];
   }
 
   Widget _budgetRow(I18nController t, int idx, ManualBudget b) {

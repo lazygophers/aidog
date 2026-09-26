@@ -67,6 +67,26 @@ class PlatformFormController {
   String quotaCustomScript = '';
   Map<String, String> quotaRequires = {};
 
+  /// 配额方式（quota-ia 票 01/03）：manual = 手动预算（脚本侧不生效）。
+  /// 显式值（`_quotaSourcePristine=false` 或编辑态）；创建态未切换时走
+  /// [effectiveQuotaSource] 按协议能力派生（有变体→auto 保持开箱即查，无→manual）。
+  String quotaSource = 'auto';
+  bool _quotaSourcePristine = true;
+
+  /// 显式切换（UI tab）：一经用户选择即停止自动落位。
+  void setQuotaSource(String v) {
+    quotaSource = v;
+    _quotaSourcePristine = false;
+    _notify();
+  }
+
+  /// 展示/保存用的生效值：pristine 创建态随协议能力派生（registry 变体异步到达也即时正确，
+  /// 不依赖同步时机）；编辑态与显式切换后用 [quotaSource] 本值。
+  String get effectiveQuotaSource {
+    if (editing != null || !_quotaSourcePristine) return quotaSource;
+    return quotaVariants.isNotEmpty ? 'auto' : 'manual';
+  }
+
   DevinConfig devinConfig = kDefaultDevinConfig;
 
   List<ManualBudget> manualBudgets = const [];
@@ -222,6 +242,8 @@ class PlatformFormController {
     mockConfig = kDefaultMockConfig;
     quotaVariantId = '';
     quotaCustomScript = '';
+    quotaSource = 'auto';
+    _quotaSourcePristine = true;
     quotaRequires = {};
     devinConfig = kDefaultDevinConfig;
     manualBudgets = const [];
@@ -414,6 +436,9 @@ class PlatformFormController {
     quotaVariantId = qs.variantId;
     quotaCustomScript = qs.customScript;
     quotaRequires = {};
+    // 配额方式（quota-ia 票 02）：存量 '' 读侧当 auto；编辑即定位，不随协议能力漂移。
+    quotaSource = p.quotaSource == 'manual' ? 'manual' : 'auto';
+    _quotaSourcePristine = false;
     manualBudgets = const [];
     _autofilledFor = null;
     // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
@@ -858,6 +883,7 @@ class PlatformFormController {
       joinGroupIds: joinGroupIds,
       expiresAt: expiresAt,
       manualBudgets: _budgetPayload,
+      quotaSource: effectiveQuotaSource,
       autoGroup: autoGroup,
       editingId: editing?.id,
       failText: saveFailText,
@@ -910,6 +936,7 @@ class PlatformFormController {
         joinGroupIds: joinIds,
         expiresAt: expiresAt,
         manualBudgets: budgets,
+        quotaSource: effectiveQuotaSource,
         autoGroup: auto,
         silent: true,
         onError: (msg) => failures.add((

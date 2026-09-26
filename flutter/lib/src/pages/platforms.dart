@@ -516,9 +516,12 @@ class _DragLabel extends StatelessWidget {
           // `padding: 6px 12px`、字 12 w600（`PlatformListView.tsx:241-244`）。
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            // React 用的是实心 accent + primary-foreground；token 表里没有
-            // 「accent 上的前景色」，所以换成同一套里的 wash + 描边 + accentText。
-            color: theme.c.accentWash,
+            // 实心 `--primary` + `--primary-foreground` + `--accent-edge` 描边
+            //（`PlatformListView.tsx:242`）。原先因「token 表没有 accent 上的
+            // 前景色」改成 wash + accentText；用户 2026-09-25 裁决与 React 逐字
+            // 对齐，这里回到 `c.accent` 实底，前景照 `mono.ts:60` 的
+            // `--primary-foreground`（深色 fg / 浅色 surface）。
+            color: theme.c.accent,
             border: Border.all(color: theme.c.accentEdge),
             borderRadius: BorderRadius.circular(AidogRadius.sm),
           ),
@@ -527,7 +530,9 @@ class _DragLabel extends StatelessWidget {
             style: AidogType.micro.copyWith(
               fontSize: 12,
               letterSpacing: 0,
-              color: theme.c.accentText,
+              color: theme.mode == AidogMode.dark
+                  ? theme.c.fg
+                  : theme.c.surface,
               fontWeight: FontWeight.w600,
             ),
           ),
