@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790400041,
   "model_id": "baidu/ernie-4.5-turbo-128k",
+  "display_name": "ERNIE 4.5 Turbo 128K",
   "canonical_model": "ernie-4.5-turbo-128k",
   "version": "4.5",
   "family": "ernie",

@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "xai/grok-imagine-video-1.5",
+  "display_name": "Grok Imagine Video 1.5",
   "canonical_model": "grok-imagine-video-1.5",
   "capabilities": [
     "text_to_video"

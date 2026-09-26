@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "qwen-audio-3.0-tts-flash",
+  "display_name": "Qwen Audio 3.0 Tts Flash",
   "canonical_model": "qwen-audio-3.0-tts-flash",
   "family": "qwen",
 
