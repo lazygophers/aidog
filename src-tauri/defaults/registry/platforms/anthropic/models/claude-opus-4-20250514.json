@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790426397,
   "model_id": "claude-opus-4-20250514",
   "display_name": "Claude Opus 4",
   "canonical_model": "claude-opus-4-20250514",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 200000,
   "max_output_tokens": 32000,
-  "context_window": 32000,
+  "context_window": 200000,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
