@@ -26,6 +26,10 @@ export interface PastePresetRef {
   /** coding plan 变体标记：透传到 applyPaste → handleProtocolChange(value, codingPlan)，
    *  否则同 value 的普通/coding 两 preset 命中后 endpoints 取错（拿普通 base_url）。 */
   codingPlan?: boolean;
+  /** 智能识别兜底平台标记（registry platform.json `paste_fallback`，如 newapi）：
+   *  粘贴含可识别协议的 base_url（如 /v1）但未命中任何 preset hosts 时，带此标记的 preset
+   *  胜出（自建中转站场景）。数据驱动，禁在代码硬编码平台名。 */
+  pasteFallback?: boolean;
   /** 平台 API key 前缀（registry platform.json `key_prefixes`，如 sk-ant- / sk-kimi- / tp- / ark-）。
    *  key 提取正则与平台直判（优先级 2）据此数据驱动生成——平台前缀禁在代码硬编码。
    *  coding 套餐是独立协议，其专属 token 前缀（如 tp- / sk-cp-）直接写在本平台本字段。 */
@@ -339,7 +343,11 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
  *          hosts 存 hostname（如 api.deepseek.com）或含 path 的 URL 子串（如
  *          open.bigmodel.cn/api/coding 区分 coding/普通同 host 分裂）。hostname 是 URL 子串
  *          的特例，故向后兼容。
- *  优先级 2：keyword 文本扫描（fallback，打分: 命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
+ *  优先级 2：base_url 协议可识别（如 /v1）但未命中任何 preset hosts → 带 paste_fallback 标记的
+ *          preset 胜出（自建中转站，如 newapi 中转）。排在 keyword 扫描前：未知 host 的 API 端点
+ *          URL 比正文关键词（常是模型名噪声，如 Qwen→百炼）更可信；论坛闲杂链接（github 等）
+ *          guessProtocol=unknown 不触发本路。
+ *  优先级 3：keyword 文本扫描（fallback，打分: 命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
  *  返回 codingPlan 标记（透传到 applyPaste 选对普通/coding 变体的 endpoints）。 */
 export function matchPlatform(
   text: string,
@@ -369,7 +377,16 @@ export function matchPlatform(
     }
   }
 
-  // 2) fallback: keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
+  // 2) 粘贴含 API 形态 base_url（协议可识别）但 host 未命中任何 preset → paste_fallback
+  //    兜底平台（newapi 自建中转）。仅 API 端点形态 URL 触发（/v1 等），闲杂链接不触发。
+  if (baseUrls && baseUrls.some((b) => b.protocol !== "unknown")) {
+    for (const p of presets) {
+      if (NEVER_AUTO_MATCH.has(p.value)) continue;
+      if (p.pasteFallback) return { value: p.value, label: p.label, codingPlan: p.codingPlan };
+    }
+  }
+
+  // 3) fallback: keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
   //    打分根治「idx0 preset 通用词（如 claude/官方）抢匹配同族更具体 preset」：统计每 preset 命中数 +
   //    最长命中关键字长度，多命中 / 更长关键字者胜出。复杂度仍 O(presets × keywords)。
   const hay = normalizeForMatch(text);

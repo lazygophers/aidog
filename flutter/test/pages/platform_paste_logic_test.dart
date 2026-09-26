@@ -73,6 +73,13 @@ const List<PastePresetRef> presets = [
     ],
   ),
   PastePresetRef(value: 'mock', label: 'Mock', keywords: ['测试', 'mock']),
+  // paste_fallback 兜底平台（registry newapi）。
+  const PastePresetRef(
+    value: 'newapi',
+    label: 'New API',
+    keywords: ['newapi', 'new-api', '中转'],
+    pasteFallback: true,
+  ),
 ];
 
 String b64(String s) => base64.encode(utf8.encode(s));
@@ -115,6 +122,20 @@ void main() {
   });
 
   group('matchPlatform', () {
+    test('paste_fallback：未知 host 的 API URL 命中 newapi，压过模型名词噪', () {
+      final hit = matchPlatform('Qwen3.8-Flash-Next 临时福利', presets, const [
+        ParsedBaseUrl('https://api.lasong.xyz/v1', ParsedProtocol.openai),
+      ]);
+      expect(hit?.value, 'newapi');
+    });
+
+    test('paste_fallback：非 API URL（unknown 协议）不触发，keyword 扫描照常', () {
+      final hit = matchPlatform('使用 deepseek 模型', presets, const [
+        ParsedBaseUrl('https://github.com/foo/bar', ParsedProtocol.unknown),
+      ]);
+      expect(hit?.value, 'deepseek');
+    });
+
     test('按 base_url host 匹配，最长最特异者胜出', () {
       final hit = matchPlatform('', presets, const [
         ParsedBaseUrl(

@@ -1,12 +1,8 @@
 {
-  "last_updated": 1788196594,
+  "last_updated": 1790392198,
+  "paste_fallback": true,
   "endpoints": {
-    "default": [
-      {
-        "protocol": "openai",
-        "base_url": "https://your-newapi-instance.com/v1"
-      }
-    ]
+    "default": []
   },
   "models": {
     "default": {}
