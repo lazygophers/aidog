@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790396242,
   "model_id": "tongyi-xiaomi-analysis-flash",
   "canonical_model": "tongyi-xiaomi-analysis-flash",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 28672,
+  "max_output_tokens": 4096,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
@@ -12,5 +14,5 @@
     "input": 2.777777777777778e-08,
     "output": 5.555555555555556e-08
   },
-  "context_window": 131072
+  "context_window": 32768
 }

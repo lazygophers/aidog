@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3.8-27b",
   "canonical_model": "qwen3.8-27b",
   "family": "qwen",
@@ -11,6 +11,7 @@
     "vision",
     "reasoning"
   ],
+  "max_input_tokens": 991808,
   "official": false,
   "price": {
     "input": 1e-8,
@@ -18,5 +19,5 @@
   },
   "display_name": "Qwen3.8-27B",
   "max_output_tokens": 131072,
-  "context_window": 262144
+  "context_window": 1000000
 }

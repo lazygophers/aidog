@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790396242,
   "model_id": "qwen3.7-text-rerank",
   "display_name": "Qwen3.7-Text-Rerank",
   "canonical_model": "qwen3.7-text-rerank",
@@ -9,6 +9,7 @@
     "rerank"
   ],
   "context_window": 32768,
+  "max_input_tokens": 32768,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3.5-omni-flash-2026-03-15",
   "display_name": "Qwen3.5-Omni-Flash (2026-03-15)",
   "canonical_model": "qwen3.5-omni-flash-2026-03-15",
@@ -8,6 +8,9 @@
   "version": "3.5",  "capabilities": [
     "audio"
   ],
+  "context_window": 262144,
+  "max_input_tokens": 196608,
+  "max_output_tokens": 65536,
   "official": false,
   "price": {
     "input": 1e-8,
