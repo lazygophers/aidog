@@ -1,12 +1,13 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790422806,
   "model_id": "text-embedding-ada-002",
   "canonical_model": "text-embedding-ada-002",
   "display_name": "Text Embedding Ada-002",
   "capabilities": [
     "embedding"
   ],
-  "max_output_tokens": 8191,
+  "max_input_tokens": 8192,
+  "context_window": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
