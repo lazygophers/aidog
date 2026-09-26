@@ -415,6 +415,12 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `thinking_toggleable:true` 修正为 false。Claude 3 Haiku 是 pre-thinking 旧代，Anthropic 官方条目
   补 `thinking_supported:false` / `thinking_toggleable:false`；DeepSeek Reasoner 未取到官方明确开关
   语义，保持不改。
+- 2026-09-26 r96 Gemini 官方模型页复核：直接抓取 `https://ai.google.dev/gemini-api/docs/models`
+  与模型详情页，官方明确 Gemini 2.5 Flash-Lite/Flash 为 input 1,048,576、output 65,536；
+  Gemini 2.5 Flash Native Audio 详情页明确 input 131,072、output 8,192。修正
+  `gemini-2.5-flash-native-audio-preview-12-2025.json`：max_input/context 1,048,576/8,192
+  改为 131,072/131,072。旧 preview/alias 详情页部分 404，未凭兄弟模型平移。
+  Gemini 剩余 semantic warning 暂不改，非 token image/deep-research 与已下线 alias 需逐条来源。
 - 2026-09-26 r95 `check-registry.mjs` 增加 token 语义护栏：当模型同时有
   `max_input_tokens` / `context_window` 且后者更小时，默认输出 semantic warning；
   `AIDOG_REGISTRY_SEMANTIC_STRICT=1` 升级为失败。当前实测 116 条历史候选，默认检查 rc=0，

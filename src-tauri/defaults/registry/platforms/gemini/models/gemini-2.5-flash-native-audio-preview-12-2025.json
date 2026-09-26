@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790434469,
   "model_id": "gemini-2.5-flash-native-audio-preview-12-2025",
   "display_name": "Gemini 2.5 Flash Native Audio Preview (12-2025)",
   "canonical_model": "gemini-2.5-flash-native-audio-preview-12-2025",
@@ -8,9 +8,9 @@
   "capabilities": [
     "audio"
   ],
-  "max_input_tokens": 1048576,
+  "max_input_tokens": 131072,
   "max_output_tokens": 8192,
-  "context_window": 8192,
+  "context_window": 131072,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
