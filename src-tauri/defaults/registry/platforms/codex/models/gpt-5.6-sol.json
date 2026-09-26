@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790393178,
+  "last_updated": 1790394075,
   "model_id": "gpt-5.6-sol",
   "display_name": "GPT-5.6 Sol",
   "canonical_model": "gpt-5.6-sol",
@@ -11,10 +11,13 @@
     "text"
   ],
   "max_output_tokens": 128000,
+  "max_input_tokens": 922000,
   "context_window": 1050000,
   "official": false,
   "price": {
   "input": 4e-06,
-  "output": 2e-05
+  "output": 2e-05,
+  "cache_read": 4e-07,
+  "context_tiers": [{"min_tokens": 272000, "input": 8e-06, "output": 3e-05, "cache_read": 8e-07}]
   }
 }

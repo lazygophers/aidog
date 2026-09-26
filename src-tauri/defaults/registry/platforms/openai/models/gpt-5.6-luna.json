@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790394075,
   "model_id": "gpt-5.6-luna",
   "display_name": "GPT-5.6 Luna",
   "canonical_model": "gpt-5.6-luna",
@@ -8,13 +8,22 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 400000,
+  "max_input_tokens": 922000,
   "max_output_tokens": 128000,
-  "context_window": 400000,
+  "context_window": 1050000,
   "official": true,
   "price": {
     "input": 2e-7,
-    "output": 0.0000012
+    "output": 0.0000012,
+    "cache_read": 2e-8,
+    "context_tiers": [
+      {
+        "min_tokens": 272000,
+        "input": 4e-7,
+        "output": 1.8e-6,
+        "cache_read": 4e-8
+      }
+    ]
   },
   "family": "gpt",
   "version": "5.6"
