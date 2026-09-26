@@ -385,3 +385,9 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   codex 5 条官方价落地（developers.openai.com 新域逐模型页，gpt-5.5 含 272K tier；
   gpt-5.3-codex-spark 无模型页维持占位）。新发现：developers.openai.com 列
   gpt-5.6-cyber $12.5/$75 registry 未收（候选新条目）。
+- 2026-09-26 r87-r88（全绿）：r87 阿里系 ctx 复核（5cdfbce5c，152 文件：307 缺格补值
+  +54 处既有值勘误（distill 131072→32768 等）+439 行归因升级「官方无 token 计价」；
+  324 官方页全抓，两区差异仅 2 格；rerank max_output=0 被 schema 拦（⑨ 实测）改回
+  缺省——schema 禁 0 是已知约束）；r88 OpenAI 复核（42baacc28，10 文件：gpt-5.6 家族
+  luna ctx 400K→1.05M、max_input 922K、补 cache_read/272K tier；gpt-5.6-cyber 已由
+  r87 侧登记后修正 max_input 272K；gpt-oss 归因官方确认维持）。ctx 覆盖 78.9%→79.7%。
