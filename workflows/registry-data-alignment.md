@@ -421,6 +421,10 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `gemini-2.5-flash-native-audio-preview-12-2025.json`：max_input/context 1,048,576/8,192
   改为 131,072/131,072。旧 preview/alias 详情页部分 404，未凭兄弟模型平移。
   Gemini 剩余 semantic warning 暂不改，非 token image/deep-research 与已下线 alias 需逐条来源。
+- 2026-09-26 r97 Gemini Flash-Lite preview 官方详情页复核：
+  https://ai.google.dev/gemini-api/docs/models/gemini-2.5-flash-lite-preview-09-2025 明确
+  `Input token limit 1,048,576`、`Output token limit 65,536`；修正该文件 `max_output_tokens`
+  65535→65536、`context_window` 65535→1048576。semantic warning 115→114。
 - 2026-09-26 r95 `check-registry.mjs` 增加 token 语义护栏：当模型同时有
   `max_input_tokens` / `context_window` 且后者更小时，默认输出 semantic warning；
   `AIDOG_REGISTRY_SEMANTIC_STRICT=1` 升级为失败。当前实测 116 条历史候选，默认检查 rc=0，
