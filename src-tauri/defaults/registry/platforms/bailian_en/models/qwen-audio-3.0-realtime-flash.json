@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790396242,
   "model_id": "qwen-audio-3.0-realtime-flash",
   "display_name": "Qwen-Audio-3.0-Realtime-Flash",
   "canonical_model": "qwen-audio-3.0-realtime-flash",
@@ -8,6 +8,9 @@
   "version": "3.0",  "capabilities": [
     "audio"
   ],
+  "context_window": 40960,
+  "max_input_tokens": 16384,
+  "max_output_tokens": 8192,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

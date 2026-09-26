@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3.7-max",
   "display_name": "Qwen3.7 Max",
   "canonical_model": "qwen3.7-max",
@@ -9,6 +9,8 @@
     "text"
   ],
   "context_window": 1000000,
+  "max_input_tokens": 991808,
+  "max_output_tokens": 131072,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

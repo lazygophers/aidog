@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790396242,
   "model_id": "kimi-k3",
   "display_name": "Kimi-K3",
   "canonical_model": "kimi-k3",
@@ -10,11 +10,12 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1048576,
   "official": false,
   "price": {
     "input": 3e-06,
     "output": 1.5e-05
   },
-  "context_window": 262144,
-  "max_output_tokens": 65536
+  "context_window": 1048576,
+  "max_output_tokens": 1048576
 }

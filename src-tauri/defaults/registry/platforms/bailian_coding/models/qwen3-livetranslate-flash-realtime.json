@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3-livetranslate-flash-realtime",
   "display_name": "Qwen3-LiveTranslate-Flash-Realtime (2025-09-22)",
   "canonical_model": "qwen3-livetranslate-flash-realtime-2025-09-22",
@@ -8,6 +8,9 @@
   "version": "3",  "capabilities": [
     "audio"
   ],
+  "context_window": 53248,
+  "max_input_tokens": 49152,
+  "max_output_tokens": 4096,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790396242,
   "model_id": "qwen-flash-character",
   "canonical_model": "qwen-flash-character",
   "family": "qwen",
@@ -8,7 +8,8 @@
     "text"
   ],
   "max_output_tokens": 32768,
-  "context_window": 1000000,
+  "context_window": 32768,
+  "max_input_tokens": 32768,
   "official": false,
   "price": {
     "input": 5.0000000000000004e-8,

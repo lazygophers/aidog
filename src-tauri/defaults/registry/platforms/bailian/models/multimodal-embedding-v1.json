@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790396242,
   "model_id": "multimodal-embedding-v1",
   "canonical_model": "multimodal-embedding-v1",
   "capabilities": [
     "embedding"
   ],
+  "context_window": 512,
+  "max_input_tokens": 512,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
