@@ -4,7 +4,7 @@
 import 'dart:async';
 
 import 'package:aidog_flutter/pages.dart';
-import 'package:aidog_flutter/shell.dart' show AidogMode;
+import 'package:aidog_flutter/shell.dart' show AidogMode, NavContext;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +19,8 @@ Map<String, Object? Function(Map<String, Object?>?)> homeResponses({
   List<Map<String, dynamic>> platformToday = const [],
   List<Map<String, dynamic>> platforms = const [],
   List<Map<String, dynamic>> buckets = const [],
+  List<Map<String, dynamic>> dimModels = const [],
+  List<Map<String, dynamic>> dimGroups = const [],
 }) => {
   'proxy_status': (_) => running,
   'proxy_get_settings': (_) => {
@@ -41,6 +43,11 @@ Map<String, Object? Function(Map<String, Object?>?)> homeResponses({
   'popover_platform_today': (_) => platformToday,
   'platform_list': (_) => platforms,
   'stats_query': (_) => statsResult(buckets: buckets),
+  // 模型/分组维度（home-model-stats spec §1）：batch 两条 group_by 的结果顺序对应。
+  'stats_query_batch': (_) => [
+    statsResult(dimensions: dimModels),
+    statsResult(dimensions: dimGroups),
+  ],
 };
 
 Map<String, dynamic> today({
@@ -59,7 +66,7 @@ Map<String, dynamic> today({
 };
 
 void main() {
-  testWidgets('首屏：六条命令各发一次，KPI 渲染真数据', (tester) async {
+  testWidgets('首屏：七条命令各发一次，KPI 渲染真数据', (tester) async {
     final k = FakeKernel(
       homeResponses(
         today: today(),
@@ -70,14 +77,17 @@ void main() {
     );
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
 
     expect(
       k.commandSetSignature,
       'platform_list,popover_platform_today,proxy_get_settings,'
-      'proxy_status,stats_query,tray_today_stats',
+      'proxy_status,stats_query,stats_query_batch,tray_today_stats',
     );
     for (final cmd in k.calls.toSet()) {
       expect(k.countOf(cmd), 1, reason: '$cmd 首屏只该发一次');
@@ -89,11 +99,85 @@ void main() {
     expect(find.text('42.5%'), findsOneWidget);
   });
 
+  testWidgets('模型/分组维度：TopN 横条 + 「其它」合并 + 点行带参下钻', (tester) async {
+    final k = FakeKernel(
+      homeResponses(
+        today: today(),
+        // 10 个模型 > _dimTopN(8)：第 9、10 名合并成「其它」行。
+        dimModels: [
+          for (var i = 0; i < 10; i++)
+            dimensionEntry(
+              'model-$i',
+              req: 10 - i,
+              success: 10 - i,
+              cost: 1.0 - i * 0.1,
+              inp: 1000 - i * 100,
+              out: 500 - i * 50,
+            ),
+        ],
+        dimGroups: [
+          dimensionEntry(
+            'gk-main',
+            req: 8,
+            success: 7,
+            cost: 0.4,
+            inp: 300,
+            out: 200,
+          ),
+        ],
+      ),
+    );
+    final nav = <(String, NavContext?)>[];
+    final c = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(
+        HomePage(
+          onNavigate: (id, [ctx]) => nav.add((id, ctx)),
+          invoke: k.invoke,
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    // 两块标题 + 首/末行 + 「其它」都在。
+    expect(find.text('按模型 · 24 小时'), findsOneWidget);
+    expect(find.text('按分组 · 24 小时'), findsOneWidget);
+    expect(find.text('model-0'), findsOneWidget);
+    expect(find.text('gk-main'), findsOneWidget);
+    expect(find.text('其它'), findsOneWidget); // 10 - 8 = 2 名合并
+    // 前 8 名在，第 9 名被合并掉。
+    expect(find.text('model-7'), findsOneWidget);
+    expect(find.text('model-8'), findsNothing);
+
+    // 点模型行 → stats 页 + filter_model；点分组行 → stats 页 + groupKey。
+    // 测试窗 800px < 841 断点 → 两面板竖排，分组面板在视口外，先滚到可见。
+    await tester.tap(find.text('model-0'));
+    await tester.pump();
+    expect(nav.last.$1, 'stats');
+    expect(nav.last.$2?.model, 'model-0');
+    await tester.ensureVisible(find.text('gk-main'));
+    await tester.pump();
+    await tester.tap(find.text('gk-main'));
+    await tester.pump();
+    expect(nav.last.$1, 'stats');
+    expect(nav.last.$2?.groupKey, 'gk-main');
+
+    // 「其它」行不可点。
+    final before = nav.length;
+    await tester.tap(find.text('其它'));
+    await tester.pump();
+    expect(nav.length, before);
+  });
+
   testWidgets('今日三项全 0 → 「今日暂无请求」，不出 KPI 格', (tester) async {
     final k = FakeKernel(homeResponses());
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
 
@@ -119,7 +203,10 @@ void main() {
     final k = FakeKernel(r);
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await tester.pump(); // 命令还在途
     expect(find.text(c.t('home.noToday')), findsNothing);
@@ -135,7 +222,10 @@ void main() {
     final k = FakeKernel(r);
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
 
@@ -149,7 +239,10 @@ void main() {
     final k = FakeKernel(r);
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
     expect(find.text(c.t('home.totalBalance')), findsNothing);
@@ -167,7 +260,10 @@ void main() {
     );
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
     expect(find.text(c.t('home.totalBalance')), findsOneWidget);
@@ -181,7 +277,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: (_) {},
+          onNavigate: (unused1, [unused2]) {},
           invoke: k.invoke,
           copyText: (s) async => copied.add(s),
         ),
@@ -205,7 +301,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: (_) {},
+          onNavigate: (unused1, [unused2]) {},
           invoke: k.invoke,
           copyText: (_) async => throw StateError('no clipboard'),
         ),
@@ -224,7 +320,10 @@ void main() {
     final c = await makeI18n(tester);
     final nav = <String>[];
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: nav.add, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (id, [ctx]) => nav.add(id), invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
 
@@ -243,7 +342,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: nav.add,
+          onNavigate: (id, [ctx]) => nav.add(id),
           invoke: k.invoke,
           copyText: (s) async => copied.add(s),
         ),
@@ -273,7 +372,10 @@ void main() {
     final c = await makeI18n(tester);
     final nav = <String>[];
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: nav.add, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (id, [ctx]) => nav.add(id), invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
 
@@ -298,7 +400,7 @@ void main() {
         Column(
           children: [
             const TextField(key: ValueKey('probe')),
-            HomePage(onNavigate: nav.add, invoke: k.invoke),
+            HomePage(onNavigate: (id, [ctx]) => nav.add(id), invoke: k.invoke),
           ],
         ),
         c,
@@ -324,7 +426,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: (_) {},
+          onNavigate: (unused1, [unused2]) {},
           invoke: k.invoke,
           logUpdates: ticker.stream,
         ),
@@ -351,7 +453,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: (_) {},
+          onNavigate: (unused1, [unused2]) {},
           invoke: k.invoke,
           logUpdates: ticker.stream,
         ),
@@ -386,7 +488,10 @@ void main() {
     );
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
     final name = tester.widget<Text>(find.textContaining('超长平台名'));
@@ -399,7 +504,10 @@ void main() {
     final k = FakeKernel(homeResponses(today: today()));
     final c = await makeI18n(tester);
     await tester.pumpWidget(
-      wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
     );
     await settle(tester);
     expect(find.text(c.t('home.topPlatforms')), findsOneWidget);
@@ -412,7 +520,7 @@ void main() {
     await tester.pumpWidget(
       wrapPage(
         HomePage(
-          onNavigate: (_) {},
+          onNavigate: (unused1, [unused2]) {},
           invoke: k.invoke,
           now: () => DateTime.fromMillisecondsSinceEpoch(1_700_000_000_000),
         ),
@@ -453,7 +561,10 @@ void main() {
       final k = FakeKernel(homeResponses());
       final c = await makeI18n(tester);
       await tester.pumpWidget(
-        wrapPage(HomePage(onNavigate: (_) {}, invoke: k.invoke), c),
+        wrapPage(
+          HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+          c,
+        ),
       );
       await settle(tester);
       expect(panel(), findsOneWidget);
@@ -477,7 +588,7 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(
         wrapPage(
-          HomePage(onNavigate: (_) {}, invoke: k.invoke),
+          HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
           c,
           mode: AidogMode.light,
         ),

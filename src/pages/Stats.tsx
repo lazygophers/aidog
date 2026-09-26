@@ -237,7 +237,7 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
 
-export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string } }) {
+export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string; model?: string } }) {
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
   const [prevOverview, setPrevOverview] = useState<StatsOverview | null>(null);
@@ -253,7 +253,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
   const [filterGroup, setFilterGroup] = useState(initialFilter?.groupKey ?? "");
-  const [filterModel, setFilterModel] = useState("");
+  // 模型筛选也吃导航上下文（首页「按模型」行下钻，home-model-stats spec §3）。
+  const [filterModel, setFilterModel] = useState(initialFilter?.model ?? "");
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   // 仅 Coding Plan 平台筛选（spec B3）：true → 后端 filter_coding_plan=true
   const [filterCodingPlan, setFilterCodingPlan] = useState(false);

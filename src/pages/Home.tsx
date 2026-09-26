@@ -18,7 +18,9 @@ import {
   type TodayPlatformStat,
   type Platform,
   type StatsBucket,
+  type DimensionEntry,
 } from "../services/api";
+import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
@@ -27,6 +29,36 @@ import { F } from "../domains/shared/tokens";
 
 const DEFAULT_PORT = 7890;
 const TOP_PLATFORMS = 4;
+export const DIM_TOP_N = 8;
+
+// 维度行（模型 / 分组，home-model-stats spec §2）：tokens 降序前 DIM_TOP_N，
+// 其余合并成一条「其它」行（分母不可加的比率在该行显 --）。
+const dimTokens = (d: DimensionEntry) => d.input_tokens + d.output_tokens + d.cache_tokens;
+
+export function buildDimRows(data: DimensionEntry[]): { rows: { name: string; d: DimensionEntry; other: boolean }[]; total: number } {
+  const sorted = [...data].sort((a, b) => dimTokens(b) - dimTokens(a));
+  const top = sorted.slice(0, DIM_TOP_N);
+  const rest = sorted.slice(DIM_TOP_N);
+  const rows = top.map(d => ({ name: d.name, d, other: false }));
+  if (rest.length > 0) {
+    rows.push({
+      name: "",
+      other: true,
+      d: rest.reduce((acc, d) => ({
+        name: "",
+        total_requests: acc.total_requests + d.total_requests,
+        success_count: acc.success_count + d.success_count,
+        input_tokens: acc.input_tokens + d.input_tokens,
+        output_tokens: acc.output_tokens + d.output_tokens,
+        cache_tokens: acc.cache_tokens + d.cache_tokens,
+        cache_rate: 0,
+        avg_duration_ms: 0,
+        total_cost: acc.total_cost + d.total_cost,
+      })),
+    });
+  }
+  return { rows, total: sorted.reduce((s, d) => s + dimTokens(d), 0) };
+}
 
 // 命令面板视觉 token（direction-approved.md 锁定）：分层中性面 s1/s2、行线、SF Mono 数字栈。
 const PANEL = {
@@ -134,7 +166,7 @@ function MiniRing({ share }: { share: number }) {
   );
 }
 
-export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
+export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavContext) => void }) {
   const { t } = useTranslation();
   const [running, setRunning] = useState<boolean | null>(null);
   const [port, setPort] = useState<number>(DEFAULT_PORT);
@@ -142,6 +174,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   const [platformsToday, setPlatformsToday] = useState<TodayPlatformStat[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
+  const [dimModels, setDimModels] = useState<DimensionEntry[]>([]);
+  const [dimGroups, setDimGroups] = useState<DimensionEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -158,6 +192,16 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
+      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by，只消费 dimension_data。
+      statsApi.queryBatch([
+        { start: windowStart, end: now.getTime(), group_by: "model" },
+        { start: windowStart, end: now.getTime(), group_by: "group" },
+      ])
+        .then(([m, g]) => {
+          setDimModels(m?.dimension_data ?? []);
+          setDimGroups(g?.dimension_data ?? []);
+        })
+        .catch(() => { setDimModels([]); setDimGroups([]); }),
     ]);
     setLoading(false);
   }, []);
@@ -197,6 +241,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   const cacheSeries = trendBuckets.map(b => b.cache_tokens);
   const trendPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_requests), 0);
   const hasTrend = reqSeries.some(v => v > 0);
+
+  // ── 模型 / 分组维度行（home-model-stats spec §2）──
+  const modelRows = useMemo(() => buildDimRows(dimModels), [dimModels]);
+  const groupRows = useMemo(() => buildDimRows(dimGroups), [dimGroups]);
 
   const statusColor = running == null
     ? PANEL.muted
@@ -456,6 +504,34 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           </div>
         </div>
 
+        {/* 4.5 模型 / 分组维度（home-model-stats spec §2）：并排两面板，TopN 横条 + 五指标 */}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
+            gap: 1,
+            background: PANEL.line,
+            borderBottom: `1px solid ${PANEL.line}`,
+          }}
+        >
+          <DimPanel
+            titleKey="home.byModel"
+            titleDefault="按模型 · 24 小时"
+            rows={modelRows.rows}
+            totalTokens={modelRows.total}
+            loading={loading}
+            onRow={name => onNavigate("stats", { model: name })}
+          />
+          <DimPanel
+            titleKey="home.byGroup"
+            titleDefault="按分组 · 24 小时"
+            rows={groupRows.rows}
+            totalTokens={groupRows.total}
+            loading={loading}
+            onRow={name => onNavigate("stats", { groupKey: name })}
+          />
+        </div>
+
         {/* 5. 总余额行 + 快捷键 footer */}
         <div ref={revealFoot.ref} className={`reveal${revealFoot.shown ? " in" : ""}`}>
           {totalBalance > 0 && (
@@ -486,6 +562,107 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── 模型 / 分组维度面板（home-model-stats spec §2）─────────────────
+// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率。
+// 「其它」行灰显不可点；缓存率分母不可加，合并行显 --。
+function DimPanel({
+  titleKey,
+  titleDefault,
+  rows,
+  totalTokens,
+  loading,
+  onRow,
+}: {
+  titleKey: string;
+  titleDefault: string;
+  rows: { name: string; d: DimensionEntry; other: boolean }[];
+  totalTokens: number;
+  loading: boolean;
+  onRow: (name: string) => void;
+}) {
+  const { t } = useTranslation();
+  return (
+    <div style={{ padding: "14px 16px", background: PANEL.s1 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
+        <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t(titleKey, titleDefault)}</b>
+        <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+          24H · {t("home.dimMetric", "tokens / 花费 / 请求")}
+        </span>
+      </div>
+      {rows.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column" }}>
+          {rows.map((r, i) => (
+            <div
+              key={r.other ? "__other__" : r.name}
+              role={r.other ? undefined : "button"}
+              onClick={r.other ? undefined : () => onRow(r.name)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "9px 0",
+                borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
+                cursor: r.other ? undefined : "pointer",
+                opacity: r.other ? 0.55 : 1,
+              }}
+            >
+              <span
+                title={r.other ? t("home.dimOther", "其它") : r.name}
+                style={{
+                  fontSize: F.small + 1,
+                  fontWeight: 600,
+                  color: r.other ? PANEL.muted : PANEL.fg,
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: 180,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  textAlign: "start",
+                }}
+              >
+                {r.other ? t("home.dimOther", "其它") : r.name}
+              </span>
+              {/* 条长 = 该行 tokens 占全量比例（不是相对 top1，读者期望占比和为 100%） */}
+              <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
+                <span
+                  style={{
+                    display: "block",
+                    width: `${totalTokens > 0 ? (dimTokens(r.d) / totalTokens) * 100 : 0}%`,
+                    height: "100%",
+                    background: r.other ? PANEL.muted : seriesColor(0),
+                    borderRadius: 2,
+                    transition: "width 0.3s ease",
+                  }}
+                />
+              </span>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
+                {formatNumber(dimTokens(r.d))}
+              </span>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
+                {formatCostUsd(r.d.total_cost)}
+              </span>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
+                {formatNumber(r.d.total_requests)}
+              </span>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
+              </span>
+              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
+          {loading ? "" : t("home.noToday", "今日暂无请求")}
+        </div>
+      )}
     </div>
   );
 }

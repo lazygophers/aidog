@@ -84,12 +84,14 @@ Map<String, dynamic> dimensionEntry(
   int req = 0,
   int success = 0,
   double cost = 0,
+  int inp = 0,
+  int out = 0,
 }) => {
   'name': name,
   'total_requests': req,
   'success_count': success,
-  'input_tokens': 0,
-  'output_tokens': 0,
+  'input_tokens': inp,
+  'output_tokens': out,
   'cache_tokens': 0,
   'cache_rate': 0,
   'avg_duration_ms': 0,
@@ -145,7 +147,11 @@ Future<I18nController> makeI18n(
 }
 
 /// 把页面挂进「主题 + Material + i18n + 足够宽的内容区」里，与真骨架同形。
-Widget wrapPage(Widget page, I18nController c, {AidogMode mode = AidogMode.dark}) {
+Widget wrapPage(
+  Widget page,
+  I18nController c, {
+  AidogMode mode = AidogMode.dark,
+}) {
   // i18n 套在 MaterialApp **外面**，与 `main.dart:32` 的
   // `runApp(const AidogI18n(child: AidogApp()))` 同一层级。套在 `home` 里的话，
   // 任何渲染到 Overlay 的东西（拖拽代理、浮层候选）都找不到这个祖先，
@@ -164,7 +170,10 @@ Widget wrapPage(Widget page, I18nController c, {AidogMode mode = AidogMode.dark}
       ),
       home: Scaffold(
         body: SingleChildScrollView(
-          child: SizedBox(width: 1280, child: Material(type: MaterialType.transparency, child: page)),
+          child: SizedBox(
+            width: 1280,
+            child: Material(type: MaterialType.transparency, child: page),
+          ),
         ),
       ),
     ),

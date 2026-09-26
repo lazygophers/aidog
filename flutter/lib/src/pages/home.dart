@@ -18,6 +18,7 @@ import '../../platform.dart' as native;
 import '../../stats/models.dart';
 import '../../utils/formatters.dart';
 import '../shell/app_shell.dart';
+import '../shell/nav.dart' show NavContext;
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'home_logic.dart';
@@ -35,8 +36,9 @@ class HomePage extends StatefulWidget {
     this.now = DateTime.now,
   });
 
-  /// 侧栏切页（footer chip 与 ⌘N/⌘S/⌘L 用）。
-  final void Function(String id) onNavigate;
+  /// 侧栏切页（footer chip 与 ⌘N/⌘S/⌘L 用）。第二参 = 跳转带参
+  /// （首页「按模型/按分组」行下钻统计页，home-model-stats spec §3）。
+  final void Function(String id, [NavContext? context]) onNavigate;
   final InvokeFn invoke;
 
   /// 「有新请求日志」流；缺省是内核事件的 500ms 防抖流。
@@ -57,6 +59,9 @@ class _HomePageState extends State<HomePage> {
   List<TodayPlatformStat> _platformsToday = const [];
   List<PlatformSummary> _platforms = const [];
   List<StatsBucket> _trend = const [];
+  // 模型 / 分组维度（home-model-stats spec §1，queryBatch 两条 group_by）。
+  List<DimensionEntry> _dimModels = const [];
+  List<DimensionEntry> _dimGroups = const [];
   bool _loading = true;
   bool _copied = false;
 
@@ -103,6 +108,8 @@ class _HomePageState extends State<HomePage> {
     List<TodayPlatformStat> platformsToday = _platformsToday;
     List<PlatformSummary> platforms = _platforms;
     List<StatsBucket> trend = _trend;
+    List<DimensionEntry> dimModels = _dimModels;
+    List<DimensionEntry> dimGroups = _dimGroups;
     await Future.wait<void>([
       _guard(() async {
         final v = await widget.invoke('proxy_status');
@@ -143,6 +150,31 @@ class _HomePageState extends State<HomePage> {
         final r = StatsResult.fromJson(v! as Map<String, dynamic>);
         trend = r.buckets;
       }, () => trend = const []),
+      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by，只消费
+      // dimension_data（home-model-stats spec §1）。
+      _guard(
+        () async {
+          final v = await widget.invoke('stats_query_batch', {
+            'queries': [
+              {'start': window.start, 'end': window.end, 'group_by': 'model'},
+              {'start': window.start, 'end': window.end, 'group_by': 'group'},
+            ],
+          });
+          final rs = v! as List;
+          List<DimensionEntry> at(int i) {
+            if (rs.length <= i) return const [];
+            final r = StatsResult.fromJson(rs[i] as Map<String, dynamic>);
+            return r.dimensionData;
+          }
+
+          dimModels = at(0);
+          dimGroups = at(1);
+        },
+        () {
+          dimModels = const [];
+          dimGroups = const [];
+        },
+      ),
     ]);
     _inFlight = false;
     if (!mounted) return;
@@ -153,6 +185,8 @@ class _HomePageState extends State<HomePage> {
       _platformsToday = platformsToday;
       _platforms = platforms;
       _trend = trend;
+      _dimModels = dimModels;
+      _dimGroups = dimGroups;
       _loading = false;
     });
   }
@@ -370,7 +404,9 @@ class _HomePageState extends State<HomePage> {
                     const Divider(
                       height: 1,
                       thickness: 1,
-                      color: Color(0x0DFFFFFF), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
+                      color: Color(
+                        0x0DFFFFFF,
+                      ), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
                     ),
                   Padding(
                     padding: const EdgeInsets.symmetric(
@@ -394,7 +430,9 @@ class _HomePageState extends State<HomePage> {
         // 琥珀渐变眉条（`Home.tsx:273`）。
         Container(
           height: 3,
-          margin: const EdgeInsets.only(bottom: 16), // 同上：全页 gap 16（Home.tsx:265）
+          margin: const EdgeInsets.only(
+            bottom: 16,
+          ), // 同上：全页 gap 16（Home.tsx:265）
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(2),
             gradient: const LinearGradient(
@@ -480,6 +518,18 @@ class _HomePageState extends State<HomePage> {
                     ),
                   );
                 },
+              ),
+              const _PanelDivider(),
+              // ④.5 模型 / 分组维度（home-model-stats spec §2）：并排两面板，
+              // TopN 横条 + 五指标，与上面趋势/平台区同一断点换行。
+              Reveal(
+                delayMs: 250,
+                child: _DimSection(
+                  models: _dimModels,
+                  groups: _dimGroups,
+                  loading: _loading,
+                  onNavigate: widget.onNavigate,
+                ),
               ),
               const _PanelDivider(),
               // ⑤+⑥ 总余额行与快捷键 footer 同属 280ms 那一块（`Home.tsx:460`）。
@@ -782,7 +832,11 @@ class _KpiCell extends StatelessWidget {
             value,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: _panelMono(24, _panelFg, w: FontWeight.w700), // Home.tsx:98-99
+            style: _panelMono(
+              24,
+              _panelFg,
+              w: FontWeight.w700,
+            ), // Home.tsx:98-99
           ),
         ),
         if (spark case final sp?) ...[const SizedBox(height: 8), sp],
@@ -862,7 +916,9 @@ class _Spark extends StatelessWidget {
     return SizedBox(
       height: 22,
       width: double.infinity,
-      child: CustomPaint(painter: _SparkPainter(values: values, color: color)),
+      child: CustomPaint(
+        painter: _SparkPainter(values: values, color: color),
+      ),
     );
   }
 }
@@ -961,7 +1017,10 @@ class _HourAxis extends StatelessWidget {
                 child: Text(
                   hourTickOf(buckets[i]),
                   textAlign: TextAlign.center,
-                  style: _panelMono(8, _panelMuted), // Home.tsx:383-384 固定面板色，不跟主题
+                  style: _panelMono(
+                    8,
+                    _panelMuted,
+                  ), // Home.tsx:383-384 固定面板色，不跟主题
                 ),
               ),
             ),
@@ -999,10 +1058,7 @@ class _Chip extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(8),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 11,
-          vertical: 7,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
         decoration: BoxDecoration(
           color: _panelS2,
           border: Border.all(color: _panelLine),
@@ -1037,6 +1093,246 @@ class _Chip extends StatelessWidget {
             ))
               w,
           ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── 模型 / 分组维度面板（home-model-stats spec §2）─────────────────
+// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率。
+// 「其它」行灰显不可点；缓存率分母不可加，合并行显 --。
+
+const int _dimTopN = 8;
+
+int _dimTokens(DimensionEntry d) =>
+    d.inputTokens + d.outputTokens + d.cacheTokens;
+
+class _DimRowData {
+  const _DimRowData({required this.name, required this.d, required this.other});
+  final String name;
+  final DimensionEntry d;
+  final bool other;
+}
+
+/// tokens 降序前 [_dimTopN]，其余合并成一条「其它」行（home-model-stats spec §2）。
+({List<_DimRowData> rows, int total}) _buildDimRows(List<DimensionEntry> data) {
+  final sorted = [...data]..sort((a, b) => _dimTokens(b) - _dimTokens(a));
+  final top = sorted.take(_dimTopN).toList();
+  final rest = sorted.skip(_dimTopN).toList();
+  final rows = [
+    for (final d in top) _DimRowData(name: d.name, d: d, other: false),
+  ];
+  if (rest.isNotEmpty) {
+    rows.add(
+      _DimRowData(
+        name: '',
+        other: true,
+        d: DimensionEntry(
+          name: '',
+          totalRequests: rest.fold(0, (a, d) => a + d.totalRequests),
+          successCount: rest.fold(0, (a, d) => a + d.successCount),
+          inputTokens: rest.fold(0, (a, d) => a + d.inputTokens),
+          outputTokens: rest.fold(0, (a, d) => a + d.outputTokens),
+          cacheTokens: rest.fold(0, (a, d) => a + d.cacheTokens),
+          cacheRate: 0, // 分母不可加，合并行不展示（显 --）
+          avgDurationMs: 0,
+          totalCost: rest.fold(0.0, (a, d) => a + d.totalCost),
+        ),
+      ),
+    );
+  }
+  return (rows: rows, total: sorted.fold(0, (s, d) => s + _dimTokens(d)));
+}
+
+class _DimSection extends StatelessWidget {
+  const _DimSection({
+    required this.models,
+    required this.groups,
+    required this.loading,
+    required this.onNavigate,
+  });
+
+  final List<DimensionEntry> models;
+  final List<DimensionEntry> groups;
+  final bool loading;
+  final void Function(String id, [NavContext? context]) onNavigate;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final m = _buildDimRows(models);
+    final g = _buildDimRows(groups);
+    final modelPanel = _DimPanel(
+      title: t.t('home.byModel'),
+      rows: m.rows,
+      totalTokens: m.total,
+      loading: loading,
+      onRow: (name) => onNavigate('stats', NavContext(model: name)),
+    );
+    final groupPanel = _DimPanel(
+      title: t.t('home.byGroup'),
+      rows: g.rows,
+      totalTokens: g.total,
+      loading: loading,
+      onRow: (name) => onNavigate('stats', NavContext(groupKey: name)),
+    );
+    return LayoutBuilder(
+      builder: (context, c) {
+        // 与上面趋势/平台区同一断点（两栏各至少 420 + 1px 分隔）。
+        if (c.maxWidth < 420 * 2 + 1) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [modelPanel, const _PanelDivider(), groupPanel],
+          );
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: modelPanel),
+              const VerticalDivider(width: 1, thickness: 1, color: _panelLine),
+              Expanded(child: groupPanel),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DimPanel extends StatelessWidget {
+  const _DimPanel({
+    required this.title,
+    required this.rows,
+    required this.totalTokens,
+    required this.loading,
+    required this.onRow,
+  });
+
+  final String title;
+  final List<_DimRowData> rows;
+  final int totalTokens;
+  final bool loading;
+  final void Function(String name) onRow;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    if (rows.isEmpty) {
+      // 空态与平台区同款：加载中不显字，落空显「今日暂无请求」。
+      return _PanelSection(
+        title: title,
+        meta: '24H · ${t.t('home.dimMetric')}',
+        child: Text(
+          loading ? '' : t.t('home.noToday'),
+          style: AidogType.caption.copyWith(fontSize: 11, color: _panelMuted),
+        ),
+      );
+    }
+    return _PanelSection(
+      title: title,
+      meta: '24H · ${t.t('home.dimMetric')}',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < rows.length; i++)
+            _dimRowWidget(t, rows[i], i == rows.length - 1),
+        ],
+      ),
+    );
+  }
+
+  Widget _dimRowWidget(I18nController t, _DimRowData r, bool last) {
+    final label = r.other ? t.t('home.dimOther') : r.name;
+    final share = totalTokens > 0 ? _dimTokens(r.d) / totalTokens : 0.0;
+    final success = r.d.totalRequests > 0
+        ? formatPercent(r.d.successCount / r.d.totalRequests * 100, 0)
+        : '--';
+    final cache = r.other ? '--' : formatPercent(r.d.cacheRate, 0);
+    final row = Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: Tooltip(
+            message: label,
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                color: r.other ? _panelMuted : _panelFg,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+        // 条长 = 该行 tokens 占全量比例（不是相对 top1，占比和为 100%）。
+        Expanded(
+          flex: 4,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(2),
+              child: TweenAnimationBuilder<double>(
+                duration: const Duration(milliseconds: 300),
+                tween: Tween(begin: 0, end: share),
+                builder: (context, v, _) => LinearProgressIndicator(
+                  value: v,
+                  minHeight: 3,
+                  backgroundColor: const Color(0x1EE8C547),
+                  valueColor: AlwaysStoppedAnimation(
+                    r.other ? _panelMuted : const Color(0xFFE8C547),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        _dimNum(formatNumber(_dimTokens(r.d)), 64, muted: true),
+        _dimNum(formatCostUsd(r.d.totalCost), 56, amber: true),
+        _dimNum(formatNumber(r.d.totalRequests), 44, muted: true),
+        _dimNum(success, 42, muted: true),
+        _dimNum(cache, 42, muted: true),
+      ],
+    );
+    final body = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 9),
+      child: row,
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (r.other)
+          // 「其它」行灰显不可点。
+          Opacity(opacity: 0.55, child: body)
+        else
+          InkWell(onTap: () => onRow(r.name), child: body),
+        if (!last)
+          const Divider(height: 1, thickness: 1, color: Color(0x0DFFFFFF)),
+      ],
+    );
+  }
+
+  static Widget _dimNum(
+    String s,
+    double w, {
+    bool muted = false,
+    bool amber = false,
+  }) {
+    return SizedBox(
+      width: w,
+      child: Ltr(
+        child: Text(
+          s,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.end,
+          style: _panelMono(11, amber ? const Color(0xFFE8C547) : _panelMuted),
         ),
       ),
     );
