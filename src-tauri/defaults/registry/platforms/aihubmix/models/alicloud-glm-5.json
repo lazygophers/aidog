@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790401909,
   "model_id": "alicloud-glm-5",
   "canonical_model": "glm-5",
+  "predecessor": "glm-4.7",
   "capabilities": ["text","tool_use","reasoning"],
   "context_window": 200000,
   "display_name": "Alicloud Glm 5",

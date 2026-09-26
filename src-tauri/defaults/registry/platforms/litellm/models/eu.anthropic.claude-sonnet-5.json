@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790401909,
   "model_id": "eu.anthropic.claude-sonnet-5",
   "display_name": "Claude Sonnet 5",
   "canonical_model": "claude-sonnet-5",
   "family": "claude",
   "version": "5",
+  "predecessor": "claude-sonnet-4-6",
   "capabilities": [
     "text",
     "vision",

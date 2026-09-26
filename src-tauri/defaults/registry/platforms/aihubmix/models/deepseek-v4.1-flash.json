@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790401909,
   "model_id": "deepseek-v4.1-flash",
   "canonical_model": "deepseek-v4.1-flash",
   "display_name": "DeepSeek V4.1 Flash",
@@ -10,6 +10,7 @@
   "max_output_tokens": 384000,
   "thinking_supported": true,
   "max_input_tokens": 1000000,
+  "predecessor": "deepseek-v4-flash",
   "official": false,
   "thinking_toggleable": true,
   "price": {

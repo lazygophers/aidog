@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790401909,
   "model_id": "zai.glm-5",
   "display_name": "GLM-5",
   "canonical_model": "glm-5",
   "family": "glm",
   "version": "5",
+  "predecessor": "glm-4.7",
   "capabilities": [
     "text",
     "tool_use",
