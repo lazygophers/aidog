@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790401909,
   "model_id": "cc-glm-4.7",
   "canonical_model": "glm-4.7",
+  "predecessor": "glm-4.6",
   "capabilities": ["text","tool_use","reasoning"],
   "context_window": 204800,
   "display_name": "CC GLM 4.7",
