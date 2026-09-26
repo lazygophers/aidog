@@ -165,13 +165,13 @@ describe("matchPlatform", () => {
     ]);
     expect(hit?.value).toBe("newapi");
   });
-  it("paste_fallback: non-API URL (unknown protocol) does NOT trigger; keyword scan still works", () => {
-    const hit = matchPlatform("使用 deepseek 模型 https://github.com/foo/bar", PRESETS, [
-      { url: "https://github.com/foo/bar", protocol: "unknown" },
+  it("paste_fallback: bare-domain relay URL (no /v1, unknown protocol) still hits newapi", () => {
+    const hit = matchPlatform("OpenAI 福利羊毛", PRESETS, [
+      { url: "https://api.astrdark.cyou", protocol: "unknown" },
     ]);
-    expect(hit?.value).toBe("deepseek");
+    expect(hit?.value).toBe("newapi");
   });
-  it("falls back to keyword scan when no host match", () => {
+  it("falls back to keyword scan when no URL in text", () => {
     const hit = matchPlatform("使用 deepseek 模型", PRESETS);
     expect(hit?.value).toBe("deepseek");
   });

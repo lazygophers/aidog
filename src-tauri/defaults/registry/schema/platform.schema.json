@@ -87,7 +87,7 @@
     },
     "paste_fallback": {
       "type": "boolean",
-      "description": "【可选】智能识别兜底平台标记：粘贴文案含 base_url（协议可识别，如 /v1）但未命中任何 preset 的 hosts 时，命中本标记的平台胜出（自建中转站场景，如 newapi）。同标记多平台取文档序首个；禁在代码硬编码平台名。"
+      "description": "【可选】智能识别兜底平台标记：粘贴文案含 base_url 但未命中任何 preset 的 hosts 时（不要求协议可识别，中转站裸域常见），命中本标记的平台胜出（自建中转站场景，如 newapi），压过 keyword 扫描（防误落具体厂商平台）。文本无 base_url 时不触发。同标记多平台取文档序首个；禁在代码硬编码平台名。"
     },
     "key_prefixes": {
       "type": "array",
