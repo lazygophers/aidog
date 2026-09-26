@@ -285,8 +285,9 @@ class _WindowBackground extends StatelessWidget {
           // 侧栏↔内容的分隔光晕：React 是根容器的
           // `linear-gradient(90deg, transparent 200px, primary 8% 212px, transparent 224px)`
           //（`App.tsx:203-205`）。200 正是 railW，带子落在轨与内容之间。
-          // `--primary` = `c.accent`（`mono.ts:56`）；此处沿用本批次 #72 / #77 的
-          // 裁决，用 accentText（暗色 accent 近黑，8% 叠在暗底上看不见）。
+          // `--primary` = `c.accent`（`mono.ts:56`）。原先为了「暗色 accent 近黑、
+          // 8% 叠在暗底上看不见」改用 accentText；用户 2026-09-25 裁决一律与 React
+          // 逐字对齐，该偏离作废，这里回到 `c.accent`。
           PositionedDirectional(
             start: AidogLayout.railW,
             top: 0,
@@ -299,9 +300,9 @@ class _WindowBackground extends StatelessWidget {
                     begin: AlignmentDirectional.centerStart,
                     end: AlignmentDirectional.centerEnd,
                     colors: [
-                      theme.c.accentText.withValues(alpha: 0),
-                      theme.c.accentText.withValues(alpha: 0.08),
-                      theme.c.accentText.withValues(alpha: 0),
+                      theme.c.accent.withValues(alpha: 0),
+                      theme.c.accent.withValues(alpha: 0.08),
+                      theme.c.accent.withValues(alpha: 0),
                     ],
                   ),
                 ),

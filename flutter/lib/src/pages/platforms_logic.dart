@@ -962,6 +962,7 @@ class PlatformsController {
     required List<int> joinGroupIds,
     required int expiresAt,
     List<Map<String, Object?>> manualBudgets = const [],
+    String quotaSource = 'auto',
     bool autoGroup = true,
     int? editingId,
     String? failText,
@@ -982,6 +983,8 @@ class PlatformsController {
         'endpoints': [for (final e in endpoints) e.toJson()],
       'join_group_ids': joinGroupIds,
       'expires_at': expiresAt,
+      // 配额方式（quota-ia 票 01/03）：显式随保存提交，后端按 source 变化互斥清对侧。
+      'quota_source': quotaSource,
     };
     // 纯透传平台没有手动预算的概念（`usePlatformForm.ts:636`）。
     final budgets = isPassthroughProtocol(protocol)

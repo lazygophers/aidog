@@ -107,7 +107,7 @@ class PlatformCard extends StatelessWidget {
       nowMs: now,
     );
     final mb = computeManualBudgetDisplay(p.manualBudgets);
-    final quotaCapable = meta.hasQuotaScript(p.platformType, p.extra);
+    final quotaCapable = meta.hasQuotaScript(p.platformType, p.extra, p.quotaSource);
     final showQuotaSkeleton = quotaCapable && !q.hasData && quotaPending;
     final hasCodingEndpoint = p.endpoints.any((e) => e.codingPlan);
     // `PlatformCard.tsx:146`：显式配置优先；一个都没配但有 available_models 时
@@ -1411,6 +1411,10 @@ class _DetailSection extends StatelessWidget {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        // 外链色是 `var(--accent)`（`PlatformCard.tsx:593`）。
+                        // `mono.ts:70`：`--accent` = token accent-text，即本侧
+                        // `accentText` —— 近黑的 #101012 是 `--primary`（token accent），
+                        // 不在这条链路上。逐字对齐就是 accentText。
                         Icon(
                           Icons.open_in_new,
                           size: 11,
