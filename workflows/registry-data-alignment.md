@@ -433,3 +433,28 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `max_input_tokens` / `context_window` 且后者更小时，默认输出 semantic warning；
   `AIDOG_REGISTRY_SEMANTIC_STRICT=1` 升级为失败。当前实测 116 条历史候选，默认检查 rc=0，
   strict rc=1；不把平台实际限制差异误判为全库硬错，后续逐平台取证清理。
+- 2026-09-27 r98 清零 111 条 context_window < max_input_tokens semantic warning（AIDOG_REGISTRY_SEMANTIC_STRICT=1 通过）。
+  逐条官方源（第 1 类）：
+  - Gemini 自家（ai.google.dev 模型页实抓）：TTS 真值 input 8192/output 16384（registry 旧值 cw/mi=1048576 全错）；
+    robotics-er-2 = 131072/65536；deep-research = 1048576/65536；computer-use cw=128000；
+    native-audio 09-2025/latest 按 r96 同族（12-2025 官方 131072）平移；live-native-audio 同取 131072；
+    image -preview 旧别名官方页 404，保守 cw=mi（3-pro-image 官方 65536；3.1-flash-image 现稳定版 131072 但 preview 时代值不可考）；
+    3.x 系全 1048576/65536；alias flash-latest→3.8 Flash、flash-lite-latest→3.5 Flash-Lite、pro-latest→3.1 Pro。
+  - Gemini MaaS partner（docs.cloud.google.com Quotas 表）：context length + maximum output，r1-0528=163840/32768（旧 mi 65336 错）、
+    gemma-4-26b=262144、gpt-oss-120b=131072/131072、qwen3-coder-480b=262144/65536、grok-4-6-maas=524288（xAI 官方 grok 4.5/4.6 Context 500k，
+    故 xai/opencode/opencode_zen/pipellm/shengsuanyun 八条镜像 mi 2000000→500000）、glm-4.7/5-maas=200000、
+    mistral 系（docs.mistral.ai Context 128k）cw 8191→128000、mistral-small-2503 mi 32000→128000。
+  - bailian 系（help.aliyun.com 模型卡「上下文长度/最大输入长度/最大输出长度」）：统一映射 cw=上下文长度、mi=最大输入长度（非思考）、mo=最大输出长度。
+    qwen3.6-flash/plus cw→1000000；27b→262144/260096；qwen3.7→1000000 且 mo→131072；qwen-turbo→131072/98304；
+    qwen3-max→262144/258048；qwq-plus→131072/98304；kimi-k2.7-code→262144/229376 且 mo→16384；glm-4.7→202752/169984/16384；
+    glm-5.1→202745/202745/131072；glm-5.2→1048576/1048576/131072；deepseek v3.2/v3-0324/r1-0528/v3.1-terminus cw→163840；
+    deepseek-v4-pro(-0813)→1000000/1000000/393216（nvidia 镜像 cw→1048576）。
+  - 其它：qianfan ernie-4.5-turbo-vl-32k mi→27648（官方表 32k 上下文/27k 输入/12288 输出，27k=27648 与 123k=125952 同换算）；
+    MiniMax-M2.5 cw→204800（platform.minimax.io）；voxtral-small cw→128000（litellm db 且 docs.mistral.ai 128k）；
+    glm-4.1v-thinking-flashx mi→65536（智谱官方 64K，旧 mi 131072 错）；glm-4.7-flash cw→203000（对齐 mi=litellm zai 条目 203000，
+    z.ai 只公布 200K）；lyria-3-clip mi→131072/mo→8192（litellm db）；litellm bedrock gpt-5.6 cw→1050000、
+    snowflake gpt-5-mini/nano mi→400000/mo→128000（Snowflake 400k 截断 + OpenAI 官方）；compshare Qwen3-30B-Thinking（原版）
+    cw/mi→131072（Qwen3 官方 blog 128K）；2507 系→262144（HF README natively）；VL-8B→256000（Native 256K）；
+    shengsuanyun qwen3.5-plus cw→1000000（aliyun 卡）；mistral glm-5.2 cw→1048576（z.ai 1M）。
+  验证：check-registry 8794 文件 schema 通过、严格模式 rc=0、aidog_db 354 passed。
+  注：工作区 aihubmix/claude-3-opus-20240229.json 有他人（并行会话）未提交改动（删重复 capabilities 键），本提交不含。

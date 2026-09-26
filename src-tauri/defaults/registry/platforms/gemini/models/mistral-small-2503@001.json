@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790443216,
   "model_id": "mistral-small-2503@001",
   "display_name": "Mistral Small 3.1",
   "canonical_model": "mistral-small-2503@001",
@@ -8,9 +8,9 @@
   "capabilities": [
     "text"
   ],
-  "max_input_tokens": 32000,
+  "max_input_tokens": 128000,
   "max_output_tokens": 8191,
-  "context_window": 8191,
+  "context_window": 128000,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

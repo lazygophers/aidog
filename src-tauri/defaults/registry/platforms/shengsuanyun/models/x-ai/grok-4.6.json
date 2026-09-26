@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790443216,
   "model_id": "x-ai/grok-4.6",
   "display_name": "Grok 4.6",
   "canonical_model": "grok-4.6",
@@ -17,7 +17,7 @@
     "output": 5.83333e-06,
     "cache_read": 4.86111e-07
   },
-  "max_input_tokens": 2000000,
+  "max_input_tokens": 500000,
   "max_output_tokens": 500000,
   "context_window": 500000
 }

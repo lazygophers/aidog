@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790443216,
   "model_id": "ali/qwen3.5-plus",
   "display_name": "Qwen3.5 Plus",
   "canonical_model": "qwen3.5-plus",
@@ -18,5 +18,5 @@
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 8000,
-  "context_window": 128000
+  "context_window": 1000000
 }
