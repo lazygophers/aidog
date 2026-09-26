@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790400041,
   "model_id": "xiaomi/mimo-v2.5-asr",
+  "display_name": "MiMo-V2.5-ASR",
   "canonical_model": "mimo-v2.5-asr",
   "context_window": 8000,
   "family": "mimo",

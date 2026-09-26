@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "qwen-mt-turbo",
+  "display_name": "Qwen Mt Turbo",
   "canonical_model": "qwen-mt-turbo",
   "family": "qwen",
   "capabilities": [

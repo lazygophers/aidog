@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "bedrock/ap-south-1/meta.llama3-8b-instruct-v1:0",
+  "display_name": "Llama 3 8B Instruct",
   "canonical_model": "meta.llama3-8b-instruct-v1:0",
   "family": "llama",
   "version": "3",

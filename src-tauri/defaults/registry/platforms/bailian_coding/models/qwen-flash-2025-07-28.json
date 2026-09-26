@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790400041,
   "model_id": "qwen-flash-2025-07-28",
+  "display_name": "Qwen Flash 2025 07-28",
   "canonical_model": "qwen-flash-2025-07-28",
   "family": "qwen",
   "capabilities": [
