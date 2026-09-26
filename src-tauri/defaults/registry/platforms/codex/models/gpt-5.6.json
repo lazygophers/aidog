@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790394075,
   "model_id": "gpt-5.6",
   "canonical_model": "gpt-5.6",
   "family": "gpt",
@@ -10,12 +10,14 @@
   ],
   "max_output_tokens": 128000,
   "context_window": 1050000,
-  "max_input_tokens": 400000,
+  "max_input_tokens": 922000,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
   "input": 4e-06,
-  "output": 2e-05
+  "output": 2e-05,
+  "cache_read": 4e-07,
+  "context_tiers": [{"min_tokens": 272000, "input": 8e-06, "output": 3e-05, "cache_read": 8e-07}]
   }
 }
