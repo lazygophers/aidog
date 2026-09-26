@@ -24,6 +24,8 @@ const schemas = {
 
 const failures = [];
 const warnings = [];
+const semanticWarnings = [];
+const semanticStrict = process.env.AIDOG_REGISTRY_SEMANTIC_STRICT === "1";
 let checked = 0;
 
 function validate(kind, rel, raw) {
@@ -39,6 +41,11 @@ function validate(kind, rel, raw) {
     for (const err of schemas[kind].errors) {
       failures.push([rel, `${err.instancePath || "/"} ${err.message}`]);
     }
+  }
+  if (kind === "model" && doc.context_window != null && doc.max_input_tokens != null && doc.context_window < doc.max_input_tokens) {
+    const message = `context_window ${doc.context_window} 小于 max_input_tokens ${doc.max_input_tokens}`;
+    if (semanticStrict) failures.push([rel, message]);
+    else semanticWarnings.push(`${rel}: ${message}`);
   }
 }
 
@@ -69,7 +76,9 @@ function walkModels(dir, baseRel, rel, out, ids) {
             family: doc.family ?? null,
             version: doc.version ?? null,
             capabilities: Array.isArray(doc.capabilities) && doc.capabilities.length > 0,
-            contextWindow: typeof doc.context_window === "number",
+            maxInputTokens: doc.max_input_tokens ?? null,
+            maxOutputTokens: doc.max_output_tokens ?? null,
+            contextWindow: doc.context_window ?? null,
             thinking: typeof doc.thinking_supported === "boolean",
             thinkingToggle: typeof doc.thinking_toggleable === "boolean",
             displayName: typeof doc.display_name === "string" && doc.display_name.trim() !== ""
@@ -326,7 +335,7 @@ const MUST_FIELDS = {
   family: (m) => typeof m.family === "string" && m.family !== "",
   version: (m) => typeof m.version === "string" && m.version !== "",
   capabilities: (m) => m.capabilities,
-  context_window: (m) => m.contextWindow,
+  context_window: (m) => typeof m.contextWindow === "number",
 };
 const BONUS_FIELDS = {
   thinking_supported: (m) => m.thinking,
@@ -359,12 +368,19 @@ if (Number.isFinite(covMin) && covMin > 0) {
   }
 }
 
+// ⑪ token 语义护栏：context_window 不得小于 max_input_tokens；默认 warning，
+// AIDOG_REGISTRY_SEMANTIC_STRICT=1 升级为失败。历史镜像存在平台实际限制差异，
+// 先提示再逐平台取证，避免把合法平台限制误判成全局硬错。
 if (failures.length) {
   console.error(`registry 校验失败：${failures.length} 处 / ${checked} 个文件`);
   for (const [file, msg] of failures) console.error(`  ${file}: ${msg}`);
   process.exit(1);
 }
 console.log(`registry schema 校验通过：${checked} 个文件（1 index + platforms + models）`);
+if (semanticWarnings.length) {
+  console.log(`registry semantic warning：${semanticWarnings.length} 个模型的 context_window 小于 max_input_tokens（AIDOG_REGISTRY_SEMANTIC_STRICT=1 时报错）`);
+  for (const warning of semanticWarnings) console.log(`  ${warning}`);
+}
 if (warnings.length) {
   console.log(`registry warning：${warnings.length} 个平台引用了无文件的 model id（中转平台常见，AIDOG_REGISTRY_STRICT=1 时报错）`);
   // 票 #19：逐平台明细（原先只汇总会数，43 平台谁缺多少条不可见）
