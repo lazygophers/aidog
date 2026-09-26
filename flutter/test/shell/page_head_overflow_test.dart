@@ -1,7 +1,6 @@
 // PageHead 窄窗不溢出：托盘小窗 500px 里 trailing（180 搜索框 + 三颗按钮的
 // Wrap）自然宽超过剩余空间时，Flexible 要让 Wrap 换行，而不是把 Row 撑破
 //（2026-09-25 实跑 RenderFlex overflowed by 44 pixels）。
-import 'package:aidog_flutter/i18n.dart';
 import 'package:aidog_flutter/shell.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

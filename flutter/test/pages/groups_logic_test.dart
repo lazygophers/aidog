@@ -1262,4 +1262,63 @@ void main() {
     });
   });
 
+  // ── 触底自动加载（`groups.dart` 的 `_maybeLoadMore` → `loadMore`）──
+  group('触底翻页', () {
+    /// id 连号的组条目，`group_detail_list_paged` 的分页返回形状。
+    Map<String, Object?> pagedEntry(int id) => {
+      'group': {'id': id, 'name': 'G$id', 'group_key': 'gk$id'},
+      'platforms': <Object?>[],
+      'model_mappings': <Object?>[],
+    };
+
+    test('满页翻下一页：offset 推进、条目追加', () async {
+      var calls = 0;
+      final k = FakeInvoke({
+        'platform_list': <Object?>[],
+        'group_detail_list': <Object?>[],
+        'group_detail': <Object?>[],
+        'all_group_usage_stats': <String, Object?>{},
+        'group_detail_list_paged': () {
+          calls = calls + 1;
+          return [for (var i = 0; i < GroupsController.pageSize; i++) pagedEntry((calls - 1) * GroupsController.pageSize + i)];
+        },
+      });
+      final c = GroupsController(invoke: k.fn);
+      await c.load();
+      expect(c.details.length, GroupsController.pageSize);
+      expect(c.hasMore, isTrue);
+      await c.loadMore();
+      expect(k.callsTo('group_detail_list_paged').last.args, {
+        'offset': GroupsController.pageSize,
+        'limit': GroupsController.pageSize,
+      });
+      expect(c.details.length, GroupsController.pageSize * 2);
+      expect(c.hasMore, isTrue);
+    });
+
+    test('短页封底：hasMore 置 false', () async {
+      // loadMore 自身不查 hasMore —— React 也是（`useGroupData.ts:116` 只查
+      // loadingMore），翻到底不再发起由哨兵调用方挡（React 的 IO effect /
+      // Flutter 的 `_maybeLoadMore`），这里只验封底信号本身。
+      var calls = 0;
+      final k = FakeInvoke({
+        'platform_list': <Object?>[],
+        'group_detail_list': <Object?>[],
+        'group_detail': <Object?>[],
+        'all_group_usage_stats': <String, Object?>{},
+        'group_detail_list_paged': () {
+          calls++;
+          return calls == 1
+              ? [for (var i = 0; i < GroupsController.pageSize; i++) pagedEntry(i)]
+              : [pagedEntry(100), pagedEntry(101)];
+        },
+      });
+      final c = GroupsController(invoke: k.fn);
+      await c.load();
+      await c.loadMore();
+      expect(c.hasMore, isFalse);
+      expect(c.details.length, GroupsController.pageSize + 2);
+    });
+  });
+
 }

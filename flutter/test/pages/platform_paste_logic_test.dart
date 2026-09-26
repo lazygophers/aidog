@@ -74,7 +74,7 @@ const List<PastePresetRef> presets = [
   ),
   PastePresetRef(value: 'mock', label: 'Mock', keywords: ['测试', 'mock']),
   // paste_fallback 兜底平台（registry newapi）。
-  const PastePresetRef(
+  PastePresetRef(
     value: 'newapi',
     label: 'New API',
     keywords: ['newapi', 'new-api', '中转'],

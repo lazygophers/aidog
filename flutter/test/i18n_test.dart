@@ -77,12 +77,13 @@ void main() {
       //      2026-09-24 对齐 React 后 UI 不再用它，删 key 要 8 份一起动，暂留）。
       // + 1（platform.numberInvalid —— 数字框打错时的提示。React 那边靠
       //      `<input type="number">` 由浏览器拦，Flutter 没有等价物，必须自己说）。
+      // + 9（platform.quotaSection.* —— 配额查询合区 Tab + 确认弹窗，quota-ia 14）。
       // 这个数是故意写死的：加 key 必须 8 个 locale 一起加，改这一行时就会想起来。
       //
       // 数的是 [Translations.flatten] **之后**的键数，不是 JSON 顶层键数 ——
       // `group` / `logs` 在 JSON 里是嵌套对象，拍平后会展开成多条。拿
       // `len(json.load(f))` 去对这个数一定对不上，别那样核。
-      expect(base, hasLength(2846));
+      expect(base, hasLength(2855));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');
