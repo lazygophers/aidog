@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790401909,
   "model_id": "us-gov.anthropic.claude-fable-5-1",
   "display_name": "Claude Fable 5.1",
   "canonical_model": "claude-fable-5-1",
   "family": "claude",
   "version": "5.1",
+  "predecessor": "claude-fable-5",
   "capabilities": [
     "text",
     "vision",
