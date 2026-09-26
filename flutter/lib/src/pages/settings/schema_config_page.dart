@@ -1846,7 +1846,10 @@ class _ImportDiffCardState extends State<ImportDiffCard> {
             t,
             theme,
             keyName: 'diff-incoming-${n.path}',
-            label: t.t('settings.editor.diffIncoming'),
+            // 推荐配置模式下右栏叫「推荐值」不是「导入」（`Settings.tsx:557-559`）。
+            label: widget.pending.recommended
+                ? t.t('settings.editor.diffRecommended')
+                : t.t('settings.editor.diffIncoming'),
             value: n.incoming,
           ),
         ),
