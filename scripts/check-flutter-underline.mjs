@@ -5,8 +5,10 @@
 // 我不希望设计上有这么多下划线设计，很丑」）：
 //   1. `DropdownButton` 底下那条线 —— 必须 `underline:` 传空，或外面包
 //      `DropdownButtonHideUnderline`。
-//   2. `TextField` 的 underline 边框 —— 已在 `theme.dart` 的
-//      `inputDecorationTheme` 里全局关掉；这里守住那段不被删。
+//   2. `TextField` 的 underline 边框 —— `theme.dart` 的 `inputDecorationTheme`
+//      全局给显式边框（b78275771 批次二 P1：InputBorder.none 裸文字行改描边盒，
+//      对齐 React `.input`）。缺了这套显式 border，TextField 会回落 Material
+//      默认 underline；这里守住整套配置不被删。
 //
 // 还有第三类不在本脚本范围：文字被画上**黄色**双下划线，那是「缺 Material 祖先」
 // 的运行时提示，不是样式（修法见 `app_shell.dart` 与 `popover/app.dart` 的注释）。
@@ -47,8 +49,8 @@ for (const f of files) {
 
 // ── 2. 主题里的全局关闭不许被删 ──
 const theme = readFileSync(join(root, "flutter/lib/src/shell/theme.dart"), "utf8");
-if (!/inputDecorationTheme:[\s\S]*?border:\s*InputBorder\.none/.test(theme)) {
-  bad.push("flutter/lib/src/shell/theme.dart 少了 inputDecorationTheme 的 InputBorder.none —— TextField 会重新长出下划线");
+if (!/inputDecorationTheme:[\s\S]*?enabledBorder:\s*_inputBorder/.test(theme)) {
+  bad.push("flutter/lib/src/shell/theme.dart 少了 inputDecorationTheme 的显式 border 套件 —— TextField 会重新长出下划线");
 }
 
 if (bad.length > 0) {
