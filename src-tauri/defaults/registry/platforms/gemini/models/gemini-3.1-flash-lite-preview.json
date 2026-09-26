@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790438582,
   "model_id": "gemini-3.1-flash-lite-preview",
   "display_name": "Gemini 3.1 Flash Lite Preview",
   "canonical_model": "gemini-3.1-flash-lite-preview",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 1048576,
   "max_output_tokens": 65536,
-  "context_window": 65536,
+  "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,
