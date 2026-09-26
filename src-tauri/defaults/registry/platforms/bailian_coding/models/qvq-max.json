@@ -15,5 +15,7 @@
   "price": {
     "input": 0
   },
+  "max_input_tokens": 106496,
+  "max_output_tokens": 8192,
   "context_window": 131072
 }

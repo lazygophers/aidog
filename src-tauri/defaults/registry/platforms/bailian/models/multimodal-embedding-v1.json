@@ -9,6 +9,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 9.722222222222221e-08
+    "input": 9.722222222222221e-08,
+    "output": 0
   }
 }

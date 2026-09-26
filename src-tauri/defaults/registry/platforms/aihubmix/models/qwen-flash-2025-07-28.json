@@ -1,13 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "qwen-flash-2025-07-28",
   "canonical_model": "qwen-flash-2025-07-28",
   "capabilities": ["text"],
   "display_name": "Qwen Flash 2025 07-28",
   "family": "qwen",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 65536,
   "context_window": 1000000,
   "official": false,
   "thinking_supported": true,

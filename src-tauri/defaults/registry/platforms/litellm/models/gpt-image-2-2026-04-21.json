@@ -8,6 +8,7 @@
   "capabilities": [
     "text_to_image"
   ],
+  "max_input_tokens": 1047576,
   "context_window": 1047576,
   "official": false,
   "thinking_supported": false,

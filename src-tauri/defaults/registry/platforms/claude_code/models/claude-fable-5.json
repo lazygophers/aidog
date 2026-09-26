@@ -10,9 +10,11 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "xiaomi-mimo-v2-omni-free",
   "canonical_model": "xiaomi-mimo-v2-omni-free",
 
@@ -16,6 +16,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

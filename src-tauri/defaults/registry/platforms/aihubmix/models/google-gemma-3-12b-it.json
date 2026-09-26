@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "google-gemma-3-12b-it",
   "canonical_model": "google-gemma-3-12b-it",
 
   "version": "3",
   "family": "gemma",  "display_name": "Google Gemma 3 12B It",
   "capabilities": [],
+  "max_output_tokens": 8000,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -1,13 +1,12 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790389813,
   "model_id": "qwen-max-longcontext",
   "canonical_model": "qwen-max-longcontext",
   "capabilities": ["text"],
 
   "family": "qwen",  "display_name": "Qwen Max Longcontext",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 28000,
   "context_window": 1000000,
   "max_input_tokens": 1000000,
   "official": false,

@@ -9,6 +9,7 @@
     "audio",
     "video"
   ],
+  "max_output_tokens": 65535,
   "context_window": 65536,
   "official": true,
   "thinking_supported": true,

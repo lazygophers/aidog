@@ -14,6 +14,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

@@ -9,6 +9,7 @@
     "text",
     "vision"
   ],
+  "max_output_tokens": 1024,
   "context_window": 16384,
   "official": true,
   "thinking_supported": false,

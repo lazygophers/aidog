@@ -26,5 +26,6 @@
     ]
   },
   "context_window": 1000000,
+  "max_input_tokens": 997952,
   "max_output_tokens": 65536
 }

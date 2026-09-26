@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790389813,
   "model_id": "qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "family": "qwen",
@@ -15,5 +15,7 @@
     "input": 0
   },
   "display_name": "Qwen3.8-2.4T-A95B",
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
   "context_window": 1000000
 }

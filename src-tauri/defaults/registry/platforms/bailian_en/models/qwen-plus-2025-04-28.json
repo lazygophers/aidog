@@ -15,5 +15,6 @@
     "output": 1.2e-06
   },
   "context_window": 131072,
+  "max_input_tokens": 98304,
   "max_output_tokens": 8192
 }

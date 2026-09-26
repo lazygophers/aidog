@@ -1,14 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "moonshot-v1-128k",
   "canonical_model": "moonshot-v1-128k",
   "capabilities": ["text"],
   "family": "moonshot",
   "version": "1",
   "display_name": "Moonshot V1 128K",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 131072,
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,

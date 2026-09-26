@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "gemini-2.5-pro-preview-tts",
   "canonical_model": "gemini-2.5-pro-preview-tts",
   "display_name": "Gemini 2.5 Pro Preview Tts",
@@ -8,6 +8,7 @@
   "capabilities": [
     "audio"
   ],
+  "max_output_tokens": 65535,
   "context_window": 65535,
   "max_input_tokens": 1048576,
   "official": false,

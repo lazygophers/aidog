@@ -16,5 +16,7 @@
   },
   "family": "gpt",
   "version": "2.1",
+  "max_input_tokens": 128000,
+  "max_output_tokens": 32000,
   "context_window": 128000
 }

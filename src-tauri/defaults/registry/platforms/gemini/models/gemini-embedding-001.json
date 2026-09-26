@@ -7,6 +7,7 @@
     "embedding"
   ],
   "max_input_tokens": 2048,
+  "max_output_tokens": 2048,
   "context_window": 2048,
   "official": true,
   "thinking_supported": false,

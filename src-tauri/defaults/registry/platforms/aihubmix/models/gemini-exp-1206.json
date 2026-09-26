@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "gemini-exp-1206",
   "canonical_model": "gemini-exp-1206",
 
   "family": "gemini",  "display_name": "Gemini",
   "capabilities": [],
+  "max_output_tokens": 65535,
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

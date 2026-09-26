@@ -1,14 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790389813,
   "model_id": "moonshot-v1-32k",
   "canonical_model": "moonshot-v1-32k",
   "capabilities": ["text"],
   "family": "moonshot",
   "version": "1",
   "display_name": "Moonshot V1 32K",
-  "capabilities": [
-    "text"
-  ],
+  "capabilities": ["text"],
+  "max_output_tokens": 32768,
   "context_window": 32768,
   "max_input_tokens": 32768,
   "official": false,

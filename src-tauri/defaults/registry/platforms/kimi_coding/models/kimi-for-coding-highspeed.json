@@ -15,6 +15,7 @@
   "official": true,
   "thinking_supported": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

@@ -6,6 +6,7 @@
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 4096,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -18,5 +18,6 @@
     "output": 4.25e-06,
     "cache_read": 1.5e-07
   },
+  "max_output_tokens": 131072,
   "context_window": 1048576
 }
