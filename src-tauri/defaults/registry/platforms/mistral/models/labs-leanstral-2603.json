@@ -1,10 +1,11 @@
 {
-  "last_updated": 1788149245,
+  "last_updated": 1790388904,
   "model_id": "labs-leanstral-2603",
   "canonical_model": "labs-leanstral-2603",
   "capabilities": [],
   "official": true,
   "family": "leanstral",
+  "version": "26.03",
   "price": {
     "input": 0
   }

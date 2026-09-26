@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790388904,
   "model_id": "voxtral-tts-2603",
   "canonical_model": "voxtral-tts-2603",
   "capabilities": [
@@ -9,6 +9,7 @@
   "family": "voxtral",
   "thinking_supported": false,
   "thinking_toggleable": false,
+  "version": "26.03",
   "price": {
     "unit": "char",
     "unit_price": 0.016
