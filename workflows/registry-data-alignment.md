@@ -400,4 +400,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `text-embedding-3-large` / `text-embedding-3-small` / `text-embedding-ada-002` 原先误写
   `max_output_tokens: 8191`，改为 `max_input_tokens: 8192` + `context_window: 8192`。
   该事实推翻旧归因中 `openai:context_window` 全部「官方未公布」结论；覆盖率只作定位，
-  不再作为归因证据。镜像平台需区分 OpenAI 8192 与 Azure/LiteLLM 8191，不盲目平移。
+  不再作为归因证据。镜像平台需区分 OpenAI/Azure 官方 8192 与 LiteLLM 元数据 8191，
+  不盲目平移。后续同 canonical 15 条镜像删除语义错误的 `max_output_tokens: 8191`；
+  LiteLLM 已有 `max_input_tokens/context_window: 8191` 按其官方元数据保留，AiHubMix/
+  CrazyRouter 无自有官方输入限制，未代填 OpenAI 值。
