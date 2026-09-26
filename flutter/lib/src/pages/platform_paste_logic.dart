@@ -553,9 +553,10 @@ List<ParsedBaseUrl> extractBaseUrls(String text) {
 ///
 /// 优先级 1：base_url 命中 preset 的 `hosts` 子串（最强信号），多 preset 重叠时
 /// **最长串胜出** —— 例如粘贴 coding 专属 host 时，coding preset 比普通版更特异而赢。
-/// 优先级 2：base_url 协议可识别（如 /v1）但未命中任何 hosts → 带 `paste_fallback`
-/// 标记的 preset 胜出（自建中转站，如 newapi）。排在 keyword 扫描前：未知 host 的
-/// API 端点 URL 比正文关键词（常是模型名噪声）更可信；闲杂链接 protocol=unknown 不触发。
+/// 优先级 2：文本含 base_url 但未命中任何 hosts → 带 `paste_fallback` 标记的
+/// preset 胜出（自建中转站，如 newapi）。排在 keyword 扫描前：未知 host 的 URL 比
+/// 正文关键词（常是模型名 / 厂商名词噪声）更可信。不要求协议可识别：中转站裸域
+/// （无 /v1 版本段）常见；有 URL 即触发（无 URL 走 keyword 路）。
 /// 优先级 3：keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > 列表顺序 asc）。
 /// 打分是为了根治「排在前面的 preset 用通用词抢走同族更具体 preset」。
 PasteMatch? matchPlatform(
@@ -580,9 +581,8 @@ PasteMatch? matchPlatform(
     if (best != null) return best;
   }
 
-  // 2) API 形态 base_url（协议可识别）但 host 未命中任何 preset → paste_fallback 兜底。
-  if (baseUrls != null &&
-      baseUrls.any((b) => b.protocol != ParsedProtocol.unknown)) {
+  // 2) 文本含 base_url 但 host 未命中任何 preset → paste_fallback 兜底（newapi 自建中转）。
+  if (baseUrls != null && baseUrls.isNotEmpty) {
     for (final p in presets) {
       if (kNeverAutoMatch.contains(p.value)) continue;
       if (p.pasteFallback) {

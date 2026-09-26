@@ -343,10 +343,11 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
  *          hosts 存 hostname（如 api.deepseek.com）或含 path 的 URL 子串（如
  *          open.bigmodel.cn/api/coding 区分 coding/普通同 host 分裂）。hostname 是 URL 子串
  *          的特例，故向后兼容。
- *  优先级 2：base_url 协议可识别（如 /v1）但未命中任何 preset hosts → 带 paste_fallback 标记的
- *          preset 胜出（自建中转站，如 newapi 中转）。排在 keyword 扫描前：未知 host 的 API 端点
- *          URL 比正文关键词（常是模型名噪声，如 Qwen→百炼）更可信；论坛闲杂链接（github 等）
- *          guessProtocol=unknown 不触发本路。
+ *  优先级 2：文本含 base_url 但未命中任何 preset hosts → 带 paste_fallback 标记的 preset
+ *          胜出（自建中转站，如 newapi 中转）。排在 keyword 扫描前：未知 host 的 URL 比正文
+ *          关键词（常是模型名 / 厂商名词噪声，如 Qwen→百炼、OpenAI 词→官方 OpenAI）更可信——
+ *          keyword 命中的多是具体厂商平台（端点锁官方域），落上去是错配。URL 不带 /v1 等
+ *          版本段（guessProtocol=unknown）同样触发：中转站裸域常见（如 api.astrdark.cyou）。
  *  优先级 3：keyword 文本扫描（fallback，打分: 命中数 desc > 最长命中关键字长度 desc > presets 列表顺序 asc）。
  *  返回 codingPlan 标记（透传到 applyPaste 选对普通/coding 变体的 endpoints）。 */
 export function matchPlatform(
@@ -377,9 +378,9 @@ export function matchPlatform(
     }
   }
 
-  // 2) 粘贴含 API 形态 base_url（协议可识别）但 host 未命中任何 preset → paste_fallback
-  //    兜底平台（newapi 自建中转）。仅 API 端点形态 URL 触发（/v1 等），闲杂链接不触发。
-  if (baseUrls && baseUrls.some((b) => b.protocol !== "unknown")) {
+  // 2) 文本含 base_url 但 host 未命中任何 preset → paste_fallback 兜底平台（newapi 自建中转）。
+  //    不要求协议可识别：中转站裸域（无 /v1 版本段）常见；有 URL 即触发（无 URL 走 keyword 路）。
+  if (baseUrls && baseUrls.length) {
     for (const p of presets) {
       if (NEVER_AUTO_MATCH.has(p.value)) continue;
       if (p.pasteFallback) return { value: p.value, label: p.label, codingPlan: p.codingPlan };

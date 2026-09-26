@@ -129,11 +129,11 @@ void main() {
       expect(hit?.value, 'newapi');
     });
 
-    test('paste_fallback：非 API URL（unknown 协议）不触发，keyword 扫描照常', () {
-      final hit = matchPlatform('使用 deepseek 模型', presets, const [
-        ParsedBaseUrl('https://github.com/foo/bar', ParsedProtocol.unknown),
+    test('paste_fallback：裸域中转 URL（无 /v1，unknown 协议）同样命中 newapi', () {
+      final hit = matchPlatform('OpenAI 福利羊毛', presets, const [
+        ParsedBaseUrl('https://api.astrdark.cyou', ParsedProtocol.unknown),
       ]);
-      expect(hit?.value, 'deepseek');
+      expect(hit?.value, 'newapi');
     });
 
     test('按 base_url host 匹配，最长最特异者胜出', () {
