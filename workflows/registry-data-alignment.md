@@ -391,3 +391,13 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   缺省——schema 禁 0 是已知约束）；r88 OpenAI 复核（42baacc28，10 文件：gpt-5.6 家族
   luna ctx 400K→1.05M、max_input 922K、补 cache_read/272K tier；gpt-5.6-cyber 已由
   r87 侧登记后修正 max_input 272K；gpt-oss 归因官方确认维持）。ctx 覆盖 78.9%→79.7%。
+- 2026-09-26 r89-r90（全绿）：r89 predecessor 官方链（4b43ca167→528e695dc，Anthropic/
+  GLM/DeepSeek 官方迁移与更新文档，59 个模型文件）；r90 display_name 第二轮（d270688eb
+  →ed87a7c8c，121 文件）。终态实测：8739 条模型，display_name 82.3%、predecessor 2.0%，
+  schema 8794 文件通过；`aidog_db` 在 quota_source 并行改动完成后重跑 354 passed。
+- 2026-09-26 r91 OpenAI embedding 字段错位复核：官方 Embeddings guide
+  https://developers.openai.com/api/docs/guides/embeddings 明确三款模型 Max input 均为 8192；
+  `text-embedding-3-large` / `text-embedding-3-small` / `text-embedding-ada-002` 原先误写
+  `max_output_tokens: 8191`，改为 `max_input_tokens: 8192` + `context_window: 8192`。
+  该事实推翻旧归因中 `openai:context_window` 全部「官方未公布」结论；覆盖率只作定位，
+  不再作为归因证据。镜像平台需区分 OpenAI 8192 与 Azure/LiteLLM 8191，不盲目平移。

@@ -1,12 +1,13 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790422806,
   "model_id": "text-embedding-3-large",
   "canonical_model": "text-embedding-3-large",
   "display_name": "Text Embedding 3 Large",
   "capabilities": [
     "embedding"
   ],
-  "max_output_tokens": 8191,
+  "max_input_tokens": 8192,
+  "context_window": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
