@@ -415,3 +415,7 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   `thinking_toggleable:true` 修正为 false。Claude 3 Haiku 是 pre-thinking 旧代，Anthropic 官方条目
   补 `thinking_supported:false` / `thinking_toggleable:false`；DeepSeek Reasoner 未取到官方明确开关
   语义，保持不改。
+- 2026-09-26 r95 `check-registry.mjs` 增加 token 语义护栏：当模型同时有
+  `max_input_tokens` / `context_window` 且后者更小时，默认输出 semantic warning；
+  `AIDOG_REGISTRY_SEMANTIC_STRICT=1` 升级为失败。当前实测 116 条历史候选，默认检查 rc=0，
+  strict rc=1；不把平台实际限制差异误判为全库硬错，后续逐平台取证清理。
