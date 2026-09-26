@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790389813,
   "model_id": "rerank-multilingual-v3.0",
   "canonical_model": "rerank-multilingual-v3.0",
   "family": "rerank",
@@ -12,6 +12,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

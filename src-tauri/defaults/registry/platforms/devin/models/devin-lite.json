@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790389813,
   "model_id": "devin-lite",
   "canonical_model": "devin-lite",
   "family": "devin",
@@ -9,6 +9,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

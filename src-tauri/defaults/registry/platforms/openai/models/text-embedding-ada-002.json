@@ -1,14 +1,16 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "text-embedding-ada-002",
   "canonical_model": "text-embedding-ada-002",
   "display_name": "Text Embedding Ada-002",
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 8191,
   "official": true,
   "price": {
-    "input": 1e-7
+    "input": 1e-7,
+    "output": 0
   },
   "family": "text-embedding",
   "version": "2"

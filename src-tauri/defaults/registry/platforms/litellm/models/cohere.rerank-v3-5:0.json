@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790389813,
   "model_id": "cohere.rerank-v3-5:0",
   "canonical_model": "cohere.rerank-v3-5:0",
   "family": "rerank",
@@ -12,6 +12,7 @@
   "max_output_tokens": 32000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

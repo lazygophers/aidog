@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 4096,
   "official": true,
   "price": {
     "input": 0.000002,

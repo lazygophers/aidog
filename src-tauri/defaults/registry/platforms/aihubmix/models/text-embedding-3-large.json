@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790389813,
   "model_id": "text-embedding-3-large",
   "canonical_model": "text-embedding-3-large",
   "display_name": "Text Embedding 3 Large",
@@ -8,6 +8,7 @@
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 8191,
   "official": false,
   "price": {
     "input": 1.3e-07,

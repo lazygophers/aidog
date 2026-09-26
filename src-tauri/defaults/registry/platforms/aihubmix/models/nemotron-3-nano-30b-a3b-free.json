@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790389813,
   "model_id": "nemotron-3-nano-30b-a3b-free",
   "canonical_model": "nemotron-3-nano-30b-a3b-free",
 
@@ -11,6 +11,7 @@
   "max_input_tokens": 1048576,
   "official": false,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

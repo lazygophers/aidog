@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "gpt-4o-mini-transcribe",
   "canonical_model": "gpt-4o-mini-transcribe",
   "display_name": "GPT-4o Mini Transcribe",
@@ -13,5 +13,7 @@
   },
   "family": "gpt",
   "version": "4o",
+  "max_input_tokens": 16000,
+  "max_output_tokens": 2000,
   "context_window": 16000
 }

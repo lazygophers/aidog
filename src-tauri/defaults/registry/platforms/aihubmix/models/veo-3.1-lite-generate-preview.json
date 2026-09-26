@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790389813,
   "model_id": "veo-3.1-lite-generate-preview",
   "canonical_model": "veo-3.1-lite-generate-preview",
   "display_name": "Veo 3.1 Lite Generate Preview",
@@ -11,6 +11,7 @@
     "image_to_video",
     "video"
   ],
+  "max_output_tokens": 1024,
   "official": false,
   "price": {
     "unit": "second",

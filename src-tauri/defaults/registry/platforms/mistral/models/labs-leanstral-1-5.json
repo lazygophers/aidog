@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790275340,
+  "last_updated": 1790389813,
   "model_id": "labs-leanstral-1-5",
   "canonical_model": "labs-leanstral-1-5",
   "capabilities": [],
@@ -7,6 +7,7 @@
   "family": "leanstral",
   "version": "1.5",
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

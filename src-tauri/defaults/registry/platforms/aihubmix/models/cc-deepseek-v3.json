@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790389813,
   "model_id": "cc-deepseek-v3",
   "canonical_model": "DeepSeek-V3",
   "display_name": "CC DeepSeek V3",
   "family": "deepseek",
   "version": "3",
   "capabilities": [],
+  "max_output_tokens": 8192,
   "official": false,
   "price": {
     "input": 3e-07,

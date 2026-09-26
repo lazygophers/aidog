@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276888,
+  "last_updated": 1790389813,
   "model_id": "k3",
   "canonical_model": "k3",
   "family": "kimi",
@@ -15,6 +15,7 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

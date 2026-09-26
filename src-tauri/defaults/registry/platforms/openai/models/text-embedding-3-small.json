@@ -1,14 +1,16 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "text-embedding-3-small",
   "canonical_model": "text-embedding-3-small",
   "display_name": "Text Embedding 3 Small",
   "capabilities": [
     "embedding"
   ],
+  "max_output_tokens": 8191,
   "official": true,
   "price": {
-    "input": 2e-8
+    "input": 2e-8,
+    "output": 0
   },
   "family": "text-embedding",
   "version": "3"

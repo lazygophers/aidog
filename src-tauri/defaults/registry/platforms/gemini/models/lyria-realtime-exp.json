@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790389813,
   "model_id": "lyria-realtime-exp",
   "canonical_model": "lyria-realtime-exp",
   "family": "lyria",
@@ -9,6 +9,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0.0
+    "input": 0.0,
+    "output": 0
   }
 }

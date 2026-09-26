@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790278679,
+  "last_updated": 1790389813,
   "model_id": "gemini-embedding-2-preview",
   "canonical_model": "gemini-embedding-2",
   "family": "gemini",
@@ -7,6 +7,7 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 8192,
   "max_output_tokens": 8192,
   "official": false,
   "context_window": 8192,

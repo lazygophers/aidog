@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "gpt-4o-mini-audio-preview",
   "canonical_model": "gpt-4o-mini-audio-preview",
   "capabilities": [
@@ -12,5 +12,7 @@
   },
   "family": "gpt",
   "version": "4o",
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
   "context_window": 128000
 }

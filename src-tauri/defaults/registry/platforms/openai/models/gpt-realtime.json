@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "gpt-realtime",
   "canonical_model": "gpt-realtime",
   "capabilities": [
@@ -13,5 +13,7 @@
   },
   "family": "gpt",
   "version": "realtime",
+  "max_input_tokens": 32000,
+  "max_output_tokens": 4096,
   "context_window": 32000
 }
