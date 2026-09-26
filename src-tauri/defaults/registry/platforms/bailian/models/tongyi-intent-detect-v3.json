@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790396242,
   "model_id": "tongyi-intent-detect-v3",
   "canonical_model": "tongyi-intent-detect-v3",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
@@ -13,5 +14,5 @@
     "output": 1.388888888888889e-07
   },
   "max_output_tokens": 4096,
-  "context_window": 131072
+  "context_window": 8192
 }

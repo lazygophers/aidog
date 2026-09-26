@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790396242,
   "model_id": "qwen-plus-character",
   "canonical_model": "qwen-plus-character",
   "family": "qwen",
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 32768,
   "official": false,
   "price": {
     "input": 1e-8,
@@ -13,5 +14,5 @@
   },
   "display_name": "Qwen-Plus-Character",
   "max_output_tokens": 4096,
-  "context_window": 1000000
+  "context_window": 32768
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790396242,
   "model_id": "qwen-omni-turbo-realtime",
   "display_name": "Qwen-Omni-Turbo-Realtime (2025-05-08)",
   "canonical_model": "qwen-omni-turbo-realtime-2025-05-08",
@@ -7,6 +7,9 @@
   "capabilities": [
     "audio"
   ],
+  "context_window": 32768,
+  "max_input_tokens": 30720,
+  "max_output_tokens": 2048,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

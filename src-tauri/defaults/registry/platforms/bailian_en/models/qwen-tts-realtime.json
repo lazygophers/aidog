@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790396242,
   "model_id": "qwen-tts-realtime",
   "display_name": "Qwen-TTS-Realtime",
   "canonical_model": "qwen-tts-realtime",
@@ -7,6 +7,9 @@
   "capabilities": [
     "audio"
   ],
+  "context_window": 8192,
+  "max_input_tokens": 512,
+  "max_output_tokens": 7680,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,

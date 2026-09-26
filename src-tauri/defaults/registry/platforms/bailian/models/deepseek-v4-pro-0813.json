@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790396242,
   "model_id": "deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",
@@ -10,6 +10,7 @@
   "capabilities": [
     "text"
   ],
+  "max_output_tokens": 393216,
   "official": true,
   "price": {
     "input": 6.25e-07,

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3.5-ocr",
   "display_name": "Qwen3.5-OCR",
   "canonical_model": "qwen3.5-ocr",
@@ -8,6 +8,9 @@
   "version": "3.5",  "capabilities": [
     "vision"
   ],
+  "context_window": 65536,
+  "max_input_tokens": 49152,
+  "max_output_tokens": 16384,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
