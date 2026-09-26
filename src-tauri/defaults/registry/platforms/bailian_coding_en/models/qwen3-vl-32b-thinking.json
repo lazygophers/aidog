@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790391379,
   "model_id": "qwen3-vl-32b-thinking",
   "canonical_model": "qwen3-vl-32b-thinking",
   "version": "3",
@@ -11,7 +11,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 262144
 }

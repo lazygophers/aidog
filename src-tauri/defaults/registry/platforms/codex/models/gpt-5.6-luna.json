@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790391379,
   "model_id": "gpt-5.6-luna",
   "canonical_model": "gpt-5.6-luna",
   "family": "gpt",
@@ -12,6 +12,7 @@
   "context_window": 400000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 2e-7,
+    "output": 0.0000012
   }
 }

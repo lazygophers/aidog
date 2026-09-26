@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790391379,
   "model_id": "devin-fast",
   "canonical_model": "devin-fast",
   "family": "devin",
@@ -9,6 +9,7 @@
   ],
   "official": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

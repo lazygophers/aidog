@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790391379,
   "model_id": "qwen-vl-ocr-2025-11-20",
   "canonical_model": "qwen-vl-ocr-2025-11-20",
   "family": "qwen",
@@ -8,6 +8,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

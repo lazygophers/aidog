@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790391378,
   "model_id": "qwen2.5-vl-embedding",
   "canonical_model": "qwen2.5-vl-embedding",
   "family": "qwen",
@@ -9,6 +9,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

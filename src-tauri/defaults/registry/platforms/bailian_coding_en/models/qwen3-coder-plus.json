@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790391379,
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "version": "3",
@@ -10,6 +10,7 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

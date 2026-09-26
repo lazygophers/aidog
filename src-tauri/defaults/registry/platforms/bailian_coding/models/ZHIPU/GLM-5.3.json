@@ -1,5 +1,5 @@
 {
-  "last_updated": 1789258661,
+  "last_updated": 1790391378,
   "model_id": "ZHIPU/GLM-5.3",
   "canonical_model": "glm-5.3",
   "family": "glm",
@@ -14,7 +14,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 1048576
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790391379,
   "model_id": "codegeex-4",
   "canonical_model": "codegeex-4",
   "family": "codegeex",
@@ -12,8 +12,7 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 1.1111111111111112e-06,
-    "output": 3.888888888888889e-06,
-    "cache_read": 2.777777777777778e-07
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

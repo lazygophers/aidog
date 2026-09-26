@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790282454,
+  "last_updated": 1790391378,
   "model_id": "animate-anyone-detect-gen2",
   "canonical_model": "animate-anyone-detect-gen2",
   "family": "animate-anyone",
@@ -9,6 +9,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

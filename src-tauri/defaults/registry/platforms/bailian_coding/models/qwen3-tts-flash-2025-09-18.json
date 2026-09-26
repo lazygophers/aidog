@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790391379,
   "model_id": "qwen3-tts-flash-2025-09-18",
   "canonical_model": "qwen3-tts-flash-2025-09-18",
   "family": "qwen",
@@ -9,6 +9,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }
