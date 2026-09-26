@@ -474,6 +474,7 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
             auto_group: Some(false),
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -525,6 +526,7 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
             auto_group: Some(false),
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await

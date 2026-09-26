@@ -2,7 +2,33 @@ use super::*;
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// SELECT 列序
-pub const PLATFORM_COLUMNS: &str = "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script, rate_limit";
+/// quota_source 读侧语义（quota-ia spec 票 02）：空串与 'auto' 同义（存量未标一律当 auto），
+/// 仅 'manual' 是手动预算。三镜像之一（Rust 此处 / React manual.ts / Flutter models.dart）。
+pub fn is_manual_quota_source(s: &str) -> bool {
+    s == "manual"
+}
+
+/// 切到 manual 时剥掉 extra 里的脚本侧两键（quota_custom_script / quota_script_id）。
+/// extra 非 JSON / 无两键 → 原样返回（幂等）。breaker 等其它键不动。
+pub fn strip_quota_script_extra_keys(extra: &str) -> String {
+    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(extra) else {
+        return extra.to_string();
+    };
+    let Some(obj) = v.as_object_mut() else {
+        return extra.to_string();
+    };
+    if obj.remove("quota_custom_script").is_none() && obj.remove("quota_script_id").is_none() {
+        return extra.to_string(); // 无键不动，避免无谓的 JSON round-trip 改写字面
+    }
+    serde_json::to_string(&v).unwrap_or_else(|_| extra.to_string())
+}
+
+/// 归一化入参 source：'manual' 保留，其余（含空串 / 未知值）落 'auto'。
+pub fn normalize_quota_source(s: &str) -> String {
+    if s == "manual" { "manual".into() } else { "auto".into() }
+}
+
+pub const PLATFORM_COLUMNS: &str = "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at, quota_script, rate_limit, quota_source";
 
 /// 从查询行构造 Platform
 pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -43,6 +69,7 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         last_error_at: row.get::<_, i64>(25)?,
         quota_script: row.get(26)?,
         rate_limit: row.get(27)?,
+        quota_source: row.get(28)?,
     })
 }
 
@@ -105,12 +132,36 @@ pub fn create_platform(
         let expires_at = input.expires_at.unwrap_or(0).max(0);
         // quota 脚本物化（quota-scripts spec T4）：创建即物化选中（或首条）变体 / 自定义脚本，
         // 零配置开箱即用；无脚本协议 → 空串。仅用户操作路径（create/update）物化，远程同步不动。
-        let quota_script = crate::registry::materialize_quota_script(
-            &input.platform_type.wire_str(),
-            &input.extra,
-            "",
-            true,
-        );
+        // quota_source 默认按协议能力（票 01）：显式传入优先；缺省时协议带内置变体或
+        // 用户写了自定义脚本 → auto（保持开箱即查），否则 manual（票 01 新建默认）。
+        let quota_source = match input.quota_source.as_deref().map(normalize_quota_source) {
+            Some(s) => s,
+            None => {
+                let has_variants = crate::registry::resolve_quota_script(
+                    &input.platform_type.wire_str(),
+                    &input.extra,
+                    "",
+                )
+                .is_some();
+                if has_variants { "auto".into() } else { "manual".into() }
+            }
+        };
+        // 互斥（票 01）：manual 清脚本侧，auto 清预算侧。单点强制，覆盖所有客户端路径。
+        let (extra, manual_budgets) = if quota_source == "manual" {
+            (strip_quota_script_extra_keys(&input.extra), manual_budgets)
+        } else {
+            (input.extra.clone(), Vec::new())
+        };
+        let quota_script = if quota_source == "manual" {
+            String::new()
+        } else {
+            crate::registry::materialize_quota_script(
+                &input.platform_type.wire_str(),
+                &extra,
+                "",
+                true,
+            )
+        };
 
         let id = db
 
@@ -120,10 +171,11 @@ pub fn create_platform(
             let api_key = input.api_key.clone();
             let extra = input.extra.clone();
             let quota_script_db = quota_script.clone();
+            let quota_source_db = quota_source.clone();
             move |conn| {
                 conn.execute(
-                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at, quota_script) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at, quota_script_db],
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at, quota_script, quota_source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at, quota_script_db, quota_source_db],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -139,7 +191,8 @@ pub fn create_platform(
             platform_type: input.platform_type,
             base_url: input.base_url,
             api_key: input.api_key,
-            extra: input.extra,
+            // manual 时已剥脚本侧键的 extra（与库内一致），勿回填 input.extra 原文。
+            extra,
             models,
             available_models,
             endpoints,
@@ -165,6 +218,7 @@ pub fn create_platform(
             last_error: String::new(),
             last_error_at: 0,
             quota_script,
+            quota_source,
         })
     }
 }
@@ -307,22 +361,44 @@ pub fn update_platform(
             input.endpoints.unwrap_or(existing.endpoints)
         };
 
+        // quota_source（quota-ia spec 票 01/02）：None=不动（读现值，空串当 auto）；
+        // Some=显式切换，与现值不同即触发互斥清对侧（切 manual 清脚本侧，切 auto 清预算侧）。
+        let quota_source = match input.quota_source.as_deref().map(normalize_quota_source) {
+            Some(s) => s,
+            None => normalize_quota_source(&existing.quota_source),
+        };
+        let source_switched = quota_source != normalize_quota_source(&existing.quota_source);
+        let manual_now = is_manual_quota_source(&quota_source);
+        let mut manual_budgets = manual_budgets; // 显式 mut：切 auto 时整组清空
+        let mut extra = input.extra.unwrap_or_else(|| existing.extra.clone());
+        if source_switched && manual_now {
+            extra = strip_quota_script_extra_keys(&extra);
+        } else if source_switched && !manual_now {
+            manual_budgets = Vec::new();
+        }
+
         // quota 脚本再物化：协议变更（旧列是别的协议的脚本）/ 选了变体 / 自定义脚本 → 重写；
         // 其余保留现值（远程同步的 registry 变体更新不自动换已物化脚本，spec 存储决策）。
-        let quota_script = crate::registry::materialize_quota_script(
-            &platform_type.wire_str(),
-            input.extra.as_deref().unwrap_or(&existing.extra),
-            &existing.quota_script,
-            platform_type != existing.platform_type,
-        );
+        // manual 模式下脚本侧整体不生效 → 恒空串（票 01 切换即清空）。
+        let quota_script = if manual_now {
+            String::new()
+        } else {
+            crate::registry::materialize_quota_script(
+                &platform_type.wire_str(),
+                &extra,
+                &existing.quota_script,
+                platform_type != existing.platform_type,
+            )
+        };
 
         let updated = Platform {
             quota_script,
+            quota_source,
             name: input.name.unwrap_or(existing.name),
             platform_type,
             base_url: input.base_url.unwrap_or(existing.base_url),
             api_key: input.api_key.unwrap_or(existing.api_key),
-            extra: input.extra.unwrap_or(existing.extra),
+            extra,
             models: input.models.unwrap_or(existing.models),
             available_models: input.available_models.unwrap_or(existing.available_models),
             endpoints,
@@ -355,10 +431,11 @@ pub fn update_platform(
             let expires_at = updated.expires_at;
             let updated_at = updated.updated_at;
             let quota_script = updated.quota_script.clone();
+            let quota_source = updated.quota_source.clone();
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15, quota_script=?16 WHERE id=?17",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15, quota_script=?16, quota_source=?17 WHERE id=?18",
                     params![
                         name,
                         platform_type_str,
@@ -376,6 +453,7 @@ pub fn update_platform(
                         auto_disable_strikes,
                         expires_at,
                         quota_script.clone(),
+                        quota_source,
                         id,
                     ],
                 )?;

@@ -150,6 +150,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await

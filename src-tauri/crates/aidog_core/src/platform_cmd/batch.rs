@@ -61,6 +61,7 @@ pub async fn batch_override_models(
             expires_at: None,
             manual_budgets: None,
             join_group_ids: None,
+            quota_source: None,
         })
         .await?;
     }
@@ -110,6 +111,7 @@ pub async fn batch_set_status(
             expires_at: None,
             manual_budgets: None,
             join_group_ids: None,
+            quota_source: None,
         })
         .await?;
     }

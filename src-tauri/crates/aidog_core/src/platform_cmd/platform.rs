@@ -74,19 +74,26 @@ pub async fn platform_list() -> Result<Vec<Platform>, String> {
     // 列表页余额按使用速率配色：per-platform 动态窗口日速率 → days_remaining → balance_level。
     // 阈值走 usage_color::balance_level（唯一源，不漂移）；无用量数据 → neutral（前端退中性）。
     for p in platforms.iter_mut() {
-        // 余额 = max(est_balance_remaining, manual "total" 预算剩余)，与 group-info 一致。
-        let manual_total_remaining: f64 = p
-            .manual_budgets
-            .iter()
-            .filter(|b| b.enabled && b.kind == "total")
-            .map(gateway::manual_budget::remaining)
-            .sum();
-        let balance = p.est_balance_remaining.max(manual_total_remaining);
-        let days_remaining = match aidog_stats::get_platform_hourly_rate(db, p.id).await {
-            Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
-            _ => None,
+        // manual 配额方式（quota-ia 票 07）：余额概念不适用（est_balance 冻结值），
+        // balance_level 置 neutral（空串，前端退中性）；只走预算块展示。
+        // coding_window_cost（B3 折算行）照算——coding 套餐与配额方式正交。
+        p.balance_level = if db::is_manual_quota_source(&p.quota_source) {
+            gateway::usage_color::UsageLevel::Neutral.as_str().to_string()
+        } else {
+            // 余额 = max(est_balance_remaining, manual "total" 预算剩余)，与 group-info 一致。
+            let manual_total_remaining: f64 = p
+                .manual_budgets
+                .iter()
+                .filter(|b| b.enabled && b.kind == "total")
+                .map(gateway::manual_budget::remaining)
+                .sum();
+            let balance = p.est_balance_remaining.max(manual_total_remaining);
+            let days_remaining = match aidog_stats::get_platform_hourly_rate(db, p.id).await {
+                Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
+                _ => None,
+            };
+            gateway::usage_color::balance_level(days_remaining).as_str().to_string()
         };
-        p.balance_level = gateway::usage_color::balance_level(days_remaining).as_str().to_string();
         // B3 折算行：coding plan 平台按 est_coding_plan 首个 window_start>0 的 tier
         // 起 SUM(est_cost)。无 window_start（未校准/无锚点）→ 0（前端不渲染）。
         if let Some(since) = gateway::estimate::EstCodingPlan::from_json(&p.est_coding_plan)

@@ -146,8 +146,8 @@ fn insert_platform_row(
           enabled, status, auto_disabled_until, auto_disable_strikes,
           created_at, updated_at, deleted_at,
           est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count,
-          show_in_tray, tray_display, sort_order, manual_budgets)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?13,0,?14,?15,?16,?17,?18,?19,?20,?21)",
+          show_in_tray, tray_display, sort_order, manual_budgets, quota_source)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?13,0,?14,?15,?16,?17,?18,?19,?20,?21,?22)",
         rusqlite::params![
             name,
             json_raw(row, "platform_type"),
@@ -170,6 +170,9 @@ fn insert_platform_row(
             json_str(row, "tray_display"),
             json_i64(row, "sort_order"),
             json_str(row, "manual_budgets"),
+            // quota-ia：导出仅带 manual；缺失 → ''（读侧当 auto）。导入不重演互斥清侧
+            //（分享本就不含 manual_budgets / 脚本物化列，无从冲突）。
+            if json_str(row, "quota_source") == "manual" { "manual".to_string() } else { String::new() },
         ],
     )?;
     Ok(())

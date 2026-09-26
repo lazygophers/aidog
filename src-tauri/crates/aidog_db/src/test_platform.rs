@@ -129,6 +129,7 @@ async fn s1_async_platform_crud_roundtrip() {
             manual_budgets: None,
             join_group_ids: None,
             expires_at: None,
+        quota_source: None,
         },
     )
     .await
@@ -214,6 +215,7 @@ async fn platform_breaker_roundtrips_via_extra() {
             manual_budgets: None,
             join_group_ids: None,
             expires_at: None,
+        quota_source: None,
         },
     )
     .await
@@ -296,6 +298,7 @@ async fn auto_disable_skips_user_disabled() {
             manual_budgets: None,
             join_group_ids: None,
             expires_at: None,
+        quota_source: None,
         },
     )
     .await
@@ -339,6 +342,7 @@ async fn api_key_change_recovers_auto_disabled() {
             manual_budgets: None,
             join_group_ids: None,
             expires_at: None,
+        quota_source: None,
         },
     )
     .await
@@ -461,5 +465,110 @@ fn empty_update() -> UpdatePlatform {
         manual_budgets: None,
         join_group_ids: None,
         expires_at: None,
+        quota_source: None,
     }
+}
+
+// ── quota_source 互斥（quota-ia spec §1，票 01/09）──
+
+/// 切 manual：extra 两键剥掉 + 物化列清空 + 预算保留；切回 auto：预算清空、脚本侧按现配置重物化。
+#[tokio::test]
+async fn quota_source_switch_clears_opposite_side() {
+    let db = test_support::test_db().await;
+    let budget = crate::models::ManualBudget {
+        id: "b1".into(),
+        amount: 5.0,
+        consumed: 0.0,
+        enabled: true,
+        kind: "total".into(),
+        unit: "usd".into(),
+        window_hours: None,
+        window_unit: Default::default(),
+        window_start_at: Some(0),
+    };
+    // deepseek 协议带内置 quota 变体 → 显式传 manual 验证创建即互斥。
+    let created = create_platform(
+        &db,
+        CreatePlatform {
+            name: "m".into(),
+            platform_type: Protocol::DeepSeek,
+            base_url: "https://ex.com".into(),
+            api_key: "k".into(),
+            extra: r#"{"quota_script_id":"default","breaker":{"threshold":3}}"#.into(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: Some(vec![budget.clone()]),
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: Some("manual".into()),
+        },
+    )
+    .await
+    .unwrap();
+    assert_eq!(created.quota_source, "manual");
+    assert!(created.extra.contains("\"threshold\":3"), "非 quota 键保留");
+    assert!(
+        !created.extra.contains("quota_script_id"),
+        "manual 创建即剥脚本侧 extra 键"
+    );
+    assert!(created.quota_script.is_empty(), "manual 物化列恒空");
+    assert_eq!(created.manual_budgets.len(), 1, "manual 预算保留");
+
+    // 切回 auto：预算清空
+    let mut upd = empty_update();
+    upd.id = created.id;
+    upd.quota_source = Some("auto".into());
+    let updated = update_platform(&db, upd).await.unwrap();
+    assert_eq!(updated.quota_source, "auto");
+    assert!(updated.manual_budgets.is_empty(), "切 auto 清预算");
+
+    // None = 不动：source 与两侧数据保持
+    let mut keep = empty_update();
+    keep.id = created.id;
+    keep.manual_budgets = Some(vec![budget]);
+    let again = update_platform(&db, keep).await.unwrap();
+    assert_eq!(again.quota_source, "auto", "None 不改 source");
+    assert_eq!(again.manual_budgets.len(), 1);
+
+    // 空串/未知值归一为 auto；存量空串行读侧当 auto
+    assert_eq!(normalize_quota_source(""), "auto");
+    assert_eq!(normalize_quota_source("auto"), "auto");
+    assert_eq!(normalize_quota_source("manual"), "manual");
+    assert_eq!(normalize_quota_source("garbage"), "auto");
+    assert!(is_manual_quota_source("manual"));
+    assert!(!is_manual_quota_source(""));
+    // strip：无键 / 非 JSON 原样
+    assert_eq!(strip_quota_script_extra_keys(r#"{"a":1}"#), r#"{"a":1}"#);
+    assert_eq!(strip_quota_script_extra_keys("not-json"), "not-json");
+}
+
+/// 新建缺省 source：按协议能力推断（anthropic 有内置变体 → auto；无变体协议 → manual）。
+#[tokio::test]
+async fn quota_source_default_by_protocol_capability() {
+    let db = test_support::test_db().await;
+    let mk = |proto: Protocol| {
+        CreatePlatform {
+            name: "d".into(),
+            platform_type: proto,
+            base_url: "https://ex.com".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        }
+    };
+    // deepseek：registry 带内置 quota 变体 → auto（开箱即查保持）
+    let a = create_platform(&db, mk(Protocol::DeepSeek)).await.unwrap();
+    assert_eq!(a.quota_source, "auto", "有变体协议默认 auto");
+    // openai_completions：无内置变体 → manual（票 01 新建默认）
+    let o = create_platform(&db, mk(Protocol::OpenAICompletions)).await.unwrap();
+    assert_eq!(o.quota_source, "manual", "无变体协议默认 manual");
 }

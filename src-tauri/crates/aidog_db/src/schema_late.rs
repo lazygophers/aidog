@@ -875,6 +875,30 @@ ALTER TABLE "group_new" RENAME TO "group";
         "ALTER TABLE platform ADD COLUMN rate_limit TEXT NOT NULL DEFAULT ''",
         [],
     );
+
+    // Migration 20260926-01 (quota-ia 票 08): platform.quota_source 配额方式互斥开关。
+    // ''（存量未标）读侧一律当 auto；manual = 手动预算（脚本侧不生效，has_quota_script 短路）。
+    // 幂等：ALTER 重复报错吞掉；三条 UPDATE 按数据存在性判定，二次执行空转。
+    // both 并存（脚本配置 + 预算同在）= 脚本赢清预算（票 02）。
+    let _ = conn.execute(
+        "ALTER TABLE platform ADD COLUMN quota_source TEXT NOT NULL DEFAULT ''",
+        [],
+    );
+    let _ = conn.execute(
+        "UPDATE platform SET quota_source = 'auto' \
+         WHERE quota_script != '' OR extra LIKE '%\"quota_custom_script\"%' OR extra LIKE '%\"quota_script_id\"%'",
+        [],
+    );
+    let _ = conn.execute(
+        "UPDATE platform SET quota_source = 'manual' \
+         WHERE quota_source = '' AND manual_budgets NOT IN ('', '[]')",
+        [],
+    );
+    let _ = conn.execute(
+        "UPDATE platform SET manual_budgets = '[]' \
+         WHERE quota_source = 'auto' AND manual_budgets NOT IN ('', '[]')",
+        [],
+    );
     Ok(())
 }
 
@@ -2299,6 +2323,67 @@ mod tests {
                 "row {} extra must be identical after re-run",
                 id + 1
             );
+        }
+    }
+
+    /// Migration 20260926-01（quota-ia 票 08）：platform.quota_source 互斥开关列 + 存量分类。
+    /// 覆盖：脚本配置→auto、仅预算→manual、both→脚本赢清预算、都无→''（读侧当 auto）、幂等。
+    #[test]
+    fn migrations_platform_quota_source_20260926() {
+        // make_modern_conn 的 platform 是极简五列，补 quota-script 时代的两列再插行。
+        let conn = make_modern_conn();
+        conn.execute_batch(r#"
+            ALTER TABLE platform ADD COLUMN quota_script TEXT NOT NULL DEFAULT '';
+            ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]';
+            INSERT INTO platform (id, name, extra, quota_script, manual_budgets) VALUES
+            (1, 'script-materialized', '{}', 'function q(){}', '[{"amount":5}]'),
+            (2, 'script-extra-keys', '{"quota_script_id":"default","breaker":{"threshold":3}}', '', '[]'),
+            (3, 'budget-only', '{}', '', '[{"amount":10,"enabled":true}]'),
+            (4, 'nothing', '{"breaker":{"threshold":5}}', '', '[]'),
+            (5, 'empty-budget-json', '{}', '', '[]');
+        "#).unwrap();
+        let r1 = run_migrations_platform_late(&conn);
+        assert!(r1.is_ok(), "run_migrations_platform_late failed: {:?}", r1);
+
+        let row = |id: i64| -> (String, String) {
+            conn.query_row(
+                "SELECT quota_source, manual_budgets FROM platform WHERE id = ?1",
+                params![id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap()
+        };
+        // ① 物化脚本 + 预算并存（both）→ 脚本赢：auto + 预算清空
+        let (s1, b1) = row(1);
+        assert_eq!(s1, "auto", "both row: script side wins");
+        assert_eq!(b1, "[]", "both row: budgets cleared");
+        // ② extra 两键（无物化列）→ auto
+        let (s2, _) = row(2);
+        assert_eq!(s2, "auto", "extra-keys row: auto");
+        // ③ 仅预算 → manual
+        let (s3, b3) = row(3);
+        assert_eq!(s3, "manual", "budget-only row: manual");
+        assert_eq!(b3, "[{\"amount\":10,\"enabled\":true}]", "budget-only row: budgets kept");
+        // ④ 都无 → ''（读侧当 auto）
+        let (s4, _) = row(4);
+        assert_eq!(s4, "", "nothing row: empty string, read as auto");
+        // ⑤ 空数组预算 = 无预算 → '' 非 manual
+        let (s5, _) = row(5);
+        assert_eq!(s5, "", "empty budget array row: not manual");
+
+        // 幂等：再跑一遍，5 行 (source, budgets) 全不变
+        let before: Vec<(i64, String, String)> = (1..=5)
+            .map(|id| {
+                let (s, b) = row(id);
+                (id, s, b)
+            })
+            .collect();
+        let r2 = run_migrations_platform_late(&conn);
+        assert!(r2.is_ok(), "second run failed: {:?}", r2);
+        for (id, s, b) in &before {
+            let (s2, b2) = row(*id);
+            assert_eq!(&s2, s, "id {id}: source changed on rerun");
+            assert_eq!(&b2, b, "id {id}: budgets changed on rerun");
         }
     }
 

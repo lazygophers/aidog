@@ -104,6 +104,7 @@ pub fn sample_platform(name: &str) -> CreatePlatform {
         auto_group: None,
         join_group_ids: None,
         expires_at: None,
+        quota_source: None,
     }
 }
 

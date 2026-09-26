@@ -55,6 +55,7 @@ async fn mk_platform(db: &Db, coding: bool) -> u64 {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
