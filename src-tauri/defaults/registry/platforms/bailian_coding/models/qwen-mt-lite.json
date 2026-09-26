@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391378,
   "model_id": "qwen-mt-lite",
   "display_name": "Qwen-MT-Lite",
   "canonical_model": "qwen-mt-lite",
@@ -11,7 +11,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 16000,
   "max_output_tokens": 16000,

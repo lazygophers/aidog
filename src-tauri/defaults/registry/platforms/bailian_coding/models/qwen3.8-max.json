@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "qwen3.8-max",
   "display_name": "Qwen3.8 Max",
   "canonical_model": "qwen3.8-max",
@@ -12,7 +12,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 65536,

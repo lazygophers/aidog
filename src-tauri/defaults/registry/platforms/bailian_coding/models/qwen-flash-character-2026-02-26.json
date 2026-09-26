@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790391378,
   "model_id": "qwen-flash-character-2026-02-26",
   "canonical_model": "qwen-flash-character-2026-02-26",
   "family": "qwen",
@@ -8,7 +8,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "display_name": "Qwen-Flash-Character (2026-02-26)",
   "context_window": 1000000

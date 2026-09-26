@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "kimi/kimi-k2.7-code",
   "display_name": "Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",
@@ -11,7 +11,8 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 262144
 }

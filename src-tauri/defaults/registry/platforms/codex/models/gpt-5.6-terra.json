@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "gpt-5.6-terra",
   "display_name": "GPT-5.6 Terra",
   "canonical_model": "gpt-5.6-terra",
@@ -14,7 +14,7 @@
   "context_window": 1050000,
   "official": false,
   "price": {
-    "input": 0,
-    "output": 0
+  "input": 2e-06,
+  "output": 1.2e-05
   }
 }

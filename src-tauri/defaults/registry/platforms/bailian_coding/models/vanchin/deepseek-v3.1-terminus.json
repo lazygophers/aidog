@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 163840,
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "vanchin/deepseek-v3.1-terminus",
   "display_name": "DeepSeek V3.1 Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",
@@ -13,7 +13,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 131072
 }

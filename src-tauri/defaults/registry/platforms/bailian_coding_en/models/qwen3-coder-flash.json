@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "qwen3-coder-flash",
   "display_name": "Qwen3 Coder Flash",
   "canonical_model": "qwen3-coder-flash",
@@ -15,6 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

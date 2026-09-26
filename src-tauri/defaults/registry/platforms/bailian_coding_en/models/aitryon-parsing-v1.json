@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790391379,
   "model_id": "aitryon-parsing-v1",
   "canonical_model": "aitryon-parsing-v1",
   "family": "aitryon",
@@ -11,6 +11,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

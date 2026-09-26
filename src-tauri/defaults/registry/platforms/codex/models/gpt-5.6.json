@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790391379,
   "model_id": "gpt-5.6",
   "canonical_model": "gpt-5.6",
   "family": "gpt",
@@ -15,7 +15,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0,
-    "output": 0
+  "input": 4e-06,
+  "output": 2e-05
   }
 }

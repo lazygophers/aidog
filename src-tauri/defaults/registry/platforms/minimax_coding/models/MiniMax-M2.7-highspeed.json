@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790391379,
   "model_id": "MiniMax-M2.7-highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",
@@ -13,7 +13,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
-  },
-  "display_name": "MiniMax M2.7 Highspeed"
+    "input": 1e-8,
+    "output": 1e-8
+  }
 }

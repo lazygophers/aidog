@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "MiniMax/MiniMax-M2.7",
   "display_name": "MiniMax M2.7",
   "canonical_model": "MiniMax-M2.7",
@@ -12,7 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 204800
 }
