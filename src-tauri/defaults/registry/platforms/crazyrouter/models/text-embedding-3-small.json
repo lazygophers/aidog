@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790424402,
   "model_id": "text-embedding-3-small",
   "display_name": "Text Embedding 3 Small",
   "canonical_model": "text-embedding-3-small",
@@ -8,7 +8,6 @@
   "capabilities": [
     "embedding"
   ],
-  "max_output_tokens": 8191,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
