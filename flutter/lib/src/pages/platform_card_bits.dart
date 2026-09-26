@@ -559,6 +559,7 @@ class ProtocolMetaTable {
     this.docsUrls = const {},
     this.pricingUrls = const {},
     this.codingPlanProtocols = const {},
+    this.pasteFallbackProtocols = const {},
     this.quotaScriptProtocols = const {},
     this.defaultModels = const {},
     this.peakModels = const {},
@@ -604,6 +605,7 @@ class ProtocolMetaTable {
     final docsUrls = <String, String>{};
     final pricingUrls = <String, String>{};
     final cp = <String>{};
+    final pf = <String>{};
     final qs = <String>{};
     final defModels = <String, List<String>>{};
     final peakModels = <String, List<String>>{};
@@ -661,6 +663,7 @@ class ProtocolMetaTable {
         if (pr is String && pr.isNotEmpty) pricingUrls[code] = pr;
       }
       if (entry['is_coding_plan'] == true) cp.add(code);
+      if (entry['paste_fallback'] == true) pf.add(code);
       final scripts = entry['quota_scripts'];
       if (scripts is List && scripts.isNotEmpty) qs.add(code);
       final models = entry['models'];
@@ -688,6 +691,7 @@ class ProtocolMetaTable {
       docsUrls: docsUrls,
       pricingUrls: pricingUrls,
       codingPlanProtocols: cp,
+      pasteFallbackProtocols: pf,
       quotaScriptProtocols: qs,
       defaultModels: defModels,
       peakModels: peakModels,
@@ -705,6 +709,9 @@ class ProtocolMetaTable {
   final Map<String, String> docsUrls;
   final Map<String, String> pricingUrls;
   final Set<String> codingPlanProtocols;
+
+  /// registry `platform.json` 的 `paste_fallback`（智能识别优先级 2 兜底，如 newapi）。
+  final Set<String> pasteFallbackProtocols;
   final Set<String> quotaScriptProtocols;
   final Map<String, List<String>> defaultModels;
   final Map<String, List<String>> peakModels;
@@ -739,6 +746,7 @@ class ProtocolMetaTable {
         hosts: hosts[code] ?? const [],
         keyPrefixes: keyPrefixes[code] ?? const [],
         codingPlan: codingPlanProtocols.contains(code),
+        pasteFallback: pasteFallbackProtocols.contains(code),
       ),
   ];
 

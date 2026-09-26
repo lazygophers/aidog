@@ -77,6 +77,13 @@ const PRESETS: PastePresetRef[] = [
     ],
   },
   { value: "mock", label: "Mock", keywords: ["测试", "mock"] },
+  // paste_fallback 兜底平台（registry newapi：自建中转，无默认端点无 hosts）。
+  {
+    value: "newapi",
+    label: "New API",
+    keywords: ["newapi", "new-api", "中转"],
+    pasteFallback: true,
+  },
 ];
 
 describe("normalizeForMatch", () => {
@@ -151,6 +158,19 @@ describe("matchPlatform", () => {
     expect(urls).toContain("https://ark.cn-beijing.volces.com/api/coding/v3");
     expect(out.platform?.value).toBe("doubao");
   });
+  it("paste_fallback: unknown-host API URL (openai /v1) hits newapi, beating model-name keyword noise", () => {
+    // lasong 自建中转分享：URL host 不在任何 preset hosts，正文模型名 Qwen 是 keyword 噪声。
+    const hit = matchPlatform("Qwen3.8-Flash-Next 临时福利", PRESETS, [
+      { url: "https://api.lasong.xyz/v1", protocol: "openai" },
+    ]);
+    expect(hit?.value).toBe("newapi");
+  });
+  it("paste_fallback: non-API URL (unknown protocol) does NOT trigger; keyword scan still works", () => {
+    const hit = matchPlatform("使用 deepseek 模型 https://github.com/foo/bar", PRESETS, [
+      { url: "https://github.com/foo/bar", protocol: "unknown" },
+    ]);
+    expect(hit?.value).toBe("deepseek");
+  });
   it("falls back to keyword scan when no host match", () => {
     const hit = matchPlatform("使用 deepseek 模型", PRESETS);
     expect(hit?.value).toBe("deepseek");
@@ -164,6 +184,18 @@ describe("matchPlatform", () => {
 });
 
 describe("parsePlatformPaste", () => {
+  it("lasong relay share: unknown-host /v1 URL + sk- key → newapi (paste_fallback)", () => {
+    const out = parsePlatformPaste(
+      "morgen66\n28 分钟\n限制并发，留给大家一起用，预计8H\n" +
+        "https://api.lasong.xyz/v1\n" +
+        "sk-ofBibe1400nnyY7Za2kdZ9SmXHFIyV6FNNrQwcgp95lxd9Q4BZ\n" +
+        "Qwen3.8-Flash-Next",
+      PRESETS,
+    );
+    expect(out.platform?.value).toBe("newapi");
+    expect(out.baseUrls[0]?.url).toBe("https://api.lasong.xyz/v1");
+    expect(out.apiKeys[0]).toBe("sk-ofBibe1400nnyY7Za2kdZ9SmXHFIyV6FNNrQwcgp95lxd9Q4BZ");
+  });
   it("returns empty result for blank text", () => {
     expect(parsePlatformPaste("", PRESETS)).toEqual({
       apiKeys: [],

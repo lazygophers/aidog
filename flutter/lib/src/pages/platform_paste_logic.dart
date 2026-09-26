@@ -78,6 +78,7 @@ class PastePresetRef {
     this.hosts = const [],
     this.keyPrefixes = const [],
     this.codingPlan = false,
+    this.pasteFallback = false,
   });
 
   final String value;
@@ -94,6 +95,10 @@ class PastePresetRef {
   final List<String> keyPrefixes;
 
   final bool codingPlan;
+
+  /// registry `platform.json` 的 `paste_fallback`（如 newapi）：粘贴含可识别协议的
+  /// base_url 但未命中任何 hosts 时胜出（自建中转站）。`platformPaste.ts:50`。
+  final bool pasteFallback;
 }
 
 /// `platformPaste.ts:35::ParsedPaste`。
@@ -548,7 +553,10 @@ List<ParsedBaseUrl> extractBaseUrls(String text) {
 ///
 /// 优先级 1：base_url 命中 preset 的 `hosts` 子串（最强信号），多 preset 重叠时
 /// **最长串胜出** —— 例如粘贴 coding 专属 host 时，coding preset 比普通版更特异而赢。
-/// 优先级 2：keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > 列表顺序 asc）。
+/// 优先级 2：base_url 协议可识别（如 /v1）但未命中任何 hosts → 带 `paste_fallback`
+/// 标记的 preset 胜出（自建中转站，如 newapi）。排在 keyword 扫描前：未知 host 的
+/// API 端点 URL 比正文关键词（常是模型名噪声）更可信；闲杂链接 protocol=unknown 不触发。
+/// 优先级 3：keyword 文本扫描打分（命中数 desc > 最长命中关键字长度 desc > 列表顺序 asc）。
 /// 打分是为了根治「排在前面的 preset 用通用词抢走同族更具体 preset」。
 PasteMatch? matchPlatform(
   String text,
@@ -570,6 +578,17 @@ PasteMatch? matchPlatform(
       }
     }
     if (best != null) return best;
+  }
+
+  // 2) API 形态 base_url（协议可识别）但 host 未命中任何 preset → paste_fallback 兜底。
+  if (baseUrls != null &&
+      baseUrls.any((b) => b.protocol != ParsedProtocol.unknown)) {
+    for (final p in presets) {
+      if (kNeverAutoMatch.contains(p.value)) continue;
+      if (p.pasteFallback) {
+        return PasteMatch(p.value, p.label, codingPlan: p.codingPlan);
+      }
+    }
   }
 
   final hay = normalizeForMatch(text);

@@ -77,6 +77,8 @@ type DefaultsDoc = {
     keywords?: string[];
     /** 平台 API key 前缀（如 sk-ant- / sk-kimi- / tp- / ark-）；粘贴识别的 key 提取与平台直判据此数据驱动生成。 */
     key_prefixes?: string[];
+    /** 智能识别兜底平台标记（如 newapi）：粘贴含可识别协议的 base_url 但未命中任何 hosts 时胜出。 */
+    paste_fallback?: boolean;
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
@@ -505,6 +507,7 @@ export async function buildProtocolsFromPresets(locale?: string): Promise<Protoc
       searchTerms,
       ...(hosts.length ? { hosts } : {}),
       ...(entry.key_prefixes?.length ? { keyPrefixes: entry.key_prefixes } : {}),
+      ...(entry.paste_fallback ? { pasteFallback: true } : {}),
     });
   }
   return out;

@@ -85,6 +85,10 @@
       "type": "boolean",
       "description": "【可选】编码套餐（coding plan）协议标记：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。router/ordering.rs 优先普通平台；前端 ProtocolOption.codingPlan / PlatformCard 徽标据此派生。coding 套餐一律是独立协议条目（禁与普通版同 code 双 preset）。"
     },
+    "paste_fallback": {
+      "type": "boolean",
+      "description": "【可选】智能识别兜底平台标记：粘贴文案含 base_url（协议可识别，如 /v1）但未命中任何 preset 的 hosts 时，命中本标记的平台胜出（自建中转站场景，如 newapi）。同标记多平台取文档序首个；禁在代码硬编码平台名。"
+    },
     "key_prefixes": {
       "type": "array",
       "minItems": 1,
