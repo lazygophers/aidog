@@ -1,7 +1,8 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790401909,
   "model_id": "alicloud-deepseek-v3.2",
   "canonical_model": "DeepSeek-V3.2",
+  "predecessor": "DeepSeek-V3.1",
   "capabilities": ["text"],
   "context_window": 163840,
   "display_name": "Alicloud Deepseek V3.2",

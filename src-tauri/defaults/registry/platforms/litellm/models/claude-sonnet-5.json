@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267681,
+  "last_updated": 1790401909,
   "model_id": "claude-sonnet-5",
   "canonical_model": "claude-sonnet-5",
   "version": "5",
@@ -7,6 +7,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "display_name": "Claude Sonnet 5 on Google Cloud",
+  "predecessor": "claude-sonnet-4-6",
   "capabilities": [
     "text"
   ],
