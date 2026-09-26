@@ -112,4 +112,11 @@ last_error_at: number,
  * registry 选中变体写入（`extra.quota_custom_script` 非空则物化用户手写脚本）；
  * 空 = 未物化，执行时回落 registry 首条变体。远程同步不动此列。
  */
-quota_script: string, };
+quota_script: string, 
+/**
+ * 配额获取方式互斥开关（quota-ia spec §1）：'manual' = 手动预算（脚本侧配置不生效）；
+ * 'auto' / '' = 自动脚本（'auto' 与空串读侧同义，空串 = 存量未标，读侧一律当 auto）。
+ * 互斥由写路径强制（db/platform.rs create/update）：切 manual 清脚本侧（extra 两键 +
+ * 物化列），切 auto 清 manual_budgets。est_balance_remaining 等系统维护值不动。
+ */
+quota_source: string, };

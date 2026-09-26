@@ -137,6 +137,13 @@ pub async fn cold_start_init_estimates() {
 /// 该平台能否查 quota：与前端 `platformHasQuotaScript` 同口径——物化列 / 自定义脚本 /
 /// 行协议的 registry 变体任一命中即可查。无脚本的平台不发无谓出站（也不落错误日志）。
 fn has_quota_script(p: &gateway::models::Platform) -> bool {
-    db::registry::resolve_quota_script(&p.platform_type.wire_str(), &p.extra, &p.quota_script)
+    // manual 配额方式（quota-ia spec §2）：脚本侧整体不生效，视同无脚本——
+    // 刷新循环跳过、种子锚点照播（plan_quotas 与 source 无关）。
+    !db::is_manual_quota_source(&p.quota_source)
+        && db::registry::resolve_quota_script(
+            &p.platform_type.wire_str(),
+            &p.extra,
+            &p.quota_script,
+        )
         .is_some()
 }

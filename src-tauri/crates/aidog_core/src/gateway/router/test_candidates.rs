@@ -27,6 +27,7 @@ async fn mk_db_platform(db: &db::Db, name: &str) -> Platform {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -55,6 +56,7 @@ async fn mk_db_platform_cp(db: &db::Db, name: &str) -> Platform {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -233,6 +235,7 @@ async fn single_platform_manual_disabled_errs() {
             manual_budgets: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -264,7 +267,7 @@ async fn single_platform_peak_disabled_errs() {
         extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
-        join_group_ids: None, expires_at: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
     }).await.expect("set peak-disabled");
     let g = mk_db_group(&db, "single", &[p.id]).await;
 
@@ -300,7 +303,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
         extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":1,"end_hour":2,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
-        join_group_ids: None, expires_at: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
     }).await.expect("set peak-disabled off-peak");
     let g = mk_db_group(&db, "single", &[p.id]).await;
 
@@ -341,7 +344,7 @@ async fn multi_platform_all_peak_disabled_errs() {
             extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
             models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
-            join_group_ids: None, expires_at: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
         }).await.expect("set peak-disabled");
     }
     let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
@@ -374,7 +377,7 @@ async fn multi_platform_partial_peak_disabled_skipped() {
         extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
         models: None, available_models: None, endpoints: None,
         enabled: None, status: None, manual_budgets: None,
-        join_group_ids: None, expires_at: None,
+        join_group_ids: None, expires_at: None, quota_source: None,
     }).await.expect("set p1 peak-disabled");
     let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
 
@@ -577,6 +580,7 @@ async fn all_platforms_disabled_returns_err() {
                 manual_budgets: None,
                 join_group_ids: None,
                 expires_at: None,
+                quota_source: None,
             },
         )
         .await
@@ -971,6 +975,7 @@ async fn mk_db_platform_exp(db: &db::Db, name: &str, expires_at: i64) -> Platfor
             auto_group: None,
             join_group_ids: None,
             expires_at: Some(expires_at),
+            quota_source: None,
         },
     )
     .await
@@ -1392,6 +1397,7 @@ async fn sole_enabled_platform_among_three_shortcuts() {
                 manual_budgets: None,
                 join_group_ids: None,
                 expires_at: None,
+                quota_source: None,
             },
         )
         .await

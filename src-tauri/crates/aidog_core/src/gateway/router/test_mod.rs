@@ -34,6 +34,7 @@ pub(super) fn mk_platform(status: PlatformStatus, until: i64) -> Platform {
         last_error: String::new(),
         last_error_at: 0,
         quota_script: String::new(),
+        quota_source: String::new(),
     }
 }
 

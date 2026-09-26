@@ -217,6 +217,7 @@ async fn multi_platform_sole_enabled_applicable() {
                 manual_budgets: None,
                 join_group_ids: None,
                 expires_at: None,
+                quota_source: None,
             },
         )
         .await

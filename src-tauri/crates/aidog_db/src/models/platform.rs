@@ -277,6 +277,12 @@ pub struct Platform {
     /// 空 = 未物化，执行时回落 registry 首条变体。远程同步不动此列。
     #[serde(default)]
     pub quota_script: String,
+    /// 配额获取方式互斥开关（quota-ia spec §1）：'manual' = 手动预算（脚本侧配置不生效）；
+    /// 'auto' / '' = 自动脚本（'auto' 与空串读侧同义，空串 = 存量未标，读侧一律当 auto）。
+    /// 互斥由写路径强制（db/platform.rs create/update）：切 manual 清脚本侧（extra 两键 +
+    /// 物化列），切 auto 清 manual_budgets。est_balance_remaining 等系统维护值不动。
+    #[serde(default)]
+    pub quota_source: String,
 }
 
 /// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
@@ -407,6 +413,10 @@ pub struct CreatePlatform {
     /// None /缺省 → 落库 0（永不过期）；Some(t) → 设为 t。过期后路由 candidate_state 排除。
     #[serde(default)]
     pub expires_at: Option<i64>,
+    /// 配额获取方式（quota-ia spec）：缺省 → 按协议能力推断（有内置变体/自定义脚本 → auto，
+    /// 无 → manual，票 01）。写入路径强制互斥清对侧。
+    #[serde(default)]
+    pub quota_source: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -434,6 +444,9 @@ pub struct UpdatePlatform {
     /// 过期后路由 candidate_state 排除（独立于 status 三态枚举）。
     #[serde(default)]
     pub expires_at: Option<i64>,
+    /// 配额获取方式（quota-ia spec）：None=不动；Some(s)=显式切换，写路径强制互斥清对侧。
+    #[serde(default)]
+    pub quota_source: Option<String>,
 }
 
 #[cfg(test)]
@@ -690,6 +703,7 @@ mod tests {
             last_error: "".into(),
             last_error_at: 0,
             quota_script: String::new(),
+            quota_source: String::new(),
         };
         let b = p.breaker();
         assert_eq!(b.failure_threshold, 7);

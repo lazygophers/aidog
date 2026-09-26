@@ -55,6 +55,7 @@ async fn list_group_details_cache_invalidation() {
         manual_budgets: None,
         join_group_ids: None,
         expires_at: None,
+        quota_source: None,
     };
     update_platform(&db, upd).await.unwrap();
     let d2 = list_group_details(&db).await.unwrap();

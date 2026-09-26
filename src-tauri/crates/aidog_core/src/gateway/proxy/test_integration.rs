@@ -80,6 +80,7 @@ async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: 
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -734,6 +735,7 @@ async fn setup_mock_group(state: &Arc<ProxyState>, gk: &str, extra: &str) {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -977,6 +979,7 @@ async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &s
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -1087,6 +1090,7 @@ async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -2011,6 +2015,7 @@ async fn setup_gemini_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -2147,6 +2152,7 @@ async fn setup_group_with_platform(
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await

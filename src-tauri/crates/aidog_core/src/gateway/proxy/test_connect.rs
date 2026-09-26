@@ -51,6 +51,7 @@ async fn match_platform_by_host_hits_main_base_url() {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -490,6 +491,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -757,6 +759,7 @@ async fn connect_failure_does_not_touch_breaker() {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await
@@ -822,6 +825,7 @@ async fn connect_failure_sets_platform_last_error() {
             auto_group: None,
             join_group_ids: None,
             expires_at: None,
+            quota_source: None,
         },
     )
     .await

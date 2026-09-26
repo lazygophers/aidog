@@ -236,7 +236,8 @@ CREATE TABLE IF NOT EXISTS platform (
     expires_at       INTEGER NOT NULL DEFAULT 0,
     last_error       TEXT NOT NULL DEFAULT '',
     last_error_at    INTEGER NOT NULL DEFAULT 0,
-    quota_script     TEXT NOT NULL DEFAULT ''
+    quota_script     TEXT NOT NULL DEFAULT '',
+    quota_source     TEXT NOT NULL DEFAULT ''
 );
 
 CREATE TABLE IF NOT EXISTS "group" (

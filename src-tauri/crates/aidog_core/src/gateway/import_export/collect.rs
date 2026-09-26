@@ -196,6 +196,9 @@ struct ExportPlatform {
     available_models: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     endpoints: Vec<PlatformEndpoint>,
+    /// 配额方式（quota-ia spec）：仅 'manual' 导出（auto/'' 缺省即 auto，无信息量）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    quota_source: Option<String>,
     created_at: i64,
     updated_at: i64,
 }
@@ -213,6 +216,7 @@ fn to_export(p: Platform) -> ExportPlatform {
         models: p.models,
         available_models: p.available_models,
         endpoints: p.endpoints,
+        quota_source: if p.quota_source == "manual" { Some(p.quota_source.clone()) } else { None },
         created_at: p.created_at,
         updated_at: p.updated_at,
     }

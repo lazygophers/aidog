@@ -42,6 +42,8 @@ fn platform_with_extra(extra: &str) -> Platform {
         last_error: String::new(),
         last_error_at: 0,
         quota_script: String::new(),
+
+            quota_source: String::new(),
     }
 }
 

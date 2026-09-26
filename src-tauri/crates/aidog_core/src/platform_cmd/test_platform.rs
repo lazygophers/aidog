@@ -21,6 +21,7 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
         auto_group,
         join_group_ids: join,
         expires_at: None,
+        quota_source: None,
     }
 }
 
@@ -72,6 +73,7 @@ async fn create_list_get_update_delete_flow() {
         manual_budgets: None,
         join_group_ids: Some(vec![]),
         expires_at: None,
+        quota_source: None,
     };
     let p2 = db::update_platform(&db, upd).await.unwrap();
     assert_eq!(p2.name, "P1-renamed");
