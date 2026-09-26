@@ -155,45 +155,6 @@ export function ApiKeyField({ value, onChange, show, onToggleShow, editing, plac
 /** 自定义伪变体下拉哨兵值（radix Select 禁空串 value；选中时表单切到 customScript 编辑）。 */
 export const QUOTA_CUSTOM_VARIANT = "__custom__";
 
-export function QuotaScriptSection({
-  protocol, variants, variantId, onVariantChange,
-  customScript, onCustomScriptChange,
-  requires, onRequiresChange,
-  locale, t,
-}: {
-  protocol: Protocol;
-  variants: QuotaScriptVariant[];
-  variantId: string;
-  onVariantChange: (v: string) => void;
-  customScript: string;
-  onCustomScriptChange: (v: string) => void;
-  requires: Record<string, string>;
-  onRequiresChange: (key: string, value: string) => void;
-  locale?: string;
-  t: TFunction;
-}) {
-  const hasCustom = !!customScript.trim();
-  const idValid = variants.some(v => v.id === variantId);
-  // registry 无内置变体（如 bailian_coding / qianfan_coding 等 coding 套餐平台）：
-  // 仍渲染本区块并直接进自定义脚本编辑态 —— 否则「无脚本 → 不显示 → 没法写脚本」死循环，
-  // 用户在创建/编辑表单里看不到任何刷新数据的入口。
-  const customOnly = variants.length === 0;
-  // 选中值解析（与后端 resolve_quota_script 对齐：custom 优先 → 显式 id → 回落首条）。
-  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
-    ? QUOTA_CUSTOM_VARIANT
-    : idValid ? variantId : (variants[0]?.id ?? "");
-  // 存量 id 失效（远程改名/删条）→ 已回落首条，提示用户重选（spec「UI 显示已回落」）。
-  const fellBack = !hasCustom && variantId !== QUOTA_CUSTOM_VARIANT && variantId !== "" && !idValid;
-  const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
-  return (
-    <FormSection
-      title={t("platform.quotaScript.title", "配额查询脚本")}
-      desc={t("platform.quotaScript.desc", "选择匹配你部署的查询脚本变体；脚本要求的参数会自动出现")}
-    >
-      <QuotaScriptFields {...{ protocol, variants, variantId, onVariantChange, customScript, onCustomScriptChange, requires, onRequiresChange, locale, t, hasCustom, customOnly, selection, fellBack, selVariant }} />
-    </FormSection>
-  );
-}
 
 /** QuotaScriptSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。 */
 export function QuotaScriptFields({
@@ -397,40 +358,6 @@ function tierToBudgets(tier: PlanQuotaTier): ManualBudget[] {
   }));
 }
 
-export function ManualBudgetsSection({ budgets, setBudgets, protocol, editing, t }: {
-  budgets: ManualBudget[];
-  setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
-  /** 当前协议：决定有没有 registry 内置套餐档位（plan_quotas）。 */
-  protocol: Protocol;
-  /** 编辑态不自动填入（已有配置以库里为准）；创建态首次进入自动填首档。 */
-  editing: boolean;
-  t: TFunction;
-}) {
-  const [tiers, setTiers] = useState<PlanQuotaTier[]>([]);
-  const [tierId, setTierId] = useState("");
-  // 自动填入只做一次/协议：用户清空后切回本协议不再回填。
-  const autofilledFor = React.useRef<string | null>(null);
-
-  useEffect(() => {
-    let alive = true;
-    getDefaultPlanQuotas(protocol).then(list => {
-      if (!alive) return;
-      setTiers(list);
-      setTierId(list[0]?.id ?? "");
-      if (!editing && list.length > 0 && autofilledFor.current !== protocol) {
-        autofilledFor.current = protocol;
-        setBudgets(prev => (prev.length === 0 ? tierToBudgets(list[0]) : prev));
-      }
-    });
-    return () => { alive = false; };
-  }, [protocol, editing, setBudgets]);
-
-  const selectedTier = tiers.find(x => x.id === tierId) ?? tiers[0];
-
-  return (
-    <ManualBudgetsFields budgets={budgets} setBudgets={setBudgets} tiers={tiers} setTierId={setTierId} selectedTier={selectedTier} t={t} />
-  );
-}
 
 /** ManualBudgetsSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。
  *  档位填入行原在 FormSection action 槽，合区后作为内容首行（与 03 票原型一致）。 */

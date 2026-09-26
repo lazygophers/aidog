@@ -221,7 +221,7 @@
         "ponytail@ponytail": true
     },
     "permissions": {
-        "defaultMode": "auto",
+        "defaultMode": "bypassPermissions",
         "additionalDirectories": [
             ".claude/",
             ".ask-ui/",
@@ -235,6 +235,7 @@
             "NotebookEdit",
             "EnterWorktree",
             "ShareOnboardingGuide",
+            "Bash(sleep:*)",
             "Read(**/.env)",
             "Read(**/.env.*)",
             "Read(**/.env.local)",
@@ -259,6 +260,7 @@
             "Read(**/.pgpass)",
             "Read(**/*.kdbx)",
             "Edit(**/go.sum)",
+            "Edit(**/mise.toml)",
             "Edit(**/yarn.lock)",
             "Edit(**/package-lock.json)",
             "Edit(**/pnpm-lock.yaml)",
