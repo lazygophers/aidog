@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790396242,
   "model_id": "qwen3-omni-30b-a3b-captioner",
   "canonical_model": "Qwen3-Omni-30B-A3B-Captioner",
   "family": "qwen",
@@ -8,7 +8,8 @@
     "audio"
   ],
   "context_window": 65536,
-  "max_input_tokens": 65536,
+  "max_input_tokens": 32768,
+  "max_output_tokens": 32768,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

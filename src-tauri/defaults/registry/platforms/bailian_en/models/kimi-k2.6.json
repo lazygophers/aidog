@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790396242,
   "model_id": "kimi-k2.6",
   "display_name": "Kimi-K2.6",
   "canonical_model": "kimi-k2.6",
@@ -10,6 +10,8 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 229376,
+  "max_output_tokens": 16384,
   "official": false,
   "price": {
     "input": 8.939e-07,

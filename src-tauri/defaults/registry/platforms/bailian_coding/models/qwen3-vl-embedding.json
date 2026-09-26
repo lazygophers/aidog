@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790396242,
   "model_id": "qwen3-vl-embedding",
   "display_name": "Qwen3-VL-Embedding",
   "canonical_model": "qwen3-vl-embedding",
@@ -8,6 +8,7 @@
   "version": "3",  "capabilities": [
     "embedding"
   ],
+  "max_input_tokens": 32000,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
