@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790393178,
   "model_id": "doubao-embedding-vision-250615",
   "canonical_model": "doubao-embedding-vision-250615",
   "family": "doubao-embedding",
@@ -12,6 +12,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 9.72222e-8
+    "input": 9.72222e-8,
+    "output": 0
   }
 }

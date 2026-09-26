@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790393178,
   "model_id": "qwen-plus-2025-04-28",
   "display_name": "Qwen-Plus (2025-04-28)",
   "canonical_model": "qwen-plus-2025-04-28",
@@ -15,6 +15,6 @@
     "output": 1e-8
   },
   "max_input_tokens": 98304,
-  "max_output_tokens": 8192,
+  "max_output_tokens": 16384,
   "context_window": 131072
 }
