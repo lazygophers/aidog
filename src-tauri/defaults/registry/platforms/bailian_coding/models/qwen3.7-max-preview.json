@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391379,
   "model_id": "qwen3.7-max-preview",
   "display_name": "Qwen3.7-Max-Preview",
   "canonical_model": "qwen3.7-max-preview",
@@ -12,7 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 65536,

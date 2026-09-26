@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391379,
   "model_id": "wanx-v1",
   "display_name": "Wanx-V1",
   "canonical_model": "wanx-v1",
@@ -13,6 +13,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

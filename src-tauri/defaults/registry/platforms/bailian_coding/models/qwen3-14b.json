@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "qwen3-14b",
   "display_name": "Qwen3 14B",
   "canonical_model": "qwen3-14b",
@@ -12,7 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 131072,
   "max_output_tokens": 8192,

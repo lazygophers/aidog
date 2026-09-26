@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "qwen-flash",
   "display_name": "Qwen Flash",
   "canonical_model": "qwen-flash",
@@ -11,7 +11,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 1000000,
   "max_output_tokens": 32768,

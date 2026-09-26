@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790391379,
   "model_id": "glm-4-air-250414",
   "canonical_model": "glm-4-air-250414",
   "family": "glm",
@@ -14,8 +14,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6.944444444444444e-07,
-    "output": 3.055555555555555e-06,
-    "cache_read": 1.6666666666666665e-07
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

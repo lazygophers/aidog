@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391379,
   "model_id": "qwen3-tts-instruct-flash-realtime",
   "display_name": "Qwen3-TTS-Instruct-Flash-Realtime (2026-01-22)",
   "canonical_model": "qwen3-tts-instruct-flash-realtime-2026-01-22",
@@ -12,6 +12,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "qwen3-max",
   "display_name": "Qwen3 Max",
   "canonical_model": "qwen3-max",
@@ -12,13 +12,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3.4722222222222224e-07,
-    "output": 1.388888888888889e-06,
-    "cache_read": 6.944444444444444e-08,
-    "context_tiers": [
-      {"min_tokens": 32769, "input": 5.555555555555555e-07, "output": 2.222222222222222e-06, "cache_read": 1.1111111111111112e-07},
-      {"min_tokens": 131073, "input": 9.722222222222222e-07, "output": 3.888888888888889e-06, "cache_read": 1.9444444444444442e-07}
-    ]
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_input_tokens": 262144,
   "max_output_tokens": 65536,

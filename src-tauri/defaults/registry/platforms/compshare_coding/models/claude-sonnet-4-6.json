@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "claude-sonnet-4-6",
   "display_name": "Claude Sonnet 4.6",
   "canonical_model": "claude-sonnet-4-6",
@@ -14,7 +14,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0,
-    "output": 0
+  "input": 1e-08,
+  "output": 1e-08
   }
 }

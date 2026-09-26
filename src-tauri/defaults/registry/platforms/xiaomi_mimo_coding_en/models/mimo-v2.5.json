@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790391379,
   "model_id": "mimo-v2.5",
   "display_name": "MiMo-V2.5",
   "canonical_model": "mimo-v2.5",
@@ -15,7 +15,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0,
-    "output": 0
+  "input": 1e-08,
+  "output": 1e-08
   }
 }

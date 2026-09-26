@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391378,
   "model_id": "cosyvoice-v1",
   "display_name": "CosyVoice-V1",
   "canonical_model": "cosyvoice-v1",
@@ -12,6 +12,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

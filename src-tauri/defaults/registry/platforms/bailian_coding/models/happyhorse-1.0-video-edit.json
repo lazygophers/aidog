@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "happyhorse-1.0-video-edit",
   "display_name": "Happyhorse 1.0 Video Edit",
   "canonical_model": "happyhorse-1.0-video-edit",
@@ -12,6 +12,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790391378,
   "model_id": "MiniMax/MiniMax-H3",
   "display_name": "MiniMax-H3",
   "canonical_model": "MiniMax-H3",
@@ -11,7 +11,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "unit": "second",
-    "unit_price": 0.06944444444444445
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

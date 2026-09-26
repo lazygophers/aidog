@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391379,
   "model_id": "deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",
@@ -12,7 +12,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 131072
 }

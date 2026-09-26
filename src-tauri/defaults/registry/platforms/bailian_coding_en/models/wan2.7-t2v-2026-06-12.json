@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391379,
   "model_id": "wan2.7-t2v-2026-06-12",
   "display_name": "Wan2.7-T2V (2026-06-12)",
   "canonical_model": "wan2.7-t2v-2026-06-12",
@@ -12,6 +12,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790391378,
   "model_id": "deepseek-r1-distill-qwen-32b",
   "display_name": "DeepSeek R1 Distill Qwen 32B",
   "canonical_model": "deepseek-r1-distill-qwen-32b",
@@ -13,7 +13,8 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "max_output_tokens": 16384,
   "context_window": 131072

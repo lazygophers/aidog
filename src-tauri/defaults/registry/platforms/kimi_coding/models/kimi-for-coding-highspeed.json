@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790391379,
   "model_id": "kimi-for-coding-highspeed",
   "canonical_model": "kimi-for-coding-highspeed",
   "family": "kimi",
@@ -15,7 +15,7 @@
   "official": true,
   "thinking_supported": true,
   "price": {
-    "input": 0,
-    "output": 0
+  "input": 1e-08,
+  "output": 1e-08
   }
 }

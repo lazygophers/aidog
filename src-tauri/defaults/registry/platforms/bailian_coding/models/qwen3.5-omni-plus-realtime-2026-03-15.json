@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391379,
   "model_id": "qwen3.5-omni-plus-realtime-2026-03-15",
   "display_name": "Qwen3.5-Omni-Plus-Realtime (2026-03-15)",
   "canonical_model": "qwen3.5-omni-plus-realtime-2026-03-15",
@@ -10,6 +10,7 @@
   ],
   "official": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   }
 }

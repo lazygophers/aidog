@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790391378,
   "model_id": "qwen2.5-omni-7b",
   "display_name": "Qwen2.5-Omni-7B",
   "canonical_model": "qwen2.5-omni-7b",
@@ -15,7 +15,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0
+    "input": 1e-8,
+    "output": 1e-8
   },
   "context_window": 32768
 }

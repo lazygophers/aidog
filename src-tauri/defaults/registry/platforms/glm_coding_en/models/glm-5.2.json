@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790391379,
   "model_id": "glm-5.2",
   "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
@@ -18,17 +18,7 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-    "input": 1.1111111111111112e-06,
-    "output": 3.888888888888889e-06,
-    "cache_read": 2.777777777777778e-07,
-    "time_tiers": [
-      {
-        "start_at": 1790784000,
-        "input": 2.2222222222222225e-06,
-        "output": 7.777777777777777e-06,
-        "cache_read": 5.555555555555556e-07
-      }
-    ]
-  },
-  "display_name": "GLM-5.2"
+    "input": 1e-8,
+    "output": 1e-8
+  }
 }
