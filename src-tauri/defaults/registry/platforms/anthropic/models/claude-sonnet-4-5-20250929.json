@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790426397,
   "model_id": "claude-sonnet-4-5-20250929",
   "display_name": "Claude Sonnet 4.5",
   "canonical_model": "claude-sonnet-4-5-20250929",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 200000,
   "max_output_tokens": 64000,
-  "context_window": 64000,
+  "context_window": 200000,
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,

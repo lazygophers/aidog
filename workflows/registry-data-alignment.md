@@ -395,12 +395,12 @@ AIDOG_REGISTRY_COVERAGE_MIN=90 node scripts/check-registry.mjs
   GLM/DeepSeek 官方迁移与更新文档，59 个模型文件）；r90 display_name 第二轮（d270688eb
   →ed87a7c8c，121 文件）。终态实测：8739 条模型，display_name 82.3%、predecessor 2.0%，
   schema 8794 文件通过；`aidog_db` 在 quota_source 并行改动完成后重跑 354 passed。
-- 2026-09-26 r91 OpenAI embedding 字段错位复核：官方 Embeddings guide
-  https://developers.openai.com/api/docs/guides/embeddings 明确三款模型 Max input 均为 8192；
-  `text-embedding-3-large` / `text-embedding-3-small` / `text-embedding-ada-002` 原先误写
-  `max_output_tokens: 8191`，改为 `max_input_tokens: 8192` + `context_window: 8192`。
-  该事实推翻旧归因中 `openai:context_window` 全部「官方未公布」结论；覆盖率只作定位，
-  不再作为归因证据。镜像平台需区分 OpenAI/Azure 官方 8192 与 LiteLLM 元数据 8191，
-  不盲目平移。后续同 canonical 15 条镜像删除语义错误的 `max_output_tokens: 8191`；
-  LiteLLM 已有 `max_input_tokens/context_window: 8191` 按其官方元数据保留，AiHubMix/
-  CrazyRouter 无自有官方输入限制，未代填 OpenAI 值。
+- 2026-09-26 r92 Claude 3/partner endpoint context 复核：Anthropic 官方模型文档与模型退役页
+  https://platform.claude.com/docs/en/models/overview
+  https://platform.claude.com/docs/en/about-claude/model-deprecations
+  明确 Claude 3 Haiku/Opus/Sonnet 系列 200K context、4K max output；官方 thinking troubleshooting
+  表未列 Claude 3，不能据此把 thinking 写 true。修正 8 条官方/镜像条目原有 4096 context，
+  补 1 条 AiHubMix Claude 3 Sonnet 缺失的 max_input=200000/max_output=4096/context=200000；
+  同 canonical 另外 14 条 Claude 条目按已有 max_input 与项目 context_window=max_input 口径修正。
+  共 35 个模型文件（Claude 3 及其官方镜像字段修正）；context 覆盖
+  79.7%→79.8%；check 8794 文件通过，aidog_db 354 passed。

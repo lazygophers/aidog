@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790426397,
   "model_id": "claude-3-haiku@20240307",
   "display_name": "Claude 3 Haiku@20240307",
   "canonical_model": "claude-3-haiku@20240307",
@@ -10,7 +10,7 @@
   ],
   "max_input_tokens": 200000,
   "max_output_tokens": 4096,
-  "context_window": 4096,
+  "context_window": 200000,
   "official": true,
   "price": {
     "input": 2.5e-07,
