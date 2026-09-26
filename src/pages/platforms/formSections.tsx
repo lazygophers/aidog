@@ -190,6 +190,32 @@ export function QuotaScriptSection({
       title={t("platform.quotaScript.title", "配额查询脚本")}
       desc={t("platform.quotaScript.desc", "选择匹配你部署的查询脚本变体；脚本要求的参数会自动出现")}
     >
+      <QuotaScriptFields {...{ protocol, variants, variantId, onVariantChange, customScript, onCustomScriptChange, requires, onRequiresChange, locale, t, hasCustom, customOnly, selection, fellBack, selVariant }} />
+    </FormSection>
+  );
+}
+
+/** QuotaScriptSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。 */
+export function QuotaScriptFields({
+  protocol, variants, onVariantChange, customScript, onCustomScriptChange, requires, onRequiresChange, locale, t,
+  customOnly, selection, fellBack, selVariant,
+}: {
+  protocol: Protocol;
+  variants: QuotaScriptVariant[];
+  onVariantChange: (v: string) => void;
+  customScript: string;
+  onCustomScriptChange: (v: string) => void;
+  requires: Record<string, string>;
+  onRequiresChange: (key: string, value: string) => void;
+  locale?: string;
+  t: TFunction;
+  customOnly: boolean;
+  selection: string;
+  fellBack: boolean;
+  selVariant: QuotaScriptVariant | null;
+}) {
+  return (
+    <>
       {customOnly ? (
         <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
           {t("platform.quotaScript.noBuiltin", "该平台暂无内置查询脚本，可在下方自行编写；写好后平台卡片会出现刷新按钮。")}
@@ -265,7 +291,7 @@ export function QuotaScriptSection({
           />
         </div>
       )}
-    </FormSection>
+    </>
   );
 }
 
@@ -402,11 +428,23 @@ export function ManualBudgetsSection({ budgets, setBudgets, protocol, editing, t
   const selectedTier = tiers.find(x => x.id === tierId) ?? tiers[0];
 
   return (
-    <FormSection
-      title={t("platform.manualBudgetTitle", "手动预算")}
-      desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。单位支持 $ / Token / 次数（次数 = 每请求扣 1，对应 coding 套餐「每 5 小时 N 次请求」口径）；官方公布了额度的平台可一键填入内置档位后再编辑。")}
-      action={(
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+    <ManualBudgetsFields budgets={budgets} setBudgets={setBudgets} tiers={tiers} setTierId={setTierId} selectedTier={selectedTier} t={t} />
+  );
+}
+
+/** ManualBudgetsSection 的裸内容（合区后由 QuotaSection 的 Tab 内渲染；本组件保留旧签名供测试）。
+ *  档位填入行原在 FormSection action 槽，合区后作为内容首行（与 03 票原型一致）。 */
+export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, selectedTier, t }: {
+  budgets: ManualBudget[];
+  setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
+  tiers: PlanQuotaTier[];
+  setTierId: (id: string) => void;
+  selectedTier: PlanQuotaTier | undefined;
+  t: TFunction;
+}) {
+  return (
+    <>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
           {tiers.length > 0 && (
             <>
               {tiers.length > 1 && (
@@ -438,9 +476,7 @@ export function ManualBudgetsSection({ budgets, setBudgets, protocol, editing, t
           >
             {t("platform.manualBudgetAdd", "添加限额")}
           </Button>
-        </div>
-      )}
-    >
+      </div>
       {budgets.length === 0 && (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0" }}>
           {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
@@ -549,7 +585,7 @@ export function ManualBudgetsSection({ budgets, setBudgets, protocol, editing, t
           </div>
         );
       })}
-    </FormSection>
+    </>
   );
 }
 
@@ -1182,3 +1218,139 @@ export function ExpirySection({ expiresAt, setExpiresAt, expiryEnabled, setExpir
 //   在此 re-export 保持 PlatformEditForm 单一 import 入口不变（barrel 模式）。
 //   ModelsSection 已被 ModelsMatrixSection 取代（PRD 07-09 合并矩阵 card）。
 export { EndpointsSection } from "./formSectionsEndpoints";
+
+// ── 配额查询合区（quota-ia 票 03：Tab 页签「自动脚本 / 手动预算」，互斥，保存时清库）──
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+/** 合区后的「配额查询」section：查询方式 Tab 二选一（票 01 互斥 + 票 03 保存时清库）。
+ *  表单内切换只弹确认 + 记忆目标 tab（可反悔，取消编辑无损）；对侧数据不动，
+ *  清空发生在点保存（后端按 quota_source 变化清，见 db/platform.rs）。
+ *  位置：模型矩阵正下方（PlatformEditForm 编排）。 */
+export function QuotaSection({
+  quotaSource, onSourceChange,
+  protocol, variants, variantId, onVariantChange, customScript, onCustomScriptChange,
+  requires, onRequiresChange, locale,
+  budgets, setBudgets, editing, t,
+}: {
+  quotaSource: "auto" | "manual";
+  onSourceChange: (v: "auto" | "manual") => void;
+  protocol: Protocol;
+  variants: QuotaScriptVariant[];
+  variantId: string;
+  onVariantChange: (v: string) => void;
+  customScript: string;
+  onCustomScriptChange: (v: string) => void;
+  requires: Record<string, string>;
+  onRequiresChange: (key: string, value: string) => void;
+  locale?: string;
+  budgets: ManualBudget[];
+  setBudgets: React.Dispatch<React.SetStateAction<ManualBudget[]>>;
+  editing: boolean;
+  t: TFunction;
+}) {
+  const [confirmTarget, setConfirmTarget] = useState<"auto" | "manual" | null>(null);
+
+  // 脚本侧选中值派生（与 QuotaScriptSection 同规则：custom 优先 → 显式 id → 回落首条）。
+  const hasCustom = !!customScript.trim();
+  const idValid = variants.some(v => v.id === variantId);
+  const customOnly = variants.length === 0;
+  const selection = hasCustom || customOnly || variantId === QUOTA_CUSTOM_VARIANT
+    ? QUOTA_CUSTOM_VARIANT
+    : idValid ? variantId : (variants[0]?.id ?? "");
+  const fellBack = !hasCustom && variantId !== QUOTA_CUSTOM_VARIANT && variantId !== "" && !idValid;
+  const selVariant = selection === QUOTA_CUSTOM_VARIANT ? null : variants.find(v => v.id === selection) ?? null;
+
+  // 手动预算侧：档位列表 + 创建态自动填首档（原 ManualBudgetsSection 的状态逻辑原样搬入）。
+  const [tiers, setTiers] = useState<PlanQuotaTier[]>([]);
+  const [tierId, setTierId] = useState("");
+  const autofilledFor = React.useRef<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    getDefaultPlanQuotas(protocol).then(list => {
+      if (!alive) return;
+      setTiers(list);
+      setTierId(list[0]?.id ?? "");
+      if (!editing && list.length > 0 && autofilledFor.current !== protocol) {
+        autofilledFor.current = protocol;
+        setBudgets(prev => (prev.length === 0 ? tierToBudgets(list[0]) : prev));
+      }
+    });
+    return () => { alive = false; };
+  }, [protocol, editing, setBudgets]);
+  const selectedTier = tiers.find(x => x.id === tierId) ?? tiers[0];
+
+  // 切 tab：对侧有用户数据才确认（票 03：无配置静默切换，有配置弹窗列出将清什么）。
+  const scriptConfigured = quotaCustomScriptConfigured(customScript, variantId, variants);
+  const budgetConfigured = budgets.length > 0;
+  const trySwitch = (target: "auto" | "manual") => {
+    if (target === quotaSource) return;
+    const oppositeHasData = target === "manual" ? scriptConfigured : budgetConfigured;
+    if (oppositeHasData) setConfirmTarget(target);
+    else onSourceChange(target);
+  };
+
+  return (
+    <FormSection
+      title={t("platform.quotaSection.title", "配额查询")}
+      desc={t("platform.quotaSection.desc", "选择余额/配额的获取方式：自动脚本向上游查询实时余额；手动预算自设限额、按用量扣减、耗尽返回 402。两种方式互斥，切换并保存会清掉另一侧的配置。")}
+    >
+      <Tabs value={quotaSource} onValueChange={(v) => trySwitch(v as "auto" | "manual")}>
+        <TabsList style={{ width: "100%" }}>
+          <TabsTrigger value="auto" style={{ flex: 1 }}>{t("platform.quotaSection.tabAuto", "自动脚本")}</TabsTrigger>
+          <TabsTrigger value="manual" style={{ flex: 1 }}>{t("platform.quotaSection.tabManual", "手动预算")}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="auto">
+          <QuotaScriptFields
+            protocol={protocol} variants={variants} onVariantChange={onVariantChange}
+            customScript={customScript} onCustomScriptChange={onCustomScriptChange}
+            requires={requires} onRequiresChange={onRequiresChange}
+            locale={locale} t={t} customOnly={customOnly} selection={selection}
+            fellBack={fellBack} selVariant={selVariant}
+          />
+        </TabsContent>
+        <TabsContent value="manual">
+          <ManualBudgetsFields
+            budgets={budgets} setBudgets={setBudgets}
+            tiers={tiers} setTierId={setTierId} selectedTier={selectedTier} t={t}
+          />
+        </TabsContent>
+      </Tabs>
+
+      {/* 切换确认（票 03：表单内只记忆目标，数据不动，清空在保存时由后端执行） */}
+      <AlertDialog open={confirmTarget !== null} onOpenChange={(next) => { if (!next) setConfirmTarget(null); }}>
+        <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmTarget === "manual"
+                ? t("platform.quotaSection.switchToManual", "切换到手动预算？")
+                : t("platform.quotaSection.switchToAuto", "切换到自动脚本？")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmTarget === "manual"
+                ? t("platform.quotaSection.clearScript", "保存后将清空脚本配置：变体选择、自定义脚本、查询参数。已查询到的余额保留展示。")
+                : t("platform.quotaSection.clearBudgets", "保存后将清空手动预算限额列表。")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setConfirmTarget(null)}>{t("action.cancel", "取消")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (confirmTarget) onSourceChange(confirmTarget); setConfirmTarget(null); }}>
+              {t("platform.quotaSection.switch", "切换")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </FormSection>
+  );
+}
+
+/** 脚本侧是否有用户显式配置（切 manual 时是否值得弹确认）：
+ *  自定义脚本正文 / 显式选过变体 id。回落首条（零配置）不算——清了也无感。 */
+function quotaCustomScriptConfigured(customScript: string, variantId: string, variants: QuotaScriptVariant[]): boolean {
+  if (customScript.trim() !== "") return true;
+  return variantId !== "" && variantId !== QUOTA_CUSTOM_VARIANT && variants.some(v => v.id === variantId);
+}

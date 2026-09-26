@@ -222,8 +222,11 @@ export function quotaScriptIndexSync(protocol: string): { loaded: boolean; varia
 
 /** 该平台是否具备配额查询入口（quota-scripts T6：registry 有变体或带自定义脚本）。
  *  索引未就绪回落旧启发式（mock/claude_code 排除 —— 两协议本就无脚本，回落等价）。
- *  消费点：PlatformCard.quotaCapable（刷新按钮 / 余额区渲染门控）。 */
-export function platformHasQuotaScript(p: { platform_type: string; extra?: string }): boolean {
+ *  消费点：PlatformCard.quotaCapable（刷新按钮 / 余额区渲染门控）。
+ *  manual 配额方式（quota-ia 票 03/07）恒 false：脚本侧整体不生效（刷新按钮隐藏、
+ *  余额区不渲染冻结的 est_balance，卡片只走预算块）。 */
+export function platformHasQuotaScript(p: { platform_type: string; extra?: string; quota_source?: string }): boolean {
+  if (p.quota_source === "manual") return false;
   const idx = quotaScriptIndexSync(p.platform_type);
   if (!idx.loaded) return p.platform_type !== "mock" && p.platform_type !== "claude_code";
   return idx.variants.length > 0 || hasCustomQuotaScript(p.extra ?? "");

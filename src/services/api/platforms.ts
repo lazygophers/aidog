@@ -457,6 +457,9 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     manual_budgets?: ManualBudget[];
+    /** 配额方式（quota-ia spec）：'manual' = 手动预算；'auto'/省略 = 自动脚本（后端按协议能力推断）。
+     *  显式提交时后端按 source 变化互斥清对侧。 */
+    quota_source?: "auto" | "manual";
     /** 是否自动创建默认分组（transient 创建时一次性判断；省略=true 旧行为；false=不建）。 */
     auto_group?: boolean;
     /** 额外加入的已有分组 ID 列表（plain membership）。 */
@@ -484,6 +487,8 @@ export const platformApi = {
      *  置 enabled 会清空退避状态（手动恢复）。 */
     status?: PlatformStatus;
     manual_budgets?: ManualBudget[];
+    /** 配额方式（quota-ia spec）：省略=不动；显式提交按 source 变化互斥清对侧。 */
+    quota_source?: "auto" | "manual";
     /** 熔断阈值覆盖现走 extra.breaker（随 extra 整体更新），无独立字段。 */
     /** 全量同步该平台的手动组成员关系（省略=不动）。 */
     join_group_ids?: number[];

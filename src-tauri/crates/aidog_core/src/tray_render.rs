@@ -468,7 +468,9 @@ impl TrayMenuBuild for TrayMenuBuildImpl {
 }
 
 /// 计算单个 platform item 的（名, 值）二元组。
-/// display="coding" 或平台具 coding plan → 值=`{%}%`（剩余百分比）；否则 值=`{balance:.2}`。
+/// display="coding" 或平台具 coding plan → 值=`{%}%`（剩余百分比）；
+/// manual 配额方式 → 最紧启用限额余量（quota-ia 票 07，与卡片 computeManualBudgetDisplay 同口径）；
+/// 否则 值=`{balance:.2}`。
 pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
     let name = platform.name.clone();
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
@@ -477,6 +479,27 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
     let value = if is_coding {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
         format!("{:.0}%", (100.0 - util).max(0.0))
+    } else if db::is_manual_quota_source(&platform.quota_source) {
+        // 最紧限额（ratio 最低的启用条目）；无启用限额 → "—"（manual 无余额概念）。
+        let tightest = platform
+            .manual_budgets
+            .iter()
+            .filter(|b| b.enabled && b.amount > 0.0)
+            .min_by(|a, b| {
+                let ra = (a.amount - a.consumed) / a.amount;
+                let rb = (b.amount - b.consumed) / b.amount;
+                ra.partial_cmp(&rb).unwrap_or(std::cmp::Ordering::Equal)
+            });
+        match tightest {
+            Some(b) => {
+                let rem = (b.amount - b.consumed).max(0.0);
+                match manual_budget_unit_suffix(&b.unit) {
+                    Some(suffix) => format!("{suffix}{}", trim_trailing_zeros(&format!("{rem:.0}"))),
+                    None => format!("${}", trim_trailing_zeros(&format!("{rem:.2}"))),
+                }
+            }
+            None => "—".to_string(),
+        }
     } else {
         format!(
             "${}",
@@ -484,6 +507,15 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
         )
     };
     (name, value)
+}
+
+/// 预算单位 tray 后缀（usd 无后缀走 $ 前缀；token / count 加短后缀区分口径）。
+fn manual_budget_unit_suffix(unit: &str) -> Option<&'static str> {
+    match unit {
+        "token" => Some("T "),
+        "count" => Some("x "),
+        _ => None,
+    }
 }
 
 /// 「当前命中平台」段的（名, 值）：名固定为「命中」，值为平台名；无转发记录 → "—"。

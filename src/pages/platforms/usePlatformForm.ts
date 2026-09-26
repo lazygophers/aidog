@@ -110,6 +110,8 @@ export interface PlatformFormState {
   quotaVariantId: string; setQuotaVariantId: React.Dispatch<React.SetStateAction<string>>;
   /** 自定义脚本正文（非空 = 自定义伪变体，序列化时覆盖 id 选择）。 */
   quotaCustomScript: string; setQuotaCustomScript: React.Dispatch<React.SetStateAction<string>>;
+  /** 配额方式 + 显式切换器（自动落位只发生在 pristine 新建态）。 */
+  quotaSource: "auto" | "manual"; setQuotaSource: (v: "auto" | "manual") => void;
   /** requires 参数值（key → 输入；含 newapi user_id 附加键）。 */
   quotaRequires: Record<string, string>; setQuotaRequires: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   /** 变体下拉切换（切回 registry 变体时清自定义正文，保持互斥）。 */
@@ -206,6 +208,15 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [quotaVariants, setQuotaVariants] = useState<QuotaScriptVariant[]>([]);
   const [quotaVariantId, setQuotaVariantId] = useState<string>("");
   const [quotaCustomScript, setQuotaCustomScript] = useState<string>("");
+  /** 配额方式（quota-ia 票 01/03）：''/auto → auto；manual = 手动预算。
+   *  quotaSourcePristine：未被用户显式切换过 → 新建态随协议能力自动落位（有变体→auto，无→manual）。 */
+  const [quotaSource, setQuotaSource] = useState<"auto" | "manual">("auto");
+  const [quotaSourcePristine, setQuotaSourcePristine] = useState(true);
+  /** 显式切换（UI tab）：一经用户选择即停止自动落位。 */
+  const setQuotaSourceExplicit = (v: "auto" | "manual") => {
+    setQuotaSource(v);
+    setQuotaSourcePristine(false);
+  };
   const [quotaRequires, setQuotaRequires] = useState<Record<string, string>>({});
   // Devin 平台配置（devin_timeout / devin_mode，持久化 platform.extra.devin）
   const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
@@ -244,9 +255,14 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 协议的 quota_scripts 变体列表（registry → getDefaultsJson；docPromise 单次 RPC 共享）。
   useEffect(() => {
     let cancelled = false;
-    getDefaultQuotaScripts(protocol).then(list => { if (!cancelled) setQuotaVariants(list); });
+    getDefaultQuotaScripts(protocol).then(list => {
+      if (cancelled) return;
+      setQuotaVariants(list);
+      // 新建态 + 用户未显式切换过 → 按协议能力落位（票 01：有变体→auto 保持开箱即查，无→manual）。
+      if (quotaSourcePristine && !editing) setQuotaSource(list.length > 0 ? "auto" : "manual");
+    });
     return () => { cancelled = true; };
-  }, [protocol]);
+  }, [protocol, quotaSourcePristine, editing]);
 
   // requires 初值回填：变体列表 / 选择 / extra 任一变化后，为选中变体缺失的 requires key
   //   从 extra 读初值（嵌套优先，同脚本取值语义 —— 见 readRequiresValue）。用户已输入的键不覆盖。
@@ -319,6 +335,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
+    setQuotaSource("auto"); setQuotaSourcePristine(true);
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
@@ -371,6 +388,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setQuotaCustomScript(qs.customScript);
       setQuotaRequires({});
     }
+    // 配额方式：存量 '' 读侧当 auto（票 02）；编辑即视为已定位，不再随协议能力漂移。
+    setQuotaSource(p.quota_source === "manual" ? "manual" : "auto");
+    setQuotaSourcePristine(false);
     setManualBudgets(p.manual_budgets ?? []);
     // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
@@ -636,6 +656,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
     return {
       platform_type: protocol,
+      // 配额方式显式随保存提交：后端按 source 变化互斥清对侧（票 01/03 保存时清库）。
+      quota_source: quotaSource,
       base_url: baseUrl,
       extra: extraPayload ? extraPayload : undefined,
       models: modelsPayload,
@@ -757,6 +779,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extra, setExtra,
     mockConfig, setMockConfig,
     quotaVariants, quotaVariantId, setQuotaVariantId,
+    quotaSource, setQuotaSource: setQuotaSourceExplicit,
     quotaCustomScript, setQuotaCustomScript,
     quotaRequires, setQuotaRequires,
     handleQuotaVariantChange,
