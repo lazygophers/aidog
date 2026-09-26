@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790389813,
   "model_id": "qwen-coder-turbo",
   "canonical_model": "qwen-coder-turbo",
   "family": "qwen",
   "capabilities": [
     "text"
   ],
+  "max_output_tokens": 8192,
   "context_window": 131072,
   "max_input_tokens": 131072,
   "official": false,

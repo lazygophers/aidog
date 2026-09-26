@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790389813,
   "model_id": "command-r-plus-08-2024",
   "canonical_model": "command-r-plus-08-2024",
 
   "family": "command",  "display_name": "Command R Plus 08 2024",
+  "max_output_tokens": 4096,
   "context_window": 128000,
   "max_input_tokens": 128000,
   "capabilities": [

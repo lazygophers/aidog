@@ -1,9 +1,10 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790389813,
   "model_id": "glm-ocr",
   "canonical_model": "glm-ocr",
   "display_name": "GLM Ocr",
   "family": "glm",
+  "max_output_tokens": 16000,
   "context_window": 32000,
   "capabilities": [
     "vision"

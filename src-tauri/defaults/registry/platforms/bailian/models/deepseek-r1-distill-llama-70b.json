@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790277180,
+  "last_updated": 1790389813,
   "model_id": "deepseek-r1-distill-llama-70b",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "family": "deepseek",
@@ -8,6 +8,7 @@
     "text",
     "reasoning"
   ],
+  "max_output_tokens": 8192,
   "context_window": 131072,
   "official": true,
   "price": {

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284899,
+  "last_updated": 1790389813,
   "model_id": "lyria-3-pro-preview",
   "canonical_model": "lyria-3-pro-preview",
   "family": "lyria",
@@ -8,6 +8,7 @@
   "capabilities": [
     "audio"
   ],
+  "max_output_tokens": 8192,
   "context_window": 1048576,
   "max_input_tokens": 1048576,
   "official": true,

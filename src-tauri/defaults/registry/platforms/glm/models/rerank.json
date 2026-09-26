@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790389813,
   "model_id": "rerank",
   "canonical_model": "rerank",
   "family": "rerank",
@@ -10,6 +10,7 @@
   "context_window": 4096,
   "official": true,
   "price": {
-    "input": 1.11111e-7
+    "input": 1.11111e-7,
+    "output": 0
   }
 }

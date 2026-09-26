@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790389813,
   "model_id": "gpt-audio-1.5",
   "canonical_model": "gpt-audio-1.5",
   "display_name": "GPT-Audio-1.5",
@@ -13,5 +13,7 @@
   },
   "family": "gpt",
   "version": "1.5",
+  "max_input_tokens": 128000,
+  "max_output_tokens": 16384,
   "context_window": 128000
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788184283,
+  "last_updated": 1790389813,
   "model_id": "text-embedding-v1",
   "canonical_model": "text-embedding-v1",
   "capabilities": [
@@ -7,6 +7,7 @@
   ],
   "official": true,
   "price": {
-    "input": 9.722222222222221e-08
+    "input": 9.722222222222221e-08,
+    "output": 0
   }
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790287023,
+  "last_updated": 1790389813,
   "model_id": "deepseek-v4-pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "version": "4",
@@ -14,5 +14,6 @@
     "input": 6.25e-07,
     "output": 1.875e-06
   },
+  "max_input_tokens": 1000000,
   "context_window": 1000000
 }

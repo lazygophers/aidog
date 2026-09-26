@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788096132,
+  "last_updated": 1790389813,
   "model_id": "muse-spark-1.1",
   "canonical_model": "muse-spark-1.1",
   "display_name": "Muse Spark 1.1",
@@ -11,6 +11,7 @@
     "tool_use",
     "reasoning"
   ],
+  "max_input_tokens": 1048576,
   "max_output_tokens": 131072,
   "context_window": 1048576,
   "official": true,

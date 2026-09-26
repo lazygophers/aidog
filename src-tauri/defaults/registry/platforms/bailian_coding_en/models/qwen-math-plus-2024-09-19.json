@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790389813,
   "model_id": "qwen-math-plus-2024-09-19",
   "canonical_model": "qwen-math-plus-2024-09-19",
   "family": "qwen",
@@ -10,5 +10,7 @@
   "price": {
     "input": 0
   },
+  "max_input_tokens": 3072,
+  "max_output_tokens": 3072,
   "context_window": 4096
 }

@@ -1,11 +1,12 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790389813,
   "model_id": "glm-5.3-flashx",
   "canonical_model": "glm-5.3-flashx",
   "display_name": "GLM 5.3 Flashx",
   "version": "5.3",
   "family": "glm",
   "capabilities": ["text", "vision"],
+  "max_output_tokens": 131072,
   "context_window": 1000000,
   "thinking_supported": false,
   "max_input_tokens": 1000000,

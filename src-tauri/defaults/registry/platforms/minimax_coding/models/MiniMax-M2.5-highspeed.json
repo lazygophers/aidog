@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790288456,
+  "last_updated": 1790389813,
   "model_id": "MiniMax-M2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
   "family": "minimax",
@@ -11,7 +11,8 @@
   "context_window": 204800,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   },
   "max_output_tokens": 8192
 }

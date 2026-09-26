@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790389813,
   "model_id": "claude-fable-5",
   "canonical_model": "claude-fable-5",
   "family": "claude",
@@ -9,9 +9,11 @@
   "capabilities": [
     "text"
   ],
+  "max_input_tokens": 1000000,
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0
+    "input": 0,
+    "output": 0
   }
 }

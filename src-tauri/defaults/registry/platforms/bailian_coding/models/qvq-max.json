@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790389813,
   "model_id": "qvq-max",
   "canonical_model": "qvq-max",
   "family": "qwen",
@@ -12,5 +12,7 @@
   "price": {
     "input": 0
   },
+  "max_input_tokens": 106496,
+  "max_output_tokens": 8192,
   "context_window": 131072
 }

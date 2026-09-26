@@ -1,10 +1,11 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790389813,
   "model_id": "llama-3.3-70b-instruct",
   "canonical_model": "llama-3.3-70b-instruct",
   "family": "llama",
   "version": "3.3",
   "display_name": "Llama 3.3 70B Instruct",
+  "max_output_tokens": 16384,
   "context_window": 131072,
   "capabilities": [
     "text"

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790389813,
   "model_id": "veo-3.1-generate-preview",
   "canonical_model": "veo-3.1-generate-preview",
   "family": "veo",
@@ -8,6 +8,7 @@
   "capabilities": [
     "text_to_video"
   ],
+  "max_output_tokens": 1024,
   "official": true,
   "price": {
     "unit": "second",
