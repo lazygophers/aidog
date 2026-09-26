@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790400041,
   "model_id": "gpt-4o-mini-search-preview",
+  "display_name": "GPT 4o Mini Search Preview",
   "canonical_model": "gpt-4o-mini-search-preview",
   "capabilities": [
     "text"

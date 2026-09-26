@@ -1,6 +1,7 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790400041,
   "model_id": "xai/grok-imagine-image-quality",
+  "display_name": "Grok Imagine Image Quality",
   "canonical_model": "grok-imagine-image-quality",
   "capabilities": [
     "text_to_image"
