@@ -80,7 +80,12 @@ pub(crate) async fn handle_mitm_observed(
     // 无落点（headers 本就不入库）。
     let record_body =
         log_settings.enabled && log_settings.log_upstream_request && route != MitmRoute::TokenObserve;
-    let req_body_str = if record_body {
+    // `/api/oauth/*`（usage 除外——有 UsageSample 专门采样）body 恒 [REDACTED]（spec §3.2：
+    // OAuth 元数据端点可能含凭证，开关开了也不存正文）。
+    let oauth_meta = path.starts_with("/api/oauth/") && path != "/api/oauth/usage";
+    let req_body_str = if oauth_meta {
+        "[REDACTED]".to_string()
+    } else if record_body {
         cap_nonstream_body(&bytes)
     } else {
         String::new()
@@ -130,7 +135,7 @@ pub(crate) async fn handle_mitm_observed(
                     req_bytes,
                     resp_bytes: 0,
                     decrypted: true,
-                    request_body: String::new(), // 上游错误响应无 body 可记，只记元数据
+                    request_body: req_body_str.clone(), // oauth_meta 时 [REDACTED]，否则空（只记元数据）
                     response_body: String::new(),
                     created_at: aidog_db::now(),
                 };
@@ -186,7 +191,9 @@ pub(crate) async fn handle_mitm_observed(
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
         let resp_bytes = body.len() as i64;
-        let resp_body_str = if record_body {
+        let resp_body_str = if oauth_meta {
+            "[REDACTED]".to_string()
+        } else if record_body {
             cap_nonstream_body(&body)
         } else {
             String::new()
@@ -230,7 +237,7 @@ pub(crate) async fn handle_mitm_observed(
         resp_bytes: 0, // 由计数器在流结束时填充
         decrypted: true,
         request_body: req_body_str,
-        response_body: String::new(),
+        response_body: if oauth_meta { "[REDACTED]".to_string() } else { String::new() },
         created_at: aidog_db::now(),
     };
     let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));

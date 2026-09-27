@@ -1022,6 +1022,8 @@
   "platform.clientType": "Тип клиента",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Протокол Coding Plan: выделенный поддомен / оплата по квоте",
+  "platform.subscriptionBadge": "Подписка",
+  "platform.subscriptionHint": "Транзит подписки: привязка OAuth, трафик наблюдается через MITM (без тарификации, с лимитами окна)",
   "platform.codingUsedHint": "Суммарно использовано токенов и оценочная стоимость для этой платформы (на основе фактических запросов)",
   "platform.currently_off_peak": "Сейчас: вне пик",
   "platform.currently_peak": "Сейчас: часы пик",

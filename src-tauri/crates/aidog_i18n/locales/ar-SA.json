@@ -1022,6 +1022,8 @@
   "platform.clientType": "نوع العميل",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "بروتوكول Coding Plan: نطاق فرعي مخصص / فوترة الحصة",
+  "platform.subscriptionBadge": "اشتراك",
+  "platform.subscriptionHint": "تمرير الاشتراك: مرتبط بـ OAuth، تتم مراقبة حركة البيانات عبر MITM (بدون فوترة، بحدود النافذة)",
   "platform.codingUsedHint": "إجمالي الرموز المستخدمة والتكلفة المقدرة لهذه المنصة (بناءً على الطلبات الفعلية)",
   "platform.currently_off_peak": "الحالي: خارج الذروة",
   "platform.currently_peak": "الحالي: ذروة",

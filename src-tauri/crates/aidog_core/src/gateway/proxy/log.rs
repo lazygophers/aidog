@@ -463,8 +463,8 @@ pub(crate) fn spawn_rate_limit(
 
 /// 盲转不透明标记（spec cc-sub-mitm D4）：CONNECT 认证绑定了 group 但隧道未能解密
 /// （白名单未命中 / MITM 降级 / CA 未启用），字节盲转保通。proxy_log 落
-/// est_cost=0 + blocked_reason='mitm_opaque' 元数据行，区别于可解密的 AI 路径行。
-pub(crate) const MITM_OPAQUE_REASON: &str = "mitm_opaque";
+// mitm_opaque 常量真值源在 aidog_logs（读侧 count_mitm_opaque 同值共用），此处重导出。
+pub(crate) use aidog_logs::MITM_OPAQUE_REASON;
 
 /// P1 CONNECT 隧道元数据写入：独立路径，**不走 upsert_log**。
 ///
@@ -477,27 +477,66 @@ pub(crate) const MITM_OPAQUE_REASON: &str = "mitm_opaque";
 /// 落库；实际 INSERT 移入 `process_connect_log`（`spawn_log_writer` 单 writer 串行执行）。
 /// ponytail: 8 参数是隧道一次性终态上下文（同 spawn_blind_relay 先例），allow too_many_arguments。
 #[allow(clippy::too_many_arguments)]
+/// CONNECT 隧道的 proxy_log 记账上下文：request_id / platform_id / conn_group_key /
+/// start / log_enabled 五元组 + blocked_reason（空串 = 普通盲转行；`MITM_OPAQUE_REASON` =
+/// 认证绑定但未解密的盲转行），spawn_blind_relay → blind_relay_after_connect →
+/// handle_mitm → upsert_connect_log 一路同传（替代六层散参）。
+#[derive(Clone)]
+pub(crate) struct ConnectLogCtx {
+    pub(crate) request_id: String,
+    pub(crate) platform_id: u64,
+    pub(crate) conn_group_key: String,
+    pub(crate) start: std::time::Instant,
+    pub(crate) log_enabled: bool,
+    /// 与 proxy_log.blocked_reason 列同名同义。
+    pub(crate) blocked_reason: &'static str,
+}
+
+impl ConnectLogCtx {
+    /// 终态无字节盲转发生（TCP 失败 / TLS 握手失败 / 隧道未建立即断）→ 不标 mitm_opaque。
+    pub(crate) fn no_opaque(&self) -> Self {
+        Self { blocked_reason: "", ..self.clone() }
+    }
+
+    /// log_enabled 时写一行 CONNECT 终态（200 = 隧道建立成功 / 502 = 上游失败 / 499 = upgrade 断）。
+    pub(crate) async fn log_terminal(
+        &self,
+        state: &Arc<ProxyState>,
+        request_url: String,
+        status_code: i32,
+    ) {
+        if !self.log_enabled {
+            return;
+        }
+        upsert_connect_log(
+            state,
+            self,
+            request_url,
+            status_code,
+            self.start.elapsed().as_millis() as i32,
+        )
+        .await;
+    }
+}
+
 pub(crate) async fn upsert_connect_log(
     state: &Arc<ProxyState>,
-    id: String,
-    group_key: String,
-    platform_id: u64,
+    ctx: &ConnectLogCtx,
     request_url: String,
     status_code: i32,
     duration_ms: i32,
-    blocked_reason: String,
 ) {
     let msg = LogMsg::Connect {
-        id: id.clone(),
-        group_key,
-        platform_id,
+        id: ctx.request_id.clone(),
+        group_key: ctx.conn_group_key.clone(),
+        platform_id: ctx.platform_id,
         request_url,
         status_code,
         duration_ms,
-        blocked_reason,
+        blocked_reason: ctx.blocked_reason.to_string(),
     };
     if state.log_tx.send(msg).await.is_err() {
-        tracing::warn!(id = %id, "log writer channel closed, connect log dropped");
+        tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped");
     }
 }
 

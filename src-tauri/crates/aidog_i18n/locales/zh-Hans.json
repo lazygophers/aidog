@@ -1000,6 +1000,8 @@
   "platform.clientType": "客户端模拟",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Coding Plan 套餐协议：走独立子域 / 配额计费",
+  "platform.subscriptionBadge": "订阅",
+  "platform.subscriptionHint": "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）",
   "platform.codingUsedHint": "本平台累计已用 tokens 与预估金额（基于实际请求估算）",
   "platform.currently_off_peak": "当前：非高峰期",
   "platform.currently_peak": "当前：高峰期",

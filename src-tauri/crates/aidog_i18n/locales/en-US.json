@@ -1000,6 +1000,8 @@
   "platform.clientType": "Client Type",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Coding Plan protocol: dedicated subdomain / quota-billed",
+  "platform.subscriptionBadge": "Subscription",
+  "platform.subscriptionHint": "Subscription passthrough: OAuth-bound, traffic observed via MITM (not billed, window-limited)",
   "platform.codingUsedHint": "Cumulative tokens used and estimated cost for this platform (based on actual requests)",
   "platform.currently_off_peak": "Current: off-peak",
   "platform.currently_peak": "Current: peak",

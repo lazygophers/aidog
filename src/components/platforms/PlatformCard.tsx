@@ -290,6 +290,22 @@ export const PlatformCard = memo(function PlatformCard({
                     {t("platform.codingPlanBadge", "Coding Plan")}
                   </div>
                 )}
+                {/* 订阅徽标（spec cc-sub-mitm §3.5）：claude_code 协议 = OAuth 订阅透传，与
+                    isCpProtocol 徽标同款 idiom；协议键比较与上方 isCcMitm 同源 */}
+                {p.platform_type === "claude_code" && (
+                  <div
+                    style={{
+                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 10, fontWeight: 600, color: "var(--accent)",
+                      background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                    }}
+                    title={t("platform.subscriptionHint", "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）")}
+                  >
+                    {t("platform.subscriptionBadge", "订阅")}
+                  </div>
+                )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>

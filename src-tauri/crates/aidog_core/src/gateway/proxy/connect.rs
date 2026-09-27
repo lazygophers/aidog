@@ -202,19 +202,16 @@ async fn handle_connect_inner(
     // ── 认证结果分派：格式坏 → 407；其余不阻断隧道（未知 group 不绑定，仅落元数据）──
     if matches!(connect_auth, ConnectAuth::Malformed) {
         tracing::warn!(target = %target, "connect: malformed Proxy-Authorization, returning 407");
-        if log_enabled {
-            upsert_connect_log(
-                &state,
-                request_id,
-                String::new(),
-                0,
-                target,
-                407,
-                start.elapsed().as_millis() as i32,
-                String::new(),
-            )
-            .await;
+        ConnectLogCtx {
+            request_id,
+            platform_id: 0,
+            conn_group_key: String::new(),
+            start,
+            log_enabled,
+            blocked_reason: "",
         }
+        .log_terminal(&state, target, 407)
+        .await;
         let mut r = Response::builder()
             .status(StatusCode::PROXY_AUTHENTICATION_REQUIRED)
             .header("proxy-authenticate", "Basic realm=\"aidog\"")
@@ -242,10 +239,19 @@ async fn handle_connect_inner(
     // 盲转不透明标记（票 09 / spec D4）：认证绑定了 group 的连接若最终走盲转
     // （白名单未命中 / MITM 降级 / CA 未启用），proxy_log 元数据行标 mitm_opaque（est_cost 恒 0）。
     // 未绑定（无头 / 未知 group）= 普通代理流量，盲转行不标记（现状零回归）。
-    let opaque_reason: &'static str = if bound_group.is_some() {
+    let blocked_reason: &'static str = if bound_group.is_some() {
         MITM_OPAQUE_REASON
     } else {
         ""
+    };
+    // 记账五元组 + blocked_reason 打包（ConnectLogCtx），以下整条 CONNECT 链共用。
+    let log_ctx = ConnectLogCtx {
+        request_id,
+        platform_id,
+        conn_group_key,
+        start,
+        log_enabled,
+        blocked_reason,
     };
 
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
@@ -255,7 +261,7 @@ async fn handle_connect_inner(
         && !aidog_mitm::mitm_state().is_suspect(&host_only).await;
     let mitm_state = aidog_mitm::mitm_state();
     tracing::info!(
-        target = %target, host_only = %host_only, request_id = %request_id,
+        target = %target, host_only = %host_only, request_id = %log_ctx.request_id,
         mitm_candidate, log_enabled, platform_id,
         "connect dispatch: mitm_candidate decision",
     );
@@ -267,37 +273,14 @@ async fn handle_connect_inner(
             match tcp_connect_accounted(&state, &target, platform_id, conn_timeout_secs).await {
                 Ok(s) => s,
                 Err(()) => {
-                    if log_enabled {
-                        upsert_connect_log(
-                            &state,
-                            request_id,
-                            conn_group_key,
-                            platform_id,
-                            target.clone(),
-                            502,
-                            start.elapsed().as_millis() as i32,
-                            opaque_reason.to_string(),
-                        )
-                        .await;
-                    }
+                    log_ctx.log_terminal(&state, target.clone(), 502).await;
                     let mut r = (StatusCode::BAD_GATEWAY, format!("connect {target} failed"))
                         .into_response();
                     inject_trace_header(&mut r);
                     return r;
                 }
             };
-        return spawn_blind_relay(
-            state,
-            on_upgrade,
-            upstream,
-            target,
-            request_id,
-            platform_id,
-            conn_group_key,
-            start,
-            log_enabled,
-            opaque_reason,
-        );
+        return spawn_blind_relay(state, on_upgrade, upstream, target, log_ctx);
     }
 
     // ── MITM 候选：直接 spawn（spawn 内 pinning 预检 / accept / bridge，失败降级 blind_relay）
@@ -313,25 +296,13 @@ async fn handle_connect_inner(
     crate::logging::spawn_traced("connect_mitm", async move {
         let upgraded = match on_upgrade.await {
             Ok(u) => {
-                tracing::info!(target = %target, request_id = %request_id, "connect upgrade ready → entering MITM/blind dispatch");
+                tracing::info!(target = %target, request_id = %log_ctx.request_id, "connect upgrade ready → entering MITM/blind dispatch");
                 u
             }
             Err(e) => {
-                tracing::warn!(error = %e, target = %target, request_id = %request_id, "connect upgrade failed");
-                if log_enabled {
-                    // 隧道未建立即断（无字节盲转发生）→ 不标 mitm_opaque。
-                    upsert_connect_log(
-                        &st,
-                        request_id,
-                        conn_group_key.clone(),
-                        platform_id,
-                        target,
-                        499,
-                        start.elapsed().as_millis() as i32,
-                        String::new(),
-                    )
-                    .await;
-                }
+                tracing::warn!(error = %e, target = %target, request_id = %log_ctx.request_id, "connect upgrade failed");
+                // 隧道未建立即断（无字节盲转发生）→ 不标 mitm_opaque。
+                log_ctx.no_opaque().log_terminal(&st, target, 499).await;
                 return;
             }
         };
@@ -344,22 +315,10 @@ async fn handle_connect_inner(
             Ok(p) => p,
             Err(upgraded) => {
                 // downcast 失败（理论上不应）→ 退化 blind_relay（裸 Upgraded，不进 MITM）。
-                tracing::warn!(target = %target, request_id = %request_id, "downcast TokioIo<TcpStream> failed, blind relay");
+                tracing::warn!(target = %target, request_id = %log_ctx.request_id, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
-                blind_relay_after_connect(
-                    &st,
-                    client,
-                    &target,
-                    request_id,
-                    platform_id,
-                    conn_group_key.clone(),
-                    conn_timeout_secs,
-                    start,
-                    log_enabled,
-                    &[],
-                    opaque_reason,
-                )
-                .await;
+                blind_relay_after_connect(&st, client, &target, conn_timeout_secs, &[], log_ctx.clone())
+                    .await;
                 return;
             }
         };
@@ -367,7 +326,7 @@ async fn handle_connect_inner(
         // 客户端连接类型 = TokioIo<TokioIo<TcpStream>>（impl tokio AsyncRead/AsyncWrite）。
         let client = TokioIo::new(parts.io);
         tracing::info!(
-            target = %target, request_id = %request_id,
+            target = %target, request_id = %log_ctx.request_id,
             read_buf_len = parts.read_buf.len(),
             "connect upgraded: read_buf from speculative read (TLS ClientHello if any)",
         );
@@ -380,30 +339,26 @@ async fn handle_connect_inner(
         // 输入流前面（组合 AsyncRead），复杂度 vs 收益失衡。read_buf 非空降级 blind_relay，
         // 行为保守正确（blind_relay 把预读字节 flush 到 upstream 非 client）。
         let client_for_blind: Option<_> = if parts.read_buf.is_empty() {
-            tracing::info!(target = %target, request_id = %request_id, "→ handle_mitm (read_buf empty)");
+            tracing::info!(target = %target, request_id = %log_ctx.request_id, "→ handle_mitm (read_buf empty)");
             match handle_mitm(
                 &st,
                 mitm_state,
                 client,
                 &target,
                 &host_only,
-                request_id.clone(),
-                platform_id,
                 bound_group,
-                conn_group_key.clone(),
-                start,
-                log_enabled,
+                log_ctx.clone(),
             )
             .await
             {
                 MitmOutcome::Connected => {
-                    tracing::info!(target = %target, request_id = %request_id, "← handle_mitm Connected (MITM 隧道建/终态已写)");
+                    tracing::info!(target = %target, request_id = %log_ctx.request_id, "← handle_mitm Connected (MITM 隧道建/终态已写)");
                     return; // MITM 成功建隧道或终态日志已写
                 }
                 MitmOutcome::Degraded(reason, client_back) => {
                     // MITM 降级（CA 未启用 / pinning / IO error）→ 拿回 client 走 blind_relay
                     tracing::info!(
-                        target = %target, request_id = %request_id,
+                        target = %target, request_id = %log_ctx.request_id,
                         reason = reason.as_str(),
                         "mitm degraded to blind relay"
                     );
@@ -411,7 +366,7 @@ async fn handle_connect_inner(
                 }
             }
         } else {
-            tracing::info!(target = %target, request_id = %request_id, read_buf_len = parts.read_buf.len(), "→ blind_relay (read_buf non-empty, skip MITM)");
+            tracing::info!(target = %target, request_id = %log_ctx.request_id, read_buf_len = parts.read_buf.len(), "→ blind_relay (read_buf non-empty, skip MITM)");
             Some(client)
         };
 
@@ -424,14 +379,9 @@ async fn handle_connect_inner(
             &st,
             client,
             &target,
-            request_id,
-            platform_id,
-            conn_group_key,
             conn_timeout_secs,
-            start,
-            log_enabled,
             &parts.read_buf,
-            opaque_reason,
+            log_ctx,
         )
         .await;
     });
@@ -446,21 +396,13 @@ async fn handle_connect_inner(
 // ── P1 blind_relay 路径 ────────────────────────────────────────────────────────
 
 /// P1 blind_relay：上游 TCP 已连，spawn 双向 copy（含 read_buf flush 到 upstream）。
-///
-/// ponytail: 参数都是必要的隧道上下文（无冗余），打包 struct 仅在这几个 blind_relay
-/// helper 间传递无复用价值，YAGNI；allow clippy::too_many_arguments。
-#[allow(clippy::too_many_arguments)]
+/// 记账五元组 + blocked_reason 走 `ConnectLogCtx`。
 fn spawn_blind_relay(
     state: Arc<ProxyState>,
     on_upgrade: hyper::upgrade::OnUpgrade,
     upstream: tokio::net::TcpStream,
     target: String,
-    request_id: String,
-    platform_id: u64,
-    conn_group_key: String,
-    start: std::time::Instant,
-    log_enabled: bool,
-    blocked_reason: &'static str,
+    log_ctx: ConnectLogCtx,
 ) -> Response {
     let resp = Response::builder()
         .status(StatusCode::OK)
@@ -472,22 +414,10 @@ fn spawn_blind_relay(
             Err(e) => {
                 tracing::warn!(error = %e, target = %target, "connect upgrade failed");
                 // upgrade 失败（客户端升级前断）→ inflight-1（不动 breaker/EMA，非上游健康信号）。
-                if platform_id != 0 {
-                    state.scheduler.record_ignored(platform_id);
+                if log_ctx.platform_id != 0 {
+                    state.scheduler.record_ignored(log_ctx.platform_id);
                 }
-                if log_enabled {
-                    upsert_connect_log(
-                        &state,
-                        request_id,
-                        conn_group_key,
-                        platform_id,
-                        target,
-                        499,
-                        start.elapsed().as_millis() as i32,
-                        blocked_reason.to_string(),
-                    )
-                    .await;
-                }
+                log_ctx.log_terminal(&state, target, 499).await;
                 return;
             }
         };
@@ -501,20 +431,10 @@ fn spawn_blind_relay(
                 let client = TokioIo::new(upgraded);
                 bridge_bidir(client, upstream).await;
                 // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
-                if platform_id != 0 {
-                    state.scheduler.record_ignored(platform_id);
+                if log_ctx.platform_id != 0 {
+                    state.scheduler.record_ignored(log_ctx.platform_id);
                 }
-                log_connect_success(
-                    &state,
-                    request_id,
-                    platform_id,
-                    conn_group_key.clone(),
-                    target,
-                    start,
-                    log_enabled,
-                    blocked_reason,
-                )
-                .await;
+                log_ctx.log_terminal(&state, target, 200).await;
                 return;
             }
         };
@@ -528,20 +448,10 @@ fn spawn_blind_relay(
         }
         bridge_bidir(client, upstream).await;
         // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
-        if platform_id != 0 {
-            state.scheduler.record_ignored(platform_id);
+        if log_ctx.platform_id != 0 {
+            state.scheduler.record_ignored(log_ctx.platform_id);
         }
-        log_connect_success(
-            &state,
-            request_id,
-            platform_id,
-            conn_group_key,
-            target,
-            start,
-            log_enabled,
-            blocked_reason,
-        )
-        .await;
+        log_ctx.log_terminal(&state, target, 200).await;
     });
     // CONNECT 200 直构响应 → 注入 trace header（后续 spawn 内双向 TCP copy 是 blind_relay 字节透传，
     // 加密 TLS 字节流，物理上无法注入 HTTP 层 header；CONNECT 200 响应本身已注入）。
@@ -562,25 +472,19 @@ fn spawn_blind_relay(
 /// ponytail: 抽出避免 blind_relay 逻辑在 handle_connect spawn 内重复（downcast 失败 +
 /// MITM 降级 + read_buf 非空三路径都走 blind_relay）。签名收 `&str` target 因调用方已拥有
 /// String，借用避免 move 后还要用（tracing 等）。
-/// ponytail: 参数同 spawn_blind_relay（隧道上下文），allow clippy::too_many_arguments。
-#[allow(clippy::too_many_arguments)]
+/// 记账五元组 + blocked_reason 走 `ConnectLogCtx`（同 spawn_blind_relay）。
 async fn blind_relay_after_connect(
     st: &Arc<ProxyState>,
     client: impl AsyncRead + AsyncWrite + Unpin,
     target: &str,
-    request_id: String,
-    platform_id: u64,
-    conn_group_key: String,
     conn_timeout_secs: u64,
-    start: std::time::Instant,
-    log_enabled: bool,
     prefetch: &[u8],
-    blocked_reason: &'static str,
+    log_ctx: ConnectLogCtx,
 ) {
     // blind_relay: TCP 字节透传非 AirDog 构造响应，header 物理不可注入（双向 copy 加密 TLS 字节流，
     // AirDog 看不见 / 改不了 HTTP 层）。trace header 已在 spawn 前的 CONNECT 200 响应注入，
     // 此处隧道内的客户端真实 HTTP 请求/响应不经 axum，无 inject_trace_header 调用点。
-    match tcp_connect_accounted(st, target, platform_id, conn_timeout_secs).await {
+    match tcp_connect_accounted(st, target, log_ctx.platform_id, conn_timeout_secs).await {
         Ok(mut upstream) => {
             // 预读字节先 flush 到上游（read_buf 来自客户端 speculative read，上游需收得到）。
             if !prefetch.is_empty() {
@@ -588,33 +492,13 @@ async fn blind_relay_after_connect(
             }
             bridge_bidir(client, upstream).await;
             // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
-            if platform_id != 0 {
-                st.scheduler.record_ignored(platform_id);
+            if log_ctx.platform_id != 0 {
+                st.scheduler.record_ignored(log_ctx.platform_id);
             }
-            log_connect_success(
-                st,
-                request_id,
-                platform_id,
-                conn_group_key,
-                target.to_string(),
-                start,
-                log_enabled,
-                blocked_reason,
-            )
-            .await;
+            log_ctx.log_terminal(st, target.to_string(), 200).await;
         }
         Err(()) => {
-            log_connect_502(
-                st,
-                request_id,
-                platform_id,
-                conn_group_key,
-                target.to_string(),
-                start,
-                log_enabled,
-                blocked_reason,
-            )
-            .await;
+            log_ctx.log_terminal(st, target.to_string(), 502).await;
         }
     }
 }
@@ -740,22 +624,15 @@ impl DegradeReason {
 /// ponytail: signer 加载失败 / pinning / IO error 降级时 client 完整归还（未被碰），
 /// blind_relay 走正常路径；accept_client 失败（client 已被 accept 消费）走 handled=true
 /// 终态 502（无法降级，客户端 TLS 状态机已推进）。
-/// ponytail: 11 参数是必要的 MITM 隧道上下文（state/mitm_state/client/target/host + 绑定 group +
-/// 日志五元组 request_id/platform_id/conn_group_key/start/log_enabled），打包 struct 仅在本
-/// 函数传递无复用，YAGNI；allow clippy::too_many_arguments。
-#[allow(clippy::too_many_arguments)]
+/// 日志五元组 + blocked_reason 走 `ConnectLogCtx`（CC review：散参打包）。
 async fn handle_mitm<IO>(
     st: &Arc<ProxyState>,
     mitm_state: &'static aidog_mitm::MitmState,
     client: IO,
     target: &str,
     host_only: &str,
-    request_id: String,
-    platform_id: u64,
     bound_group: Option<Group>,
-    conn_group_key: String,
-    start: std::time::Instant,
-    log_enabled: bool,
+    log_ctx: ConnectLogCtx,
 ) -> MitmOutcome<IO>
 where
     IO: AsyncRead + AsyncWrite + Unpin + Send + 'static,
@@ -778,17 +655,7 @@ where
         Err(e) => {
             tracing::warn!(error = %e, target, "mitm: upstream TCP failed, terminal 502");
             // TCP 失败非盲转（无字节透传发生）→ 不标 mitm_opaque。
-            log_connect_502(
-                st,
-                request_id,
-                platform_id,
-                conn_group_key.clone(),
-                target.to_string(),
-                start,
-                log_enabled,
-                "",
-            )
-            .await;
+            log_ctx.no_opaque().log_terminal(st, target.to_string(), 502).await;
             // TCP 失败非 pinning，不标 suspect；client 不再有用（上游连不上 blind_relay 也连不上）。
             // Connected 表示「MITM 已处理」（此处：写了终态 502），调用方 return 不 blind_relay。
             drop(client);
@@ -809,17 +676,7 @@ where
                             "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
                         );
                         // 客户端 TLS 握手失败（无字节盲转发生）→ 不标 mitm_opaque。
-                        log_connect_502(
-                            st,
-                            request_id,
-                            platform_id,
-                            conn_group_key.clone(),
-                            target.to_string(),
-                            start,
-                            log_enabled,
-                            "",
-                        )
-                        .await;
+                        log_ctx.no_opaque().log_terminal(st, target.to_string(), 502).await;
                         return MitmOutcome::Connected;
                     }
                 };
@@ -1048,60 +905,5 @@ pub(crate) async fn serve_plaintext<S>(
     }
 }
 
-// ── proxy_log 写入 helper（P1 + MITM 共用）─────────────────────────────────────
-
-/// 隧道建立成功写 proxy_log（status=200）。`blocked_reason` 见 `MITM_OPAQUE_REASON`。
-#[allow(clippy::too_many_arguments)]
-async fn log_connect_success(
-    st: &Arc<ProxyState>,
-    request_id: String,
-    platform_id: u64,
-    group_key: String,
-    target: String,
-    start: std::time::Instant,
-    log_enabled: bool,
-    blocked_reason: &str,
-) {
-    if !log_enabled {
-        return;
-    }
-    upsert_connect_log(
-        st,
-        request_id,
-        group_key,
-        platform_id,
-        target,
-        200,
-        start.elapsed().as_millis() as i32,
-        blocked_reason.to_string(),
-    )
-    .await;
-}
-
-/// 上游失败写 proxy_log 终态（status=502）。`blocked_reason` 见 `MITM_OPAQUE_REASON`。
-#[allow(clippy::too_many_arguments)]
-async fn log_connect_502(
-    st: &Arc<ProxyState>,
-    request_id: String,
-    platform_id: u64,
-    group_key: String,
-    target: String,
-    start: std::time::Instant,
-    log_enabled: bool,
-    blocked_reason: &str,
-) {
-    if !log_enabled {
-        return;
-    }
-    upsert_connect_log(
-        st,
-        request_id,
-        group_key,
-        platform_id,
-        target,
-        502,
-        start.elapsed().as_millis() as i32,
-        blocked_reason.to_string(),
-    )
-    .await;
-}
+// proxy_log 写入 helper：log_connect_success / log_connect_502 已并入
+// `ConnectLogCtx::log_terminal`（ConnectLogCtx 定义在 log.rs，紧邻 upsert_connect_log）。
