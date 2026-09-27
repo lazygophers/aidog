@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790484475,
   "model_id": "qwen3-reranker-8b",
   "display_name": "Qwen3 Reranker 8B",
   "canonical_model": "Qwen3-Reranker-8B",
@@ -8,6 +8,8 @@
   "capabilities": [
     "rerank"
   ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
