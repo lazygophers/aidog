@@ -1,5 +1,6 @@
 // ── 首页维度趋势区块（home-dim-trend spec）：按平台 / 按模型 / 按分组 24h 堆叠面积 + 右轴请求线 ──
-// 数据源 = load() 里 queryBatch 的 series_by 逐维度小时序列（与 DimPanel 行共用同一份查询）。
+// 数据源 = load() 里 queryBatch 前三条 24h series_by 查询（行列表走今日窗口的另三条，
+// 两套窗口并存不混用，2026-09-27 起分离）。窗口恒 24h；默认指标 Token（用户拍板）。
 // 2026-09-27 起嵌进命令面板（原 24h 总量趋势位）：bare 拆玻璃卡外壳、文字走 PANEL 显式色。
 // 纯函数（buildDimTrend / buildSparkMap）导出供 Home.test 范式单测；组件只做 tab / 指标切换。
 import { useMemo, useState, type CSSProperties } from "react";
@@ -129,9 +130,10 @@ export function HomeTrendChart({
   loading: boolean;
 }) {
   const { t } = useTranslation();
-  // 默认按平台（2026-09-27 用户拍板：维度趋势缺按平台，默认应是按平台）。
+  // 默认按平台（2026-09-27 用户拍板：维度趋势缺按平台，默认应是按平台）；指标默认
+  // Token（2026-09-27 用户拍板：所有榜单/趋势默认按 tokens 而非价格）。
   const [dim, setDim] = useState<TrendDim>("platform");
-  const [metric, setMetric] = useState<TrendMetric>("cost");
+  const [metric, setMetric] = useState<TrendMetric>("tokens");
 
   const series = dim === "model" ? modelSeries : dim === "group" ? groupSeries : platformSeries;
   const { config, rows } = useMemo(
@@ -145,8 +147,8 @@ export function HomeTrendChart({
     { id: "group", key: "home.tabGroup", def: "按分组" },
   ];
   const metrics: { id: TrendMetric; key: string; def: string }[] = [
-    { id: "cost", key: "home.trendCost", def: "花费" },
     { id: "tokens", key: "home.tokens", def: "Token" },
+    { id: "cost", key: "home.trendCost", def: "花费" },
   ];
 
   return (
