@@ -424,6 +424,8 @@
   "group.piApiLabel": "بروتوكول اتصال pi",
   "group.platforms": "المنصات",
   "group.platformsHint": "اختر ورتّب المنصات لهذه المجموعة؛ الترتيب يحدد الأولوية",
+  "group.soloHint": "منصة اشتراك Claude Code يجب أن تكون في مجموعة منفردة فقط — لا منصات أخرى معها",
+  "group.soloBadge": "اشتراك مختلط",
   "group.purgeDisabled": "تنظيف المعطّلة",
   "group.purgeDisabledConfirm": "سيتم تنظيف المنصات المعطّلة في هذه المجموعة (الحصرية تُحذف نهائيًا، والمشتركة تُزال فقط من هذه المجموعة). المتابعة؟",
   "group.purgeDisabledDone": "تم التنظيف: حذف {{deleted}}، إزالة {{unassigned}}",

@@ -27,6 +27,11 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
    *  缺省回退 platform_type key（与 PlatformCard 二级回退链同范式）。 */
   labelMap?: Record<string, string>;
 }) {
+  // claude_code 订阅平台只允许独占分组（与后端 set_group_platforms 校验对称，2026-09-27 拍板写死该协议）
+  const isCc = (id: number) => options.find(p => p.id === id)?.platform_type === "claude_code";
+  const selectedCc = platformIds.some(isCc);
+  const wouldViolate = (id: number) =>
+    (selectedCc && !isCc(id)) || (!selectedCc && isCc(id) && platformIds.length > 0);
   return (
     <>
       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -118,9 +123,16 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
             <SelectContent>
               {options
                 .filter(p => !platformIds.includes(p.id))
-                .map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name} ({labelMap?.[p.platform_type] || p.platform_type})</SelectItem>)}
+                .map(p => <SelectItem key={p.id} value={String(p.id)} disabled={wouldViolate(p.id)}>
+                  {p.name} ({labelMap?.[p.platform_type] || p.platform_type})
+                </SelectItem>)}
             </SelectContent>
           </Select>
+        </div>
+      )}
+      {selectedCc && platformIds.length > 0 && (
+        <div style={{ fontSize: PICKER_F.hint, color: "var(--color-warning, var(--text-tertiary))" }}>
+          {t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组")}
         </div>
       )}
     </>

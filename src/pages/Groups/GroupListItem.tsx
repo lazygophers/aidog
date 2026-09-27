@@ -218,6 +218,13 @@ export const GroupListItem = memo(function GroupListItem({
             {gps.length > 0 && (
               <span className="text-tertiary">{gps.length} {t("group.platforms", "平台")}</span>
             )}
+            {/* claude_code 订阅独占分组：存量混合组警示（不自动拆分，2026-09-27 拍板 warn-only） */}
+            {gps.length > 1 && gps.some(gp => gp.platform.platform_type === "claude_code") && (
+              <span title={t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组")}
+                style={{ fontSize: 11, color: "var(--color-warning, var(--text-tertiary))" }}>
+                ⚠ {t("group.soloBadge", "订阅混组")}
+              </span>
+            )}
           </div>
         </div>
         {/* Quick actions */}

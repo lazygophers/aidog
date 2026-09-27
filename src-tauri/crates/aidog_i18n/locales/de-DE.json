@@ -424,6 +424,8 @@
   "group.piApiLabel": "pi-Übertragungsprotokoll",
   "group.platforms": "Plattformen",
   "group.platformsHint": "Plattformen für diese Gruppe auswählen und sortieren; die Reihenfolge legt die Priorität fest",
+  "group.soloHint": "Claude-Code-Abo-Plattform darf nur eine Alleingruppe haben – keine anderen Plattformen",
+  "group.soloBadge": "Abo gemischt",
   "group.purgeDisabled": "Deaktivierte entfernen",
   "group.purgeDisabledConfirm": "Deaktivierte Plattformen in dieser Gruppe werden bereinigt (exklusive werden dauerhaft gelöscht, gemeinsame nur aus dieser Gruppe entfernt). Fortfahren?",
   "group.purgeDisabledDone": "Bereinigt: gelöscht {{deleted}}, entfernt {{unassigned}}",

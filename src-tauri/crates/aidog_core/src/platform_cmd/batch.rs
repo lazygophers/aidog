@@ -150,6 +150,25 @@ pub async fn batch_move_group(
         .await?
         .ok_or("目标分组不存在")?;
 
+    // claude_code 订阅独占分组：目标组现有成员 + 本次加入者合并后校验（batch 直改关联表，
+    // 不走 set_group_platforms，须自查；见 aidog_db::group_platform::solo_group_violation）
+    {
+        let existing: Vec<i64> = db::get_group_platforms(db, target_group_id)
+            .await
+            .unwrap_or_default()
+            .into_iter()
+            .map(|gp| gp.platform.id as i64)
+            .collect();
+        let mut composition: Vec<i64> = existing;
+        for id in &ids {
+            let pid = *id as i64;
+            if !composition.contains(&pid) {
+                composition.push(pid);
+            }
+        }
+        db::assert_group_composition_solo(db, &composition).await?;
+    }
+
     let n = ids.len() as u64;
     for platform_id in ids {
         let pid = platform_id as i64;

@@ -25,6 +25,52 @@ pub fn force_delete_group(
 
 // ─── GroupPlatform 关联 ────────────────────────────────────
 
+/// claude_code 订阅平台（透传，OAuth 配额计费）只允许独占分组：组内不能与其他平台并存
+/// （2026-09-27 用户拍板写死 `Protocol::ClaudeCode`，非 registry 数据驱动——独立例外）。
+/// 订阅配额不该被多平台故障转移/负载均衡消耗；独占组天然获得 handle_single_platform
+/// 的 bypass 语义。`platform_type` 两种历史形态（裸 wire 名 / 带引号 JSON 串）都认
+/// （与 schema.rs 清理逻辑同口径）。输入 ≤1 个平台恒通过。
+pub fn solo_group_violation(conn: &rusqlite::Connection, platform_ids: &[i64]) -> SqlResult<bool> {
+    if platform_ids.len() <= 1 {
+        return Ok(false);
+    }
+    let placeholders: Vec<String> = (1..=platform_ids.len()).map(|i| format!("?{i}")).collect();
+    let n: i64 = conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM platform \
+             WHERE deleted_at = 0 AND platform_type IN ('claude_code', '\"claude_code\"') \
+             AND id IN ({})",
+            placeholders.join(", ")
+        ),
+        rusqlite::params_from_iter(platform_ids.iter()),
+        |r| r.get(0),
+    )?;
+    Ok(n > 0)
+}
+
+/// [`solo_group_violation`] 的 async 包装：给不走 `set_group_platforms` 的写路径
+/// （batch_move_group 直改关联表）复用同一校验。
+#[track_caller]
+pub fn assert_group_composition_solo<'a>(
+    db: &'a Db,
+    platform_ids: &'a [i64],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let ids = platform_ids.to_vec();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| Ok(solo_group_violation(conn, &ids)?))
+            .await
+            .map_err(|e| format!("assert_group_composition_solo: {e}"))
+            .and_then(|v| {
+                if v {
+                    Err("Claude Code 订阅平台只允许独占分组（组内不能有其他平台）".to_string())
+                } else {
+                    Ok(())
+                }
+            })
+    }
+}
+
 #[track_caller]
 pub fn set_group_platforms<'a>(
     db: &'a Db,
@@ -35,6 +81,8 @@ pub fn set_group_platforms<'a>(
     async move {
         let ts = now();
         let platforms = platforms.to_vec();
+        // 订阅独占校验先于重建：混合组成直接拒绝（读连接先查，不在写闭包里绕 rusqlite 错误类型）
+        assert_group_composition_solo(db, &platforms.iter().map(|p| p.platform_id as i64).collect::<Vec<_>>()).await?;
         db
         .call_platform_traced(None, __db_caller, move |conn| {
             // 物理清除旧关联后重建（关联表无需软删保留）
