@@ -337,7 +337,7 @@ impl SchedulerState {
         }
     }
 
-    /// 失败（仅 429-限流，本平台 retry 耗尽计一次）：breaker fail 计数、inflight-1。
+    /// 失败（429-限流，逐响应计数无 retry 耗尽聚合；connect 失败走 record_connect_failure）：breaker fail 计数、inflight-1。
     /// 不更新延迟 EMA（失败样本不计入延迟）。
     pub fn record_failure(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64) {
         let opened = if let Ok(mut g) = self.health.write() {

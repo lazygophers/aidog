@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "最小レイテンシ",
   "group.routingMode.sticky": "セッション固定",
   "group.routingModeDesc.failover": "優先度の昇順でプラットフォームを選択し、失敗時は順にフォールバックします。",
-  "group.routingModeDesc.health_aware": "遮断中のプラットフォームを除外し、健全なものの中で重み付きランダム選択します。",
+  "group.routingModeDesc.health_aware": "重み付きランダム分散で、負荷分散と同一の実装。ブレーカー・クールダウンによる除外はすべてのルーティングモードに適用されます。",
   "group.routingModeDesc.least_latency": "平均レイテンシの昇順で最速のプラットフォームを優先します。",
   "group.routingModeDesc.load_balance": "利用可能なプラットフォーム間で重み付きランダムに分配します。",
   "group.routingModeDesc.sticky": "同一セッションを同一プラットフォームに固定し、利用不可・遮断時は重み付きランダムにフォールバックします。",

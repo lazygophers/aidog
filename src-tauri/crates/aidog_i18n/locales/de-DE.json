@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "Geringste Latenz",
   "group.routingMode.sticky": "Sitzungsbindung",
   "group.routingModeDesc.failover": "Plattformen nach aufsteigender Priorität wählen, bei Fehler nacheinander zurückfallen.",
-  "group.routingModeDesc.health_aware": "Ausgelöste Plattformen entfernen, dann gewichtete Zufallsauswahl unter den gesunden.",
+  "group.routingModeDesc.health_aware": "Gewichtete Zufallsverteilung, identisch mit Lastverteilung; Breaker-/Cooldown-Ausschluss gilt für jeden Routingmodus.",
   "group.routingModeDesc.least_latency": "Schnellste Plattform nach aufsteigender Durchschnittslatenz bevorzugen.",
   "group.routingModeDesc.load_balance": "Gewichtete Zufallsverteilung über verfügbare Plattformen.",
   "group.routingModeDesc.sticky": "Sitzung an eine Plattform binden; bei Nichtverfügbarkeit oder Auslösung auf gewichtete Zufallsauswahl zurückfallen.",

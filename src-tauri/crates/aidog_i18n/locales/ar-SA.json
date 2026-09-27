@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "أقل زمن استجابة",
   "group.routingMode.sticky": "جلسة لاصقة",
   "group.routingModeDesc.failover": "اختيار المنصات حسب الأولوية تصاعديًا، مع التراجع واحدة تلو الأخرى عند الفشل.",
-  "group.routingModeDesc.health_aware": "إزالة المنصات المعطّلة، ثم توزيع عشوائي مرجّح بين السليمة.",
+  "group.routingModeDesc.health_aware": "توزيع عشوائي مرجّح، مطابق لموازنة التحميل؛ واستبعاد قاطع الدائرة/التبريد يسري على جميع أوضاع التوجيه.",
   "group.routingModeDesc.least_latency": "تفضيل أسرع منصة حسب متوسط زمن الاستجابة تصاعديًا.",
   "group.routingModeDesc.load_balance": "توزيع عشوائي مرجّح عبر المنصات المتاحة.",
   "group.routingModeDesc.sticky": "ربط الجلسة بمنصة واحدة؛ والتراجع إلى التوزيع العشوائي المرجّح عند التعطّل أو عدم التوفر.",

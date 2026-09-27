@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "Least latency",
   "group.routingMode.sticky": "Sticky session",
   "group.routingModeDesc.failover": "Pick platforms by ascending priority, falling back one by one on failure.",
-  "group.routingModeDesc.health_aware": "Remove tripped platforms, then weighted random among healthy ones.",
+  "group.routingModeDesc.health_aware": "Weighted-random routing, identical to Load Balance; breaker/cooldown exclusion applies to every routing mode.",
   "group.routingModeDesc.least_latency": "Prefer the fastest platform by ascending average latency.",
   "group.routingModeDesc.load_balance": "Weighted random distribution across available platforms.",
   "group.routingModeDesc.sticky": "Bind a session to one platform; fall back to weighted random when unavailable or tripped.",
