@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790479137,
   "platforms": [
     {
       "code": "aihubmix",
@@ -9169,6 +9169,35 @@
       "models": [
         "mimo-v2.5-pro.json",
         "mimo-v2.5.json"
+      ]
+    },
+    {
+      "code": "cline",
+      "name": "Cline API",
+      "platform_file": "platforms/cline/platform.json",
+      "models_dir": "platforms/cline/models",
+      "models": [
+        "anthropic__claude-sonnet-4-6.json",
+        "openai__gpt-4o.json",
+        "google__gemini-2.5-pro.json",
+        "deepseek__deepseek-chat.json",
+        "minimax__minimax-m2.5.json"
+      ]
+    },
+    {
+      "code": "cline_pass",
+      "name": "ClinePass",
+      "platform_file": "platforms/cline_pass/platform.json",
+      "models_dir": "platforms/cline_pass/models",
+      "models": [
+        "cline-pass__glm-5.3.json",
+        "cline-pass__glm-5.3-flash.json",
+        "cline-pass__kimi-k3.json",
+        "cline-pass__deepseek-v4-pro.json",
+        "cline-pass__deepseek-v4.1-flash.json",
+        "cline-pass__qwen3.8-max.json",
+        "cline-pass__qwen3.7-max.json",
+        "cline-pass__qwen3.7-plus.json"
       ]
     }
   ],

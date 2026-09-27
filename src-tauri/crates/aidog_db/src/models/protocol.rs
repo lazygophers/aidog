@@ -54,6 +54,16 @@ pub enum Protocol {
     MinimaxCoding,
     #[serde(rename = "codex")]
     Codex,
+    /// Cline API（按量 credits 计费）：OpenAI 兼容聚合端点 `api.cline.bot/api/v1`，
+    /// 模型 id 为 `provider/model` 形式（OpenRouter 约定，如 anthropic/claude-sonnet-4-6）。
+    /// 官方未公开 per-token 价目（流式 usage 自带 cost），价格走 fallback。
+    #[serde(rename = "cline")]
+    Cline,
+    /// ClinePass 订阅（$9.99/月，open 编码模型 2-5x 配额）：与 cline 同端点同协议，
+    /// 模型走 `cline-pass/*` namespace（8 个，docs.cline.bot/getting-started/clinepass）。
+    /// 无公开配额查询端点，余额走手动预算（quota-ia manual 模式）。
+    #[serde(rename = "cline_pass")]
+    ClinePass,
     #[serde(rename = "bailian")]
     Bailian,
     #[serde(rename = "bailian_coding")]
@@ -252,6 +262,8 @@ impl Protocol {
                 | MiniMaxEn
                 | MinimaxCoding
                 | Codex
+                | Cline
+                | ClinePass
                 | Bailian
                 | BailianCoding
                 | BailianEn

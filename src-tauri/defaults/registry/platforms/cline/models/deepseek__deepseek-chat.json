@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790479137,
+  "model_id": "deepseek/deepseek-chat",
+  "canonical_model": "deepseek-chat",
+  "family": "deepseek",
+  "display_name": "DeepSeek Chat",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "context_window": 1048576
+}

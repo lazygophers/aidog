@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790479137,
+  "model_id": "minimax/minimax-m2.5",
+  "canonical_model": "MiniMax-M2.5",
+  "family": "minimax",
+  "version": "2.5",
+  "display_name": "MiniMax M2.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "context_window": 204800
+}

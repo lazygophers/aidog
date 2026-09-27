@@ -1,0 +1,18 @@
+{
+  "last_updated": 1790479137,
+  "model_id": "cline-pass/deepseek-v4.1-flash",
+  "canonical_model": "deepseek-v4.1-flash",
+  "family": "deepseek",
+  "version": "4.1",
+  "display_name": "DeepSeek V4.1 Flash",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "context_window": 1000000
+}
