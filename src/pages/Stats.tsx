@@ -422,13 +422,18 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
 
   const overview = data?.overview;
   const buckets = data?.buckets ?? [];
-  // 维度名回溯失败兜底：Rust 返空串（与 stats_today 口径一致），此处统一归「未知平台」。
+  // 维度名回溯失败兜底：Rust 返空串（与 stats_today 口径一致）。
   // 单点归一化，donut / 维度表 / 趋势图例 / 维度热力四消费点全覆盖。
-  const unknownPlatform = t("popover.unknownPlatform", "未知平台");
-  const dims = (data?.dimension_data ?? []).map(d => (d.name ? d : { ...d, name: unknownPlatform }));
+  // 按维度取名：platform 回溯失败 =「未知平台」；group 维度空串是真实语义
+  // （未分组请求）=「未分组平台」；model 空串已被 Rust 侧过滤（无模型请求
+  // 不构成一个模型），落到这里只可能是旧内核，仍归「未知平台」。
+  const fallbackName = groupBy === "group"
+    ? t("platform.ungrouped", "未分组平台")
+    : t("popover.unknownPlatform", "未知平台");
+  const dims = (data?.dimension_data ?? []).map(d => (d.name ? d : { ...d, name: fallbackName }));
   const series = useMemo(
-    () => (data?.series ?? []).map(s => (s.name ? s : { ...s, name: unknownPlatform })),
-    [data, unknownPlatform],
+    () => (data?.series ?? []).map(s => (s.name ? s : { ...s, name: fallbackName })),
+    [data, fallbackName],
   );
 
   // 时间序列 tab：series_by 多序列（无 series 回落 buckets 单序列）

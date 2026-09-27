@@ -450,11 +450,20 @@ fn query_stats_inner_agg(
                 "model" => "model",
                 _ => "group_key",
             };
+            // model 维度排除空串行：/models 探测、statusline 等无模型请求落聚合表时
+            // model=''，按模型分组它们不构成一个「模型」，混进来会被前端标成
+            // 「未知平台」（名字错误还占 TopN 一席）。group_key='' 是真实语义
+            // （未分组请求），保留。
+            let dim_where = if gb == "model" {
+                format!("({where_sql}) AND {dim_col} <> ''")
+            } else {
+                where_sql.clone()
+            };
             let dim_sql = format!(
                 "SELECT {dim_col} AS dim, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
                  COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
                  COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
-                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT {limit}"
+                 FROM stats_agg_hourly WHERE {dim_where} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT {limit}"
             );
             conn.prepare(&dim_sql)
                 .map_err(|e| e.to_string())?
@@ -501,6 +510,12 @@ fn query_stats_inner_agg(
             "model" => ("model", false),
             _ => ("group_key", false),
         };
+        // 与 dimension_data 同口径：model 维度排除空串行（无模型请求不是一条序列）。
+        let series_where = if dim == "model" {
+            format!("({where_sql}) AND {dim_expr} <> ''")
+        } else {
+            where_sql.clone()
+        };
         let mut smap: HashMap<String, std::collections::BTreeMap<String, StatsBucket>> =
             HashMap::new();
         conn.prepare(&format!(
@@ -508,7 +523,7 @@ fn query_stats_inner_agg(
              COALESCE(SUM(error_count),0), COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), \
              COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), \
              COALESCE(SUM(sum_est_cost),0.0) \
-             FROM stats_agg_hourly WHERE {where_sql} GROUP BY d, b ORDER BY d, b"
+             FROM stats_agg_hourly WHERE {series_where} GROUP BY d, b ORDER BY d, b"
         ))
         .map_err(|e| e.to_string())?
         .query_map(refs.as_slice(), |row| {
@@ -849,7 +864,11 @@ pub(crate) fn query_stats_inner(
                 dmap.entry(r.eff_pid).or_default()
             } else {
                 // model 维度用 actual_model（与旧 SQL GROUP BY actual_model 一致）；否则 group_key。
+                // 空串 model（无模型请求）不构成一个维度值——与聚合表路径同口径排除。
                 let k = if gb == "model" {
+                    if r.actual_model.is_empty() {
+                        continue;
+                    }
                     r.actual_model.clone()
                 } else {
                     r.group_key.clone()
@@ -933,7 +952,13 @@ pub(crate) fn query_stats_inner(
             }
             let dk = match dim {
                 "platform" => r.eff_pid.to_string(),
-                "model" => r.actual_model.clone(),
+                // 空串 model 不构成序列——与 dimension breakdown / 聚合表路径同口径。
+                "model" => {
+                    if r.actual_model.is_empty() {
+                        continue;
+                    }
+                    r.actual_model.clone()
+                }
                 _ => r.group_key.clone(),
             };
             let key = utc_ms_to_local_minute_key(r.created_at, five_min);

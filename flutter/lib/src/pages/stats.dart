@@ -642,9 +642,14 @@ class _StatsPageState extends State<StatsPage> {
     I18nController tr,
     StatsResult data,
   ) {
-    final unknown = tr.t('popover.unknownPlatform');
-    final dims = normalizeDimNames(data.dimensionData, unknown);
-    final series = normalizeSeriesNames(data.series, unknown);
+    // 空名兜底按维度取名：group 维度空串是真实语义（未分组请求）→「未分组平台」；
+    // model 空串已被 Rust 过滤（无模型请求不构成一个模型）；其余（platform
+    // 回溯失败 / 旧内核）→「未知平台」。与 React Stats.tsx 同口径。
+    final fallback = _groupBy == 'group'
+        ? tr.t('platform.ungrouped')
+        : tr.t('popover.unknownPlatform');
+    final dims = normalizeDimNames(data.dimensionData, fallback);
+    final series = normalizeSeriesNames(data.series, fallback);
     final palette = ChartPalette.of(context);
 
     switch (_tab) {
@@ -951,9 +956,12 @@ class _StatsPageState extends State<StatsPage> {
     I18nController tr,
     StatsResult data,
   ) {
+    // 空名兜底同 _tabContent 的口径（group →「未分组平台」）。
     final dims = normalizeDimNames(
       data.dimensionData,
-      tr.t('popover.unknownPlatform'),
+      _groupBy == 'group'
+          ? tr.t('platform.ungrouped')
+          : tr.t('popover.unknownPlatform'),
     );
     if (dims.isEmpty) return const [];
     final sorted = sortDimensions(dims, _sortKey, _sortDir);

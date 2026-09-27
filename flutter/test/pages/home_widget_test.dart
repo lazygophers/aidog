@@ -170,6 +170,48 @@ void main() {
     expect(nav.length, before);
   });
 
+  testWidgets('维度空名：模型滤掉、分组标「未分组平台」且不可点', (tester) async {
+    final k = FakeKernel(homeResponses(
+      today: today(),
+      dimModels: [
+        dimensionEntry('', req: 99, inp: 999), // 空 model（旧内核未过滤）
+        dimensionEntry('m1', req: 1, inp: 100),
+      ],
+      dimGroups: [
+        dimensionEntry('gk-main', req: 5, inp: 300),
+        dimensionEntry('', req: 4, inp: 200), // 无分组请求
+      ],
+    ));
+    final nav = <(String, NavContext?)>[];
+    final c = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(
+        HomePage(
+          onNavigate: (id, [ctx]) => nav.add((id, ctx)),
+          invoke: k.invoke,
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    // 模型块：空名行不渲染，只剩 m1。
+    expect(find.text('m1'), findsOneWidget);
+    // 分组块：空 group_key 标「未分组平台」（竖排在下方，skipOffstage 关掉才找得到）。
+    expect(
+      find.text('未分组平台', skipOffstage: false),
+      findsOneWidget,
+    );
+    expect(find.text('gk-main', skipOffstage: false), findsOneWidget);
+
+    // 「未分组平台」行不可点（groupKey='' 等于不带筛选）。
+    await tester.ensureVisible(find.text('未分组平台'));
+    await tester.pump();
+    await tester.tap(find.text('未分组平台'));
+    await tester.pump();
+    expect(nav.where((n) => n.$2?.groupKey == '').length, 0);
+  });
+
   testWidgets('今日三项全 0 → 「今日暂无请求」，不出 KPI 格', (tester) async {
     final k = FakeKernel(homeResponses());
     final c = await makeI18n(tester);
