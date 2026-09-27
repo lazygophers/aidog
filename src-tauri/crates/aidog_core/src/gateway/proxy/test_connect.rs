@@ -1290,7 +1290,7 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
     drop(bound_sock);
     drop(plain_sock);
     // bridge_bidir 结束（两侧 EOF）后才落 log_connect_success；轮询等待行出现（上限 3s）。
-    let logs = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+    let _logs = tokio::time::timeout(std::time::Duration::from_secs(3), async {
         loop {
             let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
                 .await

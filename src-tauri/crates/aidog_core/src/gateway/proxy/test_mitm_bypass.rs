@@ -68,7 +68,6 @@ async fn spawn_stub_upstream() -> String {
 }
 
 /// 读 mitm_log 全部行：(host, path, status_code, request_body, response_body, resp_bytes)。
-#[track_caller]
 async fn mitm_rows(state: &Arc<ProxyState>) -> Vec<(String, String, i32, String, String, i64)> {
     state
         .db

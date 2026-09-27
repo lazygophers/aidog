@@ -159,3 +159,114 @@ pub fn cleanup_mitm_logs(
         .map_err(|e| format!("cleanup mitm_log rows: {e}"))
     }
 }
+
+// ─── 读侧（票 12 UI：趋势 / 旁路视图 / 盲转计数）──────────────────────────
+
+/// mitm_log 行摘要（旁路视图用；body 两列刻意不查——视图只看元数据，不搬运大字段）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MitmBypassRow {
+    pub id: i64,
+    pub group_name: String,
+    pub host: String,
+    pub path: String,
+    pub status_code: i32,
+    pub req_bytes: i64,
+    pub resp_bytes: i64,
+    pub decrypted: bool,
+    pub created_at: i64,
+}
+
+/// 最近 limit 条旁路观测行（created_at 降序）。
+pub fn list_mitm_bypass_rows(
+    db: &Db,
+    limit: u32,
+) -> impl std::future::Future<Output = Result<Vec<MitmBypassRow>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, group_name, host, path, status_code, req_bytes, resp_bytes, decrypted, created_at
+                 FROM mitm_log ORDER BY created_at DESC, id DESC LIMIT ?1",
+            )?;
+            let rows = stmt
+                .query_map(params![limit], |r| {
+                    Ok(MitmBypassRow {
+                        id: r.get(0)?,
+                        group_name: r.get(1)?,
+                        host: r.get(2)?,
+                        path: r.get(3)?,
+                        status_code: r.get(4)?,
+                        req_bytes: r.get(5)?,
+                        resp_bytes: r.get(6)?,
+                        decrypted: r.get::<_, i64>(7)? != 0,
+                        created_at: r.get(8)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("list mitm_bypass_rows: {e}"))
+    }
+}
+
+/// 窗口利用率采样点（趋势图用，0-100 百分数）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct OauthUsageSampleDto {
+    pub five_hour_pct: f64,
+    pub seven_day_pct: f64,
+    pub sampled_at: i64,
+}
+
+/// 某 group 最新 limit 条采样点，按 sampled_at **升序**返回（LineChart LTTB 前提）。
+pub fn list_oauth_usage_samples<'a>(
+    db: &'a Db,
+    group_name: &str,
+    limit: u32,
+) -> impl std::future::Future<Output = Result<Vec<OauthUsageSampleDto>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let group = group_name.to_string();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT five_hour_pct, seven_day_pct, sampled_at FROM (
+                    SELECT five_hour_pct, seven_day_pct, sampled_at
+                    FROM oauth_usage_sample WHERE group_name = ?1
+                    ORDER BY sampled_at DESC LIMIT ?2
+                 ) ORDER BY sampled_at ASC",
+            )?;
+            let rows = stmt
+                .query_map(params![group, limit], |r| {
+                    Ok(OauthUsageSampleDto {
+                        five_hour_pct: r.get(0)?,
+                        seven_day_pct: r.get(1)?,
+                        sampled_at: r.get(2)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("list oauth_usage_samples: {e}"))
+    }
+}
+
+/// `blocked_reason='mitm_opaque'` 的 proxy_log 行数（统计页「未计入」提示行）。
+/// since_ms=0 查全量。
+pub fn count_mitm_opaque(
+    db: &Db,
+    since_ms: i64,
+) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = 'mitm_opaque' AND created_at >= ?1",
+                params![since_ms],
+                |r| r.get::<_, i64>(0),
+            )?)
+        })
+        .await
+        .map_err(|e| format!("count mitm_opaque: {e}"))
+    }
+}

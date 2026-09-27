@@ -419,7 +419,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         })
         .await
         .expect("read mitm_log");
-    let (host, status) = mitm_rows
+    let (_host, status) = mitm_rows
         .iter()
         .find(|(h, _)| h == "www.baidu.com")
         .expect("mitm_bypass 观测行必须存在（forward 路径已执行）");
