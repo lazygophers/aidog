@@ -511,3 +511,97 @@ async fn quota_source_default_by_protocol_capability() {
     let o = create_platform(&db, mk(Protocol::OpenAICompletions)).await.unwrap();
     assert_eq!(o.quota_source, "manual", "无变体协议默认 manual");
 }
+
+// ── platform.name 唯一性（platform-name-unique，2026-09-28）──
+
+#[tokio::test]
+async fn create_duplicate_name_gets_suffix() {
+    let db = test_db().await;
+    let p1 = create_platform(&db, sample_platform("dup")).await.unwrap();
+    let p2 = create_platform(&db, sample_platform("dup")).await.unwrap();
+    assert_eq!(p1.name, "dup", "首个保留原名");
+    assert!(
+        p2.name.starts_with("dup-") && p2.name.len() == "dup".len() + 9,
+        "第二个自动加 8 位随机后缀，实际 {}",
+        p2.name
+    );
+    assert_ne!(p1.name, p2.name);
+}
+
+#[tokio::test]
+async fn update_rename_to_existing_gets_suffix() {
+    let db = test_db().await;
+    let a = create_platform(&db, sample_platform("aaa")).await.unwrap();
+    let b = create_platform(&db, sample_platform("bbb")).await.unwrap();
+    // b 改名成 a 的名字 → 自动后缀
+    let upd = UpdatePlatform {
+        id: b.id,
+        name: Some("aaa".to_string()),
+        platform_type: None,
+        base_url: None,
+        api_key: None,
+        extra: None,
+        models: None,
+        available_models: None,
+        endpoints: None,
+        enabled: None,
+        status: None,
+        manual_budgets: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
+    };
+    let r = update_platform(&db, upd).await.unwrap();
+    assert!(r.name.starts_with("aaa-"), "撞名自动后缀，实际 {}", r.name);
+    assert_eq!(
+        get_platform(&db, a.id).await.unwrap().unwrap().name,
+        "aaa",
+        "原持有者不动"
+    );
+    // 平台 a 改回自己已有的名字（aaa → aaa）不触发后缀
+    let upd2 = UpdatePlatform {
+        id: a.id,
+        name: Some("aaa".to_string()),
+        platform_type: None,
+        base_url: None,
+        api_key: None,
+        extra: None,
+        models: None,
+        available_models: None,
+        endpoints: None,
+        enabled: None,
+        status: None,
+        manual_budgets: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
+    };
+    let r2 = update_platform(&db, upd2).await.unwrap();
+    assert_eq!(r2.name, "aaa", "改回已有自己的名字不受影响");
+}
+
+#[tokio::test]
+async fn migration_dedupes_existing_names() {
+    let db = test_db().await;
+    // 造 3 个重名（绕过 create 的唯一性检查，直接走存量行 fixture 语义）
+    let p1 = create_platform(&db, sample_platform("legacy")).await.unwrap();
+    let _p2 = create_platform(&db, sample_platform("legacy-x")).await.unwrap();
+    let _p3 = create_platform(&db, sample_platform("legacy-y")).await.unwrap();
+    // 手工改回重名，模拟升级前存量
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute("UPDATE platform SET name = 'legacy' WHERE id IN (?1, ?2)", rusqlite::params![_p2.id as i64, _p3.id as i64])?;
+        Ok(())
+    }).await.unwrap();
+    // 跑 migration（幂等可重放）
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        crate::schema_late::run_migrations_platform_late(conn)?;
+        Ok(())
+    }).await.unwrap();
+    let n1 = get_platform(&db, p1.id).await.unwrap().unwrap().name;
+    let n2 = get_platform(&db, _p2.id).await.unwrap().unwrap().name;
+    let n3 = get_platform(&db, _p3.id).await.unwrap().unwrap().name;
+    let names = [n1.clone(), n2, n3];
+    assert_eq!(n1, "legacy", "最小 id 保留原名");
+    assert!(names.iter().all(|n| n == "legacy" || n.starts_with("legacy-")));
+    assert_eq!(names.iter().collect::<std::collections::HashSet<_>>().len(), 3, "全部唯一");
+}

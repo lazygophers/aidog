@@ -284,3 +284,48 @@ async fn new_format_missing_config_fields_write_default_json() {
     assert_eq!(available, "[]", "缺失 available_models 应写 '[]' 非空串");
     assert_eq!(endpoints, "[]", "缺失 endpoints 应写 '[]' 非空串");
 }
+
+/// platform.name 唯一性（platform-name-unique，2026-09-28）：导入插入撞目标机已有同名
+/// 平台时自动加随机后缀（推翻旧「重复导入同名可接受」语义）。
+#[tokio::test]
+async fn import_insert_duplicate_name_gets_suffix() {
+    let db = test_db().await;
+    let row = serde_json::json!({
+        "name": "Same",
+        "platform_type": "anthropic",
+        "base_url": "https://x.example.com",
+        "api_key": "sk",
+    });
+    let now = 0_i64;
+    for _ in 0..2 {
+        let row = row.clone();
+        db.write_conn()
+            .call(move |conn| {
+                let tx = conn.transaction()?;
+                super::insert_platform_row(&tx, "Same", &row, now)?;
+                tx.commit()?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+    let names: Vec<String> = db
+        .write_conn()
+        .call(|conn| {
+            let mut stmt = conn.prepare("SELECT name FROM platform WHERE deleted_at = 0")?;
+            let v = stmt
+                .query_map([], |r| r.get(0))?
+                .filter_map(Result::ok)
+                .collect();
+            Ok(v)
+        })
+        .await
+        .unwrap();
+    assert_eq!(names.len(), 2);
+    assert!(names.contains(&"Same".to_string()), "首个保留原名：{names:?}");
+    assert_eq!(
+        names.iter().collect::<std::collections::HashSet<_>>().len(),
+        2,
+        "全部唯一：{names:?}"
+    );
+}

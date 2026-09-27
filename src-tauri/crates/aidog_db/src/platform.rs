@@ -101,6 +101,38 @@ pub fn load_platforms_by_ids(
     Ok(map)
 }
 
+/// platform.name 唯一性（2026-09-28 拍板，platform-name-unique spec）：重名自动加
+/// `-{8 位随机}` 后缀（与空名自动生成 `{协议}-{随机8}` 同风格）。**须在 platform 单写
+/// 连接槽的闭包内调用**（check + INSERT/UPDATE 同连接原子）。exclude_id 供改名路径排除
+/// 自身。只对未删除行（deleted_at=0）查重。
+pub fn unique_platform_name(conn: &rusqlite::Connection, name: &str, exclude_id: Option<i64>) -> String {
+    let exists = |n: &str| -> bool {
+        let q = "SELECT COUNT(*) FROM platform WHERE deleted_at = 0 AND name = ?1";
+        let with_excl = match exclude_id {
+            Some(eid) => conn
+                .prepare(&format!("{q} AND id != ?2"))
+                .and_then(|mut s| s.query_row(params![n, eid], |r| r.get::<_, i64>(0)))
+                .unwrap_or(0),
+            None => conn
+                .prepare(q)
+                .and_then(|mut s| s.query_row(params![n], |r| r.get::<_, i64>(0)))
+                .unwrap_or(0),
+        };
+        with_excl > 0
+    };
+    if !exists(name) {
+        return name.to_string();
+    }
+    for _ in 0..8 {
+        let cand = format!("{}-{}", name, &uuid::Uuid::new_v4().simple().to_string()[..8]);
+        if !exists(&cand) {
+            return cand;
+        }
+    }
+    // 8 次随机全撞（概率 ~2^-48 量级）按时间戳兜底，保证绝不返回重名。
+    format!("{}-{}", name, now())
+}
+
 #[track_caller]
 pub fn create_platform(
     db: &Db,
@@ -163,7 +195,7 @@ pub fn create_platform(
             )
         };
 
-        let id = db
+        let (id, final_name) = db
 
         .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
@@ -173,11 +205,13 @@ pub fn create_platform(
             let quota_script_db = quota_script.clone();
             let quota_source_db = quota_source.clone();
             move |conn| {
+                // name 唯一性：重名自动加随机后缀（同闭包内 check+INSERT 原子）
+                let name = unique_platform_name(conn, &name, None);
                 conn.execute(
                     "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at, quota_script, quota_source) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
                     params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at, quota_script_db, quota_source_db],
                 )?;
-                Ok(conn.last_insert_rowid() as u64)
+                Ok((conn.last_insert_rowid() as u64, name))
             }
         })
         .await
@@ -187,7 +221,7 @@ pub fn create_platform(
 
         Ok(Platform {
             id,
-            name: input.name,
+            name: final_name,
             platform_type: input.platform_type,
             base_url: input.base_url,
             api_key: input.api_key,
@@ -391,7 +425,7 @@ pub fn update_platform(
             )
         };
 
-        let updated = Platform {
+        let mut updated = Platform {
             quota_script,
             quota_source,
             name: input.name.unwrap_or(existing.name),
@@ -418,7 +452,7 @@ pub fn update_platform(
         let available_str = serialize_available_models(&updated.available_models);
         let endpoints_str = serialize_endpoints(&updated.endpoints);
         let manual_budgets_str = crate::models::serialize_manual_budgets(&updated.manual_budgets);
-        db
+        let final_name = db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
@@ -434,6 +468,8 @@ pub fn update_platform(
             let quota_source = updated.quota_source.clone();
             let id = updated.id as i64;
             move |conn| {
+                // name 唯一性：改名为已存在名字时自动加随机后缀（排除自身；2026-09-28 拍板）
+                let name = unique_platform_name(conn, &name, Some(id));
                 conn.execute(
                     "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15, quota_script=?16, quota_source=?17 WHERE id=?18",
                     params![
@@ -457,13 +493,14 @@ pub fn update_platform(
                         id,
                     ],
                 )?;
-                Ok(())
+                Ok(name)
             }
         })
         .await
         .map_err(|e| format!("update platform: {e}"))?;
         // platform 字段内嵌于 GroupDetail.platforms，更新后须失效以免 Groups 页读旧值。
         db.invalidate_group_details_cache();
+        updated.name = final_name;
 
         Ok(updated)
     }
