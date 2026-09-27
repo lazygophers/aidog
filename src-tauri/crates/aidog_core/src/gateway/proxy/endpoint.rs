@@ -206,8 +206,8 @@ pub(crate) async fn match_platform_by_host(
 /// 也不漏判（漏判会把配错 token 的 API 流量旁路直通到原 host，违反 PRD 非目标）。
 ///
 /// ponytail: Bug B 修复后 should_fallback_passthrough 不再调此函数（host 判定前置，path 不参与）。
-/// 保留供未来路由决策复用 + 单测覆盖锁定 AI 端点识别语义（is_api_endpoint_covers_main_paths）。
-#[allow(dead_code)]
+/// 保留供 serve_plaintext 归属注入门（票 08：CONNECT 绑定 group 仅注入 AI API 端点请求）复用 +
+/// 单测覆盖锁定 AI 端点识别语义（is_api_endpoint_covers_main_paths）。
 pub(crate) fn is_api_endpoint(path: &str) -> bool {
     if super::is_models_endpoint(path) {
         return true;
