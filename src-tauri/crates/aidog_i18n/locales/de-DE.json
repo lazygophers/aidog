@@ -1022,6 +1022,8 @@
   "platform.clientType": "Client-Typ",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Coding Plan Protokoll: dedizierte Subdomain / kontingentbasierte Abrechnung",
+  "platform.subscriptionBadge": "Abo",
+  "platform.subscriptionHint": "Abo-Durchleitung: OAuth-gebunden, Datenverkehr über MITM beobachtet (nicht abgerechnet, fensterbegrenzt)",
   "platform.codingUsedHint": "Kumulierte verwendete Tokens und geschätzte Kosten für diese Plattform (basierend auf tatsächlichen Anfragen)",
   "platform.currently_off_peak": "Aktuell: Nebenzeit",
   "platform.currently_peak": "Aktuell: Spitzenzeit",

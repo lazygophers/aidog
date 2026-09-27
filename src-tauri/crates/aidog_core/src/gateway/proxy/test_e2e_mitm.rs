@@ -656,3 +656,84 @@ async fn mitm_bound_group_claude_code_stats_closed_loop() {
 
     drop(sender);
 }
+
+/// cc-sub review 项 8：`/api/oauth/*`（usage 除外）的 mitm_log 行 body 恒 `[REDACTED]`
+/// ——log_upstream_request 全开也不存正文（spec §3.2 脱敏）；非 oauth 旁路行维持开关语义
+/// 照记原文。`platform.claude.com/v1/oauth/token`（TokenObserve）body 恒空已另有行为。
+#[tokio::test]
+async fn mitm_bypass_oauth_meta_body_redacted() {
+    let (state, _ca) = make_state_with_ca().await;
+    let upstream_url = spawn_stub_upstream().await;
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+    // 1. oauth 元数据端点（Bypass 路由）→ body 两列 [REDACTED]。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream_url}/api/oauth/organizations"),
+        "api.anthropic.com",
+        "/api/oauth/organizations",
+        axum::http::Method::POST,
+        axum::http::HeaderMap::new(),
+        hyper::body::Bytes::from_static(b"{\"session_secret\":\"xyz\"}"),
+        "cc",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "stub 上游 200 必须原样回传");
+    // 2. 普通旁路行 → 开关全开，body 照记原文。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream_url}/v1/track"),
+        "api.anthropic.com",
+        "/v1/track",
+        axum::http::Method::POST,
+        axum::http::HeaderMap::new(),
+        hyper::body::Bytes::from_static(b"{\"telemetry\":true}"),
+        "cc",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rows = state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            let mut stmt =
+                conn.prepare("SELECT path, request_body, response_body FROM mitm_log")?;
+            let rows = stmt
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .expect("read mitm_log");
+    let oauth = rows
+        .iter()
+        .find(|(p, _, _)| p == "/api/oauth/organizations")
+        .expect("oauth 元数据观测行必须存在");
+    assert_eq!(oauth.1, "[REDACTED]", "oauth 请求 body 开关开了也不得存正文");
+    assert_eq!(oauth.2, "[REDACTED]", "oauth 响应 body 同样脱敏");
+    assert!(
+        !oauth.1.contains("session_secret"),
+        "凭证字符串绝不允许出现在 body 列"
+    );
+    let track = rows
+        .iter()
+        .find(|(p, _, _)| p == "/v1/track")
+        .expect("普通旁路行必须存在");
+    assert!(
+        track.1.contains("telemetry"),
+        "非 oauth 旁路行维持开关语义照记原文"
+    );
+}

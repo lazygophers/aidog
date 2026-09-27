@@ -14,6 +14,11 @@ use aidog_db::models::RetentionUnit;
 use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
 use rusqlite::params;
 
+/// proxy_log `blocked_reason` 取值：认证绑定的 CONNECT 隧道未解密走盲转（spec cc-sub-mitm D4）。
+/// 单一真值源——aidog_core `gateway::proxy::log` 重导出，写入侧（upsert_connect_log 调用链）
+/// 与读侧（`count_mitm_opaque`）共用，SQL 一律参数绑定此常量。
+pub const MITM_OPAQUE_REASON: &str = "mitm_opaque";
+
 /// mitm_log 一行（一次性终态 INSERT，无 upsert——表无 request id 列）。
 /// Default 仅为流式 guard 的 `mem::take` 兜底形状，无业务语义。
 #[derive(Debug, Clone, Default)]
@@ -76,7 +81,8 @@ pub fn insert_oauth_usage_sample<'a>(
     let __db_caller = std::panic::Location::caller();
     let group = group_name.to_string();
     let raw = raw.to_string();
-    async move {        db.call_traced(None, __db_caller, move |conn| {
+    async move {
+        db.call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO oauth_usage_sample (group_name, five_hour_pct, seven_day_pct, raw, sampled_at)
                  VALUES (?1,?2,?3,?4,?5)",
@@ -259,10 +265,12 @@ pub fn count_mitm_opaque(
 ) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-        db.call_read_traced(None, __db_caller, move |conn| {
+        // proxy_log 表读侧必须走 proxy_log 专用读池（call_read_proxy_log_traced，同 crate
+        // proxy_log.rs 先例）——主库读池在真机 WAL 拆库下 no such table。
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row(
-                "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = 'mitm_opaque' AND created_at >= ?1",
-                params![since_ms],
+                "SELECT COUNT(*) FROM proxy_log WHERE blocked_reason = ?1 AND created_at >= ?2",
+                params![MITM_OPAQUE_REASON, since_ms],
                 |r| r.get::<_, i64>(0),
             )?)
         })

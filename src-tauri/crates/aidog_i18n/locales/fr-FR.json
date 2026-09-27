@@ -1022,6 +1022,8 @@
   "platform.clientType": "Type de client",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Protocole Coding Plan : sous-domaine dédié / facturation au quota",
+  "platform.subscriptionBadge": "Abonnement",
+  "platform.subscriptionHint": "Passage abonnement : lié OAuth, trafic observé via MITM (non facturé, limité par fenêtre)",
   "platform.codingUsedHint": "Tokens cumulés utilisés et coût estimé pour cette plateforme (basé sur les requêtes réelles)",
   "platform.currently_off_peak": "Actuellement : hors pointe",
   "platform.currently_peak": "Actuellement : pointe",

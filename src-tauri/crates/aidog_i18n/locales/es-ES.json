@@ -1000,6 +1000,8 @@
   "platform.clientType": "Tipo de cliente",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Protocolo Coding Plan: subdominio dedicado / facturación por cuota",
+  "platform.subscriptionBadge": "Suscripción",
+  "platform.subscriptionHint": "Paso de suscripción: vinculado a OAuth, tráfico observado vía MITM (sin facturación, con límites de ventana)",
   "platform.codingUsedHint": "Tokens acumulados usados y coste estimado de esta plataforma (basado en solicitudes reales)",
   "platform.currently_off_peak": "Actual: fuera de hora pico",
   "platform.currently_peak": "Actual: hora pico",

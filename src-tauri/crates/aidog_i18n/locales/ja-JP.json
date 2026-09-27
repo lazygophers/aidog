@@ -1022,6 +1022,8 @@
   "platform.clientType": "クライアントタイプ",
   "platform.codingPlanBadge": "Coding Plan",
   "platform.codingPlanHint": "Coding Plan プロトコル: 専用サブドメイン / クォータ課金",
+  "platform.subscriptionBadge": "サブスク",
+  "platform.subscriptionHint": "サブスク透過：OAuth でバインドし、トラフィックは MITM で観測（課金なし、ウィンドウ制限あり）",
   "platform.codingUsedHint": "このプラットフォームの累計使用トークンと推定金額（実際のリクエストに基づく推定）",
   "platform.currently_off_peak": "現在：オフピーク",
   "platform.currently_peak": "現在：ピーク",

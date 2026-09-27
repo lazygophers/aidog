@@ -90,17 +90,15 @@ async fn upsert_connect_log_writes_http_connect_row() {
     });
     spawn_log_writer(state.clone(), log_rx);
 
-    log::upsert_connect_log(
-        &state,
-        "conn-log-1".into(),
-        String::new(),
-        0,
-        "api.example.com:443".into(),
-        200,
-        42,
-        String::new(),
-    )
-    .await;
+    let ctx = log::ConnectLogCtx {
+        request_id: "conn-log-1".into(),
+        platform_id: 0,
+        conn_group_key: String::new(),
+        start: std::time::Instant::now(),
+        log_enabled: true,
+        blocked_reason: "",
+    };
+    log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 42).await;
     flush_log_queue(&state).await;
 
     let row = aidog_logs::get_proxy_log(&state.db, "conn-log-1")

@@ -1,6 +1,8 @@
 //! MITM 统计读侧命令（cc-sub-mitm 票 12）：趋势采样 / OAuth refresh 失败计数 /
-//! 旁路视图 / 盲转计数 / pure cc 组 export 文案。全部只读（export 持久化 KV 密码与
-//! 票 11 同源，不写新状态），UI 打开页面 / 切 tab 时拉一次，不做后台轮询。
+//! 旁路视图 / 盲转计数 / pure cc 组 export 文案。export 非纯只读：首次调用会生成并
+//! 持久化 KV 密码（scope `cc_proxy_auth`，与票 11 sync 写 settings.json 的同一份同 key
+//! ——UI export 行与 settings 密码同源）；其余命令只读。UI 打开页面 / 切 tab 时拉一次，
+//! 不做后台轮询。
 
 use crate::shared::load_proxy_settings;
 
@@ -60,8 +62,17 @@ crate::tauri_command! {
 /// 场景（#96258：CC Desktop 忽略 settings env 块）用户复制到终端用。
 pub async fn cc_proxy_export(group_name: String) -> Result<String, String> {
     let db = aidog_ctx::db();
+    // KV key 是 group_key（自动组 gk_<hex>）而非 group name——必须先按名反查 Group，
+    // 否则查出的是与 sync 注入（sync_settings.rs::cc_proxy_password）不同的两个密码。
+    // CONNECT 不校验密码所以现状没炸，但 UI export 行与 settings.json 必须同源。
+    let group_key = aidog_db::list_groups(db)
+        .await?
+        .into_iter()
+        .find(|g| g.name == group_name)
+        .map(|g| g.group_key)
+        .ok_or_else(|| format!("group not found: {group_name}"))?;
     let port = load_proxy_settings(db).await?.port;
-    let password = crate::sync_settings::cc_proxy_password(db, &group_name).await?;
+    let password = crate::sync_settings::cc_proxy_password(db, &group_key).await?;
     Ok(crate::sync_settings::cc_proxy_export_line(&group_name, &password, port))
 }
 }
