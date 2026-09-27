@@ -472,6 +472,7 @@
   "home.dimMetric": "Tokens / Kosten / Anfragen",
   "home.tabModel": "Nach Modell",
   "home.tabGroup": "Nach Gruppe",
+  "home.tabPlatform": "Nach Plattform",
   "home.dimTrendTitle": "Dimensionstrends · 24 Stunden",
   "home.port": "Port",
   "home.proxyStatus": "Proxy-Dienst",

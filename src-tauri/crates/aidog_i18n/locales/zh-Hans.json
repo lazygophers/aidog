@@ -472,6 +472,7 @@
   "home.dimMetric": "tokens / 花费 / 请求",
   "home.tabModel": "按模型",
   "home.tabGroup": "按分组",
+  "home.tabPlatform": "按平台",
   "home.dimTrendTitle": "维度趋势 · 24 小时",
   "home.port": "端口",
   "home.proxyStatus": "代理服务",
