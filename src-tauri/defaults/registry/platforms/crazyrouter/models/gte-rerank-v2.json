@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790484475,
+  "last_updated": 1790495834,
   "model_id": "gte-rerank-v2",
   "display_name": "Gte Rerank V2",
   "canonical_model": "gte-rerank-v2",
@@ -8,8 +8,8 @@
   "capabilities": [
     "rerank"
   ],
-  "max_input_tokens": 32768,
-  "context_window": 32768,
+  "max_input_tokens": 30000,
+  "context_window": 30000,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
