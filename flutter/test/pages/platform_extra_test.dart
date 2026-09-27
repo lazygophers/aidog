@@ -711,7 +711,7 @@ void main() {
       expect(kEndpointsLockedProtocols.contains('glm_coding'), isTrue);
       expect(kEndpointsLockedProtocols.contains('claude_code'), isTrue);
       expect(kEndpointsLockedProtocols.contains('openai'), isFalse);
-      expect(kEndpointsLockedProtocols.length, 31);
+      expect(kEndpointsLockedProtocols.length, 33);
     });
   });
 }

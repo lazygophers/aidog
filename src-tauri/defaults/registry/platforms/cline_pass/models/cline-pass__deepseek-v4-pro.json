@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790479137,
+  "model_id": "cline-pass/deepseek-v4-pro",
+  "canonical_model": "deepseek-v4-pro",
+  "family": "deepseek",
+  "version": "4",
+  "display_name": "DeepSeek V4 Pro",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "context_window": 1048576
+}

@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790479137,
+  "model_id": "cline-pass/qwen3.7-max",
+  "canonical_model": "qwen3.7-max",
+  "family": "qwen",
+  "version": "3.7",
+  "display_name": "Qwen3.7 Max",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  },
+  "context_window": 1000000
+}

@@ -1,0 +1,51 @@
+{
+  "last_updated": 1790479137,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.cline.bot/api/v1"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "deepseek/deepseek-chat",
+      "sonnet": "anthropic/claude-sonnet-4-6",
+      "haiku": "deepseek/deepseek-chat",
+      "gpt": "openai/gpt-4o"
+    }
+  },
+  "model_list": {
+    "default": [
+      "anthropic/claude-sonnet-4-6",
+      "openai/gpt-4o",
+      "google/gemini-2.5-pro",
+      "deepseek/deepseek-chat",
+      "minimax/minimax-m2.5"
+    ]
+  },
+  "name": {
+    "en-US": "Cline API",
+    "zh-Hans": "Cline API（按量）",
+    "ar-SA": "Cline API",
+    "fr-FR": "Cline API",
+    "de-DE": "Cline API",
+    "ru-RU": "Cline API",
+    "ja-JP": "Cline API",
+    "es-ES": "Cline API"
+  },
+  "source_urls": {
+    "docs": "https://docs.cline.bot/api/overview",
+    "pricing": "https://cline.bot/pricing"
+  },
+  "homepage": "https://cline.bot/",
+  "logo_url": "cline",
+  "keywords": [
+    "cline",
+    "cline api",
+    "clinebot",
+    "按量"
+  ],
+  "color": "#111827"
+}

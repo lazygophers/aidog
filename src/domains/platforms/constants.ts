@@ -43,7 +43,7 @@ export const PROTOCOL_LABELS: Partial<Record<Protocol, string>> = {
 export const ENDPOINTS_LOCKED_PROTOCOLS: ReadonlySet<Protocol> = new Set<Protocol>([
   "mock", "claude_code",
   "glm", "glm_coding", "glm_en", "glm_coding_en", "kimi", "kimi_en", "kimi_coding",
-  "minimax", "minimax_en", "minimax_coding", "codex", "bailian", "bailian_en", "bailian_coding", "bailian_coding_en",
+  "minimax", "minimax_en", "minimax_coding", "codex", "cline", "cline_pass", "bailian", "bailian_en", "bailian_coding", "bailian_coding_en",
   "deepseek", "stepfun", "stepfun_en", "doubao", "byteplus",
   "qianfan", "qianfan_coding", "xiaomi_mimo", "xiaomi_mimo_coding", "xiaomi_mimo_coding_en",
   "longcat", "sensenova", "sensenova_en", "devin",

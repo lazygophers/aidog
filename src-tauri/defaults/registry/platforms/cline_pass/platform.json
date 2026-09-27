@@ -1,0 +1,58 @@
+{
+  "last_updated": 1790479137,
+  "is_coding_plan": true,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://api.cline.bot/api/v1",
+        "coding_plan": true
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "cline-pass/glm-5.3",
+      "sonnet": "cline-pass/glm-5.3",
+      "opus": "cline-pass/deepseek-v4-pro",
+      "haiku": "cline-pass/glm-5.3-flash",
+      "gpt": "cline-pass/qwen3.8-max"
+    }
+  },
+  "model_list": {
+    "default": [
+      "cline-pass/glm-5.3",
+      "cline-pass/glm-5.3-flash",
+      "cline-pass/kimi-k3",
+      "cline-pass/deepseek-v4-pro",
+      "cline-pass/deepseek-v4.1-flash",
+      "cline-pass/qwen3.8-max",
+      "cline-pass/qwen3.7-max",
+      "cline-pass/qwen3.7-plus"
+    ]
+  },
+  "name": {
+    "en-US": "ClinePass",
+    "zh-Hans": "ClinePass 订阅",
+    "ar-SA": "ClinePass",
+    "fr-FR": "ClinePass",
+    "de-DE": "ClinePass",
+    "ru-RU": "ClinePass",
+    "ja-JP": "ClinePass サブスクリプション",
+    "es-ES": "ClinePass"
+  },
+  "source_urls": {
+    "docs": "https://docs.cline.bot/getting-started/clinepass",
+    "pricing": "https://cline.bot/cline-pass"
+  },
+  "homepage": "https://cline.bot/cline-pass",
+  "logo_url": "cline",
+  "keywords": [
+    "clinepass",
+    "cline pass",
+    "cline-pass",
+    "cpass",
+    "dingyue"
+  ],
+  "color": "#111827"
+}
