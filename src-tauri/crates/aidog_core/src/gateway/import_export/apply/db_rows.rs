@@ -90,11 +90,9 @@ pub(super) async fn upsert_platform_row(
     effective_name: &str,
     row: &serde_json::Value,
 ) -> Result<(), String> {
-    // platform.name 非唯一（platform 表无 UNIQUE；唯一性在 group.name）。
-    // 旧逻辑按 name SELECT→UPDATE 在多同名时取任一行 = 覆盖错平台（数据完整性 bug）。
     // 无稳定跨机 platform identity（id 机器本地）→ 始终 INSERT 新行。
-    // 重复导入同 provider = 列表多个同名 platform（用户确认接受）。
-    // effective_name 仍尊重 rename 决策（若 .aidogx 传 rename）。
+    // 2026-09-28 拍板（platform-name-unique spec，推翻旧「重复导入同名可接受」确认）：
+    // 插入前查重，目标机已有同名 → 自动加 `-{8 位随机}` 后缀；platform.name 全链唯一。
     let row = row.clone();
     let effective = effective_name.to_string();
     // config-db-split：platform 表落 platform.db，走 platform 写连接。
@@ -140,6 +138,8 @@ fn insert_platform_row(
     } else {
         endpoints
     };
+    // name 唯一性（2026-09-28 拍板）：目标机已有同名平台时自动加随机后缀
+    let name = aidog_db::unique_platform_name(tx, name, None);
     tx.execute(
         "INSERT INTO platform
          (name, platform_type, base_url, api_key, extra, models, available_models, endpoints,

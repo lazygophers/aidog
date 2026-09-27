@@ -899,6 +899,49 @@ ALTER TABLE "group_new" RENAME TO "group";
          WHERE quota_source = 'auto' AND manual_budgets NOT IN ('', '[]')",
         [],
     );
+    // Migration 20260928-02: platform.name 存量去重（platform-name-unique spec）。
+    // 保留每组重名中最小 id 的原名，其余加 `-{8 位随机}` 后缀；幂等（二次执行无重名组可扫）。
+    // 新写入路径（create/update/import）同批已加唯一性检查，本迁移只清历史存量。
+    // 守卫：老库 fixture 可能尚无 platform 表 / deleted_at 列（platform_early 才补），此时跳过。
+    let platform_col = |col: &str| -> bool {
+        table_exists(conn, "platform")
+            && conn
+                .prepare("PRAGMA table_info(platform)")
+                .map(|mut s| {
+                    s.query_map([], |r| r.get::<_, String>(1))
+                        .map(|it| it.filter_map(Result::ok).any(|c| c == col))
+                        .unwrap_or(false)
+                })
+                .unwrap_or(false)
+    };
+    if platform_col("deleted_at") && platform_col("name") {
+        let dup_names: Vec<String> = conn
+            .prepare(
+                "SELECT name FROM platform WHERE deleted_at = 0 GROUP BY name HAVING COUNT(*) > 1",
+            )?
+            .query_map([], |r| r.get(0))?
+            .filter_map(Result::ok)
+            .collect();
+        for n in dup_names {
+            let ids: Vec<i64> = conn
+                .prepare("SELECT id FROM platform WHERE deleted_at = 0 AND name = ?1 ORDER BY id")?
+                .query_map(params![n], |r| r.get(0))?
+                .filter_map(Result::ok)
+                .collect();
+            for id in ids.iter().skip(1) {
+                let new_name = crate::platform::unique_platform_name(conn, &n, Some(*id));
+                let _ = conn.execute(
+                    "UPDATE platform SET name = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![new_name, crate::now(), id],
+                );
+            }
+            tracing::info!(
+                name = %n,
+                renamed = ids.len() - 1,
+                "migration 20260928-02: 重名平台加随机后缀（保留最小 id 原名）"
+            );
+        }
+    }
     // Migration 20260928-01: platform_health_state 持久化表（routing-health-optim R4）。
     // 熔断 Open / quota / auth 冷却截止 / connect 失败标记写穿落盘，代理重启时恢复
     // （过期即弃——重启后死站不再回满血候选，第一波请求不重撞）。幂等：IF NOT EXISTS。
