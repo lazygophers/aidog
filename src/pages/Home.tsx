@@ -1,9 +1,10 @@
 // ─── 首页 · 命令面板（Command Palette · #36 / spec C3）─────────────────
 // 单块命令面板：琥珀渐变眉条 → 搜索栏式状态行（运行态点 + 端口 + ⌘C 复制地址）
-// → 四 KPI 紧凑行（每格行内 sparkline，花费=琥珀其余灰阶）→ 24h 紧凑双线趋势
-// （琥珀主线 + 灰阶虚线辅线）→ 平台 Top4（迷你环形 + 行内占比条 + 等宽数字）
-// → 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C chip 可点击 + keydown 绑定同动作）。
-// 旧三曲线主图删除，深分析归 Stats。数据源（各区独立 catch）/ reveal 入场 / RTL / i18n 不变。
+// → 四 KPI 紧凑行（每格行内 sparkline，花费=琥珀其余灰阶）→ 维度趋势
+// （按模型 / 按分组堆叠面积 + 右轴请求线，2026-09-27 起由面板外玻璃卡移入，
+// 原 24h 总量双线趋势删除，深分析归 Stats）→ 平台 Top4（迷你环形 + 行内占比条
+// + 等宽数字）→ 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C chip 可点击 + keydown 绑定同动作）。
+// 数据源（各区独立 catch）/ reveal 入场 / RTL / i18n 不变。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -25,7 +26,7 @@ import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
-import { LineChart, bucketMs, seriesColor } from "@/components/charts";
+import { seriesColor } from "@/components/charts";
 import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
 import { F } from "../domains/shared/tokens";
 
@@ -78,7 +79,8 @@ export function buildDimRows(
 }
 
 // 命令面板视觉 token（direction-approved.md 锁定）：分层中性面 s1/s2、行线、SF Mono 数字栈。
-const PANEL = {
+// 导出供 HomeTrendChart（嵌面板内的维度趋势）取同一份显式浅色文字。
+export const PANEL = {
   fg: "#f5f5f0",
   muted: "#8a8580",
   s1: "#0e0e0e",
@@ -213,7 +215,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
-    // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶），喂 KPI sparkline + 双线趋势区。
+    // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶），喂 KPI sparkline
+    //（24h 总量趋势图已删；维度趋势 / 维度面板走下面的 queryBatch，不消费本查询）。
     const now = new Date();
     const windowStart = now.getTime() - 24 * 3600 * 1000;
     await Promise.all([
@@ -272,13 +275,11 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const maxPlatformCost = topPlatforms.reduce((m, p) => Math.max(m, p.cost), 0);
   const topCostSum = topPlatforms.reduce((s, p) => s + p.cost, 0);
 
-  // 24h 趋势 / KPI sparkline 序列（hourly 桶）。
+  // 24h 趋势 / KPI sparkline 序列（hourly 桶；24h 总量双线趋势图已删，KPI sparkline 仍消费）。
   const reqSeries = trendBuckets.map(b => b.total_requests);
   const costSeries = trendBuckets.map(b => b.total_cost);
   const tokensSeries = trendBuckets.map(b => b.input_tokens + b.output_tokens + b.cache_tokens);
   const cacheSeries = trendBuckets.map(b => b.cache_tokens);
-  const trendPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_requests), 0);
-  const hasTrend = reqSeries.some(v => v > 0);
 
   // ── 模型 / 分组维度行（home-model-stats spec §2）──
   const modelRows = useMemo(() => buildDimRows(dimModels), [dimModels]);
@@ -300,17 +301,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const statusText = running == null
     ? t("home.statusUnknown", "未知")
     : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
-
-  // 24h 趋势行数据（公共层 LineChart 双 Y 轴消费，spec §B2：归一化不手写）：
-  // 主线 req 挂左轴（琥珀 + 面积填充），辅线 cost 挂右轴独立标尺（灰阶虚线）。
-  const trendRows = useMemo(
-    () => trendBuckets.map(b => ({
-      x: bucketMs(b.time_bucket),
-      req: b.total_requests,
-      cost: b.total_cost,
-    })),
-    [trendBuckets],
-  );
 
   // 萤火虫动效：面板内 5 区块 reveal 入场错峰（0/70/140/210/280ms）。
   const revealSearch = useReveal<HTMLDivElement>(0);
@@ -428,78 +418,27 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           )}
         </div>
 
-        {/* 3+4. 趋势与平台并排：auto-fit 塞得下两栏就两栏，塞不下自动叠成一栏。
-            1px gap 配容器底色当分隔线 —— 双栏时是竖线、单栏时是横线，无需断点。 */}
+        {/* 3. 维度趋势（home-dim-trend）：2026-09-27 由面板外独立玻璃卡移入面板
+            （原 24h 总量双线趋势位）。bare 拆外壳融入面板，文字走 PANEL 显式色。 */}
         <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
-            gap: 1,
-            background: PANEL.line,
-            borderBottom: `1px solid ${PANEL.line}`,
-          }}
+          ref={revealTrend.ref}
+          className={`reveal${revealTrend.shown ? " in" : ""}`}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
         >
-          <div
-            ref={revealTrend.ref}
-            className={`reveal${revealTrend.shown ? " in" : ""}`}
-            style={{ padding: "14px 16px", background: PANEL.s1 }}
-          >
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
-              <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.trend24h", "24 小时趋势")}</b>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
-                HOURLY · {t("home.trendRequests", "请求数")} / {t("home.trendCost", "花费")}
-                {hasTrend && ` · ${t("home.trendPeak", "峰值")} ${formatNumber(trendPeak)}`}
-              </span>
-            </div>
-            {hasTrend ? (
-              <>
-                {/* 紧凑双线趋势走公共层双 Y 轴（mini：去轴去网格，标尺仍独立生效） */}
-                <LineChart
-                  mini
-                  area
-                  height={88}
-                  xKey="x"
-                  data={trendRows}
-                  config={{ req: { label: t("home.trendRequests", "请求数"), color: seriesColor(0) } }}
-                  rightConfig={{ cost: { label: t("home.trendCost", "花费"), color: seriesColor(1) } }}
-                  rightValueFormat={formatCostUsd}
-                  dashedKeys={["cost"]}
-                />
-                {/* x 轴整点小时标注：每 6 桶（hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"） */}
-                <div style={{ position: "relative", height: 12 }}>
-                  {trendBuckets.map((b, i) =>
-                    i % 6 === 0 ? (
-                      <span
-                        key={i}
-                        style={{
-                          position: "absolute",
-                          left: `${((i / (trendBuckets.length - 1)) * 100).toFixed(1)}%`,
-                          transform: "translateX(-50%)",
-                          fontFamily: PANEL.mono,
-                          fontSize: 8,
-                          color: PANEL.muted,
-                          whiteSpace: "nowrap",
-                        }}
-                      >
-                        {b.time_bucket.slice(11, 13)}
-                      </span>
-                    ) : null,
-                  )}
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "8px 0" }}>
-                {loading ? "" : t("home.noToday", "今日暂无请求")}
-              </div>
-            )}
-          </div>
+          <HomeTrendChart
+            modelSeries={seriesModels}
+            groupSeries={seriesGroups}
+            ungroupedLabel={ungroupedLabel}
+            loading={loading}
+          />
+        </div>
 
-          {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
-          <div
-            ref={revealPlats.ref}
-            className={`reveal${revealPlats.shown ? " in" : ""}`}
-            style={{ padding: "14px 16px", background: PANEL.s1 }}
-          >
+        {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
+        <div
+          ref={revealPlats.ref}
+          className={`reveal${revealPlats.shown ? " in" : ""}`}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+        >
             <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
               <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.topPlatforms", "今日平台用量")}</b>
               <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
@@ -549,7 +488,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
                 {loading ? "" : t("home.noToday", "今日暂无请求")}
               </div>
             )}
-          </div>
         </div>
 
         {/* 4.5 模型 / 分组维度（home-model-stats spec §2）：并排两面板，TopN 横条 + 五指标 */}
@@ -612,15 +550,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           </div>
         </div>
       </div>
-
-      {/* 6. 维度趋势独立区块（home-dim-trend）：按模型 / 按分组堆叠面积 + 右轴请求线，
-          与 4.5 维度面板共用同一份 queryBatch 数据（series_by 小时序列）。 */}
-      <HomeTrendChart
-        modelSeries={seriesModels}
-        groupSeries={seriesGroups}
-        ungroupedLabel={ungroupedLabel}
-        loading={loading}
-      />
     </div>
   );
 }
