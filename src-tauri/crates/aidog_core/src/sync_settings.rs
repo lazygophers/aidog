@@ -222,7 +222,7 @@ pub fn cc_proxy_export_line(group_name: &str, password: &str, port: u16) -> Stri
 
 /// pure cc 组 HTTPS_PROXY 占位密码：随机生成一次后持久化 KV。CONNECT 端不校验密码，
 /// 但每次同步重新随机会让 settings 文件每轮必写（diff 永远不等），持久化后跨同步稳定。
-async fn cc_proxy_password(db: &Db, group_key: &str) -> Result<String, String> {
+pub(crate) async fn cc_proxy_password(db: &Db, group_key: &str) -> Result<String, String> {
     if let Ok(Some(v)) = aidog_db::get_setting(db, CC_PROXY_AUTH_SCOPE, group_key).await
         && let Some(s) = v.as_str()
         && !s.is_empty()

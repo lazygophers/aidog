@@ -15,6 +15,7 @@ import {
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
+  parseMitmStats, serializeMitmStats,
   parsePlatformTimeWindows, serializePlatformTimeWindows,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
@@ -128,6 +129,8 @@ export interface PlatformFormState {
   windowsTz: "local" | "utc"; setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
+  /** mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入形态标记，存 platform.extra.mitm_stats）。 */
+  mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
   /** time_windows：时段模型规则列表（按时段切换主力模型档） */
   timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
@@ -231,6 +234,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
+  // mitm_stats（订阅透传 MITM 接入形态标记；仅 claude_code 协议表单暴露 UI）
+  const [mitmStats, setMitmStats] = useState<boolean>(false);
   // time_windows（时段模型规则，存 platform.extra.time_windows；默认空数组）
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
@@ -339,7 +344,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false);
+    setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false); setMitmStats(false);
     setTimeModels([]);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
@@ -403,7 +408,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
-    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
+    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
@@ -455,7 +460,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
-    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
+    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setLockedGroupId(null);
@@ -651,6 +656,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = serializePlatformPeak(extraPayload, peak);
     // disable_during_peak：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
+    // mitm_stats：false → 移除键（默认行为）；true → 写入。
+    extraPayload = serializeMitmStats(extraPayload, mitmStats);
     // time_windows：空数组 → 移除键（无规则 → 用 default）；非空写入。
     extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
@@ -791,6 +798,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerDefaults,
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
+    mitmStats, setMitmStats,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,

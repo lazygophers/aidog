@@ -124,3 +124,46 @@ export const mitmApi = {
   testUrl: (url: string) =>
     invoke<{ host_pattern: string; rule_type: string }[]>("mitm_whitelist_test_url", { url }),
 };
+
+// ─── MITM 统计读侧（cc-sub-mitm 票 12；与后端 proxy_cmd/mitm_stats.rs 对齐，snake_case）───
+
+/** 5h/7d 窗口利用率采样点（蹭 /api/oauth/usage 自然流量入库）。 */
+export interface OauthUsageSample {
+  five_hour_pct: number;
+  seven_day_pct: number;
+  sampled_at: number;
+}
+
+/** platform.claude.com token 刷新观测统计（#91703 警示消费）。 */
+export interface MitmRefreshStats {
+  attempts: number;
+  failures: number;
+}
+
+/** mitm_log 旁路观测行摘要（body 不返回）。 */
+export interface MitmBypassRow {
+  id: number;
+  group_name: string;
+  host: string;
+  path: string;
+  status_code: number;
+  req_bytes: number;
+  resp_bytes: number;
+  decrypted: boolean;
+  created_at: number;
+}
+
+export const mitmStatsApi = {
+  /** 某 group 的窗口利用率采样点（升序，趋势图直接喂 LineChart）。 */
+  usageTrend: (groupName: string, limit?: number) =>
+    invoke<OauthUsageSample[]>("mitm_usage_trend", { groupName, limit }),
+  /** token refresh 失败计数；sinceMs 缺省 0 = 全量。 */
+  refreshStats: (sinceMs?: number) =>
+    invoke<MitmRefreshStats>("mitm_oauth_refresh_stats", { sinceMs }),
+  /** 最近旁路观测行（统计页折叠入口）。 */
+  bypassList: (limit?: number) => invoke<MitmBypassRow[]>("mitm_bypass_list", { limit }),
+  /** `blocked_reason='mitm_opaque'` 行数（统计页「未计入」提示）。 */
+  opaqueCount: (sinceMs?: number) => invoke<number>("mitm_opaque_count", { sinceMs }),
+  /** pure cc 组 HTTPS_PROXY export 语句（密码/端口与 sync 同源，票 11）。 */
+  ccProxyExport: (groupName: string) => invoke<string>("cc_proxy_export", { groupName }),
+};

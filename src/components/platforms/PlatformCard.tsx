@@ -16,7 +16,8 @@ import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
-import { parseDisableDuringPeak } from "../../services/api";
+import { parseDisableDuringPeak, parseMitmStats } from "../../services/api";
+import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection } from "./CcMitmInfo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -190,6 +191,11 @@ export const PlatformCard = memo(function PlatformCard({
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
   // p.extra 单次解析（原本在渲染体内被调 2 次，每次都内含独立 JSON.parse(extra)）。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
+  // cc-sub-mitm 票 12：claude_code + mitm_stats 开 → 订阅窗口趋势 + refresh 失败警示。
+  // claude_code 独占分组 → membership 首个即组名（CONNECT 认证的 username）。
+  const isCcMitm = p.platform_type === "claude_code" && parseMitmStats(p.extra ?? "");
+  const ccGroupName = platformMembership?.[0];
+  const ccMitm = useCcMitmInfo(isCcMitm, ccGroupName);
   // peakWindows 来自 useProtocolMeta：`extra.peak` ?? preset 默认。
   // 此前这里只读 `parsePlatformPeak(p.extra)`，不回落 preset，于是 glm_coding /
   // deepseek 这类自带预设高峰的平台在窗口内也不显徽标 —— 与 CLAUDE.md 写明的
@@ -402,6 +408,10 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
                 {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
                 {lastTest && <LastTestBadge result={lastTest} />}
+                {/* 订阅透传 OAuth refresh 失败警示（#91703；有失败才渲染） */}
+                {ccMitm?.refresh && ccMitm.refresh.failures > 0 && (
+                  <CcMitmRefreshWarning refresh={ccMitm.refresh} />
+                )}
                 {/* 最近一次代理错误（系统维护，非请求记录实时取；最近一次成功即清空不渲染） */}
                 {p.last_error && (
                   <div
@@ -669,6 +679,9 @@ export const PlatformCard = memo(function PlatformCard({
               labelMap={labelMap}
               configuredModels={configuredModels}
             />
+            {/* 订阅窗口利用率（5h/7d）趋势 + 最新值 */}
+            {ccMitm && <CcMitmTrendSection samples={ccMitm.samples} />}
+
           </div>
         )}
       </CompactCard>

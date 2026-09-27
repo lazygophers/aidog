@@ -410,6 +410,38 @@ export function serializeDisableDuringPeak(extra: string, enabled: boolean): str
 }
 
 
+/** 从 platform.extra JSON 解析 mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台
+ *  的 MITM 接入形态标记）。缺失 / 非法 / 非布尔 → false。 */
+export function parseMitmStats(extra: string): boolean {
+  if (!extra.trim()) return false;
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "mitm_stats" in parsed) {
+      return (parsed as { mitm_stats: unknown }).mitm_stats === true;
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+/** 把 mitm_stats 写回 extra JSON（保留其余键）。false → 移除键（默认行为）。 */
+export function serializeMitmStats(extra: string, enabled: boolean): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (enabled) {
+    obj.mitm_stats = true;
+  } else {
+    delete obj.mitm_stats;
+  }
+  return JSON.stringify(obj);
+}
+
 /** 从 platform.extra JSON 解析 time_windows 规则（用户级配置，preset 不带）。
  *  缺失 / 非法 / 空数组 → []（无时段规则，用 platform.models default）。 */
 export function parsePlatformTimeWindows(extra: string): TimeModelRule[] {
