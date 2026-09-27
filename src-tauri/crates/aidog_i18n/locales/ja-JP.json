@@ -1964,6 +1964,7 @@
   "stats.today": "今日",
   "stats.tokens": "トークン",
   "stats.totalCost": "合計コスト",
+  "stats.costNote": "参考コストであり、実際の請求額ではありません",
   "stats.totalRequests": "総リクエスト",
   "stats.totalRows": "{{count}} 件",
   "stats.totalTokens": "総トークン",

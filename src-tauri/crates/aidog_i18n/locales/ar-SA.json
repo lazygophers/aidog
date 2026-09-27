@@ -1964,6 +1964,7 @@
   "stats.today": "اليوم",
   "stats.tokens": "الرموز",
   "stats.totalCost": "التكلفة الإجمالية",
+  "stats.costNote": "تكلفة مرجعية، وليست المبلغ المدفوع فعليًا",
   "stats.totalRequests": "إجمالي الطلبات",
   "stats.totalRows": "{{count}} سجل",
   "stats.totalTokens": "إجمالي الرموز",

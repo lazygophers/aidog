@@ -1942,6 +1942,7 @@
   "stats.today": "Today",
   "stats.tokens": "Tokens",
   "stats.totalCost": "Total Cost",
+  "stats.costNote": "Reference cost, not actual charges",
   "stats.totalRequests": "Total Requests",
   "stats.totalRows": "{{count}} records",
   "stats.totalTokens": "Total Tokens",

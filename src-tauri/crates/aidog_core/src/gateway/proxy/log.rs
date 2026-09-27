@@ -16,6 +16,8 @@ pub(crate) enum LogMsg {
     /// 渐进式/终态 upsert（原 upsert_log 全部落库逻辑，见 `process_upsert`）。
     Upsert(Box<ProxyLog>, ProxyLogSettings),
     /// CONNECT 隧道一次性终态 INSERT（原 upsert_connect_log，见 `process_connect_log`）。
+    /// `blocked_reason`：空串 = 普通盲转行；`MITM_OPAQUE_REASON` = 认证绑定的隧道未能解密
+    /// （spec cc-sub-mitm D4：盲转保通 + est_cost=0 + mitm_opaque 标记）。
     Connect {
         id: String,
         group_key: String,
@@ -23,6 +25,7 @@ pub(crate) enum LogMsg {
         request_url: String,
         status_code: i32,
         duration_ms: i32,
+        blocked_reason: String,
     },
     /// 测试用同步屏障：writer 处理到此消息即 ack，供测试在断言前等待此前所有入队消息落库
     /// 完成（FIFO 单 consumer 保证屏障之前的消息必已处理）。生产路径不发送。
@@ -106,6 +109,7 @@ pub(crate) fn spawn_log_writer(
                     request_url,
                     status_code,
                     duration_ms,
+                    blocked_reason,
                 } => {
                     process_connect_log(
                         &state,
@@ -115,6 +119,7 @@ pub(crate) fn spawn_log_writer(
                         request_url,
                         status_code,
                         duration_ms,
+                        blocked_reason,
                     )
                     .await;
                 }
@@ -456,6 +461,11 @@ pub(crate) fn spawn_rate_limit(
     );
 }
 
+/// 盲转不透明标记（spec cc-sub-mitm D4）：CONNECT 认证绑定了 group 但隧道未能解密
+/// （白名单未命中 / MITM 降级 / CA 未启用），字节盲转保通。proxy_log 落
+/// est_cost=0 + blocked_reason='mitm_opaque' 元数据行，区别于可解密的 AI 路径行。
+pub(crate) const MITM_OPAQUE_REASON: &str = "mitm_opaque";
+
 /// P1 CONNECT 隧道元数据写入：独立路径，**不走 upsert_log**。
 ///
 /// 原因：upsert_log 会触发 `upsert_stats_agg`（污染今日统计 — 隧道不计费，token=0）+
@@ -465,6 +475,8 @@ pub(crate) fn spawn_rate_limit(
 ///
 /// 热路径入口：一次性终态入队（同 upsert_log 终态分支——队满阻塞等待腾位，不丢），不 `.await`
 /// 落库；实际 INSERT 移入 `process_connect_log`（`spawn_log_writer` 单 writer 串行执行）。
+/// ponytail: 8 参数是隧道一次性终态上下文（同 spawn_blind_relay 先例），allow too_many_arguments。
+#[allow(clippy::too_many_arguments)]
 pub(crate) async fn upsert_connect_log(
     state: &Arc<ProxyState>,
     id: String,
@@ -473,6 +485,7 @@ pub(crate) async fn upsert_connect_log(
     request_url: String,
     status_code: i32,
     duration_ms: i32,
+    blocked_reason: String,
 ) {
     let msg = LogMsg::Connect {
         id: id.clone(),
@@ -481,6 +494,7 @@ pub(crate) async fn upsert_connect_log(
         request_url,
         status_code,
         duration_ms,
+        blocked_reason,
     };
     if state.log_tx.send(msg).await.is_err() {
         tracing::warn!(id = %id, "log writer channel closed, connect log dropped");
@@ -495,6 +509,8 @@ pub(crate) async fn upsert_connect_log(
 /// - `request_url` = CONNECT target（`host:port`）
 /// - `status_code` = 200（隧道建立成功）/ 502（上游连不上）/ 499（客户端断）
 /// - tokens/cost = 0（P1 不解析 body）
+/// - `blocked_reason` = `MITM_OPAQUE_REASON`（认证绑定 + 盲转未解密）或空串（普通盲转）
+#[allow(clippy::too_many_arguments)]
 async fn process_connect_log(
     state: &Arc<ProxyState>,
     id: String,
@@ -503,6 +519,7 @@ async fn process_connect_log(
     request_url: String,
     status_code: i32,
     duration_ms: i32,
+    blocked_reason: String,
 ) {
     let now = aidog_db::now();
     let cols = aidog_logs::ProxyLogColumns {
@@ -534,7 +551,7 @@ async fn process_connect_log(
         attempts: String::new(),
         retry_count: 0,
         blocked_by: String::new(),
-        blocked_reason: String::new(),
+        blocked_reason,
         created_at: now,
         updated_at: now,
         deleted_at: 0,
