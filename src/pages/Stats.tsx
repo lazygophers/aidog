@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
   statsApi,
+  mitmStatsApi,
   groupDetailApi,
   platformApi,
   onProxyLogUpdated,
@@ -15,8 +16,9 @@ import {
   type Platform,
   type QuotaSnapshot,
   type ScatterHistogram,
+  type MitmBypassRow,
 } from "../services/api";
-import { formatNumber, formatCost, formatCostUsd, successRate } from "../utils/formatters";
+import { formatNumber, formatCost, formatCostUsd, successRate, formatBytes, formatDateTime } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import {
@@ -287,6 +289,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   // 散点矩阵（D2 bin 化）与配额快照序列（D4）均按需拉取
   const [scatterHist, setScatterHist] = useState<ScatterHistogram | null>(null);
   const [quotaSnaps, setQuotaSnaps] = useState<QuotaSnapshot[] | null>(null);
+  // MITM 盲转行数（当前时间窗内 blocked_reason=mitm_opaque；票 12「未计入」提示行）
+  const [opaqueCount, setOpaqueCount] = useState(0);
 
   // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
   // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
@@ -323,6 +327,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
         statsApi.query({ ...base, start: prevR.start, end: prevR.end }).catch(() => null),
       ]);
       setPrevOverview(prev?.overview ?? null);
+      // 盲转计数随主查询同窗拉取（失败不阻塞主统计）
+      mitmStatsApi.opaqueCount(range.start).then(n => setOpaqueCount(n)).catch(() => {});
 
       // ── 自动降级粒度 ──
       // hourly/daily 走聚合表（agg）；minute/5min 走 proxy_log。聚合表稀疏（hourly 非空桶 < 4）时
@@ -663,6 +669,13 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
             />
           </div>
 
+          {/* MITM 盲转「未计入」提示（blocked_reason=mitm_opaque：解不开的请求 est_cost=0，不进上方成本） */}
+          {opaqueCount > 0 && (
+            <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
+              {t("stats.mitmOpaqueNote", "另有 {{n}} 条 MITM 盲转请求未计入成本（无法解密，仅记元数据）", { n: formatNumber(opaqueCount) })}
+            </div>
+          )}
+
           {/* 主图区四 tab（spec C1）：tab 本地 state 切换，筛选条作用于所有 tab */}
           <div role="tablist" aria-label={t("page.stats", "使用统计")} style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {TABS.map(({ id, key }) => (
@@ -943,6 +956,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               </Table>
             </div>
           ) : null}
+
+          {/* MITM 旁路流量（折叠入口，默认不打扰；展开才拉数据） */}
+          <MitmBypassPanel />
         </>
       ) : (
         <div style={{ textAlign: "center", padding: 40, color: "var(--text-secondary)", fontSize: F.hint }}>
@@ -1068,6 +1084,65 @@ function Pager({ page, pageCount, onPrev, onNext, t }: PagerProps) {
       <Button variant="outline" style={{ fontSize: 12, padding: "3px 10px", height: "auto" }} disabled={page >= pageCount - 1} onClick={onNext}>
         {t("stats.nextPage", "下一页")}
       </Button>
+    </div>
+  );
+}
+
+// ── MITM 旁路流量面板（cc-sub-mitm 票 12）：折叠入口，默认不打扰，展开才拉 mitm_log ──
+function MitmBypassPanel() {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
+  const [rows, setRows] = useState<MitmBypassRow[] | null>(null);
+  useEffect(() => {
+    if (!open || rows) return;
+    let cancelled = false;
+    mitmStatsApi.bypassList(50)
+      .then(r => { if (!cancelled) setRows(r); })
+      .catch(() => { if (!cancelled) setRows([]); });
+    return () => { cancelled = true; };
+  }, [open, rows]);
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <Button
+        variant="ghost"
+        style={{ fontSize: 12, padding: "4px 10px", height: "auto", alignSelf: "flex-start" }}
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+      >
+        {open ? "\u25BE" : "\u25B8"} {t("stats.bypassTitle", "MITM 旁路流量")}
+      </Button>
+      {open && (
+        rows === null
+          ? <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("status.loading", "\u52a0\u8f7d\u4e2d\u2026")}</div>
+          : rows.length === 0
+            ? <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("stats.bypassEmpty", "\uff08\u6682\u65e0\u65c1\u8def\u89c2\u6d4b\u884c\uff09")}</div>
+            : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t("stats.bypassTime", "\u65f6\u95f4")}</TableHead>
+                    <TableHead>{t("stats.bypassGroup", "\u5206\u7ec4")}</TableHead>
+                    <TableHead>{t("stats.bypassHost", "Host / Path")}</TableHead>
+                    <TableHead style={{ textAlign: "right" }}>{t("stats.bypassStatus", "\u72b6\u6001")}</TableHead>
+                    <TableHead style={{ textAlign: "right" }}>{t("stats.bypassBytes", "\u6d41\u91cf")}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map(r => (
+                    <TableRow key={r.id}>
+                      <TableCell style={{ padding: "6px 8px", whiteSpace: "nowrap" }}>{formatDateTime(r.created_at) ?? "-"}</TableCell>
+                      <TableCell style={{ padding: "6px 8px" }}>{r.group_name || "-"}</TableCell>
+                      <TableCell style={{ padding: "6px 8px", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11 }}>
+                        {r.host}{r.path}
+                      </TableCell>
+                      <TableCell style={{ textAlign: "right", padding: "6px 8px", color: r.status_code >= 400 ? "var(--color-danger)" : undefined }}>{r.status_code}</TableCell>
+                      <TableCell style={{ textAlign: "right", padding: "6px 8px" }}>{formatBytes(r.req_bytes + r.resp_bytes)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )
+      )}
     </div>
   );
 }
