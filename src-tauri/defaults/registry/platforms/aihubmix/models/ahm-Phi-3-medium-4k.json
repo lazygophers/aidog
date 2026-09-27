@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790496740,
   "model_id": "ahm-Phi-3-medium-4k",
   "canonical_model": "phi-3-medium-4k",
 
   "version": "3",
   "family": "phi",  "display_name": "Ahm Phi 3 Medium 4K",
   "capabilities": [],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
