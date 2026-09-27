@@ -40,6 +40,7 @@ mod headers;
 mod health;
 mod log;
 mod middleware_body;
+mod mitm_bypass;
 mod mock;
 mod non_success;
 mod notify;
@@ -63,6 +64,8 @@ mod test_e2e_mitm;
 mod test_group_info;
 #[cfg(test)]
 mod test_integration;
+#[cfg(test)]
+mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -110,6 +113,7 @@ pub(crate) use log::{
     spawn_log_writer, spawn_rate_limit, upsert_connect_log, upsert_log,
 };
 pub(crate) use mock::handle_mock;
+pub(crate) use mitm_bypass::{MitmRoute, classify_mitm_route, handle_mitm_observed};
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,
