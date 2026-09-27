@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790400041,
+  "last_updated": 1790497269,
   "model_id": "gemini-2.5-flash-preview-tts",
   "display_name": "Gemini 2.5 Flash Preview Tts",
   "canonical_model": "gemini-2.5-flash-preview-tts",
@@ -9,6 +9,9 @@
     "audio"
   ],
   "max_output_tokens": 16384,
+  "max_input_tokens": 8192,
+  "max_output_tokens": 16384,
+  "context_window": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
