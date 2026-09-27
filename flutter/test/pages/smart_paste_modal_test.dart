@@ -94,6 +94,16 @@ void main() {
     );
   });
 
+  testWidgets('页脚主按钮的 96 最小宽度包含水平内边距', (tester) async {
+    await mount(tester);
+    final i18n = await makeI18n(tester);
+    final apply = find.widgetWithText(
+      SmallButton,
+      i18n.t('platform.paste.apply'),
+    );
+    expect(tester.getSize(apply).width, 96);
+  });
+
   testWidgets('剪贴板为空 → 停在空态提示，「填入表单」点不动', (tester) async {
     await mount(tester);
     final i18n = await makeI18n(tester);

@@ -127,8 +127,7 @@ class SmallButton extends StatelessWidget {
         ? theme.c.bad
         : active
         ? (activeTone ?? theme.c.accentText)
-        : color ??
-              (ghost ? theme.c.fg3 : theme.c.fg2);
+        : color ?? (ghost ? theme.c.fg3 : theme.c.fg2);
     final radius = BorderRadius.circular(pill ? 999 : AidogRadius.sm);
     final bg = filled
         ? (onTap == null ? fillColor.withValues(alpha: 0.4) : fillColor)
@@ -157,6 +156,43 @@ class SmallButton extends StatelessWidget {
     // 🔴 别改回 `Container` / `AnimatedContainer` 包一层：`InkWell` 的水波画在
     // 祖先 Material 上，外面再盖一层不透明底色就把它整个遮住了 —— 那正是之前
     // 「按钮没有水波」的原因，不是没挂 InkWell。
+    final horizontalPadding = padding == null
+        ? (pill ? 12.0 : 10.0)
+        : padding!.$1;
+    final verticalPadding = padding == null ? (pill ? 4.0 : 5.0) : padding!.$2;
+    final buttonContent = Padding(
+      padding: EdgeInsets.symmetric(
+        horizontal: horizontalPadding,
+        vertical: verticalPadding,
+      ),
+      child: _MinWidthText(
+        minWidth: minWidth == null
+            ? null
+            : math.max(0, minWidth! - horizontalPadding * 2),
+        child: _labelWithIcon(
+          fg,
+          Text(
+            label,
+            // 覆盖字号时同时清字距：React 按钮 ls 0，micro 档的 0.66em
+            // 字距只在默认档（micro 标签风）有意义。
+            // 胶囊档 React 是 12 w500 ls0（`formSections.tsx:1092`）。
+            style:
+                (fontSize == null
+                        ? (pill
+                              ? AidogType.micro.copyWith(
+                                  fontSize: 12,
+                                  letterSpacing: 0,
+                                )
+                              : AidogType.micro)
+                        : AidogType.micro.copyWith(
+                            fontSize: fontSize,
+                            letterSpacing: 0,
+                          ))
+                    .copyWith(color: fg, fontWeight: fontWeight),
+          ),
+        ),
+      ),
+    );
     return Material(
       color: bg,
       animationDuration: pill
@@ -169,42 +205,12 @@ class SmallButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         borderRadius: radius,
-        child: Padding(
-          padding: padding == null
-              ? EdgeInsets.symmetric(
-                  horizontal: pill ? 12 : 10,
-                  vertical: pill ? 4 : 5,
-                )
-              : EdgeInsets.symmetric(
-                  horizontal: padding!.$1,
-                  vertical: padding!.$2,
-                ),
-          child: _MinWidthText(
-            minWidth: minWidth,
-            child: _labelWithIcon(
-              fg,
-              Text(
-              label,
-              // 覆盖字号时同时清字距：React 按钮 ls 0，micro 档的 0.66em
-              // 字距只在默认档（micro 标签风）有意义。
-              // 胶囊档 React 是 12 w500 ls0（`formSections.tsx:1092`）。
-              style:
-                  (fontSize == null
-                          ? (pill
-                                ? AidogType.micro.copyWith(
-                                    fontSize: 12,
-                                    letterSpacing: 0,
-                                  )
-                                : AidogType.micro)
-                          : AidogType.micro.copyWith(
-                              fontSize: fontSize,
-                              letterSpacing: 0,
-                            ))
-                      .copyWith(color: fg, fontWeight: fontWeight),
+        child: minWidth == null
+            ? buttonContent
+            : ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minWidth!),
+                child: buttonContent,
               ),
-            ),
-          ),
-        ),
       ),
     );
   }
@@ -549,28 +555,37 @@ class ModalCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(radius ?? AidogRadius.xl),
         boxShadow: t.shadowTile,
       ),
-      child: close == null ? _wrap(_body(t)) : Stack(
-        clipBehavior: Clip.none,
-        children: [
-          _wrap(_body(t)),
-          // `DialogContent` 自带的关闭 ✕：距卡片边各 16、图标 16、透明度 .7
-          // （`src/components/ui/dialog.tsx:47-50`，`right-4 top-4` + `h-4 w-4`）。
-          // Stack 的原点已经在 padding 里面，所以要把那一圈减回去。
-          // AlertDialog（= [ConfirmCard]）没有这颗，所以由调用方传 onClose 决定。
-          Positioned(
-            top: 16 - _pad(context).top,
-            right: 16 - _pad(context).right,
-            child: IconButton(
-              icon: Icon(Icons.close, size: 16, color: t.c.fg.withValues(alpha: 0.7)),
-              onPressed: close,
-              splashRadius: 14,
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints.tightFor(width: 20, height: 20),
-              tooltip: AidogI18n.of(context).t('action.close'),
+      child: close == null
+          ? _wrap(_body(t))
+          : Stack(
+              clipBehavior: Clip.none,
+              children: [
+                _wrap(_body(t)),
+                // `DialogContent` 自带的关闭 ✕：距卡片边各 16、图标 16、透明度 .7
+                // （`src/components/ui/dialog.tsx:47-50`，`right-4 top-4` + `h-4 w-4`）。
+                // Stack 的原点已经在 padding 里面，所以要把那一圈减回去。
+                // AlertDialog（= [ConfirmCard]）没有这颗，所以由调用方传 onClose 决定。
+                Positioned(
+                  top: 16 - _pad(context).top,
+                  right: 16 - _pad(context).right,
+                  child: IconButton(
+                    icon: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: t.c.fg.withValues(alpha: 0.7),
+                    ),
+                    onPressed: close,
+                    splashRadius: 14,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints.tightFor(
+                      width: 20,
+                      height: 20,
+                    ),
+                    tooltip: AidogI18n.of(context).t('action.close'),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
     );
   }
 
@@ -580,57 +595,55 @@ class ModalCard extends StatelessWidget {
 
   Widget _body(AidogTheme t) {
     return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (title != null || meta != null || titleTrailing != null)
-            // React DialogContent 是 gap-4 的 grid，标题与正文隔 16。
-            // 带 description 时这 16 挪到 description 下面。
-            Padding(
-              padding: EdgeInsets.only(
-                bottom: description == null ? (titleGap ?? 16) : 2,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (title != null)
-                    Expanded(
-                      child: Text(
-                        title!,
-                        style:
-                            (titleStyle ??
-                                    AidogType.title.copyWith(fontSize: 17))
-                                .copyWith(color: t.c.fg),
-                      ),
-                    )
-                  else
-                    const Spacer(),
-                  if (meta != null) ...[
-                    const SizedBox(width: AidogSpace.smd),
-                    // 窄面板上长 meta（段编辑器的 desc）会挤爆标题行：
-                    // Flexible + 单行省略，别让整行溢出。
-                    Flexible(child: TileMeta(meta!)),
-                  ],
-                  if (titleTrailing != null) ...[
-                    const SizedBox(width: AidogSpace.ssm),
-                    titleTrailing!,
-                  ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (title != null || meta != null || titleTrailing != null)
+          // React DialogContent 是 gap-4 的 grid，标题与正文隔 16。
+          // 带 description 时这 16 挪到 description 下面。
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: description == null ? (titleGap ?? 16) : 2,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (title != null)
+                  Expanded(
+                    child: Text(
+                      title!,
+                      style:
+                          (titleStyle ?? AidogType.title.copyWith(fontSize: 17))
+                              .copyWith(color: t.c.fg),
+                    ),
+                  )
+                else
+                  const Spacer(),
+                if (meta != null) ...[
+                  const SizedBox(width: AidogSpace.smd),
+                  // 窄面板上长 meta（段编辑器的 desc）会挤爆标题行：
+                  // Flexible + 单行省略，别让整行溢出。
+                  Flexible(child: TileMeta(meta!)),
                 ],
-              ),
+                if (titleTrailing != null) ...[
+                  const SizedBox(width: AidogSpace.ssm),
+                  titleTrailing!,
+                ],
+              ],
             ),
-          if (description != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: Text(
-                description!,
-                style:
-                    (descriptionStyle ??
-                            AidogType.caption.copyWith(fontSize: 12))
-                        .copyWith(color: t.c.fg2),
-              ),
+          ),
+        if (description != null)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Text(
+              description!,
+              style:
+                  (descriptionStyle ?? AidogType.caption.copyWith(fontSize: 12))
+                      .copyWith(color: t.c.fg2),
             ),
-          child,
-        ],
+          ),
+        child,
+      ],
     );
   }
 }
@@ -739,9 +752,7 @@ class ConfirmCard extends StatelessWidget {
           children: [
             Text(
               body,
-              style:
-                  bodyStyle ??
-                  AidogType.micro.copyWith(color: theme.c.fg2),
+              style: bodyStyle ?? AidogType.micro.copyWith(color: theme.c.fg2),
             ),
             if (extra != null) ...[
               const SizedBox(height: AidogSpace.ssm),
@@ -845,7 +856,9 @@ class InlineNote extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Container(width: 3, color: bar),
-                  Expanded(child: Padding(padding: padding, child: label)),
+                  Expanded(
+                    child: Padding(padding: padding, child: label),
+                  ),
                 ],
               ),
             ),
@@ -1194,10 +1207,7 @@ class _KeptTextFieldState extends State<KeptTextField> {
         isDense: true,
         contentPadding: widget.contentPadding,
         hintText: widget.hint,
-        hintStyle: base.copyWith(
-          fontSize: widget.fontSize,
-          color: theme.c.fg3,
-        ),
+        hintStyle: base.copyWith(fontSize: widget.fontSize, color: theme.c.fg3),
       ),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
