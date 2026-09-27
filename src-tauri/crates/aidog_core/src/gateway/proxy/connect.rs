@@ -62,7 +62,7 @@ pub(crate) enum ConnectAuth {
 
 /// group 名 URL-safe 判定（undici 对 proxy URL userinfo 做 decodeURIComponent，非 URL-safe
 /// 名字进 HTTPS_PROXY 必坏；CONNECT 端同规则收紧，非法用户名按未知 group 处理不绑定）。
-fn is_url_safe_group_name(s: &str) -> bool {
+pub(crate) fn is_url_safe_group_name(s: &str) -> bool {
     !s.is_empty()
         && s.bytes()
             .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))

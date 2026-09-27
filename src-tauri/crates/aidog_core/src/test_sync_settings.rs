@@ -602,7 +602,162 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
         "http://127.0.0.1:9912/proxy"
     );
     assert_eq!(norm["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_norm");
+    // 普通组不注入 HTTPS_PROXY（那是订阅透传组的专属路由形态）
+    assert!(norm["env"].get("HTTPS_PROXY").is_none());
+
+    // 透传组：HTTPS_PROXY 注入（username=组名 group.name，密码随机非空，端口=代理端口）
+    let https_proxy = cc["env"]["HTTPS_PROXY"].as_str().expect("pure cc group must set HTTPS_PROXY");
+    assert!(
+        https_proxy.starts_with("http://cc:") && https_proxy.ends_with("@127.0.0.1:9912"),
+        "HTTPS_PROXY shape, got: {https_proxy}"
+    );
+    let pw = https_proxy
+        .strip_prefix("http://cc:")
+        .and_then(|r| r.strip_suffix("@127.0.0.1:9912"))
+        .expect("parsable userinfo");
+    assert!(pw.len() >= 8, "password must be non-empty random, got len {}", pw.len());
+
+    // 二次同步密码稳定（KV 持久化；每次重新随机会让 settings 文件每轮必写）
+    super::do_sync_group_settings(&db, 9912).await.unwrap();
+    let cc2: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_cc.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(cc2["env"]["HTTPS_PROXY"], cc["env"]["HTTPS_PROXY"]);
 
     aidog_db::delete_group(&db, g_cc.id).await.unwrap();
     aidog_db::delete_group(&db, g_norm.id).await.unwrap();
+}
+
+/// pure cc 组 HTTPS_PROXY 注入的边界：组名不 URL-safe → 不写坏配置（该组 env 无
+/// HTTPS_PROXY），其余组照常同步落盘，整体返回 Err 提示改名；用户 env_vars 里的
+/// HTTPS_PROXY 对 pure cc 组是托管字段，同名丢弃。
+#[tokio::test]
+async fn do_sync_group_settings_blocks_url_unsafe_cc_group_name() {
+    use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
+    use aidog_db::models::Protocol;
+    use aidog_db::test_support::{HomeGuard, test_db};
+
+    let h = HomeGuard::new();
+    let db = test_db().await;
+
+    let mk_platform = |db: &aidog_db::Db, name: &str, pt: Protocol, api_key: &str| {
+        let db = db.clone();
+        let name = name.to_string();
+        let api_key = api_key.to_string();
+        async move {
+            aidog_db::create_platform(
+                &db,
+                aidog_db::models::CreatePlatform {
+                    name,
+                    platform_type: pt,
+                    base_url: "https://api.example.com".to_string(),
+                    api_key,
+                    extra: String::new(),
+                    models: None,
+                    available_models: None,
+                    endpoints: None,
+                    manual_budgets: None,
+                    auto_group: Some(false),
+                    join_group_ids: None,
+                    expires_at: None,
+                    quota_source: None,
+                },
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let cc_ok = mk_platform(&db, "cc-sub", Protocol::ClaudeCode, "").await;
+    let cc_bad = mk_platform(&db, "cc-sub2", Protocol::ClaudeCode, "").await;
+    let normal = mk_platform(&db, "normal", Protocol::Anthropic, "sk-x").await;
+
+    let mk_group = |db: &aidog_db::Db, name: &str, key: &str, evs: Vec<EnvVar>| {
+        let db = db.clone();
+        let name = name.to_string();
+        let key = key.to_string();
+        async move {
+            aidog_db::create_group(
+                &db,
+                CreateGroup {
+                    name,
+                    group_key: Some(key),
+                    routing_mode: RoutingMode::Failover,
+                    auto_from_platform: String::new(),
+                    request_timeout_secs: 0,
+                    connect_timeout_secs: 0,
+                    source_protocol: None,
+                    max_retries: 2,
+                    model_mappings: Vec::new(),
+                    env_vars: evs,
+                },
+            )
+            .await
+            .unwrap()
+        }
+    };
+    let g_ok = mk_group(&db, "ok.cc_1", "gk_ok", vec![EnvVar {
+        key: "HTTPS_PROXY".to_string(),
+        value: "http://evil.example:1".to_string(),
+    }])
+    .await;
+    aidog_db::set_group_platforms(
+        &db,
+        g_ok.id,
+        &[aidog_db::models::GroupPlatformInput { platform_id: cc_ok.id, priority: None, weight: None, level_priority: None }],
+    )
+    .await
+    .unwrap();
+    // 组名含空格：不 URL-safe
+    let g_bad = mk_group(&db, "bad name!", "gk_bad", Vec::new()).await;
+    aidog_db::set_group_platforms(
+        &db,
+        g_bad.id,
+        &[aidog_db::models::GroupPlatformInput { platform_id: cc_bad.id, priority: None, weight: None, level_priority: None }],
+    )
+    .await
+    .unwrap();
+    let g_norm = mk_group(&db, "norm", "gk_norm2", Vec::new()).await;
+    aidog_db::set_group_platforms(
+        &db,
+        g_norm.id,
+        &[aidog_db::models::GroupPlatformInput { platform_id: normal.id, priority: None, weight: None, level_priority: None }],
+    )
+    .await
+    .unwrap();
+
+    let err = super::do_sync_group_settings(&db, 9913).await.unwrap_err();
+    assert!(err.contains("bad name!"), "error must name the offending group, got: {err}");
+
+    // 坏名组：文件照写但无 HTTPS_PROXY（不写坏配置）
+    let bad: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_bad.json")).unwrap(),
+    )
+    .unwrap();
+    assert!(bad["env"].get("HTTPS_PROXY").is_none());
+
+    // 合法 cc 组：HTTPS_PROXY 注入且未被用户 env_var 覆盖
+    let ok: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_ok.json")).unwrap(),
+    )
+    .unwrap();
+    let injected = ok["env"]["HTTPS_PROXY"].as_str().expect("must inject HTTPS_PROXY");
+    assert!(
+        injected.starts_with("http://ok.cc_1:") && injected.ends_with("@127.0.0.1:9913"),
+        "got: {injected}"
+    );
+
+    // 普通组不被坏名组阻断，照常注入路由 env
+    let norm: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(h.home().join(".aidog/settings.gk_norm2.json")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(norm["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:9913/proxy");
+}
+
+/// Desktop / 多 shell export 文案形状（票 12 UI 同源）。
+#[test]
+fn cc_proxy_export_line_shape() {
+    let line = super::cc_proxy_export_line("my.cc_group", "pw123", 9100);
+    assert_eq!(line, "export HTTPS_PROXY='http://my.cc_group:pw123@127.0.0.1:9100'");
 }

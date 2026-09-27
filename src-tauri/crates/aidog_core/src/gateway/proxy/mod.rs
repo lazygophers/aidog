@@ -26,6 +26,8 @@ pub(crate) use super::router::{RouteResult, ScheduleCtx, select_candidates_ctx};
 pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
 pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
+// sync 端 HTTPS_PROXY 注入与 CONNECT 端共用同一 URL-safe 判定（spec D9 两端对称）。
+pub(crate) use connect::is_url_safe_group_name;
 
 mod builtin_tools;
 mod connect;
