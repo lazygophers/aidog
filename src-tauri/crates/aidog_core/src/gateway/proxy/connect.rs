@@ -211,6 +211,7 @@ async fn handle_connect_inner(
                 target,
                 407,
                 start.elapsed().as_millis() as i32,
+                String::new(),
             )
             .await;
         }
@@ -238,6 +239,14 @@ async fn handle_connect_inner(
         bound_group = conn_group_key,
         "connect auth resolved"
     );
+    // 盲转不透明标记（票 09 / spec D4）：认证绑定了 group 的连接若最终走盲转
+    // （白名单未命中 / MITM 降级 / CA 未启用），proxy_log 元数据行标 mitm_opaque（est_cost 恒 0）。
+    // 未绑定（无头 / 未知 group）= 普通代理流量，盲转行不标记（现状零回归）。
+    let opaque_reason: &'static str = if bound_group.is_some() {
+        MITM_OPAQUE_REASON
+    } else {
+        ""
+    };
 
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
     // 候选为 true 时跳过 P1 的「spawn 前 TCP 验证」（MITM 路径在 spawn 内自管 TCP 连接 +
@@ -267,6 +276,7 @@ async fn handle_connect_inner(
                             target.clone(),
                             502,
                             start.elapsed().as_millis() as i32,
+                            opaque_reason.to_string(),
                         )
                         .await;
                     }
@@ -286,6 +296,7 @@ async fn handle_connect_inner(
             conn_group_key,
             start,
             log_enabled,
+            opaque_reason,
         );
     }
 
@@ -308,6 +319,7 @@ async fn handle_connect_inner(
             Err(e) => {
                 tracing::warn!(error = %e, target = %target, request_id = %request_id, "connect upgrade failed");
                 if log_enabled {
+                    // 隧道未建立即断（无字节盲转发生）→ 不标 mitm_opaque。
                     upsert_connect_log(
                         &st,
                         request_id,
@@ -316,6 +328,7 @@ async fn handle_connect_inner(
                         target,
                         499,
                         start.elapsed().as_millis() as i32,
+                        String::new(),
                     )
                     .await;
                 }
@@ -344,6 +357,7 @@ async fn handle_connect_inner(
                     start,
                     log_enabled,
                     &[],
+                    opaque_reason,
                 )
                 .await;
                 return;
@@ -417,6 +431,7 @@ async fn handle_connect_inner(
             start,
             log_enabled,
             &parts.read_buf,
+            opaque_reason,
         )
         .await;
     });
@@ -445,6 +460,7 @@ fn spawn_blind_relay(
     conn_group_key: String,
     start: std::time::Instant,
     log_enabled: bool,
+    blocked_reason: &'static str,
 ) -> Response {
     let resp = Response::builder()
         .status(StatusCode::OK)
@@ -468,6 +484,7 @@ fn spawn_blind_relay(
                         target,
                         499,
                         start.elapsed().as_millis() as i32,
+                        blocked_reason.to_string(),
                     )
                     .await;
                 }
@@ -495,6 +512,7 @@ fn spawn_blind_relay(
                     target,
                     start,
                     log_enabled,
+                    blocked_reason,
                 )
                 .await;
                 return;
@@ -521,6 +539,7 @@ fn spawn_blind_relay(
             target,
             start,
             log_enabled,
+            blocked_reason,
         )
         .await;
     });
@@ -556,6 +575,7 @@ async fn blind_relay_after_connect(
     start: std::time::Instant,
     log_enabled: bool,
     prefetch: &[u8],
+    blocked_reason: &'static str,
 ) {
     // blind_relay: TCP 字节透传非 AirDog 构造响应，header 物理不可注入（双向 copy 加密 TLS 字节流，
     // AirDog 看不见 / 改不了 HTTP 层）。trace header 已在 spawn 前的 CONNECT 200 响应注入，
@@ -579,6 +599,7 @@ async fn blind_relay_after_connect(
                 target.to_string(),
                 start,
                 log_enabled,
+                blocked_reason,
             )
             .await;
         }
@@ -591,6 +612,7 @@ async fn blind_relay_after_connect(
                 target.to_string(),
                 start,
                 log_enabled,
+                blocked_reason,
             )
             .await;
         }
@@ -755,6 +777,7 @@ where
         Ok(s) => s,
         Err(e) => {
             tracing::warn!(error = %e, target, "mitm: upstream TCP failed, terminal 502");
+            // TCP 失败非盲转（无字节透传发生）→ 不标 mitm_opaque。
             log_connect_502(
                 st,
                 request_id,
@@ -763,6 +786,7 @@ where
                 target.to_string(),
                 start,
                 log_enabled,
+                "",
             )
             .await;
             // TCP 失败非 pinning，不标 suspect；client 不再有用（上游连不上 blind_relay 也连不上）。
@@ -784,6 +808,7 @@ where
                             error = %e, host = host_only,
                             "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
                         );
+                        // 客户端 TLS 握手失败（无字节盲转发生）→ 不标 mitm_opaque。
                         log_connect_502(
                             st,
                             request_id,
@@ -792,6 +817,7 @@ where
                             target.to_string(),
                             start,
                             log_enabled,
+                            "",
                         )
                         .await;
                         return MitmOutcome::Connected;
@@ -974,7 +1000,8 @@ pub(crate) async fn serve_plaintext<S>(
             // MITM 明文请求的 Authorization 是订阅 OAuth Bearer（resolve_group 必落空），归属由
             // 隧道绑定注入；非 API 流量（遥测 / 网页等）不注入，维持现状落「未匹配」桶透明直通
             // （注入会使 parse_incoming_request 对非 JSON body 返 400，破坏旁路流量）。
-            // 票 09/10 的 host/path 级分流（usage 采样 / mitm_log）在本门扩展。
+            // 票 10 的 host/path 级分流（usage 采样 / mitm_log）在本门扩展；盲转 mitm_opaque
+            // 标记（票 09）在 connect 层盲转路径落（见 MITM_OPAQUE_REASON），不在此处。
             let inject_group = bound.filter(|_| is_api_endpoint(&req_path));
             let resp: Response =
                 handle_proxy_core(AxumState(st.clone()), axum_req, request_id, inject_group)
@@ -996,7 +1023,7 @@ pub(crate) async fn serve_plaintext<S>(
 
 // ── proxy_log 写入 helper（P1 + MITM 共用）─────────────────────────────────────
 
-/// 隧道建立成功写 proxy_log（status=200）。
+/// 隧道建立成功写 proxy_log（status=200）。`blocked_reason` 见 `MITM_OPAQUE_REASON`。
 #[allow(clippy::too_many_arguments)]
 async fn log_connect_success(
     st: &Arc<ProxyState>,
@@ -1006,6 +1033,7 @@ async fn log_connect_success(
     target: String,
     start: std::time::Instant,
     log_enabled: bool,
+    blocked_reason: &str,
 ) {
     if !log_enabled {
         return;
@@ -1018,11 +1046,12 @@ async fn log_connect_success(
         target,
         200,
         start.elapsed().as_millis() as i32,
+        blocked_reason.to_string(),
     )
     .await;
 }
 
-/// 上游失败写 proxy_log 终态（status=502）。
+/// 上游失败写 proxy_log 终态（status=502）。`blocked_reason` 见 `MITM_OPAQUE_REASON`。
 #[allow(clippy::too_many_arguments)]
 async fn log_connect_502(
     st: &Arc<ProxyState>,
@@ -1032,6 +1061,7 @@ async fn log_connect_502(
     target: String,
     start: std::time::Instant,
     log_enabled: bool,
+    blocked_reason: &str,
 ) {
     if !log_enabled {
         return;
@@ -1044,6 +1074,7 @@ async fn log_connect_502(
         target,
         502,
         start.elapsed().as_millis() as i32,
+        blocked_reason.to_string(),
     )
     .await;
 }
