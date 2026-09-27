@@ -143,9 +143,10 @@ export const PlatformCard = memo(function PlatformCard({
   const { color, isCpProtocol, defaultModels, homepage, sourceUrls, protocolLabel, labelMap, peakWindows } =
     useProtocolMeta(p.platform_type, p.extra ?? "", i18n.language);
   const configuredModels = (() => {
+    // 模型徽章 = 转发生效模型（2026-09-27 拍板）：显式槽位优先，没配则 preset 默认
+    // （路由实际使用集）；available_models 只是拉取清单、不参与转发，不展示。
     const explicit = allModelValues(p.models);
     if (explicit.length > 0) return explicit;
-    if ((p.available_models?.length ?? 0) > 0) return explicit;
     return defaultModels;
   })();
   // 配额查询入口按 quota_scripts 派生（quota-scripts T6，替代 mock/claude_code 硬编码；

@@ -110,12 +110,12 @@ class PlatformCard extends StatelessWidget {
     final quotaCapable = meta.hasQuotaScript(p.platformType, p.extra, p.quotaSource);
     final showQuotaSkeleton = quotaCapable && !q.hasData && quotaPending;
     final hasCodingEndpoint = p.endpoints.any((e) => e.codingPlan);
-    // `PlatformCard.tsx:146`：显式配置优先；一个都没配但有 available_models 时
-    // **仍返回空**（用户自己选过模型了，不要拿 preset 默认冒充）；否则回落 preset。
+    // `PlatformCard.tsx:145`：模型徽章 = 转发生效模型（2026-09-27 拍板）：显式槽位优先，
+    // 没配则 preset 默认（路由实际使用集）；available_models 只是拉取清单、不参与转发，
+    // 不展示（旧分支「拉过列表但没配槽位 → 返回空」已删）。
     final configuredModels = () {
       final explicit = allModelValues(p.models);
       if (explicit.isNotEmpty) return explicit;
-      if (p.availableModels.isNotEmpty) return explicit;
       return meta.modelsFor(p.platformType, p.extra, now);
     }();
     final usagePending = c.usageLoading && usage == null;
