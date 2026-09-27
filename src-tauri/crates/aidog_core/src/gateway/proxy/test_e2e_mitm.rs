@@ -184,7 +184,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
             .await
             .expect("TLS accept");
         // serve_plaintext：auto Builder 在明文 TLS stream 上服务 HTTP，每 Request 灌 handle_proxy_core。
-        connect::serve_plaintext(state_for_server, client_tls, &server_host).await;
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, None).await;
     });
 
     // 4. mock client：rustls client（信任 CA）→ TCP connect → TLS 握手 → hyper h1 发请求。
@@ -331,7 +331,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         let client_tls = accept_client(signer, tcp_stream, server_host.clone())
             .await
             .expect("TLS accept");
-        connect::serve_plaintext(state_for_server, client_tls, &server_host).await;
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, None).await;
     });
 
     // 3. mock client：rustls client（信任 CA，advertise h2 ALPN）→ TLS 握手。

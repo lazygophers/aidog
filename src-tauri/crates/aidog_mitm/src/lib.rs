@@ -1,9 +1,8 @@
 //! P3 MITM 解密隧道子系统入口。
 //!
-//! 当前 ST1（假 CA）+ ST2（白名单）+ ST3（TLS 层）+ ST4（CONNECT 分流）落地。
-//! ST5（forward 接入：明文 Request 灌 handle_proxy_core）/ ST6（HTTP/2 ALPN 细化）由后续
-//! subtask 补。本模块已接入代理热路径（connect.rs 调 `handle_mitm`），但 ST4 阶段只做
-//! TLS 双向桥接（密文透传，不解 HTTP）——明文 Request 解析 + forward 链复用是 ST5。
+//! ST1（假 CA）~ ST6 全部落地：ST4（CONNECT 分流）+ ST5（明文 Request 灌
+//! aidog_core::handle_proxy_core，connect.rs::serve_plaintext）+ ST6（hyper-util auto Builder
+//! 按 H2 preface 自动分发 h1/h2，无需手动 ALPN 分流）均已接入代理热路径。
 //!
 //! 子模块:
 //! - `ca`: rcgen 生成 Root CA + DB 持久化（明文 + DB 文件权限 0600，D4/D5）
