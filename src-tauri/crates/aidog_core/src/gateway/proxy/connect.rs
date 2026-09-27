@@ -21,6 +21,7 @@
 //! ST4 分流依据：`.trellis/tasks/07-03-proxy-relay-mitm/design.md` §4 + 失败模式表。
 
 use super::*;
+use base64::Engine as _;
 use hyper_util::rt::TokioIo;
 use tokio::io::{AsyncRead, AsyncWrite};
 
@@ -40,6 +41,78 @@ where
         tokio::io::copy(&mut ar, &mut bw),
         tokio::io::copy(&mut br, &mut aw),
     );
+}
+
+// ── CONNECT 层代理认证（spec cc-sub-mitm D2：Proxy-Authorization: Basic username = group 名）──
+
+/// CONNECT 握手 `Proxy-Authorization` 解析结果。
+// pub(crate) 仅为 test_connect.rs 断言变体用（编译期契约锚点）；生产消费全在本文件。
+#[derive(Debug)]
+pub(crate) enum ConnectAuth {
+    /// 无认证头 → 现状零改动（host 匹配归属，不绑定 group）。
+    Absent,
+    /// 头存在但格式坏（非 Basic / base64 / UTF-8 / 缺 `:` 分隔）→ 407。
+    Malformed,
+    /// 格式合法但用户名非 URL-safe 或查无此 group → 不绑定；尝试值落 connect log 元数据。
+    Unknown(String),
+    /// 命中 group（按 name 匹配）→ 绑定本连接记账归属，注入 serve_plaintext → handle_proxy_core。
+    /// Box 压 variant 尺寸差（Group ~232B vs String 24B，clippy large_enum_variant）。
+    Bound(Box<Group>),
+}
+
+/// group 名 URL-safe 判定（undici 对 proxy URL userinfo 做 decodeURIComponent，非 URL-safe
+/// 名字进 HTTPS_PROXY 必坏；CONNECT 端同规则收紧，非法用户名按未知 group 处理不绑定）。
+fn is_url_safe_group_name(s: &str) -> bool {
+    !s.is_empty()
+        && s.bytes()
+            .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
+/// 解析 `Proxy-Authorization: Basic <base64(username:password)>` 的 username。
+/// `Ok(None)` = 无认证头；`Err(())` = 格式坏（认证失败）。
+pub(crate) fn basic_proxy_username(headers: &axum::http::HeaderMap) -> Result<Option<String>, ()> {
+    let Some(v) = headers
+        .get("proxy-authorization")
+        .and_then(|h| h.to_str().ok())
+    else {
+        return Ok(None);
+    };
+    let Some(b64) = v.strip_prefix("Basic ").map(str::trim) else {
+        return Err(());
+    };
+    let decoded = base64::engine::general_purpose::STANDARD
+        .decode(b64)
+        .map_err(|_| ())?;
+    let decoded = String::from_utf8(decoded).map_err(|_| ())?;
+    let (username, _) = decoded.split_once(':').ok_or(())?;
+    Ok(Some(username.to_string()))
+}
+
+/// CONNECT 认证解析 + group 解析（username 按 `group.name` 匹配；无头零 DB 往返）。
+pub(crate) async fn resolve_connect_auth(db: &Db, headers: &axum::http::HeaderMap) -> ConnectAuth {
+    let username = match basic_proxy_username(headers) {
+        Ok(None) => return ConnectAuth::Absent,
+        Ok(Some(u)) => u,
+        Err(()) => return ConnectAuth::Malformed,
+    };
+    if !is_url_safe_group_name(&username) {
+        tracing::warn!(username = %username, "connect auth: username not URL-safe, no group binding");
+        return ConnectAuth::Unknown(username);
+    }
+    let groups = match aidog_db::list_groups(db).await {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::warn!(error = %e, "connect auth: list_groups failed, no group binding");
+            return ConnectAuth::Unknown(username);
+        }
+    };
+    match groups.into_iter().find(|g| g.name == username) {
+        Some(g) => ConnectAuth::Bound(Box::new(g)),
+        None => {
+            tracing::warn!(username = %username, "connect auth: username matches no group, no binding");
+            ConnectAuth::Unknown(username)
+        }
+    }
 }
 
 /// CONNECT handler — 在 `handle_proxy_core` 早期按 `Method::CONNECT` 分流进入
@@ -98,6 +171,8 @@ async fn handle_connect_inner(
         .unwrap_or(&target)
         .to_string();
     tracing::info!(target = %target, host_only = %host_only, request_id = %request_id, "connect parsed target/host");
+    // CONNECT 认证解析先于 upgrade::on(req)（后者消费 req，headers 不可再读）。
+    let connect_auth = resolve_connect_auth(&state.db, req.headers()).await;
     let on_upgrade = hyper::upgrade::on(req);
 
     // P1 平台匹配：仅 host（无 apikey，HTTPS 未解密）。未命中 → 0（无平台可挂记账）。
@@ -124,6 +199,46 @@ async fn handle_connect_inner(
     };
     let start = std::time::Instant::now();
 
+    // ── 认证结果分派：格式坏 → 407；其余不阻断隧道（未知 group 不绑定，仅落元数据）──
+    if matches!(connect_auth, ConnectAuth::Malformed) {
+        tracing::warn!(target = %target, "connect: malformed Proxy-Authorization, returning 407");
+        if log_enabled {
+            upsert_connect_log(
+                &state,
+                request_id,
+                String::new(),
+                0,
+                target,
+                407,
+                start.elapsed().as_millis() as i32,
+            )
+            .await;
+        }
+        let mut r = Response::builder()
+            .status(StatusCode::PROXY_AUTHENTICATION_REQUIRED)
+            .header("proxy-authenticate", "Basic realm=\"aidog\"")
+            .body(Body::from("malformed Proxy-Authorization"))
+            .unwrap();
+        inject_trace_header(&mut r);
+        return r;
+    }
+    // conn_group_key 落 connect log 元数据：绑定 → group_key（隧道级归属可观测）；
+    // 未知用户名 → 尝试值原样（排障可查「谁配错了 group 名」）；无认证头 → 空（现状）。
+    let (bound_group, conn_group_key) = match connect_auth {
+        ConnectAuth::Bound(g) => {
+            let key = g.group_key.clone();
+            (Some(*g), key)
+        }
+        ConnectAuth::Unknown(ref u) => (None, u.clone()),
+        ConnectAuth::Absent => (None, String::new()),
+        ConnectAuth::Malformed => unreachable!("407 early-return above"),
+    };
+    tracing::info!(
+        target = %target, request_id = %request_id,
+        bound_group = conn_group_key,
+        "connect auth resolved"
+    );
+
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
     // 候选为 true 时跳过 P1 的「spawn 前 TCP 验证」（MITM 路径在 spawn 内自管 TCP 连接 +
     // pinning 预检，失败写终态 502 或降级 blind_relay）；候选为 false 走 P1 完整逻辑。
@@ -147,7 +262,7 @@ async fn handle_connect_inner(
                         upsert_connect_log(
                             &state,
                             request_id,
-                            String::new(),
+                            conn_group_key,
                             platform_id,
                             target.clone(),
                             502,
@@ -168,6 +283,7 @@ async fn handle_connect_inner(
             target,
             request_id,
             platform_id,
+            conn_group_key,
             start,
             log_enabled,
         );
@@ -195,7 +311,7 @@ async fn handle_connect_inner(
                     upsert_connect_log(
                         &st,
                         request_id,
-                        String::new(),
+                        conn_group_key.clone(),
                         platform_id,
                         target,
                         499,
@@ -223,6 +339,7 @@ async fn handle_connect_inner(
                     &target,
                     request_id,
                     platform_id,
+                    conn_group_key.clone(),
                     conn_timeout_secs,
                     start,
                     log_enabled,
@@ -258,6 +375,8 @@ async fn handle_connect_inner(
                 &host_only,
                 request_id.clone(),
                 platform_id,
+                bound_group,
+                conn_group_key.clone(),
                 start,
                 log_enabled,
             )
@@ -293,6 +412,7 @@ async fn handle_connect_inner(
             &target,
             request_id,
             platform_id,
+            conn_group_key,
             conn_timeout_secs,
             start,
             log_enabled,
@@ -322,6 +442,7 @@ fn spawn_blind_relay(
     target: String,
     request_id: String,
     platform_id: u64,
+    conn_group_key: String,
     start: std::time::Instant,
     log_enabled: bool,
 ) -> Response {
@@ -342,7 +463,7 @@ fn spawn_blind_relay(
                     upsert_connect_log(
                         &state,
                         request_id,
-                        String::new(),
+                        conn_group_key,
                         platform_id,
                         target,
                         499,
@@ -366,8 +487,16 @@ fn spawn_blind_relay(
                 if platform_id != 0 {
                     state.scheduler.record_ignored(platform_id);
                 }
-                log_connect_success(&state, request_id, platform_id, target, start, log_enabled)
-                    .await;
+                log_connect_success(
+                    &state,
+                    request_id,
+                    platform_id,
+                    conn_group_key.clone(),
+                    target,
+                    start,
+                    log_enabled,
+                )
+                .await;
                 return;
             }
         };
@@ -384,7 +513,16 @@ fn spawn_blind_relay(
         if platform_id != 0 {
             state.scheduler.record_ignored(platform_id);
         }
-        log_connect_success(&state, request_id, platform_id, target, start, log_enabled).await;
+        log_connect_success(
+            &state,
+            request_id,
+            platform_id,
+            conn_group_key,
+            target,
+            start,
+            log_enabled,
+        )
+        .await;
     });
     // CONNECT 200 直构响应 → 注入 trace header（后续 spawn 内双向 TCP copy 是 blind_relay 字节透传，
     // 加密 TLS 字节流，物理上无法注入 HTTP 层 header；CONNECT 200 响应本身已注入）。
@@ -413,6 +551,7 @@ async fn blind_relay_after_connect(
     target: &str,
     request_id: String,
     platform_id: u64,
+    conn_group_key: String,
     conn_timeout_secs: u64,
     start: std::time::Instant,
     log_enabled: bool,
@@ -436,6 +575,7 @@ async fn blind_relay_after_connect(
                 st,
                 request_id,
                 platform_id,
+                conn_group_key,
                 target.to_string(),
                 start,
                 log_enabled,
@@ -447,6 +587,7 @@ async fn blind_relay_after_connect(
                 st,
                 request_id,
                 platform_id,
+                conn_group_key,
                 target.to_string(),
                 start,
                 log_enabled,
@@ -577,9 +718,9 @@ impl DegradeReason {
 /// ponytail: signer 加载失败 / pinning / IO error 降级时 client 完整归还（未被碰），
 /// blind_relay 走正常路径；accept_client 失败（client 已被 accept 消费）走 handled=true
 /// 终态 502（无法降级，客户端 TLS 状态机已推进）。
-/// ponytail: 9 参数是必要的 MITM 隧道上下文（state/mitm_state/client/target/host + 日志四元组
-/// request_id/platform_id/start/log_enabled），打包 struct 仅在本函数传递无复用，YAGNI；
-/// allow clippy::too_many_arguments。
+/// ponytail: 11 参数是必要的 MITM 隧道上下文（state/mitm_state/client/target/host + 绑定 group +
+/// 日志五元组 request_id/platform_id/conn_group_key/start/log_enabled），打包 struct 仅在本
+/// 函数传递无复用，YAGNI；allow clippy::too_many_arguments。
 #[allow(clippy::too_many_arguments)]
 async fn handle_mitm<IO>(
     st: &Arc<ProxyState>,
@@ -589,6 +730,8 @@ async fn handle_mitm<IO>(
     host_only: &str,
     request_id: String,
     platform_id: u64,
+    bound_group: Option<Group>,
+    conn_group_key: String,
     start: std::time::Instant,
     log_enabled: bool,
 ) -> MitmOutcome<IO>
@@ -616,6 +759,7 @@ where
                 st,
                 request_id,
                 platform_id,
+                conn_group_key.clone(),
                 target.to_string(),
                 start,
                 log_enabled,
@@ -644,6 +788,7 @@ where
                             st,
                             request_id,
                             platform_id,
+                            conn_group_key.clone(),
                             target.to_string(),
                             start,
                             log_enabled,
@@ -677,7 +822,7 @@ where
             // handle_connect → handle_proxy → handle_connect 死循环，本注释 + handle_proxy_core
             // 的存在即守护此不变量。保留当前结构 + 文档化，不重写（无真实递归可消）。
             drop(upstream_tls);
-            serve_plaintext(st.clone(), client_tls, host_only).await;
+            serve_plaintext(st.clone(), client_tls, host_only, bound_group).await;
             MitmOutcome::Connected
         }
         aidog_mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
@@ -761,8 +906,12 @@ where
 /// handle_proxy_core 内部各阶段已 upsert_log 终态，499 兜底语义重叠；YAGNI 不重复 guard。
 // ponytail: pub(crate) 仅为 ST8 端到端测试直调（绕过 handle_connect 的真上游预检，connect_upstream
 // 写死 webpki-roots 无法 mock）；生产调用方仍只有 handle_mitm。
-pub(crate) async fn serve_plaintext<S>(state: Arc<ProxyState>, client_tls: S, host_only: &str)
-where
+pub(crate) async fn serve_plaintext<S>(
+    state: Arc<ProxyState>,
+    client_tls: S,
+    host_only: &str,
+    bound_group: Option<Group>,
+) where
     S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     // TokioIo 包装：rustls server TlsStream impl tokio AsyncRead/Write，TokioIo 转 hyper Read/Write。
@@ -773,9 +922,12 @@ where
     let svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
         let st = state.clone();
         let host = host_owned.clone();
+        // 每请求 clone bound group（h1 keep-alive / h2 多流，一连接多 Request 各灌 core）。
+        let bound = bound_group.clone();
         async move {
             // hyper::Request<Incoming> → axum::Request<axum::body::Body>：
             // parts（method/uri/headers）通用，body 收 Bytes 后 Body::from 包装。
+            let req_path = req.uri().path().to_string();
             let (parts, body) = req.into_parts();
             let bytes = match collect_body(body, 10 * 1024 * 1024).await {
                 Ok(b) => b,
@@ -818,9 +970,16 @@ where
                 request_id = %request_id,
                 mitm = %host,
             );
-            let resp: Response = handle_proxy_core(AxumState(st.clone()), axum_req, request_id)
-                .instrument(span)
-                .await;
+            // 归属注入门（票 08）：CONNECT 绑定 group 仅对 AI API 端点请求注入 core ——
+            // MITM 明文请求的 Authorization 是订阅 OAuth Bearer（resolve_group 必落空），归属由
+            // 隧道绑定注入；非 API 流量（遥测 / 网页等）不注入，维持现状落「未匹配」桶透明直通
+            // （注入会使 parse_incoming_request 对非 JSON body 返 400，破坏旁路流量）。
+            // 票 09/10 的 host/path 级分流（usage 采样 / mitm_log）在本门扩展。
+            let inject_group = bound.filter(|_| is_api_endpoint(&req_path));
+            let resp: Response =
+                handle_proxy_core(AxumState(st.clone()), axum_req, request_id, inject_group)
+                    .instrument(span)
+                    .await;
             Ok::<_, std::convert::Infallible>(resp)
         }
     });
@@ -838,10 +997,12 @@ where
 // ── proxy_log 写入 helper（P1 + MITM 共用）─────────────────────────────────────
 
 /// 隧道建立成功写 proxy_log（status=200）。
+#[allow(clippy::too_many_arguments)]
 async fn log_connect_success(
     st: &Arc<ProxyState>,
     request_id: String,
     platform_id: u64,
+    group_key: String,
     target: String,
     start: std::time::Instant,
     log_enabled: bool,
@@ -852,7 +1013,7 @@ async fn log_connect_success(
     upsert_connect_log(
         st,
         request_id,
-        String::new(),
+        group_key,
         platform_id,
         target,
         200,
@@ -862,10 +1023,12 @@ async fn log_connect_success(
 }
 
 /// 上游失败写 proxy_log 终态（status=502）。
+#[allow(clippy::too_many_arguments)]
 async fn log_connect_502(
     st: &Arc<ProxyState>,
     request_id: String,
     platform_id: u64,
+    group_key: String,
     target: String,
     start: std::time::Instant,
     log_enabled: bool,
@@ -876,7 +1039,7 @@ async fn log_connect_502(
     upsert_connect_log(
         st,
         request_id,
-        String::new(),
+        group_key,
         platform_id,
         target,
         502,

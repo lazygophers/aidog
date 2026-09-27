@@ -345,9 +345,9 @@ mod tests {
     // ── DEFAULT_RULES 常量完整性 + import_defaults 去重语义 ─────
 
     #[test]
-    fn default_rules_has_37_unique_patterns() {
-        // 常量完整性：37 条（Claude 3 + OpenAI 34），host_pattern 全唯一（UNIQUE 约束要求）。
-        assert_eq!(DEFAULT_RULES.len(), 37, "DEFAULT_RULES must be 37 entries");
+    fn default_rules_has_38_unique_patterns() {
+        // 常量完整性：38 条（Claude 4 + OpenAI 34），host_pattern 全唯一（UNIQUE 约束要求）。
+        assert_eq!(DEFAULT_RULES.len(), 38, "DEFAULT_RULES must be 38 entries");
         let mut patterns: Vec<&str> = DEFAULT_RULES.iter().map(|(_, p)| *p).collect();
         patterns.sort();
         let n_unique = patterns
@@ -355,7 +355,7 @@ mod tests {
             .collect::<std::collections::HashSet<_>>()
             .len();
         assert_eq!(
-            n_unique, 37,
+            n_unique, 38,
             "all host_patterns must be unique (DB UNIQUE constraint)"
         );
         // rule_type 全部合法
@@ -410,8 +410,8 @@ mod tests {
             }
         }
 
-        // 验收：36 默认新导入（37 - 1 已存在），1 默认跳过（anthropic.com 已在）。
-        assert_eq!(imported, 36, "imported: 37 default rules - 1 pre-existing");
+        // 验收：37 默认新导入（38 - 1 已存在），1 默认跳过（anthropic.com 已在）。
+        assert_eq!(imported, 37, "imported: 38 default rules - 1 pre-existing");
         assert_eq!(skipped, 1, "skipped: the 1 pre-existing default rule");
 
         // 自定义条目未被 import 循环触及（不在 DEFAULT_RULES 中），source 仍为 'user'。
@@ -424,8 +424,8 @@ mod tests {
             "custom entry must be untouched by import"
         );
 
-        // 总条目：37 默认 + 1 自定义 = 38。
-        assert_eq!(entries.len(), 38, "total entries: 37 default + 1 custom");
+        // 总条目：38 默认 + 1 自定义 = 39。
+        assert_eq!(entries.len(), 39, "total entries: 38 default + 1 custom");
 
         // 幂等：再跑一次 import，全部已存在 → (0, 37)，条目数不变。
         let mut imported2 = 0usize;
@@ -445,8 +445,8 @@ mod tests {
             }
         }
         assert_eq!(imported2, 0, "idempotent re-import: 0 new");
-        assert_eq!(skipped2, 37, "idempotent re-import: all 37 skipped");
-        assert_eq!(entries.len(), 38, "entry count unchanged after re-import");
+        assert_eq!(skipped2, 38, "idempotent re-import: all 38 skipped");
+        assert_eq!(entries.len(), 39, "entry count unchanged after re-import");
     }
 
     // ── evaluate_host（返命中规则列表，仅 enabled）──────────────
