@@ -213,6 +213,12 @@ pub async fn calibrate_from_quota(
         String::new()
     };
     let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
+    if result.is_ok() {
+        // 校准改写了 est_balance / est_coding_plan：复用 proxy-log-updated 通知前端停留页面
+        // 轻刷（各页 refreshStats 合并派生字段）。校准全在后台 spawn（阈值触发 / 重置时刻 /
+        // 冷启动），此刻没有代理日志终态写入；不复用则 UI 要等下一次请求终态才看到新余额。
+        aidog_ctx::emit("proxy-log-updated", platform_id.into());
+    }
     // chart-engine T4 / #34：真实余额查询成功 → 顺手落一条 quota_snapshot（事件式，无定时器）。
     // coding plan 无按量余额（est_balance 强制 0），不落快照避免趋势被 0 污染。
     if !is_coding_plan

@@ -13,6 +13,8 @@ vi.mock("../../services/api", () => ({
   modelInfoApi: { snapshot: () => snapshotMock() },
   modelPriceApi: { sync: () => syncMock() },
   priceSyncApi: { get: () => settingsGetMock(), set: vi.fn().mockResolvedValue(undefined) },
+  // registry-updated 订阅：测试环境无事件总线，no-op 注册器（同 usePlatformsState.test.ts idiom）。
+  onRegistryUpdated: (_cb: () => void) => () => {},
 }));
 
 vi.mock("../../domains/platforms/defaults", () => ({

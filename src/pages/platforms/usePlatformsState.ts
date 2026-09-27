@@ -428,7 +428,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
       .catch(() => { /* ignore */ });
   };
 
-  /** 轻量刷新：按 id 局部 merge 派生统计字段（est_balance/est_coding_plan 等）+ usage stats 批量，
+  /** 轻量刷新：按 id 局部 merge 派生统计字段（est_balance/est_coding_plan 等）+ status/enabled
+   *  （后端自发的 auto_disabled 恢复）+ usage stats 批量，
    *  不拉 quota HTTP、不整列表替换。高频被动触发（proxy log 订阅），整列表替换会打断 memo / 拖拽态
    *  并与乐观操作竞争回弹，故改为：仅更新已存在平台的字段，新增/删除的行交由显式写操作或 load() 处理。 */
   const refreshStats = async () => {
@@ -441,9 +442,12 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
           let changed = false;
           const next = prev.map(p => {
             const fresh = byId.get(p.id);
-            // 只 merge 后台派生的统计字段，保留前端排序/乐观态；字段相同则保引用（利于 memo）。
+            // 只 merge 后台派生的统计字段 + status（auto_disabled 恢复等后端自发迁移），
+            // 保留前端排序/乐观态；字段相同则保引用（利于 memo）。
             if (!fresh) return p;
             if (
+              fresh.status === p.status &&
+              fresh.enabled === p.enabled &&
               fresh.est_balance_remaining === p.est_balance_remaining &&
               fresh.est_coding_plan === p.est_coding_plan &&
               fresh.last_real_query_at === p.last_real_query_at &&
@@ -455,6 +459,8 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
             changed = true;
             return {
               ...p,
+              status: fresh.status,
+              enabled: fresh.enabled,
               est_balance_remaining: fresh.est_balance_remaining,
               est_coding_plan: fresh.est_coding_plan,
               last_real_query_at: fresh.last_real_query_at,
@@ -514,6 +520,9 @@ export function usePlatformsState(params: PlatformsStateParams): PlatformsState 
     // 三态切换：enabled → disabled；disabled / auto_disabled → enabled（恢复并清退避）。
     const nextStatus: PlatformStatus = p.status === "enabled" ? "disabled" : "enabled";
     // 乐观更新：立即本地置换该平台 status，UI 即时响应、不调 load() 全量重拉（避免整页 loading 闪烁）。
+    // epoch 自增：refreshStats 现已 merge status（后端 auto_disabled 恢复通知），在途 refreshStats
+    //   的旧快照不得回弹覆盖本次乐观切换（同 handleDelete 的 epoch 守卫语义）。
+    platformsEpochRef.current++;
     // status 切换不改分组归属（membership 由 groupDetails 决定），故豁免 platform mutation 三连
     //   （见顶部「一致性规则」— 不发 aidog-groups-changed / 不调 groupsReloadRef / 不调 handleGroupsChanged）。
     setPlatforms(prev => prev.map(x =>

@@ -232,6 +232,13 @@ export function platformHasQuotaScript(p: { platform_type: string; extra?: strin
   return idx.variants.length > 0 || hasCustomQuotaScript(p.extra ?? "");
 }
 
+/** 注册表远程同步落库有变更时失效 docPromise（App 级 registry-updated 订阅调用）：
+ *  下一次 getDefault* 调用重新走 get_defaults_json RPC 并重铺 quota 脚本索引，
+ *  表单默认值 / 模型候选列不再吃应用启动时的快照。 */
+export function invalidateDefaultsDoc(): void {
+  docPromise = null;
+}
+
 /** 测试专用：清缓存让下一轮 loadDoc 重新走 mockIPC（生产代码禁调）。 */
 export function __resetDefaultsCacheForTests(): void {
   docPromise = null;
