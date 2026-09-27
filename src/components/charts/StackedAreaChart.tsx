@@ -2,11 +2,14 @@
 // stackId 单栈；系列序即堆叠序（Stats 喂总量降序 → 最大维度沉底、主琥珀首层）。
 // LTTB 按行总量取形：降采样选点看栈顶轮廓，各系列共用同一行集，堆叠形状不破。
 // 可选 rightConfig：右轴独立标尺的总量线（不进栈、不参与 LTTB 取形，Home 维度趋势用）。
-import { useMemo, type ReactNode } from "react";
+// 可选 bare + textColor：嵌入非主题面（Home 命令面板深色硬编码底）时拆玻璃卡外壳 +
+// 传显式轴 / 图例 / 空态文字色，绕开主题 CSS 变量（浅色主题深字深底不可读）。
+import { useMemo, type CSSProperties, type ReactNode } from "react";
 import { Area, AreaChart as RechartsAreaChart, CartesianGrid, Legend, Line, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
+import { cn } from "@/lib/utils";
 import { ChartsTooltip, tooltipValueRows, TOOLTIP_THROTTLE_MS } from "./tooltip";
 import { withDefaultColors } from "./palette";
 import { formatTimeTick, niceTicks, xNum } from "./ticks";
@@ -35,6 +38,12 @@ export interface StackedAreaChartProps {
   subtitle?: ReactNode;
   emptyHint?: ReactNode;
   className?: string;
+  /** 嵌入非主题面时置 true：拆掉 ChartCard 玻璃卡外壳，直接出图表 / 空态。
+   *  Home 命令面板硬编码深色底用；缺省 false 走原玻璃卡（Stats 等，零影响）。 */
+  bare?: boolean;
+  /** 显式轴 / 图例 / 空态文字色（CSS 颜色）。不传走主题 CSS 变量（原行为）。
+   *  面板底是硬编码深色而非主题面时必传，否则浅色主题下深字深底不可读。 */
+  textColor?: string;
   /** Recharts 子组件穿透（ReferenceLine 等直接写这里）。 */
   children?: ReactNode;
 }
@@ -52,6 +61,8 @@ export function StackedAreaChart({
   subtitle,
   emptyHint,
   className,
+  bare,
+  textColor,
   children,
 }: StackedAreaChartProps) {
   const { t } = useTranslation();
@@ -107,109 +118,151 @@ export function StackedAreaChart({
     subtitle
   );
 
+  const chart = (
+    <ChartContainer
+      config={effConfig}
+      className={cn(
+        "w-full",
+        // 轴刻度文字：ChartContainer 基类用 CSS fill-muted-foreground 上色（CSS 压过
+        // Recharts tick 属性），显式色只能用 !important 同选择器覆盖，走 --chart-fg 传入。
+        textColor && "[&_.recharts-cartesian-axis-tick_text]:fill-[var(--chart-fg)]!",
+      )}
+      style={{
+        height,
+        ...(textColor ? ({ "--chart-fg": textColor } as CSSProperties) : {}),
+      }}
+    >
+      <RechartsAreaChart data={rows} throttleDelay={TOOLTIP_THROTTLE_MS} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+        <defs>
+          {seriesKeys.map((k) => (
+            <linearGradient key={k} id={`stack-${k}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={`var(--color-${k})`} stopOpacity={0.45} />
+              <stop offset="100%" stopColor={`var(--color-${k})`} stopOpacity={0.08} />
+            </linearGradient>
+          ))}
+        </defs>
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey={xKey}
+          type="number"
+          scale="time"
+          {...(xTicks.length > 0 && {
+            ticks: xTicks,
+            domain: [xTicks[0], xTicks[xTicks.length - 1]] as [number, number],
+          })}
+          tickFormatter={(v: number) => formatTimeTick(v, spanMs)}
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          minTickGap={32}
+        />
+        <YAxis
+          yAxisId="left"
+          width={48}
+          {...(domain.yTicks.length > 0 && {
+            ticks: domain.yTicks,
+            domain: [domain.yTicks[0], domain.yTicks[domain.yTicks.length - 1]] as [number, number],
+          })}
+          tickFormatter={(v: number) => fmt(v)}
+          tickLine={false}
+          axisLine={false}
+        />
+        {rightKeys.length > 0 && (
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            width={48}
+            {...(domain.rightYTicks.length > 0 && {
+              ticks: domain.rightYTicks,
+              domain: [domain.rightYTicks[0], domain.rightYTicks[domain.rightYTicks.length - 1]] as [number, number],
+            })}
+            tickFormatter={(v: number) => rightFmt(v)}
+            tickLine={false}
+            axisLine={false}
+          />
+        )}
+        {allKeys.length > 1 && (
+          <Legend
+            verticalAlign="top"
+            align="left"
+            iconType="square"
+            iconSize={10}
+            wrapperStyle={{ fontSize: 11, color: textColor ?? "var(--text-secondary)" }}
+            formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
+          />
+        )}
+        <ChartsTooltip
+          content={
+            <ChartTooltipContent
+              labelFormatter={(label: unknown) => formatTimeTick(Number(label), spanMs)}
+              formatter={tooltipValueRows(
+                (n, name) => (rightKeySet.has(String(name)) ? rightFmt(n) : fmt(n)),
+                (name) => effConfig[String(name)]?.label ?? String(name),
+              )}
+            />
+          }
+        />
+        {seriesKeys.map((k) => (
+          <Area
+            key={k}
+            dataKey={k}
+            stackId="s"
+            yAxisId="left"
+            type="monotone"
+            stroke={`var(--color-${k})`}
+            strokeWidth={1.5}
+            fill={`url(#stack-${k})`}
+            {...drawIn}
+          />
+        ))}
+        {rightKeys.map((k) => (
+          <Line
+            key={k}
+            dataKey={k}
+            yAxisId="right"
+            type="monotone"
+            stroke={`var(--color-${k})`}
+            strokeWidth={2}
+            strokeDasharray="3 3"
+            dot={false}
+            activeDot={{ r: 3 }}
+            {...drawIn}
+          />
+        ))}
+        {children}
+      </RechartsAreaChart>
+    </ChartContainer>
+  );
+
+  // bare：无玻璃卡外壳，自渲染诚实空态（标题 / 副题 / 降采样注记随外壳一起不出现——
+  // 该模式只用于嵌入自带标题排版的容器，如 Home 命令面板维度趋势）。
+  if (bare) {
+    if (data.length === 0) {
+      return (
+        <div
+          style={{
+            minHeight: 160,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 4,
+            fontSize: 12,
+            color: textColor ?? "var(--text-secondary)",
+          }}
+        >
+          <span>{t("charts.noData", "暂无数据")}</span>
+          {emptyHint != null && (
+            <span style={{ fontSize: 11, opacity: 0.75 }}>{emptyHint}</span>
+          )}
+        </div>
+      );
+    }
+    return chart;
+  }
   return (
     <ChartCard title={title} subtitle={sub} empty={data.length === 0} emptyHint={emptyHint} className={className}>
-      <ChartContainer config={effConfig} className="w-full" style={{ height }}>
-        <RechartsAreaChart data={rows} throttleDelay={TOOLTIP_THROTTLE_MS} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
-          <defs>
-            {seriesKeys.map((k) => (
-              <linearGradient key={k} id={`stack-${k}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor={`var(--color-${k})`} stopOpacity={0.45} />
-                <stop offset="100%" stopColor={`var(--color-${k})`} stopOpacity={0.08} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid vertical={false} strokeDasharray="3 3" />
-          <XAxis
-            dataKey={xKey}
-            type="number"
-            scale="time"
-            {...(xTicks.length > 0 && {
-              ticks: xTicks,
-              domain: [xTicks[0], xTicks[xTicks.length - 1]] as [number, number],
-            })}
-            tickFormatter={(v: number) => formatTimeTick(v, spanMs)}
-            tickLine={false}
-            axisLine={false}
-            tickMargin={8}
-            minTickGap={32}
-          />
-          <YAxis
-            yAxisId="left"
-            width={48}
-            {...(domain.yTicks.length > 0 && {
-              ticks: domain.yTicks,
-              domain: [domain.yTicks[0], domain.yTicks[domain.yTicks.length - 1]] as [number, number],
-            })}
-            tickFormatter={(v: number) => fmt(v)}
-            tickLine={false}
-            axisLine={false}
-          />
-          {rightKeys.length > 0 && (
-            <YAxis
-              yAxisId="right"
-              orientation="right"
-              width={48}
-              {...(domain.rightYTicks.length > 0 && {
-                ticks: domain.rightYTicks,
-                domain: [domain.rightYTicks[0], domain.rightYTicks[domain.rightYTicks.length - 1]] as [number, number],
-              })}
-              tickFormatter={(v: number) => rightFmt(v)}
-              tickLine={false}
-              axisLine={false}
-            />
-          )}
-          {allKeys.length > 1 && (
-            <Legend
-              verticalAlign="top"
-              align="left"
-              iconType="square"
-              iconSize={10}
-              wrapperStyle={{ fontSize: 11, color: "var(--text-secondary)" }}
-              formatter={(v: unknown) => effConfig[String(v)]?.label ?? String(v)}
-            />
-          )}
-          <ChartsTooltip
-            content={
-              <ChartTooltipContent
-                labelFormatter={(label: unknown) => formatTimeTick(Number(label), spanMs)}
-                formatter={tooltipValueRows(
-                  (n, name) => (rightKeySet.has(String(name)) ? rightFmt(n) : fmt(n)),
-                  (name) => effConfig[String(name)]?.label ?? String(name),
-                )}
-              />
-            }
-          />
-          {seriesKeys.map((k) => (
-            <Area
-              key={k}
-              dataKey={k}
-              stackId="s"
-              yAxisId="left"
-              type="monotone"
-              stroke={`var(--color-${k})`}
-              strokeWidth={1.5}
-              fill={`url(#stack-${k})`}
-              {...drawIn}
-            />
-          ))}
-          {rightKeys.map((k) => (
-            <Line
-              key={k}
-              dataKey={k}
-              yAxisId="right"
-              type="monotone"
-              stroke={`var(--color-${k})`}
-              strokeWidth={2}
-              strokeDasharray="3 3"
-              dot={false}
-              activeDot={{ r: 3 }}
-              {...drawIn}
-            />
-          ))}
-          {children}
-        </RechartsAreaChart>
-      </ChartContainer>
+      {chart}
     </ChartCard>
   );
 }

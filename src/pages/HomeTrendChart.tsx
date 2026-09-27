@@ -1,5 +1,6 @@
 // ── 首页维度趋势区块（home-dim-trend spec）：按模型 / 按分组 24h 堆叠面积 + 右轴请求线 ──
 // 数据源 = load() 里 queryBatch 的 series_by 逐维度小时序列（与 DimPanel 行共用同一份查询）。
+// 2026-09-27 起嵌进命令面板（原 24h 总量趋势位）：bare 拆玻璃卡外壳、文字走 PANEL 显式色。
 // 纯函数（buildDimTrend / buildSparkMap）导出供 Home.test 范式单测；组件只做 tab / 指标切换。
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -8,7 +9,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 import { StackedAreaChart, bucketMs } from "@/components/charts";
 import { formatNumber, formatCostUsd } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
-import { DIM_TOP_N } from "./Home";
+import { DIM_TOP_N, PANEL } from "./Home";
 
 export type TrendMetric = "cost" | "tokens";
 export type TrendDim = "model" | "group";
@@ -99,13 +100,16 @@ export function buildSparkMap(series: StatsSeries[], ungroupedLabel?: string): M
   return m;
 }
 
+// tab 切换器：对齐面板内控件 idiom（cmd-kb chip 同源 token——s1 深底 + line 描边 +
+// 琥珀 hover/激活），不走主题 CSS 变量（面板是硬编码深色面，浅色主题下深字不可读）。
+const AMBER = "#e8c547";
 const tabButton = (active: boolean): CSSProperties => ({
   fontSize: 11,
   padding: "3px 10px",
   borderRadius: 6,
-  border: `1px solid ${active ? "color-mix(in srgb, var(--accent-edge) 40%, var(--border))" : "var(--border)"}`,
-  background: active ? "var(--accent-subtle)" : "transparent",
-  color: active ? "var(--accent)" : "var(--text-secondary)",
+  border: `1px solid ${active ? "rgba(232,197,71,.4)" : PANEL.line}`,
+  background: active ? "rgba(232,197,71,.12)" : "transparent",
+  color: active ? AMBER : PANEL.muted,
   cursor: "pointer",
   whiteSpace: "nowrap",
 });
@@ -143,7 +147,7 @@ export function HomeTrendChart({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: F.small + 1 }}>{t("home.dimTrendTitle", "维度趋势 · 24 小时")}</b>
+        <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.dimTrendTitle", "维度趋势 · 24 小时")}</b>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div role="group" aria-label={t("home.dimTrendTitle", "维度趋势 · 24 小时")} style={{ display: "flex", gap: 4 }}>
             {dims.map(d => (
@@ -161,7 +165,12 @@ export function HomeTrendChart({
           </div>
         </div>
       </div>
+      {/* bare：拆玻璃卡外壳融入命令面板；textColor 给轴 / 图例 / 空态显式浅色
+          （面板是硬编码深色面，主题变量在浅色主题下深字深底不可读；
+          tooltip 自带 bg-background 不透明面，深浅主题本就可读）。 */}
       <StackedAreaChart
+        bare
+        textColor={PANEL.muted}
         config={config}
         data={rows}
         height={240}
