@@ -58,7 +58,7 @@ pub fn assert_group_composition_solo<'a>(
     let __db_caller = std::panic::Location::caller();
     let ids = platform_ids.to_vec();
     async move {
-        db.call_read_traced(None, __db_caller, move |conn| Ok(solo_group_violation(conn, &ids)?))
+        db.call_read_platform_traced(None, __db_caller, move |conn| Ok(solo_group_violation(conn, &ids)?))
             .await
             .map_err(|e| format!("assert_group_composition_solo: {e}"))
             .and_then(|v| {
