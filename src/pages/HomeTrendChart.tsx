@@ -1,4 +1,4 @@
-// ── 首页维度趋势区块（home-dim-trend spec）：按模型 / 按分组 24h 堆叠面积 + 右轴请求线 ──
+// ── 首页维度趋势区块（home-dim-trend spec）：按平台 / 按模型 / 按分组 24h 堆叠面积 + 右轴请求线 ──
 // 数据源 = load() 里 queryBatch 的 series_by 逐维度小时序列（与 DimPanel 行共用同一份查询）。
 // 2026-09-27 起嵌进命令面板（原 24h 总量趋势位）：bare 拆玻璃卡外壳、文字走 PANEL 显式色。
 // 纯函数（buildDimTrend / buildSparkMap）导出供 Home.test 范式单测；组件只做 tab / 指标切换。
@@ -12,7 +12,7 @@ import { F } from "../domains/shared/tokens";
 import { DIM_TOP_N, PANEL } from "./Home";
 
 export type TrendMetric = "cost" | "tokens";
-export type TrendDim = "model" | "group";
+export type TrendDim = "platform" | "model" | "group";
 
 const bucketTokens = (b: StatsBucket) => b.input_tokens + b.output_tokens + b.cache_tokens;
 const seriesTokens = (s: StatsSeries) => s.buckets.reduce((sum, b) => sum + bucketTokens(b), 0);
@@ -117,25 +117,30 @@ const tabButton = (active: boolean): CSSProperties => ({
 export function HomeTrendChart({
   modelSeries,
   groupSeries,
+  platformSeries,
   ungroupedLabel,
   loading,
 }: {
   modelSeries: StatsSeries[];
   groupSeries: StatsSeries[];
+  /** 序列名 = 平台显示名（后端 platform_id_name_map 回填，非 id），无需前端映射。 */
+  platformSeries: StatsSeries[];
   ungroupedLabel: string;
   loading: boolean;
 }) {
   const { t } = useTranslation();
-  const [dim, setDim] = useState<TrendDim>("model");
+  // 默认按平台（2026-09-27 用户拍板：维度趋势缺按平台，默认应是按平台）。
+  const [dim, setDim] = useState<TrendDim>("platform");
   const [metric, setMetric] = useState<TrendMetric>("cost");
 
-  const series = dim === "model" ? modelSeries : groupSeries;
+  const series = dim === "model" ? modelSeries : dim === "group" ? groupSeries : platformSeries;
   const { config, rows } = useMemo(
     () => buildDimTrend(series, metric, { other: t("home.dimOther", "其它"), ungrouped: dim === "group" ? ungroupedLabel : undefined }),
     [series, metric, t, dim, ungroupedLabel],
   );
 
   const dims: { id: TrendDim; key: string; def: string }[] = [
+    { id: "platform", key: "home.tabPlatform", def: "按平台" },
     { id: "model", key: "home.tabModel", def: "按模型" },
     { id: "group", key: "home.tabGroup", def: "按分组" },
   ];

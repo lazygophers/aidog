@@ -88,18 +88,26 @@ describe("buildSparkMap（行迷你曲线）", () => {
 
 describe("HomeTrendChart（组件）", () => {
   const props = {
+    platformSeries: [series("p0", [bucket("10", 4, 400, 0.8), bucket("11", 2, 200, 0.2)])],
     modelSeries: [series("m0", [bucket("10", 2, 100, 0.3), bucket("11", 1, 50, 0.1)])],
     groupSeries: [series("g0", [bucket("10", 9, 900, 2)])],
     ungroupedLabel: "未分组平台",
     loading: false,
   };
 
-  it("默认按模型 + 花费模式渲染堆叠面积与右轴请求线", () => {
+  it("默认按平台 + 花费模式渲染堆叠面积与右轴请求线", () => {
     const { container } = render(<HomeTrendChart {...props} />);
     expect(container.querySelectorAll(".recharts-area").length).toBe(1);
     expect(container.querySelectorAll(".recharts-line").length).toBe(1); // 右轴请求线
-    expect(screen.getByText("home.tabModel")).toBeTruthy();
+    expect(screen.getByText("home.tabPlatform").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("p0");
     expect(screen.getByText("home.trendCost").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("切到按模型 → 消费 modelSeries 数据", () => {
+    const { container } = render(<HomeTrendChart {...props} />);
+    fireEvent.click(screen.getByText("home.tabModel"));
+    expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("m0");
   });
 
   it("切到按分组 → 消费 groupSeries 数据", () => {
@@ -117,7 +125,7 @@ describe("HomeTrendChart（组件）", () => {
   });
 
   it("空数据 → 诚实空态（charts.noData），tab 仍可切", () => {
-    render(<HomeTrendChart modelSeries={[]} groupSeries={[]} ungroupedLabel="u" loading={false} />);
+    render(<HomeTrendChart platformSeries={[]} modelSeries={[]} groupSeries={[]} ungroupedLabel="u" loading={false} />);
     expect(screen.getByText("charts.noData")).toBeTruthy();
     expect(screen.getByRole("button", { name: "home.tabGroup" })).toBeTruthy();
   });

@@ -472,6 +472,7 @@
   "home.dimMetric": "токены / стоимость / запросы",
   "home.tabModel": "По моделям",
   "home.tabGroup": "По группам",
+  "home.tabPlatform": "По платформам",
   "home.dimTrendTitle": "Тренды по измерениям · 24 часа",
   "home.port": "Порт",
   "home.proxyStatus": "Сервис прокси",

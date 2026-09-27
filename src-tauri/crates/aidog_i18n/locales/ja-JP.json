@@ -472,6 +472,7 @@
   "home.dimMetric": "トークン / 費用 / リクエスト",
   "home.tabModel": "モデル別",
   "home.tabGroup": "グループ別",
+  "home.tabPlatform": "プラットフォーム別",
   "home.dimTrendTitle": "ディメンション別トレンド · 24 時間",
   "home.port": "ポート",
   "home.proxyStatus": "プロキシサービス",

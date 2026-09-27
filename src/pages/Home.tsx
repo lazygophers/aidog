@@ -210,6 +210,9 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   // 喂维度趋势图 + DimPanel 行迷你曲线（与行数据共用同一份查询）。
   const [seriesModels, setSeriesModels] = useState<StatsSeries[]>([]);
   const [seriesGroups, setSeriesGroups] = useState<StatsSeries[]>([]);
+  // 平台维度小时序列（home-dim-trend 按平台 tab，2026-09-27）：仅喂趋势图，
+  // DimPanel 行不消费（平台维度不加行面板）。序列名 = 平台显示名（后端回填）。
+  const [seriesPlatforms, setSeriesPlatforms] = useState<StatsSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -227,21 +230,24 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
-      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by + series_by，
-      // dimension_data 喂行、series 喂维度趋势图与行迷你曲线（同一份数据）。
+      // 模型 / 分组 / 平台维度统计（同 24h 窗）：一次 batch 三条 group_by + series_by，
+      // dimension_data 喂行、series 喂维度趋势图与行迷你曲线（同一份数据；
+      // 平台维度仅趋势图消费，dimension_data 不落地 state）。
       statsApi.queryBatch([
         { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "model", series_by: "model" },
         { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "group", series_by: "group" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "platform", series_by: "platform" },
       ])
-        .then(([m, g]) => {
+        .then(([m, g, p]) => {
           setDimModels(m?.dimension_data ?? []);
           setDimGroups(g?.dimension_data ?? []);
           setSeriesModels(m?.series ?? []);
           setSeriesGroups(g?.series ?? []);
+          setSeriesPlatforms(p?.series ?? []);
         })
         .catch(() => {
           setDimModels([]); setDimGroups([]);
-          setSeriesModels([]); setSeriesGroups([]);
+          setSeriesModels([]); setSeriesGroups([]); setSeriesPlatforms([]);
         }),
     ]);
     setLoading(false);
@@ -428,6 +434,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           <HomeTrendChart
             modelSeries={seriesModels}
             groupSeries={seriesGroups}
+            platformSeries={seriesPlatforms}
             ungroupedLabel={ungroupedLabel}
             loading={loading}
           />
