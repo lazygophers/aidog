@@ -1,10 +1,12 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790495372,
   "model_id": "aihubmix-router",
   "canonical_model": "aihubmix-router",
 
   "family": "aihubmix",  "display_name": "Aihubmix Router",
   "capabilities": [],
+  "context_window": 200000,
+  "max_output_tokens": 32768,
   "official": false,
   "price": {
     "input": 4e-7,
