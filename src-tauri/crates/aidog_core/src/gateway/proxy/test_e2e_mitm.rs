@@ -494,3 +494,152 @@ async fn collect_incoming_body(
         }
     }
 }
+
+/// 票 09：MITM 解密 `/v1/messages` + CONNECT 绑定 group（订阅 OAuth Bearer）→
+/// `Protocol::ClaudeCode` 平台 1:1 透传 → proxy_log 全链记账闭环：
+/// group 归属（绑定注入）/ model / tokens（上游 usage 提取）/ est_cost（registry
+/// claude_code 条目参考成本，非 0）。
+///
+/// 与 `mitm_e2e_h1_tls_round_trip` 的区别：那边走 anthropic 协议转换路径 + 请求自带
+/// group token；这边是订阅透传形态 —— Authorization 是 OAuth Bearer（resolve_group 必落空），
+/// 归属完全靠 serve_plaintext 的绑定注入，路由命中 claude_code 独占组的透传拦截。
+#[tokio::test]
+async fn mitm_bound_group_claude_code_stats_closed_loop() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    // 1. stub 上游：anthropic 形状 200 + usage（claude-sonnet-5 在 registry claude_code
+    //    条目带官方价 → est_cost 可算出非 0 参考值）。
+    let upstream_url = spawn_stub_upstream().await;
+
+    // 2. claude_code 订阅平台（base_url 指向 stub，端点锁死不影响主 base_url）+ 独占组。
+    let (state, ca) = make_state_with_ca().await;
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "cc-stats-stub".into(),
+            platform_type: Protocol::ClaudeCode,
+            base_url: upstream_url.clone(),
+            api_key: String::new(), // 订阅透传：aidog 不持有凭证
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create claude_code platform");
+    let group = aidog_db::create_group(&state.db, sample_group("cc-stats-g", vec![]))
+        .await
+        .expect("create group");
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .expect("set group platforms");
+
+    // 3. MITM server 端：TLS accept + serve_plaintext **带绑定 group**（票 08 注入门）。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mitm_addr = listener.local_addr().unwrap();
+    let signer = Arc::new(CertSigner::new(ca.clone()));
+    let state_for_server = state.clone();
+    let server_host = "api.anthropic.com".to_string();
+    let bound_group = group.clone();
+    tokio::spawn(async move {
+        let (tcp_stream, _) = listener.accept().await.expect("accept client");
+        let client_tls = accept_client(signer, tcp_stream, server_host.clone())
+            .await
+            .expect("TLS accept");
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, Some(bound_group))
+            .await;
+    });
+
+    // 4. mock client：订阅 OAuth Bearer（非 group token）+ /v1/messages + claude-sonnet-5。
+    let tcp = tokio::net::TcpStream::connect(mitm_addr)
+        .await
+        .expect("connect MITM");
+    let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config_trusting_ca(&ca)));
+    let server_name = ServerName::try_from("api.anthropic.com".to_string()).unwrap();
+    let tls_stream = connector
+        .connect(server_name, tcp)
+        .await
+        .expect("TLS handshake");
+    let (mut sender, conn) = hyper::client::conn::http1::Builder::new()
+        .handshake(TokioIo::new(tls_stream))
+        .await
+        .expect("h1 client handshake");
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    let req = hyper::Request::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer sk-ant-oat01-subscription-oauth")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = sender.send_request(req).await.expect("h1 send_request");
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "订阅透传必须 1:1 relay stub 上游 200"
+    );
+    let body_bytes = collect_incoming_body(resp.into_body(), 64 * 1024)
+        .await
+        .expect("read response body");
+    assert!(
+        String::from_utf8_lossy(&body_bytes).contains("mitm e2e ok"),
+        "响应 body 必须是 stub 上游原文（1:1 relay）"
+    );
+
+    // 5. proxy_log 全链断言：归属 / 协议 / tokens / est_cost 参考成本。
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+        .await
+        .expect("list proxy_logs");
+    let row = logs
+        .iter()
+        .find(|r| r.source_protocol == "claude_code")
+        .expect("claude_code 透传 proxy_log 行必须存在（归属注入命中透传拦截）");
+    assert_eq!(
+        row.group_key, group.group_key,
+        "归属必须来自 CONNECT 绑定注入（OAuth Bearer 解不出 group）"
+    );
+    assert_eq!(row.platform_id, plat.id, "路由必须命中 claude_code 平台");
+    assert_eq!(row.model, "claude-sonnet-5", "model 必须取自请求 body");
+    assert_eq!(
+        row.input_tokens, 7,
+        "tokens 必须从上游 usage 提取（extract_usage）"
+    );
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    // registry claude_code/claude-sonnet-5 官方价：7×2e-6 + 4×1e-5 = 5.4e-5。
+    // 精确值断言区分 fallback 3.0 $/M（那样是 3.3e-5）——命中 registry 条目才票 09 的参考成本链。
+    assert!(
+        (full.est_cost - 5.4e-5).abs() < 1e-9,
+        "est_cost 必须是 registry claude_code 条目官方牌价（5.4e-5），实际: {}",
+        full.est_cost
+    );
+    assert_eq!(
+        full.blocked_reason, "",
+        "解密成功的 AI 路径行不得带 mitm_opaque 标记"
+    );
+
+    drop(sender);
+}

@@ -658,6 +658,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
               staggerMs={420}
               delta={delta(overview.total_cost, prevOverview?.total_cost ?? 0)}
               deltaInverse
+              hint={t("stats.costNote", "参考成本，非实付")}
               t={t}
             />
           </div>
@@ -966,12 +967,14 @@ interface OverviewCardProps {
   delta: number | null;
   /** 反向指标（成本 / 延迟）：上升为「差」，箭头着 danger 色。 */
   deltaInverse?: boolean;
+  /** 卡片底部小字注释（如成本卡的「参考成本，非实付」，票 cc-sub-mitm 09）。 */
+  hint?: string;
   t: TFunction;
 }
 
 // memo：8 张卡的 props 全是原始值 + 稳定的 t，页内排序 / 翻页 / 切 tab 这些与卡片无关的
 // 重渲染就不再穿透到卡片子树（票 11 病灶 A）。
-const OverviewCard = memo(function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, delta, deltaInverse, t }: OverviewCardProps) {
+const OverviewCard = memo(function OverviewCard({ label, value, numericValue, staggerMs = 0, unit, level, delta, deltaInverse, hint, t }: OverviewCardProps) {
   const { ref: revealRef, shown } = useReveal<HTMLDivElement>(staggerMs);
   // numericValue 提供时用 counter 滚动；否则回退到预格式化字符串
   const { ref: counterRef, display: counterDisplay } = useCounter(numericValue ?? 0, 0, 1200);
@@ -1002,6 +1005,7 @@ const OverviewCard = memo(function OverviewCard({ label, value, numericValue, st
         </span>{unit && <span style={{ fontSize: F.label, fontWeight: 400, marginLeft: 2 }}>{unit}</span>}
       </div>
       {deltaNode}
+      {hint && <div style={{ fontSize: F.hint, color: "var(--text-secondary)", opacity: 0.8 }}>{hint}</div>}
     </Card>
   );
 });

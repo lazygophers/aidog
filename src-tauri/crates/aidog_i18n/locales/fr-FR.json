@@ -1964,6 +1964,7 @@
   "stats.today": "Aujourd'hui",
   "stats.tokens": "Tokens",
   "stats.totalCost": "Coût total",
+  "stats.costNote": "Coût de référence, non facturé",
   "stats.totalRequests": "Total requetes",
   "stats.totalRows": "{{count}} enregistrements",
   "stats.totalTokens": "Total tokens",
