@@ -23,6 +23,7 @@ import {
   ExpirySection, QuotaSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
+import { CcMitmAccessSection } from "./CcMitmAccessSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
 import { makeRipple } from "../../components/shared";
 
@@ -53,6 +54,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
+    mitmStats, setMitmStats,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
@@ -188,6 +190,19 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             apiKey={apiKey} setApiKey={setApiKey}
             showKey={showKey} setShowKey={setShowKey}
             t={t}
+          />
+        )}
+
+        {/* 订阅透传 MITM 接入形态开关 + Root CA 引导（cc-sub-mitm 票 12） */}
+        {isPassthrough && (
+          <CcMitmAccessSection
+            enabled={mitmStats}
+            onToggle={setMitmStats}
+            groupName={
+              editing
+                ? groupDetails.find(g => g.platforms.some(gp => gp.platform.id === editing.id))?.group.name
+                : undefined
+            }
           />
         )}
 

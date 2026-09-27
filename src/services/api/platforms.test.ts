@@ -11,6 +11,8 @@ import {
   serializePlatformPeak,
   parseDisableDuringPeak,
   serializeDisableDuringPeak,
+  parseMitmStats,
+  serializeMitmStats,
   parsePlatformTimeWindows,
   serializePlatformTimeWindows,
 } from "./platforms";
@@ -281,6 +283,31 @@ describe("serializeDisableDuringPeak", () => {
     expect(JSON.parse(serializeDisableDuringPeak("", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("bad", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("[]", true)).disable_during_peak).toBe(true);
+  });
+});
+
+describe("parseMitmStats", () => {
+  it.each(BAD)("非法/缺键 %s 回 false", (extra) => {
+    expect(parseMitmStats(extra)).toBe(false);
+  });
+
+  it("严格布尔：只有 true 才为 true", () => {
+    expect(parseMitmStats('{"mitm_stats":true}')).toBe(true);
+    expect(parseMitmStats('{"mitm_stats":1}')).toBe(false);
+  });
+});
+
+describe("serializeMitmStats", () => {
+  it("false → 删键（默认行为不入库），保留兄弟键", () => {
+    const o = JSON.parse(serializeMitmStats('{"mock":{},"mitm_stats":true}', false));
+    expect(o.mitm_stats).toBeUndefined();
+    expect(o.mock).toEqual({});
+  });
+
+  it("true → 写键；非法/数组 extra 重建", () => {
+    expect(JSON.parse(serializeMitmStats("", true)).mitm_stats).toBe(true);
+    expect(JSON.parse(serializeMitmStats("bad", true)).mitm_stats).toBe(true);
+    expect(JSON.parse(serializeMitmStats("[]", true)).mitm_stats).toBe(true);
   });
 });
 
