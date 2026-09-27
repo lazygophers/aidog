@@ -290,6 +290,46 @@ CREATE TABLE IF NOT EXISTS platform_preset (
 
 CREATE INDEX IF NOT EXISTS idx_quota_snapshot_platform ON quota_snapshot(platform_id, created_at);"#,
     )?;
+
+    // Migration 20260927-01 (cc-sub-mitm 票 07): mitm_log + oauth_usage_sample 两张新表。
+    //
+    // mitm_log：CONNECT 代理旁路流量观测（D7，不进 proxy_log 防 telemetry 行污染统计）。
+    // body 两列空串缺省，gate 在写入层（票 10，受 log_upstream_request 开关 + 脱敏约束，
+    // 语义同 proxy_log from_log）；本 migration 只建形状。decrypted 0/1 布尔（SQLite 无 bool，
+    // 沿 proxy_log done 列同款 INTEGER）。created_at 毫秒 Unix（与 proxy_log / now() 口径一致）。
+    conn.execute_batch(
+        r#"CREATE TABLE IF NOT EXISTS mitm_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name   TEXT NOT NULL DEFAULT '',
+    host         TEXT NOT NULL DEFAULT '',
+    path         TEXT NOT NULL DEFAULT '',
+    status_code  INTEGER NOT NULL DEFAULT 0,
+    req_bytes    INTEGER NOT NULL DEFAULT 0,
+    resp_bytes   INTEGER NOT NULL DEFAULT 0,
+    decrypted    INTEGER NOT NULL DEFAULT 0,
+    request_body  TEXT NOT NULL DEFAULT '',
+    response_body TEXT NOT NULL DEFAULT '',
+    created_at   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_mitm_log_group_created ON mitm_log(group_name, created_at);"#,
+    )?;
+
+    // oauth_usage_sample：蹭 /api/oauth/usage 自然流量采样的 5h/7d 窗口利用率（D8，
+    // 绝不主动轮询）。raw 存响应 JSON 原文（趋势图之外的口径核对用），
+    // sampled_at 毫秒 Unix 同上。five_hour_pct / seven_day_pct 存百分数 0-100。
+    conn.execute_batch(
+        r#"CREATE TABLE IF NOT EXISTS oauth_usage_sample (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_name    TEXT NOT NULL DEFAULT '',
+    five_hour_pct REAL NOT NULL DEFAULT 0,
+    seven_day_pct REAL NOT NULL DEFAULT 0,
+    raw           TEXT NOT NULL DEFAULT '',
+    sampled_at    INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_usage_sample_group_sampled ON oauth_usage_sample(group_name, sampled_at);"#,
+    )?;
     Ok(())
 }
 
@@ -2385,6 +2425,66 @@ mod tests {
             assert_eq!(&s2, s, "id {id}: source changed on rerun");
             assert_eq!(&b2, b, "id {id}: budgets changed on rerun");
         }
+    }
+
+    /// Migration 20260927-01（cc-sub-mitm 票 07）：mitm_log + oauth_usage_sample 两表
+    /// 从无到有 + 索引 + 幂等重跑。列形状/默认值由写入层（票 10）消费，这里只验形状。
+    #[test]
+    fn migrations_mitm_log_and_oauth_usage_sample_20260927() {
+        let conn = make_modern_conn();
+        let r1 = run_migrations_late(&conn, no_op_backfill());
+        assert!(r1.is_ok(), "run_migrations_late failed: {:?}", r1);
+
+        conn.execute_batch(r#"
+            INSERT INTO mitm_log (group_name, host, path, status_code, req_bytes, resp_bytes,
+                                  decrypted, request_body, response_body, created_at)
+            VALUES ('dev', 'stats.anthropic.com', '/v1/telemetry', 200, 512, 0, 1, '{"a":1}', '', 1790000000000);
+            INSERT INTO oauth_usage_sample (group_name, five_hour_pct, seven_day_pct, raw, sampled_at)
+            VALUES ('dev', 42.5, 17.25, '{"five_hour":{"pct":42.5}}', 1790000000001);
+        "#).unwrap();
+
+        // 形状抽查：一行往返 + 两索引存在
+        let (host, body): (String, String) = conn
+            .query_row(
+                "SELECT host, request_body FROM mitm_log WHERE group_name='dev'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(host, "stats.anthropic.com");
+        assert_eq!(body, r#"{"a":1}"#);
+        let (fh, sd): (f64, f64) = conn
+            .query_row(
+                "SELECT five_hour_pct, seven_day_pct FROM oauth_usage_sample",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!((fh, sd), (42.5, 17.25));
+        for (table, idx) in [
+            ("mitm_log", "idx_mitm_log_group_created"),
+            ("oauth_usage_sample", "idx_oauth_usage_sample_group_sampled"),
+        ] {
+            let n: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND tbl_name=?1 AND name=?2",
+                    params![table, idx],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(n, 1, "{idx} missing");
+        }
+
+        // 幂等：重跑不改数据、不报错
+        let r2 = run_migrations_late(&conn, no_op_backfill());
+        assert!(r2.is_ok(), "second run failed: {:?}", r2);
+        let n_mitm: i64 = conn
+            .query_row("SELECT COUNT(*) FROM mitm_log", [], |r| r.get(0))
+            .unwrap();
+        let n_usage: i64 = conn
+            .query_row("SELECT COUNT(*) FROM oauth_usage_sample", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!((n_mitm, n_usage), (1, 1), "rerun must not duplicate/clear rows");
     }
 
     /// Migration 20260829-02（peak-rename 票 04）：platform.extra 键 `peak_hours` → `peak`。
