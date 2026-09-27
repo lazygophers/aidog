@@ -1077,6 +1077,7 @@ pub fn retention_cutoff_secs(secs: u64) -> Option<i64> {
 // ─── 领域 DB 读写（2026-08-16 自 aidog_core::gateway::db 拆入）───
 pub mod client_types_const;
 mod group;
+pub mod health_state;
 mod group_platform;
 mod maintenance;
 mod middleware;
@@ -1100,6 +1101,7 @@ pub use ui_extra::*;
 #[cfg(test)]
 #[cfg(test)]
 mod test_group;
+mod test_health_state;
 #[cfg(test)]
 mod test_group_platform;
 #[cfg(test)]

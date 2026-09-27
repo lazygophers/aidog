@@ -899,6 +899,20 @@ ALTER TABLE "group_new" RENAME TO "group";
          WHERE quota_source = 'auto' AND manual_budgets NOT IN ('', '[]')",
         [],
     );
+    // Migration 20260928-01: platform_health_state 持久化表（routing-health-optim R4）。
+    // 熔断 Open / quota / auth 冷却截止 / connect 失败标记写穿落盘，代理重启时恢复
+    // （过期即弃——重启后死站不再回满血候选，第一波请求不重撞）。幂等：IF NOT EXISTS。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS platform_health_state (
+            platform_id INTEGER PRIMARY KEY,
+            breaker_state TEXT NOT NULL DEFAULT 'closed',
+            breaker_until_ms INTEGER NOT NULL DEFAULT 0,
+            quota_cooldown_until_ms INTEGER NOT NULL DEFAULT 0,
+            auth_cooldown_until_ms INTEGER NOT NULL DEFAULT 0,
+            last_connect_fail_ms INTEGER NOT NULL DEFAULT 0,
+            updated_at INTEGER NOT NULL DEFAULT 0
+        );",
+    )?;
     Ok(())
 }
 

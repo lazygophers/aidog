@@ -283,10 +283,13 @@ pub async fn start_proxy(
             ProxySettingsCache::load_from(&db).await,
         ));
         register_settings_cache(&settings_cache);
+        // R4：调度器带 platform.db 持久化 + 启动恢复（重启后熔断/冷却不丢，死站不回满血）。
+        let scheduler = Arc::new(super::scheduling::SchedulerState::with_db(db.clone()));
+        scheduler.restore_from_db().await;
         ProxyState {
             db,
             middleware,
-            scheduler: Arc::new(super::scheduling::SchedulerState::new()),
+            scheduler,
             sticky: Arc::new(super::scheduling::StickyTable::new()),
             log_snapshots: dashmap::DashMap::new(),
             agg_done: std::sync::Mutex::new((

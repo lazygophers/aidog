@@ -57,7 +57,7 @@ pub enum Admission {
 }
 
 /// per-platform 健康指标（内存）。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct PlatformHealth {
     pub breaker: BreakerState,
     /// 延迟 EMA（毫秒）；0 表示尚无样本。
@@ -103,6 +103,9 @@ const EMA_ALPHA: f64 = 0.3;
 pub struct SchedulerState {
     /// platform_id → 健康指标。
     health: RwLock<HashMap<u64, PlatformHealth>>,
+    /// R4（2026-09-28）持久化钩子：Some 时摘除性状态（熔断 Open / quota / auth 冷却）
+    /// 写穿 platform_health_state 表，重启 restore。None（测试 / 无持久化）→ persist no-op。
+    db: Option<std::sync::Arc<aidog_db::Db>>,
 }
 
 impl Default for SchedulerState {
@@ -115,7 +118,86 @@ impl SchedulerState {
     pub fn new() -> Self {
         Self {
             health: RwLock::new(HashMap::new()),
+            db: None,
         }
+    }
+
+    /// 带 platform.db 持久化的构造（生产路径，start_proxy 用）。持久化语义见 `persist`。
+    pub fn with_db(db: std::sync::Arc<aidog_db::Db>) -> Self {
+        Self {
+            health: RwLock::new(HashMap::new()),
+            db: Some(db),
+        }
+    }
+
+    /// 把持久化行灌回健康表（过期即弃）。`restore_from_db` 的纯逻辑核，独立可测。
+    pub fn seed_from_rows(
+        &self,
+        rows: Vec<aidog_db::health_state::PlatformHealthStateRow>,
+        now_ms: i64,
+    ) {
+        if let Ok(mut g) = self.health.write() {
+            for row in rows {
+                let mut h = PlatformHealth::default();
+                if row.breaker_state == "open" && row.breaker_until_ms > now_ms {
+                    h.breaker = BreakerState::Open {
+                        until_ms: row.breaker_until_ms,
+                    };
+                }
+                if row.quota_cooldown_until_ms > now_ms {
+                    h.quota_cooldown_until_ms = row.quota_cooldown_until_ms;
+                }
+                if row.auth_cooldown_until_ms > now_ms {
+                    h.auth_cooldown_until_ms = row.auth_cooldown_until_ms;
+                }
+                if row.last_connect_fail_ms > 0
+                    && now_ms - row.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
+                {
+                    h.last_connect_fail_ms = row.last_connect_fail_ms;
+                }
+                if h != PlatformHealth::default() {
+                    g.insert(row.platform_id as u64, h);
+                }
+            }
+        }
+    }
+
+    /// 启动恢复：加载 platform_health_state 全表灌回（db=None 时 no-op）。
+    pub async fn restore_from_db(&self) {
+        let Some(db) = self.db.clone() else { return };
+        match aidog_db::health_state::load_platform_health_states(&db).await {
+            Ok(rows) => self.seed_from_rows(rows, aidog_db::now()),
+            Err(e) => tracing::warn!("restore platform_health_state failed: {e}"),
+        }
+    }
+
+    /// 摘除性状态写穿落盘（fire-and-forget；只在状态变更点调用，成功热路径不触发）。
+    fn persist(&self, platform_id: u64) {
+        let Some(db) = self.db.clone() else { return };
+        let row = {
+            let Ok(g) = self.health.read() else { return };
+            let Some(h) = g.get(&platform_id) else { return };
+            let (state, until) = match h.breaker {
+                BreakerState::Open { until_ms } => ("open", until_ms),
+                _ => ("closed", 0),
+            };
+            aidog_db::health_state::PlatformHealthStateRow {
+                platform_id: platform_id as i64,
+                breaker_state: state.to_string(),
+                breaker_until_ms: until,
+                quota_cooldown_until_ms: h.quota_cooldown_until_ms,
+                auth_cooldown_until_ms: h.auth_cooldown_until_ms,
+                last_connect_fail_ms: h.last_connect_fail_ms,
+                updated_at: aidog_db::now(),
+            }
+        };
+        tokio::spawn(async move {
+            if let Err(e) =
+                aidog_db::health_state::upsert_platform_health_state(&db, row).await
+            {
+                tracing::warn!("persist platform_health_state failed: {e}");
+            }
+        });
     }
 
     /// 读取某平台延迟 EMA（无样本 → None），用于 LeastLatency 排序。
@@ -147,6 +229,7 @@ impl SchedulerState {
             let h = g.entry(platform_id).or_default();
             h.quota_cooldown_until_ms = h.quota_cooldown_until_ms.max(until_ms);
         }
+        self.persist(platform_id);
     }
 
     /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
@@ -165,6 +248,7 @@ impl SchedulerState {
             let h = g.entry(platform_id).or_default();
             h.auth_cooldown_until_ms = (now_ms + AUTH_COOLDOWN_MS).max(h.auth_cooldown_until_ms);
         }
+        self.persist(platform_id);
     }
 
     /// 该平台此刻是否处于 auth 冷却中（到点自动失效，无需清理）。
@@ -229,8 +313,12 @@ impl SchedulerState {
 
     /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1、清 connect 失败标记。
     pub fn record_success(&self, platform_id: u64, latency_ms: i64) {
-        if let Ok(mut g) = self.health.write() {
+        let needs_clear = if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
+            let non_default = h.breaker != BreakerState::Closed { fails: 0 }
+                || h.quota_cooldown_until_ms > 0
+                || h.auth_cooldown_until_ms > 0
+                || h.last_connect_fail_ms > 0;
             Self::dec_inflight(h);
             let sample = latency_ms.max(0) as f64;
             h.latency_ema_ms = if h.latency_ema_ms <= 0.0 {
@@ -240,16 +328,27 @@ impl SchedulerState {
             };
             h.breaker = BreakerState::Closed { fails: 0 };
             h.last_connect_fail_ms = 0;
+            non_default
+        } else {
+            false
+        };
+        if needs_clear {
+            self.persist(platform_id);
         }
     }
 
     /// 失败（仅 429-限流，本平台 retry 耗尽计一次）：breaker fail 计数、inflight-1。
     /// 不更新延迟 EMA（失败样本不计入延迟）。
     pub fn record_failure(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64) {
-        if let Ok(mut g) = self.health.write() {
+        let opened = if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
             Self::dec_inflight(h);
-            Self::apply_breaker_failure(h, thresholds, now_ms);
+            Self::apply_breaker_failure(h, thresholds, now_ms)
+        } else {
+            false
+        };
+        if opened {
+            self.persist(platform_id);
         }
     }
 
@@ -265,6 +364,7 @@ impl SchedulerState {
         thresholds: &BreakerThresholds,
         now_ms: i64,
     ) {
+        let mut opened = false;
         if let Ok(mut g) = self.health.write() {
             let recent_before = g
                 .values()
@@ -283,7 +383,10 @@ impl SchedulerState {
             if distinct * 2 >= candidate_total.max(1) {
                 return;
             }
-            Self::apply_breaker_failure(h, thresholds, now_ms);
+            opened = Self::apply_breaker_failure(h, thresholds, now_ms);
+        }
+        if opened {
+            self.persist(platform_id);
         }
     }
 
@@ -291,7 +394,12 @@ impl SchedulerState {
         h.last_connect_fail_ms > 0 && now_ms - h.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
     }
 
-    fn apply_breaker_failure(h: &mut PlatformHealth, thresholds: &BreakerThresholds, now_ms: i64) {
+    /// 推进 breaker 失败计数；返回是否进入/维持 Open（持久化判据）。
+    fn apply_breaker_failure(
+        h: &mut PlatformHealth,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+    ) -> bool {
         let open_until = now_ms + thresholds.open_secs as i64 * 1000;
         h.breaker = match h.breaker {
                 BreakerState::Closed { fails } => {
@@ -313,6 +421,7 @@ impl SchedulerState {
                     until_ms: open_until,
                 },
             };
+        matches!(h.breaker, BreakerState::Open { .. })
     }
 
     /// 不计入熔断的请求结束（网络错误/5xx/空响应/401/402/客户端 4xx 非 429）：仅 inflight-1，
@@ -490,6 +599,42 @@ mod tests {
         s.inc_inflight(2);
         s.record_connect_failure(2, 4, &th, later);
         assert!(matches!(s.breaker_state(2), BreakerState::Open { .. }));
+    }
+
+    #[test]
+    fn seed_from_rows_restores_open_and_expires() {
+        // R4：持久化行恢复——未过期 Open/冷却恢复，过期行丢弃。
+        use aidog_db::health_state::PlatformHealthStateRow as Row;
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.seed_from_rows(
+            vec![
+                Row {
+                    platform_id: 1,
+                    breaker_state: "open".into(),
+                    breaker_until_ms: now + 5_000,
+                    ..Default::default()
+                },
+                Row {
+                    platform_id: 2,
+                    breaker_state: "open".into(),
+                    breaker_until_ms: now - 1, // 已过期 → 丢弃
+                    ..Default::default()
+                },
+                Row {
+                    platform_id: 3,
+                    quota_cooldown_until_ms: now + 60_000,
+                    ..Default::default()
+                },
+            ],
+            now,
+        );
+        assert!(matches!(
+            s.breaker_state(1),
+            BreakerState::Open { until_ms } if until_ms == now + 5_000
+        ));
+        assert_eq!(s.breaker_state(2), BreakerState::Closed { fails: 0 });
+        assert!(s.quota_cooled(3, now));
     }
 
     #[test]
