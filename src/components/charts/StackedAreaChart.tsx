@@ -1,8 +1,9 @@
 // ── 堆叠面积图（#39 批次二）：series_by 交叉聚合宽表（T7 buildTrendChartData 形状）→
 // stackId 单栈；系列序即堆叠序（Stats 喂总量降序 → 最大维度沉底、主琥珀首层）。
 // LTTB 按行总量取形：降采样选点看栈顶轮廓，各系列共用同一行集，堆叠形状不破。
+// 可选 rightConfig：右轴独立标尺的总量线（不进栈、不参与 LTTB 取形，Home 维度趋势用）。
 import { useMemo, type ReactNode } from "react";
-import { Area, AreaChart as RechartsAreaChart, CartesianGrid, Legend, XAxis, YAxis } from "recharts";
+import { Area, AreaChart as RechartsAreaChart, CartesianGrid, Legend, Line, XAxis, YAxis } from "recharts";
 import { useTranslation } from "react-i18next";
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { ChartCard } from "./ChartCard";
@@ -25,6 +26,11 @@ export interface StackedAreaChartProps {
   valueFormat?: (n: number) => string;
   /** Y 轴刻度数（nice-ticks 目标），默认 5。 */
   tickCount?: number;
+  /** 双 Y 轴（LineChart 同范式）：这些系列键挂右轴独立标尺、渲染为虚线总量线；
+   *  不进栈、不计入 LTTB 取形的行总量（栈顶轮廓由堆叠层决定）。 */
+  rightConfig?: ChartConfig;
+  /** 右轴数值格式化（右轴刻度 + tooltip 右轴系列），缺省同 valueFormat。 */
+  rightValueFormat?: (n: number) => string;
   title?: ReactNode;
   subtitle?: ReactNode;
   emptyHint?: ReactNode;
@@ -40,6 +46,8 @@ export function StackedAreaChart({
   height = 240,
   valueFormat,
   tickCount = 5,
+  rightConfig,
+  rightValueFormat,
   title,
   subtitle,
   emptyHint,
@@ -49,9 +57,14 @@ export function StackedAreaChart({
   const { t } = useTranslation();
   const drawIn = useDrawIn();
   const seriesKeys = useMemo(() => Object.keys(config), [config]);
-  const effConfig = useMemo(() => withDefaultColors(config), [config]);
+  const rightKeys = useMemo(() => (rightConfig ? Object.keys(rightConfig) : []), [rightConfig]);
+  const allKeys = useMemo(() => [...seriesKeys, ...rightKeys], [seriesKeys, rightKeys]);
+  const effConfig = useMemo(
+    () => withDefaultColors(rightConfig ? { ...config, ...rightConfig } : config),
+    [config, rightConfig],
+  );
 
-  /** 行总量 = 各系列值之和（LTTB 取形 + Y 域都看栈顶轮廓）。 */
+  /** 行总量 = 各堆叠系列值之和（LTTB 取形 + Y 域都看栈顶轮廓，右轴总量线不参与）。 */
   const rowTotal = (r: Record<string, unknown>) =>
     seriesKeys.reduce((s, k) => s + (Number(r[k]) || 0), 0);
 
@@ -63,18 +76,26 @@ export function StackedAreaChart({
   const domain = useMemo(() => {
     const xs = rows.map((r) => xNum(r[xKey]));
     const totals = rows.map(rowTotal);
+    const rightMax = rows.reduce(
+      (m, r) => rightKeys.reduce((mm, k) => Math.max(mm, Number(r[k]) || 0), m),
+      0,
+    );
     return {
       xMin: Math.min(...xs),
       xMax: Math.max(...xs),
       yTicks: niceTicks(0, Math.max(...totals, 0), tickCount),
+      rightYTicks: rightKeys.length > 0 ? niceTicks(0, rightMax, tickCount) : [],
     };
-  }, [rows, xKey, seriesKeys, tickCount]);
+  }, [rows, xKey, seriesKeys, rightKeys, tickCount]);
 
   const xTicks = useMemo(
     () => (Number.isFinite(domain.xMin) ? niceTicks(domain.xMin, domain.xMax, 6) : []),
     [domain],
   );
   const fmt = valueFormat ?? ((n: number) => n.toLocaleString());
+  const rightFmt = rightValueFormat ?? fmt;
+  // tooltip 右轴系列按 dataKey 分派 rightFmt（LineChart 同范式：name 恒为 dataKey）。
+  const rightKeySet = new Set(rightKeys);
   const spanMs = domain.xMax - domain.xMin;
   const sub = downsampled ? (
     <>
@@ -114,6 +135,7 @@ export function StackedAreaChart({
             minTickGap={32}
           />
           <YAxis
+            yAxisId="left"
             width={48}
             {...(domain.yTicks.length > 0 && {
               ticks: domain.yTicks,
@@ -123,7 +145,21 @@ export function StackedAreaChart({
             tickLine={false}
             axisLine={false}
           />
-          {seriesKeys.length > 1 && (
+          {rightKeys.length > 0 && (
+            <YAxis
+              yAxisId="right"
+              orientation="right"
+              width={48}
+              {...(domain.rightYTicks.length > 0 && {
+                ticks: domain.rightYTicks,
+                domain: [domain.rightYTicks[0], domain.rightYTicks[domain.rightYTicks.length - 1]] as [number, number],
+              })}
+              tickFormatter={(v: number) => rightFmt(v)}
+              tickLine={false}
+              axisLine={false}
+            />
+          )}
+          {allKeys.length > 1 && (
             <Legend
               verticalAlign="top"
               align="left"
@@ -137,7 +173,10 @@ export function StackedAreaChart({
             content={
               <ChartTooltipContent
                 labelFormatter={(label: unknown) => formatTimeTick(Number(label), spanMs)}
-                formatter={tooltipValueRows(fmt, (name) => config[String(name)]?.label ?? String(name))}
+                formatter={tooltipValueRows(
+                  (n, name) => (rightKeySet.has(String(name)) ? rightFmt(n) : fmt(n)),
+                  (name) => effConfig[String(name)]?.label ?? String(name),
+                )}
               />
             }
           />
@@ -146,10 +185,25 @@ export function StackedAreaChart({
               key={k}
               dataKey={k}
               stackId="s"
+              yAxisId="left"
               type="monotone"
               stroke={`var(--color-${k})`}
               strokeWidth={1.5}
               fill={`url(#stack-${k})`}
+              {...drawIn}
+            />
+          ))}
+          {rightKeys.map((k) => (
+            <Line
+              key={k}
+              dataKey={k}
+              yAxisId="right"
+              type="monotone"
+              stroke={`var(--color-${k})`}
+              strokeWidth={2}
+              strokeDasharray="3 3"
+              dot={false}
+              activeDot={{ r: 3 }}
               {...drawIn}
             />
           ))}
