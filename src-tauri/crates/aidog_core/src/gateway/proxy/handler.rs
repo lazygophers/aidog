@@ -649,12 +649,24 @@ pub(crate) async fn handle_proxy_core(
     let max_retries = group.max_retries as usize;
     let mut attempts: Vec<ProxyAttempt> = Vec::new();
     let candidate_total = candidates.len();
+    // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
+    // 连不上（站级事实，与 key 无关），后续候选命中同 base_url 直接跳过，省一遍 15s connect 死等。
+    // 仅 connect 失败联动；429/401 等 key 级错误不联动（同站不同 key 仍各有机会）。
+    let mut dead_base_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
 
     for (attempt_idx, route) in candidates.into_iter().enumerate() {
         // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
         if attempt_idx > max_retries {
             break;
         }
+        if dead_base_urls.contains(&route.platform.base_url) {
+            tracing::warn!(
+                platform = %route.platform.name, base_url = %route.platform.base_url,
+                "same-base_url sibling already failed to connect this request, skipping (R3)"
+            );
+            continue;
+        }
+        let route_base_url = route.platform.base_url.clone();
         let attempt_start = std::time::Instant::now();
         let attempt_ts = aidog_db::now();
         let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
@@ -664,6 +676,7 @@ pub(crate) async fn handle_proxy_core(
             &mut log,
             &mut attempts,
             route,
+            candidate_total,
             is_last_candidate,
             attempt_start,
             attempt_ts,
@@ -683,7 +696,12 @@ pub(crate) async fn handle_proxy_core(
         .await
         {
             AttemptOutcome::Respond(r) => return r,
-            AttemptOutcome::Next => continue,
+            AttemptOutcome::Next { connect_failed } => {
+                if connect_failed {
+                    dead_base_urls.insert(route_base_url);
+                }
+                continue;
+            }
         }
     } // ── end retry loop (for candidate) ──
 

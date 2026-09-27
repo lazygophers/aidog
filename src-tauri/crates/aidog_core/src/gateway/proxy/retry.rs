@@ -319,18 +319,17 @@ pub(crate) const TRANSPORT_FAST_FAIL: std::time::Duration = std::time::Duration:
 
 /// transport 层错误是否值得同平台原地重试。`elapsed` = 本次尝试已耗时。
 ///
-/// - **连接建立失败**（`is_connect`）：恒重试。耗时被 connect_timeout 夹住（毫秒到数秒级），
-///   重试代价小，且是最典型的瞬时抖动。
 /// - **请求级读超时**（`is_timeout` 且非 connect）：恒不重试。已经等满 timeout_secs，
 ///   再来一轮只是把用户等待翻倍。
-/// - **其余 transport 错误**（连接被上游中途掐断 / body 中断）：仅当本次尝试
+/// - **其余 transport 错误**（connect 失败 / 连接被上游中途掐断 / body 中断）：仅当本次尝试
 ///   `< TRANSPORT_FAST_FAIL` 才重试。历史实证（5s 时代）：cometapi 的
 ///   `SendRequest: connection closed before message completed` 也有挂 15~50 秒才掐的形态，
 ///   超过 15s 的慢失败重试收益低，维持不重试。
+///
+/// connect 失败 2026-09-28 起不再恒重试（routing-health-optim R2）：死站 connect 超时
+/// 每轮 ≈15s，恒重试 ×TRANSPORT_RETRY_MAX 造成单平台死等 ≈45.6s（log.db 实证 566/563
+/// 各 34/84 次三连自环）。毫秒级 connection refused（瞬时抖动）仍被 fast-fail 门槛放行重试。
 pub(crate) fn is_transport_retryable(e: &reqwest::Error, elapsed: std::time::Duration) -> bool {
-    if e.is_connect() {
-        return true;
-    }
     if e.is_timeout() {
         return false;
     }

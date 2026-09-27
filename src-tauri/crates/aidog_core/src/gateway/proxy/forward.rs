@@ -1,9 +1,11 @@
 use super::*;
 
 /// 单次候选 forward 尝试的控制结果：Respond=已确定响应直接返回客户端；Next=换下个候选重试。
+/// Next.connect_failed：本次尝试的终态错误是否为连接建立失败（reqwest is_connect）——
+/// handler 用它做同 base_url 兄弟条目联动跳过（routing-health-optim R3，2026-09-28）。
 pub(crate) enum AttemptOutcome {
     Respond(axum::response::Response),
-    Next,
+    Next { connect_failed: bool },
 }
 
 /// 单次候选 forward 尝试：构建上游请求、发送、按状态码分类处理。
@@ -14,6 +16,7 @@ pub(crate) async fn forward_attempt(
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
     route: RouteResult,
+    candidate_total: usize,
     is_last_candidate: bool,
     attempt_start: std::time::Instant,
     attempt_ts: i64,
@@ -135,7 +138,7 @@ pub(crate) async fn forward_attempt(
                 )),
             )
             .await;
-            return AttemptOutcome::Next;
+            return AttemptOutcome::Next { connect_failed: false };
         }
         // last candidate：返回 502 + 审计落库
         let msg = format!(
@@ -182,7 +185,7 @@ pub(crate) async fn forward_attempt(
         )
         .await;
         if !is_last_candidate {
-            return AttemptOutcome::Next;
+            return AttemptOutcome::Next { connect_failed: false };
         }
         let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
         return AttemptOutcome::Respond(
@@ -763,9 +766,19 @@ pub(crate) async fn forward_attempt(
             }
             Err(e) => {
                 // 同平台重试已用尽 / 错误不宜重试 → 换下个候选；候选耗尽则返回 502。
-                // 网络类失败不降权（2026-09-15 用户裁决）：不计熔断、不动 EMA，下一轮调度
-                // 仍优先选择该平台；仅 inflight-1。
-                state.scheduler.record_ignored(route.platform.id);
+                // R1（2026-09-28，推翻 2026-09-15「网络类故障不降权」）：connect 失败计入熔断
+                // （死站滞留候选的根治），带本地网络保护（60s 滑窗失败平台数达候选半数不计数）；
+                // 其余 transport 错误（读超时/中途掐线）仍不降权仅 inflight-1。
+                if e.is_connect() {
+                    state.scheduler.record_connect_failure(
+                        route.platform.id,
+                        candidate_total,
+                        &breaker_th,
+                        aidog_db::now(),
+                    );
+                } else {
+                    state.scheduler.record_ignored(route.platform.id);
+                }
                 let detail = err_chain(&e);
                 tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
                 let upstream_err = format!("upstream error: {detail}");
@@ -784,7 +797,7 @@ pub(crate) async fn forward_attempt(
                 )
                 .await;
                 if !is_last_candidate {
-                    return AttemptOutcome::Next;
+                    return AttemptOutcome::Next { connect_failed: e.is_connect() };
                 }
                 let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
                 return AttemptOutcome::Respond(
@@ -892,7 +905,7 @@ pub(crate) async fn forward_attempt(
                 &state.db, route.platform.id, Some(format!("HTTP 200: {}", $reason)),
             ).await;
             if !is_last_candidate {
-                return AttemptOutcome::Next;
+                return AttemptOutcome::Next { connect_failed: false };
             }
             // 候选耗尽：返回 502 + 已记录的 attempts（此时尚未向客户端发任何字节，安全）。
             log.platform_id = route.platform.id;
