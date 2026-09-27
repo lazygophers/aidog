@@ -1,38 +1,48 @@
 // ─── 首页 · 命令面板（Command Palette · #36 / spec C3）─────────────────
 // 单块命令面板：琥珀渐变眉条 → 搜索栏式状态行（运行态点 + 端口 + ⌘C 复制地址）
 // → 四 KPI 紧凑行（每格行内 sparkline，花费=琥珀其余灰阶）→ 维度趋势
-// （按模型 / 按分组堆叠面积 + 右轴请求线，2026-09-27 起由面板外玻璃卡移入，
-// 原 24h 总量双线趋势删除，深分析归 Stats）→ 平台 Top4（迷你环形 + 行内占比条
-// + 等宽数字）→ 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C chip 可点击 + keydown 绑定同动作）。
-// 数据源（各区独立 catch）/ reveal 入场 / RTL / i18n 不变。
+// （按平台 / 按模型 / 按分组堆叠面积 + 右轴请求线，2026-09-27 起由面板外玻璃卡移入，
+// 窗口恒为滚动 24h；默认指标 Token）→ 三维度行列表（平台 / 模型 / 分组，DimPanel
+// 同构，今日窗口 + tokens 降序 Top8 + 迷你走势，2026-09-27 起三面板统一此形态，
+// 原平台 MiniRing 环形卡删除）→ 总余额行 → 快捷键 footer（⌘N/⌘S/⌘L/⌘C chip
+// 可点击 + keydown 绑定同动作）。数据源（各区独立 catch）/ reveal 入场 / RTL /
+// i18n 不变。两套窗口并存：行列表 = 今日（本地 00:00 起，同 tray todayStats 口径），
+// 趋势图与 KPI sparkline = 滚动 24h，数据互不混用。
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyApi,
   trayConfigApi,
-  popoverConfigApi,
   platformApi,
   statsApi,
   onProxyLogUpdated,
   type TodayStats,
-  type TodayPlatformStat,
   type Platform,
+  type Protocol,
   type StatsBucket,
   type DimensionEntry,
   type StatsSeries,
 } from "../services/api";
 import type { NavContext } from "../components/Sidebar";
-import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
+import { formatNumber, formatCostUsd, formatPercent, formatDurationMs } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
 import { seriesColor } from "@/components/charts";
 import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
+import { ProtocolLogo } from "../domains/platforms/ProtocolLogo";
 import { F } from "../domains/shared/tokens";
 
-const DEFAULT_PORT = 7890;
-const TOP_PLATFORMS = 4;
 export const DIM_TOP_N = 8;
+const DEFAULT_PORT = 7890;
+
+/** 今日窗口起点（本地时区 00:00）：与 KPI 行 trayConfigApi.todayStats 同口径
+ *  （Rust `stats_today.rs::local_today_hour_key` = 本地 "YYYY-MM-DD 00:00:00" 起算）。 */
+export function todayStartMs(now = new Date()): number {
+  const d = new Date(now);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
 
 // 维度行（模型 / 分组，home-model-stats spec §2）：tokens 降序前 DIM_TOP_N，
 // 其余合并成一条「其它」行（分母不可加的比率在该行显 --）。
@@ -174,80 +184,70 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
   );
 }
 
-/** 平台行迷你环形：琥珀弧 = share（该平台花费 / Top4 合计），余弧弱灰。 */
-function MiniRing({ share }: { share: number }) {
-  const r = 9;
-  const c = 2 * Math.PI * r;
-  const len = Math.max(0, Math.min(1, share)) * c;
-  return (
-    <svg viewBox="0 0 26 26" width={26} height={26} style={{ flexShrink: 0 }}>
-      <circle cx={13} cy={13} r={r} fill="none" stroke="rgba(255,255,255,.14)" strokeWidth={5} />
-      <circle
-        cx={13}
-        cy={13}
-        r={r}
-        fill="none"
-        stroke={seriesColor(0)}
-        strokeWidth={5}
-        strokeDasharray={`${len.toFixed(2)} ${c.toFixed(2)}`}
-        transform="rotate(-90 13 13)"
-      />
-    </svg>
-  );
-}
-
 export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavContext) => void }) {
   const { t } = useTranslation();
   const [running, setRunning] = useState<boolean | null>(null);
   const [port, setPort] = useState<number>(DEFAULT_PORT);
   const [today, setToday] = useState<TodayStats | null>(null);
-  const [platformsToday, setPlatformsToday] = useState<TodayPlatformStat[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
+  // 三维度行列表数据（今日窗口）：platform/model/group 各一份 DimensionEntry[]。
+  const [dimPlatforms, setDimPlatforms] = useState<DimensionEntry[]>([]);
   const [dimModels, setDimModels] = useState<DimensionEntry[]>([]);
   const [dimGroups, setDimGroups] = useState<DimensionEntry[]>([]);
-  // 维度小时序列（home-dim-trend）：同一次 queryBatch 连带 series_by 取回，
-  // 喂维度趋势图 + DimPanel 行迷你曲线（与行数据共用同一份查询）。
+  // 维度小时序列（两套窗口并存，数据不混）：
+  //  - series*（滚动 24h）→ 只喂 HomeTrendChart 趋势图（窗口恒 24h）。
+  //  - todaySeries*（今日）→ 喂 DimPanel 行迷你走势（跟随面板窗口）。
+  const [seriesPlatforms, setSeriesPlatforms] = useState<StatsSeries[]>([]);
   const [seriesModels, setSeriesModels] = useState<StatsSeries[]>([]);
   const [seriesGroups, setSeriesGroups] = useState<StatsSeries[]>([]);
-  // 平台维度小时序列（home-dim-trend 按平台 tab，2026-09-27）：仅喂趋势图，
-  // DimPanel 行不消费（平台维度不加行面板）。序列名 = 平台显示名（后端回填）。
-  const [seriesPlatforms, setSeriesPlatforms] = useState<StatsSeries[]>([]);
+  const [todaySeriesPlatforms, setTodaySeriesPlatforms] = useState<StatsSeries[]>([]);
+  const [todaySeriesModels, setTodaySeriesModels] = useState<StatsSeries[]>([]);
+  const [todaySeriesGroups, setTodaySeriesGroups] = useState<StatsSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
     // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶），喂 KPI sparkline
-    //（24h 总量趋势图已删；维度趋势 / 维度面板走下面的 queryBatch，不消费本查询）。
+    // 与维度趋势图；行列表走今日窗口（本地 00:00 起），两套窗口互不混用。
     const now = new Date();
     const windowStart = now.getTime() - 24 * 3600 * 1000;
+    const todayStart = todayStartMs(now);
     await Promise.all([
       proxyApi.status().then(setRunning).catch(() => setRunning(null)),
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
       trayConfigApi.todayStats().then(setToday).catch(() => setToday(null)),
-      popoverConfigApi.platformToday().then(setPlatformsToday).catch(() => setPlatformsToday([])),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
-      // 模型 / 分组 / 平台维度统计（同 24h 窗）：一次 batch 三条 group_by + series_by，
-      // dimension_data 喂行、series 喂维度趋势图与行迷你曲线（同一份数据；
-      // 平台维度仅趋势图消费，dimension_data 不落地 state）。
+      // 一次 batch 六条查询：前三条 24h 只取 series（趋势图，不带 group_by 免算
+      // dimension_data），后三条今日窗口取行 + 行迷你走势。维度排序（TopN 截断）
+      // 必须按各自窗口聚合，前端从 24h series 切今日会错序且要重算 cache_rate 等
+      // 不可加指标，故走服务端双窗口而非单查询前端过滤。
       statsApi.queryBatch([
-        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "model", series_by: "model" },
-        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "group", series_by: "group" },
-        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "platform", series_by: "platform" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", series_by: "platform" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", series_by: "model" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", series_by: "group" },
+        { start: todayStart, end: now.getTime(), granularity: "hourly", group_by: "platform", series_by: "platform" },
+        { start: todayStart, end: now.getTime(), granularity: "hourly", group_by: "model", series_by: "model" },
+        { start: todayStart, end: now.getTime(), granularity: "hourly", group_by: "group", series_by: "group" },
       ])
-        .then(([m, g, p]) => {
-          setDimModels(m?.dimension_data ?? []);
-          setDimGroups(g?.dimension_data ?? []);
-          setSeriesModels(m?.series ?? []);
-          setSeriesGroups(g?.series ?? []);
-          setSeriesPlatforms(p?.series ?? []);
+        .then(([p24, m24, g24, pT, mT, gT]) => {
+          setSeriesPlatforms(p24?.series ?? []);
+          setSeriesModels(m24?.series ?? []);
+          setSeriesGroups(g24?.series ?? []);
+          setDimPlatforms(pT?.dimension_data ?? []);
+          setDimModels(mT?.dimension_data ?? []);
+          setDimGroups(gT?.dimension_data ?? []);
+          setTodaySeriesPlatforms(pT?.series ?? []);
+          setTodaySeriesModels(mT?.series ?? []);
+          setTodaySeriesGroups(gT?.series ?? []);
         })
         .catch(() => {
-          setDimModels([]); setDimGroups([]);
-          setSeriesModels([]); setSeriesGroups([]); setSeriesPlatforms([]);
+          setSeriesPlatforms([]); setSeriesModels([]); setSeriesGroups([]);
+          setDimPlatforms([]); setDimModels([]); setDimGroups([]);
+          setTodaySeriesPlatforms([]); setTodaySeriesModels([]); setTodaySeriesGroups([]);
         }),
     ]);
     setLoading(false);
@@ -273,33 +273,36 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   // 总余额 = 关联平台 est_balance_remaining 求和（平台级属性，无 per-group 概念）。
   const totalBalance = platforms.reduce((acc, p) => acc + (p.est_balance_remaining || 0), 0);
 
-  // 平台今日用量 top N（已用 cost 降序）。
-  const topPlatforms = [...platformsToday]
-    .filter(p => p.cost > 0 || p.tokens > 0 || p.requests > 0)
-    .sort((a, b) => b.cost - a.cost)
-    .slice(0, TOP_PLATFORMS);
-  const maxPlatformCost = topPlatforms.reduce((m, p) => Math.max(m, p.cost), 0);
-  const topCostSum = topPlatforms.reduce((s, p) => s + p.cost, 0);
-
-  // 24h 趋势 / KPI sparkline 序列（hourly 桶；24h 总量双线趋势图已删，KPI sparkline 仍消费）。
+  // 24h 趋势 / KPI sparkline 序列（hourly 桶；维度趋势图 / KPI sparkline 消费）。
   const reqSeries = trendBuckets.map(b => b.total_requests);
   const costSeries = trendBuckets.map(b => b.total_cost);
   const tokensSeries = trendBuckets.map(b => b.input_tokens + b.output_tokens + b.cache_tokens);
   const cacheSeries = trendBuckets.map(b => b.cache_tokens);
 
-  // ── 模型 / 分组维度行（home-model-stats spec §2）──
+  // ── 三维度行列表（今日窗口）──
   const modelRows = useMemo(() => buildDimRows(dimModels), [dimModels]);
   const ungroupedLabel = t("platform.ungrouped", "未分组平台");
   const groupRows = useMemo(
     () => buildDimRows(dimGroups, ungroupedLabel),
     [dimGroups, ungroupedLabel],
   );
-  // 行迷你曲线数据（home-dim-trend §2）：维度 → 24h 逐桶 token 序列。
-  const modelSparks = useMemo(() => buildSparkMap(seriesModels), [seriesModels]);
-  const groupSparks = useMemo(
-    () => buildSparkMap(seriesGroups, ungroupedLabel),
-    [seriesGroups, ungroupedLabel],
+  const platformRows = useMemo(() => buildDimRows(dimPlatforms), [dimPlatforms]);
+  // 平台名 → 平台对象（行 logo 与下钻 id 用；维度名 = 平台显示名，后端回填）。
+  const platformByName = useMemo(
+    () => new Map(platforms.map(p => [p.name, p])),
+    [platforms],
   );
+  const platformLogoOf = useCallback(
+    (name: string): Protocol | undefined => platformByName.get(name)?.platform_type,
+    [platformByName],
+  );
+  // 行迷你曲线数据（今日窗口）：维度 → 今日逐桶 token 序列。
+  const modelSparks = useMemo(() => buildSparkMap(todaySeriesModels), [todaySeriesModels]);
+  const groupSparks = useMemo(
+    () => buildSparkMap(todaySeriesGroups, ungroupedLabel),
+    [todaySeriesGroups, ungroupedLabel],
+  );
+  const platformSparks = useMemo(() => buildSparkMap(todaySeriesPlatforms), [todaySeriesPlatforms]);
 
   const statusColor = running == null
     ? PANEL.muted
@@ -312,7 +315,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const revealSearch = useReveal<HTMLDivElement>(0);
   const revealKpi = useReveal<HTMLDivElement>(70);
   const revealTrend = useReveal<HTMLDivElement>(140);
-  const revealPlats = useReveal<HTMLDivElement>(210);
+  const revealDims = useReveal<HTMLDivElement>(210);
   const revealFoot = useReveal<HTMLDivElement>(280);
 
   const kpis = hasTodayData && today
@@ -440,65 +443,12 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           />
         </div>
 
-        {/* 4. 平台 Top4：迷你环形（花费占比）+ 行内占比条 + 等宽数字 */}
+        {/* 4. 三维度行列表（今日窗口，DimPanel 同构）：平台（带 logo，下钻 Stats 平台
+            维度）/ 模型 / 分组。tokens 降序 Top8 + 「其它」，行内占比条 + 五指标 +
+            今日迷你走势；形态与排序三维度完全一致。 */}
         <div
-          ref={revealPlats.ref}
-          className={`reveal${revealPlats.shown ? " in" : ""}`}
-          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
-        >
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
-              <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.topPlatforms", "今日平台用量")}</b>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
-                TOP {TOP_PLATFORMS} · {t("home.trendCost", "花费")}
-              </span>
-            </div>
-            {topPlatforms.length > 0 ? (
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                {topPlatforms.map((p, i) => (
-                  <div
-                    key={p.platform_id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "9px 0",
-                      borderBottom: i < topPlatforms.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
-                    }}
-                  >
-                    <MiniRing share={topCostSum > 0 ? p.cost / topCostSum : 0} />
-                    <span style={{ fontSize: F.small + 1, fontWeight: 600, color: PANEL.fg, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.platform_name}
-                    </span>
-                    <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
-                      <span
-                        style={{
-                          display: "block",
-                          width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`,
-                          height: "100%",
-                          background: seriesColor(0),
-                          borderRadius: 2,
-                          transition: "width 0.3s ease",
-                        }}
-                      />
-                    </span>
-                    <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap" }}>
-                      {formatNumber(p.requests)} · {formatNumber(p.tokens)}
-                    </span>
-                    <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap" }}>
-                      {formatCostUsd(p.cost)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
-                {loading ? "" : t("home.noToday", "今日暂无请求")}
-              </div>
-            )}
-        </div>
-
-        {/* 4.5 模型 / 分组维度（home-model-stats spec §2）：并排两面板，TopN 横条 + 五指标 */}
-        <div
+          ref={revealDims.ref}
+          className={`reveal${revealDims.shown ? " in" : ""}`}
           style={{
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
@@ -508,8 +458,21 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           }}
         >
           <DimPanel
+            titleKey="home.byPlatform"
+            titleDefault="按平台 · 今日"
+            rows={platformRows.rows}
+            totalTokens={platformRows.total}
+            sparks={platformSparks}
+            loading={loading}
+            logoOf={platformLogoOf}
+            onRow={name => {
+              const p = platformByName.get(name);
+              onNavigate("stats", p ? { platformId: p.id, platformName: p.name } : { platformName: name });
+            }}
+          />
+          <DimPanel
             titleKey="home.byModel"
-            titleDefault="按模型 · 24 小时"
+            titleDefault="按模型 · 今日"
             rows={modelRows.rows}
             totalTokens={modelRows.total}
             sparks={modelSparks}
@@ -518,7 +481,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           />
           <DimPanel
             titleKey="home.byGroup"
-            titleDefault="按分组 · 24 小时"
+            titleDefault="按分组 · 今日"
             rows={groupRows.rows}
             totalTokens={groupRows.total}
             sparks={groupSparks}
@@ -561,9 +524,9 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   );
 }
 
-// ── 模型 / 分组维度面板（home-model-stats spec §2）─────────────────
-// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率｜24h 迷你曲线。
-// 「其它」行灰显不可点；缓存率分母不可加，合并行显 --。
+// ── 三维度行列表面板（platform / model / group 同构，今日窗口）─────────
+// 行结构：logo（仅平台维度）｜名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜
+// 成功率｜缓存率｜延迟｜今日迷你走势。「其它」行灰显不可点；缓存率/延迟分母不可加，合并行显 --。
 function DimPanel({
   titleKey,
   titleDefault,
@@ -571,15 +534,18 @@ function DimPanel({
   totalTokens,
   sparks,
   loading,
+  logoOf,
   onRow,
 }: {
   titleKey: string;
   titleDefault: string;
   rows: { name: string; d: DimensionEntry; other: boolean; unclickable: boolean }[];
   totalTokens: number;
-  /** 行名 → 24h 逐桶 token 序列（home-dim-trend §2 行尾迷你曲线；缺名不画）。 */
+  /** 行名 → 今日逐桶 token 序列（缺名不画）。 */
   sparks: Map<string, number[]>;
   loading: boolean;
+  /** 行名 → 协议（仅平台维度传）：命中画 ProtocolLogo（缓存 logo + 首字母圆圈 fallback）。 */
+  logoOf?: (name: string) => Protocol | undefined;
   onRow: (name: string) => void;
 }) {
   const { t } = useTranslation();
@@ -588,75 +554,82 @@ function DimPanel({
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t(titleKey, titleDefault)}</b>
         <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
-          24H · {t("home.dimMetric", "tokens / 花费 / 请求")}
+          TODAY · {t("home.dimMetric", "tokens / 花费 / 请求")}
         </span>
       </div>
       {rows.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column" }}>
-          {rows.map((r, i) => (
-            <div
-              key={r.other ? "__other__" : r.name}
-              role={r.unclickable ? undefined : "button"}
-              onClick={r.unclickable ? undefined : () => onRow(r.name)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 12,
-                padding: "9px 0",
-                borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
-                cursor: r.unclickable ? undefined : "pointer",
-                opacity: r.unclickable ? 0.55 : 1,
-              }}
-            >
-              <span
-                title={r.other ? t("home.dimOther", "其它") : r.name}
+          {rows.map((r, i) => {
+            const proto = r.other ? undefined : logoOf?.(r.name);
+            return (
+              <div
+                key={r.other ? "__other__" : r.name}
+                role={r.unclickable ? undefined : "button"}
+                onClick={r.unclickable ? undefined : () => onRow(r.name)}
                 style={{
-                  fontSize: F.small + 1,
-                  fontWeight: 600,
-                  color: r.unclickable ? PANEL.muted : PANEL.fg,
-                  flex: 1,
-                  minWidth: 0,
-                  maxWidth: 180,
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                  textAlign: "start",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "9px 0",
+                  borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
+                  cursor: r.unclickable ? undefined : "pointer",
+                  opacity: r.unclickable ? 0.55 : 1,
                 }}
               >
-                {r.other ? t("home.dimOther", "其它") : r.name}
-              </span>
-              {/* 条长 = 该行 tokens 占全量比例（不是相对 top1，读者期望占比和为 100%） */}
-              <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
+                {proto && <ProtocolLogo protocol={proto} size={18} />}
                 <span
+                  title={r.other ? t("home.dimOther", "其它") : r.name}
                   style={{
-                    display: "block",
-                    width: `${totalTokens > 0 ? (dimTokens(r.d) / totalTokens) * 100 : 0}%`,
-                    height: "100%",
-                    background: r.unclickable ? PANEL.muted : seriesColor(0),
-                    borderRadius: 2,
-                    transition: "width 0.3s ease",
+                    fontSize: F.small + 1,
+                    fontWeight: 600,
+                    color: r.unclickable ? PANEL.muted : PANEL.fg,
+                    flex: 1,
+                    minWidth: 0,
+                    maxWidth: 180,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                    textAlign: "start",
                   }}
-                />
-              </span>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
-                {formatNumber(dimTokens(r.d))}
-              </span>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
-                {formatCostUsd(r.d.total_cost)}
-              </span>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
-                {formatNumber(r.d.total_requests)}
-              </span>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
-                {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
-              </span>
-              <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
-                {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
-              </span>
-              {/* 行尾 24h token 迷你曲线（home-dim-trend §2）：该维度逐小时走势，灰阶不与占比条抢焦点 */}
-              <Sparkline values={sparks.get(r.name) ?? []} color={seriesColor(1)} width={72} marginTop={0} />
-            </div>
-          ))}
+                >
+                  {r.other ? t("home.dimOther", "其它") : r.name}
+                </span>
+                {/* 条长 = 该行 tokens 占全量比例（不是相对 top1，读者期望占比和为 100%） */}
+                <span style={{ flex: 1, height: 3, background: "rgba(232,197,71,.12)", borderRadius: 2, overflow: "hidden" }}>
+                  <span
+                    style={{
+                      display: "block",
+                      width: `${totalTokens > 0 ? (dimTokens(r.d) / totalTokens) * 100 : 0}%`,
+                      height: "100%",
+                      background: r.unclickable ? PANEL.muted : seriesColor(0),
+                      borderRadius: 2,
+                      transition: "width 0.3s ease",
+                    }}
+                  />
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
+                  {formatNumber(dimTokens(r.d))}
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
+                  {formatCostUsd(r.d.total_cost)}
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
+                  {formatNumber(r.d.total_requests)}
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                  {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                  {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
+                </span>
+                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
+                  {r.other || r.d.total_requests === 0 ? "--" : formatDurationMs(r.d.avg_duration_ms)}
+                </span>
+                {/* 行尾今日 token 迷你走势（跟随面板窗口）：逐小时走势，灰阶不与占比条抢焦点 */}
+                <Sparkline values={sparks.get(r.name) ?? []} color={seriesColor(1)} width={72} marginTop={0} />
+              </div>
+            );
+          })}
         </div>
       ) : (
         <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>

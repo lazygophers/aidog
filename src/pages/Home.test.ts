@@ -1,8 +1,22 @@
 // Home 命令面板（#36）纯函数单测：sparkline / 趋势线共用归一化。
-// 模型/分组维度行构造（home-model-stats spec §2）同此范式，不建 widget mock。
+// 三维度行列表（buildDimRows 维度无关，platform/model/group 共用）与今日窗口口径同此范式。
 import { describe, it, expect } from "vitest";
-import { normPoints, buildDimRows, DIM_TOP_N } from "./Home";
+import { normPoints, buildDimRows, todayStartMs, DIM_TOP_N } from "./Home";
 import type { DimensionEntry } from "../services/api";
+
+describe("todayStartMs（今日窗口口径）", () => {
+  it("任意时刻 → 本地当日 00:00（与 tray todayStats 的本地 00:00 口径一致）", () => {
+    expect(todayStartMs(new Date(2026, 8, 27, 15, 30, 12)))
+      .toBe(new Date(2026, 8, 27, 0, 0, 0, 0).getTime());
+  });
+
+  it("凌晨边界 → 同日 00:00（不回退到昨天）", () => {
+    expect(todayStartMs(new Date(2026, 8, 27, 0, 0, 0, 1)))
+      .toBe(new Date(2026, 8, 27, 0, 0, 0, 0).getTime());
+    expect(todayStartMs(new Date(2026, 8, 27, 23, 59, 59)))
+      .toBe(new Date(2026, 8, 27, 0, 0, 0, 0).getTime());
+  });
+});
 
 describe("normPoints", () => {
   it("空序列 → 空点集", () => {

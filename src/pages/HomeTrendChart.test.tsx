@@ -95,13 +95,13 @@ describe("HomeTrendChart（组件）", () => {
     loading: false,
   };
 
-  it("默认按平台 + 花费模式渲染堆叠面积与右轴请求线", () => {
+  it("默认按平台 + Token 指标模式渲染堆叠面积与右轴请求线", () => {
     const { container } = render(<HomeTrendChart {...props} />);
     expect(container.querySelectorAll(".recharts-area").length).toBe(1);
     expect(container.querySelectorAll(".recharts-line").length).toBe(1); // 右轴请求线
     expect(screen.getByText("home.tabPlatform").closest("button")?.getAttribute("aria-pressed")).toBe("true");
     expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("p0");
-    expect(screen.getByText("home.trendCost").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("home.tokens").closest("button")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("切到按模型 → 消费 modelSeries 数据", () => {
@@ -117,11 +117,11 @@ describe("HomeTrendChart（组件）", () => {
     expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("g0");
   });
 
-  it("切到 Token 指标 → aria-pressed 跟随", () => {
+  it("切到 花费 指标 → aria-pressed 跟随", () => {
     render(<HomeTrendChart {...props} />);
-    fireEvent.click(screen.getByText("home.tokens"));
-    expect(screen.getByText("home.tokens").closest("button")?.getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("home.trendCost").closest("button")?.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(screen.getByText("home.trendCost"));
+    expect(screen.getByText("home.trendCost").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("home.tokens").closest("button")?.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("空数据 → 诚实空态（charts.noData），tab 仍可切", () => {
