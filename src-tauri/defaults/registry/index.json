@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790495372,
+  "last_updated": 1790495834,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2605,9 +2605,6 @@
         "mimo-v2.5-pro.json",
         "mimo-v2.6-flash.json",
         "mimo-v2.6-pro.json",
-        "mj_imagine.json",
-        "mj_upscale.json",
-        "mj_variation.json",
         "nano-banana-2.json",
         "nano-banana-pro.json",
         "nano-banana.json",

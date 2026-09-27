@@ -147,9 +147,6 @@
       "gpt-image-1.5",
       "gpt-image-2",
       "hailuo-h3",
-      "mj_imagine",
-      "mj_upscale",
-      "mj_variation",
       "nano-banana",
       "nano-banana-2",
       "nano-banana-pro",
@@ -220,5 +217,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1790250918
+  "last_updated": 1790495834
 }
