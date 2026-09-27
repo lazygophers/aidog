@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790180315,
+  "last_updated": 1790504305,
   "endpoints": {
     "default": [
       {
@@ -99,7 +99,7 @@
     "pricing": "https://open.bigmodel.cn/pricing"
   },
   "homepage": "https://www.zhipuai.cn",
-  "logo_url": "",
+  "logo_url": "zdotai",
   "keywords": [
     "zhipu",
     "智谱",

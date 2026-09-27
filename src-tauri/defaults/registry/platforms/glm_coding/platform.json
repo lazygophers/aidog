@@ -111,7 +111,7 @@
     "pricing": "https://docs.bigmodel.cn/cn/coding-plan/overview"
   },
   "homepage": "https://www.zhipuai.cn",
-  "logo_url": "",
+  "logo_url": "zdotai",
   "keywords": [
     "智谱编程",
     "codegeex",
@@ -147,7 +147,7 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1789205467,
+  "last_updated": 1790504305,
   "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
