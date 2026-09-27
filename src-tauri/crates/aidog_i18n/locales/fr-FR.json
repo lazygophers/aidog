@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "Latence minimale",
   "group.routingMode.sticky": "Session persistante",
   "group.routingModeDesc.failover": "Sélectionner les plateformes par priorité croissante, avec repli un à un en cas d'échec.",
-  "group.routingModeDesc.health_aware": "Retirer les plateformes en défaut, puis répartition aléatoire pondérée entre les saines.",
+  "group.routingModeDesc.health_aware": "Répartition aléatoire pondérée, identique à l’équilibrage de charge ; l’exclusion par disjoncteur/temporisation s’applique à tous les modes de routage.",
   "group.routingModeDesc.least_latency": "Privilégier la plateforme la plus rapide par latence moyenne croissante.",
   "group.routingModeDesc.load_balance": "Répartition aléatoire pondérée entre les plateformes disponibles.",
   "group.routingModeDesc.sticky": "Lier une session à une plateforme ; repli vers la répartition aléatoire pondérée si indisponible ou en défaut.",

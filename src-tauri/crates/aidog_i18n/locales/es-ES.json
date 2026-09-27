@@ -437,7 +437,7 @@
   "group.routingMode.least_latency": "Menor latencia",
   "group.routingMode.sticky": "Sesión fija",
   "group.routingModeDesc.failover": "Elige plataformas por prioridad ascendente, cayendo una a una ante fallos.",
-  "group.routingModeDesc.health_aware": "Excluye plataformas caídas, luego aleatorio ponderado entre sanas.",
+  "group.routingModeDesc.health_aware": "Distribución aleatoria ponderada, idéntica al balanceo de carga; la exclusión por disyuntor/enfriamiento se aplica a todos los modos de enrutamiento.",
   "group.routingModeDesc.least_latency": "Prefiere la plataforma más rápida por latencia media ascendente.",
   "group.routingModeDesc.load_balance": "Distribución aleatoria ponderada entre plataformas disponibles.",
   "group.routingModeDesc.sticky": "Vincula una sesión a una plataforma; recurre a aleatorio ponderado cuando no disponible o caída.",
