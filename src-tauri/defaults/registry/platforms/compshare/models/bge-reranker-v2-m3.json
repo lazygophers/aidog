@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790484475,
   "model_id": "bge-reranker-v2-m3",
   "canonical_model": "bge-reranker-v2-m3",
   "family": "bge",
@@ -7,6 +7,8 @@
   "capabilities": [
     "rerank"
   ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
