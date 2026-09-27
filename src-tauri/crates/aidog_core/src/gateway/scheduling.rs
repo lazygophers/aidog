@@ -1,14 +1,15 @@
 //! Group 智能调度 + 全局 Platform 级熔断器（内存状态）。
 //!
-//! 失败分类（2026-09-15 用户裁决：网络类故障不降权，下一轮调度继续优先选择）：
-//! - 熔断器：仅 **429-限流**（状态码 + 响应体解析出的平台主动限流）计入，临时性，
-//!   自动半开探测恢复（本模块）。
+//! 失败分类（2026-09-28 R1 修订：connect 失败计入熔断，推翻 2026-09-15 网络错一律不降权）：
+//! - 熔断器：**429-限流** 与 **connect 失败**（连接建立失败，站级死站信号）计入，临时性，
+//!   自动半开探测恢复（本模块）。connect 失败带本地网络保护：60s 滑窗内失败平台数达
+//!   本请求候选数一半 → 判本机网络问题，不计入（防断网误杀整组）。
 //! - auth 冷却：**401 鉴权 / 402 余额不足** → 固定 [`AUTH_COOLDOWN_MS`] 内存冷却，
 //!   不写 DB（平台 UI 仍是启用态），到点自动回调度。取代旧 auto_disabled 指数退避；
 //!   DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复（recover_platform_auto_disabled）。
 //! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
-//! - **不影响调度**：网络错误（连不上/超时/断流）、上游 5xx、200 空响应 —— 仅 inflight-1，
-//!   延迟 EMA 与候选排序不动（下一轮仍优先选择该平台）。
+//! - **不影响调度**：非 connect 的网络错误（读超时/中途掐线）、上游 5xx、200 空响应 ——
+//!   仅 inflight-1，延迟 EMA 与候选排序不动。
 //!
 //! 状态机三态：
 //! ```text
@@ -24,6 +25,8 @@ use std::sync::RwLock;
 
 /// 401 权限 / 402 余额失败的内存冷却时长（毫秒）。
 pub const AUTH_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+/// connect 失败本地网络保护滑窗（毫秒）：窗口内失败平台数达候选半数 → 判本地网络问题不熔断。
+const CONNECT_FAIL_WINDOW_MS: i64 = 60 * 1000;
 
 /// 熔断三态。
 #[derive(Debug, Clone, PartialEq)]
@@ -67,6 +70,9 @@ pub struct PlatformHealth {
     /// 401 权限 / 402 余额冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，
     /// 纯内存态（取代旧 DB auto_disabled），到点自动回调度。
     pub auth_cooldown_until_ms: i64,
+    /// 最近一次 connect 失败时刻（unix ms，0 = 无）。本地网络保护条款的滑窗判据
+    /// （见 [`SchedulerState::record_connect_failure`]）。
+    pub last_connect_fail_ms: i64,
 }
 
 impl Default for PlatformHealth {
@@ -77,6 +83,7 @@ impl Default for PlatformHealth {
             inflight: 0,
             quota_cooldown_until_ms: 0,
             auth_cooldown_until_ms: 0,
+            last_connect_fail_ms: 0,
         }
     }
 }
@@ -220,7 +227,7 @@ impl SchedulerState {
         h.inflight = h.inflight.saturating_sub(1);
     }
 
-    /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1。
+    /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1、清 connect 失败标记。
     pub fn record_success(&self, platform_id: u64, latency_ms: i64) {
         if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
@@ -232,6 +239,7 @@ impl SchedulerState {
                 EMA_ALPHA * sample + (1.0 - EMA_ALPHA) * h.latency_ema_ms
             };
             h.breaker = BreakerState::Closed { fails: 0 };
+            h.last_connect_fail_ms = 0;
         }
     }
 
@@ -241,8 +249,51 @@ impl SchedulerState {
         if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
             Self::dec_inflight(h);
-            let open_until = now_ms + thresholds.open_secs as i64 * 1000;
-            h.breaker = match h.breaker {
+            Self::apply_breaker_failure(h, thresholds, now_ms);
+        }
+    }
+
+    /// connect 失败计入熔断（routing-health-optim R1，2026-09-28；推翻 2026-09-15
+    /// 「网络类故障不降权」裁决——log.db 实证死站 566 整晚 34 败零计数滞留候选）。
+    /// **本地网络保护条款**：60s 滑窗内 connect 失败的去重平台数 ≥ 本请求候选数一半
+    /// → 判为本机网络问题而非平台死站，不计入熔断（防机场 WiFi 抖动误杀整组）。
+    /// 其余 transport 错误（读超时/中途掐线）仍走 record_ignored 不计入。
+    pub fn record_connect_failure(
+        &self,
+        platform_id: u64,
+        candidate_total: usize,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+    ) {
+        if let Ok(mut g) = self.health.write() {
+            let recent_before = g
+                .values()
+                .filter(|h| Self::connect_fail_recent(h, now_ms))
+                .count();
+            let h = g.entry(platform_id).or_default();
+            Self::dec_inflight(h);
+            let was_recent = Self::connect_fail_recent(h, now_ms);
+            h.last_connect_fail_ms = now_ms;
+            // 去重平台数：本次平台此前已在窗内则不重复 +1。
+            let distinct = if was_recent {
+                recent_before
+            } else {
+                recent_before + 1
+            };
+            if distinct * 2 >= candidate_total.max(1) {
+                return;
+            }
+            Self::apply_breaker_failure(h, thresholds, now_ms);
+        }
+    }
+
+    fn connect_fail_recent(h: &PlatformHealth, now_ms: i64) -> bool {
+        h.last_connect_fail_ms > 0 && now_ms - h.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
+    }
+
+    fn apply_breaker_failure(h: &mut PlatformHealth, thresholds: &BreakerThresholds, now_ms: i64) {
+        let open_until = now_ms + thresholds.open_secs as i64 * 1000;
+        h.breaker = match h.breaker {
                 BreakerState::Closed { fails } => {
                     let next = fails + 1;
                     if next >= thresholds.failure_threshold {
@@ -262,7 +313,6 @@ impl SchedulerState {
                     until_ms: open_until,
                 },
             };
-        }
     }
 
     /// 不计入熔断的请求结束（网络错误/5xx/空响应/401/402/客户端 4xx 非 429）：仅 inflight-1，
@@ -397,6 +447,49 @@ mod tests {
             BreakerState::Closed { fails: 0 }
         ));
         assert_eq!(s.admission(1, &th, until_passed, true), Admission::Allow);
+    }
+
+    #[test]
+    fn connect_failure_counts_into_breaker() {
+        // R1：connect 失败计入熔断，threshold=1 → 单次即 Open。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(9);
+        s.record_connect_failure(9, 4, &th, now);
+        assert!(matches!(s.breaker_state(9), BreakerState::Open { .. }));
+    }
+
+    #[test]
+    fn connect_failure_local_network_guard() {
+        // 保护条款：4 候选组，第 2 个平台也 connect 失败时失败平台数 2*2>=4 → 不计熔断。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(1);
+        s.record_connect_failure(1, 4, &th, now); // 1*2 < 4 → 计入，Open
+        assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, now + 1_000); // 2*2 >= 4 → 本地网络，不计
+        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+        // 同平台重复失败不重复计数：平台 2 再败仍 2 个去重平台 → 依旧不计。
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, now + 2_000);
+        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+    }
+
+    #[test]
+    fn connect_failure_window_expires() {
+        // 60s 滑窗外不累计：平台 1 失败后过窗，平台 2 失败时去重数回落 1 → 计入。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(1);
+        s.record_connect_failure(1, 4, &th, now);
+        let later = now + 61 * 1000;
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, later);
+        assert!(matches!(s.breaker_state(2), BreakerState::Open { .. }));
     }
 
     #[test]

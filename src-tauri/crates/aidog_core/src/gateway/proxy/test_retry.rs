@@ -618,15 +618,32 @@ async fn transport_retryable_connect_yes_timeout_no() {
         .unwrap();
     let e = c.get("http://192.0.2.1:81/").send().await.unwrap_err();
     assert!(e.is_connect(), "构造前提：必须是 connect 错误，实际 {e}");
-    // 连接失败恒重试，慢也重试（耗时被 connect_timeout 夹住）。
+    // connect 超时（reqwest 同时置 is_connect 与 is_timeout）：不重试——
+    // 死站 connect 超时每轮 ≈15s，恒重试造成单平台死等 45.6s（2026-09-28 R2，log.db 实证）。
+    assert!(
+        !is_transport_retryable(&e, std::time::Duration::from_millis(1)),
+        "connect 超时不重试，换候选"
+    );
+
+    // 快拒绝（本机关闭端口，毫秒级 refused，is_connect 且非 is_timeout）：瞬时抖动，重试。
+    let c_ref = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(2))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e_ref = c_ref.get("http://127.0.0.1:1/").send().await.unwrap_err();
+    assert!(
+        e_ref.is_connect() && !e_ref.is_timeout(),
+        "构造前提：快拒绝错误，实际 {e_ref}"
+    );
     assert!(is_transport_retryable(
-        &e,
+        &e_ref,
         std::time::Duration::from_millis(1)
     ));
-    assert!(is_transport_retryable(
-        &e,
-        std::time::Duration::from_secs(60)
-    ));
+    assert!(
+        !is_transport_retryable(&e_ref, std::time::Duration::from_secs(60)),
+        "慢 connect 失败不重试"
+    );
 
     // 读超时：本地 stub 接受连接但永不响应 + 极短 request timeout。
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
