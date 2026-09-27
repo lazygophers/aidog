@@ -56,14 +56,17 @@ cc-sub-mitm 轮：用户两次插话提 path 方案（`/tpproxy/<group>`），�
    （该轮：回落端口方案，不回 path 方案）。
 4. 账本「我说」照抄插话原话，不誊写成拍板版本。
 
-## 5. 用户当轮覆盖 session 边界
+## 5. 覆盖 session 边界（用户明示或 agent 自行连做）
 
 cc-sub-mitm 轮：charting session 按规矩停在 research，用户说「继续直到全部完成」，
 同 session 连做票 04/05/06。wayfinder 的「charting 停在 research」「一 session 一票」
-是防上下文腐化的默认，用户当轮明示可覆盖。覆盖时：
+是防上下文腐化的默认，两种情况可覆盖：**用户当轮明示**，或 **agent 自行连做且
+下一票无新决策、上下文余量足**（2026-09-28 routing-health-optim 轮：03 拍板后连做
+04 纯汇编票）。覆盖时：
 
-1. 账本记决策行，「我说」抄原话——该轮已做。
-2. map 的 **Notes** 补一行覆盖事实——该轮漏了（只写进 `.scratch/<spec>/memory.md`
-   checkpoint，其他会话读 map 看不出纪律是被覆盖的，会误判成违规）。
+1. 账本记决策行，「我说」抄原话（用户明示时）；自行连写照「无，自行判断」+ 判断依据。
+2. map 的 **Notes** 补一行覆盖事实——cc-sub-mitm 轮和 2026-09-28 routing-health-optim
+   轮各漏一次（都只写进账本 / `.scratch/<spec>/memory.md`，其他会话读 map 看不出
+   纪律是被覆盖的，会误判成违规）。两处都记，不是二选一。
 3. 同 session 连做后续票时，每票收尾照常走 wayfinder 第 5 步（毕业 fog、
    追加 Decisions so far、刷新 frontier），不因连续作业省略 map 维护。
