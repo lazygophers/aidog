@@ -68,4 +68,24 @@ describe("StackedAreaChart", () => {
     );
     expect(texts.some((tx) => tx != null && tx.includes("$"))).toBe(true);
   });
+
+  it("rightConfig renders a dashed right-axis line outside the stack", () => {
+    const data = rows(14).map((r) => ({ ...r, req: 20 }));
+    const { container } = render(
+      <StackedAreaChart
+        config={config}
+        data={data}
+        rightConfig={{ req: { label: "requests" } }}
+        rightValueFormat={(n) => `#${n}`}
+      />,
+    );
+    // 堆叠层不变（2 层），右轴总量线 1 条
+    expect(container.querySelectorAll(".recharts-area").length).toBe(2);
+    expect(container.querySelectorAll(".recharts-line").length).toBe(1);
+    // 右轴刻度走 rightValueFormat
+    const texts = Array.from(container.querySelectorAll(".recharts-cartesian-axis-tick-value")).map(
+      (el) => el.textContent,
+    );
+    expect(texts.some((tx) => tx != null && tx.includes("#"))).toBe(true);
+  });
 });

@@ -19,12 +19,14 @@ import {
   type Platform,
   type StatsBucket,
   type DimensionEntry,
+  type StatsSeries,
 } from "../services/api";
 import type { NavContext } from "../components/Sidebar";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { writeText } from "../services/platform";
 import { useReveal } from "../components/shared";
 import { LineChart, bucketMs, seriesColor } from "@/components/charts";
+import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
 import { F } from "../domains/shared/tokens";
 
 const DEFAULT_PORT = 7890;
@@ -110,14 +112,25 @@ export function normPoints(
 const ptsToPolyline = (pts: Array<[number, number]>) =>
   pts.map(([x, y]) => `${x.toFixed(1)},${y.toFixed(1)}`).join(" ");
 
-/** KPI 格行内 sparkline：100×22 viewBox 无填充折线（公共层无现成组件，最小 SVG 内联）。 */
-function Sparkline({ values, color }: { values: number[]; color: string }) {
+/** KPI 格行内 sparkline：viewBox 无填充折线（公共层无现成组件，最小 SVG 内联）。
+ *  width 缺省占满父格（KPI 用）；DimPanel 行尾传定宽。 */
+function Sparkline({
+  values,
+  color,
+  width,
+  marginTop = 8,
+}: {
+  values: number[];
+  color: string;
+  width?: number;
+  marginTop?: number;
+}) {
   if (values.length < 2) return null;
   return (
     <svg
       viewBox="0 0 100 22"
       preserveAspectRatio="none"
-      style={{ display: "block", marginTop: 8, width: "100%", height: 22 }}
+      style={{ display: "block", marginTop, width: width ?? "100%", height: 22, flexShrink: 0 }}
     >
       <polyline
         points={ptsToPolyline(normPoints(values, 100, 22))}
@@ -191,6 +204,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
   const [dimModels, setDimModels] = useState<DimensionEntry[]>([]);
   const [dimGroups, setDimGroups] = useState<DimensionEntry[]>([]);
+  // 维度小时序列（home-dim-trend）：同一次 queryBatch 连带 series_by 取回，
+  // 喂维度趋势图 + DimPanel 行迷你曲线（与行数据共用同一份查询）。
+  const [seriesModels, setSeriesModels] = useState<StatsSeries[]>([]);
+  const [seriesGroups, setSeriesGroups] = useState<StatsSeries[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
 
@@ -207,16 +224,22 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
       statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
-      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by，只消费 dimension_data。
+      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by + series_by，
+      // dimension_data 喂行、series 喂维度趋势图与行迷你曲线（同一份数据）。
       statsApi.queryBatch([
-        { start: windowStart, end: now.getTime(), group_by: "model" },
-        { start: windowStart, end: now.getTime(), group_by: "group" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "model", series_by: "model" },
+        { start: windowStart, end: now.getTime(), granularity: "hourly", group_by: "group", series_by: "group" },
       ])
         .then(([m, g]) => {
           setDimModels(m?.dimension_data ?? []);
           setDimGroups(g?.dimension_data ?? []);
+          setSeriesModels(m?.series ?? []);
+          setSeriesGroups(g?.series ?? []);
         })
-        .catch(() => { setDimModels([]); setDimGroups([]); }),
+        .catch(() => {
+          setDimModels([]); setDimGroups([]);
+          setSeriesModels([]); setSeriesGroups([]);
+        }),
     ]);
     setLoading(false);
   }, []);
@@ -263,6 +286,12 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const groupRows = useMemo(
     () => buildDimRows(dimGroups, ungroupedLabel),
     [dimGroups, ungroupedLabel],
+  );
+  // 行迷你曲线数据（home-dim-trend §2）：维度 → 24h 逐桶 token 序列。
+  const modelSparks = useMemo(() => buildSparkMap(seriesModels), [seriesModels]);
+  const groupSparks = useMemo(
+    () => buildSparkMap(seriesGroups, ungroupedLabel),
+    [seriesGroups, ungroupedLabel],
   );
 
   const statusColor = running == null
@@ -538,6 +567,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             titleDefault="按模型 · 24 小时"
             rows={modelRows.rows}
             totalTokens={modelRows.total}
+            sparks={modelSparks}
             loading={loading}
             onRow={name => onNavigate("stats", { model: name })}
           />
@@ -546,6 +576,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             titleDefault="按分组 · 24 小时"
             rows={groupRows.rows}
             totalTokens={groupRows.total}
+            sparks={groupSparks}
             loading={loading}
             onRow={name => onNavigate("stats", { groupKey: name })}
           />
@@ -581,18 +612,28 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           </div>
         </div>
       </div>
+
+      {/* 6. 维度趋势独立区块（home-dim-trend）：按模型 / 按分组堆叠面积 + 右轴请求线，
+          与 4.5 维度面板共用同一份 queryBatch 数据（series_by 小时序列）。 */}
+      <HomeTrendChart
+        modelSeries={seriesModels}
+        groupSeries={seriesGroups}
+        ungroupedLabel={ungroupedLabel}
+        loading={loading}
+      />
     </div>
   );
 }
 
 // ── 模型 / 分组维度面板（home-model-stats spec §2）─────────────────
-// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率。
+// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率｜24h 迷你曲线。
 // 「其它」行灰显不可点；缓存率分母不可加，合并行显 --。
 function DimPanel({
   titleKey,
   titleDefault,
   rows,
   totalTokens,
+  sparks,
   loading,
   onRow,
 }: {
@@ -600,6 +641,8 @@ function DimPanel({
   titleDefault: string;
   rows: { name: string; d: DimensionEntry; other: boolean; unclickable: boolean }[];
   totalTokens: number;
+  /** 行名 → 24h 逐桶 token 序列（home-dim-trend §2 行尾迷你曲线；缺名不画）。 */
+  sparks: Map<string, number[]>;
   loading: boolean;
   onRow: (name: string) => void;
 }) {
@@ -674,6 +717,8 @@ function DimPanel({
               <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                 {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
               </span>
+              {/* 行尾 24h token 迷你曲线（home-dim-trend §2）：该维度逐小时走势，灰阶不与占比条抢焦点 */}
+              <Sparkline values={sparks.get(r.name) ?? []} color={seriesColor(1)} width={72} marginTop={0} />
             </div>
           ))}
         </div>
