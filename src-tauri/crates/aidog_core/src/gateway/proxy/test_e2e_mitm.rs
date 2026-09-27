@@ -297,8 +297,8 @@ fn client_config_trusting_ca_h2(ca: &RootCa) -> rustls::ClientConfig {
 }
 
 /// 复现用户场景的 h2 CANCEL：curl -x http://127.0.0.1:<aidog>/proxy https://www.baidu.com/
-/// 经 CONNECT → MITM TLS（h2 ALPN 协商成功）→ 明文 GET / 无 Authorization → resolve_group
-/// 落空 → should_fallback_passthrough=true → forward_passthrough_to_orig_host。
+/// 经 CONNECT → MITM TLS（h2 ALPN 协商成功）→ 明文 GET / 无 Authorization → 票 10 起
+/// classify=Bypass → mitm_bypass::handle_mitm_observed（透明转发 + mitm_log 观测行）。
 ///
 /// 上游（forward 内 reqwest https://www.baidu.com:443/）无法在单测里 mock 真 https 上游
 /// （reqwest 用 webpki-roots 验证，禁注入自签 CA），故走 forward 的 502 错误分支
@@ -403,24 +403,37 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         "响应 body 必须非空（200 = html 内容 / 502 = error 文本），实际空 = body 流被吞"
     );
 
-    // 6. proxy_log 落虚拟「未匹配」桶（forward 路径已执行 + 落库）。
+    // 6. 票 10 起：非 API 明文请求改走 mitm_bypass —— mitm_log 落 www.baidu.com 观测行
+    //    （200 真上游成功 / 502 上游失败），proxy_log 不再有「未匹配」桶行（旁路不进
+    //    proxy_log 正是票 10 目标）。
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mitm_rows = state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            let mut stmt =
+                conn.prepare("SELECT host, status_code FROM mitm_log")?;
+            let rows = stmt
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .expect("read mitm_log");
+    let (host, status) = mitm_rows
+        .iter()
+        .find(|(h, _)| h == "www.baidu.com")
+        .expect("mitm_bypass 观测行必须存在（forward 路径已执行）");
+    assert!(
+        *status == 200 || *status == 502,
+        "mitm_bypass 必须记账终态（200 真上游成功 / 502 上游失败），实际 {status}"
+    );
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");
-    let row = logs
-        .iter()
-        .find(|r| r.group_key == "未匹配")
-        .expect("passthrough unmatched proxy_log row must exist (forward path executed)");
-    assert_eq!(
-        row.source_protocol, "passthrough_unmatched",
-        "forward 路径必须落 passthrough_unmatched 标记"
-    );
     assert!(
-        row.status_code == 200 || row.status_code == 502,
-        "forward 必须记账终态（200 真上游成功 / 502 上游失败），实际 {}",
-        row.status_code
+        logs.iter().all(|r| r.group_key != "未匹配"),
+        "票 10 起 MITM 非 API 流量不得落 proxy_log「未匹配」桶（旁路归 mitm_log）"
     );
 
     drop(sender);

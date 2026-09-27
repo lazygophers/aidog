@@ -981,32 +981,59 @@ pub(crate) async fn serve_plaintext<S>(
                     );
                 }
             };
-            let axum_req = Request::from_parts(parts, axum::body::Body::from(bytes));
-            // 灌入 handle_proxy_core —— 走完整 AI 请求链（middleware/路由/forward_attempt/采集）。
+            // ── 票 10 分流：MITM 明文请求按 host/path 分流（mitm_bypass 单一真值源）──
+            //
+            // Core（AI API / hello / models）→ 灌 handle_proxy_core，走完整 AI 请求链
+            // （middleware/路由/forward_attempt/采集）：
             //
             // 直调 handle_proxy_core 而非 handle_proxy：handle_proxy → handle_proxy_inner 含
             // CONNECT 分流 → handle_connect（与当前 spawn 互递归，Send 死锁）。core 不分流
             // CONNECT（分流已在 handle_proxy_inner 顶部），明文 Request method 非 CONNECT 必走
             // AI 路径，无递归。request_id + span + 499 guard 在本地构造（等价 handle_proxy_inner
             // 的 guard 语义，客户端断连时 Drop 补写终态 499）。
-            let request_id = uuid::Uuid::new_v4().simple().to_string();
-            let span = tracing::info_span!(
-                "req",
-                trace_id = %&request_id[..8],
-                request_id = %request_id,
-                mitm = %host,
-            );
-            // 归属注入门（票 08）：CONNECT 绑定 group 仅对 AI API 端点请求注入 core ——
-            // MITM 明文请求的 Authorization 是订阅 OAuth Bearer（resolve_group 必落空），归属由
-            // 隧道绑定注入；非 API 流量（遥测 / 网页等）不注入，维持现状落「未匹配」桶透明直通
-            // （注入会使 parse_incoming_request 对非 JSON body 返 400，破坏旁路流量）。
-            // 票 10 的 host/path 级分流（usage 采样 / mitm_log）在本门扩展；盲转 mitm_opaque
-            // 标记（票 09）在 connect 层盲转路径落（见 MITM_OPAQUE_REASON），不在此处。
-            let inject_group = bound.filter(|_| is_api_endpoint(&req_path));
-            let resp: Response =
+            //
+            // 非 Core（旁路流量 / /api/oauth/* / platform.claude.com token）→ mitm_bypass：
+            // 透明转发 + mitm_log 观测行（usage 蹭采样 / token 只记元数据），**不进 proxy_log**
+            // （票 10 目标：防遥测行污染统计；此前这类流量灌 core 落「未匹配」桶 passthrough）。
+            let route = classify_mitm_route(&host, &req_path, &parts.method);
+            let resp: Response = if route == MitmRoute::Core {
+                let axum_req = Request::from_parts(parts, axum::body::Body::from(bytes));
+                let request_id = uuid::Uuid::new_v4().simple().to_string();
+                let span = tracing::info_span!(
+                    "req",
+                    trace_id = %&request_id[..8],
+                    request_id = %request_id,
+                    mitm = %host,
+                );
+                // 归属注入门（票 08）：CONNECT 绑定 group 仅对 AI API 端点请求注入 core ——
+                // MITM 明文请求的 Authorization 是订阅 OAuth Bearer（resolve_group 必落空），
+                // 归属由隧道绑定注入（注入会使 parse_incoming_request 对非 JSON body 返 400，
+                // 破坏旁路流量，故仅 API 端点注入）。
+                let inject_group = bound.filter(|_| is_api_endpoint(&req_path));
                 handle_proxy_core(AxumState(st.clone()), axum_req, request_id, inject_group)
                     .instrument(span)
-                    .await;
+                    .await
+            } else {
+                // 归属沿用 CONNECT 绑定 group（mitm_log.group_name），URL 按 CONNECT host
+                // 重构（origin-form URI 只有 path 段）。
+                let group_name = bound.as_ref().map(|g| g.name.clone()).unwrap_or_default();
+                let pq = parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or("/");
+                let url = format!("https://{host}{pq}");
+                let log_settings = st.settings_cache.read().await.log_settings.clone();
+                handle_mitm_observed(
+                    &st,
+                    route,
+                    url,
+                    &host,
+                    &req_path,
+                    parts.method,
+                    parts.headers,
+                    bytes,
+                    &group_name,
+                    &log_settings,
+                )
+                .await
+            };
             Ok::<_, std::convert::Infallible>(resp)
         }
     });
