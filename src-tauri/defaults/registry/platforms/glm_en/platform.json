@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788200874,
+  "last_updated": 1790504305,
   "endpoints": {
     "default": [
       {
@@ -64,7 +64,7 @@
     "pricing": "https://docs.z.ai/guides/overview/pricing"
   },
   "homepage": "https://z.ai",
-  "logo_url": "zai",
+  "logo_url": "zdotai",
   "keywords": [
     "z.ai",
     "zhipu en",

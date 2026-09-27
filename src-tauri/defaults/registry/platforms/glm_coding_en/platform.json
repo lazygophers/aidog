@@ -77,7 +77,7 @@
     "pricing": "https://docs.z.ai/devpack/overview"
   },
   "homepage": "https://z.ai",
-  "logo_url": "zai",
+  "logo_url": "zdotai",
   "keywords": [
     "z.ai coding",
     "zhipu en coding",
@@ -113,7 +113,7 @@
       ]
     }
   ],
-  "last_updated": 1789205467,
+  "last_updated": 1790504305,
   "quota_url_match": ["bigmodel.cn", "api.z.ai"],
   "quota_scripts": [
     {
