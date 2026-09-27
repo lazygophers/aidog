@@ -191,9 +191,7 @@ async fn single_platform_forces_request_when_auto_disabled() {
     let p = mk_db_platform(&db, "GLM").await;
     let g = mk_db_group(&db, "single", &[p.id]).await;
     // 置 auto_disabled（退避未到期）
-    db::set_platform_auto_disabled(&db, p.id)
-        .await
-        .expect("set auto_disabled");
+    db::test_support::set_legacy_auto_disabled(&db, p.id, 1, db::now() + 3_600_000).await;
 
     let sched = SchedulerState::new();
     let sticky = StickyTable::new();
@@ -1429,9 +1427,7 @@ async fn two_enabled_one_auto_disabled_no_shortcut() {
     let p1 = mk_db_platform(&db, "enabled-1").await;
     let p2 = mk_db_platform(&db, "enabled-2").await;
     let p3 = mk_db_platform(&db, "auto-disabled-3").await;
-    db::set_platform_auto_disabled(&db, p3.id)
-        .await
-        .expect("set auto_disabled");
+    db::test_support::set_legacy_auto_disabled(&db, p3.id, 1, db::now() + 3_600_000).await;
     let g = mk_db_group(&db, "two-enabled", &[p1.id, p2.id, p3.id]).await;
 
     let sched = SchedulerState::new();
@@ -1466,9 +1462,7 @@ async fn zero_enabled_multi_platform_no_shortcut() {
     let p1 = mk_db_platform(&db, "auto-disabled-1").await;
     let p2 = mk_db_platform(&db, "auto-disabled-2").await;
     for pid in [p1.id, p2.id] {
-        db::set_platform_auto_disabled(&db, pid)
-            .await
-            .expect("set auto_disabled");
+        db::test_support::set_legacy_auto_disabled(&db, pid, 1, db::now() + 3_600_000).await;
     }
     let g = mk_db_group(&db, "zero-enabled", &[p1.id, p2.id]).await;
 

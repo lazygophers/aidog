@@ -261,8 +261,8 @@ async fn purge_auto_disabled_global_deletes_all() {
         .await
         .unwrap();
     // R2：auto_disabled 仅 401/403 last_error 才被一键清理删除。
-    set_platform_auto_disabled(&db, p_dead1.id).await.unwrap();
-    set_platform_auto_disabled(&db, p_dead2.id).await.unwrap();
+    set_legacy_auto_disabled(&db, p_dead1.id, 1, now() + 3_600_000).await;
+    set_legacy_auto_disabled(&db, p_dead2.id, 1, now() + 3_600_000).await;
     set_platform_last_error(&db, p_dead1.id, Some("HTTP 401: unauthorized".into()))
         .await
         .unwrap();
@@ -296,8 +296,8 @@ async fn purge_auto_disabled_group_exclusive_deletes_shared_unassigns() {
     let p_b = create_platform(&db, sample_platform("b-shared"))
         .await
         .unwrap();
-    set_platform_auto_disabled(&db, p_a.id).await.unwrap();
-    set_platform_auto_disabled(&db, p_b.id).await.unwrap();
+    set_legacy_auto_disabled(&db, p_a.id, 1, now() + 3_600_000).await;
+    set_legacy_auto_disabled(&db, p_b.id, 1, now() + 3_600_000).await;
     set_platform_last_error(&db, p_a.id, Some("HTTP 401: bad key".into()))
         .await
         .unwrap();
@@ -397,7 +397,7 @@ async fn purge_auto_disabled_group_skips_enabled() {
     let p_dead = create_platform(&db, sample_platform("dead-g"))
         .await
         .unwrap();
-    set_platform_auto_disabled(&db, p_dead.id).await.unwrap();
+    set_legacy_auto_disabled(&db, p_dead.id, 1, now() + 3_600_000).await;
     set_platform_last_error(&db, p_dead.id, Some("HTTP 401: bad key".into()))
         .await
         .unwrap();
@@ -660,9 +660,7 @@ async fn purge_global_also_deletes_expired_platforms() {
     set_expires_at(&db, p_expired1.id, now - 1000).await;
     set_expires_at(&db, p_expired2.id, now - 1).await;
     set_expires_at(&db, p_future.id, now + 86_400_000).await;
-    set_platform_auto_disabled(&db, p_disabled.id)
-        .await
-        .unwrap();
+    set_legacy_auto_disabled(&db, p_disabled.id, 1, now + 3_600_000).await;
     set_platform_last_error(&db, p_disabled.id, Some("HTTP 401: unauthorized".into()))
         .await
         .unwrap();
@@ -893,9 +891,9 @@ async fn purge_keeps_recoverable_auto_disabled() {
     let p_429q = create_platform(&db, sample_platform("p429q"))
         .await
         .unwrap();
-    set_platform_auto_disabled(&db, p_401.id).await.unwrap();
-    set_platform_auto_disabled(&db, p_402.id).await.unwrap();
-    set_platform_auto_disabled(&db, p_429q.id).await.unwrap();
+    set_legacy_auto_disabled(&db, p_401.id, 1, now() + 3_600_000).await;
+    set_legacy_auto_disabled(&db, p_402.id, 1, now() + 3_600_000).await;
+    set_legacy_auto_disabled(&db, p_429q.id, 1, now() + 3_600_000).await;
     set_platform_last_error(&db, p_401.id, Some("HTTP 401: unauthorized".into()))
         .await
         .unwrap();
@@ -940,8 +938,8 @@ async fn preview_candidates_match_purge_result_global_and_group() {
         let p_alive = create_platform(&db, sample_platform("alive"))
             .await
             .unwrap();
-        set_platform_auto_disabled(&db, p_dead1.id).await.unwrap();
-        set_platform_auto_disabled(&db, p_dead2.id).await.unwrap();
+        set_legacy_auto_disabled(&db, p_dead1.id, 1, now() + 3_600_000).await;
+        set_legacy_auto_disabled(&db, p_dead2.id, 1, now() + 3_600_000).await;
         set_platform_last_error(&db, p_dead1.id, Some("HTTP 401: unauthorized".into()))
             .await
             .unwrap();
@@ -981,8 +979,8 @@ async fn preview_candidates_match_purge_result_global_and_group() {
         let p_b = create_platform(&db, sample_platform("b-shared"))
             .await
             .unwrap();
-        set_platform_auto_disabled(&db, p_a.id).await.unwrap();
-        set_platform_auto_disabled(&db, p_b.id).await.unwrap();
+        set_legacy_auto_disabled(&db, p_a.id, 1, now() + 3_600_000).await;
+        set_legacy_auto_disabled(&db, p_b.id, 1, now() + 3_600_000).await;
         set_platform_last_error(&db, p_a.id, Some("HTTP 401: bad key".into()))
             .await
             .unwrap();

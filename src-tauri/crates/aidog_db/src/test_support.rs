@@ -5,6 +5,23 @@ use rusqlite::params;
 
 /// HOME / CODEX_HOME 是进程全局，所有触 FS（写 ~/.aidog、~/.claude、~/.codex）的测试必须
 /// 串行在 **同一把** 锁上，跨模块共享，避免并行线程互相覆盖。
+/// 测试专用（R5，2026-09-28）：构造「存量 auto_disabled 行」。生产写入路径已删
+/// （原 set_platform_auto_disabled：2026-09-15 起无生产调用，职责由调度器熔断+持久化接管），
+/// 读兼容路径（candidate_state 过滤 / 成功 recover / 编辑清零）的回归测试用本函数造行。
+/// 直接置给定 strikes/until，不模拟退避迭代。
+pub async fn set_legacy_auto_disabled(db: &Db, id: u64, strikes: i64, until_ms: i64) {
+    db.call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            "UPDATE platform SET status='auto_disabled', enabled=0, auto_disable_strikes=?1, auto_disabled_until=?2, updated_at=?3 WHERE id=?4",
+            params![strikes, until_ms, crate::now(), id as i64],
+        )?;
+        Ok(())
+    })
+    .await
+    .expect("set legacy auto_disabled");
+    db.invalidate_group_details_cache();
+}
+
 pub static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 /// HOME / CODEX_HOME / CLAUDE_CONFIG_DIR 指向 tempdir 的 RAII 守卫；Drop 时恢复原值。

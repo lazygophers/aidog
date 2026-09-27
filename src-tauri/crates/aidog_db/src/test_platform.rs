@@ -228,43 +228,20 @@ async fn platform_breaker_roundtrips_via_extra() {
     );
 }
 
-/// 401/403 自动禁用：状态变 auto_disabled，strikes 递增，退避指数 1h/2h/4h。
+/// R5（2026-09-28）：auto_disable 写入路径已删（原 set_platform_auto_disabled），本测试守
+/// 读兼容的 recover 路径——存量 auto_disabled 行成功后恢复 enabled、清 strikes/until。
 #[tokio::test]
-async fn auto_disable_exponential_backoff() {
+async fn auto_disable_recover_clears_state() {
     let db = test_db().await;
     let p = create_platform(&db, sample_platform("ad")).await.unwrap();
     assert_eq!(p.status, PlatformStatus::Enabled);
 
-    let base = 60 * 60 * 1000i64;
-    // 第 1 次：strikes=1, 退避 1h
-    let t0 = now();
-    let until1 = set_platform_auto_disabled(&db, p.id).await.unwrap();
-    let g1 = get_platform(&db, p.id).await.unwrap().unwrap();
-    assert_eq!(g1.status, PlatformStatus::AutoDisabled);
-    assert!(!g1.enabled, "auto_disabled 平台 enabled 列同步为 false");
-    assert_eq!(g1.auto_disable_strikes, 1);
-    assert!(
-        until1 >= t0 + base && until1 <= now() + base + 1000,
-        "first backoff ~1h"
-    );
-
-    // 第 2 次：strikes=2, 退避 2h
-    set_platform_auto_disabled(&db, p.id).await.unwrap();
-    let g2 = get_platform(&db, p.id).await.unwrap().unwrap();
-    assert_eq!(g2.auto_disable_strikes, 2);
-    assert!(
-        g2.auto_disabled_until - now() >= 2 * base - 2000,
-        "second backoff ~2h"
-    );
-
-    // 第 3 次：strikes=3, 退避 4h
-    set_platform_auto_disabled(&db, p.id).await.unwrap();
-    let g3 = get_platform(&db, p.id).await.unwrap().unwrap();
-    assert_eq!(g3.auto_disable_strikes, 3);
-    assert!(
-        g3.auto_disabled_until - now() >= 4 * base - 2000,
-        "third backoff ~4h"
-    );
+    // 造存量行（原退避迭代语义随写入路径一起删除，不再测）
+    set_legacy_auto_disabled(&db, p.id, 3, now() + 4 * 3_600_000).await;
+    let g = get_platform(&db, p.id).await.unwrap().unwrap();
+    assert_eq!(g.status, PlatformStatus::AutoDisabled);
+    assert!(!g.enabled, "auto_disabled 平台 enabled 列同步为 false");
+    assert_eq!(g.auto_disable_strikes, 3);
 
     // 2xx 恢复：清状态
     recover_platform_auto_disabled(&db, p.id).await.unwrap();
@@ -275,50 +252,12 @@ async fn auto_disable_exponential_backoff() {
     assert_eq!(g4.auto_disabled_until, 0);
 }
 
-/// 用户手动 disabled 平台不受 401/403 自动禁用影响（区分手动 vs 自动）。
-#[tokio::test]
-async fn auto_disable_skips_user_disabled() {
-    let db = test_db().await;
-    let p = create_platform(&db, sample_platform("ud")).await.unwrap();
-    // 用户手动禁用
-    let upd = update_platform(
-        &db,
-        UpdatePlatform {
-            id: p.id,
-            name: None,
-            platform_type: None,
-            base_url: None,
-            api_key: None,
-            extra: None,
-            models: None,
-            available_models: None,
-            endpoints: None,
-            enabled: None,
-            status: Some(PlatformStatus::Disabled),
-            manual_budgets: None,
-            join_group_ids: None,
-            expires_at: None,
-        quota_source: None,
-        },
-    )
-    .await
-    .unwrap();
-    assert_eq!(upd.status, PlatformStatus::Disabled);
-    assert!(!upd.enabled);
-
-    // 401/403 触发不应改成 auto_disabled
-    let until = set_platform_auto_disabled(&db, p.id).await.unwrap();
-    assert_eq!(until, 0, "user-disabled 平台不进入退避");
-    let g = get_platform(&db, p.id).await.unwrap().unwrap();
-    assert_eq!(g.status, PlatformStatus::Disabled, "保持用户手动禁用");
-}
-
 /// 改 api_key 自恢复：auto_disabled 平台改 api_key → 立即恢复 enabled 清退避。
 #[tokio::test]
 async fn api_key_change_recovers_auto_disabled() {
     let db = test_db().await;
     let p = create_platform(&db, sample_platform("rk")).await.unwrap();
-    set_platform_auto_disabled(&db, p.id).await.unwrap();
+    set_legacy_auto_disabled(&db, p.id, 1, now() + 3_600_000).await;
     assert_eq!(
         get_platform(&db, p.id).await.unwrap().unwrap().status,
         PlatformStatus::AutoDisabled
