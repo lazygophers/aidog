@@ -1922,6 +1922,8 @@
   "stats.viewMode": "View",
   "stats.viewLine": "Lines",
   "stats.viewStacked": "Stacked",
+  "stats.trendTotal": "Total",
+  "stats.trendSplit": "Split by",
   "stats.dimHeatTitle": "Activity Heatmap (Dimension × Day)",
   "stats.densityViewHeat": "Hour heatmap",
   "stats.densityViewScatter": "Distribution",

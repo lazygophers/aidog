@@ -1944,6 +1944,8 @@
   "stats.viewMode": "طريقة العرض",
   "stats.viewLine": "خطوط",
   "stats.viewStacked": "مكدس",
+  "stats.trendTotal": "الإجمالي",
+  "stats.trendSplit": "التقسيم",
   "stats.dimHeatTitle": "خريطة النشاط الحرارية (البعد × اليوم)",
   "stats.densityViewHeat": "خريطة الساعات",
   "stats.densityViewScatter": "التوزيع",

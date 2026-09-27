@@ -1922,6 +1922,8 @@
   "stats.viewMode": "视图",
   "stats.viewLine": "折线",
   "stats.viewStacked": "堆叠",
+  "stats.trendTotal": "总计",
+  "stats.trendSplit": "拆分维度",
   "stats.dimHeatTitle": "活跃热力（维度 × 日）",
   "stats.densityViewHeat": "时刻热力",
   "stats.densityViewScatter": "请求分布",

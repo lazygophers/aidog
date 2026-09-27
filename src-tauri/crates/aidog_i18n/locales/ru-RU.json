@@ -1944,6 +1944,8 @@
   "stats.viewMode": "Вид",
   "stats.viewLine": "Линии",
   "stats.viewStacked": "С накоплением",
+  "stats.trendTotal": "Всего",
+  "stats.trendSplit": "Разбивка",
   "stats.dimHeatTitle": "Тепловая карта активности (измерение × день)",
   "stats.densityViewHeat": "Тепловая карта часов",
   "stats.densityViewScatter": "Распределение",

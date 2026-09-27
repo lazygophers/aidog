@@ -1944,6 +1944,8 @@
   "stats.viewMode": "表示",
   "stats.viewLine": "折れ線",
   "stats.viewStacked": "積み上げ",
+  "stats.trendTotal": "合計",
+  "stats.trendSplit": "分割",
   "stats.dimHeatTitle": "アクティビティヒートマップ（次元 × 日）",
   "stats.densityViewHeat": "時間帯ヒートマップ",
   "stats.densityViewScatter": "分布",

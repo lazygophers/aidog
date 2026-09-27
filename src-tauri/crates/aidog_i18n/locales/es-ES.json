@@ -1922,6 +1922,8 @@
   "stats.viewMode": "Vista",
   "stats.viewLine": "Lineas",
   "stats.viewStacked": "Apiladas",
+  "stats.trendTotal": "Total",
+  "stats.trendSplit": "Desglose",
   "stats.dimHeatTitle": "Mapa de calor de actividad (dimension × dia)",
   "stats.densityViewHeat": "Mapa de horas",
   "stats.densityViewScatter": "Distribución",
