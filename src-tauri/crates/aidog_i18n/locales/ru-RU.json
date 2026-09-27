@@ -1964,6 +1964,7 @@
   "stats.today": "Сегодня",
   "stats.tokens": "Токены",
   "stats.totalCost": "Общая стоимость",
+  "stats.costNote": "Ориентировочная стоимость, не фактическая оплата",
   "stats.totalRequests": "Всего запросов",
   "stats.totalRows": "{{count}} записей",
   "stats.totalTokens": "Всего токенов",

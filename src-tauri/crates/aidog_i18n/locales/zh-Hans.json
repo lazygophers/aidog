@@ -1942,6 +1942,7 @@
   "stats.today": "今天",
   "stats.tokens": "Token",
   "stats.totalCost": "总成本",
+  "stats.costNote": "参考成本，非实付",
   "stats.totalRequests": "总请求",
   "stats.totalRows": "共 {{count}} 条",
   "stats.totalTokens": "总 Token",

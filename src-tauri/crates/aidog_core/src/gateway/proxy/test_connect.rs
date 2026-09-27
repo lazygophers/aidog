@@ -98,6 +98,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
         "api.example.com:443".into(),
         200,
         42,
+        String::new(),
     )
     .await;
     flush_log_queue(&state).await;
@@ -1208,5 +1209,140 @@ async fn bound_group_injects_attribution_into_core() {
     assert_eq!(
         row.group_key, group.group_key,
         "绑定注入后 proxy_log 归属必须是 CONNECT 绑定的 group"
+    );
+}
+
+/// 票 09 / spec D4：CONNECT 认证绑定 group + 盲转（白名单未命中）→ proxy_log 元数据行
+/// est_cost=0 + blocked_reason='mitm_opaque'；同 proxy 上未认证的盲转行不标记（现状零回归）。
+#[tokio::test]
+async fn bound_blind_relay_marks_mitm_opaque_row() {
+    use base64::Engine as _;
+    // 1. mock 上游：accept 后即关（127.0.0.1 不在白名单 → P1 盲转路径；上游主动关使
+    //    bridge_bidir 两侧 EOF 结束，log_connect_success 才会落行——echo 型上游等客户端
+    //    半关会挂住 join! 的另一方向）。
+    let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = upstream.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((s, _)) = upstream.accept().await {
+            drop(s);
+        }
+    });
+
+    // 2. aidog proxy axum server + 绑定目标 group。
+    let state = make_state().await;
+    let group =
+        aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
+            .await
+            .unwrap();
+    let app = axum::Router::new()
+        .route("/", axum::routing::get(handle_root))
+        .route("/proxy", axum::routing::get(handle_root))
+        .fallback(handle_proxy)
+        .with_state(state.clone());
+    let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(proxy_listener, app).await.ok();
+    });
+
+    // 3. 绑定 CONNECT：Proxy-Authorization Basic username=group 名 → 盲转行标 mitm_opaque。
+    let auth = base64::engine::general_purpose::STANDARD
+        .encode(format!("{}:x", group.name));
+    let mut bound_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    bound_sock
+        .write_all(
+            format!(
+                "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\nProxy-Authorization: Basic {auth}\r\n\r\n",
+                upstream = upstream_addr
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let mut buf = [0u8; 256];
+    let n = bound_sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "绑定 group 的盲转隧道必须照常建通（盲转保通），实际: {resp}"
+    );
+
+    // 4. 未绑定 CONNECT（无认证头）→ 盲转行不标记（现状零回归对照）。
+    let mut plain_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    plain_sock
+        .write_all(
+            format!(
+                "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\n\r\n",
+                upstream = upstream_addr
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let n = plain_sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "未绑定盲转隧道必须照常 200，实际: {resp}"
+    );
+
+    // 5. 断开两隧道 → bridge_bidir 结束 → log_connect_success 落行。
+    drop(bound_sock);
+    drop(plain_sock);
+    // bridge_bidir 结束（两侧 EOF）后才落 log_connect_success；轮询等待行出现（上限 3s）。
+    let logs = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+                .await
+                .expect("list proxy_logs");
+            let bound_done = logs.iter().any(|r| r.group_key == group.group_key);
+            let plain_done = logs
+                .iter()
+                .any(|r| r.source_protocol == "http-connect" && r.group_key.is_empty());
+            if bound_done && plain_done {
+                return logs;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("盲转行 3s 内必须落库（bridge 结束 → log_connect_success）");
+    flush_log_queue(&state).await;
+
+    // 6. 绑定行：group_key=绑定 group + blocked_reason=mitm_opaque + est_cost=0。
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+        .await
+        .expect("list proxy_logs");
+    let bound_row = logs
+        .iter()
+        .find(|r| r.group_key == group.group_key)
+        .expect("绑定 group 的盲转行必须存在");
+    assert_eq!(bound_row.source_protocol, "http-connect");
+    assert_eq!(bound_row.status_code, 200, "盲转保通：隧道建立成功");
+    let full = aidog_logs::get_proxy_log(&state.db, &bound_row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    assert_eq!(
+        full.blocked_reason, "mitm_opaque",
+        "绑定的盲转行必须标 mitm_opaque（spec D4）"
+    );
+    assert_eq!(
+        full.est_cost, 0.0,
+        "盲转不透明行 est_cost 恒 0（未解密无 token 可计）"
+    );
+
+    // 7. 未绑定行：blocked_reason 为空（普通代理流量不标记）。
+    let plain_row = logs
+        .iter()
+        .find(|r| r.source_protocol == "http-connect" && r.group_key.is_empty())
+        .expect("未绑定的盲转行必须存在");
+    let plain_full = aidog_logs::get_proxy_log(&state.db, &plain_row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    assert_eq!(
+        plain_full.blocked_reason, "",
+        "未绑定连接的盲转行不得标 mitm_opaque（现状零回归）"
     );
 }
