@@ -9,6 +9,7 @@ import {
   modelInfoApi,
   modelPriceApi,
   priceSyncApi,
+  onRegistryUpdated,
   type ModelEntry,
   type ModelEntryGroup,
   type ModelInfoSnapshot,
@@ -83,19 +84,24 @@ export function ModelInfoTab() {
 
   const filterCard = useReveal<HTMLDivElement>(80);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const snap = await modelInfoApi.snapshot();
       setSnapshot(snap);
     } catch (e) {
       console.error(e);
-      setMessage(String(e));
+      if (!silent) setMessage(String(e));
     }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // 注册表远程同步落库有变更（周期自动同步 / 他处手动同步，Rust emit "registry-updated"）
+  // → 静默重拉 snapshot：停留本页也能看到新数据，不闪 loading、不清筛选。
+  // 本页手动同步按钮自身走 load()，与这里的静默重拉 debounce 后偶发双拉，无害。
+  useEffect(() => onRegistryUpdated(() => { load(true); }), [load]);
 
   useEffect(() => {
     priceSyncApi.get().then(setSettings).catch(() => { /* 用默认值 */ });

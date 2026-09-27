@@ -97,12 +97,34 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   };
 
   /** 轻量刷新：刷新全量平台快照（含 est_balance_remaining）+ 按已加载组重算 usage stats / 余额聚合，
+   *  并把 status/enabled/余额等后台自发变更（auto_disabled 恢复 / 校准）merge 进已加载组的平台行
+   *  （组卡状态徽标读 details[].platforms，不补这步则停留页面显示陈旧值），
    *  不拉 quota HTTP、不重拉组（统计基于已触底加载的 loadedDetailsRef，分页一致）。 */
   const refreshStats = async () => {
     try {
       const p = (await platformApi.list()) || [];
       allPlatformsRef.current = p;
-      const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, p);
+      const freshById = new Map(p.map(fp => [fp.id, fp]));
+      const patchDetails = (details: GroupDetail[]): GroupDetail[] => {
+        let anyChanged = false;
+        const next = details.map(d => {
+          let changed = false;
+          const platforms = d.platforms.map(gp => {
+            const f = freshById.get(gp.platform.id);
+            if (!f || (f.status === gp.platform.status && f.enabled === gp.platform.enabled && f.est_balance_remaining === gp.platform.est_balance_remaining)) return gp;
+            changed = true;
+            return { ...gp, platform: { ...gp.platform, status: f.status, enabled: f.enabled, est_balance_remaining: f.est_balance_remaining } };
+          });
+          if (!changed) return d;
+          anyChanged = true;
+          return { ...d, platforms };
+        });
+        return anyChanged ? next : details;
+      };
+      const statsBase = patchDetails(loadedDetailsRef.current);
+      loadedDetailsRef.current = statsBase;
+      setDetails(prev => patchDetails(prev));
+      const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(statsBase, p);
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
       setUnmatchedStat(u);

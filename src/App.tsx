@@ -26,7 +26,9 @@ import {
   notificationApi,
   NOTIF_SPEAK,
   autoUpdateApi,
+  onRegistryUpdated,
 } from "./services/api";
+import { invalidateDefaultsDoc } from "./domains/platforms/defaults";
 import { checkForUpdateDailyThrottled } from "./services/updater";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
@@ -113,6 +115,11 @@ function App() {
       .then((upd) => { if (upd) setPendingUpdate(upd); })
       .catch(() => {});
   }, []);
+
+  // 注册表远程同步落库有变更（Rust emit "registry-updated"）→ 失效 defaults docPromise，
+  // 后续 getDefault* 调用重新走 RPC（消费点分散在表单默认值 / 模型候选列，不在此逐个刷新）。
+  // 模型信息页自身的 snapshot 重拉由 ModelInfoTab 自己订阅同一事件。
+  useEffect(() => onRegistryUpdated(() => { invalidateDefaultsDoc(); }), []);
 
   // aidog:// deep link 协议层事件分发：后端 emit `aidog-deep-link` {entity, action, data}，
   // 这里按 entity 二次分发到 `aidog:<entity>` window CustomEvent，children（D2/D3/D4 的

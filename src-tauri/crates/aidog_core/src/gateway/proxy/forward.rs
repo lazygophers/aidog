@@ -941,6 +941,10 @@ pub(crate) async fn forward_attempt(
                     tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
                 } else {
                     tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
+                    // status 列变了（auto_disabled → enabled）：复用 proxy-log-updated 通知前端
+                    // 停留页面轻刷（refreshStats 合并 status）。此处不一定紧跟日志终态写
+                    // （单请求多 attempt / 早退路径），自 notify 防 UI 状态陈旧。
+                    aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
                 }
             }
             log.platform_id = route.platform.id;

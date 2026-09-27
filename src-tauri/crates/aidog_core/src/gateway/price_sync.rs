@@ -37,7 +37,13 @@ struct Job {
 /// 自动带 price_sync{trace_id=xxxxxxxx} 前缀，可按 id grep 出完整一轮同步。
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_registry(db: &Db) -> Result<PriceSyncResult, String> {
-    sync_registry_from(db, &[REGISTRY_PRIMARY_BASE, REGISTRY_FALLBACK_BASE]).await
+    let result = sync_registry_from(db, &[REGISTRY_PRIMARY_BASE, REGISTRY_FALLBACK_BASE]).await?;
+    // 注册表镜像表有实际变更 → 通知前端（模型信息页重拉 snapshot、defaults docPromise 失效）。
+    // 无变更的周期空转不发，避免页面无谓 refetch。
+    if result.added + result.updated > 0 {
+        aidog_ctx::emit_unit("registry-updated");
+    }
+    Ok(result)
 }
 
 /// [`sync_registry`] 的可注入源版本（测试用本地 stub server 当 base）。
