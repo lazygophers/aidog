@@ -1944,6 +1944,8 @@
   "stats.viewMode": "Ansicht",
   "stats.viewLine": "Linien",
   "stats.viewStacked": "Gestapelt",
+  "stats.trendTotal": "Gesamt",
+  "stats.trendSplit": "Aufschlüsselung",
   "stats.dimHeatTitle": "Aktivitaets-Heatmap (Dimension × Tag)",
   "stats.densityViewHeat": "Stunden-Heatmap",
   "stats.densityViewScatter": "Verteilung",

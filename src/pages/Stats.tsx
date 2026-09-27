@@ -252,6 +252,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     setGranularity(p === "today" ? "hourly" : "daily");
   };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
+  // 时间序列拆分维度：独立于全页 groupBy（占比/排行/热力仍跟 groupBy）；「总计」不传 series_by，
+  // 后端返空 series → buildTrendChartData 回落 buckets 总量单线。默认总计，不持久化（2026-09-27 拍板）。
+  const [trendBy, setTrendBy] = useState<"total" | "platform" | "model" | "group">("total");
   const [filterGroup, setFilterGroup] = useState(initialFilter?.groupKey ?? "");
   // 模型筛选也吃导航上下文（首页「按模型」行下钻，home-model-stats spec §3）。
   const [filterModel, setFilterModel] = useState(initialFilter?.model ?? "");
@@ -315,8 +318,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       const prevR = previousRange(range.start, range.end);
       // 当前周期 + 上一等长周期并行查询（上一周期仅用 overview 做环比）
       const [result, prev] = await Promise.all([
-        // series_by=group_by：时间序列 tab 按维度多序列（chart-engine D1 / #32）
-        statsApi.query({ ...base, series_by: groupBy, start: range.start, end: range.end }),
+        // series_by=拆分维度：非总计时按维度拆多序列（chart-engine D1 / #32）；总计不传 → 总量单线
+        statsApi.query({ ...base, series_by: trendBy === "total" ? undefined : trendBy, start: range.start, end: range.end }),
         statsApi.query({ ...base, start: prevR.start, end: prevR.end }).catch(() => null),
       ]);
       setPrevOverview(prev?.overview ?? null);
@@ -340,7 +343,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       console.error(e);
     }
     if (!silent) setLoading(false);
-  }, [baseQuery, preset, granularity, groupBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
+  }, [baseQuery, preset, granularity, groupBy, trendBy, filterGroup, filterModel, filterPlatform, filterCodingPlan]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -687,11 +690,23 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           </div>
 
           {/* 时间序列 tab：公共层 LineChart / StackedAreaChart（多序列可切堆叠视图，#39 批次二）；
-              series_by 多序列（主琥珀线 = 最大维度值） */}
+              series_by 多序列（主琥珀线 = 最大维度值）。拆分维度选择器独立于全页 groupBy，默认总计 */}
           {activeTab === "trend" && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {trend.multi && (
-                <div role="group" aria-label={t("stats.viewMode", "视图")} style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Select value={trendBy} onValueChange={v => setTrendBy(v as typeof trendBy)}>
+                  <SelectTrigger style={{ fontSize: 12, width: 110, height: 30 }}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="total">{t("stats.trendTotal", "总计")}</SelectItem>
+                    <SelectItem value="platform">{t("stats.byPlatform", "按平台")}</SelectItem>
+                    <SelectItem value="model">{t("stats.byModel", "按模型")}</SelectItem>
+                    <SelectItem value="group">{t("stats.byGroup", "按分组")}</SelectItem>
+                  </SelectContent>
+                </Select>
+                {trend.multi && (
+                  <div role="group" aria-label={t("stats.viewMode", "视图")} style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
                   <Button
                     variant={!trendStacked ? "default" : "ghost"}
                     aria-pressed={!trendStacked}
@@ -727,7 +742,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                     {t("stats.viewStacked", "堆叠")}
                   </Button>
                 </div>
-              )}
+                )}
+              </div>
               {trendStacked && trend.multi ? (
                 <StackedAreaChart
                   title={t("stats.requestTrend", "请求趋势")}

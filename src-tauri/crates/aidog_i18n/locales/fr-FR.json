@@ -1944,6 +1944,8 @@
   "stats.viewMode": "Vue",
   "stats.viewLine": "Courbes",
   "stats.viewStacked": "Empile",
+  "stats.trendTotal": "Total",
+  "stats.trendSplit": "Ventilation",
   "stats.dimHeatTitle": "Carte thermique d'activite (dimension × jour)",
   "stats.densityViewHeat": "Créneau horaire",
   "stats.densityViewScatter": "Distribution",
