@@ -1154,7 +1154,7 @@ fn reextract_legacy_last_error(conn: &Connection) {
 ///  3. 新库（从未建两表）：跳过数据迁移，仅 seed 默认白名单到 setting（若 setting 无 mitm:whitelist）。
 ///
 /// seed 并入 migration（单源，避免 seed 函数与新表脱节）：新库或旧库无白名单数据时，
-/// 填 37 条 DEFAULT_RULES + 已配平台 base_url host 到 setting (mitm, whitelist)。
+/// 填 38 条 DEFAULT_RULES + 已配平台 base_url host 到 setting (mitm, whitelist)。
 /// 幂等：INSERT OR IGNORE setting + DROP TABLE IF EXISTS。
 fn migrate_mitm_legacy_tables_to_setting(conn: &Connection) {
     let now = now();
