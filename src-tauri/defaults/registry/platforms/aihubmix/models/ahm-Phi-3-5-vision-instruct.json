@@ -1,11 +1,13 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790496740,
   "model_id": "ahm-Phi-3-5-vision-instruct",
   "canonical_model": "ahm-Phi-3-5-vision-instruct",
 
   "version": "3",
   "family": "phi",  "display_name": "Ahm Phi 3.5 Vision Instruct",
   "capabilities": [],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
