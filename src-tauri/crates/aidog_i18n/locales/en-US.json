@@ -424,6 +424,8 @@
   "group.piApiLabel": "pi wire protocol",
   "group.platforms": "Platforms",
   "group.platformsHint": "Select and reorder platforms for this group; order defines priority",
+  "group.soloHint": "Claude Code subscription platform must be in a solo group — no other platforms allowed",
+  "group.soloBadge": "Subscription mixed",
   "group.purgeDisabled": "Purge disabled",
   "group.purgeDisabledConfirm": "This will clean up disabled (auto-disabled) platforms in this group: exclusive ones are permanently deleted, shared ones are only removed from this group. Continue?",
   "group.purgeDisabledDone": "Cleaned up: deleted {{deleted}}, unassigned {{unassigned}}",

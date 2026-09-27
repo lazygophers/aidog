@@ -419,12 +419,26 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [platforms]);
 
-  /** BatchMoveGroupModal 确认：调 batch_move_group → toast → 刷新 → 关 modal → batchDoneSignal。 */
+  /** BatchMoveGroupModal 确认：调 batch_move_group → toast → 刷新 → 关 modal → batchDoneSignal。
+   *  claude_code 订阅独占分组：前端先按目标组合组成拦截（后端 batch_move_group 亦有硬校验兜底）。 */
   const confirmBatchMoveGroup = useCallback(async (targetGroupId: number, mode: "move" | "add") => {
     if (!batchMoveGroupTarget) return;
     setBatchMoveGroupBusy(true);
     try {
       const ids = batchMoveGroupTarget.platforms.map(p => p.id);
+      // 目标组合并组成（move/add 语义下最终成员同集：现有 + 本次进入者）
+      const targetDetail = details.find(d => d.group.id === targetGroupId);
+      const composition = new Set<number>(ids);
+      targetDetail?.platforms.forEach(gp => composition.add(gp.platform.id));
+      const compositionCc = [...composition].some(id => {
+        const p = platforms.find(pp => pp.id === id) ?? batchMoveGroupTarget.platforms.find(pp => pp.id === id);
+        return p?.platform_type === "claude_code";
+      });
+      if (compositionCc && composition.size > 1) {
+        onToast?.({ text: t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组"), ok: false });
+        setTimeout(() => onToast?.(null), 3000);
+        return;
+      }
       const report = await platformApi.batchMoveGroup(ids, targetGroupId, mode);
       setBatchMoveGroupTarget(null);
       setBatchDoneSignal(n => n + 1);

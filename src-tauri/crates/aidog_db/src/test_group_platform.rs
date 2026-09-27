@@ -342,3 +342,36 @@ async fn sync_platform_manual_groups_adds_removes_preserves_auto() {
         "清空手动组不删 auto"
     );
 }
+
+// ── claude_code 订阅独占分组（2026-09-27）──
+#[tokio::test]
+async fn solo_group_rejects_claude_code_mixed() {
+    let db = test_db().await;
+    let g = create_group(&db, sample_group("solo-g", vec![])).await.unwrap();
+    let mut cc = sample_platform("cc-sub");
+    cc.platform_type = Protocol::ClaudeCode;
+    let p1 = create_platform(&db, cc).await.unwrap();
+    let p2 = create_platform(&db, sample_platform("solo-other")).await.unwrap();
+
+    let mk = |id: u64| GroupPlatformInput { platform_id: id, priority: Some(0), weight: Some(1), level_priority: None };
+
+    // 混合：拒绝
+    let err = set_group_platforms(&db, g.id, &[mk(p1.id), mk(p2.id)]).await.unwrap_err();
+    assert!(err.contains("独占分组"), "{err}");
+    // 单独 claude_code：通过
+    set_group_platforms(&db, g.id, &[mk(p1.id)]).await.unwrap();
+    // 两个非订阅平台：不受影响
+    let p3 = create_platform(&db, sample_platform("solo-3")).await.unwrap();
+    set_group_platforms(&db, g.id, &[mk(p2.id), mk(p3.id)]).await.unwrap();
+}
+
+#[tokio::test]
+async fn solo_group_assert_helper_direct() {
+    let db = test_db().await;
+    let mut cc = sample_platform("cc-direct");
+    cc.platform_type = Protocol::ClaudeCode;
+    let p1 = create_platform(&db, cc).await.unwrap();
+    let p2 = create_platform(&db, sample_platform("plain")).await.unwrap();
+    assert_group_composition_solo(&db, &[p1.id as i64]).await.unwrap();
+    assert!(assert_group_composition_solo(&db, &[p2.id as i64, p1.id as i64]).await.is_err());
+}

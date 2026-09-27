@@ -424,6 +424,8 @@
   "group.piApiLabel": "pi の通信プロトコル",
   "group.platforms": "プラットフォーム",
   "group.platformsHint": "このグループのプラットフォームを選択・並び替え。順序が優先度を決定",
+  "group.soloHint": "Claude Code サブスクリプションは単独グループのみ（他プラットフォームと同グループ不可）",
+  "group.soloBadge": "サブスク混在",
   "group.purgeDisabled": "無効化を整理",
   "group.purgeDisabledConfirm": "このグループの無効化プラットフォームを整理します（専有は永久削除、共有はこのグループからのみ除去）。続行しますか？",
   "group.purgeDisabledDone": "整理完了：削除 {{deleted}}、除去 {{unassigned}}",

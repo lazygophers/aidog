@@ -424,6 +424,8 @@
   "group.piApiLabel": "pi 线路协议",
   "group.platforms": "平台",
   "group.platformsHint": "选择并排序此分组使用的平台，顺序决定优先级",
+  "group.soloHint": "Claude Code 订阅平台只允许独占分组，不能与其他平台同组",
+  "group.soloBadge": "订阅混组",
   "group.purgeDisabled": "清理失效",
   "group.purgeDisabledConfirm": "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？",
   "group.purgeDisabledDone": "已清理：删除 {{deleted}}，移除 {{unassigned}}",

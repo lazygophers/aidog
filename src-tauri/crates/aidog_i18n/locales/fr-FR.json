@@ -424,6 +424,8 @@
   "group.piApiLabel": "Protocole de liaison pi",
   "group.platforms": "Plateformes",
   "group.platformsHint": "Sélectionnez et réordonnez les plateformes de ce groupe ; l'ordre définit la priorité",
+  "group.soloHint": "La plateforme dabonnement Claude Code doit être seule dans son groupe — aucune autre plateforme",
+  "group.soloBadge": "Abo mixte",
   "group.purgeDisabled": "Purger désactivées",
   "group.purgeDisabledConfirm": "Cela va nettoyer les plateformes désactivées de ce groupe (les exclusives sont supprimées définitivement, les partagées sont uniquement retirées de ce groupe). Continuer ?",
   "group.purgeDisabledDone": "Nettoyé : supprimé {{deleted}}, retiré {{unassigned}}",
