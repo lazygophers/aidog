@@ -310,7 +310,7 @@ pub fn update_platform(
 
         // ── 三态 status 解析（优先级：显式 status > 旧 enabled 兼容入参 > 既有值）──
         // 前端三态切换走 status；旧前端 / 旧调用仍可只传 enabled（true→Enabled, false→Disabled）。
-        // 禁止从前端入参置 AutoDisabled（仅系统 401/403 联动 set_platform_auto_disabled 设置）。
+        // 禁止从前端入参置 AutoDisabled（历史值仅来自已删除的 auto_disable 写路径，见 set_legacy_auto_disabled 注释）。
         use crate::models::PlatformStatus;
         let mut new_status = match input.status {
             Some(PlatformStatus::AutoDisabled) => existing.status, // 拒绝外部置自动禁用，保持原状
@@ -466,62 +466,6 @@ pub fn update_platform(
         db.invalidate_group_details_cache();
 
         Ok(updated)
-    }
-}
-
-/// 自动禁用退避基础时长（1 小时，毫秒）；第 n 次禁用退避 = BASE * 2^(strikes-1)。
-const AUTO_DISABLE_BASE_MS: i64 = 60 * 60 * 1000;
-/// 退避指数上限（防溢出 / 过长）：strikes 超过此值后退避封顶。
-const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
-
-/// 401/403 触发：将平台标记 auto_disabled，strikes++，按指数退避计算下次试探时间。
-/// 仅在当前非用户手动 disabled 时生效（不覆盖用户主动关闭的平台）。
-/// 返回更新后的退避截止时间戳（毫秒），供日志记录。
-///
-/// 2026-09-15 起生产路径不再调用（401/402 改调度器内存 auth 冷却，见
-/// aidog_core gateway/scheduling.rs）：仅保留给测试构造「存量 auto_disabled 行」场景
-/// （DB 存量行仍按 until 过滤、成功时 recover）。
-#[track_caller]
-pub fn set_platform_auto_disabled(
-    db: &Db,
-    id: u64,
-) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
-    let __db_caller = std::panic::Location::caller();
-    async move {
-        let ts = now();
-        let until = db
-        
-        .call_platform_traced(None, __db_caller, move |conn| {
-            // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
-            let row: Option<(String, i64)> = conn
-                .query_row(
-                    "SELECT status, auto_disable_strikes FROM platform WHERE id = ?1 AND deleted_at = 0",
-                    params![id as i64],
-                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
-                )
-                .optional()?;
-            let (status, strikes) = match row {
-                Some(v) => v,
-                None => return Ok(0i64),
-            };
-            // 用户手动禁用 → 不动（避免 401/403 把用户禁用平台改成自动禁用语义）
-            if status == "disabled" {
-                return Ok(0i64);
-            }
-            let new_strikes = (strikes + 1).min(AUTO_DISABLE_MAX_STRIKES);
-            let backoff = AUTO_DISABLE_BASE_MS.saturating_mul(1i64 << (new_strikes - 1).max(0));
-            let until = ts + backoff;
-            conn.execute(
-                "UPDATE platform SET status='auto_disabled', enabled=0, auto_disable_strikes=?1, auto_disabled_until=?2, updated_at=?3 WHERE id=?4",
-                params![new_strikes, until, ts, id as i64],
-            )?;
-            Ok(until)
-        })
-        .await
-        .map_err(|e| format!("set platform auto-disabled: {e}"))?;
-        // status/auto_disabled_until 内嵌于 GroupDetail.platforms，失效保 Groups 页一致。
-        db.invalidate_group_details_cache();
-        Ok(until)
     }
 }
 
