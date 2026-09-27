@@ -530,6 +530,116 @@ async fn stats_group_by_model_dimension() {
     );
 }
 
+/// group_by=model 排除空 model 行（agg 路径）：/models 探测、statusline 等
+/// 无模型请求落聚合表时 model=''，按模型分组它们不是「一个模型」，混进来
+/// 会被前端错标成「未知平台」并占 TopN 一席。
+#[tokio::test]
+async fn stats_group_by_model_dimension_excludes_empty_model() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("e1", "g1", now);
+    a.model = "gpt-4o".into();
+    a.actual_model = "gpt-4o".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    // 空 model 请求（无分组 + 无平台，实库里 /models 探测的形状）。
+    let mut b = sample_log("e2", "", now);
+    b.model = String::new();
+    b.actual_model = String::new();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: Some("model".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: None,
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    let models: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert_eq!(models, vec!["gpt-4o"], "空 model 不应出现在维度里: {models:?}");
+}
+
+/// series_by=model 同口径排除空串行（agg 路径）：空名序列在前端同样被错标。
+#[tokio::test]
+async fn stats_series_by_model_excludes_empty_model() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("s1", "g1", now);
+    a.model = "gpt-4o".into();
+    a.actual_model = "gpt-4o".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("s2", "", now);
+    b.model = String::new();
+    b.actual_model = String::new();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+    rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("daily".into()),
+        group_by: None,
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: Some("model".into()),
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    let names: Vec<&str> = res.series.iter().map(|s| s.name.as_str()).collect();
+    assert_eq!(names, vec!["gpt-4o"], "空 model 不应成为序列: {names:?}");
+}
+
+/// minute 路径（proxy_log 直查）同口径：actual_model 空的行不进维度。
+#[tokio::test]
+async fn stats_group_by_model_minute_excludes_empty_model() {
+    let db = test_db().await;
+    let now = chrono::Utc::now().timestamp_millis();
+    let mut a = sample_log("m1", "g1", now);
+    a.model = "gpt-4o".into();
+    a.actual_model = "gpt-4o".into();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false))
+        .await
+        .unwrap();
+    let mut b = sample_log("m2", "g1", now);
+    b.model = String::new();
+    b.actual_model = String::new();
+    insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false))
+        .await
+        .unwrap();
+
+    let q = StatsQuery {
+        start: None,
+        end: None,
+        granularity: Some("minute".into()),
+        group_by: Some("model".into()),
+        filter_group: None,
+        filter_model: None,
+        filter_platform: None,
+        filter_coding_plan: None,
+        series_by: None,
+        limit: None,
+    };
+    let res = query_stats(&db, &q).await.unwrap();
+    let models: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+    assert_eq!(models, vec!["gpt-4o"], "minute 路径空 model 不应进维度: {models:?}");
+}
+
 /// group_by=group 维度分解（agg 路径）。
 #[tokio::test]
 async fn stats_group_by_group_dimension() {

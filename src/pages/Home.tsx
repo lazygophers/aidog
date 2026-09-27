@@ -35,15 +35,30 @@ export const DIM_TOP_N = 8;
 // 其余合并成一条「其它」行（分母不可加的比率在该行显 --）。
 const dimTokens = (d: DimensionEntry) => d.input_tokens + d.output_tokens + d.cache_tokens;
 
-export function buildDimRows(data: DimensionEntry[]): { rows: { name: string; d: DimensionEntry; other: boolean }[]; total: number } {
-  const sorted = [...data].sort((a, b) => dimTokens(b) - dimTokens(a));
+export function buildDimRows(
+  data: DimensionEntry[],
+  /** 分组维度传入「未分组平台」标签：空 group_key 是真实语义，标出且不可点下钻。
+   *  模型维度不传：空 model 行已被 Rust 过滤，这里再滤一道防旧内核。 */
+  ungroupedLabel?: string,
+): { rows: { name: string; d: DimensionEntry; other: boolean; unclickable: boolean }[]; total: number } {
+  const named = ungroupedLabel
+    ? data.map(d => (d.name ? d : { ...d, name: ungroupedLabel }))
+    : data.filter(d => d.name !== "");
+  const sorted = [...named].sort((a, b) => dimTokens(b) - dimTokens(a));
   const top = sorted.slice(0, DIM_TOP_N);
   const rest = sorted.slice(DIM_TOP_N);
-  const rows = top.map(d => ({ name: d.name, d, other: false }));
+  const rows = top.map(d => ({
+    name: d.name,
+    d,
+    other: false,
+    // 「未分组平台」行显示自己的名字，只是不可点（groupKey='' 到统计页等于不带筛选）。
+    unclickable: d.name === ungroupedLabel,
+  }));
   if (rest.length > 0) {
     rows.push({
       name: "",
       other: true,
+      unclickable: true,
       d: rest.reduce((acc, d) => ({
         name: "",
         total_requests: acc.total_requests + d.total_requests,
@@ -244,7 +259,11 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
 
   // ── 模型 / 分组维度行（home-model-stats spec §2）──
   const modelRows = useMemo(() => buildDimRows(dimModels), [dimModels]);
-  const groupRows = useMemo(() => buildDimRows(dimGroups), [dimGroups]);
+  const ungroupedLabel = t("platform.ungrouped", "未分组平台");
+  const groupRows = useMemo(
+    () => buildDimRows(dimGroups, ungroupedLabel),
+    [dimGroups, ungroupedLabel],
+  );
 
   const statusColor = running == null
     ? PANEL.muted
@@ -579,7 +598,7 @@ function DimPanel({
 }: {
   titleKey: string;
   titleDefault: string;
-  rows: { name: string; d: DimensionEntry; other: boolean }[];
+  rows: { name: string; d: DimensionEntry; other: boolean; unclickable: boolean }[];
   totalTokens: number;
   loading: boolean;
   onRow: (name: string) => void;
@@ -598,16 +617,16 @@ function DimPanel({
           {rows.map((r, i) => (
             <div
               key={r.other ? "__other__" : r.name}
-              role={r.other ? undefined : "button"}
-              onClick={r.other ? undefined : () => onRow(r.name)}
+              role={r.unclickable ? undefined : "button"}
+              onClick={r.unclickable ? undefined : () => onRow(r.name)}
               style={{
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
                 padding: "9px 0",
                 borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
-                cursor: r.other ? undefined : "pointer",
-                opacity: r.other ? 0.55 : 1,
+                cursor: r.unclickable ? undefined : "pointer",
+                opacity: r.unclickable ? 0.55 : 1,
               }}
             >
               <span
@@ -615,7 +634,7 @@ function DimPanel({
                 style={{
                   fontSize: F.small + 1,
                   fontWeight: 600,
-                  color: r.other ? PANEL.muted : PANEL.fg,
+                  color: r.unclickable ? PANEL.muted : PANEL.fg,
                   flex: 1,
                   minWidth: 0,
                   maxWidth: 180,
@@ -634,7 +653,7 @@ function DimPanel({
                     display: "block",
                     width: `${totalTokens > 0 ? (dimTokens(r.d) / totalTokens) * 100 : 0}%`,
                     height: "100%",
-                    background: r.other ? PANEL.muted : seriesColor(0),
+                    background: r.unclickable ? PANEL.muted : seriesColor(0),
                     borderRadius: 2,
                     transition: "width 0.3s ease",
                   }}

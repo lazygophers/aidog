@@ -1109,25 +1109,58 @@ int _dimTokens(DimensionEntry d) =>
     d.inputTokens + d.outputTokens + d.cacheTokens;
 
 class _DimRowData {
-  const _DimRowData({required this.name, required this.d, required this.other});
+  const _DimRowData({
+    required this.name,
+    required this.d,
+    required this.unclickable,
+    this.other = false,
+  });
   final String name;
   final DimensionEntry d;
+
+  /// 「其它」合并行（label 取 home.dimOther，缓存率显 --）。
   final bool other;
+
+  /// 「其它」与「未分组平台」都不可点（点了没有唯一下钻目标）。
+  final bool unclickable;
 }
 
 /// tokens 降序前 [_dimTopN]，其余合并成一条「其它」行（home-model-stats spec §2）。
-({List<_DimRowData> rows, int total}) _buildDimRows(List<DimensionEntry> data) {
-  final sorted = [...data]..sort((a, b) => _dimTokens(b) - _dimTokens(a));
+///
+/// [ungroupedLabel] 分组维度传入「未分组平台」：空 group_key 是真实语义，标出
+/// 且不可点下钻（groupKey='' 到统计页等于不带筛选）。模型维度不传：空 model
+/// 行已被 Rust 过滤，这里再滤一道防旧内核。
+({List<_DimRowData> rows, int total}) _buildDimRows(
+  List<DimensionEntry> data, [
+  String? ungroupedLabel,
+]) {
+  final named = ungroupedLabel != null
+      ? [
+          for (final d in data)
+            if (d.name.isEmpty) d.withName(ungroupedLabel) else d,
+        ]
+      : [
+          for (final d in data)
+            if (d.name.isNotEmpty) d,
+        ];
+  final sorted = [...named]..sort((a, b) => _dimTokens(b) - _dimTokens(a));
   final top = sorted.take(_dimTopN).toList();
   final rest = sorted.skip(_dimTopN).toList();
   final rows = [
-    for (final d in top) _DimRowData(name: d.name, d: d, other: false),
+    for (final d in top)
+      _DimRowData(
+        name: d.name,
+        d: d,
+        // 未分组行显示自己的名字（ungroupedLabel），只是不可点。
+        unclickable: ungroupedLabel != null && d.name == ungroupedLabel,
+      ),
   ];
   if (rest.isNotEmpty) {
     rows.add(
       _DimRowData(
         name: '',
         other: true,
+        unclickable: true,
         d: DimensionEntry(
           name: '',
           totalRequests: rest.fold(0, (a, d) => a + d.totalRequests),
@@ -1162,7 +1195,7 @@ class _DimSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     final m = _buildDimRows(models);
-    final g = _buildDimRows(groups);
+    final g = _buildDimRows(groups, t.t('platform.ungrouped'));
     final modelPanel = _DimPanel(
       title: t.t('home.byModel'),
       rows: m.rows,
@@ -1264,7 +1297,7 @@ class _DimPanel extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: AidogType.label.copyWith(
                 fontSize: 13,
-                color: r.other ? _panelMuted : _panelFg,
+                color: r.unclickable ? _panelMuted : _panelFg,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1285,7 +1318,7 @@ class _DimPanel extends StatelessWidget {
                   minHeight: 3,
                   backgroundColor: const Color(0x1EE8C547),
                   valueColor: AlwaysStoppedAnimation(
-                    r.other ? _panelMuted : const Color(0xFFE8C547),
+                    r.unclickable ? _panelMuted : const Color(0xFFE8C547),
                   ),
                 ),
               ),
@@ -1307,8 +1340,8 @@ class _DimPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (r.other)
-          // 「其它」行灰显不可点。
+        if (r.unclickable)
+          // 「其它」/「未分组平台」行灰显不可点（点了没有唯一下钻目标）。
           Opacity(opacity: 0.55, child: body)
         else
           InkWell(onTap: () => onRow(r.name), child: body),

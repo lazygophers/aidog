@@ -78,3 +78,22 @@ describe("buildDimRows（home-model-stats）", () => {
     expect(r.rows[0].name).toBe("few-req");
   });
 });
+
+describe("buildDimRows 空名维度（未知平台修复）", () => {
+  it("模型维度：空名行滤掉（防旧内核未过滤的数据）", () => {
+    const r = buildDimRows([dim("", 999), dim("m1", 100)]);
+    expect(r.rows.map(x => x.name)).toEqual(["m1"]);
+    expect(r.total).toBe(100);
+  });
+
+  it("分组维度：空名标「未分组平台」且不可点（unclickable）", () => {
+    const r = buildDimRows([dim("g1", 500), dim("", 300)], "未分组平台");
+    const names = r.rows.map(x => x.name);
+    expect(names).toContain("未分组平台");
+    const ungrouped = r.rows.find(x => x.name === "未分组平台")!;
+    expect(ungrouped.unclickable).toBe(true);
+    expect(ungrouped.other).toBe(false); // label 显示自己的名字，不是「其它」
+    expect(ungrouped.d.input_tokens).toBe(300);
+    expect(r.total).toBe(800);
+  });
+});
