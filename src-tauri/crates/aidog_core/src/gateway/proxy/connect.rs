@@ -26,21 +26,23 @@ use hyper_util::rt::TokioIo;
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// 双向 IO 桥接：`a` ↔ `b` 字节透传，任一方向 EOF/err 即整体 drop 触发对端 FIN。
+/// 返回 `(a→b 字节数, b→a 字节数)`（IO err 按 0 计——隧道已断，字节计数仅观测用途）。
 ///
 /// ponytail: 抽公共 helper —— blind_relay（client TCP ↔ upstream TCP）与 MITM 桥接
 /// （client TLS ↔ upstream TLS）IO 模式一致（split + join copy），仅流类型不同。
 /// 泛型覆盖 `TokioIo<TokioIo<TcpStream>>` / `ServerTlsStream<IO>` / `ClientTlsStream<TcpStream>`。
-async fn bridge_bidir<A, B>(a: A, b: B)
+async fn bridge_bidir<A, B>(a: A, b: B) -> (u64, u64)
 where
     A: AsyncRead + AsyncWrite + Unpin,
     B: AsyncRead + AsyncWrite + Unpin,
 {
     let (mut ar, mut aw) = tokio::io::split(a);
     let (mut br, mut bw) = tokio::io::split(b);
-    let _ = tokio::join!(
+    let (r1, r2) = tokio::join!(
         tokio::io::copy(&mut ar, &mut bw),
         tokio::io::copy(&mut br, &mut aw),
     );
+    (r1.unwrap_or(0), r2.unwrap_or(0))
 }
 
 // ── CONNECT 层代理认证（spec cc-sub-mitm D2：Proxy-Authorization: Basic username = group 名）──
@@ -209,6 +211,9 @@ async fn handle_connect_inner(
             start,
             log_enabled,
             blocked_reason: "",
+            group_name: String::new(),
+            req_bytes: 0,
+            resp_bytes: 0,
         }
         .log_terminal(&state, target, 407)
         .await;
@@ -252,6 +257,9 @@ async fn handle_connect_inner(
         start,
         log_enabled,
         blocked_reason,
+        group_name: bound_group.as_ref().map(|g| g.name.clone()).unwrap_or_default(),
+        req_bytes: 0,
+        resp_bytes: 0,
     };
 
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
@@ -402,7 +410,7 @@ fn spawn_blind_relay(
     on_upgrade: hyper::upgrade::OnUpgrade,
     upstream: tokio::net::TcpStream,
     target: String,
-    log_ctx: ConnectLogCtx,
+    mut log_ctx: ConnectLogCtx,
 ) -> Response {
     let resp = Response::builder()
         .status(StatusCode::OK)
@@ -429,7 +437,9 @@ fn spawn_blind_relay(
             Err(upgraded) => {
                 tracing::warn!(target = %target, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
-                bridge_bidir(client, upstream).await;
+                let (sent, recv) = bridge_bidir(client, upstream).await;
+                log_ctx.req_bytes = sent as i64;
+                log_ctx.resp_bytes = recv as i64;
                 // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
                 if log_ctx.platform_id != 0 {
                     state.scheduler.record_ignored(log_ctx.platform_id);
@@ -446,7 +456,9 @@ fn spawn_blind_relay(
         if !parts.read_buf.is_empty() {
             let _ = tokio::io::AsyncWriteExt::write_all(&mut upstream, &parts.read_buf).await;
         }
-        bridge_bidir(client, upstream).await;
+        let (sent, recv) = bridge_bidir(client, upstream).await;
+        log_ctx.req_bytes = sent as i64;
+        log_ctx.resp_bytes = recv as i64;
         // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
         if log_ctx.platform_id != 0 {
             state.scheduler.record_ignored(log_ctx.platform_id);
@@ -479,7 +491,7 @@ async fn blind_relay_after_connect(
     target: &str,
     conn_timeout_secs: u64,
     prefetch: &[u8],
-    log_ctx: ConnectLogCtx,
+    mut log_ctx: ConnectLogCtx,
 ) {
     // blind_relay: TCP 字节透传非 AirDog 构造响应，header 物理不可注入（双向 copy 加密 TLS 字节流，
     // AirDog 看不见 / 改不了 HTTP 层）。trace header 已在 spawn 前的 CONNECT 200 响应注入，
@@ -490,7 +502,9 @@ async fn blind_relay_after_connect(
             if !prefetch.is_empty() {
                 let _ = tokio::io::AsyncWriteExt::write_all(&mut upstream, prefetch).await;
             }
-            bridge_bidir(client, upstream).await;
+            let (sent, recv) = bridge_bidir(client, upstream).await;
+            log_ctx.req_bytes = sent as i64;
+            log_ctx.resp_bytes = recv as i64;
             // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
             if log_ctx.platform_id != 0 {
                 st.scheduler.record_ignored(log_ctx.platform_id);
