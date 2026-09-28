@@ -90,16 +90,15 @@ async fn upsert_connect_log_writes_http_connect_row() {
     });
     spawn_log_writer(state.clone(), log_rx);
 
-    log::upsert_connect_log(
-        &state,
-        "conn-log-1".into(),
-        String::new(),
-        0,
-        "api.example.com:443".into(),
-        200,
-        42,
-    )
-    .await;
+    let ctx = log::ConnectLogCtx {
+        request_id: "conn-log-1".into(),
+        platform_id: 0,
+        conn_group_key: String::new(),
+        start: std::time::Instant::now(),
+        log_enabled: true,
+        blocked_reason: "",
+    };
+    log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 42).await;
     flush_log_queue(&state).await;
 
     let row = aidog_logs::get_proxy_log(&state.db, "conn-log-1")
@@ -527,9 +526,13 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
 
     // 4. 灌入 handle_proxy_core（ST5 接入点，等价 serve_plaintext_http 内的调用）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let resp =
-        handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone())
-            .await;
+    let resp = handler::handle_proxy_core(
+        AxumState(state.clone()),
+        plaintext_req,
+        request_id.clone(),
+        None,
+    )
+    .await;
 
     // 5. 断言走 AI 路径：响应 200（stub 上游回成功）。
     assert_eq!(
@@ -604,9 +607,13 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
         .unwrap();
 
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let resp =
-        handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone())
-            .await;
+    let resp = handler::handle_proxy_core(
+        AxumState(state.clone()),
+        plaintext_req,
+        request_id.clone(),
+        None,
+    )
+    .await;
 
     // AI 路径 404（no matching group），非盲转（盲转无 group 概念，恒 200/502）。
     assert_eq!(
@@ -989,4 +996,351 @@ async fn c6_reset_suspects_returns_count_and_clears() {
     );
     assert!(!state.is_suspect("reset-a.example").await);
     assert!(!state.is_suspect("reset-b.example").await);
+}
+
+// ── CONNECT 代理认证（票 08 cc-sub-mitm：Proxy-Authorization: Basic username = group 名）──
+
+/// 解析矩阵：无头 Absent / 命中 Bound / 未知与非法用户名 Unknown / 格式坏 Malformed。
+#[tokio::test]
+async fn resolve_connect_auth_matrix() {
+    use aidog_db::test_support::{sample_group, test_db};
+    let db = test_db().await;
+    let g = aidog_db::create_group(&db, sample_group("cc-sub", vec![]))
+        .await
+        .expect("create group");
+
+    let b64 = |userpass: &str| {
+        use base64::Engine as _;
+        base64::engine::general_purpose::STANDARD.encode(userpass)
+    };
+    let hm = |val: Option<&str>| {
+        let mut m = axum::http::HeaderMap::new();
+        if let Some(v) = val {
+            m.insert(
+                "proxy-authorization",
+                axum::http::HeaderValue::from_str(v).unwrap(),
+            );
+        }
+        m
+    };
+
+    // 无头 → Absent（现状，零 DB 往返路径）。
+    assert!(matches!(
+        connect::resolve_connect_auth(&db, &hm(None)).await,
+        connect::ConnectAuth::Absent
+    ));
+    // 命中 group 名 → Bound（username=group 名，密码任意）。
+    let auth =
+        connect::resolve_connect_auth(&db, &hm(Some(&format!("Basic {}", b64("cc-sub:any-pass")))))
+            .await;
+    match auth {
+        connect::ConnectAuth::Bound(b) => {
+            assert_eq!(b.group_key, g.group_key, "绑定必须解析出该 group");
+        }
+        other => panic!("expected Bound, got {other:?}"),
+    }
+    // 未知用户名 → Unknown（不绑定，尝试值可观测）。
+    let auth =
+        connect::resolve_connect_auth(&db, &hm(Some(&format!("Basic {}", b64("no-such-group:x")))))
+            .await;
+    assert!(matches!(
+        auth,
+        connect::ConnectAuth::Unknown(ref u) if u == "no-such-group"
+    ));
+    // 非 URL-safe 用户名（空格 / 中文 / 斜杠）→ Unknown（按未知 group 处理）。
+    for bad in ["bad name", "坏名字", "a/b"] {
+        let auth = connect::resolve_connect_auth(
+            &db,
+            &hm(Some(&format!("Basic {}", b64(&format!("{bad}:x"))))),
+        )
+        .await;
+        assert!(
+            matches!(auth, connect::ConnectAuth::Unknown(ref u) if u == bad),
+            "非 URL-safe 用户名 {bad:?} 必须按未知 group 处理"
+        );
+    }
+    // 格式坏（非 Basic scheme / 坏 base64 / 无冒号）→ Malformed（认证失败 407）。
+    for malformed in [
+        "Bearer some-token".to_string(),
+        format!("Basic {}", b64("nocolon")),
+        "Basic !!!not-base64!!!".to_string(),
+    ] {
+        let auth = connect::resolve_connect_auth(&db, &hm(Some(&malformed))).await;
+        assert!(
+            matches!(auth, connect::ConnectAuth::Malformed),
+            "{malformed:?} 必须判 Malformed"
+        );
+    }
+}
+
+/// 认证失败端到端：malformed Proxy-Authorization → 407 + Proxy-Authenticate 挑战头，
+/// proxy_log 落 407 元数据行（不建隧道、不连上游）。
+#[tokio::test]
+async fn connect_malformed_proxy_auth_returns_407() {
+    let state = make_state().await;
+    let req = HttpRequest::builder()
+        .method("CONNECT")
+        .uri("example.com:443")
+        .header("proxy-authorization", "Basic !!!not-base64!!!")
+        .body(Body::empty())
+        .unwrap();
+    let resp = connect::handle_connect(AxumState(state), req, "test-rid-407".into()).await;
+    assert_eq!(
+        resp.status(),
+        StatusCode::PROXY_AUTHENTICATION_REQUIRED,
+        "格式坏认证头必须 407"
+    );
+    assert_eq!(
+        resp.headers()
+            .get("proxy-authenticate")
+            .and_then(|v| v.to_str().ok()),
+        Some("Basic realm=\"aidog\""),
+        "407 必须带 Basic 挑战头"
+    );
+}
+
+/// 无认证头 / 未知 group 用户名 → 隧道照常 200 盲转（现状零回归；未知 group 不阻断）。
+#[tokio::test]
+async fn connect_absent_or_unknown_auth_still_200() {
+    let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = upstream.local_addr().unwrap();
+    tokio::spawn(async move { while upstream.accept().await.is_ok() {} });
+
+    let state = make_state().await;
+    for (name, auth) in [
+        ("no-auth", None),
+        (
+            "unknown-group",
+            Some("Basic bm8tc3VjaC1ncm91cDp4"), // base64("no-such-group:x")
+        ),
+    ] {
+        let mut b = HttpRequest::builder()
+            .method("CONNECT")
+            .uri(format!("{upstream_addr}"));
+        if let Some(v) = auth {
+            b = b.header("proxy-authorization", v);
+        }
+        let resp = connect::handle_connect(
+            AxumState(state.clone()),
+            b.body(Body::empty()).unwrap(),
+            format!("test-rid-{name}"),
+        )
+        .await;
+        assert_eq!(
+            resp.status(),
+            StatusCode::OK,
+            "{name}: 认证缺失/未知不得阻断隧道（现状零回归）"
+        );
+    }
+}
+
+/// 归属注入接缝：MITM 明文请求带订阅 OAuth Bearer（resolve_group 必落空）+ CONNECT 绑定
+/// group 注入 → core 按 group 归属走 AI 路径（非 404/未匹配桶）；不注入 → 404 现状。
+#[tokio::test]
+async fn bound_group_injects_attribution_into_core() {
+    use aidog_db::test_support::{sample_group, test_db};
+    let db = test_db().await;
+    let (log_tx, log_rx) = tokio::sync::mpsc::channel(1024);
+    let state = Arc::new(ProxyState {
+        db: Arc::new(db),
+        middleware: Arc::new(aidog_middleware::MiddlewareEngine::new()),
+        scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
+        sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
+        log_snapshots: dashmap::DashMap::new(),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
+        listen_addr: std::sync::OnceLock::new(),
+        settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
+        log_tx,
+    });
+    spawn_log_writer(state.clone(), log_rx);
+    let group = aidog_db::create_group(&state.db, sample_group("cc-oauth-g", vec![]))
+        .await
+        .unwrap();
+
+    // 同一明文请求（Authorization = 订阅 OAuth Bearer，任何 group_key 都不匹配）。
+    let build_req = || {
+        HttpRequest::builder()
+            .method("POST")
+            .uri("/v1/messages")
+            .header("authorization", "Bearer sk-ant-oat01-oauth-token")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"model":"claude-3","messages":[]}"#.to_string(),
+            ))
+            .unwrap()
+    };
+
+    // 不注入 → 现状 404（OAuth Bearer resolve_group 落空，listen_addr 未设不直通）。
+    let rid_none = uuid::Uuid::new_v4().simple().to_string();
+    let resp = handler::handle_proxy_core(
+        AxumState(state.clone()),
+        build_req(),
+        rid_none.clone(),
+        None,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND, "不注入维持现状 404");
+
+    // 注入绑定 group → 归属生效：走 AI 路径进路由（组内无平台 → route error 400，非 404），
+    // proxy_log.group_key = 绑定 group（非空/未匹配桶）。
+    let rid_bound = uuid::Uuid::new_v4().simple().to_string();
+    let resp = handler::handle_proxy_core(
+        AxumState(state.clone()),
+        build_req(),
+        rid_bound.clone(),
+        Some(group.clone()),
+    )
+    .await;
+    assert_ne!(
+        resp.status(),
+        StatusCode::NOT_FOUND,
+        "绑定注入后不得再 404（归属链已接通）"
+    );
+    flush_log_queue(&state).await;
+    let row = aidog_logs::get_proxy_log(&state.db, &rid_bound)
+        .await
+        .expect("query proxy_log")
+        .expect("proxy_log row must exist");
+    assert_eq!(
+        row.group_key, group.group_key,
+        "绑定注入后 proxy_log 归属必须是 CONNECT 绑定的 group"
+    );
+}
+
+/// 票 09 / spec D4：CONNECT 认证绑定 group + 盲转（白名单未命中）→ proxy_log 元数据行
+/// est_cost=0 + blocked_reason='mitm_opaque'；同 proxy 上未认证的盲转行不标记（现状零回归）。
+#[tokio::test]
+async fn bound_blind_relay_marks_mitm_opaque_row() {
+    use base64::Engine as _;
+    // 1. mock 上游：accept 后即关（127.0.0.1 不在白名单 → P1 盲转路径；上游主动关使
+    //    bridge_bidir 两侧 EOF 结束，log_connect_success 才会落行——echo 型上游等客户端
+    //    半关会挂住 join! 的另一方向）。
+    let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = upstream.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((s, _)) = upstream.accept().await {
+            drop(s);
+        }
+    });
+
+    // 2. aidog proxy axum server + 绑定目标 group。
+    let state = make_state().await;
+    let group =
+        aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
+            .await
+            .unwrap();
+    let app = axum::Router::new()
+        .route("/", axum::routing::get(handle_root))
+        .route("/proxy", axum::routing::get(handle_root))
+        .fallback(handle_proxy)
+        .with_state(state.clone());
+    let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(proxy_listener, app).await.ok();
+    });
+
+    // 3. 绑定 CONNECT：Proxy-Authorization Basic username=group 名 → 盲转行标 mitm_opaque。
+    let auth = base64::engine::general_purpose::STANDARD
+        .encode(format!("{}:x", group.name));
+    let mut bound_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    bound_sock
+        .write_all(
+            format!(
+                "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\nProxy-Authorization: Basic {auth}\r\n\r\n",
+                upstream = upstream_addr
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let mut buf = [0u8; 256];
+    let n = bound_sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "绑定 group 的盲转隧道必须照常建通（盲转保通），实际: {resp}"
+    );
+
+    // 4. 未绑定 CONNECT（无认证头）→ 盲转行不标记（现状零回归对照）。
+    let mut plain_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    plain_sock
+        .write_all(
+            format!(
+                "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\n\r\n",
+                upstream = upstream_addr
+            )
+            .as_bytes(),
+        )
+        .await
+        .unwrap();
+    let n = plain_sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "未绑定盲转隧道必须照常 200，实际: {resp}"
+    );
+
+    // 5. 断开两隧道 → bridge_bidir 结束 → log_connect_success 落行。
+    drop(bound_sock);
+    drop(plain_sock);
+    // bridge_bidir 结束（两侧 EOF）后才落 log_connect_success；轮询等待行出现（上限 3s）。
+    let _logs = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+        loop {
+            let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+                .await
+                .expect("list proxy_logs");
+            let bound_done = logs.iter().any(|r| r.group_key == group.group_key);
+            let plain_done = logs
+                .iter()
+                .any(|r| r.source_protocol == "http-connect" && r.group_key.is_empty());
+            if bound_done && plain_done {
+                return logs;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+    })
+    .await
+    .expect("盲转行 3s 内必须落库（bridge 结束 → log_connect_success）");
+    flush_log_queue(&state).await;
+
+    // 6. 绑定行：group_key=绑定 group + blocked_reason=mitm_opaque + est_cost=0。
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+        .await
+        .expect("list proxy_logs");
+    let bound_row = logs
+        .iter()
+        .find(|r| r.group_key == group.group_key)
+        .expect("绑定 group 的盲转行必须存在");
+    assert_eq!(bound_row.source_protocol, "http-connect");
+    assert_eq!(bound_row.status_code, 200, "盲转保通：隧道建立成功");
+    let full = aidog_logs::get_proxy_log(&state.db, &bound_row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    assert_eq!(
+        full.blocked_reason, "mitm_opaque",
+        "绑定的盲转行必须标 mitm_opaque（spec D4）"
+    );
+    assert_eq!(
+        full.est_cost, 0.0,
+        "盲转不透明行 est_cost 恒 0（未解密无 token 可计）"
+    );
+
+    // 7. 未绑定行：blocked_reason 为空（普通代理流量不标记）。
+    let plain_row = logs
+        .iter()
+        .find(|r| r.source_protocol == "http-connect" && r.group_key.is_empty())
+        .expect("未绑定的盲转行必须存在");
+    let plain_full = aidog_logs::get_proxy_log(&state.db, &plain_row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    assert_eq!(
+        plain_full.blocked_reason, "",
+        "未绑定连接的盲转行不得标 mitm_opaque（现状零回归）"
+    );
 }

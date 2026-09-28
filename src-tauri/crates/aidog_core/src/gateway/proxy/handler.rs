@@ -92,7 +92,7 @@ async fn handle_proxy_inner(
         start: std::time::Instant::now(),
         armed: true,
     };
-    let resp = handle_proxy_core(state, req, request_id).await;
+    let resp = handle_proxy_core(state, req, request_id, None).await;
     // 已正常返回 Response（含流式占位）→ 解除兜底：非流式终态已在 DB 非 0，流式由 StreamLogGuard 接管。
     guard.disarm();
     resp
@@ -102,6 +102,7 @@ pub(crate) async fn handle_proxy_core(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
     request_id: String,
+    bound_group: Option<Group>,
 ) -> Response {
     let start = std::time::Instant::now();
     let created_at = aidog_db::now();
@@ -279,55 +280,62 @@ pub(crate) async fn handle_proxy_core(
     }
 
     // ── 查找分组 ──
-    let group = {
-        match resolve_group(&state.db, auth_header.as_deref()).await {
-            Some(g) => g,
-            None => {
-                // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
-                // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
-                // API 流量（错 token / 无 token 直连代理自身）仍 404，不旁路。
-                let host_header = orig_headers
-                    .get(axum::http::header::HOST)
-                    .and_then(|v| v.to_str().ok())
-                    .unwrap_or("");
-                if should_fallback_passthrough(host_header, state.listen_addr.get().copied()) {
-                    tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
-                    return forward_passthrough_to_orig_host(
-                        &state,
-                        &mut log,
-                        &log_settings,
-                        orig_method,
-                        orig_uri,
-                        orig_headers,
-                        bytes,
-                        start,
-                        lang,
-                    )
-                    .await;
-                }
-                if let Some(ref token) = auth_header {
-                    log.response_body =
-                        format!("no matching group for token '{}' or path '{}'", token, path);
-                    log.status_code = 404;
-                    log.done = true;
-                    log.duration_ms = start.elapsed().as_millis() as i32;
-                    upsert_log(&state, &log, &log_settings).await;
-                    let mut r = (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
-                    inject_trace_header(&mut r);
-                    return r;
-                } else {
-                    log.response_body = "no matching group".to_string();
-                    log.status_code = 404;
-                    log.done = true;
-                    log.duration_ms = start.elapsed().as_millis() as i32;
-                    upsert_log(&state, &log, &log_settings).await;
-                    let mut r = (
-                        StatusCode::NOT_FOUND,
-                        i18n::t(lang, ErrorKey::NoMatchingGroup),
-                    )
-                        .into_response();
-                    inject_trace_header(&mut r);
-                    return r;
+    // CONNECT 层绑定的 group 优先（spec cc-sub-mitm D2）：MITM 明文请求的 Authorization 是
+    // 订阅 OAuth Bearer（resolve_group 必落空），归属由隧道绑定注入；绑定仅出现在 AI API
+    // 端点请求（serve_plaintext 归属注入门），非 API 流量仍走下方 resolve_group → fallback。
+    let group = match bound_group {
+        Some(g) => g,
+        None => {
+            match resolve_group(&state.db, auth_header.as_deref()).await {
+                Some(g) => g,
+                None => {
+                    // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
+                    // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
+                    // API 流量（错 token / 无 token 直连代理自身）仍 404，不旁路。
+                    let host_header = orig_headers
+                        .get(axum::http::header::HOST)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("");
+                    if should_fallback_passthrough(host_header, state.listen_addr.get().copied()) {
+                        tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
+                        return forward_passthrough_to_orig_host(
+                            &state,
+                            &mut log,
+                            &log_settings,
+                            orig_method,
+                            orig_uri,
+                            orig_headers,
+                            bytes,
+                            start,
+                            lang,
+                        )
+                        .await;
+                    }
+                    if let Some(ref token) = auth_header {
+                        log.response_body =
+                            format!("no matching group for token '{}' or path '{}'", token, path);
+                        log.status_code = 404;
+                        log.done = true;
+                        log.duration_ms = start.elapsed().as_millis() as i32;
+                        upsert_log(&state, &log, &log_settings).await;
+                        let mut r =
+                            (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                        inject_trace_header(&mut r);
+                        return r;
+                    } else {
+                        log.response_body = "no matching group".to_string();
+                        log.status_code = 404;
+                        log.done = true;
+                        log.duration_ms = start.elapsed().as_millis() as i32;
+                        upsert_log(&state, &log, &log_settings).await;
+                        let mut r = (
+                            StatusCode::NOT_FOUND,
+                            i18n::t(lang, ErrorKey::NoMatchingGroup),
+                        )
+                            .into_response();
+                        inject_trace_header(&mut r);
+                        return r;
+                    }
                 }
             }
         }
