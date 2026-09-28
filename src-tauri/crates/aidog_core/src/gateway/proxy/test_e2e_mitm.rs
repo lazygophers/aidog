@@ -661,7 +661,7 @@ async fn mitm_bound_group_claude_code_stats_closed_loop() {
 /// ——log_upstream_request 全开也不存正文（spec §3.2 脱敏）；非 oauth 旁路行维持开关语义
 /// 照记原文。`platform.claude.com/v1/oauth/token`（TokenObserve）body 恒空已另有行为。
 #[tokio::test]
-async fn mitm_bypass_oauth_meta_body_redacted() {
+async fn mitm_bypass_oauth_meta_body_follows_config() {
     let (state, _ca) = make_state_with_ca().await;
     let upstream_url = spawn_stub_upstream().await;
     let settings = ProxyLogSettings {
@@ -722,12 +722,14 @@ async fn mitm_bypass_oauth_meta_body_redacted() {
         .iter()
         .find(|(p, _, _)| p == "/api/oauth/organizations")
         .expect("oauth 元数据观测行必须存在");
-    assert_eq!(oauth.1, "[REDACTED]", "oauth 请求 body 开关开了也不得存正文");
-    assert_eq!(oauth.2, "[REDACTED]", "oauth 响应 body 同样脱敏");
+    // 2026-09-28 增量：/api/oauth/* 观测 body 跟配置（不再无条件 [REDACTED]）——
+    // 开关全开时照记原文（唯一永不落库的是 platform.claude.com token 端点，
+    // 见 test_mitm_bypass::mitm_bypass_writes_mitm_log_not_proxy_log）。
     assert!(
-        !oauth.1.contains("session_secret"),
-        "凭证字符串绝不允许出现在 body 列"
+        oauth.1.contains("session_secret"),
+        "开关全开时 oauth 观测 body 应记原文"
     );
+    assert!(!oauth.2.is_empty(), "oauth 响应 body 同样照记");
     let track = rows
         .iter()
         .find(|(p, _, _)| p == "/v1/track")

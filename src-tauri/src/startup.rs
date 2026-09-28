@@ -303,6 +303,8 @@ pub fn run() {
             aidog_core::proxy_cmd::mitm_stats::mitm_oauth_refresh_stats,
             aidog_core::proxy_cmd::mitm_stats::mitm_bypass_list,
             aidog_core::proxy_cmd::mitm_stats::mitm_opaque_count,
+            aidog_core::proxy_cmd::mitm_stats::cc_plan_info,
+            aidog_core::proxy_cmd::mitm_stats::mitm_bypass_detail,
             aidog_core::proxy_cmd::mitm_stats::cc_proxy_export,
         ])
         .run(tauri::generate_context!())

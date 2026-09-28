@@ -49,6 +49,27 @@ pub async fn mitm_bypass_list(
 }
 
 crate::tauri_command! {
+/// 某 group 的订阅套餐档位（蹭 GET /api/oauth/profile 自然流量 upsert，balance-full；
+/// 5h/7d 剩余额度走 `mitm_usage_trend` 最新采样点，此命令只回 tier）。无行 = null。
+pub async fn cc_plan_info(
+    group_name: String,
+) -> Result<Option<aidog_logs::CcProfileDto>, String> {
+    let db = aidog_ctx::db();
+    aidog_logs::get_cc_oauth_profile(db, &group_name).await
+}
+}
+
+crate::tauri_command! {
+/// 单行 mitm_log 的 body 两列（独立观测页详情）。开关关 / token 路径时列天然为空串。
+pub async fn mitm_bypass_detail(
+    id: i64,
+) -> Result<Option<aidog_logs::MitmBypassDetail>, String> {
+    let db = aidog_ctx::db();
+    aidog_logs::get_mitm_bypass_detail(db, id).await
+}
+}
+
+crate::tauri_command! {
 /// `blocked_reason='mitm_opaque'` 行数（统计页「未计入成本」提示）。since_ms 缺省 0 = 全量。
 pub async fn mitm_opaque_count(since_ms: Option<i64>) -> Result<i64, String> {
     let db = aidog_ctx::db();

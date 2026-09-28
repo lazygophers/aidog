@@ -17,7 +17,7 @@ import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { parseDisableDuringPeak, parseMitmStats } from "../../services/api";
-import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection } from "./CcMitmInfo";
+import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection, CcPlanBalance } from "./CcMitmInfo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -158,7 +158,15 @@ export const PlatformCard = memo(function PlatformCard({
   const showQuotaSkeleton = quotaCapable && !quota.hasData && quotaPending;
   const mb = computeManualBudgetDisplay(p.manual_budgets);
   const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
-  // 余额行的显示条件 = 行内六块条件的**并集**，每块再各自判一次。
+  // cc-sub-mitm 票 12：claude_code + mitm_stats 开 → 订阅窗口趋势 + refresh 失败警示。
+  // claude_code 独占分组 → membership 首个即组名（CONNECT 认证的 username）。
+  const isCcMitm = p.platform_type === "claude_code" && parseMitmStats(p.extra ?? "");
+  const ccGroupName = platformMembership?.[0];
+  const ccMitm = useCcMitmInfo(isCcMitm, ccGroupName);
+  // balance-full：套餐档位 / 窗口剩余任一有数据 → 余额行展示（与配额等维度互不相干）。
+  const ccPlanHasData = !!ccMitm && (ccMitm.plan != null || ccMitm.samples.length > 0);
+
+  // 余额行的显示条件 = 行内各块条件的**并集**，每块再各自判一次。
   //
   // 原先整行锁在 `showQuota`（= quotaCapable && quota.hasData）之后，后果是
   // 「速率余量」「coding 已用 tokens」「本周期折算」这三块明明早有数据，却因为配额没查
@@ -170,7 +178,8 @@ export const PlatformCard = memo(function PlatformCard({
     quota.tiers.length > 0 ||
     (hasCodingEndpoint && !!u) ||
     (hasCodingEndpoint && p.coding_window_cost > 0) ||
-    rateLimit != null;
+    rateLimit != null ||
+    (isCcMitm && ccPlanHasData);
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
   // 健康点派生（health.ts::deriveHealth）：401/403 / last_error / status / manual / 成功率
@@ -191,11 +200,6 @@ export const PlatformCard = memo(function PlatformCard({
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
   // p.extra 单次解析（原本在渲染体内被调 2 次，每次都内含独立 JSON.parse(extra)）。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
-  // cc-sub-mitm 票 12：claude_code + mitm_stats 开 → 订阅窗口趋势 + refresh 失败警示。
-  // claude_code 独占分组 → membership 首个即组名（CONNECT 认证的 username）。
-  const isCcMitm = p.platform_type === "claude_code" && parseMitmStats(p.extra ?? "");
-  const ccGroupName = platformMembership?.[0];
-  const ccMitm = useCcMitmInfo(isCcMitm, ccGroupName);
   // peakWindows 来自 useProtocolMeta：`extra.peak` ?? preset 默认。
   // 此前这里只读 `parsePlatformPeak(p.extra)`，不回落 preset，于是 glm_coding /
   // deepseek 这类自带预设高峰的平台在窗口内也不显徽标 —— 与 CLAUDE.md 写明的
@@ -577,6 +581,8 @@ export const PlatformCard = memo(function PlatformCard({
                     })}
                   </div>
                 )}
+                {/* 订阅套餐档位 + 5h/7d 剩余额度（balance-full，被动采样数据） */}
+                {isCcMitm && ccMitm && <CcPlanBalance plan={ccMitm.plan} samples={ccMitm.samples} />}
                 {/* 上游速率限制余量（每分钟能发多少，来自响应头）。与上面的套餐额度是两回事，
                     故单列一个 chip 不混进 tiers。窗口通常 1 分钟，快照超 5 分钟即视为过期不展示。 */}
                 {rateLimit && (
