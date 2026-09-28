@@ -155,6 +155,9 @@ fn overlay_prices(base: &mut ResolvedPrice, tier: &Value) {
     if let Some(v) = tier.get("cache_read").and_then(Value::as_f64) {
         base.cache_read_input_token_cost = v;
     }
+    if let Some(v) = tier.get("cache_write").and_then(Value::as_f64) {
+        base.cache_write_input_token_cost = v;
+    }
 }
 
 /// 上下文阶梯选档：取 `price.context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
@@ -233,6 +236,7 @@ pub fn resolve_price_from(
         input_cost_per_token: fallback_input / 1_000_000.0,
         output_cost_per_token: fallback_output / 1_000_000.0,
         cache_read_input_token_cost: 0.0,
+        cache_write_input_token_cost: 0.0,
         source: "fallback".to_string(),
     };
     let Some(pd) = pd else {
@@ -252,6 +256,7 @@ pub fn resolve_price_from(
                 input_cost_per_token: input,
                 output_cost_per_token: output,
                 cache_read_input_token_cost: num("cache_read"),
+                cache_write_input_token_cost: num("cache_write"),
                 source: "model_entry".to_string(),
             },
             &price_obj,

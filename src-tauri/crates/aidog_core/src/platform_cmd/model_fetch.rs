@@ -152,6 +152,7 @@ pub async fn platform_fetch_models(
             input_tokens: 0,
             output_tokens: 0,
             cache_tokens: 0,
+            cache_write_tokens: 0,
             est_cost: 0.0,
             is_stream: false,
             attempts: Vec::new(),

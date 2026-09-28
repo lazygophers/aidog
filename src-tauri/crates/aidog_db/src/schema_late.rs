@@ -596,6 +596,14 @@ pub fn run_migrations_proxy_log_late(
     // （20260727-17 加入，随 CLI 代理功能移除）。该列无索引、非主键，SQLite 3.35+ 可直接
     // DROP COLUMN，无需整表重建。幂等：列已不存在 → 语句报错被 `let _ =` 吞。
     let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN cli_proxy_provider_id", []);
+    // Migration 20260928-03 (cache-write 记账): proxy_log 加 cache_write_tokens 列——
+    // Anthropic `cache_creation_input_tokens` 此前全链路未采集（input_tokens 不含缓存写入，
+    // cache_tokens 只记读），重度 prompt caching 工作负载 token/est_cost 双少计。
+    // 存量行 DEFAULT 0 补齐 = 历史无采集，语义正确，无需回填。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN cache_write_tokens INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     Ok(())
 }
 
@@ -995,6 +1003,21 @@ ALTER TABLE "group_new" RENAME TO "group";
                 "migration 20260928-02: 重名平台加随机后缀（保留最小 id 原名）"
             );
         }
+    }
+    // Migration 20260928-04: 移除 least_latency 路由模式（用户拍板 2026-09-28）。
+    // 存量分组改用 load_balance（from_str_or_default 同口径兜底；serde 枚举已删该变体，
+    // 不迁移则旧行反序列化报错）。幂等：二次执行无 least_latency 行可改。
+    let n = conn.execute(
+        "UPDATE \"group\" SET routing_mode = 'load_balance' WHERE routing_mode = 'least_latency'",
+        [],
+    );
+    if let Ok(changed) = n
+        && changed > 0
+    {
+        tracing::info!(
+            changed,
+            "migration 20260928-04: least_latency 分组迁移至 load_balance"
+        );
     }
     // Migration 20260928-01: platform_health_state 持久化表（routing-health-optim R4）。
     // 熔断 Open / quota / auth 冷却截止 / connect 失败标记写穿落盘，代理重启时恢复

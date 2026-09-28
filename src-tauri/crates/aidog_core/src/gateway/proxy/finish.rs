@@ -48,7 +48,7 @@ pub(crate) async fn finish_nonstream(
         ctx.quota_base_url.clone()
     };
     // usage 借用：lossy 不经 to_string 中转
-    let (input_tokens, output_tokens, cache_tokens) =
+    let (input_tokens, output_tokens, cache_tokens, cache_write_tokens) =
         extract_usage(String::from_utf8_lossy(&body).as_ref());
 
     // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：actual_model 从路由目标模型改为
@@ -77,6 +77,7 @@ pub(crate) async fn finish_nonstream(
     log.input_tokens = input_tokens;
     log.output_tokens = output_tokens;
     log.cache_tokens = cache_tokens;
+    log.cache_write_tokens = cache_write_tokens;
 
     // ── 非流式跨协议响应转换 ──
     // 流式路径靠 parse_sse→to_client_sse 转换响应格式，但非流式分支历史上**直接透传上游 body**，

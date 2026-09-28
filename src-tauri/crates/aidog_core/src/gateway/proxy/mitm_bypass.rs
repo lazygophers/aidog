@@ -40,6 +40,13 @@ pub(crate) enum MitmRoute {
     Bypass,
 }
 
+/// host 是否 anthropic.com 裸域或子域（2026-09-28 用户口径：mitm 日志须覆盖全部
+/// anthropic.com 请求——Core AI API 此前只进 proxy_log，观测页看不到）。点号边界防
+/// `xanthropic.com` 误命中（与 whitelist suffix 同语义）。
+pub(crate) fn is_anthropic_family_host(host: &str) -> bool {
+    host == "anthropic.com" || host.ends_with(".anthropic.com")
+}
+
 /// 按 host + path（+ usage 的 method）分流。单一真值源：serve_plaintext 与测试共用。
 ///
 /// `is_api_endpoint` / `is_hello_endpoint` / `is_models_endpoint` 命中一律 Core——这些

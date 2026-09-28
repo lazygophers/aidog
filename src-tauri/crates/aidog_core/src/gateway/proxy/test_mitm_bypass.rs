@@ -119,8 +119,7 @@ fn settings_logging() -> ProxyLogSettings {
 
 /// 分流判定单一真值源覆盖：Core / TokenObserve / UsageSample / Bypass 四类边界。
 #[test]
-fn classify_mitm_route_covers_boundaries() {
-    use axum::http::Method as M;
+fn classify_mitm_route_covers_boundaries() {    use axum::http::Method as M;
     // AI API / hello / models 一律 Core（core 有专门 handler，分流会改变既有行为）。
     assert_eq!(
         classify_mitm_route("api.anthropic.com", "/v1/messages", &M::POST),
@@ -506,4 +505,16 @@ async fn mitm_oauth_meta_body_follows_config_and_profile_sampled() {
         .await
         .expect("read cc_oauth_profile");
     assert_eq!(profile, ("default_claude_max_20x".to_string(), 1));
+}
+
+/// anthropic.com 域判定（Core 观测行 gate，2026-09-28 用户口径）。
+#[test]
+fn anthropic_family_host_boundaries() {
+    assert!(is_anthropic_family_host("anthropic.com"));
+    assert!(is_anthropic_family_host("api.anthropic.com"));
+    assert!(is_anthropic_family_host("stats.anthropic.com"));
+    // 点号边界：跨域 / 后缀拼接不命中
+    assert!(!is_anthropic_family_host("xanthropic.com"));
+    assert!(!is_anthropic_family_host("anthropic.com.evil.com"));
+    assert!(!is_anthropic_family_host("claude.com"));
 }
