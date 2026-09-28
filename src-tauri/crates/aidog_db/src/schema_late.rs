@@ -1650,6 +1650,37 @@ mod tests {
         );
     }
 
+    /// Migration 20260928-04: 已移除的 least_latency 存量值改为 load_balance，且重复执行不再变化。
+    #[test]
+    fn migrations_late_least_latency_to_load_balance() {
+        let conn = make_modern_conn();
+        conn.execute(
+            "INSERT INTO \"group\" (name, group_key, routing_mode, created_at, updated_at) VALUES ('legacy-ll', 'legacy-ll', 'least_latency', 0, 0)",
+            [],
+        )
+        .unwrap();
+
+        run_migrations_platform_late(&conn).unwrap();
+        let mode: String = conn
+            .query_row(
+                "SELECT routing_mode FROM \"group\" WHERE group_key = 'legacy-ll'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(mode, "load_balance");
+
+        run_migrations_platform_late(&conn).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM \"group\" WHERE routing_mode = 'least_latency'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(count, 0);
+    }
+
     /// Migration 20260727-13 (原 044): group.extra 列。两条路径：
     /// ① 无 extra 列 → ALTER ADD 成功；② 已有 extra 列 → duplicate column 错误被 `let _` 忽略，幂等。
     #[test]

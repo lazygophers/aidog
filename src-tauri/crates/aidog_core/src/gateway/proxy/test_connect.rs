@@ -746,7 +746,7 @@ fn closed_loopback_target() -> String {
 
 /// P2-B：TCP 失败（connection refused，未监听端口）→ `record_ignored`（2026-09-15 网络失败
 /// 不降权）。关键断言：breaker 保持 Closed{fails:0}（网络失败不计熔断，下一轮调度仍优先）；
-/// inflight 归零；latency EMA 仍 None（防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
+/// inflight 归零；latency EMA 仍 None（防 CONNECT TCP 握手延迟污染 AI 延迟 EMA）。
 #[tokio::test]
 async fn connect_failure_does_not_touch_breaker() {
     use crate::gateway::models::{CreatePlatform, Protocol};
@@ -808,7 +808,7 @@ async fn connect_failure_does_not_touch_breaker() {
     // EMA 未被污染（record_ignored 不动 latency_ema_ms，仍 None）。
     assert!(
         state.scheduler.latency_ema(p.id).is_none(),
-        "record_ignored 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI LeastLatency 排序）"
+        "record_ignored 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI 延迟 EMA）"
     );
 }
 

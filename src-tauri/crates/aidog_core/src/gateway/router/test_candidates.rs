@@ -445,27 +445,6 @@ async fn load_balance_mode_returns_candidates() {
     assert!(!set.candidates.is_empty());
 }
 
-/// LeastLatency 路由模式：返回候选，不 panic。
-#[tokio::test]
-async fn least_latency_mode_returns_candidates() {
-    let db = mk_test_db().await;
-    let p1 = mk_db_platform(&db, "ll-p1").await;
-    let p2 = mk_db_platform(&db, "ll-p2").await;
-    let g = mk_db_group_mode(&db, "ll-group", &[p1.id, p2.id], RoutingMode::LeastLatency).await;
-    let sched = SchedulerState::new();
-    let sticky = StickyTable::new();
-    let settings = SchedulingBreakerSettings::default();
-    let ctx = ScheduleCtx {
-        scheduler: &sched,
-        sticky: &sticky,
-        settings: &settings,
-        sticky_key: None,
-    };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
-        .expect("ok");
-    assert!(!set.candidates.is_empty());
-}
 
 /// Sticky 路由模式：返回候选，不 panic。
 #[tokio::test]
@@ -1155,83 +1134,6 @@ async fn expired_platform_filtered_out_not_prioritized() {
 
 // ── 非 Failover 模式 expiry tiebreak 集成（扩展至全部模式） ──
 
-/// LeastLatency 模式：无延迟样本（所有平台 EMA=MAX，同档）→ 同 EMA 档内按 expires_at 升序。
-/// 三平台同 priority、无延迟记录：近未来 / 远未来 / 永不过期 → 期望近 → 远 → 永。
-#[tokio::test]
-async fn least_latency_prefers_earliest_expiry_within_same_ema() {
-    let db = mk_test_db().await;
-    let now = db::now();
-    let p_near = mk_db_platform_exp(&db, "ll-near", now + 60_000).await;
-    let p_far = mk_db_platform_exp(&db, "ll-far", now + 7 * 86_400_000).await;
-    let p_forever = mk_db_platform_exp(&db, "ll-forever", 0).await;
-    let g = db::create_group(
-        &db,
-        CreateGroup {
-            name: "ll-exp".into(),
-            group_key: Some("ll-exp".into()),
-            routing_mode: RoutingMode::LeastLatency,
-            auto_from_platform: String::new(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: Some("anthropic".into()),
-            max_retries: 2,
-            model_mappings: vec![],
-            env_vars: vec![],
-        },
-    )
-    .await
-    .expect("create group");
-    let inputs = vec![
-        GroupPlatformInput {
-            platform_id: p_forever.id,
-            priority: Some(0),
-            weight: Some(1),
-            level_priority: None,
-        },
-        GroupPlatformInput {
-            platform_id: p_far.id,
-            priority: Some(0),
-            weight: Some(1),
-            level_priority: None,
-        },
-        GroupPlatformInput {
-            platform_id: p_near.id,
-            priority: Some(0),
-            weight: Some(1),
-            level_priority: None,
-        },
-    ];
-    db::set_group_platforms(&db, g.id, &inputs)
-        .await
-        .expect("set");
-
-    // 无延迟样本 → 所有 EMA=MAX 同档，expiry 升序 tiebreak 生效
-    let sched = SchedulerState::new();
-    let sticky = StickyTable::new();
-    let settings = SchedulingBreakerSettings::default();
-    let ctx = ScheduleCtx {
-        scheduler: &sched,
-        sticky: &sticky,
-        settings: &settings,
-        sticky_key: None,
-    };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
-        .expect("ok");
-    assert_eq!(set.candidates.len(), 3);
-    assert_eq!(
-        set.candidates[0].platform.id, p_near.id,
-        "earliest expiry first within same EMA bucket"
-    );
-    assert_eq!(
-        set.candidates[1].platform.id, p_far.id,
-        "farther expiry second"
-    );
-    assert_eq!(
-        set.candidates[2].platform.id, p_forever.id,
-        "never-expiring (0) last within same EMA bucket"
-    );
-}
 
 // ── PRD 07-11: preset.models.peak 分支路由层切换 ──────────────────────────────
 

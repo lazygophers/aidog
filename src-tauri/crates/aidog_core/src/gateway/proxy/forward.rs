@@ -935,7 +935,7 @@ pub(crate) async fn forward_attempt(
     macro_rules! commit_2xx_success {
         () => {{
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
-            // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似用于 LeastLatency。
+            // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似记入 EMA。
             state.scheduler.record_success(route.platform.id, attempt_latency_ms);
             // 最近一次成功 → 清本平台 last_error。仅在原有 last_error 非空时写，避免成功热路径空写。
             if !route.platform.last_error.is_empty() {

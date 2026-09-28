@@ -1,4 +1,4 @@
-//! 候选排序策略：负载均衡（加权随机）/ 最小延迟 / 粘性绑定。
+//! 候选排序策略：负载均衡（加权随机）/ 粘性绑定。
 
 use super::super::models::*;
 use super::candidates::ScheduleCtx;
@@ -19,7 +19,6 @@ pub(crate) fn is_coding_plan(p: &Platform) -> bool {
 /// 仅对未过期候选调用（已过期的由 `candidate_state` 提前过滤）。
 /// 作为各路由模式**同档位 tiebreak**的强 "用掉它" 信号：
 /// - Failover：同 priority 内（插在 priority 之后）。
-/// - LeastLatency：同延迟 EMA 档内（插在 EMA 之后、level_priority 之前）。
 /// - LoadBalance / HealthAware / Sticky：同有效权重档内（影响基础重试序，不参与加权随机选首）。
 ///
 /// 各模式均不改主排序键；统一在 `apply_coding_plan_priority` 与显式 mapping 提首之前。
@@ -74,28 +73,6 @@ pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed
         let gp = platforms.remove(pick);
         platforms.insert(0, gp);
     }
-}
-
-/// LeastLatency 排序：按 per-platform 延迟 EMA 升序；无样本（None）视为最大排末尾。
-/// 无 ctx（无指标）时退化为不变序（保持入参顺序）。
-pub(crate) fn order_least_latency(
-    platforms: &mut [&GroupPlatformDetail],
-    ctx: Option<&ScheduleCtx<'_>>,
-) {
-    let Some(c) = ctx else { return };
-    platforms.sort_by(|a, b| {
-        let la = c.scheduler.latency_ema(a.platform.id).unwrap_or(f64::MAX);
-        let lb = c.scheduler.latency_ema(b.platform.id).unwrap_or(f64::MAX);
-        // 延迟 EMA 升序为主键不变；同延迟档内先按 expires_at 升序（快过期先用，省额度），
-        // expiry 是比 level_priority 更强的"用掉它"信号，故置于 level_priority tiebreak 之前；
-        // 再 level_priority 降序（高优先先）为末级 tiebreaker。
-        la.partial_cmp(&lb)
-            .unwrap_or(std::cmp::Ordering::Equal)
-            .then_with(|| {
-                expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at))
-            })
-            .then_with(|| b.level_priority.cmp(&a.level_priority))
-    });
 }
 
 /// Sticky：若 session 键命中已绑定平台且该平台仍在健康候选集中，提到首位；

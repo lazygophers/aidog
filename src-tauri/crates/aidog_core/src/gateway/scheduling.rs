@@ -200,7 +200,8 @@ impl SchedulerState {
         });
     }
 
-    /// 读取某平台延迟 EMA（无样本 → None），用于 LeastLatency 排序。
+    /// 读取某平台延迟 EMA（无样本 → None）。least_latency 排序已删（2026-09-28），
+    /// EMA 记录保留作健康指标，暂无排序消费者。
     pub fn latency_ema(&self, platform_id: u64) -> Option<f64> {
         let g = self.health.read().ok()?;
         g.get(&platform_id).and_then(|h| {
