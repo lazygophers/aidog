@@ -298,6 +298,12 @@ pub fn run() {
             aidog_core::proxy_cmd::mitm::mitm_whitelist_test_url,
             // C8 mitm seam 收敛：手动清空 pinning_suspect 集合（TTL 内强制重试 MITM）
             aidog_core::proxy_cmd::mitm::mitm_reset_suspects,
+            // cc-sub-mitm 票 12：MITM 统计读侧（趋势 / refresh 计数 / 旁路 / 盲转 / export 文案）
+            aidog_core::proxy_cmd::mitm_stats::mitm_usage_trend,
+            aidog_core::proxy_cmd::mitm_stats::mitm_oauth_refresh_stats,
+            aidog_core::proxy_cmd::mitm_stats::mitm_bypass_list,
+            aidog_core::proxy_cmd::mitm_stats::mitm_opaque_count,
+            aidog_core::proxy_cmd::mitm_stats::cc_proxy_export,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

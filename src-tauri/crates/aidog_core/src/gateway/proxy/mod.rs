@@ -26,6 +26,8 @@ pub(crate) use super::router::{RouteResult, ScheduleCtx, select_candidates_ctx};
 pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
 pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
+// sync 端 HTTPS_PROXY 注入与 CONNECT 端共用同一 URL-safe 判定（spec D9 两端对称）。
+pub(crate) use connect::is_url_safe_group_name;
 
 mod builtin_tools;
 mod connect;
@@ -40,6 +42,7 @@ mod headers;
 mod health;
 mod log;
 mod middleware_body;
+mod mitm_bypass;
 mod mock;
 mod non_success;
 mod notify;
@@ -63,6 +66,8 @@ mod test_e2e_mitm;
 mod test_group_info;
 #[cfg(test)]
 mod test_integration;
+#[cfg(test)]
+mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -84,8 +89,8 @@ pub use passthrough::{apply_models_auth, build_models_url};
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
-    detect_source_protocol, infer_passthrough_protocol_from_ua, match_platform_by_host,
-    model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
+    detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
+    match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough,
 };
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
@@ -106,10 +111,12 @@ pub(crate) use health::{handle_root, is_hello_endpoint};
 pub(crate) use log::flush_log_queue;
 #[allow(unused_imports)]
 pub(crate) use log::{
-    LogMsg, block_inbound, get_log_settings, record_observed, remove_log_snapshot, spawn_estimate,
-    spawn_log_writer, spawn_rate_limit, upsert_connect_log, upsert_log,
+    ConnectLogCtx, LogMsg, MITM_OPAQUE_REASON, block_inbound, get_log_settings, record_observed,
+    remove_log_snapshot, spawn_estimate, spawn_log_writer, spawn_rate_limit, upsert_connect_log,
+    upsert_log,
 };
 pub(crate) use mock::handle_mock;
+pub(crate) use mitm_bypass::{MitmRoute, classify_mitm_route, handle_mitm_observed};
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,

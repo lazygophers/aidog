@@ -123,7 +123,7 @@ pub fn endpoint_host(base_url: &str) -> Option<String> {
     if host.is_empty() { None } else { Some(host) }
 }
 
-/// 默认白名单规则集（37 条：Claude 3 + OpenAI 34）。
+/// 默认白名单规则集（38 条：Claude 4 + OpenAI 34）。
 ///
 /// 来源：blackmatrix7/ios_rule_script OpenAI/Claude 规则集（Clash DOMAIN/SUFFIX/KEYWORD/IPCIDR）。
 /// 元组 `(rule_type, pattern)`：rule_type ∈ {domain, suffix, keyword, ipcidr}，
@@ -131,11 +131,13 @@ pub fn endpoint_host(base_url: &str) -> Option<String> {
 ///
 /// 单源（schema migration 20260727-15（原 041/043）seed + 本模块 import_defaults command + 测试 共用此常量）。
 /// 舍弃：IP-ASN 20473（不支持）；GeoIP/DNS 解析（不要）。
+/// `claude.com` suffix 一条覆盖裸域与 `platform.claude.com`（OAuth token refresh 端点，票 cc-sub-mitm 02）。
 pub const DEFAULT_RULES: &[(&str, &str)] = &[
-    // ── Claude（3 条）─────────────────────────────────────────
+    // ── Claude（4 条）─────────────────────────────────────────
     ("domain", "cdn.usefathom.com"),
     ("suffix", "anthropic.com"),
     ("suffix", "claude.ai"),
+    ("suffix", "claude.com"),
     // ── OpenAI domain（7 条）──────────────────────────────────
     ("domain", "browser-intake-datadoghq.com"),
     ("domain", "chat.openai.com.cdn.cloudflare.net"),

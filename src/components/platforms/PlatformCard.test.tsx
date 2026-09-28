@@ -280,6 +280,14 @@ describe("PlatformCard", () => {
     expect(screen.getByText("platform.peak_badge")).toBeInTheDocument();
   });
 
+  it("订阅徽标: claude_code 协议显示、anthropic 不显示（spec §3.5）", () => {
+    const { rerender } = render(<PlatformCard {...baseProps} platform={{ ...basePlatform, platform_type: "claude_code" }} />);
+    expect(screen.getByText("platform.subscriptionBadge")).toBeInTheDocument();
+    // 非订阅协议不带徽标
+    rerender(<PlatformCard {...baseProps} />);
+    expect(screen.queryByText("platform.subscriptionBadge")).not.toBeInTheDocument();
+  });
+
   it("高峰态: lastTest success 渲染 ✓ 徽标 + 时长", () => {
     const props = {
       ...baseProps,

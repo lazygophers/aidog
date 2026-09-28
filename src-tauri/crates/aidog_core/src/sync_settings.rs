@@ -205,6 +205,48 @@ fn proxy_url_from_config(config: &serde_json::Value) -> Option<String> {
         .map(str::to_string)
 }
 
+/// 纯 cc（订阅透传）组 HTTPS_PROXY 占位密码的 KV scope（key = group_key，value = 密码串）。
+const CC_PROXY_AUTH_SCOPE: &str = "cc_proxy_auth";
+
+/// 生成 pure cc 组的 HTTPS_PROXY URL：username = group 名（CONNECT 端 `resolve_connect_auth`
+/// 按名匹配，是记账载体），密码占位非空（仅满足 URL 形状）。
+fn cc_proxy_url(group_name: &str, password: &str, port: u16) -> String {
+    format!("http://{group_name}:{password}@127.0.0.1:{port}")
+}
+
+/// Desktop / 多 shell 场景的 export 文案（#96258：CC Desktop 忽略 settings.json env 块）。
+/// 纯函数，票 12 UI 拼同一形状；CLI 手动切组也可直接贴（CC 启动只读一次 env，换组需重启）。
+pub fn cc_proxy_export_line(group_name: &str, password: &str, port: u16) -> String {
+    format!("export HTTPS_PROXY='{}'", cc_proxy_url(group_name, password, port))
+}
+
+/// pure cc 组 HTTPS_PROXY 占位密码：随机生成一次后持久化 KV。CONNECT 端不校验密码，
+/// 但每次同步重新随机会让 settings 文件每轮必写（diff 永远不等），持久化后跨同步稳定。
+pub(crate) async fn cc_proxy_password(db: &Db, group_key: &str) -> Result<String, String> {
+    if let Ok(Some(v)) = aidog_db::get_setting(db, CC_PROXY_AUTH_SCOPE, group_key).await
+        && let Some(s) = v.as_str()
+        && !s.is_empty()
+    {
+        return Ok(s.to_string());
+    }
+    use rand::Rng;
+    let password: String = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(16)
+        .map(char::from)
+        .collect();
+    aidog_db::set_setting(
+        db,
+        gateway::models::SetSettingInput {
+            scope: CC_PROXY_AUTH_SCOPE.to_string(),
+            key: group_key.to_string(),
+            value: serde_json::Value::String(password.clone()),
+        },
+    )
+    .await?;
+    Ok(password)
+}
+
 /// aidog 管理的 env key（用户 env_vars 同名一律丢弃 + warn，防静默破坏路由/压缩语义）。
 const MANAGED_ENV_KEYS: &[&str] = &[
     "ANTHROPIC_BASE_URL",
@@ -321,6 +363,8 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
         };
 
     let mut written = Vec::new();
+    // pure cc 组名字不 URL-safe 的清单：注入跳过、循环后统一报错（见 Ok(written) 前）。
+    let mut blocked_cc_renames: Vec<String> = Vec::new();
 
     // 纯 claude_code（订阅透传）组集合：关联平台全部为 Protocol::ClaudeCode。
     // 透传客户端自带订阅 OAuth，settings 注入 ANTHROPIC_AUTH_TOKEN=group_key 会覆盖
@@ -395,6 +439,24 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                         serde_json::Value::String("1".to_string()),
                     );
                 }
+                // 纯 claude_code（订阅透传）组：注入 HTTPS_PROXY 指向本机 CONNECT 网关
+                //（spec D9）。username = group.name，密码占位随机。CC 启动只读一次 env，
+                // 换组 = 重启 Claude Code。名字不 URL-safe → 跳过注入记名、循环后报错
+                //（undici 对 proxy URL userinfo 做 decodeURIComponent，坏名字写出去就是
+                // 坏 URL，宁可不出）。
+                if skip_routing_env {
+                    if gateway::proxy::is_url_safe_group_name(&group.name) {
+                        let password = cc_proxy_password(db, group_key).await?;
+                        env_map.insert(
+                            "HTTPS_PROXY".to_string(),
+                            serde_json::Value::String(cc_proxy_url(&group.name, &password, port)),
+                        );
+                    } else {
+                        tracing::warn!(group = %group_key, name = %group.name,
+                            "pure claude_code group name not URL-safe, HTTPS_PROXY injection skipped");
+                        blocked_cc_renames.push(group.name.clone());
+                    }
+                }
                 // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段与
                 // 压缩窗口字段禁止覆盖 —— 同名 key 丢弃 + warn。
                 for ev in &group.env_vars {
@@ -407,6 +469,13 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                             group = %group_key, env_key = %key,
                             "user env_var skipped: aidog-managed field, cannot override"
                         );
+                        continue;
+                    }
+                    // pure cc 组的 HTTPS_PROXY 是 aidog 托管字段（注入见上），同名丢弃；
+                    // 其余组 HTTPS_PROXY 仍归用户（出站代理语义，proxy_url_from_config 消费）。
+                    if key == "HTTPS_PROXY" && skip_routing_env {
+                        tracing::warn!(group = %group_key,
+                            "user env_var skipped: HTTPS_PROXY is aidog-managed for pure claude_code groups");
                         continue;
                     }
                     env_map.insert(key.to_string(), serde_json::Value::String(ev.value.clone()));
@@ -555,6 +624,15 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     match gateway::pi::sync_groups(&pi_groups, port, &pi_settings) {
         Ok(paths) => written.extend(paths),
         Err(e) => tracing::warn!(error = %e, "pi config sync failed"),
+    }
+
+    // pure cc 组名字不 URL-safe：各组配置文件照写（坏名组保持现状不注入，不阻断别的组），
+    // 但同步整体报错提示改名 —— 坏名字写进 HTTPS_PROXY 就是坏 URL，改名前订阅透传不可用。
+    if !blocked_cc_renames.is_empty() {
+        return Err(format!(
+            "订阅透传分组名不 URL-safe（仅限字母、数字与 - _ .），请改名后重试: {}",
+            blocked_cc_renames.join(", ")
+        ));
     }
 
     Ok(written)

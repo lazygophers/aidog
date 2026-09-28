@@ -184,7 +184,7 @@ async fn mitm_e2e_h1_tls_round_trip() {
             .await
             .expect("TLS accept");
         // serve_plaintext：auto Builder 在明文 TLS stream 上服务 HTTP，每 Request 灌 handle_proxy_core。
-        connect::serve_plaintext(state_for_server, client_tls, &server_host).await;
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, None).await;
     });
 
     // 4. mock client：rustls client（信任 CA）→ TCP connect → TLS 握手 → hyper h1 发请求。
@@ -297,8 +297,8 @@ fn client_config_trusting_ca_h2(ca: &RootCa) -> rustls::ClientConfig {
 }
 
 /// 复现用户场景的 h2 CANCEL：curl -x http://127.0.0.1:<aidog>/proxy https://www.baidu.com/
-/// 经 CONNECT → MITM TLS（h2 ALPN 协商成功）→ 明文 GET / 无 Authorization → resolve_group
-/// 落空 → should_fallback_passthrough=true → forward_passthrough_to_orig_host。
+/// 经 CONNECT → MITM TLS（h2 ALPN 协商成功）→ 明文 GET / 无 Authorization → 票 10 起
+/// classify=Bypass → mitm_bypass::handle_mitm_observed（透明转发 + mitm_log 观测行）。
 ///
 /// 上游（forward 内 reqwest https://www.baidu.com:443/）无法在单测里 mock 真 https 上游
 /// （reqwest 用 webpki-roots 验证，禁注入自签 CA），故走 forward 的 502 错误分支
@@ -331,7 +331,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         let client_tls = accept_client(signer, tcp_stream, server_host.clone())
             .await
             .expect("TLS accept");
-        connect::serve_plaintext(state_for_server, client_tls, &server_host).await;
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, None).await;
     });
 
     // 3. mock client：rustls client（信任 CA，advertise h2 ALPN）→ TLS 握手。
@@ -403,24 +403,37 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
         "响应 body 必须非空（200 = html 内容 / 502 = error 文本），实际空 = body 流被吞"
     );
 
-    // 6. proxy_log 落虚拟「未匹配」桶（forward 路径已执行 + 落库）。
+    // 6. 票 10 起：非 API 明文请求改走 mitm_bypass —— mitm_log 落 www.baidu.com 观测行
+    //    （200 真上游成功 / 502 上游失败），proxy_log 不再有「未匹配」桶行（旁路不进
+    //    proxy_log 正是票 10 目标）。
     tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let mitm_rows = state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            let mut stmt =
+                conn.prepare("SELECT host, status_code FROM mitm_log")?;
+            let rows = stmt
+                .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?)))?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .expect("read mitm_log");
+    let (_host, status) = mitm_rows
+        .iter()
+        .find(|(h, _)| h == "www.baidu.com")
+        .expect("mitm_bypass 观测行必须存在（forward 路径已执行）");
+    assert!(
+        *status == 200 || *status == 502,
+        "mitm_bypass 必须记账终态（200 真上游成功 / 502 上游失败），实际 {status}"
+    );
     flush_log_queue(&state).await;
     let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
         .await
         .expect("list proxy_logs");
-    let row = logs
-        .iter()
-        .find(|r| r.group_key == "未匹配")
-        .expect("passthrough unmatched proxy_log row must exist (forward path executed)");
-    assert_eq!(
-        row.source_protocol, "passthrough_unmatched",
-        "forward 路径必须落 passthrough_unmatched 标记"
-    );
     assert!(
-        row.status_code == 200 || row.status_code == 502,
-        "forward 必须记账终态（200 真上游成功 / 502 上游失败），实际 {}",
-        row.status_code
+        logs.iter().all(|r| r.group_key != "未匹配"),
+        "票 10 起 MITM 非 API 流量不得落 proxy_log「未匹配」桶（旁路归 mitm_log）"
     );
 
     drop(sender);
@@ -493,4 +506,234 @@ async fn collect_incoming_body(
             Some(Err(e)) => return Err(format!("body read error: {e}")),
         }
     }
+}
+
+/// 票 09：MITM 解密 `/v1/messages` + CONNECT 绑定 group（订阅 OAuth Bearer）→
+/// `Protocol::ClaudeCode` 平台 1:1 透传 → proxy_log 全链记账闭环：
+/// group 归属（绑定注入）/ model / tokens（上游 usage 提取）/ est_cost（registry
+/// claude_code 条目参考成本，非 0）。
+///
+/// 与 `mitm_e2e_h1_tls_round_trip` 的区别：那边走 anthropic 协议转换路径 + 请求自带
+/// group token；这边是订阅透传形态 —— Authorization 是 OAuth Bearer（resolve_group 必落空），
+/// 归属完全靠 serve_plaintext 的绑定注入，路由命中 claude_code 独占组的透传拦截。
+#[tokio::test]
+async fn mitm_bound_group_claude_code_stats_closed_loop() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    // 1. stub 上游：anthropic 形状 200 + usage（claude-sonnet-5 在 registry claude_code
+    //    条目带官方价 → est_cost 可算出非 0 参考值）。
+    let upstream_url = spawn_stub_upstream().await;
+
+    // 2. claude_code 订阅平台（base_url 指向 stub，端点锁死不影响主 base_url）+ 独占组。
+    let (state, ca) = make_state_with_ca().await;
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "cc-stats-stub".into(),
+            platform_type: Protocol::ClaudeCode,
+            base_url: upstream_url.clone(),
+            api_key: String::new(), // 订阅透传：aidog 不持有凭证
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create claude_code platform");
+    let group = aidog_db::create_group(&state.db, sample_group("cc-stats-g", vec![]))
+        .await
+        .expect("create group");
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .expect("set group platforms");
+
+    // 3. MITM server 端：TLS accept + serve_plaintext **带绑定 group**（票 08 注入门）。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mitm_addr = listener.local_addr().unwrap();
+    let signer = Arc::new(CertSigner::new(ca.clone()));
+    let state_for_server = state.clone();
+    let server_host = "api.anthropic.com".to_string();
+    let bound_group = group.clone();
+    tokio::spawn(async move {
+        let (tcp_stream, _) = listener.accept().await.expect("accept client");
+        let client_tls = accept_client(signer, tcp_stream, server_host.clone())
+            .await
+            .expect("TLS accept");
+        connect::serve_plaintext(state_for_server, client_tls, &server_host, Some(bound_group))
+            .await;
+    });
+
+    // 4. mock client：订阅 OAuth Bearer（非 group token）+ /v1/messages + claude-sonnet-5。
+    let tcp = tokio::net::TcpStream::connect(mitm_addr)
+        .await
+        .expect("connect MITM");
+    let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config_trusting_ca(&ca)));
+    let server_name = ServerName::try_from("api.anthropic.com".to_string()).unwrap();
+    let tls_stream = connector
+        .connect(server_name, tcp)
+        .await
+        .expect("TLS handshake");
+    let (mut sender, conn) = hyper::client::conn::http1::Builder::new()
+        .handshake(TokioIo::new(tls_stream))
+        .await
+        .expect("h1 client handshake");
+    tokio::spawn(async move {
+        let _ = conn.await;
+    });
+    let req = hyper::Request::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer sk-ant-oat01-subscription-oauth")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-sonnet-5","messages":[{"role":"user","content":"hi"}]}"#
+                .to_string(),
+        ))
+        .unwrap();
+    let resp = sender.send_request(req).await.expect("h1 send_request");
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "订阅透传必须 1:1 relay stub 上游 200"
+    );
+    let body_bytes = collect_incoming_body(resp.into_body(), 64 * 1024)
+        .await
+        .expect("read response body");
+    assert!(
+        String::from_utf8_lossy(&body_bytes).contains("mitm e2e ok"),
+        "响应 body 必须是 stub 上游原文（1:1 relay）"
+    );
+
+    // 5. proxy_log 全链断言：归属 / 协议 / tokens / est_cost 参考成本。
+    flush_log_queue(&state).await;
+    let logs = aidog_logs::list_proxy_logs(&state.db, 10, 0)
+        .await
+        .expect("list proxy_logs");
+    let row = logs
+        .iter()
+        .find(|r| r.source_protocol == "claude_code")
+        .expect("claude_code 透传 proxy_log 行必须存在（归属注入命中透传拦截）");
+    assert_eq!(
+        row.group_key, group.group_key,
+        "归属必须来自 CONNECT 绑定注入（OAuth Bearer 解不出 group）"
+    );
+    assert_eq!(row.platform_id, plat.id, "路由必须命中 claude_code 平台");
+    assert_eq!(row.model, "claude-sonnet-5", "model 必须取自请求 body");
+    assert_eq!(
+        row.input_tokens, 7,
+        "tokens 必须从上游 usage 提取（extract_usage）"
+    );
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id)
+        .await
+        .expect("query full proxy_log")
+        .expect("full row must exist");
+    // registry claude_code/claude-sonnet-5 官方价：7×2e-6 + 4×1e-5 = 5.4e-5。
+    // 精确值断言区分 fallback 3.0 $/M（那样是 3.3e-5）——命中 registry 条目才票 09 的参考成本链。
+    assert!(
+        (full.est_cost - 5.4e-5).abs() < 1e-9,
+        "est_cost 必须是 registry claude_code 条目官方牌价（5.4e-5），实际: {}",
+        full.est_cost
+    );
+    assert_eq!(
+        full.blocked_reason, "",
+        "解密成功的 AI 路径行不得带 mitm_opaque 标记"
+    );
+
+    drop(sender);
+}
+
+/// cc-sub review 项 8：`/api/oauth/*`（usage 除外）的 mitm_log 行 body 恒 `[REDACTED]`
+/// ——log_upstream_request 全开也不存正文（spec §3.2 脱敏）；非 oauth 旁路行维持开关语义
+/// 照记原文。`platform.claude.com/v1/oauth/token`（TokenObserve）body 恒空已另有行为。
+#[tokio::test]
+async fn mitm_bypass_oauth_meta_body_redacted() {
+    let (state, _ca) = make_state_with_ca().await;
+    let upstream_url = spawn_stub_upstream().await;
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+    // 1. oauth 元数据端点（Bypass 路由）→ body 两列 [REDACTED]。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream_url}/api/oauth/organizations"),
+        "api.anthropic.com",
+        "/api/oauth/organizations",
+        axum::http::Method::POST,
+        axum::http::HeaderMap::new(),
+        hyper::body::Bytes::from_static(b"{\"session_secret\":\"xyz\"}"),
+        "cc",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK, "stub 上游 200 必须原样回传");
+    // 2. 普通旁路行 → 开关全开，body 照记原文。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{upstream_url}/v1/track"),
+        "api.anthropic.com",
+        "/v1/track",
+        axum::http::Method::POST,
+        axum::http::HeaderMap::new(),
+        hyper::body::Bytes::from_static(b"{\"telemetry\":true}"),
+        "cc",
+        &settings,
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rows = state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            let mut stmt =
+                conn.prepare("SELECT path, request_body, response_body FROM mitm_log")?;
+            let rows = stmt
+                .query_map([], |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, String>(1)?,
+                        r.get::<_, String>(2)?,
+                    ))
+                })?
+                .collect::<rusqlite::Result<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .expect("read mitm_log");
+    let oauth = rows
+        .iter()
+        .find(|(p, _, _)| p == "/api/oauth/organizations")
+        .expect("oauth 元数据观测行必须存在");
+    assert_eq!(oauth.1, "[REDACTED]", "oauth 请求 body 开关开了也不得存正文");
+    assert_eq!(oauth.2, "[REDACTED]", "oauth 响应 body 同样脱敏");
+    assert!(
+        !oauth.1.contains("session_secret"),
+        "凭证字符串绝不允许出现在 body 列"
+    );
+    let track = rows
+        .iter()
+        .find(|(p, _, _)| p == "/v1/track")
+        .expect("普通旁路行必须存在");
+    assert!(
+        track.1.contains("telemetry"),
+        "非 oauth 旁路行维持开关语义照记原文"
+    );
 }
