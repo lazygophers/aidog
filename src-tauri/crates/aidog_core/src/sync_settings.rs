@@ -369,7 +369,8 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
     // 纯 claude_code（订阅透传）组集合：关联平台全部为 Protocol::ClaudeCode。
     // 透传客户端自带订阅 OAuth，settings 注入 ANTHROPIC_AUTH_TOKEN=group_key 会覆盖
     // OAuth 致上游 401（spec claude-code-passthrough：aidog 不注入 token）—— 这类组
-    // 跳过路由 env 注入。details 同时供下方 pi 段使用，只查一次。
+    // 跳过路由 env 注入，改写空串中性化（防 --settings 与全局文件深合并时残留泄漏，
+    // 见循环内 skip_routing_env 分支注释）。details 同时供下方 pi 段使用，只查一次。
     let group_details = aidog_db::list_group_details(db).await?;
     let pure_cc_groups: std::collections::HashSet<String> = group_details
         .iter()
@@ -445,6 +446,22 @@ pub async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, S
                 //（undici 对 proxy URL userinfo 做 decodeURIComponent，坏名字写出去就是
                 // 坏 URL，宁可不出）。
                 if skip_routing_env {
+                    // 中和残留路由 env：`--settings` 与 ~/.claude/settings.json（默认组
+                    // 写入）按 key 深合并，只在本文件 absent 的 key 会从全局文件漏进来
+                    // —— ANTHROPIC_BASE_URL 残留把订阅流量劫去默认组的本地代理、
+                    // ANTHROPIC_AUTH_TOKEN 残留覆盖 OAuth，MITM 隧道零流量（真机 bug：
+                    // 订阅统计无数据 + settings 缺 proxy 配置）。settings 文件只能设值
+                    // 不能删 key，空串是唯一中性化手段；CC 视空串为未设
+                    //（cli 2.1.283 `if(e)return \`Bearer ${e}\`` / `if(!r)return` 空串
+                    // falsy；官方 env-vars 文档同款 empty-string idiom）。
+                    env_map.insert(
+                        "ANTHROPIC_BASE_URL".to_string(),
+                        serde_json::Value::String(String::new()),
+                    );
+                    env_map.insert(
+                        "ANTHROPIC_AUTH_TOKEN".to_string(),
+                        serde_json::Value::String(String::new()),
+                    );
                     if gateway::proxy::is_url_safe_group_name(&group.name) {
                         let password = cc_proxy_password(db, group_key).await?;
                         env_map.insert(
