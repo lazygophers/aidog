@@ -38,6 +38,24 @@ commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报�
 - agent 报告里标「存疑 / 需拍板 / 非官方源」的值不得出现在任何 commit 里——commit
   message 自己写着 `architectural limit` 的值，就是没被采信的值。
 
+## implementer 挂掉后的半成品采信（2026-09-28 cc-sub-mitm PR #43）
+
+修复 agent 中途 502 断连，主会话核对其未提交 diff 后采信、补跑全部门禁、代 commit。
+与上节 r102「取证 agent 不 commit」的边界在**验证成本**：
+
+- **取证型 agent 产物是值**：机器验不了真假，必须主会话复核采信后才落库
+  （r102 原文）。报告里标「存疑 / 需拍板 / 非官方源」的值不进任何 commit。
+- **实现型 agent 产物是代码**：门禁可机器验证。挂掉后主会话可采信半成品，三条
+  前提全满足才采：① `git diff` 逐 hunk 看过、每段能归到票面任务；② 全部门禁
+  补跑绿（不是只跑改动相关子集）；③ commit message 注明来源（如
+  `fix: ... (adopted from crashed agent, gates re-run)`）。
+
+**agent 基础设施故障（502 / 断连 / 超时）恢复路径**：核对现场（`git status` +
+`git diff`）后二选一——改动完整或差最后一步、门禁可跑 → 主会话按上面三条接管
+收尾；改动半截不可判定（编译不过、门禁红了修不动、线索只剩半份报告）→ 回滚
+该 worktree 重派，不硬续。判据只看「主会话能否独立验证到绿」，不看「已经写了
+多少」——沉没的 token 不是采信理由。
+
 ## 判据
 
 提交前问自己一句：**这次 `git diff --cached` 里的每一段，我都能说出它属于哪条任务吗？**
