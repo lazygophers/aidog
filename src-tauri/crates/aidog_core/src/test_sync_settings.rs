@@ -446,9 +446,10 @@ fn pi_models_fall_back_to_caller_defaults_when_group_has_none() {
     assert_eq!(models, fallback);
 }
 
-/// 纯 claude_code（订阅透传）组：settings.{group}.json 禁注入路由 env
-/// （ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN）—— 透传客户端自带订阅 OAuth，
-/// AUTH_TOKEN=group_key 会覆盖 OAuth 致上游 401。混合组照常注入。
+/// 纯 claude_code（订阅透传）组：settings.{group}.json 不注入路由 env 值，改写空串
+/// 中性化（ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN = ""）—— 透传客户端自带订阅
+/// OAuth，AUTH_TOKEN=group_key 会覆盖 OAuth 致上游 401；absent 会让全局文件（默认组
+/// 写入）的同名 key 在 --settings 深合并时漏进来，劫走订阅流量。混合组照常注入。
 #[tokio::test]
 async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
     use crate::gateway::models::{CreateGroup, RoutingMode};
@@ -567,10 +568,12 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
         &std::fs::read_to_string(h.home().join(".aidog/settings.gk_cc.json")).unwrap(),
     )
     .unwrap();
-    // 透传组：路由 env 不存在（客户端保留订阅 OAuth，直连/走系统代理）
-    assert!(
-        cc["env"].get("ANTHROPIC_BASE_URL").is_none(),
-        "pure claude_code group must not set ANTHROPIC_BASE_URL, got: {}",
+    // 透传组：路由 env 写空串中性化（非 absent）—— --settings 与全局文件深合并时
+    // absent key 会从 ~/.claude/settings.json（默认组写入）漏进来，劫走订阅流量；
+    // 空串 CC 视为未设（保留订阅 OAuth，直连 api.anthropic.com 走 HTTPS_PROXY）。
+    assert_eq!(
+        cc["env"]["ANTHROPIC_BASE_URL"], "",
+        "pure claude_code group must neutralize ANTHROPIC_BASE_URL with empty string, got: {}",
         cc["env"]
     );
     // 透传组：CC 认识真实模型，压缩窗口 env 同样不注入
@@ -586,9 +589,9 @@ async fn do_sync_group_settings_skips_routing_env_for_pure_claude_code_group() {
         "pure claude_code group must not set DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT, got: {}",
         cc["env"]
     );
-    assert!(
-        cc["env"].get("ANTHROPIC_AUTH_TOKEN").is_none(),
-        "pure claude_code group must not set ANTHROPIC_AUTH_TOKEN, got: {}",
+    assert_eq!(
+        cc["env"]["ANTHROPIC_AUTH_TOKEN"], "",
+        "pure claude_code group must neutralize ANTHROPIC_AUTH_TOKEN with empty string, got: {}",
         cc["env"]
     );
 
