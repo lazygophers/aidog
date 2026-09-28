@@ -983,7 +983,7 @@
   "page.mitmLog": "MITM-Beobachtungen",
   "page.mitmBodyRequest": "Anfrage-Body",
   "page.mitmBodyResponse": "Antwort-Body",
-  "page.mitmBodyEmpty": "(nicht gespeichert: Logging aus oder dieser Pfad wird nie gespeichert)",
+  "page.mitmBodyEmpty": "(Body nicht gespeichert: „Tatsächliche Upstream-Anfrage protokollieren“ aktivieren; Token-Aktualisierungs-Bodys werden aus Sicherheitsgründen nie gespeichert)",
   "page.platforms": "Plattformverwaltung",
   "page.proxy": "Proxy-Konsole",
   "page.requestLog": "Anfrageprotokoll (Test / Guthaben)",

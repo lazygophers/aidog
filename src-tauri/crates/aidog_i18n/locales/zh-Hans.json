@@ -961,7 +961,7 @@
   "page.mitmLog": "MITM 观测",
   "page.mitmBodyRequest": "请求 body",
   "page.mitmBodyResponse": "响应 body",
-  "page.mitmBodyEmpty": "（未记录：日志开关关或该路径永不落库）",
+  "page.mitmBodyEmpty": "（正文未记录：请开启「记录实际上游请求」；token 刷新路径为安全策略永不保存正文）",
   "page.platforms": "AI 平台管理",
   "page.proxy": "代理服务控制台",
   "page.requestLog": "请求记录（测试 / 余额）",

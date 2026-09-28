@@ -117,7 +117,7 @@ pub(crate) use log::{
 };
 pub(crate) use mock::handle_mock;
 pub(crate) use mitm_bypass::{
-    MitmRoute, classify_mitm_route, handle_mitm_observed, is_anthropic_family_host,
+    MitmRoute, classify_mitm_route, handle_mitm_observed, log_core_mitm_observed,
 };
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
@@ -135,9 +135,10 @@ pub(crate) use retry::{
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{
-    ANTHROPIC_PING_FRAME, IDLE_PING_INTERVAL, SseLineReassembler, StreamAggregator, StreamEstCtx,
-    StreamLogGuard, Utf8ChunkReassembler, cap_nonstream_body, extract_usage, replace_model_in_json,
-    replace_model_in_sse_text, resolve_is_stream, with_idle_ping,
+    ANTHROPIC_PING_FRAME, IDLE_PING_INTERVAL, NONSTREAM_BODY_MAX_BYTES, SseLineReassembler,
+    StreamAggregator, StreamEstCtx, StreamLogGuard, Utf8ChunkReassembler, cap_nonstream_body,
+    extract_usage, replace_model_in_json, replace_model_in_sse_text, resolve_is_stream,
+    with_idle_ping,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 

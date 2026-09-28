@@ -570,7 +570,11 @@ pub(crate) fn accumulate_sse_usage(
                 .and_then(|v| v.as_i64())
         })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
-        .or_else(|| usage.get("prompt_cache_hit_tokens").and_then(|v| v.as_i64()))
+        .or_else(|| {
+            usage
+                .get("prompt_cache_hit_tokens")
+                .and_then(|v| v.as_i64())
+        })
     {
         acc_cache.fetch_max(c as i32, Relaxed);
     }
@@ -623,7 +627,11 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32) {
                 .and_then(|v| v.as_i64())
         })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
-        .or_else(|| usage.get("prompt_cache_hit_tokens").and_then(|v| v.as_i64()))
+        .or_else(|| {
+            usage
+                .get("prompt_cache_hit_tokens")
+                .and_then(|v| v.as_i64())
+        })
         .unwrap_or(0) as i32;
     let cache_write = usage
         .get("cache_creation_input_tokens")

@@ -1231,10 +1231,9 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
 
     // 2. aidog proxy axum server + 绑定目标 group。
     let state = make_state().await;
-    let group =
-        aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
-            .await
-            .unwrap();
+    let group = aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
+        .await
+        .unwrap();
     let app = axum::Router::new()
         .route("/", axum::routing::get(handle_root))
         .route("/proxy", axum::routing::get(handle_root))
@@ -1247,8 +1246,7 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
     });
 
     // 3. 绑定 CONNECT：Proxy-Authorization Basic username=group 名 → 盲转行标 mitm_opaque。
-    let auth = base64::engine::general_purpose::STANDARD
-        .encode(format!("{}:x", group.name));
+    let auth = base64::engine::general_purpose::STANDARD.encode(format!("{}:x", group.name));
     let mut bound_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
     bound_sock
         .write_all(

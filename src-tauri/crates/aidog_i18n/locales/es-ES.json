@@ -961,7 +961,7 @@
   "page.mitmLog": "Observaciones MITM",
   "page.mitmBodyRequest": "Cuerpo de petición",
   "page.mitmBodyResponse": "Cuerpo de respuesta",
-  "page.mitmBodyEmpty": "(sin registrar: registro desactivado o ruta que nunca se almacena)",
+  "page.mitmBodyEmpty": "(cuerpo no registrado: active «Registrar solicitud ascendente real»; los cuerpos de renovación de token nunca se guardan por seguridad)",
   "page.platforms": "Gestión de plataformas IA",
   "page.proxy": "Consola proxy",
   "page.requestLog": "Registro de peticiones (Prueba / Saldo)",
