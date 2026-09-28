@@ -9,8 +9,10 @@
 //!   票 12 UI 警示消费（open bug #91703：refresh 过代理可能挂）。
 //! - **UsageSample**：`api.anthropic.com GET /api/oauth/usage` → 蹭自然流量响应采样进
 //!   `oauth_usage_sample`（5h/7d 窗口利用率），**绝不主动请求**（30-60s 轮询即 429）。
-//! - **Bypass**：其余全部（`/api/oauth/*` 元数据观测、Datadog 遥测、mcp-proxy、网页流量等）
-//!   → mitm_log 元数据行，body 仅 `log_upstream_request` 开启时记。
+//! - **Bypass**：其余全部（`/api/oauth/profile` 套餐观测、Datadog 遥测、mcp-proxy、网页
+//!   流量等）→ mitm_log 行，body 仅 `log_upstream_request` 开启时记（同 proxy_log from_log
+//!   语义，2026-09-28 增量：`/api/oauth/*` 观测 body 不再无条件 [REDACTED]，跟随开关）；
+//!   `GET /api/oauth/profile` 成功响应另蹭采样套餐档位进 `cc_oauth_profile` 表。
 //!
 //! 旁路流量**不再**灌 handle_proxy_core 的「未匹配」桶 passthrough——那会落 proxy_log
 //! 污染统计（票 10 目标：旁路进 mitm_log 不进 proxy_log）。core 的 fallback passthrough
@@ -80,12 +82,7 @@ pub(crate) async fn handle_mitm_observed(
     // 无落点（headers 本就不入库）。
     let record_body =
         log_settings.enabled && log_settings.log_upstream_request && route != MitmRoute::TokenObserve;
-    // `/api/oauth/*`（usage 除外——有 UsageSample 专门采样）body 恒 [REDACTED]（spec §3.2：
-    // OAuth 元数据端点可能含凭证，开关开了也不存正文）。
-    let oauth_meta = path.starts_with("/api/oauth/") && path != "/api/oauth/usage";
-    let req_body_str = if oauth_meta {
-        "[REDACTED]".to_string()
-    } else if record_body {
+    let req_body_str = if record_body {
         cap_nonstream_body(&bytes)
     } else {
         String::new()
@@ -135,7 +132,7 @@ pub(crate) async fn handle_mitm_observed(
                     req_bytes,
                     resp_bytes: 0,
                     decrypted: true,
-                    request_body: req_body_str.clone(), // oauth_meta 时 [REDACTED]，否则空（只记元数据）
+                    request_body: req_body_str.clone(),
                     response_body: String::new(),
                     created_at: aidog_db::now(),
                 };
@@ -191,15 +188,22 @@ pub(crate) async fn handle_mitm_observed(
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
         let resp_bytes = body.len() as i64;
-        let resp_body_str = if oauth_meta {
-            "[REDACTED]".to_string()
-        } else if record_body {
+        let resp_body_str = if record_body {
             cap_nonstream_body(&body)
         } else {
             String::new()
         };
         if route == MitmRoute::UsageSample && status.is_success() {
             sample_oauth_usage(state, group_name, &body).await;
+        }
+        // profile 蹭采样（Bypass 路由内判定，spec 增量 balance-full）：与 usage 同款
+        // 被动驱动，绝不主动请求。host/path 双精确匹配，避免误吃其它 /api/oauth/*。
+        if route == MitmRoute::Bypass
+            && host == "api.anthropic.com"
+            && path == "/api/oauth/profile"
+            && status.is_success()
+        {
+            sample_oauth_profile(state, group_name, &body).await;
         }
         if log_settings.enabled {
             let row = MitmLogInsert {
@@ -237,7 +241,7 @@ pub(crate) async fn handle_mitm_observed(
         resp_bytes: 0, // 由计数器在流结束时填充
         decrypted: true,
         request_body: req_body_str,
-        response_body: if oauth_meta { "[REDACTED]".to_string() } else { String::new() },
+        response_body: String::new(),
         created_at: aidog_db::now(),
     };
     let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
@@ -287,6 +291,27 @@ async fn sample_oauth_usage(state: &Arc<ProxyState>, group_name: &str, body: &[u
         aidog_logs::insert_oauth_usage_sample(&state.db, group_name, five, seven, &raw).await
     {
         tracing::warn!(error = %e, "oauth usage sample insert failed (non-fatal)");
+    }
+}
+
+/// 解析 `GET /api/oauth/profile` 响应并 upsert cc_oauth_profile（蹭流量采样，balance-full）。
+/// 响应形状 `{"organization":{"rate_limit_tier":"default_claude_max_20x",...}}`（research/02
+/// #87419 实测）。tier 缺失 → 不落行。
+async fn sample_oauth_profile(state: &Arc<ProxyState>, group_name: &str, body: &[u8]) {
+    let Ok(v) = serde_json::from_slice::<Value>(body) else {
+        tracing::debug!("mitm profile sample: non-JSON response, skip");
+        return;
+    };
+    let Some(tier) = v
+        .pointer("/organization/rate_limit_tier")
+        .and_then(Value::as_str)
+    else {
+        tracing::debug!("mitm profile sample: missing organization.rate_limit_tier, skip");
+        return;
+    };
+    let raw = String::from_utf8_lossy(body).to_string();
+    if let Err(e) = aidog_logs::upsert_cc_oauth_profile(&state.db, group_name, tier, &raw).await {
+        tracing::warn!(error = %e, "cc oauth profile upsert failed (non-fatal)");
     }
 }
 

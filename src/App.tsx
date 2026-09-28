@@ -20,6 +20,7 @@ const Notifications = lazy(() => import("./pages/Notifications").then(m => ({ de
 const Skills = lazy(() => import("./pages/Skills").then(m => ({ default: m.Skills })));
 const Mcp = lazy(() => import("./pages/Mcp").then(m => ({ default: m.Mcp })));
 const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default: m.RequestLog })));
+const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
 const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 import {
   proxyLogApi,
@@ -39,6 +40,7 @@ const BASE_NAV: NavItem[] = [
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
   { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
+  { id: "mitm-log", icon: "logs", labelKey: "nav.mitmLog", section: "nav.section.logStats" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
   { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
   { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
@@ -186,14 +188,15 @@ function App() {
 
   // 隐藏菜单：日志关闭去 logs；通知关闭去 notifications。
   const navItems = BASE_NAV.filter(n => {
-    if (!logEnabled && n.id === "logs") return false;
+    // mitm-log 同走 logs 的开关门（mitm_log 落库受 master switch gate，关了页面恒空）。
+    if (!logEnabled && (n.id === "logs" || n.id === "mitm-log")) return false;
     if (!notifEnabled && n.id === "notifications") return false;
     return true;
   });
 
   // 保留子页后缀（如 "settings/claude"），Sidebar 靠它高亮二级菜单项。
   const resolvedNav =
-    activeNav === "logs" && !logEnabled ? "platforms"
+    (activeNav === "logs" || activeNav === "mitm-log") && !logEnabled ? "platforms"
     : activeNav === "notifications" && !notifEnabled ? "platforms"
     : activeNav;
   const effectiveNav = resolvedNav.split("/")[0];
@@ -230,6 +233,7 @@ function App() {
             {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
             {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
             {effectiveNav === "request-log" && <RequestLog />}
+            {effectiveNav === "mitm-log" && <MitmLog />}
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}

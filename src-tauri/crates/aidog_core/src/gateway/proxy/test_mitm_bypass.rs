@@ -49,6 +49,12 @@ async fn spawn_stub_upstream() -> String {
                     r#"{"five_hour":{"utilization":61.0},"seven_day":{"utilization":12.4}}"#,
                 )
                     .into_response(),
+                "/api/oauth/profile" => (
+                    StatusCode::OK,
+                    [("content-type", "application/json")],
+                    r#"{"email":"u@e.com","organization":{"rate_limit_tier":"default_claude_max_20x","subscription_status":"active"}}"#,
+                )
+                    .into_response(),
                 "/v1/oauth/token" => (
                     StatusCode::OK,
                     [("content-type", "application/json")],
@@ -430,4 +436,74 @@ async fn mitm_log_retention_clears_bodies_then_rows() {
         .await
         .expect("cleanup rows");
     assert_eq!(mitm_rows(&state).await.len(), 0);
+}
+
+/// 增量（2026-09-28）：① `/api/oauth/*` 观测 body 跟配置——开关开=原文、关=空串，
+/// 不再无条件 [REDACTED]；② profile 成功响应蹭采样 upsert cc_oauth_profile（latest-wins）。
+#[tokio::test]
+async fn mitm_oauth_meta_body_follows_config_and_profile_sampled() {
+    let state = make_state().await;
+    let base = spawn_stub_upstream().await;
+
+    // 开关全开：body 记原文。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{base}/api/oauth/profile"),
+        "api.anthropic.com",
+        "/api/oauth/profile",
+        Method::GET,
+        HeaderMap::new(),
+        Bytes::new(),
+        "g1",
+        &settings_logging(),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    // master 开、log_upstream_request 关：body 空串（对齐 proxy_log from_log 语义）。
+    let resp = handle_mitm_observed(
+        &state,
+        MitmRoute::Bypass,
+        format!("{base}/api/oauth/profile"),
+        "api.anthropic.com",
+        "/api/oauth/profile",
+        Method::GET,
+        HeaderMap::new(),
+        Bytes::new(),
+        "g1",
+        &ProxyLogSettings {
+            log_upstream_request: false,
+            ..settings_logging()
+        },
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let rows = mitm_rows(&state).await;
+    assert_eq!(rows.len(), 2);
+    assert!(
+        rows[0].4.contains("rate_limit_tier"),
+        "开关开时 /api/oauth/* body 应记原文，实际 {:?}",
+        rows[0].4
+    );
+    assert!(
+        rows[1].4.is_empty(),
+        "log_upstream_request 关时 body 应为空串，实际 {:?}",
+        rows[1].4
+    );
+
+    // profile 蹭采样：两次请求只留一行（latest-wins），tier 为 organization.rate_limit_tier。
+    let profile: (String, i64) = state
+        .db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT tier, COUNT(*) FROM cc_oauth_profile WHERE group_name = 'g1' GROUP BY tier",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        })
+        .await
+        .expect("read cc_oauth_profile");
+    assert_eq!(profile, ("default_claude_max_20x".to_string(), 1));
 }
