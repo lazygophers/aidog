@@ -218,6 +218,14 @@ async fn handle_single_platform(
         return Err("group's only platform is manually disabled".to_string());
     }
 
+    // 审核拒绝自动禁用是硬停：即使单平台组也不能绕过，否则同一 session 会再次撞回。
+    if only.platform.status == PlatformStatus::AutoDisabled
+        && only.platform.auto_disabled_until > now_ms
+        && only.platform.last_error.contains("[censorship_blocked]")
+    {
+        return Err("group's only platform is censorship-blocked".to_string());
+    }
+
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
     let cache = extra_cache.get(&only.platform.id);
     let peak_windows: &[peak::TimeWindow] =

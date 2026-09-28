@@ -228,6 +228,20 @@ async fn platform_breaker_roundtrips_via_extra() {
     );
 }
 
+#[tokio::test]
+async fn censorship_block_auto_disables_for_one_hour() {
+    let db = test_db().await;
+    let p = create_platform(&db, sample_platform("censorship")).await.unwrap();
+    let before = now();
+
+    disable_platform_for_censorship(&db, p.id).await.unwrap();
+
+    let disabled = get_platform(&db, p.id).await.unwrap().unwrap();
+    assert_eq!(disabled.status, PlatformStatus::AutoDisabled);
+    assert!(!disabled.enabled);
+    assert!(disabled.auto_disabled_until >= before + 60 * 60 * 1000);
+}
+
 /// R5（2026-09-28）：auto_disable 写入路径已删（原 set_platform_auto_disabled），本测试守
 /// 读兼容的 recover 路径——存量 auto_disabled 行成功后恢复 enabled、清 strikes/until。
 #[tokio::test]

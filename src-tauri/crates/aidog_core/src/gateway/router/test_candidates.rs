@@ -210,6 +210,32 @@ async fn single_platform_forces_request_when_auto_disabled() {
     assert_eq!(set.candidates[0].platform.id, p.id);
 }
 
+#[tokio::test]
+async fn single_platform_censorship_blocked_does_not_bypass() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "censorship").await;
+    let g = mk_db_group(&db, "single-censorship", &[p.id]).await;
+    db::disable_platform_for_censorship(&db, p.id)
+        .await
+        .unwrap();
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let result = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    assert_eq!(
+        result.err().as_deref(),
+        Some("group's only platform is censorship-blocked")
+    );
+}
+
 /// 单平台分组：唯一平台手动 Disabled 是显式关停 → 仍 Err（唯一硬停）。
 #[tokio::test]
 async fn single_platform_manual_disabled_errs() {
@@ -444,7 +470,6 @@ async fn load_balance_mode_returns_candidates() {
         .expect("ok");
     assert!(!set.candidates.is_empty());
 }
-
 
 /// Sticky 路由模式：返回候选，不 panic。
 #[tokio::test]
@@ -1133,7 +1158,6 @@ async fn expired_platform_filtered_out_not_prioritized() {
 }
 
 // ── 非 Failover 模式 expiry tiebreak 集成（扩展至全部模式） ──
-
 
 // ── PRD 07-11: preset.models.peak 分支路由层切换 ──────────────────────────────
 

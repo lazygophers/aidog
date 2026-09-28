@@ -8,6 +8,8 @@
 //!   不写 DB（平台 UI 仍是启用态），到点自动回调度。取代旧 auto_disabled 指数退避；
 //!   DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复（recover_platform_auto_disabled）。
 //! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
+//! - 上游审核拒绝（`error.type=censorship_blocked`）→ 平台自动禁用 1 小时，换候选重试；
+//!   到期后允许探测，成功恢复。
 //! - **不影响调度**：非 connect 的网络错误（读超时/中途掐线）、上游 5xx、200 空响应 ——
 //!   仅 inflight-1，延迟 EMA 与候选排序不动。
 //!
