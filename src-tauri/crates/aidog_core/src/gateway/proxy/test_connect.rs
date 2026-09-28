@@ -97,6 +97,9 @@ async fn upsert_connect_log_writes_http_connect_row() {
         start: std::time::Instant::now(),
         log_enabled: true,
         blocked_reason: "",
+        group_name: String::new(),
+        req_bytes: 0,
+        resp_bytes: 0,
     };
     log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 42).await;
     flush_log_queue(&state).await;
@@ -1343,4 +1346,27 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
         plain_full.blocked_reason, "",
         "未绑定连接的盲转行不得标 mitm_opaque（现状零回归）"
     );
+
+    // 8. mitm_log 观测行：绑定盲转必须补一行（decrypted=false / body 空 / host / status），
+    //    未绑定的普通盲转不得产生 mitm_log 行（本测试只有这两条隧道 → 恰 1 行）。
+    let mitm_rows = aidog_logs::list_mitm_bypass_rows(&state.db, 50)
+        .await
+        .expect("list mitm_log");
+    assert_eq!(
+        mitm_rows.len(),
+        1,
+        "mitm_log 必须恰好 1 行（绑定盲转），未绑定盲转不得产生行；实际: {mitm_rows:?}"
+    );
+    let opaque = &mitm_rows[0];
+    assert!(!opaque.decrypted, "盲转观测行 decrypted 必须 false");
+    assert_eq!(
+        opaque.group_name, group.name,
+        "盲转观测行必须带绑定 group 名"
+    );
+    assert_eq!(
+        opaque.host, "127.0.0.1",
+        "盲转观测行 host = CONNECT 目标 host（不含端口）"
+    );
+    assert_eq!(opaque.status_code, 200, "隧道建立成功 → status 200");
+    assert_eq!(opaque.path, "", "盲转无 HTTP 路径（opaque 字节，未解密）");
 }
