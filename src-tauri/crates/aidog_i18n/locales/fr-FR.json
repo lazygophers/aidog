@@ -983,7 +983,7 @@
   "page.mitmLog": "Observations MITM",
   "page.mitmBodyRequest": "Corps de requête",
   "page.mitmBodyResponse": "Corps de réponse",
-  "page.mitmBodyEmpty": "(non enregistré : journalisation désactivée ou chemin jamais stocké)",
+  "page.mitmBodyEmpty": "(corps non enregistré : activez « Enregistrer la requête amont réelle » ; les corps de renouvellement de jeton ne sont jamais stockés par sécurité)",
   "page.platforms": "Gestion des plateformes",
   "page.proxy": "Console Proxy",
   "page.requestLog": "Journal des requêtes (Test / Solde)",

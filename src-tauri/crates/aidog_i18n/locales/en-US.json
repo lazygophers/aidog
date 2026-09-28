@@ -961,7 +961,7 @@
   "page.mitmLog": "MITM Observations",
   "page.mitmBodyRequest": "Request body",
   "page.mitmBodyResponse": "Response body",
-  "page.mitmBodyEmpty": "(not recorded: logging off or this path is never stored)",
+  "page.mitmBodyEmpty": "(body not recorded: enable “Record actual upstream request”; token refresh bodies are never stored for security)",
   "page.platforms": "AI Platform Management",
   "page.proxy": "Proxy Console",
   "page.requestLog": "Request Log (Test / Balance)",

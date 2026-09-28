@@ -1,9 +1,9 @@
 //! 票 10 验收测试：旁路流量进 mitm_log 不进 proxy_log、usage 蹭采样、token 观测无
 //! body、失败计数读取接口、master switch gate、retention 清 body / 删整行。
 use super::*;
-use aidog_logs::MitmLogInsert;
 use crate::gateway::models::ProxyLogSettings;
 use aidog_db::test_support;
+use aidog_logs::MitmLogInsert;
 use aidog_middleware::MiddlewareEngine;
 use axum::http::{HeaderMap, Method};
 
@@ -119,7 +119,8 @@ fn settings_logging() -> ProxyLogSettings {
 
 /// 分流判定单一真值源覆盖：Core / TokenObserve / UsageSample / Bypass 四类边界。
 #[test]
-fn classify_mitm_route_covers_boundaries() {    use axum::http::Method as M;
+fn classify_mitm_route_covers_boundaries() {
+    use axum::http::Method as M;
     // AI API / hello / models 一律 Core（core 有专门 handler，分流会改变既有行为）。
     assert_eq!(
         classify_mitm_route("api.anthropic.com", "/v1/messages", &M::POST),
@@ -157,11 +158,7 @@ fn classify_mitm_route_covers_boundaries() {    use axum::http::Method as M;
         MitmRoute::Bypass
     );
     assert_eq!(
-        classify_mitm_route(
-            "browser-intake-us5-datadoghq.com",
-            "/telemetry",
-            &M::POST
-        ),
+        classify_mitm_route("browser-intake-us5-datadoghq.com", "/telemetry", &M::POST),
         MitmRoute::Bypass
     );
     assert_eq!(
@@ -227,7 +224,11 @@ async fn mitm_bypass_writes_mitm_log_not_proxy_log() {
     assert_eq!(resp.status(), StatusCode::OK);
 
     // proxy_log 零行（票 10 目标：旁路不污染统计）。
-    assert_eq!(proxy_log_count(&state).await, 0, "旁路流量必须不进 proxy_log");
+    assert_eq!(
+        proxy_log_count(&state).await,
+        0,
+        "旁路流量必须不进 proxy_log"
+    );
 
     // mitm_log 三行，逐行断言。
     let rows = mitm_rows(&state).await;
@@ -237,7 +238,10 @@ async fn mitm_bypass_writes_mitm_log_not_proxy_log() {
     assert_eq!(telemetry_host, "browser-intake-us5-datadoghq.com");
     assert_eq!(telemetry_path, "/telemetry");
     assert_eq!(*st, 200);
-    assert!(req_body.contains("metric"), "开关开启时旁路请求 body 应记录");
+    assert!(
+        req_body.contains("metric"),
+        "开关开启时旁路请求 body 应记录"
+    );
     assert_eq!(resp_body, "ok");
     assert_eq!(*resp_bytes, 2);
 
@@ -304,7 +308,11 @@ async fn mitm_token_failure_counted() {
         &settings,
     )
     .await;
-    assert_eq!(resp.status(), StatusCode::BAD_REQUEST, "4xx 原样透传给客户端");
+    assert_eq!(
+        resp.status(),
+        StatusCode::BAD_REQUEST,
+        "4xx 原样透传给客户端"
+    );
 
     let rows = mitm_rows(&state).await;
     assert_eq!(rows.len(), 1);
@@ -317,10 +325,10 @@ async fn mitm_token_failure_counted() {
     assert_eq!((attempts, failures), (1, 1));
 }
 
-/// master switch 关 → mitm_log / oauth_usage_sample 全不落（元数据也不落，同
-/// upsert_proxy_log 早退语义）。
+/// master switch 关 → mitm_log 元数据行**照落**（2026-09-28 用户口径：域名命中 MITM
+/// 即记录，观测不受 proxy 日志总开关控制），仅 body 两列为空（正文跟随 log_upstream_request）。
 #[tokio::test]
-async fn mitm_bypass_master_switch_off_writes_nothing() {
+async fn mitm_bypass_master_switch_off_still_records_metadata() {
     let state = make_state().await;
     let base = spawn_stub_upstream().await;
     let settings = ProxyLogSettings {
@@ -347,7 +355,13 @@ async fn mitm_bypass_master_switch_off_writes_nothing() {
     .await;
     assert_eq!(resp.status(), StatusCode::OK, "转发不受日志开关影响");
 
-    assert_eq!(mitm_rows(&state).await.len(), 0);
+    let rows = mitm_rows(&state).await;
+    assert_eq!(rows.len(), 1, "master switch 关时观测行仍必须落库");
+    let (host, path, st, req_body, resp_body, _) = &rows[0];
+    assert_eq!((host.as_str(), path.as_str(), *st), ("browser-intake-us5-datadoghq.com", "/telemetry", 200));
+    // 正文跟随 log_upstream_request（本 fixture 为 true）——mitm 观测不受 proxy 总开关控制。
+    assert!(!req_body.is_empty(), "log_upstream_request 开 → 请求正文照记（不受 master switch 影响）");
+    assert!(!resp_body.is_empty());
 }
 
 /// 流式旁路（SSE）：字节透传 + Drop 兜底落行（resp_bytes 计数）。
@@ -428,7 +442,10 @@ async fn mitm_log_retention_clears_bodies_then_rows() {
         .expect("cleanup bodies");
     let rows = mitm_rows(&state).await;
     assert_eq!(rows.len(), 1);
-    assert!(rows[0].3.is_empty() && rows[0].4.is_empty(), "超期 body 对称清空");
+    assert!(
+        rows[0].3.is_empty() && rows[0].4.is_empty(),
+        "超期 body 对称清空"
+    );
 
     // 整行删除（retention_days=7 天）：行没了。
     aidog_logs::cleanup_mitm_logs(&state.db, 7, aidog_db::models::RetentionUnit::Day)
@@ -507,14 +524,28 @@ async fn mitm_oauth_meta_body_follows_config_and_profile_sampled() {
     assert_eq!(profile, ("default_claude_max_20x".to_string(), 1));
 }
 
-/// anthropic.com 域判定（Core 观测行 gate，2026-09-28 用户口径）。
-#[test]
-fn anthropic_family_host_boundaries() {
-    assert!(is_anthropic_family_host("anthropic.com"));
-    assert!(is_anthropic_family_host("api.anthropic.com"));
-    assert!(is_anthropic_family_host("stats.anthropic.com"));
-    // 点号边界：跨域 / 后缀拼接不命中
-    assert!(!is_anthropic_family_host("xanthropic.com"));
-    assert!(!is_anthropic_family_host("anthropic.com.evil.com"));
-    assert!(!is_anthropic_family_host("claude.com"));
+/// Core 双写观测行（serve_plaintext Core 分支落，log_core_mitm_observed）：元数据 + 调用方
+/// gate 后的 body；无上游依赖，直调 helper。
+#[tokio::test]
+async fn core_mitm_observed_row_written() {
+    let state = make_state().await;
+    log_core_mitm_observed(
+        &state,
+        "g1",
+        "api.anthropic.com",
+        "/v1/messages",
+        200,
+        120,
+        340,
+        r#"{"model":"claude-3"}"#.to_string(),
+        r#"{"id":"msg"}"#.to_string(),
+    )
+    .await;
+    let rows = mitm_rows(&state).await;
+    assert_eq!(rows.len(), 1);
+    let (host, path, st, req_body, resp_body, resp_bytes) = &rows[0];
+    assert_eq!((host.as_str(), path.as_str(), *st), ("api.anthropic.com", "/v1/messages", 200));
+    assert!(req_body.contains("claude-3"));
+    assert!(resp_body.contains("msg"));
+    assert_eq!(*resp_bytes, 340);
 }

@@ -983,7 +983,7 @@
   "page.mitmLog": "MITM 観測",
   "page.mitmBodyRequest": "リクエスト本文",
   "page.mitmBodyResponse": "レスポンス本文",
-  "page.mitmBodyEmpty": "（未記録：ログオフ、またはこのパスは保存されない）",
+  "page.mitmBodyEmpty": "（本文未記録：「実際のアップストリーム要求を記録」を有効にしてください。token 更新本文は安全上保存されません）",
   "page.platforms": "プラットフォーム管理",
   "page.proxy": "プロキシコンソール",
   "page.requestLog": "リクエスト記録（テスト / 残高）",

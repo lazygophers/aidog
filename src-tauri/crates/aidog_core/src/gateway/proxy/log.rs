@@ -512,7 +512,10 @@ pub(crate) struct ConnectLogCtx {
 impl ConnectLogCtx {
     /// 终态无字节盲转发生（TCP 失败 / TLS 握手失败 / 隧道未建立即断）→ 不标 mitm_opaque。
     pub(crate) fn no_opaque(&self) -> Self {
-        Self { blocked_reason: "", ..self.clone() }
+        Self {
+            blocked_reason: "",
+            ..self.clone()
+        }
     }
 
     /// log_enabled 时写一行 CONNECT 终态（200 = 隧道建立成功 / 502 = 上游失败 / 499 = upgrade 断）。

@@ -257,7 +257,10 @@ async fn handle_connect_inner(
         start,
         log_enabled,
         blocked_reason,
-        group_name: bound_group.as_ref().map(|g| g.name.clone()).unwrap_or_default(),
+        group_name: bound_group
+            .as_ref()
+            .map(|g| g.name.clone())
+            .unwrap_or_default(),
         req_bytes: 0,
         resp_bytes: 0,
     };
@@ -325,8 +328,15 @@ async fn handle_connect_inner(
                 // downcast 失败（理论上不应）→ 退化 blind_relay（裸 Upgraded，不进 MITM）。
                 tracing::warn!(target = %target, request_id = %log_ctx.request_id, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
-                blind_relay_after_connect(&st, client, &target, conn_timeout_secs, &[], log_ctx.clone())
-                    .await;
+                blind_relay_after_connect(
+                    &st,
+                    client,
+                    &target,
+                    conn_timeout_secs,
+                    &[],
+                    log_ctx.clone(),
+                )
+                .await;
                 return;
             }
         };
@@ -669,7 +679,10 @@ where
         Err(e) => {
             tracing::warn!(error = %e, target, "mitm: upstream TCP failed, terminal 502");
             // TCP 失败非盲转（无字节透传发生）→ 不标 mitm_opaque。
-            log_ctx.no_opaque().log_terminal(st, target.to_string(), 502).await;
+            log_ctx
+                .no_opaque()
+                .log_terminal(st, target.to_string(), 502)
+                .await;
             // TCP 失败非 pinning，不标 suspect；client 不再有用（上游连不上 blind_relay 也连不上）。
             // Connected 表示「MITM 已处理」（此处：写了终态 502），调用方 return 不 blind_relay。
             drop(client);
@@ -690,7 +703,10 @@ where
                             "mitm: client TLS handshake failed (CA not trusted?), terminal 502"
                         );
                         // 客户端 TLS 握手失败（无字节盲转发生）→ 不标 mitm_opaque。
-                        log_ctx.no_opaque().log_terminal(st, target.to_string(), 502).await;
+                        log_ctx
+                            .no_opaque()
+                            .log_terminal(st, target.to_string(), 502)
+                            .await;
                         return MitmOutcome::Connected;
                     }
                 };
@@ -870,6 +886,15 @@ pub(crate) async fn serve_plaintext<S>(
             let req_bytes = bytes.len() as i64;
             // bound 在 Core 分支被 filter 消费（inject_group），group_name 先行拷出供观测行用。
             let bound_group_name = bound.as_ref().map(|g| g.name.clone()).unwrap_or_default();
+            // Core 双写 body 口径（2026-09-28）：正文只受 log_upstream_request gate；请求侧明文现在就有。
+            let core_log_settings = st.settings_cache.read().await.log_settings.clone();
+            let core_req_body = if core_log_settings.log_upstream_request {
+                cap_nonstream_body(&bytes)
+            } else {
+                String::new()
+            };
+            let mut core_resp_bytes: i64 = 0;
+            let mut core_resp_body = String::new();
             let resp: Response = if route == MitmRoute::Core {
                 let axum_req = Request::from_parts(parts, axum::body::Body::from(bytes));
                 let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -891,7 +916,11 @@ pub(crate) async fn serve_plaintext<S>(
                 // 归属沿用 CONNECT 绑定 group（mitm_log.group_name），URL 按 CONNECT host
                 // 重构（origin-form URI 只有 path 段）。
                 let group_name = bound.as_ref().map(|g| g.name.clone()).unwrap_or_default();
-                let pq = parts.uri.path_and_query().map(|p| p.as_str()).unwrap_or("/");
+                let pq = parts
+                    .uri
+                    .path_and_query()
+                    .map(|p| p.as_str())
+                    .unwrap_or("/");
                 let url = format!("https://{host}{pq}");
                 let log_settings = st.settings_cache.read().await.log_settings.clone();
                 handle_mitm_observed(
@@ -908,30 +937,60 @@ pub(crate) async fn serve_plaintext<S>(
                 )
                 .await
             };
-            // Core anthropic.com 域观测行（2026-09-28 用户口径：mitm 日志须覆盖全部
-            // anthropic.com 请求与返回）。元数据行（decrypted=true / body 恒空）——完整 body
-            // 已按同一开关落 proxy_log（Core 走完整记账管线），此处双写仅补观测页可见性，
-            // 不重复存 body。流式 resp_bytes 未知记 0。
-            if route == MitmRoute::Core && is_anthropic_family_host(&host) {
-                let group_name = bound_group_name;
-                let log_settings = st.settings_cache.read().await.log_settings.clone();
-                if log_settings.enabled {
-                    let row = aidog_logs::MitmLogInsert {
-                        group_name,
-                        host: host.clone(),
-                        path: req_path.clone(),
-                        status_code: resp.status().as_u16() as i32,
-                        req_bytes,
-                        resp_bytes: 0,
-                        decrypted: true,
-                        request_body: String::new(),
-                        response_body: String::new(),
-                        created_at: aidog_db::now(),
-                    };
-                    if let Err(e) = aidog_logs::insert_mitm_log(&st.db, row).await {
-                        tracing::warn!(error = %e, "core anthropic mitm_log insert failed (non-fatal)");
+            // ── Core mitm_log 双写（2026-09-28 用户口径：域名命中 MITM 白名单并解密的
+            //    请求全部进观测，元数据恒落不受 proxy master switch 控制）──
+            // 非流式响应（content-type 非 SSE 且 content-length ≤ 上限）buffer 捕获后重建回发，
+            // 拿到真实 resp_bytes / 响应正文；流式 / 超限保持流转发（正文不双存，proxy_log 有聚合）。
+            let resp = if route == MitmRoute::Core {
+                let is_sse = resp
+                    .headers()
+                    .get(axum::http::header::CONTENT_TYPE)
+                    .and_then(|v| v.to_str().ok())
+                    .map(|s| s.contains("text/event-stream"))
+                    .unwrap_or(false);
+                let cl = resp
+                    .headers()
+                    .get(axum::http::header::CONTENT_LENGTH)
+                    .and_then(|v| v.to_str().ok())
+                    .and_then(|s| s.parse::<usize>().ok());
+                if !is_sse && cl.is_some_and(|n| n <= NONSTREAM_BODY_MAX_BYTES) {
+                    let status = resp.status();
+                    let (parts, body) = resp.into_parts();
+                    match axum::body::to_bytes(body, NONSTREAM_BODY_MAX_BYTES + 1).await {
+                        Ok(b) => {
+                            core_resp_bytes = b.len() as i64;
+                            if core_log_settings.log_upstream_request {
+                                core_resp_body = cap_nonstream_body(&b);
+                            }
+                            Response::from_parts(parts, axum::body::Body::from(b.to_vec()))
+                        }
+                        Err(e) => {
+                            tracing::warn!(error = %e, host = %host, "core mitm capture: body read failed, relay empty");
+                            Response::builder()
+                                .status(status)
+                                .body(Body::empty())
+                                .expect("static response build")
+                        }
                     }
+                } else {
+                    resp
                 }
+            } else {
+                resp
+            };
+            if route == MitmRoute::Core {
+                log_core_mitm_observed(
+                    &st,
+                    &bound_group_name,
+                    &host,
+                    &req_path,
+                    resp.status().as_u16() as i32,
+                    req_bytes,
+                    core_resp_bytes,
+                    core_req_body,
+                    core_resp_body,
+                )
+                .await;
             }
             Ok::<_, std::convert::Infallible>(resp)
         }

@@ -983,7 +983,7 @@
   "page.mitmLog": "رصد MITM",
   "page.mitmBodyRequest": "نص الطلب",
   "page.mitmBodyResponse": "نص الاستجابة",
-  "page.mitmBodyEmpty": "(غير مسجل: التسجيل مغلق أو هذا المسار لا يُخزن أبدا)",
+  "page.mitmBodyEmpty": "(لم يُسجل النص: فعّل «تسجيل طلب المنبع الفعلي»؛ لا تُحفظ نصوص تجديد الرمز لأسباب أمنية)",
   "page.platforms": "إدارة المنصات",
   "page.proxy": "لوحة الوكيل",
   "page.requestLog": "سجل الطلب (اختبار / رصيد)",
