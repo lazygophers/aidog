@@ -119,6 +119,25 @@ pub(crate) async fn handle_non_success(
         );
     }
 
+    // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
+    // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
+    let censorship_blocked = is_censorship_blocked(&body);
+    if censorship_blocked {
+        if let Err(e) =
+            aidog_db::disable_platform_for_censorship(&state.db, route.platform.id).await
+        {
+            tracing::error!(
+                platform_id = route.platform.id, error = %e,
+                "failed to auto-disable censorship-blocked platform"
+            );
+        }
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            "upstream censorship blocked request; platform auto-disabled for one hour"
+        );
+        aidog_ctx::emit("proxy-log-updated", route.platform.id.into());
+    }
+
     // ── 中间件 error_rule 分类（出站）：按规则将上游错误分类为 retryable/non-retryable。
     //   non-retryable → 立即返回不换候选（用 override_status/body 若有）。
     //   retryable     → 走默认重试语义（换下个候选）。
@@ -142,13 +161,13 @@ pub(crate) async fn handle_non_success(
         )
     };
     // ── 决策 A：状态码硬错圈定 ──
-    //   400 / 422（请求体本身非法）→ 不重试，直接返客户端（换平台无用，避免无谓遍历）。
+    //   400 / 422（请求体本身非法）→ 不重试；结构化 censorship_blocked 是唯一例外，换候选。
     //   其余非 2xx（401/403/404/405/429/5xx/未知）→ 默认可重试（换下个候选）。
-    //   400/422 的硬停优先于中间件 error_rule 的 retryable 分类（status 硬错语义不可被覆盖回可重试）。
-    let status_retryable = is_status_retryable(code);
-    // 中间件 error_rule：仅在 status 本身可重试时，允许其将错误显式降级为 non-retryable（缩小重试面）；
-    //   不允许把硬错（400/422）反向放大为可重试。
-    let mw_non_retryable = err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
+    let status_retryable = is_status_retryable(code) || censorship_blocked;
+    // 中间件 error_rule：审核拒绝必须换候选，不允许规则把它降级成 non-retryable；
+    // 其他状态仅在本身可重试时允许规则缩小重试面。
+    let mw_non_retryable =
+        !censorship_blocked && err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
     let non_retryable = !status_retryable || mw_non_retryable;
     if let Some(ref c) = err_class {
         tracing::info!(
@@ -156,17 +175,19 @@ pub(crate) async fn handle_non_success(
             status = code, "middleware error_rule classified upstream error"
         );
     }
-    if !status_retryable {
+    if !status_retryable && !censorship_blocked {
         tracing::info!(
             status = code, platform = %route.platform.name,
             "decision-A: hard request error (400/422), not retrying next platform"
         );
     }
 
-    // 可重试（非 400/422 硬错 且 中间件未标 non-retryable）→ 换下个候选；
+    // 可重试（审核拒绝或非 400/422 硬错，且中间件未标 non-retryable）→ 换下个候选；
     // 候选耗尽 / 超 max_retries 则返回最后一次错误。non-retryable → 立即返回（不换候选）。
     if !non_retryable && !is_last_candidate {
-        return AttemptOutcome::Next { connect_failed: false };
+        return AttemptOutcome::Next {
+            connect_failed: false,
+        };
     }
 
     // ── 应用 error_rule override_status/body（若有）回客户端 ──

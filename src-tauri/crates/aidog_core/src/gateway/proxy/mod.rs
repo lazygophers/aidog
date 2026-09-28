@@ -128,7 +128,8 @@ pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoin
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
-    is_nonstream_body_valid, is_region_blocked, is_status_retryable, is_transport_retryable,
+    is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
+    is_transport_retryable,
     parse_quota_reset_at, resp_headers_to_log_json, transport_retry_backoff,
     truncate_attempt_error, truncate_peek_text, upstream_headers_to_json,
 };

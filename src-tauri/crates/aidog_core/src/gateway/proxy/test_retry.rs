@@ -422,6 +422,18 @@ fn extract_error_message_non_json_and_empty() {
     assert_eq!(extract_error_message(r#"{"foo":"bar"}"#), None);
 }
 
+// ── censorship_blocked：结构化审核拒绝 ──
+#[test]
+fn censorship_blocked_requires_structured_error_type() {
+    assert!(is_censorship_blocked(
+        r#"{"error":{"message":"The content you provided or machine outputted is blocked.","type":"censorship_blocked"}}"#
+    ));
+    assert!(!is_censorship_blocked(
+        r#"{"error":{"message":"censorship_blocked","type":"invalid_request_error"}}"#
+    ));
+    assert!(!is_censorship_blocked("censorship_blocked"));
+}
+
 // ── classify_429：配额耗尽=true / 限流=false ──
 #[test]
 fn classify_429_quota_exhausted() {
