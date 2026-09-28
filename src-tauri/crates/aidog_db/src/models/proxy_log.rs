@@ -51,6 +51,10 @@ pub struct ProxyLog {
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
+    /// 缓存写入 token（Anthropic `cache_creation_input_tokens`；计价 1.25×/2× input 价）。
+    /// 此前未采集（2026-09-28 列），存量行 0。
+    #[serde(default)]
+    pub cache_write_tokens: i32,
     /// 预估花费（$），基于 model_entry 定价
     #[serde(default)]
     pub est_cost: f64,

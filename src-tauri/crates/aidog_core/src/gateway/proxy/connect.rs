@@ -479,7 +479,7 @@ fn spawn_blind_relay(
 ///
 /// P2-A/B/C：connect 套 timeout + TCP 失败 record_ignored（网络失败不降权）+ set_platform_last_error +
 /// inflight-1；成功侧 record_ignored（仅 inflight-1，**禁 record_success**，避 CONNECT TCP
-/// 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
+/// 握手延迟污染延迟 EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
 ///
 /// ponytail: 抽出避免 blind_relay 逻辑在 handle_connect spawn 内重复（downcast 失败 +
 /// MITM 降级 + read_buf 非空三路径都走 blind_relay）。签名收 `&str` target 因调用方已拥有
@@ -524,7 +524,7 @@ async fn blind_relay_after_connect(
 /// - **B. 在途记账**：命中平台（platform_id != 0）→ connect 前
 ///   `inc_inflight`；失败/超时 → `record_ignored`（网络失败不降权，仅 inflight-1）。
 ///   **成功侧由调用方在隧道关闭后 `record_ignored`**（仅 inflight-1，禁 record_success，
-///   避 CONNECT TCP 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
+///   避 CONNECT TCP 握手延迟污染延迟 EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
 /// - **C. last_error**：失败 → `set_platform_last_error`（成功侧禁 recover_platform_auto_disabled，
 ///   CONNECT 隧道成功 ≠ 平台 AI API 健康）。
 ///
@@ -867,6 +867,9 @@ pub(crate) async fn serve_plaintext<S>(
             // 透明转发 + mitm_log 观测行（usage 蹭采样 / token 只记元数据），**不进 proxy_log**
             // （票 10 目标：防遥测行污染统计；此前这类流量灌 core 落「未匹配」桶 passthrough）。
             let route = classify_mitm_route(&host, &req_path, &parts.method);
+            let req_bytes = bytes.len() as i64;
+            // bound 在 Core 分支被 filter 消费（inject_group），group_name 先行拷出供观测行用。
+            let bound_group_name = bound.as_ref().map(|g| g.name.clone()).unwrap_or_default();
             let resp: Response = if route == MitmRoute::Core {
                 let axum_req = Request::from_parts(parts, axum::body::Body::from(bytes));
                 let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -905,6 +908,31 @@ pub(crate) async fn serve_plaintext<S>(
                 )
                 .await
             };
+            // Core anthropic.com 域观测行（2026-09-28 用户口径：mitm 日志须覆盖全部
+            // anthropic.com 请求与返回）。元数据行（decrypted=true / body 恒空）——完整 body
+            // 已按同一开关落 proxy_log（Core 走完整记账管线），此处双写仅补观测页可见性，
+            // 不重复存 body。流式 resp_bytes 未知记 0。
+            if route == MitmRoute::Core && is_anthropic_family_host(&host) {
+                let group_name = bound_group_name;
+                let log_settings = st.settings_cache.read().await.log_settings.clone();
+                if log_settings.enabled {
+                    let row = aidog_logs::MitmLogInsert {
+                        group_name,
+                        host: host.clone(),
+                        path: req_path.clone(),
+                        status_code: resp.status().as_u16() as i32,
+                        req_bytes,
+                        resp_bytes: 0,
+                        decrypted: true,
+                        request_body: String::new(),
+                        response_body: String::new(),
+                        created_at: aidog_db::now(),
+                    };
+                    if let Err(e) = aidog_logs::insert_mitm_log(&st.db, row).await {
+                        tracing::warn!(error = %e, "core anthropic mitm_log insert failed (non-fatal)");
+                    }
+                }
+            }
             Ok::<_, std::convert::Infallible>(resp)
         }
     });

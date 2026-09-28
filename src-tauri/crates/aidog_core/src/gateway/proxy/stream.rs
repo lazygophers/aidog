@@ -189,6 +189,9 @@ pub(crate) struct StreamAggregator {
     tokens_in: std::sync::atomic::AtomicI32,
     tokens_out: std::sync::atomic::AtomicI32,
     tokens_cache: std::sync::atomic::AtomicI32,
+    // 缓存写入 token（Anthropic cache_creation_input_tokens）：独立于读侧——写入价
+    // 1.25×/2× input 价，并入读侧会按读价少计（2026-09-28 cache-write 记账）。
+    tokens_cache_write: std::sync::atomic::AtomicI32,
     // SSE 行重组缓冲：网络 chunk 边界与 SSE event 边界不对齐，单个 `data:` 行可能被
     // 切到两个 reqwest chunk。逐 chunk `.lines()` 解析会把尾部不完整行喂给 serde 解析失败
     // 静默丢弃 usage（尤其 anthropic 尾部 message_delta 携带最终 input/output_tokens 时）。
@@ -218,6 +221,7 @@ impl StreamAggregator {
             tokens_in: std::sync::atomic::AtomicI32::new(0),
             tokens_out: std::sync::atomic::AtomicI32::new(0),
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
+            tokens_cache_write: std::sync::atomic::AtomicI32::new(0),
             sse_line_buf: std::sync::Mutex::new(String::new()),
             served_model: std::sync::Mutex::new(None),
             upstream_err: std::sync::atomic::AtomicBool::new(false),
@@ -309,6 +313,7 @@ impl StreamAggregator {
                         &self.tokens_in,
                         &self.tokens_out,
                         &self.tokens_cache,
+                        &self.tokens_cache_write,
                     );
                     self.observe_served_model(&json);
                 }
@@ -431,6 +436,7 @@ impl StreamLogGuard {
         let input_tokens = self.agg.tokens_in.load(Relaxed);
         let output_tokens = self.agg.tokens_out.load(Relaxed);
         let cache_tokens = self.agg.tokens_cache.load(Relaxed);
+        let cache_write_tokens = self.agg.tokens_cache_write.load(Relaxed);
 
         let mut final_log = self.log.clone();
         // 实际模型口径（统计按上游自报模型聚合，2026-09-21）：流式从 data: 帧首见模型名取
@@ -442,6 +448,7 @@ impl StreamLogGuard {
         final_log.input_tokens = input_tokens;
         final_log.output_tokens = output_tokens;
         final_log.cache_tokens = cache_tokens;
+        final_log.cache_write_tokens = cache_write_tokens;
         final_log.status_code = status_code;
         final_log.done = true;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
@@ -464,7 +471,7 @@ impl StreamLogGuard {
         tracing::info!(
             platform_id = final_log.platform_id, model = %final_log.actual_model,
             status = status_code, stream = true, duration_ms = final_log.duration_ms,
-            input_tokens, output_tokens, cache_tokens, "stream request completed (flush)"
+            input_tokens, output_tokens, cache_tokens, cache_write_tokens, "stream request completed (flush)"
         );
 
         let upsert_state = self.state.clone();
@@ -528,6 +535,7 @@ pub(crate) fn accumulate_sse_usage(
     acc_in: &std::sync::atomic::AtomicI32,
     acc_out: &std::sync::atomic::AtomicI32,
     acc_cache: &std::sync::atomic::AtomicI32,
+    acc_cache_write: &std::sync::atomic::AtomicI32,
 ) {
     use std::sync::atomic::Ordering::Relaxed;
     // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）
@@ -562,12 +570,22 @@ pub(crate) fn accumulate_sse_usage(
                 .and_then(|v| v.as_i64())
         })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
+        .or_else(|| usage.get("prompt_cache_hit_tokens").and_then(|v| v.as_i64()))
     {
         acc_cache.fetch_max(c as i32, Relaxed);
     }
+    // 缓存写入（Anthropic cache_creation_input_tokens）：独立累加，计价走 cache_write 单价。
+    if let Some(cw) = usage
+        .get("cache_creation_input_tokens")
+        .and_then(|v| v.as_i64())
+    {
+        acc_cache_write.fetch_max(cw as i32, Relaxed);
+    }
 }
 
-/// Extract input/output/cache tokens from non-stream response JSON
+/// Extract input/output/cache tokens from non-stream response JSON.
+/// 返回 (input, output, cache_read, cache_write)——cache_write = Anthropic
+/// `cache_creation_input_tokens`（2026-09-28 起独立提取，此前全链路丢弃）。
 /// 流式判定：请求 body 的 stream 字段与上游响应 content-type 取并。
 /// 中转站常对未声明 stream 的请求强制以 `text/event-stream` 响应；仅凭请求字段会误判为非流式，
 /// 进而用 JSON 解析 SSE 文本拿不到 usage → token/est_cost 全为 0。OR 语义保证既有流式路径不回归。
@@ -575,14 +593,14 @@ pub(crate) fn resolve_is_stream(req_stream: bool, upstream_content_type: &str) -
     req_stream || upstream_content_type.contains("text/event-stream")
 }
 
-pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32) {
+pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32, i32) {
     let v: Value = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(_) => return (0, 0, 0),
+        Err(_) => return (0, 0, 0, 0),
     };
     let usage = match v.get("usage") {
         Some(u) => u,
-        None => return (0, 0, 0),
+        None => return (0, 0, 0, 0),
     };
     let input = usage
         .get("input_tokens")
@@ -594,7 +612,7 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32) {
         .or_else(|| usage.get("completion_tokens"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
-    // Cache tokens: Anthropic (cache_read_input_tokens), OpenAI (prompt_tokens_details.cached_tokens), generic
+    // Cache tokens: Anthropic (cache_read_input_tokens), OpenAI (prompt_tokens_details.cached_tokens), DeepSeek (prompt_cache_hit_tokens), generic
     let cache = usage
         .get("cache_read_input_tokens")
         .and_then(|v| v.as_i64())
@@ -605,8 +623,13 @@ pub(crate) fn extract_usage(body: &str) -> (i32, i32, i32) {
                 .and_then(|v| v.as_i64())
         })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
+        .or_else(|| usage.get("prompt_cache_hit_tokens").and_then(|v| v.as_i64()))
         .unwrap_or(0) as i32;
-    (input, output, cache)
+    let cache_write = usage
+        .get("cache_creation_input_tokens")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as i32;
+    (input, output, cache, cache_write)
 }
 
 /// Replace "model" field in a JSON response body back to the original model name.

@@ -209,6 +209,7 @@ pub(crate) async fn process_upsert(
                 log.input_tokens,
                 log.output_tokens,
                 log.cache_tokens,
+                log.cache_write_tokens,
                 log.platform_id as i64,
                 log.created_at,
             )
@@ -620,6 +621,7 @@ async fn process_connect_log(
         input_tokens: 0,
         output_tokens: 0,
         cache_tokens: 0,
+        cache_write_tokens: 0,
         est_cost: 0.0,
         is_stream: 0,
         attempts: String::new(),

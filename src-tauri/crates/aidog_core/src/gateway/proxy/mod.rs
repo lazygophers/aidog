@@ -116,7 +116,9 @@ pub(crate) use log::{
     upsert_log,
 };
 pub(crate) use mock::handle_mock;
-pub(crate) use mitm_bypass::{MitmRoute, classify_mitm_route, handle_mitm_observed};
+pub(crate) use mitm_bypass::{
+    MitmRoute, classify_mitm_route, handle_mitm_observed, is_anthropic_family_host,
+};
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,

@@ -36,6 +36,7 @@ pub async fn calc_est_cost(
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
+    cache_write_tokens: i32,
     platform_id: i64,
     created_at_ms: i64,
 ) -> f64 {
@@ -70,6 +71,7 @@ pub async fn calc_est_cost(
             input_cost_per_token: settings.fallback_input_price / 1_000_000.0,
             output_cost_per_token: settings.fallback_output_price / 1_000_000.0,
             cache_read_input_token_cost: 0.0,
+            cache_write_input_token_cost: 0.0,
             source: "fallback".to_string(),
         },
         peak_applied: false,
@@ -89,9 +91,11 @@ pub async fn calc_est_cost(
         input_tokens,
         output_tokens,
         cache_tokens,
+        cache_write_tokens,
         rp.input_cost_per_token,
         rp.output_cost_per_token,
         rp.cache_read_input_token_cost,
+        rp.cache_write_input_token_cost,
         multiplier,
     )
 }
@@ -104,14 +108,17 @@ pub fn est_cost_from(
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
+    cache_write_tokens: i32,
     input_cost_per_token: f64,
     output_cost_per_token: f64,
     cache_read_input_token_cost: f64,
+    cache_write_input_token_cost: f64,
     multiplier: f64,
 ) -> f64 {
     let base = input_tokens as f64 * input_cost_per_token
         + output_tokens as f64 * output_cost_per_token
-        + cache_tokens as f64 * cache_read_input_token_cost;
+        + cache_tokens as f64 * cache_read_input_token_cost
+        + cache_write_tokens as f64 * cache_write_input_token_cost;
     base * multiplier
 }
 
@@ -143,8 +150,10 @@ mod tests {
             1000,
             500,
             0,
+            0,
             3.0 / 1_000_000.0,
             15.0 / 1_000_000.0,
+            0.0,
             0.0,
             1.0,
         );
@@ -160,7 +169,7 @@ mod tests {
         let mult = super::super::peak::resolve_multiplier(&windows, created_at_ms, "claude-3");
         assert_eq!(mult, 2.0);
         let base = 1000.0 * 3.0 / 1_000_000.0;
-        let cost = est_cost_from(1000, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, mult);
+        let cost = est_cost_from(1000, 0, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, 0.0, mult);
         assert!((cost - base * 2.0).abs() < 1e-12);
     }
 
@@ -169,7 +178,7 @@ mod tests {
     fn est_cost_from_cache_read_discount() {
         let input_cost = 3.0 / 1_000_000.0;
         let cache_cost = 0.3 / 1_000_000.0; // 折扣价，远低于 input_cost
-        let cost = est_cost_from(0, 0, 1000, input_cost, 0.0, cache_cost, 1.0);
+        let cost = est_cost_from(0, 0, 1000, 0, input_cost, 0.0, cache_cost, 0.0, 1.0);
         assert!((cost - 1000.0 * cache_cost).abs() < 1e-12);
         assert!(cost < 1000.0 * input_cost);
     }
@@ -190,7 +199,9 @@ mod tests {
             1000,
             0,
             0,
+            0,
             hit.price.input_cost_per_token,
+            0.0,
             0.0,
             0.0,
             hit.multiplier(raw),
@@ -198,4 +209,17 @@ mod tests {
         // 3 倍只来自绝对价本身，不是 1e-6 × 3 再 × 3
         assert!((cost - 1000.0 * 3.0e-6).abs() < 1e-12);
     }
+}
+
+/// ⑤ cache_write 独立计价：cache_write_tokens × cache_write 价（1.25× input 例），
+/// 不吃 cache_read 折扣价（2026-09-28 cache-write 记账）。
+#[test]
+fn est_cost_from_cache_write_priced_separately() {
+    let input_cost = 3.0 / 1_000_000.0;
+    let cache_read_cost = 0.3 / 1_000_000.0;
+    let cache_write_cost = 3.75 / 1_000_000.0; // 1.25× input
+    let cost = est_cost_from(0, 0, 1000, 2000, input_cost, 0.0, cache_read_cost, cache_write_cost, 1.0);
+    assert!((cost - (1000.0 * cache_read_cost + 2000.0 * cache_write_cost)).abs() < 1e-12);
+    // 反证：若 write 误按 read 价计，结果会低 2000×(3.75-0.3)/1M
+    assert!(cost > 2000.0 * cache_read_cost);
 }
