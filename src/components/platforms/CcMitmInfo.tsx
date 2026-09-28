@@ -4,7 +4,7 @@
 // 无轮询。行映射 buildUsageTrendRows 导出供单测。
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { mitmStatsApi, type OauthUsageSample, type MitmRefreshStats } from "../../services/api";
+import { mitmStatsApi, type OauthUsageSample, type MitmRefreshStats, type CcProfile } from "../../services/api";
 import { formatPercent } from "../../utils/formatters";
 import { LineChart } from "../charts";
 import type { ChartConfig } from "@/components/ui/chart";
@@ -12,6 +12,7 @@ import type { ChartConfig } from "@/components/ui/chart";
 export interface CcMitmInfoData {
   samples: OauthUsageSample[];
   refresh: MitmRefreshStats | null;
+  plan: CcProfile | null;
 }
 
 /** 采样点 → LineChart 宽表行（x = sampled_at ms，两条 0-100 百分数线）。 */
@@ -27,13 +28,19 @@ export function useCcMitmInfo(active: boolean, groupName?: string): CcMitmInfoDa
     let cancelled = false;
     const tasks: Promise<void>[] = [
       mitmStatsApi.refreshStats(0)
-        .then(refresh => { if (!cancelled) setData(d => ({ samples: d?.samples ?? [], refresh })); })
-        .catch(() => { if (!cancelled) setData(d => d ?? { samples: [], refresh: null }); }),
+        .then(refresh => { if (!cancelled) setData(d => ({ samples: d?.samples ?? [], refresh, plan: d?.plan ?? null })); })
+        .catch(() => { if (!cancelled) setData(d => d ?? { samples: [], refresh: null, plan: null }); }),
     ];
     if (groupName) {
       tasks.push(
         mitmStatsApi.usageTrend(groupName)
-          .then(samples => { if (!cancelled) setData(d => ({ samples, refresh: d?.refresh ?? null })); })
+          .then(samples => { if (!cancelled) setData(d => ({ samples, refresh: d?.refresh ?? null, plan: d?.plan ?? null })); })
+          .catch(() => {}),
+      );
+      // 套餐档位（balance-full）：与趋势同一次打开拉一次，被动数据、无轮询。
+      tasks.push(
+        mitmStatsApi.planInfo(groupName)
+          .then(plan => { if (!cancelled) setData(d => ({ samples: d?.samples ?? [], refresh: d?.refresh ?? null, plan })); })
           .catch(() => {}),
       );
     }
@@ -98,5 +105,30 @@ export function CcMitmTrendSection({ samples }: { samples: OauthUsageSample[] })
         />
       )}
     </div>
+  );
+}
+
+/** 余额位块（balance-full）：套餐档位 + 5h/7d 剩余额度（剩余 = 100 − 最新采样利用率）。
+ *  数据全被动（profile/usage 均蹭自然流量采样），无任一数据时不渲染。 */
+export function CcPlanBalance({ plan, samples }: { plan: CcProfile | null; samples: OauthUsageSample[] }) {
+  const { t } = useTranslation();
+  const latest = samples.length > 0 ? samples[samples.length - 1] : null;
+  if (!plan && !latest) return null;
+  return (
+    <span style={{ flexShrink: 0, fontSize: 10, color: "var(--text-tertiary)", whiteSpace: "nowrap", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+      {plan && (
+        <span>
+          {t("platform.mitmPlanTier", "套餐 {{tier}}", { tier: plan.tier })}
+        </span>
+      )}
+      {latest && (
+        <span>
+          {t("platform.mitmPlanRemain", "5h 剩 {{five}} · 7d 剩 {{seven}}", {
+            five: formatPercent(100 - latest.five_hour_pct, 0),
+            seven: formatPercent(100 - latest.seven_day_pct, 0),
+          })}
+        </span>
+      )}
+    </span>
   );
 }
