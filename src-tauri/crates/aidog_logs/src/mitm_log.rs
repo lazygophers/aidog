@@ -12,7 +12,7 @@
 
 use aidog_db::models::RetentionUnit;
 use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
-use rusqlite::params;
+use rusqlite::{params, OptionalExtension};
 
 /// proxy_log `blocked_reason` 取值：认证绑定的 CONNECT 隧道未解密走盲转（spec cc-sub-mitm D4）。
 /// 单一真值源——aidog_core `gateway::proxy::log` 重导出，写入侧（upsert_connect_log 调用链）
@@ -92,6 +92,90 @@ pub fn insert_oauth_usage_sample<'a>(
         })
         .await
         .map_err(|e| format!("insert oauth_usage_sample: {e}"))
+    }
+}
+
+/// 蹭 `GET /api/oauth/profile` 自然流量 upsert 套餐档位（每组一行 latest-wins）。
+#[track_caller]
+pub fn upsert_cc_oauth_profile<'a>(
+    db: &'a Db,
+    group_name: &str,
+    tier: &str,
+    raw: &str,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let group = group_name.to_string();
+    let tier = tier.to_string();
+    let raw = raw.to_string();
+    async move {
+        db.call_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "INSERT INTO cc_oauth_profile (group_name, tier, raw, updated_at)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(group_name) DO UPDATE SET tier=excluded.tier, raw=excluded.raw, updated_at=excluded.updated_at",
+                params![group, tier, raw, now()],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert cc_oauth_profile: {e}"))
+    }
+}
+
+/// 某 group 的套餐档位（UI 余额位展示；无行 = None）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CcProfileDto {
+    pub tier: String,
+    pub updated_at: i64,
+}
+
+/// 读某 group 的 cc_oauth_profile 行。
+pub fn get_cc_oauth_profile<'a>(
+    db: &'a Db,
+    group_name: &str,
+) -> impl std::future::Future<Output = Result<Option<CcProfileDto>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let group = group_name.to_string();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT tier, updated_at FROM cc_oauth_profile WHERE group_name = ?1",
+                    params![group],
+                    |r| Ok(CcProfileDto { tier: r.get(0)?, updated_at: r.get(1)? }),
+                )
+                .optional()?)
+        })
+        .await
+        .map_err(|e| format!("get cc_oauth_profile: {e}"))
+    }
+}
+
+/// 单行完整观测详情（独立页详情用）：body 两列（开关关 / token 路径时天然空串）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct MitmBypassDetail {
+    pub request_body: String,
+    pub response_body: String,
+}
+
+/// 读单行 mitm_log 的 body 两列（无行 = None）。
+pub fn get_mitm_bypass_detail(
+    db: &Db,
+    id: i64,
+) -> impl std::future::Future<Output = Result<Option<MitmBypassDetail>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_traced(None, __db_caller, move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT request_body, response_body FROM mitm_log WHERE id = ?1",
+                    params![id],
+                    |r| Ok(MitmBypassDetail { request_body: r.get(0)?, response_body: r.get(1)? }),
+                )
+                .optional()?)
+        })
+        .await
+        .map_err(|e| format!("get mitm_bypass_detail: {e}"))
     }
 }
 

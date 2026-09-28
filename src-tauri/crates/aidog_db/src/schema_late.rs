@@ -330,6 +330,20 @@ CREATE INDEX IF NOT EXISTS idx_mitm_log_group_created ON mitm_log(group_name, cr
 
 CREATE INDEX IF NOT EXISTS idx_oauth_usage_sample_group_sampled ON oauth_usage_sample(group_name, sampled_at);"#,
     )?;
+
+    // Migration 20260928-01 (cc-sub-mitm 增量 balance-full): cc_oauth_profile 套餐档位表。
+    //
+    // 蹭 GET /api/oauth/profile 自然流量 upsert（每组一行，latest-wins），绝不主动请求。
+    // tier 如 "default_claude_max_20x"（research/02 #87419）；raw 存响应原文（口径核对）。
+    // 落主库（mitm_log / oauth_usage_sample 同语义归属）。updated_at 毫秒 Unix。
+    conn.execute_batch(
+        r#"CREATE TABLE IF NOT EXISTS cc_oauth_profile (
+    group_name TEXT PRIMARY KEY,
+    tier       TEXT NOT NULL DEFAULT '',
+    raw        TEXT NOT NULL DEFAULT '',
+    updated_at INTEGER NOT NULL DEFAULT 0
+);"#,
+    )?;
     Ok(())
 }
 

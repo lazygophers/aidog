@@ -153,6 +153,18 @@ export interface MitmBypassRow {
   created_at: number;
 }
 
+/** 订阅套餐档位（蹭 /api/oauth/profile 自然流量 upsert；无行 = null）。 */
+export interface CcProfile {
+  tier: string;
+  updated_at: number;
+}
+
+/** 单行 mitm_log 详情（body 两列；开关关 / token 路径时天然空串）。 */
+export interface MitmBypassDetail {
+  request_body: string;
+  response_body: string;
+}
+
 export const mitmStatsApi = {
   /** 某 group 的窗口利用率采样点（升序，趋势图直接喂 LineChart）。 */
   usageTrend: (groupName: string, limit?: number) =>
@@ -164,6 +176,10 @@ export const mitmStatsApi = {
   bypassList: (limit?: number) => invoke<MitmBypassRow[]>("mitm_bypass_list", { limit }),
   /** `blocked_reason='mitm_opaque'` 行数（统计页「未计入」提示）。 */
   opaqueCount: (sinceMs?: number) => invoke<number>("mitm_opaque_count", { sinceMs }),
+  /** 某 group 的订阅套餐档位（balance-full；5h/7d 剩余走 usageTrend 最新采样）。 */
+  planInfo: (groupName: string) => invoke<CcProfile | null>("cc_plan_info", { groupName }),
+  /** 单行观测详情（独立观测页）。 */
+  bypassDetail: (id: number) => invoke<MitmBypassDetail | null>("mitm_bypass_detail", { id }),
   /** pure cc 组 HTTPS_PROXY export 语句（密码/端口与 sync 同源，票 11）。 */
   ccProxyExport: (groupName: string) => invoke<string>("cc_proxy_export", { groupName }),
 };
