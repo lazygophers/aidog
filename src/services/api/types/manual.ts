@@ -47,13 +47,12 @@ export type Protocol =
 
 /** 路由 / 调度策略。
  *  load_balance: 加权随机；failover: priority 升序；
- *  health_aware: 熔断摘除后健康集加权随机；least_latency: 延迟 EMA 升序；
+ *  health_aware: 熔断摘除后健康集加权随机；
  *  sticky: session 键绑定平台，失效/熔断回退加权随机。 */
 export type RoutingMode =
   | "load_balance"
   | "failover"
   | "health_aware"
-  | "least_latency"
   | "sticky";
 
 /** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */

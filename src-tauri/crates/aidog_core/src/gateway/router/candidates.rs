@@ -6,8 +6,7 @@ use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, Sti
 use super::super::time_windows;
 use super::model_mapping::resolve_model;
 use super::ordering::{
-    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency,
-    order_load_balance,
+    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use aidog_db as db;
@@ -347,7 +346,7 @@ fn filter_candidates<'a>(
 
 // ── Helper: 按路由模式排序 ──
 
-/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/LeastLatency/Sticky）。
+/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/Sticky）。
 fn sort_by_routing_mode(
     active: &mut Vec<&GroupPlatformDetail>,
     probe: &mut Vec<&GroupPlatformDetail>,
@@ -377,12 +376,6 @@ fn sort_by_routing_mode(
         RoutingMode::LoadBalance | RoutingMode::HealthAware => {
             order_load_balance(active, now_ms);
             order_load_balance(probe, now_ms);
-            apply_coding_plan_priority(active);
-            apply_coding_plan_priority(probe);
-        }
-        RoutingMode::LeastLatency => {
-            order_least_latency(active, ctx);
-            order_least_latency(probe, ctx);
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
         }

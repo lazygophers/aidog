@@ -1035,12 +1035,11 @@ void main() {
   });
 
   group('策略文案表', () {
-    test('五个策略的顺序与 routing.ts:5 一致（下拉顺序，别按字母重排）', () {
+    test('策略的顺序与 routing.ts:5 一致（下拉顺序，别按字母重排）', () {
       expect(kRoutingModes, [
         'failover',
         'load_balance',
         'health_aware',
-        'least_latency',
         'sticky',
       ]);
     });
