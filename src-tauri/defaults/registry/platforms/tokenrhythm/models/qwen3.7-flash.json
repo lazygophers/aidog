@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "qwen3.7-flash",
+  "display_name": "Qwen3.7-Flash",
+  "canonical_model": "qwen3.7-flash",
+  "family": "qwen",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "input": 1.6506189821182944e-07,
+    "output": 6.602475928473178e-07,
+    "cache_read": 3.301237964236589e-08
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true
+}

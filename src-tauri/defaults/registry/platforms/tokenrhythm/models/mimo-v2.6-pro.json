@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "mimo-v2.6-pro",
+  "display_name": "MiMo-V2.6-Pro",
+  "canonical_model": "mimo-v2.6-pro",
+  "family": "mimo",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 1048576,
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "input": 4.126547455295736e-07,
+    "output": 8.253094910591472e-07,
+    "cache_read": 3.4387895460797803e-09
+  }
+}

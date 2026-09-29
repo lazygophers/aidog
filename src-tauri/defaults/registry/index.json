@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790504305,
+  "last_updated": 1790680873,
   "platforms": [
     {
       "code": "aihubmix",
@@ -9195,6 +9195,37 @@
         "cline-pass__qwen3.8-max.json",
         "cline-pass__qwen3.7-max.json",
         "cline-pass__qwen3.7-plus.json"
+      ]
+    },
+    {
+      "code": "tokenrhythm",
+      "name": "TokenRhythm",
+      "platform_file": "platforms/tokenrhythm/platform.json",
+      "models_dir": "platforms/tokenrhythm/models",
+      "models": [
+        "deepseek-flash.json",
+        "deepseek-v4-flash-0731.json",
+        "deepseek-v4-pro-0813.json",
+        "glm-5.1.json",
+        "glm-5.2.json",
+        "glm-5.3.json",
+        "glm-5.3-flash.json",
+        "glm-5.3-flashx.json",
+        "kimi-k2.6.json",
+        "kimi-k2.7-code.json",
+        "kimi-k3.json",
+        "longcat-2.0.json",
+        "minimax-m2.7.json",
+        "mimo-v2.5-pro.json",
+        "mimo-v2.6-pro.json",
+        "mimo-v2.6-flash.json",
+        "qwen3.7-max.json",
+        "qwen3.7-flash.json",
+        "qwen3.8-max.json",
+        "qwen3.8-27b.json",
+        "qwen3.8-flash.json",
+        "seed-2.1-turbo.json",
+        "seed-2.1-pro.json"
       ]
     }
   ],

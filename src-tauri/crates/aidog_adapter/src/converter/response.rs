@@ -265,7 +265,7 @@ pub fn to_client_sse(
         | CherryIn | PackyCode | Cubence | AiGoCode | RightCode | AiCodeMirror | Nvidia
         | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
         | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
-        | LemonData | PipeLlm | OpenCode | OpenCodeZen | NewApi | Devin => to_anthropic_sse(event),
+        | LemonData | PipeLlm | OpenCode | OpenCodeZen | TokenRhythm | NewApi | Devin => to_anthropic_sse(event),
     }
 }
 

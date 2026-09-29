@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "glm-5.2",
+  "display_name": "GLM-5.2",
+  "canonical_model": "glm-5.2",
+  "family": "glm",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "input": 1.1004126547455296e-06,
+    "output": 3.851444291609354e-06,
+    "cache_read": 2.751031636863824e-07
+  }
+}

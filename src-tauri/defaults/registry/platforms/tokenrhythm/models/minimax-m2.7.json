@@ -1,0 +1,19 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "minimax-m2.7",
+  "display_name": "MiniMax-M2.7",
+  "canonical_model": "MiniMax-M2.7",
+  "family": "minimax",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 200000,
+  "max_input_tokens": 200000,
+  "max_output_tokens": 196608,
+  "official": true,
+  "price": {
+    "input": 2.8885832187070154e-07,
+    "output": 1.1554332874828062e-06
+  }
+}

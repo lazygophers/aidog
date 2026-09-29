@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "deepseek-flash",
+  "display_name": "DeepSeek-Flash",
+  "canonical_model": "deepseek-flash",
+  "family": "deepseek",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 1000000,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 393216,
+  "official": true,
+  "price": {
+    "input": 2.751031636863824e-07,
+    "output": 1.1004126547455296e-06,
+    "cache_read": 5.502063273727648e-09
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": true
+}

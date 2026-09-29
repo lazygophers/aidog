@@ -35,7 +35,7 @@ export type Protocol =
   | "packycode" | "cubence" | "aigocode" | "rightcode" | "aicodemirror" | "nvidia"
   | "pateway" | "ccsub" | "apikeyfun" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
-  | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode" | "opencode_zen"
+  | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode" | "opencode_zen" | "tokenrhythm"
   // ── 中转平台 ──
   | "newapi"
   // ── 订阅透传 ──
