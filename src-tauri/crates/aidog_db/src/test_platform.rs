@@ -619,3 +619,33 @@ async fn migration_dedupes_existing_names() {
     assert!(names.iter().all(|n| n == "legacy" || n.starts_with("legacy-")));
     assert_eq!(names.iter().collect::<std::collections::HashSet<_>>().len(), 3, "全部唯一");
 }
+
+// ── 粘贴 key 带首尾空白（如尾部换行）：create/update 入口剥净，
+// 否则 reqwest 报 builder error: failed to parse header value（proxy_log 5ba9be8e 实证） ──
+#[tokio::test]
+async fn api_key_whitespace_trimmed_on_create_and_update() {
+    let db = test_db().await;
+    let mut input = sample_platform("trim-key");
+    input.api_key = "  sk-live\tline\n".to_string();
+    let p = create_platform(&db, input).await.unwrap();
+    assert_eq!(p.api_key, "sk-live\tline");
+
+    let updated = update_platform(&db, UpdatePlatform {
+        id: p.id,
+        api_key: Some("sk-new\n".to_string()),
+        name: None,
+        platform_type: None,
+        base_url: None,
+        extra: None,
+        models: None,
+        available_models: None,
+        endpoints: None,
+        enabled: None,
+        status: None,
+        manual_budgets: None,
+        join_group_ids: None,
+        expires_at: None,
+        quota_source: None,
+    }).await.unwrap();
+    assert_eq!(updated.api_key, "sk-new");
+}

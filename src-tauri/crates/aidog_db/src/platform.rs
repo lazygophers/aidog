@@ -141,6 +141,8 @@ pub fn create_platform(
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
+        // 粘贴的 key 带首尾空白（如尾部换行）会让 reqwest 报 builder error: failed to parse header value，入口剥净
+        input.api_key = input.api_key.trim().to_string();
         let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
         // If name is empty, auto-generate: {platform_type}-{random8}
         if input.name.trim().is_empty() {
@@ -317,13 +319,16 @@ pub fn get_platform(
 #[track_caller]
 pub fn update_platform(
     db: &Db,
-    input: UpdatePlatform,
+    mut input: UpdatePlatform,
 ) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
         let existing = get_platform(db, input.id)
             .await?
             .ok_or("platform not found")?;
+
+        // 同 create：粘贴 key 带首尾空白会在转发时报 builder error，入口剥净
+        input.api_key = input.api_key.map(|k| k.trim().to_string());
 
         // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
         // consumed/window_start_at 由系统维护——按 id 对齐既有项，保留运行时累计值，
