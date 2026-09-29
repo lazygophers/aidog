@@ -123,9 +123,8 @@ const SelectItem = React.forwardRef<
     ref={ref}
     className={cn(
       // ponytail: 萤火虫选中态 idiom — data-[state=checked] 时 accent-subtle 底 + foreground 文 + font-medium;
-      // (原 text-primary 在 light 下落到近白的 accent-subtle 底上仅 2.33:1，改配对 foreground)
-      // focus/bg-accent 保留键盘 hover 态 (无障碍)
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none transition-colors focus:bg-accent focus:text-accent-foreground data-[state=checked]:bg-[var(--accent-subtle)] data-[state=checked]:text-foreground data-[state=checked]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      // hover/focus 同用 accent-subtle：--accent 深色下是近白的文字色，当底色用会出白块
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none transition-colors focus:bg-[var(--accent-subtle)] focus:text-foreground data-[state=checked]:bg-[var(--accent-subtle)] data-[state=checked]:text-foreground data-[state=checked]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}
