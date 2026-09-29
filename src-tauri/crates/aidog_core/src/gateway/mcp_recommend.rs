@@ -123,11 +123,14 @@ fn parse_bundled() -> Result<RecommendedManifest, String> {
 // ─── 缓存读写（settings，同 price_sync 的 PriceSyncSettings idiom） ──
 
 async fn read_cache(db: &Db) -> Option<CacheDoc> {
-    aidog_db::get_setting(db, SETTING_SCOPE, SETTING_KEY)
-        .await
-        .ok()
-        .flatten()
-        .and_then(|v| serde_json::from_value(v).ok())
+    let raw = match aidog_db::get_setting(db, SETTING_SCOPE, SETTING_KEY).await {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(error = %e, "mcp recommended cache read failed, fallback to bundled");
+            None
+        }
+    };
+    raw.and_then(|v| serde_json::from_value(v).ok())
 }
 
 async fn save_cache(db: &Db, doc: &CacheDoc) {
