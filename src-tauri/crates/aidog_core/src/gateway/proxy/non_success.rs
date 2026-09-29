@@ -68,6 +68,11 @@ pub(crate) async fn handle_non_success(
     let is_429_quota_exhausted =
         code == 429 && classify_429(extracted_msg.as_deref().unwrap_or(&body));
 
+    // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
+    // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
+    // （提前到失败降权判定之前：censorship 已 DB 禁用 1h，不叠加排序降权。）
+    let censorship_blocked = is_censorship_blocked(&body);
+
     // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
     //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
     //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
@@ -77,6 +82,21 @@ pub(crate) async fn handle_non_success(
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
     } else {
         state.scheduler.record_ignored(route.platform.id);
+    }
+
+    // ── 失败降权（health-aware，2026-09-29）：全部非 2xx 计入排序降权（含 400/422），
+    //    censorship 例外（已 DB 禁用 1h，不叠加）。档位：429/5xx → Server（起步 1min），
+    //    其余 4xx（401/402/403/400/422…）→ Client（起步 30s）。连败 ×2 封顶 10min，
+    //    成功清零；与熔断/auth 冷却并行，只沉候选排序不踢出（candidates.rs 消费）。──
+    if !censorship_blocked {
+        let tier = if code == 429 || code >= 500 {
+            super::scheduling::PenaltyTier::Server
+        } else {
+            super::scheduling::PenaltyTier::Client
+        };
+        state
+            .scheduler
+            .record_penalty(route.platform.id, tier, aidog_db::now());
     }
 
     // ── 429 配额耗尽 + 上游给出明确恢复时间 → 冷却该平台到那个时刻 ──
@@ -119,9 +139,6 @@ pub(crate) async fn handle_non_success(
         );
     }
 
-    // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
-    // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
-    let censorship_blocked = is_censorship_blocked(&body);
     if censorship_blocked {
         if let Err(e) =
             aidog_db::disable_platform_for_censorship(&state.db, route.platform.id).await

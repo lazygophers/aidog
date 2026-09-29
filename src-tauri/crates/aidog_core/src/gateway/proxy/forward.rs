@@ -138,7 +138,9 @@ pub(crate) async fn forward_attempt(
                 )),
             )
             .await;
-            return AttemptOutcome::Next { connect_failed: false };
+            return AttemptOutcome::Next {
+                connect_failed: false,
+            };
         }
         // last candidate：返回 502 + 审计落库
         let msg = format!(
@@ -185,7 +187,9 @@ pub(crate) async fn forward_attempt(
         )
         .await;
         if !is_last_candidate {
-            return AttemptOutcome::Next { connect_failed: false };
+            return AttemptOutcome::Next {
+                connect_failed: false,
+            };
         }
         let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
         return AttemptOutcome::Respond(
@@ -779,6 +783,14 @@ pub(crate) async fn forward_attempt(
                 } else {
                     state.scheduler.record_ignored(route.platform.id);
                 }
+                // 失败降权（health-aware，2026-09-29）：connect 失败（已计熔断）与读超时/
+                // 中途掐线/TLS 等 transport 错（原 record_ignored）均计入服务端/网络档降权，
+                // 与熔断并行。此分支在响应头到达前，同请求同平台仅计这一次。
+                state.scheduler.record_penalty(
+                    route.platform.id,
+                    super::scheduling::PenaltyTier::Server,
+                    aidog_db::now(),
+                );
                 let detail = err_chain(&e);
                 tracing::error!(url = %url, platform = %route.platform.name, error = %detail, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
                 let upstream_err = format!("upstream error: {detail}");
@@ -797,7 +809,9 @@ pub(crate) async fn forward_attempt(
                 )
                 .await;
                 if !is_last_candidate {
-                    return AttemptOutcome::Next { connect_failed: e.is_connect() };
+                    return AttemptOutcome::Next {
+                        connect_failed: e.is_connect(),
+                    };
                 }
                 let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
                 return AttemptOutcome::Respond(
@@ -889,6 +903,14 @@ pub(crate) async fn forward_attempt(
     macro_rules! retry_on_empty_2xx {
         ($reason:expr, $upstream_text:expr) => {{
             state.scheduler.record_ignored(route.platform.id);
+            // 失败降权（health-aware，2026-09-29）：决策 B 空响应（非流式空 body / 流式 peek
+            // 秒断无内容）计入服务端/网络档降权。peek 在 commit_2xx_success 之前，
+            // 流式中途断连（已提交成功后）不经过本宏，不计降权。
+            state.scheduler.record_penalty(
+                route.platform.id,
+                super::scheduling::PenaltyTier::Server,
+                aidog_db::now(),
+            );
             tracing::warn!(
                 platform = %route.platform.name, platform_id = route.platform.id,
                 reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"
