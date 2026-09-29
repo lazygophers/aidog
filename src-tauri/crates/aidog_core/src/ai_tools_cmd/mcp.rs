@@ -99,6 +99,16 @@ crate::tauri_command! {
     }
 }
 
+crate::tauri_command! {
+    /// 推荐安装清单：远程缓存（settings mcp/recommended）→ 编译期内置兜底
+    /// （installed 态由前端对齐 mcp_list；本地操作，不落 proxy_log）。
+    pub async fn mcp_recommended_list(
+    ) -> Result<Vec<gateway::mcp::RecommendedEntry>, String> {
+    let db = aidog_ctx::db();
+        gateway::mcp_recommend::recommended_list(db).await
+    }
+}
+
 #[cfg(test)]
 #[path = "test_mcp.rs"]
 mod test_mcp;

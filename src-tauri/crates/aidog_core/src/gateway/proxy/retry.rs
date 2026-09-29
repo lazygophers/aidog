@@ -167,6 +167,19 @@ pub(crate) fn upstream_headers_to_json(headers: &reqwest::header::HeaderMap) -> 
     Value::Object(h).to_string()
 }
 
+/// 上游是否明确因审核机制拒绝请求。只识别结构化 `error.type`，避免误把普通 400 当审核拒绝。
+pub(crate) fn is_censorship_blocked(body: &str) -> bool {
+    serde_json::from_str::<Value>(body)
+        .ok()
+        .and_then(|v| {
+            v.get("error")?
+                .get("type")?
+                .as_str()
+                .map(|s| s == "censorship_blocked")
+        })
+        .unwrap_or(false)
+}
+
 /// 区分 429：配额耗尽（true）vs 限流 transient（false）。仅用于熔断分类（C3）：
 /// 配额耗尽不计熔断（record_ignored），限流计熔断（record_failure）。
 /// 429 不再触发 auto_disable（无论配额还是限流），统一走 failover 换下个候选。

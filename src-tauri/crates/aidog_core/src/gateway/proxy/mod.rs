@@ -116,7 +116,9 @@ pub(crate) use log::{
     upsert_log,
 };
 pub(crate) use mock::handle_mock;
-pub(crate) use mitm_bypass::{MitmRoute, classify_mitm_route, handle_mitm_observed};
+pub(crate) use mitm_bypass::{
+    MitmRoute, classify_mitm_route, handle_mitm_observed, log_core_mitm_observed,
+};
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,
@@ -126,15 +128,17 @@ pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoin
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
-    is_nonstream_body_valid, is_region_blocked, is_status_retryable, is_transport_retryable,
+    is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
+    is_transport_retryable,
     parse_quota_reset_at, resp_headers_to_log_json, transport_retry_backoff,
     truncate_attempt_error, truncate_peek_text, upstream_headers_to_json,
 };
 pub(crate) use settings_cache::{ProxySettingsCache, register as register_settings_cache};
 pub(crate) use stream::{
-    ANTHROPIC_PING_FRAME, IDLE_PING_INTERVAL, SseLineReassembler, StreamAggregator, StreamEstCtx,
-    StreamLogGuard, Utf8ChunkReassembler, cap_nonstream_body, extract_usage, replace_model_in_json,
-    replace_model_in_sse_text, resolve_is_stream, with_idle_ping,
+    ANTHROPIC_PING_FRAME, IDLE_PING_INTERVAL, NONSTREAM_BODY_MAX_BYTES, SseLineReassembler,
+    StreamAggregator, StreamEstCtx, StreamLogGuard, Utf8ChunkReassembler, cap_nonstream_body,
+    extract_usage, replace_model_in_json, replace_model_in_sse_text, resolve_is_stream,
+    with_idle_ping,
 };
 pub(crate) use timeout::{get_system_timeout, resolve_timeout};
 

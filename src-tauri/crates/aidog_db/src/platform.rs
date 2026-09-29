@@ -506,6 +506,31 @@ pub fn update_platform(
     }
 }
 
+/// 上游审核拒绝：自动禁用平台一小时，候选路由到期后再试探。
+/// 用户手动禁用不被覆盖；成功探测仍由 `recover_platform_auto_disabled` 恢复。
+#[track_caller]
+pub fn disable_platform_for_censorship(
+    db: &Db,
+    id: u64,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let ts = now();
+        let until = ts + 60 * 60 * 1000;
+        db.call_platform_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "UPDATE platform SET status='auto_disabled', enabled=0, auto_disabled_until=?1, last_error='HTTP 400 [censorship_blocked]', last_error_at=?2, updated_at=?2 WHERE id=?3 AND status != 'disabled'",
+                params![until, ts, id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("disable platform for censorship: {e}"))?;
+        db.invalidate_group_details_cache();
+        Ok(())
+    }
+}
+
 /// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
 /// 用户手动 disabled / 已 enabled 平台不动。
 #[track_caller]

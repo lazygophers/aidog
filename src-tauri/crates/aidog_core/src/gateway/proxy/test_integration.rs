@@ -515,6 +515,103 @@ async fn upstream_500_records_attempt_and_returns_error() {
 }
 
 #[tokio::test]
+async fn censorship_blocked_fails_over_and_auto_disables_platform() {
+    let blocked = spawn_stub_upstream(
+        400,
+        r#"{"error":{"message":"The content you provided or machine outputted is blocked.","type":"censorship_blocked"}}"#,
+    )
+    .await;
+    let fallback = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+
+    let first = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "blocked".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: blocked,
+            api_key: "sk-blocked".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let second = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "fallback".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: fallback,
+            api_key: "sk-fallback".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(
+        &state.db,
+        aidog_db::test_support::sample_group("gkcensor", vec![]),
+    )
+    .await
+    .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput {
+                platform_id: first.id,
+                priority: Some(0),
+                weight: Some(1),
+                level_priority: Some(1),
+            },
+            GroupPlatformInput {
+                platform_id: second.id,
+                priority: Some(1),
+                weight: Some(1),
+                level_priority: Some(1),
+            },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let response = handle_proxy(
+        AxumState(state.clone()),
+        messages_request(
+            "gkcensor",
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+        ),
+    )
+    .await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let disabled = aidog_db::get_platform(&state.db, first.id)
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        disabled.status,
+        crate::gateway::models::PlatformStatus::AutoDisabled
+    );
+    assert!(!disabled.enabled);
+}
+
+#[tokio::test]
 async fn upstream_400_hard_error_no_retry() {
     let upstream = spawn_stub_upstream(400, r#"{"error":"bad request body"}"#).await;
     let state = make_state(test_db().await).await;

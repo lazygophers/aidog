@@ -97,6 +97,9 @@ async fn upsert_connect_log_writes_http_connect_row() {
         start: std::time::Instant::now(),
         log_enabled: true,
         blocked_reason: "",
+        group_name: String::new(),
+        req_bytes: 0,
+        resp_bytes: 0,
     };
     log::upsert_connect_log(&state, &ctx, "api.example.com:443".into(), 200, 42).await;
     flush_log_queue(&state).await;
@@ -743,7 +746,7 @@ fn closed_loopback_target() -> String {
 
 /// P2-B：TCP 失败（connection refused，未监听端口）→ `record_ignored`（2026-09-15 网络失败
 /// 不降权）。关键断言：breaker 保持 Closed{fails:0}（网络失败不计熔断，下一轮调度仍优先）；
-/// inflight 归零；latency EMA 仍 None（防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
+/// inflight 归零；latency EMA 仍 None（防 CONNECT TCP 握手延迟污染 AI 延迟 EMA）。
 #[tokio::test]
 async fn connect_failure_does_not_touch_breaker() {
     use crate::gateway::models::{CreatePlatform, Protocol};
@@ -805,7 +808,7 @@ async fn connect_failure_does_not_touch_breaker() {
     // EMA 未被污染（record_ignored 不动 latency_ema_ms，仍 None）。
     assert!(
         state.scheduler.latency_ema(p.id).is_none(),
-        "record_ignored 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI LeastLatency 排序）"
+        "record_ignored 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI 延迟 EMA）"
     );
 }
 
@@ -1228,10 +1231,9 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
 
     // 2. aidog proxy axum server + 绑定目标 group。
     let state = make_state().await;
-    let group =
-        aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
-            .await
-            .unwrap();
+    let group = aidog_db::create_group(&state.db, test_support::sample_group("cc-blind-g", vec![]))
+        .await
+        .unwrap();
     let app = axum::Router::new()
         .route("/", axum::routing::get(handle_root))
         .route("/proxy", axum::routing::get(handle_root))
@@ -1244,8 +1246,7 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
     });
 
     // 3. 绑定 CONNECT：Proxy-Authorization Basic username=group 名 → 盲转行标 mitm_opaque。
-    let auth = base64::engine::general_purpose::STANDARD
-        .encode(format!("{}:x", group.name));
+    let auth = base64::engine::general_purpose::STANDARD.encode(format!("{}:x", group.name));
     let mut bound_sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
     bound_sock
         .write_all(
@@ -1343,4 +1344,27 @@ async fn bound_blind_relay_marks_mitm_opaque_row() {
         plain_full.blocked_reason, "",
         "未绑定连接的盲转行不得标 mitm_opaque（现状零回归）"
     );
+
+    // 8. mitm_log 观测行：绑定盲转必须补一行（decrypted=false / body 空 / host / status），
+    //    未绑定的普通盲转不得产生 mitm_log 行（本测试只有这两条隧道 → 恰 1 行）。
+    let mitm_rows = aidog_logs::list_mitm_bypass_rows(&state.db, 50)
+        .await
+        .expect("list mitm_log");
+    assert_eq!(
+        mitm_rows.len(),
+        1,
+        "mitm_log 必须恰好 1 行（绑定盲转），未绑定盲转不得产生行；实际: {mitm_rows:?}"
+    );
+    let opaque = &mitm_rows[0];
+    assert!(!opaque.decrypted, "盲转观测行 decrypted 必须 false");
+    assert_eq!(
+        opaque.group_name, group.name,
+        "盲转观测行必须带绑定 group 名"
+    );
+    assert_eq!(
+        opaque.host, "127.0.0.1",
+        "盲转观测行 host = CONNECT 目标 host（不含端口）"
+    );
+    assert_eq!(opaque.status_code, 200, "隧道建立成功 → status 200");
+    assert_eq!(opaque.path, "", "盲转无 HTTP 路径（opaque 字节，未解密）");
 }

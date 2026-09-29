@@ -35,10 +35,6 @@ const Map<String, (String key, String fallback)> kRoutingModeDescs = {
     'group.routingModeDesc.health_aware',
     '摘除熔断平台后，在健康平台间加权随机。',
   ),
-  'least_latency': (
-    'group.routingModeDesc.least_latency',
-    '按各平台延迟均值升序优先选最快平台。',
-  ),
   'sticky': ('group.routingModeDesc.sticky', '同会话绑定同一平台，失效/熔断后回退加权随机。'),
 };
 

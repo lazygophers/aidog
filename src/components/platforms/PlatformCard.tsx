@@ -197,6 +197,7 @@ export const PlatformCard = memo(function PlatformCard({
   // ponytail: hook 内部 mount 查路径 + miss 触发后台同步 + onError 清空 fallback 下层
   const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
   const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
+  const [lastErrorExpanded, setLastErrorExpanded] = useState(false);
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
   // p.extra 单次解析（原本在渲染体内被调 2 次，每次都内含独立 JSON.parse(extra)）。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
@@ -436,20 +437,24 @@ export const PlatformCard = memo(function PlatformCard({
                 {p.last_error && (
                   <div
                     style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4, maxWidth: "100%",
+                      marginTop: 3, display: "inline-flex", alignItems: "flex-start", gap: 4, maxWidth: "100%",
                       fontSize: 10, fontWeight: 600, color: "var(--color-danger)",
                       background: "color-mix(in srgb, var(--color-danger) 14%, transparent)",
                       border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)",
-                      borderRadius: 5, padding: "1px 6px",
+                      borderRadius: 5, padding: "1px 6px", cursor: "pointer",
                     }}
+                    onClick={() => setLastErrorExpanded(v => !v)}
+                    aria-expanded={lastErrorExpanded}
                     title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
                       .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? (formatDateTime(p.last_error_at) ?? "-") : "-")
                       .replace("{{error}}", p.last_error)}
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
                       <circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" />
                     </svg>
-                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={lastErrorExpanded
+                      ? { whiteSpace: "pre-wrap", wordBreak: "break-all", maxHeight: 120, overflow: "auto" }
+                      : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t("platform.lastError", "最近错误")}: {p.last_error}
                     </span>
                   </div>

@@ -296,9 +296,6 @@ pub enum RoutingMode {
     /// 健康集加权随机：准入门摘除熔断 Open 平台后，在健康平台中按 weight 加权随机。
     #[serde(rename = "health_aware")]
     HealthAware,
-    /// 最小延迟：按 per-platform 延迟 EMA 升序。
-    #[serde(rename = "least_latency")]
-    LeastLatency,
     /// 粘性会话：session 键绑定平台（若健康），否则回退加权随机并写绑定。
     #[serde(rename = "sticky")]
     Sticky,
@@ -312,7 +309,6 @@ impl RoutingMode {
         match s {
             "failover" => RoutingMode::Failover,
             "health_aware" => RoutingMode::HealthAware,
-            "least_latency" => RoutingMode::LeastLatency,
             "sticky" => RoutingMode::Sticky,
             _ => RoutingMode::LoadBalance,
         }
@@ -458,10 +454,6 @@ mod test_routing_mode {
         assert_eq!(
             RoutingMode::from_str_or_default("health_aware"),
             RoutingMode::HealthAware
-        );
-        assert_eq!(
-            RoutingMode::from_str_or_default("least_latency"),
-            RoutingMode::LeastLatency
         );
         assert_eq!(
             RoutingMode::from_str_or_default("sticky"),

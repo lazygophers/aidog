@@ -14,7 +14,6 @@ const List<String> kRoutingModes = [
   'failover',
   'load_balance',
   'health_aware',
-  'least_latency',
   'sticky',
 ];
 
@@ -24,7 +23,6 @@ const Map<String, (String key, String fallback)> kRoutingModeLabels = {
   'failover': ('group.failover', '故障转移'),
   'load_balance': ('group.loadBalance', '负载均衡'),
   'health_aware': ('group.routingMode.health_aware', '健康感知'),
-  'least_latency': ('group.routingMode.least_latency', '最低延迟'),
   'sticky': ('group.routingMode.sticky', '会话粘性'),
 };
 

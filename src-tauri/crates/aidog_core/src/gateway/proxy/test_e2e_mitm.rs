@@ -410,8 +410,7 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
     let mitm_rows = state
         .db
         .call_read_traced(None, std::panic::Location::caller(), |conn| {
-            let mut stmt =
-                conn.prepare("SELECT host, status_code FROM mitm_log")?;
+            let mut stmt = conn.prepare("SELECT host, status_code FROM mitm_log")?;
             let rows = stmt
                 .query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, i32>(1)?)))?
                 .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -574,8 +573,13 @@ async fn mitm_bound_group_claude_code_stats_closed_loop() {
         let client_tls = accept_client(signer, tcp_stream, server_host.clone())
             .await
             .expect("TLS accept");
-        connect::serve_plaintext(state_for_server, client_tls, &server_host, Some(bound_group))
-            .await;
+        connect::serve_plaintext(
+            state_for_server,
+            client_tls,
+            &server_host,
+            Some(bound_group),
+        )
+        .await;
     });
 
     // 4. mock client：订阅 OAuth Bearer（非 group token）+ /v1/messages + claude-sonnet-5。

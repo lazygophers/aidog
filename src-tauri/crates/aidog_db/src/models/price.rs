@@ -13,6 +13,10 @@ pub struct ResolvedPrice {
     pub input_cost_per_token: f64,
     pub output_cost_per_token: f64,
     pub cache_read_input_token_cost: f64,
+    /// 缓存写入单价（registry `price.cache_write`，Anthropic 1.25×/2× input 价）。
+    /// 2026-09-28 起消费；缺省 0 = 条目未标（计价层按 0 加项，不回退 input 价）。
+    #[serde(default)]
+    pub cache_write_input_token_cost: f64,
     pub source: String, // "platform_override" | "default_platform" | "top_level" | "fallback"
 }
 

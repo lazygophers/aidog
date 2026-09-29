@@ -1,7 +1,7 @@
 // mcp.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { McpAgentSlug, McpServerInfo, McpScanItem, McpImportPayload, McpImportReport, McpUpdatePayload } from "./types";
+import type { McpAgentSlug, McpServerInfo, McpScanItem, McpImportPayload, McpImportReport, McpUpdatePayload, McpRecommendedEntry } from "./types";
 
 export const mcpApi = {
   /** 列出 DB 中所有 MCP（env/headers 脱敏）。 */
@@ -30,6 +30,8 @@ export const mcpApi = {
   /** 导出单 MCP 可分享对象（claude.json 协议 {mcpServers:{name:entry}}，明文 env/headers）。 */
   shareExport: (name: string) =>
     invoke<Record<string, unknown>>("mcp_share_export", { name }),
+  /** 推荐安装清单（远程缓存 → 内置兜底；key snake_case）。 */
+  recommendedList: () => invoke<McpRecommendedEntry[]>("mcp_recommended_list"),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────

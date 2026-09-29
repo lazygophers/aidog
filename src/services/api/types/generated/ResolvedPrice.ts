@@ -3,4 +3,9 @@
 /**
  * 价格解析结果
  */
-export type ResolvedPrice = { input_cost_per_token: number, output_cost_per_token: number, cache_read_input_token_cost: number, source: string, };
+export type ResolvedPrice = { input_cost_per_token: number, output_cost_per_token: number, cache_read_input_token_cost: number, 
+/**
+ * 缓存写入单价（registry `price.cache_write`，Anthropic 1.25×/2× input 价）。
+ * 2026-09-28 起消费；缺省 0 = 条目未标（计价层按 0 加项，不回退 input 价）。
+ */
+cache_write_input_token_cost: number, source: string, };

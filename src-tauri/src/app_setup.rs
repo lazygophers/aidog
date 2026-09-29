@@ -311,6 +311,17 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
+    // MCP 推荐清单：启动后台预取一次（TTL 内 sync 内部自跳过），失败仅 warn
+    // （回落缓存/内置清单）。与 aidog_kernel 启动 spawn 同款（双重 spawn 无害：幂等）。
+    {
+        let db = app.state::<Db>().inner().clone();
+        tauri::async_runtime::spawn(async move {
+            if let Err(e) = gateway::mcp_recommend::sync_mcp_recommended(&db).await {
+                tracing::warn!(error = %e, "mcp recommended prefetch failed");
+            }
+        });
+    }
+
     // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）
     // + proxy_log 三级 retention 清理链（user/upstream fields + retention_days + tombstone）
     // + 阈值触发全量 VACUUM（db>100MB；retention 后大块 free pages 回收）。

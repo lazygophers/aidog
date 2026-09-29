@@ -8,6 +8,7 @@ import {
   type McpImportPayload,
   type McpUpdatePayload,
   type McpTransport,
+  type McpRecommendedEntry,
 } from "../../services/api";
 import { agentSupported } from "./constants";
 
@@ -40,6 +41,13 @@ export function useMcpData() {
   // 编辑 modal
   const [editTarget, setEditTarget] = useState<McpServerInfo | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+
+  // 添加 modal 推荐 tab（票 09）：tab 态 + 推荐清单 + 预填提示元数据
+  const [addTab, setAddTab] = useState<"rec" | "manual">("rec");
+  const [recommended, setRecommended] = useState<McpRecommendedEntry[] | null>(null); // null = 未加载
+  const [recLoading, setRecLoading] = useState(false);
+  // pickRecommended 落下的提示：必填 env 名单 + docs_url（保存/重开后清空）
+  const [prefillMeta, setPrefillMeta] = useState<{ requiredEnvKeys: string[]; docsUrl: string } | null>(null);
 
   // 分享 modal（泛化 ShareModal，复用平台三格式切换）
   const [shareData, setShareData] = useState<{ share: Record<string, unknown>; name: string } | null>(null);
@@ -327,9 +335,41 @@ export function useMcpData() {
     return () => window.removeEventListener("aidog:mcp", handler);
   }, [openDeepLinkImport]);
 
+  // ─── 推荐清单（票 09：首次打开添加弹窗拉一次；失败置回 null，下次 openAdd 重试）───
+  const loadRecommended = useCallback(async () => {
+    if (recommended !== null || recLoading) return;
+    setRecLoading(true);
+    try {
+      setRecommended(await mcpApi.recommendedList());
+    } catch (e) {
+      console.warn("mcp recommended list failed:", e);
+      setRecommended(null);
+    } finally {
+      setRecLoading(false);
+    }
+  }, [recommended, recLoading]);
+
+  /** 点未装推荐卡：切手动表单并预填七字段（env 键预填值留空）。 */
+  const pickRecommended = (e: McpRecommendedEntry) => {
+    setEditTarget(null);
+    setEditForm({
+      name: e.name,
+      transport: e.transport,
+      command: e.command,
+      argsText: e.args.join("\n"),
+      envRows: Object.entries(e.env).map(([k, v]) => ({ k, v })),
+      url: e.url,
+      headersRows: Object.entries(e.headers).map(([k, v]) => ({ k, v })),
+    });
+    setPrefillMeta({ requiredEnvKeys: e.required_env_keys, docsUrl: e.docs_url });
+    setMessage(null);
+    setAddTab("manual");
+  };
+
   // ─── 编辑 ───
   const openEdit = (srv: McpServerInfo) => {
     setEditTarget(srv);
+    setPrefillMeta(null);
     setEditForm({
       name: srv.name,
       transport: srv.transport,
@@ -343,7 +383,7 @@ export function useMcpData() {
     setEditOpen(true);
   };
 
-  // ─── 添加（空表单）───
+  // ─── 添加（双 tab：推荐默认 / 手动空表单）───
   const openAdd = () => {
     setEditTarget(null);
     setEditForm({
@@ -355,8 +395,11 @@ export function useMcpData() {
       url: "",
       headersRows: [],
     });
+    setPrefillMeta(null);
+    setAddTab("rec");
     setMessage(null);
     setEditOpen(true);
+    void loadRecommended();
   };
 
   const handleEditSave = async () => {
@@ -394,6 +437,7 @@ export function useMcpData() {
       await refresh();
       setEditTarget(null);
       setEditOpen(false);
+      setPrefillMeta(null);
       setMessage({ kind: "ok", text: t("mcp.saved", "已保存") });
     } catch (e) {
       setMessage({ kind: "err", text: String(e) });
@@ -415,6 +459,8 @@ export function useMcpData() {
     deleteTarget, setDeleteTarget, handleDelete,
     // edit modal
     editTarget, editOpen, setEditTarget, setEditOpen, editForm, setEditForm, openEdit, openAdd, handleEditSave,
+    // recommend tab（票 09）
+    addTab, setAddTab, recommended, recLoading, prefillMeta, pickRecommended,
     // share modal
     shareData, setShareData, handleShare,
     // actions
