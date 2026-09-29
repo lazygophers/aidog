@@ -1408,3 +1408,34 @@ async fn zero_enabled_multi_platform_no_shortcut() {
         "zero enabled, no shortcut: all auto_disabled-not-due must Err, not force request"
     );
 }
+
+/// 失败降权（health-aware，2026-09-29）：降权窗口内的平台沉到候选末尾，
+/// 降权平台之间保持原排序；未降权平台在前。排序不踢出候选。
+#[tokio::test]
+async fn penalty_demotes_platform_to_last() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "penalized-1").await;
+    let p2 = mk_db_platform(&db, "healthy").await;
+    let p3 = mk_db_platform(&db, "penalized-2").await;
+    let g = mk_db_group_mode(&db, "lb", &[p1.id, p2.id, p3.id], RoutingMode::LoadBalance).await;
+
+    let sched = SchedulerState::new();
+    let now = db::now();
+    sched.record_penalty(p1.id, crate::gateway::scheduling::PenaltyTier::Server, now);
+    sched.record_penalty(p3.id, crate::gateway::scheduling::PenaltyTier::Client, now);
+
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
+        .await
+        .expect("penalty only reorders, never excludes");
+    let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    assert_eq!(ids, vec![p2.id, p1.id, p3.id], "healthy first, penalized last (original order kept)");
+}

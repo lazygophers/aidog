@@ -395,6 +395,22 @@ fn sort_by_routing_mode(
             apply_sticky(active, ctx, now_ms);
         }
     }
+
+    // ── 失败降权沉底（health-aware，2026-09-29）：降权窗口内的平台整体沉到 active 桶
+    //    末尾（降权平台之间保持 mode 排序原序），probe 桶本身已是末位试探层不重复处理。
+    //    放在 apply_coding_plan_priority 之后：降权优先级高于 coding plan 上浮。
+    if let Some(c) = ctx {
+        let mut demoted = Vec::new();
+        active.retain(|gp| {
+            if c.scheduler.penalty_active(gp.platform.id, now_ms) {
+                demoted.push(*gp);
+                false
+            } else {
+                true
+            }
+        });
+        active.extend(demoted);
+    }
 }
 
 // ── Helper: 合并 + 映射提升 ──

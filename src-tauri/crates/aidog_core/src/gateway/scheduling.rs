@@ -10,8 +10,12 @@
 //! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
 //! - 上游审核拒绝（`error.type=censorship_blocked`）→ 平台自动禁用 1 小时，换候选重试；
 //!   到期后允许探测，成功恢复。
-//! - **不影响调度**：非 connect 的网络错误（读超时/中途掐线）、上游 5xx、200 空响应 ——
-//!   仅 inflight-1，延迟 EMA 与候选排序不动。
+//! - **失败降权（health-aware，2026-09-29）**：**全部失败**计入排序降权——熔断记失败 /
+//!   record_ignored 的各分支（429、401/402、其余 4xx、5xx、connect/transport 错、200 空响应）
+//!   一并调 `record_penalty`。两档起步（4xx→30s、429/5xx/transport→1min），连败 ×2 封顶
+//!   [`PENALTY_MAX_MS`]，成功一次清零。降权只把平台沉到候选排序末尾，**不踢出候选**，
+//!   与熔断/auth/配额冷却并行；纯内存态（与 EMA 同待遇，重启丢失可接受）。
+//!   例外：流式中途断连（2xx 已开始输出）不计；censorship 已 DB 禁用 1h 不叠加。
 //!
 //! 状态机三态：
 //! ```text
@@ -29,6 +33,31 @@ use std::sync::RwLock;
 pub const AUTH_COOLDOWN_MS: i64 = 5 * 60 * 1000;
 /// connect 失败本地网络保护滑窗（毫秒）：窗口内失败平台数达候选半数 → 判本地网络问题不熔断。
 const CONNECT_FAIL_WINDOW_MS: i64 = 60 * 1000;
+
+/// 失败降权：客户端错档（各类 4xx）起步窗口（毫秒）。
+pub const PENALTY_CLIENT_BASE_MS: i64 = 30 * 1000;
+/// 失败降权：服务端/网络档（429/5xx/connect/transport 错/空响应）起步窗口（毫秒）。
+pub const PENALTY_SERVER_BASE_MS: i64 = 60 * 1000;
+/// 失败降权：连败 ×2 递增的封顶窗口（毫秒）。
+pub const PENALTY_MAX_MS: i64 = 10 * 60 * 1000;
+
+/// 失败降权两档。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PenaltyTier {
+    /// 客户端错（各类 4xx）。
+    Client,
+    /// 服务端/网络错（429/5xx/transport 错/空响应）。
+    Server,
+}
+
+impl PenaltyTier {
+    fn base_ms(self) -> i64 {
+        match self {
+            PenaltyTier::Client => PENALTY_CLIENT_BASE_MS,
+            PenaltyTier::Server => PENALTY_SERVER_BASE_MS,
+        }
+    }
+}
 
 /// 熔断三态。
 #[derive(Debug, Clone, PartialEq)]
@@ -75,6 +104,12 @@ pub struct PlatformHealth {
     /// 最近一次 connect 失败时刻（unix ms，0 = 无）。本地网络保护条款的滑窗判据
     /// （见 [`SchedulerState::record_connect_failure`]）。
     pub last_connect_fail_ms: i64,
+    /// 失败降权截止（unix ms，0 = 无）。降权只影响候选排序（沉底），不踢出候选。
+    pub penalty_until_ms: i64,
+    /// 最近一次降权档位（决定下次起步档）。
+    pub penalty_tier: PenaltyTier,
+    /// 连败计数（成功清零）：降权窗口 ×2 递增封顶 [`PENALTY_MAX_MS`]。
+    pub penalty_consecutive: u32,
 }
 
 impl Default for PlatformHealth {
@@ -86,6 +121,9 @@ impl Default for PlatformHealth {
             quota_cooldown_until_ms: 0,
             auth_cooldown_until_ms: 0,
             last_connect_fail_ms: 0,
+            penalty_until_ms: 0,
+            penalty_tier: PenaltyTier::Client,
+            penalty_consecutive: 0,
         }
     }
 }
@@ -263,6 +301,33 @@ impl SchedulerState {
             .is_some_and(|until| until > now_ms)
     }
 
+    /// 失败降权（health-aware 排序降权）：平台计入一次失败 → 按本次失败档位起步窗口降权，
+    /// 连败 ×2 递增封顶 [`PENALTY_MAX_MS`]；成功一次清零回起步（record_success）。
+    /// 只沉候选排序不踢出候选，与熔断/auth/配额冷却并行；纯内存态不持久化。
+    /// 档位取**本次失败**的档位（连败跨档时窗口从新档起步重算，取 max 不缩短已有窗口）。
+    pub fn record_penalty(&self, platform_id: u64, tier: PenaltyTier, now_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            let n = h.penalty_consecutive.saturating_add(1);
+            let win = tier
+                .base_ms()
+                .saturating_mul(1i64 << (n - 1).min(20))
+                .min(PENALTY_MAX_MS);
+            h.penalty_until_ms = h.penalty_until_ms.max(now_ms + win);
+            h.penalty_tier = tier;
+            h.penalty_consecutive = n;
+        }
+    }
+
+    /// 该平台此刻是否处于降权窗口（到点自动失效，无需清理）。
+    pub fn penalty_active(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.penalty_until_ms > now_ms))
+            .unwrap_or(false)
+    }
+
     /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
     /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
     pub fn admission(
@@ -331,6 +396,9 @@ impl SchedulerState {
             };
             h.breaker = BreakerState::Closed { fails: 0 };
             h.last_connect_fail_ms = 0;
+            // 失败降权：成功一次清零回起步（下次失败从档位起步窗口重新计）。
+            h.penalty_until_ms = 0;
+            h.penalty_consecutive = 0;
             non_default
         } else {
             false
@@ -741,6 +809,50 @@ mod tests {
             s.admission(8, &thresholds(3, 30, 2), now, true),
             Admission::Allow
         );
+    }
+
+    #[test]
+    fn penalty_tiers_and_escalation_cap() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        // Client 档起步 30s
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now));
+        assert!(s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS - 1));
+        assert!(!s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS));
+        // Server 档起步 1min
+        s.record_penalty(2, PenaltyTier::Server, now);
+        assert!(s.penalty_active(2, now + PENALTY_SERVER_BASE_MS - 1));
+        assert!(!s.penalty_active(2, now + PENALTY_SERVER_BASE_MS));
+        // 连败 ×2 递增：30s → 60s → 120s
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS + 1));
+        assert!(!s.penalty_active(1, now + 2 * PENALTY_CLIENT_BASE_MS));
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now + 2 * PENALTY_CLIENT_BASE_MS + 1));
+        assert!(!s.penalty_active(1, now + 4 * PENALTY_CLIENT_BASE_MS));
+        // 封顶 10min：连败 10 次后窗口恒 PENALTY_MAX_MS
+        for _ in 0..20 {
+            s.record_penalty(3, PenaltyTier::Server, now);
+        }
+        assert!(s.penalty_active(3, now + PENALTY_MAX_MS - 1));
+        assert!(!s.penalty_active(3, now + PENALTY_MAX_MS));
+        // 未计入降权的平台查询为 false
+        assert!(!s.penalty_active(99, now));
+    }
+
+    #[test]
+    fn success_resets_penalty_to_base() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.record_penalty(1, PenaltyTier::Server, now);
+        s.record_penalty(1, PenaltyTier::Server, now); // 连败窗口 120s
+        s.record_success(1, 100);
+        assert!(!s.penalty_active(1, now + 1));
+        // 成功后从起步窗口重新计
+        s.record_penalty(1, PenaltyTier::Server, now + 10);
+        assert!(s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS - 1));
+        assert!(!s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS));
     }
 
     #[test]
