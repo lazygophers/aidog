@@ -224,18 +224,14 @@ export function SearchableProtocolSelect({
                   key={`${p.value}-${p.codingPlan ? 1 : 0}`}
                   type="button"
                   variant="ghost"
-                  // ponytail: 对齐 select.tsx SelectItem — selected 用 accent-subtle 底 + primary 文 + font-medium;
-                  // hover (isHighlighted && !isActive) 用 bg-accent (Button ghost variant 内置 hover:bg-accent);
-                  // outline 仅键盘高亮 (无障碍标识), 默认态无 outline 与 select item 同源
+                  // ponytail: 对齐 select.tsx SelectItem — selected/keyboard highlight 都用 accent-subtle，避免 dark 下 --accent 近白出白块
+                  // outline 仅键盘高亮 (无障碍标识), 默认态默认透明
                   style={{
                     display: "flex", width: "100%", justifyContent: "flex-start", textAlign: "left",
                     padding: "7px 12px", fontSize: 13, height: "auto",
-                    // 萤火虫选中态: accent-subtle 底 + primary 文 + font-medium (memory firefly-active-state-idiom)
                     fontWeight: isActive ? 500 : 400,
-                    color: isActive ? "var(--accent)" : "var(--text-primary)",
-                    background: isActive
-                      ? "var(--accent-subtle)"
-                      : isHighlighted ? "var(--accent)" : "transparent",
+                    color: "var(--text-primary)",
+                    background: isActive || isHighlighted ? "var(--accent-subtle)" : "transparent",
                     borderRadius: "var(--radius-sm)",
                     outline: "none",
                     transition: "background-color 150ms ease, color 150ms ease",
