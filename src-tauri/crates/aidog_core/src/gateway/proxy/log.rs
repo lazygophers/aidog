@@ -21,11 +21,16 @@ pub(crate) enum LogMsg {
     Connect {
         id: String,
         group_key: String,
+        /// 绑定 group 名（认证命中时）；空串 = 未绑定。
+        group_name: String,
         platform_id: u64,
         request_url: String,
         status_code: i32,
         duration_ms: i32,
         blocked_reason: String,
+        /// 双向透传字节数（client→upstream / upstream→client）；仅盲转路径统计。
+        req_bytes: i64,
+        resp_bytes: i64,
     },
     /// 测试用同步屏障：writer 处理到此消息即 ack，供测试在断言前等待此前所有入队消息落库
     /// 完成（FIFO 单 consumer 保证屏障之前的消息必已处理）。生产路径不发送。
@@ -105,21 +110,27 @@ pub(crate) fn spawn_log_writer(
                 LogMsg::Connect {
                     id,
                     group_key,
+                    group_name,
                     platform_id,
                     request_url,
                     status_code,
                     duration_ms,
                     blocked_reason,
+                    req_bytes,
+                    resp_bytes,
                 } => {
                     process_connect_log(
                         &state,
                         id,
                         group_key,
+                        group_name,
                         platform_id,
                         request_url,
                         status_code,
                         duration_ms,
                         blocked_reason,
+                        req_bytes,
+                        resp_bytes,
                     )
                     .await;
                 }
@@ -198,6 +209,7 @@ pub(crate) async fn process_upsert(
                 log.input_tokens,
                 log.output_tokens,
                 log.cache_tokens,
+                log.cache_write_tokens,
                 log.platform_id as i64,
                 log.created_at,
             )
@@ -490,12 +502,20 @@ pub(crate) struct ConnectLogCtx {
     pub(crate) log_enabled: bool,
     /// 与 proxy_log.blocked_reason 列同名同义。
     pub(crate) blocked_reason: &'static str,
+    /// 绑定 group 名（认证命中时）；空串 = 未绑定。mitm_log 观测行消费。
+    pub(crate) group_name: String,
+    /// 双向透传字节数（bridge_bidir 落终态时回填）。
+    pub(crate) req_bytes: i64,
+    pub(crate) resp_bytes: i64,
 }
 
 impl ConnectLogCtx {
     /// 终态无字节盲转发生（TCP 失败 / TLS 握手失败 / 隧道未建立即断）→ 不标 mitm_opaque。
     pub(crate) fn no_opaque(&self) -> Self {
-        Self { blocked_reason: "", ..self.clone() }
+        Self {
+            blocked_reason: "",
+            ..self.clone()
+        }
     }
 
     /// log_enabled 时写一行 CONNECT 终态（200 = 隧道建立成功 / 502 = 上游失败 / 499 = upgrade 断）。
@@ -529,11 +549,14 @@ pub(crate) async fn upsert_connect_log(
     let msg = LogMsg::Connect {
         id: ctx.request_id.clone(),
         group_key: ctx.conn_group_key.clone(),
+        group_name: ctx.group_name.clone(),
         platform_id: ctx.platform_id,
         request_url,
         status_code,
         duration_ms,
         blocked_reason: ctx.blocked_reason.to_string(),
+        req_bytes: ctx.req_bytes,
+        resp_bytes: ctx.resp_bytes,
     };
     if state.log_tx.send(msg).await.is_err() {
         tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped");
@@ -554,13 +577,29 @@ async fn process_connect_log(
     state: &Arc<ProxyState>,
     id: String,
     group_key: String,
+    group_name: String,
     platform_id: u64,
     request_url: String,
     status_code: i32,
     duration_ms: i32,
     blocked_reason: String,
+    req_bytes: i64,
+    resp_bytes: i64,
 ) {
     let now = aidog_db::now();
+    // 是否认证绑定的盲转（mitm_opaque）——cols move 掉 blocked_reason 前先取。
+    let is_opaque = blocked_reason == aidog_logs::MITM_OPAQUE_REASON;
+    // ponytail: host 从 request_url（"host:port"）剥端口，IPv6 字面量不处理——CONNECT 目标
+    // 几乎恒为域名/IPv4，真出现时 host 记原样可用。先取（下面 cols move 掉 request_url）。
+    let host = if is_opaque {
+        request_url
+            .rsplit_once(':')
+            .map(|(h, _)| h)
+            .unwrap_or(&request_url)
+            .to_string()
+    } else {
+        String::new()
+    };
     let cols = aidog_logs::ProxyLogColumns {
         id,
         group_key,
@@ -585,6 +624,7 @@ async fn process_connect_log(
         input_tokens: 0,
         output_tokens: 0,
         cache_tokens: 0,
+        cache_write_tokens: 0,
         est_cost: 0.0,
         is_stream: 0,
         attempts: String::new(),
@@ -601,6 +641,25 @@ async fn process_connect_log(
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
         return;
+    }
+    // 认证绑定的盲转隧道（mitm_opaque）补一行 mitm_log 观测行（decrypted=false / body 恒空），
+    // MITM 观测页才能看到全部走代理的请求；其余（普通盲转 / 502/499 早断）不产生行。
+    if is_opaque {
+        let row = aidog_logs::MitmLogInsert {
+            group_name,
+            host,
+            path: String::new(),
+            status_code,
+            req_bytes,
+            resp_bytes,
+            decrypted: false,
+            request_body: String::new(),
+            response_body: String::new(),
+            created_at: now,
+        };
+        if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
+            tracing::warn!(error = %e, "mitm opaque mitm_log insert failed (non-fatal)");
+        }
     }
     // 通知前端 Platforms/Stats 刷新（platform_id 可能为 0，前端按需处理）。CONNECT 一次性终态
     // 写入，复用与 `process_upsert` 终态分支相同的 emit idiom（s4 proxy-hotpath-buffers）。

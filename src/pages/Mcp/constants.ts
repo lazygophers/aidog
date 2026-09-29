@@ -1,4 +1,4 @@
-import { type McpAgentSlug } from "../../services/api";
+import { type McpAgentSlug, type McpRecommendedEntry } from "../../services/api";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
 
@@ -33,4 +33,20 @@ export function summaryOf(m: { transport: string; command: string; args: string[
     return [m.command, first].filter(Boolean).join(" ");
   }
   return m.url || "—";
+}
+
+// ─── 推荐清单（票 09）───
+
+/** 分类分组顺序（spec §3.1）；未知 category 按首现顺序排在末尾。 */
+export const CATEGORY_ORDER = ["browser", "docs", "code", "search", "service", "tool"] as const;
+
+/** description 8-locale map 回落：当前语言 → en-US → zh-Hans。 */
+export function descFor(e: McpRecommendedEntry, lang: string): string {
+  return e.description[lang] ?? e.description["en-US"] ?? e.description["zh-Hans"] ?? "";
+}
+
+/** 推荐卡命令行摘要：stdio → command + 全部 args；http/sse → url（全参，区别于列表页首参 summaryOf）。 */
+export function cmdSummary(e: Pick<McpRecommendedEntry, "transport" | "command" | "args" | "url">): string {
+  if (e.transport === "stdio") return [e.command, ...e.args].filter(Boolean).join(" ");
+  return e.url || "—";
 }

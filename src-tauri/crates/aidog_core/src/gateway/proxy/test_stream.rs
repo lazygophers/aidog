@@ -13,7 +13,7 @@ fn accumulate_sse_usage_anthropic_and_openai() {
         "type": "message_start",
         "message": { "usage": { "input_tokens": 10, "cache_read_input_tokens": 3 } }
     });
-    accumulate_sse_usage(&anth, &i, &o, &c);
+    accumulate_sse_usage(&anth, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 10);
     assert_eq!(c.load(Relaxed), 3);
 
@@ -24,7 +24,7 @@ fn accumulate_sse_usage_anthropic_and_openai() {
     let oai: Value = serde_json::json!({
         "usage": { "prompt_tokens": 20, "completion_tokens": 7 }
     });
-    accumulate_sse_usage(&oai, &oi, &oo, &oc);
+    accumulate_sse_usage(&oai, &oi, &oo, &oc, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(oi.load(Relaxed), 20);
     assert_eq!(oo.load(Relaxed), 7);
 }
@@ -48,7 +48,7 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
             "output_tokens": 1
         }}
     });
-    accumulate_sse_usage(&start, &i, &o, &c);
+    accumulate_sse_usage(&start, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 356);
     assert_eq!(c.load(Relaxed), 50880);
 
@@ -57,7 +57,7 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
         "type": "message_delta",
         "usage": { "input_tokens": 0, "output_tokens": 15 }
     });
-    accumulate_sse_usage(&delta1, &i, &o, &c);
+    accumulate_sse_usage(&delta1, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 356, "input 不可被 message_delta 的 0 清零");
     assert_eq!(o.load(Relaxed), 15);
 
@@ -66,7 +66,7 @@ fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
         "type": "message_delta",
         "usage": { "input_tokens": 0, "output_tokens": 29 }
     });
-    accumulate_sse_usage(&delta2, &i, &o, &c);
+    accumulate_sse_usage(&delta2, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 356, "input 终态保留");
     assert_eq!(c.load(Relaxed), 50880, "cache 终态保留");
     assert_eq!(o.load(Relaxed), 29, "output 取累计终值");
@@ -119,7 +119,7 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
     let mid: Value = serde_json::json!({
         "choices": [{ "delta": { "content": "hi" } }]
     });
-    accumulate_sse_usage(&mid, &i, &o, &c);
+    accumulate_sse_usage(&mid, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 0);
     assert_eq!(o.load(Relaxed), 0);
 
@@ -131,7 +131,7 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
             "prompt_tokens_details": { "cached_tokens": 512 }
         }
     });
-    accumulate_sse_usage(&last, &i, &o, &c);
+    accumulate_sse_usage(&last, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
     assert_eq!(i.load(Relaxed), 1024);
     assert_eq!(o.load(Relaxed), 200);
     assert_eq!(c.load(Relaxed), 512);
@@ -168,7 +168,7 @@ fn gzip_decompressed_anthropic_usage_extracts_tokens() {
     let lossy = String::from_utf8_lossy(&gzipped);
     assert_eq!(
         extract_usage(&lossy),
-        (0, 0, 0),
+        (0, 0, 0, 0),
         "压缩字节当文本解析应失败（复现旧 bug）"
     );
 
@@ -178,7 +178,7 @@ fn gzip_decompressed_anthropic_usage_extracts_tokens() {
     decoder.read_to_string(&mut decompressed).unwrap();
 
     // 解压后 JSON → extract_usage → token > 0（修复后语义）
-    let (input, output, cache) = extract_usage(&decompressed);
+    let (input, output, cache, _cw) = extract_usage(&decompressed);
     assert_eq!(input, 1234);
     assert_eq!(output, 567);
     assert_eq!(cache, 89);
@@ -247,6 +247,7 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         input_tokens: 0,
         output_tokens: 0,
         cache_tokens: 0,
+        cache_write_tokens: 0,
         est_cost: 0.0,
         is_stream: true,
         attempts: Vec::new(),
@@ -1019,4 +1020,37 @@ async fn flush_falls_back_to_requested_model_without_served() {
     );
     drop(guard);
     let _ = std::fs::remove_file(path);
+}
+
+/// cache_creation_input_tokens 独立累加（2026-09-28 cache-write 记账）：
+/// 不并入 cache_read（写入价 1.25×/2× input，混入读侧会按读价少计）。
+#[test]
+fn accumulate_sse_usage_cache_creation_separate_accumulator() {
+    use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+    let anth = r#"{"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":1,"cache_read_input_tokens":200,"cache_creation_input_tokens":300}}}"#;
+    let v: serde_json::Value = serde_json::from_str(anth).unwrap();
+    let i = AtomicI32::new(0);
+    let o = AtomicI32::new(0);
+    let c = AtomicI32::new(0);
+    let cw = AtomicI32::new(0);
+    accumulate_sse_usage(&v, &i, &o, &c, &cw);
+    assert_eq!(i.load(Relaxed), 100);
+    assert_eq!(o.load(Relaxed), 1);
+    assert_eq!(c.load(Relaxed), 200, "cache_read 不吃 cache_creation");
+    assert_eq!(cw.load(Relaxed), 300, "cache_creation 必须独立累计");
+}
+
+/// 非流式 extract_usage 同口径：cache_creation 进第 4 返回值。
+#[test]
+fn extract_usage_returns_cache_write() {
+    let body = r#"{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":50,"cache_creation_input_tokens":80}}"#;
+    assert_eq!(extract_usage(body), (7, 3, 50, 80));
+}
+
+/// DeepSeek prompt_cache_hit_tokens 并入 cache_read 分支（同读价语义）。
+#[test]
+fn extract_usage_deepseek_prompt_cache_hit() {
+    let body = r#"{"usage":{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":60,"prompt_cache_miss_tokens":40}}"#;
+    let (i, o, c, cw) = extract_usage(body);
+    assert_eq!((i, o, c, cw), (100, 5, 60, 0));
 }

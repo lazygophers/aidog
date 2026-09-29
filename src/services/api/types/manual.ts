@@ -47,13 +47,12 @@ export type Protocol =
 
 /** 路由 / 调度策略。
  *  load_balance: 加权随机；failover: priority 升序；
- *  health_aware: 熔断摘除后健康集加权随机；least_latency: 延迟 EMA 升序；
+ *  health_aware: 熔断摘除后健康集加权随机；
  *  sticky: session 键绑定平台，失效/熔断回退加权随机。 */
 export type RoutingMode =
   | "load_balance"
   | "failover"
   | "health_aware"
-  | "least_latency"
   | "sticky";
 
 /** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */
@@ -126,6 +125,30 @@ export interface McpUpdatePayload {
   env: Record<string, string>;
   url: string;
   headers: Record<string, string>;
+}
+
+/**
+ * 推荐清单条目（`mcp_recommended_list` 返回，snake_case）。
+ * env 只含空占位值（键预填、值留空）；description 8-locale map，缺语言回落 en-US 再 zh-Hans。
+ */
+export interface McpRecommendedEntry {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  display_name: string;
+  description: Record<string, string>;
+  /** browser / docs / code / search / service / tool（显示名走前端 i18n）。 */
+  category: string;
+  /** simpleicons slug；空串走首字母 fallback。 */
+  icon: string;
+  docs_url: string;
+  homepage_url: string;
+  /** 必填 env 名单，预填表单提示用。 */
+  required_env_keys: string[];
 }
 
 export interface CodexConfigParsed {

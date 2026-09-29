@@ -130,12 +130,11 @@ void main() {
     });
   });
 
-  test('五个调度策略与 React 的 ROUTING_MODES 同序', () {
+  test('调度策略列表与 React 的 ROUTING_MODES 同序', () {
     expect(kRoutingModes, [
       'failover',
       'load_balance',
       'health_aware',
-      'least_latency',
       'sticky',
     ]);
     // 每一个都要有标签映射，否则下拉里会露出裸 key。

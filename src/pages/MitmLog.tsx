@@ -112,12 +112,12 @@ export function MitmLog() {
                           <BodyBlock
                             label={t("page.mitmBodyRequest", "请求 body")}
                             body={details[r.id]?.request_body ?? ""}
-                            emptyText={t("page.mitmBodyEmpty", "（未记录：日志开关关或该路径永不落库）")}
+                            emptyText={t("page.mitmBodyEmpty", "（正文未记录：请开启「记录实际上游请求」；token 刷新路径为安全策略永不保存正文）")}
                           />
                           <BodyBlock
                             label={t("page.mitmBodyResponse", "响应 body")}
                             body={details[r.id]?.response_body ?? ""}
-                            emptyText={t("page.mitmBodyEmpty", "（未记录：日志开关关或该路径永不落库）")}
+                            emptyText={t("page.mitmBodyEmpty", "（正文未记录：请开启「记录实际上游请求」；token 刷新路径为安全策略永不保存正文）")}
                           />
                         </div>
                       )}

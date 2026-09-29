@@ -6,8 +6,7 @@ use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, Sti
 use super::super::time_windows;
 use super::model_mapping::resolve_model;
 use super::ordering::{
-    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency,
-    order_load_balance,
+    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use aidog_db as db;
@@ -219,6 +218,14 @@ async fn handle_single_platform(
         return Err("group's only platform is manually disabled".to_string());
     }
 
+    // 审核拒绝自动禁用是硬停：即使单平台组也不能绕过，否则同一 session 会再次撞回。
+    if only.platform.status == PlatformStatus::AutoDisabled
+        && only.platform.auto_disabled_until > now_ms
+        && only.platform.last_error.contains("[censorship_blocked]")
+    {
+        return Err("group's only platform is censorship-blocked".to_string());
+    }
+
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
     let cache = extra_cache.get(&only.platform.id);
     let peak_windows: &[peak::TimeWindow] =
@@ -347,7 +354,7 @@ fn filter_candidates<'a>(
 
 // ── Helper: 按路由模式排序 ──
 
-/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/LeastLatency/Sticky）。
+/// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/Sticky）。
 fn sort_by_routing_mode(
     active: &mut Vec<&GroupPlatformDetail>,
     probe: &mut Vec<&GroupPlatformDetail>,
@@ -377,12 +384,6 @@ fn sort_by_routing_mode(
         RoutingMode::LoadBalance | RoutingMode::HealthAware => {
             order_load_balance(active, now_ms);
             order_load_balance(probe, now_ms);
-            apply_coding_plan_priority(active);
-            apply_coding_plan_priority(probe);
-        }
-        RoutingMode::LeastLatency => {
-            order_least_latency(active, ctx);
-            order_least_latency(probe, ctx);
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
         }

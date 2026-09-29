@@ -40,6 +40,40 @@ pub(crate) enum MitmRoute {
     Bypass,
 }
 
+/// Core（AI API）明文请求的 mitm_log 观测行（serve_plaintext 双写，2026-09-28 用户口径：
+/// 域名命中 MITM 白名单并解密的请求全部进 mitm 观测，与 proxy_log 双写）。
+/// 元数据恒落（不受 proxy master switch 控制）；body 两列由调用方按 `log_upstream_request`
+/// gate 后传入（流式响应不捕获，正文留空——完整流在 proxy_log 有聚合）。
+/// ponytail: 9 参数是观测行一次性上下文（同 handle_mitm_observed 先例），allow。
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn log_core_mitm_observed(
+    state: &Arc<ProxyState>,
+    group_name: &str,
+    host: &str,
+    path: &str,
+    status_code: i32,
+    req_bytes: i64,
+    resp_bytes: i64,
+    request_body: String,
+    response_body: String,
+) {
+    let row = MitmLogInsert {
+        group_name: group_name.to_string(),
+        host: host.to_string(),
+        path: path.to_string(),
+        status_code,
+        req_bytes,
+        resp_bytes,
+        decrypted: true,
+        request_body,
+        response_body,
+        created_at: aidog_db::now(),
+    };
+    if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
+        tracing::warn!(error = %e, host, "core mitm_log insert failed (non-fatal)");
+    }
+}
+
 /// 按 host + path（+ usage 的 method）分流。单一真值源：serve_plaintext 与测试共用。
 ///
 /// `is_api_endpoint` / `is_hello_endpoint` / `is_models_endpoint` 命中一律 Core——这些
@@ -77,11 +111,10 @@ pub(crate) async fn handle_mitm_observed(
     log_settings: &ProxyLogSettings,
 ) -> Response {
     let start = std::time::Instant::now();
-    // body gate（同 proxy_log from_log 语义）：master switch + log_upstream_request 双开才记；
-    // token 路径恒不记（含长期凭证）。mitm_log 无 header 列，[REDACTED] 头脱敏机制在此
-    // 无落点（headers 本就不入库）。
-    let record_body =
-        log_settings.enabled && log_settings.log_upstream_request && route != MitmRoute::TokenObserve;
+    // body gate：MITM 观测行不受 proxy master switch 影响；正文只受「记录实际上游请求」开关控制。
+    // token 路径恒不记（含 access_token / refresh_token 长期凭证）。mitm_log 无 header 列，
+    // 因此无 `[REDACTED]` 头字段可落点。
+    let record_body = log_settings.log_upstream_request && route != MitmRoute::TokenObserve;
     let req_body_str = if record_body {
         cap_nonstream_body(&bytes)
     } else {
@@ -99,8 +132,7 @@ pub(crate) async fn handle_mitm_observed(
     } else {
         10
     };
-    let client =
-        http_client::build_http_client(&proxy_client, 0, conn_timeout, None, None).await;
+    let client = http_client::build_http_client(&proxy_client, 0, conn_timeout, None, None).await;
 
     // 原样转发 header（剥 hop-by-hop + Proxy-* 协商头，与 forward_passthrough_to_orig_host 同款）。
     let mut fwd_headers = passthrough_headers(&orig_headers);
@@ -111,8 +143,8 @@ pub(crate) async fn handle_mitm_observed(
     ] {
         fwd_headers.remove(name);
     }
-    let fwd_method = reqwest::Method::from_bytes(method.as_str().as_bytes())
-        .unwrap_or(reqwest::Method::GET);
+    let fwd_method =
+        reqwest::Method::from_bytes(method.as_str().as_bytes()).unwrap_or(reqwest::Method::GET);
     let resp = match client
         .request(fwd_method, &url)
         .headers(fwd_headers)
@@ -123,22 +155,20 @@ pub(crate) async fn handle_mitm_observed(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(url = %url, error = %e, "mitm bypass upstream failed (502)");
-            if log_settings.enabled {
-                let row = MitmLogInsert {
-                    group_name: group_name.to_string(),
-                    host: host.to_string(),
-                    path: path.to_string(),
-                    status_code: 502,
-                    req_bytes,
-                    resp_bytes: 0,
-                    decrypted: true,
-                    request_body: req_body_str.clone(),
-                    response_body: String::new(),
-                    created_at: aidog_db::now(),
-                };
-                if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
-                    tracing::warn!(error = %e, "mitm bypass log insert failed (non-fatal)");
-                }
+            let row = MitmLogInsert {
+                group_name: group_name.to_string(),
+                host: host.to_string(),
+                path: path.to_string(),
+                status_code: 502,
+                req_bytes,
+                resp_bytes: 0,
+                decrypted: true,
+                request_body: req_body_str.clone(),
+                response_body: String::new(),
+                created_at: aidog_db::now(),
+            };
+            if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
+                tracing::warn!(error = %e, "mitm bypass log insert failed (non-fatal)");
             }
             let mut r = (
                 StatusCode::BAD_GATEWAY,
@@ -205,22 +235,20 @@ pub(crate) async fn handle_mitm_observed(
         {
             sample_oauth_profile(state, group_name, &body).await;
         }
-        if log_settings.enabled {
-            let row = MitmLogInsert {
-                group_name: group_name.to_string(),
-                host: host.to_string(),
-                path: path.to_string(),
-                status_code: status.as_u16() as i32,
-                req_bytes,
-                resp_bytes,
-                decrypted: true,
-                request_body: req_body_str,
-                response_body: resp_body_str,
-                created_at: aidog_db::now(),
-            };
-            if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
-                tracing::warn!(error = %e, "mitm bypass log insert failed (non-fatal)");
-            }
+        let row = MitmLogInsert {
+            group_name: group_name.to_string(),
+            host: host.to_string(),
+            path: path.to_string(),
+            status_code: status.as_u16() as i32,
+            req_bytes,
+            resp_bytes,
+            decrypted: true,
+            request_body: req_body_str,
+            response_body: resp_body_str,
+            created_at: aidog_db::now(),
+        };
+        if let Err(e) = aidog_logs::insert_mitm_log(&state.db, row).await {
+            tracing::warn!(error = %e, "mitm bypass log insert failed (non-fatal)");
         }
         tracing::info!(host = %host, path = %path, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, "mitm bypass forwarded");
         let mut response = (resp_status, body.to_vec()).into_response();
@@ -245,12 +273,7 @@ pub(crate) async fn handle_mitm_observed(
         created_at: aidog_db::now(),
     };
     let counter = Arc::new(std::sync::atomic::AtomicU64::new(0));
-    let guard = MitmStreamGuard {
-        db,
-        row,
-        counter: counter.clone(),
-        log_enabled: log_settings.enabled,
-    };
+    let guard = MitmStreamGuard { db, row, counter: counter.clone() };
     let stream = resp.bytes_stream().map(move |chunk| {
         let chunk = chunk.unwrap_or_default();
         counter.fetch_add(chunk.len() as u64, std::sync::atomic::Ordering::Relaxed);
@@ -317,23 +340,18 @@ async fn sample_oauth_profile(state: &Arc<ProxyState>, group_name: &str, body: &
 
 /// 流式旁路的 Drop 兜底 guard（StreamLogGuard 的 mitm_log 版）：流结束 / 客户端断连时
 /// 把计数完的 resp_bytes 连同元数据 INSERT 进 mitm_log。Drop 内不能 await → spawn。
+/// 观测行恒落（不受 proxy master switch 控制，2026-09-28 用户口径：域名命中 MITM 即记录）。
 struct MitmStreamGuard {
     db: Arc<Db>,
     row: MitmLogInsert,
     counter: Arc<std::sync::atomic::AtomicU64>,
-    log_enabled: bool,
 }
 
 impl Drop for MitmStreamGuard {
     fn drop(&mut self) {
-        if !self.log_enabled {
-            return;
-        }
         let db = self.db.clone();
         let mut row = std::mem::take(&mut self.row);
-        row.resp_bytes = self
-            .counter
-            .load(std::sync::atomic::Ordering::Relaxed) as i64;
+        row.resp_bytes = self.counter.load(std::sync::atomic::Ordering::Relaxed) as i64;
         row.created_at = aidog_db::now();
         tokio::spawn(async move {
             if let Err(e) = aidog_logs::insert_mitm_log(&db, row).await {
