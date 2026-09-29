@@ -78,6 +78,10 @@ function vars(mode: ThemeMode): Record<string, string> {
     // accent 面的亮描边（token `accent-edge`）。深色强调色是近黑时，accent 自己
     // 画不出边界（对表面 1.01:1），凡是「靠一圈边表达状态」的地方都要改用它。
     "--accent-edge": c["accent-edge"],
+    // accent 淡表面（shadcn hover / 选中淡底）。globals.css 的缺省从 --primary 13% 混出，
+    // 深色 --primary 是近黑 → 混出来近乎不可见（下拉选中项看不出选中）；token 表的
+    // accent-wash 才是「淡 accent 表面」专用值（深色白 6% / 浅色紫 10%），按 mode 覆盖。
+    "--accent-subtle": c["accent-wash"],
     // 图表主系列色（token `data-primary`）。**不跟随 accent 单色化**：
     // accent 深色下是近黑，近黑折线画在卡片上 1.01:1，线还在但数据看不见。
     // 用户 2026-09-23 拍板「图表另用一个颜色，保留原来的蓝紫」，Flutter 侧
