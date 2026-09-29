@@ -133,7 +133,7 @@
   --bg-floating: var(--popover);
   --bg-surface: var(--card);
   --bg-glass: var(--card);
-  --bg-glass-hover: var(--accent);
+  --bg-glass-hover: var(--accent-subtle);
   --shadow-rgb: var(--shadow-color, 0, 0, 0);
   --shadow-color: 0, 0, 0;
   --glass-edge: var(--border);
@@ -383,16 +383,15 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  /* 金渐变底禁写死 #fff（dark 1.68:1 / light 1.92:1 均不可读）。
-     --primary-foreground 与同为金系的 --primary/--accent 成对，两 mode 都达标。 */
+  background: linear-gradient(135deg, var(--primary), var(--accent-hover));
+  /* 渐变底使用 primary 配对色；禁用文字 token --accent 作为背景。 */
   color: var(--primary-foreground);
   border-color: transparent;
   font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  background: linear-gradient(135deg, var(--accent-hover), var(--primary));
   box-shadow: 0 4px 16px var(--accent-subtle);
 }
 

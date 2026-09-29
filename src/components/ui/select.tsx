@@ -21,7 +21,7 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       // trigger 全不透明（bg-card 实色，无 backdrop-blur —— 底下无透明度时 blur 无作用）;
       // open 时 border-ring + 3px accent-subtle 光环 (example 流光规范)
-      "group flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm ring-offset-background transition-colors duration-150 data-[placeholder]:text-muted-foreground hover:border-ring/50 hover:bg-accent hover:text-accent-foreground focus:outline-none focus:ring-1 focus:ring-ring data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "group flex h-9 w-full items-center justify-between whitespace-nowrap rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm ring-offset-background transition-colors duration-150 data-[placeholder]:text-muted-foreground hover:border-ring/50 hover:bg-[var(--accent-subtle)] hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring data-[state=open]:border-ring data-[state=open]:shadow-[0_0_0_3px_var(--accent-subtle)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       className
     )}
     {...props}
