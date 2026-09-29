@@ -14,6 +14,12 @@
 4. 发现自己扫走了别人的改动：**不回滚、不重写历史**（代价大于收益），
    立刻告诉对方「你的那部分已经在 `<commit>` 里了」，让对方撤掉本地副本，
    否则会重复改一遍。
+5. **共享 checkout 上 `git pull --rebase --autostash` 会把工作区里所有人
+   （含别人的 dirty 文件）一起 stash 再 pop**。用前先确认远端新提交不碰
+   dirty 文件集：`git fetch && git diff HEAD...@{u} --name-only` 对照
+   `git status --short`，无交集才可用；有交集就停，改手动处理
+   （2026-09-29 按「先核实远端 diff 不碰 dirty 文件」用过一次，前置检查
+   才是安全条件，autostash 本身不安全）。
 
 ## 文件所有权
 
