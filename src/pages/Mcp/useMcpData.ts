@@ -335,7 +335,7 @@ export function useMcpData() {
     return () => window.removeEventListener("aidog:mcp", handler);
   }, [openDeepLinkImport]);
 
-  // ─── 推荐清单（票 09：首次打开添加弹窗拉一次，失败静默空态）───
+  // ─── 推荐清单（票 09：首次打开添加弹窗拉一次；失败置回 null，下次 openAdd 重试）───
   const loadRecommended = useCallback(async () => {
     if (recommended !== null || recLoading) return;
     setRecLoading(true);
@@ -343,7 +343,7 @@ export function useMcpData() {
       setRecommended(await mcpApi.recommendedList());
     } catch (e) {
       console.warn("mcp recommended list failed:", e);
-      setRecommended([]);
+      setRecommended(null);
     } finally {
       setRecLoading(false);
     }
