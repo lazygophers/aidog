@@ -23,6 +23,7 @@ mod backend_claude;
 mod backend_codex;
 mod domain;
 mod mask;
+mod recommended;
 pub mod store;
 mod types;
 
@@ -43,6 +44,7 @@ pub use types::{
     ImportReport, McpAgent, McpConfigRaw, McpImportPayload, McpScanItem, McpServerInfo,
     McpServerRow, McpTransport, McpUpdatePayload,
 };
+pub use recommended::{bundled_mcp_recommended, RecommendedEntry, RecommendedManifest};
 
 // ─── agent 配置后端 trait ───────────────────────────────────
 
