@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790680873,
+  "model_id": "kimi-k2.6",
+  "display_name": "Kimi-K2.6",
+  "canonical_model": "kimi-k2.6",
+  "family": "kimi",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "context_window": 256000,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 131072,
+  "official": true,
+  "price": {
+    "input": 8.940852819807429e-07,
+    "output": 3.7138927097661627e-06,
+    "cache_read": 1.7881705639614857e-07
+  }
+}

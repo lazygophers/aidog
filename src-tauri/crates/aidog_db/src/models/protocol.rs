@@ -182,6 +182,10 @@ pub enum Protocol {
     /// 免费模型靠 catalog 定价 0；api_key 留空时 proxy 注入 $opencode 匿名免费 key）
     #[serde(rename = "opencode_zen")]
     OpenCodeZen,
+    /// TokenRhythm（基元律动，Beijing TokenRhythm Technologies）：OpenAI + Anthropic
+    /// 双协议兼容中转，base_url `https://tokenrhythm.studio/v1`，key 前缀 `sk_`。
+    #[serde(rename = "tokenrhythm")]
+    TokenRhythm,
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
