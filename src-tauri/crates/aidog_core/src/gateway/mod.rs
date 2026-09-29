@@ -40,4 +40,5 @@ pub mod mcp {
     //! 拆分 shim：实现在独立 crate aidog_mcp，此处保持 `gateway::mcp::X` 旧路径。
     pub use aidog_mcp::*;
 }
+pub mod mcp_recommend;
 pub mod claude_integration;

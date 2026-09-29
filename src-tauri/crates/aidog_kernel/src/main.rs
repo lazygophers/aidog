@@ -470,6 +470,14 @@ fn spawn_scheduled_jobs() {
         }
     });
 
+    // MCP 推荐清单：启动后台预取一次（TTL 24h 内 sync 内部自跳过），失败静默
+    // （保留缓存/内置，无 UI 提示）。无手动刷新入口（票 04）。
+    tokio::spawn(async move {
+        if let Err(e) = aidog_core::gateway::mcp_recommend::sync_mcp_recommended(aidog_ctx::db()).await {
+            tracing::warn!(error = %e, "mcp recommended prefetch failed");
+        }
+    });
+
     // 定时备份（loop 本体在 aidog_backup，与桌面壳同一份）。
     tokio::spawn(aidog_backup::scheduler_loop());
 }

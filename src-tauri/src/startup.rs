@@ -204,6 +204,7 @@ pub fn run() {
             aidog_core::ai_tools_cmd::mcp::mcp_add,
             aidog_core::ai_tools_cmd::mcp::mcp_resync,
             aidog_core::ai_tools_cmd::mcp::mcp_share_export,
+            aidog_core::ai_tools_cmd::mcp::mcp_recommended_list,
             // 导入导出子系统
             aidog_backup::commands::export_to_file,
             aidog_backup::commands::export_preview,
