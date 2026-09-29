@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { type McpTransport } from "../../services/api";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import type { McpData } from "./useMcpData";
-import { summaryOf } from "./constants";
+import { summaryOf, CATEGORY_ORDER, descFor, cmdSummary } from "./constants";
 import { TransportBadge, KVRows } from "./primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useTranslation } from "react-i18next";
 
 /**
  * 全部 modal（自原 Mcp.tsx L538-819 外迁）：
@@ -41,6 +43,7 @@ export function McpModals({ d }: { d: McpData }) {
     pasteOpen, setPasteOpen, pasteText, setPasteText, pasteBusy, handlePasteImport,
     deleteTarget, setDeleteTarget, handleDelete,
     editTarget, editOpen, setEditTarget, setEditOpen, editForm, setEditForm, handleEditSave,
+    addTab, setAddTab, prefillMeta,
     shareData, setShareData, busyKey, setMessage,
   } = d;
 
@@ -247,6 +250,36 @@ export function McpModals({ d }: { d: McpData }) {
             </DialogTitle>
           </DialogHeader>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto", paddingRight: 4 }}>
+            {/* 添加模式双 tab（票 05 方案 A）：推荐（默认）/ 手动配置；编辑模式无 tab */}
+            {editTarget === null && (
+              <div style={{ display: "flex", gap: 2, borderBottom: "1px solid var(--border)" }} role="tablist">
+                {(["rec", "manual"] as const).map((tab) => (
+                  <button
+                    key={tab}
+                    role="tab"
+                    aria-selected={addTab === tab}
+                    onClick={() => setAddTab(tab)}
+                    style={{
+                      padding: "8px 14px",
+                      fontSize: 13,
+                      cursor: "pointer",
+                      background: "transparent",
+                      border: "none",
+                      borderBottom: `2px solid ${addTab === tab ? "var(--accent)" : "transparent"}`,
+                      color: addTab === tab ? "var(--text-primary)" : "var(--text-tertiary)",
+                      fontWeight: addTab === tab ? 600 : 400,
+                      marginBottom: -1,
+                    }}
+                  >
+                    {tab === "rec"
+                      ? t("mcp.recTab", "推荐")
+                      : t("mcp.manualTab", "手动配置")}
+                  </button>
+                ))}
+              </div>
+            )}
+            {editTarget !== null || addTab === "manual" ? (
+              <>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
               <span>{t("mcp.field.name", "名称")}</span>
               <Input
@@ -311,7 +344,37 @@ export function McpModals({ d }: { d: McpData }) {
                 />
               </>
             )}
+                {/* 推荐预填：必填 env 提示（票 09；键已预填、值留空） */}
+                {prefillMeta && prefillMeta.requiredEnvKeys.length > 0 && (
+                  <div style={{ fontSize: 11, color: "var(--warning)", lineHeight: 1.6 }}>
+                    {t("mcp.requiredKeyHint", {
+                      keys: prefillMeta.requiredEnvKeys.join(", "),
+                      defaultValue: "{{keys}} 必填，申请地址：",
+                    })}
+                    {prefillMeta.docsUrl && (
+                      <a
+                        href={prefillMeta.docsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        style={{ color: "var(--warning)", wordBreak: "break-all" }}
+                      >
+                        {prefillMeta.docsUrl}
+                      </a>
+                    )}
+                  </div>
+                )}
+                {/* 非 stdio 传输：Codex 同步边界提示（票 06） */}
+                {editForm.transport !== "stdio" && (
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {t("mcp.codexStdioOnlyHint", "Codex 仅支持 stdio，此项不会同步到 Codex")}
+                  </div>
+                )}
+              </>
+            ) : (
+              <RecommendedPane d={d} />
+            )}
           </div>
+          {(editTarget !== null || addTab === "manual") && (
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
             <Button variant="outline" onClick={() => { setEditTarget(null); setEditOpen(false); }} disabled={busyKey !== null}>
               {t("common.cancel", "取消")}
@@ -324,6 +387,7 @@ export function McpModals({ d }: { d: McpData }) {
               {busyKey !== null ? t("mcp.saving", "保存中…") : t("mcp.save", "保存")}
             </Button>
           </div>
+          )}
         </DialogContent>
       </Dialog>
 
@@ -341,5 +405,133 @@ export function McpModals({ d }: { d: McpData }) {
         />
       )}
     </>
+  );
+}
+
+// ─── 推荐 tab（票 09）───
+
+/** simpleicons 图标（`https://cdn.simpleicons.org/<slug>`，品牌色）；slug 空串/加载失败 → 首字母。 */
+function RecIcon({ slug, name }: { slug: string; name: string }) {
+  const [failed, setFailed] = useState(false);
+  if (!slug || failed) {
+    return (
+      <span style={{ fontSize: 14, fontWeight: 700, color: "var(--text-secondary)" }}>
+        {name.charAt(0).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <img
+      src={`https://cdn.simpleicons.org/${slug}`}
+      alt={name}
+      onError={() => setFailed(true)}
+      style={{ width: 18, height: 18, objectFit: "contain" }}
+    />
+  );
+}
+
+/** 推荐 tab 主体：按 category 分组卡片；已装（对齐 mcp_list name）置灰点不动（防同名覆盖）。 */
+function RecommendedPane({ d }: { d: McpData }) {
+  const { t, i18n } = useTranslation();
+  const installed = new Set(d.servers.map((s) => s.name));
+  const entries = d.recommended ?? [];
+  const lang = i18n.resolvedLanguage ?? i18n.language ?? "en-US";
+
+  if (d.recLoading) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+        {t("common.loading", "加载中…")}
+      </div>
+    );
+  }
+  if (entries.length === 0) {
+    return (
+      <div style={{ padding: 24, textAlign: "center", color: "var(--text-tertiary)", fontSize: 13 }}>
+        {t("mcp.recEmpty", "暂无推荐")}
+      </div>
+    );
+  }
+
+  // 分组：已知 category 按固定序，未知按首现顺序排末尾
+  const order: string[] = [...CATEGORY_ORDER];
+  for (const e of entries) if (!order.includes(e.category)) order.push(e.category);
+
+  return (
+    <div style={{ maxHeight: "46vh", overflow: "auto" }}>
+      {order.map((cat) => {
+        const items = entries.filter((e) => e.category === cat);
+        if (items.length === 0) return null;
+        return (
+          <div key={cat}>
+            <div style={{ margin: "10px 0 6px", fontSize: 12, fontWeight: 600, color: "var(--text-tertiary)" }}>
+              {t(`mcp.category.${cat}`, cat)}
+            </div>
+            {items.map((e) => {
+              const inst = installed.has(e.name);
+              return (
+                <div
+                  key={e.name}
+                  data-recommended={e.name}
+                  onClick={inst ? undefined : () => d.pickRecommended(e)}
+                  style={{
+                    display: "flex",
+                    gap: 10,
+                    alignItems: "flex-start",
+                    padding: "10px 12px",
+                    border: `1px solid var(--border)`,
+                    borderRadius: 10,
+                    marginBottom: 6,
+                    cursor: inst ? "default" : "pointer",
+                    opacity: inst ? 0.55 : 1,
+                    background: inst ? "var(--bg-elevated)" : "transparent",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 30,
+                      height: 30,
+                      borderRadius: 8,
+                      flexShrink: 0,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "var(--bg-elevated)",
+                    }}
+                  >
+                    <RecIcon slug={e.icon} name={e.display_name || e.name} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+                      {e.display_name || e.name}
+                      {inst && (
+                        <span style={{ fontSize: 10, fontWeight: 500, color: "var(--success)" }}>
+                          {t("mcp.installed", "已安装")}
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: 2 }}>
+                      {descFor(e, lang)}
+                    </div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--text-tertiary)",
+                        fontFamily: "var(--font-mono, monospace)",
+                        marginTop: 2,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cmdSummary(e)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      })}
+    </div>
   );
 }

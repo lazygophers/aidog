@@ -127,6 +127,30 @@ export interface McpUpdatePayload {
   headers: Record<string, string>;
 }
 
+/**
+ * 推荐清单条目（`mcp_recommended_list` 返回，snake_case）。
+ * env 只含空占位值（键预填、值留空）；description 8-locale map，缺语言回落 en-US 再 zh-Hans。
+ */
+export interface McpRecommendedEntry {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  display_name: string;
+  description: Record<string, string>;
+  /** browser / docs / code / search / service / tool（显示名走前端 i18n）。 */
+  category: string;
+  /** simpleicons slug；空串走首字母 fallback。 */
+  icon: string;
+  docs_url: string;
+  homepage_url: string;
+  /** 必填 env 名单，预填表单提示用。 */
+  required_env_keys: string[];
+}
+
 export interface CodexConfigParsed {
   model?: string;
   modelProvider?: string;
