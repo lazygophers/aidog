@@ -1,6 +1,6 @@
 # UI 配色 bug：静态推理两轮不自洽就改跑真渲染读 computed style
 
-2026-09-29 深色模式 Select 选中项不可见（66d46dc58）暴露的排查模式缺陷。
+2026-09-29 深色模式 Select 选中项不可见（7a9b860fe）暴露的排查模式缺陷。
 select.tsx → mono.ts → tokens.generated.ts → globals.css 的变量链 + cascade
 顺序静态推理，连续产出三版互相矛盾的结论，每版单看都「说得通」；最终 vite
 dev + Playwright（系统 Chrome channel）起真 app 读 getComputedStyle，30 分钟
