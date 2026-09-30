@@ -369,7 +369,7 @@ async fn relay_passthrough(
     response
 }
 
-/// 默认模型清单：registry 里官方两家（`anthropic` + `openai`）的模型 id，按平台目录顺序去重。
+/// 默认模型清单：registry 里官方渠道（`anthropic` + `openai` + `typesafe`）的模型 id，按平台目录顺序去重。
 ///
 /// 取代原先硬编码的 `STATIC_MODEL_IDS`：registry（`src-tauri/defaults/registry/`）是模型数据的
 /// **唯一真值源**（见 CLAUDE.md），代码里再抄一份必然腐化——实测 2026-09-21，那份清单最后核对于
@@ -380,7 +380,7 @@ async fn relay_passthrough(
 pub(crate) async fn default_model_ids(db: &Db) -> Vec<String> {
     let mut seen = std::collections::HashSet::new();
     let mut out: Vec<String> = Vec::new();
-    for code in ["anthropic", "openai"] {
+    for code in ["anthropic", "openai", "typesafe"] {
         let Ok(entries) = aidog_db::list_model_entries(db, Some(code)).await else {
             continue;
         };

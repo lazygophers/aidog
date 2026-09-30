@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790233699,
+  "last_updated": 1790771121,
   "endpoints": {
     "default": [
       {
@@ -373,6 +373,7 @@
       "thinkingmachines/inkling-small",
       "thinkingmachines/inkling-small:free",
       "thinkingmachines/inkling:free",
+      "typesafe/jev-1.13",
       "undi95/remm-slerp-l2-13b",
       "upstage/solar-mini4",
       "upstage/solar-pro-3",
