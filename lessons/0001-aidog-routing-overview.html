@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 1 课 · aidog 路由全景：请求怎么选平台</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<h1>aidog 路由全景</h1>
+<p class="subtitle">第 1 课 · 一张图看懂：请求进来，怎么过滤、怎么排序、怎么换模型。约 10 分钟读完。</p>
+
+<p>「路由」回答一个问题：<b>这个请求发给哪个平台、用什么模型名</b>。答案是三步：先<b>过滤</b>（哪些平台现在不许用），再<b>排序</b>（可用的按什么顺序试），排序规则就是四种「路由模式」。定下顺序后产出一个<b>候选名单</b>，第一个失败就试第二个——这就是<b>重试链</b>。</p>
+
+<figure>
+<svg viewBox="0 0 860 300" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, sans-serif">
+  <defs>
+    <marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4a5fc1"/></marker>
+  </defs>
+  <!-- 步骤条 -->
+  <g font-size="14" text-anchor="middle">
+    <rect x="10" y="30" width="120" height="52" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="70" y="52">① 分组鉴权</text><text x="70" y="70" font-size="12" fill="#555570">密钥=分组名</text>
+    <line x1="130" y1="56" x2="160" y2="56" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar)"/>
+    <rect x="162" y="30" width="120" height="52" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="222" y="52">② 单平台短路?</text><text x="222" y="70" font-size="12" fill="#555570">只有一个可用平台</text>
+    <line x1="282" y1="56" x2="312" y2="56" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar)"/>
+    <rect x="314" y="30" width="130" height="52" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="379" y="52">③ 过滤闸门</text><text x="379" y="70" font-size="12" fill="#555570">踢掉不许用的</text>
+    <line x1="444" y1="56" x2="474" y2="56" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar)"/>
+    <rect x="476" y="30" width="130" height="52" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="541" y="52">④ 按模式排序</text><text x="541" y="70" font-size="12" fill="#555570">五种模式选一种</text>
+    <line x1="606" y1="56" x2="636" y2="56" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar)"/>
+    <rect x="638" y="30" width="120" height="52" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="698" y="52">⑤ 候选名单</text><text x="698" y="70" font-size="12" fill="#555570">失败逐个重试</text>
+  </g>
+  <!-- 漏斗示意 -->
+  <g font-size="14" text-anchor="middle">
+    <path d="M250 140 L610 140 L560 200 L300 200 Z" fill="#fbf0e7" stroke="#b3541e"/>
+    <text x="430" y="165">过滤闸门（第 2 节）</text>
+    <text x="430" y="188" font-size="12" fill="#555570">六道关卡，每道都可能踢掉平台</text>
+    <rect x="250" y="222" width="360" height="52" rx="10" fill="#e9f5ef" stroke="#2e7d5b"/>
+    <text x="430" y="244">排序 + 重试链（第 3 节）</text>
+    <text x="430" y="262" font-size="12" fill="#555570">四种模式 = 四种排顺序的方法</text>
+  </g>
+</svg>
+<figcaption>路由主流程。真值源：<span class="src">src-tauri/crates/aidog_core/src/gateway/router/candidates.rs:73-199</span>（select_candidates_ctx，阶段 0~6）</figcaption>
+</figure>
+
+<h2>入口：分组鉴权</h2>
+<p>客户端（如 Claude Code）连代理时带的密钥就是<b>分组名</b>。路由只在这个分组关联的平台里挑，绝不会越组——整组没平台可发，请求就失败。这就是「请求隔离」。</p>
+
+<h2>第 2 节 · 过滤闸门：六道关卡</h2>
+<p>每个平台要过六道关，被任何一道拦下就不进候选名单。按顺序：</p>
+
+<figure>
+<svg viewBox="0 0 860 420" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, sans-serif">
+  <g font-size="14">
+    <rect x="30" y="10" width="560" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="33" font-weight="bold">① 过期（expires_at）</text>
+    <text x="45" y="52" font-size="12.5" fill="#555570">设了到期时间且已到 → 直接排除，改时间或清空即恢复</text>
+    <rect x="30" y="76" width="520" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="99" font-weight="bold">② 高峰禁用（disable_during_peak）</text>
+    <text x="45" y="118" font-size="12.5" fill="#555570">开关开着且当前在高峰时段 → 排除；出窗口自动恢复</text>
+    <rect x="30" y="142" width="480" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="165" font-weight="bold">③ 手动停用（disabled）</text>
+    <text x="45" y="184" font-size="12.5" fill="#555570">用户亲手关掉的 → 排除，直到手动打开</text>
+    <rect x="30" y="208" width="440" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="231" font-weight="bold">④ 自动停用未到试探时间（auto_disabled）</text>
+    <text x="45" y="250" font-size="12.5" fill="#555570">自动停用过的平台，过了退避时间才放进来、排队尾试探</text>
+    <rect x="30" y="274" width="400" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="297" font-weight="bold">⑤ 冷却（内存态，不改界面状态）</text>
+    <text x="45" y="316" font-size="12.5" fill="#555570">密钥错/余额不足 → 冷 5 分钟；配额用完 → 冷到上游说的重置时刻</text>
+    <rect x="30" y="340" width="360" height="54" rx="9" fill="#fff" stroke="#d9dae3"/>
+    <text x="45" y="363" font-weight="bold">⑥ 熔断器（内存态）</text>
+    <text x="45" y="382" font-size="12.5" fill="#555570">连续失败太多 → 暂时踢出，等半开探测恢复（见第 4 节）</text>
+  </g>
+  <g font-size="12" fill="#555570">
+    <text x="620" y="40">↓ 宽度收窄 = 留下的平台越来越少</text>
+  </g>
+</svg>
+<figcaption>六道闸门。前三道是用户可配置的「明面」状态，后三道是程序自动的「暗面」健康机制。出处：<span class="src">router/mod.rs:51-70</span>（candidate_state）、<span class="src">router/candidates.rs:271-346</span>（filter_candidates）</figcaption>
+</figure>
+
+<div class="card hot">
+<b>特例：单平台分组短路。</b>组里只有一个平台（或只启用了一个）时，上面六道关大部分被跳过——哪怕它被自动停用、被熔断，也<b>照样发请求</b>（反正没得选，不试就全死）。只有两个硬停：手动停用、高峰禁用。出处：<span class="src">router/mod.rs:93-113</span>、<span class="src">candidates.rs:201-256</span>
+</div>
+
+<div class="card warn">
+<b>整组被高峰禁用时</b>，请求返回失败并落一条审计日志（拦截方=路由器，原因=高峰）。其他原因导致的整组无候选只记警告、不落库。出处：<span class="src">candidates.rs:164-179</span>
+</div>
+
+<h2>第 3 节 · 四种路由模式 = 四种排顺序的方法</h2>
+<p>过滤剩下的平台，按分组选的模式排成一个<b>候选名单</b>。名单第一个就是本次请求的首选，失败就顺位往下试。</p>
+
+<table>
+<tr><th>模式</th><th>一句人话</th><th>怎么排</th></tr>
+<tr><td><b>failover</b><br>故障转移</td><td>平时用主力，坏了用备胎</td><td>按优先级从高到低，固定顺序</td></tr>
+<tr><td><b>load_balance</b><br>负载均衡</td><td>按体重抽签，谁都可能当首选</td><td>按权重加权<b>随机</b>选首选，其余按权重从大到小排在后面</td></tr>
+<tr><td><b>health_aware</b><br>健康感知</td><td>负载均衡 + 先踢掉病号</td><td>先被熔断闸门踢掉不健康平台，剩下同 load_balance</td></tr>
+<tr><td><b>sticky</b><br>粘性会话</td><td>同一个会话尽量粘同一个平台</td><td>负载均衡选好首选后，若这个会话之前绑过某平台且它还健康，就继续用它</td></tr>
+</table>
+<p class="src">枚举定义：src-tauri/crates/aidog_db/src/models/protocol.rs:291-305 · 各排序实现：router/ordering.rs</p>
+
+<h3>四种排序都通用的叠加规则</h3>
+<div class="card">
+<ol>
+<li><b>有效权重</b> = 权重 × 组内优先级（1~10 级，乘起来放大差距）。<span class="src">mod.rs:87-91</span></li>
+<li><b>包月平台优先</b>：订阅制 coding 套餐平台整体上浮到前面（月包干额度，优先烧它省钱）。<span class="src">ordering.rs:40-42</span></li>
+<li><b>快过期先用</b>：快到期的平台在同档位里排前（额度别浪费）。<span class="src">ordering.rs:26-28</span></li>
+<li><b>显式模型映射插队</b>：分组里配了「模型 A → 平台 X」的映射时，平台 X 提到名单最前。<span class="src">candidates.rs:150-162</span></li>
+</ol>
+</div>
+
+<h2>第 4 节 · 熔断器：三态循环</h2>
+<p>熔断是纯内存机制，<b>界面上的平台状态不动</b>，重启应用即清零。两种失败会触发：限流（429）和连不上（connect 失败）；服务器 5xx、超时掐线<b>不</b>触发。连不上还带本机断网保护：一分钟内一半以上平台都连不上，判是自己网络问题，全部不计。</p>
+
+<figure>
+<svg viewBox="0 0 860 200" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, sans-serif">
+  <defs>
+    <marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#2e7d5b"/></marker>
+    <marker id="ar3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#b3541e"/></marker>
+  </defs>
+  <g font-size="14" text-anchor="middle">
+    <rect x="40" y="60" width="200" height="70" rx="12" fill="#e9f5ef" stroke="#2e7d5b"/>
+    <text x="140" y="88" font-weight="bold">正常放行</text>
+    <text x="140" y="110" font-size="12.5" fill="#555570">失败次数累加，成功一次就清零</text>
+    <rect x="330" y="60" width="200" height="70" rx="12" fill="#fbf0e7" stroke="#b3541e"/>
+    <text x="430" y="88" font-weight="bold">熔断打开</text>
+    <text x="430" y="110" font-size="12.5" fill="#555570">直接踢出候选，等冷却时间到</text>
+    <rect x="620" y="60" width="200" height="70" rx="12" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="720" y="88" font-weight="bold">半开探测</text>
+    <text x="720" y="110" font-size="12.5" fill="#555570">放几个试探请求：成功→正常，失败→重新熔断</text>
+    <line x1="240" y1="80" x2="330" y2="80" stroke="#b3541e" stroke-width="2" marker-end="url(#ar3)"/>
+    <text x="285" y="70" font-size="12" fill="#b3541e">失败满阈值</text>
+    <line x1="530" y1="80" x2="620" y2="80" stroke="#2e7d5b" stroke-width="2" marker-end="url(#ar2)"/>
+    <text x="575" y="70" font-size="12" fill="#555570">时间到</text>
+    <line x1="720" y1="130" x2="720" y2="160" stroke="#2e7d5b" stroke-width="2" marker-end="url(#ar2)"/>
+    <line x1="720" y1="160" x2="140" y2="160" stroke="#2e7d5b" stroke-width="2" marker-end="url(#ar2)"/>
+    <text x="430" y="178" font-size="12" fill="#555570">试探成功 → 回到正常</text>
+    <line x1="720" y1="60" x2="720" y2="30" stroke="#b3541e" stroke-width="2" marker-end="url(#ar3)"/>
+    <line x1="720" y1="30" x2="430" y2="30" stroke="#b3541e" stroke-width="2" marker-end="url(#ar3)"/>
+    <text x="575" y="24" font-size="12" fill="#b3541e">试探失败 → 重新熔断</text>
+  </g>
+</svg>
+<figcaption>熔断三态。出处：<span class="src">gateway/scheduling.rs</span>（文件头注释 + BreakerState）</figcaption>
+</figure>
+
+<div class="card warn">
+<b>兜底：熔断踢光也放行。</b>候选全被熔断踢掉时，熔断被绕过、照常透传——宁可把上游真实错误透给客户端，也不整组死锁。只有配额/鉴权冷却造成的空候选不绕。出处：<span class="src">candidates.rs:131-145</span>
+</div>
+
+<h2>第 5 节 · 模型怎么换：三级联 + 槽位</h2>
+<p>排好顺序后，每个候选平台还要回答第二个问题：<b>发给它时用什么模型名</b>（各平台模型命名不同）。按优先级取第一个命中的：</p>
+
+<figure>
+<svg viewBox="0 0 860 190" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, sans-serif">
+  <defs><marker id="ar4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4a5fc1"/></marker></defs>
+  <g font-size="14" text-anchor="middle">
+    <rect x="20" y="30" width="240" height="110" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="140" y="58" font-weight="bold">① 时段切换</text>
+    <text x="140" y="80" font-size="12.5" fill="#555570">用户自己配的：</text>
+    <text x="140" y="98" font-size="12.5" fill="#555570">「白天用 A 模型，晚上用 B」</text>
+    <text x="140" y="122" font-size="12" fill="#b3541e">命中 → 最高优先</text>
+    <line x1="260" y1="85" x2="300" y2="85" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar4)"/>
+    <rect x="302" y="30" width="250" height="110" rx="10" fill="#fbf0e7" stroke="#b3541e"/>
+    <text x="427" y="58" font-weight="bold">② 高峰模型分支</text>
+    <text x="427" y="80" font-size="12.5" fill="#555570">官方预设的高峰换模型</text>
+    <text x="427" y="98" font-size="12.5" fill="#555570">（如 glm_coding 峰时切贵模型）</text>
+    <text x="427" y="122" font-size="12" fill="#b3541e">会覆盖用户手填的模型</text>
+    <line x1="552" y1="85" x2="592" y2="85" stroke="#4a5fc1" stroke-width="2" marker-end="url(#ar4)"/>
+    <rect x="594" y="30" width="240" height="110" rx="10" fill="#e9f5ef" stroke="#2e7d5b"/>
+    <text x="714" y="58" font-weight="bold">③ 平台默认模型</text>
+    <text x="714" y="80" font-size="12.5" fill="#555570">平台设置里的模型表</text>
+    <text x="714" y="98" font-size="12.5" fill="#555570">（创建时从预设填入）</text>
+    <text x="714" y="122" font-size="12" fill="#555570">兜底</text>
+  </g>
+</svg>
+<figcaption>有效模型三级联。出处：<span class="src">candidates.rs:460-492</span>（resolve_effective_models）</figcaption>
+</figure>
+
+<p>拿到模型表后再做<b>槽位匹配</b>：请求的模型名里含 opus / sonnet / haiku / gpt 字样，就用表里对应槽位的值；都不匹配用默认值；连默认都没有，原名透传（去掉 <code>[1m]</code> 这类预算后缀）。另外分组里配了显式「模型映射」时，映射目标模型压过这一切，所有候选共用它。<span class="src">model_mapping.rs:8-31</span></p>
+
+<blockquote>
+讲给别人的一句话总结：<b>「密钥选组，六道闸门筛平台，五种模式排名单，失败顺位重试；模型按 时段→高峰→默认 三级取，槽位名换真名。」</b>
+</blockquote>
+
+<h2>自测（合上页面回答）</h2>
+<div class="card">
+<ol>
+<li>四种模式各一句话是什么？哪个模式「同一会话尽量粘同一平台」？</li>
+<li>哪三种失败<b>不</b>触发熔断？</li>
+<li>组里只有一个平台且它被熔断打开——请求会发吗？</li>
+<li>官方预设的高峰模型分支和用户手填的模型，谁的优先级高？</li>
+</ol>
+</div>
+
+<footer>
+第 1 课 · aidog 路由全景 · 2026-09-28<br>
+推荐一手来源：<span class="src">src-tauri/crates/aidog_core/src/gateway/router/</span>（candidates.rs / ordering.rs / mod.rs / model_mapping.rs，全带中文文档注释）与 <span class="src">docs/docs/zh/core-concepts/groups-routing.mdx</span><br>
+有哪里没讲明白，回到对话里直接问。
+</footer>
+
+</body>
+</html>
