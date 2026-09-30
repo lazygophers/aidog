@@ -138,6 +138,7 @@ fn known_simpleicons_slugs_are_valid() {
         "bytedance",
         "claude",
         "claudecode",
+        "cline",
         "codemirror",
         "deepseek",
         "googlegemini",
@@ -151,6 +152,7 @@ fn known_simpleicons_slugs_are_valid() {
         "opencode",
         "openrouter",
         "xiaomi",
+        "zdotai",
         "zai",
     ];
     let allowed: std::collections::BTreeSet<_> = allowed.into_iter().collect();
