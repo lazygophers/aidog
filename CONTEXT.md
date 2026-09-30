@@ -26,6 +26,14 @@ _Avoid_: API type, format, wire API
 An AI coding CLI that aidog configures and proxies for — currently Claude Code, Codex, and pi.
 _Avoid_: agent, tool, harness
 
+**Decision Request（决策请求）**:
+A proxied request in the decision wire format (TypeSafe `/v1/systemone`: a state plus typed questions, answered with choices, yes/no probabilities, or rubric scores). Routed only to Platforms that support decisions; chat requests never go to decision-only Platforms.
+_Avoid_: classification request, judge call
+
+**Model Slot（模型槽位）**:
+One named model setting on a Platform (`default`, `sonnet`, `opus`, `haiku`, `gpt`, `jev`). A request is mapped to a slot, and the slot's configured model is what the proxy sends upstream. The `jev` slot serves Decision Requests.
+_Avoid_: model alias, tier
+
 **Default Group**:
 The one Group whose configuration aidog merges into a Client's own global config file, so the user
 can launch that Client bare and still be routed.
@@ -95,7 +103,7 @@ _避免_: model（有歧义——请明确说 Model Entry 或 Canonical Model）
 _避免_: 默认模型 id、官方名
 
 **Capability（能力）**:
-模型能力的一个维度：text、vision、image_gen、tool_use、reasoning、audio、video、embedding。每条 Model Entry 携带一组能力（取代旧的单值 `modality`）。
+模型能力的一个维度：text、vision、tool_use、reasoning、audio、video、embedding、rerank、decision，以及生成类（text_to_image、image_to_image、image_edit、text_to_video、image_to_video、video_to_video、video_edit）。每条 Model Entry 携带一组能力（取代旧的单值 `modality`）。`decision` 模型不生成文字，只对给定问题返回选择 / 是否概率 / 等级分，因此不含 text。
 _避免_: modality
 
 **Version Chain（版本链）**:

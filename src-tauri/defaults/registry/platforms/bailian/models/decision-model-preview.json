@@ -1,0 +1,16 @@
+{
+  "last_updated": 1790774133,
+  "model_id": "decision-model-preview",
+  "canonical_model": "decision-model-preview",
+  "display_name": "Decision Model Preview",
+  "context_window": 65536,
+  "capabilities": [
+    "decision"
+  ],
+  "max_input_tokens": 65536,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

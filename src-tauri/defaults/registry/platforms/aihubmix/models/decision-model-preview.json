@@ -1,9 +1,8 @@
 {
   "last_updated": 1790771121,
-  "model_id": "jev-latest",
-  "canonical_model": "jev-latest",
-
-  "family": "jev",  "display_name": "Jev",
+  "model_id": "decision-model-preview",
+  "canonical_model": "decision-model-preview",
+  "display_name": "Decision Model Preview",
   "context_window": 64000,
   "capabilities": [
     "decision"
@@ -11,7 +10,7 @@
   "max_input_tokens": 64000,
   "official": false,
   "price": {
-    "input": 4.62e-08,
+    "input": 0,
     "output": 0
   }
 }
