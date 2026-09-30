@@ -266,7 +266,7 @@ function pickModelsBranch<T>(
 
 /** endpoint 协议 → 默认客户端形态（registry 已不存 client_type 字段，缺省按此派生）。
  *  与 Rust `aidog_db::registry::derive_client_type` 对称（跨层一致）。
- *  anthropic → claude_code、openai 系 → codex_tui、其余（gemini / 未知）→ default。
+ *  anthropic → claude_code、openai 系 → codex_tui、其余（gemini / typesafe / 未知）→ default。
  *  仅例外平台在 preset endpoint 显式标注（如官方 claude_code 直连端点标 default 不模拟）。 */
 export function clientTypeForProtocol(protocol: string): ClientType {
   switch (protocol) {
@@ -274,6 +274,7 @@ export function clientTypeForProtocol(protocol: string): ClientType {
     case "openai":
     case "openai_responses":
     case "openai_completions": return "codex_tui";
+    case "typesafe": return "default";
     default: return "default";
   }
 }

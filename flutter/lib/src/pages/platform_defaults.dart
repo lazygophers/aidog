@@ -68,6 +68,8 @@ String clientTypeForProtocol(String protocol) {
     case 'openai_responses':
     case 'openai_completions':
       return 'codex_tui';
+    case 'typesafe':
+      return 'default';
     default:
       return 'default';
   }
