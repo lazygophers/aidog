@@ -63,6 +63,7 @@ export const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
   { key: "opus", labelKey: "platform.modelOpus" },
   { key: "haiku", labelKey: "platform.modelHaiku" },
   { key: "gpt", labelKey: "platform.modelGpt" },
+  { key: "jev", labelKey: "platform.modelJev" },
 ];
 
 export const MOCK_ERROR_MODES: { value: import("../../services/api").MockErrorMode; labelKey: string }[] = [

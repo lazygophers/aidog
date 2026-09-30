@@ -101,6 +101,7 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
       opus: s.models.opus ?? "",
       haiku: s.models.haiku ?? "",
       gpt: s.models.gpt ?? "",
+      jev: s.models.jev ?? "",
     });
     setAvailableModels(s.available_models ?? []);
     setEndpoints(s.endpoints ?? []);
