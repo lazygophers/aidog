@@ -210,11 +210,12 @@ pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformE
 
 /// endpoint 协议 → 默认客户端形态（registry 无 client_type 时的缺省派生，与前端
 /// `defaults.ts::clientTypeForProtocol` 对称）：anthropic → claude_code、openai 系 →
-/// codex_tui、其余（gemini / 未知）→ default。
+/// codex_tui、其余（gemini / typesafe / 未知）→ default。
 pub fn derive_client_type(endpoint_protocol: &str) -> String {
     match endpoint_protocol {
         "anthropic" => "claude_code".to_string(),
         "openai" | "openai_responses" | "openai_completions" => "codex_tui".to_string(),
+        "typesafe" => "default".to_string(),
         _ => "default".to_string(),
     }
 }

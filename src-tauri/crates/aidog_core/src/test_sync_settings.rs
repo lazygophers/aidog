@@ -374,6 +374,7 @@ async fn group_max_context_window_ignores_haiku_and_gpt_slots() {
         opus: Some("glm-4.6".to_string()),
         haiku: Some("deepseek-chat".to_string()), // 1048576，必须被忽略
         gpt: Some("deepseek-chat".to_string()),   // 同上
+        ..Default::default()
     };
 
     // 不写死具体数值：registry 里同名模型各平台窗口可能被更新，
