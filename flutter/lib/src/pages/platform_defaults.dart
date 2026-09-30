@@ -40,13 +40,14 @@ const Set<String> kEndpointsLockedProtocols = {
   'longcat', 'sensenova', 'sensenova_en', 'devin',
 };
 
-/// `constants.ts:60::MODEL_SLOTS` —— 5 个槽位 + 各自的文案 key，顺序即矩阵行序。
+/// `constants.ts:60::MODEL_SLOTS` —— 6 个槽位 + 各自的文案 key，顺序即矩阵行序。
 const List<({String key, String labelKey})> kModelSlots = [
   (key: 'default', labelKey: 'platform.modelDefault'),
   (key: 'sonnet', labelKey: 'platform.modelSonnet'),
   (key: 'opus', labelKey: 'platform.modelOpus'),
   (key: 'haiku', labelKey: 'platform.modelHaiku'),
   (key: 'gpt', labelKey: 'platform.modelGpt'),
+  (key: 'jev', labelKey: 'platform.modelJev'),
 ];
 
 /// `constants.ts:30::PROTOCOL_LABELS` —— 仅 5 条请求格式协议的兜底 label。
