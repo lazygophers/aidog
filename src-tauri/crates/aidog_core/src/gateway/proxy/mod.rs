@@ -124,7 +124,7 @@ pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,
     handle_passthrough, is_models_endpoint, join_upstream_path, merge_group_model_names,
 };
-pub(crate) use decision::{handle_decision, kind_route_error_message};
+pub(crate) use decision::{handle_decision, route_fail_response};
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,

@@ -27,7 +27,7 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
 /// 决策请求 route fail 落库（R7）：仿 peak 路径 —— `status_code=400`、
 /// `blocked_by='router'`、`blocked_reason`=Err 字符串、`est_cost=0`。
 #[allow(clippy::too_many_arguments)]
-async fn route_fail_response(
+pub(crate) async fn route_fail_response(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
@@ -344,6 +344,9 @@ pub(crate) async fn handle_decision(
         // R14：上游显式 cost 直接采用（est_cost != 0 时 process_upsert 跳过 registry 价回落；
         // 无 cost 则留 0，由 process_upsert 按 registry 价 × tokens 计算，高峰倍率链照常生效）。
         if let Some(cost) = upstream_cost {
+            // 注意：上游显式 `usage.cost: 0` 会被 log.rs 的 est_cost==0 回落条件当「未计价」
+            // 重算 registry 价——当前唯一 0 价条目（decision-model-preview）registry 侧也是 0，
+            // 故不可触发；若未来出现「registry 价 > 0 而上游免费」的条目，需改用 Option 信号区分。
             log.est_cost = cost;
         }
 
