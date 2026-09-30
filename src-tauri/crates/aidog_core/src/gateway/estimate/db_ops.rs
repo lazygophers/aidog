@@ -231,6 +231,33 @@ pub async fn calibrate_from_quota(
     schedule_reset_refresh(db, platform_id, quota).await;
 }
 
+/// 每请求触发的校准尝试时刻（platform_id → unix ms）。校准失败不写库（保留预估），
+/// 若不记尝试时刻，`should_calibrate` 每个请求都成立 → 每请求多打一次必败的上游真查
+/// （2026-09-30 实测某平台 1 小时 741 次 403）。成功后清除，按 DB 状态恢复常规节奏。
+static CALIBRATE_ATTEMPT: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<u64, i64>>> =
+    std::sync::OnceLock::new();
+
+/// 距上次尝试不足 `CALIBRATE_INTERVAL_MS` → false（进行中或刚失败，退避）；否则记下本次尝试。
+fn claim_calibration_attempt(platform_id: u64, now_ms: i64) -> bool {
+    let map = CALIBRATE_ATTEMPT.get_or_init(Default::default);
+    let Ok(mut g) = map.lock() else { return false };
+    if let Some(&last) = g.get(&platform_id)
+        && now_ms - last < super::model::CALIBRATE_INTERVAL_MS
+    {
+        return false;
+    }
+    g.insert(platform_id, now_ms);
+    true
+}
+
+fn clear_calibration_attempt(platform_id: u64) {
+    if let Some(map) = CALIBRATE_ATTEMPT.get()
+        && let Ok(mut g) = map.lock()
+    {
+        g.remove(&platform_id);
+    }
+}
+
 /// 已排定的重置刷新（platform_id → 目标时刻 unix ms）。同一平台同一时刻只排一次定时。
 /// 内存态：进程重启即空，由冷启动真查重新排（见 `cold_start_init_estimates`）。
 static RESET_REFRESH: std::sync::OnceLock<std::sync::Mutex<std::collections::HashMap<u64, i64>>> =
@@ -329,7 +356,11 @@ async fn run_calibration(
     let quota =
         crate::gateway::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64)
             .await;
-    // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
+    // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间）；
+    // 重试节奏由 CALIBRATE_ATTEMPT 退避，成功才清除。
+    if quota.success {
+        clear_calibration_attempt(platform_id);
+    }
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
 
@@ -423,6 +454,7 @@ pub async fn estimate_after_request(
     // 2. 校准判定（短读，锁外 await）
     if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await
         && should_calibrate(now(), last_real, count)
+        && claim_calibration_attempt(platform_id, now())
     {
         run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
     }

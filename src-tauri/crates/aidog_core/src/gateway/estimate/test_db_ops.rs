@@ -527,3 +527,19 @@ fn claim_refresh_slot_dedups_same_target() {
     // 已排的时刻到点后（now 越过它）不再挡新的一次
     assert!(claim_refresh_slot(pid, now + 7_200_000, now + 7_200_001));
 }
+
+// ── 校准尝试退避：失败后 CALIBRATE_INTERVAL_MS 内不再每请求真查，成功清除后立即可再试 ──
+#[test]
+fn claim_calibration_attempt_backs_off_until_cleared() {
+    let now = 1_700_000_000_000i64;
+    let pid = 987_655u64; // 本测试专用 id，避免与其他测试共用全局表冲突
+    let interval = super::super::model::CALIBRATE_INTERVAL_MS;
+    assert!(claim_calibration_attempt(pid, now), "首次尝试放行");
+    assert!(!claim_calibration_attempt(pid, now + 1_000), "进行中/刚失败退避");
+    assert!(
+        claim_calibration_attempt(pid, now + interval),
+        "退避期满再放行"
+    );
+    clear_calibration_attempt(pid);
+    assert!(claim_calibration_attempt(pid, now + interval + 1), "成功清除后立即放行");
+}

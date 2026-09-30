@@ -173,17 +173,45 @@ fn redact_url_query(url: &str) -> String {
     let pairs: Vec<(String, String)> = parsed
         .query_pairs()
         .map(|(name, value)| {
-            let lower = name.to_ascii_lowercase();
-            let sensitive = lower.contains("key")
-                || lower.contains("token")
-                || lower.contains("secret")
-                || lower.contains("password")
-                || lower.contains("signature");
+            let sensitive = is_sensitive_query_name(&name);
             (name.into_owned(), if sensitive { "[REDACTED]".into() } else { value.into_owned() })
         })
         .collect();
     parsed.query_pairs_mut().clear().extend_pairs(pairs);
     parsed.to_string()
+}
+
+fn is_sensitive_query_name(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    lower.contains("key")
+        || lower.contains("token")
+        || lower.contains("secret")
+        || lower.contains("password")
+        || lower.contains("signature")
+}
+
+/// 把 URL 里敏感 query 参数的值从任意文本（响应正文、reqwest 错误文案）中抹掉：
+/// 有的上游 403 页会原样回显请求 URL（含 `?key=<明文>`），不抹就进了日志和错误信息。
+fn redact_query_secrets(text: &str, url: &str) -> String {
+    let Ok(parsed) = reqwest::Url::parse(url) else {
+        return text.to_string();
+    };
+    let mut out = text.to_string();
+    for (name, value) in parsed.query_pairs() {
+        // 过短的值替换会误伤正文里的普通字符，真实 key 远长于此
+        if !is_sensitive_query_name(&name) || value.len() < 8 {
+            continue;
+        }
+        out = out.replace(value.as_ref(), "[REDACTED]");
+        let encoded: String = reqwest::Url::parse_with_params("x:", [("v", value.as_ref())])
+            .ok()
+            .and_then(|u| u.query().map(|q| q.trim_start_matches("v=").to_string()))
+            .unwrap_or_default();
+        if !encoded.is_empty() && encoded != value.as_ref() {
+            out = out.replace(&encoded, "[REDACTED]");
+        }
+    }
+    out
 }
 
 /// JS 自定义查询脚本出站单点（get/post 统一）: 走注入的系统代理 client（由 script.rs
@@ -199,7 +227,7 @@ pub(super) async fn quota_script_request(
     headers: Vec<(String, String)>,
     platform_id: i64,
 ) -> Result<serde_json::Value, String> {
-    tracing::info!(method = %method, url = %url, "quota script outbound request");
+    tracing::info!(method = %method, url = %redact_url_query(url), "quota script outbound request");
     let request_body = body.clone().unwrap_or_default();
     let request_headers = headers.clone();
     let mut req = client.request(method, url);
@@ -212,7 +240,7 @@ pub(super) async fn quota_script_request(
     let resp = match req.send().await {
         Ok(r) => r,
         Err(e) => {
-            let msg = e.to_string();
+            let msg = redact_query_secrets(&e.to_string(), url);
             persist_quota_log(
                 db,
                 make_quota_log_for_script_with_request(
@@ -232,9 +260,9 @@ pub(super) async fn quota_script_request(
     let status = resp.status().as_u16();
     let response_headers = response_headers_to_log_json(resp.headers());
     let text = match resp.text().await {
-        Ok(t) => t,
+        Ok(t) => redact_query_secrets(&t, url),
         Err(e) => {
-            let msg = e.to_string();
+            let msg = redact_query_secrets(&e.to_string(), url);
             persist_quota_log(
                 db,
                 make_quota_log_for_script_with_request(
@@ -424,6 +452,19 @@ mod tests {
         assert!(log.upstream_response_headers.contains("content-type"));
         assert!(log.upstream_request_url.contains("region=eu"));
         assert!(!log.upstream_request_url.contains("credential"));
+    }
+
+    #[test]
+    fn query_secrets_redacted_from_echoed_body() {
+        let url = "https://example.invalid/api/usage/token/?key=ah-credential123&region=eu";
+        let body = "403: GET /api/usage/token/?key=ah-credential123 denied; region=eu";
+        let out = redact_query_secrets(body, url);
+        assert!(!out.contains("credential123"));
+        assert!(out.contains("[REDACTED]"));
+        assert!(out.contains("region=eu"));
+        let encoded = "key=a%2Bb%2Fcredential";
+        let out = redact_query_secrets(encoded, "https://x.invalid/?key=a%2Bb%2Fcredential");
+        assert!(!out.contains("credential"));
     }
 
     #[test]
