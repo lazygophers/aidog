@@ -32,7 +32,7 @@ import {
 
 type Source = "manual" | "preset" | "copy";
 
-const EMPTY_MODELS: PlatformModels = { default: "", sonnet: "", opus: "", haiku: "", gpt: "" };
+const EMPTY_MODELS: PlatformModels = { default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" };
 
 function normalize(partial: Partial<Record<ModelSlot, string>> | PlatformModels | undefined): PlatformModels {
   return {
@@ -41,6 +41,7 @@ function normalize(partial: Partial<Record<ModelSlot, string>> | PlatformModels 
     opus: partial?.opus ?? "",
     haiku: partial?.haiku ?? "",
     gpt: partial?.gpt ?? "",
+    jev: partial?.jev ?? "",
   };
 }
 
