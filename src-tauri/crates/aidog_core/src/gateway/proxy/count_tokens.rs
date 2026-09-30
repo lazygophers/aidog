@@ -114,6 +114,7 @@ pub(crate) async fn handle_count_tokens(
         group,
         &requested_model,
         Some(&sched_ctx),
+        RequestKind::Chat,
     )
     .await
     {

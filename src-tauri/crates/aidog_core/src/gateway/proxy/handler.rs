@@ -380,6 +380,14 @@ pub(crate) async fn handle_proxy_core(
         return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start).await;
     }
 
+    // ── TypeSafe 决策请求分流（必须在 parse_incoming_request 之前）──
+    // /v1/systemone 的 body 是 TypeSafe 官方格式（answers/usage），非任何 chat 协议，
+    // 进 parse_incoming_request 必失败。决策请求原样转发仅改写 model（jev-decision-proxy §3.4），
+    // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
+    if is_decision_endpoint(&path) {
+        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang).await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     // ponytail: 复用上面已解析的 req_value_opt，避免重复 from_slice
     let req_value = match req_value_opt {
@@ -543,6 +551,7 @@ pub(crate) async fn handle_proxy_core(
         &group,
         &chat_req.model,
         Some(&sched_ctx),
+        RequestKind::Chat,
     )
     .await
     {
@@ -551,6 +560,28 @@ pub(crate) async fn handle_proxy_core(
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
+            // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
+            //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
+            if e == "no_chat_platform" {
+                log.blocked_by = "router".to_string();
+                log.blocked_reason = "no_chat_platform".to_string();
+                log.status_code = 400;
+                log.done = true;
+                log.response_body = kind_route_error_message(&e);
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log, &log_settings).await;
+                let mut r = (
+                    StatusCode::BAD_REQUEST,
+                    format!(
+                        "{}: {}",
+                        i18n::t(lang, ErrorKey::Route),
+                        kind_route_error_message(&e)
+                    ),
+                )
+                    .into_response();
+                inject_trace_header(&mut r);
+                return r;
+            }
             if e == "peak_disabled" {
                 log.blocked_by = "router".to_string();
                 log.blocked_reason = "peak".to_string();

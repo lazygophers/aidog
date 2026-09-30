@@ -14,7 +14,7 @@ mod model_mapping;
 mod ordering;
 
 #[allow(unused_imports)]
-pub use candidates::{CandidateSet, ScheduleCtx, select_candidates, select_candidates_ctx};
+pub use candidates::{CandidateSet, RequestKind, ScheduleCtx, select_candidates, select_candidates_ctx};
 
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///
