@@ -32,9 +32,11 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
   const [protocolLabel, setProtocolLabel] = useState("");
 
-  const allModels = platform.available_models.length > 0
+  // jev 槽位是决策模型专用（jev-decision-proxy §3.6.2），不进聊天测试列表
+  const allModels = (platform.available_models.length > 0
     ? platform.available_models
-    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].filter(Boolean) as string[];
+    : [platform.models.default, platform.models.sonnet, platform.models.opus, platform.models.haiku, platform.models.gpt].filter(Boolean) as string[]
+  ).filter(m => m !== platform.models.jev);
 
   const defaultModel = platform.models.default || allModels[0] || "";
 
