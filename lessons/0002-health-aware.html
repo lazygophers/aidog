@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>第 2 课 · health_aware 深入</title>
+<link rel="stylesheet" href="../assets/lesson.css">
+</head>
+<body>
+
+<h1>health_aware：健康感知调度</h1>
+<p class="subtitle">第 2 课 · 默认路由模式。它不只是「另一种排序」——它背后拖着整套健康判定系统。约 12 分钟读完。</p>
+
+<blockquote>前置：<a href="0001-aidog-routing-overview.html">第 1 课 · 路由全景</a>（六道闸门、候选名单、熔断三态）。</blockquote>
+
+<h2>一句定义</h2>
+<p><b>在健康平台中按权重加权随机分流。</b>「健康」由熔断器决定：连续失败达阈值的平台被暂时摘出，恢复探测通过才放回。它是<b>全局默认路由模式</b>——新建分组的预填值就是它。<span class="src">settings.rs:219-222（default_routing_mode = "health_aware"）</span></p>
+
+<div class="card warn">
+<b>先说破一个现状</b>：今天代码里 health_aware 与 load_balance 走<b>完全同一个排序分支</b>（`candidates.rs` 的 match 把两者并在一起）。因为熔断摘除这步对所有模式都生效（只要熔断总开关开着），「健康感知」不再是它独有。所以它现在的实际含义 = <b>「默认的那个加权随机」</b>。名字保留是为了语义和历史。
+</div>
+
+<h2>完整流程：一个请求进来</h2>
+
+<figure>
+<svg viewBox="0 0 860 330" xmlns="http://www.w3.org/2000/svg" font-family="PingFang SC, sans-serif">
+  <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#4a5fc1"/></marker></defs>
+  <g font-size="14" text-anchor="middle">
+    <rect x="15" y="20" width="130" height="64" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="80" y="44">六道闸门</text>
+    <text x="80" y="62" font-size="12" fill="#555570">过期/高峰/停用/冷却/熔断</text>
+    <line x1="145" y1="52" x2="175" y2="52" stroke="#4a5fc1" stroke-width="2" marker-end="url(#a1)"/>
+    <rect x="177" y="20" width="150" height="64" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="252" y="44">熔断准入门</text>
+    <text x="252" y="62" font-size="12" fill="#555570">Open 平台再被踢一道</text>
+    <line x1="327" y1="52" x2="357" y2="52" stroke="#4a5fc1" stroke-width="2" marker-end="url(#a1)"/>
+    <rect x="359" y="20" width="150" height="64" rx="10" fill="#e9f5ef" stroke="#2e7d5b"/>
+    <text x="434" y="44">加权随机选首</text>
+    <text x="434" y="62" font-size="12" fill="#555570">按有效权重抽签</text>
+    <line x1="509" y1="52" x2="539" y2="52" stroke="#4a5fc1" stroke-width="2" marker-end="url(#a1)"/>
+    <rect x="541" y="20" width="150" height="64" rx="10" fill="#e9f5ef" stroke="#2e7d5b"/>
+    <text x="616" y="44">其余按权重排后</text>
+    <text x="616" y="62" font-size="12" fill="#555570">失败顺位重试</text>
+    <line x1="691" y1="52" x2="721" y2="52" stroke="#4a5fc1" stroke-width="2" marker-end="url(#a1)"/>
+    <rect x="723" y="20" width="120" height="64" rx="10" fill="#eef0fa" stroke="#4a5fc1"/>
+    <text x="783" y="44">coding plan</text>
+    <text x="783" y="62" font-size="12" fill="#555570">上浮+映射提首</text>
+  </g>
+  <g font-size="13.5">
+    <rect x="60" y="130" width="740" height="170" rx="12" fill="#fff" stroke="#d9dae3"/>
+    <text x="80" y="158" font-weight="bold" font-size="14.5">抽签例子：3 个平台都健康</text>
+    <text x="80" y="185">A：权重 2 × 组内优先级 5 = 有效权重 10　（10/20 = 50% 概率当首选）</text>
+    <text x="80" y="210">B：权重 1 × 组内优先级 10 = 有效权重 10　（10/20 = 50%）</text>
+    <text x="80" y="235">C：权重 1 × 组内优先级 0 = 有效权重 0　（0%——永远抽不中，但仍在名单里兜底）</text>
+    <text x="80" y="263" fill="#555570" font-size="12.5">抽不中 ≠ 不可用：C 排在名单后面，前面全失败时仍会被试到。</text>
+    <text x="80" y="286" fill="#555570" font-size="12.5">有效权重 = weight × level_priority（1~10 级乘性放大）<tspan fill="#555570" font-family="Menlo"> </tspan><tspan fill="#555570">mod.rs:87-91</tspan></text>
+  </g>
+</svg>
+<figcaption>health_aware 全流程。排序出处：<span class="src">candidates.rs:377-382</span>（与 LoadBalance 并列同分支）、<span class="src">ordering.rs order_load_balance</span></figcaption>
+</figure>
+
+<h2>「健康」怎么判：失败分类表</h2>
+<p>一次上游失败落进来，按失败类型走不同机制、不同恢复路径——这是 health_aware 的核心，也是最容易讲错的地方：</p>
+
+<table>
+<tr><th>失败类型</th><th>走哪条机制</th><th>后果</th><th>怎么恢复</th></tr>
+<tr><td>429 限流</td><td>熔断计数</td><td>连续 5 次 → 熔断打开，踢出候选</td><td>60 秒后半开探测</td></tr>
+<tr><td>连接失败（连不上）</td><td>熔断计数</td><td>同上</td><td>同上</td></tr>
+<tr><td>429 配额耗尽（带重置时间）</td><td>配额冷却（内存）</td><td>冷却到上游说的重置时刻</td><td>到点自动回</td></tr>
+<tr><td>401 密钥错 / 402 余额不足</td><td>鉴权冷却（内存）</td><td>固定冷 5 分钟</td><td>到点自动回</td></tr>
+<tr><td>上游审核拒绝（`error.type=censorship_blocked`）</td><td>自动禁用 + failover</td><td>平台全局标记不可用；当前请求自动换下个平台；同一 session 后续候选也跳过</td><td>1 小时后允许探测；探测成功恢复</td></tr>
+<tr><td>服务器 5xx、超时掐线、空响应</td><td>不降权</td><td><b>什么都不做</b>（上游的锅，不是平台的锅）</td><td>—</td></tr>
+</table>
+<p class="src">出处：<span class="src">scheduling.rs</span> 文件头注释（失败分类 2026-09-28 R1 修订）+ 审核拒绝分类 <span class="src">proxy/retry.rs:is_censorship_blocked</span>、自动禁用 <span class="src">aidog_db/platform.rs:disable_platform_for_censorship</span>。AUTH_COOLDOWN_MS = 5 分钟（scheduling.rs:36）</p>
+
+<div class="card">
+<b>断网保护</b>：60 秒滑窗内失败的平台数达到候选数一半 → 判定是本机网络问题，这批连接失败<b>不计熔断</b>——防你断网时整组平台被误杀。<span class="src">scheduling.rs CONNECT_FAIL_WINDOW_MS</span>
+</div>
+
+<h2>三个可调参数（全局默认，可按平台覆盖）</h2>
+<table>
+<tr><th>参数</th><th>默认</th><th>含义</th></tr>
+<tr><td>breaker_failure_threshold</td><td>5</td><td>连续失败几次 → 熔断打开</td></tr>
+<tr><td>breaker_open_secs</td><td>60</td><td>熔断打开持续多久（之后半开）</td></tr>
+<tr><td>breaker_half_open_max</td><td>2</td><td>半开态最多放几个探测请求</td></tr>
+</table>
+<p>每个平台还可在自身配置里写覆盖值（写 0 或不写 = 继承全局）。<span class="src">settings.rs:249-265（effective_thresholds）</span></p>
+<p>另有<b>熔断总开关</b>（默认开）：关掉后所有平台永远不被熔断踢出——此时 health_aware 与 load_balance 连语义差异也没了。</p>
+
+<h2>两个易混点（写文档时最容易错）</h2>
+<div class="card warn">
+<b>① probe 桶 ≠ 半开探测。</b>候选过滤后分两个桶：active（健康）在前、<b>probe 桶</b>（曾自动停用、过了退避时间来试探的）排尾。「半开探测」是熔断器自己的状态，放行的探测请求照常进这两个桶。两个「试探」是不同机制的不同层。<span class="src">candidates.rs:260-266</span>
+</div>
+<div class="card warn">
+<b>② 熔断全空 ≠ 整组死。</b>候选全被熔断踢光时熔断被绕过、照常发请求，把上游真实错误透传给客户端；只有冷却（配额/鉴权）造成的空候选不绕。<span class="src">candidates.rs:131-145</span>
+</div>
+
+<h2>自测（合上页面答）</h2>
+<div class="card">
+<ol>
+<li>health_aware 与 load_balance 今天在代码里差在哪？为什么？</li>
+<li>5xx 计不计熔断？断网保护触发条件是什么？</li>
+<li>权重 2、组内优先级 5 的平台，和权重 1、组内优先级 10 的平台，抽中首选的概率各是多少？</li>
+<li>「连续失败 5 次」和「冷 5 分钟」分别对应哪两种失败？</li>
+</ol>
+</div>
+
+<footer>
+第 2 课 · health_aware 深入 · 2026-09-28 · <a href="0001-aidog-routing-overview.html">← 第 1 课</a><br>
+推荐一手来源：<span class="src">src-tauri/crates/aidog_core/src/gateway/scheduling.rs</span>（文件头 30 行注释 = 完整失败分类表，直接可引用）<br>
+有哪里没讲明白，回到对话里直接问。
+</footer>
+
+</body>
+</html>
