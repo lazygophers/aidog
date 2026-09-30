@@ -4,6 +4,7 @@ import {
   getDefaultModels,
   getDefaultModelList,
   getDefaultEndpoints,
+  clientTypeForProtocol,
   buildProtocolsFromPresets,
   getDefaultQuotaScripts,
   quotaScriptIndexSync,
@@ -121,6 +122,10 @@ describe("getDefaultEndpoints / getDefaultModelList — 单分支 default + clie
   it("getDefaultEndpoints 显式 client_type 例外保留（不覆盖）", async () => {
     const eps = await getDefaultEndpoints("deepseek" as Protocol);
     expect(eps[0].client_type).toBe("default");
+  });
+
+  it("clientTypeForProtocol typesafe → default（jev-decision-proxy s2，与 Rust derive_client_type 对称）", () => {
+    expect(clientTypeForProtocol("typesafe")).toBe("default");
   });
 
   it("getDefaultModelList glm_coding 含 glm-4.5 / glm-4.6（R4 补全）", async () => {

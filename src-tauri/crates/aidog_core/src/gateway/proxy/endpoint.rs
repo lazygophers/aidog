@@ -105,6 +105,26 @@ pub(crate) fn select_endpoint_for_protocol<'a>(
     }
 }
 
+/// TypeSafe 决策请求端点判定（jev-decision-proxy R1）：路径以 `/systemone` 结尾即为决策请求。
+/// 覆盖 `/v1/systemone`、`/proxy/v1/systemone` 等变体（与 R1「尾段匹配」口径一致）。
+pub(crate) fn is_decision_endpoint(path: &str) -> bool {
+    path.trim_end_matches('/').ends_with("/systemone")
+}
+
+/// 决策请求的 endpoint 选择（jev-decision-proxy R9）：
+/// 平台有 `typesafe` 协议 endpoint 优先；否则 OpenAI 系 endpoint（chat / completions / responses）。
+/// 都没有返回 None → 调用方回退平台主 `base_url` + `/systemone`（零端点平台）。
+pub(crate) fn select_endpoint_for_decision(
+    endpoints: &[super::models::PlatformEndpoint],
+) -> Option<&super::models::PlatformEndpoint> {
+    endpoints
+        .iter()
+        .find(|ep| ep.protocol == Protocol::TypeSafe)
+        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAI))
+        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAICompletions))
+        .or_else(|| endpoints.iter().find(|ep| ep.protocol == Protocol::OpenAIResponses))
+}
+
 pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
     let lower = ua.to_lowercase();
     if lower.contains("claude-cli") {
@@ -231,6 +251,7 @@ pub(crate) fn is_api_endpoint(path: &str) -> bool {
         || api_path.starts_with("/v1/embeddings")
         || api_path.starts_with("/v1/images")
         || api_path.starts_with("/v1/audio")
+        || api_path.starts_with("/v1/systemone")
 }
 
 /// fallback 直通判定：Host ≠ 代理自身监听 host → MITM 解密灌入 / forward proxy

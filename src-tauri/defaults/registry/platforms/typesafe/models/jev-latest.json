@@ -1,0 +1,17 @@
+{
+  "last_updated": 1790771121,
+  "model_id": "jev-latest",
+  "canonical_model": "jev-latest",
+  "display_name": "Jev",
+  "family": "jev",
+  "context_window": 64000,
+  "capabilities": [
+    "decision"
+  ],
+  "max_input_tokens": 64000,
+  "official": true,
+  "price": {
+    "input": 4.2e-8,
+    "output": 0
+  }
+}

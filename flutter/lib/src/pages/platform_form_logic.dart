@@ -17,13 +17,14 @@ import 'platform_paste_logic.dart';
 import 'platforms_logic.dart';
 import 'time_window.dart';
 
-/// 五个槽位的空映射（`usePlatformForm.ts:195` 的初值）。
+/// 六个槽位的空映射（`usePlatformForm.ts:195` 的初值）。
 Map<String, String> emptyModelSlots() => {
   'default': '',
   'sonnet': '',
   'opus': '',
   'haiku': '',
   'gpt': '',
+  'jev': '',
 };
 
 class PlatformFormController {
@@ -423,6 +424,7 @@ class PlatformFormController {
       'opus': p.models.opus ?? '',
       'haiku': p.models.haiku ?? '',
       'gpt': p.models.gpt ?? '',
+      'jev': p.models.jev ?? '',
     };
     availableModels = [...p.availableModels];
     endpoints = [...p.endpoints];
@@ -699,19 +701,20 @@ class PlatformFormController {
   }
 
   /// `usePlatformForm.ts:540::handleFillAll`：把 default 填到其余四槽（覆盖已有值）。
+  /// jev 是决策槽（`/v1/systemone` 专用），一键填充不进（与 React 同裁）。
   void handleFillAll() {
     final d = models['default']!.trim();
     if (d.isEmpty) return;
     final next = {...models};
     for (final slot in kModelSlots) {
-      if (slot.key != 'default') next[slot.key] = d;
+      if (slot.key != 'default' && slot.key != 'jev') next[slot.key] = d;
     }
     models = next;
     _notify();
   }
 
   /// `usePlatformForm.ts:471::handleFetchModels`。
-  /// 成功时**连带自动归类**（`autoCategorize`）覆盖 5 个槽位 —— 与 React 一致。
+  /// 成功时**连带自动归类**（`autoCategorize`）覆盖 6 个槽位 —— 与 React 一致。
   Future<void> handleFetchModels({
     String Function(int code)? authText,
     String? emptyText,

@@ -735,6 +735,7 @@ void main() {
         'opus': null,
         'haiku': null,
         'gpt': null,
+        'jev': null,
       });
     });
 

@@ -16,6 +16,10 @@ pub enum Protocol {
     OpenAICompletions,
     #[serde(rename = "gemini")]
     Gemini,
+    /// TypeSafe 决策协议（jev-decision-proxy R9）：独立 wire 协议，
+    /// `POST base_url + /systemone`，客户端形态 default（不模拟 claude_code/codex）。
+    #[serde(rename = "typesafe")]
+    TypeSafe,
     // ── 平台类型（仅作为平台主协议，不作为 endpoint 协议）──
     #[serde(rename = "mock")]
     Mock,
@@ -342,6 +346,7 @@ mod test_endpoints_locked {
             ("anthropic", false),
             ("openai", false),
             ("gemini", false),
+            ("typesafe", false),
             ("newapi", false),
             ("openrouter", false),
             ("packycode", false),
@@ -373,6 +378,8 @@ mod test_protocol_coding_variants {
             ("minimax_coding", Protocol::MinimaxCoding),
             // Devin 平台（add-devin-support s1）
             ("devin", Protocol::Devin),
+            // TypeSafe 决策协议（jev-decision-proxy s2）
+            ("typesafe", Protocol::TypeSafe),
         ];
         for (key, expected) in cases {
             let json = format!("\"{key}\"");

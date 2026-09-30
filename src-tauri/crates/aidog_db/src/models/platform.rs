@@ -35,7 +35,7 @@ pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
 
 // ─── Platform Models ───────────────────────────────────────
 
-/// 平台模型配置：5 个固定槽位
+/// 平台模型配置：6 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3）
 #[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PlatformModels {
@@ -54,6 +54,10 @@ pub struct PlatformModels {
     #[serde(skip_serializing_if = "Option::is_none")]
     #[ts(optional)]
     pub gpt: Option<String>,
+    /// 决策模型槽（/v1/systemone 决策请求上游固定用此模型，jev-decision-proxy R8）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub jev: Option<String>,
 }
 
 impl PlatformModels {
@@ -67,6 +71,7 @@ impl PlatformModels {
             &self.opus,
             &self.haiku,
             &self.gpt,
+            &self.jev,
         ]
         .into_iter()
         .flatten()
@@ -94,10 +99,26 @@ impl PlatformModels {
         v
     }
 
-    /// 5 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
+    /// 6 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
     /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
     pub fn is_empty(&self) -> bool {
         self.default.is_none()
+            && self.sonnet.is_none()
+            && self.opus.is_none()
+            && self.haiku.is_none()
+            && self.gpt.is_none()
+            && self.jev.is_none()
+    }
+
+    /// 平台支持决策请求（jev 槽非空 ⇔ 决策请求可路由到该平台，R2 前半）。
+    pub fn supports_decision_slot(&self) -> bool {
+        self.jev.is_some()
+    }
+
+    /// 平台只支持决策（jev 非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
+    pub fn is_decision_only(&self) -> bool {
+        self.jev.is_some()
+            && self.default.is_none()
             && self.sonnet.is_none()
             && self.opus.is_none()
             && self.haiku.is_none()
@@ -506,6 +527,7 @@ mod tests {
             opus: Some("gpt-4o".into()), // duplicate
             haiku: None,
             gpt: Some("gpt-3.5".into()),
+            ..Default::default()
         };
         let vals = pm.all_values();
         assert_eq!(vals.len(), 3, "dedup: {:?}", vals);
@@ -529,6 +551,7 @@ mod tests {
             opus: Some("glm-5.3".into()),
             haiku: Some("glm-4.5".into()),
             gpt: Some("gpt-5".into()),
+            ..Default::default()
         };
         assert_eq!(
             pm.main_loop_values(),
@@ -544,6 +567,65 @@ mod tests {
             ..Default::default()
         };
         assert!(pm.main_loop_values().is_empty());
+    }
+
+    // ── PlatformModels::jev 槽位 ──
+
+    #[test]
+    fn platform_models_jev_serde_roundtrip() {
+        let pm = PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&pm).unwrap();
+        assert_eq!(json, r#"{"jev":"jev-latest"}"#, "None 槽位不序列化");
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.jev.as_deref(), Some("jev-latest"));
+        assert!(back.supports_decision_slot());
+    }
+
+    #[test]
+    fn platform_models_jev_in_all_values() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        assert!(pm.all_values().contains(&"jev-latest".to_string()));
+        // jev 不承接主对话，不参与上下文窗口约束（同 haiku/gpt 口径）
+        assert!(!pm.main_loop_values().contains(&"jev-latest".to_string()));
+        // 仅 jev 槽非空时整体非空（分享串不得丢槽位）
+        assert!(!PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        }
+        .is_empty());
+    }
+
+    #[test]
+    fn platform_models_is_decision_only_both_directions() {
+        // R3：jev 非空 + 5 聊天槽全空 → 只支持决策
+        let only = PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        assert!(only.is_decision_only());
+        assert!(only.supports_decision_slot());
+        // 任一聊天槽有值 → 不是 decision-only（但仍支持决策）
+        let mixed = PlatformModels {
+            jev: Some("jev-latest".into()),
+            haiku: Some("glm-4.5".into()),
+            ..Default::default()
+        };
+        assert!(!mixed.is_decision_only());
+        assert!(mixed.supports_decision_slot());
+        // 无 jev → 两者皆否
+        let chat_only = PlatformModels {
+            default: Some("gpt-4o".into()),
+            ..Default::default()
+        };
+        assert!(!chat_only.is_decision_only());
+        assert!(!chat_only.supports_decision_slot());
     }
 
     // ── parse_breaker ──

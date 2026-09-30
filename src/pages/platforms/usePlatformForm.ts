@@ -198,7 +198,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
   const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
   const [models, setModels] = useState<Record<ModelSlot, string>>({
-    default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+    default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "",
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
@@ -312,7 +312,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
     const defaultModels = await getDefaultModels(newProtocol);
     setModels({
-      default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+      default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "",
       ...defaultModels,
     });
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
@@ -335,7 +335,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const resetForm = () => {
     setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
     setBatchPreviewKeys(null);
-    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
+    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
@@ -381,6 +381,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       opus: p.models.opus ?? "",
       haiku: p.models.haiku ?? "",
       gpt: p.models.gpt ?? "",
+      jev: p.models.jev ?? "",
     });
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
@@ -437,6 +438,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       opus: p.models.opus ?? "",
       haiku: p.models.haiku ?? "",
       gpt: p.models.gpt ?? "",
+      jev: p.models.jev ?? "",
     });
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
@@ -568,7 +570,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setModels(prev => {
       const next = { ...prev };
       for (const slot of MODEL_SLOTS) {
-        if (slot.key !== "default") {
+        // jev 是决策槽（/v1/systemone 专用），default 是聊天模型，一键填充不进决策槽
+        if (slot.key !== "default" && slot.key !== "jev") {
           next[slot.key] = defaultModel;
         }
       }

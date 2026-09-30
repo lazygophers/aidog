@@ -64,7 +64,7 @@ Map<int, List<String>> buildMembership(List<GroupDetail> gds) {
 /// `usePlatformForm.ts:554::buildModelsPayload`：五个槽位逐个 trim，
 /// 全空返回 null（= 不带 models 字段），有一个非空就整份带上（空槽写 null）。
 Map<String, Object?>? buildModelsPayload(Map<String, String> models) {
-  const slots = ['default', 'sonnet', 'opus', 'haiku', 'gpt'];
+  const slots = ['default', 'sonnet', 'opus', 'haiku', 'gpt', 'jev'];
   final result = <String, Object?>{};
   var hasAny = false;
   for (final slot in slots) {

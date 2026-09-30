@@ -130,3 +130,10 @@ mod test_request;
 #[cfg(test)]
 #[path = "test_roundtrip.rs"]
 mod test_roundtrip;
+
+/// TypeSafe 决策 API 端点路径（jev-decision-proxy R10）：
+/// URL = endpoint `base_url`（已含版本前缀如 `/v1`）+ `/systemone`，禁额外拼版本段。
+/// 不并入 `passthrough_api_path`：该函数按 wire 协议派生 chat 路径，决策路径独立成函数。
+pub fn decision_api_path() -> String {
+    "/systemone".to_string()
+}

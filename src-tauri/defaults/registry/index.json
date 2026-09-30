@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790680873,
+  "last_updated": 1790774133,
   "platforms": [
     {
       "code": "aihubmix",
@@ -241,6 +241,7 @@
         "dall-e-3.json",
         "davinci-002.json",
         "davinci.json",
+        "decision-model-preview.json",
         "deepinfra-gemma-4-26b-a4b-it.json",
         "deepinfra-llama-3.1-8b-instant.json",
         "deepinfra-llama-3.3-70b-instant-turbo.json",
@@ -1054,6 +1055,7 @@
         "cosyvoice-v3-plus.json",
         "cosyvoice-v3.5-flash.json",
         "cosyvoice-v3.5-plus.json",
+        "decision-model-preview.json",
         "deepseek-r1-0528.json",
         "deepseek-r1-distill-llama-70b.json",
         "deepseek-r1-distill-qwen-1.5b.json",
@@ -2320,6 +2322,35 @@
         "claude-opus-5.json",
         "claude-sonnet-4-6.json",
         "claude-sonnet-5.json"
+      ]
+    },
+    {
+      "code": "cline",
+      "name": "Cline API",
+      "platform_file": "platforms/cline/platform.json",
+      "models_dir": "platforms/cline/models",
+      "models": [
+        "anthropic__claude-sonnet-4-6.json",
+        "openai__gpt-4o.json",
+        "google__gemini-2.5-pro.json",
+        "deepseek__deepseek-chat.json",
+        "minimax__minimax-m2.5.json"
+      ]
+    },
+    {
+      "code": "cline_pass",
+      "name": "ClinePass",
+      "platform_file": "platforms/cline_pass/platform.json",
+      "models_dir": "platforms/cline_pass/models",
+      "models": [
+        "cline-pass__glm-5.3.json",
+        "cline-pass__glm-5.3-flash.json",
+        "cline-pass__kimi-k3.json",
+        "cline-pass__deepseek-v4-pro.json",
+        "cline-pass__deepseek-v4.1-flash.json",
+        "cline-pass__qwen3.8-max.json",
+        "cline-pass__qwen3.7-max.json",
+        "cline-pass__qwen3.7-plus.json"
       ]
     },
     {
@@ -8151,6 +8182,7 @@
         "thinkingmachines/inkling-small:free.json",
         "thinkingmachines/inkling.json",
         "thinkingmachines/inkling:free.json",
+        "typesafe/jev-1.13.json",
         "unbiased/pareto.json",
         "undi95/remm-slerp-l2-13b.json",
         "upstage/solar-mini4.json",
@@ -9111,6 +9143,47 @@
       ]
     },
     {
+      "code": "tokenrhythm",
+      "name": "TokenRhythm",
+      "platform_file": "platforms/tokenrhythm/platform.json",
+      "models_dir": "platforms/tokenrhythm/models",
+      "models": [
+        "deepseek-flash.json",
+        "deepseek-v4-flash-0731.json",
+        "deepseek-v4-pro-0813.json",
+        "glm-5.1.json",
+        "glm-5.2.json",
+        "glm-5.3.json",
+        "glm-5.3-flash.json",
+        "glm-5.3-flashx.json",
+        "kimi-k2.6.json",
+        "kimi-k2.7-code.json",
+        "kimi-k3.json",
+        "longcat-2.0.json",
+        "minimax-m2.7.json",
+        "mimo-v2.5-pro.json",
+        "mimo-v2.6-pro.json",
+        "mimo-v2.6-flash.json",
+        "qwen3.7-max.json",
+        "qwen3.7-flash.json",
+        "qwen3.8-max.json",
+        "qwen3.8-27b.json",
+        "qwen3.8-flash.json",
+        "seed-2.1-turbo.json",
+        "seed-2.1-pro.json"
+      ]
+    },
+    {
+      "code": "typesafe",
+      "name": "TypeSafe",
+      "platform_file": "platforms/typesafe/platform.json",
+      "models_dir": "platforms/typesafe/models",
+      "models": [
+        "jev-1.13.0.json",
+        "jev-latest.json"
+      ]
+    },
+    {
       "code": "xai",
       "platform_file": "platforms/xai/platform.json",
       "models_dir": "platforms/xai/models",
@@ -9166,66 +9239,6 @@
       "models": [
         "mimo-v2.5-pro.json",
         "mimo-v2.5.json"
-      ]
-    },
-    {
-      "code": "cline",
-      "name": "Cline API",
-      "platform_file": "platforms/cline/platform.json",
-      "models_dir": "platforms/cline/models",
-      "models": [
-        "anthropic__claude-sonnet-4-6.json",
-        "openai__gpt-4o.json",
-        "google__gemini-2.5-pro.json",
-        "deepseek__deepseek-chat.json",
-        "minimax__minimax-m2.5.json"
-      ]
-    },
-    {
-      "code": "cline_pass",
-      "name": "ClinePass",
-      "platform_file": "platforms/cline_pass/platform.json",
-      "models_dir": "platforms/cline_pass/models",
-      "models": [
-        "cline-pass__glm-5.3.json",
-        "cline-pass__glm-5.3-flash.json",
-        "cline-pass__kimi-k3.json",
-        "cline-pass__deepseek-v4-pro.json",
-        "cline-pass__deepseek-v4.1-flash.json",
-        "cline-pass__qwen3.8-max.json",
-        "cline-pass__qwen3.7-max.json",
-        "cline-pass__qwen3.7-plus.json"
-      ]
-    },
-    {
-      "code": "tokenrhythm",
-      "name": "TokenRhythm",
-      "platform_file": "platforms/tokenrhythm/platform.json",
-      "models_dir": "platforms/tokenrhythm/models",
-      "models": [
-        "deepseek-flash.json",
-        "deepseek-v4-flash-0731.json",
-        "deepseek-v4-pro-0813.json",
-        "glm-5.1.json",
-        "glm-5.2.json",
-        "glm-5.3.json",
-        "glm-5.3-flash.json",
-        "glm-5.3-flashx.json",
-        "kimi-k2.6.json",
-        "kimi-k2.7-code.json",
-        "kimi-k3.json",
-        "longcat-2.0.json",
-        "minimax-m2.7.json",
-        "mimo-v2.5-pro.json",
-        "mimo-v2.6-pro.json",
-        "mimo-v2.6-flash.json",
-        "qwen3.7-max.json",
-        "qwen3.7-flash.json",
-        "qwen3.8-max.json",
-        "qwen3.8-27b.json",
-        "qwen3.8-flash.json",
-        "seed-2.1-turbo.json",
-        "seed-2.1-pro.json"
       ]
     }
   ],
