@@ -398,7 +398,7 @@ void main() {
     testWidgets('单元格输入写回槽位；下拉可展开并选中', (tester) async {
       await boot(tester);
       final cells = find.byType(ModelCell);
-      expect(cells, findsNWidgets(5)); // 5 槽 × 只有默认列
+      expect(cells, findsNWidgets(6)); // 6 槽 × 只有默认列
       await tester.enterText(
         find.descendant(of: cells.first, matching: find.byType(TextField)),
         'gpt',
@@ -459,7 +459,7 @@ void main() {
       // 列头描述：没有窗口 → 永不命中。
       expect(find.text(t.t('platform.window_never')), findsOneWidget);
       // 每行多了一格。
-      expect(find.byType(ModelCell), findsNWidgets(10));
+      expect(find.byType(ModelCell), findsNWidgets(12));
 
       // 时段档格子写回 rule.models；清空则删掉那个槽。
       await tester.enterText(

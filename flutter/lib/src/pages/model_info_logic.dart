@@ -34,6 +34,7 @@ const List<String> kCapabilities = [
   'video',
   'embedding',
   'rerank',
+  'decision',
 ];
 
 /// `Pagination.tsx:14`。
