@@ -32,3 +32,21 @@ pattern（英文 `coverage` 之类）grep 输出零命中，被当成「输出�
    先去脚本源码 grep 打印模板（`console.log`/`console.error` 的字符串）确认实际格式。
 2. 验证命令输出不长（百行级）就整读一遍再 grep；长输出先 `wc -l` 分段，确认每段都过眼
    或每段都有对应 grep。
+
+## index.json 单独变更时盖戳脚本静默零盖（2026-09-30）
+
+bump-registry-last-updated.mjs 的循环里 index.json 被 `continue` 跳过
+（scripts/bump-registry-last-updated.mjs:100-105），只在**其它数据文件至少
+一个被盖**时才推高 index 的全局 last_updated。单独改 index.json（重排平台
+清单、改 pricing_only）→ 脚本输出「0 个文件已盖戳」且 exit 0，看似成功实际
+没盖——index 自身的顶层 last_updated 没变，远程同步按内容比较跳过。此时手动
+把 index.json 顶层 last_updated 改成当前 Unix 秒（等价操作），或顺带改任一
+其它数据文件再跑脚本。
+
+判脚本干了什么以输出数字为准：「0 个文件已盖戳」= 本次没盖，不是成功。
+
+## 清单类测试逐条 panic：先收集全量失败再动手（2026-09-30）
+
+修 platform slug 白名单测试，每修一个 panic 就暴露下一个（cline → zdotai），
+循环三轮才绿。包含/排除名单、键集对比这类清单断言失败时，先把门禁改成一次
+输出全部不匹配项（或临时收集再断言），看全了再一次性修，不逐条试错。

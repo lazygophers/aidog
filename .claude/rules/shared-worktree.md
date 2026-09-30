@@ -66,3 +66,16 @@ commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报�
 
 提交前问自己一句：**这次 `git diff --cached` 里的每一段，我都能说出它属于哪条任务吗？**
 说不出的那段就是别人的。
+
+## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
+
+全局 CLAUDE.md 写「Bash 的 cwd 跨调用保留」，那只对主会话成立。**派生的
+agent（team agent / implementer）相反：cwd 每次 Bash 调用后都重置回自己的
+启动目录**（通常是主 checkout）。jev-decision-proxy 轮（PR #46）因此翻车：
+implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两个文件
+（当场发现还原）。
+
+- worktree 里的命令一律绝对路径，或单条 `(cd <worktree 绝对路径> && <cmd>)`。
+  不能信任上一条命令切过去的目录——那条 cd 已经没了。
+- 动手前后各跑一次 `git -C <主 checkout> status --short`：多出来的脏文件
+  就是误伤，当场还原并核对内容。
