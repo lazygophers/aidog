@@ -1,18 +1,18 @@
 {
   "last_updated": 1790771121,
-  "model_id": "jev-1.13",
+  "model_id": "jev-1.13.0",
   "canonical_model": "jev-1.13",
-
+  "display_name": "Jev 1.13",
+  "family": "jev",
   "version": "1.13",
-  "family": "jev",  "display_name": "Jev 1.13",
   "context_window": 64000,
   "capabilities": [
     "decision"
   ],
   "max_input_tokens": 64000,
-  "official": false,
+  "official": true,
   "price": {
-    "input": 4.62e-08,
+    "input": 4.2e-8,
     "output": 0
   }
 }

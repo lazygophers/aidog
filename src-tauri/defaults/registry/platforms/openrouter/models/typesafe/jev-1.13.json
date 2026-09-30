@@ -1,15 +1,16 @@
 {
   "last_updated": 1790771121,
-  "model_id": "openrouter/typesafe/jev-1.13",
-  "display_name": "Jev 1.13",
+  "model_id": "typesafe/jev-1.13",
   "canonical_model": "jev-1.13",
+  "display_name": "TypeSafe: Jev 1.13",
+  "family": "jev",
+  "version": "1.13",
+  "context_window": 32000,
   "capabilities": [
     "decision"
   ],
   "max_input_tokens": 32000,
-  "context_window": 32000,
-  "max_output_tokens": 28800,
-  "official": false,
+  "official": true,
   "price": {
     "input": 4.2e-8,
     "output": 0
