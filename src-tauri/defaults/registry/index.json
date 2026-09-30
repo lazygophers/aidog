@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790680873,
+  "last_updated": 1790771121,
   "platforms": [
     {
       "code": "aihubmix",
@@ -241,6 +241,7 @@
         "dall-e-3.json",
         "davinci-002.json",
         "davinci.json",
+        "decision-model-preview.json",
         "deepinfra-gemma-4-26b-a4b-it.json",
         "deepinfra-llama-3.1-8b-instant.json",
         "deepinfra-llama-3.3-70b-instant-turbo.json",
@@ -8151,6 +8152,7 @@
         "thinkingmachines/inkling-small:free.json",
         "thinkingmachines/inkling.json",
         "thinkingmachines/inkling:free.json",
+        "typesafe/jev-1.13.json",
         "unbiased/pareto.json",
         "undi95/remm-slerp-l2-13b.json",
         "upstage/solar-mini4.json",
@@ -9226,6 +9228,16 @@
         "qwen3.8-flash.json",
         "seed-2.1-turbo.json",
         "seed-2.1-pro.json"
+      ]
+    },
+    {
+      "code": "typesafe",
+      "name": "TypeSafe",
+      "platform_file": "platforms/typesafe/platform.json",
+      "models_dir": "platforms/typesafe/models",
+      "models": [
+        "jev-1.13.0.json",
+        "jev-latest.json"
       ]
     }
   ],
