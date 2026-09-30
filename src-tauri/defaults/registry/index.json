@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790771834,
+  "last_updated": 1790774133,
   "platforms": [
     {
       "code": "aihubmix",
@@ -1055,6 +1055,7 @@
         "cosyvoice-v3-plus.json",
         "cosyvoice-v3.5-flash.json",
         "cosyvoice-v3.5-plus.json",
+        "decision-model-preview.json",
         "deepseek-r1-0528.json",
         "deepseek-r1-distill-llama-70b.json",
         "deepseek-r1-distill-qwen-1.5b.json",
@@ -9181,8 +9182,7 @@
         "jev-1.13.0.json",
         "jev-latest.json"
       ]
-    }
-  ,
+    },
     {
       "code": "xai",
       "platform_file": "platforms/xai/platform.json",
