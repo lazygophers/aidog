@@ -136,10 +136,11 @@
           "audio",
           "video",
           "embedding",
-          "rerank"
+          "rerank",
+          "decision"
         ]
       },
-      "description": "【必填】能力标签枚举（text 必含；vision / tool_use / reasoning 理解类，text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit 生成类按需，audio / video / embedding / rerank 按需）。"
+      "description": "【必填】能力标签枚举（2026-09-30 起不再要求 text 必含：纯决策模型只标 decision）。理解类：text / vision / tool_use / reasoning / audio / video / embedding / rerank / decision（System One 结构化决策，如 TypeSafe Jev——纯决策条目不得再标 text）；生成类：text_to_image / image_to_image / image_edit / text_to_video / image_to_video / video_to_video / video_edit 按需。"
     },
     "builtin_tools_excluded": {
       "type": "array",
@@ -281,15 +282,24 @@
       "description": "【必填】计价结构：默认单价 + 高峰绝对价 + 分档价，全部数值字段（$/token），禁字符串表达式。旧顶层价格字段（input_cost_per_token 等 + default_price）2026-08-30 已收归于此。"
     }
   },
-  "last_updated": 1788012963,
+  "last_updated": 1790771060,
   "allOf": [
     {
       "if": {
         "properties": {
           "capabilities": {
-            "contains": {
-              "const": "text"
-            }
+            "anyOf": [
+              {
+                "contains": {
+                  "const": "text"
+                }
+              },
+              {
+                "contains": {
+                  "const": "decision"
+                }
+              }
+            ]
           }
         },
         "required": [

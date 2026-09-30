@@ -1,0 +1,47 @@
+{
+  "last_updated": 1790771121,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "typesafe",
+        "base_url": "https://api.typesafe.ai/v1"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "jev": "jev-latest"
+    }
+  },
+  "model_list": {
+    "default": [
+      "jev-latest",
+      "jev-1.13.0"
+    ]
+  },
+  "name": {
+    "en-US": "TypeSafe",
+    "zh-Hans": "TypeSafe",
+    "ar-SA": "TypeSafe",
+    "fr-FR": "TypeSafe",
+    "de-DE": "TypeSafe",
+    "ru-RU": "TypeSafe",
+    "ja-JP": "TypeSafe",
+    "es-ES": "TypeSafe"
+  },
+  "source_urls": {
+    "docs": "https://docs.typesafe.ai/api",
+    "pricing": "https://docs.typesafe.ai/models"
+  },
+  "homepage": "https://typesafe.ai",
+  "logo_url": "",
+  "keywords": [
+    "typesafe",
+    "jev",
+    "systemone",
+    "决策",
+    "juece",
+    "jc"
+  ],
+  "color": "#5B5BD6"
+}

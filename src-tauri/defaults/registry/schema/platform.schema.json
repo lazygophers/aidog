@@ -117,13 +117,14 @@
             "properties": {
               "protocol": {
                 "type": "string",
-                "description": "【必填】端点 wire 协议（= Rust Protocol 枚举头段 5 个请求协议，与前端 constants.ts PROTOCOLS 对称）。平台类型协议（glm_coding / mock / devin 等）不作为 endpoint 协议。",
+                "description": "【必填】端点 wire 协议（= Rust Protocol 枚举头段请求协议，与前端 constants.ts PROTOCOLS 对称）。typesafe = System One 决策协议（/v1/systemone，非 chat）。平台类型协议（glm_coding / mock / devin 等）不作为 endpoint 协议。",
                 "enum": [
                   "anthropic",
                   "openai",
                   "openai_responses",
                   "openai_completions",
-                  "gemini"
+                  "gemini",
+                  "typesafe"
                 ]
               },
               "base_url": {
@@ -174,7 +175,7 @@
             "type": "string",
             "minLength": 1
           },
-          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable → 平台真实模型 id）。聚合/中转平台可留空对象。"
+          "description": "【必填】默认槽位映射（槽位：default / opus / sonnet / haiku / gpt / fable / jev → 平台真实模型 id；jev = 决策模型槽位，纯决策平台只配 jev 不配 default，满足 R3）。聚合/中转平台可留空对象。"
         },
         "peak": {
           "type": "object",
@@ -526,5 +527,5 @@
       "description": "【可选】配额查询脚本变体数组（每条对应一种部署变体，如 new-api 官方与各 fork）。运行时按用户选中物化单条入 DB 执行；远程同步整份分发但不自动换脚本。"
     }
   },
-  "last_updated": 1788012963
+  "last_updated": 1790771069
 }
