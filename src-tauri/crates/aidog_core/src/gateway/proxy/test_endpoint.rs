@@ -504,3 +504,28 @@ fn model_from_gemini_path_extracts_model_segment() {
     assert_eq!(m("/v1beta/models/gemini-2.5-pro"), "gemini-2.5-pro");
     assert_eq!(m("/v1/messages"), "");
 }
+
+#[test]
+fn decision_endpoint_matches_systemone_suffix_variants() {
+    assert!(is_decision_endpoint("/v1/systemone"));
+    assert!(is_decision_endpoint("/proxy/v1/systemone"));
+    assert!(is_decision_endpoint("/proxy/v1/systemone/"));
+    assert!(is_decision_endpoint("/anything/systemone"));
+    assert!(!is_decision_endpoint("/v1/systemone/extra"));
+    assert!(!is_decision_endpoint("/v1/messages"));
+}
+
+#[test]
+fn decision_endpoint_prefers_typesafe_then_openai_family() {
+    use super::super::models::{PlatformEndpoint, Protocol};
+    let ep = |protocol| PlatformEndpoint {
+        protocol,
+        base_url: "https://example.invalid/v1".into(),
+        client_type: "default".into(),
+        coding_plan: false,
+    };
+    let endpoints = vec![ep(Protocol::OpenAI), ep(Protocol::TypeSafe)];
+    assert_eq!(select_endpoint_for_decision(&endpoints).unwrap().protocol, Protocol::TypeSafe);
+    let endpoints = vec![ep(Protocol::OpenAIResponses), ep(Protocol::OpenAI)];
+    assert_eq!(select_endpoint_for_decision(&endpoints).unwrap().protocol, Protocol::OpenAI);
+}
