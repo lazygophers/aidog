@@ -563,24 +563,7 @@ pub(crate) async fn handle_proxy_core(
             // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
             if e == "no_chat_platform" {
-                log.blocked_by = "router".to_string();
-                log.blocked_reason = "no_chat_platform".to_string();
-                log.status_code = 400;
-                log.done = true;
-                log.response_body = kind_route_error_message(&e);
-                log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log, &log_settings).await;
-                let mut r = (
-                    StatusCode::BAD_REQUEST,
-                    format!(
-                        "{}: {}",
-                        i18n::t(lang, ErrorKey::Route),
-                        kind_route_error_message(&e)
-                    ),
-                )
-                    .into_response();
-                inject_trace_header(&mut r);
-                return r;
+                return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
             if e == "peak_disabled" {
                 log.blocked_by = "router".to_string();
