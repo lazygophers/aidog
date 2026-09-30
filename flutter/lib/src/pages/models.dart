@@ -131,6 +131,7 @@ class PlatformModels {
     this.opus,
     this.haiku,
     this.gpt,
+    this.jev,
   });
 
   factory PlatformModels.fromJson(Map<String, dynamic>? j) => PlatformModels(
@@ -139,6 +140,7 @@ class PlatformModels {
     opus: j?['opus'] as String?,
     haiku: j?['haiku'] as String?,
     gpt: j?['gpt'] as String?,
+    jev: j?['jev'] as String?,
   );
 
   /// wire 上的键名是 `default`（Dart 保留字，故字段改名，序列化时写回 `default`）。
@@ -148,12 +150,16 @@ class PlatformModels {
   final String? haiku;
   final String? gpt;
 
+  /// 决策槽（`/v1/systemone` 专用，spec 3.2）。聊天测试/一键填充不消费。
+  final String? jev;
+
   Map<String, Object?> toJson() => {
     'default': defaultModel,
     'sonnet': sonnet,
     'opus': opus,
     'haiku': haiku,
     'gpt': gpt,
+    'jev': jev,
   };
 }
 

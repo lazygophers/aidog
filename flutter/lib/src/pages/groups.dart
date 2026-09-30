@@ -1637,6 +1637,7 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
     'opus': m.opus ?? '',
     'haiku': m.haiku ?? '',
     'gpt': m.gpt ?? '',
+    'jev': m.jev ?? '',
   };
 
   void _setSource(String v) {
@@ -1690,6 +1691,7 @@ class _BatchOverrideModelsCardState extends State<_BatchOverrideModelsCard> {
                 opus: _slots['opus'],
                 haiku: _slots['haiku'],
                 gpt: _slots['gpt'],
+                jev: _slots['jev'],
               ),
               doneText: (n) =>
                   t.t('group.batchOverrideModelsDone', {'count': '$n'}),

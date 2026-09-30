@@ -307,6 +307,8 @@ void main() {
       expect(f.models['opus'], 'gpt-5');
       expect(f.models['haiku'], 'gpt-5');
       expect(f.models['gpt'], 'gpt-5');
+      // jev 是决策槽，一键填充不进（与 React handleFillAll 同裁）。
+      expect(f.models['jev'], '');
     });
 
     test('获取模型成功 → 自动归类并覆盖五槽', () async {

@@ -670,7 +670,8 @@ ManualBudget newManualBudget() {
 
 // ─── 纯函数：模型自动归类 / key 拆分 / 批量命名预览 ───────────────────
 
-/// `autoCategorize.ts:73::autoCategorize`：按模型名模式自动分配到 5 个槽位。
+/// `autoCategorize.ts:73::autoCategorize`：按模型名模式自动分配到 6 个槽位。
+/// jev 是决策槽，名字模式不认领，留空手填（与 React 同裁）。
 Map<String, String> autoCategorize(List<String> modelIds) {
   final result = <String, String>{
     'default': '',
@@ -678,6 +679,7 @@ Map<String, String> autoCategorize(List<String> modelIds) {
     'opus': '',
     'haiku': '',
     'gpt': '',
+    'jev': '',
   };
   final patterns = <({String slot, bool Function(String) test})>[
     (slot: 'opus', test: (id) => RegExp('opus', caseSensitive: false).hasMatch(id)),
