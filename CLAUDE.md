@@ -41,8 +41,8 @@
 - retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
 
 ### Group 统计
-- Group 卡片的 usage stats 按 `proxy_log.group_name` 聚合（后端 `get_group_usage_stats` in `gateway/db/group.rs` + command `group_usage_stats` in `commands_platform` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。
-- balance（余额）维持平台级：关联 platforms 的 `est_balance_remaining` 求和，无 per-group 概念，不按 group_name 拆。
+- Group 卡片的 usage stats 按 `group_key` 聚合（后端 `get_group_usage_stats` in `aidog_stats/src/usage_stats.rs`，读 `stats_agg_hourly` 小时聚合表 + command `group_usage_stats` in `aidog_core/src/proxy_cmd/proxy_log.rs` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。
+- balance（余额）维持平台级：关联 platforms 的 `est_balance_remaining` 求和，无 per-group 概念，不按 group_key 拆。
 
 ### Local API
 - 应用 API 端点以 `/api/` 开头，仅允许 POST 方法
