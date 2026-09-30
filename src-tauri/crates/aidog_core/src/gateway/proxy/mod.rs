@@ -22,7 +22,7 @@ pub(crate) use super::i18n::{self, ErrorKey, Lang};
 pub(crate) use super::models::{
     ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings,
 };
-pub(crate) use super::router::{RouteResult, ScheduleCtx, select_candidates_ctx};
+pub(crate) use super::router::{RequestKind, RouteResult, ScheduleCtx, select_candidates_ctx};
 pub(crate) use aidog_adapter::{self as adapter, ChatRequest, ChatStreamEvent};
 pub(crate) use aidog_db::Db;
 pub(crate) use aidog_middleware::{InboundOutcome, MiddlewareEngine};
@@ -32,6 +32,7 @@ pub(crate) use connect::is_url_safe_group_name;
 mod builtin_tools;
 mod connect;
 mod count_tokens;
+mod decision;
 mod devin;
 mod endpoint;
 mod finish;
@@ -91,10 +92,9 @@ pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
-    should_fallback_passthrough,
-};
+    should_fallback_passthrough, is_decision_endpoint, select_endpoint_for_decision};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
-pub(crate) use forward::{AttemptOutcome, forward_attempt};
+pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     format_pretty_json, inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
@@ -122,8 +122,9 @@ pub(crate) use mitm_bypass::{
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
     build_url_from_host, default_model_ids, forward_passthrough_to_orig_host, handle_models_list,
-    handle_passthrough, is_models_endpoint, merge_group_model_names,
+    handle_passthrough, is_models_endpoint, join_upstream_path, merge_group_model_names,
 };
+pub(crate) use decision::{handle_decision, kind_route_error_message};
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,

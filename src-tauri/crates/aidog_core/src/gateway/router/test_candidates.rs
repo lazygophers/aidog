@@ -139,8 +139,7 @@ async fn single_platform_forces_request_when_circuit_broken() {
     };
 
     // 单平台短路：无视熔断必请求
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("single platform must force request, not Err");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p.id);
@@ -167,8 +166,7 @@ async fn quota_cooldown_excludes_candidate_without_disabling() {
     let now = db::now();
     sched.set_quota_cooldown(cooled.id, now + 3_600_000);
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("other platform still available");
     assert!(
         set.candidates.iter().all(|c| c.platform.id != cooled.id),
@@ -203,8 +201,7 @@ async fn single_platform_forces_request_when_auto_disabled() {
         sticky_key: None,
     };
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("single platform auto_disabled must still force request");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p.id);
@@ -229,7 +226,7 @@ async fn single_platform_censorship_blocked_does_not_bypass() {
         sticky_key: None,
     };
 
-    let result = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let result = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert_eq!(
         result.err().as_deref(),
         Some("group's only platform is censorship-blocked")
@@ -275,7 +272,7 @@ async fn single_platform_manual_disabled_errs() {
         sticky_key: None,
     };
 
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(res.is_err(), "manually disabled sole platform must Err");
 }
 
@@ -305,7 +302,7 @@ async fn single_platform_peak_disabled_errs() {
         sticky_key: None,
     };
 
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(
         res.is_err(),
         "peak-disabled sole platform must Err (no bypass)"
@@ -347,8 +344,7 @@ async fn single_platform_peak_disabled_off_peak_still_forces() {
     if hour == 1 {
         return; // 偶发跳过
     }
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("off-peak: single platform must still force request");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p.id);
@@ -383,7 +379,7 @@ async fn multi_platform_all_peak_disabled_errs() {
         sticky_key: None,
     };
 
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(res.is_err(), "all peak-disabled must Err");
     if let Err(e) = res {
         assert_eq!(e, "peak_disabled", "expected peak_disabled error, got: {e}");
@@ -415,8 +411,7 @@ async fn multi_platform_partial_peak_disabled_skipped() {
         sticky_key: None,
     };
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("partial peak-disabled: must still have p2 candidate");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(
@@ -439,7 +434,7 @@ async fn empty_group_returns_err() {
         settings: &settings,
         sticky_key: None,
     };
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(res.is_err(), "empty group should error");
     if let Err(err_msg) = res {
         assert!(
@@ -465,8 +460,7 @@ async fn load_balance_mode_returns_candidates() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert!(!set.candidates.is_empty());
 }
@@ -487,8 +481,7 @@ async fn sticky_mode_returns_candidates() {
         settings: &settings,
         sticky_key: Some("sess-key".to_string()),
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert!(!set.candidates.is_empty());
 }
@@ -549,8 +542,7 @@ async fn model_mapping_prioritizes_target_platform() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     // p2 should be first (mapped target)
     assert_eq!(set.candidates[0].platform.id, p2.id);
@@ -598,7 +590,7 @@ async fn all_platforms_disabled_returns_err() {
         settings: &settings,
         sticky_key: None,
     };
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(res.is_err());
 }
 
@@ -634,8 +626,7 @@ async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
     };
 
     // 有健康平台 → 只选 p2（坏的被过滤）
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p2.id);
@@ -643,8 +634,7 @@ async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
     // p2 也熔断 → 全坏 → 回退透传，两候选都回（不 blackhole）
     sched.inc_inflight(p2.id);
     sched.record_failure(p2.id, &th, now);
-    let set2 = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set2 = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("all-broken multi must fall back, not Err");
     assert_eq!(set2.candidates.len(), 2);
 }
@@ -729,8 +719,7 @@ async fn failover_prefers_coding_plan_over_priority() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert_eq!(set.candidates.len(), 2);
     assert_eq!(
@@ -790,8 +779,7 @@ async fn failover_intra_coding_plan_bucket_keeps_priority() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert_eq!(
         set.candidates[0].platform.id, cp_b.id,
@@ -851,8 +839,7 @@ async fn load_balance_coding_plan_bucket_first() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert_eq!(
         set.candidates[0].platform.id, cp.id,
@@ -947,8 +934,7 @@ async fn explicit_mapping_overrides_coding_plan_preference() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "gpt-4o", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     // 映射目标 non（非 coding plan）仍居首，coding plan cp 退居其后
     assert_eq!(
@@ -1044,8 +1030,7 @@ async fn failover_prefers_earliest_expiry_within_same_priority() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     assert_eq!(set.candidates.len(), 3);
     // expires_at 升序：近未来 → 远未来 → 永不过期
@@ -1116,8 +1101,7 @@ async fn failover_priority_dominates_over_expiry_in_db() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     // priority 主序：p_noexp(0) 居首，即便永不过期；expires_at 不跨 priority
     assert_eq!(
@@ -1146,8 +1130,7 @@ async fn expired_platform_filtered_out_not_prioritized() {
         settings: &settings,
         sticky_key: None,
     };
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("ok");
     // 已过期 p_expired 被过滤，只剩 p_ok
     assert_eq!(set.candidates.len(), 1);
@@ -1185,6 +1168,7 @@ fn resolve_effective_models_peak_branch_replaces_default_when_in_peak_window() {
         sonnet: Some("glm-4.7".into()),
         gpt: Some("glm-5.2".into()),
         haiku: Some("glm-4.5".into()),
+        jev: None,
     };
     // extra 无用户覆盖 → peak_for 回落 bundled preset glm_coding 默认窗口（6-10 ×3.0）
     let p = glm_coding_platform("", platform_models);
@@ -1339,8 +1323,7 @@ async fn sole_enabled_platform_among_three_shortcuts() {
         sticky_key: None,
     };
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("sole enabled platform must force request via single-platform shortcut");
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, p1.id);
@@ -1366,8 +1349,7 @@ async fn two_enabled_one_auto_disabled_no_shortcut() {
         sticky_key: None,
     };
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("two enabled platforms: normal multi-platform routing");
     let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
     assert!(
@@ -1402,7 +1384,7 @@ async fn zero_enabled_multi_platform_no_shortcut() {
         sticky_key: None,
     };
 
-    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
     assert!(
         res.is_err(),
         "zero enabled, no shortcut: all auto_disabled-not-due must Err, not force request"
@@ -1433,9 +1415,233 @@ async fn penalty_demotes_platform_to_last() {
         sticky_key: None,
     };
 
-    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx))
-        .await
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await
         .expect("penalty only reorders, never excludes");
     let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
     assert_eq!(ids, vec![p2.id, p1.id, p3.id], "healthy first, penalized last (original order kept)");
+}
+
+// ══ jev-decision-proxy：请求类型维度（R2/R3/R5/R6/R8）══
+
+use aidog_db::models::ModelEntry;
+
+/// 建带槽位/available_models 的平台。
+#[allow(clippy::too_many_arguments)]
+async fn mk_platform_models(
+    db: &db::Db,
+    name: &str,
+    models: PlatformModels,
+    available_models: Vec<&str>,
+) -> Platform {
+    db::create_platform(
+        db,
+        CreatePlatform {
+            name: name.into(),
+            platform_type: Protocol::OpenAI,
+            base_url: "https://example.invalid/v1".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: Some(models),
+            available_models: Some(
+                available_models.into_iter().map(String::from).collect(),
+            ),
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create platform")
+}
+
+fn slot_jev(v: &str) -> PlatformModels {
+    PlatformModels {
+        jev: Some(v.into()),
+        ..Default::default()
+    }
+}
+
+fn slot_default(v: &str) -> PlatformModels {
+    PlatformModels {
+        default: Some(v.into()),
+        ..Default::default()
+    }
+}
+
+fn decision_entry(model_id: &str) -> ModelEntry {
+    ModelEntry {
+        platform_code: "test".into(),
+        model_id: model_id.into(),
+        display_name: model_id.into(),
+        canonical_model: model_id.into(),
+        family: String::new(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec!["decision".into()],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: None,
+        max_output_tokens: None,
+        context_window: Some(64000),
+        official: true,
+        price_data: String::new(),
+        updated_at: db::now(),
+    }
+}
+
+/// R2 来源一：jev 槽位平台可被决策请求选中；上游 model = 槽位值（R8）。
+#[tokio::test]
+async fn decision_request_selects_jev_slot_platform_and_model() {
+    let db = mk_test_db().await;
+    let jev_p = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let chat_p = mk_platform_models(&db, "glm", slot_default("glm-5.2"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[jev_p.id, chat_p.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "anything", None, RequestKind::Decision)
+        .await
+        .expect("jev platform must be selectable for decision");
+    assert_eq!(set.candidates.len(), 1, "chat-only platform filtered out");
+    assert_eq!(set.candidates[0].platform.id, jev_p.id);
+    assert_eq!(set.candidates[0].target_model, "jev-latest");
+}
+
+/// R2 来源二：无 jev 槽位但 available_models 含 registry decision 能力模型 → 推导支持。
+#[tokio::test]
+async fn decision_request_derives_support_from_available_models() {
+    let db = mk_test_db().await;
+    db::upsert_model_entries(&db, vec![decision_entry("jev-1.13")])
+        .await
+        .unwrap();
+    let openrouter = mk_platform_models(&db, "or", slot_default("gpt-x"), vec!["jev-1.13"]).await;
+    let chat_p = mk_platform_models(&db, "glm", slot_default("glm-5.2"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[openrouter.id, chat_p.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "unknown-model", None, RequestKind::Decision)
+        .await
+        .expect("derived platform must be selectable");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, openrouter.id);
+    // R8：请求模型不在 available_models → 用列表第一个 decision 模型
+    assert_eq!(set.candidates[0].target_model, "jev-1.13");
+}
+
+/// R8：推导命中且请求模型在 available_models 里 → 保留请求模型。
+#[tokio::test]
+async fn decision_model_keeps_requested_when_available() {
+    let db = mk_test_db().await;
+    db::upsert_model_entries(&db, vec![decision_entry("jev-1.13")])
+        .await
+        .unwrap();
+    let p = mk_platform_models(&db, "or", slot_default("gpt-x"), vec!["gpt-x", "jev-1.13"]).await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let set = select_candidates_ctx(&db, &g, "gpt-x", None, RequestKind::Decision)
+        .await
+        .expect("single derived platform");
+    assert_eq!(set.candidates[0].target_model, "gpt-x");
+}
+
+/// R3：纯决策平台被聊天请求剔除；全组只剩纯决策平台 → no_chat_platform。
+#[tokio::test]
+async fn chat_request_skips_decision_only_platform() {
+    let db = mk_test_db().await;
+    let only = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let mixed = mk_platform_models(&db, "or", PlatformModels {
+        jev: Some("jev-latest".into()),
+        default: Some("gpt-x".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g = mk_db_group(&db, "grp", &[only.id, mixed.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "gpt-x", None, RequestKind::Chat)
+        .await
+        .expect("mixed platform still serves chat");
+    assert_eq!(set.candidates.len(), 1, "decision-only platform skipped");
+    assert_eq!(set.candidates[0].platform.id, mixed.id);
+
+    // 全组只剩纯决策平台 → no_chat_platform
+    let g2 = mk_db_group(&db, "grp2", &[only.id]).await;
+    let err = select_candidates_ctx(&db, &g2, "gpt-x", None, RequestKind::Chat)
+        .await
+        .err()
+        .expect("all decision-only must Err");
+    assert_eq!(err, "no_chat_platform");
+}
+
+/// R5：单平台分组两方向——决策平台收聊天请求 / 聊天平台收决策请求都 Err。
+#[tokio::test]
+async fn single_platform_kind_mismatch_errs_both_directions() {
+    let db = mk_test_db().await;
+    let jev_p = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let g1 = mk_db_group(&db, "grp1", &[jev_p.id]).await;
+    let e = select_candidates_ctx(&db, &g1, "m", None, RequestKind::Chat)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(e, "no_chat_platform");
+
+    let chat_p = mk_platform_models(&db, "glm", slot_default("glm-5.2"), vec![]).await;
+    let g2 = mk_db_group(&db, "grp2", &[chat_p.id]).await;
+    let e = select_candidates_ctx(&db, &g2, "m", None, RequestKind::Decision)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(e, "no_decision_platform");
+}
+
+/// R6：model_mappings 显式目标平台不支持该请求类型 → 直接 Err（不忽略映射）。
+#[tokio::test]
+async fn mapping_target_kind_mismatch_errs() {
+    let db = mk_test_db().await;
+    let jev_p = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let chat_p = mk_platform_models(&db, "glm", slot_default("glm-5.2"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[jev_p.id, chat_p.id]).await;
+
+    // 聊天请求显式映射到纯决策平台 → no_chat_platform（即使组内有可用聊天平台）
+    db::update_group(
+        &db,
+        db::UpdateGroup {
+            id: g.id,
+            name: None,
+            routing_mode: None,
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: None,
+            model_mappings: vec![ModelMapping {
+                source_model: "glm-5.2".into(),
+                target_platform_id: jev_p.id,
+                target_model: "glm-5.2".into(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
+            env_vars: vec![],
+            is_default: None,
+        },
+    )
+    .await
+    .unwrap();
+    // select 按 group struct 的 model_mappings 匹配 → 重取更新后的 group
+    let g = db::get_group(&db, g.id).await.unwrap().unwrap();
+    let e = select_candidates_ctx(&db, &g, "glm-5.2", None, RequestKind::Chat)
+        .await
+        .err()
+        .expect("mapping to decision-only platform must Err");
+    assert_eq!(e, "no_chat_platform");
+}
+
+/// 全组无任何决策能力平台 → no_decision_platform。
+#[tokio::test]
+async fn all_group_lacks_decision_errs() {
+    let db = mk_test_db().await;
+    let p1 = mk_platform_models(&db, "a", slot_default("m1"), vec![]).await;
+    let p2 = mk_platform_models(&db, "b", slot_default("m2"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[p1.id, p2.id]).await;
+    let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
+        .await
+        .err()
+        .unwrap();
+    assert_eq!(e, "no_decision_platform");
 }
