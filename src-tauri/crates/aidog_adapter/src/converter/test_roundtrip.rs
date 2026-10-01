@@ -150,7 +150,7 @@ fn plain_text_roundtrip_all_sources_to_three_targets() {
         ("gemini", Protocol::Gemini),
     ];
     for (src_name, src_proto, body) in fixtures() {
-        let req = parse_incoming_request(&src_proto, &body)
+        let req = parse_incoming_request(&src_proto, &body, None)
             .unwrap_or_else(|e| panic!("{src_name} parse failed: {e}"));
         for (tgt_name, tgt_proto) in &targets {
             let (out, _path) = convert_request(&req, tgt_proto, &Protocol::OpenAI);
@@ -171,7 +171,7 @@ fn system_roundtrip_preserved_where_source_has_it() {
         if src_name == "openai_completions" {
             continue;
         }
-        let req = parse_incoming_request(&src_proto, &body)
+        let req = parse_incoming_request(&src_proto, &body, None)
             .unwrap_or_else(|e| panic!("{src_name} parse failed: {e}"));
         for (tgt_name, tgt_proto) in [
             ("anthropic", Protocol::Anthropic),
@@ -190,7 +190,7 @@ fn system_roundtrip_preserved_where_source_has_it() {
 #[test]
 fn model_roundtrip_preserved_all_directions() {
     for (src_name, src_proto, body) in fixtures() {
-        let req = parse_incoming_request(&src_proto, &body)
+        let req = parse_incoming_request(&src_proto, &body, None)
             .unwrap_or_else(|e| panic!("{src_name} parse failed: {e}"));
         for (tgt_name, tgt_proto) in [
             ("anthropic", Protocol::Anthropic),
@@ -272,7 +272,7 @@ fn ticket02_params_roundtrip_all_sources_to_three_targets() {
         ),
     ];
     for (src_name, src_proto, body) in sources {
-        let req = parse_incoming_request(&src_proto, &body)
+        let req = parse_incoming_request(&src_proto, &body, None)
             .unwrap_or_else(|e| panic!("{src_name} parse failed: {e}"));
         assert_eq!(req.max_tokens, Some(777), "{src_name}: parse 丢 max_tokens");
         assert_eq!(
@@ -306,7 +306,7 @@ fn ticket02_no_params_no_defaults() {
         "model": "m",
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::OpenAI);
     assert!(
         out.get("generationConfig").is_none(),
@@ -341,7 +341,7 @@ fn openai_tool_body() -> serde_json::Value {
 
 #[test]
 fn ticket03_openai_to_anthropic_tool_roundtrip() {
-    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body(), None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
 
     // tools 定义：input_schema 映射
@@ -416,7 +416,7 @@ fn ticket03_anthropic_to_openai_tool_roundtrip() {
             ]}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
 
     let tools = out["tools"].as_array().expect("openai tools");
@@ -463,7 +463,7 @@ fn ticket03_multiple_tool_uses_no_id_mixup() {
             ]}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     let msgs = out["messages"].as_array().unwrap();
     let asst = msgs.iter().find(|m| m["tool_calls"].is_array()).unwrap();
@@ -480,7 +480,7 @@ fn ticket03_multiple_tool_uses_no_id_mixup() {
 fn ticket03_no_tools_unchanged() {
     let body =
         json!({"model": "m", "max_tokens": 10, "messages": [{"role": "user", "content": "hi"}]});
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(out.get("tools").is_none());
 }
@@ -501,7 +501,7 @@ fn ticket04_tool_choice_openai_to_anthropic() {
     ] {
         let mut body = openai_tool_body();
         body["tool_choice"] = oa.clone();
-        let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+        let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
         let tc = &out["tool_choice"];
         assert_eq!(
@@ -517,7 +517,7 @@ fn ticket04_tool_choice_openai_to_anthropic() {
 /// 未指定 tool_choice → 目标不输出该字段
 #[test]
 fn ticket04_no_tool_choice_no_field() {
-    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body(), None).expect("parse");
     let (out_an, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
     assert!(out_an.get("tool_choice").is_none());
     let (out_oa, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
@@ -528,7 +528,7 @@ fn ticket04_no_tool_choice_no_field() {
 
 #[test]
 fn ticket05_openai_tools_to_gemini() {
-    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &openai_tool_body(), None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::OpenAI);
 
     // functionDeclarations
@@ -585,7 +585,7 @@ fn ticket05_gemini_tools_to_openai() {
             {"role": "user", "parts": [{"functionResponse": {"name": "get_weather", "response": {"result": "{\"temp\":25}"}}}]}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
 
     // tools 定义 parse
     assert_eq!(req.tools.as_ref().expect("tools")[0].name, "get_weather");
@@ -677,7 +677,7 @@ fn ticket06_anthropic_thinking_switch_outbound() {
         "thinking": { "type": "enabled", "budget_tokens": 10240 },
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).unwrap();
     assert_eq!(
         req.thinking_budget,
         Some(10240),
@@ -701,7 +701,7 @@ fn ticket06_openai_reasoning_effort_outbound() {
         "model": "gpt-x", "reasoning_effort": "low",
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).unwrap();
     assert!(req.thinking_budget.is_some(), "low → budget 映射");
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -722,7 +722,7 @@ fn ticket06_gemini_thinking_budget_outbound() {
         "contents": [{ "role": "user", "parts": [{ "text": "hi" }] }],
         "generationConfig": { "thinkingConfig": { "thinkingBudget": 8192 } }
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).unwrap();
     assert_eq!(req.thinking_budget, Some(8192));
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -736,7 +736,7 @@ fn ticket06_no_thinking_no_fields() {
         "model": "claude-x", "max_tokens": 100,
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).unwrap();
     assert_eq!(req.thinking_budget, None);
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -764,7 +764,7 @@ fn ticket06_thinking_block_anthropic_roundtrip_and_gemini() {
             { "role": "user", "content": "go on" }
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).unwrap();
 
     // Anthropic round-trip：thinking block + signature 原样保留
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -802,7 +802,7 @@ fn ticket06_gemini_thought_part_to_anthropic() {
             { "role": "user", "parts": [{ "text": "go" }] }
         ]
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).unwrap();
     // 中立层：thought part 保留为 thinking block
     assert!(req.messages.iter().any(|m| m.content.blocks().iter().any(|b|
         matches!(b, ContentBlock::Unknown(v) if v["type"] == "thinking" && v["thinking"] == "pondering"))),
@@ -841,7 +841,7 @@ fn ticket09_openai_image_outbound() {
             { "type": "image_url", "image_url": { "url": "https://example.com/cat.jpg" } }
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).unwrap();
 
     // → Anthropic：base64 拆解 source + url source
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -877,7 +877,7 @@ fn ticket09_anthropic_image_to_openai() {
             { "type": "image", "source": { "type": "url", "url": "https://example.com/dog.png" } }
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).unwrap();
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     let arr = o["messages"][0]["content"]
         .as_array()
@@ -901,7 +901,7 @@ fn ticket09_gemini_image_to_anthropic() {
             { "fileData": { "mimeType": "image/png", "fileUri": "https://example.com/x.png" } }
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).unwrap();
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     let arr = a["messages"][0]["content"].as_array().unwrap();
     let imgs: Vec<&Value> = arr.iter().filter(|b| b["type"] == "image").collect();
@@ -918,7 +918,7 @@ fn ticket09_text_only_no_regression() {
         "model": "gpt-x",
         "messages": [{ "role": "user", "content": [{ "type": "text", "text": "hi" }] }]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).unwrap();
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).unwrap();
     assert_eq!(req.messages[0].content.as_text(), "hi");
     let (o, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(o["messages"][0]["content"], "hi", "纯文本数组折叠回字符串");
@@ -1386,7 +1386,7 @@ fn fa04_is_error_recognizable_on_four_targets() {
             {"type": "tool_result", "tool_use_id": "tu1", "content": "boom", "is_error": true}
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(
@@ -1445,7 +1445,7 @@ fn fa04_tool_result_image_survives_anthropic_and_degrades_to_placeholder() {
             ]}
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     let content = fa_first_block(&out, "tool_result")["content"]
@@ -1477,7 +1477,7 @@ fn fa04_unknown_block_in_tool_result_leaves_trace() {
             ]}
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(
         fa_openai_tool_text(&out),
@@ -1495,7 +1495,7 @@ fn fa04_plain_text_tool_result_unchanged() {
             {"type": "tool_result", "tool_use_id": "tu1", "content": "ok"}
         ]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     let b = fa_first_block(&out, "tool_result");
@@ -1518,7 +1518,7 @@ fn fa04_plain_text_tool_result_unchanged() {
 /// message 内容块与 tools 定义上的 cache_control 到达 anthropic 出站，位置正确
 #[test]
 fn fa06_cache_control_on_message_block_and_tool_reaches_anthropic() {
-    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
     assert_eq!(
@@ -1547,7 +1547,7 @@ fn fa06_cache_control_on_message_block_and_tool_reaches_anthropic() {
 /// 回归断言（非修复）：system 块是 raw Value 数组，anthropic 出站原样透传，cache_control 本就不丢
 #[test]
 fn fa06_system_block_cache_control_is_passthrough_regression() {
-    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(
         out["system"][0]["cache_control"],
@@ -1559,7 +1559,7 @@ fn fa06_system_block_cache_control_is_passthrough_regression() {
 /// 守卫式：不支持 prompt caching 的目标不出现 cache_control（不能靠发上游不认的字段来「通过」）
 #[test]
 fn fa06_cache_control_absent_on_non_anthropic_targets() {
-    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
     for (name, target, platform) in [
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
         ("gemini", Protocol::Gemini, Protocol::Gemini),
@@ -1582,7 +1582,7 @@ fn fa06_cache_control_absent_on_non_anthropic_targets() {
 /// anthropic 目标：type 与服务端工具的配置键保真，空 schema 不写出
 #[test]
 fn fa07_server_tool_type_preserved_to_anthropic() {
-    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
     let tool = out["tools"]
@@ -1606,7 +1606,7 @@ fn fa07_server_tool_type_preserved_to_anthropic() {
 /// 非 anthropic 目标：服务端工具整条不下发，不产出空 schema 的假 function；客户端工具照常在
 #[test]
 fn fa07_server_tool_not_downgraded_to_fake_function() {
-    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body()).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &fa_anthropic_body(), None).expect("parse");
     for (name, target, platform) in [
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
         ("gemini", Protocol::Gemini, Protocol::Gemini),
@@ -1640,7 +1640,7 @@ fn fa07_client_tools_unchanged() {
             {"type": "custom", "name": "explicit_custom", "input_schema": {"type": "object"}}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     for (name, target, platform) in [
         ("anthropic", Protocol::Anthropic, Protocol::Anthropic),
         ("openai", Protocol::OpenAI, Protocol::OpenAI),
@@ -1669,7 +1669,7 @@ fn fa07_all_server_tools_means_no_tools_key() {
         "messages": [{"role": "user", "content": "hi"}],
         "tools": [{"type": "web_search_20250305", "name": "web_search", "max_uses": 5}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(
         out.get("tools").is_none(),
@@ -1687,7 +1687,7 @@ fn fa05_max_completion_tokens_only_reaches_three_targets() {
         "model": "m", "max_completion_tokens": 9000,
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     assert_eq!(
         req.max_tokens,
         Some(9000),
@@ -1715,7 +1715,7 @@ fn fa05_both_keys_prefer_max_completion_tokens() {
         "model": "m", "max_tokens": 100, "max_completion_tokens": 9000,
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     assert_eq!(req.max_tokens, Some(9000), "两键并存时应取新键");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::OpenAI);
     assert_eq!(out["max_tokens"], json!(9000), "{out}");
@@ -1729,7 +1729,7 @@ fn fa05_max_tokens_only_unchanged() {
         "model": "m", "max_tokens": 777,
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     assert_eq!(req.max_tokens, Some(777));
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(out["max_tokens"], json!(777));
@@ -1743,7 +1743,7 @@ fn fa05_max_tokens_only_unchanged() {
 #[test]
 fn fa05_neither_key_no_default() {
     let body = json!({"model": "m", "messages": [{"role": "user", "content": "hi"}]});
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     assert_eq!(req.max_tokens, None);
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert!(out.get("max_tokens").is_none(), "{out}");
@@ -1765,7 +1765,7 @@ fn fa03_adaptive_effort_reaches_all_four_targets() {
         "output_config": { "effort": "high" },
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     // anthropic：adaptive 是 pi/Claude Code 私有 type，归一成官方 enabled + 换算预算
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
@@ -1800,7 +1800,7 @@ fn fa03_effort_only_reaches_all_four_targets() {
         "model": "gpt-x", "reasoning_effort": "medium",
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(
@@ -1825,10 +1825,10 @@ fn fa03_effort_only_reaches_all_four_targets() {
 fn fa03_single_conversion_table_no_roundtrip_drift() {
     for effort in ["low", "medium", "high"] {
         let body = json!({ "model": "m", "reasoning_effort": effort, "messages": [{ "role": "user", "content": "hi" }] });
-        let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+        let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
         let (r, _) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
 
-        let back = parse_incoming_request(&Protocol::OpenAIResponses, &r).expect("reparse");
+        let back = parse_incoming_request(&Protocol::OpenAIResponses, &r, None).expect("reparse");
         let (o, _) = convert_request(&back, &Protocol::OpenAI, &Protocol::OpenAI);
         assert_eq!(o["reasoning_effort"], effort, "{effort} 档往返漂移: {o}");
 
@@ -1857,7 +1857,7 @@ fn fa03_explicit_disable_beats_effort() {
         "output_config": { "effort": "high" },
         "messages": [{ "role": "user", "content": "hi" }]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
@@ -1885,7 +1885,7 @@ fn fa03_explicit_disable_beats_effort() {
 fn fa03_per_protocol_disable_forms_normalize() {
     let responses_none =
         json!({ "model": "gpt-5", "input": "hi", "reasoning": { "effort": "none" } });
-    let req = parse_incoming_request(&Protocol::OpenAIResponses, &responses_none).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAIResponses, &responses_none, None).expect("parse");
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(a["thinking"], json!({ "type": "disabled" }), "{a}");
 
@@ -1893,7 +1893,7 @@ fn fa03_per_protocol_disable_forms_normalize() {
         "contents": [{ "role": "user", "parts": [{ "text": "hi" }] }],
         "generationConfig": { "thinkingConfig": { "thinkingBudget": 0 } }
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &gemini_zero).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &gemini_zero, None).expect("parse");
     let (a, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
     assert_eq!(
         a["thinking"],
@@ -1922,7 +1922,7 @@ fn fa09_gemini_generation_config_full_roundtrip() {
             {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
 
     let g = &out["generationConfig"];
@@ -1961,7 +1961,7 @@ fn fa09_anthropic_stop_and_top_k_to_gemini() {
         "top_k": 5,
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     assert_eq!(
         out["generationConfig"]["stopSequences"],
@@ -1978,7 +1978,7 @@ fn fa09_string_stop_normalized_to_array_for_gemini() {
         "model": "m", "max_tokens": 100, "stop": "END",
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     assert_eq!(
         out["generationConfig"]["stopSequences"],
@@ -1998,7 +1998,7 @@ fn fa09_response_format_json_schema_maps_to_gemini() {
         "response_format": {"type": "json_schema", "json_schema": {"name": "s", "schema": schema}},
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     assert_eq!(
         out["generationConfig"]["responseMimeType"],
@@ -2013,7 +2013,7 @@ fn fa09_response_format_json_schema_maps_to_gemini() {
         "response_format": {"type": "json_object"},
         "messages": [{"role": "user", "content": "hi"}]
     });
-    let req2 = parse_incoming_request(&Protocol::Anthropic, &body2).expect("parse");
+    let req2 = parse_incoming_request(&Protocol::Anthropic, &body2, None).expect("parse");
     let (out2, _) = convert_request(&req2, &Protocol::Gemini, &Protocol::Gemini);
     assert_eq!(
         out2["generationConfig"]["responseMimeType"],
@@ -2060,7 +2060,7 @@ fn fa09_generation_config_gate_covers_new_fields_alone() {
             }),
         ),
     ] {
-        let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+        let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
         assert!(
             out.get("generationConfig").is_some(),
@@ -2073,7 +2073,7 @@ fn fa09_generation_config_gate_covers_new_fields_alone() {
 #[test]
 fn fa09_no_generation_params_no_nodes() {
     let body = json!({"contents": [{"role": "user", "parts": [{"text": "hi"}]}]});
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
     assert!(
         req.extra.is_none(),
         "无生成参数时不应产生 extra: {:?}",
@@ -2092,7 +2092,7 @@ fn fa09_gemini_only_keys_do_not_leak_to_other_targets() {
         "generationConfig": {"maxOutputTokens": 10, "stopSequences": ["END"], "topK": 3},
         "safetySettings": [{"category": "c", "threshold": "t"}]
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
     for (name, tgt) in [
         ("anthropic", Protocol::Anthropic),
         ("openai", Protocol::OpenAI),
@@ -2127,7 +2127,7 @@ fn fa11_openai_inbound_unmodeled_fields_reach_gemini() {
         "top_k": 40,
         "response_format": {"type": "json_object"}
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     assert!(req.extra.is_some(), "未建模顶层字段必须进 extra");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     let gc = &out["generationConfig"];
@@ -2150,7 +2150,7 @@ fn fa11_responses_and_completions_inbound_unmodeled_fields_reach_gemini() {
         ),
     ];
     for (src, body) in cases {
-        let req = parse_incoming_request(&src, &body).expect("parse");
+        let req = parse_incoming_request(&src, &body, None).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
         assert_eq!(
             out["generationConfig"]["stopSequences"],
@@ -2170,7 +2170,7 @@ fn fa11_extra_does_not_leak_unknown_keys_to_outbound() {
         "my_private_flag": true,
         "stop": ["END"]
     });
-    let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
     for tgt in [
         Protocol::Anthropic,
         Protocol::OpenAI,
@@ -2199,7 +2199,7 @@ fn fa11_tool_choice_naming_dropped_server_tool_is_omitted() {
         ],
         "tool_choice": {"type": "tool", "name": "web_search"}
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
 
     for tgt in [Protocol::OpenAI, Protocol::OpenAIResponses] {
         let (out, _) = convert_request(&req, &tgt, &Protocol::OpenAI);
@@ -2230,7 +2230,7 @@ fn fa11_tool_choice_naming_client_tool_unchanged() {
         "tools": [{"name": "calc", "description": "c", "input_schema": {"type": "object"}}],
         "tool_choice": {"type": "tool", "name": "calc"}
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
     assert_eq!(
         out["tool_choice"],
@@ -2248,7 +2248,7 @@ fn fa11_gemini_include_thoughts_survives_without_budget() {
         "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
         "generationConfig": {"thinkingConfig": {"includeThoughts": true}}
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     let tc = &out["generationConfig"]["thinkingConfig"];
     assert_eq!(tc["includeThoughts"], json!(true), "{out}");
@@ -2265,7 +2265,7 @@ fn fa11_gemini_include_thoughts_with_budget() {
         "contents": [{"role": "user", "parts": [{"text": "hi"}]}],
         "generationConfig": {"thinkingConfig": {"thinkingBudget": 2048, "includeThoughts": true}}
     });
-    let req = parse_incoming_request(&Protocol::Gemini, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
     let tc = &out["generationConfig"]["thinkingConfig"];
     assert_eq!(tc["thinkingBudget"], json!(2048), "{out}");
@@ -2287,7 +2287,7 @@ fn fa11_completions_prompt_keeps_tool_blocks() {
             ]}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
     let prompt = out["prompt"].as_str().expect("prompt");
     assert!(prompt.contains("calc"), "工具名应进 prompt: {prompt}");
@@ -2305,7 +2305,7 @@ fn fa11_completions_plain_text_prompt_unchanged() {
         "model": "claude-3", "max_tokens": 64,
         "messages": [{"role": "user", "content": [{"type": "text", "text": "hello"}]}]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
     assert_eq!(out["prompt"], json!("User: hello"), "{out}");
 }
@@ -2324,7 +2324,7 @@ fn fa11_tool_choice_unrelated_to_server_tool_filter_is_passed_through() {
                "tool_choice": {"type": "tool", "name": "ghost"}}),
     ];
     for body in cases {
-        let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+        let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
         let (out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
         assert_eq!(
             out["tool_choice"]["function"]["name"],
@@ -2361,7 +2361,7 @@ fn fa11_cache_control_sample_shape_survives_anthropic_conversion() {
             ]}
         ]
     });
-    let req = parse_incoming_request(&Protocol::Anthropic, &body).expect("parse");
+    let req = parse_incoming_request(&Protocol::Anthropic, &body, None).expect("parse");
     let (out, _) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
 
     assert_eq!(
