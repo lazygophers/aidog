@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "nvidia-nemotron-3-super-120b-a12b",
   "canonical_model": "nvidia-nemotron-3-super-120b-a12b",
 

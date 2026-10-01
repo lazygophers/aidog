@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "au.anthropic.claude-opus-4-6-v1",
   "display_name": "Claude Opus 4.6",
   "canonical_model": "claude-opus-4-6",

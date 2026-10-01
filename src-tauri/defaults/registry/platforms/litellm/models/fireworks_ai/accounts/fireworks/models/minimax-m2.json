@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/minimax-m2",
   "display_name": "MiniMax M2",
   "canonical_model": "MiniMax-M2",

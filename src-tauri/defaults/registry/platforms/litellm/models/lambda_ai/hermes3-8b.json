@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "lambda_ai/hermes3-8b",
   "canonical_model": "hermes3-8b",
   "family": "hermes",

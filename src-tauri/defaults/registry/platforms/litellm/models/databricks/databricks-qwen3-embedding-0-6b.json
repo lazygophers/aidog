@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "databricks/databricks-qwen3-embedding-0-6b",
   "display_name": "Qwen3 Embedding 0.6b",
   "canonical_model": "Qwen3-Embedding-0.6B",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "xai/grok-4-6-maas",
   "canonical_model": "grok-4-6-maas",
   "family": "grok",

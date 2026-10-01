@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "wandb/nvidia/NVIDIA-Nemotron-3-Ultra-550B-A55B",
   "canonical_model": "NVIDIA-Nemotron-3-Ultra-550B-A55B",
   "family": "nemotron",

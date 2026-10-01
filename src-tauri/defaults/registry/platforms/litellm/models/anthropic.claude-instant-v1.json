@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anthropic.claude-instant-v1",
   "canonical_model": "anthropic.claude-instant-v1",
   "family": "claude",

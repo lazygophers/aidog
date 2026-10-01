@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/deepseek-v4p1-flash",
   "display_name": "DeepSeek-V4.1-Flash",
   "canonical_model": "deepseek-v4p1-flash",

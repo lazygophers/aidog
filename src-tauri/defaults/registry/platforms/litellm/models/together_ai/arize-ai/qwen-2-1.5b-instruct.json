@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "together_ai/arize-ai/qwen-2-1.5b-instruct",
   "display_name": "Qwen2-1.5B-Instruct",
   "canonical_model": "qwen-2-1.5b-instruct",

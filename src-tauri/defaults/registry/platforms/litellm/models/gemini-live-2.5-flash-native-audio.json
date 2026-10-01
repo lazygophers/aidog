@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gemini-live-2.5-flash-native-audio",
   "canonical_model": "gemini-live-2.5-flash-native-audio",
   "family": "gemini",

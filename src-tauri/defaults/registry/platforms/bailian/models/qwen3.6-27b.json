@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3.6-27b",
   "display_name": "Qwen3.6-27B",
   "canonical_model": "qwen3.6-27b",

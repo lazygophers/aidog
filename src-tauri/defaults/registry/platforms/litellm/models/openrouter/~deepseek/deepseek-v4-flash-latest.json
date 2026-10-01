@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/~deepseek/deepseek-v4-flash-latest",
   "display_name": "DeepSeek: DeepSeek V4 Flash Latest",
   "canonical_model": "deepseek-v4-flash-latest",

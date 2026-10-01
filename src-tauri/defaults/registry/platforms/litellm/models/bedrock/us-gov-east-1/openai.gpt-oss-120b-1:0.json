@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-gov-east-1/openai.gpt-oss-120b-1:0",
   "canonical_model": "openai.gpt-oss-120b-1:0",
   "capabilities": [

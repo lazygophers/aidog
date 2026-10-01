@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Qwen/Qwen3-VL-8B-Thinking",
   "display_name": "Qwen: Qwen3 VL 8B Thinking",
   "canonical_model": "qwen3-vl-8b-thinking",

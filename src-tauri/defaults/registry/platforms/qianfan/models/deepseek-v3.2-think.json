@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "deepseek-v3.2-think",
   "canonical_model": "deepseek-v3.2-think",
   "family": "deepseek",

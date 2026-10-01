@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/qwq-32b",
   "display_name": "QwQ 32B",
   "canonical_model": "qwq-32b",

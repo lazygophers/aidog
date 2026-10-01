@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "THUDM/GLM-Z1-32B-0414",
   "canonical_model": "glm-z1-32b-0414",
 

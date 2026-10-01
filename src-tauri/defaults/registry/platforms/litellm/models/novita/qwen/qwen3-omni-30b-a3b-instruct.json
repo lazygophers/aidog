@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/qwen/qwen3-omni-30b-a3b-instruct",
   "canonical_model": "Qwen3-Omni-30B-A3B-Instruct",
   "capabilities": [

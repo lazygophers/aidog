@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-gov-east-1/amazon.titan-embed-text-v1",
   "display_name": "Titan Embeddings G1 - Text",
   "canonical_model": "amazon.titan-embed-text-v1",

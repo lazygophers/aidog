@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/eu-south-1/minimax.minimax-m2.5",
   "canonical_model": "minimax.minimax-m2.5",
   "family": "minimax",

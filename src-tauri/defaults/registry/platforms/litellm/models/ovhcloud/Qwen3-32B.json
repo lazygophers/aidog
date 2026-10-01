@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "ovhcloud/Qwen3-32B",
   "display_name": "Qwen3 32B",
   "canonical_model": "qwen3-32b",

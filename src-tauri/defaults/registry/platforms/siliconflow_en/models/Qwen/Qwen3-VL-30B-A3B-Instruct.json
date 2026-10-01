@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Qwen/Qwen3-VL-30B-A3B-Instruct",
   "display_name": "Qwen3 VL 30B A3B Instruct",
   "canonical_model": "qwen3-vl-30b-a3b-instruct",

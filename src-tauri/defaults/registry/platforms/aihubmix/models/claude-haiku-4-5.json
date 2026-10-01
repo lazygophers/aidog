@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "claude-haiku-4-5",
   "canonical_model": "claude-haiku-4-5",
   "family": "claude",

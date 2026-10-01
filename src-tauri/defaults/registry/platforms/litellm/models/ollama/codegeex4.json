@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "ollama/codegeex4",
   "display_name": "CodeGeeX-4",
   "canonical_model": "codegeex-4",

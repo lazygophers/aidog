@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790424402,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "text-embedding-ada-002-v2",
   "display_name": "Text Embedding Ada-002",
   "canonical_model": "text-embedding-ada-002",

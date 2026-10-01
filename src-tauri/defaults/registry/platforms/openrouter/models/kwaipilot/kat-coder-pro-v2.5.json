@@ -13,7 +13,8 @@
     "output": 0.00000296,
     "cache_read": 1.5e-7
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "capabilities": [
     "text",
     "tool_use"

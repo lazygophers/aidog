@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "chatgpt-4o-latest",
   "canonical_model": "chatgpt-4o-latest",
   "capabilities": [

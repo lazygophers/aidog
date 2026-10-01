@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "omni-moderation-2024-09-26",
   "canonical_model": "omni-moderation-2024-09-26",
   "version": "24.09",

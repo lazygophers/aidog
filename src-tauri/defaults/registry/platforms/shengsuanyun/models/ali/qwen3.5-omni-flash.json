@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "ali/qwen3.5-omni-flash",
   "display_name": "Qwen3.5-Omni-Flash",
   "canonical_model": "qwen3.5-omni-flash",

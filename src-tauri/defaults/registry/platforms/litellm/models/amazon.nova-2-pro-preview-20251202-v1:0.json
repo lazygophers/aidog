@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790274966,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "amazon.nova-2-pro-preview-20251202-v1:0",
   "canonical_model": "amazon.nova-2-pro-preview-20251202-v1:0",
   "family": "nova",

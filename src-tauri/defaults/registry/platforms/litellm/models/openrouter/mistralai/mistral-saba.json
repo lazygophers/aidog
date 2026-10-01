@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/mistralai/mistral-saba",
   "display_name": "Mistral: Saba",
   "canonical_model": "mistral-saba",

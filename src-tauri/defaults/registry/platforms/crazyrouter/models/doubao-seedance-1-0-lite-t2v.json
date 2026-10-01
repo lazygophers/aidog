@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-seedance-1-0-lite-t2v",
   "display_name": "Doubao Seedance 1.0 Lite T2V",
   "canonical_model": "doubao-seedance-1-0-lite-t2v",

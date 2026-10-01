@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/google/gemma-3-27b-it",
   "display_name": "Gemma 3 27B",
   "canonical_model": "gemma-3-27b-it",

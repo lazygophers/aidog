@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790479137,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "cline-pass/qwen3.8-max",
   "canonical_model": "qwen3.8-max",
   "family": "qwen",

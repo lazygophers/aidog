@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "nebius/nvidia/Cosmos3-Super-Reasoner",
   "canonical_model": "Cosmos3-Super-Reasoner",
   "capabilities": [

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "animate-anyone-detect-gen2",
   "display_name": "Animate-Anyone-Detect-Gen2",
   "canonical_model": "animate-anyone-detect-gen2",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/microsoft/WizardLM-2-8x22B",
   "display_name": "WizardLM-2 8x22B",
   "canonical_model": "wizardlm-2-8x22b",

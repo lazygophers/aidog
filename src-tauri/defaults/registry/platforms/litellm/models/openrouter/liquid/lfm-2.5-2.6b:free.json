@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/liquid/lfm-2.5-2.6b:free",
   "display_name": "LiquidAI: LFM2.5-2.6B (free)",
   "canonical_model": "lfm-2.5-2.6b:free",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepgram/nova-phonecall",
   "canonical_model": "nova-phonecall",
   "family": "nova",

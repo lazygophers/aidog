@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "stepaudio-2.5-asr-stream",
   "display_name": "StepAudio 2.5 ASR Stream",
   "canonical_model": "stepaudio-2.5-asr-stream",

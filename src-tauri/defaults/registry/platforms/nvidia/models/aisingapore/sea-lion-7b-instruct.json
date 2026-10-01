@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "aisingapore/sea-lion-7b-instruct",
   "canonical_model": "sea-lion-7b-instruct",
   "family": "sea-lion",

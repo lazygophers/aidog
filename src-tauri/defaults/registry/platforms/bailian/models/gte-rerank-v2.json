@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "gte-rerank-v2",
   "display_name": "Gte Rerank V2",
   "canonical_model": "gte-rerank-v2",

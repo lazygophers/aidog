@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "nvidia/nemotron-3.5-lightning-30b-a3b",
   "canonical_model": "nemotron-3.5-lightning-30b-a3b",
   "family": "nemotron",

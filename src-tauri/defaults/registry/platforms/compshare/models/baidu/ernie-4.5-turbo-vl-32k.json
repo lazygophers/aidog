@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "baidu/ernie-4.5-turbo-vl-32k",
   "display_name": "ERNIE 4.5 Turbo VL 32K",
   "canonical_model": "ernie-4.5-turbo-vl-32k",

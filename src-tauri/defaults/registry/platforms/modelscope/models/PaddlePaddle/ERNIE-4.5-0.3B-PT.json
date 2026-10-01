@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "PaddlePaddle/ERNIE-4.5-0.3B-PT",
   "canonical_model": "ernie-4.5-0.3b-pt",
   "family": "ernie",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "wanx-v1",
   "display_name": "Wanx-V1",
   "canonical_model": "wanx-v1",

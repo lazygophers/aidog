@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/doubao-seed-2-0-mini",
   "display_name": "Doubao Seed 2.0 Mini",
   "canonical_model": "doubao-seed-2-0-mini",

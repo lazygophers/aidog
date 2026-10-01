@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/grok-code-fast-1",
   "display_name": "Grok Code Fast 1",
   "canonical_model": "grok-code-fast-1",

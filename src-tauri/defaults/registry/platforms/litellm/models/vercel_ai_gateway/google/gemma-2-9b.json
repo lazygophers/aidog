@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/google/gemma-2-9b",
   "canonical_model": "gemma-2-9b",
   "capabilities": [

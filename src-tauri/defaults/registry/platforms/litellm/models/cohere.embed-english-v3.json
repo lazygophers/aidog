@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "cohere.embed-english-v3",
   "display_name": "Embed English",
   "canonical_model": "cohere.embed-english-v3",

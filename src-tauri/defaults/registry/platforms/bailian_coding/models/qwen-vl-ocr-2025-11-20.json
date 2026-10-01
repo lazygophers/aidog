@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-vl-ocr-2025-11-20",
   "display_name": "Qwen-VL-OCR (2025-11-20)",
   "canonical_model": "qwen-vl-ocr-2025-11-20",

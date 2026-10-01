@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/mistralai/codestral-2508",
   "display_name": "Mistral: Codestral 2508",
   "canonical_model": "codestral-2508",

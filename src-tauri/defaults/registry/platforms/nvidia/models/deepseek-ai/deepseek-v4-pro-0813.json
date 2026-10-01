@@ -1,6 +1,7 @@
 {
   "version": "4",
-  "last_updated": 1790443216,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "deepseek-ai/deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",

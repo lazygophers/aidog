@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790495372,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "text-embedding-ada-002",
   "canonical_model": "text-embedding-ada-002",
   "display_name": "Text Embedding Ada 002",

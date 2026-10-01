@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790484475,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "bge-reranker-v2-m3",
   "canonical_model": "bge-reranker-v2-m3",
   "family": "bge",

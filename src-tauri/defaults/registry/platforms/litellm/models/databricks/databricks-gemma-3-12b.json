@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "databricks/databricks-gemma-3-12b",
   "canonical_model": "gemma-3-12b",
   "capabilities": [

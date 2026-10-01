@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "inclusionAI/Ling-mini-2.0",
   "display_name": "Ling Mini 2.0",
   "canonical_model": "Ling-mini-2.0",

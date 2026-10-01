@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "deepseek-chat-v3.1",
   "display_name": "DeepSeek V3.1",
   "canonical_model": "deepseek-chat-v3.1",

@@ -14,7 +14,8 @@
     "input": 9e-8,
     "output": 0.0000011
   },
-  "last_updated": 1790340079,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "capabilities": [
     "text"
   ]

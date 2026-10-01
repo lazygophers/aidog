@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "MiniMax-Hailuo-2.3-Fast",
   "canonical_model": "MiniMax-Hailuo-2.3-Fast",
   "family": "minimax",

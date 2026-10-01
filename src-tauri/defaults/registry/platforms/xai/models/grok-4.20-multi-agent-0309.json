@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859420,
+  "supported_protocols": ["openai"],
   "model_id": "grok-4.20-multi-agent-0309",
   "canonical_model": "grok-4.20-multi-agent-0309",
   "family": "grok",

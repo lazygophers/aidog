@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-image-edit",
   "display_name": "Qwen Image Edit",
   "canonical_model": "qwen-image-edit",

@@ -14,7 +14,8 @@
     "input": 6.5e-7,
     "output": 6.5e-7
   },
-  "last_updated": 1790340079,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "capabilities": [
     "text"
   ]

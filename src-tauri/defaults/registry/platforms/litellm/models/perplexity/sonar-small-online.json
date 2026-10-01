@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "perplexity/sonar-small-online",
   "canonical_model": "sonar-small-online",
   "family": "sonar",

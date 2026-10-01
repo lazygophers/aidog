@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/mistral-nemo-base-2407",
   "canonical_model": "mistral-nemo-base-2407",
   "family": "mistral",

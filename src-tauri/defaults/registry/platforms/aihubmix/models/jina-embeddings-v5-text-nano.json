@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "jina-embeddings-v5-text-nano",
   "canonical_model": "jina-embeddings-v5-text-nano",
 

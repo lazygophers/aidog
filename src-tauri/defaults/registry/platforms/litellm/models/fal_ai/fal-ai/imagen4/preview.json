@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fal_ai/fal-ai/imagen4/preview",
   "canonical_model": "imagen-4.0-generate-preview-06-06",
   "family": "imagen",

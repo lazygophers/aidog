@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/grok-build-0.1",
   "display_name": "Grok Build 0.1",
   "canonical_model": "grok-build-0.1",

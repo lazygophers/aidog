@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790401909,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anthropic.claude-fable-5-1",
   "display_name": "Claude Fable 5.1",
   "canonical_model": "claude-fable-5-1",

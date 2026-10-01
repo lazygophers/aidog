@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/gpt-chat-latest",
   "display_name": "GPT Chat Latest",
   "canonical_model": "gpt-chat-latest",

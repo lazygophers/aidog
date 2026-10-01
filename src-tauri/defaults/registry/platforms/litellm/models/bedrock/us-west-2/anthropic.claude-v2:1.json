@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-west-2/anthropic.claude-v2:1",
   "canonical_model": "anthropic.claude-v2:1",
   "family": "claude",

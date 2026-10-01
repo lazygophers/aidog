@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "us.meta.llama3-1-8b-instruct-v1:0",
   "display_name": "Llama 3.1 8B Instruct",
   "canonical_model": "us.meta.llama3-1-8b-instruct-v1:0",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/agnes-2.5-pro",
   "display_name": "Agnes 2.5 Pro",
   "canonical_model": "agnes-2.5-pro",

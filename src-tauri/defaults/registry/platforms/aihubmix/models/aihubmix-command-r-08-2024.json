@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "aihubmix-command-r-08-2024",
   "canonical_model": "aihubmix-command-r-08-2024",
 

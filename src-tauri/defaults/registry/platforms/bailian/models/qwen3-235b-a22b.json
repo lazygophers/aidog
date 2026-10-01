@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3-235b-a22b",
   "display_name": "Qwen3 235B A22B",
   "canonical_model": "qwen3-235b-a22b",

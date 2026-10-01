@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "grok-4-20-non-reasoning",
   "display_name": "Grok 4 20",
   "canonical_model": "grok-4.20-non-reasoning",

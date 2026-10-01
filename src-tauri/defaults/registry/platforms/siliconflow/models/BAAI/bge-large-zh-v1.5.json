@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "BAAI/bge-large-zh-v1.5",
   "display_name": "Bge Large Zh V1.5",
   "canonical_model": "bge-large-zh-v1.5",

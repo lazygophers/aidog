@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-omni-turbo-latest",
   "display_name": "Qwen-Omni-Turbo",
   "canonical_model": "qwen-omni-turbo-latest",

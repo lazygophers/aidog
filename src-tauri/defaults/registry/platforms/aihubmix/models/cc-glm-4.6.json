@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "cc-glm-4.6",
   "canonical_model": "glm-4.6",
   "capabilities": ["text","tool_use","reasoning"],

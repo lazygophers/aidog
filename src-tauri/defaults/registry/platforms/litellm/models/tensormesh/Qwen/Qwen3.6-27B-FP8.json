@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "tensormesh/Qwen/Qwen3.6-27B-FP8",
   "canonical_model": "Qwen3.6-27B-FP8",
   "capabilities": [

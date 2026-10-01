@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "gemini-3.1-pro-preview",
   "display_name": "Gemini 3.1 Pro Preview",
   "canonical_model": "gemini-3.1-pro-preview",

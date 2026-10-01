@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "stability.stable-conservative-upscale-v1:0",
   "display_name": "Stable Image Conservative Upscale",
   "canonical_model": "stability.stable-conservative-upscale-v1:0",

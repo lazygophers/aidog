@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "aigc-video-kling-2.5-turbo",
   "display_name": "Kling 2.5 Turbo (Video)",
   "canonical_model": "aigc-video-kling-2.5-turbo",

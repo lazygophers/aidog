@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "databricks/databricks-bge-large-en",
   "display_name": "Bge Large En",
   "canonical_model": "bge-large-en",

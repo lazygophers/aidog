@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "gemini-robotics-er-2-streaming-preview",
   "canonical_model": "gemini-robotics-er-2-streaming-preview",
   "family": "robotics",

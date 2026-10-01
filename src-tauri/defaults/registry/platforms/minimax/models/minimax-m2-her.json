@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "minimax-m2-her",
   "display_name": "MiniMax M2-her",
   "canonical_model": "minimax-m2-her",

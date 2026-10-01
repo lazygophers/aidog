@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "cogview-4",
   "canonical_model": "cogview-4",
   "family": "cogview",

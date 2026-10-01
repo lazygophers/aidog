@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790428947,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "claude-fable-5",
   "display_name": "Claude Fable 5",
   "canonical_model": "claude-fable-5",

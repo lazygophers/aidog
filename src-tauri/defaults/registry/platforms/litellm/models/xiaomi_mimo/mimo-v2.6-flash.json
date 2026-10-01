@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "xiaomi_mimo/mimo-v2.6-flash",
   "display_name": "MiMo-V2.6-Flash",
   "canonical_model": "mimo-v2.6-flash",

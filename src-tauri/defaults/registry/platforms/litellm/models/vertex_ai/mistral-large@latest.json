@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/mistral-large@latest",
   "canonical_model": "mistral-large@latest",
   "family": "mistral",

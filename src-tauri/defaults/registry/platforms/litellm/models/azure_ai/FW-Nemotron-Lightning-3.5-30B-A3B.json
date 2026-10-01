@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/FW-Nemotron-Lightning-3.5-30B-A3B",
   "canonical_model": "FW-Nemotron-Lightning-3.5-30B-A3B",
   "family": "nemotron",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral/mistral-moderation-2603",
   "display_name": "Mistral Moderation 2",
   "canonical_model": "mistral-moderation-2603",

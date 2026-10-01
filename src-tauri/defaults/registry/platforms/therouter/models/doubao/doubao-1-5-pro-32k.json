@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao/doubao-1-5-pro-32k",
   "display_name": "Doubao 1.5 Pro 32K",
   "canonical_model": "doubao-1-5-pro-32k",

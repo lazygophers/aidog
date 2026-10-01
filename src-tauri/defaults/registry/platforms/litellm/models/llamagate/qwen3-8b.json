@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "llamagate/qwen3-8b",
   "display_name": "Qwen3 8B",
   "canonical_model": "qwen3-8b",

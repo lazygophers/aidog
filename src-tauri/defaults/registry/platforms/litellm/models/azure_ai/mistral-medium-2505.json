@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/mistral-medium-2505",
   "display_name": "Mistral Medium 3",
   "canonical_model": "mistral-medium-2505",

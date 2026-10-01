@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "meta/llama-3.3-70b-instruct-maas",
   "canonical_model": "llama-3.3-70b-instruct-maas",
   "family": "llama",

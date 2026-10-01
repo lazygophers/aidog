@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["devin"],
   "model_id": "devin-normal",
   "canonical_model": "devin-normal",
   "family": "devin",

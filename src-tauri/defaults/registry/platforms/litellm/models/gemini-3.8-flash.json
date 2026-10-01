@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "gemini-3.8-flash",
   "canonical_model": "gemini-3.8-flash",
   "family": "gemini",

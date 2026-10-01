@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anthropic.claude-mythos-preview",
   "canonical_model": "anthropic.claude-mythos-preview",
   "family": "claude",

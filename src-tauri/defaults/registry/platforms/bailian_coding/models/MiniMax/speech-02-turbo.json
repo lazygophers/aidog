@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "MiniMax/speech-02-turbo",
   "display_name": "Speech 02 Turbo",
   "canonical_model": "speech-02-turbo",

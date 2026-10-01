@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/xiaomi/mimo-v2-flash",
   "display_name": "MiMo V2 Flash",
   "canonical_model": "mimo-v2-flash",

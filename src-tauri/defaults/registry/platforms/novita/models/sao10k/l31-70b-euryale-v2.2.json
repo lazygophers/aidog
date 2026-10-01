@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "sao10k/l31-70b-euryale-v2.2",
   "canonical_model": "l31-70b-euryale-v2.2",
   "capabilities": ["text", "reasoning"],

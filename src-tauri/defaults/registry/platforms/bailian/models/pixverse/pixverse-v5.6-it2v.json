@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "pixverse/pixverse-v5.6-it2v",
   "canonical_model": "pixverse-v5.6-it2v",
   "family": "pixverse",

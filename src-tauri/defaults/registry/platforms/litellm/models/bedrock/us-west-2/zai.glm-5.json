@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-west-2/zai.glm-5",
   "display_name": "GLM-5",
   "canonical_model": "glm-5",

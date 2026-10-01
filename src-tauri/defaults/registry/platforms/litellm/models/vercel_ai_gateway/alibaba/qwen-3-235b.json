@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/alibaba/qwen-3-235b",
   "display_name": "Qwen3-235B-A22B",
   "canonical_model": "qwen-3-235b",

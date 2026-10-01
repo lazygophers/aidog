@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/openai/gpt-4o-2024-08-06",
   "display_name": "GPT-4o (2024-08-06)",
   "canonical_model": "gpt-4o-2024-08-06",

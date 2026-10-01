@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fal_ai/bytedance/seedance-2.5/text-to-video",
   "canonical_model": "seedance-2.5",
   "family": "seedance",

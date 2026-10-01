@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "llama-3.1-70b-versatile",
   "canonical_model": "llama-3.1-70b-versatile",
   "version": "3.1",

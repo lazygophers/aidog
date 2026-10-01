@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790262613,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Sao10K/L3-8B-Stheno-v3.2",
   "canonical_model": "l3-8b-stheno-v3.2",
   "capabilities": [

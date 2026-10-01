@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "databricks/databricks-gte-large-en",
   "canonical_model": "databricks-gte-large-en",
   "capabilities": [

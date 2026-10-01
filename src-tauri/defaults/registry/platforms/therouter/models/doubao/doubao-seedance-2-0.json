@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790400041,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao/doubao-seedance-2-0",
   "display_name": "Doubao Seedance 2.0",
   "canonical_model": "doubao-seedance-2-0",

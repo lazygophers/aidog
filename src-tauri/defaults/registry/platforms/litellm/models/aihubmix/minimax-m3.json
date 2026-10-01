@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/minimax-m3",
   "display_name": "MiniMax-M3",
   "canonical_model": "MiniMax-M3",

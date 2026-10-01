@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/minimaxai/minimax-m1-80k",
   "display_name": "MiniMax M1 80K",
   "canonical_model": "minimax-m1-80k",

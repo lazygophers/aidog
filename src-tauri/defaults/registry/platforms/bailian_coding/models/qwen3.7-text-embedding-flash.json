@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3.7-text-embedding-flash",
   "display_name": "Qwen3.7-Text-Embedding-Flash",
   "canonical_model": "qwen3.7-text-embedding-flash",

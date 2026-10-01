@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Shanghai_AI_Laboratory/Intern-S1",
   "canonical_model": "intern-s1",
   "family": "intern",

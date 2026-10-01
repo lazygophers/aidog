@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "codestral-2@001",
   "canonical_model": "codestral-2@001",
   "family": "codestral",

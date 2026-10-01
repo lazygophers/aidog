@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "stability.sd3-5-large-v1:0",
   "display_name": "SD 3.5 Large",
   "canonical_model": "stability.sd3-5-large-v1:0",

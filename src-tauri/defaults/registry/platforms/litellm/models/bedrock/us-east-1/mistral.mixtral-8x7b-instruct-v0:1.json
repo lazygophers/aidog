@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-east-1/mistral.mixtral-8x7b-instruct-v0:1",
   "display_name": "Mixtral 8x7B Instruct",
   "canonical_model": "mistral.mixtral-8x7b-instruct-v0:1",

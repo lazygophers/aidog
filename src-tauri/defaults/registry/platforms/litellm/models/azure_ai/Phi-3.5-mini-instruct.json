@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/Phi-3.5-mini-instruct",
   "display_name": "Ahm Phi 3.5 Mini Instruct",
   "canonical_model": "phi-3.5-mini-instruct",

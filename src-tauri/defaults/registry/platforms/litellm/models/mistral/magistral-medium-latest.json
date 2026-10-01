@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304620,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral/magistral-medium-latest",
   "canonical_model": "magistral-medium-latest",
   "family": "magistral",

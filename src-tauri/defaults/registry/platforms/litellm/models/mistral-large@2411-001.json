@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral-large@2411-001",
   "display_name": "Mistral Large 2.1",
   "canonical_model": "mistral-large@2411-001",

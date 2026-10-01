@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790318309,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3.7-flash",
   "canonical_model": "qwen3.7-flash",
   "family": "qwen",

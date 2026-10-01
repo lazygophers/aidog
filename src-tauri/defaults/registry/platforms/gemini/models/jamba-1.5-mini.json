@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "jamba-1.5-mini",
   "display_name": "Jamba 1.5 Mini",
   "canonical_model": "jamba-1.5-mini",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790279972,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "moonshotai/Moonlight-16B-A3B-Instruct",
   "canonical_model": "moonlight-16b-a3b-instruct",
 

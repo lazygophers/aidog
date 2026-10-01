@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "us.writer.palmyra-x4-v1:0",
   "canonical_model": "writer.palmyra-x4-v1:0",
   "family": "palmyra",

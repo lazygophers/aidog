@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "seed-2-0-lite-260215",
   "canonical_model": "seed-2-0-lite-260215",
   "family": "seed",

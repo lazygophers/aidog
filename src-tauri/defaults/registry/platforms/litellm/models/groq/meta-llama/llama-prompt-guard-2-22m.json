@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "groq/meta-llama/llama-prompt-guard-2-22m",
   "canonical_model": "llama-prompt-guard-2-22m",
   "capabilities": [

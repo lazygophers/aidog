@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "deepseek-r1-distill-qwen-7b",
   "display_name": "DeepSeek R1 Distill Qwen 7B",
   "canonical_model": "deepseek-r1-distill-qwen-7b",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "moonshot-v1-128k-vision-preview",
   "display_name": "Moonshot V1 128K Vision Preview",
   "canonical_model": "moonshot-v1-128k-vision-preview",

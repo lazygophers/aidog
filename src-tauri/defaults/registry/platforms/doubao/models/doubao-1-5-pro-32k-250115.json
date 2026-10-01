@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "doubao-1-5-pro-32k-250115",
   "display_name": "Doubao 1.5 Pro 32K 250115",
   "canonical_model": "doubao-1-5-pro-32k-250115",

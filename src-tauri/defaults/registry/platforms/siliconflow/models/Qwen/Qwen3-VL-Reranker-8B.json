@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Qwen/Qwen3-VL-Reranker-8B",
   "canonical_model": "Qwen3-VL-Reranker-8B",
   "version": "3",

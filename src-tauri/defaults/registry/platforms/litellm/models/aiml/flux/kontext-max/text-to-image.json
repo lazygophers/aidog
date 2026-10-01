@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aiml/flux/kontext-max/text-to-image",
   "display_name": "Flux Kontext Max",
   "canonical_model": "flux-kontext-max",

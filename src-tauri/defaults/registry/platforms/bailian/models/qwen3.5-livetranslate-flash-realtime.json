@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790495223,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3.5-livetranslate-flash-realtime",
   "canonical_model": "qwen3.5-livetranslate-flash-realtime",
   "family": "qwen",

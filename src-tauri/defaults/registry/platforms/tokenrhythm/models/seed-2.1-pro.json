@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790680873,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "seed-2.1-pro",
   "display_name": "Seed-2.1-Pro",
   "canonical_model": "seed-2.1-pro",

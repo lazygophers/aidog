@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fal_ai/fal-ai/flux-lora-depth",
   "canonical_model": "flux-lora-depth",
   "family": "flux",

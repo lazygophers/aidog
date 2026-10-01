@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-seedream-4.5",
   "display_name": "Doubao Seedream 4.5",
   "canonical_model": "doubao-seedream-4-5",

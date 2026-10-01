@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790771121,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/typesafe/jev-1.13",
   "display_name": "Jev 1.13",
   "canonical_model": "jev-1.13",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "command-r7b-12-2024",
   "display_name": "Cohere: Command R7B (12-2024)",
   "canonical_model": "command-r7b-12-2024",

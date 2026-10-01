@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/eu-west-3/mistral.mistral-7b-instruct-v0:2",
   "display_name": "Mistral 7B Instruct",
   "canonical_model": "mistral.mistral-7b-instruct-v0:2",

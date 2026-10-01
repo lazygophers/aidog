@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "sagemaker/meta-textgeneration-llama-2-70b-b-f",
   "canonical_model": "meta-textgeneration-llama-2-70b-b-f",
   "capabilities": [

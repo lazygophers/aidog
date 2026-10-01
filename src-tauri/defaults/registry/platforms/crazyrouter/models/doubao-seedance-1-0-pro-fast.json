@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-seedance-1-0-pro-fast",
   "display_name": "Doubao Seedance 1.0 Pro Fast",
   "canonical_model": "doubao-seedance-1-0-pro-fast",

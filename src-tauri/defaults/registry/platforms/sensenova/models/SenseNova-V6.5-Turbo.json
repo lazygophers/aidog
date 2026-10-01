@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "SenseNova-V6.5-Turbo",
   "canonical_model": "SenseNova-V6.5-Turbo",
   "family": "sensenova",

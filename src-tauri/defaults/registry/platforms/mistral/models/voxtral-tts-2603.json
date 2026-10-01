@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790388904,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "voxtral-tts-2603",
   "canonical_model": "voxtral-tts-2603",
   "capabilities": [

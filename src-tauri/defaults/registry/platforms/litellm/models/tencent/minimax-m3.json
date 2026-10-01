@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "tencent/minimax-m3",
   "display_name": "MiniMax-M3",
   "canonical_model": "MiniMax-M3",

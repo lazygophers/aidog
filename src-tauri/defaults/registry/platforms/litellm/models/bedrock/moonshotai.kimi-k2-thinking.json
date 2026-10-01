@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/moonshotai.kimi-k2-thinking",
   "display_name": "Kimi K2 Thinking",
   "canonical_model": "kimi-k2-thinking",

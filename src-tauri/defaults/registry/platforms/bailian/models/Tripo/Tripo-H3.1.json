@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790267035,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Tripo/Tripo-H3.1",
   "canonical_model": "Tripo-H3.1",
   "family": "tripo",

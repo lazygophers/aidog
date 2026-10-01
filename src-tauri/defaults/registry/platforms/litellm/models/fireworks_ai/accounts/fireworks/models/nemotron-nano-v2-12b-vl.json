@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/nemotron-nano-v2-12b-vl",
   "canonical_model": "nemotron-nano-v2-12b-vl",
   "family": "nemotron",

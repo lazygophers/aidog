@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/google/gemma-4-26b-a4b-it:free",
   "display_name": "Google: Gemma 4 26B A4B  (free)",
   "canonical_model": "gemma-4-26b-a4b-it:free",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/openai/gpt-oss-120b-maas",
   "canonical_model": "gpt-oss-120b-maas",
   "family": "gpt",

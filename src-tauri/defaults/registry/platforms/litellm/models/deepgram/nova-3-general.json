@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepgram/nova-3-general",
   "canonical_model": "nova-3-general",
   "family": "nova",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-5-nano",
   "display_name": "GPT-5 Nano",
   "canonical_model": "gpt-5-nano",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3-asr-flash-2026-02-10",
   "display_name": "Qwen3-ASR-Flash (2026-02-10)",
   "canonical_model": "qwen3-asr-flash-2026-02-10",

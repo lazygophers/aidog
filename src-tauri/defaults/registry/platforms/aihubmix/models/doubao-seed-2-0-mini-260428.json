@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-seed-2-0-mini-260428",
   "canonical_model": "seed-2-0-mini-260428",
   "display_name": "Doubao Seed 2.0 Mini 260428",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "kimi-k2.7-code-highspeed",
   "display_name": "Kimi K2.7 Code Highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",

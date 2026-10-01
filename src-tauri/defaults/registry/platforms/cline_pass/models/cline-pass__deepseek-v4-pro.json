@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790479137,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "cline-pass/deepseek-v4-pro",
   "canonical_model": "deepseek-v4-pro",
   "family": "deepseek",

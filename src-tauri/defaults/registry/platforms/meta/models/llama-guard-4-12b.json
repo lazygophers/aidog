@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "llama-guard-4-12b",
   "display_name": "Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",

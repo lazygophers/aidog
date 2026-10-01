@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "qwen/qwen3-32b",
   "display_name": "Qwen3 32B",
   "canonical_model": "qwen3-32b",

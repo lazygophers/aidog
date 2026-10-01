@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "ollama/mistral-7B-Instruct-v0.1",
   "display_name": "Mistral 7B Instruct v0.1",
   "canonical_model": "Mistral-7B-Instruct-v0.1",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/anthropic/claude-opus-4",
   "display_name": "Claude Opus 4",
   "canonical_model": "claude-opus-4",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790443216,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Qwen/Qwen3-235B-A22B-Thinking-2507",
   "display_name": "Qwen3 235B A22B Thinking 2507",
   "canonical_model": "qwen3-235b-a22b-thinking-2507",

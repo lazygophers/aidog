@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/gpt-5.5-pro-2026-04-23",
   "display_name": "GPT-5.5 Pro",
   "canonical_model": "gpt-5.5-pro",

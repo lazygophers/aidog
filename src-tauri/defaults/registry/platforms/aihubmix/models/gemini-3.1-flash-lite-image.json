@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "gemini-3.1-flash-lite-image",
   "canonical_model": "gemini-3.1-flash-lite-image",
   "display_name": "Nano Banana 2 Lite",

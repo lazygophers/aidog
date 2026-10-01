@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/gpt-6-astra",
   "display_name": "GPT-6 Astra",
   "canonical_model": "gpt-6-astra",

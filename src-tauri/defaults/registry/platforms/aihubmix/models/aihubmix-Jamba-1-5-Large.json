@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "aihubmix-Jamba-1-5-Large",
   "canonical_model": "jamba-1.5-large",
   "capabilities": ["text"],

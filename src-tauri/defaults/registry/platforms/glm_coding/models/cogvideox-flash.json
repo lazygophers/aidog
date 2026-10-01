@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "cogvideox-flash",
   "canonical_model": "cogvideox-flash",
   "family": "cogvideox",

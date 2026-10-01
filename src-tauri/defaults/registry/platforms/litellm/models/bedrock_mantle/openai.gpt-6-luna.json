@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock_mantle/openai.gpt-6-luna",
   "display_name": "GPT-6 Luna",
   "canonical_model": "gpt-6-luna",

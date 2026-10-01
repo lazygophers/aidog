@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "watsonx/ibm/granite-13b-chat-v2",
   "canonical_model": "granite-13b-chat-v2",
   "capabilities": [

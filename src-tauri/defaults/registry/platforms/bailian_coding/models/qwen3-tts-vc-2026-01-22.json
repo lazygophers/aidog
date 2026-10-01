@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3-tts-vc-2026-01-22",
   "display_name": "Qwen3-TTS-VC (2026-01-22)",
   "canonical_model": "qwen3-tts-vc-2026-01-22",

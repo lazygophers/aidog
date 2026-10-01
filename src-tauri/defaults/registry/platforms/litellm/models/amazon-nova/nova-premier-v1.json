@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "amazon-nova/nova-premier-v1",
   "display_name": "Amazon: Nova Premier 1.0",
   "canonical_model": "nova-premier-v1",

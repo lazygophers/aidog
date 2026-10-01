@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "watsonx/meta-llama/llama-guard-3-11b-vision",
   "canonical_model": "llama-guard-3-11b-vision",
   "family": "llama",
