@@ -1599,6 +1599,14 @@ class _DetailPanelState extends State<_DetailPanel> {
                 t.t('logs.cacheTokens'),
                 formatNumber(detail.cacheTokens),
               ),
+              // 「正文已省略」（perf-backend O6）：该行部分正文因写入队列字节预算超限被
+              // 降级丢弃，只有元数据落库。仅置位时显示（React 侧 `DetailPanel.tsx` 同款行）。
+              if (detail.bodyOmitted)
+                _kv(
+                  theme,
+                  t.t('logs.bodyOmitted'),
+                  t.t('logs.bodyOmittedHint'),
+                ),
             ]),
             if (detail.attempts.isNotEmpty) _attempts(t, theme),
             // 用户侧与上游侧**分开列**：两边受不同开关控制

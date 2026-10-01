@@ -246,6 +246,7 @@ fn build_test_proxy_log(
         done: true,
         // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
         field_trace: String::new(),
+        body_omitted: false,
     }
 }
 

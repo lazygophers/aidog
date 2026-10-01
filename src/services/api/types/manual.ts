@@ -675,6 +675,9 @@ export interface ProxyLogDetail {
   attempts: import("./generated/ProxyAttempt").ProxyAttempt[];
   /** 重试次数 = attempts.length - 1（0 表示一次成功） */
   retry_count: number;
+  /** 「正文已省略」（perf-backend O6）：该行部分正文因日志写入队列字节预算超限被降级丢弃，
+   *  只有元数据落库。置位后单调不回落。 */
+  body_omitted: boolean;
   created_at: number;
   updated_at: number;
   deleted_at: number;

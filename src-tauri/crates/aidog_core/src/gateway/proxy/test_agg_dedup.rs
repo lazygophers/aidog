@@ -19,6 +19,7 @@ async fn make_state() -> Arc<ProxyState> {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     })
 }
 
