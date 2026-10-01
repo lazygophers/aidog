@@ -24,8 +24,9 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
     }
 }
 
-/// 决策请求 route fail 落库（R7）：仿 peak 路径 —— `status_code=400`、
-/// `blocked_by='router'`、`blocked_reason`=Err 字符串、`est_cost=0`。
+/// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
+/// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
+/// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn route_fail_response(
     state: &Arc<ProxyState>,
@@ -36,18 +37,27 @@ pub(crate) async fn route_fail_response(
     lang: Lang,
 ) -> Response {
     log.blocked_by = "router".to_string();
-    log.blocked_reason = err.to_string();
-    log.status_code = 400;
     log.done = true;
-    let msg = kind_route_error_message(err);
-    log.response_body = msg.clone();
+    let (status, client_msg) = if err == "peak_disabled" {
+        log.blocked_reason = "peak".to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
+    } else {
+        log.blocked_reason = err.to_string();
+        let msg = kind_route_error_message(err);
+        log.response_body = msg.clone();
+        (
+            StatusCode::BAD_REQUEST,
+            format!("{}: {}", i18n::t(lang, ErrorKey::Route), msg),
+        )
+    };
+    log.status_code = status.as_u16() as i32;
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(state, log, log_settings).await;
-    let mut r = (
-        StatusCode::BAD_REQUEST,
-        format!("{}: {}", i18n::t(lang, ErrorKey::Route), msg),
-    )
-        .into_response();
+    let mut r = (status, client_msg).into_response();
     inject_trace_header(&mut r);
     r
 }
@@ -64,11 +74,11 @@ fn process_decision_response(body: &[u8]) -> (Vec<u8>, Option<f64>) {
         .and_then(|u| u.get("cost"))
         .and_then(|c| c.as_f64());
     if let Some(obj) = v.as_object_mut() {
-        obj.remove("id");
-        obj.remove("provider");
+        obj.shift_remove("id");
+        obj.shift_remove("provider");
     }
     if let Some(usage) = v.get_mut("usage").and_then(|u| u.as_object_mut()) {
-        usage.remove("cost");
+        usage.shift_remove("cost");
     }
     match serde_json::to_vec(&v) {
         Ok(bytes) => (bytes, cost),
@@ -344,9 +354,9 @@ pub(crate) async fn handle_decision(
         // R14：上游显式 cost 直接采用（est_cost != 0 时 process_upsert 跳过 registry 价回落；
         // 无 cost 则留 0，由 process_upsert 按 registry 价 × tokens 计算，高峰倍率链照常生效）。
         if let Some(cost) = upstream_cost {
-            // 注意：上游显式 `usage.cost: 0` 会被 log.rs 的 est_cost==0 回落条件当「未计价」
-            // 重算 registry 价——当前唯一 0 价条目（decision-model-preview）registry 侧也是 0，
-            // 故不可触发；若未来出现「registry 价 > 0 而上游免费」的条目，需改用 Option 信号区分。
+            // 有意规则（用户 2026-10-01 确认）：不信任上游 `usage.cost: 0`。cost=0 落到这里后由
+            // log.rs 的 est_cost==0 回落条件按 registry 价重算：registry 标 `price.free: true`
+            // → 0；input/output 全 0 但未标 free 视同未定价 → PriceSyncSettings 默认价。
             log.est_cost = cost;
         }
 
@@ -360,7 +370,12 @@ pub(crate) async fn handle_decision(
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(&mut attempts);
         upsert_log(state, log, log_settings).await;
-        let mut response = (StatusCode::OK, client_body).into_response();
+        let mut response = (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            client_body,
+        )
+            .into_response();
         inject_trace_header(&mut response);
         return response;
     }

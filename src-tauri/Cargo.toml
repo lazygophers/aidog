@@ -32,7 +32,7 @@ tauri-plugin-deep-link = "2"
 tauri-plugin-shell = "2"
 # 序列化 / 数据格式
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 serde_yml = "0.0.13"
 # YAML 解析（CPA config 导入）
 serde_yaml = "0.9"
@@ -174,7 +174,7 @@ tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
 # deep link URL parse（tauri-plugin-deep-link 透传依赖；显式声明以便命名 Url 类型解析 path/query）。
 url = "2"
-serde_json = "1"
+serde_json = { version = "1", features = ["preserve_order"] }
 toml = "0.8"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }

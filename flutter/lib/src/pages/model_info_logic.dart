@@ -323,6 +323,7 @@ class ModelPriceData extends PriceTier {
     super.cacheWrite,
     this.unit,
     this.unitPrice,
+    this.free,
     this.peak,
     this.contextTiers = const [],
   });
@@ -330,6 +331,9 @@ class ModelPriceData extends PriceTier {
   /// 计价单位，缺省 token。非 token（图像/视频/搜索）用 [unitPrice] 计价。
   final String? unit;
   final double? unitPrice;
+
+  /// 显式免费（官方来源）：计费价恒为 0。全 0 价未标 free 视同未定价。
+  final bool? free;
 
   /// 高峰绝对价：命中平台 `peak` 窗口时整体替换默认价。
   final PriceTier? peak;
@@ -355,6 +359,7 @@ ModelPriceData parsePriceData(String raw) {
       cacheWrite: (p['cache_write'] as num?)?.toDouble(),
       unit: p['unit'] as String?,
       unitPrice: (p['unit_price'] as num?)?.toDouble(),
+      free: p['free'] as bool?,
       peak: peak is Map
           ? PriceTier.fromJson(peak.cast<String, Object?>())
           : null,

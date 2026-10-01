@@ -216,6 +216,20 @@ fn resolve_price_from_zero_priced_entry_uses_fallback() {
     assert_eq!(r.price.source, "fallback");
 }
 
+#[test]
+fn resolve_price_from_free_entry_is_zero() {
+    // 显式 free → 恒 0，不回落 fallback；高峰态也不覆盖
+    let pd = serde_json::json!({"price": {"free": true, "input": 0, "output": 0}});
+    let r = resolve_price_from(Some(&pd), true, 3.0, 6.0, 1000, 0);
+    assert_eq!(r.price.source, "model_entry+free");
+    assert!(!r.peak_applied);
+    assert_eq!(r.price.input_cost_per_token, 0.0);
+    assert_eq!(r.price.output_cost_per_token, 0.0);
+    // free:false 等同未标注 → 全 0 价仍走 fallback
+    let pd = serde_json::json!({"price": {"free": false, "input": 0, "output": 0}});
+    assert_eq!(resolve_price_from(Some(&pd), false, 3.0, 6.0, 0, 0).price.source, "fallback");
+}
+
 // ── DB 路径 ──
 
 #[tokio::test]

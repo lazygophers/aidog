@@ -744,6 +744,12 @@ async fn models_endpoint_returns_static_openai() {
         data.iter()
             .any(|m| m.get("id").and_then(|i| i.as_str()) == Some("claude-opus-4-8"))
     );
+    // typesafe 官方决策模型同样在列表里（default_model_ids 含 typesafe 平台）
+    assert!(
+        data.iter()
+            .any(|m| m.get("id").and_then(|i| i.as_str()) == Some("jev-latest")),
+        "/v1/models must list typesafe decision model"
+    );
 }
 
 /// GET /proxy/models 无 Authorization（tokenless）→ 200 + anthropic 格式静态列表（不再 404）。
@@ -2632,7 +2638,7 @@ fn decision_request(gk: &str, model: &str) -> Request {
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::json!({"model": model, "answers": [], "usage": {}}).to_string(),
+            serde_json::json!({"model": model, "usage": {}, "answers": []}).to_string(),
         ))
         .unwrap()
 }
@@ -2660,6 +2666,11 @@ async fn decision_request_end_to_end() {
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdec", "whatever"))
         .await;
     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "application/json",
+        "decision response must be JSON, not octet-stream"
+    );
     let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("id"), None, "id stripped (R12)");
@@ -2670,6 +2681,8 @@ async fn decision_request_end_to_end() {
     let hits = hits.lock().unwrap();
     let (path, req_body) = &hits[0];
     assert_eq!(path, "/v1/systemone", "URL = base_url + /systemone (R10)");
+    // preserve_order：上游请求体保持客户端字段顺序（model 原位改写，非字母序）
+    assert_eq!(req_body, r#"{"model":"jev-latest","usage":{},"answers":[]}"#);
     let sent: serde_json::Value = serde_json::from_str(req_body).unwrap();
     assert_eq!(sent.get("model").unwrap(), "jev-latest", "model rewritten to slot (R8)");
 
@@ -2680,6 +2693,53 @@ async fn decision_request_end_to_end() {
     assert_eq!(log.input_tokens, 1000);
     assert_eq!(log.output_tokens, 50);
     assert!((log.est_cost - 0.000125).abs() < 1e-9, "upstream usage.cost adopted (R14), got {}", log.est_cost);
+}
+
+/// 不信任上游 `usage.cost: 0`（用户 2026-10-01 确认）：registry 价 > 0 → 按 registry 价；
+/// registry 标 `free: true` → 0；全 0 价未标 free 视同未定价 → PriceSyncSettings 默认价（3 $/M）。
+#[tokio::test]
+async fn decision_upstream_zero_cost_uses_registry_price() {
+    let resp_body = r#"{"model":"jev-1.13","answers":[],"usage":{"input_tokens":1000,"output_tokens":0,"cost":0}}"#;
+    for (gk, price, expected) in [
+        ("gkz1", r#"{"input":4.2e-8,"output":0}"#, 1000.0 * 4.2e-8),
+        ("gkzfree", r#"{"free":true,"input":0,"output":0}"#, 0.0),
+        ("gkz0", r#"{"input":0,"output":0}"#, 1000.0 * 3.0 / 1_000_000.0),
+    ] {
+        let (upstream, _hits) = spawn_decision_upstream(vec![(200, resp_body)]).await;
+        let state = make_state(test_db().await).await;
+        aidog_db::upsert_model_entries(
+            &state.db,
+            vec![ModelEntry {
+                platform_code: "openai".into(),
+                model_id: "jev-1.13".into(),
+                display_name: "jev-1.13".into(),
+                canonical_model: "jev-1.13".into(),
+                family: String::new(),
+                version: String::new(),
+                predecessor: String::new(),
+                capabilities: vec!["decision".into()],
+                builtin_tools_excluded: vec![],
+                max_input_tokens: None,
+                max_output_tokens: None,
+                context_window: Some(64000),
+                official: true,
+                price_data: format!(r#"{{"price":{price}}}"#),
+                updated_at: aidog_db::now(),
+            }],
+        )
+        .await
+        .unwrap();
+        setup_decision_group(&state, gk, &upstream, PlatformModels::default(), Some(vec!["jev-1.13"]), Protocol::TypeSafe).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), decision_request(gk, "jev-1.13")).await;
+        assert_eq!(resp.status(), StatusCode::OK);
+        let log = last_log_for(&state, gk).await;
+        assert!(
+            (log.est_cost - expected).abs() < 1e-12,
+            "{gk}: expected {expected}, got {}",
+            log.est_cost
+        );
+    }
 }
 
 /// R14 回落：无 usage.cost → registry 价 × input_tokens（output 价 0）。
@@ -2816,4 +2876,206 @@ async fn decision_no_platform_400_and_audit_log() {
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_decision_platform");
     assert_eq!(log.est_cost, 0.0);
+}
+
+/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 400 + blocked_reason=no_chat_platform。
+#[tokio::test]
+async fn chat_no_chat_platform_400_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gknochat",
+        "https://example.invalid",
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gknochat", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let log = last_log_for(&state, "gknochat").await;
+    assert_eq!(log.status_code, 400);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "no_chat_platform");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 两个 jev 槽决策平台挂同一 group（priority 0 → up1，1 → up2）。
+async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &str, up2: &str) {
+    let models = PlatformModels {
+        jev: Some("jev-latest".into()),
+        ..Default::default()
+    };
+    setup_decision_group(state, gk, up1, models.clone(), None, Protocol::TypeSafe).await;
+    let first = aidog_db::list_platforms(&state.db).await.unwrap()
+        .into_iter().find(|p| p.name == format!("stub-{gk}")).unwrap();
+    let second = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: format!("stub-{gk}-2"),
+            platform_type: Protocol::OpenAI,
+            base_url: up2.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: Some(models),
+            available_models: None,
+            endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
+                protocol: Protocol::TypeSafe,
+                base_url: format!("{up2}/v1"),
+                client_type: "default".into(),
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let g = aidog_db::list_groups(&state.db).await.unwrap()
+        .into_iter().find(|g| g.group_key == gk).unwrap();
+    let gp = |platform_id, priority| GroupPlatformInput {
+        platform_id,
+        priority: Some(priority),
+        weight: Some(1),
+        level_priority: Some(0),
+    };
+    aidog_db::set_group_platforms(&state.db, g.id, &[gp(first.id, 0), gp(second.id, 1)])
+        .await
+        .unwrap();
+}
+
+/// R13：决策路径上游 429 / 401 换下个候选；400 / 422 是请求硬错，不换平台直接回给客户端。
+#[tokio::test]
+async fn decision_upstream_4xx_handling() {
+    for (code, fails_over) in [(429u16, true), (401, true), (400, false), (422, false)] {
+        let gk = format!("gk4xx{code}");
+        let (up1, hits1) = spawn_decision_upstream(vec![(code, r#"{"error":{"message":"nope"}}"#)]).await;
+        let (up2, hits2) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
+        let state = make_state(test_db().await).await;
+        setup_two_decision_platforms(&state, &gk, &up1, &up2).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), decision_request(&gk, "m")).await;
+        assert_eq!(hits1.lock().unwrap().len(), 1, "{code}: first platform hit");
+        let log = last_log_for(&state, &gk).await;
+        if fails_over {
+            assert_eq!(resp.status(), StatusCode::OK, "{code} must fail over");
+            assert_eq!(hits2.lock().unwrap().len(), 1, "{code}: second platform received retry");
+            assert_eq!(log.status_code, 200);
+            assert_eq!(log.attempts.len(), 2);
+        } else {
+            assert_eq!(resp.status().as_u16(), code, "{code} returned to client as-is");
+            assert_eq!(hits2.lock().unwrap().len(), 0, "{code} must not retry next platform");
+            assert_eq!(log.status_code, code as i32);
+        }
+    }
+}
+
+/// 日志开关全关：决策请求的用户侧 / 上游侧 body 都不入库，只留元数据。
+#[tokio::test]
+async fn decision_log_switches_off_drop_bodies() {
+    let (upstream, _hits) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gkdlog",
+        &upstream,
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdlog", "m")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let row = last_log_for(&state, "gkdlog").await;
+    assert!(row.request_body.is_empty(), "request_body");
+    assert!(row.user_response_body.is_empty(), "user_response_body");
+    assert!(row.upstream_request_body.is_empty(), "upstream_request_body");
+    assert!(row.response_body.is_empty(), "response_body");
+    assert_eq!(row.status_code, 200);
+    assert_eq!(row.input_tokens, 1000, "metadata kept");
+}
+
+/// 把 group 内全部平台设为「高峰禁用 + 全天高峰窗口」。
+async fn set_all_platforms_peak_disabled(state: &Arc<ProxyState>) {
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
+        })
+        .await
+        .unwrap();
+    }
+}
+
+/// 决策路径高峰禁用对齐聊天路径：503 + blocked_reason='peak'（不是 400）。
+#[tokio::test]
+async fn decision_peak_disabled_503_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gkpeak",
+        "https://example.invalid",
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    set_all_platforms_peak_disabled(&state).await;
+
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkpeak", "m")).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkpeak").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "peak");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 聊天路径高峰禁用（共用 route_fail_response 后行为不变）：503 + blocked_reason='peak'。
+#[tokio::test]
+async fn chat_peak_disabled_503_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkchatpeak", "https://example.invalid").await;
+    set_all_platforms_peak_disabled(&state).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkchatpeak", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkchatpeak").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "peak");
 }

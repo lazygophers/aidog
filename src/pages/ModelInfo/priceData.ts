@@ -22,6 +22,8 @@ export interface ModelPriceData extends PriceTier {
   unit?: "token" | "image" | "second" | "request" | "char" | null;
   /** 非 token 条目的单价（$/unit）。 */
   unit_price?: number | null;
+  /** 显式免费（官方来源）：计费价恒为 0。全 0 价未标 free 视同未定价。 */
+  free?: boolean | null;
   /** 高峰绝对价：命中平台 `peak` 窗口时整体替换默认价。 */
   peak?: PriceTier | null;
   /** 上下文阶梯价：按请求 input_tokens 选档，`min_tokens` 为起档阈值。 */
