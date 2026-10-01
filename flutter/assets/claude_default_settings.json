@@ -236,6 +236,7 @@
             "EnterWorktree",
             "ShareOnboardingGuide",
             "Bash(sleep:*)",
+            "Read(**/.mcp.json)",
             "Read(**/.env)",
             "Read(**/.env.*)",
             "Read(**/.env.local)",
@@ -356,9 +357,7 @@
             "Bash(pnpm publish:*)",
             "Bash(cargo publish:*)",
             "Bash(gh release:*)",
-            "Bash(docker push:*)",
-            "Bash(gh auth:*)",
-            "Bash(glab auth:*)"
+            "Bash(docker push:*)"
         ]
     },
     "env": {
