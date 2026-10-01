@@ -355,9 +355,8 @@ pub(crate) async fn handle_decision(
         // 无 cost 则留 0，由 process_upsert 按 registry 价 × tokens 计算，高峰倍率链照常生效）。
         if let Some(cost) = upstream_cost {
             // 有意规则（用户 2026-10-01 确认）：不信任上游 `usage.cost: 0`。cost=0 落到这里后由
-            // log.rs 的 est_cost==0 回落条件按 registry 价重算。注意 registry 条目 input/output
-            // 全 0 时 resolve_price_from 视同未定价、落 PriceSyncSettings 默认价（非 0，见
-            // test_price_resolve.rs `resolve_price_from_zero_priced_entry_uses_fallback`）。
+            // log.rs 的 est_cost==0 回落条件按 registry 价重算：registry 标 `price.free: true`
+            // → 0；input/output 全 0 但未标 free 视同未定价 → PriceSyncSettings 默认价。
             log.est_cost = cost;
         }
 
