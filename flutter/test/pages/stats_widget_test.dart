@@ -75,7 +75,7 @@ void main() {
     final (k, _) = await mountStats(tester);
     expect(
       k.commandSetSignature,
-      'get_defaults_json,group_detail_list,platform_list,stats_query',
+      'get_defaults_json,group_detail_list,mitm_opaque_count,platform_list,stats_query',
     );
     // 主查询 + 上一等长周期各一次
     expect(k.countOf('stats_query'), 2);
@@ -95,8 +95,9 @@ void main() {
       (cur['end']! as int) - (cur['start']! as int),
       (prev['end']! as int) - (prev['start']! as int),
     );
-    // 主查询带 series_by，环比查询不带（只用 overview 做对比）
-    expect(cur['series_by'], 'platform');
+    // 主查询缺省 total 不带 series_by（React trendBy 默认 total，Stats.tsx:326）；
+    // 环比查询恒不带（只用 overview 做对比）。
+    expect(cur.containsKey('series_by'), isFalse);
     expect(prev.containsKey('series_by'), isFalse);
   });
 
