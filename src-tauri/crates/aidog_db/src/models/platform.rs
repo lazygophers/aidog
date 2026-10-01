@@ -128,8 +128,8 @@ impl PlatformModels {
     }
 }
 
-/// 槽位有效值：trim 后非空才算已配置。
-fn slot_filled(s: &Option<String>) -> Option<&str> {
+/// 槽位有效值：trim 后非空才算已配置（批量覆盖会持久化 `Some("")`）。
+pub fn slot_filled(s: &Option<String>) -> Option<&str> {
     s.as_deref().map(str::trim).filter(|v| !v.is_empty())
 }
 

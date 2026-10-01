@@ -17,14 +17,14 @@ pub(crate) fn resolve_model(models: &PlatformModels, source_model: &str) -> Stri
     ];
     for (slot_name, slot_value) in &slots {
         if lower.contains(slot_name)
-            && let Some(v) = slot_value
+            && let Some(v) = slot_filled(slot_value)
         {
-            return v.clone();
+            return v.to_string();
         }
     }
     // 回退到 default
-    if let Some(ref default) = models.default {
-        return default.clone();
+    if let Some(default) = slot_filled(&models.default) {
+        return default.to_string();
     }
     // 无匹配无 default — 透传（去掉 budget 后缀）
     base_model.to_string()
