@@ -687,6 +687,17 @@ tokens、本周期折算、上游速率余量）与配额是互不相干的维�
   一个对象，单一来源的门是对的，React `Home.tsx:226` 同式。
 - 统计页（`stats.dart`）：没有跨块共享的到达条件。
 
+### 首页维度趋势（2026-10-01 移植）两处已知差异
+
+- **堆叠图无右轴「请求数」线**：React `StackedAreaChart` 支持 `rightConfig` 右轴
+  请求线（`HomeTrendChart.tsx:167`）；Flutter `AidogStackedAreaChart` 无第二 Y 轴
+  （fl_chart 上游限制，见 `lib/src/charts/line_chart.dart:5-9`），未画该线。
+  复活条件：fl_chart 支持双轴或图表组件补 rightAxis 后补上。
+- **图例自补**：公共 `StackedAreaChart` 内建图例，Flutter 侧图表组件不带，
+  `_HomeTrendChart` 在图下自画一行色点图例（`home.dart`）。
+- **右轴请求线 → 图例尾请求合计**：React 的 `home.trendRequests` 文案挂在右轴
+  请求走势线上；Flutter 无右轴，以图例尾「请求数 · N」（全时段合计）承接。
+
 ### 复盘护栏（2026-09-24）
 
 - **窄窗布局先测再交付**：涉及 `Row` / `Wrap` / 快操作布局时，至少在 `320px` 宽度 pump 目标 widget，并断言 `tester.takeException()` 为 null。若拖拽测试需要落点，按目标卡片 `Rect` 计算，不用固定像素距离；卡片高度一变，固定距离可能越过换位区后弹回原位。

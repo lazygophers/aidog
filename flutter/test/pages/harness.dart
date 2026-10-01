@@ -98,6 +98,11 @@ Map<String, dynamic> dimensionEntry(
   'total_cost': cost,
 };
 
+Map<String, dynamic> statsSeriesRow(
+  String name,
+  List<Map<String, dynamic>> buckets,
+) => {'name': name, 'buckets': buckets};
+
 Map<String, dynamic> statsResult({
   Map<String, dynamic>? overview,
   List<Map<String, dynamic>> buckets = const [],
