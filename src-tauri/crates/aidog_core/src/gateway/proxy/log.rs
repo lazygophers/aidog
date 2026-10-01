@@ -97,6 +97,31 @@ pub(crate) async fn upsert_log(
 /// 2. 降级后仍 try_send 失败（条数兜底上限满 / channel 关闭）→ 丢弃：中间态 debug、
 ///    终态 warn（终态丢弃会漏 stats_agg 聚合与 emit，只在字节预算 + 8192 条兜底全部
 ///    打满的极端持续过载下发生；降级后的元数据消息 ~2 KB，正常消费速率下到不了这里）。
+///
+/// O6 预算记账 + 非阻塞投递的公共尾部：fetch_add 预占 → try_send → 失败归还预算并回调
+/// 各自的丢弃日志（upsert 与 connect 两条路径的 Full/Closed 文案不同，用闭包注入）。
+fn try_send_log_msg(
+    state: &Arc<ProxyState>,
+    msg: LogMsg,
+    on_full: impl FnOnce(),
+    on_closed: impl FnOnce(),
+) {
+    let bytes = msg.queued_bytes();
+    state
+        .log_queue_bytes
+        .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+    if let Err(e) = state.log_tx.try_send(msg) {
+        // 发送失败：这条消息没进队列，归还预占的预算。
+        state
+            .log_queue_bytes
+            .fetch_sub(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+        match e {
+            tokio::sync::mpsc::error::TrySendError::Full(_) => on_full(),
+            tokio::sync::mpsc::error::TrySendError::Closed(_) => on_closed(),
+        }
+    }
+}
+
 pub(crate) fn queue_upsert_log(
     state: &Arc<ProxyState>,
     log: &ProxyLog,
@@ -117,32 +142,23 @@ pub(crate) fn queue_upsert_log(
             "log queue over byte budget, degraded to metadata-only (bodies omitted)"
         );
     }
-    state
-        .log_queue_bytes
-        .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
     let msg = LogMsg::Upsert {
         log: Box::new(msg_log),
         settings: settings.clone(),
         bytes,
     };
-    if let Err(e) = state.log_tx.try_send(msg) {
-        // 发送失败：这条消息没进队列，归还预占的预算。
-        state
-            .log_queue_bytes
-            .fetch_sub(bytes as u64, std::sync::atomic::Ordering::Relaxed);
-        match e {
-            tokio::sync::mpsc::error::TrySendError::Full(_) => {
-                if terminal {
-                    tracing::warn!(id = %log.id, "log queue full, terminal log dropped (metadata included stats lost)");
-                } else {
-                    tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
-                }
+    try_send_log_msg(
+        state,
+        msg,
+        || {
+            if terminal {
+                tracing::warn!(id = %log.id, "log queue full, terminal log dropped (metadata included stats lost)");
+            } else {
+                tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
             }
-            tokio::sync::mpsc::error::TrySendError::Closed(_) => {
-                tracing::debug!(id = %log.id, "log writer channel closed, log dropped");
-            }
-        }
-    }
+        },
+        || tracing::debug!(id = %log.id, "log writer channel closed, log dropped"),
+    );
 }
 
 /// O6 按需携带（spec §3 修法 1 + 内存根因 1）+ O9 终态携带：构造进队列的 ProxyLog 副本
@@ -736,22 +752,12 @@ pub(crate) async fn upsert_connect_log(
     };
     // O6 非阻塞投递：Connect 消息本就只含元数据（无 body 列内容，无可降级项），队满即丢 + warn
     //（同 upsert_log 背压链第 2 档；正常消费速率下到不了这里）。
-    state
-        .log_queue_bytes
-        .fetch_add(msg.queued_bytes() as u64, std::sync::atomic::Ordering::Relaxed);
-    if let Err(e) = state.log_tx.try_send(msg) {
-        state
-            .log_queue_bytes
-            .fetch_sub(CONNECT_MSG_BYTES as u64, std::sync::atomic::Ordering::Relaxed);
-        match e {
-            tokio::sync::mpsc::error::TrySendError::Full(_) => {
-                tracing::warn!(id = %ctx.request_id, "log queue full, connect log dropped");
-            }
-            tokio::sync::mpsc::error::TrySendError::Closed(_) => {
-                tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped");
-            }
-        }
-    }
+    try_send_log_msg(
+        state,
+        msg,
+        || tracing::warn!(id = %ctx.request_id, "log queue full, connect log dropped"),
+        || tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped"),
+    );
 }
 
 /// connect log 落库主逻辑（原 upsert_connect_log 函数体，现只在 writer 内单 writer 串行调用）。
