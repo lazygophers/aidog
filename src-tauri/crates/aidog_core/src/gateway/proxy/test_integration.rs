@@ -743,6 +743,12 @@ async fn models_endpoint_returns_static_openai() {
         data.iter()
             .any(|m| m.get("id").and_then(|i| i.as_str()) == Some("claude-opus-4-8"))
     );
+    // typesafe 官方决策模型同样在列表里（default_model_ids 含 typesafe 平台）
+    assert!(
+        data.iter()
+            .any(|m| m.get("id").and_then(|i| i.as_str()) == Some("jev-latest")),
+        "/v1/models must list typesafe decision model"
+    );
 }
 
 /// GET /proxy/models 无 Authorization（tokenless）→ 200 + anthropic 格式静态列表（不再 404）。
@@ -2863,6 +2869,147 @@ async fn decision_no_platform_400_and_audit_log() {
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "no_decision_platform");
     assert_eq!(log.est_cost, 0.0);
+}
+
+/// R3 端到端：聊天请求打到只有纯决策平台的分组 → 400 + blocked_reason=no_chat_platform。
+#[tokio::test]
+async fn chat_no_chat_platform_400_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gknochat",
+        "https://example.invalid",
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gknochat", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+    let log = last_log_for(&state, "gknochat").await;
+    assert_eq!(log.status_code, 400);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "no_chat_platform");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 两个 jev 槽决策平台挂同一 group（priority 0 → up1，1 → up2）。
+async fn setup_two_decision_platforms(state: &Arc<ProxyState>, gk: &str, up1: &str, up2: &str) {
+    let models = PlatformModels {
+        jev: Some("jev-latest".into()),
+        ..Default::default()
+    };
+    setup_decision_group(state, gk, up1, models.clone(), None, Protocol::TypeSafe).await;
+    let first = aidog_db::list_platforms(&state.db).await.unwrap()
+        .into_iter().find(|p| p.name == format!("stub-{gk}")).unwrap();
+    let second = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: format!("stub-{gk}-2"),
+            platform_type: Protocol::OpenAI,
+            base_url: up2.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: Some(models),
+            available_models: None,
+            endpoints: Some(vec![crate::gateway::models::PlatformEndpoint {
+                protocol: Protocol::TypeSafe,
+                base_url: format!("{up2}/v1"),
+                client_type: "default".into(),
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let g = aidog_db::list_groups(&state.db).await.unwrap()
+        .into_iter().find(|g| g.group_key == gk).unwrap();
+    let gp = |platform_id, priority| GroupPlatformInput {
+        platform_id,
+        priority: Some(priority),
+        weight: Some(1),
+        level_priority: Some(0),
+    };
+    aidog_db::set_group_platforms(&state.db, g.id, &[gp(first.id, 0), gp(second.id, 1)])
+        .await
+        .unwrap();
+}
+
+/// R13：决策路径上游 429 / 401 换下个候选；400 / 422 是请求硬错，不换平台直接回给客户端。
+#[tokio::test]
+async fn decision_upstream_4xx_handling() {
+    for (code, fails_over) in [(429u16, true), (401, true), (400, false), (422, false)] {
+        let gk = format!("gk4xx{code}");
+        let (up1, hits1) = spawn_decision_upstream(vec![(code, r#"{"error":{"message":"nope"}}"#)]).await;
+        let (up2, hits2) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
+        let state = make_state(test_db().await).await;
+        setup_two_decision_platforms(&state, &gk, &up1, &up2).await;
+
+        let resp = handle_proxy(AxumState(state.clone()), decision_request(&gk, "m")).await;
+        assert_eq!(hits1.lock().unwrap().len(), 1, "{code}: first platform hit");
+        let log = last_log_for(&state, &gk).await;
+        if fails_over {
+            assert_eq!(resp.status(), StatusCode::OK, "{code} must fail over");
+            assert_eq!(hits2.lock().unwrap().len(), 1, "{code}: second platform received retry");
+            assert_eq!(log.status_code, 200);
+            assert_eq!(log.attempts.len(), 2);
+        } else {
+            assert_eq!(resp.status().as_u16(), code, "{code} returned to client as-is");
+            assert_eq!(hits2.lock().unwrap().len(), 0, "{code} must not retry next platform");
+            assert_eq!(log.status_code, code as i32);
+        }
+    }
+}
+
+/// 日志开关全关：决策请求的用户侧 / 上游侧 body 都不入库，只留元数据。
+#[tokio::test]
+async fn decision_log_switches_off_drop_bodies() {
+    let (upstream, _hits) = spawn_decision_upstream(vec![(200, OR_RESPONSE)]).await;
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gkdlog",
+        &upstream,
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdlog", "m")).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let row = last_log_for(&state, "gkdlog").await;
+    assert!(row.request_body.is_empty(), "request_body");
+    assert!(row.user_response_body.is_empty(), "user_response_body");
+    assert!(row.upstream_request_body.is_empty(), "upstream_request_body");
+    assert!(row.response_body.is_empty(), "response_body");
+    assert_eq!(row.status_code, 200);
+    assert_eq!(row.input_tokens, 1000, "metadata kept");
 }
 
 /// 把 group 内全部平台设为「高峰禁用 + 全天高峰窗口」。
