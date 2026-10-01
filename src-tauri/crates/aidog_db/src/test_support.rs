@@ -177,6 +177,7 @@ pub fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         deleted_at: 0,
         done: true,
         field_trace: String::new(),
+        body_omitted: false,
     }
 }
 

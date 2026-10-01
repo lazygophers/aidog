@@ -943,6 +943,14 @@ impl Db {
         }
     }
 
+    /// 失效 model_entry_for_billing 计费缓存（model_entry 任何写入后调用；
+    /// upsert / prune 写入函数内部已自带钩子，绕过它们直接写表的路径走 invalidate_hot_caches）。
+    pub fn invalidate_model_entry_cache(&self) {
+        if let Ok(mut g) = self.1.model_entry_billing.write() {
+            g.clear();
+        }
+    }
+
     /// 失效 list_groups 缓存（任意 group 表写入后调用）。
     /// group 表写同时影响 GroupDetail（其内嵌 Group），故连带失效 group_details。
     pub fn invalidate_groups_cache(&self) {
@@ -972,6 +980,7 @@ impl Db {
     pub fn invalidate_hot_caches(&self) {
         self.invalidate_settings_cache();
         self.invalidate_groups_cache();
+        self.invalidate_model_entry_cache();
     }
 
     /// 取写连接的 clone（短暂持锁，纳秒级 channel sender clone）。

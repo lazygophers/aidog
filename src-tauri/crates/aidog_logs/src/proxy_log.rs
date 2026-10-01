@@ -3,7 +3,7 @@ use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
-const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace";
+const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
@@ -43,6 +43,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         deleted_at: row.get(32)?,
         done: row.get::<_, i64>(33)? == 1,
         field_trace: row.get(34)?,
+        body_omitted: row.get::<_, i64>(35)? == 1,
     })
 }
 
@@ -112,10 +113,10 @@ pub fn upsert_proxy_log(
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
             )?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64],
             )?;
             Ok(())
         })
@@ -171,7 +172,20 @@ pub struct ProxyLogColumns {
     /// 字段留痕（票 10）：出站 body 被丢弃 / 被改写的字段名 token 串。归上游侧「原始信息」，
     /// 受 `strip_upstream` 清空。
     pub field_trace: String,
+    /// 8 个大字段「已以非空值落库」的位掩码（bit 序同 [`Self::large_fields_first_write`]，
+    /// O1 perf-backend spec §2）。**非 DB 列**，只在 in-flight 快照（`log_snapshots`）里有
+    /// 意义：INSERT / UPDATE 成功后由调用方维护，供下一次 UPDATE 判断哪些正文列已写过、
+    /// 不再重写（正文只写首尾）。`from_log` 恒置 0。
+    pub raw_written_mask: u8,
+    /// 「正文已省略」标记（O6，DB 列 body_omitted）：该行部分正文因写入队列字节预算超限
+    /// 被降级丢弃。来自队列消息（热路径降级时置位，见 aidog_core log.rs），`from_log` 映射
+    /// `ProxyLog.body_omitted`。in-flight 快照保留本字段（`into_snapshot_meta` 不清），
+    /// process_upsert 与快照值取 OR —— 单调 sticky，不随后续节点回落。
+    pub body_omitted: i64,
 }
+
+/// 渐进式 UPDATE 的列绑定（列名 + SQL 绑定值）。
+type ColBind = (&'static str, Box<dyn rusqlite::types::ToSql + Send>);
 
 impl ProxyLogColumns {
     /// 由 `ProxyLog` 构造入库列快照。
@@ -264,19 +278,20 @@ impl ProxyLogColumns {
             } else {
                 log.field_trace.clone()
             },
+            // 非 DB 列：仅 in-flight 快照用（见字段 doc），构造恒 0。
+            raw_written_mask: 0,
+            body_omitted: log.body_omitted as i64,
         }
     }
 
     /// 与上一快照 `old` 逐列对比，返回 (列名, 绑定值) 的变化集。id 主键不在内（用于 WHERE）。
-    /// body / headers 类大字段**不参与 diff 比较**：调用方 `update_proxy_log_columns` 永远把这些列
-    /// 加入 UPDATE 集（绑定 `self` 当前值）。配合 `into_snapshot_meta`（清空 body 字段后入快照），
-    /// in-flight 快照表永不持有 body String，从根上消除 N 并发 × body 的内存累积（OOM 止血）。
+    /// body / headers 类大字段**不参与 diff 比较**：调用方 `update_proxy_log_columns` 按「首写」
+    /// 规则（`large_fields_first_write`）单独决定这些列。配合 `into_snapshot_meta`（清空 body
+    /// 字段后入快照，只留 `raw_written_mask` 位掩码），in-flight 快照表永不持有 body String，
+    /// 从根上消除 N 并发 × body 的内存累积（OOM 止血）。
     /// 前端轮询的增量字段不含 body（按需单查 `get_proxy_log` 拿正文），不依赖 changed_since 推送 body。
-    fn changed_since(
-        &self,
-        old: &ProxyLogColumns,
-    ) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> {
-        let mut out: Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> = Vec::new();
+    fn changed_since(&self, old: &ProxyLogColumns) -> Vec<ColBind> {
+        let mut out: Vec<ColBind> = Vec::new();
         macro_rules! diff {
             ($col:literal, $field:ident) => {
                 if self.$field != old.$field {
@@ -310,42 +325,78 @@ impl ProxyLogColumns {
         diff!("deleted_at", deleted_at);
         diff!("done", done);
         diff!("field_trace", field_trace);
+        diff!("body_omitted", body_omitted);
         out
     }
 
-    /// 大字段列名 + 绑定值（body / headers 侧）。`update_proxy_log_columns` 每次强制写入，
-    /// 不依赖 diff（snapshot 已清空这些字段，diff 永远命中也等价，但显式列出更清晰且省一次比较）。
-    fn large_fields(&self) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> {
-        vec![
-            ("request_headers", Box::new(self.request_headers.clone())),
-            ("request_body", Box::new(self.request_body.clone())),
-            (
-                "upstream_request_headers",
-                Box::new(self.upstream_request_headers.clone()),
-            ),
-            (
-                "upstream_request_body",
-                Box::new(self.upstream_request_body.clone()),
-            ),
-            ("response_body", Box::new(self.response_body.clone())),
-            (
-                "upstream_response_headers",
-                Box::new(self.upstream_response_headers.clone()),
-            ),
-            (
-                "user_response_headers",
-                Box::new(self.user_response_headers.clone()),
-            ),
-            (
-                "user_response_body",
-                Box::new(self.user_response_body.clone()),
-            ),
-        ]
+    /// 大字段列名 + 绑定值（body / headers 侧），按「首写」规则筛选（O1，perf-backend spec §2）：
+    /// - 非空且未写过（`prev_written` 对应 bit 未置位）→ 写入并置位；
+    /// - 已写过 → 跳过（正文只写首尾：请求侧首写一次，不再随每次 UPDATE 重写）；
+    /// - 当前为空 → 跳过且不置位（留待后续首次非空时再写，如 forward 阶段才出现的
+    ///   `upstream_request_body`）；
+    /// - `terminal`（status!=0 且 done，与票 06 终态判定同口径）额外**强制**写响应侧 4 列
+    ///   （`response_body` / `upstream_response_headers` / `user_response_headers` /
+    ///   `user_response_body`），空值也写：中间态可能写过部分响应，终态必须覆盖为最终值；
+    ///   且 strip 后清空的语义在终态落库时保持。
+    ///
+    /// 返回 (待写列, 更新后的位掩码)。
+    fn large_fields_first_write(&self, prev_written: u8, terminal: bool) -> (Vec<ColBind>, u8) {
+        let mut out: Vec<ColBind> = Vec::new();
+        let mut mask = prev_written;
+        macro_rules! raw {
+            ($col:literal, $field:ident, $bit:literal, $force:expr) => {
+                if $force || (mask & (1 << $bit) == 0 && !self.$field.is_empty()) {
+                    out.push(($col, Box::new(self.$field.clone())));
+                    mask |= 1 << $bit;
+                }
+            };
+        }
+        raw!("request_headers", request_headers, 0, false);
+        raw!("request_body", request_body, 1, false);
+        raw!(
+            "upstream_request_headers",
+            upstream_request_headers,
+            2,
+            false
+        );
+        raw!("upstream_request_body", upstream_request_body, 3, false);
+        raw!("response_body", response_body, 4, terminal);
+        raw!(
+            "upstream_response_headers",
+            upstream_response_headers,
+            5,
+            terminal
+        );
+        raw!("user_response_headers", user_response_headers, 6, terminal);
+        raw!("user_response_body", user_response_body, 7, terminal);
+        (out, mask)
     }
 
-    /// 返回一个 body / headers 字段全部清空的副本，用作 in-flight 快照表里的「meta-only」快照。
-    /// OOM 止血：log_snapshots HashMap 不再持大字段 String，仅留 meta（id/status/tokens/...）。
-    /// DB schema 不变，body 列照常写入（每次 upsert_log 仍 UPDATE 绑定 ProxyLog 当前值）。
+    /// INSERT 后的初始位掩码：INSERT 绑定全部列，非空大字段视作「已写」，空字段留待后续首写。
+    pub fn nonempty_raw_mask(&self) -> u8 {
+        let mut m = 0u8;
+        macro_rules! bit {
+            ($field:ident, $b:literal) => {
+                if !self.$field.is_empty() {
+                    m |= 1 << $b;
+                }
+            };
+        }
+        bit!(request_headers, 0);
+        bit!(request_body, 1);
+        bit!(upstream_request_headers, 2);
+        bit!(upstream_request_body, 3);
+        bit!(response_body, 4);
+        bit!(upstream_response_headers, 5);
+        bit!(user_response_headers, 6);
+        bit!(user_response_body, 7);
+        m
+    }
+
+    /// 返回一个 body / headers 字段全部清空的副本（`raw_written_mask` 原样保留），用作
+    /// in-flight 快照表里的「meta-only」快照。
+    /// OOM 止血：log_snapshots HashMap 不再持大字段 String，仅留 meta（id/status/tokens/...）
+    /// + 首写位掩码。DB schema 不变，body 列按「首写」规则写入（见 `large_fields_first_write`）。
     pub fn into_snapshot_meta(mut self) -> Self {
         self.request_headers.clear();
         self.request_body.clear();
@@ -374,10 +425,10 @@ pub fn insert_proxy_log_columns(
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
             )?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted],
             )?;
             Ok(())
         })
@@ -387,6 +438,10 @@ pub fn insert_proxy_log_columns(
 }
 
 /// 渐进式日志后续节点：仅 UPDATE 相对 `prev` 变化的列。无变化则 no-op（不发 SQL）。
+/// O1（perf-backend spec §2）：大字段按「首写」规则写入——中间节点只带元数据 + 尚未写过
+/// 且当前非空的大字段（如 forward 阶段才出现的 upstream_request_body）；终态
+/// （status!=0 且 done，与 `process_upsert` 的 is_terminal 同判定）强制写响应侧 4 列。
+/// 成功返回更新后的 `raw_written_mask`（供调用方刷新 in-flight 快照）。
 /// 若目标行不存在（理论不应，节点1 必先 INSERT），UPDATE 影响 0 行，静默（与旧 REPLACE
 /// 的「不存在则建行」语义偏离已由 upsert_log 的快照存在性保证：有快照 ⇒ 已 INSERT 过）。
 #[track_caller]
@@ -394,14 +449,15 @@ pub fn update_proxy_log_columns<'a>(
     db: &'a Db,
     new: ProxyLogColumns,
     prev: &'a ProxyLogColumns,
-) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+) -> impl std::future::Future<Output = Result<u8, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
-        // body / headers 类大字段：每次 UPDATE 强制写入（不参与 diff，见 changed_since 注释）。
+        let terminal = new.status_code != 0 && new.done != 0;
         let mut changed = new.changed_since(prev);
-        changed.extend(new.large_fields());
+        let (large, mask) = new.large_fields_first_write(prev.raw_written_mask, terminal);
+        changed.extend(large);
         if changed.is_empty() {
-            return Ok(());
+            return Ok(prev.raw_written_mask);
         }
         let id = new.id.clone();
         // id == proxy_log.id == request_id，用作 SQL 日志归属键。
@@ -424,7 +480,8 @@ pub fn update_proxy_log_columns<'a>(
             Ok(())
         })
         .await
-        .map_err(|e| format!("update proxy log: {e}"))
+        .map_err(|e| format!("update proxy log: {e}"))?;
+        Ok(mask)
     }
 }
 

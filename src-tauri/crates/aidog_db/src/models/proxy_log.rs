@@ -90,6 +90,13 @@ pub struct ProxyLog {
     /// 归上游侧「原始信息」：受 `log_upstream_request` 开关约束，按 `upstream_request_retention_days` 清理。
     #[serde(default)]
     pub field_trace: String,
+    /// 「正文已省略」标记（perf-backend O6，2026-10-01 列）：该行的部分正文因日志写入队列
+    /// 字节预算超限被降级丢弃（只落了元数据）。置位后本行生命周期内单调不回落（sticky）；
+    /// 语义是「发生过降级」——极小概率后续节点预算恢复又把正文补写进去，标记保持 true
+    /// （宁可多报不可漏报：反向「标 false 但正文缺」会误导排查）。正文列本身仍空串
+    /// （不写占位文字，CLAUDE.md「Proxy 日志」段）。存量行 0 = 历史无降级。
+    #[serde(default)]
+    pub body_omitted: bool,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

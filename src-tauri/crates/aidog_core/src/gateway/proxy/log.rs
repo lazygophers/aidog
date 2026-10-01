@@ -14,7 +14,14 @@ pub(crate) async fn get_log_settings(db: &Db) -> ProxyLogSettings {
 /// （见 `spawn_log_writer`），snapshot 读-改-写/remove 串行化于同一 consumer，消除竞态。
 pub(crate) enum LogMsg {
     /// 渐进式/终态 upsert（原 upsert_log 全部落库逻辑，见 `process_upsert`）。
-    Upsert(Box<ProxyLog>, ProxyLogSettings),
+    /// `log` 是按需携带的副本（只含本节点可能要写库的大字段，见 `scoped_queue_log`）；
+    /// 降级时大字段全空 + `log.body_omitted` 置位。`bytes` = 入队时核算的字节数，
+    /// writer 出队即归还字节预算（`LOG_QUEUE_BYTE_BUDGET`）。
+    Upsert {
+        log: Box<ProxyLog>,
+        settings: ProxyLogSettings,
+        bytes: usize,
+    },
     /// CONNECT 隧道一次性终态 INSERT（原 upsert_connect_log，见 `process_connect_log`）。
     /// `blocked_reason`：空串 = 普通盲转行；`MITM_OPAQUE_REASON` = 认证绑定的隧道未能解密
     /// （spec cc-sub-mitm D4：盲转保通 + est_cost=0 + mitm_opaque 标记）。
@@ -38,8 +45,23 @@ pub(crate) enum LogMsg {
     Barrier(tokio::sync::oneshot::Sender<()>),
 }
 
-/// 终态判定（与 `process_upsert` 内 is_terminal 同判定）：决定背压分支——中间态队满即丢，
-/// 终态队满则阻塞等待腾位，保证最终结果 / 统计 / cost / emit 不丢。
+impl LogMsg {
+    /// 入队时核算的字节数（writer 出队时归还字节预算用）。Connect 是纯元数据定长消息。
+    pub(crate) fn queued_bytes(&self) -> usize {
+        match self {
+            LogMsg::Upsert { bytes, .. } => *bytes,
+            LogMsg::Connect { .. } => CONNECT_MSG_BYTES,
+            #[cfg(test)]
+            LogMsg::Barrier(_) => 0,
+        }
+    }
+}
+
+/// CONNECT 隧道一次性终态消息的固定核算字节数（纯元数据，无 body 列内容）。
+const CONNECT_MSG_BYTES: usize = 1024;
+
+/// 终态判定（与 `process_upsert` 内 is_terminal 同判定）：O6 后所有投递一律非阻塞
+/// `try_send`（超字节预算先降级为只含元数据），中间态与终态的差别只剩队满时的日志级别。
 /// 票 06：终态 = status!=0 且 done 置位（流式 flush / 非流式终态 / 断连兜底），
 /// 取代旧 `response_body != "[stream]"` 哨兵（中间态占位写已废）。
 fn is_terminal_log(log: &ProxyLog) -> bool {
@@ -49,44 +71,183 @@ fn is_terminal_log(log: &ProxyLog) -> bool {
 /// 热路径入口：把日志投递进 `ProxyState.log_tx` 有界 mpsc 队列，构造 + 入队后立即返回，
 /// 不 `.await` 任何 DB 操作（DB 写全部移入 `spawn_log_writer` 单 writer 串行处理）。
 ///
-/// 背压（硬约束，s1 设计）：中间态（status==0 / done 未置位）队满即用
-/// `try_send` 静默丢弃——不影响最终数据，终态 upsert 会覆盖写全部列；终态（真实 HTTP 结果）
-/// 队满则退化为阻塞 `send().await` 等待 writer 腾位，保证不丢失最终结果 / 统计 / cost / emit。
+/// 背压（O6，spec §3 修法 2/3）：所有消息一律非阻塞 `try_send`，字节预算
+/// （`LOG_QUEUE_BYTE_BUDGET`）超限先降级为只含元数据 + `body_omitted` 标记——
+/// **代理永远不因写日志变慢**，代价是过载时部分日志只剩元数据（有标记可查，票 06 拍板接受）。
 ///
-/// clone 时机（s4 proxy-hotpath-buffers）：`is_terminal_log` 判定先行，`Box::new(log.clone())`
-/// 挪进各分支内部构造——中间态在队满（`capacity()==0`）时提前 return，不再付出 `ProxyLog`
-/// 全量深拷贝（8 个大 String 字段 + `Vec<ProxyAttempt>`）只为立刻被丢弃的浪费。非满队路径与
-/// 终态路径行为不变（仍构造 + 发送，语义零变化，见验收: 中间态深拷贝仅在"确定要丢"时跳过）。
+/// 携带（O6）：不再整行深拷贝 `ProxyLog` 进队列（200 并发 4776 份 ×0.66 MB 副本同时存活的
+/// 内存峰值根因，spec §3 根因 1）——`scoped_queue_log` 按首写位掩码只携带本节点要写库的大字段。
 pub(crate) async fn upsert_log(
     state: &Arc<ProxyState>,
     log: &ProxyLog,
     settings: &ProxyLogSettings,
 ) {
-    if is_terminal_log(log) {
-        let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
-        if state.log_tx.send(msg).await.is_err() {
-            tracing::warn!(id = %log.id, "log writer channel closed, terminal log dropped");
-        }
-        return;
+    queue_upsert_log(state, log, settings);
+}
+
+/// 同步非阻塞投递核心（O6，spec §3 修法 2）：`try_send` + 字节预算降级，无任何 `.await`，
+/// **代理永远不因写日志变慢**。除 `upsert_log` 外，`StreamLogGuard::flush_with` 在 Drop 路径
+/// （可能无 tokio runtime 上下文）也直调本函数——旧的「终态阻塞 send + 后台 spawn 等待」
+/// 是 200 并发下 4776 份日志副本积压（2.9 GB）的根因（spec §3 根因 3），已整体移除。
+///
+/// 背压链（按序）：
+/// 1. 字节预算超限 → 降级：清空本消息携带的大字段（只留元数据）+ 置 `body_omitted`，
+///    该行日志详情页显示「正文已省略」（DB 列，migration 20261001-02；正文列保持空串，
+///    不写占位文字——CLAUDE.md「Proxy 日志」段）。
+/// 2. 降级后仍 try_send 失败（条数兜底上限满 / channel 关闭）→ 丢弃：中间态 debug、
+///    终态 warn（终态丢弃会漏 stats_agg 聚合与 emit，只在字节预算 + 8192 条兜底全部
+///    打满的极端持续过载下发生；降级后的元数据消息 ~2 KB，正常消费速率下到不了这里）。
+pub(crate) fn queue_upsert_log(
+    state: &Arc<ProxyState>,
+    log: &ProxyLog,
+    settings: &ProxyLogSettings,
+) {
+    let terminal = is_terminal_log(log);
+    let mut msg_log = scoped_queue_log(state, log, settings, terminal);
+    let mut bytes = queue_bytes(&msg_log);
+    if state.log_queue_bytes.load(std::sync::atomic::Ordering::Relaxed) + bytes as u64
+        > LOG_QUEUE_BYTE_BUDGET
+    {
+        strip_queue_bodies(&mut msg_log);
+        msg_log.body_omitted = true;
+        bytes = queue_bytes(&msg_log);
+        tracing::warn!(
+            id = %log.id,
+            queued = state.log_queue_bytes.load(std::sync::atomic::Ordering::Relaxed),
+            "log queue over byte budget, degraded to metadata-only (bodies omitted)"
+        );
     }
-    // 队满：中间态本就要被 try_send 丢弃（既有背压语义不变），提前 return 省去
-    // 深拷贝——channel 关闭的极罕见 shutdown 窗口不特判，仍走下方 try_send 由既有
-    // match 給出准确日志文案（Closed vs Full），代价可忽略。
-    if state.log_tx.capacity() == 0 {
-        tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure, pre-clone skip)");
-        return;
-    }
-    let msg = LogMsg::Upsert(Box::new(log.clone()), settings.clone());
+    state
+        .log_queue_bytes
+        .fetch_add(bytes as u64, std::sync::atomic::Ordering::Relaxed);
+    let msg = LogMsg::Upsert {
+        log: Box::new(msg_log),
+        settings: settings.clone(),
+        bytes,
+    };
     if let Err(e) = state.log_tx.try_send(msg) {
+        // 发送失败：这条消息没进队列，归还预占的预算。
+        state
+            .log_queue_bytes
+            .fetch_sub(bytes as u64, std::sync::atomic::Ordering::Relaxed);
         match e {
             tokio::sync::mpsc::error::TrySendError::Full(_) => {
-                tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
+                if terminal {
+                    tracing::warn!(id = %log.id, "log queue full, terminal log dropped (metadata included stats lost)");
+                } else {
+                    tracing::debug!(id = %log.id, "log queue full, non-terminal log dropped (backpressure)");
+                }
             }
             tokio::sync::mpsc::error::TrySendError::Closed(_) => {
-                tracing::debug!(id = %log.id, "log writer channel closed, non-terminal log dropped");
+                tracing::debug!(id = %log.id, "log writer channel closed, log dropped");
             }
         }
     }
+}
+
+/// O6 按需携带（spec §3 修法 1 + 内存根因 1）：构造进队列的 ProxyLog 副本——**不做整行
+/// 深拷贝**，只克隆「本节点可能要写库」的大字段，其余大字段置空串（不分配）。镜像 writer
+/// 侧 `ProxyLogColumns::large_fields_first_write` 的首写规则：
+/// - in-flight 快照不存在（首节点 INSERT / 终态后重复调用）→ 视作全未写，非空大字段都带；
+/// - 快照存在 → 只带位掩码未置位（首写尚未发生）且当前非空的字段；
+/// - 终态 → 响应侧 4 列强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写）。
+///
+/// 两侧开关（log_user_request / log_upstream_request）关时对应侧不带——writer 侧 from_log
+/// 反正会清空，带了白拷。元数据字段（token/cost/url/...）恒携带。
+///
+/// 竞态只会多带不会漏带：并发消息同见未置位位掩码 → 都带 → writer 首写规则去重。
+fn scoped_queue_log(
+    state: &Arc<ProxyState>,
+    log: &ProxyLog,
+    settings: &ProxyLogSettings,
+    terminal: bool,
+) -> ProxyLog {
+    // 位序与 large_fields_first_write 一致（request=用户侧 0/1/6/7，upstream=上游侧 2/3/4/5）。
+    const B_REQ_HEADERS: u8 = 1 << 0;
+    const B_REQ_BODY: u8 = 1 << 1;
+    const B_UP_REQ_HEADERS: u8 = 1 << 2;
+    const B_UP_REQ_BODY: u8 = 1 << 3;
+    const B_RESP_BODY: u8 = 1 << 4;
+    const B_UP_RESP_HEADERS: u8 = 1 << 5;
+    const B_USER_RESP_HEADERS: u8 = 1 << 6;
+    const B_USER_RESP_BODY: u8 = 1 << 7;
+    let prev_mask = state
+        .log_snapshots
+        .get(&log.id)
+        .map(|r| r.raw_written_mask)
+        .unwrap_or(0);
+    let want = |nonempty: bool, bit: u8| nonempty && prev_mask & bit == 0;
+    let carry_user = settings.enabled && settings.log_user_request;
+    let carry_up = settings.enabled && settings.log_upstream_request;
+    let take = |carry: bool, s: &str| if carry { s.to_owned() } else { String::new() };
+    ProxyLog {
+        id: log.id.clone(),
+        group_key: log.group_key.clone(),
+        model: log.model.clone(),
+        actual_model: log.actual_model.clone(),
+        source_protocol: log.source_protocol.clone(),
+        target_protocol: log.target_protocol.clone(),
+        platform_id: log.platform_id,
+        request_headers: take(carry_user && want(!log.request_headers.is_empty(), B_REQ_HEADERS), &log.request_headers),
+        request_body: take(carry_user && want(!log.request_body.is_empty(), B_REQ_BODY), &log.request_body),
+        upstream_request_headers: take(carry_up && want(!log.upstream_request_headers.is_empty(), B_UP_REQ_HEADERS), &log.upstream_request_headers),
+        upstream_request_body: take(carry_up && want(!log.upstream_request_body.is_empty(), B_UP_REQ_BODY), &log.upstream_request_body),
+        response_body: take(carry_up && (terminal || want(!log.response_body.is_empty(), B_RESP_BODY)), &log.response_body),
+        request_url: log.request_url.clone(),
+        upstream_request_url: log.upstream_request_url.clone(),
+        upstream_response_headers: take(carry_up && (terminal || want(!log.upstream_response_headers.is_empty(), B_UP_RESP_HEADERS)), &log.upstream_response_headers),
+        upstream_status_code: log.upstream_status_code,
+        user_response_headers: take(carry_user && (terminal || want(!log.user_response_headers.is_empty(), B_USER_RESP_HEADERS)), &log.user_response_headers),
+        user_response_body: take(carry_user && (terminal || want(!log.user_response_body.is_empty(), B_USER_RESP_BODY)), &log.user_response_body),
+        status_code: log.status_code,
+        duration_ms: log.duration_ms,
+        input_tokens: log.input_tokens,
+        output_tokens: log.output_tokens,
+        cache_tokens: log.cache_tokens,
+        cache_write_tokens: log.cache_write_tokens,
+        est_cost: log.est_cost,
+        is_stream: log.is_stream,
+        attempts: log.attempts.clone(),
+        retry_count: log.retry_count,
+        blocked_by: log.blocked_by.clone(),
+        blocked_reason: log.blocked_reason.clone(),
+        created_at: log.created_at,
+        updated_at: log.updated_at,
+        deleted_at: log.deleted_at,
+        done: log.done,
+        field_trace: log.field_trace.clone(),
+        // 降级标记由 queue_upsert_log 在预算超限时置位。
+        body_omitted: false,
+    }
+}
+
+/// 降级：清空队列消息携带的全部大字段（元数据保留）。`String::new()` 赋值释放原分配。
+fn strip_queue_bodies(log: &mut ProxyLog) {
+    log.request_headers = String::new();
+    log.request_body = String::new();
+    log.upstream_request_headers = String::new();
+    log.upstream_request_body = String::new();
+    log.response_body = String::new();
+    log.upstream_response_headers = String::new();
+    log.user_response_headers = String::new();
+    log.user_response_body = String::new();
+}
+
+/// 队列消息核算字节数（O6 字节预算记账）。ponytail: 固定开销与 attempts 是粗估
+/// （预算本就是近似上界，初始 256 MB 按 V3 调），大字段取精确 len。
+fn queue_bytes(log: &ProxyLog) -> usize {
+    const FIXED: usize = 2048; // 结构体 + 小字段 + channel 槽位摊销
+    FIXED
+        + log.request_headers.len()
+        + log.request_body.len()
+        + log.upstream_request_headers.len()
+        + log.upstream_request_body.len()
+        + log.response_body.len()
+        + log.upstream_response_headers.len()
+        + log.user_response_headers.len()
+        + log.user_response_body.len()
+        + log.field_trace.len()
+        + log.attempts.len() * 128
 }
 
 /// 单 writer 后台任务：串行消费 `rx`，逐条落库。保序（单 consumer FIFO）替代原「caller 串行
@@ -105,8 +266,14 @@ pub(crate) fn spawn_log_writer(
 ) -> tokio::task::JoinHandle<()> {
     crate::logging::spawn_traced("log_writer", async move {
         while let Some(msg) = rx.recv().await {
+            // 出队即归还字节预算（处理前扣——DB 写慢时不占用预算额度）。
+            state
+                .log_queue_bytes
+                .fetch_sub(msg.queued_bytes() as u64, std::sync::atomic::Ordering::Relaxed);
             match msg {
-                LogMsg::Upsert(log, settings) => process_upsert(&state, &log, &settings).await,
+                LogMsg::Upsert { log, settings, .. } => {
+                    process_upsert(&state, &log, &settings).await
+                }
                 LogMsg::Connect {
                     id,
                     group_key,
@@ -151,6 +318,14 @@ pub(crate) async fn flush_log_queue(state: &Arc<ProxyState>) {
     if state.log_tx.send(LogMsg::Barrier(ack_tx)).await.is_ok() {
         let _ = ack_rx.await;
     }
+}
+
+/// 快照里 body_omitted 是否已置位（无快照 = 首节点，恒 false）。
+fn prev_sticky_body_omitted(state: &Arc<ProxyState>, id: &str) -> bool {
+    state
+        .log_snapshots
+        .get(id)
+        .is_some_and(|r| r.body_omitted != 0)
 }
 
 /// upsert 落库主逻辑（原 upsert_log 函数体，现只在 `spawn_log_writer` 内单 writer 串行调用）。
@@ -277,6 +452,12 @@ pub(crate) async fn process_upsert(
     // 覆盖流式请求在 flush 前就出错(如 502)的分支，避免快照泄漏。
     let is_terminal = cols.status_code != 0 && cols.done != 0;
 
+    // 「正文已省略」单调 sticky：快照里已置位（更早节点降级过）则本节点也置位——
+    // changed_since 据此把 1 写回 DB，不随后续未降级节点回落（宁可多报，见列 doc）。
+    if prev_sticky_body_omitted(state, &id) {
+        cols.body_omitted = 1;
+    }
+
     // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
     // DashMap 分片 get 返回 Ref（持读锁），.map(|r| r.clone()) 释锁后返回克隆，避免持锁跨 await。
     let prev = state.log_snapshots.get(&id).map(|r| r.clone());
@@ -288,23 +469,25 @@ pub(crate) async fn process_upsert(
                 .is_ok();
             if ok {
                 // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
-                state
-                    .log_snapshots
-                    .insert(id.clone(), cols.into_snapshot_meta());
+                // 首写位掩码（O1）：INSERT 绑定全部列，非空大字段视作已写，空字段留待首写。
+                let mask = cols.nonempty_raw_mask();
+                let mut snap = cols.into_snapshot_meta();
+                snap.raw_written_mask = mask;
+                state.log_snapshots.insert(id.clone(), snap);
             }
             ok
         }
         Some(prev) => {
-            // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
-            let ok = aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev)
-                .await
-                .is_ok();
-            if ok {
-                state
-                    .log_snapshots
-                    .insert(id.clone(), cols.into_snapshot_meta());
+            // 后续节点：仅 UPDATE 变化列 + 未写过的大字段（O1 正文只写首尾）；成功后刷新快照。
+            match aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev).await {
+                Ok(mask) => {
+                    let mut snap = cols.into_snapshot_meta();
+                    snap.raw_written_mask = mask;
+                    state.log_snapshots.insert(id.clone(), snap);
+                    true
+                }
+                Err(_) => false,
             }
-            ok
         }
     };
 
@@ -558,8 +741,23 @@ pub(crate) async fn upsert_connect_log(
         req_bytes: ctx.req_bytes,
         resp_bytes: ctx.resp_bytes,
     };
-    if state.log_tx.send(msg).await.is_err() {
-        tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped");
+    // O6 非阻塞投递：Connect 消息本就只含元数据（无 body 列内容，无可降级项），队满即丢 + warn
+    //（同 upsert_log 背压链第 2 档；正常消费速率下到不了这里）。
+    state
+        .log_queue_bytes
+        .fetch_add(msg.queued_bytes() as u64, std::sync::atomic::Ordering::Relaxed);
+    if let Err(e) = state.log_tx.try_send(msg) {
+        state
+            .log_queue_bytes
+            .fetch_sub(CONNECT_MSG_BYTES as u64, std::sync::atomic::Ordering::Relaxed);
+        match e {
+            tokio::sync::mpsc::error::TrySendError::Full(_) => {
+                tracing::warn!(id = %ctx.request_id, "log queue full, connect log dropped");
+            }
+            tokio::sync::mpsc::error::TrySendError::Closed(_) => {
+                tracing::warn!(id = %ctx.request_id, "log writer channel closed, connect log dropped");
+            }
+        }
     }
 }
 
@@ -637,6 +835,10 @@ async fn process_connect_log(
         done: 1,
         // CONNECT 隧道日志不经出站 body 构造 seam，无字段留痕（票 10）。
         field_trace: String::new(),
+        // 一次性终态 INSERT，无后续节点，位掩码无消费方（O1）。
+        raw_written_mask: 0,
+        // CONNECT 隧道不携带 body 列内容，无降级一说（O6）。
+        body_omitted: 0,
     };
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");

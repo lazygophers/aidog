@@ -633,6 +633,8 @@
   "logs.attempts": "Intentos",
   "logs.body": "Cuerpo",
   "logs.cacheTokens": "Tokens en caché",
+  "logs.bodyOmitted": "Cuerpo omitido",
+  "logs.bodyOmittedHint": "sobrecarga de escritura, solo metadatos",
   "logs.cancel": "Cancelar",
   "logs.cleaning": "Limpiando...",
   "logs.cleanupConfirm": "Se eliminarán {{rows}} filas de registros caducados, liberando unos {{bytes}} (la base de datos ocupa ahora {{size}}). Esta acción no se puede deshacer.",
