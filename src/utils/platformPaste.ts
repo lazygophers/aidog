@@ -3,7 +3,7 @@
 // 设计覆盖样例：小米 MIMO（双 base_url）、防爬汉字 key、kimicode（多 key + url:）、base64 编码 key。
 
 /** base_url 的协议倾向（仅用于展示分组 / 排序，非平台类型）。 */
-export type ParsedProtocol = "anthropic" | "openai" | "gemini" | "unknown";
+export type ParsedProtocol = "anthropic" | "openai" | "gemini" | "typesafe" | "unknown";
 
 export interface ParsedBaseUrl {
   url: string;
@@ -310,6 +310,9 @@ function extractApiKeys(text: string, prefixes: string[]): string[] {
 
 export function guessProtocol(url: string): ParsedProtocol {
   const u = url.toLowerCase();
+  // /systemone 判在 /v1 之前：决策端点 URL 常含版本段（如 /v1/systemone），会被
+  // openai 的 /v1 规则抢走。typesafe base_url 不含 /systemone（路径由网关拼）。
+  if (/\/systemone\b/.test(u)) return "typesafe";
   if (/anthrop/.test(u)) return "anthropic"; // 容错截断 "anthropi"
   if (/gemini|generativelanguage/.test(u)) return "gemini";
   if (/openai|\/v1(\/|\b)/.test(u)) return "openai";

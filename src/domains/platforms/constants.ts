@@ -14,6 +14,7 @@ export const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "openai_completions", label: "OpenAI Completions" },
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Gemini" },
+  { value: "typesafe", label: "TypeSafe" },
 ];
 
 /** 客户端模拟选项已迁移到 JSON 派生层（见 defaults.ts::buildClientTypesFromPresets）。
@@ -23,7 +24,7 @@ export const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
  *  旧模块级 CLIENT_TYPES 常量已删除（见 prd `07-10-client-types-json-sync`）。 */
 
 /** 请求格式协议 label（仅 5 条 endpoint 协议；平台类型 label 由 JSON name 经
- *  getProtocolLabelMap 派生）。PROTOCOL_LABELS 5 条与 ENDPOINT_PROTOCOLS 5 条同集，
+ *  getProtocolLabelMap 派生）。PROTOCOL_LABELS 6 条与 ENDPOINT_PROTOCOLS 6 条同集，
  *  Record vs array 不同 shape，服务不同 consumer。
  *  - 请求格式展示处（如 endpoint badge）用本常量；
  *  - 平台类型展示处用 labelMap（JSON name 派生，覆盖 60+ platform）。 */
@@ -34,6 +35,7 @@ export const PROTOCOL_LABELS: Partial<Record<Protocol, string>> = {
   openai_completions: "OpenAI Completions",
   anthropic: "Anthropic",
   gemini: "Gemini",
+  typesafe: "TypeSafe",
 };
 
 /** 厂商直连平台（官方端点固定）端点锁死集合：禁改协议端点，编辑表单只读展示，

@@ -103,6 +103,12 @@ describe("guessProtocol", () => {
   });
   it("detects gemini", () => {
     expect(guessProtocol("https://generativelanguage.googleapis.com")).toBe("gemini");
+  });
+
+  it("/systemone 判 typesafe（先于 /v1 openai 规则）", () => {
+    expect(guessProtocol("https://pool.futureppo.top/v1/systemone")).toBe("typesafe");
+    expect(guessProtocol("https://api.typesafe.ai/v1/systemone")).toBe("typesafe");
+    expect(guessProtocol("https://api.typesafe.ai/v1/systemone/")).toBe("typesafe");
     expect(guessProtocol("https://x/gemini")).toBe("gemini");
   });
   it("detects openai (incl. /v1 path)", () => {
