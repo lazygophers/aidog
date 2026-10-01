@@ -625,6 +625,14 @@ pub fn run_migrations_proxy_log_late(
          ON proxy_log(blocked_reason, created_at)",
         [],
     );
+    // Migration 20261001-02 (perf-backend O6): proxy_log 加 body_omitted 布尔列——日志写入
+    // 队列字节预算超限、消息降级为「只含元数据」时置位（写侧 aidog_core log.rs），日志详情
+    // 页据此显示「正文已省略」标记。正文列保持空串、不写占位文字（CLAUDE.md「Proxy 日志」段：
+    // body 列不承载控制语义）。存量行 DEFAULT 0 补齐 = 历史无降级，语义正确，无需回填。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN body_omitted INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     Ok(())
 }
 

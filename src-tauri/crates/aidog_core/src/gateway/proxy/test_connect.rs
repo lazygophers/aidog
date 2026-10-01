@@ -26,6 +26,7 @@ async fn make_state() -> Arc<ProxyState> {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
     state
@@ -87,6 +88,7 @@ async fn upsert_connect_log_writes_http_connect_row() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
 
@@ -476,6 +478,7 @@ async fn mitm_forward_plaintext_request_hits_ai_path() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
     let plat = aidog_db::create_platform(
@@ -596,6 +599,7 @@ async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
 
@@ -788,6 +792,7 @@ async fn connect_failure_does_not_touch_breaker() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
 
     // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
@@ -854,6 +859,7 @@ async fn connect_failure_sets_platform_last_error() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
 
     let target = closed_loopback_target();
@@ -1157,6 +1163,7 @@ async fn bound_group_injects_attribution_into_core() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
     let group = aidog_db::create_group(&state.db, sample_group("cc-oauth-g", vec![]))

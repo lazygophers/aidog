@@ -484,28 +484,15 @@ impl StreamLogGuard {
             input_tokens, output_tokens, cache_tokens, cache_write_tokens, "stream request completed (flush)"
         );
 
-        let upsert_state = self.state.clone();
-        let upsert_settings = self.settings.clone();
-        let span = self.req_span.clone();
-        let task = async move {
-            // upsert_log 现为异步队列 enqueue（终态阻塞 send 保证不丢），实际落库 + 快照移除
-            // 已移入 writer 串行序列内部（process_upsert 终态分支），此处禁再显式
-            // remove_log_snapshot：enqueue 几乎瞬时返回，会抢在真正落库前执行，
-            // 导致下次 upsert 误判 prev=None 走 INSERT，主键冲突（见 log.rs 需求 5）。
-            upsert_log(&upsert_state, &final_log, &upsert_settings).await;
-        }
-        .instrument(span);
-        // 经显式 runtime handle 落库：Drop（含客户端 abort / 连接 teardown）路径下
-        // 裸 `tokio::spawn` 可能不在 runtime 上下文 → panic 被 Drop 吞掉、最终态丢写
-        // （response_body 停在 `[stream]` 占位）。捕获 handle 后 spawn 始终落到 runtime，
-        // 保证 flush 在所有收尾路径（[DONE] / message_stop / Drop 兜底）确定性回写。
-        if let Ok(handle) = tokio::runtime::Handle::try_current() {
-            handle.spawn(task);
-        } else {
-            tracing::warn!(
-                "stream flush: no tokio runtime in scope, final log write skipped (response_body may stay placeholder)"
-            );
-        }
+        // O6（spec §3 修法 2/3）：终态写走与首条同一条**非阻塞**路径（try_send + 字节预算
+        // 降级），不再另起后台任务阻塞等待队列腾位——旧「spawn + send().await」在 200 并发下
+        // 攒出 4776 份不受上限约束的等待任务（票 06 实测 2.9 GB 内存峰值的根因 3）。
+        // queue_upsert_log 是同步函数，Drop 路径（客户端 abort / 连接 teardown，可能不在
+        // runtime 上下文）可直调，所有收尾路径（[DONE] / message_stop / Drop 兜底）确定性投递。
+        // 此处同样禁再显式 remove_log_snapshot：实际落库 + 快照移除在 writer 串行序列内部
+        // （process_upsert 终态分支），enqueue 即时返回，抢跑会导致下次 upsert 误判 prev=None
+        // 走 INSERT 主键冲突（见 log.rs 需求 5）。
+        super::log::queue_upsert_log(&self.state, &final_log, &self.settings);
 
         if let Some(est) = &self.est {
             spawn_estimate(
@@ -529,7 +516,7 @@ impl StreamLogGuard {
 impl Drop for StreamLogGuard {
     fn drop(&mut self) {
         // 客户端断连 / 上游无 [DONE] → flush 未触发，此处兜底回写已聚合数据。
-        // Drop 内不可 async；flush 内部用 tokio::spawn 落库（Drop 发生在 runtime 任务上下文中）。
+        // Drop 内不可 async；flush 内部落库走同步非阻塞投递（queue_upsert_log），无 runtime 要求。
         self.flush();
     }
 }
