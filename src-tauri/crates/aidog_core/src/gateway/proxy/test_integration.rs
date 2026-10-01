@@ -2678,12 +2678,16 @@ async fn decision_request_end_to_end() {
     assert_eq!(v.get("usage").unwrap().get("cost"), None);
     assert_eq!(v.get("model").unwrap(), "jev-1.13");
 
-    let hits = hits.lock().unwrap();
-    let (path, req_body) = &hits[0];
+    // 先拷出来再 drop guard：guard 跨 await（last_log_for）触发 clippy await_holding_lock。
+    let (path, req_body) = {
+        let hits = hits.lock().unwrap();
+        let (p, b) = hits[0].clone();
+        (p, b)
+    };
     assert_eq!(path, "/v1/systemone", "URL = base_url + /systemone (R10)");
     // preserve_order：上游请求体保持客户端字段顺序（model 原位改写，非字母序）
     assert_eq!(req_body, r#"{"model":"jev-latest","usage":{},"answers":[]}"#);
-    let sent: serde_json::Value = serde_json::from_str(req_body).unwrap();
+    let sent: serde_json::Value = serde_json::from_str(&req_body).unwrap();
     assert_eq!(sent.get("model").unwrap(), "jev-latest", "model rewritten to slot (R8)");
 
     let log = last_log_for(&state, "gkdec").await;
