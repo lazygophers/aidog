@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "claude-opus-4-8",
+  "display_name": "Claude Opus 4.8",
+  "canonical_model": "claude-opus-4-8",
+  "family": "claude",
+  "version": "4.8",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "price": {
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07,
+    "cache_write": 6.25e-06
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "claude-sonnet-4-6",
+  "display_name": "Claude Sonnet 4.6",
+  "canonical_model": "claude-sonnet-4-6",
+  "family": "claude",
+  "version": "4.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05,
+    "cache_read": 3e-07,
+    "cache_write": 3.75e-06
+  }
+}

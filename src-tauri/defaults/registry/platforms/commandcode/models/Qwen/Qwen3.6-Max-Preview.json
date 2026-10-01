@@ -1,0 +1,24 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "Qwen/Qwen3.6-Max-Preview",
+  "display_name": "Qwen 3.6 Max Preview",
+  "canonical_model": "qwen3.6-max-preview",
+  "family": "qwen",
+  "version": "3.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 1.3e-06,
+    "output": 7.8e-06,
+    "cache_read": 2.6e-07,
+    "cache_write": 1.6299999999999999e-06
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "thinkingmachines/inkling-small",
+  "display_name": "Inkling Small",
+  "canonical_model": "inkling-small",
+  "family": "inkling",
+  "version": "",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 5e-07,
+    "output": 1.2e-06,
+    "cache_read": 1.0000000000000001e-07
+  }
+}

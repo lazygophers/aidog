@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "deepseek/deepseek-v4-flash-fast",
+  "display_name": "DeepSeek V4 Flash Fast",
+  "canonical_model": "deepseek-v4-flash-fast",
+  "family": "deepseek",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "supported_protocols": [
+    "openai"
+  ],
+  "price": {
+    "input": 2.8e-07,
+    "output": 5.6e-07,
+    "cache_read": 7e-08
+  }
+}

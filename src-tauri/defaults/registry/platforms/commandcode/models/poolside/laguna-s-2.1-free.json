@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "poolside/laguna-s-2.1-free",
+  "display_name": "Laguna S 2.1",
+  "canonical_model": "laguna-s-2.1-free",
+  "family": "laguna",
+  "version": "2.1",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 256000,
+  "context_window": 256000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
+  }
+}
