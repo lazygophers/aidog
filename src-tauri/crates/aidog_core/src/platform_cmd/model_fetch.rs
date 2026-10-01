@@ -106,6 +106,12 @@ fn redact_models_url(url: &str) -> String {
     parsed.to_string()
 }
 
+/// 多行 api_key（创建态批量输入 `k1\nk2`）→ 取首行并 trim。
+/// 整串塞 header 会被 reqwest 以 illegal header value 拒掉（「builder error」）。
+fn first_api_key(api_key: &str) -> &str {
+    api_key.lines().next().unwrap_or("").trim()
+}
+
 crate::tauri_command! {
 pub async fn platform_fetch_models(
     protocol: Protocol,
@@ -175,6 +181,11 @@ pub async fn platform_fetch_models(
     }
 
     // URL + 鉴权与 proxy.rs models 端点 relay 单一事实源（build_models_url / apply_models_auth）。
+    // 创建态批量 key 时 api_key 是多行文本（`k1\nk2`）——整串塞 header 会被 reqwest
+    // 以 illegal header value 拒掉（症状「fetch models: builder error」）。取首行 +
+    // trim：拉模型列表用第一个 key 探测即可（单 key 行为不变）。
+    let api_key = first_api_key(&api_key).to_string();
+
     // OpenCode Zen：api_key 留空时注入 $opencode（与 proxy 路径一致；/v1/models 无 auth 亦可）。
     let is_zen = matches!(protocol, Protocol::OpenCodeZen)
         || base_url.to_lowercase().contains("opencode.ai/zen");
@@ -294,6 +305,28 @@ mod tests {
         let url = redact_models_url("https://example.invalid/models?api_key=credential&region=eu");
         assert!(url.contains("region=eu"));
         assert!(!url.contains("credential"));
+    }
+
+    #[test]
+    fn first_api_key_takes_first_line_and_trims() {
+        assert_eq!(first_api_key("k1\nk2"), "k1");
+        assert_eq!(first_api_key("  k1  \n k2"), "k1");
+        assert_eq!(first_api_key("solo"), "solo");
+        assert_eq!(first_api_key("  "), "");
+        assert_eq!(first_api_key(""), "");
+    }
+
+    #[test]
+    fn single_line_key_produces_legal_header_multiline_does_not() {
+        // 症状复现：多行值是非法 header value（reqwest builder error 的来源）。
+        let req = reqwest::Client::new()
+            .get("https://example.invalid/v1/models")
+            .header("Authorization", format!("Bearer {}", first_api_key("k1\nk2")));
+        assert!(req.build().is_ok(), "first line must build a legal header");
+        let bad = reqwest::Client::new()
+            .get("https://example.invalid/v1/models")
+            .header("Authorization", "Bearer k1\nk2");
+        assert!(bad.build().is_err(), "raw multiline key is the reported bug");
     }
 
     #[test]
