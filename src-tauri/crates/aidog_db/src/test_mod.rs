@@ -389,3 +389,51 @@ async fn migration_20261001_01_proxy_log_read_indexes_exist() {
         assert!(idx.contains(&name.to_string()), "missing index {name}");
     }
 }
+
+
+// ── perf-backend O6（migration 20261001-02）：proxy_log.body_omitted 布尔列。
+// migration 语句 `let _ =` 吞错（幂等范式），SQL 拼写错会被静默跳过，需显式断言存在。
+// 覆盖两条路径：fresh install（test_db 全量迁移后）与存量旧库直跑 late 迁移（升级路径）+ 幂等重跑 ──
+#[tokio::test]
+async fn migration_20261001_02_proxy_log_body_omitted_column() {
+    // fresh：init_tables 已跑全部迁移（含本条 ALTER）。
+    let db = test_db().await;
+    let fresh: i64 = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*) FROM pragma_table_info('proxy_log') \
+                 WHERE name='body_omitted' AND [notnull]=1",
+                [],
+                |r| r.get(0),
+            )?)
+        })
+        .await
+        .unwrap();
+    assert_eq!(fresh, 1, "fresh install: body_omitted 列必须存在且 NOT NULL");
+
+    // 旧库升级：20261001-02 之前的 schema（无 body_omitted）直跑 late 迁移，列补齐。
+    let conn = rusqlite::Connection::open_in_memory().unwrap();
+    conn.execute_batch(
+        "CREATE TABLE proxy_log (\
+            id TEXT PRIMARY KEY,\
+            platform_id INTEGER NOT NULL DEFAULT 0,\
+            status_code INTEGER NOT NULL DEFAULT 0,\
+            response_body TEXT NOT NULL DEFAULT '',\
+            blocked_reason TEXT NOT NULL DEFAULT '',\
+            deleted_at INTEGER NOT NULL DEFAULT 0\
+        );",
+    )
+    .unwrap();
+    let empty_map = std::collections::HashMap::new();
+    crate::schema_late::run_migrations_proxy_log_late(&conn, &empty_map, &[], &[]).unwrap();
+    // 幂等：重跑不报错（ALTER duplicate column 被 `let _ =` 吞）。
+    crate::schema_late::run_migrations_proxy_log_late(&conn, &empty_map, &[], &[]).unwrap();
+    let upgraded: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('proxy_log') WHERE name='body_omitted'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(upgraded, 1, "旧库升级路径：body_omitted 列必须补齐");
+}

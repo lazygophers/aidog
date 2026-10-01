@@ -147,6 +147,7 @@ pub(crate) async fn handle_proxy_core(
         done: false,
         deleted_at: 0,
         field_trace: String::new(),
+        body_omitted: false,
     };
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──

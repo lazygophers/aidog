@@ -973,3 +973,27 @@ async fn field_trace_updated_by_progressive_diff() {
     let row = get_proxy_log(&db, "ft-prog").await.unwrap().unwrap();
     assert_eq!(row.field_trace, "rewrite:middleware");
 }
+
+/// O6（perf-backend）：body_omitted 列端到端——INSERT 写入、get 读回、UPDATE diff 写回。
+#[tokio::test]
+async fn body_omitted_column_roundtrip() {
+    let db = test_db().await;
+    let mut l = sample_log("omit", "grp", now());
+    l.body_omitted = true;
+    let c1 = ProxyLogColumns::from_log(&l, false, false);
+    assert_eq!(c1.body_omitted, 1, "from_log 映射 body_omitted");
+    insert_proxy_log_columns(&db, c1.clone()).await.unwrap();
+    let row = get_proxy_log(&db, "omit").await.unwrap().unwrap();
+    assert!(row.body_omitted, "INSERT 落库 body_omitted=1 且读回为 true");
+
+    // 后续节点 diff 写回：未置位（sticky 是 aidog_core process_upsert 的职责，此处验列管道）。
+    let mut l2 = l.clone();
+    l2.body_omitted = false;
+    l2.status_code = 500;
+    let c2 = ProxyLogColumns::from_log(&l2, false, false);
+    let prev = c1.into_snapshot_meta();
+    let mask = update_proxy_log_columns(&db, c2, &prev).await.unwrap();
+    let row2 = get_proxy_log(&db, "omit").await.unwrap().unwrap();
+    assert!(!row2.body_omitted, "UPDATE diff 把 body_omitted 变化写回 DB");
+    let _ = mask;
+}

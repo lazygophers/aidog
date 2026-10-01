@@ -413,6 +413,7 @@ fn make_quota_log(
         deleted_at: 0,
         done: true,
         field_trace: String::new(),
+        body_omitted: false,
     }
 }
 
