@@ -777,7 +777,6 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
       FormHint(t.t('platform.passthroughNote')),
       const SizedBox(height: AidogSpace.smd),
       // 订阅透传 MITM 统计（cc-sub-mitm 票 12，`PlatformEditForm.tsx:196-205`）。
-      FormHint(t.t('platform.mitmSection')),
       CcMitmAccessSection(
         enabled: c.mitmStats,
         onToggle: c.setMitmStats,
