@@ -18,7 +18,7 @@
 //                                 （模型/分组维度，home-model-stats spec §1）
 //   （另有事件 proxy-log-updated   Home.tsx:167，非命令，单独断言）
 //
-// ── Stats.tsx 调的命令（6 条，与 Home 共用 2 条）─────────────
+// ── Stats.tsx 调的命令（7 条，与 Home 共用 2 条）─────────────
 //   statsApi.query()               → stats_query            Stats.tsx:318/319/333/352
 //   statsApi.scatterHistogram()    → scatter_histogram      Stats.tsx:365
 //   statsApi.quotaSnapshots()      → quota_snapshots        Stats.tsx:387
@@ -26,8 +26,10 @@
 //   platformApi.list()             → platform_list          Stats.tsx:400
 //   getProtocolSearchTermsMap()    → get_defaults_json      Stats.tsx:266
 //                                     （defaults.ts::fetchDoc → platforms.ts:616）
+//   mitmStatsApi.opaqueCount()     → mitm_opaque_count      Stats.tsx:330
+//                                     （cc-sub-mitm：盲转「未计入」计数，随主查询同窗）
 //
-// 两页共用 2 条（stats_query、platform_list），并集 7 + 6 − 2 = **11 条**。
+// 两页共用 2 条（stats_query、platform_list），并集 6 + 7 − 2 = **11 条**。
 import 'package:aidog_flutter/pages.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -35,14 +37,15 @@ import 'harness.dart';
 import 'stats_widget_test.dart' show statsResponses;
 import 'home_widget_test.dart' show homeResponses;
 
-/// React 版 Home.tsx 调的命令，排序后的规范串。
+/// React 版 Home.tsx 调的命令，排序后的规范串（home-dim-trend 起平台 Top4
+/// 区并入维度面板，popover_platform_today 由页面移除）。
 const kHomeCommands =
-    'platform_list,popover_platform_today,proxy_get_settings,'
+    'platform_list,proxy_get_settings,'
     'proxy_status,stats_query,stats_query_batch,tray_today_stats';
 
 /// React 版 Stats.tsx 调的命令，排序后的规范串。
 const kStatsCommands =
-    'get_defaults_json,group_detail_list,platform_list,'
+    'get_defaults_json,group_detail_list,mitm_opaque_count,platform_list,'
     'quota_snapshots,scatter_histogram,stats_query';
 
 void main() {
@@ -82,11 +85,11 @@ void main() {
     expect(k.commandSetSignature, kStatsCommands);
   });
 
-  test('Home 7 条、Stats 6 条、共用 2 条 → 并集 11 条（清单见本文件抬头，逐条标了 React 侧出处）', () {
+  test('Home 6 条、Stats 7 条、共用 2 条 → 并集 11 条（清单见本文件抬头，逐条标了 React 侧出处）', () {
     final home = kHomeCommands.split(',');
     final stats = kStatsCommands.split(',');
-    expect(home.length, 7);
-    expect(stats.length, 6);
+    expect(home.length, 6);
+    expect(stats.length, 7);
     final shared = home.toSet().intersection(stats.toSet()).toList()..sort();
     expect(shared.join(','), 'platform_list,stats_query');
 
@@ -94,8 +97,8 @@ void main() {
     expect(union.length, 11);
     expect(
       union.join(','),
-      'get_defaults_json,group_detail_list,platform_list,'
-      'popover_platform_today,proxy_get_settings,proxy_status,'
+      'get_defaults_json,group_detail_list,mitm_opaque_count,platform_list,'
+      'proxy_get_settings,proxy_status,'
       'quota_snapshots,scatter_histogram,stats_query,stats_query_batch,'
       'tray_today_stats',
     );

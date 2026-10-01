@@ -1,6 +1,7 @@
 // 导航结构漂移护栏。
 //
 // 票 I02 要「沿用 src/components/Sidebar.tsx 的信息结构」：5 个 section、13 个设置子页
+// （2026-10-01：React cc-sub-mitm 批次在 logStats 段加了 mitm-log，段长 4→5。）
 // 分 5 组、badge。「沿用」不能靠人肉核对 —— 这条测试直接解析 `src/App.tsx` 的 BASE_NAV
 // 做零差集比对。React 侧加一个设置子页而 Dart 侧没跟，测试当场红。
 //
@@ -57,7 +58,7 @@ void main() {
   final dartSettings = kBaseNav.firstWhere((n) => n.id == 'settings');
 
   test('顶级项 id 与 src/App.tsx 零差集（含顺序）', () {
-    expect(tsTop, hasLength(10));
+    expect(tsTop, hasLength(11));
     expect(kBaseNav.map((n) => n.id).toList(), tsTop);
   });
 
@@ -94,7 +95,7 @@ void main() {
       'nav.section.extension',
       'nav.section.system',
     ]);
-    expect(sections.map((s) => s.items.length).toList(), [1, 1, 4, 2, 2]);
+    expect(sections.map((s) => s.items.length).toList(), [1, 1, 5, 2, 2]);
   });
 
   test('每个顶级项的 section / labelKey 也和 React 侧对得上', () {
