@@ -57,6 +57,7 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
   anthropic: "Anthropic",
   openai: "OpenAI",
   gemini: "Gemini",
+  typesafe: "TypeSafe",
   unknown: "URL",
 };
 

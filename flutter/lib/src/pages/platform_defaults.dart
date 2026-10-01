@@ -23,6 +23,7 @@ const List<({String value, String label})> kEndpointProtocols = [
   (value: 'openai_completions', label: 'OpenAI Completions'),
   (value: 'anthropic', label: 'Anthropic'),
   (value: 'gemini', label: 'Gemini'),
+  (value: 'typesafe', label: 'TypeSafe'),
 ];
 
 /// 厂商直连平台端点锁死集合（`constants.ts:43::ENDPOINTS_LOCKED_PROTOCOLS`）。

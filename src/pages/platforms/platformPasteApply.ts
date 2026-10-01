@@ -10,6 +10,7 @@ import {
   type ManualBudget, type MockConfig, type DevinConfig,
 } from "../../services/api";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
+import type { ParsedBaseUrl } from "../../utils/platformPaste";
 import {
   getDefaultEndpoints, defaultClientForProtocol,
 } from "../../domains/platforms";
@@ -137,6 +138,11 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     await handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
   }
   // 同步计算出本批 pasted 应落入的有效 endpoints（供 setEndpoints + 批量分支共用）。
+  // typesafe 决策端点的 base_url 只到版本段（如 https://x.top/v1），/systemone 由网关拼接
+  // （spec jev-decision-proxy R10）。粘贴文本里常带完整 /systemone URL，灌表单前剥掉尾段。
+  const baseUrlForEndpoint = (b: ParsedBaseUrl): string =>
+    b.protocol === "typesafe" ? b.url.replace(/\/systemone\/?$/i, "") : b.url;
+
   // ponytail: 把原 setEndpoints(prev=>...) 回调提取为纯函数 computeEndpoints(prev)，
   // 既写表单态又把同值喂给批量创建，避免批量分支读到 setState 未提交的旧 endpoints。
   const computeEndpoints = async (prev: PlatformEndpoint[]): Promise<PlatformEndpoint[]> => {
@@ -172,14 +178,16 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
           }
         });
         if (targets.length) {
-          for (const i of targets) eps[i] = { ...eps[i], base_url: b.url };
+          const burl = baseUrlForEndpoint(b);
+          for (const i of targets) eps[i] = { ...eps[i], base_url: burl };
         } else {
           // host+path 无匹配（如粘贴裸 host 无版本段，或 preset 与分享 host 不一致）→
           // 退回按协议去重覆盖：同协议 endpoint 存在则覆盖 base_url，否则新增。
           const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
+          const burl = baseUrlForEndpoint(b);
           const idx = eps.findIndex((e) => e.protocol === epProto);
-          if (idx >= 0) eps[idx] = { ...eps[idx], base_url: b.url };
-          else eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto), coding_plan: false });
+          if (idx >= 0) eps[idx] = { ...eps[idx], base_url: burl };
+          else eps.push({ protocol: epProto, base_url: burl, client_type: defaultClientForProtocol(epProto), coding_plan: false });
         }
       }
       return eps;
@@ -188,11 +196,12 @@ export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx
     // 支持 anthropic + openai 双端点平台（如 glm）的零散粘贴。
     for (const b of r.baseUrls) {
       const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
+      const burl = baseUrlForEndpoint(b);
       const idx = eps.findIndex((e) => e.protocol === epProto);
       if (idx >= 0) {
-        eps[idx] = { ...eps[idx], base_url: b.url };
+        eps[idx] = { ...eps[idx], base_url: burl };
       } else {
-        eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto), coding_plan: false });
+        eps.push({ protocol: epProto, base_url: burl, client_type: defaultClientForProtocol(epProto), coding_plan: false });
       }
     }
     return eps;
