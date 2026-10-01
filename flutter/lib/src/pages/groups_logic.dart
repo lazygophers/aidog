@@ -310,6 +310,12 @@ Map<int, double> groupBalanceOf(
 /// `useGroupData.ts:30`：后端 fallback 直通落库用的虚拟 group_key，只读展示一张卡。
 const String kUnmatchedGroupKey = '未匹配';
 
+/// claude_code 订阅平台只允许独占分组（2026-09-27 拍板写死 `Protocol::ClaudeCode`，
+/// 后端 `solo_group_violation` 硬校验，前端 warn-only 不自动拆分）。
+/// [platformTypes] 是组内成员的 platform_type 列表；≤1 个平台恒不违反。
+bool isSoloViolation(List<String> platformTypes) =>
+    platformTypes.length > 1 && platformTypes.contains('claude_code');
+
 /// 「移除平台」弹窗的上下文（`Groups.tsx:174-176`）。
 ///
 /// 为什么总是弹窗、不按数量直接执行：`Groups.tsx:172-173` 的注释说得很直白 ——
@@ -1390,14 +1396,31 @@ class GroupsController {
     String mode, {
     String Function(int count, String mode)? doneText,
     String failText = '批量移组失败',
+    String soloHintFailText = 'Claude Code 订阅平台只允许独占分组，不能与其他平台同组',
   }) async {
     final t = batchMoveGroupTarget;
     if (t == null) return;
     batchMoveGroupBusy = true;
     _notify();
     try {
+      // claude_code 订阅独占分组：先按目标组合并组成前端拦截（后端 batch_move_group
+      // 亦有硬校验兜底，`Groups.tsx:427-441`）。move/add 语义下最终成员同集。
+      final movingIds = [for (final p in t.platforms) p.id];
+      final compositionTypes = <String>[
+        for (final id in movingIds)
+          for (final p in platforms)
+            if (p.id == id) p.platformType,
+        for (final d in details)
+          if (d.group.id == targetGroupId)
+            for (final gp in d.platforms) gp.platform.platformType,
+      ];
+      if (isSoloViolation(compositionTypes)) {
+        // 文案经 doneText/failText 同款注入口传入（Groups.tsx:434 的 t("group.soloHint")）
+        _toast(soloHintFailText, ok: false);
+        return;
+      }
       final v = await _invoke('batch_move_group', {
-        'ids': [for (final p in t.platforms) p.id],
+        'ids': movingIds,
         'targetGroupId': targetGroupId,
         'mode': mode,
       });

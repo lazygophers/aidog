@@ -893,6 +893,24 @@ class _GroupCard extends StatelessWidget {
                                 ),
                               ),
                             ),
+                            // claude_code 订阅独占分组：存量混合组警示（不自动拆分，
+                            // 2026-09-27 拍板 warn-only，GroupListItem.tsx:222-227）。
+                            if (isSoloViolation([
+                              for (final gp in detail.platforms)
+                                gp.platform.platformType,
+                            ])) ...[
+                              const SizedBox(width: 8),
+                              Tooltip(
+                                message: t.t('group.soloHint'),
+                                child: Text(
+                                  '⚠ ${t.t('group.soloBadge')}',
+                                  style: AidogType.caption.copyWith(
+                                    fontSize: 11,
+                                    color: theme.c.bad,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),
@@ -2128,6 +2146,7 @@ class _BatchMoveGroupCardState extends State<_BatchMoveGroupCard> {
                     : t.t('group.batchMoveGroupModeAddShort'),
               }),
               failText: t.t('group.batchMoveGroupFailed'),
+              soloHintFailText: t.t('group.soloHint'),
             ),
       extra: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2633,6 +2652,21 @@ class _PlatformPicker extends StatelessWidget {
     return '#$pid';
   }
 
+  /// claude_code 订阅平台只允许独占分组（与后端 `set_group_platforms` 校验对称，
+  /// 2026-09-27 拍板写死该协议）。下拉里会违反的选项禁掉（`PlatformPicker.tsx:33-38`）。
+  bool _isCc(int id) {
+    for (final p in options) {
+      if (p.id == id) return p.platformType == 'claude_code';
+    }
+    return false;
+  }
+
+  bool get _selectedCc => platformIds.any(_isCc);
+
+  bool _wouldViolate(int id) =>
+      (_selectedCc && !_isCc(id)) ||
+      (!_selectedCc && _isCc(id) && platformIds.isNotEmpty);
+
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
@@ -2821,6 +2855,8 @@ class _PlatformPicker extends StatelessWidget {
                       value: p.id,
                       // 选项文案带协议 label：`名称 (协议)`
                       //（PlatformPicker.tsx:121）。同名不同协议才分得开。
+                      // 订阅独占分组：加了会违反的选项禁用（PlatformPicker.tsx:126）。
+                      enabled: !_wouldViolate(p.id),
                       child: Text('${p.name} (${_protoLabel(p.platformType)})'),
                     ),
                 ],
@@ -2828,6 +2864,15 @@ class _PlatformPicker extends StatelessWidget {
                   if (v != null) onChange([...platformIds, v]);
                 },
               ),
+            ),
+          ),
+        // 已选 claude_code 订阅平台 → 混组警示行（PlatformPicker.tsx:133-137）
+        if (_selectedCc && platformIds.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AidogSpace.sxs),
+            child: Text(
+              t.t('group.soloHint'),
+              style: AidogType.caption.copyWith(color: theme.c.bad),
             ),
           ),
       ],
