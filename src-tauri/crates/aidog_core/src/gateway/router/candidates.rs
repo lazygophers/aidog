@@ -13,8 +13,8 @@ use aidog_db as db;
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
-/// `target_model` / `mapping` 对每个候选独立解析（显式映射命中时全部候选共享映射目标模型；
-/// 否则按各平台 PlatformModels 自动匹配）。
+/// `target_model` / `mapping` 对每个候选独立解析：显式映射命中时先把模型名换成映射目标名，
+/// 再按各平台 PlatformModels 槽位匹配（映射不跳过槽位规则）。
 pub struct CandidateSet {
     pub candidates: Vec<RouteResult>,
 }
@@ -364,17 +364,13 @@ async fn handle_single_platform(
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
     let effective_models =
         resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
-    let target_model = mapped_target_model.clone().unwrap_or_else(|| {
-        match kind {
-            RequestKind::Decision => resolve_decision_model(
-                &effective_models,
-                &only.platform,
-                decision_models,
-                source_model,
-            ),
-            RequestKind::Chat => resolve_model(&effective_models, source_model),
-        }
-    });
+    let target_model = resolve_target_model(
+        kind,
+        &effective_models,
+        &only.platform,
+        decision_models,
+        mapped_target_model.as_deref().unwrap_or(source_model),
+    );
 
     tracing::info!(
         group = %group.name, platform = %only.platform.name,
@@ -594,24 +590,18 @@ fn build_route_results(
     ordered
         .into_iter()
         .map(|gp| {
-            let target_model = if let Some(tm) = mapped_target_model.as_ref() {
-                tm.clone()
-            } else {
-                let cache = extra_cache.get(&gp.platform.id);
-                let time_rules: &[serde_json::Value] =
-                    cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-                let effective_models =
-                    resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
-                match kind {
-                    RequestKind::Decision => resolve_decision_model(
-                        &effective_models,
-                        &gp.platform,
-                        decision_models,
-                        source_model,
-                    ),
-                    RequestKind::Chat => resolve_model(&effective_models, source_model),
-                }
-            };
+            let cache = extra_cache.get(&gp.platform.id);
+            let time_rules: &[serde_json::Value] =
+                cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
+            let effective_models =
+                resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
+            let target_model = resolve_target_model(
+                kind,
+                &effective_models,
+                &gp.platform,
+                decision_models,
+                mapped_target_model.as_deref().unwrap_or(source_model),
+            );
             RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
@@ -619,6 +609,23 @@ fn build_route_results(
             }
         })
         .collect()
+}
+
+/// 按请求类型做槽位匹配。`model_name` = 分组映射命中时的映射目标名，否则请求模型名：
+/// 映射只改名，不跳过槽位匹配（映射名不含档位词时同样回落 default 槽，用户 2026-10-01 确认）。
+fn resolve_target_model(
+    kind: RequestKind,
+    effective_models: &PlatformModels,
+    platform: &Platform,
+    decision_models: &DecisionModels,
+    model_name: &str,
+) -> String {
+    match kind {
+        RequestKind::Decision => {
+            resolve_decision_model(effective_models, platform, decision_models, model_name)
+        }
+        RequestKind::Chat => resolve_model(effective_models, model_name),
+    }
 }
 
 /// 缓存版本的 peak 窗口判定（避免重新解析 peak）
