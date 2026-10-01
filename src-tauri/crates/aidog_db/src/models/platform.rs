@@ -102,28 +102,35 @@ impl PlatformModels {
     /// 6 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
     /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
     pub fn is_empty(&self) -> bool {
-        self.default.is_none()
-            && self.sonnet.is_none()
-            && self.opus.is_none()
-            && self.haiku.is_none()
-            && self.gpt.is_none()
-            && self.jev.is_none()
+        !self.has_chat_slot() && self.jev_slot().is_none()
+    }
+
+    /// 5 个聊天槽是否至少一个已配置（`Some("")` / 纯空白不算：批量覆盖会持久化空串槽）。
+    fn has_chat_slot(&self) -> bool {
+        [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt]
+            .into_iter()
+            .any(|s| slot_filled(s).is_some())
+    }
+
+    /// jev 决策槽的有效值（trim 后非空才算配置）。
+    pub fn jev_slot(&self) -> Option<&str> {
+        slot_filled(&self.jev)
     }
 
     /// 平台支持决策请求（jev 槽非空 ⇔ 决策请求可路由到该平台，R2 前半）。
     pub fn supports_decision_slot(&self) -> bool {
-        self.jev.is_some()
+        self.jev_slot().is_some()
     }
 
     /// 平台只支持决策（jev 非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
     pub fn is_decision_only(&self) -> bool {
-        self.jev.is_some()
-            && self.default.is_none()
-            && self.sonnet.is_none()
-            && self.opus.is_none()
-            && self.haiku.is_none()
-            && self.gpt.is_none()
+        self.jev_slot().is_some() && !self.has_chat_slot()
     }
+}
+
+/// 槽位有效值：trim 后非空才算已配置。
+fn slot_filled(s: &Option<String>) -> Option<&str> {
+    s.as_deref().map(str::trim).filter(|v| !v.is_empty())
 }
 
 // ─── ClientType (客户端模拟) ─────────────────────────────────
@@ -626,6 +633,38 @@ mod tests {
         };
         assert!(!chat_only.is_decision_only());
         assert!(!chat_only.supports_decision_slot());
+    }
+
+    #[test]
+    fn platform_models_empty_string_slots_not_configured() {
+        // 批量覆盖持久化的 Some("") / 纯空白槽位不算配置
+        let blank_jev = PlatformModels {
+            jev: Some("".into()),
+            default: Some("gpt-4o".into()),
+            ..Default::default()
+        };
+        assert!(!blank_jev.supports_decision_slot());
+        assert!(!blank_jev.is_decision_only());
+        assert_eq!(blank_jev.jev_slot(), None);
+        // jev 有值、聊天槽全是空串 → 仍是 decision-only
+        let only = PlatformModels {
+            jev: Some(" jev-latest ".into()),
+            default: Some("".into()),
+            sonnet: Some("  ".into()),
+            opus: Some("".into()),
+            haiku: Some("".into()),
+            gpt: Some("".into()),
+        };
+        assert!(only.is_decision_only());
+        assert_eq!(only.jev_slot(), Some("jev-latest"));
+        // 全空串 → is_empty
+        let all_blank = PlatformModels {
+            default: Some("".into()),
+            jev: Some(" ".into()),
+            ..Default::default()
+        };
+        assert!(all_blank.is_empty());
+        assert!(!all_blank.supports_decision_slot());
     }
 
     // ── parse_breaker ──
