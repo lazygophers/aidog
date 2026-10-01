@@ -99,7 +99,7 @@ fn entries_transport_and_payload_roundtrip() {
 #[test]
 fn manifest_serializes_spec_shape() {
     // 序列化形状锁 spec §1.1 的 snake_case key（远程源 = 仓库同路径文件，按此形状比对）。
-    let val = serde_json::to_value(&manifest()).unwrap();
+    let val = serde_json::to_value(manifest()).unwrap();
     assert!(val.get("schema_version").is_some());
     assert!(val.get("updated_at").is_some());
     assert!(val["entries"][0].get("display_name").is_some());
