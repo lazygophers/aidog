@@ -56,3 +56,22 @@
 - harness 不是一次性草稿。上一套压测脚本随 `d2c3117a9` 的 `.scratch` 清理一起删了，
   这轮只能从 `d2c3117a9^` 翻出来重建。清理 `.scratch/perf-backend/` 之前，
   先把 `harness/` 移到受版本管理的 `scripts/perf/`，再删其余部分。
+
+## 6. 压测二进制血统：detach worktree 构建 + 开测前验符号（2026-10-01）
+
+perf-backend 收尾轮（PR #47）：V6 带符号构建期间共享 checkout 被另一会话切到
+master，采到的是 master 二进制——证据为二进制里零 mimalloc 符号（O7 双入口只在
+分支上）+ 分支已删函数 `format_pretty_json` 的符号出现在采样结果里，整轮结论
+作废重测一轮。
+
+- **被测二进制一律从独立源构建**：`/usr/bin/git worktree add --detach /tmp/<dir>
+  <目标 commit>` 后在该目录里 build（manifest 指向 `/tmp/<dir>/src-tauri/
+  Cargo.toml`，或 `KERNEL_BIN` 指过去），绝不信共享 checkout 的
+  `src-tauri/target`——checkout 的 HEAD 随时被别的会话切走，构建期间或之后
+  一切，测到的都是别人的代码。
+- **开测前验二进制血统**（两条 `strings`，几秒的事）：
+  `strings $KERNEL_BIN | grep -c mimalloc` >0（本次改动引入的符号在）；
+  `strings $KERNEL_BIN | grep -c format_pretty_json` =0（本次删掉的符号不在）。
+  符号随分支内容定，测前想清楚「这轮引入了什么、删了什么」，各验一条。
+- profile 里出现「按理已删的函数」就是血统污染的直接信号，先验二进制再怀疑
+  采样工具（ui-parity-audit.md「先核实再下结论」同模式）。
