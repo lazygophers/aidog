@@ -73,3 +73,6 @@ vite.config.js
 # 全局 gitignore 的 *.xcworkspace 会吞掉 Flutter macOS 的 Runner.xcworkspace，
 # 而 `flutter build macos` 没有它就报 "No macOS desktop project configured"。
 !/flutter/macos/Runner.xcworkspace/
+
+# perf harness 测量产物（scripts/perf/README.md）
+scripts/perf/results/
