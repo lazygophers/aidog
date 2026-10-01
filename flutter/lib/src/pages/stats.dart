@@ -79,6 +79,10 @@ class _StatsPageState extends State<StatsPage> {
   StatsTab _tab = StatsTab.trend;
   bool _trendStacked = false;
 
+  /// MITM 盲转「未计入」行数（blocked_reason=mitm_opaque，随主查询同窗拉取，
+  /// 失败不阻塞；null = 没查回不显示，`Stats.tsx:330`）。
+  int? _opaqueCount;
+
   /// 趋势图拆分维度（React `trendBy`，c39ed0224）：独立于全页 [_groupBy] ——
   /// 占比/排行/热力仍跟 groupBy，只有趋势图跟它。默认 total（不传 series_by →
   /// 后端 series 空 → 回落 buckets 总量单线），不持久化。
@@ -154,6 +158,15 @@ class _StatsPageState extends State<StatsPage> {
       final prev = results[1] == null
           ? null
           : StatsResult.fromJson(results[1]! as Map<String, dynamic>);
+      // 盲转计数随主查询同窗拉取（失败不阻塞主统计，`Stats.tsx:330`）。
+      widget
+          .invoke('mitm_opaque_count', {'sinceMs': range.start})
+          .then((v) {
+            if (mounted) {
+              setState(() => _opaqueCount = (v as num?)?.toInt());
+            }
+          })
+          .catchError((Object _) {});
 
       var finalResult = result;
       var finalGran = _granularity;
@@ -368,6 +381,21 @@ class _StatsPageState extends State<StatsPage> {
           // 不进 Bento —— Bento 的行内 IntrinsicHeight 不容 LayoutBuilder。
           const SizedBox(height: 16),
           _overviewWrap(t, tr, data.overview),
+          // MITM 盲转「未计入」提示（blocked_reason=mitm_opaque：解不开的请求
+          // est_cost=0，不进上方成本，`Stats.tsx:670-675`）。
+          if ((_opaqueCount ?? 0) > 0)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text(
+                tr.t('stats.mitmOpaqueNote', {
+                  'n': formatNumber(_opaqueCount!),
+                }),
+                style: AidogType.caption.copyWith(
+                  fontSize: 13,
+                  color: t.c.fg3,
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           Bento(
             gap: 16,
@@ -512,6 +540,7 @@ class _StatsPageState extends State<StatsPage> {
       double? deltaPct,
       bool inverse = false,
       double? countTo,
+      String? hint,
     }) => _OverviewCard(
       label: label,
       value: value,
@@ -520,6 +549,7 @@ class _StatsPageState extends State<StatsPage> {
       delta: deltaPct,
       deltaInverse: inverse,
       countTo: countTo,
+      hint: hint,
       deltaNote: tr.t('stats.vsPrevPeriod'),
     );
 
@@ -584,6 +614,7 @@ class _StatsPageState extends State<StatsPage> {
         level: costLevel(o.totalCost),
         deltaPct: delta(o.totalCost, p?.totalCost ?? 0),
         inverse: true,
+        hint: tr.t('stats.costNote'),
       ),
     ];
 
@@ -1245,6 +1276,7 @@ class _OverviewCard extends StatelessWidget {
     this.delta,
     this.deltaInverse = false,
     this.countTo,
+    this.hint,
   });
 
   final String label;
@@ -1254,6 +1286,9 @@ class _OverviewCard extends StatelessWidget {
   final double? delta;
   final bool deltaInverse;
   final String deltaNote;
+
+  /// 值下小注（React OverviewCard 的 hint，成本卡「参考成本，非实付」）。
+  final String? hint;
 
   /// 非 null = 这张卡的数字从 0 滚到这个值（1200ms）。只有「总请求」卡有
   /// （React 的 `useCounter(numericValue, 0, 1200)`，`Stats.tsx:594,955`）。
@@ -1346,6 +1381,12 @@ class _OverviewCard extends StatelessWidget {
                   ),
                 ],
               ),
+            ),
+          if (hint != null)
+            // F.hint = 13 tertiary（成本卡「参考成本，非实付」，Stats.tsx:662）。
+            Text(
+              hint!,
+              style: AidogType.caption.copyWith(fontSize: 13, color: c.fg3),
             ),
           ],
         ],

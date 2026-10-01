@@ -33,6 +33,7 @@ export 'src/pages/invoke.dart'
         kernelInvoke,
         kernelProxyLogUpdated;
 export 'src/pages/groups.dart' show GroupIcon, GroupsSection;
+export 'src/pages/cc_mitm.dart' show MitmLogPage;
 export 'src/pages/logs.dart' show LogsPage, RequestLogPage;
 export 'src/pages/logs_logic.dart';
 export 'src/pages/mcp.dart' show McpPage;

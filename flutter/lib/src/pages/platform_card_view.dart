@@ -18,8 +18,10 @@ import '../../utils/color_level.dart';
 import '../../utils/formatters.dart';
 import '../shell/theme.dart';
 import '../shell/tiles.dart';
+import 'cc_mitm.dart';
 import 'models.dart';
 import 'platform_card_bits.dart';
+import 'platform_extra.dart' show parseMitmStats;
 import 'platform_logo.dart';
 import 'platforms_logic.dart';
 import 'settings/bits.dart' show PlainTextField;
@@ -210,6 +212,10 @@ class PlatformCard extends StatelessWidget {
                     lastTest: lastTest,
                     membership: c.membership[p.id],
                     nowMs: now,
+                    mitm: (p.platformType == 'claude_code' &&
+                            parseMitmStats(p.extra))
+                        ? c.mitmInfo[p.id]
+                        : null,
                   ),
                 ),
                 _QuickActions(
@@ -318,6 +324,13 @@ class PlatformCard extends StatelessWidget {
                           nowMs: now,
                           quotaCapable: quotaCapable,
                         ),
+                        // 订阅窗口利用率趋势（`CcMitmTrendSection`，激活才有）。
+                        if (p.platformType == 'claude_code' &&
+                            parseMitmStats(p.extra) &&
+                            c.mitmInfo[p.id] != null) ...[
+                          const SizedBox(height: AidogSpace.smd),
+                          CcMitmTrendSection(samples: c.mitmInfo[p.id]!.samples),
+                        ],
                       ],
                     ),
                   ),
@@ -719,6 +732,7 @@ class _Identity extends StatelessWidget {
     required this.lastTest,
     required this.membership,
     required this.nowMs,
+    this.mitm,
   });
 
   final PlatformRow platform;
@@ -726,6 +740,9 @@ class _Identity extends StatelessWidget {
   final LastTestResult? lastTest;
   final List<String>? membership;
   final int nowMs;
+
+  /// cc-sub-mitm：claude_code + extra.mitm_stats 平台的观测数据（未激活 = null）。
+  final CcMitmInfoData? mitm;
 
   @override
   Widget build(BuildContext context) {
@@ -746,6 +763,17 @@ class _Identity extends StatelessWidget {
           text: t.t('platform.codingPlanBadge'),
           color: theme.c.ok,
           tooltip: t.t('platform.codingPlanHint'),
+        ),
+      );
+    }
+    // 订阅徽标（cc-sub-mitm §3.5）：claude_code 协议 = OAuth 订阅透传，
+    // 恒显（与 mitm 开关无关，`PlatformCard.tsx:298-311`）。
+    if (p.platformType == 'claude_code') {
+      badges.add(
+        MiniBadge(
+          text: t.t('platform.subscriptionBadge'),
+          color: theme.c.accentText,
+          tooltip: t.t('platform.subscriptionHint'),
         ),
       );
     }
@@ -896,6 +924,18 @@ class _Identity extends StatelessWidget {
               children: badges,
             ),
           ),
+        // #91703：token refresh 有失败才渲染警示 chip（`CcMitmInfo.tsx:53-72`）。
+        if (mitm case final m?) ...[
+          if (m.refresh != null && m.refresh!.failures > 0)
+            CcMitmRefreshWarning(refresh: m.refresh!),
+          // 余额位块：套餐档位 + 5h/7d 剩余（`CcPlanBalance`，无任一数据不渲染）。
+          if ((m.plan != null || m.samples.isNotEmpty) &&
+              parseMitmStats(p.extra))
+            Padding(
+              padding: const EdgeInsets.only(top: 3),
+              child: CcPlanBalance(plan: m.plan, samples: m.samples),
+            ),
+        ],
       ],
     );
   }

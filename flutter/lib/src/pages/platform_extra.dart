@@ -751,3 +751,22 @@ List<String> previewBatchNames(
   }
   return out;
 }
+
+// ─── mitm_stats（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入标记）───
+
+/// `platforms.ts:405::parseMitmStats`。缺失 / 非法 / 非布尔 → false。
+bool parseMitmStats(String extra) {
+  final obj = decodeExtraObject(extra);
+  return obj.containsKey('mitm_stats') && obj['mitm_stats'] == true;
+}
+
+/// `platforms.ts:415::serializeMitmStats`。false → 删键（默认行为）。
+String serializeMitmStats(String extra, bool enabled) {
+  final obj = decodeExtraObject(extra);
+  if (enabled) {
+    obj['mitm_stats'] = true;
+  } else {
+    obj.remove('mitm_stats');
+  }
+  return jsonEncode(obj);
+}
