@@ -354,9 +354,10 @@ pub(crate) async fn handle_decision(
         // R14：上游显式 cost 直接采用（est_cost != 0 时 process_upsert 跳过 registry 价回落；
         // 无 cost 则留 0，由 process_upsert 按 registry 价 × tokens 计算，高峰倍率链照常生效）。
         if let Some(cost) = upstream_cost {
-            // 注意：上游显式 `usage.cost: 0` 会被 log.rs 的 est_cost==0 回落条件当「未计价」
-            // 重算 registry 价——当前唯一 0 价条目（decision-model-preview）registry 侧也是 0，
-            // 故不可触发；若未来出现「registry 价 > 0 而上游免费」的条目，需改用 Option 信号区分。
+            // 有意规则（用户 2026-10-01 确认）：不信任上游 `usage.cost: 0`。cost=0 落到这里后由
+            // log.rs 的 est_cost==0 回落条件按 registry 价重算。注意 registry 条目 input/output
+            // 全 0 时 resolve_price_from 视同未定价、落 PriceSyncSettings 默认价（非 0，见
+            // test_price_resolve.rs `resolve_price_from_zero_priced_entry_uses_fallback`）。
             log.est_cost = cost;
         }
 
