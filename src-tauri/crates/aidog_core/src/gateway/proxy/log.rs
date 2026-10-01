@@ -145,41 +145,33 @@ pub(crate) fn queue_upsert_log(
     }
 }
 
-/// O6 按需携带（spec §3 修法 1 + 内存根因 1）：构造进队列的 ProxyLog 副本——**不做整行
-/// 深拷贝**，只克隆「本节点可能要写库」的大字段，其余大字段置空串（不分配）。镜像 writer
-/// 侧 `ProxyLogColumns::large_fields_first_write` 的首写规则：
-/// - in-flight 快照不存在（首节点 INSERT / 终态后重复调用）→ 视作全未写，非空大字段都带；
-/// - 快照存在 → 只带位掩码未置位（首写尚未发生）且当前非空的字段；
-/// - 终态 → 响应侧 4 列强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写）。
+/// O6 按需携带（spec §3 修法 1 + 内存根因 1）+ O9 终态携带：构造进队列的 ProxyLog 副本
+/// ——**不做整行深拷贝**，只克隆「本节点可能要写库」的大字段，其余大字段置空串（不分配）。
+///
+/// **O9 携带规则：大字段只在终态（`status_code != 0 || done`，比 is_terminal_log 宽一档，
+/// 覆盖路由失败等无 done 的错误行）携带**。中间态消息只带元数据——SQLite UPDATE 物理上
+/// 整行重写（未改的大列照样搬运），早写 body 只会让后续每个中间态 UPDATE 都拖上 580 KB+；
+/// 延迟到终态后行在终态前是 KB 级，物理大写恰一次（终态 UPDATE 首写全部非空大列，
+/// writer 侧 `large_fields_first_write` 的位掩码去重逻辑原样兼容：中间态从未携带 →
+/// 掩码恒 0 → 终态全部按首写绑定）。代价：请求进行中日志详情页看不到 body，
+/// 终态落库后可见（V2 写放大复测 2026-10-01：4.14 → 待测 MB/请求）。
 ///
 /// 两侧开关（log_user_request / log_upstream_request）关时对应侧不带——writer 侧 from_log
 /// 反正会清空，带了白拷。元数据字段（token/cost/url/...）恒携带。
-///
-/// 竞态只会多带不会漏带：并发消息同见未置位位掩码 → 都带 → writer 首写规则去重。
 fn scoped_queue_log(
-    state: &Arc<ProxyState>,
+    _state: &Arc<ProxyState>,
     log: &ProxyLog,
     settings: &ProxyLogSettings,
     terminal: bool,
 ) -> ProxyLog {
-    // 位序与 large_fields_first_write 一致（request=用户侧 0/1/6/7，upstream=上游侧 2/3/4/5）。
-    const B_REQ_HEADERS: u8 = 1 << 0;
-    const B_REQ_BODY: u8 = 1 << 1;
-    const B_UP_REQ_HEADERS: u8 = 1 << 2;
-    const B_UP_REQ_BODY: u8 = 1 << 3;
-    const B_RESP_BODY: u8 = 1 << 4;
-    const B_UP_RESP_HEADERS: u8 = 1 << 5;
-    const B_USER_RESP_HEADERS: u8 = 1 << 6;
-    const B_USER_RESP_BODY: u8 = 1 << 7;
-    let prev_mask = state
-        .log_snapshots
-        .get(&log.id)
-        .map(|r| r.raw_written_mask)
-        .unwrap_or(0);
-    let want = |nonempty: bool, bit: u8| nonempty && prev_mask & bit == 0;
+    // O9：大字段携带门。比 is_terminal_log 宽一档（status!=0 即带）：无 done 的错误行
+    // （路由失败 503 / 拦截 403 等一次性终写）也必须把 request body 落上。
+    let carry_bodies = log.status_code != 0 || log.done || terminal;
     let carry_user = settings.enabled && settings.log_user_request;
     let carry_up = settings.enabled && settings.log_upstream_request;
     let take = |carry: bool, s: &str| if carry { s.to_owned() } else { String::new() };
+    let user = |nonempty: bool| carry_user && carry_bodies && nonempty;
+    let up = |nonempty: bool| carry_up && carry_bodies && nonempty;
     ProxyLog {
         id: log.id.clone(),
         group_key: log.group_key.clone(),
@@ -188,17 +180,18 @@ fn scoped_queue_log(
         source_protocol: log.source_protocol.clone(),
         target_protocol: log.target_protocol.clone(),
         platform_id: log.platform_id,
-        request_headers: take(carry_user && want(!log.request_headers.is_empty(), B_REQ_HEADERS), &log.request_headers),
-        request_body: take(carry_user && want(!log.request_body.is_empty(), B_REQ_BODY), &log.request_body),
-        upstream_request_headers: take(carry_up && want(!log.upstream_request_headers.is_empty(), B_UP_REQ_HEADERS), &log.upstream_request_headers),
-        upstream_request_body: take(carry_up && want(!log.upstream_request_body.is_empty(), B_UP_REQ_BODY), &log.upstream_request_body),
-        response_body: take(carry_up && (terminal || want(!log.response_body.is_empty(), B_RESP_BODY)), &log.response_body),
+        request_headers: take(user(!log.request_headers.is_empty()), &log.request_headers),
+        request_body: take(user(!log.request_body.is_empty()), &log.request_body),
+        upstream_request_headers: take(up(!log.upstream_request_headers.is_empty()), &log.upstream_request_headers),
+        upstream_request_body: take(up(!log.upstream_request_body.is_empty()), &log.upstream_request_body),
+        // 响应侧终态强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写），非终态不带。
+        response_body: take(up(terminal || !log.response_body.is_empty()), &log.response_body),
         request_url: log.request_url.clone(),
         upstream_request_url: log.upstream_request_url.clone(),
-        upstream_response_headers: take(carry_up && (terminal || want(!log.upstream_response_headers.is_empty(), B_UP_RESP_HEADERS)), &log.upstream_response_headers),
+        upstream_response_headers: take(up(terminal || !log.upstream_response_headers.is_empty()), &log.upstream_response_headers),
         upstream_status_code: log.upstream_status_code,
-        user_response_headers: take(carry_user && (terminal || want(!log.user_response_headers.is_empty(), B_USER_RESP_HEADERS)), &log.user_response_headers),
-        user_response_body: take(carry_user && (terminal || want(!log.user_response_body.is_empty(), B_USER_RESP_BODY)), &log.user_response_body),
+        user_response_headers: take(user(terminal || !log.user_response_headers.is_empty()), &log.user_response_headers),
+        user_response_body: take(user(terminal || !log.user_response_body.is_empty()), &log.user_response_body),
         status_code: log.status_code,
         duration_ms: log.duration_ms,
         input_tokens: log.input_tokens,
