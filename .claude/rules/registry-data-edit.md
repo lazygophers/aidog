@@ -50,3 +50,21 @@ bump-registry-last-updated.mjs 的循环里 index.json 被 `continue` 跳过
 修 platform slug 白名单测试，每修一个 panic 就暴露下一个（cline → zdotai），
 循环三轮才绿。包含/排除名单、键集对比这类清单断言失败时，先把门禁改成一次
 输出全部不匹配项（或临时收集再断言），看全了再一次性修，不逐条试错。
+
+## 新必填字段上线 = 三件套（2026-10-01 supported_protocols 轮，c74507db1）
+
+给 model/platform 条目加一个 schema 必填字段时，三件事缺一不可，一次 session 内做齐：
+
+1. **schema required**：`schema/model.schema.json` 加字段定义 + 塞进顶层 `required` 数组
+   （值域词表用 enum 硬编码）。
+2. **lint 硬错**：`check-registry.mjs` 加对应规则（缺失 / 空值 / 词表外值都算 failure，
+   不是 warning）——只有 schema required 没有 lint，存量文件漏填要到运行时才炸。
+3. **存量全量回填**：写脚本按可推断的缺省值批量补（如 supported_protocols =
+   该平台 endpoints.default 的 protocol 并集），已知例外手改；回填本身走本文件
+   「编辑脚本先预检」条——文本级插入、锚点唯一性预检、`git diff` 逐文件核对。
+
+词表在 schema 与 lint 各写一份（对称设计），加新协议值时两处都要改——check-registry
+顶部注释里的「与 platform.schema.json 对称」在 devin 值上已经不严格成立（devin 是
+per-model 值、不是 endpoint 协议），新增第三种这类专用值时先想清楚它属于哪个词表。
+
+先例：supported_protocols（c74507db1）、price.free（显式免费标记，同日 jev 轮）。
