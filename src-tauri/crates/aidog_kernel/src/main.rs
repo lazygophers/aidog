@@ -11,6 +11,11 @@
 //! 与桌面壳（root package `aidog`）的关系：命令体、代理、调度全部共用同一批 crate，
 //! 差别只有外壳 —— 桌面壳装 `TauriCtx`，这里装 [`ctx::HeadlessCtx`]。本 crate 不链 tauri。
 
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: MiMalloc = MiMalloc;
+
 mod ctx;
 mod rpc;
 mod server;
