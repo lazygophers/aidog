@@ -80,6 +80,7 @@ pub fn passthrough_api_path(
 pub fn parse_incoming_request(
     source_protocol: &Protocol,
     body: &Value,
+    raw: Option<&[u8]>,
 ) -> Result<ChatRequest, String> {
     match source_protocol {
         Protocol::OpenAI => super::super::openai::from_openai(body)
@@ -93,9 +94,13 @@ pub fn parse_incoming_request(
         // Anthropic / 其余非 wire 平台变体: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
         // ContentBlock 已对未知类型(thinking/image/…)降级 Unknown, 失败时返回 serde 错误细节供诊断。
         // thinking.budget_tokens 落在 serde(flatten) extra 内，反序列化后提取到 thinking_budget。
+        // O3（perf-backend spec §2）：raw（原始请求字节，与 body 同一文档）可用时直接 from_slice，
+        // 省掉 from_value 前对整棵 Value 树的深拷贝（280 KB 请求体 ≈ 一次全量 memmove+malloc）。
         _ => {
-            let mut req: ChatRequest =
-                serde_json::from_value(body.clone()).map_err(|e| e.to_string())?;
+            let mut req: ChatRequest = match raw {
+                Some(bytes) => serde_json::from_slice(bytes).map_err(|e| e.to_string())?,
+                None => serde_json::from_value(body.clone()).map_err(|e| e.to_string())?,
+            };
             req.thinking_budget = req
                 .extra
                 .as_ref()
