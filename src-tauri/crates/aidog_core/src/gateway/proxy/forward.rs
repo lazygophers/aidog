@@ -422,6 +422,9 @@ pub(crate) async fn forward_attempt(
     // - 转换分支：wire format 由 endpoint 协议决定，API path 由平台类型决定。
     let platform_protocol = &route.platform.platform_type;
     let (mut req_body, mut api_path) = if same_protocol_passthrough {
+        // O3 判定：保留 clone。model remap 对几乎每个透传请求都要改写 body（&mut 必需），
+        // 下方 cap/strip/hoist 链也全按 &mut Value 写；Cow 只在「零改写」请求上省这一次拷贝，
+        // 覆盖面太窄，不值当把整条链改成 to_mut。真正的全量拷贝已在 request.rs 从 raw 解析处省掉。
         let mut body = req_value.clone();
         // model remap：透传下仍必须替换路由模型名（请求体 model 字段）
         if let Some(obj) = body.as_object_mut() {
@@ -686,8 +689,7 @@ pub(crate) async fn forward_attempt(
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .headers(passthrough_base)
-        .body(req_body_str.clone());
+        .headers(passthrough_base);
 
     // ── 覆盖 UA + auth（平台 api_key）──
     req_builder = apply_client_headers(
@@ -715,6 +717,9 @@ pub(crate) async fn forward_attempt(
     };
     tracing::info!(method = "POST", url = %url, "upstream request");
     tracing::debug!(method = "POST", url = %url, body = %super::log_util::log_body_preview(&req_body_str), "upstream request body");
+    // O3（perf-backend spec §2）：主请求最后 move 所有权（上面日志/备用 builder 已各取所需，
+    // 省掉此前无条件的一次全量 body String clone）。
+    let req_builder = req_builder.body(req_body_str);
 
     // ── 熔断指标：本次 forward 尝试前在途 +1；解析本平台有效阈值 ──
     let breaker_th = {
@@ -2343,7 +2348,7 @@ mod test_openai_max_completion_tokens {
             "model": "gpt-5", "max_completion_tokens": 200_000,
             "messages": [{"role": "user", "content": "hi"}]
         });
-        let req = parse_incoming_request(&Protocol::OpenAI, &body).expect("parse");
+        let req = parse_incoming_request(&Protocol::OpenAI, &body, None).expect("parse");
         let (mut out, _) = convert_request(&req, &Protocol::OpenAI, &Protocol::OpenAI);
         assert_eq!(
             cap_body_max_tokens(&mut out, Some(8192), &Protocol::OpenAI),
