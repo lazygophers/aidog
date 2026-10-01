@@ -604,6 +604,27 @@ pub fn run_migrations_proxy_log_late(
         "ALTER TABLE proxy_log ADD COLUMN cache_write_tokens INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration 20261001-01 (perf-backend O5): proxy_log 三个读侧窄索引，堵界面查询随
+    // 行数线性变慢（票 03 实测 scaled 20.5 万行：L3 计数 56ms / L8 最近测试 57ms /
+    // L11 mitm 未计入 39ms，加索引后 0.96 / 0.00 / 0.01ms）。索引列（source_protocol /
+    // platform_id / blocked_reason）在请求生命周期内不变，proxy_log 整行重写不触发
+    // 索引维护，写入代价极小（spec V5 复测量）。blocked_reason 无 deleted_at 过滤
+    //（count_mitm_opaque 不筛 deleted_at），故不带 WHERE。
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_proxy_log_source_protocol_created \
+         ON proxy_log(source_protocol, created_at) WHERE deleted_at = 0",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_protocol_created \
+         ON proxy_log(platform_id, source_protocol, created_at) WHERE deleted_at = 0",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_proxy_log_blocked_reason_created \
+         ON proxy_log(blocked_reason, created_at)",
+        [],
+    );
     Ok(())
 }
 

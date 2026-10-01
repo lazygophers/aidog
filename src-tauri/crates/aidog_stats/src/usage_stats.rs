@@ -1,5 +1,5 @@
 use crate::{local_today_hour_key, utc_ms_to_local_hour_key};
-use aidog_db::{Db, load_auto_from_map, resolve_eff_pid};
+use aidog_db::{Db, load_auto_from_map};
 use rusqlite::{Connection, OptionalExtension, Result as SqlResult, params};
 
 /// stats_agg_hourly 累计聚合列块（列序固定，row.get 依赖此序）：
@@ -305,8 +305,9 @@ pub fn get_all_group_usage_stats(
 /// 归 platform_id=0（写入时即落 0），此处与改造前一致跳过（不归任何平台卡片）。
 ///
 /// recent_total/recent_failures 仍按每平台最近 5 条（created_at DESC）裸查 proxy_log：
-/// 聚合表丢请求级顺序无法重建近 5 条。窗口函数 ROW_NUMBER 单查取每 eff_pid 末 5 条，
-/// 避免逐平台 5 行子查询往返。eff_pid 派生子查询保留（proxy_log.platform_id=0 回溯）。
+/// 聚合表丢请求级顺序无法重建近 5 条。逐平台复用 recent_health_single（LIMIT 5 走现有
+/// platform_created / group_created 索引，每平台常数时间）；auto_map 内存倒排
+/// pid→group_key 列表，等价 resolve_eff_pid 回溯（proxy_log.platform_id=0）。
 /// cache_rate 按 inp/cache 算。
 #[track_caller]
 pub fn platform_usage_stats_all(
@@ -377,39 +378,34 @@ pub fn platform_usage_stats_all(
         .map_err(|e| format!("all platform usage stats agg: {e}"))?;
 
         // ② log.db 读池：每平台最近 5 条健康度（recent_total/recent_failures）仍裸查 proxy_log：
-        // 聚合表无法重建请求级顺序。去 eff_pid 标量子查询/窗口函数：单表取
-        // (platform_id, group_key, status_code) 按 created_at DESC，内存逐行回溯 eff_pid，
-        // 每 eff_pid 取前 5 条（已按时间降序），统计 total/failures（与旧 ROW_NUMBER rn<=5 等价）。
+        // 聚合表无法重建请求级顺序。逐平台复用 recent_health_single（子查询 ORDER BY
+        // created_at DESC LIMIT 5，走现有 idx_proxy_log_platform_created /
+        // idx_proxy_log_group_created，每平台常数时间）；auto_map 内存倒排成 pid→group_key
+        // 列表传入，与 resolve_eff_pid 回溯等价（直挂取原 pid，pid=0 按 group_key 回溯，
+        // 回溯不到不归任何平台卡片）。perf-backend 票 03 L5：旧实现单查 ORDER BY
+        // created_at DESC 无 LIMIT 全表扫描，20.5 万行 524ms；逐平台 6 平台 0.08ms。
+        let auto_keys_by_pid: std::collections::HashMap<i64, Vec<String>> = {
+            let mut inv: std::collections::HashMap<i64, Vec<String>> =
+                std::collections::HashMap::new();
+            for (gk, pid) in &auto_map {
+                inv.entry(*pid).or_default().push(gk.clone());
+            }
+            inv
+        };
+        let map_pids: Vec<u64> = map.keys().copied().collect();
         let recent: std::collections::HashMap<i64, (i64, i64)> = db
             .call_read_proxy_log_traced(None, __db_caller, move |conn| {
-                let mut recent_stmt = conn.prepare(
-                    "SELECT platform_id, group_key, status_code FROM proxy_log \
-                 WHERE deleted_at = 0 ORDER BY created_at DESC",
-                )?;
-                // eff_pid → (取到的近 5 条计数, 其中失败数)
+                // eff_pid → (近 5 条计数, 其中失败数)
                 let mut recent: std::collections::HashMap<i64, (i64, i64)> =
                     std::collections::HashMap::new();
-                let rows_iter = recent_stmt.query_map([], |row| {
-                    Ok((
-                        row.get::<_, i64>(0)?,    // platform_id
-                        row.get::<_, String>(1)?, // group_key
-                        row.get::<_, i64>(2)?,    // status_code
-                    ))
-                })?;
-                for r in rows_iter {
-                    let (platform_id, group_key, status_code) = r?;
-                    let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
-                    if eff_pid <= 0 {
-                        continue;
-                    }
-                    let entry = recent.entry(eff_pid).or_insert((0, 0));
-                    if entry.0 >= 5 {
-                        continue; // 该 eff_pid 已收满近 5 条（行已按 created_at DESC）
-                    }
-                    entry.0 += 1;
-                    if !(200..300).contains(&(status_code as i32)) {
-                        entry.1 += 1;
-                    }
+                for pid in map_pids {
+                    let auto_keys = auto_keys_by_pid
+                        .get(&(pid as i64))
+                        .cloned()
+                        .unwrap_or_default();
+                    let (recent_failures, recent_total) =
+                        recent_health_single(conn, pid, &auto_keys);
+                    recent.insert(pid as i64, (recent_total, recent_failures));
                 }
                 Ok(recent)
             })
