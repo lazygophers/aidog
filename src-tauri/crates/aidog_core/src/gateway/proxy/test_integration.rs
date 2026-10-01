@@ -2659,6 +2659,11 @@ async fn decision_request_end_to_end() {
     let resp = handle_proxy(AxumState(state.clone()), decision_request("gkdec", "whatever"))
         .await;
     assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(
+        resp.headers().get("content-type").unwrap(),
+        "application/json",
+        "decision response must be JSON, not octet-stream"
+    );
     let body = axum::body::to_bytes(resp.into_body(), 1024 * 1024).await.unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
     assert_eq!(v.get("id"), None, "id stripped (R12)");

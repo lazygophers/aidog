@@ -370,7 +370,12 @@ pub(crate) async fn handle_decision(
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(&mut attempts);
         upsert_log(state, log, log_settings).await;
-        let mut response = (StatusCode::OK, client_body).into_response();
+        let mut response = (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            client_body,
+        )
+            .into_response();
         inject_trace_header(&mut response);
         return response;
     }
