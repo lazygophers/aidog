@@ -1645,3 +1645,35 @@ async fn all_group_lacks_decision_errs() {
         .unwrap();
     assert_eq!(e, "no_decision_platform");
 }
+
+/// 批量覆盖持久化的空串 jev 槽不算决策能力；空串聊天槽也不让 jev 平台变成「可聊天」。
+#[tokio::test]
+async fn blank_jev_slot_is_not_decision_capable() {
+    let db = mk_test_db().await;
+    let blank = mk_platform_models(&db, "blank", PlatformModels {
+        default: Some("gpt-x".into()),
+        jev: Some("".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g = mk_db_group(&db, "grp", &[blank.id]).await;
+    let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
+        .await
+        .err()
+        .expect("blank jev must not route decision");
+    assert_eq!(e, "no_decision_platform");
+
+    let only = mk_platform_models(&db, "only", PlatformModels {
+        jev: Some("jev-latest".into()),
+        default: Some("".into()),
+        sonnet: Some("".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g2 = mk_db_group(&db, "grp2", &[only.id]).await;
+    let e = select_candidates_ctx(&db, &g2, "m", None, RequestKind::Chat)
+        .await
+        .err()
+        .expect("blank chat slots keep platform decision-only");
+    assert_eq!(e, "no_chat_platform");
+}

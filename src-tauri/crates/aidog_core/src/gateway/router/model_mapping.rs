@@ -44,7 +44,7 @@ pub(crate) fn resolve_decision_model(
     decision_model_ids: &std::collections::HashSet<String>,
     source_model: &str,
 ) -> String {
-    if let Some(jev) = models.jev.as_deref().filter(|s| !s.is_empty()) {
+    if let Some(jev) = models.jev_slot() {
         return jev.to_string();
     }
     let base = source_model.split('[').next().unwrap_or(source_model);
