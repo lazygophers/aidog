@@ -236,6 +236,92 @@ class McpEditForm {
   };
 }
 
+
+/// 推荐条目（`manual.ts:134::McpRecommendedEntry`，wire 是 snake_case：后端
+/// `recommended.rs` 非 camelCase 族，与 McpServerInfo 那套 camelCase 不同族）。
+class McpRecommendedEntry {
+  const McpRecommendedEntry({
+    required this.name,
+    required this.transport,
+    required this.command,
+    required this.args,
+    required this.env,
+    required this.url,
+    required this.headers,
+    required this.displayName,
+    required this.description,
+    required this.category,
+    required this.icon,
+    required this.docsUrl,
+    required this.homepageUrl,
+    required this.requiredEnvKeys,
+  });
+
+  factory McpRecommendedEntry.fromJson(Map<String, dynamic> j) =>
+      McpRecommendedEntry(
+        name: j['name'] as String? ?? '',
+        transport: j['transport'] as String? ?? 'stdio',
+        command: j['command'] as String? ?? '',
+        args: _strList(j['args']),
+        env: _strMap(j['env']),
+        url: j['url'] as String? ?? '',
+        headers: _strMap(j['headers']),
+        displayName: j['display_name'] as String? ?? '',
+        description: _strMap(j['description']),
+        category: j['category'] as String? ?? 'tool',
+        icon: j['icon'] as String? ?? '',
+        docsUrl: j['docs_url'] as String?,
+        homepageUrl: j['homepage_url'] as String?,
+        requiredEnvKeys: _strList(j['required_env_keys']),
+      );
+
+  final String name;
+  final String transport;
+  final String command;
+  final List<String> args;
+
+  /// env 只存空占位值（预填进表单时键有值空，用户自己填）。
+  final Map<String, String> env;
+  final String url;
+  final Map<String, String> headers;
+  final String displayName;
+
+  /// 8-locale 描述 map，回落 当前语言 → en-US → zh-Hans（`constants.ts:49::descFor`）。
+  final Map<String, String> description;
+  final String category;
+
+  /// simpleicons slug（图标 `https://cdn.simpleicons.org/<slug>`）。
+  final String icon;
+  final String? docsUrl;
+  final String? homepageUrl;
+  final List<String> requiredEnvKeys;
+}
+
+/// `Mcp/constants.ts:45::CATEGORY_ORDER`：已知分类固定序，未知按首现序排尾。
+const List<String> kMcpCategoryOrder = [
+  'browser',
+  'docs',
+  'code',
+  'search',
+  'service',
+  'tool',
+];
+
+/// description 8-locale 回落（`constants.ts:49::descFor`）。
+String mcpDescFor(McpRecommendedEntry e, String lang) =>
+    e.description[lang] ??
+    e.description['en-US'] ??
+    e.description['zh-Hans'] ??
+    '';
+
+/// 推荐卡命令行摘要（`constants.ts:55::cmdSummary`）：stdio = command + 全部
+/// args（区别于列表页只取首参的 [mcpSummaryOf]）；http/sse = url。
+String mcpCmdSummary(McpRecommendedEntry e) => e.transport == 'stdio'
+    ? [if (e.command.isNotEmpty) e.command, ...e.args]
+          .where((s) => s.isNotEmpty)
+          .join(' ')
+    : (e.url.isNotEmpty ? e.url : '—');
+
 final RegExp _mcpBase64Shape = RegExp(r'^[A-Za-z0-9+/=\s]+$');
 
 /// `useMcpData.ts:192` 的粘贴文本归一化：形如 base64 且解码后是**合法 JSON** 才用解码结果，
@@ -598,11 +684,62 @@ class McpController {
   }
 
   /// `useMcpData.ts:347::openAdd`：空表单，`editTarget = null` 即「新增」。
+  // ── 推荐清单（React 票 09 同款：首次打开添加弹窗拉一次；失败置回 null，
+  // 下次 openAdd 重试）──
+  List<McpRecommendedEntry>? recommended; // null = 未加载
+  bool recLoading = false;
+
+  /// pickRecommended 落下的提示：必填 env 名单 + docs_url（保存/重开后清空）。
+  ({List<String> requiredEnvKeys, String? docsUrl})? prefillMeta;
+
+  /// 添加弹窗 tab：rec（默认）/ manual（`useMcpData.ts:46` 的 addTab）。
+  String addTab = 'rec';
+
+  Future<void> loadRecommended() async {
+    if (recommended != null || recLoading) return;
+    recLoading = true;
+    onChanged();
+    try {
+      final v = await invoke('mcp_recommended_list');
+      recommended = [
+        for (final e in v! as List)
+          McpRecommendedEntry.fromJson(e as Map<String, dynamic>),
+      ];
+    } catch (_) {
+      recommended = null; // 置回未加载，下次 openAdd 重试
+    } finally {
+      recLoading = false;
+      onChanged();
+    }
+  }
+
+  /// `useMcpData.ts:353::pickRecommended`：点未装推荐卡 → 切手动 tab 并预填
+  /// 七字段（env 键预填值留空）。
+  void pickRecommended(McpRecommendedEntry e) {
+    editTarget = null;
+    editForm = McpEditForm(
+      name: e.name,
+      transport: e.transport,
+      command: e.command,
+      argsText: e.args.join('\n'),
+      envRows: [for (final kv in e.env.entries) KvRow(kv.key, kv.value)],
+      url: e.url,
+      headersRows: [for (final kv in e.headers.entries) KvRow(kv.key, kv.value)],
+    );
+    prefillMeta = (requiredEnvKeys: e.requiredEnvKeys, docsUrl: e.docsUrl);
+    message = null;
+    addTab = 'manual';
+    onChanged();
+  }
+
   void openAdd() {
     editTarget = null;
     editForm = McpEditForm();
+    prefillMeta = null;
+    addTab = 'rec'; // openAdd 重置回推荐 tab（useMcpData.ts:395）
     message = null;
     editOpen = true;
+    loadRecommended();
     onChanged();
   }
 
@@ -637,6 +774,7 @@ class McpController {
       await refresh();
       editTarget = null;
       editOpen = false;
+      prefillMeta = null; // 保存/重开后清空（useMcpData.ts:49）
       _ok(t('mcp.saved'));
     } catch (e) {
       _err(e);
