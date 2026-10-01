@@ -153,6 +153,7 @@ class _AidogAppState extends State<AidogApp> {
       initialGroupKey: _nav.context.groupKey,
     ),
     'request-log' => const RequestLogPage(),
+    'mitm-log' => const MitmLogPage(),
     // 裸 `settings` 回退 system，与 `nav.dart::settingsTab` 同规则。
     'settings' || 'settings/system' => const SystemSettingsPage(),
     'settings/coding_tools' => const CodingToolsPage(),

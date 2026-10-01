@@ -13,9 +13,11 @@ import 'dart:async';
 import '../i18n/controller.dart' show i18n;
 import '../utils/pinyin.dart';
 import 'groups_logic.dart' show parseProtocolSearchTerms;
+import 'cc_mitm.dart';
 import 'invoke.dart';
 import 'models.dart';
 import 'platform_card_bits.dart';
+import 'platform_extra.dart' show parseMitmStats;
 
 /// 提示文案兜底：调用方没传就查当前语言的文案。
 ///
@@ -91,6 +93,10 @@ class PlatformsController {
   List<PlatformRow> platforms = const [];
   List<GroupDetail> groupDetails = const [];
   Map<int, List<String>> membership = const {};
+
+  /// cc-sub-mitm：claude_code + extra.mitm_stats 平台的 MITM 观测数据
+  /// （refresh 计数 / 5h·7d 采样 / 套餐档位），打开平台页拉一次，无轮询。
+  Map<int, CcMitmInfoData> mitmInfo = const {};
   Map<int, UsageStats> usageMap = const {};
   Map<int, LastTestResult> lastTestMap = const {};
   Map<int, PlatformQuota> quotaMap = const {};
@@ -308,6 +314,20 @@ class PlatformsController {
       _notify();
     } catch (_) {
       /* React: .catch(() => {})，拉不到不挡编辑 */
+    }
+    _loadMitmInfo();
+  }
+
+  /// `useCcMitmInfo`：激活（claude_code + mitm_stats）平台逐个拉一次，各自静默。
+  /// 分组名 = claude_code 独占分组（组内首个即组名）。
+  Future<void> _loadMitmInfo() async {
+    for (final p in platforms) {
+      if (p.platformType != 'claude_code' || !parseMitmStats(p.extra)) continue;
+      if (mitmInfo.containsKey(p.id)) continue;
+      final groupName = membership[p.id]?.first;
+      final data = await fetchCcMitmInfo(_invoke, groupName);
+      mitmInfo = {...mitmInfo, p.id: data};
+      _notify();
     }
   }
 

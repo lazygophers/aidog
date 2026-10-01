@@ -62,6 +62,16 @@ class PlatformFormController {
 
   /// 原始 extra（保存时以它为底，改完自己的键再写回，不吃掉别人的键）。
   String extra = '';
+
+  /// Claude Code 透传平台的 MITM 统计接入开关（extra.mitm_stats）。
+  bool mitmStats = false;
+
+  /// MITM 隧道就绪（enabled && ca_installed）。null = 还没查回（CcMitmAccessSection
+  /// 打开表单拉一次 mitm_status，无轮询）。
+  bool? mitmCaReady;
+
+  /// 编辑态 pure cc 组的 HTTPS_PROXY export 语句（cc_proxy_export；空 = 不显）。
+  String mitmExportLine = '';
   MockConfig mockConfig = kDefaultMockConfig;
 
   String quotaVariantId = '';
@@ -240,6 +250,9 @@ class PlatformFormController {
     fetchError = '';
     saveError = '';
     extra = '';
+    mitmStats = false;
+    mitmCaReady = null;
+    mitmExportLine = '';
     mockConfig = kDefaultMockConfig;
     quotaVariantId = '';
     quotaCustomScript = '';
@@ -433,6 +446,7 @@ class PlatformFormController {
     saveError = '';
     batchPreviewKeys = null;
     extra = p.extra;
+    mitmStats = parseMitmStats(p.extra);
     mockConfig = parseMockConfig(p.extra);
     final qs = parseQuotaScriptConfig(p.extra);
     quotaVariantId = qs.variantId;
@@ -460,6 +474,7 @@ class PlatformFormController {
     windowsTz = TzMode.local;
     autoGroup = true;
     saving = false;
+    loadMitmExtras();
   }
 
   // ── 字段动作 ────────────────────────────────────────────────────
@@ -489,6 +504,12 @@ class PlatformFormController {
 
   /// `usePlatformForm.ts:273::handleProtocolChange`。
   void handleProtocolChange(String newProtocol, {bool newCodingPlan = false}) {
+    final wasPassthrough = isPassthrough;
+    _afterProtocolChange(newProtocol, newCodingPlan);
+    if (isPassthrough && !wasPassthrough) loadMitmExtras();
+  }
+
+  void _afterProtocolChange(String newProtocol, bool newCodingPlan) {
     final label =
         protocolLabelMap[newProtocol] ??
         kProtocolLabels[newProtocol] ??
@@ -808,6 +829,53 @@ class PlatformFormController {
     _notify();
   }
 
+  /// MITM 统计开关（CcMitmAccessSection 的 onToggle）。
+  void setMitmStats(bool v) {
+    mitmStats = v;
+    _notify();
+  }
+
+  /// `CcMitmAccessSection.tsx:30-43`：打开表单拉一次 mitm_status + export 语句，
+  /// 无轮询。分组名 = claude_code 独占分组（组内首个即组名）；新建态不拉 export。
+  Future<void> loadMitmExtras() async {
+    if (!isPassthrough) return;
+    final editingId = editing?.id;
+    try {
+      final v = await _invoke('mitm_status');
+      final st = (v as Map?)?.cast<String, dynamic>() ?? const {};
+      mitmCaReady = (st['enabled'] == true) && (st['ca_installed'] == true);
+    } catch (_) {
+      mitmCaReady = false;
+    }
+    _notify();
+    if (editingId == null) return;
+    try {
+      final groups = await _invoke('group_detail_list');
+      String? groupName;
+      for (final e in (groups as List? ?? const [])) {
+        final gd = (e as Map).cast<String, dynamic>();
+        for (final gp in (gd['platforms'] as List? ?? const [])) {
+          final pid =
+              (((gp as Map)['platform'] as Map?)?['id'] as num?)?.toInt();
+          if (pid == editingId) {
+            groupName = ((gd['group'] as Map?)?['name'] as String?) ?? '';
+            break;
+          }
+        }
+        if (groupName != null) break;
+      }
+      if (groupName != null && groupName.isNotEmpty) {
+        final line = await _invoke('cc_proxy_export', {'groupName': groupName});
+        mitmExportLine = '$line';
+      } else {
+        mitmExportLine = '';
+      }
+    } catch (_) {
+      mitmExportLine = '';
+    }
+    _notify();
+  }
+
   // ── 保存 ────────────────────────────────────────────────────────
 
   /// `usePlatformForm.ts:607::buildSharedCreateFields` 的 extra 链，顺序不可换：
@@ -845,6 +913,7 @@ class PlatformFormController {
     out = serializePlatformPeak(out, peak);
     out = serializeDisableDuringPeak(out, disableDuringPeak);
     out = serializePlatformTimeWindows(out, timeModels);
+    if (isPassthrough) out = serializeMitmStats(out, mitmStats);
     return out;
   }
 

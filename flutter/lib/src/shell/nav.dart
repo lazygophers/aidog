@@ -85,6 +85,7 @@ const List<NavItem> kBaseNav = [
   NavItem(id: 'stats', icon: 'stats', labelKey: 'nav.stats', section: 'nav.section.logStats'),
   NavItem(id: 'logs', icon: 'logs', labelKey: 'nav.logs', section: 'nav.section.logStats'),
   NavItem(id: 'request-log', icon: 'logs', labelKey: 'nav.requestLog', section: 'nav.section.logStats'),
+  NavItem(id: 'mitm-log', icon: 'logs', labelKey: 'nav.mitmLog', section: 'nav.section.logStats'),
   NavItem(id: 'notifications', icon: 'notifications', labelKey: 'nav.notifications', section: 'nav.section.logStats'),
   NavItem(id: 'skills', icon: 'skills', labelKey: 'nav.skills', section: 'nav.section.extension'),
   NavItem(id: 'mcp', icon: 'mcp', labelKey: 'nav.mcp', section: 'nav.section.extension'),
