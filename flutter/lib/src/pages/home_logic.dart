@@ -8,7 +8,6 @@ import '../../stats/models.dart';
 import 'models.dart';
 
 /// 首页 KPI / 平台 Top 的条数上限（React 版 `TOP_PLATFORMS = 4`）。
-const int kTopPlatforms = 4;
 
 /// 代理端口缺省值（React 版 `DEFAULT_PORT = 7890`）。
 const int kDefaultPort = 7890;
@@ -45,24 +44,6 @@ bool hasTodayData(TodayStats? today) =>
 double totalBalanceOf(List<PlatformSummary> platforms) =>
     platforms.fold(0, (acc, p) => acc + p.estBalanceRemaining);
 
-/// 平台今日用量 top N：先滤掉全零行，再按已用 cost 降序，取前 [limit] 条。
-List<TodayPlatformStat> topPlatformsOf(
-  List<TodayPlatformStat> stats, [
-  int limit = kTopPlatforms,
-]) {
-  final kept = [
-    for (final p in stats)
-      if (p.cost > 0 || p.tokens > 0 || p.requests > 0) p,
-  ];
-  // JS 的 sort 稳定，Dart 的不保证 —— 并列 cost 要保持首现序，按下标兜底。
-  final indexed = [for (var (i, p) in kept.indexed) (i, p)];
-  indexed.sort((a, b) {
-    final c = b.$2.cost.compareTo(a.$2.cost);
-    return c != 0 ? c : a.$1.compareTo(b.$1);
-  });
-  return [for (final e in indexed.take(limit)) e.$2];
-}
-
 /// 24 小时滚动窗口 `[now-24h, now]`（React 版 `load()` 里的 `windowStart`）。
 ({int start, int end}) last24h(DateTime now) {
   final end = now.millisecondsSinceEpoch;
@@ -86,14 +67,6 @@ trendSeriesOf(List<StatsBucket> buckets) => (
   ],
   cache: [for (final b in buckets) b.cacheTokens.toDouble()],
 );
-
-/// 趋势区峰值（请求数最大桶）。空桶列表 → 0。
-int trendPeakOf(List<StatsBucket> buckets) =>
-    buckets.fold(0, (m, b) => math.max(m, b.totalRequests));
-
-/// 趋势区是否有数据：任一桶请求数 > 0（全零就是空态，不画一条贴底的平线）。
-bool hasTrend(List<StatsBucket> buckets) =>
-    buckets.any((b) => b.totalRequests > 0);
 
 /// x 轴整点小时标注：每 6 桶标一个，标的是 `time_bucket` 的 `HH` 两位。
 /// 桶串短于 13 字符（如 daily 桶 `YYYY-MM-DD`）时无小时信息，返回空串。

@@ -10,17 +10,21 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'harness.dart';
+import 'package:aidog_flutter/src/pages/platform_logo.dart' show ProtocolLogo;
 
 /// 首页的六条命令，全都摆上默认载荷。
 Map<String, Object? Function(Map<String, Object?>?)> homeResponses({
   bool running = true,
   int port = 7890,
   Map<String, dynamic>? today,
-  List<Map<String, dynamic>> platformToday = const [],
   List<Map<String, dynamic>> platforms = const [],
   List<Map<String, dynamic>> buckets = const [],
+  List<Map<String, dynamic>> dimPlatforms = const [],
   List<Map<String, dynamic>> dimModels = const [],
   List<Map<String, dynamic>> dimGroups = const [],
+  List<Map<String, dynamic>> seriesPlatforms = const [],
+  List<Map<String, dynamic>> seriesModels = const [],
+  List<Map<String, dynamic>> seriesGroups = const [],
 }) => {
   'proxy_status': (_) => running,
   'proxy_get_settings': (_) => {
@@ -40,11 +44,15 @@ Map<String, Object? Function(Map<String, Object?>?)> homeResponses({
         'cost': 0,
         'total_requests': 0,
       },
-  'popover_platform_today': (_) => platformToday,
   'platform_list': (_) => platforms,
   'stats_query': (_) => statsResult(buckets: buckets),
-  // 模型/分组维度（home-model-stats spec §1）：batch 两条 group_by 的结果顺序对应。
+  // 一次 batch 六条（Home.tsx:227-234）：前三条 24h series（趋势图），后三条今日
+  // 窗口 group_by+series_by（行列表 + 行迷你走势）。顺序一一对应。
   'stats_query_batch': (_) => [
+    statsResult(series: seriesPlatforms),
+    statsResult(series: seriesModels),
+    statsResult(series: seriesGroups),
+    statsResult(dimensions: dimPlatforms),
     statsResult(dimensions: dimModels),
     statsResult(dimensions: dimGroups),
   ],
@@ -86,7 +94,7 @@ void main() {
 
     expect(
       k.commandSetSignature,
-      'platform_list,popover_platform_today,proxy_get_settings,'
+      'platform_list,proxy_get_settings,'
       'proxy_status,stats_query,stats_query_batch,tray_today_stats',
     );
     for (final cmd in k.calls.toSet()) {
@@ -141,8 +149,8 @@ void main() {
     await settle(tester);
 
     // 两块标题 + 首/末行 + 「其它」都在。
-    expect(find.text('按模型 · 24 小时'), findsOneWidget);
-    expect(find.text('按分组 · 24 小时'), findsOneWidget);
+    expect(find.text('按模型 · 今日'), findsOneWidget);
+    expect(find.text('按分组 · 今日'), findsOneWidget);
     expect(find.text('model-0'), findsOneWidget);
     expect(find.text('gk-main'), findsOneWidget);
     expect(find.text('其它'), findsOneWidget); // 10 - 8 = 2 名合并
@@ -152,6 +160,8 @@ void main() {
 
     // 点模型行 → stats 页 + filter_model；点分组行 → stats 页 + groupKey。
     // 测试窗 800px < 841 断点 → 两面板竖排，分组面板在视口外，先滚到可见。
+    await tester.ensureVisible(find.text('model-0'));
+    await tester.pump();
     await tester.tap(find.text('model-0'));
     await tester.pump();
     expect(nav.last.$1, 'stats');
@@ -205,6 +215,8 @@ void main() {
     expect(find.text('gk-main', skipOffstage: false), findsOneWidget);
 
     // 「未分组平台」行不可点（groupKey='' 等于不带筛选）。
+    await tester.ensureVisible(find.text('未分组平台'));
+    await tester.pump();
     await tester.ensureVisible(find.text('未分组平台'));
     await tester.pump();
     await tester.tap(find.text('未分组平台'));
@@ -369,9 +381,16 @@ void main() {
     );
     await settle(tester);
 
-    await tester.tap(find.text(c.t('home.addPlatform')));
-    await tester.tap(find.text(c.t('home.viewStats')));
-    await tester.tap(find.text(c.t('home.viewLogs')));
+    // 面板变高后 footer 在视口外，逐个滚到可见再点。
+    for (final key in const [
+      'home.addPlatform',
+      'home.viewStats',
+      'home.viewLogs',
+    ]) {
+      await tester.ensureVisible(find.text(c.t(key)));
+      await tester.pump();
+      await tester.tap(find.text(c.t(key)));
+    }
     await tester.pump();
     expect(nav, ['platforms', 'stats', 'logs']);
   });
@@ -517,14 +536,8 @@ void main() {
     final k = FakeKernel(
       homeResponses(
         today: today(),
-        platformToday: [
-          {
-            'platform_id': 1,
-            'platform_name': '超长平台名' * 40,
-            'tokens': 10,
-            'cost': 1.0,
-            'requests': 2,
-          },
+        dimPlatforms: [
+          dimensionEntry('超长平台名' * 40, req: 2, cost: 1.0, inp: 10),
         ],
       ),
     );
@@ -542,7 +555,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('平台今日用量为空 → 该区空态，不画假环形', (tester) async {
+  testWidgets('维度序列为空 → 趋势图与三面板空态', (tester) async {
     final k = FakeKernel(homeResponses(today: today()));
     final c = await makeI18n(tester);
     await tester.pumpWidget(
@@ -552,8 +565,85 @@ void main() {
       ),
     );
     await settle(tester);
-    expect(find.text(c.t('home.topPlatforms')), findsOneWidget);
+    expect(find.text(c.t('home.byPlatform')), findsOneWidget);
     expect(find.text(c.t('home.noToday')), findsWidgets);
+  });
+
+  testWidgets('维度趋势图：默认按平台，切 tab 换序列，指标切花费', (tester) async {
+    final k = FakeKernel(homeResponses(
+      today: today(),
+      seriesPlatforms: [
+        statsSeriesRow('p1', [statsBucket('2026-09-13 01:00:00', 3)]),
+      ],
+      seriesModels: [
+        statsSeriesRow('m1', [statsBucket('2026-09-13 01:00:00', 1)]),
+        statsSeriesRow('m2', [statsBucket('2026-09-13 01:00:00', 2)]),
+      ],
+    ));
+    final c = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(
+        HomePage(onNavigate: (unused1, [unused2]) {}, invoke: k.invoke),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    // 标题 + 默认 platform tab + tokens 指标在。
+    expect(find.text(c.t('home.dimTrendTitle')), findsOneWidget);
+    expect(find.text(c.t('home.tabPlatform')), findsOneWidget);
+    // 'Token' 同时出现在 KPI 标签与指标 tab，两处都在。
+    expect(find.text(c.t('home.tokens')), findsWidgets);
+
+    // 切「按模型」→ 喂 model 序列（图例出现 m1/m2）。
+    await tester.ensureVisible(find.text(c.t('home.tabModel')));
+    await tester.pump();
+    await tester.tap(find.text(c.t('home.tabModel')));
+    await tester.pumpAndSettle();
+    expect(find.text('m1'), findsWidgets);
+    expect(find.text('m2'), findsWidgets);
+
+    // 指标切「花费」不炸、仍渲染。
+    await tester.ensureVisible(find.text(c.t('home.trendCost')));
+    await tester.pump();
+    await tester.tap(find.text(c.t('home.trendCost')));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('平台维度面板：logo 行 + 点行带 platformId 下钻', (tester) async {
+    final k = FakeKernel(homeResponses(
+      today: today(),
+      platforms: [platformJson(7, '主平台', type: 'claude_code')],
+      dimPlatforms: [
+        dimensionEntry('主平台', req: 5, success: 5, cost: 0.2, inp: 100, out: 50),
+      ],
+    ));
+    final nav = <(String, NavContext?)>[];
+    final c = await makeI18n(tester);
+    await tester.pumpWidget(
+      wrapPage(
+        HomePage(
+          onNavigate: (id, [ctx]) => nav.add((id, ctx)),
+          invoke: k.invoke,
+        ),
+        c,
+      ),
+    );
+    await settle(tester);
+
+    expect(find.text(c.t('home.byPlatform')), findsOneWidget);
+    expect(find.text('主平台'), findsOneWidget);
+    // 命中平台清单 → 行头有协议 logo（claude_code 有资产图）。
+    expect(find.byType(ProtocolLogo), findsOneWidget);
+
+    await tester.ensureVisible(find.text('主平台'));
+    await tester.pump();
+    await tester.tap(find.text('主平台'));
+    await tester.pump();
+    expect(nav.last.$1, 'stats');
+    expect(nav.last.$2?.platformId, 7);
+    expect(nav.last.$2?.platformName, '主平台');
   });
 
   testWidgets('stats_query 24h 窗口参数：hourly + 正好 24 小时跨度', (tester) async {
@@ -613,14 +703,18 @@ void main() {
       expect(eyebrow(), findsOneWidget);
       // 面板不是栅格：所有区块都在这一块里面。
       expect(
-        find.descendant(of: panel(), matching: find.text(c.t('home.trend24h'))),
+        find.descendant(
+          of: panel(),
+          matching: find.text(c.t('home.dimTrendTitle')),
+        ),
         findsOneWidget,
       );
       expect(
-        find.descendant(
-          of: panel(),
-          matching: find.text(c.t('home.topPlatforms')),
-        ),
+        find.descendant(of: panel(), matching: find.text(c.t('home.byPlatform'))),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: panel(), matching: find.text(c.t('home.byGroup'))),
         findsOneWidget,
       );
     });
