@@ -23,6 +23,7 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart';
 import 'home_logic.dart';
 import 'invoke.dart';
+import 'platform_logo.dart' show ProtocolLogo;
 import 'models.dart';
 import 'ui_bits.dart' show Reveal;
 
@@ -56,12 +57,24 @@ class _HomePageState extends State<HomePage> {
   bool? _running;
   int _port = kDefaultPort;
   TodayStats? _today;
-  List<TodayPlatformStat> _platformsToday = const [];
   List<PlatformSummary> _platforms = const [];
   List<StatsBucket> _trend = const [];
-  // 模型 / 分组维度（home-model-stats spec §1，queryBatch 两条 group_by）。
+  // 三维度行列表（今日窗口，`Home.tsx:202-207`）：platform/model/group 各一份。
+  List<DimensionEntry> _dimPlatforms = const [];
   List<DimensionEntry> _dimModels = const [];
   List<DimensionEntry> _dimGroups = const [];
+  // 维度小时序列（两套窗口并存，数据不混，2026-09-27 起分离）：
+  //  - _series*（滚动 24h）→ 只喂维度趋势图（窗口恒 24h）。
+  //  - _todaySeries*（今日）→ 喂维度行迷你走势（跟随面板窗口）。
+  List<StatsSeries> _seriesPlatforms = const [];
+  List<StatsSeries> _seriesModels = const [];
+  List<StatsSeries> _seriesGroups = const [];
+  List<StatsSeries> _todaySeriesPlatforms = const [];
+  List<StatsSeries> _todaySeriesModels = const [];
+  List<StatsSeries> _todaySeriesGroups = const [];
+  // 趋势图状态：默认按平台、指标 Token（2026-09-27 两次用户拍板，HomeTrendChart.tsx:96-99）。
+  String _trendDim = 'platform';
+  String _trendMetric = 'tokens';
   bool _loading = true;
   bool _copied = false;
 
@@ -105,11 +118,17 @@ class _HomePageState extends State<HomePage> {
     bool? running = _running;
     int port = _port;
     TodayStats? today = _today;
-    List<TodayPlatformStat> platformsToday = _platformsToday;
     List<PlatformSummary> platforms = _platforms;
     List<StatsBucket> trend = _trend;
+    List<DimensionEntry> dimPlatforms = _dimPlatforms;
     List<DimensionEntry> dimModels = _dimModels;
     List<DimensionEntry> dimGroups = _dimGroups;
+    List<StatsSeries> seriesPlatforms = _seriesPlatforms;
+    List<StatsSeries> seriesModels = _seriesModels;
+    List<StatsSeries> seriesGroups = _seriesGroups;
+    List<StatsSeries> todaySeriesPlatforms = _todaySeriesPlatforms;
+    List<StatsSeries> todaySeriesModels = _todaySeriesModels;
+    List<StatsSeries> todaySeriesGroups = _todaySeriesGroups;
     await Future.wait<void>([
       _guard(() async {
         final v = await widget.invoke('proxy_status');
@@ -125,13 +144,6 @@ class _HomePageState extends State<HomePage> {
         final s = TodayStats.fromJson(v! as Map<String, dynamic>);
         today = s;
       }, () => today = null),
-      _guard(() async {
-        final v = await widget.invoke('popover_platform_today');
-        platformsToday = [
-          for (final e in v! as List)
-            TodayPlatformStat.fromJson(e as Map<String, dynamic>),
-        ];
-      }, () => platformsToday = const []),
       _guard(() async {
         final v = await widget.invoke('platform_list');
         platforms = [
@@ -150,29 +162,80 @@ class _HomePageState extends State<HomePage> {
         final r = StatsResult.fromJson(v! as Map<String, dynamic>);
         trend = r.buckets;
       }, () => trend = const []),
-      // 模型 / 分组维度统计（同 24h 窗）：一次 batch 两条 group_by，只消费
-      // dimension_data（home-model-stats spec §1）。
+      // 一次 batch 六条查询（`Home.tsx:227-234`）：前三条 24h 只取 series（趋势图，
+      // 不带 group_by 免算 dimension_data），后三条今日窗口取行 + 行迷你走势。维度
+      // 排序（TopN 截断）必须按各自窗口聚合，前端从 24h series 切今日会错序且要
+      // 重算 cache_rate 等不可加指标，故走服务端双窗口而非单查询前端过滤。
       _guard(
         () async {
+          final todayStart = _todayStartMs();
           final v = await widget.invoke('stats_query_batch', {
             'queries': [
-              {'start': window.start, 'end': window.end, 'group_by': 'model'},
-              {'start': window.start, 'end': window.end, 'group_by': 'group'},
+              {
+                'start': window.start,
+                'end': window.end,
+                'granularity': 'hourly',
+                'series_by': 'platform',
+              },
+              {
+                'start': window.start,
+                'end': window.end,
+                'granularity': 'hourly',
+                'series_by': 'model',
+              },
+              {
+                'start': window.start,
+                'end': window.end,
+                'granularity': 'hourly',
+                'series_by': 'group',
+              },
+              {
+                'start': todayStart,
+                'end': window.end,
+                'granularity': 'hourly',
+                'group_by': 'platform',
+                'series_by': 'platform',
+              },
+              {
+                'start': todayStart,
+                'end': window.end,
+                'granularity': 'hourly',
+                'group_by': 'model',
+                'series_by': 'model',
+              },
+              {
+                'start': todayStart,
+                'end': window.end,
+                'granularity': 'hourly',
+                'group_by': 'group',
+                'series_by': 'group',
+              },
             ],
           });
-          final rs = v! as List;
-          List<DimensionEntry> at(int i) {
-            if (rs.length <= i) return const [];
-            final r = StatsResult.fromJson(rs[i] as Map<String, dynamic>);
-            return r.dimensionData;
-          }
+          StatsResult at(int i) => StatsResult.fromJson(
+            (v! as List)[i] as Map<String, dynamic>,
+          );
 
-          dimModels = at(0);
-          dimGroups = at(1);
+          seriesPlatforms = at(0).series;
+          seriesModels = at(1).series;
+          seriesGroups = at(2).series;
+          dimPlatforms = at(3).dimensionData;
+          dimModels = at(4).dimensionData;
+          dimGroups = at(5).dimensionData;
+          todaySeriesPlatforms = at(3).series;
+          todaySeriesModels = at(4).series;
+          todaySeriesGroups = at(5).series;
         },
         () {
+          seriesPlatforms = const [];
+          seriesModels = const [];
+          seriesGroups = const [];
+          dimPlatforms = const [];
           dimModels = const [];
           dimGroups = const [];
+          todaySeriesPlatforms = const [];
+          todaySeriesModels = const [];
+          todaySeriesGroups = const [];
         },
       ),
     ]);
@@ -182,13 +245,26 @@ class _HomePageState extends State<HomePage> {
       _running = running;
       _port = port;
       _today = today;
-      _platformsToday = platformsToday;
       _platforms = platforms;
       _trend = trend;
+      _dimPlatforms = dimPlatforms;
       _dimModels = dimModels;
       _dimGroups = dimGroups;
+      _seriesPlatforms = seriesPlatforms;
+      _seriesModels = seriesModels;
+      _seriesGroups = seriesGroups;
+      _todaySeriesPlatforms = todaySeriesPlatforms;
+      _todaySeriesModels = todaySeriesModels;
+      _todaySeriesGroups = todaySeriesGroups;
       _loading = false;
     });
+  }
+
+  /// 今日窗口起点（本地时区 00:00）：与 KPI 行 tray_today_stats 同口径
+  /// （React `todayStartMs`，Home.tsx:40）。
+  int _todayStartMs([DateTime? now]) {
+    final n = now ?? widget.now();
+    return DateTime(n.year, n.month, n.day).millisecondsSinceEpoch;
   }
 
   /// 单区兜底：失败只跑 [onError]，不把异常往上抛（对齐 React 的 `.catch(...)`）。
@@ -281,12 +357,7 @@ class _HomePageState extends State<HomePage> {
     final today = _today;
     final has = hasTodayData(today);
     final s = trendSeriesOf(_trend);
-    final top = topPlatformsOf(_platformsToday);
-    final maxCost = top.fold<double>(0, (m, p) => p.cost > m ? p.cost : m);
-    final costSum = top.fold<double>(0, (acc, p) => acc + p.cost);
     final balance = totalBalanceOf(_platforms);
-    final peak = trendPeakOf(_trend);
-    final trendOk = hasTrend(_trend);
     // 空态与加载态的分工与 React 版一致：加载中留白（不写「加载中」三个字），
     // 加载完仍无数据才显示「今日暂无请求」。
     final emptyText = _loading ? '' : tr.t('home.noToday');
@@ -316,107 +387,18 @@ class _HomePageState extends State<HomePage> {
           ]
         : const <({String label, String value, Widget? spark})>[];
 
-    // ③ 趋势区（`Home.tsx:346-399`）：meta 串是「HOURLY · 请求数 / 花费」，
-    // 有数据时再追加「· 峰值 N」（`Home.tsx:353-356`）。
-    final trendSection = _PanelSection(
-      title: tr.t('home.trend24h'),
-      headGap: 10, // Home.tsx:351 marginBottom 10
-      meta:
-          'HOURLY · ${tr.t('home.trendRequests')} / ${tr.t('home.trendCost')}'
-          '${trendOk ? ' · ${tr.t('home.trendPeak')} ${formatNumber(peak)}' : ''}',
-      child: trendOk
-          ? SizedBox(
-              height: 88 + 12, // 图 88（Home.tsx:364）+ 小时轴行 12（:373）
-              child: Column(
-                children: [
-                  SizedBox(
-                    height: 88,
-                    child: AidogLineChart(
-                      mini: true,
-                      area: true,
-                      series: [
-                        ChartSeries(
-                          key: 'req',
-                          label: tr.t('home.trendRequests'),
-                          color: _panelAccent,
-                          points: [
-                            for (final b in _trend)
-                              ChartPoint(
-                                bucketMs(b.timeBucket),
-                                b.totalRequests.toDouble(),
-                              ),
-                          ],
-                          format: formatNumber,
-                        ),
-                        ChartSeries(
-                          key: 'cost',
-                          label: tr.t('home.trendCost'),
-                          color: _panelAux,
-                          points: [
-                            for (final b in _trend)
-                              ChartPoint(bucketMs(b.timeBucket), b.totalCost),
-                          ],
-                          format: formatCostUsd,
-                          dashed: true,
-                          rightAxis: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                  SizedBox(height: 12, child: _HourAxis(buckets: _trend)),
-                ],
-              ),
-            )
-          // 空态 13 + 竖向 padding 8（Home.tsx:395）。
-          : Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                emptyText,
-                style: AidogType.caption.copyWith(
-                  fontSize: 13,
-                  color: _panelMuted,
-                ),
-              ),
-            ),
-    );
-
-    // ④ 平台 Top4（`Home.tsx:401-456`）。标题行下距 4（`:407`）= _PanelSection 缺省。
-    final platformSection = _PanelSection(
-      title: tr.t('home.topPlatforms'),
-      meta: 'TOP $kTopPlatforms · ${tr.t('home.trendCost')}',
-      child: top.isEmpty
-          // 空态 13 + 竖向 padding 4（Home.tsx:452）。
-          ? Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Text(
-                emptyText,
-                style: AidogType.caption.copyWith(
-                  fontSize: 13,
-                  color: _panelMuted,
-                ),
-              ),
-            )
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < top.length; i++) ...[
-                  if (i > 0)
-                    const Divider(
-                      height: 1,
-                      thickness: 1,
-                      color: Color(
-                        0x0DFFFFFF,
-                      ), // rgba(255,255,255,.05) 行分隔线（Home.tsx:420）
-                    ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 9, // Home.tsx:417
-                    ),
-                    child: _platformRow(top[i], maxCost, costSum),
-                  ),
-                ],
-              ],
-            ),
+    // ③ 维度趋势（home-dim-trend，`Home.tsx:426-436`）：2026-09-27 由 24h 总量
+    // 双线趋势位换成维度趋势（三维度 tab + tokens/cost 指标 tab，堆叠面积 240）。
+    final trendSection = _HomeTrendChart(
+      platformSeries: _seriesPlatforms,
+      modelSeries: _seriesModels,
+      groupSeries: _seriesGroups,
+      dim: _trendDim,
+      metric: _trendMetric,
+      ungroupedLabel: tr.t('platform.ungrouped'),
+      emptyHint: emptyText,
+      onDim: (d) => setState(() => _trendDim = d),
+      onMetric: (m) => setState(() => _trendMetric = m),
     );
 
     return Column(
@@ -488,46 +470,31 @@ class _HomePageState extends State<HomePage> {
                     : _KpiGrid(cells: kpis),
               ),
               const _PanelDivider(),
-              // ③+④ 趋势与平台：React 是 `repeat(auto-fit, minmax(420px, 1fr))`
-              // （`Home.tsx:340`）—— 塞得下两栏就并排（竖线分隔），塞不下叠成一栏
-              // （横线分隔）。reveal 也分家：趋势 140、平台 210（`Home.tsx:222-223`）。
-              LayoutBuilder(
-                builder: (context, c) {
-                  final trend = Reveal(delayMs: 140, child: trendSection);
-                  final plats = Reveal(delayMs: 210, child: platformSection);
-                  // 两栏各至少 420 + 中间 1px gap。
-                  if (c.maxWidth < 420 * 2 + 1) {
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [trend, const _PanelDivider(), plats],
-                    );
-                  }
-                  return IntrinsicHeight(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Expanded(child: trend),
-                        const VerticalDivider(
-                          width: 1,
-                          thickness: 1,
-                          color: _panelLine,
-                        ),
-                        Expanded(child: plats),
-                      ],
-                    ),
-                  );
-                },
+              // ③ 维度趋势（`Home.tsx:426-436`）：整宽一行，reveal 140。
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
+                child: Reveal(delayMs: 140, child: trendSection),
               ),
               const _PanelDivider(),
-              // ④.5 模型 / 分组维度（home-model-stats spec §2）：并排两面板，
-              // TopN 横条 + 五指标，与上面趋势/平台区同一断点换行。
+              // ④ 三维度行列表（今日窗口，`Home.tsx:438-494`）：platform / model /
+              // group 三面板同构。React 是 `repeat(auto-fit, minmax(420px, 1fr))`
+              // （`Home.tsx:440`）—— 塞得下几栏就并排（1px 线分隔），塞不下叠成一
+              // 栏（横线分隔）。reveal 210。
               Reveal(
-                delayMs: 250,
+                delayMs: 210,
                 child: _DimSection(
-                  models: _dimModels,
-                  groups: _dimGroups,
+                  platformRows: _dimPlatforms,
+                  modelRows: _dimModels,
+                  groupRows: _dimGroups,
+                  platformSparks: _todaySeriesPlatforms,
+                  modelSparks: _todaySeriesModels,
+                  groupSparks: _todaySeriesGroups,
+                  platforms: _platforms,
                   loading: _loading,
+                  emptyText: emptyText,
                   onNavigate: widget.onNavigate,
                 ),
               ),
@@ -658,65 +625,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-    );
-  }
-
-  /// ④ 平台 Top：迷你环形（花费占比）+ 行内占比条 + 等宽数字。
-  Widget _platformRow(TodayPlatformStat p, double maxCost, double costSum) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 26,
-          height: 26,
-          child: CustomPaint(
-            painter: _RingPainter(
-              share: costSum > 0 ? p.cost / costSum : 0,
-              track: _panelTrack, // 白 .14（Home.tsx:122），不是面板 hairline
-              arc: _panelAccent,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12), // Home.tsx:421 gap 12
-        Expanded(
-          child: Text(
-            p.platformName,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AidogType.label.copyWith(
-              fontSize: 13, // F.small + 1（Home.tsx:427）
-              color: _panelFg,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(2),
-            child: LinearProgressIndicator(
-              value: maxCost > 0 ? (p.cost / maxCost).clamp(0.0, 1.0) : 0,
-              minHeight: 3,
-              // 槽色是琥珀兑水 rgba(232,197,71,.12)（Home.tsx:430），不是白 .07。
-              backgroundColor: const Color(0x1FE8C547),
-              valueColor: const AlwaysStoppedAnimation<Color>(_panelAccent),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Ltr(
-          child: Text(
-            '${formatNumber(p.requests)} · ${formatNumber(p.tokens)}',
-            style: _panelMono(11, _panelMuted), // Home.tsx:442
-          ),
-        ),
-        const SizedBox(width: 12),
-        Ltr(
-          child: Text(
-            formatCostUsd(p.cost),
-            style: _panelMono(12, _panelAccent), // Home.tsx:445
-          ),
-        ),
-      ],
     );
   }
 }
@@ -851,15 +759,11 @@ class _PanelSection extends StatelessWidget {
     required this.title,
     required this.meta,
     required this.child,
-    this.headGap = 4,
   });
 
   final String title;
   final String meta;
   final Widget child;
-
-  /// 标题行与正文的间距。趋势区 10（`Home.tsx:351`）、平台区 4（`:407`）。
-  final double headGap;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -893,7 +797,7 @@ class _PanelSection extends StatelessWidget {
             ),
           ],
         ),
-        SizedBox(height: headGap),
+        const SizedBox(height: 4),
         child,
       ],
     ),
@@ -902,11 +806,13 @@ class _PanelSection extends StatelessWidget {
 
 /// KPI 格行内 sparkline：走 [normPoints] 的 min-max 归一化（与 React 版同一函数）。
 /// 少于两点不画（对齐 React 的 `values.length < 2 → null`）。
+/// [width] null = 占满父格（KPI 用）；维度行尾传定宽 72（`Home.tsx:647`）。
 class _Spark extends StatelessWidget {
-  const _Spark({required this.values, required this.color});
+  const _Spark({required this.values, required this.color, this.width});
 
   final List<double> values;
   final Color color;
+  final double? width;
 
   @override
   Widget build(BuildContext context) {
@@ -915,7 +821,7 @@ class _Spark extends StatelessWidget {
     if (values.length < 2) return const SizedBox(height: 22);
     return SizedBox(
       height: 22,
-      width: double.infinity,
+      width: width ?? double.infinity,
       child: CustomPaint(
         painter: _SparkPainter(values: values, color: color),
       ),
@@ -961,76 +867,7 @@ bool _sameList(List<double> a, List<double> b) {
   return true;
 }
 
-/// 平台行迷你环形：琥珀弧 = 该平台花费 / Top4 合计。
-class _RingPainter extends CustomPainter {
-  const _RingPainter({
-    required this.share,
-    required this.track,
-    required this.arc,
-  });
-
-  final double share;
-  final Color track;
-  final Color arc;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    const r = 9.0; // Home.tsx:117
-    final stroke = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5;
-    canvas.drawCircle(center, r, stroke..color = track);
-    final swept = share.clamp(0.0, 1.0) * 2 * 3.141592653589793;
-    if (swept <= 0) return;
-    canvas.drawArc(
-      Rect.fromCircle(center: center, radius: r),
-      -3.141592653589793 / 2,
-      swept,
-      false,
-      stroke..color = arc,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_RingPainter old) =>
-      old.share != share || old.arc != arc || old.track != track;
-}
-
-/// 趋势图下的整点小时标注：每 6 桶标一个（对齐 React 的 `i % 6 === 0`）。
-class _HourAxis extends StatelessWidget {
-  const _HourAxis({required this.buckets});
-
-  final List<StatsBucket> buckets;
-
-  @override
-  Widget build(BuildContext context) {
-    if (buckets.length < 2) return const SizedBox.shrink();
-    return LayoutBuilder(
-      builder: (context, c) => Stack(
-        children: [
-          for (var i = 0; i < buckets.length; i += 6)
-            Positioned(
-              left: (i / (buckets.length - 1)) * c.maxWidth - 9,
-              child: SizedBox(
-                width: 18,
-                child: Text(
-                  hourTickOf(buckets[i]),
-                  textAlign: TextAlign.center,
-                  style: _panelMono(
-                    8,
-                    _panelMuted,
-                  ), // Home.tsx:383-384 固定面板色，不跟主题
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-/// 快捷键 chip：文案 + 键位。键位符号是规则 6 第 ① 类显式 LTR。
+/// 面板底部快捷键 chip（`Home.tsx:483`）。
 class _Chip extends StatelessWidget {
   const _Chip({
     required this.label,
@@ -1099,9 +936,342 @@ class _Chip extends StatelessWidget {
   }
 }
 
-// ── 模型 / 分组维度面板（home-model-stats spec §2）─────────────────
-// 行结构：名称（弹性省略）｜tokens 占比条｜tokens｜cost｜请求数｜成功率｜缓存率。
-// 「其它」行灰显不可点；缓存率分母不可加，合并行显 --。
+// ── 维度趋势图（home-dim-trend spec，React `HomeTrendChart.tsx`）──────
+// 按平台 / 按模型 / 按分组 24h 堆叠面积。数据源 = load() 里 batch 前三条 24h
+// series_by 查询；窗口恒 24h；默认维度 platform、默认指标 tokens（两次 2026-09-27
+// 用户拍板）。面板是固定深色，图与文字都走 PANEL 显式色（图表组件读主题 token，
+// 这里用 Theme override 压成深色 token，浅色主题下轴/图例仍可读）。
+
+int _bucketTokens(StatsBucket b) =>
+    b.inputTokens + b.outputTokens + b.cacheTokens;
+
+int _seriesTokens(StatsSeries s) =>
+    s.buckets.fold(0, (sum, b) => sum + _bucketTokens(b));
+
+/// 多条维度序列合并成一条（「其它」层）：同桶逐字段求和，比率与均值不可加置 0。
+StatsSeries _mergeSeries(List<StatsSeries> rest) {
+  final m = <String, StatsBucket>{};
+  for (final s in rest) {
+    for (final b in s.buckets) {
+      final cur = m[b.timeBucket];
+      m[b.timeBucket] = cur == null
+          ? b
+          : StatsBucket(
+              timeBucket: b.timeBucket,
+              totalRequests: cur.totalRequests + b.totalRequests,
+              successCount: cur.successCount + b.successCount,
+              errorCount: cur.errorCount + b.errorCount,
+              inputTokens: cur.inputTokens + b.inputTokens,
+              outputTokens: cur.outputTokens + b.outputTokens,
+              cacheTokens: cur.cacheTokens + b.cacheTokens,
+              avgDurationMs: 0,
+              totalCost: cur.totalCost + b.totalCost,
+            );
+    }
+  }
+  final keys = m.keys.toList()..sort();
+  return StatsSeries(name: '', buckets: [for (final k in keys) m[k]!]);
+}
+
+/// 维度趋势图的一层（React `DimTrendData` 的 Flutter 侧）：label + 逐桶指标值。
+class _DimTrendLayer {
+  const _DimTrendLayer({required this.label, required this.values, required this.xs});
+  final String label;
+
+  /// 与 [xs] 对齐的逐桶指标值（tokens / cost 二选一，由 metric 决定）。
+  final List<double> values;
+  final List<double> xs;
+}
+
+/// 维度小时序列 → Top8 + 「其它」堆叠层（tokens 降序，与 _buildDimRows 口径一致，
+/// React `buildDimTrend`）。[ungroupedLabel] 仅分组维度传（空名归一）。
+List<_DimTrendLayer> _buildDimTrend(
+  List<StatsSeries> series,
+  String metric,
+  String otherLabel, [
+  String? ungroupedLabel,
+]) {
+  final sorted = [...series]..sort((a, b) => _seriesTokens(b) - _seriesTokens(a));
+  final kept = sorted.take(_dimTopN).toList();
+  final rest = sorted.skip(_dimTopN).toList();
+  final layers = [...kept, if (rest.isNotEmpty) _mergeSeries(rest)];
+
+  double val(StatsBucket b) =>
+      metric == 'cost' ? b.totalCost : _bucketTokens(b).toDouble();
+  String labelOf(StatsSeries s, bool isOther) => isOther
+      ? otherLabel
+      : (s.name.isEmpty ? (ungroupedLabel ?? s.name) : s.name);
+
+  final xsByLayer = <List<double>>[];
+  final valsByLayer = <List<double>>[];
+  for (final s in layers) {
+    xsByLayer.add([
+      for (final b in s.buckets) bucketMs(b.timeBucket).toDouble(),
+    ]);
+    valsByLayer.add([for (final b in s.buckets) val(b)]);
+  }
+  return [
+    for (var i = 0; i < layers.length; i++)
+      _DimTrendLayer(
+        label: labelOf(layers[i], i >= kept.length),
+        values: valsByLayer[i],
+        xs: xsByLayer[i],
+      ),
+  ];
+}
+
+/// 今日维度序列 → 行迷你曲线数据（React `buildSparkMap`）：
+/// key = 维度名（分组空名归 [ungroupedLabel]），值 = 逐桶 token。
+Map<String, List<double>> _buildSparkMap(
+  List<StatsSeries> series, [
+  String? ungroupedLabel,
+]) => {
+  for (final s in series)
+    (s.name.isEmpty ? (ungroupedLabel ?? s.name) : s.name): [
+      for (final b in s.buckets) _bucketTokens(b).toDouble(),
+    ],
+};
+
+class _HomeTrendChart extends StatelessWidget {
+  const _HomeTrendChart({
+    required this.platformSeries,
+    required this.modelSeries,
+    required this.groupSeries,
+    required this.dim,
+    required this.metric,
+    required this.ungroupedLabel,
+    required this.emptyHint,
+    required this.onDim,
+    required this.onMetric,
+  });
+
+  final List<StatsSeries> platformSeries;
+  final List<StatsSeries> modelSeries;
+  final List<StatsSeries> groupSeries;
+
+  /// platform / model / group（默认 platform）。状态在父级，本组件无本地态。
+  final String dim;
+
+  /// tokens / cost（默认 tokens）。
+  final String metric;
+  final String ungroupedLabel;
+  final String emptyHint;
+  final ValueChanged<String> onDim;
+  final ValueChanged<String> onMetric;
+
+
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final series = dim == 'model'
+        ? modelSeries
+        : dim == 'group'
+        ? groupSeries
+        : platformSeries;
+    // 全时段请求合计（各维度序列 total_requests 之和）。React 把请求走势画成右轴
+    // 线（rightConfig），Flutter 堆叠图无右轴，这里以图例尾合计承接同一信息。
+    final totalRequests = series.fold<int>(
+      0,
+      (n, s) => s.buckets.fold(n, (m, b) => m + b.totalRequests),
+    );
+    final layers = _buildDimTrend(
+      series,
+      metric,
+      t.t('home.dimOther'),
+      dim == 'group' ? ungroupedLabel : null,
+    );
+    final palette = ChartPalette.of(context);
+
+    // 面板是固定深色：把图表组件读到的主题 token 压成深色版（React 的
+    // `textColor={PANEL.muted}` 同一件事，Flutter 图表没有 textColor 入口）。
+    final theme = Theme.of(context);
+    final chart = Theme(
+      data: theme.copyWith(
+        extensions: <ThemeExtension<dynamic>>[
+          AidogTheme.forMode(AidogMode.dark),
+        ],
+      ),
+      child: AidogStackedAreaChart(
+        series: [
+          for (var i = 0; i < layers.length; i++)
+            ChartSeries(
+              key: 's$i',
+              label: layers[i].label,
+              color: palette.series(i),
+              // 稀疏宽表：某层在某个桶没有值 → 该点 missing（断线语义，堆叠仍按 0 算，
+              // 与 stats.dart 趋势图同一条注释的口径）。先按 x 全集对齐。
+              points: [
+                for (var r = 0; r < layers[i].xs.length; r++)
+                  ChartPoint(layers[i].xs[r], layers[i].values[r]),
+              ],
+              format: metric == 'cost' ? formatCostUsd : formatNumber,
+            ),
+        ],
+        // 空态文案尊重 loading：加载中留白，落空才显「今日暂无请求」
+        //（React `emptyHint={loading ? "" : t(...)}`，HomeTrendChart.tsx:168）。
+        emptyText: emptyHint,
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 头行：标题左、维度 tab + 指标 tab 右（HomeTrendChart.tsx:123-147）。
+        Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 12,
+          runSpacing: 8,
+          children: [
+            Text(
+              t.t('home.dimTrendTitle'),
+              style: AidogType.label.copyWith(
+                fontSize: 13,
+                color: _panelFg,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Semantics(
+                  label: t.t('home.dimTrendTitle'),
+                  container: true,
+                  child: Wrap(
+                    spacing: 4,
+                    children: [
+                      for (final d in const [
+                        ('platform', 'home.tabPlatform'),
+                        ('model', 'home.tabModel'),
+                        ('group', 'home.tabGroup'),
+                      ])
+                        _TrendTabButton(
+                          label: t.t(d.$2),
+                          active: dim == d.$1,
+                          onTap: () => onDim(d.$1),
+                        ),
+                    ],
+                  ),
+                ),
+                Semantics(
+                  label: t.t('home.dimMetric'),
+                  container: true,
+                  child: Wrap(
+                    spacing: 4,
+                    children: [
+                      for (final m in const [
+                        ('tokens', 'home.tokens'),
+                        ('cost', 'home.trendCost'),
+                      ])
+                        _TrendTabButton(
+                          label: t.t(m.$2),
+                          active: metric == m.$1,
+                          onTap: () => onMetric(m.$1),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 8), // HomeTrendChart.tsx:118 gap 8
+        SizedBox(height: 240, child: chart), // React height 240（:167）
+        // 图例：公共 StackedAreaChart 自带图例，Flutter 侧的 AidogStackedAreaChart
+        // 不带，这里补一行（色点 + label，面板色）。
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 12,
+          runSpacing: 4,
+          children: [
+            for (var i = 0; i < layers.length; i++)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 8,
+                    height: 8,
+                    margin: const EdgeInsets.only(right: 5),
+                    decoration: BoxDecoration(
+                      color: palette.series(i),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  Text(
+                    layers[i].label,
+                    style: AidogType.caption.copyWith(
+                      fontSize: 11,
+                      color: _panelMuted,
+                    ),
+                  ),
+                ],
+              ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '${t.t('home.trendRequests')} · ${formatNumber(totalRequests)}',
+                  style: _panelMono(11, _panelFg),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// 面板内 tab 小按钮（React `tabButton`，HomeTrendChart.tsx:105-115）：11 号字、
+/// 3/10 内衬、radius 6；激活 = 琥珀描边 .4 + 琥珀 12% 底 + 琥珀字，未激活 = 面板
+/// line 描边 + muted 字。不走主题 CSS 变量（面板是硬编码深色面）。
+class _TrendTabButton extends StatelessWidget {
+  const _TrendTabButton({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  static const Color _amber = Color(0xFFE8C547);
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: active ? const Color(0x66E8C547) : _panelLine,
+          ),
+          color: active ? const Color(0x1FE8C547) : null,
+        ),
+        child: Text(
+          label,
+          style: AidogType.caption.copyWith(
+            fontSize: 11,
+            color: active ? _amber : _panelMuted,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── 三维度行列表（platform / model / group 同构，今日窗口）─────────────
+// 行结构：logo（仅平台维度）｜名称（弹性省略）｜tokens 占比条｜tokens｜cost｜
+// 请求数｜成功率｜缓存率｜延迟｜今日迷你走势。「其它」行灰显不可点；
+// 缓存率/延迟分母不可加，合并行显 --。
 
 const int _dimTopN = 8;
 
@@ -1118,14 +1288,14 @@ class _DimRowData {
   final String name;
   final DimensionEntry d;
 
-  /// 「其它」合并行（label 取 home.dimOther，缓存率显 --）。
+  /// 「其它」合并行（label 取 home.dimOther，缓存率/延迟显 --）。
   final bool other;
 
   /// 「其它」与「未分组平台」都不可点（点了没有唯一下钻目标）。
   final bool unclickable;
 }
 
-/// tokens 降序前 [_dimTopN]，其余合并成一条「其它」行（home-model-stats spec §2）。
+/// tokens 降序前 [_dimTopN]，其余合并成一条「其它」行（React `buildDimRows`）。
 ///
 /// [ungroupedLabel] 分组维度传入「未分组平台」：空 group_key 是真实语义，标出
 /// 且不可点下钻（groupKey='' 到统计页等于不带筛选）。模型维度不传：空 model
@@ -1178,55 +1348,113 @@ class _DimRowData {
   return (rows: rows, total: sorted.fold(0, (s, d) => s + _dimTokens(d)));
 }
 
+/// 三维度行区（React `Home.tsx:438-494`）：platform / model / group 三面板同构，
+/// `repeat(auto-fit, minmax(420px, 1fr))` 的 Flutter 侧 = 按可用宽分 1/2/3 栏，
+/// 面板间 1px 线分隔（栏间竖线、行间横线）。
 class _DimSection extends StatelessWidget {
   const _DimSection({
-    required this.models,
-    required this.groups,
+    required this.platformRows,
+    required this.modelRows,
+    required this.groupRows,
+    required this.platformSparks,
+    required this.modelSparks,
+    required this.groupSparks,
+    required this.platforms,
     required this.loading,
+    required this.emptyText,
     required this.onNavigate,
   });
 
-  final List<DimensionEntry> models;
-  final List<DimensionEntry> groups;
+  final List<DimensionEntry> platformRows;
+  final List<DimensionEntry> modelRows;
+  final List<DimensionEntry> groupRows;
+  final List<StatsSeries> platformSparks;
+  final List<StatsSeries> modelSparks;
+  final List<StatsSeries> groupSparks;
+
+  /// 平台清单（行 logo 与下钻 id 用；维度名 = 平台显示名，后端回填）。
+  final List<PlatformSummary> platforms;
   final bool loading;
+  final String emptyText;
   final void Function(String id, [NavContext? context]) onNavigate;
 
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
-    final m = _buildDimRows(models);
-    final g = _buildDimRows(groups, t.t('platform.ungrouped'));
-    final modelPanel = _DimPanel(
-      title: t.t('home.byModel'),
-      rows: m.rows,
-      totalTokens: m.total,
-      loading: loading,
-      onRow: (name) => onNavigate('stats', NavContext(model: name)),
-    );
-    final groupPanel = _DimPanel(
-      title: t.t('home.byGroup'),
-      rows: g.rows,
-      totalTokens: g.total,
-      loading: loading,
-      onRow: (name) => onNavigate('stats', NavContext(groupKey: name)),
-    );
+    final ungroupedLabel = t.t('platform.ungrouped');
+    final platformByName = {
+      for (final p in platforms) p.name: p,
+    };
+    // 行 logo（仅平台维度，`Home.tsx:292-296` 的 platformLogoOf）。
+    String? logoOf(String name) => platformByName[name]?.platformType;
+
+    final p = _buildDimRows(platformRows);
+    final m = _buildDimRows(modelRows);
+    final g = _buildDimRows(groupRows, ungroupedLabel);
+    final panels = [
+      _DimPanel(
+        title: t.t('home.byPlatform'),
+        rows: p.rows,
+        totalTokens: p.total,
+        sparks: _buildSparkMap(platformSparks),
+        logoOf: logoOf,
+        loading: loading,
+        emptyText: emptyText,
+        onRow: (name) {
+          final plat = platformByName[name];
+          onNavigate(
+            'stats',
+            plat == null
+                ? NavContext(platformName: name)
+                : NavContext(platformId: plat.id, platformName: plat.name),
+          );
+        },
+      ),
+      _DimPanel(
+        title: t.t('home.byModel'),
+        rows: m.rows,
+        totalTokens: m.total,
+        sparks: _buildSparkMap(modelSparks),
+        loading: loading,
+        emptyText: emptyText,
+        onRow: (name) => onNavigate('stats', NavContext(model: name)),
+      ),
+      _DimPanel(
+        title: t.t('home.byGroup'),
+        rows: g.rows,
+        totalTokens: g.total,
+        sparks: _buildSparkMap(groupSparks, ungroupedLabel),
+        loading: loading,
+        emptyText: emptyText,
+        onRow: (name) => onNavigate('stats', NavContext(groupKey: name)),
+      ),
+    ];
+
     return LayoutBuilder(
       builder: (context, c) {
-        // 与上面趋势/平台区同一断点（两栏各至少 420 + 1px 分隔）。
-        if (c.maxWidth < 420 * 2 + 1) {
+        // `repeat(auto-fit, minmax(420px, 1fr))`：每栏至少 420，栏间 1px。
+        final cols = ((c.maxWidth + 1) / 421).floor().clamp(1, 3);
+        if (cols == 1) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
-            children: [modelPanel, const _PanelDivider(), groupPanel],
+            children: [
+              for (var i = 0; i < panels.length; i++) ...[
+                if (i > 0) const _PanelDivider(),
+                panels[i],
+              ],
+            ],
           );
         }
         return IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Expanded(child: modelPanel),
-              const VerticalDivider(width: 1, thickness: 1, color: _panelLine),
-              Expanded(child: groupPanel),
+              for (var i = 0; i < panels.length; i++) ...[
+                if (i > 0)
+                  const VerticalDivider(width: 1, thickness: 1, color: _panelLine),
+                Expanded(child: panels[i]),
+              ],
             ],
           ),
         );
@@ -1240,33 +1468,43 @@ class _DimPanel extends StatelessWidget {
     required this.title,
     required this.rows,
     required this.totalTokens,
+    required this.sparks,
     required this.loading,
+    required this.emptyText,
     required this.onRow,
+    this.logoOf,
   });
 
   final String title;
   final List<_DimRowData> rows;
   final int totalTokens;
+
+  /// 行名 → 今日逐桶 token 序列（缺名不画，React `DimPanel` 的 sparks prop）。
+  final Map<String, List<double>> sparks;
   final bool loading;
+  final String emptyText;
+
+  /// 行名 → 协议（仅平台维度传）：命中画 ProtocolLogo。
+  final String? Function(String name)? logoOf;
   final void Function(String name) onRow;
 
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
     if (rows.isEmpty) {
-      // 空态与平台区同款：加载中不显字，落空显「今日暂无请求」。
+      // 空态与 KPI 区同款：加载中不显字，落空显「今日暂无请求」。
       return _PanelSection(
         title: title,
-        meta: '24H · ${t.t('home.dimMetric')}',
+        meta: 'TODAY · ${t.t('home.dimMetric')}',
         child: Text(
-          loading ? '' : t.t('home.noToday'),
+          emptyText,
           style: AidogType.caption.copyWith(fontSize: 11, color: _panelMuted),
         ),
       );
     }
     return _PanelSection(
       title: title,
-      meta: '24H · ${t.t('home.dimMetric')}',
+      meta: 'TODAY · ${t.t('home.dimMetric')}',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
@@ -1285,8 +1523,15 @@ class _DimPanel extends StatelessWidget {
         ? formatPercent(r.d.successCount / r.d.totalRequests * 100, 0)
         : '--';
     final cache = r.other ? '--' : formatPercent(r.d.cacheRate, 0);
+    // 「其它」行的均值不可加；零请求的行没有延迟可言（Home.tsx:640）。
+    final duration = r.other || r.d.totalRequests == 0
+        ? '--'
+        : formatDurationMs(r.d.avgDurationMs);
+    final proto = r.other ? null : logoOf?.call(r.name);
+    final spark = r.other ? const <double>[] : (sparks[r.name] ?? const []);
     final row = Row(
       children: [
+        if (proto != null) ...[ProtocolLogo(protocol: proto, size: 18), const SizedBox(width: 12)],
         Expanded(
           flex: 3,
           child: Tooltip(
@@ -1330,6 +1575,9 @@ class _DimPanel extends StatelessWidget {
         _dimNum(formatNumber(r.d.totalRequests), 44, muted: true),
         _dimNum(success, 42, muted: true),
         _dimNum(cache, 42, muted: true),
+        _dimNum(duration, 46, muted: true),
+        // 行尾今日 token 迷你走势（跟随面板窗口），灰阶不与占比条抢焦点。
+        _Spark(values: spark, color: _panelAux, width: 72),
       ],
     );
     final body = Padding(

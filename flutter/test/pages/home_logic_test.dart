@@ -91,47 +91,6 @@ void main() {
     );
   });
 
-  group('topPlatformsOf', () {
-    test('滤掉全零行、按 cost 降序、截断到 4 条', () {
-      final top = topPlatformsOf([
-        stat(1, 'a', 1, 0, 0),
-        stat(2, 'zero', 0, 0, 0), // 三项全零 → 滤掉
-        stat(3, 'c', 5, 0, 0),
-        stat(4, 'd', 3, 0, 0),
-        stat(5, 'e', 2, 0, 0),
-        stat(6, 'f', 0.5, 0, 0), // 第 5 名 → 截断
-      ]);
-      expect([for (final p in top) p.platformName], ['c', 'd', 'e', 'a']);
-    });
-
-    test('cost 为 0 但有 token 或请求的仍保留', () {
-      final top = topPlatformsOf([
-        stat(1, 'tokens-only', 0, 10, 0),
-        stat(2, 'req-only', 0, 0, 3),
-        stat(3, 'all-zero', 0, 0, 0),
-      ]);
-      expect([for (final p in top) p.platformName], [
-        'tokens-only',
-        'req-only',
-      ]);
-    });
-
-    test('cost 并列时保持首现序（JS sort 稳定，Dart 的不保证）', () {
-      final top = topPlatformsOf([
-        stat(1, 'first', 2, 0, 0),
-        stat(2, 'second', 2, 0, 0),
-        stat(3, 'third', 2, 0, 0),
-      ]);
-      expect([for (final p in top) p.platformName], [
-        'first',
-        'second',
-        'third',
-      ]);
-    });
-
-    test('空列表 → 空结果', () => expect(topPlatformsOf(const []), isEmpty));
-  });
-
   test('totalBalanceOf 求和；空列表 → 0', () {
     PlatformSummary p(double b) => PlatformSummary(
       id: 1,
@@ -159,17 +118,6 @@ void main() {
     expect(s.cost, [0.5, 0]);
     expect(s.tokens, [6, 0]);
     expect(s.cache, [3, 0]);
-  });
-
-  test('trendPeakOf / hasTrend：全零桶算空态', () {
-    final zeros = [bucket('2026-09-13 10:00:00'), bucket('2026-09-13 11:00:00')];
-    expect(trendPeakOf(zeros), 0);
-    expect(hasTrend(zeros), isFalse);
-    expect(trendPeakOf(const []), 0);
-    expect(hasTrend(const []), isFalse);
-    final some = [...zeros, bucket('2026-09-13 12:00:00', requests: 7)];
-    expect(trendPeakOf(some), 7);
-    expect(hasTrend(some), isTrue);
   });
 
   test('hourTickOf：hourly 桶取 HH，daily 桶无小时信息返空串', () {
