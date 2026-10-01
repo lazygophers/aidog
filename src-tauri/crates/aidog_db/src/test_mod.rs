@@ -365,3 +365,27 @@ async fn call_traced_skips_reopen_for_memory_db() {
         "memory db should NOT auto-reopen (would read empty db), got {r:?}"
     );
 }
+
+// ── perf-backend O5（migration 20261001-01）：proxy_log 三个读侧窄索引。
+// migration 语句 `let _ =` 吞错（幂等范式），SQL 拼写错会被静默跳过，需显式断言存在 ──
+#[tokio::test]
+async fn migration_20261001_01_proxy_log_read_indexes_exist() {
+    let db = test_db().await;
+    let idx: Vec<String> = db
+        .call_read_proxy_log_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn
+                .prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='proxy_log'")?
+                .query_map([], |r| r.get(0))?
+                .filter_map(|r| r.ok())
+                .collect())
+        })
+        .await
+        .unwrap();
+    for name in [
+        "idx_proxy_log_source_protocol_created",
+        "idx_proxy_log_platform_protocol_created",
+        "idx_proxy_log_blocked_reason_created",
+    ] {
+        assert!(idx.contains(&name.to_string()), "missing index {name}");
+    }
+}
