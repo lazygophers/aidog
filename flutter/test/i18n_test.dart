@@ -85,8 +85,8 @@ void main() {
       // `group` / `logs` 在 JSON 里是嵌套对象，拍平后会展开成多条。拿
       // `len(json.load(f))` 去对这个数一定对不上，别那样核。
       // + 47（cc-sub-mitm 批次：platform.mitm* / stats.mitm* / page.mitm* /
-      //      nav.mitmLog / group.solo* 等 8 语言同步新增，2026-10-01 实测 2906）。
-      expect(base, hasLength(2906));
+      //      nav.mitmLog / group.solo* 等 8 语言同步新增；2908 = 2906 + 并行批次 +2）。
+      expect(base, hasLength(2908));
       for (final locale in kAllLocales) {
         final keys = all[locale]!.entries.keys.toSet();
         expect(keys.difference(base), isEmpty, reason: '$locale 多出 en-US 没有的键');
