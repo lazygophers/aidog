@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790771121,
+  "last_updated": 1790823630,
   "model_id": "decision-model-preview",
   "canonical_model": "decision-model-preview",
   "display_name": "Decision Model Preview",
@@ -10,6 +10,7 @@
   "max_input_tokens": 64000,
   "official": false,
   "price": {
+    "free": true,
     "input": 0,
     "output": 0
   }
