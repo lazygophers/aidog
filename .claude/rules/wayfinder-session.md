@@ -119,3 +119,17 @@ node `setTimeout` watcher 调 `ask-ui resume` 才接上。
    设 `timeout: 7200000`（后台上限 2 小时），不用默认值。
 2. 被超时杀掉不代表表单没了：用 `ask-ui resume` 接回同一张表单，别重发新表单。
 3. 禁写 `sleep` 循环等提交。
+
+## 10. 派 research agent 的落盘指令要带回退口径（2026-10-01 commandcode-goat 轮）
+
+票 01 的 research agent 实际拿到的工具集只有 web 读取类（无 Bash/Edit/Write），
+「把报告写到 .scratch/<spec>/research/」这条指令它根本执行不了——靠 agent 自行
+把全文回传、主会话核对后落盘才接上。事后看是运气不是设计。
+
+- 派 agent 前无法预知其工具集时，落盘指令写成双口径：「若无文件写入工具，报告
+  全文直接回传，由主会话核对后落盘」——同模式先例：本文件第 2 条「状态迁移指令
+  要贴进派发 prompt」、parallel-implement.md 第 2 条「任务与边界一次性写进派发
+  prompt」。
+- 回传的全文报告落盘时，文件头注明取证方式（如「agent 无本地文件工具，报告经
+  主会话对照官方页面核对后写入」——`.scratch/research/2026-10-01.md` 的方法注记
+  即此），别让后人以为它出自一手文件操作。
