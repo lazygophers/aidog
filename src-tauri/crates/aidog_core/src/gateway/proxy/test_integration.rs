@@ -2694,12 +2694,16 @@ async fn decision_request_end_to_end() {
     assert!((log.est_cost - 0.000125).abs() < 1e-9, "upstream usage.cost adopted (R14), got {}", log.est_cost);
 }
 
-/// 不信任上游 `usage.cost: 0`（用户 2026-10-01 确认）：registry 价 > 0 → 按 registry 价。
-/// registry 全 0 价条目视同未定价 → PriceSyncSettings 默认价（3 $/M，现行 resolve_price_from 规则）。
+/// 不信任上游 `usage.cost: 0`（用户 2026-10-01 确认）：registry 价 > 0 → 按 registry 价；
+/// registry 标 `free: true` → 0；全 0 价未标 free 视同未定价 → PriceSyncSettings 默认价（3 $/M）。
 #[tokio::test]
 async fn decision_upstream_zero_cost_uses_registry_price() {
     let resp_body = r#"{"model":"jev-1.13","answers":[],"usage":{"input_tokens":1000,"output_tokens":0,"cost":0}}"#;
-    for (gk, input_price, expected) in [("gkz1", "4.2e-8", 1000.0 * 4.2e-8), ("gkz0", "0", 1000.0 * 3.0 / 1_000_000.0)] {
+    for (gk, price, expected) in [
+        ("gkz1", r#"{"input":4.2e-8,"output":0}"#, 1000.0 * 4.2e-8),
+        ("gkzfree", r#"{"free":true,"input":0,"output":0}"#, 0.0),
+        ("gkz0", r#"{"input":0,"output":0}"#, 1000.0 * 3.0 / 1_000_000.0),
+    ] {
         let (upstream, _hits) = spawn_decision_upstream(vec![(200, resp_body)]).await;
         let state = make_state(test_db().await).await;
         aidog_db::upsert_model_entries(
@@ -2718,7 +2722,7 @@ async fn decision_upstream_zero_cost_uses_registry_price() {
                 max_output_tokens: None,
                 context_window: Some(64000),
                 official: true,
-                price_data: format!(r#"{{"price":{{"input":{input_price},"output":0}}}}"#),
+                price_data: format!(r#"{{"price":{price}}}"#),
                 updated_at: aidog_db::now(),
             }],
         )

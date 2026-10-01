@@ -247,7 +247,21 @@ pub fn resolve_price_from(
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
     let price_obj = pd.get("price").cloned().unwrap_or_default();
-    let num = |k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
+    // 显式免费（`price.free: true`，官方来源）→ 恒 0，不走 fallback / 分档 / peak。
+    // 全 0 价未标 free 仍视同未定价（见下 fallback 分支）。
+    if price_obj.get("free").and_then(Value::as_bool) == Some(true) {
+        return PriceResolution {
+            price: ResolvedPrice {
+                input_cost_per_token: 0.0,
+                output_cost_per_token: 0.0,
+                cache_read_input_token_cost: 0.0,
+                cache_write_input_token_cost: 0.0,
+                source: "model_entry+free".to_string(),
+            },
+            peak_applied: false,
+        };
+    }
+    let num =|k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
     let input = num("input");
     let output = num("output");
     let mut price = if input > 0.0 || output > 0.0 {
