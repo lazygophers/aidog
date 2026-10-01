@@ -74,11 +74,11 @@ fn process_decision_response(body: &[u8]) -> (Vec<u8>, Option<f64>) {
         .and_then(|u| u.get("cost"))
         .and_then(|c| c.as_f64());
     if let Some(obj) = v.as_object_mut() {
-        obj.remove("id");
-        obj.remove("provider");
+        obj.shift_remove("id");
+        obj.shift_remove("provider");
     }
     if let Some(usage) = v.get_mut("usage").and_then(|u| u.as_object_mut()) {
-        usage.remove("cost");
+        usage.shift_remove("cost");
     }
     match serde_json::to_vec(&v) {
         Ok(bytes) => (bytes, cost),

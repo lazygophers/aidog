@@ -2637,7 +2637,7 @@ fn decision_request(gk: &str, model: &str) -> Request {
         .header("authorization", format!("Bearer {gk}"))
         .header("content-type", "application/json")
         .body(Body::from(
-            serde_json::json!({"model": model, "answers": [], "usage": {}}).to_string(),
+            serde_json::json!({"model": model, "usage": {}, "answers": []}).to_string(),
         ))
         .unwrap()
 }
@@ -2680,6 +2680,8 @@ async fn decision_request_end_to_end() {
     let hits = hits.lock().unwrap();
     let (path, req_body) = &hits[0];
     assert_eq!(path, "/v1/systemone", "URL = base_url + /systemone (R10)");
+    // preserve_order：上游请求体保持客户端字段顺序（model 原位改写，非字母序）
+    assert_eq!(req_body, r#"{"model":"jev-latest","usage":{},"answers":[]}"#);
     let sent: serde_json::Value = serde_json::from_str(req_body).unwrap();
     assert_eq!(sent.get("model").unwrap(), "jev-latest", "model rewritten to slot (R8)");
 

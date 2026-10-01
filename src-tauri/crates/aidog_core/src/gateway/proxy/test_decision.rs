@@ -26,6 +26,17 @@ fn strips_non_official_fields_and_keeps_official() {
     assert!((cost.unwrap() - 0.0004).abs() < 1e-12, "upstream cost extracted");
 }
 
+/// serde_json preserve_order：剥字段后其余字段保持上游原顺序（非字母序）。
+#[test]
+fn response_keeps_upstream_field_order() {
+    let body = br#"{"model":"jev-1.13","id":"x","answers":[],"usage":{"output_tokens":2,"cost":0.1,"input_tokens":10},"provider":"p"}"#;
+    let (out, _) = process_decision_response(body);
+    assert_eq!(
+        String::from_utf8(out).unwrap(),
+        r#"{"model":"jev-1.13","answers":[],"usage":{"output_tokens":2,"input_tokens":10}}"#
+    );
+}
+
 /// 无 usage.cost（TypeSafe 官方响应）→ cost=None，其余字段照剥。
 #[test]
 fn no_cost_yields_none() {
