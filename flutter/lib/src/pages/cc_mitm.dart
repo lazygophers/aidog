@@ -15,7 +15,6 @@ import '../shell/theme.dart';
 import '../shell/tiles.dart' show Tile;
 import 'invoke.dart';
 import 'ui_bits.dart' show AidogSwitch, SmallButton;
-import 'platform_form_bits.dart' show FormHint;
 
 /// `mitm.ts:139::OauthUsageSample`：5h/7d 窗口利用率采样点。
 class OauthUsageSample {
@@ -339,7 +338,15 @@ class CcMitmAccessSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        FormHint(t.t('platform.sectionPassthrough')),
+        // 区块小标题（React `FormSection title`，无卡面 —— 表单是子块不是分区）。
+        Text(
+          t.t('platform.mitmSection'),
+          style: AidogType.label.copyWith(
+            fontSize: 13,
+            fontWeight: FontWeight.w700,
+            color: theme.c.fg,
+          ),
+        ),
         const SizedBox(height: 10),
         Row(
           children: [
