@@ -288,23 +288,25 @@ pub(crate) async fn process_upsert(
                 .is_ok();
             if ok {
                 // OOM 止血：快照表只留 meta（清空 body/headers 大字段），N 并发不累积大 String。
-                state
-                    .log_snapshots
-                    .insert(id.clone(), cols.into_snapshot_meta());
+                // 首写位掩码（O1）：INSERT 绑定全部列，非空大字段视作已写，空字段留待首写。
+                let mask = cols.nonempty_raw_mask();
+                let mut snap = cols.into_snapshot_meta();
+                snap.raw_written_mask = mask;
+                state.log_snapshots.insert(id.clone(), snap);
             }
             ok
         }
         Some(prev) => {
-            // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
-            let ok = aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev)
-                .await
-                .is_ok();
-            if ok {
-                state
-                    .log_snapshots
-                    .insert(id.clone(), cols.into_snapshot_meta());
+            // 后续节点：仅 UPDATE 变化列 + 未写过的大字段（O1 正文只写首尾）；成功后刷新快照。
+            match aidog_logs::update_proxy_log_columns(&state.db, cols.clone(), &prev).await {
+                Ok(mask) => {
+                    let mut snap = cols.into_snapshot_meta();
+                    snap.raw_written_mask = mask;
+                    state.log_snapshots.insert(id.clone(), snap);
+                    true
+                }
+                Err(_) => false,
             }
-            ok
         }
     };
 
@@ -637,6 +639,8 @@ async fn process_connect_log(
         done: 1,
         // CONNECT 隧道日志不经出站 body 构造 seam，无字段留痕（票 10）。
         field_trace: String::new(),
+        // 一次性终态 INSERT，无后续节点，位掩码无消费方（O1）。
+        raw_written_mask: 0,
     };
     if let Err(e) = aidog_logs::insert_proxy_log_columns(&state.db, cols).await {
         tracing::warn!(error = %e, "connect log insert failed (non-fatal)");

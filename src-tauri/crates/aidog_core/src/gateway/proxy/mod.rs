@@ -97,7 +97,7 @@ pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
-    format_pretty_json, inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
+    inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
     passthrough_headers, sanitize_header_injects,
 };
 pub(crate) use non_success::handle_non_success;
