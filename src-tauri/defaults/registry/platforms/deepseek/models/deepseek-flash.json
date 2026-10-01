@@ -1,19 +1,19 @@
 {
   "last_updated": 1790831231,
-  "model_id": "deepseek-v4-flash-vision-exp",
-  "display_name": "DeepSeek V4 Flash Vision Exp",
-  "canonical_model": "deepseek-v4-flash-vision-exp",
+  "model_id": "deepseek-flash",
+  "display_name": "DeepSeek Flash",
+  "canonical_model": "deepseek-flash",
   "family": "deepseek",
-  "version": "4",
+  "version": "4.1",
   "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text",
     "vision"
   ],
-  "max_input_tokens": 1000000,
-  "max_output_tokens": 384000,
-  "context_window": 1000000,
+  "max_input_tokens": 1048576,
+  "max_output_tokens": 393216,
+  "context_window": 1048576,
   "official": true,
   "price": {
     "input": 1.5e-07,
