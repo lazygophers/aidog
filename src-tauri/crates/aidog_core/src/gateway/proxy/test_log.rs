@@ -378,10 +378,11 @@ async fn body_omitted_sticky_across_subsequent_upserts() {
     let _ = std::fs::remove_file(path);
 }
 
-/// 13) scoped_queue_log 按需携带：镜像 writer 侧首写位掩码——未写过且非空才带；
-///     终态强制带响应侧；两侧开关关闭时对应侧不带。
+/// 13) scoped_queue_log 按需携带（O9 终态携带规则）：中间态一律不带大字段（元数据行
+///     KB 级，避免中间态 UPDATE 拖动整行大列物理重写）；终态全带；错误行（status!=0
+///     无 done，如路由失败一次性终写）也带；两侧开关关闭时对应侧不带。
 #[tokio::test]
-async fn scoped_queue_log_carries_only_unwritten_large_fields() {
+async fn scoped_queue_log_carries_bodies_only_at_terminal() {
     let (db, path) = flush_test_db().await;
     let state = flush_test_state(db.clone());
     let settings = ProxyLogSettings {
@@ -396,27 +397,26 @@ async fn scoped_queue_log_carries_only_unwritten_large_fields() {
     log.request_body = "REQ".into();
     log.response_body = "RESP".into();
 
-    // 无快照（首节点）：非空大字段都带。
-    let first = scoped_queue_log(&state, &log, &settings, true);
-    assert_eq!(first.request_body, "REQ");
-    assert_eq!(first.response_body, "RESP");
+    // 终态：非空大字段都带（首写发生在终态）。
+    let scoped_term = scoped_queue_log(&state, &log, &settings, true);
+    assert_eq!(scoped_term.request_body, "REQ");
+    assert_eq!(scoped_term.response_body, "RESP");
 
-    // 快照全部已写（mask=0xff）：中间态不再携带任何大字段（内存根因 1 的修复点）。
-    let mut snap = aidog_logs::ProxyLogColumns::from_log(&log, false, false).into_snapshot_meta();
-    snap.raw_written_mask = 0xff;
-    state.log_snapshots.insert("scoped_0001".to_string(), snap);
-
+    // 中间态（status=0 / done=false）：即使从未写过也不带——O9 写放大修复点。
     let mut mid = log.clone();
     mid.status_code = 0;
     mid.done = false;
     let scoped_mid = scoped_queue_log(&state, &mid, &settings, false);
-    assert_eq!(scoped_mid.request_body, "", "已写过的大字段不再随中间态消息携带");
+    assert_eq!(scoped_mid.request_body, "", "中间态不携带大字段（延迟到终态首写）");
     assert_eq!(scoped_mid.response_body, "");
 
-    // 终态：响应侧强制携带（覆盖写最终值），请求侧已写过仍不带。
-    let scoped_term = scoped_queue_log(&state, &log, &settings, true);
-    assert_eq!(scoped_term.response_body, "RESP");
-    assert_eq!(scoped_term.request_body, "");
+    // 错误行（status!=0 但无 done）：携带门放宽一档，request body 必须落上。
+    let mut err = log.clone();
+    err.status_code = 503;
+    err.done = false;
+    let scoped_err = scoped_queue_log(&state, &err, &settings, false);
+    assert_eq!(scoped_err.request_body, "REQ", "错误行（无 done）也要携带大字段");
+    assert_eq!(scoped_err.response_body, "RESP");
 
     // 开关关闭：对应侧不带（writer 侧 from_log 反正会清空，带了白拷）。
     let off = ProxyLogSettings {
@@ -425,7 +425,6 @@ async fn scoped_queue_log_carries_only_unwritten_large_fields() {
         log_upstream_request: false,
         ..Default::default()
     };
-    state.log_snapshots.remove("scoped_0001");
     let scoped_off = scoped_queue_log(&state, &log, &off, true);
     assert_eq!(scoped_off.request_body, "");
     assert_eq!(scoped_off.response_body, "");
