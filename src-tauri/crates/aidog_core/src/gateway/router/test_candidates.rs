@@ -1472,8 +1472,13 @@ fn slot_default(v: &str) -> PlatformModels {
 }
 
 fn decision_entry(model_id: &str) -> ModelEntry {
+    decision_entry_on("openai", model_id)
+}
+
+/// 指定 registry 平台的 decision 能力条目（`mk_platform_models` 建的平台协议是 openai）。
+fn decision_entry_on(platform_code: &str, model_id: &str) -> ModelEntry {
     ModelEntry {
-        platform_code: "test".into(),
+        platform_code: platform_code.into(),
         model_id: model_id.into(),
         display_name: model_id.into(),
         canonical_model: model_id.into(),
@@ -1524,6 +1529,31 @@ async fn decision_request_derives_support_from_available_models() {
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, openrouter.id);
     // R8：请求模型不在 available_models → 用列表第一个 decision 模型
+    assert_eq!(set.candidates[0].target_model, "jev-1.13");
+}
+
+/// R2 按平台判定：同名模型只在别的平台（anthropic）的 registry 条目带 decision → 本平台（openai）不算支持。
+#[tokio::test]
+async fn decision_capability_is_per_platform_registry_entry() {
+    let db = mk_test_db().await;
+    db::upsert_model_entries(&db, vec![decision_entry_on("anthropic", "jev-1.13")])
+        .await
+        .unwrap();
+    let p = mk_platform_models(&db, "or", slot_default("gpt-x"), vec!["jev-1.13"]).await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let e = select_candidates_ctx(&db, &g, "jev-1.13", None, RequestKind::Decision)
+        .await
+        .err()
+        .expect("other platform's decision entry must not count");
+    assert_eq!(e, "no_decision_platform");
+
+    // 本平台自己的条目补上 → 支持
+    db::upsert_model_entries(&db, vec![decision_entry_on("openai", "jev-1.13")])
+        .await
+        .unwrap();
+    let set = select_candidates_ctx(&db, &g, "x", None, RequestKind::Decision)
+        .await
+        .expect("own registry entry has decision");
     assert_eq!(set.candidates[0].target_model, "jev-1.13");
 }
 
