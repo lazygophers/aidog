@@ -351,3 +351,19 @@ fn weighted_effective_weight_is_multiplicative() {
     assert_eq!(effective_weight(&over), 10);
     assert_eq!(effective_weight(&under), 1);
 }
+
+#[test]
+fn resolve_model_skips_blank_slots() {
+    use super::model_mapping::resolve_model;
+    let m = PlatformModels {
+        opus: Some("".into()),
+        default: Some("glm-5".into()),
+        ..Default::default()
+    };
+    assert_eq!(resolve_model(&m, "claude-opus-4"), "glm-5", "blank opus falls to default");
+    let blank_default = PlatformModels {
+        default: Some("  ".into()),
+        ..Default::default()
+    };
+    assert_eq!(resolve_model(&blank_default, "x[1m]"), "x", "blank default passes through");
+}
