@@ -235,7 +235,6 @@
             "NotebookEdit",
             "EnterWorktree",
             "ShareOnboardingGuide",
-            "Bash(sleep:*)",
             "Read(**/.mcp.json)",
             "Read(**/.env)",
             "Read(**/.env.*)",
@@ -332,7 +331,8 @@
             "Edit(**/*.dll)",
             "Edit(**/*.exe)",
             "Edit(**/*.pdb)",
-            "Edit(**/*.wasm)"
+            "Edit(**/*.wasm)",
+            "Bash(sleep:*)"
         ],
         "allow": [
             "Bash(go mod *)",
@@ -346,18 +346,19 @@
             "Read(~/.bashrc)",
             "Read(~/.bashprofile)",
             "Read(~/.profile)",
+            "Bash(gh release:*)",
             "Bash(gh pr merge:*)",
             "Bash(glab mr merge:*)",
-            "Bash(git push --force:*)",
-            "Bash(git push -f:*)",
-            "Bash(git push origin --delete:*)",
-            "Bash(git reset:*)",
             "Bash(npm publish:*)",
             "Bash(yarn publish:*)",
             "Bash(pnpm publish:*)",
             "Bash(cargo publish:*)",
-            "Bash(gh release:*)",
-            "Bash(docker push:*)"
+            "Bash(docker push:*)",
+            "Bash(git push --force:*)",
+            "Bash(git push -f:*)",
+            "Bash(git push origin --delete:*)",
+            "Bash(git reset:*)",
+            "Bash(git checkout:*)"
         ]
     },
     "env": {
@@ -423,12 +424,5 @@
                 "source": "github"
             }
         }
-    },
-    "pluginConfigs": {
-        "agents-md@builtin": {
-          "options": {
-            "instructionFiles": "claude-md-and-agents-md"
-          }
-        }
-      }
+    }
 }
