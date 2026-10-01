@@ -36,6 +36,8 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 rustls = { workspace = true }
+# O7：入口设 #[global_allocator]（见 src/main.rs）
+mimalloc = { workspace = true }
 
 [dev-dependencies]
 reqwest = { workspace = true }
