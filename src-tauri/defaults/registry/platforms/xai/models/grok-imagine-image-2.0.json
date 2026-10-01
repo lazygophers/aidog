@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859420,
+  "supported_protocols": ["openai"],
   "model_id": "grok-imagine-image-2.0",
   "canonical_model": "grok-imagine-image-2.0",
   "capabilities": [

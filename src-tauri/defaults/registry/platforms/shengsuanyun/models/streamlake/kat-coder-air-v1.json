@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "streamlake/kat-coder-air-v1",
   "canonical_model": "kat-coder-air-v1",
   "capabilities": [

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "hyperbolic/Qwen/Qwen2.5-72B-Instruct",
   "display_name": "Qwen2.5 72B Instruct",
   "canonical_model": "qwen2.5-72b-instruct",

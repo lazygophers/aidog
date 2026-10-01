@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/gpt-5.6-sol-disc",
   "canonical_model": "gpt-5.6-sol",
   "family": "gpt",

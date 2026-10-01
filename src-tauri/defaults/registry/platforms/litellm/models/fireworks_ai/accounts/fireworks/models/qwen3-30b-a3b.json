@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-30b-a3b",
   "display_name": "Qwen3 30B A3B",
   "canonical_model": "qwen3-30b-a3b",

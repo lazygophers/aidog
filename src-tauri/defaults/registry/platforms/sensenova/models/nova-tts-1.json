@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "nova-tts-1",
   "canonical_model": "nova-tts-1",
   "family": "sensenova",

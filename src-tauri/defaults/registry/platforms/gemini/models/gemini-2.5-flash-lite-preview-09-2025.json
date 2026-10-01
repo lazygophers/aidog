@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790435630,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "gemini-2.5-flash-lite-preview-09-2025",
   "canonical_model": "gemini-2.5-flash-lite-preview-09-2025",
   "family": "gemini",

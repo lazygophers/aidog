@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/nemotron-3-ultra-nvfp4",
   "canonical_model": "nemotron-3-ultra-nvfp4",
   "family": "nemotron",

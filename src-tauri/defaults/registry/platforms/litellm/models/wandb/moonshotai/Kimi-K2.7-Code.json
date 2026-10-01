@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "wandb/moonshotai/Kimi-K2.7-Code",
   "display_name": "Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",

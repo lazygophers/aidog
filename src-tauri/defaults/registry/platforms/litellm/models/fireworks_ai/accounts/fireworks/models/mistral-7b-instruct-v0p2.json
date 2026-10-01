@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/mistral-7b-instruct-v0p2",
   "display_name": "Mistral 7B Instruct v0.2",
   "canonical_model": "mistral-7b-instruct-v0p2",

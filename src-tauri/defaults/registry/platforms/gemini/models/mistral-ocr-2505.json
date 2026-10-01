@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "mistral-ocr-2505",
   "canonical_model": "mistral-ocr-2505",
   "family": "mistral",

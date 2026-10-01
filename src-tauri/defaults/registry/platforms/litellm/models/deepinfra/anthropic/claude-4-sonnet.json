@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/anthropic/claude-4-sonnet",
   "display_name": "Claude Sonnet 4",
   "canonical_model": "claude-4-sonnet",

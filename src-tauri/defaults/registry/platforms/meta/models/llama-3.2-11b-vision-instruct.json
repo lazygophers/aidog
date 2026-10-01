@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "llama-3.2-11b-vision-instruct",
   "canonical_model": "llama-3.2-11b-vision-instruct",
   "family": "llama",

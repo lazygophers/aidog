@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790401909,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "deepseek-v3.1",
   "display_name": "DeepSeek-V3.1",
   "canonical_model": "DeepSeek-V3.1",

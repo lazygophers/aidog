@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gemini-3.8-live",
   "display_name": "Gemini 3.8 Live",
   "canonical_model": "gemini-3.8-live",

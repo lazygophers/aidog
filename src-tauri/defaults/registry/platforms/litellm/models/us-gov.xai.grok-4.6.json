@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "us-gov.xai.grok-4.6",
   "display_name": "Grok 4.6",
   "canonical_model": "grok-4.6",

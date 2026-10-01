@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "mimo-v2.5-tts-voicedesign",
   "display_name": "MiMo-V2.5-TTS-VoiceDesign",
   "canonical_model": "mimo-v2.5-tts-voicedesign",

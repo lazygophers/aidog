@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "muse-spark-1.3",
   "canonical_model": "muse-spark-1.3",
   "max_output_tokens": 1000000,

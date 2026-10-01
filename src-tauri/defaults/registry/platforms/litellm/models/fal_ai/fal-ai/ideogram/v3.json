@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fal_ai/fal-ai/ideogram/v3",
   "canonical_model": "ideogram-3.0",
   "family": "ideogram",

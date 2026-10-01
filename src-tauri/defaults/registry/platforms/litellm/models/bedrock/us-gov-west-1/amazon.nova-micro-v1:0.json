@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-gov-west-1/amazon.nova-micro-v1:0",
   "display_name": "Amazon: Nova Micro 1.0",
   "canonical_model": "nova-micro-v1",

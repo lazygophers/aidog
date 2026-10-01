@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790393178,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "qwen3-embedding-4b",
   "display_name": "Qwen3 Embedding 4B",
   "canonical_model": "Qwen3-Embedding-4B",

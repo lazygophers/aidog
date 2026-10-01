@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "fun-asr",
   "display_name": "Fun-ASR (2025-11-07)",
   "canonical_model": "fun-asr-2025-11-07",

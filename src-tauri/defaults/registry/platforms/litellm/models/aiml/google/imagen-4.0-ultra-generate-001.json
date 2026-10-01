@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aiml/google/imagen-4.0-ultra-generate-001",
   "canonical_model": "imagen-4.0-ultra-generate-001",
   "capabilities": [

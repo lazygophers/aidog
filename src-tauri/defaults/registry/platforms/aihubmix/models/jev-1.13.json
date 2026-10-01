@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790771121,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "jev-1.13",
   "canonical_model": "jev-1.13",
 

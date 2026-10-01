@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "seedream-4-5-251128",
   "display_name": "Doubao Seedream 4.5 251128",
   "canonical_model": "seedream-4-5-251128",

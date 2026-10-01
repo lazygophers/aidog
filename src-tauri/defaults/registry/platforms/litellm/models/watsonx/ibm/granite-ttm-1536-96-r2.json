@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "watsonx/ibm/granite-ttm-1536-96-r2",
   "canonical_model": "granite-ttm-1536-96-r2",
   "capabilities": [

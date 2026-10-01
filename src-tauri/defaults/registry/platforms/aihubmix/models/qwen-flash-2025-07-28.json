@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "qwen-flash-2025-07-28",
   "canonical_model": "qwen-flash-2025-07-28",
   "capabilities": ["text"],

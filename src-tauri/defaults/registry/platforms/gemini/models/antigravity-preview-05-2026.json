@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "antigravity-preview-05-2026",
   "canonical_model": "antigravity-preview-05-2026",
   "family": "antigravity",

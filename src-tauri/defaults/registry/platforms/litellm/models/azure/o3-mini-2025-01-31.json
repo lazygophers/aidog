@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/o3-mini-2025-01-31",
   "display_name": "o3 Mini",
   "canonical_model": "o3-mini",

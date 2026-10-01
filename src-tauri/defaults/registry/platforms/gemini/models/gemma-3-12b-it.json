@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "gemma-3-12b-it",
   "display_name": "Gemma 3 12B",
   "canonical_model": "gemma-3-12b-it",

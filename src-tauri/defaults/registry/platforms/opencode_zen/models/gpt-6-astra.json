@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790284433,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-6-astra",
   "canonical_model": "gpt-6-astra",
   "family": "gpt",

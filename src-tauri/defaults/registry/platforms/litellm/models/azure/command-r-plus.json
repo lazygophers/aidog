@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "azure/command-r-plus",
   "canonical_model": "command-r-plus-08-2024",
   "family": "command",

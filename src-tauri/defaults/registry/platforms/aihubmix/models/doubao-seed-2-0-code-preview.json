@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-seed-2-0-code-preview",
   "canonical_model": "doubao-seed-2-0-code-preview",
 

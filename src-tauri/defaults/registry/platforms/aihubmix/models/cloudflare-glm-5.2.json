@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "cloudflare-glm-5.2",
   "canonical_model": "glm-5.2",
   "display_name": "Cloudflare Glm 5.2",

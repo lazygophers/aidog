@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gemini/imagen-3.0-generate-001",
   "canonical_model": "imagen-3.0-generate-001",
   "family": "imagen",

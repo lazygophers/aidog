@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-2.5-7b-instruct",
   "display_name": "Qwen2.5 7B Instruct",
   "canonical_model": "qwen-2.5-7b-instruct",

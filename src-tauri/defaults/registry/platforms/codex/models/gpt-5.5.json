@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790393178,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai_responses"],
   "model_id": "gpt-5.5",
   "display_name": "GPT-5.5",
   "canonical_model": "gpt-5.5",

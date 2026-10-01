@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "tongyi-xiaomi-analysis-pro",
   "canonical_model": "tongyi-xiaomi-analysis-pro",
   "capabilities": [

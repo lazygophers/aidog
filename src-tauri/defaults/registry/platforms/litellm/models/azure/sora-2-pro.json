@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/sora-2-pro",
   "display_name": "Sora 2 Pro",
   "canonical_model": "sora-2-pro",

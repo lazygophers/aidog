@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790271371,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-6-sol",
   "canonical_model": "gpt-6-sol",
   "display_name": "GPT-6 Sol",

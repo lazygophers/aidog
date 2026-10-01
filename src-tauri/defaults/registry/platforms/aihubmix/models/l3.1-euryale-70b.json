@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "l3.1-euryale-70b",
   "canonical_model": "l3.1-euryale-70b",
 

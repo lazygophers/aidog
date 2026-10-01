@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790680873,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "mimo-v2.6-flash",
   "display_name": "MiMo-V2.6-Flash",
   "canonical_model": "mimo-v2.6-flash",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "claude-mythos-preview",
   "display_name": "Claude Mythos Preview",
   "canonical_model": "claude-mythos-preview",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/Meta-Llama-3.1-70B-Instruct",
   "canonical_model": "Meta-Llama-3.1-70B-Instruct",
   "family": "llama",

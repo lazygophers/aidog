@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "google/gemini-3.1-flash-image",
   "display_name": "Gemini 3.1 Flash Image",
   "canonical_model": "gemini-3.1-flash-image",

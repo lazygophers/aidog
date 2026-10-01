@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "cloudflare/@cf/nvidia/nemotron-3-120b-a12b",
   "canonical_model": "nemotron-3-120b-a12b",
   "family": "nemotron",

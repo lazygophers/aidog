@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "amazon.titan-image-generator-v1",
   "display_name": "Titan Image Generator G1",
   "canonical_model": "amazon.titan-image-generator-v1",

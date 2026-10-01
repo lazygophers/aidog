@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/allenai/olmOCR-7B-0725-FP8",
   "canonical_model": "olmOCR-7B-0725-FP8",
   "family": "olmocr",

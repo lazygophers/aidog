@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/Phi-4",
   "display_name": "Microsoft: Phi 4",
   "canonical_model": "phi-4",

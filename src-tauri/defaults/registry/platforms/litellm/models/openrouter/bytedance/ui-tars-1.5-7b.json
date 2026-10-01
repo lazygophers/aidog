@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/bytedance/ui-tars-1.5-7b",
   "display_name": "ByteDance: UI-TARS 7B ",
   "canonical_model": "ui-tars-1.5-7b",

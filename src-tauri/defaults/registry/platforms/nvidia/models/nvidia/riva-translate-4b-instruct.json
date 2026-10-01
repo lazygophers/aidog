@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "nvidia/riva-translate-4b-instruct",
   "canonical_model": "riva-translate-4b-instruct",
   "family": "riva",

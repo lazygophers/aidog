@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/deepseek-v3.2-speciale",
   "display_name": "Azure Deepseek V3.2 Speciale",
   "canonical_model": "deepseek-v3.2-speciale",

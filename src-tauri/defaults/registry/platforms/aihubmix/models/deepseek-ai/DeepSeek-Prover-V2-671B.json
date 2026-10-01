@@ -1,7 +1,8 @@
 {
   "context_window": 160000,
   "max_input_tokens": 160000,
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "deepseek-ai/DeepSeek-Prover-V2-671B",
   "canonical_model": "deepseek-prover-v2-671b",
 

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "ft:gpt-4.1-nano-2025-04-14",
   "canonical_model": "ft:gpt-4.1-nano-2025-04-14",
   "family": "gpt",

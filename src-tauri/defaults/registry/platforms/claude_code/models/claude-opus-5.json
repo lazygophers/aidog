@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391379,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic"],
   "model_id": "claude-opus-5",
   "display_name": "Claude Opus 5",
   "canonical_model": "claude-opus-5",

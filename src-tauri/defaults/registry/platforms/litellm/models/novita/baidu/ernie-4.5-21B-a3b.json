@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329690,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/baidu/ernie-4.5-21B-a3b",
   "canonical_model": "ernie-4.5-21B-a3b",
   "capabilities": [

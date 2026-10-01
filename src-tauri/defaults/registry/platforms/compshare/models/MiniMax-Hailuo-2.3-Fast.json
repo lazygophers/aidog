@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "MiniMax-Hailuo-2.3-Fast",
   "display_name": "MiniMax-Hailuo-2.3-Fast",
   "canonical_model": "MiniMax-Hailuo-2.3-Fast",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aihubmix/hy4-preview",
   "display_name": "Hy4 preview",
   "canonical_model": "hy4-preview",

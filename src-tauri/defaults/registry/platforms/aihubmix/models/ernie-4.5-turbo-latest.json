@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "ernie-4.5-turbo-latest",
   "canonical_model": "ernie-4.5-turbo-latest",
 

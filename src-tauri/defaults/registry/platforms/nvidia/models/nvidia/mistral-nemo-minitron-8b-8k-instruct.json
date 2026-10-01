@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "nvidia/mistral-nemo-minitron-8b-8k-instruct",
   "canonical_model": "mistral-nemo-minitron-8b-8k-instruct",
   "family": "mistral",

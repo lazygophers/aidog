@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "embed-multilingual-v3.0",
   "canonical_model": "embed-multilingual-v3.0",
   "family": "embed",

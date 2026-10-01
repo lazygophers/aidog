@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "codestral-2",
   "canonical_model": "codestral-2",
   "family": "codestral",

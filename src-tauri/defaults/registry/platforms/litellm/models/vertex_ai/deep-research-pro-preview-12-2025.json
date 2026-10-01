@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/deep-research-pro-preview-12-2025",
   "canonical_model": "deep-research-pro-preview-12-2025",
   "family": "deep-research",

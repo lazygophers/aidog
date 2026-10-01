@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/baai/bge-reranker-v2-m3",
   "canonical_model": "bge-reranker-v2-m3",
   "capabilities": [

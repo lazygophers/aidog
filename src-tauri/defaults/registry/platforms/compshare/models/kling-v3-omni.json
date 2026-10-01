@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "kling-v3-omni",
   "display_name": "Kling V3 Omni",
   "canonical_model": "kling-v3-omni",

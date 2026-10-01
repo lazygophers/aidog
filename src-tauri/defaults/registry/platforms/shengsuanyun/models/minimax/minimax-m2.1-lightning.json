@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790400041,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "minimax/minimax-m2.1-lightning",
   "display_name": "MiniMax M2.1 Lightning",
   "canonical_model": "MiniMax-M2.1-lightning",

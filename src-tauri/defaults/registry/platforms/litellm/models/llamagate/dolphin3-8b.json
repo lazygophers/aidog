@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "llamagate/dolphin3-8b",
   "canonical_model": "dolphin3-8b",
   "family": "dolphin",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790400041,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "gemini-embedding-2",
   "display_name": "Gemini Embedding 2",
   "canonical_model": "gemini-embedding-2",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790394075,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-5.6-cyber",
   "canonical_model": "gpt-5.6-cyber",
   "display_name": "GPT-5.6 Cyber",

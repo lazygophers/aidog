@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790823630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "decision-model-preview",
   "canonical_model": "decision-model-preview",
   "display_name": "Decision Model Preview",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "moonshot-v1-128k",
   "display_name": "Moonshot V1 128K",
   "canonical_model": "moonshot-v1-128k",

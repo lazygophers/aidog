@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "qwencloud/qwen3-vl-32b-thinking",
   "canonical_model": "qwen3-vl-32b-thinking",
   "family": "qwen",

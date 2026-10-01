@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen/qwen3-30b-a3b-fp8",
   "display_name": "Qwen3-30B-A3B-FP8",
   "canonical_model": "qwen3-30b-a3b-fp8",

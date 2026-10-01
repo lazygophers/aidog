@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "claude-3-5-sonnet-v2",
   "canonical_model": "claude-3-5-sonnet-v2",
   "family": "claude",

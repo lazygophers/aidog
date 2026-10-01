@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock_mantle/openai.gpt-daybreak-blue-5.6-sol",
   "canonical_model": "openai.gpt-daybreak-blue-5.6-sol",
   "capabilities": [

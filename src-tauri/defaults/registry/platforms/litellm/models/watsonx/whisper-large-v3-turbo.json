@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "watsonx/whisper-large-v3-turbo",
   "display_name": "Whisper Large V3 Turbo",
   "canonical_model": "whisper-large-v3-turbo",

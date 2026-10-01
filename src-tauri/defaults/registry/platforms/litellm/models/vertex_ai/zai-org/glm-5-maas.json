@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/zai-org/glm-5-maas",
   "canonical_model": "glm-5-maas",
   "family": "glm",

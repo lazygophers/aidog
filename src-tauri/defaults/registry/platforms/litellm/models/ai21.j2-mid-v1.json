@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "ai21.j2-mid-v1",
   "display_name": "J2 Mid",
   "canonical_model": "ai21.j2-mid-v1",

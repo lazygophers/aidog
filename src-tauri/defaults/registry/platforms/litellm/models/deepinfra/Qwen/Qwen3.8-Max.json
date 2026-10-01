@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/Qwen/Qwen3.8-Max",
   "display_name": "Qwen3.8 Max",
   "canonical_model": "qwen3.8-max",

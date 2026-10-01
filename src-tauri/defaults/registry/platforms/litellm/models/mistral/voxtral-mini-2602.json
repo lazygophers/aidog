@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral/voxtral-mini-2602",
   "canonical_model": "voxtral-mini-2602",
   "family": "voxtral",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "lyria-realtime-exp",
   "canonical_model": "lyria-realtime-exp",
   "family": "lyria",

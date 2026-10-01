@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
   "canonical_model": "Seed-OSS-36B-Instruct",
   "thinking_supported": true,

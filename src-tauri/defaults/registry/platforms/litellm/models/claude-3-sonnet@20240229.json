@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "claude-3-sonnet@20240229",
   "display_name": "Claude 3 Sonnet (20240229)",
   "canonical_model": "claude-3-sonnet@20240229",

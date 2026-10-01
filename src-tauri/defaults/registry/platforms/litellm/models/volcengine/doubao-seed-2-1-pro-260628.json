@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "volcengine/doubao-seed-2-1-pro-260628",
   "display_name": "Doubao Seed 2.1 Pro 260628",
   "canonical_model": "doubao-seed-2-1-pro-260628",

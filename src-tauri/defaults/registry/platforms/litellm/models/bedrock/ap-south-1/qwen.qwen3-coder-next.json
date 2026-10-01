@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/ap-south-1/qwen.qwen3-coder-next",
   "display_name": "Qwen3 Coder Next",
   "canonical_model": "qwen3-coder-next",

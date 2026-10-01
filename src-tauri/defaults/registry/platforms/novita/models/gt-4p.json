@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788149865,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "gt-4p",
   "canonical_model": "gt-4p",
   "capabilities": [],

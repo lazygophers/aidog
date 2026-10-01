@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/google/gemma-4-26b-a4b-it",
   "display_name": "Gemma 4 26B A4B",
   "canonical_model": "gemma-4-26b-a4b-it",

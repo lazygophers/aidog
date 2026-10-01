@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "cloudflare/@cf/aisingapore/gemma-sea-lion-v4-27b-it",
   "canonical_model": "gemma-sea-lion-v4-27b-it",
   "family": "sea-lion",

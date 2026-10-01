@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "meta.llama4-scout-17b-instruct-v1:0",
   "display_name": "Llama 4 Scout 17B Instruct",
   "canonical_model": "meta.llama4-scout-17b-instruct-v1:0",

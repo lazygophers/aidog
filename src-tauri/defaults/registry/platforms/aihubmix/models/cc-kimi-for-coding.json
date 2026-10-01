@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "cc-kimi-for-coding",
   "canonical_model": "kimi-for-coding",
   "capabilities": ["text","vision","video","tool_use","reasoning"],

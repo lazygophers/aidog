@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anyscale/google/gemma-7b-it",
   "display_name": "Gemma 7B It",
   "canonical_model": "gemma-7b-it",

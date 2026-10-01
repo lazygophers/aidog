@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790322188,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen/qwen3-omni-30b-a3b-instruct",
   "canonical_model": "Qwen3-Omni-30B-A3B-Instruct",
   "version": "3",

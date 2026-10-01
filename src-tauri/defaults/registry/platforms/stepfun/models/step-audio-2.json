@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "step-audio-2",
   "display_name": "Step Audio 2",
   "canonical_model": "step-audio-2",

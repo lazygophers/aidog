@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "minimax-m2.7",
   "display_name": "MiniMax M2.7",
   "canonical_model": "MiniMax-M2.7",

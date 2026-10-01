@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "coding-minimax-m2.7-highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",

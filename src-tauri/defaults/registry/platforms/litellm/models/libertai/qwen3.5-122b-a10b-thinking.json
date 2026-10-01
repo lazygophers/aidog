@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "libertai/qwen3.5-122b-a10b-thinking",
   "canonical_model": "qwen3.5-122b-a10b-thinking",
   "capabilities": [

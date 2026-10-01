@@ -11,6 +11,7 @@
     "canonical_model",
     "capabilities",
     "official",
+    "supported_protocols",
     "price"
   ],
   "definitions": {
@@ -176,6 +177,24 @@
     "thinking_toggleable": {
       "type": "boolean",
       "description": "【可选】thinking 是否可由请求参数开关（如 qwen3 enable_thinking、claude thinking.budget_tokens）。false=强制思考（deepseek-r1 型）。缺省=未标注。"
+    },
+    "supported_protocols": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "enum": [
+          "anthropic",
+          "openai",
+          "openai_responses",
+          "openai_completions",
+          "gemini",
+          "typesafe",
+          "devin"
+        ]
+      },
+      "uniqueItems": true,
+      "description": "【必填】本条目在该平台可用的 wire 协议（词表与 endpoint protocol 一致）。数据源：平台 /models 类 API 的 supported_endpoints 映射；无一手数据的平台缺省=该平台 endpoints.default 的 protocol 并集（推断值，已知例外手改）。票 commandcode-goat/03（2026-10-01 用户需求）。"
     },
     "price": {
       "type": "object",

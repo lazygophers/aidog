@@ -1,6 +1,7 @@
 {
   "max_input_tokens": 1047576,
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "aiml/openai/gpt-image-2",
   "display_name": "GPT-Image-2",
   "canonical_model": "gpt-image-2",

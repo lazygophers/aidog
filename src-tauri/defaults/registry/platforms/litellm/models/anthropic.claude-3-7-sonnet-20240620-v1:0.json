@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anthropic.claude-3-7-sonnet-20240620-v1:0",
   "canonical_model": "anthropic.claude-3-7-sonnet-20240620-v1:0",
   "family": "claude",

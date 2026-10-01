@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/openai/o3-mini-high",
   "display_name": "OpenAI: o3 Mini High",
   "canonical_model": "o3-mini-high",

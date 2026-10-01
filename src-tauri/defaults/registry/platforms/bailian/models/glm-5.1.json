@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "glm-5.1",
   "display_name": "GLM-5.1",
   "canonical_model": "glm-5.1",

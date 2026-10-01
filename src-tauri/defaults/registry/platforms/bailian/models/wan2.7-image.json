@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "wan2.7-image",
   "display_name": "Wan2.7 Image",
   "canonical_model": "wan2.7-image",

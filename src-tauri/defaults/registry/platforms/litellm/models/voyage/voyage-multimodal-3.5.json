@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "voyage/voyage-multimodal-3.5",
   "canonical_model": "voyage-multimodal-3.5",
   "family": "voyage-multimodal",

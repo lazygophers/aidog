@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "deepseek-v4-flash-260425",
   "display_name": "DeepSeek-V4-Flash (260425)",
   "canonical_model": "deepseek-v4-flash-260425",

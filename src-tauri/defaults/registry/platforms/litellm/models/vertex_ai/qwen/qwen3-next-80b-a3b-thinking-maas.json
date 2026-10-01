@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/qwen/qwen3-next-80b-a3b-thinking-maas",
   "canonical_model": "qwen3-next-80b-a3b-thinking-maas",
   "family": "qwen",

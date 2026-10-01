@@ -28,6 +28,17 @@ const semanticWarnings = [];
 const semanticStrict = process.env.AIDOG_REGISTRY_SEMANTIC_STRICT === "1";
 let checked = 0;
 
+// wire 协议词表（与 platform.schema.json endpoint protocol enum 对称）
+const PROTOCOL_VOCAB = new Set([
+  "anthropic",
+  "openai",
+  "openai_responses",
+  "openai_completions",
+  "gemini",
+  "typesafe",
+  "devin",
+]);
+
 function validate(kind, rel, raw) {
   let doc;
   try {
@@ -67,6 +78,15 @@ function walkModels(dir, baseRel, rel, out, ids) {
       if (ids) {
         try {
           const doc = JSON.parse(raw);
+          // supported_protocols 必填（票 commandcode-goat/03，2026-10-01 用户需求）：
+          // 每模型 ≥1 个 wire 协议，值域与 endpoint protocol 词表一致。
+          const sp = doc.supported_protocols;
+          if (!Array.isArray(sp) || sp.length === 0) {
+            failures.push([relFile, "supported_protocols 缺失或为空（每模型必填 ≥1 个协议）"]);
+          } else {
+            const badSp = sp.filter((v) => !PROTOCOL_VOCAB.has(v));
+            if (badSp.length) failures.push([relFile, `supported_protocols 含词表外值: ${badSp.join(", ")}`]);
+          }
           ids.push(doc.model_id);
           modelMeta.push({
             file: relFile,

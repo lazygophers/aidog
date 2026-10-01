@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "north-mini-code-free",
   "canonical_model": "north-mini-code-free",
 

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anyscale/codellama/CodeLlama-70b-Instruct-hf",
   "canonical_model": "CodeLlama-70b-Instruct-hf",
   "family": "codellama",

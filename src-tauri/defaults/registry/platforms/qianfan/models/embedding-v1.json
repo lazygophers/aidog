@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790393178,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "embedding-v1",
   "display_name": "Embedding V1",
   "canonical_model": "embedding-v1",

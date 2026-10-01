@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-gov-east-1/anthropic.claude-opus-5",
   "display_name": "Claude Opus 5",
   "canonical_model": "claude-opus-5",

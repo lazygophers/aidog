@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "text-embedding-v2",
   "display_name": "Text-Embedding-V2",
   "canonical_model": "text-embedding-v2",

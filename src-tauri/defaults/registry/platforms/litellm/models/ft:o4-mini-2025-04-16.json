@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "ft:o4-mini-2025-04-16",
   "canonical_model": "ft:o4-mini-2025-04-16",
   "family": "o",

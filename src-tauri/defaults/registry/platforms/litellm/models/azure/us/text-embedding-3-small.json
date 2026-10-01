@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/us/text-embedding-3-small",
   "display_name": "Text Embedding 3 Small",
   "canonical_model": "text-embedding-3-small",

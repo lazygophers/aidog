@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "zai-org/glm-5-turbo",
   "canonical_model": "glm-5-turbo",
   "family": "glm",

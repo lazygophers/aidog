@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-transcribe",
   "display_name": "GPT Transcribe",
   "canonical_model": "gpt-transcribe",

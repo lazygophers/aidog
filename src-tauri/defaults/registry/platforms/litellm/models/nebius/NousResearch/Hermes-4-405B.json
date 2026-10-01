@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "nebius/NousResearch/Hermes-4-405B",
   "display_name": "Nous: Hermes 4 405B",
   "canonical_model": "hermes-4-405b",

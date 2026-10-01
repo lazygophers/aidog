@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "zhipu/cogview-4",
   "display_name": "CogView-4",
   "canonical_model": "cogview-4",

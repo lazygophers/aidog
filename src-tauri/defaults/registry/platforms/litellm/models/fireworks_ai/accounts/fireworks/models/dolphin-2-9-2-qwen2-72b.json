@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/dolphin-2-9-2-qwen2-72b",
   "canonical_model": "dolphin-2-9-2-qwen2-72b",
   "family": "dolphin",

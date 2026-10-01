@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790343206,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "watsonx/meta-llama/llama-4-maverick-17b",
   "canonical_model": "llama-4-maverick-17b",
   "family": "llama",

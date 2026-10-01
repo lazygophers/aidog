@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral.ministral-3-14b-instruct",
   "display_name": "Ministral 14B 3.0",
   "canonical_model": "mistral.ministral-3-14b-instruct",

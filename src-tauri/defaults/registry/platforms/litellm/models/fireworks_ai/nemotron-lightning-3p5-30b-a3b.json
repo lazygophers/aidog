@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/nemotron-lightning-3p5-30b-a3b",
   "canonical_model": "nemotron-lightning-3p5-30b-a3b",
   "family": "nemotron",

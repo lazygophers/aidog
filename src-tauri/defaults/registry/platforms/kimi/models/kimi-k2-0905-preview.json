@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790351264,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "kimi-k2-0905-preview",
   "canonical_model": "kimi-k2-0905-preview",
   "family": "kimi",

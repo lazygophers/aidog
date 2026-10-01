@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/nous-hermes-2-mixtral-8x7b-dpo",
   "canonical_model": "nous-hermes-2-mixtral-8x7b-dpo",
   "family": "nous-hermes",

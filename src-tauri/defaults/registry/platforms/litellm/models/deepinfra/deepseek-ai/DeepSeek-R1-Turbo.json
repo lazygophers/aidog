@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/deepseek-ai/DeepSeek-R1-Turbo",
   "display_name": "DeepSeek-R1-Turbo",
   "canonical_model": "deepseek-r1-turbo",

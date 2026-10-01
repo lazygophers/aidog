@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/prism-ml/ternary-bonsai-2-27b",
   "display_name": "PrismML: Ternary Bonsai 2 27B",
   "canonical_model": "ternary-bonsai-2-27b",

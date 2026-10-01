@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "qwencloud/qwen-plus",
   "display_name": "Qwen-Plus",
   "canonical_model": "qwen-plus",

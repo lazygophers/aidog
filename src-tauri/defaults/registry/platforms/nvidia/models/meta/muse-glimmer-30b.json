@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "meta/muse-glimmer-30b",
   "display_name": "Meta: Muse Glimmer 30B",
   "canonical_model": "muse-glimmer-30b",

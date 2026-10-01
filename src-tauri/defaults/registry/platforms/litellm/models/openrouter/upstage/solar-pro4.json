@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/upstage/solar-pro4",
   "display_name": "Solar Pro 4",
   "canonical_model": "solar-pro4",

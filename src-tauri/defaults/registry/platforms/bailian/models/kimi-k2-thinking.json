@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "kimi-k2-thinking",
   "display_name": "Kimi K2 Thinking",
   "canonical_model": "kimi-k2-thinking",

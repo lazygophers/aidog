@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790276818,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "glm-realtime-flash",
   "canonical_model": "glm-realtime-flash",
   "family": "glm",

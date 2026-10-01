@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/google/gemma-3-12b-it",
   "display_name": "Gemma 3 12B",
   "canonical_model": "gemma-3-12b-it",

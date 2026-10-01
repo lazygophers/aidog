@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "wan2.7-t2v",
   "display_name": "Wan2.7 T2v",
   "canonical_model": "wan2.7-t2v",

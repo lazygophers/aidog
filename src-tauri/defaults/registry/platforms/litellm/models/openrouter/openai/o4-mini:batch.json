@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/openai/o4-mini:batch",
   "display_name": "OpenAI: o4 Mini (batch)",
   "canonical_model": "o4-mini:batch",

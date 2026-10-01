@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790286522,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "deepinfra-gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "version": "4",

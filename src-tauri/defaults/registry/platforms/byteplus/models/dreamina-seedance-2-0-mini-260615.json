@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "dreamina-seedance-2-0-mini-260615",
   "display_name": "Doubao Seedance 2.0 Mini 260615",
   "canonical_model": "dreamina-seedance-2-0-mini-260615",

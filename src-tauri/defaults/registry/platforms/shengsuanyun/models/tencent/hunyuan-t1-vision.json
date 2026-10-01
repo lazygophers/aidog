@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788067650,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "tencent/hunyuan-t1-vision",
   "canonical_model": "hunyuan-t1-vision",
   "capabilities": [

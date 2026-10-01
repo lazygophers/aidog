@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "deepseek-ai/deepseek-ocr-maas",
   "display_name": "DeepSeek-OCR",
   "canonical_model": "deepseek-ocr-maas",

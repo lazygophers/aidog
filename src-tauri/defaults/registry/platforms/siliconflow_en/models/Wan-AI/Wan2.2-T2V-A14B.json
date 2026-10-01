@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Wan-AI/Wan2.2-T2V-A14B",
   "canonical_model": "Wan2.2-T2V-A14B",
   "version": "2.2",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/tencent/hunyuan-a13b-instruct",
   "display_name": "Hunyuan A13B Instruct",
   "canonical_model": "Hunyuan-A13B-Instruct",

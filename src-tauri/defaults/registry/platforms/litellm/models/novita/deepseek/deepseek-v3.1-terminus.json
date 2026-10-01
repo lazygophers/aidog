@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "novita/deepseek/deepseek-v3.1-terminus",
   "display_name": "DeepSeek V3.1 Terminus",
   "canonical_model": "DeepSeek-V3.1-Terminus",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "databricks/databricks-gemini-3-pro",
   "canonical_model": "databricks-gemini-3-pro",
   "capabilities": [

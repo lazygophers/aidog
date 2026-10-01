@@ -1,6 +1,7 @@
 {
   "max_input_tokens": 65536,
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "vanchin/deepseek-r1",
   "display_name": "R1",
   "canonical_model": "DeepSeek-R1",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "perplexity/pplx-70b-online",
   "canonical_model": "pplx-70b-online",
   "family": "pplx",

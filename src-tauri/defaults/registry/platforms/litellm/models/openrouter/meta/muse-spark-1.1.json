@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/meta/muse-spark-1.1",
   "display_name": "Muse Spark 1.1",
   "canonical_model": "muse-spark-1.1",

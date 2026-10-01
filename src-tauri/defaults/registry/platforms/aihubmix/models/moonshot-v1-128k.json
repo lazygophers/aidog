@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790389813,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "moonshot-v1-128k",
   "canonical_model": "moonshot-v1-128k",
   "capabilities": ["text"],

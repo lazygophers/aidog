@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "scaleway/BAAI/bge-multilingual-gemma2",
   "canonical_model": "bge-multilingual-gemma2",
   "capabilities": [

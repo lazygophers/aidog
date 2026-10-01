@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "meta.llama2-13b-chat-v1",
   "display_name": "Llama 2 13B Chat",
   "canonical_model": "meta.llama2-13b-chat-v1",

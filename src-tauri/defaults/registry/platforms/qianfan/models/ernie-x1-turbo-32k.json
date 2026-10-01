@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "ernie-x1-turbo-32k",
   "display_name": "ERNIE X1 Turbo 32K",
   "canonical_model": "ernie-x1-turbo-32k",

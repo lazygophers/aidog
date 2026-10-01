@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247750,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/MiniMaxAI/MiniMax-M2.7-Turbo",
   "canonical_model": "MiniMax-M2.7-Turbo",
   "capabilities": [

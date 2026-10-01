@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "doubao-web-search-custom",
   "canonical_model": "doubao-web-search-custom",
   "capabilities": [],

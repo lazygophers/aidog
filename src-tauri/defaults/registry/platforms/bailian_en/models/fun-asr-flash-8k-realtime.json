@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "fun-asr-flash-8k-realtime",
   "display_name": "Fun-ASR-Flash-8K-Realtime (2026-01-28)",
   "canonical_model": "fun-asr-flash-8k-realtime-2026-01-28",

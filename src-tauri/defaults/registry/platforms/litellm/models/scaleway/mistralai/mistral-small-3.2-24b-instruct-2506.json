@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "scaleway/mistralai/mistral-small-3.2-24b-instruct-2506",
   "display_name": "Mistral Small 3.2",
   "canonical_model": "Mistral-Small-3.2-24B-Instruct-2506",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "alicloud-minimax-m2.5",
   "canonical_model": "MiniMax-M2.5",
   "capabilities": ["text"],

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "tts-1-hd",
   "canonical_model": "tts-1-hd",
   "display_name": "TTS-1 HD",

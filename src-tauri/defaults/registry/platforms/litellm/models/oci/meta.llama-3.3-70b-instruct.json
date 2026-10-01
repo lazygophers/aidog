@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "oci/meta.llama-3.3-70b-instruct",
   "display_name": "Llama 3.3 70B Instruct",
   "canonical_model": "llama-3.3-70b-instruct",

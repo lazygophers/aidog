@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-audio-mini",
   "display_name": "GPT Audio Mini",
   "canonical_model": "gpt-audio-mini",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure_ai/Cohere-embed-v3-multilingual",
   "canonical_model": "Cohere-embed-v3-multilingual",
   "family": "embed",

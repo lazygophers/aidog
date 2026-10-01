@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "lambda_ai/lfm-7b",
   "canonical_model": "lfm-7b",
   "family": "lfm",

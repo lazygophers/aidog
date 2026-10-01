@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/ByteDance/Seed-1.8",
   "canonical_model": "Seed-1.8",
   "family": "seed",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "microsoft/phi-3-vision-128k-instruct",
   "canonical_model": "phi-3-vision-128k-instruct",
   "family": "phi",

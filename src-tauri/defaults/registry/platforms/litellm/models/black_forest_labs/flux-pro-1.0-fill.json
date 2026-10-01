@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "black_forest_labs/flux-pro-1.0-fill",
   "canonical_model": "flux-pro-1.0-fill",
   "capabilities": [

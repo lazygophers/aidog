@@ -12,7 +12,8 @@
     "input": 0.0000025,
     "output": 0.000005
   },
-  "last_updated": 1790279932,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "capabilities": [
     "text"
   ]

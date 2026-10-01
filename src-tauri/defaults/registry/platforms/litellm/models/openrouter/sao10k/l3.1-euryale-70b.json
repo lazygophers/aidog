@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/sao10k/l3.1-euryale-70b",
   "display_name": "Llama 3.1 Euryale 70B v2.2",
   "canonical_model": "l3.1-euryale-70b",

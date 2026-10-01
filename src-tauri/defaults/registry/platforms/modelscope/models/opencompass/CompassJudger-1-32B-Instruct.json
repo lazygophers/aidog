@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790277685,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "opencompass/CompassJudger-1-32B-Instruct",
   "canonical_model": "compassjudger-1-32b-instruct",
   "family": "compassjudger",

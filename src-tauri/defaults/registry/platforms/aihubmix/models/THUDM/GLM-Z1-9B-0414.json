@@ -1,7 +1,8 @@
 {
   "context_window": 32000,
   "max_input_tokens": 32000,
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "THUDM/GLM-Z1-9B-0414",
   "canonical_model": "GLM-Z1-9B-0414",
 

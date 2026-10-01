@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790266153,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "nvidia/ising-calibration-1.5-31b",
   "canonical_model": "ising-calibration-1.5-31b",
   "family": "ising",

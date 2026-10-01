@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/perplexity/sonar-reasoning-pro",
   "display_name": "Perplexity: Sonar Reasoning Pro",
   "canonical_model": "sonar-reasoning-pro",

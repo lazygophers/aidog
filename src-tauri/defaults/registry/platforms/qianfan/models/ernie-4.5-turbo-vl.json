@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "ernie-4.5-turbo-vl",
   "display_name": "ERNIE 4.5 Turbo VL",
   "canonical_model": "ernie-4.5-turbo-vl",

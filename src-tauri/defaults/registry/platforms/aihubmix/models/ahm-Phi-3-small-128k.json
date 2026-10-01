@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790496740,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "ahm-Phi-3-small-128k",
   "canonical_model": "phi-3-small-128k",
 

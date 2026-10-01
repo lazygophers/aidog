@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "longcat-2.0",
   "display_name": "LongCat 2.0",
   "canonical_model": "LongCat-2.0",

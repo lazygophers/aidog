@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "nebius/zai-org/GLM-5.3",
   "display_name": "GLM 5.3",
   "canonical_model": "glm-5.3",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "max-x-max/50-steps/stability.stable-diffusion-xl-v0",
   "canonical_model": "stability.stable-diffusion-xl-v0",
   "capabilities": [

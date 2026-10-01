@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "musesteamer-air-i2v",
   "canonical_model": "musesteamer-air-i2v",
   "family": "musesteamer",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "paraformer-8k-v2",
   "display_name": "Paraformer-8K",
   "canonical_model": "paraformer-8k-v2",

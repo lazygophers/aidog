@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "amazon.nova-2-multimodal-embeddings-v1:0",
   "display_name": "Amazon Nova Multimodal Embeddings",
   "canonical_model": "amazon.nova-2-multimodal-embeddings-v1:0",

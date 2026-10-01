@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790304201,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "llamagate/gemma3-4b",
   "canonical_model": "gemma3-4b",
   "family": "gemma",

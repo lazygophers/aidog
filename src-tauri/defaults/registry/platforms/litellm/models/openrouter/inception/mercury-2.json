@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/inception/mercury-2",
   "display_name": "Inception: Mercury 2",
   "canonical_model": "mercury-2",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "mistral/mistral-medium",
   "display_name": "Aihubmix Mistral Medium",
   "canonical_model": "mistral-medium",

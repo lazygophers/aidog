@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345088,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "happyhorse-1.1-i2v",
   "display_name": "Happyhorse 1.1 I2v",
   "canonical_model": "happyhorse-1.1-i2v",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790287585,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vertex_ai/minimaxai/minimax-m2-maas",
   "canonical_model": "minimax-m2-maas",
   "family": "minimax",

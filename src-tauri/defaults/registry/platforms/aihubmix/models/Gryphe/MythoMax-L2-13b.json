@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "Gryphe/MythoMax-L2-13b",
   "canonical_model": "mythomax-l2-13b",
   "context_window": 8192,

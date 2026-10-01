@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346351,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "paraformer-mtl-v1",
   "display_name": "Paraformer-MTL",
   "canonical_model": "paraformer-mtl-v1",

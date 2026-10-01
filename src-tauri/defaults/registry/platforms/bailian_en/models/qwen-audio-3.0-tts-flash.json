@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790400041,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-audio-3.0-tts-flash",
   "display_name": "Qwen Audio 3.0 Tts Flash",
   "canonical_model": "qwen-audio-3.0-tts-flash",

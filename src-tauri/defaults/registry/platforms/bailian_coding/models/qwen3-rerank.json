@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790396242,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen3-rerank",
   "display_name": "Qwen3-Rerank",
   "canonical_model": "qwen3-rerank",

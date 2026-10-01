@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790484475,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "qwen3-embedding-8b",
   "display_name": "Qwen3 Embedding 8B",
   "canonical_model": "Qwen3-Embedding-8B",

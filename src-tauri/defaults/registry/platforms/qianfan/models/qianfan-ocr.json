@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic"],
   "model_id": "qianfan-ocr",
   "display_name": "Qianfan Ocr",
   "canonical_model": "qianfan-ocr",

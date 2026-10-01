@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "snowflake/claude-4-opus",
   "display_name": "Claude Opus 4",
   "canonical_model": "claude-4-opus",

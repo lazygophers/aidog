@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fal_ai/xhigh/3840-x-2160/openai/gpt-image-2.5/flare/text-to-image",
   "display_name": "GPT Image 2.5 Flare",
   "canonical_model": "gpt-image-2.5-flare",

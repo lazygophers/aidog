@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859416,
+  "supported_protocols": ["openai"],
   "model_id": "anthropic.claude-3-5-haiku-20241022-v1:0",
   "display_name": "Claude 3.5 Haiku (20241022)",
   "canonical_model": "claude-3-5-haiku-20241022",

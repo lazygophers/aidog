@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "meta/llama-4-maverick",
   "display_name": "Llama 4 Maverick",
   "canonical_model": "llama-4-maverick",

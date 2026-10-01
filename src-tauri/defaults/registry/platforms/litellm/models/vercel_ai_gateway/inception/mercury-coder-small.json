@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790247751,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/inception/mercury-coder-small",
   "canonical_model": "mercury-coder-small",
   "capabilities": [

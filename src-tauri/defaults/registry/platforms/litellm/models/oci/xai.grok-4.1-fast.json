@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "oci/xai.grok-4.1-fast",
   "canonical_model": "grok-4.1-fast",
   "family": "grok",

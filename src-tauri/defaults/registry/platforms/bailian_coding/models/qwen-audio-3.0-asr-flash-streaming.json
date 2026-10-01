@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790391378,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "qwen-audio-3.0-asr-flash-streaming",
   "display_name": "Qwen-Audio-3.0-ASR-Flash-Streaming",
   "canonical_model": "qwen-audio-3.0-asr-flash-streaming",

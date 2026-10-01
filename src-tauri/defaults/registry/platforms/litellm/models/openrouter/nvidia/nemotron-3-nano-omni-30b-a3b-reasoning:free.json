@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
   "display_name": "NVIDIA: Nemotron 3 Nano Omni (free)",
   "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning:free",

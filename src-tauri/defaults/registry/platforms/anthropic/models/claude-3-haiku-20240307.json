@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790428947,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic"],
   "model_id": "claude-3-haiku-20240307",
   "display_name": "Claude 3 Haiku 20240307",
   "canonical_model": "claude-3-haiku-20240307",

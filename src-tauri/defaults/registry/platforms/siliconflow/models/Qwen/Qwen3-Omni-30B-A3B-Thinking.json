@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340079,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "Qwen/Qwen3-Omni-30B-A3B-Thinking",
   "canonical_model": "Qwen3-Omni-30B-A3B-Thinking",
   "version": "3",

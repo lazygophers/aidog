@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/minimax-m1-80k",
   "display_name": "MiniMax M1 80K",
   "canonical_model": "minimax-m1-80k",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790329630,
+  "last_updated": 1790859415,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "gemini-2.5-flash-preview-05-20-nothink",
   "canonical_model": "gemini-2.5-flash-preview-05-20-nothink",
 

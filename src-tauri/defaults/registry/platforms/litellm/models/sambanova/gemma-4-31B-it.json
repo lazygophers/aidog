@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "sambanova/gemma-4-31B-it",
   "display_name": "Gemma 4 31B",
   "canonical_model": "gemma-4-31b-it",

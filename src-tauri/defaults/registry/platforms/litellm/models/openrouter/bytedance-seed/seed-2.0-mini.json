@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "openrouter/bytedance-seed/seed-2.0-mini",
   "display_name": "ByteDance Seed: Seed-2.0-Mini",
   "canonical_model": "seed-2.0-mini",

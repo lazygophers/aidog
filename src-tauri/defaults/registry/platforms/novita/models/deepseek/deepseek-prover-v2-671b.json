@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "deepseek/deepseek-prover-v2-671b",
   "display_name": "DeepSeek Prover V2 671B",
   "canonical_model": "deepseek-prover-v2-671b",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "vercel_ai_gateway/alibaba/qwen3-coder",
   "display_name": "Qwen: Qwen3 Coder 480B A35B",
   "canonical_model": "qwen3-coder",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "together_ai/nvidia/NVIDIA-Nemotron-Nano-9B-v2",
   "display_name": "Nvidia Nemotron Nano 9B V2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790271384,
+  "last_updated": 1790859416,
+  "supported_protocols": ["gemini"],
   "model_id": "e5/multilingual-e5-small-maas",
   "canonical_model": "multilingual-e5-small-maas",
   "family": "e5",

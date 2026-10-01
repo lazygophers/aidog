@@ -1,5 +1,6 @@
 {
-  "last_updated": 1788085336,
+  "last_updated": 1790859419,
+  "supported_protocols": ["anthropic", "openai"],
   "model_id": "openchat/openchat-7b",
   "canonical_model": "openchat-7b",
   "capabilities": [

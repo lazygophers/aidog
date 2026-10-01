@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/sa-east-1/qwen.qwen3-next-80b-a3b",
   "display_name": "Qwen3 Next 80B A3B",
   "canonical_model": "qwen.qwen3-next-80b-a3b",

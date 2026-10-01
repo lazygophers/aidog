@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790346352,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gpt-3.5-turbo-instruct-0914",
   "display_name": "GPT-3.5 Turbo Instruct",
   "canonical_model": "gpt-3.5-turbo-instruct-0914",

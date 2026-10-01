@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/o3-deep-research",
   "display_name": "O3 Deep Research",
   "canonical_model": "o3-deep-research",

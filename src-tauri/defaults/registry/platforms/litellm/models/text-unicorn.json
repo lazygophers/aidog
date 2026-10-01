@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790313539,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "text-unicorn",
   "canonical_model": "text-unicorn",
   "family": "text-embedding",

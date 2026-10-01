@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859420,
+  "supported_protocols": ["anthropic", "gemini", "openai"],
   "model_id": "agnes/agnes-3.0-flash",
   "display_name": "Agnes 3.0 Flash",
   "canonical_model": "agnes-3.0-flash",

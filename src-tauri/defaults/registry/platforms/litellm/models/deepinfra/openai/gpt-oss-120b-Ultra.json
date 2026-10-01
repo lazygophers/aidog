@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790281333,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "deepinfra/openai/gpt-oss-120b-Ultra",
   "canonical_model": "gpt-oss-120b-Ultra",
   "family": "gpt-oss",

@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790358006,
+  "last_updated": 1790859416,
+  "supported_protocols": ["anthropic", "openai", "openai_responses"],
   "model_id": "seedance-1-0-pro-250528",
   "display_name": "Doubao Seedance 1.0 Pro 250528",
   "canonical_model": "seedance-1-0-pro-250528",

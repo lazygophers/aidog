@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790333168,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "bedrock/us-gov-east-1/nvidia.nemotron-super-3-120b",
   "canonical_model": "nvidia.nemotron-super-3-120b",
   "family": "nemotron",

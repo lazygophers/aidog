@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "gemini-exp-1206",
   "display_name": "Gemini",
   "canonical_model": "gemini-exp-1206",

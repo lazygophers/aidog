@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790342182,
+  "last_updated": 1790859418,
+  "supported_protocols": ["openai"],
   "model_id": "nebius/nvidia/Nemotron-3_5-Lightning",
   "display_name": "NVIDIA: Nemotron 3.5 Lightning",
   "canonical_model": "nemotron-3.5-lightning",

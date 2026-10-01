@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790283197,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/kimi-k2p6-fast",
   "canonical_model": "kimi-k2p6-fast",
   "family": "kimi",

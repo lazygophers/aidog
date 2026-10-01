@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "azure/gpt-4.1-nano-2025-04-14",
   "display_name": "GPT-4.1 Nano",
   "canonical_model": "gpt-4.1-nano",

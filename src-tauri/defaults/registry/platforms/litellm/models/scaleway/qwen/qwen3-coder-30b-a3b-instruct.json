@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790345089,
+  "last_updated": 1790859419,
+  "supported_protocols": ["openai"],
   "model_id": "scaleway/qwen/qwen3-coder-30b-a3b-instruct",
   "display_name": "Qwen3 Coder 30B A3B Instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",

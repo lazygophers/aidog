@@ -1,5 +1,6 @@
 {
-  "last_updated": 1790340078,
+  "last_updated": 1790859417,
+  "supported_protocols": ["openai"],
   "model_id": "fireworks_ai/accounts/fireworks/models/snorkel-mistral-7b-pairrm-dpo",
   "canonical_model": "snorkel-mistral-7b-pairrm-dpo",
   "capabilities": [
