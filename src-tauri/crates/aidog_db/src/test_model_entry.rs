@@ -726,3 +726,36 @@ async fn select_returns_raw_display_name_for_export() {
         "面向 UI 的读取入口才回落"
     );
 }
+
+#[tokio::test]
+async fn billing_cache_invalidated_by_model_entry_writes() {
+    let db = test_db().await;
+    // miss 也缓存：DB + bundled 都没有该键 → None
+    assert!(
+        model_entry_for_billing(&db, "zzz-cache", "no-such-model")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // 同键再查，缓存返回的仍是 None（行为一致；命中与否由下面的失效断言区分）
+    assert!(
+        model_entry_for_billing(&db, "zzz-cache", "no-such-model")
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // upsert 写入该键 → 缓存必须失效，否则这里仍会返回缓存的 None
+    upsert_model_entries(
+        &db,
+        vec![entry("zzz-cache", "no-such-model", "no-such-model", false)],
+    )
+    .await
+    .unwrap();
+    let (got, cross) = model_entry_for_billing(&db, "zzz-cache", "no-such-model")
+        .await
+        .unwrap()
+        .expect("upsert 后缓存失效，能查到新行");
+    assert!(!cross, "本平台有条目，不该走跨平台回退");
+    assert_eq!(got.platform_code, "zzz-cache");
+    assert_eq!(got.model_id, "no-such-model");
+}

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use crate::models::{Group, GroupDetail, GroupPlatformDetail};
+use crate::models::{Group, GroupDetail, GroupPlatformDetail, ModelEntry};
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
 /// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
@@ -56,6 +56,10 @@ impl<'a> std::borrow::Borrow<dyn KeyPair + 'a> for (String, String) {
     }
 }
 
+/// `model_entry_for_billing` 缓存形状：key=(platform_code, model_id)，
+/// value 外层 Option = 是否已缓存，内层 = DB+bundled 都没查到；bool = 是否跨平台回退。
+pub type BillingEntryCache = HashMap<(String, String), Option<(ModelEntry, bool)>>;
+
 /// 进程内热路径缓存（随 Db 实例生命周期，clone 共享同一份）。
 ///
 /// 为什么挂在 `Db` 内而非全局 static：cargo test 单进程多线程跑，每个 test 各开一个
@@ -83,4 +87,11 @@ pub struct DbCache {
     /// 按 group_id 分槽，None 视为「未缓存」；失效走 invalidate_group_details_cache 同一钩子
     /// （宁全勿漏——与 group_details 同源同失效时机，见该字段文档）。
     pub group_platforms: RwLock<HashMap<u64, Vec<GroupPlatformDetail>>>,
+    /// model_entry_for_billing 结果缓存（计费热路径：同一请求内 forward / log / billing /
+    /// estimate 各查一次）。key 借用探测复用 [`KeyPair`] 惯用，命中零分配。
+    /// 外层 Option = 是否已缓存，内层 = DB+bundled 都没查到（miss 也缓存，fallback 单价
+    /// 的模型每次白查两遍 DB 更亏）。model_entry 任何写入（upsert / prune）整体失效。
+    /// ponytail: 无淘汰上限，条目数 ≤ 进程实际查过的 (platform, model) 对；若将来膨胀
+    /// 失控再加 LRU / 容量截断。
+    pub model_entry_billing: RwLock<BillingEntryCache>,
 }
