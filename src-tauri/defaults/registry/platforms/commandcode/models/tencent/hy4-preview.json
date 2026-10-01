@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "tencent/hy4-preview",
+  "display_name": "Tencent Hy4 Preview",
+  "canonical_model": "hy4-preview",
+  "family": "hunyuan",
+  "version": "4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "supported_protocols": [
+    "openai"
+  ],
+  "price": {
+    "input": 8.34e-07,
+    "output": 2.501e-06,
+    "cache_read": 4.2000000000000006e-08
+  }
+}

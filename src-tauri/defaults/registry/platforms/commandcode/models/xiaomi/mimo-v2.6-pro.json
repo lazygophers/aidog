@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "xiaomi/mimo-v2.6-pro",
+  "display_name": "MiMo V2.6 Pro",
+  "canonical_model": "mimo-v2.6-pro",
+  "family": "mimo",
+  "version": "2.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 4.35e-07,
+    "output": 8.7e-07,
+    "cache_read": 3.6e-09
+  }
+}

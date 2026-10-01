@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "tencent/hy3-paid",
+  "display_name": "Tencent Hy3",
+  "canonical_model": "hy3-paid",
+  "family": "hunyuan",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 1.4e-07,
+    "output": 5.8e-07,
+    "cache_read": 3.5e-08
+  }
+}

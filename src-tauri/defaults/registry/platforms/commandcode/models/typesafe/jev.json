@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "typesafe/jev",
+  "display_name": "Jev",
+  "canonical_model": "jev",
+  "family": "typesafe",
+  "version": "",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32768,
+  "context_window": 32768,
+  "official": false,
+  "supported_protocols": [
+    "typesafe"
+  ],
+  "price": {
+    "input": 4.2000000000000006e-08,
+    "output": 0.0,
+    "cache_read": 0.0
+  }
+}

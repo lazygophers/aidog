@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "meta/muse-spark-1.2",
+  "display_name": "Muse Spark 1.2",
+  "canonical_model": "muse-spark-1.2",
+  "family": "muse",
+  "version": "1.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 1.25e-06,
+    "output": 4.25e-06,
+    "cache_read": 1.5e-07
+  }
+}

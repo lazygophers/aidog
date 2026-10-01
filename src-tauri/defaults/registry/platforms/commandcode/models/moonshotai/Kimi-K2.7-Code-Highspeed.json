@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "moonshotai/Kimi-K2.7-Code-Highspeed",
+  "display_name": "Kimi K2.7 Code HighSpeed",
+  "canonical_model": "kimi-k2.7-code-highspeed",
+  "family": "kimi",
+  "version": "2.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262000,
+  "context_window": 262000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 1.8999999999999998e-06,
+    "output": 8e-06,
+    "cache_read": 3.8e-07
+  }
+}

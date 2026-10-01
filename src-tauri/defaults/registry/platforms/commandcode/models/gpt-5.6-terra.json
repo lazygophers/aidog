@@ -1,0 +1,24 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "gpt-5.6-terra",
+  "display_name": "GPT-5.6 Terra",
+  "canonical_model": "gpt-5.6-terra",
+  "family": "gpt",
+  "version": "5.6",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 2e-06,
+    "output": 1.2e-05,
+    "cache_read": 2.0000000000000002e-07,
+    "cache_write": 2.5e-06
+  }
+}

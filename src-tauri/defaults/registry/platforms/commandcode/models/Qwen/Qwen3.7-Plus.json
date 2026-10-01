@@ -1,0 +1,24 @@
+{
+  "last_updated": 1790859420,
+  "model_id": "Qwen/Qwen3.7-Plus",
+  "display_name": "Qwen 3.7 Plus",
+  "canonical_model": "qwen3.7-plus",
+  "family": "qwen",
+  "version": "3.7",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": false,
+  "supported_protocols": [
+    "openai",
+    "openai_responses"
+  ],
+  "price": {
+    "input": 4.0000000000000003e-07,
+    "output": 1.6000000000000001e-06,
+    "cache_read": 8e-08,
+    "cache_write": 5e-07
+  }
+}
