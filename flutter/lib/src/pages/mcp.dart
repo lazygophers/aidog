@@ -477,19 +477,44 @@ class _McpPageState extends State<McpPage> {
 
   Widget _editCard(I18nController t) {
     final f = _c.editForm;
+    final isAdd = _c.editTarget == null;
     // React 是普通 `Dialog`（`McpModals.tsx:237-241`，maxWidth 560 /
     // maxHeight 80vh / gap 12），点遮罩可关，右上角自带 ✕。
     return AidogModal(
       maxWidth: 560,
       onBarrierTap: _c.closeEdit,
       child: ModalCard(
-        title: _c.editTarget == null ? t.t('mcp.add') : t.t('mcp.edit'),
+        title: isAdd ? t.t('mcp.addTitle') : t.t('mcp.edit'),
         titleStyle: _mcpDialogTitleStyle,
         onClose: _c.closeEdit,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            // 添加模式双 tab（票 05 方案 A）：推荐（默认）/ 手动配置；编辑模式无 tab
+            //（`McpModals.tsx:253-276`）。
+            if (isAdd) ...[
+              Row(
+                children: [
+                  for (final tab in const [('rec', 'mcp.recTab'), ('manual', 'mcp.manualTab')])
+                    _AddTabButton(
+                      label: t.t(tab.$2),
+                      active: _c.addTab == tab.$1,
+                      onTap: () => setState(() => _c.addTab = tab.$1),
+                    ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+            // 推荐tab占满弹窗滚动区；手动表单走原有字段区。
+            if (isAdd && _c.addTab == 'rec')
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.sizeOf(context).height * 0.6,
+                ),
+                child: SingleChildScrollView(child: _RecommendedPane(controller: _c)),
+              )
+            else
             // 字段区自己滚（`McpModals.tsx:249` 的 `overflow: auto`）；
             // 原先不限高，stdio + 一堆 env 行就把页脚顶出视野。
             ConstrainedBox(
@@ -573,6 +598,35 @@ class _McpPageState extends State<McpPage> {
                 ),
               ),
             ),
+            // 手动表单尾两条 hint（`McpModals.tsx:348-371`）：推荐预填的必填 env
+            // 提示（warning 色 + docs_url 链接）；非 stdio 的 Codex 同步边界提示。
+            if (!isAdd || _c.addTab == 'manual') ...[
+              if ((_c.prefillMeta?.requiredEnvKeys.isNotEmpty ?? false)) ...[
+                const SizedBox(height: 10),
+                Text(
+                  '${t.t('mcp.requiredKeyHint', {
+                    'keys': _c.prefillMeta!.requiredEnvKeys.join(', '),
+                  })}${_c.prefillMeta?.docsUrl ?? ''}',
+                  style: AidogType.caption.copyWith(
+                    fontSize: 11,
+                    color: AidogTheme.of(context).c.bad,
+                    height: 1.6,
+                  ),
+                ),
+              ],
+              if (f.transport != 'stdio') ...[
+                const SizedBox(height: 10),
+                Text(
+                  t.t('mcp.codexStdioOnlyHint'),
+                  style: AidogType.caption.copyWith(
+                    fontSize: 11,
+                    color: AidogTheme.of(context).c.fg3,
+                  ),
+                ),
+              ],
+            ],
+            // 页脚只在编辑模式或手动 tab 出现（推荐 tab 没有，`McpModals.tsx:377`）。
+            if (!isAdd || _c.addTab == 'manual') ...[
             // 页脚 gap 8 + marginTop 4（`McpModals.tsx:315`）。
             const SizedBox(height: 16),
             Row(
@@ -596,6 +650,7 @@ class _McpPageState extends State<McpPage> {
                 ),
               ],
             ),
+            ],
           ],
         ),
       ),
@@ -1010,6 +1065,278 @@ class _ScanItemRow extends StatelessWidget {
                           letterSpacing: 0,
                           color: theme.c.fg3,
                         ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── 添加弹窗 tab + 推荐 tab（票 09，`McpModals.tsx:253-537`）─────────
+
+/// 双 tab 按钮（`McpModals.tsx:257-276`）：8/14 内衬、13 号字，激活 = 底部
+/// 2px accent 线 + 主文字 + w600；未激活 = tertiary。整组底边压 1px border。
+class _AddTabButton extends StatelessWidget {
+  const _AddTabButton({
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              width: 2,
+              color: active ? theme.c.accentText : Colors.transparent,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: AidogType.label.copyWith(
+            fontSize: 13,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w400,
+            color: active ? theme.c.fg : theme.c.fg3,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// simpleicons 图标（`McpModals.tsx:409-431`）：slug 空串/加载失败 → 首字母。
+class _RecIcon extends StatefulWidget {
+  const _RecIcon({required this.slug, required this.name});
+
+  final String slug;
+  final String name;
+
+  @override
+  State<_RecIcon> createState() => _RecIconState();
+}
+
+class _RecIconState extends State<_RecIcon> {
+  bool _failed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = AidogTheme.of(context);
+    final slug = widget.slug;
+    if (slug.isEmpty || _failed) {
+      final n = widget.name;
+      return Text(
+        n.isEmpty ? '?' : n.substring(0, 1).toUpperCase(),
+        style: AidogType.label.copyWith(
+          fontSize: 14,
+          fontWeight: FontWeight.w700,
+          color: theme.c.fg2,
+        ),
+      );
+    }
+    return Image.network(
+      'https://cdn.simpleicons.org/$slug',
+      width: 18,
+      height: 18,
+      fit: BoxFit.contain,
+      errorBuilder: (_, _, _) {
+        _failed = true;
+        return const SizedBox.shrink();
+      },
+    );
+  }
+}
+
+/// 推荐 tab 主体（`RecommendedPane`，`McpModals.tsx:434-537`）：按 category
+/// 分组卡片；已装（对齐 mcp_list name）置灰点不动（防同名覆盖）。
+class _RecommendedPane extends StatelessWidget {
+  const _RecommendedPane({required this.controller});
+
+  final McpController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final c = controller;
+    final installed = {for (final s in c.servers) s.name};
+    final entries = c.recommended ?? const <McpRecommendedEntry>[];
+
+    if (c.recLoading) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          t.t('common.loading'),
+          textAlign: TextAlign.center,
+          style: AidogType.caption.copyWith(fontSize: 13, color: theme.c.fg3),
+        ),
+      );
+    }
+    if (entries.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.all(24),
+        child: Text(
+          t.t('mcp.recEmpty'),
+          textAlign: TextAlign.center,
+          style: AidogType.caption.copyWith(fontSize: 13, color: theme.c.fg3),
+        ),
+      );
+    }
+
+    // 分组：已知 category 按固定序，未知按首现顺序排末尾。
+    final order = [...kMcpCategoryOrder];
+    for (final e in entries) {
+      if (!order.contains(e.category)) order.add(e.category);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final cat in order)
+          for (final (i, e) in entries
+              .where((e) => e.category == cat)
+              .indexed) ...[
+            if (i == 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 10, bottom: 6),
+                child: Text(
+                  t.t('mcp.category.$cat', {'cat': cat}),
+                  style: AidogType.label.copyWith(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: theme.c.fg3,
+                  ),
+                ),
+              ),
+            _RecommendedCard(
+              entry: e,
+              installed: installed.contains(e.name),
+              locale: t.locale,
+              // pickRecommended 内部走 onChanged（= 页面 setState）触发重建。
+              onTap: installed.contains(e.name) ? null : () => c.pickRecommended(e),
+            ),
+          ],
+      ],
+    );
+  }
+}
+
+/// 一张推荐卡（`McpModals.tsx:448-505`）。
+class _RecommendedCard extends StatelessWidget {
+  const _RecommendedCard({
+    required this.entry,
+    required this.installed,
+    required this.locale,
+    required this.onTap,
+  });
+
+  final McpRecommendedEntry entry;
+  final bool installed;
+  final String locale;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final e = entry;
+    final name = e.displayName.isNotEmpty ? e.displayName : e.name;
+    return Opacity(
+      opacity: installed ? 0.55 : 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          key: ValueKey('mcp-rec-${e.name}'),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          margin: const EdgeInsets.only(bottom: 6),
+          decoration: BoxDecoration(
+            border: Border.all(color: theme.c.line),
+            borderRadius: BorderRadius.circular(10),
+            color: installed ? theme.c.surface2 : null,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: theme.c.surface2,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: _RecIcon(slug: e.icon, name: name),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AidogType.label.copyWith(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: theme.c.fg,
+                            ),
+                          ),
+                        ),
+                        if (installed) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            t.t('mcp.installed'),
+                            style: AidogType.caption.copyWith(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: theme.c.ok,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                    if (mcpDescFor(e, locale).isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        mcpDescFor(e, locale),
+                        style: AidogType.caption.copyWith(
+                          fontSize: 12,
+                          color: theme.c.fg3,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 2),
+                    Text(
+                      mcpCmdSummary(e),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AidogType.caption.copyWith(
+                        fontSize: 11,
+                        color: theme.c.fg3,
+                        fontFamily: AidogType.familyMono,
                       ),
                     ),
                   ],
