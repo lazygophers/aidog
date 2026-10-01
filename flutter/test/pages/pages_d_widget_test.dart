@@ -336,6 +336,43 @@ void main() {
       ...extra,
     });
 
+    Map<String, Object?> rec(
+      String name, {
+      String category = 'tool',
+      String transport = 'stdio',
+      String command = 'npx',
+      List<String> args = const ['-y', 'pkg'],
+      Map<String, String> env = const {},
+      List<String> requiredEnvKeys = const [],
+      String? docsUrl,
+    }) => {
+      'name': name,
+      'transport': transport,
+      'command': command,
+      'args': args,
+      'env': env,
+      'url': '',
+      'headers': const <String, String>{},
+      'display_name': '',
+      'description': {
+        'zh-Hans': '$name 的描述',
+        'en-US': 'desc of $name',
+      },
+      'category': category,
+      'icon': '',
+      'docs_url': docsUrl,
+      'homepage_url': null,
+      'required_env_keys': requiredEnvKeys,
+    };
+
+    /// 打开添加弹窗并切到手动 tab（推荐 tab 是添加模式的默认落点）。
+    Future<void> openManualAdd(WidgetTester tester, I18nController c) async {
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.manualTab')));
+      await settle(tester);
+    }
+
     testWidgets('渲染列表：名字 + 摘要 + 传输', (tester) async {
       final c = await makeI18n(tester);
       await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
@@ -376,8 +413,7 @@ void main() {
       final k = fake(extra: {'mcp_add': (_) => server('x')});
       await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('mcp.add')));
-      await settle(tester);
+      await openManualAdd(tester, c);
       await tester.tap(find.text(c.t('action.save')));
       await settle(tester);
       expect(k.countOf('mcp_add'), 0);
@@ -390,13 +426,73 @@ void main() {
       final k = fake(extra: {'mcp_add': (_) => server('x')});
       await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('mcp.add')));
-      await settle(tester);
+      await openManualAdd(tester, c);
       await tester.enterText(find.byKey(const Key('mcp-name')), 'newsrv');
       await tester.tap(find.text(c.t('action.save')));
       await settle(tester);
       expect(k.countOf('mcp_add'), 1);
       expect(k.countOf('mcp_list'), 2);
+    });
+
+    testWidgets('推荐 tab：分组渲染、已装置灰、点卡预填手动表单', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          'mcp_recommended_list': (_) => [
+            rec('fs', category: 'tool'),
+            rec('docs-search', category: 'docs', requiredEnvKeys: ['DOCS_KEY'], docsUrl: 'https://example.com/key'),
+            rec('fs-installed', category: 'tool'),
+          ],
+        },
+      );
+      // 已装置灰判定对齐 mcp_list：默认 fs 已装。
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+
+      // 推荐是默认 tab：分组标题 + 卡片 + 命令行摘要在。
+      expect(find.text(c.t('mcp.recTab')), findsOneWidget);
+      expect(find.text(c.t('mcp.category.docs')), findsOneWidget);
+      expect(find.text(c.t('mcp.category.tool')), findsOneWidget);
+      expect(find.text('docs-search'), findsOneWidget);
+      expect(find.text('npx -y pkg'), findsWidgets);
+      // 已装置灰点不动：不出保存按钮（还在推荐 tab），点了也不切。
+      expect(find.text(c.t('mcp.installed')), findsOneWidget);
+
+      // 点未装卡 → 切手动 tab，七字段预填 + 必填 env hint。
+      await tester.tap(find.text('docs-search'));
+      await settle(tester);
+      expect(
+        tester.widget<KeptTextField>(find.byKey(const Key('mcp-name'))).value,
+        'docs-search',
+      );
+      expect(find.textContaining(c.t('mcp.requiredKeyHint', {
+        'keys': 'DOCS_KEY',
+      })), findsOneWidget);
+      expect(find.textContaining('https://example.com/key'), findsOneWidget);
+    });
+
+    testWidgets('推荐清单失败 → 推荐 tab 空态，不影响手动添加', (tester) async {
+      await useBigSurface(tester);
+      final c = await makeI18n(tester);
+      final k = fake(
+        extra: {
+          'mcp_recommended_list': (_) => throw StateError('offline'),
+          'mcp_add': (_) => server('x'),
+        },
+      );
+      await tester.pumpWidget(wrapPage(McpPage(invoke: k.invoke), c));
+      await settle(tester);
+      await tester.tap(find.text(c.t('mcp.add')));
+      await settle(tester);
+      expect(find.text(c.t('mcp.recEmpty')), findsOneWidget);
+
+      await tester.tap(find.text(c.t('mcp.manualTab')));
+      await settle(tester);
+      expect(find.byKey(const Key('mcp-command')), findsOneWidget);
     });
 
     // 回归 2026-09-22：env / headers 列表回传的是**脱敏值**，用户照原样保存就把
@@ -407,8 +503,7 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('mcp.add')));
-      await settle(tester);
+      await openManualAdd(tester, c);
       expect(
         find.textContaining(c.t('mcp.maskedHint')),
         findsWidgets,
@@ -462,8 +557,7 @@ void main() {
       final c = await makeI18n(tester);
       await tester.pumpWidget(wrapPage(McpPage(invoke: fake().invoke), c));
       await settle(tester);
-      await tester.tap(find.text(c.t('mcp.add')));
-      await settle(tester);
+      await openManualAdd(tester, c);
       expect(find.byKey(const Key('mcp-command')), findsOneWidget);
       expect(find.byKey(const Key('mcp-url')), findsNothing);
       // 传输是下拉（对齐 React `McpModals.tsx:262-273`）：点开再选 http。
