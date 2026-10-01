@@ -1662,6 +1662,104 @@ async fn mapping_target_kind_mismatch_errs() {
     assert_eq!(e, "no_chat_platform");
 }
 
+// ── 映射后再走槽位匹配（2026-10-01 用户确认：映射只改名，不跳过槽位规则）──
+
+/// 给 group 写一条映射（source → target_platform 的 target_model），返回重取后的 group。
+async fn with_mapping(db: &db::Db, g: &Group, source: &str, platform_id: u64, target: &str) -> Group {
+    db::update_group(
+        db,
+        db::UpdateGroup {
+            id: g.id,
+            name: None,
+            routing_mode: None,
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: None,
+            model_mappings: vec![ModelMapping {
+                source_model: source.into(),
+                target_platform_id: platform_id,
+                target_model: target.into(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
+            env_vars: vec![],
+            is_default: None,
+        },
+    )
+    .await
+    .unwrap();
+    db::get_group(db, g.id).await.unwrap().unwrap()
+}
+
+fn slots_opus_default() -> PlatformModels {
+    PlatformModels {
+        opus: Some("glm-opus".into()),
+        default: Some("glm-d".into()),
+        ..Default::default()
+    }
+}
+
+/// 映射名含 opus → 命中目标平台 opus 槽（多平台路径；映射目标平台仍居首）。
+#[tokio::test]
+async fn mapped_name_hits_opus_slot() {
+    let db = mk_test_db().await;
+    let other = mk_platform_models(&db, "other", slot_default("x-d"), vec![]).await;
+    let p = mk_platform_models(&db, "p", slots_opus_default(), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[other.id, p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "claude-opus-4").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].platform.id, p.id, "mapping target platform first");
+    assert_eq!(set.candidates[0].target_model, "glm-opus");
+    // 其余候选同样用映射名做槽位匹配（无档位命中 → default）
+    assert_eq!(set.candidates[1].target_model, "x-d");
+}
+
+/// 映射名无档位词 → 回落 default 槽（单平台路径）。
+#[tokio::test]
+async fn mapped_name_without_tier_falls_to_default_slot() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(&db, "p", slots_opus_default(), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "plain-model").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "glm-d");
+}
+
+/// 无 default 槽且映射名无档位词 → 透传映射名。
+#[tokio::test]
+async fn mapped_name_passthrough_without_default_slot() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(&db, "p", PlatformModels {
+        opus: Some("glm-opus".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "plain-model").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "plain-model");
+}
+
+/// 决策请求：映射命中后仍走 jev 槽（槽位值优先于映射名）。
+#[tokio::test]
+async fn decision_mapping_still_uses_jev_slot() {
+    let db = mk_test_db().await;
+    let jev_p = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[jev_p.id]).await;
+    let g = with_mapping(&db, &g, "m", jev_p.id, "jev-other").await;
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "jev-latest");
+}
+
 /// 全组无任何决策能力平台 → no_decision_platform。
 #[tokio::test]
 async fn all_group_lacks_decision_errs() {
