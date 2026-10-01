@@ -1472,8 +1472,13 @@ fn slot_default(v: &str) -> PlatformModels {
 }
 
 fn decision_entry(model_id: &str) -> ModelEntry {
+    decision_entry_on("openai", model_id)
+}
+
+/// 指定 registry 平台的 decision 能力条目（`mk_platform_models` 建的平台协议是 openai）。
+fn decision_entry_on(platform_code: &str, model_id: &str) -> ModelEntry {
     ModelEntry {
-        platform_code: "test".into(),
+        platform_code: platform_code.into(),
         model_id: model_id.into(),
         display_name: model_id.into(),
         canonical_model: model_id.into(),
@@ -1524,6 +1529,31 @@ async fn decision_request_derives_support_from_available_models() {
     assert_eq!(set.candidates.len(), 1);
     assert_eq!(set.candidates[0].platform.id, openrouter.id);
     // R8：请求模型不在 available_models → 用列表第一个 decision 模型
+    assert_eq!(set.candidates[0].target_model, "jev-1.13");
+}
+
+/// R2 按平台判定：同名模型只在别的平台（anthropic）的 registry 条目带 decision → 本平台（openai）不算支持。
+#[tokio::test]
+async fn decision_capability_is_per_platform_registry_entry() {
+    let db = mk_test_db().await;
+    db::upsert_model_entries(&db, vec![decision_entry_on("anthropic", "jev-1.13")])
+        .await
+        .unwrap();
+    let p = mk_platform_models(&db, "or", slot_default("gpt-x"), vec!["jev-1.13"]).await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let e = select_candidates_ctx(&db, &g, "jev-1.13", None, RequestKind::Decision)
+        .await
+        .err()
+        .expect("other platform's decision entry must not count");
+    assert_eq!(e, "no_decision_platform");
+
+    // 本平台自己的条目补上 → 支持
+    db::upsert_model_entries(&db, vec![decision_entry_on("openai", "jev-1.13")])
+        .await
+        .unwrap();
+    let set = select_candidates_ctx(&db, &g, "x", None, RequestKind::Decision)
+        .await
+        .expect("own registry entry has decision");
     assert_eq!(set.candidates[0].target_model, "jev-1.13");
 }
 
@@ -1632,6 +1662,104 @@ async fn mapping_target_kind_mismatch_errs() {
     assert_eq!(e, "no_chat_platform");
 }
 
+// ── 映射后再走槽位匹配（2026-10-01 用户确认：映射只改名，不跳过槽位规则）──
+
+/// 给 group 写一条映射（source → target_platform 的 target_model），返回重取后的 group。
+async fn with_mapping(db: &db::Db, g: &Group, source: &str, platform_id: u64, target: &str) -> Group {
+    db::update_group(
+        db,
+        db::UpdateGroup {
+            id: g.id,
+            name: None,
+            routing_mode: None,
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            max_retries: None,
+            model_mappings: vec![ModelMapping {
+                source_model: source.into(),
+                target_platform_id: platform_id,
+                target_model: target.into(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            }],
+            env_vars: vec![],
+            is_default: None,
+        },
+    )
+    .await
+    .unwrap();
+    db::get_group(db, g.id).await.unwrap().unwrap()
+}
+
+fn slots_opus_default() -> PlatformModels {
+    PlatformModels {
+        opus: Some("glm-opus".into()),
+        default: Some("glm-d".into()),
+        ..Default::default()
+    }
+}
+
+/// 映射名含 opus → 命中目标平台 opus 槽（多平台路径；映射目标平台仍居首）。
+#[tokio::test]
+async fn mapped_name_hits_opus_slot() {
+    let db = mk_test_db().await;
+    let other = mk_platform_models(&db, "other", slot_default("x-d"), vec![]).await;
+    let p = mk_platform_models(&db, "p", slots_opus_default(), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[other.id, p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "claude-opus-4").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].platform.id, p.id, "mapping target platform first");
+    assert_eq!(set.candidates[0].target_model, "glm-opus");
+    // 其余候选同样用映射名做槽位匹配（无档位命中 → default）
+    assert_eq!(set.candidates[1].target_model, "x-d");
+}
+
+/// 映射名无档位词 → 回落 default 槽（单平台路径）。
+#[tokio::test]
+async fn mapped_name_without_tier_falls_to_default_slot() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(&db, "p", slots_opus_default(), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "plain-model").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "glm-d");
+}
+
+/// 无 default 槽且映射名无档位词 → 透传映射名。
+#[tokio::test]
+async fn mapped_name_passthrough_without_default_slot() {
+    let db = mk_test_db().await;
+    let p = mk_platform_models(&db, "p", PlatformModels {
+        opus: Some("glm-opus".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g = mk_db_group(&db, "grp", &[p.id]).await;
+    let g = with_mapping(&db, &g, "src", p.id, "plain-model").await;
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "plain-model");
+}
+
+/// 决策请求：映射命中后仍走 jev 槽（槽位值优先于映射名）。
+#[tokio::test]
+async fn decision_mapping_still_uses_jev_slot() {
+    let db = mk_test_db().await;
+    let jev_p = mk_platform_models(&db, "ts", slot_jev("jev-latest"), vec![]).await;
+    let g = mk_db_group(&db, "grp", &[jev_p.id]).await;
+    let g = with_mapping(&db, &g, "m", jev_p.id, "jev-other").await;
+    let set = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
+        .await
+        .unwrap();
+    assert_eq!(set.candidates[0].target_model, "jev-latest");
+}
+
 /// 全组无任何决策能力平台 → no_decision_platform。
 #[tokio::test]
 async fn all_group_lacks_decision_errs() {
@@ -1644,4 +1772,36 @@ async fn all_group_lacks_decision_errs() {
         .err()
         .unwrap();
     assert_eq!(e, "no_decision_platform");
+}
+
+/// 批量覆盖持久化的空串 jev 槽不算决策能力；空串聊天槽也不让 jev 平台变成「可聊天」。
+#[tokio::test]
+async fn blank_jev_slot_is_not_decision_capable() {
+    let db = mk_test_db().await;
+    let blank = mk_platform_models(&db, "blank", PlatformModels {
+        default: Some("gpt-x".into()),
+        jev: Some("".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g = mk_db_group(&db, "grp", &[blank.id]).await;
+    let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
+        .await
+        .err()
+        .expect("blank jev must not route decision");
+    assert_eq!(e, "no_decision_platform");
+
+    let only = mk_platform_models(&db, "only", PlatformModels {
+        jev: Some("jev-latest".into()),
+        default: Some("".into()),
+        sonnet: Some("".into()),
+        ..Default::default()
+    }, vec![])
+    .await;
+    let g2 = mk_db_group(&db, "grp2", &[only.id]).await;
+    let e = select_candidates_ctx(&db, &g2, "m", None, RequestKind::Chat)
+        .await
+        .err()
+        .expect("blank chat slots keep platform decision-only");
+    assert_eq!(e, "no_chat_platform");
 }

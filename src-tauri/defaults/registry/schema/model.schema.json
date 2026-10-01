@@ -191,6 +191,10 @@
           "minimum": 0,
           "description": "【可选】单价（$/unit：张/秒/次；unit 非 token 时由 if/then 强制必填）。input/output 不适用。"
         },
+        "free": {
+          "type": "boolean",
+          "description": "【可选】显式免费：true 时计费价恒为 0（不走 fallback 默认价）；仅在有官方来源时标注。input/output 全 0 但未标 free 视同未定价、回落默认价。"
+        },
         "input": {
           "type": "number",
           "minimum": 0,

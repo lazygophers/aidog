@@ -13,8 +13,8 @@ use aidog_db as db;
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
-/// `target_model` / `mapping` 对每个候选独立解析（显式映射命中时全部候选共享映射目标模型；
-/// 否则按各平台 PlatformModels 自动匹配）。
+/// `target_model` / `mapping` 对每个候选独立解析：显式映射命中时先把模型名换成映射目标名，
+/// 再按各平台 PlatformModels 槽位匹配（映射不跳过槽位规则）。
 pub struct CandidateSet {
     pub candidates: Vec<RouteResult>,
 }
@@ -38,39 +38,56 @@ impl RequestKind {
     }
 }
 
+/// registry 中 capabilities 含 `decision` 的模型，按 `platform_code → model_id 集合` 键控（R2 推导源）：
+/// 能力看**该平台自己的** registry 条目（同名模型在别的平台有 decision 能力不算）。
+#[derive(Default)]
+pub(crate) struct DecisionModels(HashMap<String, HashSet<String>>);
+
+impl DecisionModels {
+    /// `models` 里第一个在 `platform` 对应 registry 条目上带 decision 能力的模型。
+    pub(crate) fn first_in<'a>(&self, platform: &Platform, models: &'a [String]) -> Option<&'a String> {
+        let ids = self.0.get(&platform.platform_type.wire_str())?;
+        models.iter().find(|m| ids.contains(m.as_str()))
+    }
+}
+
 /// 平台是否支持该请求类型（R2 / R3）：
-/// - Decision ⇔ `models.jev` 非空，或 `available_models` 含 registry decision 能力模型；
+/// - Decision ⇔ `models.jev` 非空，或 `available_models` 含该平台 registry decision 能力模型；
 /// - Chat ⇔ 非纯决策平台（jev 配置且其余槽位全空才剔除）。
 pub(crate) fn platform_supports_kind(
     platform: &Platform,
     kind: RequestKind,
-    decision_model_ids: &HashSet<String>,
+    decision_models: &DecisionModels,
 ) -> bool {
     match kind {
         RequestKind::Decision => {
             platform.models.supports_decision_slot()
-                || platform
-                    .available_models
-                    .iter()
-                    .any(|m| decision_model_ids.contains(m.as_str()))
+                || decision_models
+                    .first_in(platform, &platform.available_models)
+                    .is_some()
         }
         RequestKind::Chat => !platform.models.is_decision_only(),
     }
 }
 
-/// registry `model_entry` 中 capabilities 含 `decision` 的 model_id 集合（R2 推导源）。
-/// 仅决策请求调用（一次全表读，热路径聊天请求零开销）。
-async fn load_decision_model_ids(db: &db::Db) -> HashSet<String> {
+/// 一次全表读出 registry decision 能力模型（R2 推导源）。
+/// 仅决策请求调用（热路径聊天请求零开销）。
+async fn load_decision_models(db: &db::Db) -> DecisionModels {
     match db::list_model_entries(db, None).await {
-        Ok(entries) => entries
-            .into_iter()
-            .filter(|e| e.capabilities.iter().any(|c| c == "decision"))
-            .map(|e| e.model_id)
-            .collect(),
+        Ok(entries) => {
+            let mut map: HashMap<String, HashSet<String>> = HashMap::new();
+            for e in entries
+                .into_iter()
+                .filter(|e| e.capabilities.iter().any(|c| c == "decision"))
+            {
+                map.entry(e.platform_code).or_default().insert(e.model_id);
+            }
+            DecisionModels(map)
+        }
         Err(e) => {
             // 读库失败按空集处理：退化为仅 jev 槽位判支持（可用性优先，不阻断路由）
             tracing::warn!(error = %e, "decision routing: list_model_entries failed, slot-only matching");
-            HashSet::new()
+            DecisionModels::default()
         }
     }
 }
@@ -147,17 +164,17 @@ pub async fn select_candidates_ctx(
 
     // ── 阶段 -0.5: 请求类型维度（jev-decision-proxy）──
     // 决策请求一次性取 registry decision 能力模型集合（禁逐平台查库）；聊天请求零查询。
-    let decision_model_ids = if kind == RequestKind::Decision {
-        load_decision_model_ids(db).await
+    let decision_models = if kind == RequestKind::Decision {
+        load_decision_models(db).await
     } else {
-        HashSet::new()
+        DecisionModels::default()
     };
     // R6：分组 model_mappings 显式指定的目标平台不支持该请求类型 → 直接报错（不忽略映射）。
     if let Some(target_id) = mapped_platform_id
         && let Some(gp) = group_platforms
             .iter()
             .find(|gp| gp.platform.id == target_id)
-        && !platform_supports_kind(&gp.platform, kind, &decision_model_ids)
+        && !platform_supports_kind(&gp.platform, kind, &decision_models)
     {
         tracing::warn!(
             group = %group.name, target_platform_id = target_id,
@@ -194,7 +211,7 @@ pub async fn select_candidates_ctx(
             now_ms,
             &extra_cache,
             kind,
-            &decision_model_ids,
+            &decision_models,
         )
         .await;
     }
@@ -206,7 +223,7 @@ pub async fn select_candidates_ctx(
         breaker_rejected,
         peak_disabled_count,
         kind_rejected_count,
-    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_model_ids);
+    } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models);
 
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
@@ -277,7 +294,7 @@ pub async fn select_candidates_ctx(
         mapping,
         &extra_cache,
         kind,
-        &decision_model_ids,
+        &decision_models,
     );
 
     tracing::info!(
@@ -306,10 +323,10 @@ async fn handle_single_platform(
     now_ms: i64,
     extra_cache: &ExtraCacheMap,
     kind: RequestKind,
-    decision_model_ids: &HashSet<String>,
+    decision_models: &DecisionModels,
 ) -> Result<CandidateSet, String> {
     // 请求类型不匹配也是硬停（R5：单平台短路同样检查，2026-09-30 复核拍板）。
-    if !platform_supports_kind(&only.platform, kind, decision_model_ids) {
+    if !platform_supports_kind(&only.platform, kind, decision_models) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name, kind = ?kind,
             "single-platform group: request kind unsupported"
@@ -347,17 +364,13 @@ async fn handle_single_platform(
         cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
     let effective_models =
         resolve_effective_models(&only.platform, time_rules, now_ms, source_model);
-    let target_model = mapped_target_model.clone().unwrap_or_else(|| {
-        match kind {
-            RequestKind::Decision => resolve_decision_model(
-                &effective_models,
-                &only.platform.available_models,
-                decision_model_ids,
-                source_model,
-            ),
-            RequestKind::Chat => resolve_model(&effective_models, source_model),
-        }
-    });
+    let target_model = resolve_target_model(
+        kind,
+        &effective_models,
+        &only.platform,
+        decision_models,
+        mapped_target_model.as_deref().unwrap_or(source_model),
+    );
 
     tracing::info!(
         group = %group.name, platform = %only.platform.name,
@@ -395,7 +408,7 @@ fn filter_candidates<'a>(
     source_model: &str,
     extra_cache: &ExtraCacheMap,
     kind: RequestKind,
-    decision_model_ids: &HashSet<String>,
+    decision_models: &DecisionModels,
 ) -> FilteredCandidates<'a> {
     let mut active = Vec::new();
     let mut probe = Vec::new();
@@ -408,7 +421,7 @@ fn filter_candidates<'a>(
     for gp in group_platforms {
         // 请求类型维度（R2/R3）：不支持该类型的平台剔除（先于 status 判定，
         // 纯决策平台 / 无决策能力的平台不进任何桶）。
-        if !platform_supports_kind(&gp.platform, kind, decision_model_ids) {
+        if !platform_supports_kind(&gp.platform, kind, decision_models) {
             kind_rejected_count += 1;
             continue;
         }
@@ -572,29 +585,23 @@ fn build_route_results(
     mapping: Option<&ModelMapping>,
     extra_cache: &ExtraCacheMap,
     kind: RequestKind,
-    decision_model_ids: &HashSet<String>,
+    decision_models: &DecisionModels,
 ) -> Vec<RouteResult> {
     ordered
         .into_iter()
         .map(|gp| {
-            let target_model = if let Some(tm) = mapped_target_model.as_ref() {
-                tm.clone()
-            } else {
-                let cache = extra_cache.get(&gp.platform.id);
-                let time_rules: &[serde_json::Value] =
-                    cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
-                let effective_models =
-                    resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
-                match kind {
-                    RequestKind::Decision => resolve_decision_model(
-                        &effective_models,
-                        &gp.platform.available_models,
-                        decision_model_ids,
-                        source_model,
-                    ),
-                    RequestKind::Chat => resolve_model(&effective_models, source_model),
-                }
-            };
+            let cache = extra_cache.get(&gp.platform.id);
+            let time_rules: &[serde_json::Value] =
+                cache.map(|c| c.time_windows.as_slice()).unwrap_or_default();
+            let effective_models =
+                resolve_effective_models(&gp.platform, time_rules, now_ms, source_model);
+            let target_model = resolve_target_model(
+                kind,
+                &effective_models,
+                &gp.platform,
+                decision_models,
+                mapped_target_model.as_deref().unwrap_or(source_model),
+            );
             RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
@@ -602,6 +609,23 @@ fn build_route_results(
             }
         })
         .collect()
+}
+
+/// 按请求类型做槽位匹配。`model_name` = 分组映射命中时的映射目标名，否则请求模型名：
+/// 映射只改名，不跳过槽位匹配（映射名不含档位词时同样回落 default 槽，用户 2026-10-01 确认）。
+fn resolve_target_model(
+    kind: RequestKind,
+    effective_models: &PlatformModels,
+    platform: &Platform,
+    decision_models: &DecisionModels,
+    model_name: &str,
+) -> String {
+    match kind {
+        RequestKind::Decision => {
+            resolve_decision_model(effective_models, platform, decision_models, model_name)
+        }
+        RequestKind::Chat => resolve_model(effective_models, model_name),
+    }
 }
 
 /// 缓存版本的 peak 窗口判定（避免重新解析 peak）

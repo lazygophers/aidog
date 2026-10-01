@@ -255,12 +255,8 @@ pub fn write_default_profile_to_config(port: u16) -> Result<Option<String>, Stri
     // merge [model_providers.aidog]
     set_obj_path(&mut config, &["model_providers", "aidog"], aidog_profile);
 
-    let before = match codex_config_read() {
-        Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
-        Err(_) => String::new(),
-    };
-    let after = serde_json::to_string_pretty(&config).unwrap_or_default();
-    if before == after {
+    // 按值比较（与键顺序无关）：serde_json preserve_order 下字符串比较会因 TOML 回读顺序误判有变化
+    if codex_config_read().ok().as_ref() == Some(&config) {
         return Ok(None);
     }
 
