@@ -705,9 +705,11 @@ pub(crate) async fn forward_attempt(
             .collect(),
     )
     .to_string();
-    // ponytail: pretty 序列化仅当 log_upstream_request 开启时执行，关日志零开销
+    // O2（perf-backend spec §2）：日志存原文（紧凑 JSON），不再写库前 pretty（省 CPU + 写盘）。
+    // 展示侧（Logs 详情 safeParseJson + JSON.stringify(,2) / 复制路径 fj）格式化，对存量
+    // 已 pretty 的旧行同样成立（parse→stringify 幂等）。
     log.upstream_request_body = if log_settings.log_upstream_request {
-        format_pretty_json(&req_body_str)
+        req_body_str.clone()
     } else {
         String::new()
     };

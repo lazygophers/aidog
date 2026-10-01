@@ -166,9 +166,9 @@ pub(crate) async fn handle_count_tokens(
         obj.insert("model".to_string(), Value::String(actual_model.clone()));
     }
     let upstream_body_str = serde_json::to_string(&upstream_body).unwrap_or_default();
-    // ponytail: pretty 序列化仅当 log_upstream_request 开启时执行，关日志零开销
+    // O2（perf-backend spec §2）：日志存原文（紧凑 JSON），展示侧格式化。
     log.upstream_request_body = if log_settings.log_upstream_request {
-        format_pretty_json(&upstream_body_str)
+        upstream_body_str.clone()
     } else {
         String::new()
     };
