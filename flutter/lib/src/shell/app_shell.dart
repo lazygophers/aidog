@@ -322,7 +322,7 @@ class _WindowBackground extends StatelessWidget {
 /// `RequestLog.tsx:193`）。
 double _contentMaxFor(String activeId) => switch (activeId.split('/').first) {
   'home' => 1200,
-  'stats' || 'logs' || 'request-log' => double.infinity,
+  'stats' || 'logs' || 'request-log' || 'mitm-log' => double.infinity,
   _ => AidogLayout.contentMax,
 };
 

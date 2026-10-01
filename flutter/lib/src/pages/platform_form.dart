@@ -24,6 +24,7 @@ import '../utils/pinyin.dart';
 import '../shell/tiles.dart';
 import 'platform_card_bits.dart' show MiniBadge;
 import 'platform_defaults.dart';
+import 'cc_mitm.dart' show CcMitmAccessSection;
 import 'platform_extra.dart';
 import 'platform_form_bits.dart';
 import 'platform_form_logic.dart';
@@ -774,6 +775,16 @@ class _PlatformEditFormState extends State<PlatformEditForm> {
       const SizedBox(height: AidogSpace.sxs),
       _apiKeyField(t, hint: t.t('platform.apiKeyOptional')),
       FormHint(t.t('platform.passthroughNote')),
+      const SizedBox(height: AidogSpace.smd),
+      // 订阅透传 MITM 统计（cc-sub-mitm 票 12，`PlatformEditForm.tsx:196-205`）。
+      FormHint(t.t('platform.mitmSection')),
+      CcMitmAccessSection(
+        enabled: c.mitmStats,
+        onToggle: c.setMitmStats,
+        caReady: c.mitmCaReady,
+        exportLine: c.mitmExportLine,
+        onCopy: () => widget.copyText(c.mitmExportLine),
+      ),
     ],
   );
 
