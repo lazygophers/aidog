@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790823630,
+  "last_updated": 1790831290,
   "platforms": [
     {
       "code": "aihubmix",
@@ -2684,6 +2684,7 @@
         "deepseek-chat-v3.1.json",
         "deepseek-chat.json",
         "deepseek-coder.json",
+        "deepseek-flash.json",
         "deepseek-r1-0528.json",
         "deepseek-r1-distill-llama-70b.json",
         "deepseek-r1.json",
