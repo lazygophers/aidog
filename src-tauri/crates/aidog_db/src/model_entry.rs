@@ -5,6 +5,7 @@
 //! 「DB 优先、bundled 兜底」与旧 `resolve_price` 的约定一致，兜底只读不写。
 
 use super::*;
+use crate::cache::KeyPair;
 use crate::models::{ModelEntry, ModelEntryGroup, ModelInfoSnapshot, PlatformPreset};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 use std::sync::OnceLock;
@@ -265,6 +266,9 @@ pub fn upsert_model_entries(
         })
         .await
         .map_err(|e| format!("upsert model entries: {e}"))
+        // 写成功才失效计费缓存（inspect 只在 Ok 上跑），沿用 upsert_platform_presets
+        // 写完作废 preset 缓存的同款钩子位置。
+        .inspect(|_| db.invalidate_model_entry_cache())
     }
 }
 
@@ -324,6 +328,9 @@ pub fn upsert_model_entries_best_effort(
         })
         .await
         .map_err(|e| format!("upsert model entries: {e}"))
+        // 写成功才失效计费缓存（inspect 只在 Ok 上跑），沿用 upsert_platform_presets
+        // 写完作废 preset 缓存的同款钩子位置。
+        .inspect(|_| db.invalidate_model_entry_cache())
     }
 }
 
@@ -403,13 +410,13 @@ pub fn select_model_entries<'a>(
             match &code {
                 Some(c) => {
                     let mut stmt =
-                        conn.prepare(&format!("{base} AND platform_code = ?1{order}"))?;
+                        conn.prepare_cached(&format!("{base} AND platform_code = ?1{order}"))?;
                     Ok(stmt
                         .query_map(params![c], row_to_model_entry)?
                         .collect::<SqlResult<Vec<_>>>()?)
                 }
                 None => {
-                    let mut stmt = conn.prepare(&format!("{base}{order}"))?;
+                    let mut stmt = conn.prepare_cached(&format!("{base}{order}"))?;
                     Ok(stmt
                         .query_map([], row_to_model_entry)?
                         .collect::<SqlResult<Vec<_>>>()?)
@@ -466,7 +473,7 @@ pub fn get_model_entry<'a>(
         let (code, id) = (platform_code.to_string(), model_id.to_string());
         let hit: Option<ModelEntry> = db
             .call_read_traced(None, __db_caller, move |conn| {
-                let mut stmt = conn.prepare(&format!(
+                let mut stmt = conn.prepare_cached(&format!(
                     "SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE platform_code = ?1 AND model_id = ?2 AND deleted_at = 0"
                 ))?;
                 Ok(stmt.query_row(params![code, id], row_to_model_entry).optional()?)
@@ -496,7 +503,7 @@ pub fn get_model_entry_any_platform<'a>(
         let id = model_id.to_string();
         let hit: Option<ModelEntry> = db
             .call_read_traced(None, __db_caller, move |conn| {
-                let mut stmt = conn.prepare(&format!(
+                let mut stmt = conn.prepare_cached(&format!(
                     "SELECT {MODEL_ENTRY_COLUMNS} FROM model_entry WHERE model_id = ?1 AND deleted_at = 0
                      ORDER BY official DESC, platform_code LIMIT 1"
                 ))?;
@@ -518,17 +525,39 @@ pub fn get_model_entry_any_platform<'a>(
 
 /// 计费 / 出站裁剪共用的条目查找：本平台条目优先，缺失时跨平台取官方条目。
 /// 返回的 `bool` = 是否走了跨平台回退（价格 `source` 据此区分）。
+///
+/// 进程级缓存（spec O4）：同一请求内价格解析会多次走到这里（forward / log / billing /
+/// estimate），命中后零 DB 往返。DB miss + bundled miss 也缓存（fallback 单价的模型
+/// 每次白查两遍 DB 更亏）；model_entry 任何写入后由 [`Db::invalidate_model_entry_cache`]
+/// 整体失效，远程同步 / 导入恢复 / prune 都走那几个写入函数，天然覆盖。
 pub async fn model_entry_for_billing(
     db: &Db,
     platform_code: &str,
     model_id: &str,
 ) -> Result<Option<(ModelEntry, bool)>, String> {
-    if let Some(e) = get_model_entry(db, platform_code, model_id).await? {
-        return Ok(Some((e, false)));
+    // 借用探测复用 settings 缓存的 KeyPair 惯用：命中路径零 String 分配。
+    {
+        let probe: &dyn KeyPair = &(platform_code, model_id);
+        if let Ok(g) = db.1.model_entry_billing.read()
+            && let Some(hit) = g.get(probe)
+        {
+            return Ok(hit.clone());
+        }
     }
-    Ok(get_model_entry_any_platform(db, model_id)
-        .await?
-        .map(|e| (e, true)))
+    let result = if let Some(e) = get_model_entry(db, platform_code, model_id).await? {
+        Some((e, false))
+    } else {
+        get_model_entry_any_platform(db, model_id)
+            .await?
+            .map(|e| (e, true))
+    };
+    if let Ok(mut g) = db.1.model_entry_billing.write() {
+        g.insert(
+            (platform_code.to_string(), model_id.to_string()),
+            result.clone(),
+        );
+    }
+    Ok(result)
 }
 
 /// 删除当前 registry 清单已不再包含的模型镜像行。
@@ -563,6 +592,7 @@ pub fn prune_model_entries<'a>(
         })
         .await
         .map_err(|e| format!("prune model entries: {e}"))
+        .inspect(|_| db.invalidate_model_entry_cache())
     }
 }
 
