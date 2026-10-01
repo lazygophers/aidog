@@ -67,6 +67,17 @@ commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报�
 提交前问自己一句：**这次 `git diff --cached` 里的每一段，我都能说出它属于哪条任务吗？**
 说不出的那段就是别人的。
 
+## rtk 包装的 `git worktree add` 静默失败（2026-10-01）
+
+perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk 执行，
+输出 "ok" 但 worktree 实际没建（`rev-parse --show-toplevel` 指回主仓库），
+后续 `git add` 全部加进主仓库，差错一点就在共享 checkout 上提交了别人的位置。
+
+- **worktree 的建/删/查一律 `/usr/bin/git` 直跑**，绕开 rtk 包装。建完当场
+  `rev-parse --show-toplevel` 验一次 toplevel 指向新目录——「命令输出 ok」
+  不等于「worktree 存在」（registry-data-edit.md「判脚本干了什么以输出数字为准」
+  同模式）。
+
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 
 全局 CLAUDE.md 写「Bash 的 cwd 跨调用保留」，那只对主会话成立。**派生的
