@@ -300,11 +300,21 @@ impl StreamAggregator {
             buf.rfind('\n').map(|p| p + 1).unwrap_or(0)
         };
         let remainder = buf.split_off(split_pos);
+        // O8 保守预筛：usage 提取只读顶层 / `message` 下的 "usage" 键；model 观察只读
+        // "model" / "response.model" / "message.model" / "modelVersion"（adapter::response_model
+        // 的全部键位，均含 "model" 子串）。行内两个子串都不含（或 model 已定格且无 usage）
+        // 时解析必无所获，跳过 serde——长流的绝大多数是 content 增量行。
+        // 保守性：子串不带引号，"usage"/"model" 出现在字符串**值**里只会多解析不会漏解析；
+        // contains 在跨 chunk 行重组完成后对完整行做，usage 键被网络 chunk 切开也不受影响。
+        let want_model = self.served_model.lock().map(|s| s.is_none()).unwrap_or(false);
         for line in buf.lines() {
             let line = line.trim();
             if let Some(data) = line.strip_prefix("data: ") {
                 let data = data.trim();
                 if data == "[DONE]" {
+                    continue;
+                }
+                if !data.contains("usage") && (!want_model || !data.contains("model")) {
                     continue;
                 }
                 if let Ok(json) = serde_json::from_str::<Value>(data) {

@@ -1054,3 +1054,74 @@ fn extract_usage_deepseek_prompt_cache_hit() {
     let (i, o, c, cw) = extract_usage(body);
     assert_eq!((i, o, c, cw), (100, 5, 60, 0));
 }
+
+// ── O8 预筛回归：feed_sse_usage 不含 usage/model 的行跳过 JSON 解析 ──
+// 预筛在跨 chunk 行重组之后对完整行做，三类边界各有用例：
+// ① 含 usage 的块照常解析累计；② 纯 content 块零 token 零 model（跳过解析路径行为等价）；
+// ③ usage 跨 chunk 边界由既有 feed_sse_usage_reassembles_split_chunk_boundary 覆盖
+//    —— 解析器按完整行处理，contains 预筛看到的也是重组后的完整行，不存在「预筛在半行上
+//    做导致漏筛」的形态（本注释即票面要求的核实说明）。
+
+/// model 定格后（want_model=false）usage 行仍被解析——预筛不得把 usage 一起筛掉。
+#[test]
+fn feed_sse_usage_parses_usage_after_model_pinned() {
+    use std::sync::atomic::Ordering::Relaxed;
+    let agg = StreamAggregator::new();
+    agg.feed_sse_usage("data: {\"type\":\"message_start\",\"message\":{\"model\":\"claude-x\",\"usage\":{\"input_tokens\":10}}}\n\n");
+    assert_eq!(agg.take_served_model().as_deref(), Some("claude-x"));
+    // model 已定格：后续行只有 usage 命中预筛，仍必须解析累计。
+    agg.feed_sse_usage("data: {\"type\":\"message_delta\",\"usage\":{\"input_tokens\":10,\"output_tokens\":42}}\n\n");
+    assert_eq!(agg.tokens_in.load(Relaxed), 10);
+    assert_eq!(agg.tokens_out.load(Relaxed), 42);
+}
+
+/// 不含 usage/model 的 content 增量行：不解析（行为上等价于解析后无所获），token 零、model None。
+#[test]
+fn feed_sse_usage_skips_plain_content_lines() {
+    use std::sync::atomic::Ordering::Relaxed;
+    let agg = StreamAggregator::new();
+    for i in 0..50 {
+        let line = format!(
+            "data: {{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{{\"text\":\"chunk {} body\"}}}}\n\n",
+            i
+        );
+        agg.feed_sse_usage(&line);
+    }
+    agg.feed_sse_usage("data: [DONE]\n\n");
+    assert_eq!(agg.tokens_in.load(Relaxed), 0);
+    assert_eq!(agg.tokens_out.load(Relaxed), 0);
+    assert!(agg.take_served_model().is_none());
+}
+
+/// 预筛保守方向：正文值里出现 "usage" 字样（非键）也会多解析一次，但不得崩溃、不得误计 token。
+#[test]
+fn feed_sse_usage_usage_mentioned_in_value_is_overparsed_safely() {
+    use std::sync::atomic::Ordering::Relaxed;
+    let agg = StreamAggregator::new();
+    agg.feed_sse_usage("data: {\"type\":\"content_block_delta\",\"delta\":{\"text\":\"the word usage appears here\"}}\n\n");
+    assert_eq!(agg.tokens_in.load(Relaxed), 0);
+    assert_eq!(agg.tokens_out.load(Relaxed), 0);
+}
+
+/// model 观察的子串超集：response_model 的四个键位（model / response.model / message.model /
+/// modelVersion）都被 contains("model") 覆盖，Gemini modelVersion 路径不因预筛漏观察。
+#[test]
+fn feed_sse_usage_observes_gemini_model_version_despite_prefilter() {
+    let agg = StreamAggregator::new();
+    agg.feed_sse_usage("data: {\"candidates\":[],\"modelVersion\":\"gemini-2.5-pro\"}\n\n");
+    assert_eq!(agg.take_served_model().as_deref(), Some("gemini-2.5-pro"));
+}
+
+/// usage 跨 chunk 边界且切点两半合起来才含完整 "usage" 键：重组后完整行命中预筛，不漏记。
+#[test]
+fn feed_sse_usage_split_line_reassembled_hits_prefilter() {
+    use std::sync::atomic::Ordering::Relaxed;
+    let agg = StreamAggregator::new();
+    // 切点选在 "usage" 键名中间：两半各自都含 "us"/"age" 片段但完整的 "usage" 子串只在重组后出现。
+    let head = "data: {\"us";
+    let tail = "age\":{\"output_tokens\":99}}\n\n";
+    agg.feed_sse_usage(head);
+    assert_eq!(agg.tokens_out.load(Relaxed), 0, "残行未完成前不应解析");
+    agg.feed_sse_usage(tail);
+    assert_eq!(agg.tokens_out.load(Relaxed), 99, "重组后的完整行必须命中预筛并解析");
+}
