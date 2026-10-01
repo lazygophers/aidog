@@ -562,24 +562,8 @@ pub(crate) async fn handle_proxy_core(
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
             // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
-            if e == "no_chat_platform" {
+            if e == "no_chat_platform" || e == "peak_disabled" {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
-            }
-            if e == "peak_disabled" {
-                log.blocked_by = "router".to_string();
-                log.blocked_reason = "peak".to_string();
-                log.status_code = 503;
-                log.done = true;
-                log.response_body = format!("route error: {e}");
-                log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log, &log_settings).await;
-                let mut r = (
-                    StatusCode::SERVICE_UNAVAILABLE,
-                    format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
-                )
-                    .into_response();
-                inject_trace_header(&mut r);
-                return r;
             }
             log.response_body = format!("route error: {e}");
             log.status_code = 400;

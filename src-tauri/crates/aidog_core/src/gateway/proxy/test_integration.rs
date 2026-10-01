@@ -2816,3 +2816,64 @@ async fn decision_no_platform_400_and_audit_log() {
     assert_eq!(log.blocked_reason, "no_decision_platform");
     assert_eq!(log.est_cost, 0.0);
 }
+
+/// 把 group 内全部平台设为「高峰禁用 + 全天高峰窗口」。
+async fn set_all_platforms_peak_disabled(state: &Arc<ProxyState>) {
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
+        })
+        .await
+        .unwrap();
+    }
+}
+
+/// 决策路径高峰禁用对齐聊天路径：503 + blocked_reason='peak'（不是 400）。
+#[tokio::test]
+async fn decision_peak_disabled_503_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_decision_group(
+        &state,
+        "gkpeak",
+        "https://example.invalid",
+        PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        },
+        None,
+        Protocol::TypeSafe,
+    )
+    .await;
+    set_all_platforms_peak_disabled(&state).await;
+
+    let resp = handle_proxy(AxumState(state.clone()), decision_request("gkpeak", "m")).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkpeak").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "peak");
+    assert_eq!(log.est_cost, 0.0);
+}
+
+/// 聊天路径高峰禁用（共用 route_fail_response 后行为不变）：503 + blocked_reason='peak'。
+#[tokio::test]
+async fn chat_peak_disabled_503_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkchatpeak", "https://example.invalid").await;
+    set_all_platforms_peak_disabled(&state).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkchatpeak", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkchatpeak").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "peak");
+}
