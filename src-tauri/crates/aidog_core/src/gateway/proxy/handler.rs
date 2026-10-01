@@ -100,7 +100,7 @@ async fn handle_proxy_inner(
 
 pub(crate) async fn handle_proxy_core(
     AxumState(state): AxumState<Arc<ProxyState>>,
-    req: Request,
+    mut req: Request,
     request_id: String,
     bound_group: Option<Group>,
 ) -> Response {
@@ -147,6 +147,7 @@ pub(crate) async fn handle_proxy_core(
         done: false,
         deleted_at: 0,
         field_trace: String::new(),
+        body_omitted: false,
     };
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
@@ -213,10 +214,11 @@ pub(crate) async fn handle_proxy_core(
         build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
 
     // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
-    // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前 clone 原始量。
-    let orig_method = req.method().clone();
-    let orig_uri = req.uri().clone();
-    let orig_headers = req.headers().clone();
+    // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前取走原始量。
+    // O3（perf-backend spec §2）：mem::take 移动而非 clone，省一次 HeaderMap 深拷贝。
+    let orig_method = std::mem::take(req.method_mut());
+    let orig_uri = std::mem::take(req.uri_mut());
+    let orig_headers = std::mem::take(req.headers_mut());
 
     // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
@@ -408,7 +410,7 @@ pub(crate) async fn handle_proxy_core(
         }
     };
     let mut chat_req: ChatRequest =
-        match adapter::parse_incoming_request(&source_protocol, &req_value) {
+        match adapter::parse_incoming_request(&source_protocol, &req_value, Some(&bytes)) {
             Ok(r) => r,
             Err(e) => {
                 log.response_body = format!(

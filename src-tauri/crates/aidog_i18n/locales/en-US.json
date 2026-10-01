@@ -633,6 +633,8 @@
   "logs.attempts": "Attempts",
   "logs.body": "Body",
   "logs.cacheTokens": "Cache Tokens",
+  "logs.bodyOmitted": "Bodies omitted",
+  "logs.bodyOmittedHint": "write overload, metadata only",
   "logs.cancel": "Cancel",
   "logs.cleaning": "Cleaning...",
   "logs.cleanupConfirm": "Will delete {{rows}} expired log rows, freeing about {{bytes}} (database is currently {{size}}). This cannot be undone.",

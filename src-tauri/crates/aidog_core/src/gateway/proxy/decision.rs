@@ -200,7 +200,7 @@ pub(crate) async fn handle_decision(
         log.upstream_request_url = url.clone();
         log.upstream_request_headers = r#"{"authorization":"[REDACTED]","content-type":"application/json"}"#.to_string();
         log.upstream_request_body = if log_settings.log_upstream_request {
-            format_pretty_json(&upstream_body_str)
+            upstream_body_str.clone()
         } else {
             String::new()
         };

@@ -107,6 +107,9 @@ objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButto
 
 # Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
 # 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
+# O7（perf-backend）：全局分配器换 mimalloc，桌面壳（root package aidog）与无头内核（aidog_kernel）两个入口 crate 共用此版本声明。
+mimalloc = "0.1"
+
 # workspace root [profile.*] 对所有 workspace member 生效。
 [profile.release]
 codegen-units = 256
@@ -155,6 +158,8 @@ aidog_mcp = { path = "crates/aidog_mcp" }
 aidog_backup = { path = "crates/aidog_backup" }
 aidog_middleware = { path = "crates/aidog_middleware" }
 aidog_adapter = { path = "crates/aidog_adapter" }
+# O7：入口设 #[global_allocator]（见 src/main.rs）
+mimalloc = { workspace = true }
 tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
 tauri-plugin-opener = "2"
 tauri-plugin-notification = "2"

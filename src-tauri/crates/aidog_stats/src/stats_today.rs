@@ -96,9 +96,12 @@ pub fn last_routed_platform_id(
     let __db_caller = std::panic::Location::caller();
     async move {
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            // `+platform_id` 一元加号禁止走 idx_proxy_log_platform_created（platform_id>0
+            // 无上界，索引只剩 TEMP B-TREE 全行排序）；改走 idx_proxy_log_stats 倒序，
+            // 命中首行即停（perf-backend 票 03 L7：20.5 万行 149ms → 0ms）。
             let mut stmt = conn.prepare_cached(
                 "SELECT platform_id FROM proxy_log \
-                 WHERE deleted_at = 0 AND platform_id > 0 AND source_protocol != 'test' \
+                 WHERE deleted_at = 0 AND +platform_id > 0 AND source_protocol != 'test' \
                  ORDER BY created_at DESC LIMIT 1",
             )?;
             let mut rows = stmt.query_map([], |row| row.get::<_, i64>(0))?;

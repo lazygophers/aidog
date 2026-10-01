@@ -421,31 +421,6 @@ fn build_upstream_headers_windsurf_gemini() {
     assert!(m.contains_key("x-goog-api-key"));
 }
 
-// ── format_pretty_json ──
-#[test]
-fn format_pretty_json_valid_json() {
-    let input = r#"{"key":"value","num":42}"#;
-    let result = format_pretty_json(input);
-    assert!(
-        result.contains('\n'),
-        "pretty-printed JSON should have newlines"
-    );
-    assert!(result.contains("\"key\""), "should contain key");
-}
-
-#[test]
-fn format_pretty_json_invalid_json_returns_original() {
-    let input = "not-json-at-all";
-    let result = format_pretty_json(input);
-    assert_eq!(result, input, "invalid JSON should return original");
-}
-
-#[test]
-fn format_pretty_json_empty_object() {
-    let result = format_pretty_json("{}");
-    assert!(!result.is_empty());
-}
-
 // ── uuid_sim: format check ──
 #[test]
 fn uuid_sim_format_and_uniqueness() {

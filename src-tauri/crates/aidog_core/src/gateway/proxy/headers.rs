@@ -470,14 +470,6 @@ pub fn override_coding_plan_path(_api_path: &mut String, _protocol: &super::mode
     // 预留：后续若有平台需 coding plan 专用 api_path 可在此扩展
 }
 
-/// Pretty-print JSON string; return original if parsing fails
-pub(crate) fn format_pretty_json(s: &str) -> String {
-    serde_json::from_str::<Value>(s)
-        .ok()
-        .and_then(|v| serde_json::to_string_pretty(&v).ok())
-        .unwrap_or_else(|| s.to_string())
-}
-
 #[cfg(test)]
 #[path = "test_headers.rs"]
 mod test_headers;

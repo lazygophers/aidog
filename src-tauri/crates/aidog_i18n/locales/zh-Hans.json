@@ -633,6 +633,8 @@
   "logs.attempts": "尝试记录",
   "logs.body": "请求体",
   "logs.cacheTokens": "缓存 Token",
+  "logs.bodyOmitted": "正文已省略",
+  "logs.bodyOmittedHint": "写入过载，仅元数据",
   "logs.cancel": "取消",
   "logs.cleaning": "清理中...",
   "logs.cleanupConfirm": "将删除 {{rows}} 行过期日志，释放约 {{bytes}}（库当前 {{size}}）。此操作不可撤销。",

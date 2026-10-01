@@ -39,6 +39,7 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
         deleted_at: 0,
         done: false,
         field_trace: String::new(),
+        body_omitted: false,
     }
 }
 
@@ -66,6 +67,7 @@ fn flush_test_state(db: Arc<aidog_db::Db>) -> Arc<ProxyState> {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     spawn_log_writer(state.clone(), log_rx);
     state
@@ -228,6 +230,7 @@ async fn upsert_log_skips_clone_when_queue_full() {
         listen_addr: std::sync::OnceLock::new(),
         settings_cache: Arc::new(tokio::sync::RwLock::new(Default::default())),
         log_tx,
+        log_queue_bytes: std::sync::atomic::AtomicU64::new(0),
     });
     let settings = ProxyLogSettings::default();
 
@@ -290,6 +293,142 @@ async fn streaming_intermediate_states_do_not_emit() {
         !state.log_snapshots.contains_key(id),
         "终态写完必须移除快照（与 emit 同条件）"
     );
+
+    let _ = std::fs::remove_file(path);
+}
+
+// ── O6（perf-backend spec §3）：非阻塞投递 + 字节预算降级 + 按需携带 ──
+
+/// 11) 字节预算打满时投递降级：消息只含元数据、置 body_omitted，元数据（token 等）照常
+///     落库，出队后预算归还干净。
+#[tokio::test]
+async fn queue_over_byte_budget_degrades_to_metadata() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_user_request: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+    let log = terminal_log("degrade_0001");
+
+    state
+        .log_queue_bytes
+        .store(LOG_QUEUE_BYTE_BUDGET, std::sync::atomic::Ordering::Relaxed);
+    queue_upsert_log(&state, &log, &settings);
+    flush_log_queue(&state).await;
+
+    let row = aidog_logs::get_proxy_log(&state.db, "degrade_0001")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row.body_omitted, "超预算投递必须置 body_omitted（详情页「正文已省略」）");
+    assert_eq!(row.response_body, "", "降级消息不带正文（正文列空串，禁占位文字）");
+    assert_eq!(row.input_tokens, 100, "元数据照常落库（降级不丢统计口径字段）");
+    assert_eq!(
+        state.log_queue_bytes.load(std::sync::atomic::Ordering::Relaxed),
+        LOG_QUEUE_BYTE_BUDGET,
+        "writer 出队后字节预算归还到投递前水位（测试预置 = 预算上限）"
+    );
+
+    let _ = std::fs::remove_file(path);
+}
+
+/// 12) body_omitted 单调 sticky：首节点降级置位后，后续节点（预算已恢复、甚至把正文补写
+///     进去）不回落——宁可多报不可漏报（反向「标 false 但正文缺」会误导排查）。
+#[tokio::test]
+async fn body_omitted_sticky_across_subsequent_upserts() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_user_request: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+
+    // 首节点（中间态）：预算打满 → 降级 + 置位。
+    let mut first = placeholder_stream_log("sticky_0001");
+    first.status_code = 0; // 中间态
+    first.request_body = "REQ-BODY".into();
+    state
+        .log_queue_bytes
+        .store(LOG_QUEUE_BYTE_BUDGET, std::sync::atomic::Ordering::Relaxed);
+    queue_upsert_log(&state, &first, &settings);
+    flush_log_queue(&state).await;
+    let row1 = aidog_logs::get_proxy_log(&state.db, "sticky_0001")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row1.body_omitted);
+
+    // 终态节点：预算恢复，消息带正文——标记必须保持 true。
+    state.log_queue_bytes.store(0, std::sync::atomic::Ordering::Relaxed);
+    let done = terminal_log("sticky_0001");
+    queue_upsert_log(&state, &done, &settings);
+    flush_log_queue(&state).await;
+    let row2 = aidog_logs::get_proxy_log(&state.db, "sticky_0001")
+        .await
+        .unwrap()
+        .unwrap();
+    assert!(row2.body_omitted, "body_omitted 单调不回落（sticky）");
+    assert_eq!(row2.response_body, "ok", "预算恢复后正文照常补写（标记语义=发生过降级）");
+
+    let _ = std::fs::remove_file(path);
+}
+
+/// 13) scoped_queue_log 按需携带：镜像 writer 侧首写位掩码——未写过且非空才带；
+///     终态强制带响应侧；两侧开关关闭时对应侧不带。
+#[tokio::test]
+async fn scoped_queue_log_carries_only_unwritten_large_fields() {
+    let (db, path) = flush_test_db().await;
+    let state = flush_test_state(db.clone());
+    let settings = ProxyLogSettings {
+        enabled: true,
+        log_user_request: true,
+        log_upstream_request: true,
+        ..Default::default()
+    };
+    let mut log = placeholder_stream_log("scoped_0001");
+    log.status_code = 200;
+    log.done = true;
+    log.request_body = "REQ".into();
+    log.response_body = "RESP".into();
+
+    // 无快照（首节点）：非空大字段都带。
+    let first = scoped_queue_log(&state, &log, &settings, true);
+    assert_eq!(first.request_body, "REQ");
+    assert_eq!(first.response_body, "RESP");
+
+    // 快照全部已写（mask=0xff）：中间态不再携带任何大字段（内存根因 1 的修复点）。
+    let mut snap = aidog_logs::ProxyLogColumns::from_log(&log, false, false).into_snapshot_meta();
+    snap.raw_written_mask = 0xff;
+    state.log_snapshots.insert("scoped_0001".to_string(), snap);
+
+    let mut mid = log.clone();
+    mid.status_code = 0;
+    mid.done = false;
+    let scoped_mid = scoped_queue_log(&state, &mid, &settings, false);
+    assert_eq!(scoped_mid.request_body, "", "已写过的大字段不再随中间态消息携带");
+    assert_eq!(scoped_mid.response_body, "");
+
+    // 终态：响应侧强制携带（覆盖写最终值），请求侧已写过仍不带。
+    let scoped_term = scoped_queue_log(&state, &log, &settings, true);
+    assert_eq!(scoped_term.response_body, "RESP");
+    assert_eq!(scoped_term.request_body, "");
+
+    // 开关关闭：对应侧不带（writer 侧 from_log 反正会清空，带了白拷）。
+    let off = ProxyLogSettings {
+        enabled: true,
+        log_user_request: false,
+        log_upstream_request: false,
+        ..Default::default()
+    };
+    state.log_snapshots.remove("scoped_0001");
+    let scoped_off = scoped_queue_log(&state, &log, &off, true);
+    assert_eq!(scoped_off.request_body, "");
+    assert_eq!(scoped_off.response_body, "");
 
     let _ = std::fs::remove_file(path);
 }
