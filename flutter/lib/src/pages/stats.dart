@@ -78,6 +78,11 @@ class _StatsPageState extends State<StatsPage> {
 
   StatsTab _tab = StatsTab.trend;
   bool _trendStacked = false;
+
+  /// 趋势图拆分维度（React `trendBy`，c39ed0224）：独立于全页 [_groupBy] ——
+  /// 占比/排行/热力仍跟 groupBy，只有趋势图跟它。默认 total（不传 series_by →
+  /// 后端 series 空 → 回落 buckets 总量单线），不持久化。
+  String _trendBy = 'total';
   String _densityView = 'heat';
   List<StatsBucket>? _heatBuckets;
   ScatterHistogram? _scatterHist;
@@ -132,7 +137,9 @@ class _StatsPageState extends State<StatsPage> {
         widget.invoke('stats_query', {
           'query': {
             ...base,
-            'series_by': _groupBy,
+            // series_by=拆分维度：非总计时按维度拆多序列；总计不传 → 总量单线
+            //（React `trendBy === "total" ? undefined : trendBy`，Stats.tsx:326）
+            if (_trendBy != 'total') 'series_by': _trendBy,
             'start': range.start,
             'end': range.end,
           },
@@ -707,32 +714,49 @@ class _StatsPageState extends State<StatsPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (trend.multi) ...[
-                  // 这两颗按钮是一组「视图」开关，读屏要读得出这一组是什么
-                  //（React 挂在 `role="group"` 上的 aria-label，`Stats.tsx:688`）。
-                  Semantics(
-                    label: tr.t('stats.viewMode'),
-                    container: true,
-                    child: Wrap(
-                      alignment: WrapAlignment.end, // justifyContent: flex-end
-                      spacing: AidogSpace.sxs,
-                      runSpacing: AidogSpace.sxs,
-                      children: [
-                        _Pill(
-                          label: tr.t('stats.viewLine'),
-                          active: !_trendStacked,
-                          onTap: () => setState(() => _trendStacked = false),
-                        ),
-                        _Pill(
-                          label: tr.t('stats.viewStacked'),
-                          active: _trendStacked,
-                          onTap: () => setState(() => _trendStacked = true),
-                        ),
+                // React 是一行两头（`Stats.tsx:712`：拆分维度选择器左、视图开关右）
+                Row(
+                  children: [
+                    _Select(
+                      width: 110,
+                      value: _trendBy,
+                      items: [
+                        (value: 'total', label: tr.t('stats.trendTotal')),
+                        (value: 'platform', label: tr.t('stats.byPlatform')),
+                        (value: 'model', label: tr.t('stats.byModel')),
+                        (value: 'group', label: tr.t('stats.byGroup')),
                       ],
+                      onChanged: (v) => setState(() => _trendBy = v),
                     ),
-                  ),
-                  const SizedBox(height: 8), // Stats.tsx:686 gap 8
-                ],
+                    if (trend.multi) ...[
+                      const Spacer(),
+                      // 这两颗按钮是一组「视图」开关，读屏要读得出这一组是什么
+                      //（React 挂在 `role="group"` 上的 aria-label，`Stats.tsx:688`）。
+                      Semantics(
+                        label: tr.t('stats.viewMode'),
+                        container: true,
+                        child: Wrap(
+                          spacing: AidogSpace.sxs,
+                          runSpacing: AidogSpace.sxs,
+                          children: [
+                            _Pill(
+                              label: tr.t('stats.viewLine'),
+                              active: !_trendStacked,
+                              onTap: () =>
+                                  setState(() => _trendStacked = false),
+                            ),
+                            _Pill(
+                              label: tr.t('stats.viewStacked'),
+                              active: _trendStacked,
+                              onTap: () => setState(() => _trendStacked = true),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+                const SizedBox(height: 8), // Stats.tsx:686 gap 8
                 Tooltip(
                   message: isFineGranularity(_effectiveGran)
                       ? tr.t('stats.fineGranHint')
