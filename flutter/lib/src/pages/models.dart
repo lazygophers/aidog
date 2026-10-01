@@ -935,6 +935,7 @@ class ProxyLogDetail {
     required this.cacheTokens,
     required this.isStream,
     required this.createdAt,
+    this.bodyOmitted = false,
     this.attempts = const [],
   });
 
@@ -967,6 +968,8 @@ class ProxyLogDetail {
     outputTokens: (j['output_tokens'] as num?)?.toInt() ?? 0,
     cacheTokens: (j['cache_tokens'] as num?)?.toInt() ?? 0,
     createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
+    // 「正文已省略」（perf-backend O6）：写入队列字节预算超限降级，只有元数据落库。
+    bodyOmitted: j['body_omitted'] == true,
     attempts: [
       for (final e in (j['attempts'] as List? ?? const []))
         if (e is Map) ProxyAttempt.fromJson(e.cast<String, dynamic>()),
@@ -1000,6 +1003,9 @@ class ProxyLogDetail {
   final int outputTokens;
   final int cacheTokens;
   final int createdAt;
+
+  /// 「正文已省略」（perf-backend O6）：写入队列字节预算超限降级，只有元数据落库。
+  final bool bodyOmitted;
 
   /// 每次平台尝试的快照；单平台一次成功时长度 1，重试过就是多条。
   final List<ProxyAttempt> attempts;

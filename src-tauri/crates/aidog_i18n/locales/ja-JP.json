@@ -655,6 +655,8 @@
   "logs.attempts": "試行記録",
   "logs.body": "リクエストボディ",
   "logs.cacheTokens": "キャッシュトークン",
+  "logs.bodyOmitted": "本文省略",
+  "logs.bodyOmittedHint": "書き込み過負荷、メタデータのみ",
   "logs.cancel": "キャンセル",
   "logs.cleaning": "清理中...",
   "logs.cleanupConfirm": "期限切れログ {{rows}} 行を削除し、約 {{bytes}} を解放します（現在のデータベースサイズ {{size}}）。この操作は取り消せません。",

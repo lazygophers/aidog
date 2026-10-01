@@ -655,6 +655,8 @@
   "logs.attempts": "Tentatives",
   "logs.body": "Corps de la requête",
   "logs.cacheTokens": "Tokens en cache",
+  "logs.bodyOmitted": "Corps omis",
+  "logs.bodyOmittedHint": "surcharge d'écriture, métadonnées seules",
   "logs.cancel": "Annuler",
   "logs.cleaning": "Nettoyage...",
   "logs.cleanupConfirm": "{{rows}} lignes de journaux expirées seront supprimées, libérant environ {{bytes}} (base de données actuellement {{size}}). Cette action est irréversible.",
