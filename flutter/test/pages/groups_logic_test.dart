@@ -1321,4 +1321,25 @@ void main() {
     });
   });
 
+  // claude_code 订阅独占分组（React `GroupListItem.tsx:222-227` / `PlatformPicker.tsx:33-38`）
+  group('订阅独占分组判定 isSoloViolation', () {
+    test('≤1 个平台恒不违反（含单 cc 平台）', () {
+      expect(isSoloViolation(const []), isFalse);
+      expect(isSoloViolation(const ['claude_code']), isFalse);
+      expect(isSoloViolation(const ['openai']), isFalse);
+    });
+
+    test('cc 与其它平台同组 → 违反', () {
+      expect(isSoloViolation(const ['claude_code', 'openai']), isTrue);
+      expect(
+        isSoloViolation(const ['openai', 'claude_code', 'gemini']),
+        isTrue,
+      );
+    });
+
+    test('无 cc 的混合组不违反', () {
+      expect(isSoloViolation(const ['openai', 'gemini']), isFalse);
+    });
+  });
+
 }
