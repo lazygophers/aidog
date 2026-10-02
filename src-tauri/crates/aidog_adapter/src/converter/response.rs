@@ -266,7 +266,7 @@ pub fn to_client_sse(
         | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
         | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
         | LemonData | PipeLlm | OpenCode | OpenCodeZen | TokenRhythm | NewApi | Devin
-        | TypeSafe => to_anthropic_sse(event),
+        | TypeSafe | CommandCode => to_anthropic_sse(event),
     }
 }
 
