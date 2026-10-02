@@ -1,7 +1,6 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1790951674,
   "supported_protocols": [
-    "anthropic",
     "openai"
   ],
   "model_id": "kimi-k2.7-code",

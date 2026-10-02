@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790936020,
+  "last_updated": 1790951674,
   "platforms": [
     {
       "code": "aihubmix",
@@ -880,6 +880,8 @@
         "claude-sonnet-4-5.json",
         "claude-sonnet-4-6.json",
         "claude-sonnet-5.json",
+        "claude-opus-5-5.json",
+        "claude-sonnet-5-5.json",
         "claude-opus-5-5.json",
         "claude-sonnet-5-5.json"
       ]
@@ -2295,6 +2297,9 @@
         "skylark-embedding-vision-251215.json",
         "glm-5-3-flash-260828.json",
         "deepseek-v4-1-flash-260910.json",
+        "dola-seedream-5-0-flash-260915.json",
+        "glm-5-3-flash-260828.json",
+        "deepseek-v4-1-flash-260910.json",
         "dola-seedream-5-0-flash-260915.json"
       ]
     },
@@ -2314,6 +2319,9 @@
         "claude-opus-5.json",
         "claude-sonnet-4-6.json",
         "claude-sonnet-5.json",
+        "claude-opus-5-5.json",
+        "claude-sonnet-5-5.json",
+        "claude-opus-4-5.json",
         "claude-opus-5-5.json",
         "claude-sonnet-5-5.json",
         "claude-opus-4-5.json"
@@ -2849,6 +2857,11 @@
         "doubao-seed-2-1-pro-260915.json",
         "doubao-seedream-5-0-flash-260915.json",
         "glm-5-3-flash-260828.json",
+        "deepseek-v4-1-flash-260910.json",
+        "doubao-seed-2-1-lite-260915.json",
+        "doubao-seed-2-1-pro-260915.json",
+        "doubao-seedream-5-0-flash-260915.json",
+        "glm-5-3-flash-260828.json",
         "deepseek-v4-1-flash-260910.json"
       ]
     },
@@ -3202,6 +3215,7 @@
         "glm-asr-2512.json",
         "glm-image.json",
         "glm-ocr.json",
+        "glm-5.3-flashx.json",
         "glm-5.3-flashx.json"
       ]
     },
@@ -7123,6 +7137,7 @@
       "models_dir": "platforms/longcat/models",
       "models": [
         "LongCat-2.0.json",
+        "LongCat-2.5-Preview.json",
         "LongCat-2.5-Preview.json"
       ]
     },
@@ -7240,6 +7255,8 @@
         "voxtral-small-24b-2507.json",
         "voxtral-tts-2603.json",
         "zai-glm-5-2.json",
+        "zai-glm-5-3.json",
+        "mistral-ocr-4-1.json",
         "zai-glm-5-3.json",
         "mistral-ocr-4-1.json"
       ]
@@ -7641,6 +7658,10 @@
         "tts-1-hd.json",
         "tts-1.json",
         "whisper-1.json",
+        "gpt-6.1-sol.json",
+        "gpt-rosalind-research.json",
+        "gpt-live-1.json",
+        "omni-moderation-latest.json",
         "gpt-6.1-sol.json",
         "gpt-rosalind-research.json",
         "gpt-live-1.json",
@@ -8215,7 +8236,20 @@
         "~x-ai/grok-latest.json",
         "~z-ai/glm-flash-latest.json",
         "~z-ai/glm-latest.json",
-        "typesafe/jev-router.json"
+        "mistralai/mistral-large-2512.json",
+        "mistralai/devstral-2512.json",
+        "z-ai/glm-5.3-prime.json",
+        "fireworks/ember-1.json",
+        "qwen/qwen3.8-max-prime.json",
+        "apodex/apodex-1.1-mini:free.json",
+        "perceptron/perceptron-mk1.5.json",
+        "anthropic/claude-sonnet-5.5.json",
+        "anthropic/claude-sonnet-5.5:batch.json",
+        "stealth/space-bunny-alpha.json",
+        "unbiased/pareto-26.10-preview.json",
+        "openai/gpt-6.1-sol-pro.json",
+        "openai/gpt-6.1-sol.json",
+        "openai/gpt-oss-120b:batch.json"
       ]
     },
     {
@@ -8345,6 +8379,8 @@
         "qwen3.5-35b-a3b.json",
         "qwen3.5-397b-a17b.json",
         "tao-8k.json",
+        "deepseek-v3.json",
+        "deepseek-v3.1.json",
         "deepseek-v3.json",
         "deepseek-v3.1.json"
       ]
@@ -8794,6 +8830,7 @@
         "zai-org/GLM-5.2.json",
         "zai-org/GLM-5.json",
         "zai-org/GLM-5V-Turbo.json",
+        "deepseek-ai/DeepSeek-V4.1-Flash.json",
         "deepseek-ai/DeepSeek-V4.1-Flash.json"
       ]
     },
@@ -8824,6 +8861,13 @@
         "stepaudio-2.5-chat.json",
         "stepaudio-2.5-realtime.json",
         "stepaudio-2.5-tts.json",
+        "step-5-preview.json",
+        "stepaudio-3-tts.json",
+        "stepaudio-3-asr-max.json",
+        "stepaudio-3-chat.json",
+        "stepaudio-3-realtime-preview.json",
+        "stepaudio-3-gen.json",
+        "stepaudio-3-music-preview.json",
         "step-5-preview.json",
         "stepaudio-3-tts.json",
         "stepaudio-3-asr-max.json",
@@ -9192,6 +9236,8 @@
         "grok-tts.json",
         "grok-voice-think-fast-1.0.json",
         "grok-voice-think-fast-2.0.json",
+        "grok-4.7.json",
+        "grok-imagine-video-1.5-lite.json",
         "grok-4.7.json",
         "grok-imagine-video-1.5-lite.json"
       ],

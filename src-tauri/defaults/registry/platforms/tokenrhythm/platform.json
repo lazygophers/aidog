@@ -4,10 +4,6 @@
       {
         "protocol": "openai",
         "base_url": "https://tokenrhythm.studio/v1"
-      },
-      {
-        "protocol": "anthropic",
-        "base_url": "https://tokenrhythm.studio/v1"
       }
     ]
   },
@@ -68,5 +64,5 @@
   ],
   "color": "#4958E8",
   "key_prefixes": ["sk_"],
-  "last_updated": 1790680873
+  "last_updated": 1790951674
 }
