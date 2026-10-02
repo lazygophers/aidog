@@ -190,6 +190,10 @@ pub enum Protocol {
     /// 双协议兼容中转，base_url `https://tokenrhythm.studio/v1`，key 前缀 `sk_`。
     #[serde(rename = "tokenrhythm")]
     TokenRhythm,
+    /// Command Code（GOAT/Pro/Max/Provider 套餐，api.commandcode.ai）：
+    /// openai / openai_responses / anthropic / typesafe 多协议聚合端点 `/provider/v1`。
+    #[serde(rename = "commandcode")]
+    CommandCode,
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
