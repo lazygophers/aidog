@@ -194,6 +194,19 @@ pub enum Protocol {
     /// openai / openai_responses / anthropic / typesafe 多协议聚合端点 `/provider/v1`。
     #[serde(rename = "commandcode")]
     CommandCode,
+    // ── 自建网关 / 官方直连（纯协议豁免升级而来，2026-08-31）──
+    /// LiteLLM 自建网关（OpenAI 兼容，base_url 用户自填）
+    #[serde(rename = "litellm")]
+    LiteLLM,
+    /// Meta Model API（api.meta.ai，openai + anthropic 双端点）
+    #[serde(rename = "meta")]
+    Meta,
+    /// Mistral API（api.mistral.ai/v1，OpenAI 兼容）
+    #[serde(rename = "mistral")]
+    Mistral,
+    /// xAI Grok API（api.x.ai/v1，OpenAI 兼容）
+    #[serde(rename = "xai")]
+    XAI,
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
