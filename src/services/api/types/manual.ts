@@ -36,7 +36,7 @@ export type Protocol =
   | "pateway" | "ccsub" | "apikeyfun" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
   | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode" | "opencode_zen" | "tokenrhythm"
-  | "commandcode"
+  | "commandcode" | "litellm" | "meta" | "mistral" | "xai"
   // ── 中转平台 ──
   | "newapi"
   // ── 订阅透传 ──

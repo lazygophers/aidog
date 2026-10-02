@@ -565,3 +565,20 @@ fn materialize_quota_script_rules() {
     // 协议变更为无脚本协议 → 清列
     assert_eq!(materialize_quota_script("openai", "{}", "OLD", true), "");
 }
+
+/// 🔴 新平台守门（2026-10-02 补，commandcode 漏枚举复盘）：registry 每个平台 code 必须能被
+/// `Protocol` 枚举 serde 解析。漏加变体 → `Protocol::from_db_str` 静默回落 Anthropic（仅 warn 日志），
+/// UI 平台类型名显示错、平台类型派生全错，而 check-registry / cargo build 全绿发现不了。
+/// 修法：`models/protocol.rs` 加 `#[serde(rename = "<code>")]` 变体，
+/// 并在 `src/services/api/types/manual.ts` Protocol 联合类型加同名字面量（双写逐字一致）。
+/// 2026-10-02 已补齐存量缺口（litellm / meta / mistral / xai 升正式平台时漏加枚举）。
+#[test]
+fn every_registry_platform_code_parses_as_protocol() {
+    use crate::models::Protocol;
+    for code in protocols().keys() {
+        assert!(
+            serde_json::from_str::<Protocol>(&format!("\"{code}\"")).is_ok(),
+            "registry 平台 {code} 不在 Protocol 枚举：补 models/protocol.rs 变体 + manual.ts 字面量"
+        );
+    }
+}
