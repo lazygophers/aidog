@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "nousresearch/nous-hermes-llama2-13b",
   "canonical_model": "nous-hermes-llama2-13b",
   "family": "nous-hermes",
@@ -16,5 +19,5 @@
   },
   "max_input_tokens": 4096,
   "context_window": 4096,
-  "max_output_tokens": 32768
+  "max_output_tokens": 4096
 }

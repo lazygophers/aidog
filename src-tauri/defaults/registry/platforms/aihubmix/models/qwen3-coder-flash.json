@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-coder-flash",
   "canonical_model": "qwen3-coder-flash",
   "display_name": "Qwen3 Coder Flash",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000000,
@@ -21,18 +25,18 @@
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 2.05478e-7,
-        "output": 8.21912e-7
+        "input": 2.05478e-07,
+        "output": 8.21912e-07
       },
       {
         "min_tokens": 128001,
-        "input": 3.42464e-7,
-        "output": 0.00000136986
+        "input": 3.42464e-07,
+        "output": 1.36986e-06
       },
       {
         "min_tokens": 256001,
-        "input": 6.8493e-7,
-        "output": 0.00000342465
+        "input": 6.8493e-07,
+        "output": 3.42465e-06
       }
     ]
   }

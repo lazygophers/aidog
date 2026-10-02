@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "glm-5v-turbo",
   "canonical_model": "glm-5v-turbo",
   "display_name": "GLM 5 Vision Turbo",
@@ -19,15 +23,15 @@
   "context_window": 200000,
   "official": false,
   "price": {
-    "input": 7.042e-7,
-    "output": 0.00000309848,
-    "cache_read": 1.69008e-7,
+    "input": 7.042e-07,
+    "output": 3.09848e-06,
+    "cache_read": 1.69008e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 9.86e-7,
-        "output": 0.000003662,
-        "cache_read": 2.53402e-7
+        "input": 9.86e-07,
+        "output": 3.662e-06,
+        "cache_read": 2.53402e-07
       }
     ]
   }

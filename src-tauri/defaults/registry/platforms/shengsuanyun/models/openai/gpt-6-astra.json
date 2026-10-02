@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "openai/gpt-6-astra",
   "canonical_model": "gpt-6-astra",
   "family": "gpt",
@@ -16,8 +20,8 @@
   "official": false,
   "price": {
     "input": 9.722222222222221e-06,
-    "output": 48.61111111111,
-    "cache_read": 0.97222222222
+    "output": 4.8611111111e-05,
+    "cache_read": 9.7222222222e-07
   },
   "max_output_tokens": 128000,
   "context_window": 400000

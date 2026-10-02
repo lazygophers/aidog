@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "grok-stt",
   "canonical_model": "grok-stt",
   "capabilities": [

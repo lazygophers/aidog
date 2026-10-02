@@ -1,20 +1,23 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-max-thinking",
   "display_name": "Qwen3 Max Thinking",
   "canonical_model": "qwen3-max-thinking",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "max_input_tokens": 262144,
   "max_output_tokens": 32768,

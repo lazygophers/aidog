@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepgram/streaming/nova-3-multilingual",
   "canonical_model": "nova-3-multilingual",
   "family": "nova",
@@ -11,6 +13,6 @@
   "official": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00009667
+    "unit_price": 9.667e-05
   }
 }

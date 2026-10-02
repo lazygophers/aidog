@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemma-4-31b-it",
   "display_name": "Gemma 4 31B",
   "canonical_model": "gemma-4-31b-it",
@@ -16,6 +18,7 @@
   "context_window": 262144,
   "official": true,
   "price": {
+    "free": true,
     "input": 0.0,
     "output": 0.0,
     "cache_read": 9e-08

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gpt-realtime-1.5",
   "display_name": "GPT Realtime 1.5",
   "canonical_model": "gpt-realtime-1.5",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000004,
-    "output": 0.000016
+    "input": 4e-06,
+    "output": 1.6e-05
   }
 }

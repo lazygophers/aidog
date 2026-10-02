@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "o1-global",
   "canonical_model": "o1-global",
-
   "version": "1",
-  "family": "o",  "display_name": "O1 Global",
+  "family": "o",
+  "display_name": "O1 Global",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~anthropic/claude-opus-latest",
   "display_name": "Anthropic: Claude Opus Latest",
   "canonical_model": "claude-opus-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000004,
-    "output": 0.00002
+    "input": 4e-06,
+    "output": 2e-05
   }
 }

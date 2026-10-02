@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/MiniMaxAI/MiniMax-M2.7-Turbo",
   "canonical_model": "MiniMax-M2.7-Turbo",
   "capabilities": [
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3.8e-7,
-    "output": 0.0000017
+    "input": 3.8e-07,
+    "output": 1.7e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/z-ai/glm-5.3-flash:batch",
   "display_name": "Z.ai: GLM 5.3 Flash (batch)",
   "canonical_model": "glm-5.3-flash:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 2e-7
+    "input": 6e-08,
+    "output": 2e-07
   }
 }

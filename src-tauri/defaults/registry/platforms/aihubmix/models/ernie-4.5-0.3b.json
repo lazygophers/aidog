@@ -1,15 +1,19 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ernie-4.5-0.3b",
   "canonical_model": "ernie-4.5-0.3b",
-
   "version": "4.5",
-  "family": "ernie",  "display_name": "ERNIE 4.5 0.3b",
+  "family": "ernie",
+  "display_name": "ERNIE 4.5 0.3b",
   "capabilities": [],
   "official": false,
   "price": {
-    "input": 1.36e-8,
-    "output": 5.44e-8
+    "input": 1.36e-08,
+    "output": 5.44e-08
   }
 }

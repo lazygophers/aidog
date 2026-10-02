@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-minimax-m2",
   "canonical_model": "MiniMax-M2",
   "family": "minimax",
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2e-7,
-    "output": 2e-7
+    "input": 2e-07,
+    "output": 2e-07
   }
 }

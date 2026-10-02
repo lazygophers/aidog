@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen/text-embedding-v3",
   "display_name": "Text-Embedding-V3",
   "canonical_model": "text-embedding-v3",

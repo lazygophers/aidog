@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-kimi-k3",
   "canonical_model": "kimi-k3",
   "display_name": "Coding Kimi K3",
@@ -16,8 +20,8 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 4.4e-7,
-    "output": 0.00000161333,
-    "cache_read": 6.6e-8
+    "input": 4.4e-07,
+    "output": 1.61333e-06,
+    "cache_read": 6.6e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "lambda_ai/lfm-40b",
   "canonical_model": "lfm-40b",
   "family": "lfm",
@@ -13,7 +15,7 @@
   "max_output_tokens": 131072,
   "official": false,
   "price": {
-    "input": 1e-7,
-    "output": 2e-7
+    "input": 1e-07,
+    "output": 2e-07
   }
 }

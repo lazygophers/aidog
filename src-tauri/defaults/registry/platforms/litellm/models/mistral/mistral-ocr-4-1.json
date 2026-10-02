@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/mistral-ocr-4-1",
   "canonical_model": "mistral-ocr-4-1",
   "family": "mistral",

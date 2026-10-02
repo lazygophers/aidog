@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "fireworks/ember-1",
+  "display_name": "Fireworks: Ember-1",
+  "canonical_model": "ember-1",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05,
+    "cache_read": 3e-07
+  }
+}

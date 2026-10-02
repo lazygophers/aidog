@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ovhcloud/Mistral-Small-3.2-24B-Instruct-2506",
   "display_name": "Mistral Small 3.2",
   "canonical_model": "Mistral-Small-3.2-24B-Instruct-2506",
@@ -16,7 +18,7 @@
   "max_output_tokens": 128000,
   "official": false,
   "price": {
-    "input": 9e-8,
-    "output": 2.8e-7
+    "input": 9e-08,
+    "output": 2.8e-07
   }
 }

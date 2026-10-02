@@ -1,13 +1,20 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "deepseek/deepseek-v3.2",
   "display_name": "DeepSeek V3.2",
   "canonical_model": "DeepSeek-V3.2",
   "version": "3.2",
   "family": "deepseek",
   "thinking_supported": true,
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "official": false,
   "thinking_toggleable": true,
   "price": {

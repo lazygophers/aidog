@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-xiaomi-mimo-v2-pro",
   "canonical_model": "coding-xiaomi-mimo-v2-pro",
-
   "version": "2",
-  "family": "mimo",  "display_name": "Coding Xiaomi Mimo V2 Pro",
+  "family": "mimo",
+  "display_name": "Coding Xiaomi Mimo V2 Pro",
   "thinking_supported": true,
   "context_window": 1000000,
   "capabilities": [
@@ -16,15 +20,15 @@
   "max_input_tokens": 1000000,
   "official": false,
   "price": {
-    "input": 2e-7,
-    "output": 6e-7,
-    "cache_read": 4e-8,
+    "input": 2e-07,
+    "output": 6e-07,
+    "cache_read": 4e-08,
     "context_tiers": [
       {
         "min_tokens": 256001,
-        "input": 4e-7,
-        "output": 0.0000012,
-        "cache_read": 8e-8
+        "input": 4e-07,
+        "output": 1.2e-06,
+        "cache_read": 8e-08
       }
     ]
   }

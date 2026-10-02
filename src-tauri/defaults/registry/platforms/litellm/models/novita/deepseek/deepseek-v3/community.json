@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/deepseek/deepseek-v3/community",
   "canonical_model": "community",
   "capabilities": [
@@ -14,8 +16,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8.900000000000001e-7,
-    "output": 8.900000000000001e-7
+    "input": 8.900000000000001e-07,
+    "output": 8.900000000000001e-07
   },
   "family": "deepseek"
 }

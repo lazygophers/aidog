@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemma-4-31b-it:free",
   "display_name": "Google: Gemma 4 31B (free)",
-  "canonical_model": "gemma-4-31b-it:free",
+  "canonical_model": "gemma-4-31b-it",
   "family": "gemma",
   "version": "4",
   "max_input_tokens": 262144,
@@ -15,7 +15,10 @@
     "output": 0
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "vision",

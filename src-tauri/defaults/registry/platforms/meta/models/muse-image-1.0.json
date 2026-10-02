@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "muse-image-1.0",
   "canonical_model": "muse-image-1.0",
   "display_name": "Muse Image 1.0",

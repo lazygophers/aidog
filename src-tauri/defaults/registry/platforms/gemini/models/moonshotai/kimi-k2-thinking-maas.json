@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "moonshotai/kimi-k2-thinking-maas",
   "canonical_model": "kimi-k2-thinking-maas",
   "family": "kimi",

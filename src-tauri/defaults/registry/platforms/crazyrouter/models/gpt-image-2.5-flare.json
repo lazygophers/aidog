@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-image-2.5-flare",
   "display_name": "GPT Image 2.5 Flare",
   "canonical_model": "gpt-image-2.5-flare",

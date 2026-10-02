@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini-3.1-flash-tts-preview",
   "canonical_model": "gemini-3.1-flash-tts-preview",
   "context_window": 8192,

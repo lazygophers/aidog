@@ -1,12 +1,20 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.8-omni-flash",
   "canonical_model": "qwen3.8-omni-flash",
-
   "version": "3.8",
-  "family": "qwen",  "display_name": "Qwen3.8 Omni Flash",
-  "capabilities": ["text", "vision", "reasoning"],
+  "family": "qwen",
+  "display_name": "Qwen3.8 Omni Flash",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
   "context_window": 1000000,
   "max_output_tokens": 131072,
   "thinking_supported": true,

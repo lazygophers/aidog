@@ -1,14 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "inclusionAI/Ling-1T",
   "canonical_model": "Ling-1T",
-
-  "family": "ling",  "display_name": "Ling 1t",
+  "family": "ling",
+  "display_name": "Ling 1t",
   "capabilities": [],
   "official": false,
   "price": {
-    "input": 5.48e-7,
-    "output": 0.000002192
+    "input": 5.48e-07,
+    "output": 2.192e-06
   }
 }

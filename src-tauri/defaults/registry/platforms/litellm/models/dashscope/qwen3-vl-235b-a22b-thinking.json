@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "dashscope/qwen3-vl-235b-a22b-thinking",
   "display_name": "Qwen3 VL 235B A22B Thinking",
   "canonical_model": "qwen3-vl-235b-a22b-thinking",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4e-7,
-    "output": 0.000004
+    "input": 4e-07,
+    "output": 4e-06
   }
 }

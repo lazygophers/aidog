@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/Qwen/Qwen3-32B",
   "display_name": "Qwen3 32B",
   "canonical_model": "qwen3-32b",
   "family": "qwen",
   "version": "3",
-  "family": "qwen",
   "capabilities": [
     "text",
     "tool_use"
@@ -18,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 3e-7
+    "input": 1e-07,
+    "output": 3e-07
   }
 }

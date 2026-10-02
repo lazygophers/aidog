@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-image-edit-max-2026-01-16",
   "display_name": "Qwen-Image-Edit-Max (2026-01-16)",
   "canonical_model": "qwen-image-edit-max-2026-01-16",
@@ -13,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

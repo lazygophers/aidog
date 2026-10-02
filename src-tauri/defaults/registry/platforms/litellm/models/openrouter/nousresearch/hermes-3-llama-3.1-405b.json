@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/nousresearch/hermes-3-llama-3.1-405b",
   "display_name": "Nous: Hermes 3 405B Instruct",
   "canonical_model": "hermes-3-llama-3.1-405b",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.000001
+    "input": 1e-06,
+    "output": 1e-06
   }
 }

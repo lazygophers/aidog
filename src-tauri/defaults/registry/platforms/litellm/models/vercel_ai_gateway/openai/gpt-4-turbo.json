@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "vercel_ai_gateway/openai/gpt-4-turbo",
   "display_name": "OpenAI: GPT-4 Turbo",
   "canonical_model": "gpt-4-turbo",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00001,
-    "output": 0.00003
+    "input": 1e-05,
+    "output": 3e-05
   }
 }

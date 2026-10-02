@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-audio-3.0-realtime-flash",
   "display_name": "Qwen-Audio-3.0-Realtime-Flash",
   "canonical_model": "qwen-audio-3.0-realtime-flash",
   "family": "qwen",
-
-  "version": "3.0",  "capabilities": [
+  "version": "3.0",
+  "capabilities": [
     "audio"
   ],
   "context_window": 40960,
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.16667e-7,
-    "output": 0.00000416667
+    "input": 4.16667e-07,
+    "output": 4.16667e-06
   }
 }

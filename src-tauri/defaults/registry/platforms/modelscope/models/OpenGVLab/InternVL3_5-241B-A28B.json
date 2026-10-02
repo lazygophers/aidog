@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "OpenGVLab/InternVL3_5-241B-A28B",
   "canonical_model": "internvl3_5-241b-a28b",
   "family": "internvl",

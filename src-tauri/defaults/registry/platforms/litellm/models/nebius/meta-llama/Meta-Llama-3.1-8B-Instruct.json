@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/meta-llama/Meta-Llama-3.1-8B-Instruct",
   "canonical_model": "Meta-Llama-3.1-8B-Instruct",
   "capabilities": [
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2e-8,
-    "output": 6e-8
+    "input": 2e-08,
+    "output": 6e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~anthropic/claude-fable-latest",
   "display_name": "Anthropic: Claude Fable Latest",
   "canonical_model": "claude-fable-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00001,
-    "output": 0.00005
+    "input": 1e-05,
+    "output": 5e-05
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/qwen/qwen3-30b-a3b-fp8",
   "display_name": "Qwen3-30B-A3B-FP8",
   "canonical_model": "qwen3-30b-a3b-fp8",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.09e-8,
-    "output": 3.35e-7
+    "input": 5.09e-08,
+    "output": 3.35e-07
   }
 }

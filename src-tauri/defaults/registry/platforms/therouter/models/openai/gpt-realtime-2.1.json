@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "openai/gpt-realtime-2.1",
   "display_name": "GPT Realtime 2.1",
   "canonical_model": "gpt-realtime-2.1",

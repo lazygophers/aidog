@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-6-astra:batch",
   "display_name": "OpenAI: GPT-6 Astra (batch)",
   "canonical_model": "gpt-6-astra:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000005,
-    "output": 0.000025
+    "input": 5e-06,
+    "output": 2.5e-05
   }
 }

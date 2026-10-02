@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gme-qwen2-vl-2b-instruct",
   "canonical_model": "gme-qwen2-vl-2b-instruct",
-
-  "family": "gme",  "display_name": "Gme Qwen2 VL 2B Instruct",
+  "family": "gme",
+  "display_name": "Gme Qwen2 VL 2B Instruct",
   "capabilities": [
     "vision",
     "video",

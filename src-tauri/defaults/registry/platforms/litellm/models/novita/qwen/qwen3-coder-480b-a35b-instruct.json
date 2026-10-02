@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/qwen/qwen3-coder-480b-a35b-instruct",
   "display_name": "Qwen3 Coder 480B A35B Instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "family": "qwen",
   "version": "3",
-  "family": "qwen",
   "capabilities": [
     "text",
     "tool_use"
@@ -18,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3.8e-7,
-    "output": 0.00000155
+    "input": 3.8e-07,
+    "output": 1.55e-06
   }
 }

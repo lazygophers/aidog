@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "rerank",
   "canonical_model": "rerank",
   "family": "rerank",
@@ -13,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.11111e-7,
+    "input": 1.11111e-07,
     "output": 0
   }
 }

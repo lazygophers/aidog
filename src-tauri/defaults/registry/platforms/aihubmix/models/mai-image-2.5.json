@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mai-image-2.5",
   "canonical_model": "mai-image-2.5",
   "display_name": "MAI-Image-2.5",
   "family": "mai-image",
-
-  "version": "2.5",  "capabilities": [
+  "version": "2.5",
+  "capabilities": [
     "text_to_image",
     "image_to_image",
     "image_edit"
@@ -17,7 +21,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000005,
-    "output": 0.000005
+    "input": 5e-06,
+    "output": 5e-06
   }
 }

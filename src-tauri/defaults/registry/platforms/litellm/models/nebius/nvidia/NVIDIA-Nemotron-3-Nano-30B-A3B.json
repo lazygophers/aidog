@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B",
   "display_name": "Nvidia Nemotron 3 Nano 30B A3B",
   "canonical_model": "nvidia-nemotron-3-nano-30b-a3b",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 2.4e-7
+    "input": 6e-08,
+    "output": 2.4e-07
   }
 }

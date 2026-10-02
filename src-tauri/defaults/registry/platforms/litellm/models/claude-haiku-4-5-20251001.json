@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "claude-haiku-4-5-20251001",
   "display_name": "Claude Haiku 4.5",
   "canonical_model": "claude-haiku-4-5-20251001",

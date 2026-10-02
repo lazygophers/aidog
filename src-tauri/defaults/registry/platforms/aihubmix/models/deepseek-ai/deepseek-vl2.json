@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ai/deepseek-vl2",
   "canonical_model": "deepseek-vl2",
-
-  "family": "deepseek",  "display_name": "DeepSeek Vl2",
+  "family": "deepseek",
+  "display_name": "DeepSeek Vl2",
   "capabilities": [],
   "official": false,
   "price": {

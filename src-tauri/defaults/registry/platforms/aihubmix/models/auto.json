@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "auto",
   "canonical_model": "auto",
-
-  "family": "auto",  "display_name": "Auto",
+  "family": "auto",
+  "display_name": "Auto",
   "context_window": 1000000,
   "thinking_supported": true,
   "thinking_toggleable": true,

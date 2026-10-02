@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3.7-max",
   "display_name": "Qwen3.7 Max",
   "canonical_model": "qwen3.7-max",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001475,
-    "output": 0.000004425
+    "input": 1.475e-06,
+    "output": 4.425e-06
   },
   "family": "qwen"
 }

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seed-2-0-lite-260428",
   "canonical_model": "seed-2-0-lite-260428",
   "display_name": "Doubao Seed 2.0 Lite 260428",
@@ -21,15 +25,15 @@
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 1.268e-7,
-        "output": 7.608e-7,
-        "cache_read": 2.536e-8
+        "input": 1.268e-07,
+        "output": 7.608e-07,
+        "cache_read": 2.536e-08
       },
       {
         "min_tokens": 128001,
-        "input": 2.536e-7,
-        "output": 0.0000015216,
-        "cache_read": 5.072e-8
+        "input": 2.536e-07,
+        "output": 1.5216e-06,
+        "cache_read": 5.072e-08
       }
     ]
   }

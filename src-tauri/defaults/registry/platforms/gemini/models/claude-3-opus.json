@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "claude-3-opus",
   "display_name": "Claude 3 Opus",
   "canonical_model": "claude-3-opus",

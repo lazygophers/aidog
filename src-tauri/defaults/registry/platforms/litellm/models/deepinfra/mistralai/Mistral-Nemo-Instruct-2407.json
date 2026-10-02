@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/mistralai/Mistral-Nemo-Instruct-2407",
   "display_name": "Mistral NeMo",
   "canonical_model": "Mistral-Nemo-Instruct-2407",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.9e-8,
-    "output": 3e-8
+    "input": 1.9e-08,
+    "output": 3e-08
   }
 }

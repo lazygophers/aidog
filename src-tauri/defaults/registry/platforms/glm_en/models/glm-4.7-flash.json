@@ -1,8 +1,11 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.7-flash",
-  "display_name": "GLM 4.7 Flash",
+  "display_name": "GLM-4.7-Flash",
   "canonical_model": "glm-4.7-flash",
   "family": "glm",
   "version": "4.7",
@@ -18,9 +21,9 @@
   "context_window": 202752,
   "official": true,
   "price": {
+    "free": true,
     "input": 0.0,
     "output": 0.0,
     "cache_read": 0.0
-  },
-  "display_name": "GLM-4.7-Flash"
+  }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "perplexity/sonar-small-chat",
   "canonical_model": "sonar-small-chat",
   "family": "sonar",
@@ -12,7 +14,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 7e-8,
-    "output": 2.8e-7
+    "input": 7e-08,
+    "output": 2.8e-07
   }
 }

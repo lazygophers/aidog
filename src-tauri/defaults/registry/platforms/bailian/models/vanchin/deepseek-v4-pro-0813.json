@@ -1,7 +1,10 @@
 {
   "max_input_tokens": 1000000,
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "vanchin/deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",

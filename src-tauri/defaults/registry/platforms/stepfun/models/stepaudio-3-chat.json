@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "stepaudio-3-chat",
+  "display_name": "StepAudio-3-Chat",
+  "canonical_model": "stepaudio-3-chat",
+  "family": "stepfun",
+  "capabilities": [
+    "audio"
+  ],
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0,
+    "free": true
+  }
+}

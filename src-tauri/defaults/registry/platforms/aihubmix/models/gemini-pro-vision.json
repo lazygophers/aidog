@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemini-pro-vision",
   "canonical_model": "gemini-pro-vision",
-
-  "family": "gemini",  "display_name": "Gemini Pro Vision",
+  "family": "gemini",
+  "display_name": "Gemini Pro Vision",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

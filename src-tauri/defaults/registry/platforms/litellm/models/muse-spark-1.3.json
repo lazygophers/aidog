@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "muse-spark-1.3",
   "canonical_model": "muse-spark-1.3",
   "max_output_tokens": 131072,

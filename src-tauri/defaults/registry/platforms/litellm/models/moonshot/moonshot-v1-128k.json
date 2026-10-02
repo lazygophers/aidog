@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "moonshot/moonshot-v1-128k",
   "display_name": "Moonshot V1 128K",
   "canonical_model": "moonshot-v1-128k",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000002,
-    "output": 0.000005
+    "input": 2e-06,
+    "output": 5e-06
   }
 }

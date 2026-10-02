@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qianfan-code-latest",
   "canonical_model": "qianfan-code-latest",
   "family": "qianfan-code",
@@ -10,7 +13,7 @@
   ],
   "official": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

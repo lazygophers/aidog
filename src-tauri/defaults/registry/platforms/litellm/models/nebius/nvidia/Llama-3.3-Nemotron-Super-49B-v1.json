@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/nvidia/Llama-3.3-Nemotron-Super-49B-v1",
   "canonical_model": "Llama-3.3-Nemotron-Super-49B-v1",
   "capabilities": [
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 4e-7
+    "input": 1e-07,
+    "output": 4e-07
   }
 }

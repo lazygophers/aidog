@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/command-r-plus",
   "canonical_model": "command-r-plus-08-2024",
   "family": "command",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000003,
-    "output": 0.000015
+    "input": 3e-06,
+    "output": 1.5e-05
   }
 }

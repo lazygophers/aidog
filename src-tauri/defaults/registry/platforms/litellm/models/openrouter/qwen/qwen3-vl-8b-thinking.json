@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3-vl-8b-thinking",
   "display_name": "Qwen: Qwen3 VL 8B Thinking",
   "canonical_model": "qwen3-vl-8b-thinking",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.8e-7,
-    "output": 0.0000021
+    "input": 1.8e-07,
+    "output": 2.1e-06
   }
 }

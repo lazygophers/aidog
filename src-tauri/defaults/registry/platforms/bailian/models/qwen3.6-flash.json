@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.6-flash",
   "display_name": "Qwen3.6 Flash",
   "canonical_model": "qwen3.6-flash",
   "family": "qwen",
-
-  "version": "3.6",  "capabilities": [
+  "version": "3.6",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000000,
@@ -20,7 +23,12 @@
     "output": 1e-06,
     "cache_read": 1.6666666666666667e-08,
     "context_tiers": [
-      {"min_tokens": 262145, "input": 6.666666666666666e-07, "output": 4e-06, "cache_read": 6.666666666666667e-08}
+      {
+        "min_tokens": 262145,
+        "input": 6.666666666666666e-07,
+        "output": 4e-06,
+        "cache_read": 6.666666666666667e-08
+      }
     ]
   }
 }

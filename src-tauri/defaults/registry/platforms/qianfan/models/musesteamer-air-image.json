@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "musesteamer-air-image",
   "display_name": "Musesteamer Air Image",
   "canonical_model": "musesteamer-air-image",

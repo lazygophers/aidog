@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/nousresearch/hermes-3-llama-3.1-70b",
   "display_name": "Nous: Hermes 3 70B Instruct",
   "canonical_model": "hermes-3-llama-3.1-70b",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 7e-7,
-    "output": 7e-7
+    "input": 7e-07,
+    "output": 7e-07
   }
 }

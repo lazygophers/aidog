@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cohere.embed-multilingual-v3",
   "display_name": "Embed Multilingual",
   "canonical_model": "cohere.embed-multilingual-v3",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
+    "input": 1e-07,
     "output": 0
   }
 }

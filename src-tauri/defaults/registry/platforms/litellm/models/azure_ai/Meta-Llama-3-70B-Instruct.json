@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/Meta-Llama-3-70B-Instruct",
   "canonical_model": "Meta-Llama-3-70B-Instruct",
   "family": "llama",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000011,
-    "output": 3.7e-7
+    "input": 1.1e-06,
+    "output": 3.7e-07
   }
 }

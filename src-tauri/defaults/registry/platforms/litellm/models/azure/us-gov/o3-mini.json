@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/us-gov/o3-mini",
   "display_name": "o3 Mini",
   "canonical_model": "o3-mini",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001513,
-    "output": 0.00000605
+    "input": 1.513e-06,
+    "output": 6.05e-06
   }
 }

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "text-moderation-007",
   "canonical_model": "text-moderation-007",
-
-  "family": "text-moderation",  "display_name": "Text Moderation 007",
+  "family": "text-moderation",
+  "display_name": "Text Moderation 007",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

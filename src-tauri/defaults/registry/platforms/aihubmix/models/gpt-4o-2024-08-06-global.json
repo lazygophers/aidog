@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-4o-2024-08-06-global",
   "canonical_model": "gpt-4o-2024-08-06-global",
-
   "version": "4o",
-  "family": "gpt",  "display_name": "GPT 4o 2024 08-06 Global",
+  "family": "gpt",
+  "display_name": "GPT 4o 2024 08-06 Global",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

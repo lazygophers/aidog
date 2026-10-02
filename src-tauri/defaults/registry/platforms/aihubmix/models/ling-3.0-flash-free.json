@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ling-3.0-flash-free",
   "canonical_model": "ling-3.0-flash-free",
-
   "version": "3.0",
-  "family": "ling",  "display_name": "Ling 3.0 Flash (free)",
+  "family": "ling",
+  "display_name": "Ling 3.0 Flash (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

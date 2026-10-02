@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "eu.anthropic.claude-3-5-haiku-20241022-v1:0",
   "display_name": "Claude 3.5 Haiku (20241022)",
   "canonical_model": "claude-3-5-haiku-20241022",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8e-7,
-    "output": 0.000004
+    "input": 8e-07,
+    "output": 4e-06
   }
 }

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Doubao-1.5-thinking-pro",
   "canonical_model": "doubao-1.5-thinking-pro",
-
   "version": "1.5",
-  "family": "doubao-pro",  "display_name": "Doubao 1.5 Thinking Pro",
+  "family": "doubao-pro",
+  "display_name": "Doubao 1.5 Thinking Pro",
   "capabilities": [],
   "official": false,
   "price": {

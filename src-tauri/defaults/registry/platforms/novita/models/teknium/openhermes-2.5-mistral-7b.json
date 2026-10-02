@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "teknium/openhermes-2.5-mistral-7b",
   "canonical_model": "openhermes-2.5-mistral-7b",
   "capabilities": [
@@ -15,5 +18,5 @@
   },
   "max_input_tokens": 4096,
   "context_window": 4096,
-  "max_output_tokens": 8000
+  "max_output_tokens": 4096
 }

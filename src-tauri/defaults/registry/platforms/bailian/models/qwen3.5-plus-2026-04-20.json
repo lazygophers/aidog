@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-plus-2026-04-20",
   "display_name": "Qwen3.5-Plus (2026-04-20)",
   "canonical_model": "qwen3.5-plus-2026-04-20",
   "family": "qwen",
-
-  "version": "3.5",  "capabilities": [
+  "version": "3.5",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 1000000,

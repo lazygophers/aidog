@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/meta/llama-2-7b-chat-fp16",
   "canonical_model": "llama-2-7b-chat-fp16",
   "family": "llama",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001923,
-    "output": 0.000001923
+    "input": 1.923e-06,
+    "output": 1.923e-06
   }
 }

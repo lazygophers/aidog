@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/ibm-granite/granite-4.0-h-micro",
   "display_name": "IBM: Granite 4.0 Micro",
   "canonical_model": "granite-4.0-h-micro",
@@ -14,7 +16,7 @@
   "max_output_tokens": 117900,
   "official": false,
   "price": {
-    "input": 1.7e-8,
-    "output": 1.12e-7
+    "input": 1.7e-08,
+    "output": 1.12e-07
   }
 }

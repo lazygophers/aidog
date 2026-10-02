@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "google/gemma-4-31B-it",
   "canonical_model": "gemma-4-31b-it",
   "version": "4",
@@ -14,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.3e-07,
+    "input": 0.75,
     "output": 4.0000000000000003e-07
   },
   "context_window": 262144

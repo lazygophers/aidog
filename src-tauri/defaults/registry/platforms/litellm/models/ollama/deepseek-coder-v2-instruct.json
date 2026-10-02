@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ollama/deepseek-coder-v2-instruct",
   "display_name": "DeepSeek Coder V2 Instruct",
   "canonical_model": "deepseek-coder-v2-instruct",

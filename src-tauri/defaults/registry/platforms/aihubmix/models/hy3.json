@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "hy3",
   "canonical_model": "hy3",
   "family": "hunyuan",
@@ -16,8 +20,8 @@
   "context_window": 256000,
   "official": false,
   "price": {
-    "input": 1.562e-7,
-    "output": 6.248e-7,
-    "cache_read": 3.905e-8
+    "input": 1.562e-07,
+    "output": 6.248e-07,
+    "cache_read": 3.905e-08
   }
 }

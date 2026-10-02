@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "pixverse/pixverse-v5.6-kf2v",
   "canonical_model": "pixverse-v5.6-kf2v",
   "family": "pixverse",
@@ -10,7 +13,7 @@
   ],
   "official": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

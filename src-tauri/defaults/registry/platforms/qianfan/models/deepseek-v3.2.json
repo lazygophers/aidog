@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "deepseek-v3.2",
   "display_name": "DeepSeek V3.2",
   "canonical_model": "DeepSeek-V3.2",
@@ -19,15 +21,15 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.77778e-7,
-    "output": 4.16667e-7,
-    "cache_read": 5.55556e-8,
+    "input": 2.77778e-07,
+    "output": 4.16667e-07,
+    "cache_read": 5.55556e-08,
     "context_tiers": [
       {
         "min_tokens": 32769,
-        "input": 5.55556e-7,
-        "output": 8.33333e-7,
-        "cache_read": 5.55556e-8
+        "input": 5.55556e-07,
+        "output": 8.33333e-07,
+        "cache_read": 5.55556e-08
       }
     ]
   }

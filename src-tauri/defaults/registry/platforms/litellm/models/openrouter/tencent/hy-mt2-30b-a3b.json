@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/tencent/hy-mt2-30b-a3b",
   "display_name": "Tencent: Hy-MT2-30B-A3B",
   "canonical_model": "hy-mt2-30b-a3b",
@@ -13,7 +15,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 7.4e-8,
-    "output": 2.95e-7
+    "input": 7.4e-08,
+    "output": 2.95e-07
   }
 }

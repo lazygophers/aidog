@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "google/gemma-3-27b-it",
   "display_name": "Gemma 3 27B",
   "canonical_model": "gemma-3-27b-it",
   "family": "gemma",
   "version": "3",
-  "capabilities": ["text", "vision"],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

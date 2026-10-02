@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.7",
   "display_name": "GLM-4.7",
   "canonical_model": "glm-4.7",
@@ -19,23 +22,23 @@
   "context_window": 204800,
   "official": false,
   "price": {
-    "input": 4.31e-7,
-    "output": 0.000002007,
+    "input": 4.31e-07,
+    "output": 2.007e-06,
     "context_tiers": [
       {
         "min_tokens": 32769,
-        "input": 5.739999999999999e-7,
-        "output": 0.000002294
+        "input": 5.739999999999999e-07,
+        "output": 2.294e-06
       },
       {
         "min_tokens": 1,
-        "input": 4.31e-7,
-        "output": 0.000002007
+        "input": 4.31e-07,
+        "output": 2.007e-06
       },
       {
         "min_tokens": 32769,
-        "input": 5.739999999999999e-7,
-        "output": 0.000002294
+        "input": 5.739999999999999e-07,
+        "output": 2.294e-06
       }
     ]
   }

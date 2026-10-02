@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/lyria-3.5",
   "display_name": "Lyria 3.5",
   "canonical_model": "lyria-3.5",

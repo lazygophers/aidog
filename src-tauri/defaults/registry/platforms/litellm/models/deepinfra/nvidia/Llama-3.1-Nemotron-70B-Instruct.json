@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/nvidia/Llama-3.1-Nemotron-70B-Instruct",
   "canonical_model": "llama-3.1-nemotron-70b-instruct",
   "family": "nemotron",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6e-7,
-    "output": 6e-7
+    "input": 6e-07,
+    "output": 6e-07
   }
 }

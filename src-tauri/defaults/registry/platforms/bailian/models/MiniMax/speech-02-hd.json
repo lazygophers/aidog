@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "MiniMax/speech-02-hd",
   "display_name": "Speech 02 HD",
   "canonical_model": "speech-02-hd",

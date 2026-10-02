@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "azure-deepseek-v3.2-speciale",
   "canonical_model": "deepseek-v3.2-speciale",
-
   "version": "3.2",
-  "family": "deepseek",  "display_name": "Azure Deepseek V3.2 Speciale",
+  "family": "deepseek",
+  "display_name": "Azure Deepseek V3.2 Speciale",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

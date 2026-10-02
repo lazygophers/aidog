@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "grok-3-mini-fast-beta",
   "canonical_model": "grok-3-mini-fast-beta",
-
   "version": "3",
-  "family": "grok",  "display_name": "Grok 3 Mini Fast Beta",
+  "family": "grok",
+  "display_name": "Grok 3 Mini Fast Beta",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

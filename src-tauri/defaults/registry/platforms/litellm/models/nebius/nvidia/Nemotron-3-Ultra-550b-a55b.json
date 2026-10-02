@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/nvidia/Nemotron-3-Ultra-550b-a55b",
   "display_name": "NVIDIA: Nemotron 3 Ultra",
   "canonical_model": "nemotron-3-ultra-550b-a55b",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000003
+    "input": 1e-06,
+    "output": 3e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/cohere/command-r-08-2024",
   "display_name": "Command R (08-2024)",
   "canonical_model": "command-r-08-2024",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.5e-7,
-    "output": 6e-7
+    "input": 1.5e-07,
+    "output": 6e-07
   }
 }

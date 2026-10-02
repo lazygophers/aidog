@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "bytedance/doubao-seed-1.6:thinking",
   "canonical_model": "doubao-seed-1.6:thinking",
   "family": "doubao-seed",

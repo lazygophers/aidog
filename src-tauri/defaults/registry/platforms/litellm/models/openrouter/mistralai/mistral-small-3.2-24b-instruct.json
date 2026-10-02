@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/mistralai/mistral-small-3.2-24b-instruct",
   "display_name": "Mistral: Mistral Small 3.2 24B",
   "canonical_model": "mistral-small-3.2-24b-instruct",
@@ -16,7 +18,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 9.375e-8,
-    "output": 2.5e-7
+    "input": 9.375e-08,
+    "output": 2.5e-07
   }
 }

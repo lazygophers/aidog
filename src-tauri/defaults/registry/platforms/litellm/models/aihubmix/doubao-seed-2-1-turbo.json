@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "aihubmix/doubao-seed-2-1-turbo",
   "display_name": "Doubao Seed 2.1 Turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.6475e-7,
-    "output": 0.00000232375
+    "input": 4.6475e-07,
+    "output": 2.32375e-06
   },
   "family": "doubao-seed",
   "version": "2.1"

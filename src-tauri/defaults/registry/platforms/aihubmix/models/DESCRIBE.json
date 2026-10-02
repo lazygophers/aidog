@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "DESCRIBE",
   "canonical_model": "describe",
-
-  "family": "vidu",  "display_name": "Describe",
+  "family": "vidu",
+  "display_name": "Describe",
   "capabilities": [
     "vision",
     "text_to_image",

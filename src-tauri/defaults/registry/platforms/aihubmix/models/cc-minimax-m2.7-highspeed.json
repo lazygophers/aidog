@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cc-minimax-m2.7-highspeed",
   "canonical_model": "MiniMax-M2.7-highspeed",
   "family": "minimax",
@@ -16,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 1e-7
+    "input": 1e-07,
+    "output": 1e-07
   }
 }

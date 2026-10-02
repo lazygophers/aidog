@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen2.5-omni-7b",
   "display_name": "Qwen2.5-Omni-7B",
   "canonical_model": "qwen2.5-omni-7b",
   "family": "qwen",
-
-  "version": "2.5",  "capabilities": [
+  "version": "2.5",
+  "capabilities": [
     "text",
     "vision",
     "audio",
@@ -17,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 4e-7
+    "input": 1e-07,
+    "output": 4e-07
   }
 }

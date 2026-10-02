@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "command-nightly",
   "display_name": "Command Nightly",
   "canonical_model": "command-nightly",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.000002
+    "input": 1e-06,
+    "output": 2e-06
   }
 }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-omni-turbo-latest",
   "display_name": "Qwen-Omni-Turbo",
   "canonical_model": "qwen-omni-turbo-latest",
@@ -15,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5.55556e-8,
-    "output": 2.22222e-7
+    "input": 5.55556e-08,
+    "output": 2.22222e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gpt-4o-mini-tts-2025-12-15",
   "display_name": "GPT-4o Mini TTS",
   "canonical_model": "gpt-4o-mini-tts",
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6e-7,
-    "output": 0.00001
+    "input": 6e-07,
+    "output": 1e-05
   }
 }

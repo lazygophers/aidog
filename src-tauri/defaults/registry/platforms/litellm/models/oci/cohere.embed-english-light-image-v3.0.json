@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "oci/cohere.embed-english-light-image-v3.0",
   "canonical_model": "cohere.embed-english-light-image-v3.0",
   "family": "embed",
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
+    "input": 1e-07,
     "output": 0
   }
 }

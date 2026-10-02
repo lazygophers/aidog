@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "gte-rerank-v2",
   "display_name": "Gte Rerank V2",
   "canonical_model": "gte-rerank-v2",
@@ -15,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.11111e-7,
+    "input": 1.11111e-07,
     "output": 0
   }
 }

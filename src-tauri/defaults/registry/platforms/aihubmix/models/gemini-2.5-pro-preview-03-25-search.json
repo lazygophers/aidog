@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemini-2.5-pro-preview-03-25-search",
   "canonical_model": "gemini-2.5-pro-preview",
-
   "version": "2.5",
-  "family": "gemini",  "display_name": "Gemini 2.5 Pro Preview 03-25 Search",
+  "family": "gemini",
+  "display_name": "Gemini 2.5 Pro Preview 03-25 Search",
   "thinking_supported": true,
   "capabilities": [
     "text"
@@ -16,15 +20,15 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000125,
-    "output": 0.00001,
-    "cache_read": 1.25e-7,
+    "input": 1.25e-06,
+    "output": 1e-05,
+    "cache_read": 1.25e-07,
     "context_tiers": [
       {
         "min_tokens": 200001,
-        "input": 0.0000025,
-        "output": 0.000015,
-        "cache_read": 2.5e-7
+        "input": 2.5e-06,
+        "output": 1.5e-05,
+        "cache_read": 2.5e-07
       }
     ]
   }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-voice-enrollment",
   "display_name": "Qwen-Voice-Enrollment",
   "canonical_model": "qwen-voice-enrollment",

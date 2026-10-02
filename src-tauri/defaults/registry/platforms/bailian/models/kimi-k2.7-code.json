@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-k2.7-code",
   "display_name": "Kimi K2.7 Code",
   "canonical_model": "kimi-k2.7-code",
@@ -17,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 9.02778e-7,
-    "output": 0.00000375
+    "input": 9.02778e-07,
+    "output": 3.75e-06
   }
 }

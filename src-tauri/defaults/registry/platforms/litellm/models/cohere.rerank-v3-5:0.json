@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cohere.rerank-v3-5:0",
   "display_name": "Rerank 3.5",
   "canonical_model": "cohere.rerank-v3-5:0",

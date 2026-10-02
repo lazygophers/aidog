@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/mistralai/voxtral-small-24b-2507",
   "display_name": "Mistral: Voxtral Small 24B 2507",
   "canonical_model": "voxtral-small-24b-2507",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 3e-7
+    "input": 1e-07,
+    "output": 3e-07
   }
 }

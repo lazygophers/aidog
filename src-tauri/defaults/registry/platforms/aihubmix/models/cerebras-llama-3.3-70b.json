@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cerebras-llama-3.3-70b",
   "canonical_model": "cerebras-llama-3.3-70b",
-
-  "family": "llama",  "display_name": "Cerebras Llama 3.3 70B",
+  "family": "llama",
+  "display_name": "Cerebras Llama 3.3 70B",
   "version": "3.3",
   "capabilities": [],
   "official": false,

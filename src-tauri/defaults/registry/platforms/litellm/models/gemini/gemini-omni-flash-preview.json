@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemini-omni-flash-preview",
   "display_name": "Gemini Omni Flash (preview)",
   "canonical_model": "gemini-omni-flash-preview",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000015,
-    "output": 0.000009
+    "input": 1.5e-06,
+    "output": 9e-06
   }
 }

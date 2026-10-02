@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-tts-flash-realtime-2025-11-27",
   "display_name": "Qwen3-TTS-Flash-Realtime (2025-11-27)",
   "canonical_model": "qwen3-tts-flash-realtime-2025-11-27",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "audio"
   ],
   "official": false,

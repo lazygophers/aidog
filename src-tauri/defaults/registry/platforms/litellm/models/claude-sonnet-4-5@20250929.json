@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "claude-sonnet-4-5@20250929",
   "display_name": "Claude Sonnet 4.5 (20250929)",
   "canonical_model": "claude-sonnet-4-5@20250929",

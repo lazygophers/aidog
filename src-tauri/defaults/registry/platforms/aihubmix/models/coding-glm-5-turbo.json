@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-glm-5-turbo",
   "canonical_model": "glm-5-turbo",
   "family": "glm",
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 2.2e-7
+    "input": 6e-08,
+    "output": 2.2e-07
   }
 }

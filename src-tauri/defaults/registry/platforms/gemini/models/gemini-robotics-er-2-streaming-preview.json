@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-robotics-er-2-streaming-preview",
   "canonical_model": "gemini-robotics-er-2-streaming-preview",
   "family": "robotics",
@@ -14,8 +16,14 @@
   "context_window": 131072,
   "official": true,
   "price": {
-    "input": 2e-06,
-    "output": 1e-05,
-    "cache_read": 2e-07
+    "input": 1,
+    "output": 5,
+    "time_tiers": [
+      {
+        "start_at": 1798761600,
+        "input": 2,
+        "output": 10
+      }
+    ]
   }
 }

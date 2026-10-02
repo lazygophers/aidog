@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock_mantle/openai.gpt-daybreak-blue-5.6-sol",
   "canonical_model": "openai.gpt-daybreak-blue-5.6-sol",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000044,
-    "output": 0.000022
+    "input": 4.4e-06,
+    "output": 2.2e-05
   }
 }

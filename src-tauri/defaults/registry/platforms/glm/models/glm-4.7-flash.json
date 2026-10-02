@@ -1,8 +1,11 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.7-flash",
-  "display_name": "GLM 4.7 Flash",
+  "display_name": "GLM-4.7-Flash",
   "canonical_model": "glm-4.7-flash",
   "family": "glm",
   "version": "4.7",
@@ -21,6 +24,5 @@
     "input": 6e-08,
     "output": 4e-07,
     "cache_read": 1e-08
-  },
-  "display_name": "GLM-4.7-Flash"
+  }
 }

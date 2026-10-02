@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/pixtral-large-latest",
   "canonical_model": "pixtral-large-latest",
   "family": "pixtral",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000002,
-    "output": 0.000006
+    "input": 2e-06,
+    "output": 6e-06
   }
 }

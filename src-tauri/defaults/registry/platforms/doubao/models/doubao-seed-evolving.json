@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-seed-evolving",
   "canonical_model": "doubao-seed-evolving",
   "family": "doubao-seed-evolving",
@@ -12,7 +16,8 @@
   "context_window": 262144,
   "official": true,
   "price": {
-    "input": 4.444444444444445e-07,
-    "output": 2.2222222222222225e-06
+    "input": 0.833333,
+    "output": 4.166667,
+    "cache_read": 0.166667
   }
 }

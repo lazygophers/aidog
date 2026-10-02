@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "xiaomi/mimo-v2.5-pro",
   "display_name": "MiMo-V2.5-Pro",
   "canonical_model": "mimo-v2.5-pro",

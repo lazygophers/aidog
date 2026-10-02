@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-minimax-m2.5-free",
   "canonical_model": "MiniMax-M2.5",
   "display_name": "Coding MiniMax M2.5 (free)",

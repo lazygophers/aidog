@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-max-0125",
   "canonical_model": "qwen-max-0125",
-
-  "family": "qwen",  "display_name": "Qwen Max 0125",
+  "family": "qwen",
+  "display_name": "Qwen Max 0125",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "black_forest_labs/flux-kontext-max",
   "display_name": "Flux Kontext Max",
   "canonical_model": "flux-kontext-max",

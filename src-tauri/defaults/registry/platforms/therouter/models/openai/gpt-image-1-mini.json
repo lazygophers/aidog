@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "openai/gpt-image-1-mini",
   "display_name": "GPT Image 1 Mini",
   "canonical_model": "gpt-image-1-mini",

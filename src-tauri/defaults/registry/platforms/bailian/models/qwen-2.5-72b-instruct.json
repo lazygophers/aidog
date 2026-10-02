@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-2.5-72b-instruct",
   "display_name": "Qwen2.5 72B Instruct",
   "canonical_model": "qwen-2.5-72b-instruct",
   "family": "qwen",
-
-  "version": "2.5",  "capabilities": [
+  "version": "2.5",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,

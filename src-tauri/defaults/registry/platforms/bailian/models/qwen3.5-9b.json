@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-9b",
   "display_name": "Qwen3.5-9B",
   "canonical_model": "qwen3.5-9b",
   "family": "qwen",
-
-  "version": "3.5",  "thinking_supported": true,
+  "version": "3.5",
+  "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text"

@@ -1,9 +1,11 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5.6-terra-pro",
   "display_name": "OpenAI: GPT-5.6 Terra Pro",
-  "canonical_model": "gpt-5.6-terra-pro",
+  "canonical_model": "gpt-5-6-terra-pro",
   "family": "gpt",
   "version": "5.6",
   "capabilities": [
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.000012
+    "input": 2e-06,
+    "output": 1.2e-05
   }
 }

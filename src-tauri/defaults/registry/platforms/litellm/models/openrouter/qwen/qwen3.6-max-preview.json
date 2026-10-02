@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3.6-max-preview",
   "display_name": "Qwen3.6-Max-Preview",
   "canonical_model": "qwen3.6-max-preview",
   "family": "qwen",
   "version": "3.6",
-  "family": "qwen",
   "capabilities": [
     "text",
     "tool_use",
@@ -19,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001027,
-    "output": 0.000006162
+    "input": 1.027e-06,
+    "output": 6.162e-06
   }
 }

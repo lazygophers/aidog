@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "zai-org/glm-5-2-maas",
   "canonical_model": "glm-5-2-maas",
   "family": "glm",

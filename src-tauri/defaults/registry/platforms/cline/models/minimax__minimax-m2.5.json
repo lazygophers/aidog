@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "minimax/minimax-m2.5",
   "canonical_model": "MiniMax-M2.5",
   "family": "minimax",

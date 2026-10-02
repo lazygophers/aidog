@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kat-dev",
   "canonical_model": "kat-dev",
-
-  "family": "kat",  "display_name": "Kat Dev",
+  "family": "kat",
+  "display_name": "Kat Dev",
   "context_window": 128000,
   "capabilities": [
     "text",
@@ -13,7 +17,7 @@
   "max_input_tokens": 128000,
   "official": false,
   "price": {
-    "input": 1.37e-7,
-    "output": 5.48e-7
+    "input": 1.37e-07,
+    "output": 5.48e-07
   }
 }

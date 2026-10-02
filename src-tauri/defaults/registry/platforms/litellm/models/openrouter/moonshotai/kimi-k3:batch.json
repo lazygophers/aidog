@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/moonshotai/kimi-k3:batch",
   "display_name": "MoonshotAI: Kimi K3 (batch)",
   "canonical_model": "kimi-k3:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000228,
-    "output": 0.0000114
+    "input": 2.28e-06,
+    "output": 1.14e-05
   }
 }

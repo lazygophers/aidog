@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-gov-east-1/anthropic.claude-opus-4-8",
   "display_name": "Claude Opus 4.8",
   "canonical_model": "claude-opus-4-8",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000006,
-    "output": 0.00003
+    "input": 6e-06,
+    "output": 3e-05
   }
 }

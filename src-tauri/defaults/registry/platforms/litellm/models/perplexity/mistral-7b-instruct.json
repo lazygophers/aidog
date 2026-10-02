@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "perplexity/mistral-7b-instruct",
   "display_name": "Mistral 7B Instruct",
   "canonical_model": "mistral-7b-instruct",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 7e-8,
-    "output": 2.8e-7
+    "input": 7e-08,
+    "output": 2.8e-07
   }
 }

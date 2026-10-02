@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-5-pro",
   "canonical_model": "gpt-5-pro",
   "display_name": "GPT 5 Pro",
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000015,
+    "input": 1.5e-05,
     "output": 0.00012
   }
 }

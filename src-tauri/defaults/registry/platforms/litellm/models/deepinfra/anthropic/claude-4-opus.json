@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/anthropic/claude-4-opus",
   "display_name": "Claude Opus 4",
   "canonical_model": "claude-4-opus",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000165,
-    "output": 0.0000825
+    "input": 1.65e-05,
+    "output": 8.25e-05
   }
 }

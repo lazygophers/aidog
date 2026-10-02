@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/voxtral-mini-latest",
   "canonical_model": "voxtral-mini-latest",
   "family": "voxtral",
@@ -12,6 +14,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00005
+    "unit_price": 5e-05
   }
 }

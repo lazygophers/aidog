@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "glm-4.7",
   "display_name": "GLM-4.7",
   "canonical_model": "glm-4.7",
@@ -19,8 +23,8 @@
   "context_window": 204800,
   "official": false,
   "price": {
-    "input": 6e-7,
-    "output": 0.0000022,
-    "cache_read": 1.1e-7
+    "input": 6e-07,
+    "output": 2.2e-06,
+    "cache_read": 1.1e-07
   }
 }

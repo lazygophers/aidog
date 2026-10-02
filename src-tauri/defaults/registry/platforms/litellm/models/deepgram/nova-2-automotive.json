@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepgram/nova-2-automotive",
   "canonical_model": "nova-2-automotive",
   "family": "nova",
@@ -11,6 +13,6 @@
   "official": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00007167
+    "unit_price": 7.167e-05
   }
 }

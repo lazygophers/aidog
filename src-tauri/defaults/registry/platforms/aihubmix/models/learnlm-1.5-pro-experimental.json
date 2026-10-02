@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "learnlm-1.5-pro-experimental",
   "canonical_model": "learnlm-1.5-pro-experimental",
-
   "version": "1.5",
-  "family": "learnlm",  "display_name": "Learnlm 1.5 Pro Experimental",
+  "family": "learnlm",
+  "display_name": "Learnlm 1.5 Pro Experimental",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

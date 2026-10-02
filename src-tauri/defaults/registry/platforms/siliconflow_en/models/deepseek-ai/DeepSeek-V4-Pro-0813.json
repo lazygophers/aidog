@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "deepseek-ai/DeepSeek-V4-Pro-0813",
   "canonical_model": "deepseek-v4-pro-0813",
   "version": "4",
@@ -15,9 +18,9 @@
   "max_output_tokens": 393216,
   "official": false,
   "price": {
-    "input": 1.5016199999999999e-06,
+    "input": 1.32,
     "cache_read": 1.35e-07,
-    "output": 3.1349999999999996e-06
+    "output": 3.96
   },
   "context_window": 1048576
 }

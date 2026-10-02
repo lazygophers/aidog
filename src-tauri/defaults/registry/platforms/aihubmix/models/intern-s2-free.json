@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "intern-s2-free",
   "canonical_model": "intern-s2-free",
-
-  "family": "intern",  "display_name": "Intern S2 (free)",
+  "family": "intern",
+  "display_name": "Intern S2 (free)",
   "version": "2",
   "context_window": 262144,
   "capabilities": [

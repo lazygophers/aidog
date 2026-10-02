@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "jina-reader",
   "canonical_model": "jina-reader",
-
-  "family": "jina",  "display_name": "Jina Reader",
+  "family": "jina",
+  "display_name": "Jina Reader",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

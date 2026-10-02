@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai_responses"],
+  "supported_protocols": [
+    "openai_responses"
+  ],
   "model_id": "gpt-5.5",
   "display_name": "GPT-5.5",
   "canonical_model": "gpt-5.5",
@@ -16,9 +18,16 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-  "input": 5e-06,
-  "output": 3e-05,
-  "cache_read": 5e-07,
-  "context_tiers": [{"min_tokens": 272000, "input": 1e-05, "output": 4.5e-05, "cache_read": 1e-06}]
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 5e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 272000,
+        "input": 1e-05,
+        "output": 4.5e-05,
+        "cache_read": 1e-06
+      }
+    ]
   }
 }

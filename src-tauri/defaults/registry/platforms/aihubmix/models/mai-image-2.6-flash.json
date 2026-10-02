@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mai-image-2.6-flash",
   "canonical_model": "mai-image-2.6-flash",
-
   "version": "2.6",
-  "family": "mai-image",  "display_name": "Mai Image 2.6 Flash",
+  "family": "mai-image",
+  "display_name": "Mai Image 2.6 Flash",
   "max_output_tokens": 4096,
   "context_window": 32000,
   "capabilities": [

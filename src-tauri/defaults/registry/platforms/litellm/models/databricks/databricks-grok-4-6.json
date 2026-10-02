@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-grok-4-6",
   "display_name": "Grok 4.6",
   "canonical_model": "grok-4.6",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000249998,
-    "output": 0.00000750001
+    "input": 2.49998e-06,
+    "output": 7.50001e-06
   }
 }

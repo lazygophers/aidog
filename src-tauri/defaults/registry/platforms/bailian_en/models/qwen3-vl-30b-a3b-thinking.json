@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-vl-30b-a3b-thinking",
   "display_name": "Qwen3 VL 30B A3B Thinking",
   "canonical_model": "qwen3-vl-30b-a3b-thinking",
   "family": "qwen",
-
-  "version": "3",  "thinking_supported": true,
+  "version": "3",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -16,7 +19,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.0000000000000002e-7,
-    "output": 0.0000024
+    "input": 2.0000000000000002e-07,
+    "output": 2.4e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3.8-max-0902",
   "display_name": "Qwen: Qwen3.8 Max (0902)",
   "canonical_model": "qwen3.8-max-0902",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.000006
+    "input": 2e-06,
+    "output": 6e-06
   }
 }

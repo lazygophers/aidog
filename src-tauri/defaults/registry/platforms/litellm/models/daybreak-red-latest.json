@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "daybreak-red-latest",
   "canonical_model": "daybreak-red-latest",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000125,
-    "output": 0.000075
+    "input": 1.25e-05,
+    "output": 7.5e-05
   }
 }

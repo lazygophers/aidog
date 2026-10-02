@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/anthropic/claude-opus-4.6:batch",
   "display_name": "Anthropic: Claude Opus 4.6 (batch)",
   "canonical_model": "claude-opus-4.6:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000025,
-    "output": 0.0000125
+    "input": 2.5e-06,
+    "output": 1.25e-05
   }
 }

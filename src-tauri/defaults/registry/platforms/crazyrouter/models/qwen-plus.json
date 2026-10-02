@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-plus",
   "display_name": "Qwen-Plus",
   "canonical_model": "qwen-plus",
@@ -15,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-08,
-    "output": 2.3e-07,
+    "input": 0.111111,
+    "output": 0.277778,
     "cache_read": 6e-09
   }
 }

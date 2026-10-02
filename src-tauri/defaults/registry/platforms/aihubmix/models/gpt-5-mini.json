@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-5-mini",
   "canonical_model": "gpt-5-mini",
   "display_name": "GPT 5 Mini",
@@ -16,8 +20,8 @@
   "official": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.5e-7,
-    "output": 0.000002,
-    "cache_read": 2.5e-8
+    "input": 2.5e-07,
+    "output": 2e-06,
+    "cache_read": 2.5e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral.devstral-2-123b",
   "display_name": "Devstral 2 123B",
   "canonical_model": "mistral.devstral-2-123b",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4e-7,
-    "output": 0.000002
+    "input": 4e-07,
+    "output": 2e-06
   }
 }

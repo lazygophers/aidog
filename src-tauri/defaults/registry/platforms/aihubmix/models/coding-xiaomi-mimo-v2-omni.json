@@ -1,17 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-xiaomi-mimo-v2-omni",
   "canonical_model": "coding-xiaomi-mimo-v2-omni",
-
   "version": "2",
-  "family": "mimo",  "display_name": "Coding Xiaomi Mimo V2 Omni",
+  "family": "mimo",
+  "display_name": "Coding Xiaomi Mimo V2 Omni",
   "thinking_supported": true,
   "capabilities": [],
   "official": false,
   "price": {
-    "input": 8e-8,
-    "output": 4e-7,
-    "cache_read": 1.6e-8
+    "input": 8e-08,
+    "output": 4e-07,
+    "cache_read": 1.6e-08
   }
 }

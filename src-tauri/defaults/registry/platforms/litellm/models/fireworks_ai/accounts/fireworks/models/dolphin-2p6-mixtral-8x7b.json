@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/dolphin-2p6-mixtral-8x7b",
   "canonical_model": "dolphin-2p6-mixtral-8x7b",
   "family": "dolphin",
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5e-7,
-    "output": 5e-7
+    "input": 5e-07,
+    "output": 5e-07
   }
 }

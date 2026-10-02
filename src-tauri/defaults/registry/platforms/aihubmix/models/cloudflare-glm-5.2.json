@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cloudflare-glm-5.2",
   "canonical_model": "glm-5.2",
   "display_name": "Cloudflare Glm 5.2",
@@ -19,8 +23,8 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0.0000014,
-    "output": 0.0000044002,
-    "cache_read": 2.604e-7
+    "input": 1.4e-06,
+    "output": 4.4002e-06,
+    "cache_read": 2.604e-07
   }
 }

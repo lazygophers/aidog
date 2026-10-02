@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "qwen-image",
   "display_name": "Qwen Image",
   "canonical_model": "qwen-image",

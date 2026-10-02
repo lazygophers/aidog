@@ -19,7 +19,8 @@
   },
   "model_list": {
     "default": [
-      "LongCat-2.0"
+      "LongCat-2.0",
+      "LongCat-2.5-Preview"
     ]
   },
   "name": {

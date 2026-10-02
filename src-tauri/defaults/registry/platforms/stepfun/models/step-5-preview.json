@@ -1,0 +1,28 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "step-5-preview",
+  "display_name": "Step-5-Preview",
+  "canonical_model": "step-5-preview",
+  "family": "stepfun",
+  "version": "5",
+  "predecessor": "step-3.7-flash",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 256000,
+  "max_output_tokens": 65536,
+  "context_window": 256000,
+  "official": true,
+  "price": {
+    "input": 9.722222222222222e-07,
+    "output": 2.7777777777777775e-06,
+    "cache_read": 4.8611111111111105e-08
+  }
+}

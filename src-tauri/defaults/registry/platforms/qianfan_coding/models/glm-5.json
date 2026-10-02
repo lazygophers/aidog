@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-5",
   "display_name": "GLM-5",
   "canonical_model": "glm-5",
@@ -17,7 +20,7 @@
   "context_window": 200000,
   "official": false,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-gov-west-1/amazon.titan-text-express-v1",
   "display_name": "Titan Text G1 - Express",
   "canonical_model": "amazon.titan-text-express-v1",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000013,
-    "output": 0.0000017
+    "input": 1.3e-06,
+    "output": 1.7e-06
   }
 }

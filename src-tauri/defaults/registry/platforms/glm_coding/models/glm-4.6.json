@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.6",
   "display_name": "GLM 4.6",
   "canonical_model": "glm-4.6",
@@ -18,7 +21,7 @@
   "context_window": 200000,
   "official": true,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/nousresearch/hermes-2-pro-llama-3-8b",
   "canonical_model": "hermes-2-pro-llama-3-8b",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.4e-7,
-    "output": 1.4e-7
+    "input": 1.4e-07,
+    "output": 1.4e-07
   }
 }

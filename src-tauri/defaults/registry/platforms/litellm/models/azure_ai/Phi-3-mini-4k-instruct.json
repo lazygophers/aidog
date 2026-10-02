@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/Phi-3-mini-4k-instruct",
   "canonical_model": "Phi-3-mini-4k-instruct",
   "family": "phi",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.3e-7,
-    "output": 5.2e-7
+    "input": 1.3e-07,
+    "output": 5.2e-07
   }
 }

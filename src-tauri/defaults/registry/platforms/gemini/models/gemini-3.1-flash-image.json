@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-3.1-flash-image",
   "display_name": "Gemini 3.1 Flash Image",
   "canonical_model": "gemini-3.1-flash-image",

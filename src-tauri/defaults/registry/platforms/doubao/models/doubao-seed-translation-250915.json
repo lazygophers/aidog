@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-seed-translation-250915",
   "canonical_model": "doubao-seed-translation-250915",
   "family": "doubao-seed-translation",
@@ -14,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.66667e-7,
-    "output": 5e-7
+    "input": 1.66667e-07,
+    "output": 5e-07
   }
 }

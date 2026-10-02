@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Doubao-lite-32k",
   "canonical_model": "doubao-lite-32k",
-
-  "family": "doubao-lite",  "display_name": "Doubao Lite 32K",
+  "family": "doubao-lite",
+  "display_name": "Doubao Lite 32K",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

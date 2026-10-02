@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5-mini:batch",
   "display_name": "OpenAI: GPT-5 Mini (batch)",
   "canonical_model": "gpt-5-mini:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.25e-7,
-    "output": 0.000001
+    "input": 1.25e-07,
+    "output": 1e-06
   }
 }

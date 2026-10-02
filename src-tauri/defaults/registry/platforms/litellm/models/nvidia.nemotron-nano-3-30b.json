@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nvidia.nemotron-nano-3-30b",
   "canonical_model": "nvidia.nemotron-nano-3-30b",
   "family": "nemotron",
@@ -15,7 +17,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 6e-8,
-    "output": 2.4e-7
+    "input": 6e-08,
+    "output": 2.4e-07
   }
 }

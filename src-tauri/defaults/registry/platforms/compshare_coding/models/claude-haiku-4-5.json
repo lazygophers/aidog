@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "claude-haiku-4-5",
   "display_name": "Claude Haiku 4.5",
   "canonical_model": "claude-haiku-4-5",
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

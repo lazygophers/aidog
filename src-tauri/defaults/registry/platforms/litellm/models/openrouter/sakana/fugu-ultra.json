@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/sakana/fugu-ultra",
   "display_name": "Sakana: Fugu Ultra",
   "canonical_model": "fugu-ultra",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000005,
-    "output": 0.00003
+    "input": 5e-06,
+    "output": 3e-05
   }
 }

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "xiaomi-mimo-v2-omni-free",
   "canonical_model": "xiaomi-mimo-v2-omni-free",
-
   "version": "2",
-  "family": "mimo",  "display_name": "Xiaomi Mimo V2 Omni (free)",
+  "family": "mimo",
+  "display_name": "Xiaomi Mimo V2 Omni (free)",
   "context_window": 256000,
   "capabilities": [
     "text",

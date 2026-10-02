@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "ernie-5.1",
   "display_name": "ERNIE 5.1",
   "canonical_model": "ernie-5.1",

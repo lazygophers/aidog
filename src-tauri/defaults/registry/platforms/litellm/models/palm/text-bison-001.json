@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "palm/text-bison-001",
   "canonical_model": "text-bison-001",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 1024,
   "official": false,
   "price": {
-    "input": 1.25e-7,
-    "output": 1.25e-7
+    "input": 1.25e-07,
+    "output": 1.25e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/lyria-3-clip-preview",
   "display_name": "Lyria 3 Clip",
   "canonical_model": "lyria-3-clip-preview",

@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistral-ocr-4-1",
+  "display_name": "Mistral OCR 4.1",
+  "canonical_model": "mistral-ocr-4-1",
+  "family": "mistral",
+  "capabilities": [
+    "vision"
+  ],
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "unit": "request",
+    "unit_price": 0.004
+  }
+}

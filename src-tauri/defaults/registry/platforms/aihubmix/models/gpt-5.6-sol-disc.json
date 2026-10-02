@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-5.6-sol-disc",
   "canonical_model": "gpt-5.6-sol-disc",
-
   "version": "5.6",
-  "family": "gpt",  "display_name": "GPT 5.6 Sol Disc",
+  "family": "gpt",
+  "display_name": "GPT 5.6 Sol Disc",
   "thinking_supported": true,
   "max_output_tokens": 128000,
   "context_window": 1050000,
@@ -19,16 +23,16 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000004,
-    "output": 0.00002,
-    "cache_read": 4e-7,
-  "cache_write": 5e-06,
+    "input": 4e-06,
+    "output": 2e-05,
+    "cache_read": 4e-07,
+    "cache_write": 5e-06,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 0.000008,
-        "output": 0.00003,
-        "cache_read": 8e-7
+        "input": 8e-06,
+        "output": 3e-05,
+        "cache_read": 8e-07
       }
     ]
   }

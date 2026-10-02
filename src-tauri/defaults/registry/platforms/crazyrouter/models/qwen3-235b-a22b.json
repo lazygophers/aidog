@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-235b-a22b",
   "display_name": "Qwen3 235B A22B",
   "canonical_model": "qwen3-235b-a22b",

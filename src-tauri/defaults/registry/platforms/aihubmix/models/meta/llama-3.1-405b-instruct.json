@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "meta/llama-3.1-405b-instruct",
   "canonical_model": "llama-3.1-405b-instruct",
   "context_window": 128000,

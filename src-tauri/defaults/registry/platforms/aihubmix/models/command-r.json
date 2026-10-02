@@ -1,16 +1,20 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "command-r",
   "canonical_model": "command-r",
-
-  "family": "command",  "display_name": "Command R",
+  "family": "command",
+  "display_name": "Command R",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6.4e-7,
-    "output": 0.00000192
+    "input": 6.4e-07,
+    "output": 1.92e-06
   }
 }

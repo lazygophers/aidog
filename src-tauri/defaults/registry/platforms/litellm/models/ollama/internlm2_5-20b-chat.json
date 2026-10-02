@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ollama/internlm2_5-20b-chat",
   "canonical_model": "internlm2_5-20b-chat",
   "capabilities": [

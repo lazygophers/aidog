@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "lambda_ai/llama3.1-405b-instruct-fp8",
   "canonical_model": "llama3.1-405b-instruct-fp8",
   "family": "llama",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8e-7,
-    "output": 8e-7
+    "input": 8e-07,
+    "output": 8e-07
   }
 }

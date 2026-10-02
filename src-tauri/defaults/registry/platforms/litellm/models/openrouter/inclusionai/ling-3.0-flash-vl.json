@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/inclusionai/ling-3.0-flash-vl",
   "display_name": "inclusionAI: Ling 3.0 Flash VL",
   "canonical_model": "ling-3.0-flash-vl",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 1.8e-7
+    "input": 2.1e-08,
+    "output": 6.16e-08
   }
 }

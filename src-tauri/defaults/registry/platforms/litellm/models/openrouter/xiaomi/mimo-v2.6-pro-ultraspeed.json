@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/xiaomi/mimo-v2.6-pro-ultraspeed",
   "display_name": "MiMo-V2.6-Pro-UltraSpeed",
   "canonical_model": "mimo-v2.6-pro-ultraspeed",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000435,
-    "output": 0.0000087
+    "input": 4.35e-06,
+    "output": 8.7e-06
   }
 }

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kimi-k2.5",
   "canonical_model": "kimi-k2.5",
   "display_name": "Kimi K2.5",
@@ -17,8 +21,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-7,
-    "output": 0.000003,
-    "cache_read": 1.05e-7
+    "input": 6e-07,
+    "output": 3e-06,
+    "cache_read": 1.05e-07
   }
 }

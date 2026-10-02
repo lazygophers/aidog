@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "grok-imagine-video-1.5-lite",
+  "display_name": "Grok Imagine Video 1.5 Lite",
+  "canonical_model": "grok-imagine-video-1.5-lite",
+  "family": "grok",
+  "capabilities": [
+    "text_to_video"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 500000,
+  "max_output_tokens": 66000,
+  "context_window": 500000,
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.02
+  }
+}

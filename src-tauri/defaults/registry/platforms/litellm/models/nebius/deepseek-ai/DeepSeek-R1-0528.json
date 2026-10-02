@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/deepseek-ai/DeepSeek-R1-0528",
   "display_name": "DeepSeek: R1 0528",
   "canonical_model": "deepseek-r1-0528",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8e-7,
-    "output": 0.0000024
+    "input": 8e-07,
+    "output": 2.4e-06
   }
 }

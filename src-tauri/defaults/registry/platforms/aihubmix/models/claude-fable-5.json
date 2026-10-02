@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "claude-fable-5",
   "canonical_model": "claude-fable-5",
   "display_name": "Claude Fable 5",
@@ -16,9 +20,9 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 0.000011,
-    "output": 0.000055,
-    "cache_read": 0.0000011,
-"cache_write": 1.375e-05
+    "input": 1.1e-05,
+    "output": 5.5e-05,
+    "cache_read": 1.1e-06,
+    "cache_write": 1.375e-05
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/phi-2-3b",
   "canonical_model": "phi-2-3b",
   "family": "phi",
@@ -13,7 +15,7 @@
   "max_output_tokens": 2048,
   "official": false,
   "price": {
-    "input": 1e-7,
-    "output": 1e-7
+    "input": 1e-07,
+    "output": 1e-07
   }
 }

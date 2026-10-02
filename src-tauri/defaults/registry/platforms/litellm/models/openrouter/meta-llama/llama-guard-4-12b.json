@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/meta-llama/llama-guard-4-12b",
   "display_name": "Meta: Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.8e-7,
-    "output": 1.8e-7
+    "input": 1.8e-07,
+    "output": 1.8e-07
   }
 }

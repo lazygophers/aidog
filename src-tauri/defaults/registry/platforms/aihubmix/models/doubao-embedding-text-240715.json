@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-embedding-text-240715",
   "canonical_model": "doubao-embedding-text-240715",
-
-  "family": "doubao-embedding",  "display_name": "Doubao Embedding Text 240715",
+  "family": "doubao-embedding",
+  "display_name": "Doubao Embedding Text 240715",
   "capabilities": [
     "embedding"
   ],

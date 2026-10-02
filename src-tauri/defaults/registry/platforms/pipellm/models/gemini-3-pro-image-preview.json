@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemini-3-pro-image-preview",
   "display_name": "Gemini 3 Pro Image Preview",
   "canonical_model": "gemini-3-pro-image-preview",
@@ -16,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.000012,
+    "input": 2e-06,
+    "output": 1.2e-05,
     "cache_read": 0
   }
 }

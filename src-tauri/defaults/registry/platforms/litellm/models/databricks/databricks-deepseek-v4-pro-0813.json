@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-deepseek-v4-pro-0813",
   "display_name": "DeepSeek V4 Pro 0813",
   "canonical_model": "deepseek-v4-pro-0813",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000131999,
-    "output": 0.00000395997
+    "input": 1.31999e-06,
+    "output": 3.95997e-06
   }
 }

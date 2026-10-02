@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "us.meta.llama3-2-11b-instruct-v1:0",
   "display_name": "Llama 3.2 11B Instruct",
   "canonical_model": "us.meta.llama3-2-11b-instruct-v1:0",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3.5e-7,
-    "output": 3.5e-7
+    "input": 1.6e-07,
+    "output": 1.6e-07
   }
 }

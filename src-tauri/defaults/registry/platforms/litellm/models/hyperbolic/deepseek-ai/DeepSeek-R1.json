@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "hyperbolic/deepseek-ai/DeepSeek-R1",
   "display_name": "DeepSeek: R1",
   "canonical_model": "DeepSeek-R1",
@@ -16,7 +18,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 4e-7,
-    "output": 4e-7
+    "input": 4e-07,
+    "output": 4e-07
   }
 }

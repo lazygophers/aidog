@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-vl-max-latest",
   "display_name": "Qwen-VL-Max",
   "canonical_model": "qwen-vl-max-latest",

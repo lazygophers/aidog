@@ -1,19 +1,22 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-flash-2026-02-23",
   "canonical_model": "qwen3.5-flash-2026-02-23",
   "family": "qwen",
-
-  "version": "3.5",  "capabilities": [
+  "version": "3.5",
+  "capabilities": [
     "text"
   ],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "display_name": "Qwen3.5-Flash (2026-02-23)",
   "max_input_tokens": 1000000,

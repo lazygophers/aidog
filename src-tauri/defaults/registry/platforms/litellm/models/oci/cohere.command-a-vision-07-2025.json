@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "oci/cohere.command-a-vision-07-2025",
   "canonical_model": "cohere.command-a-vision-07-2025",
   "family": "command",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000156,
-    "output": 0.00000156
+    "input": 1.56e-06,
+    "output": 1.56e-06
   }
 }

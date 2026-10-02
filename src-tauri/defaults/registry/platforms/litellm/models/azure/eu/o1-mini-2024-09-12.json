@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/eu/o1-mini-2024-09-12",
   "display_name": "O1 Mini",
   "canonical_model": "o1-mini",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000121,
-    "output": 0.00000484
+    "input": 1.21e-06,
+    "output": 4.84e-06
   }
 }

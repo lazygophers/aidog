@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Qwen/Qwen3.5-122B-A10B",
   "display_name": "Qwen3.5-122B-A10B",
   "canonical_model": "qwen3.5-122b-a10b",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.9e-7,
-    "output": 0.0000024
+    "input": 2.9e-07,
+    "output": 2.4e-06
   },
   "family": "qwen"
 }

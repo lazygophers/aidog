@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "perplexity/pplx-70b-online",
   "canonical_model": "pplx-70b-online",
   "family": "pplx",
@@ -13,6 +15,6 @@
   "official": false,
   "price": {
     "input": 0,
-    "output": 0.0000028
+    "output": 2.8e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "lambda_ai/hermes3-405b",
   "canonical_model": "hermes3-405b",
   "family": "hermes",
@@ -14,7 +16,7 @@
   "max_output_tokens": 131072,
   "official": false,
   "price": {
-    "input": 8e-7,
-    "output": 8e-7
+    "input": 8e-07,
+    "output": 8e-07
   }
 }

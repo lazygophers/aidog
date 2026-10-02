@@ -2,11 +2,15 @@
   "context_window": 32000,
   "max_input_tokens": 32000,
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "THUDM/GLM-Z1-9B-0414",
   "canonical_model": "GLM-Z1-9B-0414",
-
-  "family": "glm",  "display_name": "GLM Z1 9B 0414",
+  "family": "glm",
+  "display_name": "GLM Z1 9B 0414",
   "capabilities": [
     "text",
     "reasoning"

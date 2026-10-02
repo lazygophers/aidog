@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-mt-plus",
   "canonical_model": "qwen-mt-plus",
   "display_name": "Qwen Mt Plus",
@@ -15,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.92e-7,
-    "output": 0.000001476
+    "input": 4.92e-07,
+    "output": 1.476e-06
   }
 }

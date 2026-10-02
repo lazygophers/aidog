@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/mistral-document-ai-2512",
   "canonical_model": "mistral-document-ai-2512",
   "family": "mistral-document-ai",

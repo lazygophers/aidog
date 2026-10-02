@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.6-27b",
   "canonical_model": "qwen3.6-27b",
   "display_name": "Qwen3.6 27B",
   "family": "qwen",
-
-  "version": "3.6",  "thinking_supported": true,
+  "version": "3.6",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.22e-7,
-    "output": 0.000002532
+    "input": 4.22e-07,
+    "output": 2.532e-06
   }
 }

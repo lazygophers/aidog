@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "moonshotai/kimi-k2-instruct",
   "display_name": "Kimi K2 Instruct",
   "canonical_model": "kimi-k2-instruct",
   "version": "2",
   "family": "kimi",
-  "capabilities": ["text", "tool_use"],
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

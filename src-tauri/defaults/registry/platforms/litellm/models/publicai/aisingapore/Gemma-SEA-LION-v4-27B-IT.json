@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "publicai/aisingapore/Gemma-SEA-LION-v4-27B-IT",
   "canonical_model": "gemma-sea-lion-v4-27b-it",
   "family": "sea-lion",

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "minimaxai/minimax-m2-maas",
   "canonical_model": "minimax-m2-maas",
   "family": "minimax",

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "THUDM/GLM-4.1V-9B-Thinking",
   "canonical_model": "thudm/glm-4.1v-9b-thinking",
-
-  "family": "glm",  "display_name": "GLM 4.1 Vision 9B Thinking",
+  "family": "glm",
+  "display_name": "GLM 4.1 Vision 9B Thinking",
   "capabilities": [],
   "official": false,
   "price": {

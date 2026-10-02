@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/Cohere-embed-v3-multilingual",
   "canonical_model": "Cohere-embed-v3-multilingual",
   "family": "embed",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
+    "input": 1e-07,
     "output": 0
   }
 }

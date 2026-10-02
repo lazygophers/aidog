@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen2.5-math-1.5b-instruct",
   "canonical_model": "qwen2.5-math-1.5b-instruct",
-
   "version": "2.5",
-  "family": "qwen",  "display_name": "Qwen2.5 Math 1.5b Instruct",
+  "family": "qwen",
+  "display_name": "Qwen2.5 Math 1.5b Instruct",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

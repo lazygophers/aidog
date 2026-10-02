@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "paraformer-realtime-v2",
   "display_name": "Paraformer-Realtime",
   "canonical_model": "paraformer-realtime-v2",
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.000035
+    "unit_price": 3.5e-05
   }
 }

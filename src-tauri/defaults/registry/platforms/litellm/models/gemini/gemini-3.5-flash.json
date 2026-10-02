@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemini-3.5-flash",
   "display_name": "Gemini 3.5 Flash",
   "canonical_model": "gemini-3.5-flash",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000015,
-    "output": 0.000009
+    "input": 1.5e-06,
+    "output": 9e-06
   },
   "family": "gemini"
 }

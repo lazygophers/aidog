@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/sakana/sakana-namazu",
   "display_name": "Sakana: Sakana Namazu",
   "canonical_model": "sakana-namazu",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 9.5e-7,
-    "output": 0.000004
+    "input": 9.5e-07,
+    "output": 4e-06
   }
 }

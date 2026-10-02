@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-coder-plus-2025-07-22",
   "display_name": "Qwen3-Coder-Plus (2025-07-22)",
   "canonical_model": "qwen3-coder-plus-2025-07-22",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5.55556e-7,
-    "output": 0.00000222222
+    "input": 5.55556e-07,
+    "output": 2.22222e-06
   }
 }

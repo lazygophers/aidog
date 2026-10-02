@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/deepseek/deepseek-v4-flash-vision-exp",
   "display_name": "DeepSeek V4 Flash Vision Exp",
   "canonical_model": "deepseek-v4-flash-vision-exp",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.2e-7,
-    "output": 6.6e-7
+    "input": 2.156e-07,
+    "output": 6.468e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "aihubmix/mimo-v2-omni",
   "display_name": "MiMo V2 Omni",
   "canonical_model": "mimo-v2-omni",
@@ -15,7 +17,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 4.4e-7,
-    "output": 0.0000022
+    "input": 4.4e-07,
+    "output": 2.2e-06
   }
 }

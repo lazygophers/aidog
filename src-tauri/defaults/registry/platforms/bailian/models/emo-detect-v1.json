@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "emo-detect-v1",
   "display_name": "Emo-Detect-V1",
   "canonical_model": "emo-detect-v1",

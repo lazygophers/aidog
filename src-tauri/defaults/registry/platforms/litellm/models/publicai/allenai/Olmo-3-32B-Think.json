@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "publicai/allenai/Olmo-3-32B-Think",
   "canonical_model": "Olmo-3-32B-Think",
   "capabilities": [

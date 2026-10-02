@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/labs-leanstral-1-5",
   "canonical_model": "labs-leanstral-1-5",
   "capabilities": [

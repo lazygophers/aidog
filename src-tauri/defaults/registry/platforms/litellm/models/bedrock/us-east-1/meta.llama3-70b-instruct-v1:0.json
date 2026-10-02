@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-east-1/meta.llama3-70b-instruct-v1:0",
   "display_name": "Llama 3 70B Instruct",
   "canonical_model": "meta.llama3-70b-instruct-v1:0",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000265,
-    "output": 0.0000035
+    "input": 2.65e-06,
+    "output": 3.5e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "runwayml/gen4_image",
   "canonical_model": "gen4_image",
   "family": "gen",

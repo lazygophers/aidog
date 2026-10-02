@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-r1-distill-qianfan-llama-8b",
   "canonical_model": "deepseek-r1-distill-qianfan-llama-8b",
-
-  "family": "deepseek",  "display_name": "DeepSeek R1 Distill Qianfan Llama 8B",
+  "family": "deepseek",
+  "display_name": "DeepSeek R1 Distill Qianfan Llama 8B",
   "version": "r1",
   "capabilities": [],
   "official": false,

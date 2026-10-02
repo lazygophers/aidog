@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "stepaudio-2.5-tts",
   "display_name": "StepAudio 2.5 TTS",
   "canonical_model": "stepaudio-2.5-tts",

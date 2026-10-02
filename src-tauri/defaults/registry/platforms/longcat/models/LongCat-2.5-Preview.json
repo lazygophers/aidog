@@ -1,0 +1,26 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "LongCat-2.5-Preview",
+  "display_name": "LongCat-2.5-Preview",
+  "canonical_model": "longcat-2.5-preview",
+  "family": "longcat",
+  "version": "2.5",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 131072,
+  "max_output_tokens": 32768,
+  "context_window": 131072,
+  "official": true,
+  "price": {
+    "input": 3e-07,
+    "output": 1.2e-06,
+    "cache_read": 6e-09
+  }
+}

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "FunAudioLLM/SenseVoiceSmall",
   "canonical_model": "SenseVoiceSmall",
   "family": "sensevoice",

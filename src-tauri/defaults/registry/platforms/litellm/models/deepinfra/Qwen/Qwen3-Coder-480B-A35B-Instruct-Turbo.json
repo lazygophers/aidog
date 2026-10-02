@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo",
   "canonical_model": "Qwen3-Coder-480B-A35B-Instruct-Turbo",
   "capabilities": [
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3e-7,
-    "output": 0.000001
+    "input": 3e-07,
+    "output": 1e-06
   }
 }

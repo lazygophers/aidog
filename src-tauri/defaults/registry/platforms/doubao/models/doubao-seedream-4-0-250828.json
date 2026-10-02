@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-seedream-4-0-250828",
   "display_name": "Doubao Seedream 4.0 250828",
   "canonical_model": "doubao-seedream-4-0-250828",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "wan2.2-animate-mix",
   "display_name": "Wan2.2-Animate-Mix",
   "canonical_model": "wan2.2-animate-mix",

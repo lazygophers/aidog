@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/codex-mini",
   "canonical_model": "codex-mini",
   "family": "codex",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000015,
-    "output": 0.000006
+    "input": 1.5e-06,
+    "output": 6e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-claude-sonnet-4",
   "display_name": "Anthropic: Claude Sonnet 4",
   "canonical_model": "claude-sonnet-4",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000029999900000000002,
-    "output": 0.000015000020000000002
+    "input": 2.9999900000000002e-06,
+    "output": 1.5000020000000002e-05
   }
 }

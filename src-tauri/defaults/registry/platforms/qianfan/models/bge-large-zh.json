@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "bge-large-zh",
   "display_name": "Bge Large Zh",
   "canonical_model": "bge-large-zh",
@@ -13,6 +15,6 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6.94444e-8
+    "input": 6.94444e-08
   }
 }

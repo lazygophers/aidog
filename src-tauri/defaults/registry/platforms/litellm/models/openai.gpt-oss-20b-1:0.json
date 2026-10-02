@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openai.gpt-oss-20b-1:0",
   "canonical_model": "openai.gpt-oss-20b-1:0",
   "version": "1",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7e-8,
-    "output": 3e-7
+    "input": 7e-08,
+    "output": 3e-07
   }
 }

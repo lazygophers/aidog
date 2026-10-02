@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/moonshotai/Kimi-K3",
   "display_name": "Kimi-K3",
   "canonical_model": "kimi-k3",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000285,
-    "output": 0.00001425
+    "input": 2.85e-06,
+    "output": 1.425e-05
   },
   "family": "kimi"
 }

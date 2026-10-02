@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "step-3.7-flash",
   "display_name": "Step 3.7 Flash",
   "canonical_model": "step-3.7-flash",
@@ -17,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2e-07,
-    "output": 1.15e-06,
-    "cache_read": 4e-08
+    "input": 0.1875,
+    "output": 1.125,
+    "cache_read": 0.0375
   }
 }

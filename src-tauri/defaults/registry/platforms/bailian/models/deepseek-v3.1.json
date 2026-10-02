@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "deepseek-v3.1",
   "display_name": "DeepSeek-V3.1",
   "canonical_model": "DeepSeek-V3.1",
@@ -19,7 +22,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.55556e-7,
-    "output": 0.00000166667
+    "input": 5.55556e-07,
+    "output": 1.66667e-06
   }
 }

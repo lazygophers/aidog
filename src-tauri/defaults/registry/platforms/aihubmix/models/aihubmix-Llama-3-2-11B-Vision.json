@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihubmix-Llama-3-2-11B-Vision",
   "canonical_model": "llama-3-2-11b-vision",
-
   "version": "3.2",
-  "family": "llama",  "display_name": "Aihubmix Llama 3.2 11B Vision",
+  "family": "llama",
+  "display_name": "Aihubmix Llama 3.2 11B Vision",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

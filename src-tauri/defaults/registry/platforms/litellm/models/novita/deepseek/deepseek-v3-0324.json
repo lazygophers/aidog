@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/deepseek/deepseek-v3-0324",
   "display_name": "DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",
@@ -14,8 +16,8 @@
   "max_output_tokens": 65536,
   "official": false,
   "price": {
-    "input": 2.7e-7,
-    "output": 0.00000112
+    "input": 2.7e-07,
+    "output": 1.12e-06
   },
   "version": "3"
 }

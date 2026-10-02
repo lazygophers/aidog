@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "crusoe/deepseek-ai/DeepSeek-V3-0324",
   "display_name": "DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",
@@ -14,8 +16,8 @@
   "max_output_tokens": 163840,
   "official": false,
   "price": {
-    "input": 0.0000015,
-    "output": 0.0000015
+    "input": 1.5e-06,
+    "output": 1.5e-06
   },
   "version": "3"
 }

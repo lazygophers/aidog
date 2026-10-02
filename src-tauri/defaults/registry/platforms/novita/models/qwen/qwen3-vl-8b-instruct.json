@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3-vl-8b-instruct",
   "display_name": "Qwen: Qwen3 VL 8B Instruct",
   "canonical_model": "qwen3-vl-8b-instruct",

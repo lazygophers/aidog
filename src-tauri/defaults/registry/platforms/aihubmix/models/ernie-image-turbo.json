@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ernie-image-turbo",
   "canonical_model": "ERNIE-Image-Turbo",
-
-  "family": "ernie",  "display_name": "ERNIE Image Turbo",
+  "family": "ernie",
+  "display_name": "ERNIE Image Turbo",
   "capabilities": [
     "text_to_image"
   ],

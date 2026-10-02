@@ -1,15 +1,19 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "claude-3-haiku-20240229",
   "canonical_model": "claude-3-haiku-20240229",
-
   "version": "3",
-  "family": "claude",  "display_name": "Claude 3 Haiku 20240229",
+  "family": "claude",
+  "display_name": "Claude 3 Haiku 20240229",
   "capabilities": [],
   "official": false,
   "price": {
-    "input": 2.75e-7,
-    "output": 2.75e-7
+    "input": 2.75e-07,
+    "output": 2.75e-07
   }
 }

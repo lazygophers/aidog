@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "qwen_ai_platform/qwen3-vl-32b-instruct",
   "display_name": "Qwen: Qwen3 VL 32B Instruct",
   "canonical_model": "qwen3-vl-32b-instruct",
   "family": "qwen",
   "version": "3",
-  "family": "qwen",
   "capabilities": [
     "text",
     "vision",
@@ -19,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.6e-7,
-    "output": 6.4e-7
+    "input": 1.6e-07,
+    "output": 6.4e-07
   }
 }

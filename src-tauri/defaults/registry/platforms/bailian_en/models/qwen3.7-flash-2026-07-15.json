@@ -1,11 +1,14 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.7-flash-2026-07-15",
   "canonical_model": "qwen3.7-flash-2026-07-15",
   "family": "qwen",
-
-  "version": "3.7",  "display_name": "Qwen3.7-Flash (2026-07-15)",
+  "version": "3.7",
+  "display_name": "Qwen3.7-Flash (2026-07-15)",
   "capabilities": [
     "text",
     "vision",
@@ -18,18 +21,18 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3e-8,
-    "output": 1.3e-7,
+    "input": 3e-08,
+    "output": 1.3e-07,
     "context_tiers": [
       {
         "min_tokens": 32769,
-        "input": 1.0000000000000001e-7,
-        "output": 4.0000000000000003e-7
+        "input": 1.0000000000000001e-07,
+        "output": 4.0000000000000003e-07
       },
       {
         "min_tokens": 262145,
-        "input": 2.0000000000000002e-7,
-        "output": 8.000000000000001e-7
+        "input": 2.0000000000000002e-07,
+        "output": 8.000000000000001e-07
       }
     ]
   }

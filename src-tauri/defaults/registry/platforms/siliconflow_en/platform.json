@@ -89,7 +89,8 @@
       "Tongyi-MAI/Z-Image-Turbo",
       "Wan-AI/Wan2.2-I2V-A14B",
       "Wan-AI/Wan2.2-T2V-A14B",
-      "zai-org/GLM-4.5-Air"
+      "zai-org/GLM-4.5-Air",
+      "deepseek-ai/DeepSeek-V4.1-Flash"
     ]
   },
   "name": {

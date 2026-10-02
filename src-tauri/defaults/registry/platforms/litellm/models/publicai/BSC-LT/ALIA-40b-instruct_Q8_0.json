@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "publicai/BSC-LT/ALIA-40b-instruct_Q8_0",
   "canonical_model": "ALIA-40b-instruct_Q8_0",
   "capabilities": [

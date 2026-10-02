@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock_mantle/us-gov-west-1/google.gemma-4-26b-a4b",
   "canonical_model": "google.gemma-4-26b-a4b",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.56e-7,
-    "output": 4.8e-7
+    "input": 1.56e-07,
+    "output": 4.8e-07
   }
 }

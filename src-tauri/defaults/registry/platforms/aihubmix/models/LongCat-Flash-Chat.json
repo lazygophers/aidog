@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "LongCat-Flash-Chat",
   "canonical_model": "longcat-flash-chat",
-
-  "family": "longcat",  "display_name": "Longcat Flash Chat",
+  "family": "longcat",
+  "display_name": "Longcat Flash Chat",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

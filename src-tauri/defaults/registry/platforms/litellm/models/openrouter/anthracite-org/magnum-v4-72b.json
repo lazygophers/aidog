@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/anthracite-org/magnum-v4-72b",
   "display_name": "Magnum v4 72B",
   "canonical_model": "magnum-v4-72b",
@@ -14,7 +16,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 0.0000025,
-    "output": 0.000005
+    "input": 2.5e-06,
+    "output": 5e-06
   }
 }

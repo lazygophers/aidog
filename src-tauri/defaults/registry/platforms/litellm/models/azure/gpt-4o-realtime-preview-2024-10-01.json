@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/gpt-4o-realtime-preview-2024-10-01",
   "display_name": "GPT-4o Realtime Preview",
   "canonical_model": "gpt-4o-realtime-preview",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000005,
-    "output": 0.00002
+    "input": 5e-06,
+    "output": 2e-05
   }
 }

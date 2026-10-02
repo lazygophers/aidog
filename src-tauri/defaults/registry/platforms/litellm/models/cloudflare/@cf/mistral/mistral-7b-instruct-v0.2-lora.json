@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/mistral/mistral-7b-instruct-v0.2-lora",
   "canonical_model": "mistral-7b-instruct-v0.2-lora",
   "family": "mistral",

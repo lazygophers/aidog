@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.5-flash",
   "canonical_model": "qwen3.5-flash",
   "display_name": "Qwen3.5 Flash",
   "family": "qwen",
-
-  "version": "3.5",  "thinking_supported": true,
+  "version": "3.5",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -16,22 +20,22 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.82e-8,
-    "output": 2.82e-7,
-    "cache_read": 2.82e-9,
-  "cache_write": 3.5249999999999995e-08,
+    "input": 2.82e-08,
+    "output": 2.82e-07,
+    "cache_read": 2.82e-09,
+    "cache_write": 3.5249999999999995e-08,
     "context_tiers": [
       {
         "min_tokens": 128001,
-        "input": 1.126e-7,
-        "output": 0.000001126,
-        "cache_read": 1.126e-8
+        "input": 1.126e-07,
+        "output": 1.126e-06,
+        "cache_read": 1.126e-08
       },
       {
         "min_tokens": 256001,
-        "input": 1.69e-7,
-        "output": 0.00000169,
-        "cache_read": 1.69e-8
+        "input": 1.69e-07,
+        "output": 1.69e-06,
+        "cache_read": 1.69e-08
       }
     ]
   }

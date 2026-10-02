@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-vl-max",
   "display_name": "Qwen-VL-Max",
   "canonical_model": "qwen-vl-max",
@@ -15,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8.000000000000001e-7,
-    "output": 0.0000032000000000000003
+    "input": 8.000000000000001e-07,
+    "output": 3.2000000000000003e-06
   }
 }

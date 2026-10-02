@@ -1,0 +1,23 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-live-1",
+  "display_name": "GPT-Live-1",
+  "canonical_model": "gpt-live-1",
+  "family": "gpt",
+  "capabilities": [
+    "text",
+    "audio"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "unit": "second",
+    "unit_price": 0.0008333333333333334
+  }
+}

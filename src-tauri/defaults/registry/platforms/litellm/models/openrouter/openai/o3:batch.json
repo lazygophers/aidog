@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/o3:batch",
   "display_name": "OpenAI: o3 (batch)",
   "canonical_model": "o3:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000004
+    "input": 1e-06,
+    "output": 4e-06
   }
 }

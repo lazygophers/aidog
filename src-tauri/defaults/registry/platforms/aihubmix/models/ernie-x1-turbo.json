@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ernie-x1-turbo",
   "canonical_model": "ernie-x1-turbo",
-
   "version": "1",
-  "family": "ernie-x",  "display_name": "ERNIE X1 Turbo",
+  "family": "ernie-x",
+  "display_name": "ERNIE X1 Turbo",
   "thinking_supported": true,
   "max_output_tokens": 28000,
   "context_window": 50500,
@@ -17,7 +21,7 @@
   "max_input_tokens": 50500,
   "official": false,
   "price": {
-    "input": 1.36e-7,
-    "output": 5.44e-7
+    "input": 1.36e-07,
+    "output": 5.44e-07
   }
 }

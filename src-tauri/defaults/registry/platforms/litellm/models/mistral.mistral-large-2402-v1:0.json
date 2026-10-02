@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral.mistral-large-2402-v1:0",
   "display_name": "Mistral Large 1.0",
   "canonical_model": "mistral.mistral-large-2402-v1:0",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000004,
-    "output": 0.000012
+    "input": 4e-06,
+    "output": 1.2e-05
   }
 }

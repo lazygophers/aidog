@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "perplexity/sonar",
   "display_name": "Perplexity: Sonar",
   "canonical_model": "sonar",
@@ -13,7 +15,7 @@
   "max_output_tokens": 128000,
   "official": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.000001
+    "input": 1e-06,
+    "output": 1e-06
   }
 }

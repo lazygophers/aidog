@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "vercel_ai_gateway/meta/llama-3.2-11b",
   "canonical_model": "llama-3.2-11b",
   "capabilities": [
@@ -15,8 +17,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.6e-7,
-    "output": 1.6e-7
+    "input": 1.6e-07,
+    "output": 1.6e-07
   },
   "family": "llama",
   "version": "3.2"

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nvidia_nim/nvidia/llama-3_2-nv-rerankqa-1b-v2",
   "canonical_model": "llama-3_2-nv-rerankqa-1b-v2",
   "capabilities": [

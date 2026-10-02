@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kling/kling-v3-turbo-video-generation",
   "canonical_model": "kling-v3-turbo-video-generation",
   "family": "kling",

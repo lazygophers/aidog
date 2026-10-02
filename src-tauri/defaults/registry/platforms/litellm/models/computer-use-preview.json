@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "computer-use-preview",
   "display_name": "Computer Use Preview",
   "canonical_model": "computer-use-preview",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000003,
-    "output": 0.000012
+    "input": 3e-06,
+    "output": 1.2e-05
   }
 }

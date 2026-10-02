@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ft:o4-mini-2025-04-16",
   "canonical_model": "ft:o4-mini-2025-04-16",
   "family": "o",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000004,
-    "output": 0.000016
+    "input": 4e-06,
+    "output": 1.6e-05
   }
 }

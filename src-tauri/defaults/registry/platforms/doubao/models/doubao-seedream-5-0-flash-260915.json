@@ -1,0 +1,26 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "doubao-seedream-5-0-flash-260915",
+  "display_name": "Doubao-Seedream-5.0-flash-260915",
+  "canonical_model": "doubao-seedream-5-0-flash-260915",
+  "family": "doubao-seedream",
+  "capabilities": [
+    "text_to_image",
+    "image_to_image"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.016666666666666666
+  }
+}

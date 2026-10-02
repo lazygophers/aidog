@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/mistral-nemo",
   "display_name": "Mistral: Mistral Nemo",
   "canonical_model": "mistral-nemo",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.5e-7,
-    "output": 1.5e-7
+    "input": 1.5e-07,
+    "output": 1.5e-07
   }
 }

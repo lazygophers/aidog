@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/meta-llama/llama-3-70b-instruct",
   "display_name": "Aihubmix Llama 3 70B Instruct",
   "canonical_model": "llama-3-70b-instruct",
@@ -14,8 +16,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5.9e-7,
-    "output": 7.9e-7
+    "input": 5.9e-07,
+    "output": 7.9e-07
   },
   "family": "llama",
   "version": "3"

@@ -1,9 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "alicloud-minimax-m2.5",
   "canonical_model": "MiniMax-M2.5",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "context_window": 204800,
   "display_name": "Alicloud Minimax M2.5",
   "version": "2.5",

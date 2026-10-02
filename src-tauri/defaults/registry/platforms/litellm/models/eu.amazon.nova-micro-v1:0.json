@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "eu.amazon.nova-micro-v1:0",
   "display_name": "Amazon: Nova Micro 1.0",
   "canonical_model": "nova-micro-v1",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.6e-8,
-    "output": 1.84e-7
+    "input": 4.6e-08,
+    "output": 1.84e-07
   }
 }

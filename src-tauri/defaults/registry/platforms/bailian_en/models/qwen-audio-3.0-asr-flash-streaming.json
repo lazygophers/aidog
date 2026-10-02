@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-audio-3.0-asr-flash-streaming",
   "display_name": "Qwen-Audio-3.0-ASR-Flash-Streaming",
   "canonical_model": "qwen-audio-3.0-asr-flash-streaming",
   "family": "qwen",
-
-  "version": "3.0",  "capabilities": [
+  "version": "3.0",
+  "capabilities": [
     "audio"
   ],
   "official": false,
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00009
+    "unit_price": 9e-05
   }
 }

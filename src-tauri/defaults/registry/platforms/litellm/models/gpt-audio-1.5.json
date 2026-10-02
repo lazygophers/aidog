@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gpt-audio-1.5",
   "display_name": "GPT-Audio-1.5",
   "canonical_model": "gpt-audio-1.5",
@@ -16,7 +18,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 0.0000025,
-    "output": 0.00001
+    "input": 2.5e-06,
+    "output": 1e-05
   }
 }

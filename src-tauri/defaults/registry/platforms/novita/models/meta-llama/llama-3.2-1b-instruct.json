@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "meta-llama/llama-3.2-1b-instruct",
   "display_name": "Meta: Llama 3.2 1B Instruct",
   "canonical_model": "llama-3.2-1b-instruct",

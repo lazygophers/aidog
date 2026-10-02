@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5.2-chat",
   "display_name": "OpenAI: GPT-5.2 Chat",
   "canonical_model": "gpt-5.2-chat",
@@ -16,7 +18,7 @@
   "max_output_tokens": 32000,
   "official": false,
   "price": {
-    "input": 0.00000175,
-    "output": 0.000014
+    "input": 1.75e-06,
+    "output": 1.4e-05
   }
 }

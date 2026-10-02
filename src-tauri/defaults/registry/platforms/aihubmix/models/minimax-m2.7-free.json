@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "minimax-m2.7-free",
   "canonical_model": "MiniMax-M2.7",
   "display_name": "MiniMax M2.7 (free)",

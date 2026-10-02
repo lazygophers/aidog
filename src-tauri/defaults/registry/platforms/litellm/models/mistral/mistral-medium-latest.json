@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/mistral-medium-latest",
   "canonical_model": "mistral-medium-latest",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000015,
-    "output": 0.0000075
+    "input": 1.5e-06,
+    "output": 7.5e-06
   }
 }

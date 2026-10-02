@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/MAI-DS-R1",
   "canonical_model": "MAI-DS-R1",
   "family": "mai",
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000135,
-    "output": 0.0000054
+    "input": 1.35e-06,
+    "output": 5.4e-06
   }
 }

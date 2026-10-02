@@ -20,7 +20,6 @@
       "gemini-3.6-flash",
       "gemini-3.7-flash",
       "gemini-3-flash-preview",
-      "gemini-2.5-flash-image",
       "gemini-2.5-pro",
       "gemini-2.5-flash",
       "gemini-2.5-flash-lite",
@@ -64,29 +63,22 @@
       "deepseek-ai/deepseek-v3.2-maas",
       "e5/multilingual-e5-large-maas",
       "e5/multilingual-e5-small-maas",
-      "gemini-1.5-flash",
       
       
-      "gemini-2.5-computer-use-preview-10-2025",
       
       "gemini-2.5-flash-lite-preview-06-17",
-      "gemini-2.5-flash-lite-preview-09-2025",
       "gemini-2.5-flash-native-audio-latest",
       "gemini-2.5-flash-native-audio-preview-09-2025",
       "gemini-2.5-flash-native-audio-preview-12-2025",
-      "gemini-2.5-flash-preview-09-2025",
       "gemini-2.5-flash-preview-tts",
       
       
       "gemini-2.5-pro-preview-tts",
       "gemini-3-pro-image",
-      "gemini-3-pro-image-preview",
       
       "gemini-3.1-flash-image",
-      "gemini-3.1-flash-image-preview",
       "gemini-3.1-flash-lite",
       "gemini-3.1-flash-lite-image",
-      "gemini-3.1-flash-lite-preview",
       "gemini-3.1-flash-live-preview",
       "gemini-3.1-flash-tts-preview",
       "gemini-3.1-pro-preview",
@@ -102,7 +94,6 @@
       "gemini-flash-lite-latest",
       "gemini-gemma-2-27b-it",
       "gemini-gemma-2-9b-it",
-      "gemini-live-2.5-flash-preview-native-audio-09-2025",
       "gemini-omni-flash-preview",
       "gemini-omni-1.1-flash",
       

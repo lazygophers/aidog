@@ -60,7 +60,9 @@
       "qwen3.5-27b",
       "qwen3.5-35b-a3b",
       "qwen3.5-397b-a17b",
-      "tao-8k"
+      "tao-8k",
+      "deepseek-v3",
+      "deepseek-v3.1"
     ]
   },
   "name": {

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "emohaa",
   "canonical_model": "emohaa",
   "family": "emohaa",
@@ -12,7 +15,7 @@
   "context_window": 8192,
   "official": true,
   "price": {
-    "input": 0.00000208333,
-    "output": 0.00000208333
+    "input": 2.08333e-06,
+    "output": 2.08333e-06
   }
 }

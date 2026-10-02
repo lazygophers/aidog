@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/eu/gpt-5.6-sol",
   "display_name": "GPT-5.6 Sol",
   "canonical_model": "gpt-5.6-sol",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000044,
-    "output": 0.000022
+    "input": 4.4e-06,
+    "output": 2.2e-05
   }
 }

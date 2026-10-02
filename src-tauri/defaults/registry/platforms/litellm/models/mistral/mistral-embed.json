@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/mistral-embed",
   "display_name": "Mistral Embed",
   "canonical_model": "mistral-embed",
@@ -14,6 +16,6 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7
+    "input": 1e-07
   }
 }

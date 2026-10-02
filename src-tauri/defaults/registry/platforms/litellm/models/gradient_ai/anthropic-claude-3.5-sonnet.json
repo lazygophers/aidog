@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gradient_ai/anthropic-claude-3.5-sonnet",
   "canonical_model": "anthropic-claude-3.5-sonnet",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 1024,
   "official": false,
   "price": {
-    "input": 0.000003,
-    "output": 0.000015
+    "input": 3e-06,
+    "output": 1.5e-05
   }
 }

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-turbo-2024-11-01",
   "canonical_model": "qwen-turbo",
   "display_name": "Qwen Turbo 2024 11-01",
@@ -15,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.6e-8,
-    "output": 9.2e-8
+    "input": 4.6e-08,
+    "output": 9.2e-08
   }
 }

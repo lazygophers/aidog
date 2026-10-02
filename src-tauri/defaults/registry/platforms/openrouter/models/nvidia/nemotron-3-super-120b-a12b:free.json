@@ -1,7 +1,7 @@
 {
   "model_id": "nvidia/nemotron-3-super-120b-a12b:free",
   "display_name": "NVIDIA: Nemotron 3 Super (free)",
-  "canonical_model": "nemotron-3-super-120b-a12b:free",
+  "canonical_model": "nemotron-3-super-120b-a12b",
   "family": "nemotron",
   "version": "3",
   "max_input_tokens": 262144,
@@ -15,7 +15,10 @@
     "output": 0
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "tool_use",

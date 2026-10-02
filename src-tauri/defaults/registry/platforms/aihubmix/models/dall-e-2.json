@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "dall-e-2",
   "canonical_model": "dall-e-2",
-
   "version": "2",
-  "family": "dall-e",  "display_name": "Dall E 2",
+  "family": "dall-e",
+  "display_name": "Dall E 2",
   "capabilities": [
     "vision",
     "text_to_image",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-for-coding",
   "canonical_model": "kimi-for-coding",
   "family": "kimi",
@@ -16,7 +19,7 @@
   "official": true,
   "thinking_supported": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

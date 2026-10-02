@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "inclusionAI/Ling-flash-2.0",
   "canonical_model": "Ling-flash-2.0",
   "display_name": "Ling-flash-2.0",
   "family": "ling",
-
-  "version": "2.0",  "capabilities": [
+  "version": "2.0",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
@@ -14,7 +18,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 1.36e-7,
-    "output": 5.44e-7
+    "input": 1.36e-07,
+    "output": 5.44e-07
   }
 }

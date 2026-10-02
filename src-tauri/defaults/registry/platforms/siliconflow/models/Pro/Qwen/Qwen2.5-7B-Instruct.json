@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "Pro/Qwen/Qwen2.5-7B-Instruct",
   "display_name": "Qwen2.5 7B Instruct",
   "canonical_model": "qwen2.5-7b-instruct",
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.86111e-8,
-    "output": 4.86111e-8
+    "input": 4.86111e-08,
+    "output": 4.86111e-08
   }
 }

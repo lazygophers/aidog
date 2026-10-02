@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "dashscope/glm-5.1",
   "display_name": "GLM-5.1",
   "canonical_model": "glm-5.1",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000014,
-    "output": 0.0000044
+    "input": 1.4e-06,
+    "output": 4.4e-06
   },
   "family": "glm",
   "version": "5.1"

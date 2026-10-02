@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen-vl-plus",
   "display_name": "Qwen-VL-Plus",
   "canonical_model": "qwen-vl-plus",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.1e-7,
-    "output": 6.3e-7
+    "input": 2.1e-07,
+    "output": 6.3e-07
   }
 }

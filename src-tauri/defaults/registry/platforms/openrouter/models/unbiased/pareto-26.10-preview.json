@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "unbiased/pareto-26.10-preview",
+  "display_name": "Pareto 26.10 Preview",
+  "canonical_model": "pareto-26-10-preview",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 8e-07,
+    "output": 3.2e-06,
+    "cache_read": 3e-08
+  }
+}

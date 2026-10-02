@@ -1,11 +1,12 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "qwen_ai_platform/qwen3-vl-32b-thinking",
   "canonical_model": "qwen3-vl-32b-thinking",
   "family": "qwen",
   "version": "3",
-  "family": "qwen",
   "capabilities": [
     "text",
     "vision",
@@ -19,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.6e-7,
-    "output": 0.00000287
+    "input": 1.6e-07,
+    "output": 2.87e-06
   }
 }

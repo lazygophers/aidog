@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "cosyvoice-v3-plus",
   "display_name": "CosyVoice-V3-Plus",
   "canonical_model": "cosyvoice-v3-plus",

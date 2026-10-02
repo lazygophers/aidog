@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/ap-northeast-1/anthropic.claude-instant-v1",
   "canonical_model": "anthropic.claude-instant-v1",
   "family": "claude",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000223,
-    "output": 0.00000755
+    "input": 2.23e-06,
+    "output": 7.55e-06
   }
 }

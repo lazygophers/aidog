@@ -1,7 +1,10 @@
 {
   "max_input_tokens": 256000,
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "Qwen/Qwen3.5-4B",
   "display_name": "Qwen3.5-4B",
   "canonical_model": "qwen3.5-4b",
@@ -13,6 +16,7 @@
   "context_window": 262144,
   "official": true,
   "price": {
+    "free": true,
     "input": 0.0,
     "output": 0.0
   }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "MiniMax-H3-Context-IR",
   "canonical_model": "MiniMax-H3-Context-IR",
   "family": "minimax",
@@ -12,7 +15,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 9e-7,
-    "output": 0.0000036
+    "input": 9e-07,
+    "output": 3.6e-06,
+    "cache_write": 3.75e-07
   }
 }

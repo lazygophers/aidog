@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/qwen/qwen3.6-35b-a3b",
   "display_name": "Qwen3.6-35B-A3B",
   "canonical_model": "qwen3.6-35b-a3b",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.48e-7,
-    "output": 0.0000014850000000000002
+    "input": 2.48e-07,
+    "output": 1.4850000000000002e-06
   },
   "family": "qwen"
 }

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "dots-3-note-preview-free",
   "canonical_model": "dots-3-note-preview-free",
-
-  "family": "dots",  "display_name": "Dots 3 Note Preview (free)",
+  "family": "dots",
+  "display_name": "Dots 3 Note Preview (free)",
   "version": "3",
   "context_window": 524288,
   "capabilities": [

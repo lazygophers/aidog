@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "moonshotai/Kimi-Dev-72B",
   "canonical_model": "kimi-dev-72b",
-
-  "family": "kimi",  "display_name": "Kimi Dev 72B",
+  "family": "kimi",
+  "display_name": "Kimi Dev 72B",
   "capabilities": [],
   "official": false,
   "price": {

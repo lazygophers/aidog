@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-image-test",
   "canonical_model": "gpt-image-test",
-
-  "family": "gpt",  "display_name": "GPT Image Test",
+  "family": "gpt",
+  "display_name": "GPT Image Test",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

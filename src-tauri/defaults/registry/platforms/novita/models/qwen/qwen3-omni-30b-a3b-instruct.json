@@ -1,11 +1,18 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3-omni-30b-a3b-instruct",
   "canonical_model": "Qwen3-Omni-30B-A3B-Instruct",
   "version": "3",
   "family": "qwen",
-  "capabilities": ["text", "vision", "tool_use"],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
   "official": true,
   "price": {
     "input": 2.5e-07,

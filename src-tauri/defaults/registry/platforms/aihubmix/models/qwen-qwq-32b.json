@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-qwq-32b",
   "canonical_model": "qwen-qwq-32b",
-
-  "family": "qwen",  "display_name": "Qwen Qwq 32B",
+  "family": "qwen",
+  "display_name": "Qwen Qwq 32B",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

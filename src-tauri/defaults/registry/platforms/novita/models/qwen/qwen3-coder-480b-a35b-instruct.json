@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3-coder-480b-a35b-instruct",
   "display_name": "Qwen3 Coder 480B A35B Instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "version": "3",
   "family": "qwen",
-  "capabilities": ["text", "tool_use"],
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "google/gemini-exp-1114",
   "canonical_model": "gemini-exp-1114",
-
-  "family": "gemini",  "display_name": "Gemini",
+  "family": "gemini",
+  "display_name": "Gemini",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

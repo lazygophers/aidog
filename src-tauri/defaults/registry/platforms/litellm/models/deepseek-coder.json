@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepseek-coder",
   "display_name": "DeepSeek-Coder",
   "canonical_model": "deepseek-coder",
@@ -17,6 +19,6 @@
   "price": {
     "input": 1.4e-07,
     "output": 2.8e-07,
-  
-  "cache_read": 1.4e-08}
+    "cache_read": 1.4e-08
+  }
 }

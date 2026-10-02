@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "xai/grok-code-fast-1",
   "display_name": "Grok Code Fast 1",
   "canonical_model": "grok-code-fast-1",

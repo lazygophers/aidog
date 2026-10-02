@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "jev-latest",
   "canonical_model": "jev-latest",
-
-  "family": "jev",  "display_name": "Jev",
+  "family": "jev",
+  "display_name": "Jev",
   "context_window": 64000,
   "capabilities": [
     "decision"

@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-omni-flash-realtime-2025-12-01",
   "display_name": "Qwen3-Omni-Flash-Realtime (2025-12-01)",
   "canonical_model": "qwen3-omni-flash-realtime-2025-12-01",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "audio"
   ],
   "context_window": 65536,
@@ -14,7 +17,7 @@
   "max_output_tokens": 16384,
   "official": true,
   "price": {
-    "input": 3.05556e-7,
-    "output": 0.00000115278
+    "input": 3.05556e-07,
+    "output": 1.15278e-06
   }
 }

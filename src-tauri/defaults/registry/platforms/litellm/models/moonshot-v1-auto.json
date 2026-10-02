@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "moonshot-v1-auto",
   "display_name": "Moonshot V1 Auto",
   "canonical_model": "moonshot-v1-auto",

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-image-2",
   "display_name": "GPT-Image-2",
   "canonical_model": "gpt-image-2",
@@ -15,8 +19,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000008,
-    "output": 0.00003,
-    "cache_read": 0.000002
+    "input": 8e-06,
+    "output": 3e-05,
+    "cache_read": 2e-06
   }
 }

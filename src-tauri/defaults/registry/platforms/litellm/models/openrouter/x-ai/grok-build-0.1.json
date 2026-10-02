@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/x-ai/grok-build-0.1",
   "display_name": "Grok Build 0.1",
   "canonical_model": "grok-build-0.1",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000002
+    "input": 1e-06,
+    "output": 2e-06
   }
 }

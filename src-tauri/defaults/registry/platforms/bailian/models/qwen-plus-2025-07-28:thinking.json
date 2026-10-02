@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-plus-2025-07-28:thinking",
   "canonical_model": "qwen-plus-2025-07-28:thinking",
   "family": "qwen",

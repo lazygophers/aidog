@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.6v-flashx",
   "display_name": "GLM-4.6V-FlashX",
   "canonical_model": "glm-4.6v-flashx",
@@ -30,6 +33,5 @@
         "cache_read": 4.166666666666667e-09
       }
     ]
-  },
-  "display_name": "GLM-4.6V-FlashX"
+  }
 }

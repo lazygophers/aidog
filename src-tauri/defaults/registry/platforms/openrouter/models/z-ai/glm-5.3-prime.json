@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "z-ai/glm-5.3-prime",
+  "display_name": "Z.ai: GLM 5.3 Prime",
+  "canonical_model": "glm-5-3-prime",
+  "family": "glm",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 2.8e-06,
+    "output": 8.8e-06,
+    "cache_read": 5.6e-07
+  }
+}

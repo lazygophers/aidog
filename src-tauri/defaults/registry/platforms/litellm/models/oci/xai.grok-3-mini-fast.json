@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "oci/xai.grok-3-mini-fast",
   "canonical_model": "xai.grok-3-mini-fast",
   "family": "grok",
@@ -15,7 +17,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 6e-7,
-    "output": 0.000004
+    "input": 6e-07,
+    "output": 4e-06
   }
 }

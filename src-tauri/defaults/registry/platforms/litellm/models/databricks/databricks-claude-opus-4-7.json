@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-claude-opus-4-7",
   "display_name": "Claude Opus 4.7",
   "canonical_model": "claude-opus-4-7",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000500003,
-    "output": 0.00002500001
+    "input": 5.00003e-06,
+    "output": 2.500001e-05
   }
 }

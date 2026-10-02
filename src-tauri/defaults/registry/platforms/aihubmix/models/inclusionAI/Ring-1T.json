@@ -1,15 +1,19 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "inclusionAI/Ring-1T",
   "canonical_model": "Ring-1T",
-
-  "family": "ring",  "display_name": "Ring 1t",
+  "family": "ring",
+  "display_name": "Ring 1t",
   "thinking_supported": true,
   "capabilities": [],
   "official": false,
   "price": {
-    "input": 5.48e-7,
-    "output": 0.000002192
+    "input": 5.48e-07,
+    "output": 2.192e-06
   }
 }

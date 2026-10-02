@@ -1,13 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihubmix-Llama-3-1-70B-Instruct",
   "canonical_model": "llama-3.1-70b-instruct",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "family": "llama",
   "version": "3.1",
   "display_name": "Aihubmix Llama 3.1 70B Instruct",
-  "capabilities": ["text"],
   "max_output_tokens": 16384,
   "context_window": 131072,
   "max_input_tokens": 131072,

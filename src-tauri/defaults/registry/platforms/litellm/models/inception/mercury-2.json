@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "inception/mercury-2",
   "display_name": "Inception: Mercury 2",
   "canonical_model": "mercury-2",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.5e-7,
-    "output": 7.5e-7
+    "input": 2.5e-07,
+    "output": 7.5e-07
   }
 }

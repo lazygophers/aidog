@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini-2.5-flash-lite-preview-09-2025",
   "display_name": "Gemini 2.5 Flash Lite Preview 09 2025",
   "canonical_model": "gemini-2.5-flash-lite-preview-09-2025",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 4e-7
+    "input": 1e-07,
+    "output": 4e-07
   }
 }

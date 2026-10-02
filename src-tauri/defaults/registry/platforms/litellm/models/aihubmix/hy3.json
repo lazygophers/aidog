@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "aihubmix/hy3",
   "display_name": "Hy3",
   "canonical_model": "hy3",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.562e-7,
-    "output": 6.248e-7
+    "input": 1.562e-07,
+    "output": 6.248e-07
   }
 }

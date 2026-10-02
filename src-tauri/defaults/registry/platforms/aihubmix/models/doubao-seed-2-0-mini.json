@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seed-2-0-mini",
   "canonical_model": "doubao-seed-2-0-mini",
   "family": "doubao-seed",
@@ -16,21 +20,21 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 3.0136e-8,
-    "output": 3.0136e-7,
-    "cache_read": 6.0272e-9,
+    "input": 3.0136e-08,
+    "output": 3.0136e-07,
+    "cache_read": 6.0272e-09,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 6.0274e-8,
-        "output": 6.0274e-7,
-        "cache_read": 1.20548e-8
+        "input": 6.0274e-08,
+        "output": 6.0274e-07,
+        "cache_read": 1.20548e-08
       },
       {
         "min_tokens": 128001,
-        "input": 1.20548e-7,
-        "output": 0.00000120548,
-        "cache_read": 2.41096e-8
+        "input": 1.20548e-07,
+        "output": 1.20548e-06,
+        "cache_read": 2.41096e-08
       }
     ]
   }

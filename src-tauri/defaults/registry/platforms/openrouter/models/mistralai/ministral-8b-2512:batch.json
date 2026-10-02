@@ -1,7 +1,7 @@
 {
   "model_id": "mistralai/ministral-8b-2512:batch",
   "display_name": "Mistral: Ministral 3 8B 2512 (batch)",
-  "canonical_model": "ministral-8b-2512:batch",
+  "canonical_model": "ministral-8b-2512",
   "family": "ministral",
   "version": "3",
   "max_input_tokens": 262144,
@@ -9,12 +9,15 @@
   "official": true,
   "max_output_tokens": 209715,
   "price": {
-    "input": 7.5e-8,
-    "output": 7.5e-8,
-    "cache_read": 7.5e-9
+    "input": 7.5e-08,
+    "output": 7.5e-08,
+    "cache_read": 7.5e-09
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "vision",

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/z-ai/glm-4.6:exacto",
   "canonical_model": "glm-4.6:exacto",
   "capabilities": [
@@ -15,8 +17,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.5e-7,
-    "output": 0.0000019
+    "input": 4.5e-07,
+    "output": 1.9e-06
   },
   "family": "glm",
   "version": "4.6"

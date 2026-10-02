@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-reranker-8b",
   "display_name": "Qwen3 Reranker 8B",
   "canonical_model": "Qwen3-Reranker-8B",

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "claude-opus-4-6",
   "display_name": "Claude Opus 4.6",
   "canonical_model": "claude-opus-4-6",

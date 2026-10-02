@@ -1,17 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-0.6b",
   "canonical_model": "qwen3-0.6b",
-
   "version": "3",
-  "family": "qwen",  "display_name": "Qwen3 0.6b",
+  "family": "qwen",
+  "display_name": "Qwen3 0.6b",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.6e-8,
-    "output": 4.6e-7
+    "input": 4.6e-08,
+    "output": 4.6e-07
   }
 }

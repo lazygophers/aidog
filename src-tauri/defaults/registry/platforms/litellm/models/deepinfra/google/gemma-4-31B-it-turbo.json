@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/google/gemma-4-31B-it-turbo",
   "canonical_model": "gemma-4-31B-it-turbo",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 9e-8,
-    "output": 3.4e-7
+    "input": 9e-08,
+    "output": 3.4e-07
   }
 }

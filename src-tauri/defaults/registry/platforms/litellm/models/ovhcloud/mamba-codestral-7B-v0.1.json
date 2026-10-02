@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ovhcloud/mamba-codestral-7B-v0.1",
   "canonical_model": "mamba-codestral-7B-v0.1",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.9e-7,
-    "output": 1.9e-7
+    "input": 1.9e-07,
+    "output": 1.9e-07
   }
 }

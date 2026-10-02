@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "google/gemini-3.8-flash",
   "canonical_model": "gemini-3.8-flash",
   "family": "gemini",
@@ -18,8 +22,8 @@
   "official": false,
   "price": {
     "input": 7.291666666666667e-07,
-    "output": 3.64583333333,
-    "cache_read": 0.07361111111
+    "output": 3.6458333333e-06,
+    "cache_read": 7.3611111111e-08
   },
   "max_input_tokens": 1048576,
   "max_output_tokens": 65536,

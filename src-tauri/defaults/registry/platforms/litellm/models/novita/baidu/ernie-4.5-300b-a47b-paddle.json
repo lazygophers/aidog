@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/baidu/ernie-4.5-300b-a47b-paddle",
   "canonical_model": "ernie-4.5-300b-a47b-paddle",
   "capabilities": [
@@ -11,8 +13,8 @@
   "max_output_tokens": 12000,
   "official": false,
   "price": {
-    "input": 2.8e-7,
-    "output": 0.0000011
+    "input": 2.8e-07,
+    "output": 1.1e-06
   },
   "family": "ernie",
   "version": "4.5"

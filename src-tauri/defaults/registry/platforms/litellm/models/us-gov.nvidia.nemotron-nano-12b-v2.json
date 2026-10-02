@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "us-gov.nvidia.nemotron-nano-12b-v2",
   "canonical_model": "us-gov.nvidia.nemotron-nano-12b-v2",
   "family": "nemotron",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.4e-7,
-    "output": 7.2e-7
+    "input": 2.4e-07,
+    "output": 7.2e-07
   }
 }

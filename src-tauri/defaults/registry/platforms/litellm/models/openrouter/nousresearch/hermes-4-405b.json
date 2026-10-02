@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/nousresearch/hermes-4-405b",
   "display_name": "Nous: Hermes 4 405B",
   "canonical_model": "hermes-4-405b",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000003
+    "input": 1e-06,
+    "output": 3e-06
   }
 }

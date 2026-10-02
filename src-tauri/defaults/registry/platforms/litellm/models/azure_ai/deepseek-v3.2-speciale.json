@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/deepseek-v3.2-speciale",
   "display_name": "Azure Deepseek V3.2 Speciale",
   "canonical_model": "deepseek-v3.2-speciale",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.8e-7,
-    "output": 0.00000168
+    "input": 5.8e-07,
+    "output": 1.68e-06
   }
 }

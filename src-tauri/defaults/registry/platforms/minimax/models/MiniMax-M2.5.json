@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "MiniMax-M2.5",
   "display_name": "MiniMax M2.5",
   "canonical_model": "MiniMax-M2.5",
@@ -20,6 +23,5 @@
     "output": 1.1666666666666668e-06,
     "cache_read": 2.9166666666666663e-08,
     "cache_write": 3.645833333333333e-07
-  },
-  "display_name": "MiniMax M2.5"
+  }
 }

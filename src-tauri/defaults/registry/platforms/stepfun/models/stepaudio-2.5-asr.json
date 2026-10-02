@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "stepaudio-2.5-asr",
   "display_name": "StepAudio 2.5 ASR",
   "canonical_model": "stepaudio-2.5-asr",
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00000578704
+    "unit_price": 5.78704e-06
   }
 }

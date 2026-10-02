@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "paraformer-mtl-v1",
   "display_name": "Paraformer-MTL",
   "canonical_model": "paraformer-mtl-v1",
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.0000111111
+    "unit_price": 1.11111e-05
   }
 }

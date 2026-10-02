@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/gpt-realtime-whisper",
   "display_name": "GPT Realtime Whisper",
   "canonical_model": "gpt-realtime-whisper",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "gui-plus-2026-02-26",
   "canonical_model": "gui-plus-2026-02-26",
   "capabilities": [
@@ -11,8 +14,8 @@
   "max_output_tokens": 32768,
   "official": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "context_window": 256000
 }

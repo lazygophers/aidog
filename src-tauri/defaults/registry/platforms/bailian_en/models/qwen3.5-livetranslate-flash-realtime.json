@@ -1,11 +1,14 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-livetranslate-flash-realtime",
   "canonical_model": "qwen3.5-livetranslate-flash-realtime",
   "family": "qwen",
-
-  "version": "3.5",  "display_name": "Qwen3.5-LiveTranslate-Flash-Realtime",
+  "version": "3.5",
+  "display_name": "Qwen3.5-LiveTranslate-Flash-Realtime",
   "capabilities": [
     "audio"
   ],
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000075,
-    "output": 0.00002
+    "input": 7.5e-06,
+    "output": 2e-05
   }
 }

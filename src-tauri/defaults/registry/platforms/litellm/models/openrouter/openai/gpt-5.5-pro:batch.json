@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5.5-pro:batch",
   "display_name": "OpenAI: GPT-5.5 Pro (batch)",
   "canonical_model": "gpt-5.5-pro:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000015,
-    "output": 0.00009
+    "input": 1.5e-05,
+    "output": 9e-05
   }
 }

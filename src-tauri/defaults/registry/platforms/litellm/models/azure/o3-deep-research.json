@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/o3-deep-research",
   "display_name": "O3 Deep Research",
   "canonical_model": "o3-deep-research",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00001,
-    "output": 0.00004
+    "input": 1e-05,
+    "output": 4e-05
   }
 }

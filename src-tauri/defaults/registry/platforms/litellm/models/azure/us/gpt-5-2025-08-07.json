@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/us/gpt-5-2025-08-07",
   "display_name": "GPT-5",
   "canonical_model": "gpt-5",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001375,
-    "output": 0.000011
+    "input": 1.375e-06,
+    "output": 1.1e-05
   }
 }

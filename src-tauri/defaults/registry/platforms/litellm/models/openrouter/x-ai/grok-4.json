@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/x-ai/grok-4",
   "display_name": "Grok 4",
   "canonical_model": "grok-4",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000003,
-    "output": 0.000015
+    "input": 3e-06,
+    "output": 1.5e-05
   },
   "family": "grok",
   "version": "4"

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "wandb/zai-org/GLM-5.2",
   "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
@@ -15,8 +17,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7.6e-7,
-    "output": 0.00000242
+    "input": 7.6e-07,
+    "output": 2.42e-06
   },
   "family": "glm",
   "version": "5.2"

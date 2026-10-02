@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Qwen/Qwen3-Next-80B-A3B-Thinking",
   "display_name": "Qwen3 Next 80B A3B Thinking",
   "canonical_model": "qwen3-next-80b-a3b-thinking",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.4e-7,
-    "output": 0.0000014
+    "input": 1.4e-07,
+    "output": 1.4e-06
   }
 }

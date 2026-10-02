@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/nvidia/Llama-3.1-Nemotron-Ultra-253B-v1",
   "display_name": "Llama 3_1 Nemotron Ultra 253B V1",
   "canonical_model": "llama-3.1-nemotron-ultra-253b-v1",
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-7,
-    "output": 0.0000018
+    "input": 6e-07,
+    "output": 1.8e-06
   }
 }

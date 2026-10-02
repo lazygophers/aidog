@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-2.5-flash-native-audio-latest",
   "display_name": "Gemini 2.5 Flash Native Audio (latest)",
   "canonical_model": "gemini-2.5-flash-native-audio-latest",
@@ -16,8 +18,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3e-07,
-    "output": 2.5e-06,
+    "input": 0.5,
+    "output": 2,
     "cache_read": 0
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/anthropic/claude-sonnet-5",
   "display_name": "Claude Sonnet 5",
   "canonical_model": "claude-sonnet-5",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.00001
+    "input": 2e-06,
+    "output": 1e-05
   },
   "family": "claude"
 }

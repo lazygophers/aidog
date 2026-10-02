@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/Qwen/Qwen3.5-397B-A17B",
   "display_name": "Qwen3.5-397B-A17B",
   "canonical_model": "qwen3.5-397b-a17b",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-7,
-    "output": 0.0000036
+    "input": 6e-07,
+    "output": 3.6e-06
   },
   "family": "qwen"
 }

@@ -1,11 +1,14 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.7-max-2026-05-17",
   "canonical_model": "qwen3.7-max-2026-05-17",
   "family": "qwen",
-
-  "version": "3.7",  "display_name": "Qwen3.7-Max (2026-05-17)",
+  "version": "3.7",
+  "display_name": "Qwen3.7-Max (2026-05-17)",
   "capabilities": [
     "text"
   ],
@@ -16,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000025,
-    "output": 0.0000075
+    "input": 2.5e-06,
+    "output": 7.5e-06
   }
 }

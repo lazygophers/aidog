@@ -1,0 +1,26 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "deepseek-v4-1-flash-260910",
+  "display_name": "DeepSeek-V4.1-Flash-260910",
+  "canonical_model": "deepseek-v4-1-flash-260910",
+  "family": "deepseek",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 384000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 1.5e-07,
+    "output": 6e-07,
+    "cache_read": 3e-09
+  }
+}

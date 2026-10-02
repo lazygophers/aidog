@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "Qwen/Qwen3-Reranker-0.6B",
   "display_name": "Qwen3 Reranker 0.6b",
   "canonical_model": "Qwen3-Reranker-0.6B",
@@ -14,6 +17,6 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8
+    "input": 1e-08
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gmi/Qwen/Qwen3-VL-235B-A22B-Instruct-FP8",
   "canonical_model": "Qwen3-VL-235B-A22B-Instruct-FP8",
   "capabilities": [
@@ -12,7 +14,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 3e-7,
-    "output": 0.0000014
+    "input": 3e-07,
+    "output": 1.4e-06
   }
 }

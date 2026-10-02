@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ministral-14b-2512",
   "display_name": "Ministral 3 14B 2512",
   "canonical_model": "ministral-14b-2512",

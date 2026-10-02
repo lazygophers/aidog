@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "stepaudio-3-tts",
+  "display_name": "StepAudio-3-TTS",
+  "canonical_model": "stepaudio-3-tts",
+  "family": "stepfun",
+  "capabilities": [
+    "audio"
+  ],
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "official": true,
+  "price": {
+    "unit": "char",
+    "unit_price": 0.034722222222222224
+  }
+}

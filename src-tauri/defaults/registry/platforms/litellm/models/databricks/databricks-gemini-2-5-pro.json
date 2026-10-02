@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-gemini-2-5-pro",
   "display_name": "Gemini 2.5 Pro",
   "canonical_model": "gemini-2.5-pro",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000124999,
-    "output": 0.000009999990000000002
+    "input": 1.24999e-06,
+    "output": 9.999990000000002e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/meta-models/Muse-Glimmer-30B",
   "display_name": "Meta: Muse Glimmer 30B",
   "canonical_model": "muse-glimmer-30b",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3e-7,
-    "output": 0.0000012
+    "input": 3e-07,
+    "output": 1.2e-06
   }
 }

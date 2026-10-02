@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "o1-preview",
   "canonical_model": "o1-preview",
   "display_name": "O1 Preview",
@@ -16,8 +20,8 @@
   ],
   "official": false,
   "price": {
-    "input": 0.000015,
-    "output": 0.00006,
-    "cache_read": 0.0000075
+    "input": 1.5e-05,
+    "output": 6e-05,
+    "cache_read": 7.5e-06
   }
 }

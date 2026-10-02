@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qvq-max",
   "display_name": "QVQ-Max",
   "canonical_model": "qvq-max",
@@ -17,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000012,
-    "output": 0.0000048
+    "input": 1.2e-06,
+    "output": 4.8e-06
   }
 }

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "veo-3.0-generate-preview",
   "canonical_model": "veo-3.0-generate-preview",
-
   "version": "3.0",
-  "family": "veo",  "display_name": "Veo 3.0 Generate Preview",
+  "family": "veo",
+  "display_name": "Veo 3.0 Generate Preview",
   "capabilities": [
     "vision",
     "text_to_video",

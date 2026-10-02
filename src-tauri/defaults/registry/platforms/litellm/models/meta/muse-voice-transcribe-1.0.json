@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "meta/muse-voice-transcribe-1.0",
   "display_name": "Muse Voice Transcribe 1.0",
   "canonical_model": "muse-voice-transcribe-1.0",
@@ -12,7 +14,7 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00005
+    "unit_price": 5e-05
   },
   "family": "muse",
   "version": "1.0"

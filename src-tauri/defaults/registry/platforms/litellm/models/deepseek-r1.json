@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepseek-r1",
   "display_name": "DeepSeek: R1",
   "canonical_model": "DeepSeek-R1",
@@ -18,6 +20,6 @@
   "price": {
     "input": 5.5e-07,
     "output": 2.19e-06,
-  
-  "cache_read": 1.4e-07}
+    "cache_read": 1.4e-07
+  }
 }

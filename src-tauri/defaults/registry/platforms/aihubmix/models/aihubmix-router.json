@@ -1,17 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihubmix-router",
   "canonical_model": "aihubmix-router",
-
-  "family": "aihubmix",  "display_name": "Aihubmix Router",
+  "family": "aihubmix",
+  "display_name": "Aihubmix Router",
   "capabilities": [],
   "context_window": 200000,
   "max_output_tokens": 32768,
   "official": false,
   "price": {
-    "input": 4e-7,
-    "output": 0.0000016,
-    "cache_read": 1e-7
+    "input": 4e-07,
+    "output": 1.6e-06,
+    "cache_read": 1e-07
   }
 }

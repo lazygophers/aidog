@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "mistral-nemo@2407",
   "display_name": "Mistral NeMo",
   "canonical_model": "mistral-nemo@2407",

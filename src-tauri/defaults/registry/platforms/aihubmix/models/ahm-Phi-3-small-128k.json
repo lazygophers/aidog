@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ahm-Phi-3-small-128k",
   "canonical_model": "phi-3-small-128k",
-
   "version": "3",
-  "family": "phi",  "display_name": "Ahm Phi 3 Small 128K",
+  "family": "phi",
+  "display_name": "Ahm Phi 3 Small 128K",
   "capabilities": [],
   "max_input_tokens": 131072,
   "context_window": 131072,

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "FLUX-1.1-pro",
   "canonical_model": "flux-1.1-pro",
-
   "version": "1.1",
-  "family": "flux",  "display_name": "Flux 1.1 Pro",
+  "family": "flux",
+  "display_name": "Flux 1.1 Pro",
   "capabilities": [
     "vision",
     "text_to_image",

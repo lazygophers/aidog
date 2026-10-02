@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Sao10K/L3-8B-Lunaris-v1-Turbo",
   "canonical_model": "L3-8B-Lunaris-v1-Turbo",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 8192,
   "official": false,
   "price": {
-    "input": 4e-8,
-    "output": 5e-8
+    "input": 4e-08,
+    "output": 5e-08
   }
 }

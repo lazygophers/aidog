@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/thenlper/gte-large",
   "canonical_model": "gte-large",
   "family": "gte",
@@ -12,7 +14,7 @@
   "max_output_tokens": 512,
   "official": false,
   "price": {
-    "input": 1.6e-8,
+    "input": 1.6e-08,
     "output": 0
   }
 }

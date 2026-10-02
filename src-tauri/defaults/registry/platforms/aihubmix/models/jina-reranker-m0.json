@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "jina-reranker-m0",
   "canonical_model": "jina-reranker-m0",
-
-  "family": "jina",  "display_name": "Jina Reranker M0",
+  "family": "jina",
+  "display_name": "Jina Reranker M0",
   "capabilities": [
     "vision",
     "rerank"

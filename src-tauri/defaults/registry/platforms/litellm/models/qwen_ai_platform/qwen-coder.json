@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "qwen_ai_platform/qwen-coder",
   "display_name": "Qwen-Coder",
   "canonical_model": "qwen-coder",
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3e-7,
-    "output": 0.0000015
+    "input": 3e-07,
+    "output": 1.5e-06
   }
 }

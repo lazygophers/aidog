@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "inclusionai/ling-2.6-1t",
   "canonical_model": "ling-2.6-1t",
   "family": "ling",
