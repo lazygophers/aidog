@@ -1,0 +1,20 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "stealth/space-bunny-alpha",
+  "display_name": "Space Bunny Alpha",
+  "canonical_model": "space-bunny-alpha",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.6-max-preview",
   "canonical_model": "qwen3.6-max-preview",
   "display_name": "Qwen3.6 Max Preview",
   "family": "qwen",
-
-  "version": "3.6",  "thinking_supported": true,
+  "version": "3.6",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -16,22 +20,22 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001268,
-    "output": 0.000007608,
-    "cache_read": 1.268e-7,
-  "cache_write": 1.5849999999999999e-06,
+    "input": 1.268e-06,
+    "output": 7.608e-06,
+    "cache_read": 1.268e-07,
+    "cache_write": 1.5849999999999999e-06,
     "context_tiers": [
       {
         "min_tokens": 1,
-        "input": 0.000001268,
-        "output": 0.000007608,
-        "cache_read": 1.268e-7
+        "input": 1.268e-06,
+        "output": 7.608e-06,
+        "cache_read": 1.268e-07
       },
       {
         "min_tokens": 128001,
-        "input": 0.000002112,
-        "output": 0.000012672,
-        "cache_read": 2.112e-7
+        "input": 2.112e-06,
+        "output": 1.2672e-05,
+        "cache_read": 2.112e-07
       }
     ]
   }

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "command-a-plus-05-2026",
   "canonical_model": "command-a-plus-05-2026",
-
-  "family": "command",  "display_name": "Command A Plus 05 2026",
+  "family": "command",
+  "display_name": "Command A Plus 05 2026",
   "thinking_supported": true,
   "max_output_tokens": 64000,
   "context_window": 128000,
@@ -18,7 +22,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000025,
-    "output": 0.00001
+    "input": 2.5e-06,
+    "output": 1e-05
   }
 }

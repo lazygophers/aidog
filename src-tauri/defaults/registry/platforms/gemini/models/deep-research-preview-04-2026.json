@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "deep-research-preview-04-2026",
   "canonical_model": "deep-research-preview-04-2026",
   "family": "deep-research",

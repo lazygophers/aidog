@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "happyhorse-1.1-r2v",
   "display_name": "Happyhorse 1.1 R2v",
   "canonical_model": "happyhorse-1.1-r2v",

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "whisper-large-v3-turbo",
   "canonical_model": "whisper-large-v3-turbo",
-
   "version": "3",
-  "family": "whisper",  "display_name": "Whisper Large V3 Turbo",
+  "family": "whisper",
+  "display_name": "Whisper Large V3 Turbo",
   "capabilities": [
     "audio"
   ],

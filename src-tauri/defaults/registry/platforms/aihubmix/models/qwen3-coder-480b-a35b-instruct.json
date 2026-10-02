@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-coder-480b-a35b-instruct",
   "canonical_model": "qwen3-coder-480b-a35b-instruct",
   "display_name": "Qwen3 Coder 480B A35B Instruct",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262000,
@@ -21,13 +25,13 @@
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 0.00000123288,
-        "output": 0.00000493152
+        "input": 1.23288e-06,
+        "output": 4.93152e-06
       },
       {
         "min_tokens": 128001,
-        "input": 0.00000205479,
-        "output": 0.00000821916
+        "input": 2.05479e-06,
+        "output": 8.21916e-06
       }
     ]
   }

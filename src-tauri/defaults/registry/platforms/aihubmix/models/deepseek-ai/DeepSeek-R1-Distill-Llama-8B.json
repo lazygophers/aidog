@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
   "canonical_model": "deepseek-r1-distill-llama-8b",
-
-  "family": "deepseek",  "display_name": "DeepSeek R1 Distill Llama 8B",
+  "family": "deepseek",
+  "display_name": "DeepSeek R1 Distill Llama 8B",
   "capabilities": [],
   "official": false,
   "price": {

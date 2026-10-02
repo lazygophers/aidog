@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "moonshotai/Kimi-K3",
   "canonical_model": "kimi-k3",
   "version": "3",
@@ -15,9 +18,9 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3e-06,
-    "cache_read": 3e-07,
-    "output": 1.5e-05
+    "input": 2.7,
+    "cache_read": 0.27,
+    "output": 13.5
   },
   "context_window": 1048576
 }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "Qwen/Qwen3-VL-32B-Thinking",
   "canonical_model": "qwen3-vl-32b-thinking",
   "version": "3",
@@ -17,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.38889e-7,
-    "output": 0.00000138889
+    "input": 1.38889e-07,
+    "output": 1.38889e-06
   }
 }

@@ -1,9 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "o3-deep-research",
   "canonical_model": "o3-deep-research",
-  "capabilities": ["text","vision","reasoning"],
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
   "display_name": "O3 Deep Research",
   "family": "o",
   "version": "3",

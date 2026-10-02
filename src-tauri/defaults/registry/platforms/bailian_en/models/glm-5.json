@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-5",
   "display_name": "GLM-5",
   "canonical_model": "glm-5",
@@ -19,13 +22,13 @@
   "context_window": 200000,
   "official": false,
   "price": {
-    "input": 5.73e-7,
-    "output": 0.00000258,
+    "input": 5.73e-07,
+    "output": 2.58e-06,
     "context_tiers": [
       {
         "min_tokens": 32769,
-        "input": 8.6e-7,
-        "output": 0.0000031539999999999998
+        "input": 8.6e-07,
+        "output": 3.1539999999999998e-06
       }
     ]
   }

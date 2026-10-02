@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-west-2/moonshotai.kimi-k2-thinking",
   "display_name": "Kimi K2 Thinking",
   "canonical_model": "kimi-k2-thinking",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-7,
-    "output": 0.0000025
+    "input": 6e-07,
+    "output": 2.5e-06
   }
 }

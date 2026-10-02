@@ -2,12 +2,16 @@
   "context_window": 1000000,
   "max_input_tokens": 1000000,
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "MiniMaxAI/MiniMax-M1-80k",
   "canonical_model": "minimax-m1-80k",
-
   "version": "1",
-  "family": "minimax",  "display_name": "MiniMax M1 80K",
+  "family": "minimax",
+  "display_name": "MiniMax M1 80K",
   "capabilities": [],
   "official": false,
   "thinking_supported": true,

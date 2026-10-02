@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~anthropic/claude-haiku-latest",
   "display_name": "Anthropic: Claude Haiku Latest",
   "canonical_model": "claude-haiku-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000005
+    "input": 1e-06,
+    "output": 5e-06
   }
 }

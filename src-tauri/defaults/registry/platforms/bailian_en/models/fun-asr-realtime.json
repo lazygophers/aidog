@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "fun-asr-realtime",
   "display_name": "Fun-ASR-Realtime",
   "canonical_model": "fun-asr-realtime",
@@ -13,6 +16,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00009
+    "unit_price": 9e-05
   }
 }

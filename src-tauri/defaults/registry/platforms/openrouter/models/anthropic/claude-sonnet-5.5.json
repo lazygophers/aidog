@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "anthropic/claude-sonnet-5.5",
+  "display_name": "Anthropic: Claude Sonnet 5.5",
+  "canonical_model": "claude-sonnet-5-5",
+  "family": "claude",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 2e-06,
+    "output": 1e-05,
+    "cache_read": 2e-07
+  }
+}

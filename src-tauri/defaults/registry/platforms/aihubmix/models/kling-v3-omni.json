@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kling-v3-omni",
   "canonical_model": "kling-v3-omni",
-
   "version": "3",
-  "family": "kling",  "display_name": "Kling V3 Omni",
+  "family": "kling",
+  "display_name": "Kling V3 Omni",
   "capabilities": [
     "vision",
     "text_to_video",

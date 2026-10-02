@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemini-embedding-exp-03-07",
   "canonical_model": "gemini-embedding-exp-03-07",
-
-  "family": "gemini",  "display_name": "Gemini Embedding",
+  "family": "gemini",
+  "display_name": "Gemini Embedding",
   "capabilities": [
     "embedding"
   ],

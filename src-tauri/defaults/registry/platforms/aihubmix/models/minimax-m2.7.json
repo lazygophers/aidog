@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "minimax-m2.7",
   "canonical_model": "MiniMax-M2.7",
   "display_name": "MiniMax M2.7",
@@ -16,8 +20,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.958e-7,
-    "output": 0.0000011832,
-    "cache_read": 5.916e-8
+    "input": 2.958e-07,
+    "output": 1.1832e-06,
+    "cache_read": 5.916e-08
   }
 }

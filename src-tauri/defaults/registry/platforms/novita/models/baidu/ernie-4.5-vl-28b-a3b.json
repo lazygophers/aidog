@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "baidu/ernie-4.5-vl-28b-a3b",
   "canonical_model": "ernie-4.5-vl-28b-a3b",
   "version": "4.5",

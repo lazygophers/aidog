@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/deepseek/deepseek-prover-v2-671b",
   "display_name": "DeepSeek Prover V2 671B",
   "canonical_model": "deepseek-prover-v2-671b",
@@ -12,8 +14,8 @@
   "max_output_tokens": 160000,
   "official": false,
   "price": {
-    "input": 7e-7,
-    "output": 0.0000025
+    "input": 7e-07,
+    "output": 2.5e-06
   },
   "family": "deepseek",
   "version": "2"

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-gemini-3-5-flash",
   "display_name": "Gemini 3.5 Flash",
   "canonical_model": "gemini-3.5-flash",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000187502,
-    "output": 0.00001124998
+    "input": 1.87502e-06,
+    "output": 1.124998e-05
   }
 }

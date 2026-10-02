@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "longcat-2.0",
   "canonical_model": "LongCat-2.0",
   "display_name": "Longcat 2.0",
@@ -16,8 +20,8 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 7.746e-7,
-    "output": 0.0000030984,
-    "cache_read": 1.5492e-8
+    "input": 7.746e-07,
+    "output": 3.0984e-06,
+    "cache_read": 1.5492e-08
   }
 }

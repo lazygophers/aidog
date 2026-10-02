@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "perceptron/perceptron-mk1.5",
+  "display_name": "Perceptron: Perceptron Mk1.5",
+  "canonical_model": "perceptron-mk1-5",
+  "capabilities": [
+    "text",
+    "vision",
+    "audio"
+  ],
+  "max_input_tokens": 36864,
+  "context_window": 36864,
+  "official": true,
+  "price": {
+    "input": 1.5e-07,
+    "output": 1.5e-06
+  }
+}

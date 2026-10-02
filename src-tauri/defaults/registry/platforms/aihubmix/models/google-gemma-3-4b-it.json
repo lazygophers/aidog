@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "google-gemma-3-4b-it",
   "canonical_model": "google-gemma-3-4b-it",
-
   "version": "3",
-  "family": "gemma",  "display_name": "Google Gemma 3 4B It",
+  "family": "gemma",
+  "display_name": "Google Gemma 3 4B It",
   "capabilities": [],
   "max_output_tokens": 8000,
   "official": false,

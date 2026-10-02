@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-4o-2024-05-13",
   "display_name": "GPT-4o (2024-05-13)",
   "canonical_model": "gpt-4o-2024-05-13",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000005,
-    "output": 0.000015
+    "input": 5e-06,
+    "output": 1.5e-05
   }
 }

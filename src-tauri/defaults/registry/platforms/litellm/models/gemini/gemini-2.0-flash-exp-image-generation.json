@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemini-2.0-flash-exp-image-generation",
   "canonical_model": "gemini-2.0-flash-exp-image-generation",
   "family": "gemini",

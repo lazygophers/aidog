@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-1-5-pro-32k-character-250715",
   "canonical_model": "doubao-1-5-pro-32k-character-250715",
   "family": "doubao-pro",

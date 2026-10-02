@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-k3",
   "display_name": "Kimi-K3",
   "canonical_model": "kimi-k3",
@@ -14,8 +17,8 @@
   "max_input_tokens": 1048576,
   "official": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "max_output_tokens": 1048576,
   "context_window": 1048576

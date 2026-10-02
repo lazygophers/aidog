@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/o3-mini-high",
   "display_name": "OpenAI: o3 Mini High",
   "canonical_model": "o3-mini-high",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000011,
-    "output": 0.0000044
+    "input": 1.1e-06,
+    "output": 4.4e-06
   }
 }

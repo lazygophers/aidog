@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "global.moonshotai.kimi-k3",
   "display_name": "Kimi-K3",
   "canonical_model": "kimi-k3",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000003,
-    "output": 0.000015
+    "input": 3e-06,
+    "output": 1.5e-05
   }
 }

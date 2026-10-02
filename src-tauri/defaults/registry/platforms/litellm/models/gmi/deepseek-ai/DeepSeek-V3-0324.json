@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gmi/deepseek-ai/DeepSeek-V3-0324",
   "display_name": "DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",
@@ -14,8 +16,8 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 2.8e-7,
-    "output": 8.8e-7
+    "input": 2.8e-07,
+    "output": 8.8e-07
   },
   "version": "3"
 }

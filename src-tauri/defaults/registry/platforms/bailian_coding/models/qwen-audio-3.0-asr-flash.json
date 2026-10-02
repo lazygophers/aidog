@@ -1,19 +1,22 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-audio-3.0-asr-flash",
   "display_name": "Qwen-Audio-3.0-ASR-Flash",
   "canonical_model": "qwen-audio-3.0-asr-flash",
   "family": "qwen",
-
-  "version": "3.0",  "capabilities": [
+  "version": "3.0",
+  "capabilities": [
     "audio"
   ],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

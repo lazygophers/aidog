@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gradient_ai/openai-o3",
   "canonical_model": "openai-o3",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 100000,
   "official": false,
   "price": {
-    "input": 0.000002,
-    "output": 0.000008
+    "input": 2e-06,
+    "output": 8e-06
   }
 }

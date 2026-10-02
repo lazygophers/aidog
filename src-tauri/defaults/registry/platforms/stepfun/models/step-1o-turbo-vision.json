@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "step-1o-turbo-vision",
   "display_name": "Step-1o Turbo Vision",
   "canonical_model": "step-1o-turbo-vision",
@@ -17,6 +20,7 @@
   "thinking_toggleable": false,
   "price": {
     "input": 3.472222222222222e-07,
-    "output": 1.1111111111111112e-06
+    "output": 1.1111111111111112e-06,
+    "cache_read": 0.069444
   }
 }

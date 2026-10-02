@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5.6-terra:batch",
   "display_name": "OpenAI: GPT-5.6 Terra (batch)",
   "canonical_model": "gpt-5.6-terra:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001,
-    "output": 0.000006
+    "input": 1e-06,
+    "output": 6e-06
   }
 }

@@ -1,17 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Qwen/Qwen2.5-VL-32B-Instruct",
   "canonical_model": "Qwen2.5-VL-32B-Instruct",
-
   "version": "2.5",
-  "family": "qwen",  "display_name": "Qwen2.5 VL 32B Instruct",
+  "family": "qwen",
+  "display_name": "Qwen2.5 VL 32B Instruct",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.4e-7,
-    "output": 2.4e-7
+    "input": 2.4e-07,
+    "output": 2.4e-07
   }
 }

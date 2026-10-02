@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "step-3.5-flash-2603",
   "display_name": "Step 3.5 Flash (2603)",
   "canonical_model": "step-3.5-flash-2603",

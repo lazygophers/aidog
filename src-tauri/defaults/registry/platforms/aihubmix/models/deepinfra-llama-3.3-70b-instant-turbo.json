@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepinfra-llama-3.3-70b-instant-turbo",
   "canonical_model": "llama-3.3-70b-instant-turbo",
-
-  "family": "llama",  "display_name": "Deepinfra Llama 3.3 70B Instant Turbo",
+  "family": "llama",
+  "display_name": "Deepinfra Llama 3.3 70B Instant Turbo",
   "version": "3.3",
   "capabilities": [],
   "official": false,

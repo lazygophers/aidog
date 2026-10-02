@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral/mistral-code-latest",
   "canonical_model": "mistral-code-latest",
   "capabilities": [
@@ -12,7 +14,7 @@
   "max_output_tokens": 128000,
   "official": false,
   "price": {
-    "input": 3e-7,
-    "output": 9e-7
+    "input": 3e-07,
+    "output": 9e-07
   }
 }

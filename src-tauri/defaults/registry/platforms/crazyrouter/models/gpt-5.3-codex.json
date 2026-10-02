@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-5.3-codex",
   "display_name": "GPT-5.3-Codex",
   "canonical_model": "gpt-5.3-codex",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "SenseChat-Character",
   "canonical_model": "SenseChat-Character",
   "family": "sensenova",
@@ -14,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000166667,
-    "output": 0.00000166667
+    "input": 1.66667e-06,
+    "output": 1.66667e-06
   }
 }

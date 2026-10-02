@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
   "canonical_model": "nemotron-3-nano-omni-30b-a3b-reasoning-free",
-
   "version": "3",
-  "family": "nemotron",  "display_name": "Nemotron 3 Nano Omni 30B A3B (reasoning) (free)",
+  "family": "nemotron",
+  "display_name": "Nemotron 3 Nano Omni 30B A3B (reasoning) (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

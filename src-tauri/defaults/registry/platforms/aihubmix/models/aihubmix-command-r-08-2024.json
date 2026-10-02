@@ -1,16 +1,20 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihubmix-command-r-08-2024",
   "canonical_model": "aihubmix-command-r-08-2024",
-
-  "family": "command",  "display_name": "Aihubmix Command R 08 2024",
+  "family": "command",
+  "display_name": "Aihubmix Command R 08 2024",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2e-7,
-    "output": 8e-7
+    "input": 2e-07,
+    "output": 8e-07
   }
 }

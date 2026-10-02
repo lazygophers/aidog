@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-seedance-1-0-pro-fast-251015",
   "display_name": "Doubao Seedance 1.0 Pro Fast 251015",
   "canonical_model": "doubao-seedance-1-0-pro-fast-251015",
@@ -15,6 +19,6 @@
   "thinking_toggleable": false,
   "price": {
     "input": 0,
-    "output": 5.83333e-7
+    "output": 5.83333e-07
   }
 }

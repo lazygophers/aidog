@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "MiniMax/speech-2.8-turbo",
   "display_name": "Speech 2.8 Turbo",
   "canonical_model": "speech-2.8-turbo",

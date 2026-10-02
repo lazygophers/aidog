@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/kimi-k3-fast",
   "canonical_model": "kimi-k3-fast",
   "family": "kimi",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000045,
-    "output": 0.0000225
+    "input": 4.5e-06,
+    "output": 2.25e-05
   }
 }

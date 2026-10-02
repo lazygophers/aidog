@@ -1,0 +1,25 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "doubao-seed-2-1-lite-260915",
+  "display_name": "Doubao-Seed-2.1-lite-260915",
+  "canonical_model": "doubao-seed-2-1-lite-260915",
+  "family": "doubao-seed",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 262144,
+  "max_output_tokens": 65536,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 1.1111111111111111e-07,
+    "output": 3.75e-07
+  }
+}

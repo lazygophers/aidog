@@ -30,7 +30,9 @@
       "grok-stt",
       "grok-tts",
       "grok-voice-think-fast-1.0",
-      "grok-voice-think-fast-2.0"
+      "grok-voice-think-fast-2.0",
+      "grok-4.7",
+      "grok-imagine-video-1.5-lite"
     ]
   },
   "name": {

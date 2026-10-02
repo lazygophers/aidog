@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3.8-2.4t-a95b",
   "display_name": "Qwen3.8-2.4T-A95B",
   "canonical_model": "qwen3.8-2.4t-a95b",
@@ -8,7 +11,11 @@
   "family": "qwen",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "official": true,
   "price": {
     "input": 2e-06,

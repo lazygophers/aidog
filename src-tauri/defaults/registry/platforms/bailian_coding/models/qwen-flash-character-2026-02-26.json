@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-flash-character-2026-02-26",
   "canonical_model": "qwen-flash-character-2026-02-26",
   "family": "qwen",
@@ -11,8 +14,8 @@
   "max_output_tokens": 32768,
   "official": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "display_name": "Qwen-Flash-Character (2026-02-26)",
   "context_window": 262144

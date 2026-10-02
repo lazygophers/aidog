@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/inclusionAI/Ling-3.0-flash",
   "display_name": "Ling 3.0 Flash",
   "canonical_model": "ling-3.0-flash",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 1.8e-7
+    "input": 6e-08,
+    "output": 1.8e-07
   }
 }

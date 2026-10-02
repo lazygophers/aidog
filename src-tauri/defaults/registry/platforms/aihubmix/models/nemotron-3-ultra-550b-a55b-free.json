@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "nemotron-3-ultra-550b-a55b-free",
   "canonical_model": "nemotron-3-ultra-550b-a55b-free",
-
   "version": "3",
-  "family": "nemotron",  "display_name": "Nemotron 3 Ultra 550B A55B (free)",
+  "family": "nemotron",
+  "display_name": "Nemotron 3 Ultra 550B A55B (free)",
   "context_window": 1048576,
   "capabilities": [
     "text",

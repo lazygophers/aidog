@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepinfra-nvidia-nemotron-3-nano-30b-a3b2",
   "canonical_model": "nvidia-nemotron-3-nano-30b-a3b2",
-
   "version": "3",
-  "family": "nemotron",  "display_name": "Deepinfra Nvidia Nemotron 3 Nano 30B A3b2",
+  "family": "nemotron",
+  "display_name": "Deepinfra Nvidia Nemotron 3 Nano 30B A3b2",
   "capabilities": [],
   "official": false,
   "price": {

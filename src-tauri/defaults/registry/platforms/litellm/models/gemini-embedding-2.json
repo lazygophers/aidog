@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini-embedding-2",
   "display_name": "Gemini Embedding 2",
   "canonical_model": "gemini-embedding-2",

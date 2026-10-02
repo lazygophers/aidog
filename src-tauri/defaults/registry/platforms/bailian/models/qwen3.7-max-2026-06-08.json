@@ -1,11 +1,14 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.7-max-2026-06-08",
   "canonical_model": "qwen3.7-max-2026-06-08",
   "family": "qwen",
-
-  "version": "3.7",  "display_name": "Qwen3.7-Max (2026-06-08)",
+  "version": "3.7",
+  "display_name": "Qwen3.7-Max (2026-06-08)",
   "capabilities": [
     "text"
   ],

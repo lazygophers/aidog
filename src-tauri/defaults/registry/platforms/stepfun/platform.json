@@ -39,7 +39,14 @@
       "stepaudio-2.5-asr-stream",
       "stepaudio-2.5-chat",
       "stepaudio-2.5-realtime",
-      "stepaudio-2.5-tts"
+      "stepaudio-2.5-tts",
+      "step-5-preview",
+      "stepaudio-3-tts",
+      "stepaudio-3-asr-max",
+      "stepaudio-3-chat",
+      "stepaudio-3-realtime-preview",
+      "stepaudio-3-gen",
+      "stepaudio-3-music-preview"
     ]
   },
   "name": {

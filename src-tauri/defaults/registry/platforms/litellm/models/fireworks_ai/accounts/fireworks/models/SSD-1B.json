@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/SSD-1B",
   "canonical_model": "SSD-1B",
   "capabilities": [

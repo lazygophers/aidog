@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/inception/mercury-2.5",
   "display_name": "Mercury 2.5",
   "canonical_model": "mercury-2.5",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4e-8,
-    "output": 1.5e-7
+    "input": 4e-08,
+    "output": 1.5e-07
   }
 }

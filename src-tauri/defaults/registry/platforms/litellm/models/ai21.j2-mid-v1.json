@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ai21.j2-mid-v1",
   "display_name": "J2 Mid",
   "canonical_model": "ai21.j2-mid-v1",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000125,
-    "output": 0.0000125
+    "input": 1.25e-05,
+    "output": 1.25e-05
   }
 }

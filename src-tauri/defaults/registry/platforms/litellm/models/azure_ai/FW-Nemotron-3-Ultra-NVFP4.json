@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/FW-Nemotron-3-Ultra-NVFP4",
   "canonical_model": "FW-Nemotron-3-Ultra-NVFP4",
   "family": "nemotron",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6.6e-7,
-    "output": 0.00000264
+    "input": 6.6e-07,
+    "output": 2.64e-06
   }
 }

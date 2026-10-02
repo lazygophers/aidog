@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-gte-large-en",
   "canonical_model": "databricks-gte-large-en",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 8192,
   "official": false,
   "price": {
-    "input": 1.2999000000000001e-7,
+    "input": 1.2999000000000001e-07,
     "output": 0
   }
 }

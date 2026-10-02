@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemma-4-31b-it",
   "display_name": "Gemma 4 31B",
   "canonical_model": "gemma-4-31b-it",

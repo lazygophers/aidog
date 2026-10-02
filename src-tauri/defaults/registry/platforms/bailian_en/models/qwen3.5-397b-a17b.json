@@ -1,11 +1,14 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
   "family": "qwen",
-
-  "version": "3.5",  "display_name": "Qwen3.5-397B-A17B",
+  "version": "3.5",
+  "display_name": "Qwen3.5-397B-A17B",
   "capabilities": [
     "text"
   ],

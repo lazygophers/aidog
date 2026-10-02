@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/google/gemma-2b-it-lora",
   "canonical_model": "gemma-2b-it-lora",
   "family": "gemma",

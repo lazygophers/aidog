@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/meta-llama/llama-4-maverick",
   "display_name": "Llama 4 Maverick",
   "canonical_model": "llama-4-maverick",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.875e-7,
-    "output": 6.525e-7
+    "input": 1.875e-07,
+    "output": 6.525e-07
   }
 }

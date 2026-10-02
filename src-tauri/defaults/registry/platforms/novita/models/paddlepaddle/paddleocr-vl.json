@@ -1,9 +1,15 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "paddlepaddle/paddleocr-vl",
   "canonical_model": "paddleocr-vl",
-  "capabilities": ["text", "vision"],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

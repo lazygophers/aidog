@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.7-text-embedding-flash",
   "display_name": "Qwen3.7-Text-Embedding-Flash",
   "canonical_model": "qwen3.7-text-embedding-flash",
   "family": "qwen",
-
-  "version": "3.7",  "capabilities": [
+  "version": "3.7",
+  "capabilities": [
     "embedding"
   ],
   "context_window": 131072,

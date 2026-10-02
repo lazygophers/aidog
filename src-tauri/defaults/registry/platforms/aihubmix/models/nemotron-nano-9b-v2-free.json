@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "nemotron-nano-9b-v2-free",
   "canonical_model": "nemotron-nano-9b-v2-free",
-
   "version": "2",
-  "family": "nemotron",  "display_name": "Nemotron Nano 9B V2 (free)",
+  "family": "nemotron",
+  "display_name": "Nemotron Nano 9B V2 (free)",
   "context_window": 131072,
   "capabilities": [
     "text",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "BAAI/bge-large-en-v1.5",
   "display_name": "Bge Large En V1.5",
   "canonical_model": "bge-large-en-v1.5",

@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-235b-a22b",
   "display_name": "Qwen3 235B A22B",
   "canonical_model": "qwen3-235b-a22b",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 131072,
@@ -16,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7e-7,
-    "output": 0.0000028
+    "input": 7e-07,
+    "output": 2.8e-06
   }
 }

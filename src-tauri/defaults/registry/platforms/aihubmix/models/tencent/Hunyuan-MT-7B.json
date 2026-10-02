@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "tencent/Hunyuan-MT-7B",
   "canonical_model": "hunyuan-mt-7b",
-
-  "family": "hunyuan",  "display_name": "Hunyuan Mt 7B",
+  "family": "hunyuan",
+  "display_name": "Hunyuan Mt 7B",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/ap-southeast-2/qwen.qwen3-next-80b-a3b",
   "display_name": "Qwen3 Next 80B A3B",
   "canonical_model": "qwen.qwen3-next-80b-a3b",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.545e-7,
-    "output": 0.000001236
+    "input": 1.545e-07,
+    "output": 1.236e-06
   }
 }

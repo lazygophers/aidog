@@ -1,10 +1,16 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "zai-org/autoglm-phone-9b-multilingual",
   "canonical_model": "autoglm-phone-9b-multilingual",
   "family": "autoglm",
-  "capabilities": ["text", "vision"],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": true,
   "price": {
     "input": 3.5e-08,

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "glm-5-2-260617",
   "canonical_model": "glm-5-2-260617",
   "version": "5.2",
@@ -17,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000111111,
-    "output": 0.00000388889
+    "input": 1.11111e-06,
+    "output": 3.88889e-06
   }
 }

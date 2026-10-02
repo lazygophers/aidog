@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "o3-mini-2025-01-31",
   "display_name": "o3 Mini",
   "canonical_model": "o3-mini",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000011,
-    "output": 0.0000044
+    "input": 1.1e-06,
+    "output": 4.4e-06
   }
 }

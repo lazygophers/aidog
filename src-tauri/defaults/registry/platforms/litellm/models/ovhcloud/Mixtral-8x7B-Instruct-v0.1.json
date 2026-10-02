@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ovhcloud/Mixtral-8x7B-Instruct-v0.1",
   "canonical_model": "Mixtral-8x7B-Instruct-v0.1",
   "family": "mixtral",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6.3e-7,
-    "output": 6.3e-7
+    "input": 6.3e-07,
+    "output": 6.3e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock_mantle/google.gemma-4-e2b",
   "canonical_model": "google.gemma-4-e2b",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4e-8,
-    "output": 8e-8
+    "input": 4e-08,
+    "output": 8e-08
   }
 }

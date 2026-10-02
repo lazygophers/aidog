@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "wan3.0-video",
   "canonical_model": "wan3.0-video",
-
   "version": "3.0",
-  "family": "wan",  "display_name": "Wan3.0 Video",
+  "family": "wan",
+  "display_name": "Wan3.0 Video",
   "capabilities": [
     "vision",
     "text_to_video",

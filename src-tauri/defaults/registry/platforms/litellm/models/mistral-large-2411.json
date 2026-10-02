@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral-large-2411",
   "display_name": "Aihubmix Mistral Large 2411",
   "canonical_model": "mistral-large-2411",

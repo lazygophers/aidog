@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-doc-turbo",
   "display_name": "Qwen-Doc-Turbo",
   "canonical_model": "qwen-doc-turbo",
@@ -13,7 +16,7 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 8.7e-8,
-    "output": 1.44e-7
+    "input": 8.7e-08,
+    "output": 1.44e-07
   }
 }

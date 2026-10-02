@@ -1,7 +1,7 @@
 {
   "model_id": "anthropic/claude-opus-4.5:batch",
   "display_name": "Anthropic: Claude Opus 4.5 (batch)",
-  "canonical_model": "claude-opus-4.5:batch",
+  "canonical_model": "claude-opus-4-5",
   "family": "claude",
   "version": "4.5",
   "max_input_tokens": 200000,
@@ -11,12 +11,15 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000025,
-    "output": 0.0000125,
-    "cache_read": 2.5e-7
+    "input": 2.5e-06,
+    "output": 1.25e-05,
+    "cache_read": 2.5e-07
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "vision",

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "jina-search",
   "canonical_model": "jina-search",
-
-  "family": "jina",  "display_name": "Jina Search",
+  "family": "jina",
+  "display_name": "Jina Search",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

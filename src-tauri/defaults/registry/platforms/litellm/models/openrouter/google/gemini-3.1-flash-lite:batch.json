@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/google/gemini-3.1-flash-lite:batch",
   "display_name": "Google: Gemini 3.1 Flash Lite (batch)",
   "canonical_model": "gemini-3.1-flash-lite:batch",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.25e-7,
-    "output": 7.5e-7
+    "input": 1.25e-07,
+    "output": 7.5e-07
   }
 }

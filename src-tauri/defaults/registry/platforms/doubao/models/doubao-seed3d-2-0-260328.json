@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-seed3d-2-0-260328",
   "canonical_model": "doubao-seed3d-2-0-260328",
   "family": "doubao-seed3d",

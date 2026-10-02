@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen2p5-32b-instruct",
   "display_name": "Qwen2.5-32B-Instruct",
   "canonical_model": "qwen2p5-32b-instruct",
@@ -14,7 +16,7 @@
   "max_output_tokens": 32768,
   "official": false,
   "price": {
-    "input": 9e-7,
-    "output": 9e-7
+    "input": 9e-07,
+    "output": 9e-07
   }
 }

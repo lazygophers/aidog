@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "openai/gpt-5.2-chat",
   "display_name": "OpenAI: GPT-5.2 Chat",
   "canonical_model": "gpt-5.2-chat",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kwaipilot/kat-coder-air-v2.5",
   "canonical_model": "kat-coder-air-v2.5",
   "family": "kat",

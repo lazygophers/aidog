@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Qwen/Qwen3-32B",
   "display_name": "Qwen3 32B",
   "canonical_model": "qwen3-32b",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8e-8,
-    "output": 2.8e-7
+    "input": 8e-08,
+    "output": 2.8e-07
   }
 }

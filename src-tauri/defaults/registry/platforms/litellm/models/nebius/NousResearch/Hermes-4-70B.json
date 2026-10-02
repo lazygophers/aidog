@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/NousResearch/Hermes-4-70B",
   "canonical_model": "Hermes-4-70B",
   "capabilities": [
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.3e-7,
-    "output": 4e-7
+    "input": 1.3e-07,
+    "output": 4e-07
   }
 }

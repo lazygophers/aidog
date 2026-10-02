@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "nex-agi/nex-n2-pro",
   "display_name": "Nex-N2-Pro",
   "canonical_model": "Nex-N2-Pro",

@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mimo-v2.5",
   "display_name": "MiMo-V2.5",
   "canonical_model": "mimo-v2.5",
@@ -16,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.4e-7,
-    "output": 2.8e-7,
-    "cache_read": 2.8e-9
+    "input": 1.4e-07,
+    "output": 2.8e-07,
+    "cache_read": 2.8e-09
   }
 }

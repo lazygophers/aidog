@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ovhcloud/Qwen2.5-Coder-32B-Instruct",
   "display_name": "Qwen2.5 Coder 32B Instruct",
   "canonical_model": "qwen2.5-coder-32b-instruct",
   "family": "qwen",
   "version": "2.5",
-  "family": "qwen",
   "capabilities": [
     "text"
   ],
@@ -17,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8.7e-7,
-    "output": 8.7e-7
+    "input": 8.7e-07,
+    "output": 8.7e-07
   }
 }

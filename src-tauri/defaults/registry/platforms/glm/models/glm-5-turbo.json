@@ -1,8 +1,11 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-5-turbo",
-  "display_name": "GLM 5 Turbo",
+  "display_name": "GLM-5-Turbo",
   "canonical_model": "glm-5-turbo",
   "family": "glm",
   "version": "5",
@@ -27,6 +30,5 @@
         "cache_read": 2.5e-07
       }
     ]
-  },
-  "display_name": "GLM-5-Turbo"
+  }
 }

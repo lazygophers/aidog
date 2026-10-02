@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mistral-large-3",
   "canonical_model": "mistral-large-3",
-
   "version": "3",
-  "family": "mistral",  "display_name": "Mistral Large 3",
+  "family": "mistral",
+  "display_name": "Mistral Large 3",
   "max_output_tokens": 131072,
   "context_window": 256000,
   "capabilities": [
@@ -14,7 +18,7 @@
   "max_input_tokens": 256000,
   "official": false,
   "price": {
-    "input": 5e-7,
-    "output": 0.0000015
+    "input": 5e-07,
+    "output": 1.5e-06
   }
 }

@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "jina-deepsearch-v1",
   "canonical_model": "jina-deepsearch-v1",
-
   "version": "1",
-  "family": "jina",  "thinking_supported": true,
+  "family": "jina",
+  "thinking_supported": true,
   "context_window": 1000000,
   "display_name": "Jina DeepSearch",
   "capabilities": [
@@ -16,7 +20,7 @@
   "max_input_tokens": 1000000,
   "official": false,
   "price": {
-    "input": 5e-8,
-    "output": 5e-8
+    "input": 5e-08,
+    "output": 5e-08
   }
 }

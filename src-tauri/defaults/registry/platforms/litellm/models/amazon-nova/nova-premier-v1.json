@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "amazon-nova/nova-premier-v1",
   "display_name": "Amazon: Nova Premier 1.0",
   "canonical_model": "nova-premier-v1",
@@ -16,7 +18,7 @@
   "max_output_tokens": 10000,
   "official": false,
   "price": {
-    "input": 0.0000025,
-    "output": 0.0000125
+    "input": 2.5e-06,
+    "output": 1.25e-05
   }
 }

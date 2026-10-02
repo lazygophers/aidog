@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "dreamina-seedance-2-5-260628",
   "display_name": "Doubao Seedance 2.5 260628",
   "canonical_model": "dreamina-seedance-2-5-260628",
@@ -14,6 +18,6 @@
   "thinking_toggleable": false,
   "price": {
     "input": 0,
-    "output": 0.0000107
+    "output": 1.07e-05
   }
 }

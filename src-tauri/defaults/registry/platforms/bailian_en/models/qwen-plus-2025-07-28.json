@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-plus-2025-07-28",
   "display_name": "Qwen Plus 0728",
   "canonical_model": "qwen-plus-2025-07-28",
@@ -15,13 +18,13 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.0000000000000003e-7,
-    "output": 0.0000012,
+    "input": 4.0000000000000003e-07,
+    "output": 1.2e-06,
     "context_tiers": [
       {
         "min_tokens": 262145,
-        "input": 0.0000012,
-        "output": 0.0000036000000000000003
+        "input": 1.2e-06,
+        "output": 3.6000000000000003e-06
       }
     ]
   }

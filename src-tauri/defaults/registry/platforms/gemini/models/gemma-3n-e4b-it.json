@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemma-3n-e4b-it",
   "display_name": "Gemma 3n E4B IT",
   "canonical_model": "gemma-3n-e4b-it",

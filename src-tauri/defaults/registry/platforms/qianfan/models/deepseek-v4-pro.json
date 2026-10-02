@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "deepseek-v4-pro",
   "display_name": "DeepSeek V4 Pro",
   "canonical_model": "deepseek-v4-pro",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000166667,
-    "output": 0.00000333333,
-    "cache_read": 1.38889e-7
+    "input": 1.66667e-06,
+    "output": 3.33333e-06,
+    "cache_read": 1.38889e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "elevenlabs/scribe_v1_experimental",
   "canonical_model": "scribe_v1_experimental",
   "capabilities": [
@@ -9,6 +11,6 @@
   "official": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.0000611
+    "unit_price": 6.11e-05
   }
 }

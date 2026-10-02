@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/aion-labs/aion-3.0-mini",
   "display_name": "AionLabs: Aion-3.0-Mini",
   "canonical_model": "aion-3.0-mini",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7e-7,
-    "output": 0.0000014
+    "input": 7e-07,
+    "output": 1.4e-06
   }
 }

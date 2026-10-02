@@ -11,12 +11,15 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001475,
-    "output": 0.000004425,
-    "cache_read": 2.95e-7
+    "input": 1.475e-06,
+    "output": 4.425e-06,
+    "cache_read": 2.95e-07
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text"
   ]

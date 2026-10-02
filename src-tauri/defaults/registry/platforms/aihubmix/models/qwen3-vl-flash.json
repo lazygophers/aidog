@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-vl-flash",
   "canonical_model": "qwen3-vl-flash",
   "display_name": "Qwen3 VL Flash",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text",
     "vision"
   ],
@@ -17,19 +21,19 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.06e-8,
-    "output": 2.06e-7,
-    "cache_read": 4.12e-9,
+    "input": 2.06e-08,
+    "output": 2.06e-07,
+    "cache_read": 4.12e-09,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 4.1e-8,
-        "output": 4.1e-7
+        "input": 4.1e-08,
+        "output": 4.1e-07
       },
       {
         "min_tokens": 128001,
-        "input": 8.22e-8,
-        "output": 8.22e-7
+        "input": 8.22e-08,
+        "output": 8.22e-07
       }
     ]
   }

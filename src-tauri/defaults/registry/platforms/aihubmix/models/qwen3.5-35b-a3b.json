@@ -1,13 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.5-35b-a3b",
   "canonical_model": "qwen3.5-35b-a3b",
   "display_name": "Qwen3.5 35B A3B",
   "thinking_supported": true,
   "family": "qwen",
-
-  "version": "3.5",  "capabilities": [
+  "version": "3.5",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
@@ -16,13 +20,13 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.64e-8,
-    "output": 4.512e-7,
+    "input": 5.64e-08,
+    "output": 4.512e-07,
     "context_tiers": [
       {
         "min_tokens": 128001,
-        "input": 2.254e-7,
-        "output": 0.0000018032
+        "input": 2.254e-07,
+        "output": 1.8032e-06
       }
     ]
   }

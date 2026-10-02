@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "claude-opus-4-1",
   "canonical_model": "claude-opus-4-1",
   "family": "claude",
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000165,
-    "output": 0.0000825
+    "input": 1.65e-05,
+    "output": 8.25e-05
   }
 }

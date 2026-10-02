@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "eu.anthropic.claude-sonnet-4-5-20250929-v1:0",
   "display_name": "Claude Sonnet 4.5",
   "canonical_model": "claude-sonnet-4-5-20250929",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000033,
-    "output": 0.0000165
+    "input": 3.3e-06,
+    "output": 1.65e-05
   }
 }

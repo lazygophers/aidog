@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-2.5-flash-preview-tts",
   "display_name": "Gemini 2.5 Flash Preview Tts",
   "canonical_model": "gemini-2.5-flash-preview-tts",
@@ -11,14 +13,13 @@
   ],
   "max_output_tokens": 16384,
   "max_input_tokens": 8192,
-  "max_output_tokens": 16384,
   "context_window": 8192,
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3e-07,
-    "output": 2.5e-06,
+    "input": 0.5,
+    "output": 10,
     "cache_read": 0
   }
 }

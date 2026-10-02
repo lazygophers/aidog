@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-gemma-3-12b",
   "canonical_model": "gemma-3-12b",
   "capabilities": [
@@ -13,8 +15,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.5000999999999998e-7,
-    "output": 5.0001e-7
+    "input": 1.5000999999999998e-07,
+    "output": 5.0001e-07
   },
   "family": "gemma",
   "version": "3"

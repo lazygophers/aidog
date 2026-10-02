@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihubmix-Mistral-large-2407",
   "canonical_model": "mistral-large-2407",
-
   "version": "2.0",
-  "family": "mistral",  "display_name": "Aihubmix Mistral Large 2407",
-  "capabilities": ["text"],
+  "family": "mistral",
+  "display_name": "Aihubmix Mistral Large 2407",
+  "capabilities": [
+    "text"
+  ],
   "max_output_tokens": 8191,
   "context_window": 131072,
   "max_input_tokens": 131072,

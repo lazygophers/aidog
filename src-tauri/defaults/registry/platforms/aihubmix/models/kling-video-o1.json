@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kling-video-o1",
   "canonical_model": "kling-video-o1",
-
-  "family": "kling",  "display_name": "Kling Video O1",
+  "family": "kling",
+  "display_name": "Kling Video O1",
   "capabilities": [
     "vision",
     "text_to_video",

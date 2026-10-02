@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/meta/llama-3.3-70b-instruct-fp8-fast",
   "canonical_model": "llama-3.3-70b-instruct-fp8-fast",
   "family": "llama",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.93e-7,
-    "output": 0.000002253
+    "input": 2.93e-07,
+    "output": 2.253e-06
   }
 }

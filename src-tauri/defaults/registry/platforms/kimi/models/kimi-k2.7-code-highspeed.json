@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-k2.7-code-highspeed",
   "display_name": "Kimi K2.7 Code Highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
@@ -19,6 +22,5 @@
     "input": 1.8055555555555555e-06,
     "output": 7.5e-06,
     "cache_read": 3.611111111111111e-07
-  },
-  "display_name": "Kimi K2.7 Code Highspeed"
+  }
 }

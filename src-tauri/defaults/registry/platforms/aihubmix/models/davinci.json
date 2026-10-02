@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "davinci",
   "canonical_model": "davinci",
-
-  "family": "davinci",  "display_name": "Davinci",
+  "family": "davinci",
+  "display_name": "Davinci",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

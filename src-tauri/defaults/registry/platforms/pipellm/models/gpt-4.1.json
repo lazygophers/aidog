@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-4.1",
   "display_name": "GPT-4.1",
   "canonical_model": "gpt-4.1",
@@ -16,8 +20,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000003,
-    "output": 0.00001,
-    "cache_read": 7.5e-7
+    "input": 3e-06,
+    "output": 1e-05,
+    "cache_read": 7.5e-07
   }
 }

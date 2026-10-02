@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-4.5-flash",
   "canonical_model": "glm-4.5-flash",
   "family": "glm",
@@ -15,6 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "free": true,
     "input": 0.0,
     "output": 0.0,
     "cache_read": 0.0

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cerebras/llama3.1-8b",
   "canonical_model": "llama-3.1-8b",
   "display_name": "Llama3.1 8B",
@@ -15,8 +17,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 1e-7
+    "input": 1e-07,
+    "output": 1e-07
   },
   "family": "llama",
   "version": "3.1"

@@ -1,7 +1,9 @@
 {
   "max_input_tokens": 196608,
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "minimaxai/minimax-m2-maas",
   "canonical_model": "minimax-m2-maas",
   "family": "minimax",

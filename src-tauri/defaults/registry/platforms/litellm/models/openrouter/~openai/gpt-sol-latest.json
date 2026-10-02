@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~openai/gpt-sol-latest",
   "display_name": "OpenAI: GPT Sol Latest",
   "canonical_model": "gpt-sol-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.00001
+    "input": 2e-06,
+    "output": 1e-05
   }
 }

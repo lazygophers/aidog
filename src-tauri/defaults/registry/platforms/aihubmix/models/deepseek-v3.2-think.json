@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-v3.2-think",
   "canonical_model": "DeepSeek-V3.2",
   "display_name": "DeepSeek V3.2 Thinking",
@@ -17,8 +21,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3.02e-7,
-    "output": 4.53e-7,
-    "cache_read": 3.02e-8
+    "input": 3.02e-07,
+    "output": 4.53e-07,
+    "cache_read": 3.02e-08
   }
 }

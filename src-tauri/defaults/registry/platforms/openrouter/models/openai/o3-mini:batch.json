@@ -1,7 +1,7 @@
 {
   "model_id": "openai/o3-mini:batch",
   "display_name": "OpenAI: o3 Mini (batch)",
-  "canonical_model": "o3-mini:batch",
+  "canonical_model": "o3-mini",
   "family": "o",
   "version": "3",
   "max_input_tokens": 200000,
@@ -11,12 +11,15 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5.5e-7,
-    "output": 0.0000022,
-    "cache_read": 2.75e-7
+    "input": 5.5e-07,
+    "output": 2.2e-06,
+    "cache_read": 2.75e-07
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "tool_use",

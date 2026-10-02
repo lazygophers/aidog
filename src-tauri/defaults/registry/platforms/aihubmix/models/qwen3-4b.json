@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-4b",
   "canonical_model": "qwen3-4b",
-
   "version": "3",
-  "family": "qwen",  "display_name": "Qwen3 4B",
+  "family": "qwen",
+  "display_name": "Qwen3 4B",
   "context_window": 32768,
   "max_input_tokens": 32768,
   "capabilities": [
@@ -15,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.6e-8,
-    "output": 4.6e-7
+    "input": 4.6e-08,
+    "output": 4.6e-07
   }
 }

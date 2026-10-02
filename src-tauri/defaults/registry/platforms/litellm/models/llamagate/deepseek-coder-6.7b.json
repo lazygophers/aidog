@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "llamagate/deepseek-coder-6.7b",
   "canonical_model": "deepseek-coder-6.7b",
   "family": "deepseek",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6e-8,
-    "output": 1.2e-7
+    "input": 6e-08,
+    "output": 1.2e-07
   }
 }

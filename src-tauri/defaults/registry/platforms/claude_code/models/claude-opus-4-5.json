@@ -1,0 +1,25 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "model_id": "claude-opus-4-5",
+  "display_name": "Claude Opus 4.5",
+  "canonical_model": "claude-opus-4-5",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07,
+    "cache_write": 6.25e-06
+  }
+}

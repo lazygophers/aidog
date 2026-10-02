@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@cf/meta-llama/llama-2-7b-chat-hf-lora",
   "canonical_model": "llama-2-7b-chat-hf-lora",
   "family": "llama",

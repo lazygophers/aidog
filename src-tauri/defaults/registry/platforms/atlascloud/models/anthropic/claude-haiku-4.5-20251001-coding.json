@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "anthropic/claude-haiku-4.5-20251001-coding",
   "canonical_model": "claude-haiku-4.5-20251001-coding",
   "family": "claude",

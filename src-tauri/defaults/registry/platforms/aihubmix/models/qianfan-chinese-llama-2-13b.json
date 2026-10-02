@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qianfan-chinese-llama-2-13b",
   "canonical_model": "chinese-llama-2-13b",
-
-  "family": "qianfan",  "display_name": "Qianfan Chinese Llama 2 13B",
+  "family": "qianfan",
+  "display_name": "Qianfan Chinese Llama 2 13B",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

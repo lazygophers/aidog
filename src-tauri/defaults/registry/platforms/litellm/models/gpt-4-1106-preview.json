@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gpt-4-1106-preview",
   "display_name": "GPT-4 1106 Preview",
   "canonical_model": "gpt-4-1106-preview",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00001,
-    "output": 0.00003
+    "input": 1e-05,
+    "output": 3e-05
   }
 }

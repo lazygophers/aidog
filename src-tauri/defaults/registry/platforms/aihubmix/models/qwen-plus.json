@@ -1,12 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-plus",
   "canonical_model": "qwen-plus",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "display_name": "Qwen Plus",
   "family": "qwen",
-  "capabilities": ["text"],
   "max_output_tokens": 32768,
   "context_window": 1000000,
   "max_input_tokens": 1000000,

@@ -1,13 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemma-3-4b-it",
   "canonical_model": "gemma-3-4b-it",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "display_name": "Gemma 3 4B It",
   "family": "gemma",
   "version": "3",
-  "capabilities": ["text"],
   "max_output_tokens": 16384,
   "context_window": 131072,
   "max_input_tokens": 131072,

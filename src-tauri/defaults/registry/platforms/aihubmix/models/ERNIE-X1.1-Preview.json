@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ERNIE-X1.1-Preview",
   "canonical_model": "ernie-x1.1-preview",
   "display_name": "ERNIE X1.1 Preview",
@@ -15,7 +19,7 @@
   "context_window": 119000,
   "official": false,
   "price": {
-    "input": 1.36e-7,
-    "output": 5.44e-7
+    "input": 1.36e-07,
+    "output": 5.44e-07
   }
 }

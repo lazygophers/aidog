@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.5-397b-a17b",
   "canonical_model": "qwen3.5-397b-a17b",
   "display_name": "Qwen3.5 397B A17B",
   "family": "qwen",
-
-  "version": "3.5",  "thinking_supported": true,
+  "version": "3.5",
+  "thinking_supported": true,
   "capabilities": [
     "text"
   ],
@@ -16,13 +20,13 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.644e-7,
-    "output": 9.864e-7,
+    "input": 1.644e-07,
+    "output": 9.864e-07,
     "context_tiers": [
       {
         "min_tokens": 128001,
-        "input": 4.11e-7,
-        "output": 0.000002466
+        "input": 4.11e-07,
+        "output": 2.466e-06
       }
     ]
   }

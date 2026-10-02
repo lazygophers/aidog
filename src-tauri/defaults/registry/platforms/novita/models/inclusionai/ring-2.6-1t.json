@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "inclusionai/ring-2.6-1t",
   "canonical_model": "ring-2.6-1t",
   "family": "ring",

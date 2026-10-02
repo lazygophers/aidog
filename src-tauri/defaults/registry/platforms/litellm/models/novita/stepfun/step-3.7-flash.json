@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/stepfun/step-3.7-flash",
   "display_name": "Step 3.7 Flash",
   "canonical_model": "step-3.7-flash",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.0000000000000002e-7,
-    "output": 0.00000115
+    "input": 2.0000000000000002e-07,
+    "output": 1.15e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ft:gpt-3.5-turbo",
   "canonical_model": "ft:gpt-3.5-turbo",
   "family": "gpt",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000003,
-    "output": 0.000006
+    "input": 3e-06,
+    "output": 6e-06
   }
 }

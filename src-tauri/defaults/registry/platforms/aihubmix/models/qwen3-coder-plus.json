@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-coder-plus",
   "canonical_model": "qwen3-coder-plus",
   "display_name": "Qwen3 Coder Plus",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 1048576,
@@ -22,18 +26,18 @@
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 8.21916e-7,
-        "output": 0.00000328766
+        "input": 8.21916e-07,
+        "output": 3.28766e-06
       },
       {
         "min_tokens": 128001,
-        "input": 0.00000136986,
-        "output": 0.00000547944
+        "input": 1.36986e-06,
+        "output": 5.47944e-06
       },
       {
         "min_tokens": 256001,
-        "input": 0.00000273973,
-        "output": 0.0000273973
+        "input": 2.73973e-06,
+        "output": 2.73973e-05
       }
     ]
   }

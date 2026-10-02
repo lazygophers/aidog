@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/kat-dev-32b",
   "canonical_model": "kat-dev-32b",
   "family": "kat",
@@ -12,7 +14,7 @@
   "max_output_tokens": 131072,
   "official": false,
   "price": {
-    "input": 9e-7,
-    "output": 9e-7
+    "input": 9e-07,
+    "output": 9e-07
   }
 }

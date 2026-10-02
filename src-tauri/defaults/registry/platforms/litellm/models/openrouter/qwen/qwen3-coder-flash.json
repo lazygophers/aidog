@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3-coder-flash",
   "display_name": "Qwen3 Coder Flash",
   "canonical_model": "qwen3-coder-flash",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.95e-7,
-    "output": 9.75e-7
+    "input": 1.95e-07,
+    "output": 9.75e-07
   }
 }

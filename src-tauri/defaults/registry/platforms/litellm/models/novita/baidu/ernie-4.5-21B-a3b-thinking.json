@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/baidu/ernie-4.5-21B-a3b-thinking",
   "canonical_model": "ernie-4.5-21b-a3b-thinking",
   "capabilities": [
@@ -14,8 +16,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7e-8,
-    "output": 2.8e-7
+    "input": 7e-08,
+    "output": 2.8e-07
   },
   "family": "ernie",
   "version": "4.5"

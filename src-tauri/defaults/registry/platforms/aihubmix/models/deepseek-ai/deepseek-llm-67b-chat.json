@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ai/deepseek-llm-67b-chat",
   "canonical_model": "deepseek-llm-67b-chat",
-
-  "family": "deepseek",  "display_name": "DeepSeek Llm 67B Chat",
+  "family": "deepseek",
+  "display_name": "DeepSeek Llm 67B Chat",
   "capabilities": [],
   "official": false,
   "price": {

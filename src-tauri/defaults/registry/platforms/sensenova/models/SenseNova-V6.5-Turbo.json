@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "SenseNova-V6.5-Turbo",
   "canonical_model": "SenseNova-V6.5-Turbo",
   "family": "sensenova",
@@ -15,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.08333e-7,
-    "output": 6.25e-7
+    "input": 2.08333e-07,
+    "output": 6.25e-07
   }
 }

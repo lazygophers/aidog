@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "k3",
   "canonical_model": "k3",
   "family": "kimi",
@@ -16,7 +19,7 @@
   "context_window": 1048576,
   "official": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

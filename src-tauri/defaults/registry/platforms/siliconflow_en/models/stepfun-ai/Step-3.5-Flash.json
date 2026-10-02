@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "stepfun-ai/Step-3.5-Flash",
   "canonical_model": "step-3.5-flash",
   "version": "3.5",

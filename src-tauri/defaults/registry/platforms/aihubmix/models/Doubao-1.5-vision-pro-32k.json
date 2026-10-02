@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Doubao-1.5-vision-pro-32k",
   "canonical_model": "doubao-1-5-vision-pro-32k",
-
   "version": "1.5",
-  "family": "doubao-vision",  "display_name": "Doubao 1.5 Vision Pro 32K",
+  "family": "doubao-vision",
+  "display_name": "Doubao 1.5 Vision Pro 32K",
   "capabilities": [
     "text",
     "vision"

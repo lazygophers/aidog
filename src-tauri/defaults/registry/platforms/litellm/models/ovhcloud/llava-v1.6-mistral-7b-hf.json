@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ovhcloud/llava-v1.6-mistral-7b-hf",
   "canonical_model": "llava-v1.6-mistral-7b-hf",
   "capabilities": [
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.9e-7,
-    "output": 2.9e-7
+    "input": 2.9e-07,
+    "output": 2.9e-07
   }
 }

@@ -1,19 +1,22 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen2.5-vl-embedding",
   "display_name": "Qwen2.5-VL-Embedding",
   "canonical_model": "qwen2.5-vl-embedding",
   "family": "qwen",
-
-  "version": "2.5",  "capabilities": [
+  "version": "2.5",
+  "capabilities": [
     "embedding"
   ],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

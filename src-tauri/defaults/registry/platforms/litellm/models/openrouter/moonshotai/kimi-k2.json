@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/moonshotai/kimi-k2",
   "display_name": "Kimi K2 0711",
   "canonical_model": "kimi-k2",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5.7e-7,
-    "output": 0.0000023
+    "input": 5.7e-07,
+    "output": 2.3e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["devin"],
+  "supported_protocols": [
+    "devin"
+  ],
   "model_id": "devin-fusion",
   "canonical_model": "devin-fusion",
   "family": "devin",
@@ -10,7 +12,7 @@
   ],
   "official": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   }
 }

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "AiHubmix-mistral-medium",
   "canonical_model": "mistral-medium",
-
-  "family": "mistral",  "display_name": "Aihubmix Mistral Medium",
+  "family": "mistral",
+  "display_name": "Aihubmix Mistral Medium",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

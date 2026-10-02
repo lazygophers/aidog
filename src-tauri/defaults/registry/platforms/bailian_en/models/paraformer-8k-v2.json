@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "paraformer-8k-v2",
   "display_name": "Paraformer-8K",
   "canonical_model": "paraformer-8k-v2",
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.000012
+    "unit_price": 1.2e-05
   }
 }

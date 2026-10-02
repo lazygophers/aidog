@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Doubao-1.5-pro-256k",
   "canonical_model": "doubao-1.5-pro-256k",
-
   "version": "1.5",
-  "family": "doubao-pro",  "display_name": "Doubao 1.5 Pro 256K",
+  "family": "doubao-pro",
+  "display_name": "Doubao 1.5 Pro 256K",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "step-asr-1.1",
   "display_name": "Step ASR 1.1",
   "canonical_model": "step-asr-1.1",
@@ -14,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.0000848765
+    "unit_price": 8.48765e-05
   }
 }

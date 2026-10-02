@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~deepseek/deepseek-v4-flash-latest",
   "display_name": "DeepSeek: DeepSeek V4 Flash Latest",
   "canonical_model": "deepseek-v4-flash-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4e-8,
-    "output": 6.4e-7
+    "input": 4e-08,
+    "output": 6.4e-07
   }
 }

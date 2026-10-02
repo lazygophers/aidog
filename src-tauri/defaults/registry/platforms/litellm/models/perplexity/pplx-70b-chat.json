@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "perplexity/pplx-70b-chat",
   "canonical_model": "pplx-70b-chat",
   "family": "pplx",
@@ -12,7 +14,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 7e-7,
-    "output": 0.0000028
+    "input": 7e-07,
+    "output": 2.8e-06
   }
 }

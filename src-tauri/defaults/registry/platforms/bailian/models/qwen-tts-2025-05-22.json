@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-tts-2025-05-22",
   "display_name": "Qwen-TTS (2025-05-22)",
   "canonical_model": "qwen-tts-2025-05-22",
@@ -15,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.22222e-7,
-    "output": 0.00000138889
+    "input": 2.22222e-07,
+    "output": 1.38889e-06
   }
 }

@@ -1,7 +1,7 @@
 {
   "model_id": "thinkingmachines/inkling-small:free",
   "display_name": "Thinking Machines: Inkling Small (free)",
-  "canonical_model": "inkling-small:free",
+  "canonical_model": "inkling-small",
   "family": "inkling",
   "max_input_tokens": 1048576,
   "context_window": 1048576,
@@ -14,7 +14,10 @@
     "output": 0
   },
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "vision",

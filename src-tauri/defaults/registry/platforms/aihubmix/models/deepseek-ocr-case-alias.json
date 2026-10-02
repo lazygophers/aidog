@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ocr",
   "canonical_model": "DeepSeek-OCR",
   "display_name": "DeepSeek Ocr",
   "family": "deepseek",
-  "max_output_tokens": 8192,
+  "max_output_tokens": 8000,
   "context_window": 8000,
   "capabilities": [
     "vision"

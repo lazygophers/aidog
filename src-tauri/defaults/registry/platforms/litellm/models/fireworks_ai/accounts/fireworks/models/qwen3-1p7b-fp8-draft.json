@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen3-1p7b-fp8-draft",
   "display_name": "Qwen3-1.7B-FP8-Draft",
   "canonical_model": "qwen3-1p7b-fp8-draft",
@@ -14,7 +16,7 @@
   "max_output_tokens": 262144,
   "official": false,
   "price": {
-    "input": 1e-7,
-    "output": 1e-7
+    "input": 1e-07,
+    "output": 1e-07
   }
 }

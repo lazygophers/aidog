@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.7-plus",
   "canonical_model": "qwen3.7-plus",
   "display_name": "Qwen3.7 Plus",
@@ -16,22 +20,22 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.82e-7,
-    "output": 0.000001128,
-    "cache_read": 5.64e-8,
-  "cache_write": 3.5249999999999996e-07,
+    "input": 2.82e-07,
+    "output": 1.128e-06,
+    "cache_read": 5.64e-08,
+    "cache_write": 3.5249999999999996e-07,
     "context_tiers": [
       {
         "min_tokens": 1,
-        "input": 2.82e-7,
-        "output": 0.000001128,
-        "cache_read": 5.64e-8
+        "input": 2.82e-07,
+        "output": 1.128e-06,
+        "cache_read": 5.64e-08
       },
       {
         "min_tokens": 256001,
-        "input": 8.45e-7,
-        "output": 0.00000338,
-        "cache_read": 1.69e-7
+        "input": 8.45e-07,
+        "output": 3.38e-06,
+        "cache_read": 1.69e-07
       }
     ]
   }

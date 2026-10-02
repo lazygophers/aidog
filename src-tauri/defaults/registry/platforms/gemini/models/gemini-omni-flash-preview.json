@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-omni-flash-preview",
   "canonical_model": "gemini-omni-flash-preview",
   "family": "gemini",

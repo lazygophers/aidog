@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "vertex_ai/claude-3-haiku@20240307",
   "display_name": "Claude 3 Haiku@20240307",
   "canonical_model": "claude-3-haiku@20240307",
@@ -16,7 +18,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 2.5e-7,
-    "output": 0.00000125
+    "input": 2.5e-07,
+    "output": 1.25e-06
   }
 }

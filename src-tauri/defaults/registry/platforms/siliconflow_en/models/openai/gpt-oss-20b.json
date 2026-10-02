@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "openai/gpt-oss-20b",
   "canonical_model": "gpt-oss-20b",
   "thinking_supported": true,

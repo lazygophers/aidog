@@ -1,12 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-v4.1-flash",
   "canonical_model": "deepseek-v4.1-flash",
   "display_name": "DeepSeek V4.1 Flash",
   "family": "deepseek",
-
-  "version": "4.1",  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+  "version": "4.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "context_window": 1000000,
   "max_output_tokens": 384000,
   "thinking_supported": true,

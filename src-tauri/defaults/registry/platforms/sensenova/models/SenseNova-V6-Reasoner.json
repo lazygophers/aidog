@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "SenseNova-V6-Reasoner",
   "canonical_model": "SenseNova-V6-Reasoner",
   "family": "sensenova",
@@ -16,7 +19,7 @@
   "thinking_toggleable": false,
   "thinking_supported": true,
   "price": {
-    "input": 5.55556e-7,
-    "output": 0.00000222222
+    "input": 5.55556e-07,
+    "output": 2.22222e-06
   }
 }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "image-01",
   "canonical_model": "image-01",
   "family": "minimax",
@@ -15,6 +18,7 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "image",
-    "unit_price": 0.0035
+    "unit_price": 0.0035,
+    "cache_write": 3.75e-07
   }
 }

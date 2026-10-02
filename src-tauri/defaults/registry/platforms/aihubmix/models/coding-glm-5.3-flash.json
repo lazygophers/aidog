@@ -1,12 +1,21 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-glm-5.3-flash",
   "canonical_model": "glm-5.3-flash",
   "display_name": "Coding GLM 5.3 Flash",
   "version": "5.3",
   "family": "glm",
-  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "context_window": 1000000,
   "max_output_tokens": 131072,
   "thinking_supported": true,

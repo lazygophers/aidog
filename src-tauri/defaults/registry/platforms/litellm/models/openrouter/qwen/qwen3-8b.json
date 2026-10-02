@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3-8b",
   "display_name": "Qwen3 8B",
   "canonical_model": "qwen3-8b",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.17e-7,
-    "output": 4.55e-7
+    "input": 1.17e-07,
+    "output": 4.55e-07
   }
 }

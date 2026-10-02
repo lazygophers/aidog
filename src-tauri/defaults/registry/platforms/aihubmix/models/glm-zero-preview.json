@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "glm-zero-preview",
   "canonical_model": "glm-zero-preview",
-
-  "family": "glm",  "display_name": "GLM Zero Preview",
+  "family": "glm",
+  "display_name": "GLM Zero Preview",
   "capabilities": [],
   "official": false,
   "price": {

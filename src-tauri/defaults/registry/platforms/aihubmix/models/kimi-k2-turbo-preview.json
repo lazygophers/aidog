@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kimi-k2-turbo-preview",
   "canonical_model": "kimi-k2-turbo-preview",
   "family": "kimi",
@@ -16,8 +20,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000012,
-    "output": 0.0000048,
-    "cache_read": 3e-7
+    "input": 1.2e-06,
+    "output": 4.8e-06,
+    "cache_read": 3e-07
   }
 }

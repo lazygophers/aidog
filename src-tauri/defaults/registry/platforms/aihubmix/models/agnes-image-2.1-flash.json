@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "agnes-image-2.1-flash",
   "canonical_model": "agnes-image-2.1-flash",
-
-  "family": "agnes",  "display_name": "Agnes Image 2.1 Flash",
+  "family": "agnes",
+  "display_name": "Agnes Image 2.1 Flash",
   "version": "2.1",
   "capabilities": [
     "vision",

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "deepseek-ai/DeepSeek-V4-Flash",
   "display_name": "DeepSeek V4 Flash",
   "canonical_model": "deepseek-v4-flash",
@@ -16,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.3e-07,
-    "output": 2.8e-07,
+    "input": 0.416667,
+    "output": 1.25,
     "cache_read": 2.777777777777778e-09
   }
 }

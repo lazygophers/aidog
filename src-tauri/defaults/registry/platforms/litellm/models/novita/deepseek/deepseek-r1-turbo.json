@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/deepseek/deepseek-r1-turbo",
   "display_name": "DeepSeek-R1-Turbo",
   "canonical_model": "deepseek-r1-turbo",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 7e-7,
-    "output": 0.0000025
+    "input": 7e-07,
+    "output": 2.5e-06
   },
   "family": "deepseek",
   "version": "r1"

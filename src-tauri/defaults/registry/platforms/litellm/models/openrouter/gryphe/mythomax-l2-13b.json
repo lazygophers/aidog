@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/gryphe/mythomax-l2-13b",
   "display_name": "MythoMax 13B",
   "canonical_model": "mythomax-l2-13b",
@@ -13,7 +15,7 @@
   "max_output_tokens": 3686,
   "official": false,
   "price": {
-    "input": 8e-8,
-    "output": 1.1e-7
+    "input": 8e-08,
+    "output": 1.1e-07
   }
 }

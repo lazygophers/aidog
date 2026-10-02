@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "text-davinci-003",
   "canonical_model": "text-davinci-003",
-
-  "family": "davinci-003",  "display_name": "Text Davinci 003",
+  "family": "davinci-003",
+  "display_name": "Text Davinci 003",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

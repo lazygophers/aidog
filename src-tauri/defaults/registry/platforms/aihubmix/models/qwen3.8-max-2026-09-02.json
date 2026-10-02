@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.8-max-2026-09-02",
   "canonical_model": "qwen3.8-max-2026-09-02",
   "display_name": "Qwen3.8-Max (2026-09-02)",
   "family": "qwen",
-
-  "version": "3.8",  "capabilities": [
+  "version": "3.8",
+  "capabilities": [
     "text",
     "vision",
     "tool_use",

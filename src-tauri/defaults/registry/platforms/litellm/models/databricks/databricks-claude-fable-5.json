@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-claude-fable-5",
   "display_name": "Claude Fable 5",
   "canonical_model": "claude-fable-5",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00001000006,
-    "output": 0.00005000002
+    "input": 1.000006e-05,
+    "output": 5.000002e-05
   }
 }

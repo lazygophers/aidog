@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "flux-kontext-max",
   "canonical_model": "flux-kontext-max",
-
-  "family": "flux",  "display_name": "Flux Kontext Max",
+  "family": "flux",
+  "display_name": "Flux Kontext Max",
   "capabilities": [
     "text_to_image",
     "image_to_image",

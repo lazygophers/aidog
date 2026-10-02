@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "dashscope/qwen-plus-2025-07-14",
   "display_name": "Qwen-Plus (2025-07-14)",
   "canonical_model": "qwen-plus-2025-07-14",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4e-7,
-    "output": 0.0000012
+    "input": 4e-07,
+    "output": 1.2e-06
   }
 }

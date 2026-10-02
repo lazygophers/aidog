@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "grok-4-0709",
   "display_name": "Grok 4",
   "canonical_model": "grok-4",
@@ -16,9 +20,9 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000003,
-    "output": 0.000015,
+    "input": 3e-06,
+    "output": 1.5e-05,
     "cache_read": 0,
-    "cache_write": 7.5e-7
+    "cache_write": 7.5e-07
   }
 }

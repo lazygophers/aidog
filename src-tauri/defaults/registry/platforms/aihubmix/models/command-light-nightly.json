@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "command-light-nightly",
   "canonical_model": "command-light-nightly",
-
-  "family": "command",  "display_name": "Command Light Nightly",
+  "family": "command",
+  "display_name": "Command Light Nightly",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

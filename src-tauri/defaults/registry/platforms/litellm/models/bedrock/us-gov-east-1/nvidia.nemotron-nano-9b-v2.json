@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-gov-east-1/nvidia.nemotron-nano-9b-v2",
   "display_name": "Nvidia Nemotron Nano 9B V2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
@@ -15,7 +17,7 @@
   "max_output_tokens": 8192,
   "official": false,
   "price": {
-    "input": 7.2e-8,
-    "output": 2.76e-7
+    "input": 7.2e-08,
+    "output": 2.76e-07
   }
 }

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "muse-spark-1.2-contributor",
   "canonical_model": "muse-spark-1.2",
   "display_name": "Muse Spark 1.2 Contributor",
@@ -20,8 +23,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 2e-7,
-    "cache_read": 2e-9
+    "input": 1e-07,
+    "output": 2e-07,
+    "cache_read": 2e-09
   }
 }

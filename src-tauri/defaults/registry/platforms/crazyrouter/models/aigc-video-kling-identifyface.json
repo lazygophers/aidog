@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aigc-video-kling-identifyface",
   "display_name": "Kling Identify Face (Video)",
   "canonical_model": "aigc-video-kling-identifyface",

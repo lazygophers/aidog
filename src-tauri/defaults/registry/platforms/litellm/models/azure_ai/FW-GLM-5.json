@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/FW-GLM-5",
   "canonical_model": "FW-GLM-5",
   "family": "glm",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000011,
-    "output": 0.00000352
+    "input": 1.1e-06,
+    "output": 3.52e-06
   }
 }

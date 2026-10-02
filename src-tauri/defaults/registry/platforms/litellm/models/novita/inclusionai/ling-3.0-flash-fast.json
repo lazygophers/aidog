@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/inclusionai/ling-3.0-flash-fast",
   "canonical_model": "ling-3.0-flash-fast",
   "capabilities": [
@@ -15,8 +17,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6e-8,
-    "output": 1.8e-7
+    "input": 6e-08,
+    "output": 1.8e-07
   },
   "family": "ling",
   "version": "3.0"

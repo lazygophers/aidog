@@ -1,12 +1,20 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "step-5-preview",
   "canonical_model": "step-5-preview",
-
   "version": "5",
-  "family": "stepfun",  "display_name": "Step 5 Preview",
-  "capabilities": ["text", "vision", "reasoning"],
+  "family": "stepfun",
+  "display_name": "Step 5 Preview",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
   "context_window": 1000000,
   "max_output_tokens": 64000,
   "thinking_supported": true,

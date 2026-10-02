@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/intfloat/e5-mistral-7b-instruct",
   "canonical_model": "e5-mistral-7b-instruct",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
+    "input": 1e-08,
     "output": 0
   }
 }

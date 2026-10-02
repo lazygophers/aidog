@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "paddleocr-vl-0.9b",
   "canonical_model": "paddleocr-vl-0.9b",
   "family": "paddleocr",

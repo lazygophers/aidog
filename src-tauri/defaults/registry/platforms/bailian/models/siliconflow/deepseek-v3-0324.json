@@ -1,7 +1,10 @@
 {
   "max_input_tokens": 163840,
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "siliconflow/deepseek-v3-0324",
   "display_name": "DeepSeek-V3-0324",
   "canonical_model": "deepseek-v3-0324",

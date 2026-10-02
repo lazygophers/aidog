@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/FW-Kimi-K2.6",
   "canonical_model": "FW-Kimi-K2.6",
   "family": "kimi",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001045,
-    "output": 0.0000044
+    "input": 1.045e-06,
+    "output": 4.4e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "deepseek-ai/deepseek-v3.2-maas",
   "display_name": "DeepSeek-V3.2",
   "canonical_model": "deepseek-v3.2-maas",

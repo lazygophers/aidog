@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/flux-1-dev-controlnet-union",
   "canonical_model": "flux-1-dev-controlnet-union",
   "family": "flux",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-9,
-    "output": 1e-9
+    "input": 1e-09,
+    "output": 1e-09
   }
 }

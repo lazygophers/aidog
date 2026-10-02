@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "PaddlePaddle/ERNIE-4.5-300B-A47B-PT",
   "canonical_model": "ernie-4.5-300b-a47b-pt",
   "family": "ernie",

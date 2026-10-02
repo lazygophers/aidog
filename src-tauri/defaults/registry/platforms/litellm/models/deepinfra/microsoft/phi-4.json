@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/microsoft/phi-4",
   "display_name": "Microsoft: Phi 4",
   "canonical_model": "phi-4",
@@ -15,7 +17,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 7e-8,
-    "output": 1.4e-7
+    "input": 7e-08,
+    "output": 1.4e-07
   }
 }

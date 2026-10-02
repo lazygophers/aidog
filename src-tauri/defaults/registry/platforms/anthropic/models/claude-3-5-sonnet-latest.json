@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic"],
+  "supported_protocols": [
+    "anthropic"
+  ],
   "model_id": "claude-3-5-sonnet-latest",
   "display_name": "Claude 3.5 Sonnet",
   "canonical_model": "claude-3-5-sonnet-latest",

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "meta-llama/llama-3.1-405b-instruct:free",
   "canonical_model": "llama-3.1-405b-instruct:free",
-
-  "family": "llama",  "display_name": "Llama 3.1 405B Instruct (free)",
+  "family": "llama",
+  "display_name": "Llama 3.1 405B Instruct (free)",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

@@ -1,7 +1,7 @@
 {
   "model_id": "cohere/north-mini-code:free",
   "display_name": "Cohere: North Mini Code (free)",
-  "canonical_model": "north-mini-code:free",
+  "canonical_model": "north-mini-code",
   "family": "north",
   "max_input_tokens": 256000,
   "context_window": 256000,
@@ -14,7 +14,10 @@
     "output": 0
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "tool_use",

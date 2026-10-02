@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ai/DeepSeek-V2-Chat",
   "canonical_model": "deepseek-v2-chat",
-
   "version": "2",
-  "family": "deepseek",  "display_name": "DeepSeek V2 Chat",
+  "family": "deepseek",
+  "display_name": "DeepSeek V2 Chat",
   "capabilities": [],
   "official": false,
   "price": {

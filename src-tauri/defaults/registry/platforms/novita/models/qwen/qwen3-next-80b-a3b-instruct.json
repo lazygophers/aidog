@@ -1,12 +1,19 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3-next-80b-a3b-instruct",
   "display_name": "Qwen3 Next 80B A3B Instruct",
   "canonical_model": "qwen3-next-80b-a3b-instruct",
   "version": "3",
   "family": "qwen",
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "official": true,
   "thinking_supported": true,
   "thinking_toggleable": true,

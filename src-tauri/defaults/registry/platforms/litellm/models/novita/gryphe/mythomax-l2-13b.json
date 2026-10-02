@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/gryphe/mythomax-l2-13b",
   "display_name": "MythoMax 13B",
   "canonical_model": "mythomax-l2-13b",
@@ -13,7 +15,7 @@
   "max_output_tokens": 3200,
   "official": false,
   "price": {
-    "input": 9e-8,
-    "output": 9e-8
+    "input": 9e-08,
+    "output": 9e-08
   }
 }

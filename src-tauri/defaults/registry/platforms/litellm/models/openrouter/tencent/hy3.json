@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/tencent/hy3",
   "display_name": "Hy3",
   "canonical_model": "hy3",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.32e-7,
-    "output": 5.28e-7
+    "input": 1.32e-07,
+    "output": 5.28e-07
   }
 }

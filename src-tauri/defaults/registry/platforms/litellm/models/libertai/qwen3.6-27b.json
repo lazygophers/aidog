@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "libertai/qwen3.6-27b",
   "display_name": "Qwen3.6-27B",
   "canonical_model": "qwen3.6-27b",
@@ -18,8 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.5e-7,
-    "output": 5e-7
-  },
-  "family": "qwen"
+    "input": 1.5e-07,
+    "output": 5e-07
+  }
 }

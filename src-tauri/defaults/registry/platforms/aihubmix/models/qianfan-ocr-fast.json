@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qianfan-ocr-fast",
   "canonical_model": "ocr-fast",
-
-  "family": "qianfan",  "display_name": "Qianfan Ocr Fast",
+  "family": "qianfan",
+  "display_name": "Qianfan Ocr Fast",
   "max_output_tokens": 28000,
   "context_window": 32000,
   "capabilities": [

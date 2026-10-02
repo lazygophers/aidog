@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-coder-next",
   "canonical_model": "qwen3-coder-next",
   "display_name": "Qwen3 Coder Next",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
@@ -16,18 +20,18 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.37e-7,
-    "output": 5.48e-7,
+    "input": 1.37e-07,
+    "output": 5.48e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 2.054e-7,
-        "output": 8.216e-7
+        "input": 2.054e-07,
+        "output": 8.216e-07
       },
       {
         "min_tokens": 128001,
-        "input": 3.424e-7,
-        "output": 0.0000013696
+        "input": 3.424e-07,
+        "output": 1.3696e-06
       }
     ]
   }

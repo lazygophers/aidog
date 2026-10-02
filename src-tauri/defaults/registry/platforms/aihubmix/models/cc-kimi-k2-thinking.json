@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cc-kimi-k2-thinking",
   "canonical_model": "kimi-k2-thinking",
   "family": "kimi",
   "version": "2",
   "display_name": "CC Kimi K2 Thinking",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "context_window": 262144,
   "thinking_supported": false,
   "official": false,

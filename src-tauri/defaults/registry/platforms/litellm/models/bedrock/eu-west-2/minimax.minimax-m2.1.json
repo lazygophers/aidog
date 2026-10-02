@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/eu-west-2/minimax.minimax-m2.1",
   "canonical_model": "minimax.minimax-m2.1",
   "family": "minimax",
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.7e-7,
-    "output": 0.00000186
+    "input": 4.7e-07,
+    "output": 1.86e-06
   }
 }

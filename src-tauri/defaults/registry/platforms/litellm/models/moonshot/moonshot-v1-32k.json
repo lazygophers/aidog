@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "moonshot/moonshot-v1-32k",
   "display_name": "Moonshot V1 32K",
   "canonical_model": "moonshot-v1-32k",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.000003
+    "input": 1e-06,
+    "output": 3e-06
   }
 }

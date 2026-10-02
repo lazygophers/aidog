@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen/qwen3.8-27b",
   "display_name": "Qwen3.8-27B",
   "canonical_model": "qwen3.8-27b",
@@ -8,7 +11,12 @@
   "family": "qwen",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "official": true,
   "price": {
     "input": 4.2e-07,

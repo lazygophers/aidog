@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepseek-ai/deepseek-r1-0528-maas",
   "display_name": "DeepSeek-R1-0528",
   "canonical_model": "deepseek-r1-0528-maas",

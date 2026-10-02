@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemini-2.5-pro-preview-tts",
   "display_name": "Gemini 2.5 Pro Preview Tts",
   "canonical_model": "gemini-2.5-pro-preview-tts",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.00002
+    "input": 1e-06,
+    "output": 2e-05
   }
 }

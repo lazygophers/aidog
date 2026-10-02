@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "bytedance/doubao-seed-2.0-code-preview-260215",
   "canonical_model": "doubao-seed-2-0-code-preview-260215",
   "family": "doubao-seed",

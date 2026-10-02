@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/Qwen/Qwen3.8-Max",
   "display_name": "Qwen3.8 Max",
   "canonical_model": "qwen3.8-max",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000165,
-    "output": 0.000004951
+    "input": 1.65e-06,
+    "output": 4.951e-06
   }
 }

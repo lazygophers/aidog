@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "xai/grok-build-0.1",
   "display_name": "Grok Build 0.1",
   "canonical_model": "grok-build-0.1",

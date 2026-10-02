@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/aion-labs/aion-rp-llama-3.1-8b",
   "display_name": "AionLabs: Aion-RP 1.0 (8B)",
   "canonical_model": "aion-rp-llama-3.1-8b",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8e-7,
-    "output": 0.0000016
+    "input": 8e-07,
+    "output": 1.6e-06
   }
 }

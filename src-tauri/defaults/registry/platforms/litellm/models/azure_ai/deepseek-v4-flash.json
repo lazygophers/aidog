@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/deepseek-v4-flash",
   "display_name": "DeepSeek V4 Flash",
   "canonical_model": "deepseek-v4-flash",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.9e-7,
-    "output": 5.1e-7
+    "input": 1.9e-07,
+    "output": 5.1e-07
   },
   "family": "deepseek"
 }

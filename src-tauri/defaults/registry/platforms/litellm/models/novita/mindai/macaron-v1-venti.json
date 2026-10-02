@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/mindai/macaron-v1-venti",
   "canonical_model": "macaron-v1-venti",
   "capabilities": [
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000015,
-    "output": 0.0000045
+    "input": 1.5e-06,
+    "output": 4.5e-06
   }
 }

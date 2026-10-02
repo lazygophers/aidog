@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/baai/bge-reranker-v2-m3",
   "canonical_model": "bge-reranker-v2-m3",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8
+    "input": 1e-08
   },
   "family": "bge",
   "version": "2"

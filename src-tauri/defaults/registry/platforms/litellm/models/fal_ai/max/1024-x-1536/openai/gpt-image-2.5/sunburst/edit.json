@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fal_ai/max/1024-x-1536/openai/gpt-image-2.5/sunburst/edit",
   "display_name": "GPT Image 2.5 Sunburst",
   "canonical_model": "gpt-image-2.5-sunburst",

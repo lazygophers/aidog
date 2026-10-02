@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "seed-2.1-turbo",
   "display_name": "Seed-2.1-Turbo",
   "canonical_model": "seed-2-1-turbo",

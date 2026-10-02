@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-v4.1-flash",
   "display_name": "DeepSeek V4.1 Flash",
   "canonical_model": "deepseek-v4.1-flash",

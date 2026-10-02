@@ -1,9 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-glm-4.5-air",
   "canonical_model": "glm-4.5-air",
-  "capabilities": ["text","tool_use","reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "context_window": 131072,
   "display_name": "Coding GLM 4.5 Air",
   "version": "4.5",

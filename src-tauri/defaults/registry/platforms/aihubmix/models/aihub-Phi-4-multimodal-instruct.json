@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihub-Phi-4-multimodal-instruct",
   "canonical_model": "aihub-Phi-4-multimodal-instruct",
-
   "version": "4",
-  "family": "phi",  "display_name": "Aihub Phi 4 Multimodal Instruct",
+  "family": "phi",
+  "display_name": "Aihub Phi 4 Multimodal Instruct",
   "max_output_tokens": 4000,
   "context_window": 128000,
   "capabilities": [
@@ -16,7 +20,7 @@
   "max_input_tokens": 128000,
   "official": false,
   "price": {
-    "input": 1.2e-7,
-    "output": 4.8e-7
+    "input": 1.2e-07,
+    "output": 4.8e-07
   }
 }

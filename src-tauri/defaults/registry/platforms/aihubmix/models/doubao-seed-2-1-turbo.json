@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seed-2-1-turbo",
   "canonical_model": "doubao-seed-2-1-turbo",
-
   "version": "2.1",
-  "family": "doubao-seed",  "display_name": "Doubao Seed 2.1 Turbo",
+  "family": "doubao-seed",
+  "display_name": "Doubao Seed 2.1 Turbo",
   "thinking_supported": true,
   "max_output_tokens": 256000,
   "context_window": 256000,

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/nvidia/nemotron-3.5-lightning:free",
   "display_name": "NVIDIA: Nemotron 3.5 Lightning (free)",
   "canonical_model": "nemotron-3.5-lightning:free",

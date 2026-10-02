@@ -1,10 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "alicloud-deepseek-v3.2",
   "canonical_model": "DeepSeek-V3.2",
   "predecessor": "DeepSeek-V3.1",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
   "context_window": 163840,
   "display_name": "Alicloud Deepseek V3.2",
   "version": "3.2",

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/deepseek-ai/DeepSeek-V3",
   "display_name": "DeepSeek V3",
   "canonical_model": "DeepSeek-V3",
@@ -15,7 +17,7 @@
   "max_output_tokens": 128000,
   "official": false,
   "price": {
-    "input": 5e-7,
-    "output": 0.0000015
+    "input": 5e-07,
+    "output": 1.5e-06
   }
 }

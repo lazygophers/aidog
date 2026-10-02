@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepinfra-gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "version": "4",
@@ -16,8 +20,8 @@
   "context_window": 262100,
   "official": false,
   "price": {
-    "input": 8.8e-8,
-    "output": 3.85e-7,
-    "cache_read": 1.1e-8
+    "input": 8.8e-08,
+    "output": 3.85e-07,
+    "cache_read": 1.1e-08
   }
 }

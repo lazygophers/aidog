@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qianfan-qi-vl",
   "canonical_model": "qi-vl",
-
-  "family": "qianfan",  "display_name": "Qianfan Qi VL",
+  "family": "qianfan",
+  "display_name": "Qianfan Qi VL",
   "capabilities": [],
   "official": false,
   "price": {

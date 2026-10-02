@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "muse-spark-1.1",
   "canonical_model": "muse-spark-1.1",
   "display_name": "Muse Spark 1.1",
@@ -19,7 +23,7 @@
   "max_input_tokens": 1048576,
   "official": false,
   "price": {
-    "input": 0.000001375,
-    "output": 0.000004675
+    "input": 1.375e-06,
+    "output": 4.675e-06
   }
 }

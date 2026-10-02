@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "aihubmix/qwen3.8-max",
   "display_name": "Qwen3.8 Max",
   "canonical_model": "qwen3.8-max",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000169,
-    "output": 0.00000507
+    "input": 1.69e-06,
+    "output": 5.07e-06
   }
 }

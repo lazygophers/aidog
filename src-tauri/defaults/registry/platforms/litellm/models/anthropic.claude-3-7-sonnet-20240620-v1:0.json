@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "anthropic.claude-3-7-sonnet-20240620-v1:0",
   "canonical_model": "anthropic.claude-3-7-sonnet-20240620-v1:0",
   "family": "claude",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000036,
-    "output": 0.000018
+    "input": 3.6e-06,
+    "output": 1.8e-05
   }
 }

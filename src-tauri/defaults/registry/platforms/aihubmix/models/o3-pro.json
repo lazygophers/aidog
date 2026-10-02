@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "o3-pro",
   "canonical_model": "o3-pro",
   "display_name": "O3 Pro",
@@ -16,8 +20,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00002,
-    "output": 0.00008,
-"cache_read": 2e-05
+    "input": 2e-05,
+    "output": 8e-05,
+    "cache_read": 2e-05
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "publicai/swiss-ai/apertus-70b-instruct",
   "canonical_model": "apertus-70b-instruct",
   "capabilities": [

@@ -2,7 +2,11 @@
   "context_window": 98304,
   "max_input_tokens": 98304,
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "unsloth/gemma-3-27b-it",
   "canonical_model": "gemma-3-27b-it",
   "display_name": "Gemma 3 27B It",

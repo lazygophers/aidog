@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini/gemini-3.5-live-translate-preview",
   "display_name": "Gemini 3.5 Live Translate",
   "canonical_model": "gemini-3.5-live-translate-preview",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000035,
-    "output": 0.000021
+    "input": 3.5e-06,
+    "output": 2.1e-05
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-4.1-nano",
   "display_name": "GPT-4.1 Nano",
   "canonical_model": "gpt-4.1-nano",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 4e-7
+    "input": 1e-07,
+    "output": 4e-07
   }
 }

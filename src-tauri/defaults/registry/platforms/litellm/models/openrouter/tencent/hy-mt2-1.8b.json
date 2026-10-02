@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/tencent/hy-mt2-1.8b",
   "display_name": "Tencent: Hy-MT2-1.8B",
   "canonical_model": "hy-mt2-1.8b",
@@ -13,7 +15,7 @@
   "max_output_tokens": 4096,
   "official": false,
   "price": {
-    "input": 4.4e-8,
-    "output": 1.77e-7
+    "input": 4.4e-08,
+    "output": 1.77e-07
   }
 }

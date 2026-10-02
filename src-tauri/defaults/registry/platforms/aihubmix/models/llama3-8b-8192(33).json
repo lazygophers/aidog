@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "llama3-8b-8192(33)",
   "canonical_model": "llama3-8b-8192(33)",
-
   "version": "3",
-  "family": "llama",  "display_name": "Llama3 8B 8192(33)",
+  "family": "llama",
+  "display_name": "Llama3 8B 8192(33)",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

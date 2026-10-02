@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "llama-3.1-70b-versatile",
   "canonical_model": "llama-3.1-70b-versatile",
   "version": "3.1",
-
-  "family": "llama",  "display_name": "Llama 3.1 70B Versatile",
+  "family": "llama",
+  "display_name": "Llama 3.1 70B Versatile",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

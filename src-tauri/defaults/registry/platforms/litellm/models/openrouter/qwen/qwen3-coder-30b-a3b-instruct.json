@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/qwen/qwen3-coder-30b-a3b-instruct",
   "display_name": "Qwen3 Coder 30B A3B Instruct",
   "canonical_model": "Qwen3-Coder-30B-A3B-Instruct",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 7e-8,
-    "output": 2.8e-7
+    "input": 7e-08,
+    "output": 2.8e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/meta-llama/Llama-Guard-4-12B",
   "display_name": "Meta: Llama Guard 4 12B",
   "canonical_model": "llama-guard-4-12b",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1.8e-7,
-    "output": 1.8e-7
+    "input": 1.8e-07,
+    "output": 1.8e-07
   }
 }

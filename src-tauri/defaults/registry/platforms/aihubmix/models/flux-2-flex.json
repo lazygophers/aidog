@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "flux-2-flex",
   "canonical_model": "flux-2-flex",
-
   "version": "2",
-  "family": "flux",  "display_name": "Flux 2 Flex",
+  "family": "flux",
+  "display_name": "Flux 2 Flex",
   "capabilities": [
     "vision",
     "text_to_image",

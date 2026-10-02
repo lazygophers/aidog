@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-meta-llama-3-3-70b-instruct",
   "canonical_model": "databricks-meta-llama-3-3-70b-instruct",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5.0001e-7,
-    "output": 0.0000015000300000000002
+    "input": 5.0001e-07,
+    "output": 1.5000300000000002e-06
   }
 }

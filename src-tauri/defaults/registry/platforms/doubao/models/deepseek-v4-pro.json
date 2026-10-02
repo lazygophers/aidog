@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "deepseek-v4-pro",
   "display_name": "DeepSeek V4 Pro",
   "canonical_model": "deepseek-v4-pro",
@@ -16,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6.6e-07,
-    "output": 1.98e-06,
+    "input": 1.25,
+    "output": 3.75,
     "cache_read": 2.2e-08
   }
 }

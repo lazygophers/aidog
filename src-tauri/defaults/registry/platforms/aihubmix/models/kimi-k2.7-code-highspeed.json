@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "kimi-k2.7-code-highspeed",
   "canonical_model": "kimi-k2.7-code-highspeed",
   "display_name": "Kimi K2.7 Code Highspeed",
@@ -16,8 +20,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000019,
-    "output": 0.000007999,
-    "cache_read": 3.2167e-7
+    "input": 1.9e-06,
+    "output": 7.999e-06,
+    "cache_read": 3.2167e-07
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/FW-DeepSeek-V4-Pro",
   "canonical_model": "FW-DeepSeek-V4-Pro",
   "family": "deepseek",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000001925,
-    "output": 0.000003828
+    "input": 1.925e-06,
+    "output": 3.828e-06
   }
 }

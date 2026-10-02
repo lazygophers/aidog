@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/openbmb/MiniCPM-V-4_5",
   "canonical_model": "MiniCPM-V-4_5",
   "capabilities": [
@@ -12,7 +14,7 @@
   "max_output_tokens": 32000,
   "official": false,
   "price": {
-    "input": 6.58e-7,
-    "output": 0.00000111
+    "input": 6.58e-07,
+    "output": 1.11e-06
   }
 }

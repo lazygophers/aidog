@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.7-plus",
   "display_name": "Qwen3.7 Plus",
   "canonical_model": "qwen3.7-plus",
@@ -20,7 +23,12 @@
     "output": 1.111111111111111e-06,
     "cache_read": 5.555555555555556e-08,
     "context_tiers": [
-      {"min_tokens": 262145, "input": 8.333333333333333e-07, "output": 3.3333333333333333e-06, "cache_read": 1.6666666666666665e-07}
+      {
+        "min_tokens": 262145,
+        "input": 8.333333333333333e-07,
+        "output": 3.3333333333333333e-06,
+        "cache_read": 1.6666666666666665e-07
+      }
     ]
   }
 }

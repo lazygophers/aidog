@@ -1,0 +1,21 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistralai/devstral-2512",
+  "display_name": "Mistral: Devstral 2 2512",
+  "canonical_model": "devstral-2512",
+  "family": "mistral",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 4e-07,
+    "output": 2e-06,
+    "cache_read": 4e-08
+  }
+}

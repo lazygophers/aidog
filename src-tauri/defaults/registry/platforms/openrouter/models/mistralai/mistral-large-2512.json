@@ -1,0 +1,22 @@
+{
+  "last_updated": 1790927364,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistralai/mistral-large-2512",
+  "display_name": "Mistral: Mistral Large 3 2512",
+  "canonical_model": "mistral-large-2512",
+  "family": "mistral",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 5e-07,
+    "output": 1.5e-06,
+    "cache_read": 5e-08
+  }
+}

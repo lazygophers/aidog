@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "tngtech/DeepSeek-R1T-Chimera",
   "canonical_model": "deepseek-r1t-chimera",
-
-  "family": "deepseek",  "display_name": "DeepSeek R1t Chimera",
+  "family": "deepseek",
+  "display_name": "DeepSeek R1t Chimera",
   "capabilities": [],
   "official": false,
   "price": {

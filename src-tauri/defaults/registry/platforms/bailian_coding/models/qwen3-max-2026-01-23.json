@@ -1,18 +1,21 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-max-2026-01-23",
   "canonical_model": "qwen3-max-2026-01-23",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "display_name": "Qwen3-Max (2026-01-23)",
   "max_input_tokens": 262144,

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini-3-flash-preview",
   "display_name": "Gemini 3 Flash Preview",
   "canonical_model": "gemini-3-flash-preview",

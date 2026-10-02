@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/model-router",
   "canonical_model": "model-router",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 32768,
   "official": false,
   "price": {
-    "input": 1.4e-7,
+    "input": 1.4e-07,
     "output": 0
   }
 }

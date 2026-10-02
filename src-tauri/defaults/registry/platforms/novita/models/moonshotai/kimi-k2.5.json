@@ -1,12 +1,20 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "moonshotai/kimi-k2.5",
   "display_name": "Kimi-K2.5",
   "canonical_model": "kimi-k2.5",
   "version": "2.5",
   "family": "kimi",
-  "capabilities": ["text", "vision", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

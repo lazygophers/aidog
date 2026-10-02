@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3.5-ocr",
   "display_name": "Qwen3.5-OCR",
   "canonical_model": "qwen3.5-ocr",
   "family": "qwen",
-
-  "version": "3.5",  "capabilities": [
+  "version": "3.5",
+  "capabilities": [
     "vision"
   ],
   "max_input_tokens": 49152,
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 6.900000000000001e-8,
-    "output": 2.75e-7
+    "input": 6.900000000000001e-08,
+    "output": 2.75e-07
   }
 }

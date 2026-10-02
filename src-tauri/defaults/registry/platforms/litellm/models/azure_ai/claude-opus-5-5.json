@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure_ai/claude-opus-5-5",
   "display_name": "Claude Opus 5.5",
   "canonical_model": "claude-opus-5-5",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000004,
-    "output": 0.00002
+    "input": 4e-06,
+    "output": 2e-05
   }
 }

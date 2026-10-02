@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "anyscale/codellama/CodeLlama-34b-Instruct-hf",
   "canonical_model": "CodeLlama-34b-Instruct-hf",
   "family": "codellama",
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001,
-    "output": 0.000001
+    "input": 1e-06,
+    "output": 1e-06
   }
 }

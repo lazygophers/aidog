@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "moonshotai/Moonlight-16B-A3B-Instruct",
   "canonical_model": "moonlight-16b-a3b-instruct",
-
-  "family": "moonlight",  "display_name": "Moonlight 16B A3B Instruct",
+  "family": "moonlight",
+  "display_name": "Moonlight 16B A3B Instruct",
   "capabilities": [],
   "official": false,
   "price": {

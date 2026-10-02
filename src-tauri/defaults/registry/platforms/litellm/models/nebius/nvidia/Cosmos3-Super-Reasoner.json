@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nebius/nvidia/Cosmos3-Super-Reasoner",
   "canonical_model": "Cosmos3-Super-Reasoner",
   "capabilities": [
@@ -16,7 +18,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 3e-7
+    "input": 1e-07,
+    "output": 3e-07
   }
 }

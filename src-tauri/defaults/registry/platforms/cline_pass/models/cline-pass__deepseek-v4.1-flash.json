@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cline-pass/deepseek-v4.1-flash",
   "canonical_model": "deepseek-v4.1-flash",
   "family": "deepseek",

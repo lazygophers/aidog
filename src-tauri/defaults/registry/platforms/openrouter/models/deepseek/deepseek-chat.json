@@ -10,11 +10,14 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 3.2e-7,
-    "output": 8.9e-7
+    "input": 2.574e-07,
+    "output": 1.0287e-06
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text"
   ]

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-ai/DeepSeek-R1-Zero",
   "canonical_model": "deepseek-r1-zero",
-
-  "family": "deepseek",  "display_name": "DeepSeek R1 Zero",
+  "family": "deepseek",
+  "display_name": "DeepSeek R1 Zero",
   "capabilities": [],
   "official": false,
   "price": {

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemma-7b-it",
   "canonical_model": "gemma-7b-it",
-
-  "family": "gemma",  "display_name": "Gemma 7B It",
+  "family": "gemma",
+  "display_name": "Gemma 7B It",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

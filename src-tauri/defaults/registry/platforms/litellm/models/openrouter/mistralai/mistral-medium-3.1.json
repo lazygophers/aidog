@@ -1,9 +1,11 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/mistralai/mistral-medium-3.1",
   "display_name": "Mistral: Mistral Medium 3.1",
-  "canonical_model": "mistral-medium-3.1",
+  "canonical_model": "mistral-medium-3-1",
   "family": "mistral",
   "version": "3.1",
   "capabilities": [
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4e-7,
-    "output": 0.000002
+    "input": 4e-07,
+    "output": 2e-06
   }
 }

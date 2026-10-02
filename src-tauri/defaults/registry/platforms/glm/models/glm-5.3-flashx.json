@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "glm-5.3-flashx",
   "canonical_model": "glm-5.3-flashx",
   "family": "glm",
@@ -19,7 +22,8 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 3.7e-07,
-    "output": 1.25e-06
+    "input": 0.277778,
+    "output": 0.972222,
+    "cache_read": 0.079167
   }
 }

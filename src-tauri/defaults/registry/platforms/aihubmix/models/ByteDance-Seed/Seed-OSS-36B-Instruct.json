@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ByteDance-Seed/Seed-OSS-36B-Instruct",
   "canonical_model": "Seed-OSS-36B-Instruct",
   "thinking_supported": true,
@@ -14,7 +18,7 @@
   "context_window": 256000,
   "official": false,
   "price": {
-    "input": 2e-7,
-    "output": 5.34e-7
+    "input": 2e-07,
+    "output": 5.34e-07
   }
 }

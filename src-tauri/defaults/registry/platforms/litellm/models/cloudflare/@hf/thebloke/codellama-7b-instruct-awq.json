@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "cloudflare/@hf/thebloke/codellama-7b-instruct-awq",
   "canonical_model": "codellama-7b-instruct-awq",
   "family": "codellama",
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000001923,
-    "output": 0.000001923
+    "input": 1.923e-06,
+    "output": 1.923e-06
   }
 }

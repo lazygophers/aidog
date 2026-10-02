@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai", "openai_responses"],
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
   "model_id": "doubao-embedding-vision-250615",
   "canonical_model": "doubao-embedding-vision-250615",
   "family": "doubao-embedding",
@@ -13,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 9.72222e-8,
+    "input": 9.72222e-08,
     "output": 0
   }
 }

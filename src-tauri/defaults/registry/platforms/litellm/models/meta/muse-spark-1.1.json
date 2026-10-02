@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "meta/muse-spark-1.1",
   "display_name": "Muse Spark 1.1",
   "canonical_model": "muse-spark-1.1",
@@ -17,8 +19,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00000125,
-    "output": 0.00000425
+    "input": 1.25e-06,
+    "output": 4.25e-06
   },
   "family": "muse",
   "version": "1.1"

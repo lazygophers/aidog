@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "chatglm_lite",
   "canonical_model": "chatglm_lite",
-
-  "family": "glm",  "display_name": "Chatglm_lite",
+  "family": "glm",
+  "display_name": "Chatglm_lite",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

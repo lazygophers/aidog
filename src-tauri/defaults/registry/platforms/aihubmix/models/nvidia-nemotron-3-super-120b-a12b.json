@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "nvidia-nemotron-3-super-120b-a12b",
   "canonical_model": "nvidia-nemotron-3-super-120b-a12b",
-
   "version": "3",
-  "family": "nemotron",  "display_name": "Nvidia Nemotron 3 Super 120B A12B",
+  "family": "nemotron",
+  "display_name": "Nvidia Nemotron 3 Super 120B A12B",
   "thinking_supported": true,
   "context_window": 1000000,
   "capabilities": [
@@ -17,8 +21,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.1e-7,
-    "output": 5.5e-7,
-    "cache_read": 2.75e-8
+    "input": 1.1e-07,
+    "output": 5.5e-07,
+    "cache_read": 2.75e-08
   }
 }

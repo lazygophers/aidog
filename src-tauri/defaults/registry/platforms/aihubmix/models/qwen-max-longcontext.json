@@ -1,12 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen-max-longcontext",
   "canonical_model": "qwen-max-longcontext",
-  "capabilities": ["text"],
-
-  "family": "qwen",  "display_name": "Qwen Max Longcontext",
-  "capabilities": ["text"],
+  "capabilities": [
+    "text"
+  ],
+  "family": "qwen",
+  "display_name": "Qwen Max Longcontext",
   "max_output_tokens": 28000,
   "context_window": 1000000,
   "max_input_tokens": 1000000,

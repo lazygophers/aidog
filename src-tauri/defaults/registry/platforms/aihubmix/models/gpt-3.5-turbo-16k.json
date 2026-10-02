@@ -1,12 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-3.5-turbo-16k",
   "canonical_model": "gpt-3.5-turbo-16k",
-
   "version": "3.5",
-  "family": "gpt",  "display_name": "GPT 3.5 Turbo 16K",
-  "capabilities": ["text"],
+  "family": "gpt",
+  "display_name": "GPT 3.5 Turbo 16K",
+  "capabilities": [
+    "text"
+  ],
   "max_output_tokens": 4096,
   "context_window": 16385,
   "max_input_tokens": 16385,

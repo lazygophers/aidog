@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "aihub-Phi-4",
   "canonical_model": "aihub-Phi-4",
-
   "version": "4",
-  "family": "phi",  "display_name": "Aihub Phi 4",
+  "family": "phi",
+  "display_name": "Aihub Phi 4",
   "max_output_tokens": 16400,
   "context_window": 16400,
   "capabilities": [
@@ -14,7 +18,7 @@
   "max_input_tokens": 16400,
   "official": false,
   "price": {
-    "input": 1.2e-7,
-    "output": 4.8e-7
+    "input": 1.2e-07,
+    "output": 4.8e-07
   }
 }

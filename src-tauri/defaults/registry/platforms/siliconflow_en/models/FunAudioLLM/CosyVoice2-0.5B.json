@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "FunAudioLLM/CosyVoice2-0.5B",
   "canonical_model": "CosyVoice2-0.5B",
   "version": "2",

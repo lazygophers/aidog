@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "darkbloom/gpt-oss-20b",
   "display_name": "gpt-oss-20b",
   "canonical_model": "gpt-oss-20b",
@@ -15,8 +17,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.45e-8,
-    "output": 7e-8
+    "input": 1.45e-08,
+    "output": 7e-08
   },
   "family": "gpt"
 }

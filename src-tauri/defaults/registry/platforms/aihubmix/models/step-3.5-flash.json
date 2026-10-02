@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "step-3.5-flash",
   "canonical_model": "step-3.5-flash",
   "display_name": "Step 3.5 Flash",
@@ -16,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.1e-7,
-    "output": 3.3e-7
+    "input": 1.1e-07,
+    "output": 3.3e-07
   }
 }

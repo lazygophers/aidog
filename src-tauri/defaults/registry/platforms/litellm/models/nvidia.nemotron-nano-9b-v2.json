@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "nvidia.nemotron-nano-9b-v2",
   "display_name": "Nvidia Nemotron Nano 9B V2",
   "canonical_model": "nvidia-nemotron-nano-9b-v2",
@@ -15,7 +17,7 @@
   "max_output_tokens": 8000,
   "official": false,
   "price": {
-    "input": 6e-8,
-    "output": 2.3e-7
+    "input": 6e-08,
+    "output": 2.3e-07
   }
 }

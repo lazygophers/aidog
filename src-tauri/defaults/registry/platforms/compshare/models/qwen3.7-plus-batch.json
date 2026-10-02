@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.7-plus-batch",
   "display_name": "Qwen3.7-Plus-Batch",
   "canonical_model": "qwen3.7-plus-batch",

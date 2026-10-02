@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.8-flash",
   "canonical_model": "qwen3.8-flash",
   "max_output_tokens": 131072,
   "family": "qwen",
-
-  "version": "3.8",  "display_name": "Qwen3.8-Flash",
+  "version": "3.8",
+  "display_name": "Qwen3.8-Flash",
   "capabilities": [
     "text",
     "vision",
@@ -18,9 +22,9 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.126e-7,
-    "output": 3.80025e-7,
-    "cache_read": 1.4075e-8,
-"cache_write": 1.7593700000000002e-07
+    "input": 1.126e-07,
+    "output": 3.80025e-07,
+    "cache_read": 1.4075e-08,
+    "cache_write": 1.7593700000000002e-07
   }
 }

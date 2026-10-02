@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/qwen2-7b-instruct",
   "display_name": "Qwen2 7B Instruct",
   "canonical_model": "qwen2-7b-instruct",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2e-7,
-    "output": 2e-7
+    "input": 2e-07,
+    "output": 2e-07
   }
 }

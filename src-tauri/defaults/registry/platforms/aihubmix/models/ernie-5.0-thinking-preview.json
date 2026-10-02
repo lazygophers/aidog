@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "ernie-5.0-thinking-preview",
   "canonical_model": "ernie-5.0-thinking-preview",
   "display_name": "ERNIE 5.0 Thinking Preview",
@@ -19,12 +23,12 @@
   "price": {
     "input": 8.22e-07,
     "output": 3.288e-06,
-  "cache_read": 8.22e-07,
+    "cache_read": 8.22e-07,
     "context_tiers": [
       {
         "min_tokens": 32001,
-        "input": 0.00000136986,
-        "output": 0.00000547944
+        "input": 1.36986e-06,
+        "output": 5.47944e-06
       }
     ]
   }

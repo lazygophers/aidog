@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "ollama/llama2:7b",
   "canonical_model": "llama2:7b",
   "family": "llama",

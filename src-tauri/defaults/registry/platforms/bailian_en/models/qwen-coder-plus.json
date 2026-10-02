@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-coder-plus",
   "display_name": "Qwen-Coder-Plus",
   "canonical_model": "qwen-coder-plus",
@@ -13,7 +16,7 @@
   "context_window": 131072,
   "official": false,
   "price": {
-    "input": 5.02e-7,
-    "output": 0.000001004
+    "input": 5.02e-07,
+    "output": 1.004e-06
   }
 }

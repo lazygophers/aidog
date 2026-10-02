@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/models/llama-v3p1-405b-instruct",
   "canonical_model": "llama-v3p1-405b-instruct",
   "family": "llama",
@@ -14,7 +16,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 0.000003,
-    "output": 0.000003
+    "input": 3e-06,
+    "output": 3e-06
   }
 }

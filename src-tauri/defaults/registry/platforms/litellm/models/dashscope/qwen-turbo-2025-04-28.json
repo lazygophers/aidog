@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "dashscope/qwen-turbo-2025-04-28",
   "display_name": "Qwen Turbo 2025 04-28",
   "canonical_model": "qwen-turbo",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 5e-8,
-    "output": 2e-7
+    "input": 5e-08,
+    "output": 2e-07
   }
 }

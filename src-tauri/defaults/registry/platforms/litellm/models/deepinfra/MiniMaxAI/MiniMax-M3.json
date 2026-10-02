@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/MiniMaxAI/MiniMax-M3",
   "display_name": "MiniMax-M3",
   "canonical_model": "MiniMax-M3",
@@ -18,8 +20,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.8e-7,
-    "output": 0.0000011
+    "input": 2.8e-07,
+    "output": 1.1e-06
   },
   "family": "minimax"
 }

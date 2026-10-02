@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "apac.amazon.nova-2-pro-preview-20251202-v1:0",
   "canonical_model": "amazon.nova-2-pro-preview-20251202-v1:0",
   "family": "nova",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000021875,
-    "output": 0.0000175
+    "input": 2.1875e-06,
+    "output": 1.75e-05
   }
 }

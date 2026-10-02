@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "o1-pro",
   "canonical_model": "o1-pro",
   "display_name": "O1 Pro",
@@ -18,6 +22,6 @@
   "price": {
     "input": 0.00017,
     "output": 0.00068,
-"cache_read": 0.00017
+    "cache_read": 0.00017
   }
 }

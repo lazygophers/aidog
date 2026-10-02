@@ -1,8 +1,11 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-k3",
-  "display_name": "Kimi-K3",
+  "display_name": "Kimi K3",
   "canonical_model": "kimi-k3",
   "version": "3",
   "family": "kimi",
@@ -18,7 +21,7 @@
   "price": {
     "input": 2.7777777777777775e-06,
     "output": 1.388888888888889e-05,
-    "cache_read": 2.777777777777778e-07
-  },
-  "display_name": "Kimi K3"
+    "cache_read": 2.777777777777778e-07,
+    "cache_write": 2.777778e-06
+  }
 }

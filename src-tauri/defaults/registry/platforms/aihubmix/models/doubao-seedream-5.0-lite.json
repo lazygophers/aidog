@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seedream-5.0-lite",
   "canonical_model": "doubao-seedream-5.0-lite",
-
   "version": "5.0",
-  "family": "doubao-seedream",  "display_name": "Doubao Seedream 5.0 Lite",
+  "family": "doubao-seedream",
+  "display_name": "Doubao Seedream 5.0 Lite",
   "capabilities": [
     "vision",
     "text_to_image",

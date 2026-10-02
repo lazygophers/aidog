@@ -9,12 +9,15 @@
   "official": true,
   "max_output_tokens": 29491,
   "price": {
-    "input": 5.5e-7,
-    "output": 8e-7,
-    "cache_read": 2.5e-7
+    "input": 5.5e-07,
+    "output": 8e-07,
+    "cache_read": 2.5e-07
   },
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text"
   ]

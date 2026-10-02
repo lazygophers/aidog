@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "union-alpha-free",
   "canonical_model": "union-alpha-free",
-
-  "family": "union",  "display_name": "Union Alpha (free)",
+  "family": "union",
+  "display_name": "Union Alpha (free)",
   "context_window": 262144,
   "capabilities": [
     "text",

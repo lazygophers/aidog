@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "speech-2.6-hd",
   "canonical_model": "speech-2.6-hd",
   "family": "minimax",
@@ -14,6 +17,7 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "char",
-    "unit_price": 0.1
+    "unit_price": 0.1,
+    "cache_write": 3.75e-07
   }
 }

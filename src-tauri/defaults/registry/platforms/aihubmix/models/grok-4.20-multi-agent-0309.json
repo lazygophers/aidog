@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "grok-4.20-multi-agent-0309",
   "canonical_model": "grok-4.20-multi-agent-0309",
   "family": "grok",
@@ -16,8 +20,8 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.000006,
-    "cache_read": 2e-7
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 2e-07
   }
 }

@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "UPSCALE",
   "canonical_model": "upscale",
-
-  "family": "vidu",  "display_name": "Upscale",
+  "family": "vidu",
+  "display_name": "Upscale",
   "capabilities": [
     "vision",
     "text_to_image",

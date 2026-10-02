@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "apac.amazon.nova-2-lite-v1:0",
   "display_name": "Amazon: Nova 2 Lite",
   "canonical_model": "nova-2-lite-v1",
@@ -19,7 +21,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 3.3e-7,
-    "output": 0.00000275
+    "input": 3.3e-07,
+    "output": 2.75e-06
   }
 }

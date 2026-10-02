@@ -1,12 +1,16 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3-max",
   "canonical_model": "qwen3-max",
   "display_name": "Qwen3 Max",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
@@ -16,28 +20,28 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 4.508e-7,
-    "output": 0.0000018032,
-    "cache_read": 9.016e-8,
-  "cache_write": 5.635e-07,
+    "input": 4.508e-07,
+    "output": 1.8032e-06,
+    "cache_read": 9.016e-08,
+    "cache_write": 5.635e-07,
     "context_tiers": [
       {
         "min_tokens": 1,
-        "input": 4.508e-7,
-        "output": 0.0000027048,
-        "cache_read": 9.016e-8
+        "input": 4.508e-07,
+        "output": 2.7048e-06,
+        "cache_read": 9.016e-08
       },
       {
         "min_tokens": 32001,
-        "input": 9.02e-7,
-        "output": 0.000005412,
-        "cache_read": 1.804e-7
+        "input": 9.02e-07,
+        "output": 5.412e-06,
+        "cache_read": 1.804e-07
       },
       {
         "min_tokens": 128001,
-        "input": 0.0000013522,
-        "output": 0.0000081132,
-        "cache_read": 2.7044e-7
+        "input": 1.3522e-06,
+        "output": 8.1132e-06,
+        "cache_read": 2.7044e-07
       }
     ]
   }

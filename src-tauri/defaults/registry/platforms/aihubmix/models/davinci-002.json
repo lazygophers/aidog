@@ -1,13 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "davinci-002",
   "canonical_model": "davinci-002",
-  "capabilities": ["embedding"],
+  "capabilities": [
+    "embedding"
+  ],
   "display_name": "Davinci 002",
   "family": "davinci",
   "version": "002",
-  "capabilities": ["embedding"],
   "max_output_tokens": 4096,
   "official": false,
   "thinking_supported": false,

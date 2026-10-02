@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "AiHubmix-Phi-4-mini-reasoning",
   "canonical_model": "AiHubmix-Phi-4-mini-reasoning",
-
   "version": "4",
-  "family": "phi",  "display_name": "Aihubmix Phi 4 Mini (reasoning)",
+  "family": "phi",
+  "display_name": "Aihubmix Phi 4 Mini (reasoning)",
   "max_output_tokens": 4000,
   "context_window": 128000,
   "capabilities": [
@@ -15,7 +19,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 1.2e-7,
-    "output": 1.2e-7
+    "input": 1.2e-07,
+    "output": 1.2e-07
   }
 }

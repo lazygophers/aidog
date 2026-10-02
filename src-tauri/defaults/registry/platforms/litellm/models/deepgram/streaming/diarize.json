@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepgram/streaming/diarize",
   "canonical_model": "diarize",
   "capabilities": [
@@ -11,6 +13,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00003333
+    "unit_price": 3.333e-05
   }
 }

@@ -1,14 +1,18 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "hy4-preview",
   "canonical_model": "hy4-preview",
   "display_name": "Hy4 Preview",
   "max_output_tokens": 64000,
   "context_window": 1048576,
   "family": "hunyuan",
-
-  "version": "4",  "thinking_supported": true,
+  "version": "4",
+  "thinking_supported": true,
   "thinking_toggleable": true,
   "capabilities": [
     "text",
@@ -18,8 +22,8 @@
   "max_input_tokens": 1048576,
   "official": false,
   "price": {
-    "input": 8.45e-7,
-    "output": 0.000002535,
-    "cache_read": 4.225e-8
+    "input": 8.45e-07,
+    "output": 2.535e-06,
+    "cache_read": 4.225e-08
   }
 }

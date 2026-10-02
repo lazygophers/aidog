@@ -1,8 +1,11 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "kimi-k2.6",
-  "display_name": "Kimi-K2.6",
+  "display_name": "Kimi K2.6",
   "canonical_model": "kimi-k2.6",
   "version": "2.6",
   "family": "kimi",
@@ -19,6 +22,5 @@
     "input": 9.027777777777778e-07,
     "output": 3.75e-06,
     "cache_read": 1.527777777777778e-07
-  },
-  "display_name": "Kimi K2.6"
+  }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "kimi-k2.5",
   "display_name": "Kimi-K2.5",
   "canonical_model": "kimi-k2.5",

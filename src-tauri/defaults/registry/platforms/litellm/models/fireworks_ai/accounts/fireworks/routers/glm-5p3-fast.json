@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/accounts/fireworks/routers/glm-5p3-fast",
   "canonical_model": "glm-5p3-fast",
   "family": "glm",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000021,
-    "output": 0.0000066
+    "input": 2.1e-06,
+    "output": 6.6e-06
   }
 }

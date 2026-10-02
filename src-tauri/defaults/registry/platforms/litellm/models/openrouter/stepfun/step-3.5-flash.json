@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/stepfun/step-3.5-flash",
   "display_name": "Step 3.5 Flash",
   "canonical_model": "step-3.5-flash",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1e-7,
-    "output": 3e-7
+    "input": 1e-07,
+    "output": 3e-07
   },
   "family": "stepfun",
   "version": "3.5"

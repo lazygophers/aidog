@@ -1,12 +1,13 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/qwen/qwen3-vl-30b-a3b-thinking",
   "display_name": "Qwen3 VL 30B A3B Thinking",
   "canonical_model": "qwen3-vl-30b-a3b-thinking",
   "family": "qwen",
   "version": "3",
-  "family": "qwen",
   "capabilities": [
     "text",
     "vision",
@@ -19,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2e-7,
-    "output": 0.000001
+    "input": 2e-07,
+    "output": 1e-06
   }
 }

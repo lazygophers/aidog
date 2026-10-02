@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seed-1-6-flash",
   "canonical_model": "doubao-seed-1-6-flash",
-
   "version": "1.6",
-  "family": "doubao-seed",  "display_name": "Doubao Seed 1.6 Flash",
+  "family": "doubao-seed",
+  "display_name": "Doubao Seed 1.6 Flash",
   "thinking_supported": true,
   "max_output_tokens": 33000,
   "context_window": 256000,
@@ -20,16 +24,16 @@
     "cache_read": 8.8e-09,
     "context_tiers": [
       {
-        "min_tokens": 32001,
-        "input": 4.1096e-8,
-        "output": 4.1096e-7,
-        "cache_read": 4.1096e-9
+        "min_tokens": 32769,
+        "input": 4.1096e-08,
+        "output": 4.1096e-07,
+        "cache_read": 4.1096e-09
       },
       {
-        "min_tokens": 128001,
-        "input": 8.2192e-8,
-        "output": 8.2192e-7,
-        "cache_read": 4.1096e-9
+        "min_tokens": 131073,
+        "input": 8.2192e-08,
+        "output": 8.2192e-07,
+        "cache_read": 4.1096e-09
       }
     ]
   }

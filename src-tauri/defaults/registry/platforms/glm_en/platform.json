@@ -37,16 +37,14 @@
       "cogvideox-3",
       "cogview-4",
       "glm-4-32b-0414-128k",
-      "glm-4-flash-250414",
-      "glm-4-flashx-250414",
-      "glm-4-long",
       "glm-4.5v",
       "glm-4.6v",
       "glm-4.6v-flash",
       "glm-4.6v-flashx",
       "glm-asr-2512",
       "glm-image",
-      "glm-ocr"
+      "glm-ocr",
+      "glm-5.3-flashx"
     ]
   },
   "name": {

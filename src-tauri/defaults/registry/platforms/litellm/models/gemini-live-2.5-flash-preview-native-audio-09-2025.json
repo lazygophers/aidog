@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gemini-live-2.5-flash-preview-native-audio-09-2025",
   "canonical_model": "gemini-live-2.5-flash-preview-native-audio-09-2025",
   "family": "gemini",
@@ -17,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5e-7,
-    "output": 0.000002
+    "input": 5e-07,
+    "output": 2e-06
   }
 }

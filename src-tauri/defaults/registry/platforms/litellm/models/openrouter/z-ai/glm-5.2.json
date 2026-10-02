@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/z-ai/glm-5.2",
   "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 6.496e-7,
-    "output": 0.0000020416
+    "input": 4.1e-07,
+    "output": 3.99e-06
   },
   "family": "glm",
   "version": "5.2"

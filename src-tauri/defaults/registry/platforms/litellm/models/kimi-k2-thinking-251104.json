@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "kimi-k2-thinking-251104",
   "canonical_model": "kimi-k2-thinking-251104",
   "family": "kimi",

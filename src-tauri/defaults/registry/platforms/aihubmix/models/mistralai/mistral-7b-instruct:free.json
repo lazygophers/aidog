@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mistralai/mistral-7b-instruct:free",
   "canonical_model": "mistral-7b-instruct:free",
-
-  "family": "mistral",  "display_name": "Mistral 7B Instruct (free)",
+  "family": "mistral",
+  "display_name": "Mistral 7B Instruct (free)",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

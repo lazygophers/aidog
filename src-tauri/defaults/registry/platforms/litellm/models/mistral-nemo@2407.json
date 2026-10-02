@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "mistral-nemo@2407",
   "display_name": "Mistral NeMo",
   "canonical_model": "mistral-nemo@2407",

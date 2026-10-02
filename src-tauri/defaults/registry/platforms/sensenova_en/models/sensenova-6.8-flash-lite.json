@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "sensenova-6.8-flash-lite",
   "display_name": "SenseNova 6.8 Flash Lite",
   "canonical_model": "sensenova-6.8-flash-lite",

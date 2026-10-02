@@ -1,0 +1,25 @@
+{
+  "last_updated": 1790927441,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "gpt-rosalind-research",
+  "display_name": "GPT-Rosalind-Research",
+  "canonical_model": "gpt-rosalind-research",
+  "family": "gpt",
+  "capabilities": [
+    "text",
+    "vision",
+    "reasoning"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_output_tokens": 128000,
+  "context_window": 1050000,
+  "official": true,
+  "price": {
+    "input": 5e-06,
+    "output": 2.5e-05,
+    "cache_read": 5e-07
+  }
+}

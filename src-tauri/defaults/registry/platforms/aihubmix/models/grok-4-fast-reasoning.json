@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "grok-4-fast-reasoning",
   "canonical_model": "grok-4-fast-reasoning",
-
   "version": "4",
-  "family": "grok",  "display_name": "Grok 4 Fast (reasoning)",
+  "family": "grok",
+  "display_name": "Grok 4 Fast (reasoning)",
   "max_output_tokens": 30000,
   "context_window": 1000000,
   "capabilities": [
@@ -19,15 +23,15 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2e-7,
-    "output": 5e-7,
-    "cache_read": 5e-8,
+    "input": 2e-07,
+    "output": 5e-07,
+    "cache_read": 5e-08,
     "context_tiers": [
       {
         "min_tokens": 128001,
-        "input": 4e-7,
-        "output": 0.000001,
-        "cache_read": 5e-8
+        "input": 4e-07,
+        "output": 1e-06,
+        "cache_read": 5e-08
       }
     ]
   }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "claude-sonnet-4-5@20250929",
   "display_name": "Claude Sonnet 4.5 (20250929)",
   "canonical_model": "claude-sonnet-4-5@20250929",

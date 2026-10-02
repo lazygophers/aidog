@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "wan2.7-r2v-2026-06-12",
   "display_name": "Wan2.7-R2V (2026-06-12)",
   "canonical_model": "wan2.7-r2v-2026-06-12",

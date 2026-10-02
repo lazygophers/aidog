@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "MiniMax-M2.5-highspeed",
   "canonical_model": "MiniMax-M2.5-highspeed",
   "family": "minimax",
@@ -14,8 +17,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-  "input": 1e-08,
-  "output": 1e-08
+    "input": 1e-08,
+    "output": 1e-08
   },
   "max_output_tokens": 8192,
   "display_name": "MiniMax M2.5 Highspeed"

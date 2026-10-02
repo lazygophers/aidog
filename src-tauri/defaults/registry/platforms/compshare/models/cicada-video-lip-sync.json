@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cicada-video-lip-sync",
   "display_name": "Cicada Video Lip Sync",
   "canonical_model": "cicada-video-lip-sync",

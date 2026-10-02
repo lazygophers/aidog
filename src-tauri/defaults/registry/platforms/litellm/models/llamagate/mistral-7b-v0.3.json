@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "llamagate/mistral-7b-v0.3",
   "canonical_model": "mistral-7b-v0.3",
   "family": "mistral",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
-    "output": 1.5e-7
+    "input": 1e-07,
+    "output": 1.5e-07
   }
 }

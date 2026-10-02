@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "lemonade/gpt-oss-20b-mxfp4-GGUF",
   "canonical_model": "gpt-oss-20b-mxfp4-GGUF",
   "capabilities": [

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "glm-4-7-251222",
   "canonical_model": "glm-4-7-251222",
   "capabilities": [

@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "tongyi-xiaomi-analysis-flash",
   "canonical_model": "tongyi-xiaomi-analysis-flash",
   "capabilities": [
@@ -12,8 +15,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "context_window": 32768
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/us/gpt-chat-latest",
   "display_name": "GPT Chat Latest",
   "canonical_model": "gpt-chat-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.0000055,
-    "output": 0.000033
+    "input": 5.5e-06,
+    "output": 3.3e-05
   }
 }

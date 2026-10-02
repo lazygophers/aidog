@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "j2-ultra",
   "canonical_model": "j2-ultra",
   "family": "j2",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000015,
-    "output": 0.000015
+    "input": 1.5e-05,
+    "output": 1.5e-05
   }
 }

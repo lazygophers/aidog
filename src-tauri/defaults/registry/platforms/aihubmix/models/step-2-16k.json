@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "step-2-16k",
   "canonical_model": "step-2-16k",
-
   "version": "2",
-  "family": "stepfun",  "display_name": "Step 2 16K",
+  "family": "stepfun",
+  "display_name": "Step 2 16K",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

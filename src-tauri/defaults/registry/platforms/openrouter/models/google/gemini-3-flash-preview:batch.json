@@ -1,7 +1,7 @@
 {
   "model_id": "google/gemini-3-flash-preview:batch",
   "display_name": "Google: Gemini 3 Flash Preview (batch)",
-  "canonical_model": "gemini-3-flash-preview:batch",
+  "canonical_model": "gemini-3-flash-preview",
   "family": "gemini",
   "version": "3",
   "max_input_tokens": 1048576,
@@ -11,11 +11,14 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 2.5e-7,
-    "output": 0.0000015
+    "input": 2.5e-07,
+    "output": 1.5e-06
   },
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "capabilities": [
     "text",
     "vision",

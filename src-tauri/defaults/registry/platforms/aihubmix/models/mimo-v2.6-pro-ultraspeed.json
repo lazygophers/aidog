@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "mimo-v2.6-pro-ultraspeed",
   "canonical_model": "mimo-v2.6-pro-ultraspeed",
-
   "version": "2.6",
-  "family": "mimo",  "display_name": "MiMo V2.6 Pro Ultraspeed",
+  "family": "mimo",
+  "display_name": "MiMo V2.6 Pro Ultraspeed",
   "max_output_tokens": 131072,
   "context_window": 1048576,
   "capabilities": [

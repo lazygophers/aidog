@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepgram/streaming/keyterm",
   "canonical_model": "keyterm",
   "capabilities": [
@@ -9,6 +11,6 @@
   "official": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.00002167
+    "unit_price": 2.167e-05
   }
 }

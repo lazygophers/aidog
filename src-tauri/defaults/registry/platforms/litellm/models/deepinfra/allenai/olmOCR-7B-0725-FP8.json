@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/allenai/olmOCR-7B-0725-FP8",
   "canonical_model": "olmOCR-7B-0725-FP8",
   "family": "olmocr",
@@ -14,7 +16,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.7e-7,
-    "output": 0.0000015
+    "input": 2.7e-07,
+    "output": 1.5e-06
   }
 }

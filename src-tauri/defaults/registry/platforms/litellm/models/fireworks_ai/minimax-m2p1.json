@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/minimax-m2p1",
   "canonical_model": "minimax-m2p1",
   "family": "minimax",
@@ -14,7 +16,7 @@
   "max_output_tokens": 204800,
   "official": false,
   "price": {
-    "input": 3e-7,
-    "output": 0.0000012
+    "input": 3e-07,
+    "output": 1.2e-06
   }
 }

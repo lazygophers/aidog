@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-oss-120b",
   "display_name": "gpt-oss-120b",
   "canonical_model": "gpt-oss-120b",
@@ -16,8 +18,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.5e-7,
-    "output": 6e-7
+    "input": 3.7e-08,
+    "output": 1.7e-07
   },
   "family": "gpt"
 }

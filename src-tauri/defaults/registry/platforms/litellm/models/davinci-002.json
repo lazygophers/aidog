@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "davinci-002",
   "display_name": "Davinci 002",
   "canonical_model": "davinci-002",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000002,
-    "output": 0.000002
+    "input": 2e-06,
+    "output": 2e-06
   }
 }

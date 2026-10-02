@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "Qwen/QVQ-72B-Preview",
   "canonical_model": "qvq-72b-preview",
-
-  "family": "qwen",  "display_name": "Qvq 72B Preview",
+  "family": "qwen",
+  "display_name": "Qvq 72B Preview",
   "capabilities": [],
   "official": false,
   "price": {

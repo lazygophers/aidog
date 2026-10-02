@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "doubao-seedream-4-0",
   "canonical_model": "doubao-seedream-4-0",
-
   "version": "4.0",
-  "family": "doubao-seedream",  "display_name": "Doubao Seedream 4.0",
+  "family": "doubao-seedream",
+  "display_name": "Doubao Seedream 4.0",
   "capabilities": [
     "vision",
     "text_to_image",
@@ -15,7 +19,6 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "unit": "image",
-    "unit_price": 0
+    "input": 2e-06
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/tencent/hy4-preview",
   "display_name": "Hy4 preview",
   "canonical_model": "hy4-preview",
@@ -18,8 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8.34e-7,
-    "output": 0.000002501
-  },
-  "family": "hunyuan"
+    "input": 8.34e-07,
+    "output": 2.501e-06
+  }
 }

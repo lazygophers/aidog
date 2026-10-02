@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "speech-02-turbo",
   "canonical_model": "speech-02-turbo",
   "family": "minimax",
@@ -14,6 +17,7 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "char",
-    "unit_price": 0.06
+    "unit_price": 0.06,
+    "cache_write": 3.75e-07
   }
 }

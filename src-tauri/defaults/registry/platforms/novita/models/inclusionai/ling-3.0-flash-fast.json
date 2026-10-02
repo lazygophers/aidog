@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "inclusionai/ling-3.0-flash-fast",
   "canonical_model": "ling-3.0-flash-fast",
   "family": "ling",

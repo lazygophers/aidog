@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "eu.amazon.nova-pro-v1:0",
   "display_name": "Amazon: Nova Pro 1.0",
   "canonical_model": "nova-pro-v1",
@@ -18,7 +20,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000105,
-    "output": 0.0000042
+    "input": 1.05e-06,
+    "output": 4.2e-06
   }
 }

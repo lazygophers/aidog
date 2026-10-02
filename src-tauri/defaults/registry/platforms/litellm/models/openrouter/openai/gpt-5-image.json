@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/openai/gpt-5-image",
   "display_name": "OpenAI: GPT-5 Image",
   "canonical_model": "gpt-5-image",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.00001,
-    "output": 0.00001
+    "input": 1e-05,
+    "output": 1e-05
   }
 }

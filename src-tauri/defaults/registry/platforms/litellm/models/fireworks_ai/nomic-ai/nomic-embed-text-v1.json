@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "fireworks_ai/nomic-ai/nomic-embed-text-v1",
   "canonical_model": "nomic-embed-text-v1",
   "family": "nomic-embed-text",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 8e-9,
+    "input": 8e-09,
     "output": 0
   }
 }

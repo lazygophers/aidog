@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "inclusionai/ling-3.0-flash-sante",
   "canonical_model": "ling-3.0-flash-sante",
   "family": "ling",
@@ -12,6 +15,7 @@
   ],
   "official": false,
   "price": {
+    "free": true,
     "input": 0.0,
     "output": 0.0,
     "cache_read": 0.0

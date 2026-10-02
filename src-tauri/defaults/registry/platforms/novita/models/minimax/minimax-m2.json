@@ -1,12 +1,19 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "minimax/minimax-m2",
   "display_name": "MiniMax M2",
   "canonical_model": "MiniMax-M2",
   "family": "minimax",
   "version": "2",
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "official": false,
   "thinking_supported": true,
   "thinking_toggleable": true,

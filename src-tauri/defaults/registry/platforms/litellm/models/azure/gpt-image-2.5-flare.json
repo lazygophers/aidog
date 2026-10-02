@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "azure/gpt-image-2.5-flare",
   "display_name": "GPT Image 2.5 Flare",
   "canonical_model": "gpt-image-2.5-flare",
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000005,
-    "output": 0.00003
+    "input": 5e-06,
+    "output": 3e-05
   }
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "embed-english-light-v3.0",
   "canonical_model": "embed-english-light-v3.0",
   "family": "embed",
@@ -15,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
+    "input": 1e-07,
     "output": 0
   }
 }

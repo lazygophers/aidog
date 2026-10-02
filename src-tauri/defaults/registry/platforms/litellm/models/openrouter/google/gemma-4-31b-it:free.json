@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/google/gemma-4-31b-it:free",
   "display_name": "Google: Gemma 4 31B (free)",
   "canonical_model": "gemma-4-31b-it:free",

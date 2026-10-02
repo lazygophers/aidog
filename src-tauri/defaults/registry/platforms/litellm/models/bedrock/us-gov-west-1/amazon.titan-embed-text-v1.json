@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "bedrock/us-gov-west-1/amazon.titan-embed-text-v1",
   "display_name": "Titan Embeddings G1 - Text",
   "canonical_model": "amazon.titan-embed-text-v1",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-7,
+    "input": 1e-07,
     "output": 0
   }
 }

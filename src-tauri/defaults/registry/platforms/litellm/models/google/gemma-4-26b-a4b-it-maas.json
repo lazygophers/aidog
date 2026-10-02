@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "google/gemma-4-26b-a4b-it-maas",
   "canonical_model": "gemma-4-26b-a4b-it-maas",
   "family": "gemma",

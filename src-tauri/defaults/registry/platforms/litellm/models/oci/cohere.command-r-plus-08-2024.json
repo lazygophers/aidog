@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "oci/cohere.command-r-plus-08-2024",
   "display_name": "Command R+ (08-2024)",
   "canonical_model": "command-r-plus-08-2024",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000156,
-    "output": 0.00000156
+    "input": 1.56e-06,
+    "output": 1.56e-06
   }
 }

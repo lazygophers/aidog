@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "low/1024-x-1024/gpt-image-1",
   "display_name": "GPT Image 1",
   "canonical_model": "gpt-image-1",

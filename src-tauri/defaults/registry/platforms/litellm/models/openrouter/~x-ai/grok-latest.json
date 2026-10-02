@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "openrouter/~x-ai/grok-latest",
   "display_name": "xAI: Grok Latest",
   "canonical_model": "grok-latest",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.0000016,
-    "output": 0.0000048
+    "input": 2e-06,
+    "output": 6e-06
   }
 }

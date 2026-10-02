@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemma-4-26b-a4b-it",
   "canonical_model": "gemma-4-26b-a4b-it",
   "version": "4",
@@ -16,7 +20,7 @@
   "context_window": 262144,
   "official": false,
   "price": {
-    "input": 1.4e-7,
-    "output": 3.9998e-7
+    "input": 1.4e-07,
+    "output": 3.9998e-07
   }
 }

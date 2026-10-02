@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-deep-research",
   "display_name": "Qwen-Deep-Research",
   "canonical_model": "qwen-deep-research",

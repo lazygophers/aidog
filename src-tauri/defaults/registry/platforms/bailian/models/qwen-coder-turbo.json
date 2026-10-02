@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-coder-turbo",
   "display_name": "Qwen-Coder-Turbo",
   "canonical_model": "qwen-coder-turbo",

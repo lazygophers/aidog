@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gmi/zai-org/GLM-4.7-FP8",
   "canonical_model": "GLM-4.7-FP8",
   "capabilities": [
@@ -11,7 +13,7 @@
   "max_output_tokens": 16384,
   "official": false,
   "price": {
-    "input": 4e-7,
-    "output": 0.000002
+    "input": 4e-07,
+    "output": 2e-06
   }
 }

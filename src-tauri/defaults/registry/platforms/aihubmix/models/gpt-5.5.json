@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gpt-5.5",
   "canonical_model": "gpt-5.5",
   "version": "5.5",
@@ -15,15 +19,15 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000005,
-    "output": 0.00003,
-    "cache_read": 5e-7,
+    "input": 5e-06,
+    "output": 3e-05,
+    "cache_read": 5e-07,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 0.00001,
-        "output": 0.000045,
-        "cache_read": 0.000001
+        "input": 1e-05,
+        "output": 4.5e-05,
+        "cache_read": 1e-06
       }
     ]
   },

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "google/gemma-4-26b-a4b-it-maas",
   "canonical_model": "gemma-4-26b-a4b-it-maas",
   "family": "gemma",

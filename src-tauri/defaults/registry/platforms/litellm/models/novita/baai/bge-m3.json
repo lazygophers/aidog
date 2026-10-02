@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/baai/bge-m3",
   "canonical_model": "bge-m3",
   "capabilities": [
@@ -8,13 +10,13 @@
   ],
   "max_input_tokens": 8192,
   "context_window": 8192,
-  "max_output_tokens": 96000,
+  "max_output_tokens": 8192,
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 1e-8,
-    "output": 1e-8
+    "input": 1e-08,
+    "output": 1e-08
   },
   "family": "bge"
 }

@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "novita/deepseek/deepseek-r1-distill-llama-70b",
   "display_name": "DeepSeek R1 Distill Llama 70B",
   "canonical_model": "deepseek-r1-distill-llama-70b",
@@ -17,7 +19,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8e-7,
-    "output": 8e-7
+    "input": 8e-07,
+    "output": 8e-07
   }
 }

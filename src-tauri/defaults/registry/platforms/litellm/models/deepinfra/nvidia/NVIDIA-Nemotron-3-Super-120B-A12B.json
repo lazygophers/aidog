@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "deepinfra/nvidia/NVIDIA-Nemotron-3-Super-120B-A12B",
   "display_name": "Nvidia Nemotron 3 Super 120B A12B",
   "canonical_model": "nvidia-nemotron-3-super-120b-a12b",
@@ -18,7 +20,7 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 8.5e-8,
-    "output": 4e-7
+    "input": 8.5e-08,
+    "output": 4e-07
   }
 }

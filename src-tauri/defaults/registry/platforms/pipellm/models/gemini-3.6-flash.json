@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "gemini-3.6-flash",
   "display_name": "Gemini 3.6 Flash",
   "canonical_model": "gemini-3.6-flash",
@@ -16,8 +20,8 @@
   "context_window": 1048576,
   "official": false,
   "price": {
-    "input": 0.0000015,
-    "output": 0.0000075,
-    "cache_read": 1.5e-7
+    "input": 1.5e-06,
+    "output": 7.5e-06,
+    "cache_read": 1.5e-07
   }
 }

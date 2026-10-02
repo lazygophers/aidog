@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "gradient_ai/anthropic-claude-3-opus",
   "canonical_model": "anthropic-claude-3-opus",
   "capabilities": [
@@ -13,7 +15,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.000015,
-    "output": 0.000075
+    "input": 1.5e-05,
+    "output": 7.5e-05
   }
 }

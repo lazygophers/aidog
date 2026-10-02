@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859417,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "databricks/databricks-qwen35-122b-a10b",
   "canonical_model": "databricks-qwen35-122b-a10b",
   "capabilities": [
@@ -15,7 +17,7 @@
   "thinking_supported": true,
   "thinking_toggleable": false,
   "price": {
-    "input": 2.2001e-7,
-    "output": 0.00000220003
+    "input": 2.2001e-07,
+    "output": 2.20003e-06
   }
 }

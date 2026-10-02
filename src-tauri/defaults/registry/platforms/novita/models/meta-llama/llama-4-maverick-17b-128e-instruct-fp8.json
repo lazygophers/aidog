@@ -1,11 +1,17 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
   "canonical_model": "llama-4-maverick-17b-128e-instruct-fp8",
   "version": "4",
   "family": "llama",
-  "capabilities": ["text", "vision"],
+  "capabilities": [
+    "text",
+    "vision"
+  ],
   "official": true,
   "thinking_supported": false,
   "thinking_toggleable": false,

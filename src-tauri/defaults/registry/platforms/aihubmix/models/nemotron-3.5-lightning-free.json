@@ -1,11 +1,15 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "nemotron-3.5-lightning-free",
   "canonical_model": "nemotron-3.5-lightning-free",
-
   "version": "3.5",
-  "family": "nemotron",  "display_name": "Nemotron 3.5 Lightning (free)",
+  "family": "nemotron",
+  "display_name": "Nemotron 3.5 Lightning (free)",
   "capabilities": [
     "text"
   ],

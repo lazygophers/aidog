@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "coding-glm-5.2",
   "canonical_model": "glm-5.2",
   "display_name": "Coding GLM 5.2",
@@ -19,7 +23,7 @@
   "context_window": 1000000,
   "official": false,
   "price": {
-    "input": 6e-8,
-    "output": 2.2e-7
+    "input": 6e-08,
+    "output": 2.2e-07
   }
 }

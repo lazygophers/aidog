@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["gemini"],
+  "supported_protocols": [
+    "gemini"
+  ],
   "model_id": "gemini-pro-latest",
   "display_name": "Gemini Pro Latest",
   "canonical_model": "gemini-pro-latest",

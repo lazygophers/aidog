@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "mimo-v2.5-asr",
   "display_name": "MiMo-V2.5-ASR",
   "canonical_model": "mimo-v2.5-asr",
@@ -16,6 +19,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.0000192901
+    "unit_price": 1.92901e-05
   }
 }

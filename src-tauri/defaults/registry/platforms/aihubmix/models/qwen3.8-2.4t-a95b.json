@@ -1,13 +1,17 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen3.8-2.4t-a95b",
   "canonical_model": "qwen3.8-2.4t-a95b",
   "max_output_tokens": 131072,
   "display_name": "Qwen3.8-2.4T-A95B",
   "family": "qwen",
-
-  "version": "3.8",  "capabilities": [
+  "version": "3.8",
+  "capabilities": [
     "text",
     "reasoning"
   ],
@@ -17,8 +21,8 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 0.000002,
-    "output": 0.000006,
-    "cache_read": 5e-7
+    "input": 2e-06,
+    "output": 6e-06,
+    "cache_read": 5e-07
   }
 }

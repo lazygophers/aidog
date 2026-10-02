@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "wanx2.1-i2v-plus",
   "display_name": "Wanx2.1-I2V-Plus",
   "canonical_model": "wanx2.1-i2v-plus",

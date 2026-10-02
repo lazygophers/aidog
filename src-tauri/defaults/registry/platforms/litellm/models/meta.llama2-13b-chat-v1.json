@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859418,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "meta.llama2-13b-chat-v1",
   "display_name": "Llama 2 13B Chat",
   "canonical_model": "meta.llama2-13b-chat-v1",
@@ -16,7 +18,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 7.5e-7,
-    "output": 0.000001
+    "input": 7.5e-07,
+    "output": 1e-06
   }
 }

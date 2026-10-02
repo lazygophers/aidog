@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-deep-research",
   "display_name": "Qwen-Deep-Research",
   "canonical_model": "qwen-deep-research",
@@ -14,7 +17,7 @@
   "official": false,
   "thinking_supported": true,
   "price": {
-    "input": 0.000007742,
-    "output": 0.000023367000000000002
+    "input": 7.742e-06,
+    "output": 2.3367000000000002e-05
   }
 }

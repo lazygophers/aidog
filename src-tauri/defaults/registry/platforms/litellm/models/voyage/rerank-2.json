@@ -1,6 +1,8 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["openai"],
+  "supported_protocols": [
+    "openai"
+  ],
   "model_id": "voyage/rerank-2",
   "canonical_model": "rerank-2",
   "family": "rerank",
@@ -15,6 +17,6 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 5e-8
+    "input": 5e-08
   }
 }

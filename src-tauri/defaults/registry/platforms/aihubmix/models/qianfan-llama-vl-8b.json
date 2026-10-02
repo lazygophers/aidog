@@ -1,10 +1,14 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qianfan-llama-vl-8b",
   "canonical_model": "llama-vl-8b",
-
-  "family": "qianfan",  "display_name": "Qianfan Llama VL 8B",
+  "family": "qianfan",
+  "display_name": "Qianfan Llama VL 8B",
   "capabilities": [],
   "official": false,
   "thinking_supported": false,

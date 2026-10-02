@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "qwen/qwen3-vl-plus",
   "display_name": "Qwen3 VL Plus",
   "canonical_model": "qwen3-vl-plus",

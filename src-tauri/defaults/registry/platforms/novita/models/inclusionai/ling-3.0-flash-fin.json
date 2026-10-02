@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859419,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "inclusionai/ling-3.0-flash-fin",
   "display_name": "inclusionAI: Ling 3.0 Flash Fin",
   "canonical_model": "ling-3.0-flash-fin",
@@ -8,7 +11,11 @@
   "version": "3.0",
   "thinking_supported": true,
   "thinking_toggleable": true,
-  "capabilities": ["text", "tool_use", "reasoning"],
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
   "official": true,
   "price": {
     "input": 0.0,

@@ -1,12 +1,15 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen3-vl-235b-a22b-instruct",
   "display_name": "Qwen3 VL 235B A22B Instruct",
   "canonical_model": "qwen3-vl-235b-a22b-instruct",
   "family": "qwen",
-
-  "version": "3",  "capabilities": [
+  "version": "3",
+  "capabilities": [
     "text"
   ],
   "max_input_tokens": 262144,
@@ -16,7 +19,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 4.0000000000000003e-7,
-    "output": 0.0000016000000000000001
+    "input": 4.0000000000000003e-07,
+    "output": 1.6000000000000001e-06
   }
 }

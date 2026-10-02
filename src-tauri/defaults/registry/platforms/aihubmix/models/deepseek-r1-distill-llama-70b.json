@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "deepseek-r1-distill-llama-70b",
   "canonical_model": "deepseek-r1-distill-llama-70b",
   "display_name": "DeepSeek R1 Distill Llama 70B",
@@ -16,7 +20,7 @@
   "official": false,
   "thinking_toggleable": true,
   "price": {
-    "input": 8e-7,
-    "output": 0.0000016
+    "input": 8e-07,
+    "output": 1.6e-06
   }
 }

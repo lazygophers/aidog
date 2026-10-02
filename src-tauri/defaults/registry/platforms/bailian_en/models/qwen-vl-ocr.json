@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859416,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "qwen-vl-ocr",
   "display_name": "Qwen-VL-OCR",
   "canonical_model": "qwen-vl-ocr",
@@ -14,7 +17,7 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 7e-8,
-    "output": 1.6e-7
+    "input": 7e-08,
+    "output": 1.6e-07
   }
 }

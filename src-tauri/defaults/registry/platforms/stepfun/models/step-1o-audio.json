@@ -1,6 +1,9 @@
 {
   "last_updated": 1790859420,
-  "supported_protocols": ["anthropic", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
   "model_id": "step-1o-audio",
   "display_name": "Step-1o Audio",
   "canonical_model": "step-1o-audio",
@@ -13,8 +16,8 @@
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
-    "input": 0.00000347222,
-    "output": 0.00000833333,
-    "cache_read": 6.94444e-7
+    "input": 3.47222e-06,
+    "output": 8.33333e-06,
+    "cache_read": 6.94444e-07
   }
 }

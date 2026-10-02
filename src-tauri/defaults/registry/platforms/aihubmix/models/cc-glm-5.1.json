@@ -1,6 +1,10 @@
 {
   "last_updated": 1790859415,
-  "supported_protocols": ["anthropic", "gemini", "openai"],
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
   "model_id": "cc-glm-5.1",
   "canonical_model": "glm-5.1",
   "display_name": "CC GLM 5.1",
@@ -18,7 +22,7 @@
   "context_window": 200000,
   "official": false,
   "price": {
-    "input": 6e-8,
-    "output": 2.2e-7
+    "input": 6e-08,
+    "output": 2.2e-07
   }
 }
