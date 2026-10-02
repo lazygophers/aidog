@@ -90,3 +90,17 @@ implementer 在 worktree 里跑相对路径命令，静默打到主 checkout 两
   不能信任上一条命令切过去的目录——那条 cd 已经没了。
 - 动手前后各跑一次 `git -C <主 checkout> status --short`：多出来的脏文件
   就是误伤，当场还原并核对内容。
+
+## registry 盖戳脚本无参模式会盖到别人的脏文件（2026-10-02）
+
+`scripts/bump-registry-last-updated.mjs` 无参 = 「盖 git 变更（含 untracked）的 registry json」，
+共享 checkout 上 `git status` 里的脏文件含**别的会话未提交的改动**——commandcode-goat 轮另一会话
+在改 litellm/openrouter（4331 个文件），无参跑把 8709 个文件全部重盖戳。盖戳内容中性（只动
+last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff（「误扫」的无害化版本），且时间戳
+被无谓推高、远程同步白拉一遍。
+
+- **无参盖戳前先 `git status --short` 核对脏文件集**：全是自己的 → 直接跑；混有他人文件 →
+  等对方收工，或跑完**当场告知对方**「你的脏 registry 文件被盖了戳」并把自己 commit 严格限路径
+  （硬规则 1）。
+- 判据同 registry-data-edit.md「以输出数字为准」：输出「N 个文件已盖戳」的 N 远超自己的改动集
+  时，先 `git diff -- <他人文件>` 核对只有时间戳一行变化，再继续。
