@@ -142,9 +142,10 @@ jobs:
 
   # ── Flutter 壳（票 I13）── 与老 Tauri 壳并存：同一个 Release 里两套产物、两个 feed
   #（Tauri 读 latest.json，Flutter 读 flutter-appcast.xml），谁也装不上对方的包。
+  # Flutter 壳只在手动 dispatch 跑（2026-10-03 用户拍板）：push 发版不自动出 Flutter 产物
   flutter-release:
     needs: cleanup
-    if: always() && needs.cleanup.result != 'failure'
+    if: github.event_name == 'workflow_dispatch' && needs.cleanup.result != 'failure'
     strategy:
       fail-fast: false
       matrix:
@@ -267,7 +268,7 @@ jobs:
   # needs.release：tauri-action 先把 Release 建出来，gh release upload 才有地方传。
   flutter-appcast:
     needs: [cleanup, release, flutter-release]
-    if: always() && needs.cleanup.result != 'failure' && needs.release.result == 'success' && needs.flutter-release.result == 'success'
+    if: github.event_name == 'workflow_dispatch' && needs.cleanup.result != 'failure' && needs.release.result == 'success' && needs.flutter-release.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
