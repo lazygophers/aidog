@@ -1,0 +1,21 @@
+{
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "last_updated": 1791006457,
+  "model_id": "claude-opus-4",
+  "canonical_model": "claude-opus-4",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 200000,
+  "max_output_tokens": 32768,
+  "context_window": 200000,
+  "official": true,
+  "price": {
+    "input": 1.5e-05,
+    "output": 7.5e-05,
+    "cache_read": 1.5e-06,
+    "cache_write": 1.875e-05
+  }
+}

@@ -1,6 +1,6 @@
 {
   "family": "deepseek",
-  "last_updated": 1790859419,
+  "last_updated": 1791006457,
   "supported_protocols": [
     "openai"
   ],
@@ -14,7 +14,7 @@
     "vision"
   ],
   "context_window": 1048576,
-  "official": false,
+  "official": true,
   "thinking_toggleable": true,
   "price": {
     "input": 0.0,

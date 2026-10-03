@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790951674,
+  "last_updated": 1791006457,
   "platforms": [
     {
       "code": "aihubmix",
@@ -882,8 +882,7 @@
         "claude-sonnet-5.json",
         "claude-opus-5-5.json",
         "claude-sonnet-5-5.json",
-        "claude-opus-5-5.json",
-        "claude-sonnet-5-5.json"
+        "claude-opus-4.json"
       ]
     },
     {
@@ -2298,9 +2297,7 @@
         "glm-5-3-flash-260828.json",
         "deepseek-v4-1-flash-260910.json",
         "dola-seedream-5-0-flash-260915.json",
-        "glm-5-3-flash-260828.json",
-        "deepseek-v4-1-flash-260910.json",
-        "dola-seedream-5-0-flash-260915.json"
+        "glm-4-7-251222.json"
       ]
     },
     {
@@ -2319,9 +2316,6 @@
         "claude-opus-5.json",
         "claude-sonnet-4-6.json",
         "claude-sonnet-5.json",
-        "claude-opus-5-5.json",
-        "claude-sonnet-5-5.json",
-        "claude-opus-4-5.json",
         "claude-opus-5-5.json",
         "claude-sonnet-5-5.json",
         "claude-opus-4-5.json"
@@ -2857,11 +2851,6 @@
         "doubao-seed-2-1-pro-260915.json",
         "doubao-seedream-5-0-flash-260915.json",
         "glm-5-3-flash-260828.json",
-        "deepseek-v4-1-flash-260910.json",
-        "doubao-seed-2-1-lite-260915.json",
-        "doubao-seed-2-1-pro-260915.json",
-        "doubao-seedream-5-0-flash-260915.json",
-        "glm-5-3-flash-260828.json",
         "deepseek-v4-1-flash-260910.json"
       ]
     },
@@ -3004,7 +2993,10 @@
         "xai/grok-4.20-reasoning.json",
         "zai-org/glm-4.7-maas.json",
         "zai-org/glm-5-2-maas.json",
-        "zai-org/glm-5-maas.json"
+        "zai-org/glm-5-maas.json",
+        "gemini-3-pro-image-preview.json",
+        "gemini-3.1-flash-image-preview.json",
+        "gemini-3.1-flash-lite-preview.json"
       ]
     },
     {
@@ -3215,7 +3207,6 @@
         "glm-asr-2512.json",
         "glm-image.json",
         "glm-ocr.json",
-        "glm-5.3-flashx.json",
         "glm-5.3-flashx.json"
       ]
     },
@@ -3228,7 +3219,10 @@
         "kimi-k2.6.json",
         "kimi-k2.7-code-highspeed.json",
         "kimi-k2.7-code.json",
-        "kimi-k3.json"
+        "kimi-k3.json",
+        "kimi-k2-0905-preview.json",
+        "kimi-k2.5.json",
+        "kimi-k2-thinking.json"
       ]
     },
     {
@@ -7137,7 +7131,6 @@
       "models_dir": "platforms/longcat/models",
       "models": [
         "LongCat-2.0.json",
-        "LongCat-2.5-Preview.json",
         "LongCat-2.5-Preview.json"
       ]
     },
@@ -7184,7 +7177,9 @@
         "speech-2.6-hd.json",
         "speech-2.6-turbo.json",
         "speech-2.8-hd.json",
-        "speech-2.8-turbo.json"
+        "speech-2.8-turbo.json",
+        "MiniMax-M2.1-lightning.json",
+        "MiniMax-M2.5-lightning.json"
       ]
     },
     {
@@ -7255,8 +7250,6 @@
         "voxtral-small-24b-2507.json",
         "voxtral-tts-2603.json",
         "zai-glm-5-2.json",
-        "zai-glm-5-3.json",
-        "mistral-ocr-4-1.json",
         "zai-glm-5-3.json",
         "mistral-ocr-4-1.json"
       ]
@@ -7658,10 +7651,6 @@
         "tts-1-hd.json",
         "tts-1.json",
         "whisper-1.json",
-        "gpt-6.1-sol.json",
-        "gpt-rosalind-research.json",
-        "gpt-live-1.json",
-        "omni-moderation-latest.json",
         "gpt-6.1-sol.json",
         "gpt-rosalind-research.json",
         "gpt-live-1.json",
@@ -8249,7 +8238,8 @@
         "unbiased/pareto-26.10-preview.json",
         "openai/gpt-6.1-sol-pro.json",
         "openai/gpt-6.1-sol.json",
-        "openai/gpt-oss-120b:batch.json"
+        "openai/gpt-oss-120b:batch.json",
+        "deepseek/deepseek-r1-distill-llama-70b.json"
       ]
     },
     {
@@ -8379,8 +8369,6 @@
         "qwen3.5-35b-a3b.json",
         "qwen3.5-397b-a17b.json",
         "tao-8k.json",
-        "deepseek-v3.json",
-        "deepseek-v3.1.json",
         "deepseek-v3.json",
         "deepseek-v3.1.json"
       ]
@@ -8830,7 +8818,6 @@
         "zai-org/GLM-5.2.json",
         "zai-org/GLM-5.json",
         "zai-org/GLM-5V-Turbo.json",
-        "deepseek-ai/DeepSeek-V4.1-Flash.json",
         "deepseek-ai/DeepSeek-V4.1-Flash.json"
       ]
     },
@@ -8861,13 +8848,6 @@
         "stepaudio-2.5-chat.json",
         "stepaudio-2.5-realtime.json",
         "stepaudio-2.5-tts.json",
-        "step-5-preview.json",
-        "stepaudio-3-tts.json",
-        "stepaudio-3-asr-max.json",
-        "stepaudio-3-chat.json",
-        "stepaudio-3-realtime-preview.json",
-        "stepaudio-3-gen.json",
-        "stepaudio-3-music-preview.json",
         "step-5-preview.json",
         "stepaudio-3-tts.json",
         "stepaudio-3-asr-max.json",
@@ -9236,8 +9216,6 @@
         "grok-tts.json",
         "grok-voice-think-fast-1.0.json",
         "grok-voice-think-fast-2.0.json",
-        "grok-4.7.json",
-        "grok-imagine-video-1.5-lite.json",
         "grok-4.7.json",
         "grok-imagine-video-1.5-lite.json"
       ],

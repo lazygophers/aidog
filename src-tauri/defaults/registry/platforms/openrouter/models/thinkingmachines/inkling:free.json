@@ -10,10 +10,11 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
+    "free": true,
     "input": 0,
     "output": 0
   },
-  "last_updated": 1790859420,
+  "last_updated": 1791006457,
   "supported_protocols": [
     "anthropic",
     "openai"

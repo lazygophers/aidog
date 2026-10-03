@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1791006457,
   "supported_protocols": [
     "gemini"
   ],
@@ -17,6 +17,6 @@
   "thinking_toggleable": false,
   "price": {
     "unit": "second",
-    "unit_price": 0.0
+    "unit_price": 0.1
   }
 }
