@@ -1,0 +1,525 @@
+use super::*;
+use crate::gateway::estimate::EstCodingPlan;
+use aidog_db::now;
+
+// ── Kimi 精确增量：每 token % = 100/limit ──
+#[test]
+fn kimi_precise_increment() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 40.0,
+        coef_per_token: 0.0,
+        util_at_last_real: 40.0,
+        tokens_since_real: 0.0,
+        has_base: true,
+        limit: 10_000.0,
+        window_start: 0,
+        coef_per_request: 0.0,
+        requests_since_real: 0.0,
+        unit: String::new(),
+    };
+    apply_tier_delta(&mut tier, 0, 1000.0); // 1000 × (100/10000) = 10%
+    assert!(
+        (tier.est_utilization - 50.0).abs() < 1e-9,
+        "got {}",
+        tier.est_utilization
+    );
+    // clamp 到 100
+    apply_tier_delta(&mut tier, 0, 100_000.0);
+    assert!((tier.est_utilization - 100.0).abs() < 1e-9);
+}
+
+// ── 方案 B 拟合后增量 ──
+#[test]
+fn fitted_increment_with_coef() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 40.0,
+        coef_per_token: 0.0001, // 每 token 0.0001%
+        util_at_last_real: 40.0,
+        tokens_since_real: 0.0,
+        has_base: false,
+        limit: 0.0,
+        window_start: 0,
+        coef_per_request: 0.0,
+        requests_since_real: 0.0,
+        unit: String::new(),
+    };
+    apply_tier_delta(&mut tier, 0, 50_000.0); // 40 + 50000×0.0001 = 45
+    assert!(
+        (tier.est_utilization - 45.0).abs() < 1e-9,
+        "got {}",
+        tier.est_utilization
+    );
+    assert!((tier.tokens_since_real - 50_000.0).abs() < 1e-9);
+}
+
+// ── 冷启动（无 coef）不预估，只累计 tokens ──
+#[test]
+fn cold_start_no_estimate() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 40.0,
+        coef_per_token: 0.0, // 冷启动
+        util_at_last_real: 40.0,
+        tokens_since_real: 0.0,
+        has_base: false,
+        limit: 0.0,
+        window_start: 0,
+        coef_per_request: 0.0,
+        requests_since_real: 0.0,
+        unit: String::new(),
+    };
+    apply_tier_delta(&mut tier, 0, 50_000.0);
+    assert!(
+        (tier.est_utilization - 40.0).abs() < 1e-9,
+        "冷启动不应预估，got {}",
+        tier.est_utilization
+    );
+    // 但 tokens 仍累计，供下次真查拟合
+    assert!((tier.tokens_since_real - 50_000.0).abs() < 1e-9);
+}
+
+// ── 方案 B 真查拟合 coef ──
+#[test]
+fn calibrate_fits_coef() {
+    let prev = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 45.0,
+        coef_per_token: 0.0,
+        util_at_last_real: 40.0,
+        tokens_since_real: 50_000.0,
+        has_base: false,
+        limit: 0.0,
+        window_start: 0,
+        coef_per_request: 0.0,
+        requests_since_real: 0.0,
+        unit: String::new(),
+    };
+    // 真查得 util_real = 50% → coef = (50-40)/50000 = 0.0002
+    let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None, None, now(), "tokens");
+    assert!(
+        (cal.coef_per_token - 0.0002).abs() < 1e-12,
+        "coef = {}",
+        cal.coef_per_token
+    );
+    assert!((cal.est_utilization - 50.0).abs() < 1e-9);
+    assert!((cal.util_at_last_real - 50.0).abs() < 1e-9);
+    assert_eq!(cal.tokens_since_real, 0.0);
+}
+
+// ── reset 检测：util_real < util_at_last_real → 丢样本，coef 保留 ──
+#[test]
+fn calibrate_reset_discards_sample() {
+    let prev = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 90.0,
+        coef_per_token: 0.0003, // 上一窗口已拟合
+        util_at_last_real: 80.0,
+        tokens_since_real: 30_000.0,
+        has_base: false,
+        limit: 0.0,
+        window_start: 0,
+        coef_per_request: 0.0,
+        requests_since_real: 0.0,
+        unit: String::new(),
+    };
+    // 窗口 reset，真值跌到 5%（< 80）→ 丢弃本窗口样本，coef 保留旧值
+    let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None, None, now(), "tokens");
+    assert!(
+        (cal.coef_per_token - 0.0003).abs() < 1e-12,
+        "reset 应保留旧 coef，got {}",
+        cal.coef_per_token
+    );
+    assert!((cal.est_utilization - 5.0).abs() < 1e-9);
+    assert!((cal.util_at_last_real - 5.0).abs() < 1e-9);
+    assert_eq!(cal.tokens_since_real, 0.0);
+}
+
+// ── Kimi 校准记 limit ──
+#[test]
+fn calibrate_kimi_records_base() {
+    let prev = EstTier::default();
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        30.0,
+        true,
+        Some(20_000.0),
+        None,
+        now(),
+        "tokens",
+    );
+    assert!(cal.has_base);
+    assert!((cal.limit - 20_000.0).abs() < 1e-9);
+    assert!((cal.est_utilization - 30.0).abs() < 1e-9);
+}
+
+// ── 校准阈值触发 ──
+#[test]
+fn calibrate_thresholds() {
+    let now_ms = 1_000_000_000_000;
+    // 时间未到 + 次数未到 → 不校准
+    assert!(!should_calibrate(now_ms, now_ms - 100, 50));
+    // 时间超 5min → 校准
+    assert!(should_calibrate(now_ms, now_ms - 300_001, 0));
+    // 次数 >= 100 → 校准
+    assert!(should_calibrate(now_ms, now_ms, 100));
+    assert!(should_calibrate(now_ms, now_ms, 150));
+}
+
+#[test]
+fn balance_cost_sums_components() {
+    let c = balance_cost(100, 50, 200, 1e-6, 2e-6, 5e-7);
+    let expect = 100.0 * 1e-6 + 50.0 * 2e-6 + 200.0 * 5e-7;
+    assert!((c - expect).abs() < 1e-15);
+}
+
+#[test]
+fn apply_tier_delta_zero_tokens_noop() {
+    let mut tier = EstTier {
+        est_utilization: 10.0,
+        has_base: true,
+        limit: 100.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 0, 0.0);
+    assert_eq!(tier.est_utilization, 10.0);
+    apply_tier_delta(&mut tier, 0, -5.0);
+    assert_eq!(tier.est_utilization, 10.0);
+}
+
+#[test]
+fn fitted_increment_clamps_at_100() {
+    let mut tier = EstTier {
+        est_utilization: 99.0,
+        coef_per_token: 1.0,
+        util_at_last_real: 99.0,
+        has_base: false,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 0, 100.0);
+    assert!((tier.est_utilization - 100.0).abs() < 1e-9);
+}
+
+#[test]
+fn tier_pace_levels_and_as_str() {
+    let mk = |u: f64| EstTier {
+        est_utilization: u,
+        ..Default::default()
+    };
+    assert_eq!(tier_pace(&mk(85.0)), TierPace::Fast);
+    assert_eq!(tier_pace(&mk(50.0)), TierPace::Normal);
+    assert_eq!(tier_pace(&mk(10.0)), TierPace::Busy);
+    assert_eq!(tier_pace(&mk(-1.0)), TierPace::Normal);
+    assert_eq!(tier_pace(&mk(f64::NAN)), TierPace::Normal);
+    assert_eq!(TierPace::Fast.as_str(), "fast");
+    assert_eq!(TierPace::Normal.as_str(), "normal");
+    assert_eq!(TierPace::Busy.as_str(), "busy");
+}
+
+#[test]
+fn tier_usage_level_neutral_and_computed() {
+    // unknown name (no cycle) → Neutral
+    let unknown = EstTier {
+        name: "weird".into(),
+        window_start: 1,
+        est_utilization: 50.0,
+        ..Default::default()
+    };
+    assert_eq!(
+        tier_usage_level(&unknown, now()),
+        crate::gateway::usage_color::UsageLevel::Neutral
+    );
+    // known name but window_start <= 0 → Neutral
+    let no_window = EstTier {
+        name: "five_hour".into(),
+        window_start: 0,
+        ..Default::default()
+    };
+    assert_eq!(
+        tier_usage_level(&no_window, now()),
+        crate::gateway::usage_color::UsageLevel::Neutral
+    );
+    // known name + window_start → computed (just assert it runs and returns a level)
+    let active = EstTier {
+        name: "five_hour".into(),
+        window_start: now(),
+        est_utilization: 50.0,
+        ..Default::default()
+    };
+    let _ = tier_usage_level(&active, now());
+}
+
+#[test]
+fn calibrate_with_resets_at_iso_and_millis() {
+    let prev = EstTier {
+        name: "five_hour".into(),
+        ..Default::default()
+    };
+    // ISO8601 resets_at → window_start derived
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("2030-01-01T00:00:00Z"),
+        now(),
+        "tokens",
+    );
+    assert!(cal.window_start != 0);
+    // bare millis (>1e12) resets_at
+    let cal2 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("1893456000000"),
+        now(),
+        "tokens",
+    );
+    assert!(cal2.window_start != 0);
+    // bare seconds (<1e12) resets_at → ×1000
+    let cal3 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("1893456000"),
+        now(),
+        "tokens",
+    );
+    assert!(cal3.window_start != 0);
+    // unparseable resets_at → keep prev.window_start (0)
+    let cal4 = calibrate_tier(
+        &prev,
+        "five_hour",
+        20.0,
+        false,
+        None,
+        Some("not-a-date"),
+        now(),
+        "tokens",
+    );
+    assert_eq!(cal4.window_start, prev.window_start);
+    // unknown name → no cycle → keep prev.window_start
+    let cal5 = calibrate_tier(
+        &prev,
+        "weird",
+        20.0,
+        false,
+        None,
+        Some("2030-01-01T00:00:00Z"),
+        now(),
+        "tokens",
+    );
+    assert_eq!(cal5.window_start, prev.window_start);
+}
+
+#[test]
+fn mcp_monthly_not_token_estimated() {
+    // 复现线上漂移：GLM mcp_monthly has_base/limit=1000（MCP 月调用次数口径，非 token），
+    // est=5%（真值）。一次普通请求的 token 总量（百万级）按 100/limit 累加会瞬间推到 100%。
+    let mut tier = EstTier {
+        name: "mcp_monthly".into(),
+        est_utilization: 5.0,
+        has_base: true,
+        limit: 1000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 0, 2_000_000.0);
+    assert_eq!(
+        tier.est_utilization, 5.0,
+        "mcp_monthly 用量单位是调用次数，不吃 LLM token 增量，只靠真查校准"
+    );
+    // 对照：token 口径 tier 照常累加
+    let mut five_hour = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 10.0,
+        has_base: true,
+        limit: 100_000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut five_hour, 0, 10_000.0);
+    assert_eq!(five_hour.est_utilization, 20.0); // +10_000 × (100/100_000) = +10%
+}
+
+// ── B1（spec 2026-09-12）：unit 计费类型 ──
+
+// prompt_count + has_base：每请求 +100/limit，token 不参与
+#[test]
+fn prompt_count_has_base_increments_per_request() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 10.0,
+        util_at_last_real: 10.0,
+        has_base: true,
+        limit: 6_000.0,
+        unit: "prompt_count".into(),
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 1, 2_000_000.0); // 一次请求（含百万级 token）只 +100/6000
+    assert!((tier.est_utilization - (10.0 + 100.0 / 6000.0)).abs() < 1e-9);
+    // clamp 到 100
+    for _ in 0..6000 {
+        apply_tier_delta(&mut tier, 1, 0.0);
+    }
+    assert!((tier.est_utilization - 100.0).abs() < 1e-9);
+}
+
+// prompt_count 无基数：拟合 coef_per_request，est = util_at_last_real + requests × coef
+#[test]
+fn prompt_count_fits_coef_per_request() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 30.0,
+        util_at_last_real: 30.0,
+        coef_per_request: 0.5,
+        unit: "prompt_count".into(),
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 4, 999_999.0); // 4 次请求 × 0.5% = +2
+    assert!((tier.est_utilization - 32.0).abs() < 1e-9);
+    assert!((tier.requests_since_real - 4.0).abs() < 1e-9);
+    assert_eq!(tier.tokens_since_real, 0.0, "prompt_count 口径不累计 token");
+}
+
+// prompt_count 冷启动（coef_per_request=0）：不预估，只累计请求数
+#[test]
+fn prompt_count_cold_start_no_estimate() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 30.0,
+        util_at_last_real: 30.0,
+        unit: "prompt_count".into(),
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 10, 500_000.0);
+    assert_eq!(tier.est_utilization, 30.0);
+    assert!((tier.requests_since_real - 10.0).abs() < 1e-9);
+}
+
+// mcp_time：任何请求都不增量（时长口径与请求数无关，只靠真查校准）
+#[test]
+fn mcp_time_no_increment() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 5.0,
+        unit: "mcp_time".into(),
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 100, 2_000_000.0);
+    assert_eq!(tier.est_utilization, 5.0);
+}
+
+// 已删除的 response_inline：存量 JSON 里可能残留该 unit 值，必须退回 tokens 兜底增量，
+// 不得因为「认不出的 unit」而静默不增量（那正是它被删掉的原因）。
+#[test]
+fn removed_response_inline_unit_falls_back_to_token_increment() {
+    let mut tier = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 5.0,
+        unit: "response_inline".into(),
+        has_base: true,
+        limit: 1_000_000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 1, 100_000.0);
+    assert!(
+        tier.est_utilization > 5.0,
+        "未知 unit 必须走 tokens 兜底，实得 {}",
+        tier.est_utilization
+    );
+}
+
+// calibrate prompt_count：拟合 coef_per_request = Δutil/Δ请求数
+#[test]
+fn calibrate_fits_coef_per_request() {
+    let prev = EstTier {
+        name: "five_hour".into(),
+        est_utilization: 50.0,
+        util_at_last_real: 30.0,
+        requests_since_real: 40.0,
+        ..Default::default()
+    };
+    // 真查：util 30→50，40 次请求 → coef_per_request = 0.5
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        50.0,
+        false,
+        None,
+        None,
+        now(),
+        "prompt_count",
+    );
+    assert!(
+        (cal.coef_per_request - 0.5).abs() < 1e-12,
+        "got {}",
+        cal.coef_per_request
+    );
+    assert_eq!(cal.coef_per_token, 0.0, "prompt_count 口径不动 token coef");
+    assert_eq!(cal.unit, "prompt_count");
+    assert_eq!(cal.requests_since_real, 0.0);
+}
+
+// calibrate：reset 时两 coef 都保留旧值
+#[test]
+fn calibrate_prompt_count_reset_keeps_coefs() {
+    let prev = EstTier {
+        name: "five_hour".into(),
+        util_at_last_real: 20.0,
+        coef_per_request: 0.4,
+        coef_per_token: 0.0001,
+        ..Default::default()
+    };
+    let cal = calibrate_tier(
+        &prev,
+        "five_hour",
+        5.0,
+        false,
+        None,
+        None,
+        now(),
+        "prompt_count",
+    );
+    assert!((cal.coef_per_request - 0.4).abs() < 1e-12);
+    assert!((cal.coef_per_token - 0.0001).abs() < 1e-12);
+}
+
+// serde 向后兼容：旧 EstCodingPlan JSON（无 unit / coef_per_request / requests_since_real）可读
+#[test]
+fn est_coding_plan_old_json_backcompat() {
+    let old = r#"{"tiers":[{"name":"five_hour","est_utilization":42.5,"coef_per_token":0.0001,"util_at_last_real":40.0,"tokens_since_real":25000.0,"has_base":true,"limit":100000.0,"window_start":1700000000000}],"level":"ok"}"#;
+    let plan = EstCodingPlan::from_json(old);
+    assert_eq!(plan.tiers.len(), 1);
+    let t = &plan.tiers[0];
+    assert_eq!(t.unit, "", "旧 JSON 无 unit → 缺省 tokens 兜底");
+    assert_eq!(t.coef_per_request, 0.0);
+    assert_eq!(t.requests_since_real, 0.0);
+    assert!((t.est_utilization - 42.5).abs() < 1e-9);
+    // 缺省 unit 的 tier 仍走 token 增量（旧行为）
+    let mut tier = t.clone();
+    apply_tier_delta(&mut tier, 1, 10_000.0);
+    assert!(
+        (tier.est_utilization - 52.5).abs() < 1e-9,
+        "10_000 × (100/100_000) = +10%"
+    );
+}
+
+// 旧 JSON 无 unit 但 name=mcp_monthly：历史特判保留，不增量
+#[test]
+fn legacy_mcp_monthly_without_unit_not_incremented() {
+    let mut tier = EstTier {
+        name: "mcp_monthly".into(),
+        est_utilization: 5.0,
+        has_base: true,
+        limit: 1_000.0,
+        ..Default::default()
+    };
+    apply_tier_delta(&mut tier, 1, 1_000_000.0);
+    assert_eq!(tier.est_utilization, 5.0);
+}

@@ -1,0 +1,15 @@
+//! 协议转换聚合层：入站请求解析 / 请求转换（request）与响应解析 / 转换（response）。
+//!
+//! 拆分自原 `converter.rs`，对外 `adapter::converter::X` 路径保持不变。
+
+mod request;
+mod response;
+pub mod traits;
+
+pub use request::{convert_request, decision_api_path, parse_incoming_request, passthrough_api_path};
+pub use response::{
+    AnthropicSseState, NonStreamResponse, convert_response, parse_sse, parse_upstream_sse,
+    response_model, response_model_or, split_stream_inline_reasoning, to_client_sse,
+    to_client_sse_stateful,
+};
+pub use traits::*;

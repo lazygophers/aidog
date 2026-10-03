@@ -1,0 +1,15 @@
+[package]
+name = "aidog_test_util"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C3+ 各 commands crate dev-deps 引此 crate（mock_app_with_db 等）。
+# mock_app_with_db 构造 MockRuntime App + manage(Db)，依赖 tauri test feature。
+[dependencies]
+aidog_core = { path = "../aidog_core" }
+aidog_db = { path = "../aidog_db" }
+aidog_stats = { path = "../aidog_stats" }
+aidog_middleware = { path = "../aidog_middleware" }
+tauri = { workspace = true, features = ["test"] }

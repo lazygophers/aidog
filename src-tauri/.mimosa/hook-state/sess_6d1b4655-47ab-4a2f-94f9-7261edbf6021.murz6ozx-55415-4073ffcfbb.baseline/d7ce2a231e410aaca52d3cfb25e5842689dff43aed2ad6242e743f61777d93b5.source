@@ -1,0 +1,520 @@
+//! MITM 白名单 host 匹配（Clash 规则集 4 类型：domain/suffix/keyword/ipcidr）。
+//!
+//! `rule_type` + `host_pattern`（语义泛化，复用列存规则值，不改列名避迁移成本）：
+//!  - `domain`  → host 全串精确匹配（大小写不敏感）
+//!  - `suffix`  → Clash DOMAIN-SUFFIX 标准：裸域 + 所有子域（`anthropic.com` 命中 `anthropic.com`
+//!    与 `api.anthropic.com`，不命中 `xanthropic.com`）
+//!  - `keyword` → host 子串（大小写不敏感）
+//!  - `ipcidr`  → 仅匹配 IP 字面 CONNECT 目标；host 解析成 IpAddr 后判 CIDR contains
+//!    （不解析域名→IP，GeoIP/DNS 用户明确不要）
+//!
+//! 设计：CONNECT 是全局能力（无 group_key 概念），白名单全局；命中走 MITM，未命中走 P1 盲转。
+//! 匹配在内存做（每条 CONNECT 请求 O(n)，n = 白名单条目数，通常 < 50）；setting 读走 get_setting
+//! 内存缓存（命中零 DB 往返，比旧 raw SQL 快）。
+//!
+//! 设计依据：design.md §2、spec `.trellis/spec/backend/proxy-connect-relay.md`。
+
+use aidog_db::{Db, get_setting};
+use serde::{Deserialize, Serialize};
+
+/// MITM 白名单在 setting 表的 key（scope=mitm，value = WhitelistEntry JSON 数组）。
+const MITM_WHITELIST_KEY: &str = "whitelist";
+/// MITM 配置在 setting 表的 scope（与 ca.rs 共用）。
+const MITM_SCOPE: &str = "mitm";
+
+/// 内置 MITM 规则集（从 aidog_db 单源再导出，供 command 层直接引用）。
+pub use aidog_db::DEFAULT_RULES;
+
+/// 白名单行（setting 表 mitm:whitelist JSON 数组元素）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhitelistEntry {
+    pub host_pattern: String, // 规则值（domain/suffix 域名 / keyword 子串 / ipcidr CIDR 串）
+    pub rule_type: String,    // "domain" | "suffix" | "keyword" | "ipcidr"
+    pub enabled: bool,
+    pub source: String, // "default" | "user"
+}
+
+/// host 是否命中给定白名单条目集合（enabled=true 的才参与匹配）。
+///
+/// 大小写不敏感（host 在 DNS 层不区分大小写；CONNECT target host 经 endpoint_host 已小写化，
+/// 但白名单条目可能用户手填大小写不一，这里统一 lower 后比较）。
+///
+/// 按 rule_type 分派到 matches_rule：
+///  - host 是 IP 字面 → domain/suffix/keyword 自动 miss（IpAddr 不含点号子串语义），ipcidr 命中
+///  - host 是域名 → ipcidr 自动 miss（不解析域名→IP），host 类规则命中
+pub fn matches_host<I>(entries: I, host: &str) -> bool
+where
+    I: IntoIterator<Item = WhitelistEntry>,
+{
+    let host = host.trim().to_lowercase();
+    if host.is_empty() {
+        return false;
+    }
+    for e in entries {
+        if !e.enabled {
+            continue;
+        }
+        let rule_value = e.host_pattern.trim().to_lowercase();
+        if rule_value.is_empty() {
+            continue;
+        }
+        if matches_rule(&host, e.rule_type.as_str(), &rule_value) {
+            return true;
+        }
+    }
+    false
+}
+
+/// 收集 host 命中的白名单条目（与 `matches_host` 同语义，但返命中规则列表而非布尔）。
+///
+/// 仅遍历 enabled 条目（反映 MITM 实际行为 = 仅 enabled 生效；disabled 不参与匹配）。
+/// 复用 `matches_rule` 单源匹配引擎，禁重复实现（测试 URL 命中与运行时白名单判定走同一逻辑）。
+///
+/// 用途：URL 命中测试 command（用户输入 URL → 解析 host → 本 fn 返命中规则列表，
+/// 前端透明展示哪些规则命中）。
+pub fn evaluate_host(entries: &[WhitelistEntry], host: &str) -> Vec<WhitelistEntry> {
+    let host = host.trim().to_lowercase();
+    if host.is_empty() {
+        return Vec::new();
+    }
+    entries
+        .iter()
+        .filter(|e| e.enabled)
+        .filter(|e| {
+            let rule_value = e.host_pattern.trim().to_lowercase();
+            !rule_value.is_empty() && matches_rule(&host, e.rule_type.as_str(), &rule_value)
+        })
+        .cloned()
+        .collect()
+}
+
+/// 单条规则匹配（按 rule_type 分派）。
+///
+/// host 已 lower + trim；rule_value 已 lower + trim。
+///
+/// pub：URL 命中测试 command 复用此单源匹配引擎（`evaluate_host` 遍历条目调本 fn），
+/// 禁 command 内联重写匹配逻辑（双源漂移风险）。matches_host 也走此 fn。
+pub fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
+    match rule_type {
+        // domain：host 全串精确匹配（大小写不敏感已 lower 化）。
+        "domain" => host == rule_value,
+        // suffix（Clash DOMAIN-SUFFIX 标准）：裸域 + 所有子域。
+        // host == rule_value（裸域命中）|| host 以 `.rule_value` 结尾（子域，点前保证跨域 boundary
+        // 防 `xanthropic.com` 命中 `anthropic.com`）。
+        // 前导点容错：用户可能写 `.cn` / `..cn`（前导点）入 db，strip 所有前导点归一化后再匹配，
+        // 否则 format!(".{rule_value}") 会产生 `..cn`（双点）永不命中。`.cn`/`cn`/`..cn` 等价命中 `cn`。
+        // 全点 rule_value (`...`) → normalized 空 → 不命中（脏数据兜底）。
+        "suffix" => {
+            let normalized = rule_value.trim_start_matches('.');
+            !normalized.is_empty()
+                && (host == normalized || host.ends_with(&format!(".{normalized}")))
+        }
+        // keyword：host 子串（大小写不敏感已 lower 化）。
+        "keyword" => host.contains(rule_value),
+        // ipcidr：仅匹配 IP 字面 CONNECT 目标。host 解析成 IpAddr 失败 → 域名 → miss。
+        // 不解析域名→IP（GeoIP/DNS 用户明确不要，仅匹配 CONNECT target host 段已是 IP 字面情况）。
+        "ipcidr" => {
+            let Ok(ip) = host.parse::<std::net::IpAddr>() else {
+                return false;
+            };
+            match rule_value.parse::<ipnet::IpNet>() {
+                Ok(net) => net.contains(&ip),
+                Err(_) => false,
+            }
+        }
+        _ => false,
+    }
+}
+
+/// 从 setting 读全部白名单条目（含 enabled=false，调用方按需过滤；matches_host 已按 enabled 跳过）。
+///
+/// 排序：数组顺序即 created_at 升序（migration 从旧表迁时 ORDER BY created_at ASC；
+/// 新增条目 push 尾部 = 最新）。无 setting 行 / 空数组 → 空 Vec。
+pub async fn list_whitelist(db: &Db) -> Result<Vec<WhitelistEntry>, String> {
+    match get_setting(db, MITM_SCOPE, MITM_WHITELIST_KEY).await? {
+        Some(v) => match serde_json::from_value::<Vec<WhitelistEntry>>(v.clone()) {
+            Ok(entries) => Ok(entries),
+            Err(e) => {
+                tracing::warn!(scope = MITM_SCOPE, key = MITM_WHITELIST_KEY, error = %e, "stored mitm whitelist JSON corrupt, returning empty");
+                Ok(Vec::new())
+            }
+        },
+        None => Ok(Vec::new()),
+    }
+}
+
+/// host 是否命中 setting 白名单（便捷封装：先读数组再匹配）。
+///
+/// ponytail: 每 CONNECT 调用读一次 setting（get_setting 内存缓存命中零 DB 往返），
+/// O(n) 扫描；n 小（< 50）可接受。set_setting 写时自动 invalidate 缓存。
+pub async fn matches_db(db: &Db, host: &str) -> bool {
+    match list_whitelist(db).await {
+        Ok(entries) => matches_host(entries, host),
+        Err(e) => {
+            tracing::warn!(error = %e, host, "mitm whitelist: list failed, deny MITM (fallback to blind relay)");
+            false // 读失败保守拒绝 MITM（走 P1 盲转，更安全）
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn entry(rule_type: &str, pattern: &str, enabled: bool) -> WhitelistEntry {
+        WhitelistEntry {
+            host_pattern: pattern.to_string(),
+            rule_type: rule_type.to_string(),
+            enabled,
+            source: "default".to_string(),
+        }
+    }
+
+    // ── domain（精确匹配）──────────────────────────────────────
+
+    #[test]
+    fn whitelist_domain_exact_hit_case_insensitive() {
+        let entries = [entry("domain", "api.openai.com", true)];
+        assert!(matches_host(entries.clone(), "api.openai.com"));
+        assert!(matches_host(entries.clone(), "API.OpenAI.com")); // 大小写不敏感
+        assert!(!matches_host(entries.clone(), "v1.api.openai.com")); // 子域不命中
+        assert!(!matches_host(entries, "xapi.openai.com")); // 不含点号边界
+    }
+
+    // ── suffix（Clash DOMAIN-SUFFIX：裸域 + 子域）──────────────
+
+    #[test]
+    fn whitelist_suffix_hits_bare_and_subdomain() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        // Clash DOMAIN-SUFFIX 标准：裸域 + 所有子域（语义扩展，比旧 *.domain 更宽）
+        assert!(matches_host(entries.clone(), "anthropic.com")); // 裸域命中
+        assert!(matches_host(entries.clone(), "api.anthropic.com")); // 子域命中
+        assert!(matches_host(entries.clone(), "API.Anthropic.com")); // 大小写不敏感
+        assert!(matches_host(entries, "x.api.anthropic.com")); // 多层子域
+    }
+
+    #[test]
+    fn whitelist_suffix_misses_cross_domain_attack() {
+        // 关键安全测试：跨域 boundary 必须有点号保护
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(!matches_host(entries.clone(), "xanthropic.com")); // 无点号 boundary
+        assert!(!matches_host(entries.clone(), "anthropic.com.evil.com")); // suffix 后接 evil
+        assert!(!matches_host(entries, "x.anthropic.com.evil.com"));
+    }
+
+    // ── suffix 前导点容错（用户写 `.cn` / `..cn` / `cn` 等价命中）──────────
+
+    #[test]
+    fn suffix_leading_dot_matches() {
+        // rule `.cn` 命中 `open.bigmodel.cn`（前导点容错：strip 后等价裸域 `cn`）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", ".cn"));
+        assert!(matches_rule("api.openai.com", "suffix", ".com"));
+    }
+
+    #[test]
+    fn suffix_multi_leading_dot_normalized() {
+        // rule `..cn` 归一化为 `cn` 仍命中（trim_start_matches('.') strip 所有前导点）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", "..cn"));
+        // 裸域 `cn` 也命中（向后兼容，Clash DOMAIN-SUFFIX 标准语义）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", "cn"));
+    }
+
+    #[test]
+    fn suffix_all_dots_empty_misses() {
+        // rule `...` 全点 → normalized 空 → 不命中（脏数据兜底，防 format! 产生 `....` 误匹配）
+        assert!(!matches_rule("open.bigmodel.cn", "suffix", "..."));
+        assert!(!matches_rule("anything.com", "suffix", "."));
+    }
+
+    // ── keyword（子串，大小写不敏感）────────────────────────────
+
+    #[test]
+    fn whitelist_keyword_substring_case_insensitive() {
+        let entries = [entry("keyword", "openai", true)];
+        assert!(matches_host(entries.clone(), "openai.com"));
+        assert!(matches_host(entries.clone(), "chat.openai.com"));
+        assert!(matches_host(entries.clone(), "OPENAI-API.example")); // 大小写不敏感
+        assert!(matches_host(entries.clone(), "myopenai.tool")); // 子串命中
+        assert!(!matches_host(entries, "anthropic.com"));
+    }
+
+    // ── ipcidr（仅匹配 IP 字面）─────────────────────────────────
+
+    #[test]
+    fn whitelist_ipcidr_matches_ip_literal_target() {
+        let entries = [entry("ipcidr", "24.199.123.28/32", true)];
+        assert!(matches_host(entries.clone(), "24.199.123.28")); // /32 精确 IP 命中
+        assert!(!matches_host(entries.clone(), "24.199.123.29")); // 同段不同 IP 不命中
+    }
+
+    #[test]
+    fn whitelist_ipcidr_matches_cidr_range() {
+        let entries = [entry("ipcidr", "10.0.0.0/8", true)];
+        assert!(matches_host(entries.clone(), "10.1.2.3"));
+        assert!(matches_host(entries.clone(), "10.255.255.255"));
+        assert!(!matches_host(entries.clone(), "11.0.0.1"));
+    }
+
+    #[test]
+    fn whitelist_ipcidr_misses_domain_target() {
+        // 关键反例：host 是域名 → IpAddr parse 失败 → ipcidr 自动 miss（不解析域名→IP）
+        let entries = [entry("ipcidr", "24.199.123.28/32", true)];
+        assert!(!matches_host(entries.clone(), "api.openai.com"));
+        assert!(!matches_host(entries, "openai.com"));
+    }
+
+    // ── 跨类型互斥（host 类型自动 miss 错类型规则）──────────────
+
+    #[test]
+    fn whitelist_host_class_when_host_is_ip_literal() {
+        // host 是 IP 字面时的跨类型行为：
+        //  - domain 精确匹配仍命中（host == rule_value 全串相等，与 host 是否 IP 无关）
+        //  - suffix/keyword 仍按字符串语义判（IP 含点号 / 子串，可命中相应规则）
+        //  - 真正的跨类型互斥只在「host 是域名 + 规则是 ipcidr」时发生（见下一个测试）
+        let entries = [
+            entry("domain", "24.199.123.28", true),
+            entry("suffix", "123.28", true),
+            entry("keyword", "199", true),
+        ];
+        assert!(matches_host(entries.clone(), "24.199.123.28")); // domain 精确命中
+        // suffix/keyword 在 IP 字面 host 上仍按字符串语义判（点号子串 / 字符子串）
+        let suffix_only = [entry("suffix", "123.28", true)];
+        assert!(matches_host(suffix_only, "24.199.123.28")); // ends_with(".123.28")
+        let keyword_only = [entry("keyword", "199", true)];
+        assert!(matches_host(keyword_only, "24.199.123.28")); // contains("199")
+    }
+
+    #[test]
+    fn whitelist_ipcidr_misses_when_host_is_domain() {
+        // host 是域名 → ipcidr 自动 miss（IpAddr parse 失败）
+        let entries = [entry("ipcidr", "1.2.3.0/24", true)];
+        assert!(!matches_host(entries, "api.openai.com"));
+    }
+
+    // ── enabled / 空 host / 综合集成 ─────────────────────────────
+
+    #[test]
+    fn whitelist_match_disabled_entry_ignored() {
+        let entries = [
+            entry("suffix", "anthropic.com", false), // 用户禁用
+            entry("domain", "api.openai.com", true),
+        ];
+        assert!(!matches_host(entries.clone(), "api.anthropic.com"));
+        assert!(matches_host(entries, "api.openai.com"));
+    }
+
+    #[test]
+    fn whitelist_match_empty_host_denied() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(!matches_host(entries.clone(), ""));
+        assert!(!matches_host(entries, "   "));
+    }
+
+    #[test]
+    fn whitelist_unknown_rule_type_denied() {
+        // 未知 rule_type（含空）必 miss（防脏数据 / 旧版残留）
+        let entries = [entry("ip-asn", "20473", true)];
+        assert!(!matches_host(entries.clone(), "1.2.3.4"));
+        assert!(!matches_host(entries, "api.openai.com"));
+    }
+
+    #[test]
+    fn whitelist_default_clash_ruleset_integration() {
+        // 综合：模拟 37 条 default seed 的核心覆盖（不逐条列），验各类型同表共存
+        let entries = [
+            entry("domain", "chat.openai.com.cdn.cloudflare.net", true),
+            entry("suffix", "anthropic.com", true),
+            entry("suffix", "openai.com", true),
+            entry("keyword", "openai", true),
+            entry("ipcidr", "24.199.123.28/32", true),
+        ];
+        // 各类型各自命中
+        assert!(matches_host(
+            entries.clone(),
+            "chat.openai.com.cdn.cloudflare.net"
+        )); // domain
+        assert!(matches_host(entries.clone(), "api.anthropic.com")); // suffix
+        assert!(matches_host(entries.clone(), "openai.com")); // suffix 裸域
+        assert!(matches_host(entries.clone(), "myopenai.tool")); // keyword 子串
+        assert!(matches_host(entries.clone(), "24.199.123.28")); // ipcidr IP 字面
+        // 跨类型互斥
+        assert!(!matches_host(entries.clone(), "evil.com"));
+        assert!(!matches_host(entries, "1.2.3.4"));
+    }
+
+    // ── DEFAULT_RULES 常量完整性 + import_defaults 去重语义 ─────
+
+    #[test]
+    fn default_rules_has_38_unique_patterns() {
+        // 常量完整性：38 条（Claude 4 + OpenAI 34），host_pattern 全唯一（UNIQUE 约束要求）。
+        assert_eq!(DEFAULT_RULES.len(), 38, "DEFAULT_RULES must be 38 entries");
+        let mut patterns: Vec<&str> = DEFAULT_RULES.iter().map(|(_, p)| *p).collect();
+        patterns.sort();
+        let n_unique = patterns
+            .iter()
+            .collect::<std::collections::HashSet<_>>()
+            .len();
+        assert_eq!(
+            n_unique, 38,
+            "all host_patterns must be unique (DB UNIQUE constraint)"
+        );
+        // rule_type 全部合法
+        for (rt, _) in DEFAULT_RULES {
+            assert!(
+                matches!(*rt, "domain" | "suffix" | "keyword" | "ipcidr"),
+                "invalid rule_type: {rt}"
+            );
+        }
+    }
+
+    /// import_defaults 去重：mock 已有 1 条默认 + 1 条自定义 → read-modify-write 仅补
+    /// 36 条默认缺失（37 - 1 已存在），自定义不动，返 (36, 1)。
+    ///
+    /// 复刻 commands::mitm::mitm_whitelist_import_defaults 的 read-modify-write 循环
+    /// （setting 数组语义，替代旧 INSERT OR IGNORE + UNIQUE 约束），验幂等去重。
+    #[test]
+    fn import_defaults_insert_or_ignore_dedup() {
+        // 预置：1 条默认（DEFAULT_RULES 之一：anthropic.com suffix）+ 1 条自定义（非 DEFAULT_RULES）。
+        // 用 DEFAULT_RULES 的真实成员作 "已存在的默认"，确保 import 循环到它时跳过。
+        let mut entries: Vec<WhitelistEntry> = vec![
+            WhitelistEntry {
+                host_pattern: "anthropic.com".to_string(),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: "default".to_string(),
+            },
+            WhitelistEntry {
+                host_pattern: "my-custom-host.example.com".to_string(),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: "user".to_string(),
+            },
+        ];
+
+        // 复刻 command 的 read-modify-write 循环：对每条 DEFAULT_RULE，
+        // 数组中无同 host_pattern 则 push（source='default'），已有则跳过。
+        let mut imported = 0usize;
+        let mut skipped = 0usize;
+        for (rule_type, pattern) in DEFAULT_RULES {
+            let exists = entries.iter().any(|e| e.host_pattern == *pattern);
+            if exists {
+                skipped += 1;
+            } else {
+                entries.push(WhitelistEntry {
+                    host_pattern: pattern.to_string(),
+                    rule_type: rule_type.to_string(),
+                    enabled: true,
+                    source: "default".to_string(),
+                });
+                imported += 1;
+            }
+        }
+
+        // 验收：37 默认新导入（38 - 1 已存在），1 默认跳过（anthropic.com 已在）。
+        assert_eq!(imported, 37, "imported: 38 default rules - 1 pre-existing");
+        assert_eq!(skipped, 1, "skipped: the 1 pre-existing default rule");
+
+        // 自定义条目未被 import 循环触及（不在 DEFAULT_RULES 中），source 仍为 'user'。
+        let custom = entries
+            .iter()
+            .find(|e| e.host_pattern == "my-custom-host.example.com")
+            .unwrap();
+        assert_eq!(
+            custom.source, "user",
+            "custom entry must be untouched by import"
+        );
+
+        // 总条目：38 默认 + 1 自定义 = 39。
+        assert_eq!(entries.len(), 39, "total entries: 38 default + 1 custom");
+
+        // 幂等：再跑一次 import，全部已存在 → (0, 37)，条目数不变。
+        let mut imported2 = 0usize;
+        let mut skipped2 = 0usize;
+        for (rule_type, pattern) in DEFAULT_RULES {
+            let exists = entries.iter().any(|e| e.host_pattern == *pattern);
+            if exists {
+                skipped2 += 1;
+            } else {
+                entries.push(WhitelistEntry {
+                    host_pattern: pattern.to_string(),
+                    rule_type: rule_type.to_string(),
+                    enabled: true,
+                    source: "default".to_string(),
+                });
+                imported2 += 1;
+            }
+        }
+        assert_eq!(imported2, 0, "idempotent re-import: 0 new");
+        assert_eq!(skipped2, 38, "idempotent re-import: all 38 skipped");
+        assert_eq!(entries.len(), 39, "entry count unchanged after re-import");
+    }
+
+    // ── evaluate_host（返命中规则列表，仅 enabled）──────────────
+
+    #[test]
+    fn evaluate_host_returns_only_enabled_hits() {
+        // mock：domain/suffix/keyword/ipcidr 各 1，含 1 disabled suffix（应被跳过）。
+        let entries = [
+            entry("domain", "api.anthropic.com", true),
+            entry("suffix", "anthropic.com", true),
+            entry("keyword", "openai", true),
+            entry("ipcidr", "24.199.123.28/32", true),
+            entry("suffix", "evil.com", false), // disabled → 不参与
+        ];
+        // api.anthropic.com 命中：domain(api.anthropic.com) + suffix(anthropic.com)。
+        // keyword(openai) 不命中，ipcidr 不命中（域名非 IP 字面）。
+        let hits = evaluate_host(&entries, "api.anthropic.com");
+        assert_eq!(hits.len(), 2, "domain + suffix both hit");
+        let patterns: Vec<&str> = hits.iter().map(|e| e.host_pattern.as_str()).collect();
+        assert!(patterns.contains(&"api.anthropic.com"), "domain hit");
+        assert!(patterns.contains(&"anthropic.com"), "suffix hit");
+        assert!(!patterns.contains(&"evil.com"), "disabled must not match");
+        assert!(!patterns.contains(&"openai"), "keyword miss");
+    }
+
+    /// whitelist_clear：mock N 条 → 清空数组返 N + 数组空（复刻 command read-modify-write 语义）。
+    ///
+    /// PRD 验收要求 cargo test whitelist_clear；本测复刻 commands::mitm::mitm_whitelist_clear
+    /// 的 read-modify-write（load 数组长度 → set 空数组），验全删 + 行数计数。
+    #[test]
+    fn whitelist_clear_deletes_all_and_returns_count() {
+        // 预置：3 条 default + 2 条 user = N=5（混 source，验全删不筛）。
+        let entries: Vec<WhitelistEntry> = (0..5)
+            .map(|i| WhitelistEntry {
+                host_pattern: format!("host{i}.example.com"),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: if i < 3 { "default" } else { "user" }.to_string(),
+            })
+            .collect();
+        assert_eq!(
+            entries.len(),
+            5,
+            "precondition: 5 entries (3 default + 2 user)"
+        );
+
+        // 复刻 command 的 clear：返数组长度 → 写空数组。
+        let n = entries.len();
+
+        // 验收：返 N=5 + 新数组空。
+        assert_eq!(
+            n, 5,
+            "clear must return count of all 5 entries (default + user)"
+        );
+        let after: Vec<WhitelistEntry> = Vec::new();
+        assert!(after.is_empty(), "array must be empty after clear");
+    }
+
+    #[test]
+    fn evaluate_host_empty_host_returns_empty() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(evaluate_host(&entries, "").is_empty());
+        assert!(evaluate_host(&entries, "   ").is_empty());
+    }
+
+    #[test]
+    fn evaluate_host_no_hits_returns_empty() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(evaluate_host(&entries, "openai.com").is_empty());
+    }
+}

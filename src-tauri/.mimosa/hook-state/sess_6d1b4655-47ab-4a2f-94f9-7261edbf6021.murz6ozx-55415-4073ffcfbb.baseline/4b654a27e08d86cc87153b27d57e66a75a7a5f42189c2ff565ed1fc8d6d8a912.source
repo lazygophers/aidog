@@ -1,0 +1,23 @@
+[package]
+name = "aidog_mcp"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_mcp：MCP server 管理域（domain/backends/store，拆自 aidog_core::gateway::mcp，
+# 2026-08-16）。aidog_core 经 `gateway::mcp` re-export 保持旧路径。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+toml = { workspace = true }
+dirs = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true }
+tempfile = { workspace = true }

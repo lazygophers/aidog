@@ -1,0 +1,111 @@
+[package]
+name = "aidog_core"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# 票 07：命令层双展开开关。两者互不依赖，可同时开（默认）。
+# - desktop：`tauri_command!` 生成 `#[tauri::command]`，供桌面壳 `generate_handler!` 注册；
+# - http：额外生成 axum handler `<命令名>::http`，供无界面内核（票 08）挂 `/rpc/<命令名>`。
+#
+# 票 08：`desktop` 现在**同时把 tauri 依赖本身开关掉**（`dep:tauri`）。关掉 desktop 后本 crate
+# 完全不链 tauri —— 这是无界面内核能在 Linux 服务器上跑的前提：tauri 会拖进 wry/tao →
+# webkit2gtk + gtk3 系统库，headless 机器上既装不起也不该装。
+# 桌面专属模块（`tauri_ctx` 全量、`tray_render` 里吃 `AppHandle`/`Menu` 的那几项）随之
+# `#[cfg(feature = "desktop")]`；命令体本身零 tauri 依赖（票 06 的 AppCtx 已经拔干净）。
+[features]
+default = ["desktop", "http"]
+desktop = ["dep:tauri", "dep:tauri-plugin-notification", "dep:tauri-plugin-autostart", "menubar"]
+http = []
+# 票 I20：macOS 菜单栏宿主（`menubar` 模块 + `tray_render` 里 3 个 objc2 直连 AppKit 的渲染
+# 函数）。从 `desktop` 拆出来是因为 Flutter 壳要在**不链 tauri** 的前提下拿到同一份宿主：
+# `aidog_menubar_ffi` 以 `default-features = false, features = ["menubar"]` 引本 crate，
+# 编成 staticlib 链进 Runner。`desktop` 蕴含它 → Tauri 壳的 cfg 求值结果一字未变。
+# 非 macOS 上整块由 `cfg(target_os = "macos")` 兜住，开着也是空。
+menubar = []
+
+# C2 core-extract：gateway + shared + models + sync + hooks + tray_refresh + logging
+# 全部业务下沉此 crate。所有依赖从 [workspace.dependencies] 引，禁自定版本。
+[dependencies]
+tauri = { workspace = true, optional = true }
+tauri-plugin-notification = { workspace = true, optional = true }
+tauri-plugin-autostart = { workspace = true, optional = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+# logo 缓存文件 → data: URL（浏览器形态没有 asset:// 协议，见 defaults.rs）。
+base64 = "0.22"
+aidog_ctx = { path = "../aidog_ctx" }
+aidog_db = { path = "../aidog_db" }
+aidog_i18n = { path = "../aidog_i18n" }
+aidog_logs = { path = "../aidog_logs" }
+aidog_mcp = { path = "../aidog_mcp" }
+aidog_skills = { path = "../aidog_skills" }
+aidog_mitm = { path = "../aidog_mitm" }
+aidog_notification = { path = "../aidog_notification" }
+aidog_hooks = { path = "../aidog_hooks" }
+aidog_adapter = { path = "../aidog_adapter" }
+aidog_middleware = { path = "../aidog_middleware" }
+aidog_stats = { path = "../aidog_stats" }
+serde_yml = { workspace = true }
+toml = { workspace = true }
+url = { workspace = true }
+tokio = { workspace = true }
+futures = { workspace = true }
+rusqlite = { workspace = true }
+tokio-rusqlite = { workspace = true }
+axum = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
+reqwest = { workspace = true }
+tower = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+uuid = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+dirs = { workspace = true }
+regex = { workspace = true }
+ipnet = { workspace = true }
+aes-gcm = { workspace = true }
+sha2 = { workspace = true }
+sha1 = { workspace = true }
+hmac = { workspace = true }
+rand = { workspace = true }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rcgen = { workspace = true }
+tokio-rustls = { workspace = true }
+webpki-roots = { workspace = true }
+# 压缩格式支持（CPA config 导入）
+zip = { workspace = true }
+tar = { workspace = true }
+flate2 = { workspace = true }
+# test_support 模块（pub 暴露给 root package 测试跨 crate 引，非 #[cfg(test)] gate）
+# 含 `tempfile::TempDir` 字段，编译进 release。tempfile 轻量（纯 std 封装），代价可接受。
+# C3+ aidog_test_util crate 抽出后从 main deps 移除。
+tempfile = { workspace = true }
+# proxy log_snapshots：分片并发 map，替代 std::sync::Mutex<HashMap> 全局锁（perf-full-audit s5）
+dashmap = { workspace = true }
+# count_tokens 本地估算升级：tiktoken-rs (OpenAI BPE) + tokenizers (HF, 加载 tokenizer.json)
+tiktoken-rs = { workspace = true }
+tokenizers = { workspace = true }
+ts-rs = { workspace = true }
+# cli_env 更新检测版本比对（C3 c3-commands 批2 迁入）
+semver = { workspace = true }
+
+# macOS 托盘小字：refresh_tray_menu → set_tray_attributed_title 直连 NSStatusItem button。
+# 与 root package 同版本（workspace.dependencies 集中声明）。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }
+
+# 测试期 dev-deps：gateway 内 skills（tempdir 隔离 FS）+ proxy/test_stream（gzip round-trip）。
+[dev-dependencies]
+# start_paused = true：ping 注入测试要把 tokio 时钟拨快，否则单测要真等 95 秒。
+tokio = { workspace = true, features = ["test-util"] }
+tempfile = { workspace = true }
+flate2 = { workspace = true }

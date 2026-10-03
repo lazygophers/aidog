@@ -1,0 +1,104 @@
+use crate::gateway;
+use gateway::models::*;
+
+use gateway::models::{
+    CreateMiddlewareRule, MiddlewareRule, MiddlewareSettings, UpdateMiddlewareRule,
+};
+
+crate::tauri_command! {
+pub async fn middleware_list_rules() -> Result<Vec<MiddlewareRule>, String> {
+    let db = aidog_ctx::db();
+    aidog_db::list_middleware_rules(db).await
+}
+}
+
+crate::tauri_command! {
+pub async fn middleware_create_rule(
+    input: CreateMiddlewareRule) -> Result<MiddlewareRule, String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    let rule = aidog_db::create_middleware_rule(db, input).await?;
+    if let Err(e) = engine.reload(db).await {
+        tracing::warn!(command = "middleware_create_rule", error = %e, "engine reload failed");
+    }
+    Ok(rule)
+}
+}
+
+crate::tauri_command! {
+pub async fn middleware_update_rule(
+    input: UpdateMiddlewareRule) -> Result<MiddlewareRule, String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    let rule = aidog_db::update_middleware_rule(db, input).await?;
+    if let Err(e) = engine.reload(db).await {
+        tracing::warn!(command = "middleware_update_rule", error = %e, "engine reload failed");
+    }
+    Ok(rule)
+}
+}
+
+crate::tauri_command! {
+pub async fn middleware_delete_rule(
+    id: i64) -> Result<(), String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    tracing::debug!(command = "middleware_delete_rule", id, "command invoked");
+    aidog_db::delete_middleware_rule(db, id).await?;
+    if let Err(e) = engine.reload(db).await {
+        tracing::warn!(command = "middleware_delete_rule", error = %e, "engine reload failed");
+    }
+    Ok(())
+}
+}
+
+crate::tauri_command! {
+/// 票 06：全部预算闸门规则的当前自然月窗口状态（已用 / 剩余，前端规则行展示）。
+pub async fn middleware_budget_status() -> Result<Vec<MiddlewareBudgetStatus>, String> {
+    let db = aidog_ctx::db();
+    let engine = aidog_ctx::ctx().middleware();
+    Ok(engine
+        .budget_states(db)
+        .await
+        .into_iter()
+        .map(|s| MiddlewareBudgetStatus {
+            remaining_usd: s.remaining_usd(),
+            rule_id: s.rule_id,
+            rule_name: s.rule_name,
+            budget_usd: s.budget_usd,
+            spent_usd: s.spent_usd,
+        })
+        .collect())
+}
+}
+
+crate::tauri_command! {
+pub async fn middleware_settings_get() -> Result<MiddlewareSettings, String> {
+    let db = aidog_ctx::db();
+    Ok(aidog_db::get_setting(db, "middleware", "settings").await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default())
+}
+}
+
+crate::tauri_command! {
+pub async fn middleware_settings_set(
+    settings: MiddlewareSettings) -> Result<(), String> {
+    let db = aidog_ctx::db();
+    aidog_db::set_setting(db, SetSettingInput {
+        scope: "middleware".to_string(),
+        key: "settings".to_string(),
+        value: serde_json::to_value(&settings).map_err(|e| format!("serialize middleware settings: {e}"))?,
+    }).await
+        .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })?;
+    // 同 proxy_log_settings_set：请求路径读 settings_cache 快照，不刷则新设置要重启代理才生效。
+    crate::gateway::proxy::refresh_proxy_settings_cache(db).await;
+    Ok(())
+}
+}
+
+#[cfg(test)]
+#[path = "test_middleware.rs"]
+mod test_middleware;

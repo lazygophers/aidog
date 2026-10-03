@@ -1,0 +1,1446 @@
+use aidog_db::models::*;
+use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
+
+/// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
+const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted";
+
+/// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
+fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
+    Ok(aidog_db::models::ProxyLog {
+        id: row.get(0)?,
+        group_key: row.get(1)?,
+        model: row.get(2)?,
+        actual_model: row.get(3)?,
+        source_protocol: row.get(4)?,
+        target_protocol: row.get(5)?,
+        platform_id: row.get::<_, i64>(6)? as u64,
+        request_headers: row.get(7)?,
+        request_body: row.get(8)?,
+        upstream_request_headers: row.get(9)?,
+        upstream_request_body: row.get(10)?,
+        response_body: row.get(11)?,
+        request_url: row.get(12)?,
+        upstream_request_url: row.get(13)?,
+        upstream_response_headers: row.get(14)?,
+        upstream_status_code: row.get(15)?,
+        user_response_headers: row.get(16)?,
+        user_response_body: row.get(17)?,
+        status_code: row.get(18)?,
+        duration_ms: row.get(19)?,
+        input_tokens: row.get(20)?,
+        output_tokens: row.get(21)?,
+        cache_tokens: row.get(22)?,
+        cache_write_tokens: row.get(23)?,
+        est_cost: row.get(24)?,
+        is_stream: row.get::<_, i64>(25)? == 1,
+        attempts: aidog_db::models::parse_attempts(&row.get::<_, String>(26)?),
+        retry_count: row.get(27)?,
+        blocked_by: row.get(28)?,
+        blocked_reason: row.get(29)?,
+        created_at: row.get(30)?,
+        updated_at: row.get(31)?,
+        deleted_at: row.get(32)?,
+        done: row.get::<_, i64>(33)? == 1,
+        field_trace: row.get(34)?,
+        body_omitted: row.get::<_, i64>(35)? == 1,
+    })
+}
+
+/// 按 `ProxyLogSettings` 就地清空「原始信息」两侧列。
+///
+/// **口径唯一真值源**：本函数与 [`ProxyLogColumns::from_log`] 必须清同一组列
+/// （`raw_field_sides_match` 用同一份数据双跑两条路径断言一致，改一边漏另一边即红）。
+/// 用户侧 4 列受 `log_user_request`，上游侧 5 列（含 `field_trace`）受 `log_upstream_request`。
+pub fn strip_raw_sides(
+    log: &mut aidog_db::models::ProxyLog,
+    strip_user: bool,
+    strip_upstream: bool,
+) {
+    if strip_user {
+        log.request_headers.clear();
+        log.request_body.clear();
+        log.user_response_headers.clear();
+        log.user_response_body.clear();
+    }
+    if strip_upstream {
+        log.upstream_request_headers.clear();
+        log.upstream_request_body.clear();
+        log.upstream_response_headers.clear();
+        log.response_body.clear();
+        log.field_trace.clear();
+    }
+}
+
+/// 读 `proxy.logging` 设置（缺失 / 解析失败 → 默认值：master 开、两侧原始信息关）。
+async fn log_settings(db: &Db) -> ProxyLogSettings {
+    aidog_db::get_setting(db, "proxy", "logging")
+        .await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+/// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging.
+/// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
+/// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
+///
+/// **本函数自带 ProxyLogSettings 门禁**（master switch + 两侧「原始信息」开关）：代理热路径外的
+/// 写入方（quota 脚本、model_fetch 等）直接构造 ProxyLog 调这里，若门禁只留在 `upsert_log`
+/// 里，这些行会绕过开关把 headers / body / 上游正文原样入库（实测 `[quota:script]` 行在两个
+/// 开关都关时仍存着上游余额响应正文与含 api_key 的 URL）。
+#[track_caller]
+pub fn upsert_proxy_log(
+    db: &Db,
+    log: aidog_db::models::ProxyLog,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let settings = log_settings(db).await;
+        if !settings.enabled {
+            return Ok(()); // master switch 关 → 不落库（与 upsert_log 早退同语义）
+        }
+        let mut log = log;
+        strip_raw_sides(
+            &mut log,
+            !settings.log_user_request,
+            !settings.log_upstream_request,
+        );
+        db
+        .call_proxy_log_traced(None, __db_caller, move |conn| {
+            let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
+            // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
+            let mut stmt = conn.prepare_cached(
+                &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
+            )?;
+            stmt.execute(
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert proxy log: {e}"))
+    }
+}
+
+/// 渐进式日志的「DB 就绪列快照」：32 列已转成入库类型（脱敏已在构造时就地应用）。
+///
+/// 用途：替代每节点全列 INSERT OR REPLACE 重写。构造一次 → 首节点 INSERT 建行，
+/// 后续节点与上一快照逐列 diff，仅 UPDATE 变化列。配合 upsert_log 的按需脱敏，
+/// 彻底消除 proxy.rs 每次写都 `log.clone()` 整结构的开销。
+///
+/// 字段顺序与值语义须与 `PROXY_LOG_COLUMNS` / `upsert_proxy_log` 完全一致（字段完整性红线）。
+#[derive(Clone, PartialEq)]
+pub struct ProxyLogColumns {
+    pub id: String,
+    pub group_key: String,
+    pub model: String,
+    pub actual_model: String,
+    pub source_protocol: String,
+    pub target_protocol: String,
+    pub platform_id: i64,
+    pub request_headers: String,
+    pub request_body: String,
+    pub upstream_request_headers: String,
+    pub upstream_request_body: String,
+    pub response_body: String,
+    pub request_url: String,
+    pub upstream_request_url: String,
+    pub upstream_response_headers: String,
+    pub upstream_status_code: i32,
+    pub user_response_headers: String,
+    pub user_response_body: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub cache_tokens: i32,
+    pub cache_write_tokens: i32,
+    pub est_cost: f64,
+    pub is_stream: i64,
+    pub attempts: String,
+    pub retry_count: i32,
+    pub blocked_by: String,
+    pub blocked_reason: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: i64,
+    /// 终态标记（票 06）：替代旧 `response_body != "[stream]"` 哨兵的终态判定。
+    pub done: i64,
+    /// 字段留痕（票 10）：出站 body 被丢弃 / 被改写的字段名 token 串。归上游侧「原始信息」，
+    /// 受 `strip_upstream` 清空。
+    pub field_trace: String,
+    /// 8 个大字段「已以非空值落库」的位掩码（bit 序同 [`Self::large_fields_first_write`]，
+    /// O1 perf-backend spec §2）。**非 DB 列**，只在 in-flight 快照（`log_snapshots`）里有
+    /// 意义：INSERT / UPDATE 成功后由调用方维护，供下一次 UPDATE 判断哪些正文列已写过、
+    /// 不再重写（正文只写首尾）。`from_log` 恒置 0。
+    pub raw_written_mask: u8,
+    /// 「正文已省略」标记（O6，DB 列 body_omitted）：该行部分正文因写入队列字节预算超限
+    /// 被降级丢弃。来自队列消息（热路径降级时置位，见 aidog_core log.rs），`from_log` 映射
+    /// `ProxyLog.body_omitted`。in-flight 快照保留本字段（`into_snapshot_meta` 不清），
+    /// process_upsert 与快照值取 OR —— 单调 sticky，不随后续节点回落。
+    pub body_omitted: i64,
+}
+
+/// 渐进式 UPDATE 的列绑定（列名 + SQL 绑定值）。
+type ColBind = (&'static str, Box<dyn rusqlite::types::ToSql + Send>);
+
+impl ProxyLogColumns {
+    /// 由 `ProxyLog` 构造入库列快照。
+    /// 「原始信息」（headers + body + 上游响应正文）按用户 / 上游侧归类，受开关控制就地清空：
+    /// - `strip_user`（!log_user_request）清空用户侧：`request_headers` / `request_body` /
+    ///   `user_response_headers` / `user_response_body`；
+    /// - `strip_upstream`（!log_upstream_request）清空上游侧：`upstream_request_headers` /
+    ///   `upstream_request_body` / `upstream_response_headers` / `response_body`（上游响应正文）。
+    ///
+    /// 关开关后只保留解析后元数据（token / cost / url / status / model 等），不存任何原始 headers/body/正文。
+    /// 开关开启时入库的 Authorization 等敏感头已在上游脱敏为 `[REDACTED]`。
+    /// attempts 在此序列化一次。仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
+    /// （票 06：旧「`[stream]` 占位 strip 时保留」例外已废——终态判定改由 done 列承担，body 列不再承载控制语义。）
+    pub fn from_log(
+        log: &aidog_db::models::ProxyLog,
+        strip_user: bool,
+        strip_upstream: bool,
+    ) -> Self {
+        let empty = String::new;
+        ProxyLogColumns {
+            id: log.id.clone(),
+            group_key: log.group_key.clone(),
+            model: log.model.clone(),
+            actual_model: log.actual_model.clone(),
+            source_protocol: log.source_protocol.clone(),
+            target_protocol: log.target_protocol.clone(),
+            platform_id: log.platform_id as i64,
+            request_headers: if strip_user {
+                empty()
+            } else {
+                log.request_headers.clone()
+            },
+            request_body: if strip_user {
+                empty()
+            } else {
+                log.request_body.clone()
+            },
+            upstream_request_headers: if strip_upstream {
+                empty()
+            } else {
+                log.upstream_request_headers.clone()
+            },
+            upstream_request_body: if strip_upstream {
+                empty()
+            } else {
+                log.upstream_request_body.clone()
+            },
+            response_body: if strip_upstream {
+                empty()
+            } else {
+                log.response_body.clone()
+            },
+            request_url: log.request_url.clone(),
+            upstream_request_url: log.upstream_request_url.clone(),
+            upstream_response_headers: if strip_upstream {
+                empty()
+            } else {
+                log.upstream_response_headers.clone()
+            },
+            upstream_status_code: log.upstream_status_code,
+            user_response_headers: if strip_user {
+                empty()
+            } else {
+                log.user_response_headers.clone()
+            },
+            user_response_body: if strip_user {
+                empty()
+            } else {
+                log.user_response_body.clone()
+            },
+            status_code: log.status_code,
+            duration_ms: log.duration_ms,
+            input_tokens: log.input_tokens,
+            output_tokens: log.output_tokens,
+            cache_tokens: log.cache_tokens,
+            cache_write_tokens: log.cache_write_tokens,
+            est_cost: log.est_cost,
+            is_stream: log.is_stream as i64,
+            attempts: aidog_db::models::serialize_attempts(&log.attempts),
+            retry_count: log.retry_count,
+            blocked_by: log.blocked_by.clone(),
+            blocked_reason: log.blocked_reason.clone(),
+            created_at: log.created_at,
+            updated_at: log.updated_at,
+            deleted_at: log.deleted_at,
+            done: log.done as i64,
+            // 票 10：字段留痕描述的是「上游 body 被动了什么」，与 upstream_request_body 同侧同开关。
+            field_trace: if strip_upstream {
+                empty()
+            } else {
+                log.field_trace.clone()
+            },
+            // 非 DB 列：仅 in-flight 快照用（见字段 doc），构造恒 0。
+            raw_written_mask: 0,
+            body_omitted: log.body_omitted as i64,
+        }
+    }
+
+    /// 与上一快照 `old` 逐列对比，返回 (列名, 绑定值) 的变化集。id 主键不在内（用于 WHERE）。
+    /// body / headers 类大字段**不参与 diff 比较**：调用方 `update_proxy_log_columns` 按「首写」
+    /// 规则（`large_fields_first_write`）单独决定这些列。配合 `into_snapshot_meta`（清空 body
+    /// 字段后入快照，只留 `raw_written_mask` 位掩码），in-flight 快照表永不持有 body String，
+    /// 从根上消除 N 并发 × body 的内存累积（OOM 止血）。
+    /// 前端轮询的增量字段不含 body（按需单查 `get_proxy_log` 拿正文），不依赖 changed_since 推送 body。
+    fn changed_since(&self, old: &ProxyLogColumns) -> Vec<ColBind> {
+        let mut out: Vec<ColBind> = Vec::new();
+        macro_rules! diff {
+            ($col:literal, $field:ident) => {
+                if self.$field != old.$field {
+                    out.push(($col, Box::new(self.$field.clone())));
+                }
+            };
+        }
+        diff!("group_key", group_key);
+        diff!("model", model);
+        diff!("actual_model", actual_model);
+        diff!("source_protocol", source_protocol);
+        diff!("target_protocol", target_protocol);
+        diff!("platform_id", platform_id);
+        diff!("request_url", request_url);
+        diff!("upstream_request_url", upstream_request_url);
+        diff!("upstream_status_code", upstream_status_code);
+        diff!("status_code", status_code);
+        diff!("duration_ms", duration_ms);
+        diff!("input_tokens", input_tokens);
+        diff!("output_tokens", output_tokens);
+        diff!("cache_tokens", cache_tokens);
+        diff!("cache_write_tokens", cache_write_tokens);
+        diff!("est_cost", est_cost);
+        diff!("is_stream", is_stream);
+        diff!("attempts", attempts);
+        diff!("retry_count", retry_count);
+        diff!("blocked_by", blocked_by);
+        diff!("blocked_reason", blocked_reason);
+        diff!("created_at", created_at);
+        diff!("updated_at", updated_at);
+        diff!("deleted_at", deleted_at);
+        diff!("done", done);
+        diff!("field_trace", field_trace);
+        diff!("body_omitted", body_omitted);
+        out
+    }
+
+    /// 大字段列名 + 绑定值（body / headers 侧），按「首写」规则筛选（O1，perf-backend spec §2）：
+    /// - 非空且未写过（`prev_written` 对应 bit 未置位）→ 写入并置位；
+    /// - 已写过 → 跳过（正文只写首尾：请求侧首写一次，不再随每次 UPDATE 重写）；
+    /// - 当前为空 → 跳过且不置位（留待后续首次非空时再写，如 forward 阶段才出现的
+    ///   `upstream_request_body`）；
+    /// - `terminal`（status!=0 且 done，与票 06 终态判定同口径）额外**强制**写响应侧 4 列
+    ///   （`response_body` / `upstream_response_headers` / `user_response_headers` /
+    ///   `user_response_body`），空值也写：中间态可能写过部分响应，终态必须覆盖为最终值；
+    ///   且 strip 后清空的语义在终态落库时保持。
+    ///
+    /// 返回 (待写列, 更新后的位掩码)。
+    fn large_fields_first_write(&self, prev_written: u8, terminal: bool) -> (Vec<ColBind>, u8) {
+        let mut out: Vec<ColBind> = Vec::new();
+        let mut mask = prev_written;
+        macro_rules! raw {
+            ($col:literal, $field:ident, $bit:literal, $force:expr) => {
+                if $force || (mask & (1 << $bit) == 0 && !self.$field.is_empty()) {
+                    out.push(($col, Box::new(self.$field.clone())));
+                    mask |= 1 << $bit;
+                }
+            };
+        }
+        raw!("request_headers", request_headers, 0, false);
+        raw!("request_body", request_body, 1, false);
+        raw!(
+            "upstream_request_headers",
+            upstream_request_headers,
+            2,
+            false
+        );
+        raw!("upstream_request_body", upstream_request_body, 3, false);
+        raw!("response_body", response_body, 4, terminal);
+        raw!(
+            "upstream_response_headers",
+            upstream_response_headers,
+            5,
+            terminal
+        );
+        raw!("user_response_headers", user_response_headers, 6, terminal);
+        raw!("user_response_body", user_response_body, 7, terminal);
+        (out, mask)
+    }
+
+    /// INSERT 后的初始位掩码：INSERT 绑定全部列，非空大字段视作「已写」，空字段留待后续首写。
+    pub fn nonempty_raw_mask(&self) -> u8 {
+        let mut m = 0u8;
+        macro_rules! bit {
+            ($field:ident, $b:literal) => {
+                if !self.$field.is_empty() {
+                    m |= 1 << $b;
+                }
+            };
+        }
+        bit!(request_headers, 0);
+        bit!(request_body, 1);
+        bit!(upstream_request_headers, 2);
+        bit!(upstream_request_body, 3);
+        bit!(response_body, 4);
+        bit!(upstream_response_headers, 5);
+        bit!(user_response_headers, 6);
+        bit!(user_response_body, 7);
+        m
+    }
+
+    /// 返回一个 body / headers 字段全部清空的副本（`raw_written_mask` 原样保留），用作
+    /// in-flight 快照表里的「meta-only」快照。
+    /// OOM 止血：log_snapshots HashMap 不再持大字段 String，仅留 meta（id/status/tokens/...）
+    /// + 首写位掩码。DB schema 不变，body 列按「首写」规则写入（见 `large_fields_first_write`）。
+    pub fn into_snapshot_meta(mut self) -> Self {
+        self.request_headers.clear();
+        self.request_body.clear();
+        self.upstream_request_headers.clear();
+        self.upstream_request_body.clear();
+        self.response_body.clear();
+        self.upstream_response_headers.clear();
+        self.user_response_headers.clear();
+        self.user_response_body.clear();
+        self
+    }
+}
+
+/// 渐进式日志首节点：INSERT 建行（非 REPLACE，行不应已存在）。失败上抛。
+#[track_caller]
+pub fn insert_proxy_log_columns(
+    db: &Db,
+    cols: ProxyLogColumns,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        // cols.id == proxy_log.id == 请求 span 的 request_id（32-hex），用作 SQL 日志归属键。
+        let req_id = cols.id.clone();
+        db
+        .call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
+            // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
+            let mut stmt = conn.prepare_cached(
+                &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
+            )?;
+            stmt.execute(
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("insert proxy log: {e}"))
+    }
+}
+
+/// 渐进式日志后续节点：仅 UPDATE 相对 `prev` 变化的列。无变化则 no-op（不发 SQL）。
+/// O1（perf-backend spec §2）：大字段按「首写」规则写入——中间节点只带元数据 + 尚未写过
+/// 且当前非空的大字段（如 forward 阶段才出现的 upstream_request_body）；终态
+/// （status!=0 且 done，与 `process_upsert` 的 is_terminal 同判定）强制写响应侧 4 列。
+/// 成功返回更新后的 `raw_written_mask`（供调用方刷新 in-flight 快照）。
+/// 若目标行不存在（理论不应，节点1 必先 INSERT），UPDATE 影响 0 行，静默（与旧 REPLACE
+/// 的「不存在则建行」语义偏离已由 upsert_log 的快照存在性保证：有快照 ⇒ 已 INSERT 过）。
+#[track_caller]
+pub fn update_proxy_log_columns<'a>(
+    db: &'a Db,
+    new: ProxyLogColumns,
+    prev: &'a ProxyLogColumns,
+) -> impl std::future::Future<Output = Result<u8, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let terminal = new.status_code != 0 && new.done != 0;
+        let mut changed = new.changed_since(prev);
+        let (large, mask) = new.large_fields_first_write(prev.raw_written_mask, terminal);
+        changed.extend(large);
+        if changed.is_empty() {
+            return Ok(prev.raw_written_mask);
+        }
+        let id = new.id.clone();
+        // id == proxy_log.id == request_id，用作 SQL 日志归属键。
+        let req_id = id.clone();
+        db.call_proxy_log_traced(Some(&req_id), __db_caller, move |conn| {
+            let set_sql: String = changed
+                .iter()
+                .enumerate()
+                .map(|(i, (col, _))| format!("{col} = ?{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let id_idx = changed.len() + 1;
+            let sql = format!("UPDATE proxy_log SET {set_sql} WHERE id = ?{id_idx}");
+            let mut binds: Vec<&dyn rusqlite::types::ToSql> = changed
+                .iter()
+                .map(|(_, v)| v.as_ref() as &dyn rusqlite::types::ToSql)
+                .collect();
+            binds.push(&id);
+            conn.execute(&sql, binds.as_slice())?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("update proxy log: {e}"))?;
+        Ok(mask)
+    }
+}
+
+#[track_caller]
+pub fn list_proxy_logs(
+    db: &Db,
+    limit: u32,
+    offset: u32,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::ProxyLogSummary>, String>> + '_
+{
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
+                 FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
+            )?;
+            let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// Summary row mapper (column order must match SELECT)
+fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLogSummary> {
+    Ok(aidog_db::models::ProxyLogSummary {
+        id: row.get(0)?,
+        group_key: row.get(1)?,
+        model: row.get(2)?,
+        actual_model: row.get(3)?,
+        source_protocol: row.get(4)?,
+        target_protocol: row.get(5)?,
+        platform_id: row.get::<_, i64>(6)? as u64,
+        status_code: row.get(7)?,
+        duration_ms: row.get(8)?,
+        input_tokens: row.get(9)?,
+        output_tokens: row.get(10)?,
+        cache_tokens: row.get(11)?,
+        is_stream: row.get::<_, i64>(12)? == 1,
+        retry_count: row.get(13)?,
+        created_at: row.get(14)?,
+    })
+}
+
+/// logs-query-ipc-slimming s2：取 `limit+1` 行探测「是否有下一页」，替代精确 `COUNT(*)`
+/// 全表扫（转发期前端每 500ms 轮询一次，COUNT 在 1.8w+ 行库上是纯浪费）。多取的第 limit+1
+/// 行只用于置位 `has_more`，Rust 侧截断，绝不下发给前端。
+#[track_caller]
+pub fn filtered_list_proxy_logs<'a>(
+    db: &'a Db,
+    filter: &'a aidog_db::models::ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> impl std::future::Future<Output = Result<aidog_db::models::ProxyLogPage, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let filter = filter.clone();
+        let probe_limit = limit + 1;
+        db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(probe_limit));
+            p.push(Box::new(offset));
+            let sql = format!(
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
+                 FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let mut items = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?
+                .collect::<SqlResult<Vec<_>>>()?;
+            let has_more = items.len() > limit as usize;
+            items.truncate(limit as usize);
+            Ok(aidog_db::models::ProxyLogPage { items, has_more })
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[track_caller]
+pub fn filtered_count_proxy_logs<'a>(
+    db: &'a Db,
+    filter: &'a aidog_db::models::ProxyLogFilter,
+) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let filter = filter.clone();
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (where_sql, p) = build_filter_where(&filter);
+            let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            Ok(conn.query_row(&sql, refs.as_slice(), |row| row.get(0))?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// 请求日志页列表查询。
+///
+/// 语义契约：
+/// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为平台测试 +
+///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
+///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
+/// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
+///   exclude_sources 全部生效。
+/// - 不影响 `get_last_test_result`（独立 query，不经此函数，徽章链不断）。
+#[track_caller]
+pub fn list_request_logs<'a>(
+    db: &'a Db,
+    filter: &'a aidog_db::models::ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::ProxyLogSummary>, String>> + 'a
+{
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let mut filter = filter.clone();
+        // 默认 sources 兜底：None → [test, quota]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+        if filter.sources.is_none() {
+            filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
+        }
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            p.push(Box::new(offset));
+            let sql = format!(
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, \
+                 platform_id, status_code, duration_ms, input_tokens, output_tokens, \
+                 cache_tokens, is_stream, retry_count, created_at \
+                 FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let mapped = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?;
+            Ok(mapped.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// Build WHERE clause extensions + params from filter.
+/// Returns (" AND ...", params). Empty filter → ("", []).
+fn build_filter_where(
+    filter: &aidog_db::models::ProxyLogFilter,
+) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
+    let mut parts: Vec<String> = Vec::new();
+    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut idx = 1u32;
+
+    if let Some(ref v) = filter.platform_id {
+        parts.push(format!("AND platform_id = ?{idx}"));
+        p.push(Box::new(*v as i64));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.group_key {
+        parts.push(format!("AND group_key = ?{idx}"));
+        p.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(s) = filter.status {
+        if s == 200 {
+            parts.push("AND status_code >= 200 AND status_code < 300".to_string());
+        } else if s == -1 {
+            parts.push("AND (status_code < 200 OR status_code >= 300)".to_string());
+        } else {
+            parts.push(format!("AND status_code = ?{idx}"));
+            p.push(Box::new(s));
+            idx += 1;
+        }
+    }
+    if let Some(ts) = filter.time_start {
+        parts.push(format!("AND created_at >= ?{idx}"));
+        p.push(Box::new(ts));
+        idx += 1;
+    }
+    if let Some(ts) = filter.time_end {
+        parts.push(format!("AND created_at <= ?{idx}"));
+        p.push(Box::new(ts));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.model {
+        let col = match filter.model_type.as_deref() {
+            Some("actual") => "actual_model",
+            _ => "model",
+        };
+        parts.push(format!("AND {col} = ?{idx}"));
+        p.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.path {
+        let trimmed = v.trim();
+        if !trimmed.is_empty() {
+            parts.push(format!("AND request_url LIKE ?{idx}"));
+            p.push(Box::new(format!("%{}%", trimmed)));
+            idx += 1;
+        }
+    }
+    // source 维度：包含 / 排除筛选，参数化 IN / NOT IN。
+    // 空 Vec 视为未设置（Some(vec![]) 与 None 同义），避免 `IN ()` sqlite 语法错。
+    if let Some(ref srcs) = filter.sources
+        && !srcs.is_empty()
+    {
+        let placeholders: Vec<String> = (0..srcs.len())
+            .map(|i| format!("?{}", idx + i as u32))
+            .collect();
+        parts.push(format!(
+            "AND source_protocol IN ({})",
+            placeholders.join(", ")
+        ));
+        for s in srcs {
+            p.push(Box::new(s.clone()));
+        }
+        idx += srcs.len() as u32;
+    }
+    if let Some(ref srcs) = filter.exclude_sources
+        && !srcs.is_empty()
+    {
+        let placeholders: Vec<String> = (0..srcs.len())
+            .map(|i| format!("?{}", idx + i as u32))
+            .collect();
+        // logs-query-ipc-slimming s3：不再加 `OR source_protocol IS NULL` 防御分支。
+        // schema_early.rs:119 `source_protocol TEXT NOT NULL DEFAULT ''` 是 DB 级约束，
+        // 该列在 log.db 实表上不可能为 NULL（`NULL NOT IN (...)` 恒返 NULL 会被 WHERE
+        // 过滤的场景在此表上恒不触发），OR 分支是永假的死代码，删之不改变任何结果集。
+        //
+        // ⚠️ 本段谓词本身（`source_protocol NOT IN (...)`）**非恒真/非死代码**：Logs 主页
+        // 默认 exclude_sources=["test","quota"]（useLogsFilters.ts:39/:62），而这两类值
+        // 会被真实写入 proxy_log（ai_tools_cmd/model_test.rs:157 `source_protocol: "test"`、
+        // gateway/quota/http.rs:187 `source_protocol: "quota"`）。跳过此谓词会让
+        // 测试/quota 探测请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
+        // research/s3-predicate.md 的恒真判定）。
+        parts.push(format!(
+            "AND source_protocol NOT IN ({})",
+            placeholders.join(", ")
+        ));
+        for s in srcs {
+            p.push(Box::new(s.clone()));
+        }
+        idx += srcs.len() as u32;
+    }
+    // 中间件观察模式命中（票 04）：写入点 gateway/proxy/log.rs::record_observed 的固定值
+    // 'observe'，与真实拦截（reason = 规则描述）区分。Some(false)/None 不加谓词。
+    if filter.observed == Some(true) {
+        parts.push(format!("AND blocked_reason = ?{idx}"));
+        p.push(Box::new("observe".to_string()));
+        idx += 1;
+    }
+    let _ = idx;
+
+    let where_sql = if parts.is_empty() {
+        String::new()
+    } else {
+        format!(" {}", parts.join(" "))
+    };
+    (where_sql, p)
+}
+
+/// logs-query-ipc-slimming s4：Logs 页 model 下拉选项。原实现拉 `filtered_list_proxy_logs`
+/// 200 行**完整摘要行**（含 group_key/status/tokens 等无关列）到前端再 `Set` 去重，改为
+/// 后端直接 `SELECT DISTINCT` 出选项列表，payload 从「200 行摘要」缩到「去重后的 model 名数组」。
+///
+/// 严格保持与旧实现等价的「有界近似」语义：子查询先按 `filter` 筛出最近 `limit` 行（旧实现的
+/// `filtered_list_proxy_logs(..., 200, 0)`），外层再 DISTINCT ——而非全库 DISTINCT（那会把
+/// 早已滚出主列表的历史 model 也列出，是行为变化）。`actual` 选列（true→actual_model，
+/// false→model），与前端 `filterModelType === "actual"` 语义对齐（useLogsFilters.ts 旧逻辑）。
+/// 复用 `build_filter_where`（filter.model 通常为空，不会出现"用 model 过滤 model 下拉"的循环）。
+#[track_caller]
+pub fn distinct_models_proxy_log<'a>(
+    db: &'a Db,
+    filter: &'a aidog_db::models::ProxyLogFilter,
+    actual: bool,
+    limit: u32,
+) -> impl std::future::Future<Output = Result<Vec<String>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let filter = filter.clone();
+        let col = if actual { "actual_model" } else { "model" };
+        db
+        .call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            let sql = format!(
+                "SELECT DISTINCT {col} FROM (\
+                   SELECT {col} FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ?\
+                 ) WHERE {col} != '' ORDER BY {col}"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let rows = stmt.query_map(refs.as_slice(), |row| row.get::<_, String>(0))?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[track_caller]
+pub fn get_proxy_log<'a>(
+    db: &'a Db,
+    id: &'a str,
+) -> impl std::future::Future<Output = Result<Option<aidog_db::models::ProxyLog>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let id = id.to_string();
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(&format!(
+                "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
+            ))?;
+            Ok(stmt.query_row(params![id], row_to_proxy_log).optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[track_caller]
+pub fn clear_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0",
+                params![now()],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("clear proxy logs: {e}"))
+    }
+}
+
+/// 把某请求 id 仍卡在非终态（status_code=0）的 proxy_log 行补写为终态中断码（client closed）。
+/// 背景：客户端断连 / 请求 future 被 axum drop 时，渐进式 upsert 留下 status_code=0 的占位行
+/// （response_body 空、tokens 空），Logs 页显示空白、用户感知「条目异常」。请求级 Drop guard 兜底调用此函数。
+/// `WHERE status_code = 0` 谓词保证幂等且安全：仅翻已卡死行，绝不覆盖任何已写入的真实终态状态
+/// （正常完成 / 各类错误码 / 流式 200 占位均已非 0，不被触及）。
+#[track_caller]
+pub fn finalize_incomplete_proxy_log<'a>(
+    db: &'a Db,
+    id: &'a str,
+    status_code: i32,
+    duration_ms: i32,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let id = id.to_string();
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "UPDATE proxy_log SET status_code = ?1, duration_ms = ?2, done = 1, updated_at = ?3 \
+                 WHERE id = ?4 AND status_code = 0 AND deleted_at = 0",
+                params![status_code, duration_ms, now(), id],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("finalize incomplete proxy log: {e}"))
+    }
+}
+
+/// 启动兜底：把所有仍卡在 status_code=0 的 proxy_log 行补写为 499（中断）。返回补写行数。
+///
+/// `finalize_incomplete_proxy_log` 由请求级 Drop guard 调用，只覆盖「进程活着但请求 future 被
+/// drop」。进程被杀（升级重启 / dev 热重载 / crash）时 guard 根本来不及跑，在途请求的行永久停在
+/// status_code=0，Logs 页显示空白条目。启动时无任何请求在途，故可无条件翻掉全部 0 行。
+/// 幂等：`WHERE status_code = 0` 保证不触碰任何已写入的真实终态。
+#[track_caller]
+pub fn sweep_incomplete_proxy_logs(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<usize, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            let n = conn.execute(
+                "UPDATE proxy_log SET status_code = 499, done = 1, updated_at = ?1 \
+                 WHERE status_code = 0 AND deleted_at = 0",
+                params![now()],
+            )?;
+            Ok(n)
+        })
+        .await
+        .map_err(|e| format!("sweep incomplete proxy logs: {e}"))
+    }
+}
+
+/// Delete logs older than N days. Pass 0 to skip.
+///
+/// 硬删（`DELETE FROM`），非软删：retention_days 语义 = 过期清除，所有 proxy_log 查询
+/// 均 `WHERE deleted_at = 0`，软删 tombstone 无消费方（无 un-delete UI / 聚合）。
+/// 硬删后调 `incremental_vacuum(100)` 回收 free pages（需 auto_vacuum=INCREMENTAL，老库
+/// 未迁移时为 no-op 不报错）。每次至多回收 100 页避免长锁，busy_timeout=5000 兜底排队。
+#[track_caller]
+pub fn cleanup_proxy_logs(
+    db: &Db,
+    value: u32,
+    unit: RetentionUnit,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let Some(cutoff) = retention_cutoff_secs(unit.secs(value)) else {
+            return Ok(());
+        };
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
+                params![cutoff],
+            )?;
+            incremental_vacuum_conn(conn, 100);
+            // 行删 + free page 回收后选择度变化，重建 sqlite_stat1 给规划器真实统计
+            // （ANALYZE proxy_log 仅扫该表索引，开销随表大小但远低于全库 VACUUM）。
+            let _ = conn.execute("ANALYZE proxy_log", []);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup proxy logs: {e}"))
+    }
+}
+
+/// 手动清理前的**只读**预估：超期行数 + 这些行的 body 字节总和 + log.db 当前大小。
+///
+/// 只读红线：全部 SQL 是 `SELECT` / `PRAGMA` 读，走 log.db 只读连接池
+/// （`call_read_proxy_log_traced`），不开写事务、不加写锁、不动一行数据。
+///
+/// 口径与 [`cleanup_proxy_logs`] 逐字同源（同一个 `retention_cutoff_secs` + 同一条
+/// `created_at < cutoff AND deleted_at = 0` 谓词），故 `overdue_rows` = 随后实际删除的行数。
+/// `value = 0`（永久保留）→ 两个超期数为 0，仍返回库大小。
+///
+/// body 字节用 `length(CAST(col AS BLOB))` 取**字节**而非字符数（body 是 UTF-8 JSON，
+/// 多字节字符下 `length()` 的字符口径会低估实际占用）。
+#[track_caller]
+pub fn estimate_cleanup(
+    db: &Db,
+    value: u32,
+    unit: RetentionUnit,
+) -> impl std::future::Future<Output = Result<CleanupEstimate, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let cutoff = retention_cutoff_secs(unit.secs(value));
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let (overdue_rows, overdue_body_bytes) = match cutoff {
+                Some(cutoff) => conn.query_row(
+                    "SELECT COUNT(*), COALESCE(SUM(\
+                       length(CAST(request_body AS BLOB)) \
+                       + length(CAST(upstream_request_body AS BLOB)) \
+                       + length(CAST(response_body AS BLOB)) \
+                       + length(CAST(user_response_body AS BLOB))), 0) \
+                     FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
+                    params![cutoff],
+                    |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+                )?,
+                None => (0, 0),
+            };
+            let page_count: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
+            let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
+            Ok(CleanupEstimate {
+                overdue_rows,
+                overdue_body_bytes,
+                db_size_bytes: page_count * page_size,
+            })
+        })
+        .await
+        .map_err(|e| format!("estimate cleanup: {e}"))
+    }
+}
+
+/// 物理删除所有历史软删 tombstone（`deleted_at != 0`），回收 free pages。
+///
+/// 迁移期（cleanup_proxy_logs 由软删改硬删）清积压 tombstone；日常可被
+/// proxy_log_settings_set 调用链在 retention 硬删后追加触发。
+#[track_caller]
+pub fn purge_deleted_proxy_logs(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute("DELETE FROM proxy_log WHERE deleted_at != 0", [])?;
+            incremental_vacuum_conn(conn, 100);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("purge deleted proxy logs: {e}"))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    mod test_filter_where {
+        use super::super::build_filter_where;
+        use aidog_db::models::ProxyLogFilter;
+        use rusqlite::Connection;
+
+        /// 在真实 sqlite 上跑 build_filter_where 产物，验证占位符 ?N 与 bind 参数一一对齐。
+        /// 关键回归（logs-path-search-idx-bug）：path 分支若漏 `idx += 1`，与前面的 model 分支
+        /// 共用同一占位符号 → sqlite 报「wrong number of parameters」或绑错位。
+        fn assert_binds_ok(filter: &ProxyLogFilter) {
+            let conn = Connection::open_in_memory().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE proxy_log (
+                id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
+                created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
+                deleted_at INTEGER DEFAULT 0,
+                source_protocol TEXT, blocked_reason TEXT
+            );",
+            )
+            .unwrap();
+            let (where_sql, params) = build_filter_where(filter);
+            let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+            let bind: Vec<&dyn rusqlite::types::ToSql> =
+                params.iter().map(|b| b.as_ref()).collect();
+            // 若占位符数 ≠ bind 数（idx 错位的直接症状），query_row 会返回 Err，unwrap panic 测试失败
+            let _: i64 = conn
+                .query_row(&sql, bind.as_slice(), |r| r.get(0))
+                .unwrap_or_else(|e| panic!("bind mismatch for sql `{sql}`: {e}"));
+        }
+
+        #[test]
+        fn path_filter_alone_binds_ok() {
+            assert_binds_ok(&ProxyLogFilter {
+                path: Some("count_tokens".into()),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn model_then_path_binds_ok() {
+            // model(?1) + path(?2)：path 分支必须 idx+=1 才能拿到 ?2，否则与 model 撞 ?1。
+            assert_binds_ok(&ProxyLogFilter {
+                model: Some("claude-opus-4-8".into()),
+                path: Some("/v1/messages".into()),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn all_scalar_filters_plus_path_binds_ok() {
+            // 全标量分支 + path：穷举占位符递增链路（platform/group/status/time/model/path）。
+            assert_binds_ok(&ProxyLogFilter {
+                platform_id: Some(7),
+                group_key: Some("gk_x".into()),
+                status: Some(404), // 走 ?N 分支（非 200/-1 特判）
+                time_start: Some(1000),
+                time_end: Some(2000),
+                model: Some("m".into()),
+                model_type: Some("actual".into()),
+                path: Some("p".into()),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn sources_in_binds_ok() {
+            // sources IN (?, ?)：占位符随 vec 长度递增。
+            assert_binds_ok(&ProxyLogFilter {
+                sources: Some(vec!["test".into(), "quota".into()]),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn exclude_sources_not_in_binds_ok() {
+            // exclude_sources NOT IN (?, ?)：Logs 主页排除 test/quota → 纯代理转发。
+            assert_binds_ok(&ProxyLogFilter {
+                exclude_sources: Some(vec!["test".into(), "quota".into()]),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn empty_sources_is_noop_binds_ok() {
+            // Some(vec![]) = 空集，分支应跳过（不发 IN ()）→ 与 None 同义。
+            assert_binds_ok(&ProxyLogFilter {
+                sources: Some(vec![]),
+                exclude_sources: Some(vec![]),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn empty_exclude_sources_then_observed_binds_ok() {
+            // logs-query-ipc-slimming s3 回归：exclude_sources 跳过分支（空 Vec，不拼 NOT IN，
+            // idx 不递增）之后紧跟 observed 分支——若跳过分支误递增/漏递增 idx，此处会与占位符
+            // 编号错位。model/path 一并夹在中间，穷举跳过分支两侧都有参数化分支的组合。
+            assert_binds_ok(&ProxyLogFilter {
+                model: Some("m".into()),
+                path: Some("p".into()),
+                sources: Some(vec![]),
+                exclude_sources: Some(vec![]),
+                observed: Some(true),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn all_filters_plus_sources_binds_ok() {
+            // 全标量 + sources + exclude + observed：穷举 idx 递增链路不错位。
+            assert_binds_ok(&ProxyLogFilter {
+                platform_id: Some(7),
+                status: Some(404),
+                time_start: Some(1000),
+                time_end: Some(2000),
+                model: Some("m".into()),
+                path: Some("p".into()),
+                sources: Some(vec!["test".into(), "quota".into()]),
+                exclude_sources: Some(vec!["claude_code".into()]),
+                observed: Some(true),
+                ..Default::default()
+            });
+        }
+
+        #[test]
+        fn observed_filter_matches_only_observe_rows() {
+            // 观察模式筛选（票 04）：只留 blocked_reason='observe'，真实拦截行与普通行都排除。
+            let conn = Connection::open_in_memory().unwrap();
+            conn.execute_batch(
+                "CREATE TABLE proxy_log (deleted_at INTEGER DEFAULT 0, blocked_reason TEXT);
+                 INSERT INTO proxy_log (blocked_reason) VALUES ('observe'), ('matched middleware rule'), ('');",
+            )
+            .unwrap();
+            let count = |filter: &ProxyLogFilter| -> i64 {
+                let (where_sql, params) = build_filter_where(filter);
+                let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+                let bind: Vec<&dyn rusqlite::types::ToSql> =
+                    params.iter().map(|b| b.as_ref()).collect();
+                conn.query_row(&sql, bind.as_slice(), |r| r.get(0)).unwrap()
+            };
+            assert_eq!(
+                count(&ProxyLogFilter {
+                    observed: Some(true),
+                    ..Default::default()
+                }),
+                1
+            );
+            // Some(false) / None 不加谓词 → 全量。
+            assert_eq!(
+                count(&ProxyLogFilter {
+                    observed: Some(false),
+                    ..Default::default()
+                }),
+                3
+            );
+            assert_eq!(count(&ProxyLogFilter::default()), 3);
+        }
+    }
+
+    mod test_finalize_incomplete {
+        use super::super::{finalize_incomplete_proxy_log, sweep_incomplete_proxy_logs};
+        use aidog_db::Db;
+
+        async fn test_db() -> Db {
+            let db = Db::new(":memory:").await.expect("open memory db");
+            aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+                .await
+                .expect("init tables");
+            db
+        }
+
+        async fn insert_log(db: &Db, id: &str, status: i32) {
+            let id = id.to_string();
+            db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO proxy_log (id, status_code, duration_ms, created_at, updated_at, deleted_at) \
+                 VALUES (?1, ?2, 0, 0, 0, 0)",
+                rusqlite::params![id, status],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+        }
+
+        async fn status_of(db: &Db, id: &str) -> i32 {
+            let id = id.to_string();
+            db.call_traced(None, std::panic::Location::caller(), move |conn| {
+                let v = conn.query_row(
+                    "SELECT status_code FROM proxy_log WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| r.get::<_, i32>(0),
+                )?;
+                Ok(v)
+            })
+            .await
+            .unwrap()
+        }
+
+        /// P1：finalize 只翻 status_code=0 的卡死行为 499，绝不覆盖已写入的真实终态。
+        #[tokio::test]
+        async fn finalize_flips_only_stuck_zero_rows() {
+            let db = test_db().await;
+            insert_log(&db, "stuck", 0).await; // 卡死占位 → 应翻 499
+            insert_log(&db, "ok", 200).await; // 正常完成 → 不动
+            insert_log(&db, "err", 500).await; // 错误终态 → 不动
+
+            finalize_incomplete_proxy_log(&db, "stuck", 499, 1234)
+                .await
+                .unwrap();
+            finalize_incomplete_proxy_log(&db, "ok", 499, 1234)
+                .await
+                .unwrap();
+            finalize_incomplete_proxy_log(&db, "err", 499, 1234)
+                .await
+                .unwrap();
+
+            assert_eq!(status_of(&db, "stuck").await, 499, "卡死行应翻 499");
+            assert_eq!(status_of(&db, "ok").await, 200, "200 终态不可被覆盖");
+            assert_eq!(status_of(&db, "err").await, 500, "500 终态不可被覆盖");
+        }
+
+        /// P1：幂等——对已翻 499 的行再次 finalize 不再变更（WHERE status_code=0 谓词）。
+        #[tokio::test]
+        async fn finalize_is_idempotent() {
+            let db = test_db().await;
+            insert_log(&db, "x", 0).await;
+            finalize_incomplete_proxy_log(&db, "x", 499, 100)
+                .await
+                .unwrap();
+            // 第二次传不同 status，应被 WHERE status_code=0 挡住（已是 499 非 0）
+            finalize_incomplete_proxy_log(&db, "x", 408, 200)
+                .await
+                .unwrap();
+            assert_eq!(
+                status_of(&db, "x").await,
+                499,
+                "二次 finalize 不应覆盖首次终态"
+            );
+        }
+
+        /// 启动兜底扫描：进程被杀留下的所有 status_code=0 行一次性翻 499，真实终态一律不动。
+        #[tokio::test]
+        async fn sweep_flips_all_stuck_rows_and_reports_count() {
+            let db = test_db().await;
+            insert_log(&db, "stuck1", 0).await;
+            insert_log(&db, "stuck2", 0).await;
+            insert_log(&db, "ok", 200).await;
+            insert_log(&db, "err", 502).await;
+
+            let n = sweep_incomplete_proxy_logs(&db).await.unwrap();
+            assert_eq!(n, 2, "只翻两条卡死行");
+            assert_eq!(status_of(&db, "stuck1").await, 499);
+            assert_eq!(status_of(&db, "stuck2").await, 499);
+            assert_eq!(status_of(&db, "ok").await, 200, "200 终态不可被覆盖");
+            assert_eq!(status_of(&db, "err").await, 502, "502 终态不可被覆盖");
+
+            // 幂等：再扫一次无行可翻。
+            assert_eq!(sweep_incomplete_proxy_logs(&db).await.unwrap(), 0);
+        }
+    }
+}
+
+/// 分组最近一次成功（2xx）请求命中的平台 id。无记录 → None。
+/// statusline group-info「当前命中平台」段用；索引按 group_key + status_code 过滤。
+pub fn last_success_platform_id(
+    db: &Db,
+    group_key: String,
+) -> impl std::future::Future<Output = Result<Option<i64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT platform_id FROM proxy_log
+                 WHERE deleted_at = 0 AND group_key = ?1 AND status_code >= 200 AND status_code < 300
+                 ORDER BY created_at DESC LIMIT 1",
+            )?;
+            let mut rows = stmt.query_map(params![group_key], |r| r.get::<_, i64>(0))?;
+            Ok(rows.next().transpose()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+#[cfg(test)]
+mod test_last_success_platform {
+    use super::super::last_success_platform_id;
+    use aidog_db::Db;
+
+    async fn insert(db: &Db, group: &str, platform_id: i64, status: i32, created_at: i64) {
+        let id = format!("{group}-{platform_id}-{status}-{created_at}");
+        let group = group.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO proxy_log (id, platform_id, group_key, status_code, created_at, updated_at, deleted_at) \
+                 VALUES (?1, ?2, ?3, ?4, ?5, 0, 0)",
+                rusqlite::params![id, platform_id, group, status, created_at],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    #[tokio::test]
+    async fn returns_latest_2xx_and_ignores_failures_and_other_groups() {
+        let db = Db::new(":memory:").await.unwrap();
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .unwrap();
+        insert(&db, "glm", 38, 502, 100).await; // 失败不选
+        insert(&db, "glm", 38, 200, 200).await; // 早成功
+        insert(&db, "other", 66, 200, 300).await; // 他组不选
+        insert(&db, "glm", 66, 200, 400).await; // 最新成功
+        assert_eq!(
+            last_success_platform_id(&db, "glm".into()).await.unwrap(),
+            Some(66)
+        );
+        // 无记录组 → None
+        assert_eq!(
+            last_success_platform_id(&db, "none".into()).await.unwrap(),
+            None
+        );
+    }
+}
+
+/// `upsert_proxy_log` 的 ProxyLogSettings 门禁（quota 脚本 / model_fetch 等非代理写入方走这条路）。
+#[cfg(test)]
+mod test_upsert_gate {
+    use super::super::{ProxyLogColumns, strip_raw_sides, upsert_proxy_log};
+    use aidog_db::Db;
+    use aidog_db::models::{ProxyLog, ProxyLogSettings};
+
+    fn filled_log() -> ProxyLog {
+        ProxyLog {
+            id: "gate1".into(),
+            group_key: "[quota:script]".into(),
+            request_headers: r#"{"source":"quota"}"#.into(),
+            request_body: "user-req".into(),
+            user_response_headers: r#"{"content-type":"application/json"}"#.into(),
+            user_response_body: "user-resp".into(),
+            upstream_request_headers: r#"{"authorization":"[REDACTED]"}"#.into(),
+            upstream_request_body: "up-req".into(),
+            upstream_response_headers: r#"{"x":"1"}"#.into(),
+            response_body: "up-resp".into(),
+            field_trace: "trace".into(),
+            status_code: 200,
+            ..Default::default()
+        }
+    }
+
+    async fn db_with_settings(s: &ProxyLogSettings) -> Db {
+        let db = Db::new(":memory:").await.unwrap();
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .unwrap();
+        aidog_db::set_setting(
+            &db,
+            aidog_db::models::SetSettingInput {
+                scope: "proxy".into(),
+                key: "logging".into(),
+                value: serde_json::to_value(s).unwrap(),
+            },
+        )
+        .await
+        .unwrap();
+        db
+    }
+
+    /// 落库后各「原始信息」列的长度（0 = 被清空 / 无行 → None）。
+    async fn stored(db: &Db, id: &str) -> Option<Vec<usize>> {
+        let id = id.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT request_headers, request_body, user_response_headers, user_response_body, \
+                     upstream_request_headers, upstream_request_body, upstream_response_headers, \
+                     response_body, field_trace FROM proxy_log WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| {
+                        (0..9)
+                            .map(|i| r.get::<_, String>(i).map(|s| s.len()))
+                            .collect::<rusqlite::Result<Vec<_>>>()
+                    },
+                )
+                .ok())
+        })
+        .await
+        .unwrap()
+    }
+
+    /// 只开「记录实际上游请求」：用户侧 4 列清空，上游侧 5 列保留。
+    #[tokio::test]
+    async fn upstream_only_setting_strips_user_side() {
+        let s = ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: true,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        let lens = stored(&db, "gate1").await.expect("row written");
+        assert_eq!(&lens[..4], &[0, 0, 0, 0], "用户侧未被清空: {lens:?}");
+        assert!(lens[4..].iter().all(|&n| n > 0), "上游侧被误清: {lens:?}");
+    }
+
+    /// 两个开关都关：只留元数据，九列原始信息全空。
+    #[tokio::test]
+    async fn both_off_strips_everything() {
+        let s = ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        let lens = stored(&db, "gate1").await.expect("row written");
+        assert!(lens.iter().all(|&n| n == 0), "仍有原始信息入库: {lens:?}");
+    }
+
+    /// master switch 关 → 整行不落库。
+    #[tokio::test]
+    async fn master_switch_off_writes_no_row() {
+        let s = ProxyLogSettings {
+            enabled: false,
+            ..Default::default()
+        };
+        let db = db_with_settings(&s).await;
+        upsert_proxy_log(&db, filled_log()).await.unwrap();
+        assert!(stored(&db, "gate1").await.is_none(), "master 关仍落库");
+    }
+
+    /// 清空口径漂移守卫：strip_raw_sides 与 ProxyLogColumns::from_log 必须清同一组列。
+    #[test]
+    fn raw_field_sides_match() {
+        for (su, sup) in [(false, false), (true, false), (false, true), (true, true)] {
+            let cols = ProxyLogColumns::from_log(&filled_log(), su, sup);
+            let mut log = filled_log();
+            strip_raw_sides(&mut log, su, sup);
+            let via_cols = [
+                cols.request_headers.len(),
+                cols.request_body.len(),
+                cols.user_response_headers.len(),
+                cols.user_response_body.len(),
+                cols.upstream_request_headers.len(),
+                cols.upstream_request_body.len(),
+                cols.upstream_response_headers.len(),
+                cols.response_body.len(),
+                cols.field_trace.len(),
+            ];
+            let via_strip = [
+                log.request_headers.len(),
+                log.request_body.len(),
+                log.user_response_headers.len(),
+                log.user_response_body.len(),
+                log.upstream_request_headers.len(),
+                log.upstream_request_body.len(),
+                log.upstream_response_headers.len(),
+                log.response_body.len(),
+                log.field_trace.len(),
+            ];
+            assert_eq!(
+                via_cols, via_strip,
+                "strip_user={su} strip_upstream={sup}: 两条路径清空的列不一致"
+            );
+        }
+    }
+}

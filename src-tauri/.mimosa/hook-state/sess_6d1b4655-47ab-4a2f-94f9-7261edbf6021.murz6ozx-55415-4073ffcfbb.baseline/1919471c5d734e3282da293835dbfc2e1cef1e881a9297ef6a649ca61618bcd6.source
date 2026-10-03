@@ -1,0 +1,66 @@
+use super::*;
+use aidog_db::test_support::HomeGuard;
+use std::process::Command;
+
+fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {
+    cmd.get_envs()
+        .find(|(k, _)| *k == std::ffi::OsStr::new(key))
+        .and_then(|(_, v)| v)
+}
+
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn merge_path_dedups_preserves_order_and_priority() {
+    // login 在前优先；rest 中重复项丢弃；空段丢弃；保序。
+    assert_eq!(
+        merge_path("/opt/homebrew/bin:/usr/bin", "/usr/bin:/bin::"),
+        "/opt/homebrew/bin:/usr/bin:/bin"
+    );
+    // 完全相同 → 输出等于规范化后的同串（调用方据此判 no-op）。
+    assert_eq!(
+        merge_path("/usr/bin:/bin", "/usr/bin:/bin"),
+        "/usr/bin:/bin"
+    );
+    // 空 login → 退化为 rest 去重。
+    assert_eq!(merge_path("", "/bin:/bin"), "/bin");
+}
+
+#[test]
+fn resolve_home_env_returns_dirs_home() {
+    // 包 HomeGuard：resolve_home_env 读 dirs::home_dir() / HOME env，须指向 tempdir 而非真实 home。
+    let g = HomeGuard::new();
+    let (home, _) = resolve_home_env();
+    let expected = g.home().to_string_lossy().into_owned();
+    assert_eq!(home.as_deref(), Some(expected.as_str()));
+}
+
+#[test]
+fn apply_home_env_sets_home_on_command() {
+    let _g = HomeGuard::new();
+    let mut cmd = Command::new("npx");
+    apply_home_env(&mut cmd);
+    let (home, _) = resolve_home_env();
+    if let Some(h) = home {
+        assert_eq!(env_of(&cmd, "HOME"), Some(std::ffi::OsStr::new(&h)));
+    }
+}
+
+/// check_env exercises probe_env (OnceLock init path) and returns valid SkillsEnv.
+/// `#[ignore]`：probe_env 内部 spawn 真实 node/npx 二进制（Command::new("node").output()），
+/// 依赖宿主环境；默认 cargo test 跳过，仅 `--ignored` 显式跑。
+#[test]
+#[ignore = "needs host node/npx"]
+fn check_env_does_not_panic_and_is_consistent() {
+    let env1 = check_env();
+    let env2 = check_env(); // second call returns cached value
+    // Both calls should return the same values (OnceLock)
+    assert_eq!(env1.npx_available, env2.npx_available);
+    assert_eq!(env1.node_version, env2.node_version);
+    // node_version, if present, should start with 'v'
+    if let Some(ver) = &env1.node_version {
+        assert!(
+            ver.starts_with('v'),
+            "node version should start with 'v': {ver}"
+        );
+    }
+}

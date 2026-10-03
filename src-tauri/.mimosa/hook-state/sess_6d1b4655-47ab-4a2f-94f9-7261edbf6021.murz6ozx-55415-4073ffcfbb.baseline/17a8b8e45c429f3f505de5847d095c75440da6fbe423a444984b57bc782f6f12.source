@@ -1,0 +1,871 @@
+//! Group 智能调度 + 全局 Platform 级熔断器（内存状态）。
+//!
+//! 失败分类（2026-09-28 R1 修订：connect 失败计入熔断，推翻 2026-09-15 网络错一律不降权）：
+//! - 熔断器：**429-限流** 与 **connect 失败**（连接建立失败，站级死站信号）计入，临时性，
+//!   自动半开探测恢复（本模块）。connect 失败带本地网络保护：60s 滑窗内失败平台数达
+//!   本请求候选数一半 → 判本机网络问题，不计入（防断网误杀整组）。
+//! - auth 冷却：**401 鉴权 / 402 余额不足** → 固定 [`AUTH_COOLDOWN_MS`] 内存冷却，
+//!   不写 DB（平台 UI 仍是启用态），到点自动回调度。取代旧 auto_disabled 指数退避；
+//!   DB 存量 auto_disabled 行照旧按 until 过滤，成功时恢复（recover_platform_auto_disabled）。
+//! - 配额冷却：429 配额耗尽 + 上游给出重置时间 → 冷却到该时刻。
+//! - 上游审核拒绝（`error.type=censorship_blocked`）→ 平台自动禁用 1 小时，换候选重试；
+//!   到期后允许探测，成功恢复。
+//! - **失败降权（health-aware，2026-09-29）**：**全部失败**计入排序降权——熔断记失败 /
+//!   record_ignored 的各分支（429、401/402、其余 4xx、5xx、connect/transport 错、200 空响应）
+//!   一并调 `record_penalty`。两档起步（4xx→30s、429/5xx/transport→1min），连败 ×2 封顶
+//!   [`PENALTY_MAX_MS`]，成功一次清零。降权只把平台沉到候选排序末尾，**不踢出候选**，
+//!   与熔断/auth/配额冷却并行；纯内存态（与 EMA 同待遇，重启丢失可接受）。
+//!   例外：流式中途断连（2xx 已开始输出）不计；censorship 已 DB 禁用 1h 不叠加。
+//!
+//! 状态机三态：
+//! ```text
+//! Closed{fails}:  429-限流计 fail → fails+1；达 threshold → Open{until=now+open_secs}。成功 → fails=0。
+//! Open{until_ms}: 候选过滤直接踢出；now>=until → 转 HalfOpen{probes=0}。
+//! HalfOpen{probes}: 放行至多 half_open_max 个探测；任一成功 → Closed；任一失败 → Open{重置 until}。
+//! ```
+//! 不计熔断：401/402（走 auth 冷却）、429-配额（走配额冷却）、5xx/网络错误/空响应
+//! （不降权）、客户端 4xx(非 429)、probe 请求。
+
+use std::collections::HashMap;
+use std::sync::RwLock;
+
+/// 401 权限 / 402 余额失败的内存冷却时长（毫秒）。
+pub const AUTH_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+/// connect 失败本地网络保护滑窗（毫秒）：窗口内失败平台数达候选半数 → 判本地网络问题不熔断。
+const CONNECT_FAIL_WINDOW_MS: i64 = 60 * 1000;
+
+/// 失败降权：客户端错档（各类 4xx）起步窗口（毫秒）。
+pub const PENALTY_CLIENT_BASE_MS: i64 = 30 * 1000;
+/// 失败降权：服务端/网络档（429/5xx/connect/transport 错/空响应）起步窗口（毫秒）。
+pub const PENALTY_SERVER_BASE_MS: i64 = 60 * 1000;
+/// 失败降权：连败 ×2 递增的封顶窗口（毫秒）。
+pub const PENALTY_MAX_MS: i64 = 10 * 60 * 1000;
+
+/// 失败降权两档。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PenaltyTier {
+    /// 客户端错（各类 4xx）。
+    Client,
+    /// 服务端/网络错（429/5xx/transport 错/空响应）。
+    Server,
+}
+
+impl PenaltyTier {
+    fn base_ms(self) -> i64 {
+        match self {
+            PenaltyTier::Client => PENALTY_CLIENT_BASE_MS,
+            PenaltyTier::Server => PENALTY_SERVER_BASE_MS,
+        }
+    }
+}
+
+/// 熔断三态。
+#[derive(Debug, Clone, PartialEq)]
+pub enum BreakerState {
+    /// 正常放行，记录连续失败次数。
+    Closed { fails: u32 },
+    /// 熔断打开，until_ms 之前候选过滤踢出。
+    Open { until_ms: i64 },
+    /// 半开探测，已发出 probes 个探测请求。
+    HalfOpen { probes: u32 },
+}
+
+impl Default for BreakerState {
+    fn default() -> Self {
+        BreakerState::Closed { fails: 0 }
+    }
+}
+
+/// 候选准入判定结果。
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Admission {
+    /// 正常放行。
+    Allow,
+    /// 熔断 Open，踢出候选。
+    Reject,
+    /// 半开探测放行（限量）。
+    Probe,
+}
+
+/// per-platform 健康指标（内存）。
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlatformHealth {
+    pub breaker: BreakerState,
+    /// 延迟 EMA（毫秒）；0 表示尚无样本。
+    pub latency_ema_ms: f64,
+    /// 当前在途请求数。
+    pub inflight: u32,
+    /// 配额冷却截止（unix ms，0 = 无）。429 配额耗尽且上游给出重置时间时设置：
+    /// 该时刻前不参与调度，但**不改 DB status**（平台在 UI 仍是启用态，只是不被选中）。
+    pub quota_cooldown_until_ms: i64,
+    /// 401 权限 / 402 余额冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，
+    /// 纯内存态（取代旧 DB auto_disabled），到点自动回调度。
+    pub auth_cooldown_until_ms: i64,
+    /// 最近一次 connect 失败时刻（unix ms，0 = 无）。本地网络保护条款的滑窗判据
+    /// （见 [`SchedulerState::record_connect_failure`]）。
+    pub last_connect_fail_ms: i64,
+    /// 失败降权截止（unix ms，0 = 无）。降权只影响候选排序（沉底），不踢出候选。
+    pub penalty_until_ms: i64,
+    /// 最近一次降权档位（决定下次起步档）。
+    pub penalty_tier: PenaltyTier,
+    /// 连败计数（成功清零）：降权窗口 ×2 递增封顶 [`PENALTY_MAX_MS`]。
+    pub penalty_consecutive: u32,
+}
+
+impl Default for PlatformHealth {
+    fn default() -> Self {
+        Self {
+            breaker: BreakerState::default(),
+            latency_ema_ms: 0.0,
+            inflight: 0,
+            quota_cooldown_until_ms: 0,
+            auth_cooldown_until_ms: 0,
+            last_connect_fail_ms: 0,
+            penalty_until_ms: 0,
+            penalty_tier: PenaltyTier::Client,
+            penalty_consecutive: 0,
+        }
+    }
+}
+
+/// 熔断有效阈值（已解析 platform 覆盖 / 全局默认）。
+#[derive(Debug, Clone, Copy)]
+pub struct BreakerThresholds {
+    pub failure_threshold: u32,
+    pub open_secs: u64,
+    pub half_open_max: u32,
+}
+
+/// EMA 平滑系数（新样本权重）。0.3 ≈ 近 ~6 个样本窗口。
+const EMA_ALPHA: f64 = 0.3;
+
+/// 调度器状态单例：per-platform 健康表。随 ProxyState 持有，Arc clone 进后台。
+pub struct SchedulerState {
+    /// platform_id → 健康指标。
+    health: RwLock<HashMap<u64, PlatformHealth>>,
+    /// R4（2026-09-28）持久化钩子：Some 时摘除性状态（熔断 Open / quota / auth 冷却）
+    /// 写穿 platform_health_state 表，重启 restore。None（测试 / 无持久化）→ persist no-op。
+    db: Option<std::sync::Arc<aidog_db::Db>>,
+}
+
+impl Default for SchedulerState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl SchedulerState {
+    pub fn new() -> Self {
+        Self {
+            health: RwLock::new(HashMap::new()),
+            db: None,
+        }
+    }
+
+    /// 带 platform.db 持久化的构造（生产路径，start_proxy 用）。持久化语义见 `persist`。
+    pub fn with_db(db: std::sync::Arc<aidog_db::Db>) -> Self {
+        Self {
+            health: RwLock::new(HashMap::new()),
+            db: Some(db),
+        }
+    }
+
+    /// 把持久化行灌回健康表（过期即弃）。`restore_from_db` 的纯逻辑核，独立可测。
+    pub fn seed_from_rows(
+        &self,
+        rows: Vec<aidog_db::health_state::PlatformHealthStateRow>,
+        now_ms: i64,
+    ) {
+        if let Ok(mut g) = self.health.write() {
+            for row in rows {
+                let mut h = PlatformHealth::default();
+                if row.breaker_state == "open" && row.breaker_until_ms > now_ms {
+                    h.breaker = BreakerState::Open {
+                        until_ms: row.breaker_until_ms,
+                    };
+                }
+                if row.quota_cooldown_until_ms > now_ms {
+                    h.quota_cooldown_until_ms = row.quota_cooldown_until_ms;
+                }
+                if row.auth_cooldown_until_ms > now_ms {
+                    h.auth_cooldown_until_ms = row.auth_cooldown_until_ms;
+                }
+                if row.last_connect_fail_ms > 0
+                    && now_ms - row.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
+                {
+                    h.last_connect_fail_ms = row.last_connect_fail_ms;
+                }
+                if h != PlatformHealth::default() {
+                    g.insert(row.platform_id as u64, h);
+                }
+            }
+        }
+    }
+
+    /// 启动恢复：加载 platform_health_state 全表灌回（db=None 时 no-op）。
+    pub async fn restore_from_db(&self) {
+        let Some(db) = self.db.clone() else { return };
+        match aidog_db::health_state::load_platform_health_states(&db).await {
+            Ok(rows) => self.seed_from_rows(rows, aidog_db::now()),
+            Err(e) => tracing::warn!("restore platform_health_state failed: {e}"),
+        }
+    }
+
+    /// 摘除性状态写穿落盘（fire-and-forget；只在状态变更点调用，成功热路径不触发）。
+    fn persist(&self, platform_id: u64) {
+        let Some(db) = self.db.clone() else { return };
+        let row = {
+            let Ok(g) = self.health.read() else { return };
+            let Some(h) = g.get(&platform_id) else { return };
+            let (state, until) = match h.breaker {
+                BreakerState::Open { until_ms } => ("open", until_ms),
+                _ => ("closed", 0),
+            };
+            aidog_db::health_state::PlatformHealthStateRow {
+                platform_id: platform_id as i64,
+                breaker_state: state.to_string(),
+                breaker_until_ms: until,
+                quota_cooldown_until_ms: h.quota_cooldown_until_ms,
+                auth_cooldown_until_ms: h.auth_cooldown_until_ms,
+                last_connect_fail_ms: h.last_connect_fail_ms,
+                updated_at: aidog_db::now(),
+            }
+        };
+        tokio::spawn(async move {
+            if let Err(e) =
+                aidog_db::health_state::upsert_platform_health_state(&db, row).await
+            {
+                tracing::warn!("persist platform_health_state failed: {e}");
+            }
+        });
+    }
+
+    /// 读取某平台延迟 EMA（无样本 → None）。least_latency 排序已删（2026-09-28），
+    /// EMA 记录保留作健康指标，暂无排序消费者。
+    pub fn latency_ema(&self, platform_id: u64) -> Option<f64> {
+        let g = self.health.read().ok()?;
+        g.get(&platform_id).and_then(|h| {
+            if h.latency_ema_ms > 0.0 {
+                Some(h.latency_ema_ms)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// 读取某平台在途请求数（无记录 → 0）。观测 / 诊断用（未来 MinConnections 策略消费）。
+    #[allow(dead_code)]
+    pub fn inflight(&self, platform_id: u64) -> u32 {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.inflight))
+            .unwrap_or(0)
+    }
+
+    /// 429 配额耗尽：把平台冷却到上游给出的重置时刻（取 max，不缩短已有冷却）。
+    /// 纯内存维度——不写 DB status，平台不被标记为禁用，只是这段时间不进候选。
+    pub fn set_quota_cooldown(&self, platform_id: u64, until_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            h.quota_cooldown_until_ms = h.quota_cooldown_until_ms.max(until_ms);
+        }
+        self.persist(platform_id);
+    }
+
+    /// 该平台此刻是否处于配额冷却中（到点自动失效，无需清理）。
+    pub fn quota_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.quota_cooldown_until_ms))
+            .is_some_and(|until| until > now_ms)
+    }
+
+    /// 401 权限 / 402 余额不足：把平台冷却固定 [`AUTH_COOLDOWN_MS`]（取 max，不缩短已有冷却）。
+    /// 纯内存维度——不写 DB status，平台 UI 仍是启用态，到点自动回调度。
+    pub fn set_auth_cooldown(&self, platform_id: u64, now_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            h.auth_cooldown_until_ms = (now_ms + AUTH_COOLDOWN_MS).max(h.auth_cooldown_until_ms);
+        }
+        self.persist(platform_id);
+    }
+
+    /// 该平台此刻是否处于 auth 冷却中（到点自动失效，无需清理）。
+    pub fn auth_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.auth_cooldown_until_ms))
+            .is_some_and(|until| until > now_ms)
+    }
+
+    /// 失败降权（health-aware 排序降权）：平台计入一次失败 → 按本次失败档位起步窗口降权，
+    /// 连败 ×2 递增封顶 [`PENALTY_MAX_MS`]；成功一次清零回起步（record_success）。
+    /// 只沉候选排序不踢出候选，与熔断/auth/配额冷却并行；纯内存态不持久化。
+    /// 档位取**本次失败**的档位（连败跨档时窗口从新档起步重算，取 max 不缩短已有窗口）。
+    pub fn record_penalty(&self, platform_id: u64, tier: PenaltyTier, now_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            let n = h.penalty_consecutive.saturating_add(1);
+            let win = tier
+                .base_ms()
+                .saturating_mul(1i64 << (n - 1).min(20))
+                .min(PENALTY_MAX_MS);
+            h.penalty_until_ms = h.penalty_until_ms.max(now_ms + win);
+            h.penalty_tier = tier;
+            h.penalty_consecutive = n;
+        }
+    }
+
+    /// 该平台此刻是否处于降权窗口（到点自动失效，无需清理）。
+    pub fn penalty_active(&self, platform_id: u64, now_ms: i64) -> bool {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.penalty_until_ms > now_ms))
+            .unwrap_or(false)
+    }
+
+    /// 候选准入判定（候选过滤准入门）。在 now_ms 时刻惰性转移 Open→HalfOpen。
+    /// `enabled=false`（熔断总开关关）→ 一律 Allow，旁路熔断。
+    pub fn admission(
+        &self,
+        platform_id: u64,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+        enabled: bool,
+    ) -> Admission {
+        if !enabled {
+            return Admission::Allow;
+        }
+        let mut g = match self.health.write() {
+            Ok(g) => g,
+            Err(_) => return Admission::Allow,
+        };
+        let h = g.entry(platform_id).or_default();
+        match h.breaker {
+            BreakerState::Closed { .. } => Admission::Allow,
+            BreakerState::Open { until_ms } => {
+                if now_ms >= until_ms {
+                    // 惰性转 HalfOpen，本次即作为首个探测放行。
+                    h.breaker = BreakerState::HalfOpen { probes: 1 };
+                    Admission::Probe
+                } else {
+                    Admission::Reject
+                }
+            }
+            BreakerState::HalfOpen { probes } => {
+                if probes < thresholds.half_open_max {
+                    h.breaker = BreakerState::HalfOpen { probes: probes + 1 };
+                    Admission::Probe
+                } else {
+                    // 探测名额用尽，等待探测结果（暂不再放行）。
+                    Admission::Reject
+                }
+            }
+        }
+    }
+
+    /// 在途请求 +1（forward 尝试前）。
+    pub fn inc_inflight(&self, platform_id: u64) {
+        if let Ok(mut g) = self.health.write() {
+            g.entry(platform_id).or_default().inflight += 1;
+        }
+    }
+
+    fn dec_inflight(h: &mut PlatformHealth) {
+        h.inflight = h.inflight.saturating_sub(1);
+    }
+
+    /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1、清 connect 失败标记。
+    pub fn record_success(&self, platform_id: u64, latency_ms: i64) {
+        let needs_clear = if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            let non_default = h.breaker != BreakerState::Closed { fails: 0 }
+                || h.quota_cooldown_until_ms > 0
+                || h.auth_cooldown_until_ms > 0
+                || h.last_connect_fail_ms > 0;
+            Self::dec_inflight(h);
+            let sample = latency_ms.max(0) as f64;
+            h.latency_ema_ms = if h.latency_ema_ms <= 0.0 {
+                sample
+            } else {
+                EMA_ALPHA * sample + (1.0 - EMA_ALPHA) * h.latency_ema_ms
+            };
+            h.breaker = BreakerState::Closed { fails: 0 };
+            h.last_connect_fail_ms = 0;
+            // 失败降权：成功一次清零回起步（下次失败从档位起步窗口重新计）。
+            h.penalty_until_ms = 0;
+            h.penalty_consecutive = 0;
+            non_default
+        } else {
+            false
+        };
+        if needs_clear {
+            self.persist(platform_id);
+        }
+    }
+
+    /// 失败（429-限流，逐响应计数无 retry 耗尽聚合；connect 失败走 record_connect_failure）：breaker fail 计数、inflight-1。
+    /// 不更新延迟 EMA（失败样本不计入延迟）。
+    pub fn record_failure(&self, platform_id: u64, thresholds: &BreakerThresholds, now_ms: i64) {
+        let opened = if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            Self::dec_inflight(h);
+            Self::apply_breaker_failure(h, thresholds, now_ms)
+        } else {
+            false
+        };
+        if opened {
+            self.persist(platform_id);
+        }
+    }
+
+    /// connect 失败计入熔断（routing-health-optim R1，2026-09-28；推翻 2026-09-15
+    /// 「网络类故障不降权」裁决——log.db 实证死站 566 整晚 34 败零计数滞留候选）。
+    /// **本地网络保护条款**：60s 滑窗内 connect 失败的去重平台数 ≥ 本请求候选数一半
+    /// → 判为本机网络问题而非平台死站，不计入熔断（防机场 WiFi 抖动误杀整组）。
+    /// 其余 transport 错误（读超时/中途掐线）仍走 record_ignored 不计入。
+    pub fn record_connect_failure(
+        &self,
+        platform_id: u64,
+        candidate_total: usize,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+    ) {
+        let mut opened = false;
+        if let Ok(mut g) = self.health.write() {
+            let recent_before = g
+                .values()
+                .filter(|h| Self::connect_fail_recent(h, now_ms))
+                .count();
+            let h = g.entry(platform_id).or_default();
+            Self::dec_inflight(h);
+            let was_recent = Self::connect_fail_recent(h, now_ms);
+            h.last_connect_fail_ms = now_ms;
+            // 去重平台数：本次平台此前已在窗内则不重复 +1。
+            let distinct = if was_recent {
+                recent_before
+            } else {
+                recent_before + 1
+            };
+            if distinct * 2 >= candidate_total.max(1) {
+                return;
+            }
+            opened = Self::apply_breaker_failure(h, thresholds, now_ms);
+        }
+        if opened {
+            self.persist(platform_id);
+        }
+    }
+
+    fn connect_fail_recent(h: &PlatformHealth, now_ms: i64) -> bool {
+        h.last_connect_fail_ms > 0 && now_ms - h.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
+    }
+
+    /// 推进 breaker 失败计数；返回是否进入/维持 Open（持久化判据）。
+    fn apply_breaker_failure(
+        h: &mut PlatformHealth,
+        thresholds: &BreakerThresholds,
+        now_ms: i64,
+    ) -> bool {
+        let open_until = now_ms + thresholds.open_secs as i64 * 1000;
+        h.breaker = match h.breaker {
+                BreakerState::Closed { fails } => {
+                    let next = fails + 1;
+                    if next >= thresholds.failure_threshold {
+                        BreakerState::Open {
+                            until_ms: open_until,
+                        }
+                    } else {
+                        BreakerState::Closed { fails: next }
+                    }
+                }
+                // HalfOpen 探测失败 → 立即重新 Open。
+                BreakerState::HalfOpen { .. } => BreakerState::Open {
+                    until_ms: open_until,
+                },
+                // Open 期间不应有 inflight 结果回流，但兜底重置 until。
+                BreakerState::Open { .. } => BreakerState::Open {
+                    until_ms: open_until,
+                },
+            };
+        matches!(h.breaker, BreakerState::Open { .. })
+    }
+
+    /// 不计入熔断的请求结束（网络错误/5xx/空响应/401/402/客户端 4xx 非 429）：仅 inflight-1，
+    /// 不动 breaker/EMA（网络类故障不降权）。
+    pub fn record_ignored(&self, platform_id: u64) {
+        if let Ok(mut g) = self.health.write()
+            && let Some(h) = g.get_mut(&platform_id)
+        {
+            Self::dec_inflight(h);
+        }
+    }
+
+    /// 测试 / 诊断：读取当前 breaker 状态副本。
+    #[cfg(test)]
+    pub fn breaker_state(&self, platform_id: u64) -> BreakerState {
+        self.health
+            .read()
+            .ok()
+            .and_then(|g| g.get(&platform_id).map(|h| h.breaker.clone()))
+            .unwrap_or_default()
+    }
+}
+
+// ─── Sticky session 绑定（内存 LRU + TTL）────────────────────
+//
+// session 键取法（见 parent design.md §Sticky session 键）：
+// aidog 现有 proxy.rs/models.rs 无 session_id 概念（grep 确认），故 MVP 用
+// `group_key + 客户端稳定标识`（调用侧拼接，本模块只存 String→platform_id）。
+// 绑定平台失效（不在候选集 / 熔断 Open）时回退正常调度并重写绑定。
+
+/// Sticky 绑定 TTL（毫秒）：30 分钟无访问淘汰。
+const STICKY_TTL_MS: i64 = 30 * 60 * 1000;
+/// LRU 容量上限（防内存无界增长）。
+const STICKY_CAP: usize = 4096;
+
+struct StickyEntry {
+    platform_id: u64,
+    last_access_ms: i64,
+}
+
+/// session → platform 绑定表（内存）。随 SchedulerState 同生命周期。
+pub struct StickyTable {
+    map: RwLock<HashMap<String, StickyEntry>>,
+}
+
+impl Default for StickyTable {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl StickyTable {
+    pub fn new() -> Self {
+        Self {
+            map: RwLock::new(HashMap::new()),
+        }
+    }
+
+    /// 查绑定平台（未过期）；命中刷新访问时间。
+    pub fn get(&self, key: &str, now_ms: i64) -> Option<u64> {
+        let mut g = self.map.write().ok()?;
+        let entry = g.get_mut(key)?;
+        if now_ms - entry.last_access_ms > STICKY_TTL_MS {
+            g.remove(key);
+            return None;
+        }
+        entry.last_access_ms = now_ms;
+        Some(entry.platform_id)
+    }
+
+    /// 写绑定（回退调度选定平台后）。超容量时淘汰最久未访问项。
+    pub fn put(&self, key: String, platform_id: u64, now_ms: i64) {
+        if let Ok(mut g) = self.map.write() {
+            if g.len() >= STICKY_CAP
+                && !g.contains_key(&key)
+                && let Some(oldest) = g
+                    .iter()
+                    .min_by_key(|(_, e)| e.last_access_ms)
+                    .map(|(k, _)| k.clone())
+            {
+                g.remove(&oldest);
+            }
+            g.insert(
+                key,
+                StickyEntry {
+                    platform_id,
+                    last_access_ms: now_ms,
+                },
+            );
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn thresholds(ft: u32, open_secs: u64, hom: u32) -> BreakerThresholds {
+        BreakerThresholds {
+            failure_threshold: ft,
+            open_secs,
+            half_open_max: hom,
+        }
+    }
+
+    #[test]
+    fn breaker_closed_to_open_to_halfopen_to_closed() {
+        let s = SchedulerState::new();
+        let th = thresholds(3, 30, 2);
+        let now = 1_000_000i64;
+        // 初始 Closed → Allow
+        assert_eq!(s.admission(1, &th, now, true), Admission::Allow);
+        // 失败累计到阈值前仍 Closed
+        s.inc_inflight(1);
+        s.record_failure(1, &th, now);
+        s.inc_inflight(1);
+        s.record_failure(1, &th, now);
+        assert_eq!(s.admission(1, &th, now, true), Admission::Allow);
+        // 第 3 次失败 → Open
+        s.inc_inflight(1);
+        s.record_failure(1, &th, now);
+        assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
+        // Open 未到期 → Reject
+        assert_eq!(s.admission(1, &th, now + 1000, true), Admission::Reject);
+        // 到期 → HalfOpen 首个探测放行
+        let until_passed = now + 30 * 1000 + 1;
+        assert_eq!(s.admission(1, &th, until_passed, true), Admission::Probe);
+        // 探测成功 → Closed
+        s.record_success(1, 120);
+        assert!(matches!(
+            s.breaker_state(1),
+            BreakerState::Closed { fails: 0 }
+        ));
+        assert_eq!(s.admission(1, &th, until_passed, true), Admission::Allow);
+    }
+
+    #[test]
+    fn connect_failure_counts_into_breaker() {
+        // R1：connect 失败计入熔断，threshold=1 → 单次即 Open。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(9);
+        s.record_connect_failure(9, 4, &th, now);
+        assert!(matches!(s.breaker_state(9), BreakerState::Open { .. }));
+    }
+
+    #[test]
+    fn connect_failure_local_network_guard() {
+        // 保护条款：4 候选组，第 2 个平台也 connect 失败时失败平台数 2*2>=4 → 不计熔断。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(1);
+        s.record_connect_failure(1, 4, &th, now); // 1*2 < 4 → 计入，Open
+        assert!(matches!(s.breaker_state(1), BreakerState::Open { .. }));
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, now + 1_000); // 2*2 >= 4 → 本地网络，不计
+        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+        // 同平台重复失败不重复计数：平台 2 再败仍 2 个去重平台 → 依旧不计。
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, now + 2_000);
+        assert!(matches!(s.breaker_state(2), BreakerState::Closed { fails: 0 }));
+    }
+
+    #[test]
+    fn connect_failure_window_expires() {
+        // 60s 滑窗外不累计：平台 1 失败后过窗，平台 2 失败时去重数回落 1 → 计入。
+        let s = SchedulerState::new();
+        let th = thresholds(1, 10, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(1);
+        s.record_connect_failure(1, 4, &th, now);
+        let later = now + 61 * 1000;
+        s.inc_inflight(2);
+        s.record_connect_failure(2, 4, &th, later);
+        assert!(matches!(s.breaker_state(2), BreakerState::Open { .. }));
+    }
+
+    #[test]
+    fn seed_from_rows_restores_open_and_expires() {
+        // R4：持久化行恢复——未过期 Open/冷却恢复，过期行丢弃。
+        use aidog_db::health_state::PlatformHealthStateRow as Row;
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.seed_from_rows(
+            vec![
+                Row {
+                    platform_id: 1,
+                    breaker_state: "open".into(),
+                    breaker_until_ms: now + 5_000,
+                    ..Default::default()
+                },
+                Row {
+                    platform_id: 2,
+                    breaker_state: "open".into(),
+                    breaker_until_ms: now - 1, // 已过期 → 丢弃
+                    ..Default::default()
+                },
+                Row {
+                    platform_id: 3,
+                    quota_cooldown_until_ms: now + 60_000,
+                    ..Default::default()
+                },
+            ],
+            now,
+        );
+        assert!(matches!(
+            s.breaker_state(1),
+            BreakerState::Open { until_ms } if until_ms == now + 5_000
+        ));
+        assert_eq!(s.breaker_state(2), BreakerState::Closed { fails: 0 });
+        assert!(s.quota_cooled(3, now));
+    }
+
+    #[test]
+    fn halfopen_failure_reopens() {
+        let s = SchedulerState::new();
+        let th = thresholds(1, 30, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(2);
+        s.record_failure(2, &th, now); // threshold=1 → Open
+        let passed = now + 30 * 1000 + 1;
+        assert_eq!(s.admission(2, &th, passed, true), Admission::Probe);
+        // 探测失败 → 重新 Open
+        s.record_failure(2, &th, passed);
+        assert_eq!(s.admission(2, &th, passed + 1, true), Admission::Reject);
+    }
+
+    #[test]
+    fn halfopen_limits_probes() {
+        let s = SchedulerState::new();
+        let th = thresholds(1, 30, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(3);
+        s.record_failure(3, &th, now);
+        let passed = now + 30 * 1000 + 1;
+        // half_open_max=2 → 放 2 个探测，第 3 个 Reject
+        assert_eq!(s.admission(3, &th, passed, true), Admission::Probe);
+        assert_eq!(s.admission(3, &th, passed, true), Admission::Probe);
+        assert_eq!(s.admission(3, &th, passed, true), Admission::Reject);
+    }
+
+    #[test]
+    fn breaker_disabled_bypass() {
+        let s = SchedulerState::new();
+        let th = thresholds(1, 30, 2);
+        let now = 1_000_000i64;
+        s.inc_inflight(4);
+        s.record_failure(4, &th, now); // Open
+        // enabled=false → 一律 Allow（总开关旁路）
+        assert_eq!(s.admission(4, &th, now, false), Admission::Allow);
+    }
+
+    #[test]
+    fn latency_ema_updates() {
+        let s = SchedulerState::new();
+        s.inc_inflight(5);
+        s.record_success(5, 100);
+        assert_eq!(s.latency_ema(5), Some(100.0));
+        s.inc_inflight(5);
+        s.record_success(5, 200);
+        // EMA = 0.3*200 + 0.7*100 = 130
+        let ema = s.latency_ema(5).unwrap();
+        assert!((ema - 130.0).abs() < 0.001, "ema={ema}");
+    }
+
+    #[test]
+    fn inflight_inc_dec() {
+        let s = SchedulerState::new();
+        s.inc_inflight(6);
+        s.inc_inflight(6);
+        assert_eq!(s.inflight(6), 2);
+        s.record_success(6, 50);
+        assert_eq!(s.inflight(6), 1);
+        s.record_failure(6, &thresholds(5, 30, 2), 0);
+        assert_eq!(s.inflight(6), 0);
+    }
+
+    #[test]
+    fn quota_cooldown_expires_and_never_shortens() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        assert!(!s.quota_cooled(7, now));
+        s.set_quota_cooldown(7, now + 5000);
+        assert!(s.quota_cooled(7, now));
+        // 更早的截止时间不缩短已有冷却
+        s.set_quota_cooldown(7, now + 1000);
+        assert!(s.quota_cooled(7, now + 2000));
+        // 到点即失效
+        assert!(!s.quota_cooled(7, now + 5000));
+        // 冷却不影响熔断维度（仍 Allow）
+        assert_eq!(
+            s.admission(7, &thresholds(3, 30, 2), now, true),
+            Admission::Allow
+        );
+    }
+
+    #[test]
+    fn auth_cooldown_fixed_window() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        assert!(!s.auth_cooled(8, now));
+        s.set_auth_cooldown(8, now);
+        assert!(s.auth_cooled(8, now));
+        assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
+        // 到点即失效，回调度
+        assert!(!s.auth_cooled(8, now + AUTH_COOLDOWN_MS));
+        // 重复设置不缩短已有冷却
+        s.set_auth_cooldown(8, now - 10_000);
+        assert!(s.auth_cooled(8, now + AUTH_COOLDOWN_MS - 1));
+        // 冷却不影响熔断维度（仍 Allow）
+        assert_eq!(
+            s.admission(8, &thresholds(3, 30, 2), now, true),
+            Admission::Allow
+        );
+    }
+
+    #[test]
+    fn penalty_tiers_and_escalation_cap() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        // Client 档起步 30s
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now));
+        assert!(s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS - 1));
+        assert!(!s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS));
+        // Server 档起步 1min
+        s.record_penalty(2, PenaltyTier::Server, now);
+        assert!(s.penalty_active(2, now + PENALTY_SERVER_BASE_MS - 1));
+        assert!(!s.penalty_active(2, now + PENALTY_SERVER_BASE_MS));
+        // 连败 ×2 递增：30s → 60s → 120s
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now + PENALTY_CLIENT_BASE_MS + 1));
+        assert!(!s.penalty_active(1, now + 2 * PENALTY_CLIENT_BASE_MS));
+        s.record_penalty(1, PenaltyTier::Client, now);
+        assert!(s.penalty_active(1, now + 2 * PENALTY_CLIENT_BASE_MS + 1));
+        assert!(!s.penalty_active(1, now + 4 * PENALTY_CLIENT_BASE_MS));
+        // 封顶 10min：连败 10 次后窗口恒 PENALTY_MAX_MS
+        for _ in 0..20 {
+            s.record_penalty(3, PenaltyTier::Server, now);
+        }
+        assert!(s.penalty_active(3, now + PENALTY_MAX_MS - 1));
+        assert!(!s.penalty_active(3, now + PENALTY_MAX_MS));
+        // 未计入降权的平台查询为 false
+        assert!(!s.penalty_active(99, now));
+    }
+
+    #[test]
+    fn success_resets_penalty_to_base() {
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.record_penalty(1, PenaltyTier::Server, now);
+        s.record_penalty(1, PenaltyTier::Server, now); // 连败窗口 120s
+        s.record_success(1, 100);
+        assert!(!s.penalty_active(1, now + 1));
+        // 成功后从起步窗口重新计
+        s.record_penalty(1, PenaltyTier::Server, now + 10);
+        assert!(s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS - 1));
+        assert!(!s.penalty_active(1, now + 10 + PENALTY_SERVER_BASE_MS));
+    }
+
+    #[test]
+    fn sticky_bind_and_ttl() {
+        let t = StickyTable::new();
+        let now = 1_000_000i64;
+        assert_eq!(t.get("k", now), None);
+        t.put("k".to_string(), 42, now);
+        // 命中刷新访问时间（last_access 重置为查询时刻）
+        assert_eq!(t.get("k", now + 1000), Some(42));
+        // 距上次访问(now+1000)超 TTL → 淘汰
+        assert_eq!(t.get("k", now + 1000 + STICKY_TTL_MS + 1), None);
+        // 已淘汰后再查仍 None
+        assert_eq!(t.get("k", now + 1000 + STICKY_TTL_MS + 2), None);
+    }
+}

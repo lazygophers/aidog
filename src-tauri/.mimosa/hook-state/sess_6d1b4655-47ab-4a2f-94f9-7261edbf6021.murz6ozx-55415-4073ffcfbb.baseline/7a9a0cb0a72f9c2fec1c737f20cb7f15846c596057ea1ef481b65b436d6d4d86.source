@@ -1,0 +1,855 @@
+use super::*;
+
+fn rq_headers(pairs: &[(&str, &str)]) -> reqwest::header::HeaderMap {
+    let mut m = reqwest::header::HeaderMap::new();
+    for (k, v) in pairs {
+        let name = reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap();
+        m.append(name, reqwest::header::HeaderValue::from_str(v).unwrap());
+    }
+    m
+}
+
+fn has(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> bool {
+    out.iter()
+        .any(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+}
+fn val_of<'a>(
+    out: &'a [(axum::http::HeaderName, axum::http::HeaderValue)],
+    name: &str,
+) -> Option<&'a str> {
+    out.iter()
+        .find(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+        .and_then(|(_, v)| v.to_str().ok())
+}
+fn count_of(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> usize {
+    out.iter()
+        .filter(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+        .count()
+}
+
+#[test]
+fn response_header_log_redacts_credentials() {
+    let headers = rq_headers(&[
+        ("content-type", "application/json"),
+        ("set-cookie", "credential"),
+        ("x-api-key", "credential"),
+    ]);
+    let logged = upstream_headers_to_json(&headers);
+    assert!(logged.contains("content-type"));
+    assert!(logged.contains("[REDACTED]"));
+    assert!(!logged.contains("credential"));
+
+    let client_headers = headers
+        .iter()
+        .filter_map(|(name, value)| {
+            Some((
+                axum::http::HeaderName::from_bytes(name.as_str().as_bytes()).ok()?,
+                axum::http::HeaderValue::from_bytes(value.as_bytes()).ok()?,
+            ))
+        })
+        .collect::<Vec<_>>();
+    let logged = resp_headers_to_log_json(&client_headers);
+    assert!(logged.contains("content-type"));
+    assert!(logged.contains("[REDACTED]"));
+    assert!(!logged.contains("credential"));
+}
+
+#[test]
+fn is_stream_request_false_but_upstream_sse() {
+    // 中转站对未声明 stream 的请求强制以 SSE 响应 → 必须判为流式（修复账目零 token bug）。
+    assert!(resolve_is_stream(false, "text/event-stream"));
+    assert!(resolve_is_stream(false, "text/event-stream; charset=utf-8"));
+}
+
+#[test]
+fn is_stream_request_true_kept() {
+    // 既有正常流式路径不回归。
+    assert!(resolve_is_stream(true, "application/json"));
+    assert!(resolve_is_stream(true, "text/event-stream"));
+}
+
+#[test]
+fn is_stream_non_stream_json() {
+    // 非流式 JSON 响应保持非流式（走 JSON usage 解析路径）。
+    assert!(!resolve_is_stream(false, "application/json"));
+    assert!(!resolve_is_stream(false, ""));
+}
+
+// ── 决策 A：failover 重试状态码圈定 is_status_retryable ──
+
+#[test]
+fn retry_hard_request_errors_not_retried() {
+    // 400 / 422：请求体本身非法，换平台也没用 → 不重试，直接返客户端。
+    assert!(!is_status_retryable(400));
+    assert!(!is_status_retryable(422));
+}
+
+#[test]
+fn retry_auth_dead_endpoint_retried() {
+    // 401/402（鉴权/余额→内存 auth 冷却）、404/405（端点/方法错，仅 failover）均重试下一平台。
+    assert!(is_status_retryable(401));
+    assert!(is_status_retryable(403));
+    assert!(is_status_retryable(404));
+    assert!(is_status_retryable(405));
+}
+
+#[test]
+fn retry_rate_limit_and_server_errors_retried() {
+    // 429（限流/配额，换平台可能成功）+ 所有 5xx（上游故障）→ 重试。
+    assert!(is_status_retryable(429));
+    assert!(is_status_retryable(500));
+    assert!(is_status_retryable(502));
+    assert!(is_status_retryable(503));
+    assert!(is_status_retryable(504));
+    assert!(is_status_retryable(599));
+}
+
+#[test]
+fn retry_other_4xx_retried_conservatively() {
+    // 其余未列举 4xx（非 400/422 硬错）保守重试，不误把上游临时拒绝当硬错。
+    assert!(is_status_retryable(408)); // request timeout
+    assert!(is_status_retryable(409)); // conflict
+    assert!(is_status_retryable(425)); // too early
+    assert!(is_status_retryable(402)); // 注：本路径不含 manual budget 402（那条在 forward 前短路返回）
+}
+
+// ── 决策 B：流式 200 首块判定 classify_stream_first ──
+
+#[test]
+fn peek_anthropic_message_start_is_meaningful() {
+    let text =
+        "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\"}}\n\n";
+    assert_eq!(classify_stream_first(text, false), StreamPeek::Meaningful);
+}
+
+#[test]
+fn peek_openai_choices_delta_is_meaningful() {
+    let text = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n";
+    assert_eq!(classify_stream_first(text, false), StreamPeek::Meaningful);
+}
+
+#[test]
+fn peek_immediate_done_is_empty() {
+    // 任何内容前先 [DONE] → 空响应，应重试。
+    assert_eq!(
+        classify_stream_first("data: [DONE]\n\n", false),
+        StreamPeek::EmptyOrError
+    );
+}
+
+#[test]
+fn peek_event_error_is_empty() {
+    // event: error 行即判错（无需等 data）。
+    let text = "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"boom\"}}\n\n";
+    assert_eq!(classify_stream_first(text, false), StreamPeek::EmptyOrError);
+}
+
+#[test]
+fn peek_error_json_is_empty() {
+    // 无 event 行、直接 data 为 error 结构 → 失败。
+    let text = "data: {\"error\":{\"message\":\"bad\"}}\n\n";
+    assert_eq!(classify_stream_first(text, false), StreamPeek::EmptyOrError);
+    let text2 = "data: {\"type\":\"error\",\"message\":\"bad\"}\n\n";
+    assert_eq!(
+        classify_stream_first(text2, false),
+        StreamPeek::EmptyOrError
+    );
+}
+
+#[test]
+fn peek_keepalive_only_needs_more() {
+    // 仅 SSE 注释 / event 名行 / 空行 → 尚不足以判定，继续缓冲。
+    assert_eq!(
+        classify_stream_first(": ping\n\n", false),
+        StreamPeek::NeedMore
+    );
+    assert_eq!(
+        classify_stream_first("event: message_start\n", false),
+        StreamPeek::NeedMore
+    );
+    assert_eq!(classify_stream_first("", false), StreamPeek::NeedMore);
+}
+
+#[test]
+fn peek_partial_json_frame_needs_more() {
+    // data 帧 JSON 跨 chunk 截断（尚不可解析）→ 等更多，不误判。
+    let text = "data: {\"choices\":[{\"delta\":{\"cont";
+    assert_eq!(classify_stream_first(text, false), StreamPeek::NeedMore);
+}
+
+#[test]
+fn peek_stream_ended_no_content_is_empty() {
+    // 流秒断 / 空 body（结束时仍无有效内容事件）→ 空响应，重试。
+    assert_eq!(classify_stream_first("", true), StreamPeek::EmptyOrError);
+    assert_eq!(
+        classify_stream_first(": ping\n\n", true),
+        StreamPeek::EmptyOrError
+    );
+}
+
+// ── 决策 B：非流式 200 body 有效性 is_nonstream_body_valid ──
+
+#[test]
+fn nonstream_empty_body_invalid() {
+    assert!(!is_nonstream_body_valid(""));
+    assert!(!is_nonstream_body_valid("   "));
+}
+
+#[test]
+fn nonstream_error_body_invalid() {
+    assert!(!is_nonstream_body_valid(
+        "{\"error\":{\"message\":\"bad\"}}"
+    ));
+    assert!(!is_nonstream_body_valid(
+        "{\"type\":\"error\",\"message\":\"x\"}"
+    ));
+}
+
+#[test]
+fn nonstream_valid_openai_and_anthropic() {
+    assert!(is_nonstream_body_valid(
+        "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}"
+    ));
+    assert!(is_nonstream_body_valid(
+        "{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"role\":\"assistant\"}"
+    ));
+}
+
+#[test]
+fn nonstream_empty_choices_or_content_invalid() {
+    // 200 但 choices/content 为空数组 → 无实质内容，重试。
+    assert!(!is_nonstream_body_valid("{\"choices\":[]}"));
+    assert!(!is_nonstream_body_valid("{\"content\":[]}"));
+}
+
+#[test]
+fn nonstream_non_json_treated_valid() {
+    // 非 JSON 但有内容（上游非标准 200）→ 保守视为有效，不误杀。
+    assert!(is_nonstream_body_valid("plain text response"));
+}
+
+#[test]
+fn filter_resp_drops_blacklist() {
+    let src = rq_headers(&[
+        ("content-encoding", "gzip"),
+        ("content-length", "123"),
+        ("transfer-encoding", "chunked"),
+        ("connection", "keep-alive"),
+        ("keep-alive", "timeout=5"),
+        ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+    ]);
+    let out = filter_upstream_resp_headers(&src, false);
+    assert!(!has(&out, "content-encoding"));
+    assert!(!has(&out, "content-length"));
+    assert!(!has(&out, "transfer-encoding"));
+    assert!(!has(&out, "connection"));
+    assert!(!has(&out, "keep-alive"));
+    // 非黑名单保留
+    assert!(has(&out, "date"));
+}
+
+#[test]
+fn filter_resp_keeps_business_headers() {
+    let src = rq_headers(&[
+        ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+        ("x-log-id", "abc123"),
+        ("x-process-time", "0.042"),
+        ("vary", "Accept-Encoding"),
+        ("set-cookie", "sid=1; Path=/"),
+        ("content-type", "application/json; charset=utf-8"),
+    ]);
+    let out = filter_upstream_resp_headers(&src, false);
+    assert_eq!(val_of(&out, "date"), Some("Tue, 17 Jun 2026 00:00:00 GMT"));
+    assert_eq!(val_of(&out, "x-log-id"), Some("abc123"));
+    assert_eq!(val_of(&out, "x-process-time"), Some("0.042"));
+    assert_eq!(val_of(&out, "vary"), Some("Accept-Encoding"));
+    assert_eq!(val_of(&out, "set-cookie"), Some("sid=1; Path=/"));
+    assert_eq!(
+        val_of(&out, "content-type"),
+        Some("application/json; charset=utf-8")
+    );
+}
+
+#[test]
+fn filter_resp_keeps_multiple_set_cookie() {
+    let src = rq_headers(&[
+        ("set-cookie", "a=1; Path=/"),
+        ("set-cookie", "b=2; Path=/"),
+        ("set-cookie", "c=3; Path=/"),
+    ]);
+    let out = filter_upstream_resp_headers(&src, false);
+    assert_eq!(count_of(&out, "set-cookie"), 3, "多值 set-cookie 不得丢值");
+}
+
+#[test]
+fn filter_resp_blacklist_case_insensitive() {
+    let src = rq_headers(&[
+        ("Content-Encoding", "gzip"),
+        ("Transfer-Encoding", "chunked"),
+        ("X-Log-Id", "keep-me"),
+    ]);
+    let out = filter_upstream_resp_headers(&src, false);
+    assert!(!has(&out, "content-encoding"), "大小写混合仍须剔除");
+    assert!(!has(&out, "transfer-encoding"));
+    assert!(has(&out, "x-log-id"));
+}
+
+#[test]
+fn filter_resp_stream_drops_sse_self_managed() {
+    let src = rq_headers(&[
+        ("content-type", "application/json"),
+        ("cache-control", "max-age=60"),
+        ("connection", "close"),
+        ("x-log-id", "from-upstream"),
+        ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+    ]);
+    let out = filter_upstream_resp_headers(&src, true);
+    // SSE 自管头不得来自上游
+    assert!(!has(&out, "content-type"));
+    assert!(!has(&out, "cache-control"));
+    assert!(!has(&out, "connection"));
+    // 透传价值头仍保留
+    assert_eq!(val_of(&out, "x-log-id"), Some("from-upstream"));
+    assert!(has(&out, "date"));
+}
+
+#[test]
+fn filter_resp_stream_sse_headers_take_self_managed_values() {
+    // 模拟流式实发头组装：SSE 三自管头 + filter(is_stream=true)
+    let src = rq_headers(&[
+        ("content-type", "application/json"), // 上游值，须被 SSE 自管覆盖
+        ("cache-control", "max-age=60"),
+        ("connection", "close"),
+        ("x-log-id", "from-upstream"),
+    ]);
+    let sse: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
+        (
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("text/event-stream"),
+        ),
+        (
+            axum::http::header::CACHE_CONTROL,
+            axum::http::HeaderValue::from_static("no-cache"),
+        ),
+        (
+            axum::http::header::CONNECTION,
+            axum::http::HeaderValue::from_static("keep-alive"),
+        ),
+    ];
+    let mut all: Vec<(axum::http::HeaderName, axum::http::HeaderValue)> = sse.to_vec();
+    all.extend(filter_upstream_resp_headers(&src, true));
+    assert_eq!(val_of(&all, "content-type"), Some("text/event-stream"));
+    assert_eq!(val_of(&all, "cache-control"), Some("no-cache"));
+    assert_eq!(val_of(&all, "connection"), Some("keep-alive"));
+    assert_eq!(val_of(&all, "x-log-id"), Some("from-upstream"));
+}
+
+#[test]
+fn resp_headers_log_json_first_value_and_format() {
+    let headers = vec![
+        (
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        ),
+        (
+            axum::http::HeaderName::from_static("x-log-id"),
+            axum::http::HeaderValue::from_static("xyz"),
+        ),
+    ];
+    let json = resp_headers_to_log_json(&headers);
+    let v: Value = serde_json::from_str(&json).unwrap();
+    assert_eq!(
+        v.get("content-type").and_then(|x| x.as_str()),
+        Some("application/json")
+    );
+    assert_eq!(v.get("x-log-id").and_then(|x| x.as_str()), Some("xyz"));
+}
+
+#[test]
+fn nonstream_response_has_single_content_type() {
+    // 复现非流式 2xx 成功路径头组装：(StatusCode, Vec<u8>).into_response() 默认写死
+    // content-type: application/octet-stream，须先 remove 再 extend，避免重复 content-type。
+    use axum::response::IntoResponse;
+    let src = rq_headers(&[
+        ("content-type", "application/json; charset=utf-8"),
+        ("x-log-id", "abc"),
+    ]);
+    let filtered = filter_upstream_resp_headers(&src, false);
+    let mut response = (StatusCode::OK, b"{}".to_vec()).into_response();
+    response
+        .headers_mut()
+        .remove(axum::http::header::CONTENT_TYPE);
+    response.headers_mut().extend(filtered);
+    let cts: Vec<_> = response
+        .headers()
+        .get_all(axum::http::header::CONTENT_TYPE)
+        .iter()
+        .map(|v| v.to_str().unwrap().to_string())
+        .collect();
+    assert_eq!(
+        cts,
+        vec!["application/json; charset=utf-8".to_string()],
+        "须单一 content-type 取上游真实值"
+    );
+    assert!(response.headers().contains_key("x-log-id"));
+}
+
+// ── 透传 URL 拼接：base_url(host 根) + 客户端原始 path(+query) ──
+
+// ── extract_error_message：嵌套 error.message / 顶层 message / 非 JSON 回退 ──
+#[test]
+fn extract_error_message_nested() {
+    let body = r#"{"type":"error","error":{"message":"已达到 Token Plan 用量上限 (2056)","type":"rate_limit_error"}}"#;
+    assert_eq!(
+        extract_error_message(body).as_deref(),
+        Some("已达到 Token Plan 用量上限 (2056)")
+    );
+}
+
+#[test]
+fn extract_error_message_toplevel() {
+    let body = r#"{"message":"quota exhausted","code":429}"#;
+    assert_eq!(
+        extract_error_message(body).as_deref(),
+        Some("quota exhausted")
+    );
+}
+
+#[test]
+fn extract_error_message_non_json_and_empty() {
+    assert_eq!(extract_error_message("Too many requests"), None);
+    assert_eq!(extract_error_message(r#"{"error":{"message":"  "}}"#), None);
+    assert_eq!(extract_error_message(r#"{"foo":"bar"}"#), None);
+}
+
+// ── censorship_blocked：结构化审核拒绝 ──
+#[test]
+fn censorship_blocked_requires_structured_error_type() {
+    assert!(is_censorship_blocked(
+        r#"{"error":{"message":"The content you provided or machine outputted is blocked.","type":"censorship_blocked"}}"#
+    ));
+    assert!(!is_censorship_blocked(
+        r#"{"error":{"message":"censorship_blocked","type":"invalid_request_error"}}"#
+    ));
+    assert!(!is_censorship_blocked("censorship_blocked"));
+}
+
+// ── classify_429：配额耗尽=true / 限流=false ──
+#[test]
+fn classify_429_quota_exhausted() {
+    assert!(classify_429("quota exhausted"));
+    assert!(classify_429(
+        "已达到 Token Plan 用量上限：请升级套餐或购买积分补充用量。 (2056)"
+    ));
+    assert!(classify_429("insufficient balance"));
+    assert!(classify_429("余额不足"));
+}
+
+#[test]
+fn classify_429_rate_limit() {
+    assert!(!classify_429("Too many requests"));
+    assert!(!classify_429("rate limit exceeded, please retry"));
+    assert!(!classify_429(""));
+}
+
+// ── is_region_blocked：区域封锁 401=true / 普通鉴权失败=false ──
+#[test]
+fn region_blocked_markers() {
+    // OpenAI 官方区域封锁文案
+    assert!(is_region_blocked(
+        "Country, region, or territory not supported"
+    ));
+    assert!(is_region_blocked("Service is not available in your region"));
+    assert!(is_region_blocked(
+        "This model is not available in this region yet"
+    ));
+    // 中文区域封锁文案
+    assert!(is_region_blocked("该服务在你所在的地区限制访问"));
+    assert!(is_region_blocked("因国家或地区限制，无法提供服务"));
+}
+
+#[test]
+fn region_blocked_plain_auth_is_false() {
+    // 普通鉴权失败不含区域 marker → 触发 auth 冷却
+    assert!(!is_region_blocked("invalid api key"));
+    assert!(!is_region_blocked("unauthorized"));
+    assert!(!is_region_blocked(""));
+    // 大小写不敏感
+    assert!(is_region_blocked("NOT AVAILABLE IN YOUR COUNTRY"));
+}
+
+/// GLM 1308 实际文案（5 小时窗口用满），此前因只匹配「用量上限」被误判为限流。
+#[test]
+fn classify_429_glm_1308_usage_limit() {
+    assert!(classify_429(
+        "[1308][已达到 5 小时的使用上限。您的限额将在 2026-09-04 21:37:35 重置。][2026090419022083a96c37c41f498c]"
+    ));
+}
+
+// ── parse_quota_reset_at：Retry-After 优先 / body 时间戳兜底 / 越界丢弃 ──
+#[test]
+fn parse_quota_reset_prefers_retry_after_seconds() {
+    let now = 1_700_000_000_000;
+    assert_eq!(
+        parse_quota_reset_at(Some("300"), "no timestamp here", now),
+        Some(now + 300_000)
+    );
+}
+
+#[test]
+fn parse_quota_reset_from_glm_body_timestamp() {
+    use chrono::TimeZone;
+    // 本机时区的 2026-09-04 21:37:35
+    let expect = chrono::Local
+        .with_ymd_and_hms(2026, 9, 4, 21, 37, 35)
+        .single()
+        .unwrap()
+        .timestamp_millis();
+    let now = expect - 2 * 60 * 60 * 1000; // 重置前 2 小时
+    let body = r#"{"error":{"code":"1308","message":"已达到 5 小时的使用上限。您的限额将在 2026-09-04 21:37:35 重置。"}}"#;
+    assert_eq!(parse_quota_reset_at(None, body, now), Some(expect));
+}
+
+#[test]
+fn parse_quota_reset_rejects_past_and_far_future() {
+    let now = 1_700_000_000_000;
+    // 已过去的时间 → None
+    assert_eq!(parse_quota_reset_at(Some("-10"), "", now), None);
+    // 超过 24h 上限 → None
+    assert_eq!(parse_quota_reset_at(Some("90000"), "", now), None);
+    // 无 Retry-After 且 body 无时间戳 → None
+    assert_eq!(parse_quota_reset_at(None, "quota exhausted", now), None);
+}
+
+// ── truncate_peek_text：空流 502 取证截断（≤4KB 原样 / 超出带 truncated 标记 / 空串回退占位）──
+#[test]
+fn truncate_peek_text_empty_returns_empty() {
+    // 空文本 → 调用点保留占位兜底（GLM 真空首块也留证据为空串占位）
+    assert_eq!(truncate_peek_text(""), "");
+}
+
+#[test]
+fn truncate_peek_text_short_kept_verbatim() {
+    let s = "data: {\"content\":\"hi\"}\n\n";
+    assert_eq!(truncate_peek_text(s), s);
+    // 临界：恰好 4KB 原样
+    let exactly_4k = "x".repeat(4 * 1024);
+    assert_eq!(truncate_peek_text(&exactly_4k), exactly_4k);
+}
+
+#[test]
+fn truncate_peek_text_long_truncated_with_marker() {
+    // 超出 4KB → 头部 + `…[truncated N bytes]`，N = 原长 - 截断点字节
+    let big = "a".repeat(4 * 1024 + 100);
+    let out = truncate_peek_text(&big);
+    assert!(out.starts_with(&"a".repeat(4 * 1024)));
+    assert!(out.ends_with(&format!("…[truncated {} bytes]", 100)));
+    // 头部不超 4KB
+    let head = out.strip_suffix("…[truncated 100 bytes]").unwrap();
+    assert!(head.len() <= 4 * 1024);
+}
+
+#[test]
+fn truncate_peek_text_multibyte_not_split() {
+    // SSE 中文事件：多字节 UTF-8 不得在字符中间截断（panic 验证 + 长度合规）
+    let mut big = String::new();
+    for _ in 0..2000 {
+        big.push_str("事件"); // 每字符 3 字节
+    }
+    let out = truncate_peek_text(&big);
+    assert!(out.contains("…[truncated"));
+    assert!(out.len() <= 4 * 1024 + 64); // 头 ≤4KB + 标记
+    // 必须仍是合法 UTF-8（从 String 构造即保证，断言标记存在即未 panic）
+    assert!(out.starts_with("事件"));
+}
+
+// ── err_chain：reqwest Display 只打顶层，真实原因在 source 链里 ────────────────
+#[test]
+fn err_chain_flattens_nested_sources() {
+    #[derive(Debug)]
+    struct Layer(&'static str, Option<Box<Layer>>);
+    impl std::fmt::Display for Layer {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str(self.0)
+        }
+    }
+    impl std::error::Error for Layer {
+        fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+            self.1
+                .as_deref()
+                .map(|l| l as &(dyn std::error::Error + 'static))
+        }
+    }
+    let e = Layer(
+        "error sending request for url (https://x/y)",
+        Some(Box::new(Layer(
+            "client error (SendRequest)",
+            Some(Box::new(Layer(
+                "connection closed before message completed",
+                None,
+            ))),
+        ))),
+    );
+    assert_eq!(
+        err_chain(&e),
+        "error sending request for url (https://x/y): client error (SendRequest): connection closed before message completed"
+    );
+}
+
+#[test]
+fn err_chain_single_layer_unchanged() {
+    #[derive(Debug)]
+    struct Solo;
+    impl std::fmt::Display for Solo {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            f.write_str("boom")
+        }
+    }
+    impl std::error::Error for Solo {}
+    assert_eq!(err_chain(&Solo), "boom");
+}
+
+// ── 同平台重试退避：指数增长且有上界 ──────────────────────────────────────
+#[test]
+fn transport_retry_backoff_is_exponential() {
+    assert_eq!(transport_retry_backoff(0).as_millis(), 200);
+    assert_eq!(transport_retry_backoff(1).as_millis(), 400);
+    // 上界（attempt 被 min(3) 夹住）：不会因异常大的 attempt 退避到分钟级。
+    assert_eq!(transport_retry_backoff(9).as_millis(), 1600);
+}
+
+/// 重试判据三分支：连接失败恒重试 / 请求级读超时恒不重试 / 其余 transport 错误按快慢分。
+/// 用真 reqwest 错误构造，不 mock。
+#[tokio::test]
+async fn transport_retryable_connect_yes_timeout_no() {
+    // 连不上的地址（保留段 TEST-NET-1，不可路由）+ 极短 connect_timeout → is_connect 错误。
+    let c = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_millis(30))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e = c.get("http://192.0.2.1:81/").send().await.unwrap_err();
+    assert!(e.is_connect(), "构造前提：必须是 connect 错误，实际 {e}");
+    // connect 超时（reqwest 同时置 is_connect 与 is_timeout）：不重试——
+    // 死站 connect 超时每轮 ≈15s，恒重试造成单平台死等 45.6s（2026-09-28 R2，log.db 实证）。
+    assert!(
+        !is_transport_retryable(&e, std::time::Duration::from_millis(1)),
+        "connect 超时不重试，换候选"
+    );
+
+    // 快拒绝（本机关闭端口，毫秒级 refused，is_connect 且非 is_timeout）：瞬时抖动，重试。
+    let c_ref = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(2))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e_ref = c_ref.get("http://127.0.0.1:1/").send().await.unwrap_err();
+    assert!(
+        e_ref.is_connect() && !e_ref.is_timeout(),
+        "构造前提：快拒绝错误，实际 {e_ref}"
+    );
+    assert!(is_transport_retryable(
+        &e_ref,
+        std::time::Duration::from_millis(1)
+    ));
+    assert!(
+        !is_transport_retryable(&e_ref, std::time::Duration::from_secs(60)),
+        "慢 connect 失败不重试"
+    );
+
+    // 读超时：本地 stub 接受连接但永不响应 + 极短 request timeout。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let hold = tokio::spawn(async move {
+        let _conn = listener.accept().await;
+        tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+    });
+    let c2 = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(80))
+        .no_proxy()
+        .build()
+        .unwrap();
+    let e2 = c2.get(format!("http://{addr}/")).send().await.unwrap_err();
+    assert!(
+        e2.is_timeout() && !e2.is_connect(),
+        "构造前提：请求级读超时，实际 {e2}"
+    );
+    assert!(
+        !is_transport_retryable(&e2, std::time::Duration::from_millis(1)),
+        "读超时恒不重试"
+    );
+    hold.abort();
+}
+
+/// 连接被上游中途掐断：快失败（<5s）重试，慢失败不重试。
+/// 线上实证 cometapi 挂 15~50s 再掐，重试 0/4 成功却把耗时推到 150s。
+#[tokio::test]
+async fn transport_retryable_body_error_only_when_fast() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // stub：答完响应头 + 半截 chunked body 就断 → 客户端在读 body 时报错（非 connect / 非 timeout）。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut stream, _)) = listener.accept().await {
+            let mut buf = [0u8; 4096];
+            let _ = stream.read(&mut buf).await;
+            let _ = stream
+                .write_all(b"HTTP/1.1 200 OK\r\ntransfer-encoding: chunked\r\n\r\n5\r\nhello\r\n")
+                .await;
+            let _ = stream.flush().await;
+            drop(stream);
+        }
+    });
+    let c = reqwest::Client::builder().no_proxy().build().unwrap();
+    let e = c
+        .get(format!("http://{addr}/"))
+        .send()
+        .await
+        .unwrap()
+        .bytes()
+        .await
+        .unwrap_err();
+    assert!(
+        !e.is_connect() && !e.is_timeout(),
+        "构造前提：body 中断错误，实际 {e}"
+    );
+    assert!(
+        is_transport_retryable(&e, std::time::Duration::from_millis(500)),
+        "快失败（<15s）视为瞬时抖动，重试"
+    );
+    assert!(
+        is_transport_retryable(&e, std::time::Duration::from_secs(12)),
+        "10-12s 断连（2026-08-21 提门槛后）应重试"
+    );
+    assert!(
+        !is_transport_retryable(&e, std::time::Duration::from_secs(46)),
+        "慢失败（≥15s）= 上游收下请求挂很久才掐，重试纯亏，不重试"
+    );
+}
+
+// ── 非 2xx 路径必须把上游的重试/限流头带回客户端 ──
+// 背景: 这三个头几乎只出现在 429/503 上，全落在 non_success 这条路径。历史实现只构
+// (StatusCode, body).into_response()，一个上游头都不带 → 客户端拿不到 retry-after，只能盲目重试。
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#response-headers
+#[test]
+fn error_response_keeps_retry_and_ratelimit_headers() {
+    let src = rq_headers(&[
+        ("retry-after", "42"),
+        ("x-should-retry", "false"),
+        ("anthropic-ratelimit-unified-status", "allowed_warning"),
+        ("anthropic-ratelimit-unified-reset", "1758441600"),
+        ("content-type", "application/json"),
+        // hop-by-hop / 必剔项：即使上游发了也不该带回
+        ("content-length", "123"),
+        ("transfer-encoding", "chunked"),
+        ("connection", "keep-alive"),
+        ("content-encoding", "gzip"),
+    ]);
+
+    let out = error_response_headers(&src, false);
+
+    assert_eq!(val_of(&out, "retry-after"), Some("42"));
+    assert_eq!(val_of(&out, "x-should-retry"), Some("false"));
+    assert_eq!(
+        val_of(&out, "anthropic-ratelimit-unified-status"),
+        Some("allowed_warning")
+    );
+    assert_eq!(
+        val_of(&out, "anthropic-ratelimit-unified-reset"),
+        Some("1758441600")
+    );
+    assert_eq!(
+        val_of(&out, "content-type"),
+        Some("application/json"),
+        "上游 content-type 原样保留，不被 axum 的 text/plain 顶掉"
+    );
+    for stripped in [
+        "content-length",
+        "transfer-encoding",
+        "connection",
+        "content-encoding",
+    ] {
+        assert!(
+            !has(&out, stripped),
+            "{stripped} 必剔（与 2xx 路径同黑名单）"
+        );
+    }
+}
+
+/// 上游没给 content-type 时兜底 application/json（错误体是 JSON，不是 text/plain）。
+#[test]
+fn error_response_falls_back_to_json_content_type() {
+    let out = error_response_headers(&rq_headers(&[("retry-after", "3")]), false);
+    assert_eq!(val_of(&out, "content-type"), Some("application/json"));
+    assert_eq!(val_of(&out, "retry-after"), Some("3"));
+}
+
+/// 正文被中间件 error_rule 换掉时，上游 content-type 不再描述它 → 剔掉走兜底，
+/// 但重试/限流头照常带回（它们描述的是这次请求的结果，与正文换没换无关）。
+#[test]
+fn error_response_drops_stale_content_type_when_body_overridden() {
+    let src = rq_headers(&[
+        ("content-type", "text/html; charset=utf-8"),
+        ("retry-after", "7"),
+    ]);
+    let out = error_response_headers(&src, true);
+    assert_eq!(val_of(&out, "content-type"), Some("application/json"));
+    assert_eq!(val_of(&out, "retry-after"), Some("7"));
+}
+
+// ── retry-after 必须以整数秒回客户端，不能是 HTTP-date ──
+// 出处: https://code.claude.com/docs/en/llm-gateway-protocol#response-headers
+mod test_retry_after {
+    use super::*;
+
+    fn at(s: &str) -> chrono::DateTime<chrono::Utc> {
+        chrono::DateTime::parse_from_rfc3339(s)
+            .unwrap()
+            .with_timezone(&chrono::Utc)
+    }
+
+    /// 直接喂 normalize_retry_after，不经 error_response_headers —— 后者内部已用真实
+    /// `Utc::now()` 归一过一次，再用假 now 归一第二次就测不到任何东西。
+    fn normalized(raw: &str, now: &str) -> Option<String> {
+        let mut h = vec![(
+            axum::http::header::RETRY_AFTER,
+            axum::http::HeaderValue::from_str(raw).unwrap(),
+        )];
+        normalize_retry_after(&mut h, at(now));
+        val_of(&h, "retry-after").map(str::to_string)
+    }
+
+    /// 已是整数秒 → 原样不动。
+    #[test]
+    fn integer_seconds_pass_through() {
+        assert_eq!(
+            normalized("120", "2026-09-21T10:00:00Z").as_deref(),
+            Some("120")
+        );
+    }
+
+    /// HTTP-date → 换算成相对当前时刻的秒数。
+    #[test]
+    fn http_date_becomes_seconds() {
+        assert_eq!(
+            normalized("Mon, 21 Sep 2026 10:02:30 GMT", "2026-09-21T10:00:00Z").as_deref(),
+            Some("150")
+        );
+    }
+
+    /// 已经过去的 HTTP-date → 钳到 0，而不是给客户端一个负数。
+    #[test]
+    fn past_http_date_clamps_to_zero() {
+        assert_eq!(
+            normalized("Mon, 21 Sep 2026 09:59:00 GMT", "2026-09-21T10:00:00Z").as_deref(),
+            Some("0")
+        );
+    }
+
+    /// 两种都解析不出来 → 剔掉这个头，让客户端退回自己的退避策略，
+    /// 而不是把整串垃圾当秒数解析出一个荒唐的等待时间。
+    #[test]
+    fn unparseable_value_is_dropped() {
+        assert_eq!(normalized("soon-ish", "2026-09-21T10:00:00Z"), None);
+    }
+}

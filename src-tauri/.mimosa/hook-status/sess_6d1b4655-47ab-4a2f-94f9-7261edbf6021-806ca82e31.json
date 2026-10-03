@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "mimosa-hook-status/v1",
+  "recordedAt": "2026-10-03T05:49:47.309Z",
+  "sessionId": "sess_6d1b4655-47ab-4a2f-94f9-7261edbf6021",
+  "event": "PostToolUse",
+  "toolName": "Edit",
+  "file": "/Users/luoxin/persons/lyxamour/aidog/out/registry-audit/fix-report.md",
+  "outcome": "clear",
+  "coverage": "complete",
+  "findingCount": 0,
+  "durationMs": 2,
+  "hostState": "hook_complete",
+  "reportHint": ".mimosa/reports/"
+}
