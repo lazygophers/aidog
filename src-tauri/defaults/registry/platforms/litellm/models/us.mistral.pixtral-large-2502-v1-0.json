@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "us.mistral.pixtral-large-2502-v1:0",
+  "display_name": "Pixtral Large",
+  "canonical_model": "us.mistral.pixtral-large-2502-v1:0",
+  "family": "pixtral",
+  "version": "25.02",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2e-06,
+    "output": 6e-06
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "us.writer.palmyra-x5-v1:0",
+  "display_name": "Writer: Palmyra X5",
+  "canonical_model": "palmyra-x5",
+  "family": "palmyra",
+  "version": "x5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 8192,
+  "official": false,
+  "price": {
+    "input": 6e-07,
+    "output": 6e-06
+  }
+}

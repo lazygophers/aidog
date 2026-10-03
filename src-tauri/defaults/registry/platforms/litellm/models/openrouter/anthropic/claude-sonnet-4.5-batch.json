@@ -1,0 +1,27 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/anthropic/claude-sonnet-4.5:batch",
+  "display_name": "Anthropic: Claude Sonnet 4.5 (batch)",
+  "canonical_model": "claude-sonnet-4.5:batch",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1.5e-06,
+    "output": 7.5e-06
+  }
+}

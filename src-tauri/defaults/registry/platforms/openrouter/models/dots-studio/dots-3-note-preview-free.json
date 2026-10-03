@@ -1,0 +1,29 @@
+{
+  "model_id": "dots-studio/dots-3-note-preview:free",
+  "display_name": "Dots Studio: Dots3-Note Preview (free)",
+  "canonical_model": "dots-3-note-preview",
+  "family": "dots",
+  "version": "3",
+  "max_input_tokens": 512000,
+  "context_window": 512000,
+  "official": true,
+  "max_output_tokens": 460800,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "free": true,
+    "input": 0,
+    "output": 0
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

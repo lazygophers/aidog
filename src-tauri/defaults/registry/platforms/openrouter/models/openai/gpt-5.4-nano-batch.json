@@ -1,0 +1,29 @@
+{
+  "model_id": "openai/gpt-5.4-nano:batch",
+  "display_name": "OpenAI: GPT-5.4 Nano (batch)",
+  "canonical_model": "gpt-5.4-nano",
+  "family": "gpt",
+  "version": "5.4",
+  "max_input_tokens": 400000,
+  "context_window": 400000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-07,
+    "output": 6.25e-07,
+    "cache_read": 1e-08
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

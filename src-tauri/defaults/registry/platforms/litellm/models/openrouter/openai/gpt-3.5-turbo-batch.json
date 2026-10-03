@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/openai/gpt-3.5-turbo:batch",
+  "display_name": "OpenAI: GPT-3.5 Turbo (batch)",
+  "canonical_model": "gpt-3.5-turbo:batch",
+  "family": "gpt",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 16385,
+  "context_window": 16385,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2.5e-07,
+    "output": 7.5e-07
+  }
+}

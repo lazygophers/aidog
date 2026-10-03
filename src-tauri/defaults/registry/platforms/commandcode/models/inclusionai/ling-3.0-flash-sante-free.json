@@ -1,0 +1,22 @@
+{
+  "last_updated": 1791007402,
+  "model_id": "inclusionai/ling-3.0-flash-sante:free",
+  "display_name": "Ling 3.0 Flash Sante",
+  "canonical_model": "ling-3.0-flash-sante:free",
+  "family": "ling",
+  "version": "3.0",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": false,
+  "supported_protocols": [
+    "openai"
+  ],
+  "price": {
+    "input": 0,
+    "output": 0,
+    "cache_read": 0
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "model_id": "openai/gpt-6-luna-pro:batch",
+  "display_name": "OpenAI: GPT-6 Luna Pro (batch)",
+  "canonical_model": "gpt-6-luna-pro",
+  "family": "gpt",
+  "version": "6",
+  "max_input_tokens": 1050000,
+  "context_window": 1050000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-08,
+    "output": 2.5e-07,
+    "cache_read": 5e-09
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "anthropic/claude-sonnet-4.5:thinking",
+  "canonical_model": "claude-sonnet-4.5:thinking",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 2.91667e-06,
+    "output": 1.45833e-05
+  },
+  "max_input_tokens": 200000,
+  "max_output_tokens": 64000,
+  "context_window": 200000
+}

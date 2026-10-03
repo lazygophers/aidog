@@ -1,0 +1,22 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "stability.sd3-5-large-v1:0",
+  "display_name": "SD 3.5 Large",
+  "canonical_model": "stability.sd3-5-large-v1:0",
+  "family": "stable",
+  "version": "3.5",
+  "capabilities": [
+    "text_to_image"
+  ],
+  "max_input_tokens": 77,
+  "context_window": 77,
+  "max_output_tokens": 77,
+  "official": false,
+  "price": {
+    "unit": "image",
+    "unit_price": 0.08
+  }
+}

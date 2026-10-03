@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "amazon.nova-2-multimodal-embeddings-v1:0",
+  "display_name": "Amazon Nova Multimodal Embeddings",
+  "canonical_model": "amazon.nova-2-multimodal-embeddings-v1:0",
+  "family": "nova",
+  "version": "2",
+  "capabilities": [
+    "embedding"
+  ],
+  "max_input_tokens": 8172,
+  "context_window": 8172,
+  "max_output_tokens": 8172,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.35e-07,
+    "output": 0
+  }
+}

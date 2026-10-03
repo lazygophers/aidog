@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "ai21.jamba-instruct-v1:0",
+  "display_name": "Jamba Instruct",
+  "canonical_model": "ai21.jamba-instruct-v1:0",
+  "version": "1",
+  "family": "jamba",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 70000,
+  "context_window": 70000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 5e-07,
+    "output": 7e-07
+  }
+}

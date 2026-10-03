@@ -1,0 +1,28 @@
+{
+  "model_id": "mistralai/mistral-medium-3.1:batch",
+  "display_name": "Mistral: Mistral Medium 3.1 (batch)",
+  "canonical_model": "mistral-medium-3-1",
+  "family": "mistral",
+  "version": "3.1",
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "official": true,
+  "max_output_tokens": 104857,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2e-07,
+    "output": 1e-06,
+    "cache_read": 2e-08
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ]
+}

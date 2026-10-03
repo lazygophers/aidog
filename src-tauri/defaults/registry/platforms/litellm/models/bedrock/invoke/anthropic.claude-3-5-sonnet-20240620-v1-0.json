@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/invoke/anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "canonical_model": "anthropic.claude-3-5-sonnet-20240620-v1:0",
+  "family": "claude",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 3e-06,
+    "output": 1.5e-05
+  }
+}

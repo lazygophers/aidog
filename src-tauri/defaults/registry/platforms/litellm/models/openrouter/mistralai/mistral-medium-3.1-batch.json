@@ -1,0 +1,26 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/mistralai/mistral-medium-3.1:batch",
+  "display_name": "Mistral: Mistral Medium 3.1 (batch)",
+  "canonical_model": "mistral-medium-3.1:batch",
+  "family": "mistral",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 131072,
+  "context_window": 131072,
+  "max_output_tokens": 104857,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2e-07,
+    "output": 1e-06
+  }
+}
