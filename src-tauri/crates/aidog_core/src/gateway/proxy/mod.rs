@@ -128,6 +128,7 @@ pub(crate) use decision::{handle_decision, route_fail_response};
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     RESP_HEADER_BLACKLIST, StreamPeek, TRANSPORT_RETRY_MAX, classify_429, classify_stream_first,
+    is_per_minute_rate_limit,
     err_chain, error_response_headers, extract_error_message, filter_upstream_resp_headers,
     is_censorship_blocked, is_nonstream_body_valid, is_region_blocked, is_status_retryable,
     is_transport_retryable,

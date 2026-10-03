@@ -200,6 +200,14 @@ pub(crate) fn classify_429(message: &str) -> bool {
     QUOTA_MARKERS.iter().any(|m| lower.contains(m))
 }
 
+/// 每分钟限流 marker（2026-10-03 用户裁决，见 non_success.rs 调用点）：
+/// 只认显式分钟级单位（"/min" / "per minute" / "每分钟"），不按裸 "rate limit" 猜——
+/// 小时/日级限流误判成分钟级会在额度没回来时提前放行。
+pub(crate) fn is_per_minute_rate_limit(message: &str) -> bool {
+    let lower = message.to_lowercase();
+    lower.contains("/min") || lower.contains("per minute") || lower.contains("每分钟")
+}
+
 /// 区分 401 是否区域/地区封锁：区域封锁的 401 不触发 auto_disable（换代理即恢复，
 /// 禁用无意义）。与 classify_429 同 idiom：只看 message 文本，小写子串 marker。
 /// 无 marker 命中默认 false（保守按普通鉴权失败，保持原 auto_disable 行为）。
