@@ -113,11 +113,13 @@ install(FILES "${AOT_LIBRARY}" DESTINATION "${INSTALL_BUNDLE_DATA_DIR}"
 # Flutter 的 Release/Profile 构建都对应 cargo release。
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe"
+  # working dir 必须是 src-tauri（workspace manifest 所在）：仓库根没有 Cargo.toml，
+  # cargo 在根跑直接 exit 101（2026-10-03 首次真跑暴露，MSB8066 吞掉报错原文）。
   COMMAND cargo build --release -p aidog_kernel --bin aidog-kernel
   COMMAND ${CMAKE_COMMAND} -E copy_if_different
           "${CMAKE_CURRENT_SOURCE_DIR}/../../src-tauri/target/release/aidog-kernel.exe"
           "${CMAKE_CURRENT_BINARY_DIR}/aidog-kernel.exe"
-  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../.."
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../../src-tauri"
   COMMENT "Building aidog-kernel (cargo release)"
   VERBATIM)
 add_custom_target(aidog_kernel ALL
