@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-east-1/meta.llama3-70b-instruct-v1:0",
+  "display_name": "Llama 3 70B Instruct",
+  "canonical_model": "meta.llama3-70b-instruct-v1:0",
+  "family": "llama",
+  "version": "3",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 8192,
+  "context_window": 8192,
+  "max_output_tokens": 8192,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 2.65e-06,
+    "output": 3.5e-06
+  }
+}

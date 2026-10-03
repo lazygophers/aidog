@@ -1,0 +1,27 @@
+{
+  "model_id": "openai/gpt-4-turbo:batch",
+  "display_name": "OpenAI: GPT-4 Turbo (batch)",
+  "canonical_model": "gpt-4-turbo",
+  "family": "gpt",
+  "version": "4",
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "max_output_tokens": 4096,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 5e-06,
+    "output": 1.5e-05
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ]
+}

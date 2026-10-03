@@ -1,0 +1,22 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "ollama/deepseek-v3.1:671b-cloud",
+  "canonical_model": "deepseek-v3.1:671b-cloud",
+  "family": "deepseek",
+  "version": "3.1",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 163840,
+  "context_window": 163840,
+  "max_output_tokens": 163840,
+  "official": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

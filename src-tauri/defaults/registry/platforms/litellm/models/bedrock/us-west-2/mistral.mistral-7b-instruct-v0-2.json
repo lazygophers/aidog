@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "bedrock/us-west-2/mistral.mistral-7b-instruct-v0:2",
+  "display_name": "Mistral 7B Instruct",
+  "canonical_model": "mistral.mistral-7b-instruct-v0:2",
+  "family": "mistral",
+  "version": "0.2",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 8191,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.5e-07,
+    "output": 2e-07
+  }
+}

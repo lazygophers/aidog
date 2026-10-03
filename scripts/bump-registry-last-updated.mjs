@@ -43,9 +43,10 @@ for (let i = 0; i < statusEntries.length; i++) {
   const path = entry.slice(3);
   if (status.includes("D")) continue;
   // Rename / copy entries in porcelain -z store source path in current record and destination in next record.
+  // porcelain -z 下 rename/copy 记录：当前记录是新路径，下一记录是旧路径（git status 文档）
   if (status[0] === "R" || status[0] === "C") {
-    const dest = statusEntries[++i];
-    if (dest) statusPaths.push(dest);
+    statusPaths.push(path);
+    i++; // 跳过尾随的旧路径记录
   } else {
     statusPaths.push(path);
   }

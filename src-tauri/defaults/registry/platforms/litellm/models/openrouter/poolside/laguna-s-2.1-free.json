@@ -1,0 +1,26 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/poolside/laguna-s-2.1:free",
+  "display_name": "Poolside: Laguna S 2.1 (free)",
+  "canonical_model": "laguna-s-2.1:free",
+  "family": "laguna",
+  "version": "2.1",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "max_output_tokens": 32768,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

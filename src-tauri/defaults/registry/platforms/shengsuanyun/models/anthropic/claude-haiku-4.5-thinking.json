@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "gemini",
+    "openai"
+  ],
+  "model_id": "anthropic/claude-haiku-4.5:thinking",
+  "canonical_model": "claude-haiku-4.5:thinking",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision"
+  ],
+  "official": true,
+  "price": {
+    "input": 9.72222e-07,
+    "output": 4.86111e-06
+  },
+  "max_input_tokens": 200000,
+  "max_output_tokens": 64000,
+  "context_window": 200000
+}

@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "mistral.mistral-small-2402-v1:0",
+  "display_name": "Mistral Small 1.0",
+  "canonical_model": "mistral.mistral-small-2402-v1:0",
+  "family": "mistral",
+  "version": "24.02",
+  "capabilities": [
+    "text",
+    "tool_use"
+  ],
+  "max_input_tokens": 32000,
+  "context_window": 32000,
+  "max_output_tokens": 8191,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1e-06,
+    "output": 3e-06
+  }
+}

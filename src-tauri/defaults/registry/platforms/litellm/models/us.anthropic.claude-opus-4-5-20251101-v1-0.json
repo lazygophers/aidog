@@ -1,0 +1,27 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "us.anthropic.claude-opus-4-5-20251101-v1:0",
+  "display_name": "Claude Opus 4.5",
+  "canonical_model": "claude-opus-4-5-20251101",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5.5e-06,
+    "output": 2.75e-05
+  }
+}

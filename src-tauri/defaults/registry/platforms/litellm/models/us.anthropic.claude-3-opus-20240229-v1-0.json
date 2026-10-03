@@ -1,0 +1,26 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "us.anthropic.claude-3-opus-20240229-v1:0",
+  "display_name": "Claude 3 Opus 20240229",
+  "canonical_model": "claude-3-opus-20240229",
+  "family": "claude",
+  "version": "3",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.5e-05,
+    "output": 7.5e-05
+  }
+}
