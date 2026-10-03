@@ -35,8 +35,18 @@ if [ -z "$RUN_ID" ]; then
 fi
 
 echo "[watch-release] run id=${RUN_ID}" | tee -a "$OUT"
-gh run watch "$RUN_ID" --exit-status --interval 30 >> "$OUT" 2>&1
-STATUS=$?
+# gh run watch 对瞬时网络错（EOF / connection reset）也返回非 0（2026-10-03 两次误杀），
+# 终态只认 gh run view 的 conclusion：watch 失败就重挂，最多 10 轮。
+STATUS=1
+for _ in $(seq 1 10); do
+  gh run watch "$RUN_ID" --exit-status --interval 30 >> "$OUT" 2>&1 && STATUS=0 || STATUS=1
+  CONCLUSION="$(gh run view "$RUN_ID" --json status,conclusion \
+      -q '.status + "/" + (.conclusion // "")' 2>/dev/null || true)"
+  case "$CONCLUSION" in
+    completed/success) STATUS=0; break ;;
+    completed/*)       STATUS=1; break ;;
+  esac
+done
 
 if [ "$STATUS" -ne 0 ]; then
   {
