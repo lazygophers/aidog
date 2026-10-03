@@ -92,16 +92,20 @@ function cargoLockTarget(relPath) {
   return {
     path: relPath,
     read() {
-      const text = readFileSync(join(ROOT, relPath), "utf8");
+      const text = cargoLockRead(relPath);
       const versions = aidogCargoLockVersions(text);
       return versions.size === 1 ? [...versions][0] : null;
     },
     write(version) {
-      const full = join(ROOT, relPath);
-      const text = readFileSync(full, "utf8");
-      writeFileSync(full, updateAidogCargoLockVersions(text, version));
+      const text = cargoLockRead(relPath);
+      writeFileSync(join(ROOT, relPath), updateAidogCargoLockVersions(text, version));
     },
   };
+}
+
+// Windows checkout 会把 LF 转成 CRLF（core.autocrlf），切块正则按 \n 匹配会整体失配读出 null —— 读入先归一。
+function cargoLockRead(relPath) {
+  return readFileSync(join(ROOT, relPath), "utf8").replace(/\r\n/g, "\n");
 }
 
 function aidogCargoLockVersions(text) {
