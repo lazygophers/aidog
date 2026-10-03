@@ -63,10 +63,18 @@ pub(crate) async fn handle_non_success(
     )
     .await;
 
-    // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 限流 transient ──
+    // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 每分钟限流 vs 其余限流 ──
     //   分类用于熔断计数（见下），不再触发 auto_disable：429 统一走 failover 换下个候选。
     let is_429_quota_exhausted =
         code == 429 && classify_429(extracted_msg.as_deref().unwrap_or(&body));
+
+    // ── 429 每分钟限流（2026-10-03 用户裁决）：窗口是自然分钟——"rate limit 40/min exceeded"
+    //    在 59s 报错，下个整分边界（1s 后）额度就回来了。冷却到边界即可复用，不套固定
+    //    熔断/降权窗口（那会把平台多锁最多 59s）。marker 只认显式 "/min" / "per minute" /
+    //    "每分钟"，不按裸 "rate limit" 猜（小时/日级限流误判成分钟级会提前放行）。
+    let is_429_per_minute_rate_limit = code == 429
+        && !is_429_quota_exhausted
+        && is_per_minute_rate_limit(extracted_msg.as_deref().unwrap_or(&body));
 
     // 审核拒绝是平台级不可用：自动禁用一小时，并立即换下个候选。
     // 400 通常是请求硬错，但结构化 censorship_blocked 明确表示上游审核机制拒绝，换平台可能成功。
@@ -76,11 +84,13 @@ pub(crate) async fn handle_non_success(
     // ── 熔断计数（2026-09-15 用户裁决：网络类故障不降权）：仅 429-限流（状态码 + 响应体
     //    解析出的平台主动限流）计一次失败；5xx / 网络错误 / 空响应 / 401 / 402 / 其他客户端
     //    4xx 一律不计（仅 inflight-1，不动 EMA，下一轮调度仍优先选择）。──
-    if code == 429 && !is_429_quota_exhausted {
+    if code == 429 && !is_429_quota_exhausted && !is_429_per_minute_rate_limit {
         state
             .scheduler
             .record_failure(route.platform.id, breaker_th, aidog_db::now());
     } else {
+        // 每分钟限流不计熔断：quota cooldown 已按整分边界踢出候选，再计熔断会让
+        // breaker 在边界后继续踢（Open 60s 滑窗 > 边界剩余秒数），违背「1s 后可用」。
         state.scheduler.record_ignored(route.platform.id);
     }
 
@@ -88,7 +98,9 @@ pub(crate) async fn handle_non_success(
     //    censorship 例外（已 DB 禁用 1h，不叠加）。档位：429/5xx → Server（起步 1min），
     //    其余 4xx（401/402/403/400/422…）→ Client（起步 30s）。连败 ×2 封顶 10min，
     //    成功清零；与熔断/auth 冷却并行，只沉候选排序不踢出（candidates.rs 消费）。──
-    if !censorship_blocked {
+    if !censorship_blocked && !is_429_per_minute_rate_limit {
+        // 每分钟限流不降权：降权窗口（1min 起 ×2）同样会越过分边界，到点该平台只沉不踢、
+        // 但多平台组里排序靠后等于事实上的不可用；冷却到边界后应按正常优先度回来。
         let tier = if code == 429 || code >= 500 {
             super::scheduling::PenaltyTier::Server
         } else {
@@ -97,6 +109,19 @@ pub(crate) async fn handle_non_success(
         state
             .scheduler
             .record_penalty(route.platform.id, tier, aidog_db::now());
+    }
+
+    // ── 429 每分钟限流 → 冷却到下一个自然分钟边界（复用配额冷却通道：内存态、
+    //    候选过滤踢出、到点自动恢复调度）。59s 报错 → 1s 后可用。──
+    if is_429_per_minute_rate_limit {
+        let now_ms = aidog_db::now();
+        let until = (now_ms / 60_000 + 1) * 60_000;
+        state.scheduler.set_quota_cooldown(route.platform.id, until);
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id,
+            cooldown_until_ms = until,
+            "platform per-minute rate limited; cooling down until next minute boundary"
+        );
     }
 
     // ── 429 配额耗尽 + 上游给出明确恢复时间 → 冷却该平台到那个时刻 ──
