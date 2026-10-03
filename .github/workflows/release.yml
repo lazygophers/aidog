@@ -71,6 +71,8 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri -> target
+          # release 与 flutter-release 同一 Rust workspace：共享 key 互用缓存（默认 key 含 job 名互不相通）
+          shared-key: rust-workspace
           cache-on-failure: true # job 失败也保存 Rust 缓存（编译产物可被下次复用）
 
       - name: Install frontend deps
@@ -164,6 +166,7 @@ jobs:
       - uses: swatinem/rust-cache@v2
         with:
           workspaces: ./src-tauri -> target
+          shared-key: rust-workspace
           cache-on-failure: true
 
       - uses: subosito/flutter-action@v2
