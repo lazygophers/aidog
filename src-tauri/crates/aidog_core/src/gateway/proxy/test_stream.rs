@@ -1127,3 +1127,45 @@ fn feed_sse_usage_split_line_reassembled_hits_prefilter() {
     agg.feed_sse_usage(tail);
     assert_eq!(agg.tokens_out.load(Relaxed), 99, "重组后的完整行必须命中预筛并解析");
 }
+
+// ── O8 收尾（perf-followup 票 10）：转换分支单遍解析，事件 + usage + model 观察同源 ──
+
+#[test]
+fn parse_sse_events_and_usage_single_pass() {
+    use std::sync::atomic::Ordering::Relaxed;
+    let agg = StreamAggregator::new();
+    let text = concat!(
+        "data: {\"type\": \"message_start\", \"message\": {\"id\": \"msg_1\", \"model\": \"glm-5.3\", \"usage\": {\"input_tokens\": 10, \"cache_read_input_tokens\": 3}}}\n\n",
+        "data: {\"type\": \"content_block_delta\", \"index\": 0, \"delta\": {\"type\": \"text_delta\", \"text\": \"hi\"}}\n\n",
+        "data: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"end_turn\"}, \"usage\": {\"input_tokens\": 723, \"output_tokens\": 2922}}\n\n",
+        "data: [DONE]\n\n",
+    );
+    let events = agg.parse_sse_events_and_usage(text, &Protocol::Anthropic);
+    // 事件齐全：Start（model 已观察）/ Delta / Stop（[DONE] 哨兵）
+    assert!(matches!(&events[0], ChatStreamEvent::Start { model, .. } if model == "glm-5.3"));
+    assert!(matches!(&events[1], ChatStreamEvent::Delta { text } if text == "hi"));
+    assert!(matches!(events.last(), Some(ChatStreamEvent::Stop { .. })));
+    // usage 同一次解析里累计（与 feed_sse_usage 同 accumulate_sse_usage 口径）
+    assert_eq!(agg.tokens_in.load(Relaxed), 723, "fetch_max 取大值");
+    assert_eq!(agg.tokens_out.load(Relaxed), 2922);
+    assert_eq!(agg.tokens_cache.load(Relaxed), 3);
+    // model 观察同源定格
+    assert_eq!(agg.peek_served_model().as_deref(), Some("glm-5.3"));
+}
+
+#[test]
+fn parse_sse_events_and_usage_skips_non_data_lines_and_bad_json() {
+    let agg = StreamAggregator::new();
+    let text = "event: ping\ndata: not-json\n: comment\nsome plain line\n";
+    let events = agg.parse_sse_events_and_usage(text, &Protocol::Anthropic);
+    assert!(events.is_empty());
+    assert!(agg.peek_served_model().is_none());
+}
+
+#[test]
+fn peek_served_model_does_not_consume() {
+    let agg = StreamAggregator::new();
+    agg.feed_sse_usage("data: {\"model\": \"m1\"}\n\n");
+    assert_eq!(agg.peek_served_model().as_deref(), Some("m1"));
+    assert_eq!(agg.peek_served_model().as_deref(), Some("m1"), "peek 不消费");
+}

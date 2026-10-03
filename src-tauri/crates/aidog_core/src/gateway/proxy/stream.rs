@@ -352,6 +352,58 @@ impl StreamAggregator {
         }
     }
 
+    /// 观察但不消费 served_model（take_served_model 的只读版）：透传分支用来判断
+    /// 上游自报模型与客户端请求模型是否一致——一致则 model 改写可整体跳过。
+    pub(crate) fn peek_served_model(&self) -> Option<String> {
+        self.served_model.lock().ok().and_then(|s| s.clone())
+    }
+
+    /// 转换分支单遍解析（perf-followup 票 10 / spec O8 收尾）：完整行文本一次
+    /// serde 解析同时产出事件 + usage 累计 + model 观察，替代
+    /// `feed_sse_usage` + `adapter::parse_upstream_sse` 对同一批行的两次解析。
+    /// 分帧规则与 parse_upstream_sse 逐字对齐（`data: ` 前缀 + [DONE] 哨兵 +
+    /// 解析失败静默跳过）；usage 侧保留 O8 子串预筛（解析免费得 Value 后，
+    /// contains("usage") 仍比整树遍历便宜）。
+    /// 输入必须是完整行文本（`SseLineReassembler::feed` 的输出）：本函数不自带
+    /// 行缓冲，被 chunk 切断的残行由调用方的 reassembler 持有，语义与原两遍版一致。
+    pub(crate) fn parse_sse_events_and_usage(
+        &self,
+        text: &str,
+        wire_protocol: &aidog_db::models::Protocol,
+    ) -> Vec<adapter::ChatStreamEvent> {
+        let want_model = self.served_model.lock().map(|s| s.is_none()).unwrap_or(false);
+        let mut events = Vec::new();
+        for line in text.lines() {
+            let Some(data) = line.strip_prefix("data: ") else {
+                continue;
+            };
+            let data = data.trim();
+            if data == "[DONE]" {
+                events.push(adapter::ChatStreamEvent::Stop {
+                    finish_reason: Some("end_turn".to_string()),
+                });
+                continue;
+            }
+            let Ok(json) = serde_json::from_str::<Value>(data) else {
+                continue;
+            };
+            if data.contains("usage") || want_model {
+                accumulate_sse_usage(
+                    &json,
+                    &self.tokens_in,
+                    &self.tokens_out,
+                    &self.tokens_cache,
+                    &self.tokens_cache_write,
+                );
+                self.observe_served_model(&json);
+            }
+            if let Some(event) = adapter::parse_sse(&json, wire_protocol) {
+                events.push(event);
+            }
+        }
+        events
+    }
+
     /// 取观察到的上游自报模型名（消费即取，flush 一次性回写）。
     fn take_served_model(&self) -> Option<String> {
         self.served_model.lock().ok().and_then(|mut s| s.take())
