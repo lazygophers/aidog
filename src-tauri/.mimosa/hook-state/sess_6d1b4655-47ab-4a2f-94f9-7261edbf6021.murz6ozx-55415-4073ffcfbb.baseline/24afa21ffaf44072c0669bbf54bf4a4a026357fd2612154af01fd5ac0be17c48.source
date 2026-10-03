@@ -1,0 +1,14 @@
+[package]
+name = "aidog_hooks"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_hooks：Agent hooks 注入域（claude_code/codex/scripts，拆自 aidog_core::gateway::hooks，
+# 2026-08-16）。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }

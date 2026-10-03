@@ -1,0 +1,832 @@
+//! 平台模型：尝试快照 / 模型槽位 / 客户端类型 / 端点 / 平台主体 / 熔断覆盖 / 增改入参。
+
+use super::{ManualBudget, PlatformStatus, Protocol};
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+/// proxy_log.attempts JSON 数组元素：每次平台尝试的快照。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyAttempt {
+    #[ts(type = "number")]
+    pub platform_id: u64,
+    pub platform_name: String,
+    /// 上游返回的 HTTP 状态码；连接失败 / 超时为 0
+    pub status_code: i32,
+    /// 错误描述（连接失败 / 超时 / 上游错误体摘要）；成功为空串
+    #[serde(default)]
+    pub error: String,
+    #[ts(type = "number")]
+    pub duration_ms: i64,
+    /// 本次尝试发起时间（毫秒 unix 时间戳）
+    #[ts(type = "number")]
+    pub ts: i64,
+}
+
+/// 序列化 attempts 列（出错回退空数组）
+pub fn serialize_attempts(items: &[ProxyAttempt]) -> String {
+    serde_json::to_string(items).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// 解析 attempts 列（出错回退空数组）
+pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
+    serde_json::from_str(s).unwrap_or_default()
+}
+
+// ─── Platform Models ───────────────────────────────────────
+
+/// 平台模型配置：6 个固定槽位（jev 为决策模型专用槽，见 jev-decision-proxy R2/R3）
+#[derive(Debug, Clone, Serialize, Deserialize, Default, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformModels {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub sonnet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub opus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub haiku: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub gpt: Option<String>,
+    /// 决策模型槽（/v1/systemone 决策请求上游固定用此模型，jev-decision-proxy R8）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[ts(optional)]
+    pub jev: Option<String>,
+}
+
+impl PlatformModels {
+    /// 返回所有已配置的模型名（去重）
+    #[allow(dead_code)]
+    pub fn all_values(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        for s in [
+            &self.default,
+            &self.sonnet,
+            &self.opus,
+            &self.haiku,
+            &self.gpt,
+            &self.jev,
+        ]
+        .into_iter()
+        .flatten()
+        {
+            if !v.contains(s) {
+                v.push(s.clone());
+            }
+        }
+        v
+    }
+
+    /// 返回承接主对话的槽位模型名（去重）：只有 default / sonnet / opus 会跑完整会话。
+    /// haiku 是杂活槽（生成对话标题等短请求），gpt 是 Codex 专用，Claude Code 不路由到它 ——
+    /// 二者都不承接长上下文，不该参与上下文窗口的约束计算。
+    pub fn main_loop_values(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        for s in [&self.default, &self.sonnet, &self.opus]
+            .into_iter()
+            .flatten()
+        {
+            if !v.contains(s) {
+                v.push(s.clone());
+            }
+        }
+        v
+    }
+
+    /// 6 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
+    /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
+    pub fn is_empty(&self) -> bool {
+        !self.has_chat_slot() && self.jev_slot().is_none()
+    }
+
+    /// 5 个聊天槽是否至少一个已配置（`Some("")` / 纯空白不算：批量覆盖会持久化空串槽）。
+    fn has_chat_slot(&self) -> bool {
+        [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt]
+            .into_iter()
+            .any(|s| slot_filled(s).is_some())
+    }
+
+    /// jev 决策槽的有效值（trim 后非空才算配置）。
+    pub fn jev_slot(&self) -> Option<&str> {
+        slot_filled(&self.jev)
+    }
+
+    /// 平台支持决策请求（jev 槽非空 ⇔ 决策请求可路由到该平台，R2 前半）。
+    pub fn supports_decision_slot(&self) -> bool {
+        self.jev_slot().is_some()
+    }
+
+    /// 平台只支持决策（jev 非空且 5 个聊天槽全空，R3：聊天请求须剔除该平台）。
+    pub fn is_decision_only(&self) -> bool {
+        self.jev_slot().is_some() && !self.has_chat_slot()
+    }
+}
+
+/// 槽位有效值：trim 后非空才算已配置（批量覆盖会持久化 `Some("")`）。
+pub fn slot_filled(s: &Option<String>) -> Option<&str> {
+    s.as_deref().map(str::trim).filter(|v| !v.is_empty())
+}
+
+// ─── ClientType (客户端模拟) ─────────────────────────────────
+
+/// 可模拟的客户端类型，用于通过上游的客户端校验。
+///
+/// 完全 JSON 驱动：值来自 `defaults/client-types.json`（13 entry，见 prd
+/// `07-10-client-types-json-sync`）。serde 天然 arbitrary：远端 / DB 中任何
+/// 字符串都原值保留，前端展示走 `buildClientTypesFromPresets` 派生层。
+/// 默认值 = `"default"`（空串等价默认；`deserialize_client_type_lenient`
+/// 把空串归一化为 `"default"`，与旧 enum `Default` 变体语义一致）。
+///
+/// 参考 claude-code-hub 的客户端检测逻辑：
+///   - Claude Code 家族: CLI / VSCode / SDK-TS / SDK-PY / GitHub Action
+///   - Codex 家族: CLI-Rust / TUI / Desktop / VSCode
+///   - IDE: Cursor / Windsurf
+pub type ClientType = String;
+
+// ─── Platform Endpoint ──────────────────────────────────────
+
+/// 容错反序列化 client_type：空串 / 缺省 → `"default"`，
+/// 非空串原值保留（String 天然 arbitrary，未知值不再回退）。
+/// 保留 `deserialize_with` 是为了把 DB 中历史遗留的空串 / null 归一化为
+/// `"default"`，避免下游 match 字面量散落空串分支。
+fn deserialize_client_type_lenient<'de, D>(deserializer: D) -> Result<ClientType, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let s = String::deserialize(deserializer).unwrap_or_default();
+    Ok(if s.trim().is_empty() {
+        "default".to_string()
+    } else {
+        s
+    })
+}
+
+/// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformEndpoint {
+    /// Protocol 定义于锁定文件 protocol.rs（c4-protocol 并行任务），本轮不加 TS derive；
+    /// 手写 union 落 `types/manual.ts`，此处指向之，禁二次定义漂移源。
+    #[ts(type = "import(\"../manual\").Protocol")]
+    pub protocol: Protocol,
+    pub base_url: String,
+    /// 模拟的客户端类型（用于通过上游客户端校验）。
+    /// JSON 驱动字符串（13 entry 见 `defaults/client-types.json`）。
+    /// `deserialize_with` 容错：DB 中历史遗留空串 / null 归一化为 `"default"`，
+    /// 非空未知值原值保留（String arbitrary，前端从 client-types.json 派生
+    /// label 时未知 value 直接展示原值，无反序列化失败风险）。
+    #[serde(
+        default = "default_client_type",
+        deserialize_with = "deserialize_client_type_lenient"
+    )]
+    pub client_type: ClientType,
+    /// 是否为 Coding Plan（针对支持编程代理订阅的平台，如 Kimi Code Plan）
+    #[serde(default)]
+    pub coding_plan: bool,
+}
+
+/// `PlatformEndpoint::client_type` 的 serde default 工厂：`"default"`。
+/// 与旧 enum `#[default] Default` 变体的 serde rename 值一致（向后兼容旧 JSON）。
+fn default_client_type() -> ClientType {
+    "default".to_string()
+}
+
+// ─── Platform ──────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct Platform {
+    #[ts(type = "number")]
+    pub id: u64,
+    pub name: String,
+    /// 见 [`PlatformEndpoint::protocol`] 注释：手写落 `manual.ts`。
+    #[ts(type = "import(\"../manual\").Protocol")]
+    pub platform_type: Protocol,
+    pub base_url: String,
+    pub api_key: String,
+    /// JSON 额外配置
+    pub extra: String,
+    /// 平台模型配置
+    pub models: PlatformModels,
+    /// 从 API 获取到的可用模型列表
+    pub available_models: Vec<String>,
+    /// 额外协议端点：每种协议对应不同的 base_url
+    #[serde(default)]
+    pub endpoints: Vec<PlatformEndpoint>,
+    /// 旧布尔启用位，保留向后兼容（旧读者 / 旧前端）。写入端从 status 同步：
+    /// `status==Enabled → true`，否则 false。新逻辑（router 过滤 / 前端三态）走 status。
+    /// `#[serde(default)]`：分享导出不含 enabled（导入回 default false，平台像「全新」）；
+    /// 旧 .aidogx 全字段含 enabled 仍可覆盖。
+    #[serde(default)]
+    pub enabled: bool,
+    /// 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动)。手写落 `manual.ts`。
+    #[serde(default)]
+    #[ts(type = "import(\"../manual\").PlatformStatus")]
+    pub status: PlatformStatus,
+    /// auto_disabled 下次试探时间（毫秒 unix 时间戳）；退避用，0 = 立即可试探
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub auto_disabled_until: i64,
+    /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub auto_disable_strikes: i64,
+    /// 过期时间（毫秒 unix 时间戳，0 = 永不过期）。>0 且 now>=expires_at 时路由 `candidate_state`
+    /// 排除（等效自动禁用，但独立于 status 三态枚举；用户改值清空/延后即恢复，无需退避试探）。
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub expires_at: i64,
+    #[ts(type = "number")]
+    pub created_at: i64,
+    #[ts(type = "number")]
+    pub updated_at: i64,
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub deleted_at: i64,
+    /// 预估剩余余额（按量计费平台，请求驱动增量自减；系统维护，前端只读）
+    #[serde(default)]
+    pub est_balance_remaining: f64,
+    /// 预估 coding plan JSON（含 tiers est_utilization + 方案 B 拟合系数/样本；系统维护，前端只读）
+    #[serde(default)]
+    pub est_coding_plan: String,
+    /// 上游响应头里的速率限制余量快照 JSON（每分钟能发多少；系统维护，前端只读）。
+    /// 与 `est_coding_plan`（周期内还剩多少）是两个维度，故独立列不复用。
+    /// 空串 = 该平台从未返回过可识别的速率限制头。
+    #[serde(default)]
+    pub rate_limit: String,
+    /// 上次真实 quota 查询毫秒戳（校准基准；系统维护，前端只读）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub last_real_query_at: i64,
+    /// 自上次真查以来的预估次数（校准计数；系统维护，前端只读）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub estimate_count: i64,
+    /// 是否在 tray 中展示此平台
+    #[serde(default)]
+    pub show_in_tray: bool,
+    /// tray 展示类型: "balance" | "coding"
+    #[serde(default)]
+    pub tray_display: String,
+    /// 排序权重（越小越靠前），0 = 按 created_at 排序
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub sort_order: i64,
+    /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
+    #[serde(default)]
+    pub manual_budgets: Vec<ManualBudget>,
+    /// 本周期折算花费 $（非 DB 列；`platform_list` 对 coding plan 平台按 est_coding_plan
+    /// 首个 window_start>0 的 tier 起 SUM(est_cost) 填充，spec B3 折算行用）。
+    /// 缺省 0 → 前端不渲染折算行。`skip_deserializing` 避免从前端入参反序列化。
+    #[serde(default, skip_deserializing)]
+    #[ts(type = "number")]
+    pub coding_window_cost: f64,
+    /// 余额使用速率配色级别（非 DB 列；`platform_list` 按动态窗口日速率算 days_remaining 后填充）。
+    /// "red"|"yellow"|"green"|"neutral"，前端列表页余额只消费此 level 不重算阈值（usage_color 唯一源）。
+    /// 缺省空串 → 前端退中性。`skip_deserializing` 避免从前端入参反序列化。
+    #[serde(default, skip_deserializing)]
+    pub balance_level: String,
+    /// 最近一次失败的错误信息（DB 列；上游非 2xx / 连接失败 / 空 2xx 重试时写入，成功时清空）。
+    /// 前端平台卡片展示，非请求记录实时取。空串 = 最近一次成功或无记录。
+    #[serde(default)]
+    pub last_error: String,
+    /// 最近一次错误的毫秒 unix 时间戳（DB 列；0 = 无）。
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub last_error_at: i64,
+    /// 物化的 quota 查询脚本正文（quota-scripts spec，DB 列）：用户保存平台 / 选变体时从
+    /// registry 选中变体写入（`extra.quota_custom_script` 非空则物化用户手写脚本）；
+    /// 空 = 未物化，执行时回落 registry 首条变体。远程同步不动此列。
+    #[serde(default)]
+    pub quota_script: String,
+    /// 配额获取方式互斥开关（quota-ia spec §1）：'manual' = 手动预算（脚本侧配置不生效）；
+    /// 'auto' / '' = 自动脚本（'auto' 与空串读侧同义，空串 = 存量未标，读侧一律当 auto）。
+    /// 互斥由写路径强制（db/platform.rs create/update）：切 manual 清脚本侧（extra 两键 +
+    /// 物化列），切 auto 清 manual_budgets。est_balance_remaining 等系统维护值不动。
+    #[serde(default)]
+    pub quota_source: String,
+}
+
+/// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
+/// 每字段 0/缺省 = 继承全局 `SchedulingBreakerSettings` 默认（语义同旧顶层列）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformBreaker {
+    #[serde(default)]
+    pub failure_threshold: u32,
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub open_secs: u64,
+    #[serde(default)]
+    pub half_open_max: u32,
+}
+
+/// 从 `extra` JSON 字符串解析 `breaker` 嵌套对象；空/非法/缺键 → 全 0（继承全局默认）。
+pub fn parse_breaker(extra: &str) -> PlatformBreaker {
+    PlatformExtra::parse(extra).breaker
+}
+
+// ─── PlatformExtra（`platform.extra` JSON 收敛 struct）──────────
+
+/// `platform.extra.devin` 嵌套对象：Devin（Cognition）平台专属配置。
+/// dev_timeout 仅 nested 读取（禁 flat）；org_id 由 proxy 侧 `resolve_devin_org_id`
+/// 嵌套优先、顶层兜底（quota-scripts T5 与 registry 脚本对齐）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct DevinExtra {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub org_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dev_timeout: Option<u64>,
+}
+
+/// `platform.extra` JSON 收敛 struct：已知业务键落具名字段，未知键（含前端 `_ui_*` 私有态）
+/// 经 `#[serde(flatten)] rest` 无损往返。**只读解析入口**——写回仍走 `extra` 原始字符串
+/// （`merge_breaker_into_extra` 等按需 patch 单键，不整体覆写，避免序列化裁掉 `rest` 之外的
+/// 未建模字段顺序 / 精度）。
+///
+/// 各字段对应旧 ad-hoc 解析点（见 file:line 清单，均已改走本 struct）：
+/// - `breaker` ← `parse_breaker`
+/// - `disable_during_peak` ← `parse_disable_during_peak`
+/// - `peak` ← `parse_platform_peak`
+/// - `time_windows` ← `parse_platform_time_windows`
+/// - `devin` ← `gateway::proxy::devin`（org_id 经 `resolve_devin_org_id` 脚本同款两层兜底、
+///   dev_timeout 经 `read_dev_timeout_secs`，均 nested）
+/// - `mock` ← `adapter::mock::config::resolve_mock_config`
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlatformExtra {
+    #[serde(default)]
+    pub breaker: PlatformBreaker,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub disable_during_peak: bool,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub peak: Vec<crate::models::stats::TimeWindow>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub time_windows: Vec<serde_json::Value>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub devin: Option<DevinExtra>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mock: Option<serde_json::Value>,
+    /// 未建模键（`_ui_*` 前端私有态 + 尚未收敛的业务键）往返保留，禁丢。
+    #[serde(flatten)]
+    pub rest: serde_json::Map<String, serde_json::Value>,
+}
+
+impl PlatformExtra {
+    /// 解析 `platform.extra` JSON 字符串；空串/非法 JSON → 全默认（等价旧各 `parse_*` 的
+    /// 缺省兜底行为，不 panic 不报错）。
+    pub fn parse(extra: &str) -> Self {
+        if extra.trim().is_empty() {
+            return Self::default();
+        }
+        serde_json::from_str(extra).unwrap_or_default()
+    }
+}
+
+/// 把 breaker 阈值合并进 `extra` JSON 的 `breaker` 键（保留 extra 其余字段）。
+/// 三值全 0 时移除 `breaker` 键（无覆盖 → 继承全局，不留空对象）。空 extra → "{}" 起步。
+pub fn merge_breaker_into_extra(extra: &str, b: &PlatformBreaker) -> String {
+    let mut root = serde_json::from_str::<serde_json::Value>(extra.trim())
+        .ok()
+        .filter(|v| v.is_object())
+        .unwrap_or_else(|| serde_json::json!({}));
+    let obj = root.as_object_mut().expect("object");
+    if b.failure_threshold == 0 && b.open_secs == 0 && b.half_open_max == 0 {
+        obj.remove("breaker");
+    } else {
+        obj.insert(
+            "breaker".to_string(),
+            serde_json::to_value(b).unwrap_or_default(),
+        );
+    }
+    serde_json::to_string(&root).unwrap_or_else(|_| "{}".to_string())
+}
+
+impl Platform {
+    /// 解析本平台 `extra.breaker` 覆盖阈值（缺省全 0 = 继承全局默认）。
+    pub fn breaker(&self) -> PlatformBreaker {
+        parse_breaker(&self.extra)
+    }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct CreatePlatform {
+    pub name: String,
+    pub platform_type: Protocol,
+    pub base_url: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub extra: String,
+    #[serde(default)]
+    pub models: Option<PlatformModels>,
+    #[serde(default)]
+    pub available_models: Option<Vec<String>>,
+    #[serde(default)]
+    pub endpoints: Option<Vec<PlatformEndpoint>>,
+    #[serde(default)]
+    pub manual_budgets: Option<Vec<ManualBudget>>,
+    /// 是否自动创建默认分组（transient 输入，不入库）：None→true 保持旧行为；
+    /// false=创建时不建默认分组。该选择是创建时一次性判断，不持久化。
+    #[serde(default)]
+    pub auto_group: Option<bool>,
+    /// 额外加入的已有分组 ID 列表（plain membership，不写 auto_from_platform）。
+    #[serde(default)]
+    pub join_group_ids: Option<Vec<u64>>,
+    /// 过期时间（毫秒 unix 时间戳，0 = 永不过期）。
+    /// None /缺省 → 落库 0（永不过期）；Some(t) → 设为 t。过期后路由 candidate_state 排除。
+    #[serde(default)]
+    pub expires_at: Option<i64>,
+    /// 配额获取方式（quota-ia spec）：缺省 → 按协议能力推断（有内置变体/自定义脚本 → auto，
+    /// 无 → manual，票 01）。写入路径强制互斥清对侧。
+    #[serde(default)]
+    pub quota_source: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct UpdatePlatform {
+    pub id: u64,
+    pub name: Option<String>,
+    pub platform_type: Option<Protocol>,
+    pub base_url: Option<String>,
+    pub api_key: Option<String>,
+    pub extra: Option<String>,
+    pub models: Option<PlatformModels>,
+    pub available_models: Option<Vec<String>>,
+    pub endpoints: Option<Vec<PlatformEndpoint>>,
+    pub enabled: Option<bool>,
+    /// 前端三态切换：显式置 enabled / disabled。
+    /// 注意：禁止前端直接置 auto_disabled（仅系统 401/403 联动设置）；置 enabled 会清空退避状态。
+    pub status: Option<PlatformStatus>,
+    pub manual_budgets: Option<Vec<ManualBudget>>,
+    /// 全量同步该平台的手动组成员关系（None=不动；Some(set)=加入 set 内、移出 set 外，
+    /// auto 分组不受影响）。
+    /// 注：熔断阈值覆盖现走 `extra.breaker`（随 `extra` 字段整体更新），不再有独立列。
+    #[serde(default)]
+    pub join_group_ids: Option<Vec<u64>>,
+    /// 过期时间（毫秒 unix 时间戳）。None=不动；Some(0)=清空（永不过期）；Some(t)=设为 t。
+    /// 过期后路由 candidate_state 排除（独立于 status 三态枚举）。
+    #[serde(default)]
+    pub expires_at: Option<i64>,
+    /// 配额获取方式（quota-ia spec）：None=不动；Some(s)=显式切换，写路径强制互斥清对侧。
+    #[serde(default)]
+    pub quota_source: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── serialize_attempts / parse_attempts ──
+
+    #[test]
+    fn attempts_roundtrip_empty() {
+        let s = serialize_attempts(&[]);
+        assert_eq!(s, "[]");
+        let v = parse_attempts(&s);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn attempts_roundtrip_with_items() {
+        let items = vec![
+            ProxyAttempt {
+                platform_id: 1,
+                platform_name: "p1".into(),
+                status_code: 200,
+                error: "".into(),
+                duration_ms: 150,
+                ts: 0,
+            },
+            ProxyAttempt {
+                platform_id: 2,
+                platform_name: "p2".into(),
+                status_code: 500,
+                error: "err".into(),
+                duration_ms: 300,
+                ts: 1,
+            },
+        ];
+        let s = serialize_attempts(&items);
+        let parsed = parse_attempts(&s);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].platform_id, 1);
+        assert_eq!(parsed[1].status_code, 500);
+    }
+
+    #[test]
+    fn parse_attempts_invalid_returns_empty() {
+        let v = parse_attempts("not-json");
+        assert!(v.is_empty());
+    }
+
+    // ── PlatformModels::all_values ──
+
+    #[test]
+    fn platform_models_all_values_deduplicates() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            sonnet: Some("claude-sonnet-4".into()),
+            opus: Some("gpt-4o".into()), // duplicate
+            haiku: None,
+            gpt: Some("gpt-3.5".into()),
+            ..Default::default()
+        };
+        let vals = pm.all_values();
+        assert_eq!(vals.len(), 3, "dedup: {:?}", vals);
+        assert!(vals.contains(&"gpt-4o".to_string()));
+        assert!(vals.contains(&"claude-sonnet-4".to_string()));
+    }
+
+    #[test]
+    fn platform_models_all_values_empty() {
+        let pm = PlatformModels::default();
+        assert!(pm.all_values().is_empty());
+    }
+
+    // ── PlatformModels::main_loop_values ──
+
+    #[test]
+    fn platform_models_main_loop_values_excludes_haiku_and_gpt() {
+        let pm = PlatformModels {
+            default: Some("glm-4.7".into()),
+            sonnet: Some("glm-4.7".into()), // duplicate
+            opus: Some("glm-5.3".into()),
+            haiku: Some("glm-4.5".into()),
+            gpt: Some("gpt-5".into()),
+            ..Default::default()
+        };
+        assert_eq!(
+            pm.main_loop_values(),
+            vec!["glm-4.7".to_string(), "glm-5.3".to_string()]
+        );
+    }
+
+    #[test]
+    fn platform_models_main_loop_values_empty_when_only_side_slots() {
+        let pm = PlatformModels {
+            haiku: Some("glm-4.5".into()),
+            gpt: Some("gpt-5".into()),
+            ..Default::default()
+        };
+        assert!(pm.main_loop_values().is_empty());
+    }
+
+    // ── PlatformModels::jev 槽位 ──
+
+    #[test]
+    fn platform_models_jev_serde_roundtrip() {
+        let pm = PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        let json = serde_json::to_string(&pm).unwrap();
+        assert_eq!(json, r#"{"jev":"jev-latest"}"#, "None 槽位不序列化");
+        let back: PlatformModels = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.jev.as_deref(), Some("jev-latest"));
+        assert!(back.supports_decision_slot());
+    }
+
+    #[test]
+    fn platform_models_jev_in_all_values() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        assert!(pm.all_values().contains(&"jev-latest".to_string()));
+        // jev 不承接主对话，不参与上下文窗口约束（同 haiku/gpt 口径）
+        assert!(!pm.main_loop_values().contains(&"jev-latest".to_string()));
+        // 仅 jev 槽非空时整体非空（分享串不得丢槽位）
+        assert!(!PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        }
+        .is_empty());
+    }
+
+    #[test]
+    fn platform_models_is_decision_only_both_directions() {
+        // R3：jev 非空 + 5 聊天槽全空 → 只支持决策
+        let only = PlatformModels {
+            jev: Some("jev-latest".into()),
+            ..Default::default()
+        };
+        assert!(only.is_decision_only());
+        assert!(only.supports_decision_slot());
+        // 任一聊天槽有值 → 不是 decision-only（但仍支持决策）
+        let mixed = PlatformModels {
+            jev: Some("jev-latest".into()),
+            haiku: Some("glm-4.5".into()),
+            ..Default::default()
+        };
+        assert!(!mixed.is_decision_only());
+        assert!(mixed.supports_decision_slot());
+        // 无 jev → 两者皆否
+        let chat_only = PlatformModels {
+            default: Some("gpt-4o".into()),
+            ..Default::default()
+        };
+        assert!(!chat_only.is_decision_only());
+        assert!(!chat_only.supports_decision_slot());
+    }
+
+    #[test]
+    fn platform_models_empty_string_slots_not_configured() {
+        // 批量覆盖持久化的 Some("") / 纯空白槽位不算配置
+        let blank_jev = PlatformModels {
+            jev: Some("".into()),
+            default: Some("gpt-4o".into()),
+            ..Default::default()
+        };
+        assert!(!blank_jev.supports_decision_slot());
+        assert!(!blank_jev.is_decision_only());
+        assert_eq!(blank_jev.jev_slot(), None);
+        // jev 有值、聊天槽全是空串 → 仍是 decision-only
+        let only = PlatformModels {
+            jev: Some(" jev-latest ".into()),
+            default: Some("".into()),
+            sonnet: Some("  ".into()),
+            opus: Some("".into()),
+            haiku: Some("".into()),
+            gpt: Some("".into()),
+        };
+        assert!(only.is_decision_only());
+        assert_eq!(only.jev_slot(), Some("jev-latest"));
+        // 全空串 → is_empty
+        let all_blank = PlatformModels {
+            default: Some("".into()),
+            jev: Some(" ".into()),
+            ..Default::default()
+        };
+        assert!(all_blank.is_empty());
+        assert!(!all_blank.supports_decision_slot());
+    }
+
+    // ── parse_breaker ──
+
+    #[test]
+    fn parse_breaker_empty_returns_default() {
+        let b = parse_breaker("");
+        assert_eq!(b.failure_threshold, 0);
+        assert_eq!(b.open_secs, 0);
+        assert_eq!(b.half_open_max, 0);
+    }
+
+    #[test]
+    fn parse_breaker_with_values() {
+        let extra = r#"{"breaker":{"failure_threshold":5,"open_secs":30,"half_open_max":2}}"#;
+        let b = parse_breaker(extra);
+        assert_eq!(b.failure_threshold, 5);
+        assert_eq!(b.open_secs, 30);
+        assert_eq!(b.half_open_max, 2);
+    }
+
+    #[test]
+    fn parse_breaker_no_breaker_key_returns_default() {
+        let extra = r#"{"other_field": "value"}"#;
+        let b = parse_breaker(extra);
+        assert_eq!(b.failure_threshold, 0);
+    }
+
+    #[test]
+    fn parse_breaker_invalid_json_returns_default() {
+        let b = parse_breaker("not-json");
+        assert_eq!(b.failure_threshold, 0);
+    }
+
+    // ── PlatformExtra ──
+
+    #[test]
+    fn platform_extra_peak_round_trip() {
+        let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":3.0}],"disable_during_peak":true}"#;
+        let parsed = PlatformExtra::parse(extra);
+        assert!(parsed.disable_during_peak);
+        assert_eq!(parsed.peak.len(), 1);
+        assert_eq!(parsed.peak[0].start_hour, 6);
+        assert_eq!(parsed.peak[0].multiplier, 3.0);
+
+        // 序列化回 JSON 再解析，值应保持一致（往返）。
+        let re_serialized = serde_json::to_string(&parsed).unwrap();
+        let round_tripped = PlatformExtra::parse(&re_serialized);
+        assert_eq!(
+            round_tripped.disable_during_peak,
+            parsed.disable_during_peak
+        );
+        assert_eq!(round_tripped.peak.len(), parsed.peak.len());
+        assert_eq!(round_tripped.peak[0].start_hour, parsed.peak[0].start_hour);
+    }
+
+    #[test]
+    fn platform_extra_unknown_keys_preserved_in_rest() {
+        let extra = r#"{"_ui_collapsed":true,"peak":[]}"#;
+        let parsed = PlatformExtra::parse(extra);
+        assert_eq!(
+            parsed.rest.get("_ui_collapsed"),
+            Some(&serde_json::json!(true))
+        );
+        // rest 不应吞掉已知字段（peak 走专属字段，不落 rest）。
+        assert!(parsed.rest.get("peak").is_none());
+    }
+
+    #[test]
+    fn platform_extra_empty_returns_default() {
+        let parsed = PlatformExtra::parse("");
+        assert!(!parsed.disable_during_peak);
+        assert!(parsed.peak.is_empty());
+        assert!(parsed.rest.is_empty());
+    }
+
+    // ── merge_breaker_into_extra ──
+
+    #[test]
+    fn merge_breaker_all_zero_removes_breaker_key() {
+        let extra = r#"{"proxy_enabled":true,"breaker":{"failure_threshold":3}}"#;
+        let b = PlatformBreaker {
+            failure_threshold: 0,
+            open_secs: 0,
+            half_open_max: 0,
+        };
+        let out = merge_breaker_into_extra(extra, &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(
+            v.get("breaker").is_none(),
+            "all-zero should remove breaker: {out}"
+        );
+        assert_eq!(
+            v["proxy_enabled"],
+            serde_json::json!(true),
+            "other fields preserved: {out}"
+        );
+    }
+
+    #[test]
+    fn merge_breaker_nonzero_inserts_breaker() {
+        let b = PlatformBreaker {
+            failure_threshold: 3,
+            open_secs: 60,
+            half_open_max: 1,
+        };
+        let out = merge_breaker_into_extra("{}", &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["breaker"]["failure_threshold"], 3);
+        assert_eq!(v["breaker"]["open_secs"], 60);
+    }
+
+    #[test]
+    fn merge_breaker_empty_extra_starts_empty_object() {
+        let b = PlatformBreaker {
+            failure_threshold: 1,
+            open_secs: 10,
+            half_open_max: 0,
+        };
+        let out = merge_breaker_into_extra("", &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["breaker"]["failure_threshold"], 1);
+    }
+
+    // ── Platform::breaker() ──
+    #[test]
+    fn platform_breaker_delegates_to_parse_breaker() {
+        let p = Platform {
+            id: 1,
+            name: "p".into(),
+            platform_type: super::Protocol::OpenAI,
+            base_url: "http://x".into(),
+            api_key: "k".into(),
+            extra: r#"{"breaker":{"failure_threshold":7,"open_secs":90,"half_open_max":3}}"#.into(),
+            enabled: true,
+            status: Default::default(),
+            est_balance_remaining: 0.0,
+            models: PlatformModels::default(),
+            available_models: vec![],
+            endpoints: vec![],
+            manual_budgets: vec![],
+            auto_disabled_until: 0,
+            auto_disable_strikes: 0,
+            created_at: 0,
+            updated_at: 0,
+            deleted_at: 0,
+            est_coding_plan: "".into(),
+            rate_limit: "".into(),
+            last_real_query_at: 0,
+            estimate_count: 0,
+            show_in_tray: false,
+            tray_display: "".into(),
+            sort_order: 0,
+            balance_level: "".into(),
+            coding_window_cost: 0.0,
+            expires_at: 0,
+            last_error: "".into(),
+            last_error_at: 0,
+            quota_script: String::new(),
+            quota_source: String::new(),
+        };
+        let b = p.breaker();
+        assert_eq!(b.failure_threshold, 7);
+    }
+}

@@ -1,0 +1,245 @@
+# =============================================================================
+# Workspace root（C1 ws-skeleton）
+# 本文件既属 workspace root 又是 root package `aidog`（过渡，C10 才挪 crates/aidog/）
+# 子 crate（crates/*）空壳；gateway/commands 迁移留 C2+。
+# =============================================================================
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.17"
+authors = ["落心"]
+license = "AGPL-3.0-or-later"
+
+# 共享依赖版本集中声明（design.md 约束 1）：子 crate 用 `{ workspace = true }` 引，
+# 禁子 crate 自定版本。当前 root `aidog` 过渡期保留下面独立 [dependencies]，
+# C2/C3+ 才逐步切到 workspace 引用。
+[workspace.dependencies]
+# Tauri 生态
+tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-shell = "2"
+# 序列化 / 数据格式
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+serde_yml = "0.0.13"
+# YAML 解析（CPA config 导入）
+serde_yaml = "0.9"
+toml = "0.8"
+url = "2"
+# 异步运行时 / 并发
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
+futures = "0.3"
+# 存储
+rusqlite = { version = "0.32", features = ["bundled", "trace"] }
+tokio-rusqlite = { version = "0.6", features = ["bundled"] }
+# Web / 代理
+axum = { version = "0.8", features = ["json"] }
+hyper-util = { version = "0.1", features = ["server", "server-auto"] }
+hyper = { version = "1", features = ["http1", "http2"] }
+reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
+tower = "0.5"
+# 票 08 无界面内核：`--ui` 形态的静态前端资源（ServeDir + SPA fallback）与 SSE 事件流。
+tower-http = { version = "0.6", features = ["fs"] }
+tokio-stream = { version = "0.1", features = ["sync"] }
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing-appender = "0.2"
+# 通用工具
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+dirs = "6"
+regex = "1"
+semver = "1"
+ipnet = "2"
+# Rust→TS 类型 codegen（c1b：单一真值 Rust struct，禁手写 TS 与之漂移）
+ts-rs = { version = "10", features = ["no-serde-warnings"] }
+# 仅非 macOS 构建使用；macOS 直接走系统 `say`，避开 tts 的废弃 cocoa/block 依赖。
+tts = "0.26"
+# TTS / 加密 / 杂项
+aes-gcm = "0.11"
+sha2 = "0.11"
+sha1 = "0.10"
+hmac = "0.13"
+rand = "0.8"
+# MITM TLS（rustls 生态）
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-pemfile = "2"
+rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
+tokio-rustls = "0.26"
+webpki-roots = "0.26"
+# 测试期 dev-deps（C3+ 各 commands crate dev-deps 引）
+tempfile = "3"
+flate2 = "1"
+# proxy log_snapshots 分片并发 map（s5：去 std::sync::Mutex<HashMap> 全局锁）
+dashmap = "6"
+# count_tokens 本地估算（research/tiktoken-rs-research.md）：
+#   tiktoken-rs 0.12 — OpenAI 官方 BPE Rust port，BPE 表 include_str! 编译期嵌入，
+#     cl100k_base + o200k_base 通过 *_singleton() 全局单例；离线零运行时 IO。
+#     仅默认 features（async-openai/dhat-heap 均不启）。
+#   tokenizers (HF) — 加载 tokenizer.json (Qwen/GLM 等原生 BPE)，default features 含
+#     onig (C 依赖) 必须关；纯 Rust fancy-regex 后端 (tokenizers compile_error 强制
+#     onig/fancy-regex 二选一，fancy-regex 是其 optional dep 走隐式 feature 启用)。
+#     evidence: https://raw.githubusercontent.com/huggingface/tokenizers/v0.21.4/tokenizers/Cargo.toml
+#     default = ["progressbar", "onig", "esaxx_fast"]
+tiktoken-rs = "0.12"
+tokenizers = { version = "0.21", default-features = false, features = ["fancy-regex"] }
+# 压缩格式支持（CPA config 导入）
+zip = "2"
+tar = "0.4"
+# macOS 托盘小字 attributedTitle（core refresh_tray_menu + root tray_render 共用同版本）
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }
+objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow", "NSFont", "NSParagraphStyle", "NSAttributedString", "NSColor", "objc2-core-foundation"] }
+
+# Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
+# 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
+# O7（perf-backend）：全局分配器换 mimalloc，桌面壳（root package aidog）与无头内核（aidog_kernel）两个入口 crate 共用此版本声明。
+mimalloc = "0.1"
+
+# workspace root [profile.*] 对所有 workspace member 生效。
+[profile.release]
+codegen-units = 256
+lto = false
+opt-level = 2
+strip = true
+
+# =============================================================================
+# root package `aidog`（过渡，C10 才挪 crates/aidog/）
+# =============================================================================
+[package]
+name = "aidog"
+version = { workspace = true }
+description = "AiDog Desktop App"
+authors = ["落心"]
+license = "AGPL-3.0-or-later"
+edition = "2024"
+
+[lib]
+name = "aidog_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+# gzip round-trip 回归测试：构造压缩字节验证解压链路 → extract_usage 解析 token。
+# flate2 是 reqwest gzip feature 的内部依赖，dev-deps 仅供测试显式构造 gzip 输入。
+flate2 = "1"
+# 文件系统隔离测试（codex profile / FS 写入路径），用 tempdir 避免污染真实 ~/.codex。
+tempfile = "3"
+# Tauri `test` feature 仅测试期启用：提供 mock_builder / MockRuntime，用于为 #[command] 薄壳
+# 构造 App + manage(Db) → app.state::<Db>() 获取 State，覆盖 commands/ 层转发路径。
+# 不进生产构建（dev-dependencies 作用域），features 与主 tauri 依赖合并。
+tauri = { version = "2", features = ["test"] }
+
+[dependencies]
+# C2 core-extract：gateway/shared/sync/hooks/tray_render/logging 全部下沉 aidog_core。
+# C3 c3-commands 4 批全下沉完毕：commands_* crate 层已清零，全部命令域均在 aidog_core 内。
+aidog_core = { path = "crates/aidog_core" }
+aidog_ctx = { path = "crates/aidog_ctx" }
+aidog_db = { path = "crates/aidog_db" }
+aidog_logs = { path = "crates/aidog_logs" }
+aidog_stats = { path = "crates/aidog_stats" }
+aidog_mcp = { path = "crates/aidog_mcp" }
+aidog_backup = { path = "crates/aidog_backup" }
+aidog_middleware = { path = "crates/aidog_middleware" }
+aidog_adapter = { path = "crates/aidog_adapter" }
+# O7：入口设 #[global_allocator]（见 src/main.rs）
+mimalloc = { workspace = true }
+tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
+# aidog:// deep link 协议注册 + macOS RunEvent::Opened / Win/Linux CLI arg 唤起分发。
+tauri-plugin-deep-link = "2"
+serde = { version = "1", features = ["derive"] }
+# deep link URL parse（tauri-plugin-deep-link 透传依赖；显式声明以便命名 Url 类型解析 path/query）。
+url = "2"
+serde_json = { version = "1", features = ["preserve_order"] }
+toml = "0.8"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+chrono-tz = "0.10"
+rusqlite = { version = "0.32", features = ["bundled", "trace"] }
+tokio-rusqlite = { version = "0.6", features = ["bundled"] }
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
+axum = { version = "0.8", features = ["json"] }
+# hyper-util 显式声明：CONNECT 隧道需 `server::conn::auto::upgrade::downcast::<TcpStream>`
+# 取回 axum::serve 被 Rewind<T> 包装的底层 TcpStream + 预读缓冲（research 结论 1）。
+# axum 间接依赖不传 server/server-auto feature，必须显式开启。
+hyper-util = { version = "0.1", features = ["server", "server-auto"] }
+# hyper 显式声明：CONNECT upgrade 取 `hyper::upgrade::on(req)`。axum 间接依赖已锁 1.10.1。
+# http2 显式开启：P3 ST6 MITM 明文隧道用 hyper-util `auto::Builder` 按 H2 preface 分发 h1/h2，
+# auto Builder 需 hyper http2 feature 才能服务 h2 客户端（feature unification 经 reqwest→http2
+# 已传递开启，此处显式声明避免未来 reqwest feature 变动致 h2 runtime fail）。
+hyper = { version = "1", features = ["http1", "http2"] }
+reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
+tower = "0.5"
+futures = "0.3"
+dirs = "6"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing-appender = "0.2"
+# 中间件规则引擎正则匹配。regex crate 编译期 size_limit/dfa_size_limit 抗 ReDoS（无回溯引擎）。
+regex = "1"
+# 导入导出子系统加密容器：AES-256-GCM + SHA256/HMAC + 安全随机。
+aes-gcm = "0.11"
+sha2 = "0.11"
+hmac = "0.13"
+rand = "0.8"
+serde_yml = "0.0.13"
+# CLI 工具更新检测（semver 比对）
+semver = "1"
+
+# P3 MITM 解密隧道（CONNECT 升级，ST1+ST2+ST3）。
+# rustls 0.23 已是 tauri/rustls-platform-verifier 的间接依赖（Cargo.lock 已锁 0.23.40），
+# 这里显式声明 + ring provider 让 ca.rs 的 ResolvesServerCert / CertifiedKey 类型可用。
+# rcgen 0.14 由 rustls 团队管理，版本同源；动态签 leaf 证书 + 自签 Root CA。
+#   features: x509-parser 是 Issuer::from_ca_cert_pem 的前置（按 CA cert PEM 重建 issuer），
+#   pem 让 Certificate::pem() / KeyPair::serialize_pem 可用。
+# tokio-rustls 0.26 已是 reqwest/rustls-platform-verifier 间接依赖，显式声明用 TlsAcceptor/TlsConnector。
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-pemfile = "2"
+rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
+tokio-rustls = "0.26"
+# ST3 tls.rs connect_upstream 用 Mozilla 内置 root store 验证上游真证书。
+# 内置 roots（无系统依赖，跨平台一致，确定性可测）；版本与 rustls 0.23 生态对齐。
+webpki-roots = "0.26"
+# ST9 CA 清理：macOS `security delete-certificate -Z` 与 Windows `certutil -delstore Root`
+# 均按 SHA-1 thumbprint 定位证书（capability mitm-ca.json validator `^[0-9A-Fa-f]+$`）。
+# 与 sha2 0.10 同生态（共享 digest 0.10 trait），版本对齐避免重复编译。
+sha1 = "0.10"
+# MITM 白名单 ipcidr 规则（Clash IP-CIDR 语义）：CONNECT 目标 host 段为 IP 字面时做 CIDR contains。
+# 轻量纯 Rust，IPv4+IPv6；不做域名→IP 解析（仅匹配字面 IP 目标，GeoIP/DNS 用户明确不要）。
+ipnet = "2"
+# 装 MITM 假 CA 到系统信任库（macOS security / Windows certutil / Linux update-ca-certificates）。
+# scope 在 capabilities/mitm-ca.json 限定仅装 CA 命令，默认 capability 不开放 shell。
+tauri-plugin-shell = "2"
+
+# macOS 托盘小字：直接操作 NSStatusItem button 的 attributedTitle（NSAttributedString + 小号 NSFont）。
+# 版本与 Tauri 2.11 内部依赖对齐（tauri 透传 tray_icon::TrayIcon，其 ns_status_item() 返回 objc2-app-kit NSStatusItem）。
+# Tauri minor 升级可能更新 tray-icon → 需同步本处版本。版本集中声明在 [workspace.dependencies]，
+# 此处 { workspace = true } 引（C2 core-extract：core refresh_tray_menu 也用，需统一版本）。
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2 = { workspace = true }
+objc2-foundation = { workspace = true }
+objc2-app-kit = { workspace = true }

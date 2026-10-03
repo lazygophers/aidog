@@ -1,0 +1,297 @@
+use serde_json::Value;
+
+use super::{
+    OpenAIFunction, OpenAIFunctionCall, OpenAIMessage, OpenAIRequest, OpenAITool, OpenAIToolCall,
+};
+use crate::types::*;
+
+/// 从内部 ChatRequest 转为 OpenAI 格式
+pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
+    let mut messages: Vec<OpenAIMessage> = Vec::new();
+
+    // system 消息放在 messages 数组开头
+    if let Some(system) = &req.system {
+        let content = match system {
+            SystemContent::Text(t) => Value::String(t.clone()),
+            SystemContent::Blocks(blocks) => {
+                // Extract text from blocks for OpenAI compatibility
+                let texts: Vec<&str> = blocks
+                    .iter()
+                    .filter_map(|b| b.get("text").and_then(|v| v.as_str()))
+                    .collect();
+                Value::String(texts.join("\n"))
+            }
+        };
+        messages.push(OpenAIMessage {
+            role: "system".to_string(),
+            content: Some(content),
+            tool_calls: None,
+            tool_call_id: None,
+        });
+    }
+
+    for m in &req.messages {
+        let role = match m.role {
+            Role::User => "user",
+            Role::Assistant => "assistant",
+            Role::System => "system",
+            Role::Tool => "tool",
+        };
+
+        match &m.content {
+            MessageContent::Text(s) => {
+                messages.push(OpenAIMessage {
+                    role: role.to_string(),
+                    content: Some(Value::String(s.clone())),
+                    tool_calls: None,
+                    tool_call_id: None,
+                });
+            }
+            MessageContent::Blocks(blocks) => {
+                // 提取文本块(Text;Unknown/thinking/image 等跳过,避免泄漏 Anthropic 专属结构)
+                let text_parts: Vec<String> = blocks
+                    .iter()
+                    .filter_map(|b| match b {
+                        ContentBlock::Text { text, .. } => Some(text.clone()),
+                        _ => None,
+                    })
+                    .collect();
+                // OpenAI/Kimi content 用单一字符串(拼接多段),避免 array 多模态结构被 Kimi 拒
+                let text_content = if text_parts.is_empty() {
+                    None
+                } else {
+                    Some(Value::String(text_parts.join("\n")))
+                };
+
+                // 处理 tool_use 块 → assistant message 的 tool_calls
+                let tool_calls: Vec<OpenAIToolCall> = blocks
+                    .iter()
+                    .filter_map(|b| match b {
+                        ContentBlock::ToolUse {
+                            id, name, input, ..
+                        } => Some(OpenAIToolCall {
+                            id: id.clone(),
+                            r#type: "function".to_string(),
+                            function: OpenAIFunctionCall {
+                                name: name.clone(),
+                                arguments: serde_json::to_string(input).unwrap_or_default(),
+                            },
+                        }),
+                        _ => None,
+                    })
+                    .collect();
+
+                if !tool_calls.is_empty() {
+                    messages.push(OpenAIMessage {
+                        role: "assistant".to_string(),
+                        content: text_content,
+                        tool_calls: Some(tool_calls),
+                        tool_call_id: None,
+                    });
+                    continue;
+                }
+
+                // 处理 tool_result 块 → tool message(每个 tool_result 单独成 tool message)
+                let has_tool_result = blocks
+                    .iter()
+                    .any(|b| matches!(b, ContentBlock::ToolResult { .. }));
+                if has_tool_result {
+                    // A1：tool_result 数组形态 content 里的 image block 提升到紧随 tool message
+                    // 的 user message（OpenAI tool message 只吃文本，图片留在里面必丢）；
+                    // 多条 tool_result 的图片合并进同一条 user message，不虚构新轮次。
+                    let mut lifted_images: Vec<Value> = Vec::new();
+                    for b in blocks {
+                        if let ContentBlock::ToolResult {
+                            tool_use_id,
+                            content,
+                            is_error,
+                            content_blocks,
+                            ..
+                        } = b
+                        {
+                            if let Some(cbs) = content_blocks {
+                                for cb in cbs {
+                                    if cb.get("type").and_then(|t| t.as_str()) == Some("image")
+                                        && let Some(part) = image_part_from_block(cb)
+                                    {
+                                        lifted_images.push(part);
+                                    }
+                                }
+                            }
+                            messages.push(OpenAIMessage {
+                                role: "tool".to_string(),
+                                // OpenAI tool message 只吃文本：失败标注与非文本 block 的占位都在文本里
+                                content: Some(Value::String(mark_tool_error(content, *is_error))),
+                                tool_calls: None,
+                                tool_call_id: Some(tool_use_id.clone()),
+                            });
+                        }
+                    }
+                    // tool_result 与 text 混排时残余文本并入同一条 user message（有图才用
+                    // array 形态带图；无图维持旧字符串形态，避免 Kimi 拒多模态数组结构）
+                    match (text_content.clone(), !lifted_images.is_empty()) {
+                        (Some(tc), false) => {
+                            messages.push(OpenAIMessage {
+                                role: "user".to_string(),
+                                content: Some(tc),
+                                tool_calls: None,
+                                tool_call_id: None,
+                            });
+                        }
+                        (tc, true) => {
+                            let mut content_arr: Vec<Value> = Vec::new();
+                            if let Some(Value::String(t)) = tc.as_ref()
+                                && !t.is_empty()
+                            {
+                                content_arr.push(serde_json::json!({ "type": "text", "text": t }));
+                            }
+                            content_arr.extend(lifted_images);
+                            messages.push(OpenAIMessage {
+                                role: "user".to_string(),
+                                content: Some(Value::Array(content_arr)),
+                                tool_calls: None,
+                                tool_call_id: None,
+                            });
+                        }
+                        (None, false) => {}
+                    }
+                    continue;
+                }
+
+                // image block → OpenAI 多模态数组 content（text 段 + image_url 段）；
+                // audio Media → input_audio 段（spec A3，OpenAI chat 只收 base64）
+                let media_parts: Vec<Value> = blocks.iter()
+                    .filter_map(|b| match b {
+                        ContentBlock::Unknown(v) if v.get("type").and_then(|t| t.as_str()) == Some("image") => image_part_from_block(v),
+                        ContentBlock::Media { media_type, data, url } => {
+                            // input_audio 只认 {data, format}：format 取 media_type 的子类型（audio/wav → wav）；
+                            // 非 audio（video 等）或无 base64 的（url 源，OpenAI chat 不收远程音频）只能丢
+                            let fmt = media_type.strip_prefix("audio/").unwrap_or_default();
+                            match (data, url) {
+                                (Some(d), _) if !fmt.is_empty() => Some(serde_json::json!({
+                                    "type": "input_audio", "input_audio": { "data": d, "format": fmt }
+                                })),
+                                (data, url) => {
+                                    tracing::warn!(
+                                        media_type,
+                                        has_data = data.is_some(),
+                                        has_url = url.is_some(),
+                                        "Media block dropped: OpenAI chat 只收 base64 audio 的 input_audio"
+                                    );
+                                    None
+                                }
+                            }
+                        }
+                        _ => None,
+                    })
+                    .collect();
+                if !media_parts.is_empty() {
+                    let mut content_arr: Vec<Value> = Vec::new();
+                    if let Some(tc) = text_content.clone()
+                        && let Value::String(t) = &tc
+                        && !t.is_empty()
+                    {
+                        content_arr.push(serde_json::json!({ "type": "text", "text": t }));
+                    }
+                    content_arr.extend(media_parts);
+                    messages.push(OpenAIMessage {
+                        role: role.to_string(),
+                        content: Some(Value::Array(content_arr)),
+                        tool_calls: None,
+                        tool_call_id: None,
+                    });
+                    continue;
+                }
+
+                // 普通文本块。若全是 Unknown(thinking 等)致 text_content 为空,
+                // 跳过该消息,避免产出既无 content 又无 tool_calls 的空 message
+                // (OpenAI/Kimi 强校验拒绝空消息 → 400 "Invalid request Error")。
+                if let Some(tc) = text_content {
+                    messages.push(OpenAIMessage {
+                        role: role.to_string(),
+                        content: Some(tc),
+                        tool_calls: None,
+                        tool_call_id: None,
+                    });
+                }
+            }
+        }
+    }
+
+    // 服务端工具在 OpenAI 侧无执行方，整条不下发；全被丢弃时不写 tools 键
+    let kept_tools: Vec<&Tool> = req
+        .tools
+        .as_deref()
+        .map(|ts| client_tools(ts, "openai"))
+        .unwrap_or_default();
+    let tools = {
+        let mapped: Vec<OpenAITool> = kept_tools
+            .iter()
+            .map(|t| OpenAITool {
+                r#type: "function".to_string(),
+                function: OpenAIFunction {
+                    name: t.name.clone(),
+                    description: t.description.clone(),
+                    parameters: t.input_schema.clone(),
+                },
+            })
+            .collect();
+        (!mapped.is_empty()).then_some(mapped)
+    };
+
+    // 指名了被丢掉的服务端工具时整条不写（票 11，见 `named_tool_available`）
+    let tool_choice = req
+        .tool_choice
+        .as_ref()
+        .filter(|tc| named_tool_available(tc, req.tools.as_deref(), &kept_tools))
+        .map(|tc| match tc {
+            ToolChoice::Auto => serde_json::json!("auto"),
+            ToolChoice::Any => serde_json::json!("required"),
+            ToolChoice::None => serde_json::json!("none"),
+            ToolChoice::Named { name } => serde_json::json!({
+                "type": "function",
+                "function": { "name": name }
+            }),
+        });
+
+    OpenAIRequest {
+        model: req.model.clone(),
+        messages,
+        max_tokens: req.max_tokens,
+        // 出站统一写 `max_tokens`（第三方 OpenAI 兼容端点只认它）；官方 api.openai.com
+        // 需要的 `max_completion_tokens` 由 forward 层按 host 改键（票 05）。
+        max_completion_tokens: None,
+        temperature: req.temperature,
+        top_p: req.top_p,
+        stream: req.stream,
+        tools,
+        tool_choice,
+        // 思考档位出站（票 03）：档位原值优先，无档位时由数字预算反查（换算表见 `crate::thinking`）。
+        // 显式禁用（`thinking.type=disabled`）在这里只保证**不写开启型参数**：Chat Completions 的
+        // 禁用写法要按上游 host 分叉（官方 `reasoning_effort:"none"` vs 第三方
+        // `chat_template_kwargs.enable_thinking=false`），adapter 层拿不到 host，
+        // 显式禁用指令统一由 `forward.rs::apply_disable_thinking` 负责。
+        reasoning_effort: crate::thinking::outbound_effort(req),
+    }
+}
+
+/// 中立 image block（Unknown，Anthropic image 结构）→ OpenAI `image_url` 段。
+/// base64 source 重组 data URL；其余 source 形态（file_id 等）OpenAI chat 无法表达，返回 None。
+fn image_part_from_block(v: &Value) -> Option<Value> {
+    let src = v.get("source")?;
+    let url = match src.get("type").and_then(|t| t.as_str()) {
+        // base64 source 重组 data URL
+        Some("base64") => format!(
+            "data:{};base64,{}",
+            src.get("media_type").and_then(|m| m.as_str()).unwrap_or("application/octet-stream"),
+            src.get("data").and_then(|d| d.as_str()).unwrap_or(""),
+        ),
+        Some("url") => src.get("url").and_then(|u| u.as_str())?.to_string(),
+        _ => return None,
+    };
+    Some(serde_json::json!({ "type": "image_url", "image_url": { "url": url } }))
+}
+
+#[cfg(test)]
+#[path = "test_request.rs"]
+mod test_request;

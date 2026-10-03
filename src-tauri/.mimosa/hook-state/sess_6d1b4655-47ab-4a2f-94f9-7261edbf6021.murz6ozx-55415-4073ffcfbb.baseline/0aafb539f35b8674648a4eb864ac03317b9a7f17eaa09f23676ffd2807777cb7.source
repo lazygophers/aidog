@@ -1,0 +1,500 @@
+//! 代理日志模型：完整日志行 / 平台用量统计 / 测试结果 / 列表摘要 / 筛选 / 日志设置。
+
+use super::{ProxyAttempt, default_true};
+use serde::{Deserialize, Serialize};
+use ts_rs::TS;
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProxyLog {
+    pub id: String,
+    pub group_key: String,
+    /// 用户请求的原始模型
+    pub model: String,
+    /// 实际发送给上游的模型（可能因路由映射而不同）
+    pub actual_model: String,
+    /// 用户请求的协议（固定 anthropic）
+    pub source_protocol: String,
+    /// 实际请求上游的协议
+    pub target_protocol: String,
+    /// 路由到的目标平台 ID
+    pub platform_id: u64,
+    /// 原始请求头（用户发给代理的）
+    pub request_headers: String,
+    /// 原始请求体（用户发给代理的）
+    pub request_body: String,
+    /// 代理转发给上游的请求头
+    pub upstream_request_headers: String,
+    /// 代理转发给上游的请求体（协议转换后）
+    pub upstream_request_body: String,
+    /// 上游返回的响应体（非流式完整 JSON；流式在终态 flush 后为聚合 SSE，中间态为空串，票 06 哨兵已废）
+    pub response_body: String,
+    /// 用户请求的完整 URL
+    #[serde(default)]
+    pub request_url: String,
+    /// 上游请求的完整 URL
+    #[serde(default)]
+    pub upstream_request_url: String,
+    /// 上游返回的响应头
+    #[serde(default)]
+    pub upstream_response_headers: String,
+    /// 上游 HTTP 状态码
+    #[serde(default)]
+    pub upstream_status_code: i32,
+    /// 代理返回给用户的响应头
+    #[serde(default)]
+    pub user_response_headers: String,
+    /// 代理返回给用户的响应体（非流式含模型名替换；流式在终态 flush 后为聚合内容，中间态为空串）
+    #[serde(default)]
+    pub user_response_body: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub cache_tokens: i32,
+    /// 缓存写入 token（Anthropic `cache_creation_input_tokens`；计价 1.25×/2× input 价）。
+    /// 此前未采集（2026-09-28 列），存量行 0。
+    #[serde(default)]
+    pub cache_write_tokens: i32,
+    /// 预估花费（$），基于 model_entry 定价
+    #[serde(default)]
+    pub est_cost: f64,
+    /// 是否为流式（SSE）请求；流式日志的 body 为聚合的真实 SSE 内容（非 "[stream]" 哨兵）
+    #[serde(default)]
+    pub is_stream: bool,
+    /// 每次平台尝试快照（JSON 数组列）；单平台一次成功时长度 1
+    #[serde(default)]
+    pub attempts: Vec<ProxyAttempt>,
+    /// 重试次数 = attempts.len()-1（0 表示一次成功，无重试）
+    #[serde(default)]
+    pub retry_count: i32,
+    /// 被中间件拦截时的规则标识（rule_type/规则名/id 拼接，空表示未被拦截）。C2 入站 block 写入。
+    #[serde(default)]
+    pub blocked_by: String,
+    /// 拦截原因（命中模式 / 规则描述等人读说明，空表示未被拦截）。
+    #[serde(default)]
+    pub blocked_reason: String,
+    pub created_at: i64,
+    #[serde(default)]
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
+    /// 终态标记（stream-full-log 票 06）：请求日志生命周期完结（非流式终态 / 流式 flush /
+    /// 断连兜底 / 中断补写）时置位。取代旧 `response_body == "[stream]"` 哨兵的终态判定
+    /// （背压分支、聚合去重 gate、快照移除条件）。中间态（status=0 或流式聚合中）恒 false。
+    #[serde(default)]
+    pub done: bool,
+    /// 出站 body 构造过程中被丢弃 / 被改写的**字段名**留痕（票 10），逗号分隔的 token 串，空表示无改动。
+    /// token 形态：`drop:<字段名>`（客户端发了但目标协议允许集合不收，见 `apply_field_passthrough`）、
+    /// `cap:max_tokens`（透传路径出站裁剪）、`rewrite:middleware`（透传路径 middleware 改写 body）。
+    /// **只记名不记值**：字段值可能含敏感内容，任何情况下不进本列。
+    /// 归上游侧「原始信息」：受 `log_upstream_request` 开关约束，按 `upstream_request_retention_days` 清理。
+    #[serde(default)]
+    pub field_trace: String,
+    /// 「正文已省略」标记（perf-backend O6，2026-10-01 列）：该行的部分正文因日志写入队列
+    /// 字节预算超限被降级丢弃（只落了元数据）。置位后本行生命周期内单调不回落（sticky）；
+    /// 语义是「发生过降级」——极小概率后续节点预算恢复又把正文补写进去，标记保持 true
+    /// （宁可多报不可漏报：反向「标 false 但正文缺」会误导排查）。正文列本身仍空串
+    /// （不写占位文字，CLAUDE.md「Proxy 日志」段）。存量行 0 = 历史无降级。
+    #[serde(default)]
+    pub body_omitted: bool,
+}
+
+/// 平台使用统计（从 proxy_logs 聚合）
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct PlatformUsageStats {
+    #[ts(type = "number")]
+    pub total_requests: i64,
+    #[ts(type = "number")]
+    pub success_count: i64,
+    #[ts(type = "number")]
+    pub total_input_tokens: i64,
+    #[ts(type = "number")]
+    pub total_output_tokens: i64,
+    #[ts(type = "number")]
+    pub total_cache_tokens: i64,
+    pub cache_rate: f64,
+    /// 最近 N 次请求中失败的次数（用于可用性判断）
+    #[ts(type = "number")]
+    pub recent_failures: i64,
+    /// 最近 N 次请求的总数
+    #[ts(type = "number")]
+    pub recent_total: i64,
+    /// 累计预估花费（$），基于 est_cost 聚合
+    #[serde(default)]
+    pub total_cost: f64,
+    /// 今日（本地 00:00 起）token 总量（input + output），按 eff_pid 聚合
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub today_tokens: i64,
+    /// 今日（本地 00:00 起）预估花费（$），基于 est_cost 聚合
+    #[serde(default)]
+    pub today_cost: f64,
+}
+
+/// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
+/// 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct LastTestResult {
+    /// status_code ∈ [200, 300) → true
+    pub success: bool,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    /// proxy_log.created_at（毫秒 epoch）
+    #[ts(type = "number")]
+    pub created_at: i64,
+    /// 失败时取 response_body 截断 ~200 字符；成功为空串（徽章 title 短摘要用）
+    pub error: String,
+    /// 测试响应正文（成功/失败均带），截断 ~4000 字符；供前端 JSON 解析结构化展示。
+    pub response_body: String,
+}
+
+/// Summary row for list view (excludes large body fields)
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyLogSummary {
+    pub id: String,
+    pub group_key: String,
+    pub model: String,
+    pub actual_model: String,
+    pub source_protocol: String,
+    pub target_protocol: String,
+    #[ts(type = "number")]
+    pub platform_id: u64,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub cache_tokens: i32,
+    /// 是否为流式（SSE）请求；列表展示流式标记
+    #[serde(default)]
+    pub is_stream: bool,
+    /// 重试次数（retry_count>0 时列表显示重试徽标）
+    #[serde(default)]
+    pub retry_count: i32,
+    #[ts(type = "number")]
+    pub created_at: i64,
+}
+
+/// 分页探测结果（logs-query-ipc-slimming s2）：`items` 恒为 `limit` 行，`has_more` 由
+/// `LIMIT limit+1` 探测出的第 limit+1 行是否存在决定（该行本身不下发，仅用于置位）。
+/// 替代精确 `COUNT(*)` 全表扫，前端分页 UI 退化为「有更多/没有更多」，不再展示精确总数/总页数。
+#[derive(Debug, Clone, Serialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyLogPage {
+    pub items: Vec<ProxyLogSummary>,
+    pub has_more: bool,
+}
+
+/// 日志列表筛选条件
+#[derive(Debug, Clone, Default, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyLogFilter {
+    #[ts(optional, type = "number | null")]
+    pub platform_id: Option<u64>,
+    #[ts(optional)]
+    pub group_key: Option<String>,
+    /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
+    #[ts(optional)]
+    pub status: Option<i32>,
+    #[ts(optional, type = "number | null")]
+    pub time_start: Option<i64>,
+    #[ts(optional, type = "number | null")]
+    pub time_end: Option<i64>,
+    #[ts(optional)]
+    pub model: Option<String>,
+    /// "original" = 按 model 列; "actual" = 按 actual_model 列
+    #[ts(optional)]
+    pub model_type: Option<String>,
+    /// 路径片段：对 request_url 做 LIKE %v% 模糊匹配
+    #[serde(default)]
+    #[ts(optional)]
+    pub path: Option<String>,
+    /// None=全部; Some(non-empty)=source_protocol IN (...) 包含筛选（如 ["test","quota"]）
+    #[serde(default)]
+    #[ts(optional)]
+    pub sources: Option<Vec<String>>,
+    /// None=不排; Some(non-empty)=source_protocol NOT IN (...) 排除筛选。
+    /// Logs 主页传 ["test","quota"] → 仅留纯代理转发，test/quota 仅请求日志页可见。
+    /// 该谓词非恒真：test/quota 行真实写入 proxy_log（model_test.rs / quota/http.rs），不可跳过。
+    /// source_protocol 列 `NOT NULL DEFAULT ''`（schema_early.rs:119），故 SQL 侧无需
+    /// `OR source_protocol IS NULL` 防御（logs-query-ipc-slimming s3 已删该死分支）。
+    #[serde(default)]
+    #[ts(optional)]
+    pub exclude_sources: Option<Vec<String>>,
+    /// 中间件观察模式命中筛选（票 04）：Some(true) = 仅 `blocked_reason='observe'` 的行；
+    /// None / Some(false) = 不加此谓词（全部）。
+    #[serde(default)]
+    #[ts(optional, type = "boolean | null")]
+    pub observed: Option<bool>,
+}
+
+/// 手动「立即清理」前的只读预估（三个数）。
+///
+/// 口径：`overdue_rows` / `overdue_body_bytes` 只按**整行保留期**（`retention_days` +
+/// `retention_unit`）算，与 `cleanup_proxy_logs` 的删除谓词逐字同源，故预估行数 = 随后
+/// 实际删除的行数。`db_size_bytes` 取 `page_count × page_size`（**不含 WAL 文件**，
+/// WAL 在 checkpoint 后并入主文件，不是独立的可回收量）。
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct CleanupEstimate {
+    /// 超过整行保留期、下次清理会被物理删除的行数（保留期=0 时恒为 0）
+    #[ts(type = "number")]
+    pub overdue_rows: i64,
+    /// 上述行的四个 body 列字节总和（request/upstream_request/response/user_response）
+    #[ts(type = "number")]
+    pub overdue_body_bytes: i64,
+    /// log.db 当前大小（page_count × page_size，不含 WAL）
+    #[ts(type = "number")]
+    pub db_size_bytes: i64,
+}
+
+/// Proxy logging settings stored in settings table (scope=proxy, key=logging)
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ProxyLogSettings {
+    /// Master switch: whether to log proxy requests at all
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+
+    /// Whether to record user-side raw data (request headers + request body +
+    /// response headers + response body to client). 关闭后这些列入库即清空，只留解析后元数据。
+    #[serde(default)]
+    pub log_user_request: bool,
+
+    /// Whether to record upstream-side raw data (upstream request headers + body +
+    /// upstream response headers + upstream response body). 关闭后这些列入库即清空，只留解析后元数据。
+    #[serde(default)]
+    pub log_upstream_request: bool,
+
+    /// Days to retain user request data (headers, body); 0 = keep forever
+    #[serde(default = "default_user_req_retention")]
+    pub user_request_retention_days: u32,
+
+    /// Days to retain upstream request data (headers, body); 0 = keep forever
+    #[serde(default = "default_upstream_req_retention")]
+    pub upstream_request_retention_days: u32,
+
+    /// Days to retain entire log record; 0 = keep forever
+    #[serde(default = "default_retention_days")]
+    pub retention_days: u32,
+
+    /// 单位（小时/天/周）—— 与同名 `*_retention_days` 字段值配对。
+    /// serde default = Day：老 settings.json 缺此字段时按天解，配老 value 7 → 7 天不变（零迁移）。
+    /// 新装 Default::default() 三项均改 6 + Hour = 6 小时。
+    /// value=0 永久保留（不看单位，0 小时 = 0 天 = 永久）。
+    #[serde(default)]
+    pub user_request_retention_unit: RetentionUnit,
+    #[serde(default)]
+    pub upstream_request_retention_unit: RetentionUnit,
+    #[serde(default)]
+    pub retention_unit: RetentionUnit,
+}
+
+/// 保留期单位。serde lowercase（hour/day/week），Default = Day（老配置兼容）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+#[serde(rename_all = "lowercase")]
+pub enum RetentionUnit {
+    Hour,
+    #[default]
+    Day,
+    Week,
+}
+
+impl RetentionUnit {
+    /// 与数值配对换算成秒。Hour=3600 / Day=86400 / Week=604800。
+    pub fn secs(self, value: u32) -> u64 {
+        match self {
+            Self::Hour => 3600 * value as u64,
+            Self::Day => 86400 * value as u64,
+            Self::Week => 604800 * value as u64,
+        }
+    }
+}
+
+impl ProxyLogSettings {
+    /// 调度周期下限：1 分钟（再短的唤醒对磁盘没意义，只是空转）。
+    pub const CLEANUP_INTERVAL_MIN_SECS: u64 = 60;
+    /// 调度周期上限：24 小时（长保留期不需要更频繁的唤醒）。
+    pub const CLEANUP_INTERVAL_MAX_SECS: u64 = 24 * 3600;
+
+    /// 清理调度周期（秒）：三档保留期（user / upstream / 整行）取**最短的非零值 ÷ 4**，
+    /// 夹在 [1 分钟, 24 小时]。三档全 0（永久保留）退化为 24 小时。
+    ///
+    /// ÷4 保证任一档保留期内至少被扫 4 次，超期数据最多多活 1/4 个保留期。
+    /// 放在此处（与 `RetentionUnit::secs` 同层）是为了随内核走：无界面二进制复用同一份，
+    /// 不在 root bin 里重写一遍。
+    pub fn cleanup_interval_secs(&self) -> u64 {
+        let shortest = [
+            self.user_request_retention_unit
+                .secs(self.user_request_retention_days),
+            self.upstream_request_retention_unit
+                .secs(self.upstream_request_retention_days),
+            self.retention_unit.secs(self.retention_days),
+        ]
+        .into_iter()
+        .filter(|&s| s > 0)
+        .min();
+        match shortest {
+            // 三档全 0 = 永久保留：无超期数据可清，退化为最长周期。
+            None => Self::CLEANUP_INTERVAL_MAX_SECS,
+            Some(s) => (s / 4).clamp(
+                Self::CLEANUP_INTERVAL_MIN_SECS,
+                Self::CLEANUP_INTERVAL_MAX_SECS,
+            ),
+        }
+    }
+}
+
+fn default_user_req_retention() -> u32 {
+    7
+}
+fn default_upstream_req_retention() -> u32 {
+    7
+}
+fn default_retention_days() -> u32 {
+    90
+}
+
+impl Default for ProxyLogSettings {
+    fn default() -> Self {
+        // 新装默认：三项均 6h（value=6 + Hour）。
+        // serde 反序列化路径独立：老 settings.json 走 serde field default（days 7/7/90 + unit Day），
+        // 此处仅新装首次落库走 Default impl。
+        Self {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
+            user_request_retention_days: 6,
+            upstream_request_retention_days: 6,
+            retention_days: 6,
+            user_request_retention_unit: RetentionUnit::Hour,
+            upstream_request_retention_unit: RetentionUnit::Hour,
+            retention_unit: RetentionUnit::Hour,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ponytail: serde field default vs struct Default impl 是本任务核心契约，留一个可运行检查。
+    /// 老配置 JSON（无 unit 字段）反序列化：serde field default 路径
+    /// → days 7/7/90（fn 默认）+ unit Day（enum #[default]）→ 行为零迁移。
+    #[test]
+    fn old_config_without_unit_fields_defaults_to_day() {
+        let json = r#"{"enabled":true}"#;
+        let s: ProxyLogSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(s.user_request_retention_days, 7);
+        assert_eq!(s.upstream_request_retention_days, 7);
+        assert_eq!(s.retention_days, 90);
+        assert_eq!(s.user_request_retention_unit, RetentionUnit::Day);
+        assert_eq!(s.upstream_request_retention_unit, RetentionUnit::Day);
+        assert_eq!(s.retention_unit, RetentionUnit::Day);
+        // 7 Day = 604800s（与改动前 7d 一致）
+        assert_eq!(RetentionUnit::Day.secs(7), 604_800);
+    }
+
+    /// 新装 Default::default()：三项 value=6 + Hour → 6h（21600s）。
+    #[test]
+    fn default_impl_uses_hour_and_six() {
+        let s = ProxyLogSettings::default();
+        assert_eq!(s.user_request_retention_days, 6);
+        assert_eq!(s.upstream_request_retention_days, 6);
+        assert_eq!(s.retention_days, 6);
+        assert_eq!(s.user_request_retention_unit, RetentionUnit::Hour);
+        assert_eq!(s.retention_unit, RetentionUnit::Hour);
+        assert_eq!(RetentionUnit::Hour.secs(6), 21_600);
+    }
+
+    /// value=0 永久保留：单位无关（Hour/Day/Week × 0 均为 0）。
+    #[test]
+    fn zero_value_is_forever_regardless_of_unit() {
+        assert_eq!(RetentionUnit::Hour.secs(0), 0);
+        assert_eq!(RetentionUnit::Day.secs(0), 0);
+        assert_eq!(RetentionUnit::Week.secs(0), 0);
+    }
+
+    /// 构造三档保留期（value + unit 相同的简写），只为周期派生测试服务。
+    fn settings_with(
+        user: (u32, RetentionUnit),
+        up: (u32, RetentionUnit),
+        row: (u32, RetentionUnit),
+    ) -> ProxyLogSettings {
+        ProxyLogSettings {
+            user_request_retention_days: user.0,
+            user_request_retention_unit: user.1,
+            upstream_request_retention_days: up.0,
+            upstream_request_retention_unit: up.1,
+            retention_days: row.0,
+            retention_unit: row.1,
+            ..Default::default()
+        }
+    }
+
+    /// 周期派生①取最短：三档不同（1 天 / 12 小时 / 4 小时）→ 取 4 小时那档。
+    #[test]
+    fn cleanup_interval_takes_shortest_of_three() {
+        let s = settings_with(
+            (1, RetentionUnit::Day),
+            (12, RetentionUnit::Hour),
+            (4, RetentionUnit::Hour),
+        );
+        // 最短 = 4h = 14400s → ÷4 = 3600s
+        assert_eq!(s.cleanup_interval_secs(), 3600);
+    }
+
+    /// 周期派生②÷4：零档不参与取最短（0 = 永久保留，不是「最短」）。
+    #[test]
+    fn cleanup_interval_divides_by_four_and_ignores_zero() {
+        let s = settings_with(
+            (0, RetentionUnit::Hour),
+            (0, RetentionUnit::Hour),
+            (8, RetentionUnit::Hour),
+        );
+        // 唯一非零档 8h = 28800s → ÷4 = 7200s
+        assert_eq!(s.cleanup_interval_secs(), 7200);
+    }
+
+    /// 周期派生③上下夹紧：1 小时保留期 → 15 分钟；90 天 → 夹到 24 小时下限侧同理。
+    #[test]
+    fn cleanup_interval_clamps_both_ends() {
+        // 1h ÷ 4 = 900s（区间内，不夹）
+        let hourly = settings_with(
+            (1, RetentionUnit::Hour),
+            (1, RetentionUnit::Hour),
+            (1, RetentionUnit::Hour),
+        );
+        assert_eq!(hourly.cleanup_interval_secs(), 900);
+
+        // 下限：1 分钟保留期不存在（单位最小 Hour），构造 1h 的 1/4 已是 900s；
+        // 用 Hour 档最小值 1 与更长档共存仍取最短 → 验证下限用极端值 0 不可行，
+        // 故直接验证常量语义：任何派生值不得低于 60s。
+        assert!(hourly.cleanup_interval_secs() >= ProxyLogSettings::CLEANUP_INTERVAL_MIN_SECS);
+
+        // 上限：90 天 ÷ 4 = 22.5 天 → 夹到 24 小时
+        let long = settings_with(
+            (90, RetentionUnit::Day),
+            (90, RetentionUnit::Day),
+            (90, RetentionUnit::Day),
+        );
+        assert_eq!(
+            long.cleanup_interval_secs(),
+            ProxyLogSettings::CLEANUP_INTERVAL_MAX_SECS
+        );
+    }
+
+    /// 周期派生④全零退化：三档全 0（永久保留）→ 24 小时。
+    #[test]
+    fn cleanup_interval_all_zero_falls_back_to_daily() {
+        let s = settings_with(
+            (0, RetentionUnit::Hour),
+            (0, RetentionUnit::Day),
+            (0, RetentionUnit::Week),
+        );
+        assert_eq!(s.cleanup_interval_secs(), 24 * 3600);
+    }
+}

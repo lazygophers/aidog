@@ -1,0 +1,18 @@
+[package]
+name = "aidog_ctx"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_ctx：命令层与「外壳」之间的唯一接缝（票 06）。
+#
+# **本 crate 禁依赖 tauri**（含 tauri-plugin-*、可选 feature 形式的依赖）。这是整个抽象
+# 存在的理由：桌面壳（root bin，Tauri）与无界面内核（票 08，axum）各实现一次 `AppCtx`，
+# 命令函数只认这个 trait。加 tauri 依赖即等于抽象失效。
+[dependencies]
+aidog_db = { path = "../aidog_db" }
+aidog_middleware = { path = "../aidog_middleware" }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }

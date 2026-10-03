@@ -1,0 +1,735 @@
+use super::*;
+
+/// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
+pub async fn handle_proxy(state: AxumState<Arc<ProxyState>>, req: Request) -> Response {
+    // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
+    // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    // 同时挂 6-[0-9a-z] trace_id（base36(request_id 前 8 hex 截 31 bit)，可 grep 直达日志行）
+    // 与完整 32-hex request_id（= proxy_log.id 主键，可从任一子日志行串回 proxy_log）。
+    // 该请求生命周期内所有子 tracing 行自动携带两者。
+    let trace_id = crate::logging::trace_id_from_request_id(&request_id);
+    let span = tracing::info_span!("req", trace_id = %trace_id, request_id = %request_id);
+    handle_proxy_inner(state, req, request_id)
+        .instrument(span)
+        .await
+}
+
+/// 请求级中断兜底 guard：客户端断连 / 请求 future 被 axum drop（任一 .await 未完成返回）时，
+/// 把仍卡在 status_code=0 的 proxy_log 行补写为终态 499（client closed request）。
+/// 正常返回任意 Response（成功 / 各类错误 / 流式 200 占位）即视为「已交接」→ `disarm()` 解除，
+/// 不触发兜底（流式终态由 StreamLogGuard 接管，非流式终态已在 DB 内非 0）。
+/// Drop 内不可 await → tokio::spawn fire-and-forget 落库（与 StreamLogGuard 同款）。
+struct RequestLogGuard {
+    state: Arc<ProxyState>,
+    id: String,
+    start: std::time::Instant,
+    armed: bool,
+}
+
+impl RequestLogGuard {
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for RequestLogGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        // 499 = client closed request（nginx 约定语义）：请求未达任何服务端终态即被中断。
+        // finalize_incomplete_proxy_log 的 WHERE status_code=0 谓词保证仅翻卡死行，幂等安全。
+        let state = self.state.clone();
+        let id = self.id.clone();
+        let duration_ms = self.start.elapsed().as_millis() as i32;
+        // Drop 发生在 req span 仍 enter 状态（future drop 时 span 未 exit）→ spawn_traced
+        // 在父线程读栈拿到 parent trace_id → 包 info_span 让子任务内 thread-local 栈正确。
+        // 保留 Handle::try_current 守卫：Drop 路径可能在 runtime teardown 后触发（罕见），
+        // 守卫避免无 runtime 时 spawn 静默丢失；spawn_traced 内 tokio::spawn 与 handle.spawn
+        // 在 runtime 上下文内等价（tokio::spawn 即 Handle::current().spawn）。
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            use tracing::Instrument;
+            let parent =
+                crate::logging::current_trace_id().unwrap_or_else(crate::logging::gen_trace_id);
+            let child = crate::logging::gen_child_id(&parent);
+            let span = tracing::info_span!("spawn", name = %"reqlog_guard", trace_id = %child);
+            handle.spawn(async move {
+                if let Err(e) =
+                    aidog_logs::finalize_incomplete_proxy_log(&state.db, &id, 499, duration_ms).await
+                {
+                    tracing::warn!(error = %e, id = %id, "finalize incomplete proxy log failed");
+                }
+            }.instrument(span));
+        }
+    }
+}
+
+async fn handle_proxy_inner(
+    state: AxumState<Arc<ProxyState>>,
+    req: Request,
+    request_id: String,
+) -> Response {
+    // P1 CONNECT 隧道早期分流：authority-form URI（`host:port`）走 CONNECT handler，
+    // 不破现有 /proxy AI 协议 path 路由。fallback 命中 CONNECT 时 request_id 已生成，
+    // 直接复用；CONNECT handler 内部自管日志（upsert_connect_log，独立路径）。
+    //
+    // ponytail: CONNECT 分流前置于 guard + handle_proxy_core —— CONNECT 走独立日志路径
+    // （upsert_connect_log），不经 RequestLogGuard 499 兜底（CONNECT 自管 spawn 内终态）。
+    // 分流从 handle_proxy_core 顶部移到此处的关键原因：打破 handle_proxy_core ↔ handle_connect
+    // 互递归（ST5 明文路径在 connect.rs::handle_connect spawn 内调 handle_proxy_core，若分流
+    // 仍在 core 内则递归类型无法证 Send，tokio::spawn 拒绝）。
+    if req.method() == axum::http::Method::CONNECT {
+        // P2-D：复用 handle_proxy 已生成的 request_id（已挂 req span），传入 handle_connect
+        // 使 CONNECT 子日志行串回 proxy_log.id（与 AI 路径同款 span 对齐）。
+        return super::connect::handle_connect(state, req, request_id).await;
+    }
+
+    // 中断兜底 guard：core 未正常返回（客户端断连致 future drop）时 Drop 补写终态 499。
+    let mut guard = RequestLogGuard {
+        state: state.0.clone(),
+        id: request_id.clone(),
+        start: std::time::Instant::now(),
+        armed: true,
+    };
+    let resp = handle_proxy_core(state, req, request_id, None).await;
+    // 已正常返回 Response（含流式占位）→ 解除兜底：非流式终态已在 DB 非 0，流式由 StreamLogGuard 接管。
+    guard.disarm();
+    resp
+}
+
+pub(crate) async fn handle_proxy_core(
+    AxumState(state): AxumState<Arc<ProxyState>>,
+    mut req: Request,
+    request_id: String,
+    bound_group: Option<Group>,
+) -> Response {
+    let start = std::time::Instant::now();
+    let created_at = aidog_db::now();
+
+    // Load log settings once per request（从 ProxyState 缓存借，零 DB / serde 反序列化）
+    let log_settings = state.settings_cache.read().await.log_settings.clone();
+
+    // ── 初始化日志条目 ──
+    let mut log = ProxyLog {
+        id: request_id,
+        group_key: String::new(),
+        model: String::new(),
+        actual_model: String::new(),
+        source_protocol: String::new(), // will be set from group
+        target_protocol: String::new(),
+        platform_id: 0,
+        request_headers: String::new(),
+        request_body: String::new(),
+        upstream_request_headers: String::new(),
+        upstream_request_body: String::new(),
+        response_body: String::new(),
+        request_url: String::new(),
+        upstream_request_url: String::new(),
+        upstream_response_headers: String::new(),
+        upstream_status_code: 0,
+        user_response_headers: String::new(),
+        user_response_body: String::new(),
+        status_code: 0,
+        duration_ms: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_tokens: 0,
+        cache_write_tokens: 0,
+        est_cost: 0.0,
+        is_stream: false,
+        attempts: Vec::new(),
+        retry_count: 0,
+        blocked_by: String::new(),
+        blocked_reason: String::new(),
+        created_at,
+        updated_at: created_at,
+        done: false,
+        deleted_at: 0,
+        field_trace: String::new(),
+        body_omitted: false,
+    };
+
+    // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
+    let lang = state.settings_cache.read().await.lang;
+
+    // ── 捕获请求头 ──
+    log.request_headers = {
+        let mut h = serde_json::Map::new();
+        for (k, v) in req.headers() {
+            if let Ok(s) = v.to_str() {
+                if is_sensitive_auth_header(k.as_str()) {
+                    h.insert(k.to_string(), Value::String("[REDACTED]".into()));
+                } else {
+                    h.insert(k.to_string(), Value::String(s.to_string()));
+                }
+            }
+        }
+        serde_json::Value::Object(h).to_string()
+    };
+
+    // Extract auth header and path BEFORE consuming the request
+    // group token 来源: Authorization: Bearer <key> (OpenAI/通用) 或 x-api-key (Anthropic SDK/claude-cli)。
+    // 二者皆承载 group_key —— 只读前者会让原生 Anthropic 客户端 (仅发 x-api-key) 在 resolve_group 落空 → 404 no matching group。
+    let auth_header = req
+        .headers()
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            req.headers()
+                .get("x-api-key")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        });
+    let path = req.uri().path().to_string();
+    tracing::info!(method = %req.method(), path = %path, "http request");
+
+    // ── Claude Code 连接预热探测分流（必须在读 body / 首次 upsert_log 之前）──
+    // 客户端启动对 base_url 发 `HEAD /api/hello`（base_url 带 /proxy 前缀 → `/proxy/api/hello`），
+    // 无 Authorization → 走 resolve_group 必 404。
+    // 新需求：探测也进入「请求日志」页，source_protocol=test；仍不碰上游、不解析 body。
+    if is_hello_endpoint(&path) {
+        log.source_protocol = "test".into();
+        log.request_url =
+            build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
+        log.status_code = 200;
+        log.upstream_status_code = 200;
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.into();
+        log.user_response_body = r#"{"service":"aidog","ok":true}"#.into();
+        log.response_body = log.user_response_body.clone();
+        log.done = true;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log, &log_settings).await;
+        return handle_root().await;
+    }
+
+    // ── 记录用户请求 URL（含 host 完整 url：scheme://host/path?query）──
+    // origin-form URI（MITM 解密灌入 / reverse proxy）只有 path 段，须从 Host header 重构完整 url。
+    // absolute-form（forward proxy `GET http://host/path`）req.uri() 本身含 scheme+host，build_url_from_host
+    // 兼容（直接取 uri.scheme_str）；缺 Host header 时 fallback origin-form path-only 行为（不破坏旧日志）。
+    log.request_url =
+        build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
+
+    // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
+    // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前取走原始量。
+    // O3（perf-backend spec §2）：mem::take 移动而非 clone，省一次 HeaderMap 深拷贝。
+    let orig_method = std::mem::take(req.method_mut());
+    let orig_uri = std::mem::take(req.uri_mut());
+    let orig_headers = std::mem::take(req.headers_mut());
+
+    // ── 读取请求体 ──
+    let (_parts, body) = req.into_parts();
+    let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
+        Ok(b) => b,
+        Err(e) => {
+            log.response_body = format!("read body error: {e}");
+            log.status_code = 400;
+            log.done = true;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log, &log_settings).await;
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody)),
+            )
+                .into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
+    };
+    // OOM 止血：request_body 仅在 log_user_request 开启时克隆到 String（默认关 → 省一次全量拷贝）。
+    // model 提取走下方 serde_json::from_slice(&bytes) 借用，不依赖此 String。
+    log.request_body = if log_settings.enabled && log_settings.log_user_request {
+        String::from_utf8_lossy(&bytes).to_string()
+    } else {
+        String::new()
+    };
+    tracing::debug!(method = %orig_method, path = %path, body = %super::log_util::log_body_preview(&log.request_body), "inbound request body");
+
+    // ── 单次解析 request body：提取 model + 缓存完整 JSON ──
+    // ponytail: 最佳情况下只解析一次，但如果 JSON 无效，早期错误路径跳过完整解析
+    let (raw_model, req_value_opt) = serde_json::from_slice::<Value>(&bytes)
+        .ok()
+        .map(|v| {
+            let model = v
+                .get("model")
+                .and_then(|m| m.as_str())
+                .map(String::from)
+                .unwrap_or_default();
+            (model, Some(v))
+        })
+        .unwrap_or_else(|| (String::new(), None));
+    log.model = raw_model.clone();
+
+    // Upsert #1: request received
+    upsert_log(&state, &log, &log_settings).await;
+
+    // ── 模型列表端点分流（必须在 resolve_group 之前）──
+    // GET /v1/models | /models 永不 404：tokenless / 错 token 的模型发现探测此前在 resolve_group
+    // 阶段就 404（晚于旧分流位置），故分流前置于 group 解析之前彻底消除 404 根因。不 relay 上游。
+    // token 在这里只用来挑清单（认得出就报该分组真配的模型，认不出就报默认清单），不做准入。
+    if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
+        return handle_models_list(
+            &state,
+            &mut log,
+            &log_settings,
+            &path,
+            auth_header.as_deref(),
+            start,
+        )
+        .await;
+    }
+
+    // ── 查找分组 ──
+    // CONNECT 层绑定的 group 优先（spec cc-sub-mitm D2）：MITM 明文请求的 Authorization 是
+    // 订阅 OAuth Bearer（resolve_group 必落空），归属由隧道绑定注入；绑定仅出现在 AI API
+    // 端点请求（serve_plaintext 归属注入门），非 API 流量仍走下方 resolve_group → fallback。
+    let group = match bound_group {
+        Some(g) => g,
+        None => {
+            match resolve_group(&state.db, auth_header.as_deref()).await {
+                Some(g) => g,
+                None => {
+                    // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
+                    // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
+                    // API 流量（错 token / 无 token 直连代理自身）仍 404，不旁路。
+                    let host_header = orig_headers
+                        .get(axum::http::header::HOST)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or("");
+                    if should_fallback_passthrough(host_header, state.listen_addr.get().copied()) {
+                        tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
+                        return forward_passthrough_to_orig_host(
+                            &state,
+                            &mut log,
+                            &log_settings,
+                            orig_method,
+                            orig_uri,
+                            orig_headers,
+                            bytes,
+                            start,
+                            lang,
+                        )
+                        .await;
+                    }
+                    if let Some(ref token) = auth_header {
+                        log.response_body =
+                            format!("no matching group for token '{}' or path '{}'", token, path);
+                        log.status_code = 404;
+                        log.done = true;
+                        log.duration_ms = start.elapsed().as_millis() as i32;
+                        upsert_log(&state, &log, &log_settings).await;
+                        let mut r =
+                            (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                        inject_trace_header(&mut r);
+                        return r;
+                    } else {
+                        log.response_body = "no matching group".to_string();
+                        log.status_code = 404;
+                        log.done = true;
+                        log.duration_ms = start.elapsed().as_millis() as i32;
+                        upsert_log(&state, &log, &log_settings).await;
+                        let mut r = (
+                            StatusCode::NOT_FOUND,
+                            i18n::t(lang, ErrorKey::NoMatchingGroup),
+                        )
+                            .into_response();
+                        inject_trace_header(&mut r);
+                        return r;
+                    }
+                }
+            }
+        }
+    };
+
+    // Upsert #2: group resolved
+    log.group_key = group.group_key.clone();
+    // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
+    let source_protocol = detect_source_protocol(&path);
+    log.source_protocol = source_protocol.wire_str();
+    tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
+    upsert_log(&state, &log, &log_settings).await;
+
+    // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
+    // retrieve(GET /v1/responses/{id}) / cancel(POST .../{id}/cancel) / delete(DELETE .../{id})
+    // / compact(POST /v1/responses/compact) / input_items(GET .../{id}/input_items)。
+    // 这些是对某次 create 产生的上游 response 对象的操作，必须原样透传到上游 responses 平台
+    // （body/path 不可经 chat 有损转换；GET/DELETE 空 body 进 chat parse 会 EOF 400）。
+    // create（裸 /v1/responses，无尾段）不被拦，继续走下方 parse + same_protocol_passthrough（已 work）。
+    if is_responses_subendpoint(&path) {
+        return handle_responses_subendpoint(
+            &state,
+            &mut log,
+            &log_settings,
+            &group,
+            &orig_method,
+            &bytes,
+            &path,
+            start,
+            lang,
+        )
+        .await;
+    }
+
+    // ── Anthropic count_tokens 子端点分流（必须在 parse_incoming_request 之前）──
+    // claude-cli 发实际对话前会 POST /v1/messages/count_tokens 预估 token 数。
+    // 该 path 前缀匹配 /v1/messages，若不前置分流会被当普通 messages 转发，且出站
+    // passthrough_api_path 写死 /v1/messages 吞掉 count_tokens 尾段 → 上游按 messages
+    // 处理 count_tokens 形态 body 而崩溃（GLM 实测 500）。命中 → 透传优先 + 本地估算兜底。
+    if is_count_tokens_endpoint(&path) {
+        return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start).await;
+    }
+
+    // ── TypeSafe 决策请求分流（必须在 parse_incoming_request 之前）──
+    // /v1/systemone 的 body 是 TypeSafe 官方格式（answers/usage），非任何 chat 协议，
+    // 进 parse_incoming_request 必失败。决策请求原样转发仅改写 model（jev-decision-proxy §3.4），
+    // 经 router 复用过滤 / 冷却 / 熔断（不照抄 responses.rs 绕过路由的做法）。
+    if is_decision_endpoint(&path) {
+        return handle_decision(&state, &mut log, &log_settings, &group, &bytes, start, lang).await;
+    }
+
+    // ── 解析 ChatRequest（按入站协议解析） ──
+    // ponytail: 复用上面已解析的 req_value_opt，避免重复 from_slice
+    let req_value = match req_value_opt {
+        Some(v) => v,
+        None => {
+            log.response_body = "parse request json error: invalid JSON".to_string();
+            log.status_code = 400;
+            log.done = true;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log, &log_settings).await;
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {}", i18n::t(lang, ErrorKey::ParseJson), "invalid JSON"),
+            )
+                .into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
+    };
+    let mut chat_req: ChatRequest =
+        match adapter::parse_incoming_request(&source_protocol, &req_value, Some(&bytes)) {
+            Ok(r) => r,
+            Err(e) => {
+                log.response_body = format!(
+                    "failed to parse request for protocol ({}): {e}",
+                    log.source_protocol
+                );
+                log.status_code = 400;
+                log.done = true;
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log, &log_settings).await;
+                let mut r = (
+                    StatusCode::BAD_REQUEST,
+                    i18n::t(lang, ErrorKey::ParseRequest),
+                )
+                    .into_response();
+                inject_trace_header(&mut r);
+                return r;
+            }
+        };
+
+    let is_stream = chat_req.stream.unwrap_or(false);
+    log.is_stream = is_stream;
+    // gemini 入站的模型名在 URL path（`/v1beta/models/<model>:generateContent`）而非 body，
+    // body 与 `from_gemini` 两处都取不到 → 路由拿到空模型名：模型映射不命中，且出站
+    // `/v1beta/models/{model}:…` 的模型段为空。故 gemini 源从 path 兜底取模型（票 09）。
+    let raw_model = if raw_model.is_empty() && matches!(source_protocol, Protocol::Gemini) {
+        model_from_gemini_path(&path)
+    } else {
+        raw_model
+    };
+    let requested_model = if chat_req.model.is_empty() {
+        raw_model
+    } else {
+        chat_req.model.clone()
+    };
+    log.model = requested_model.clone();
+    // 路由按 `chat_req.model` 选候选（下方 select_candidates_ctx），gemini 源此处仍为空，
+    // 补齐后模型映射与出站 path 才拿得到模型名。其余协议 model 本就来自 body，此赋值等价空操作。
+    if chat_req.model.is_empty() {
+        chat_req.model = requested_model.clone();
+    }
+
+    // group 层命中的 inject/header_set 在此收集，路由后由 forward_attempt 写进上游请求头
+    //（此处还没选定平台，谈不上"上游请求"）。
+    let mut group_header_injects: Vec<(String, String)> = Vec::new();
+
+    // ── 中间件入站规则（global/group 层，路由前）──
+    // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。
+    // 顺序：request_filter→sensitive_word→redaction→content_filter→dynamic_injection。
+    {
+        let mw_settings = state
+            .settings_cache
+            .read()
+            .await
+            .middleware_settings
+            .clone();
+        // request_headers 条件求值用 log.request_headers（已按 proxy_log 规则脱敏的
+        // 请求头 JSON），规则可匹配 header 名/非敏感值，敏感头值为 [REDACTED] 不落明文。
+        let outcome = state.middleware.apply_inbound(
+            &mw_settings,
+            &mut chat_req,
+            Some(&group.group_key),
+            Some(&log.request_headers),
+            &mut group_header_injects,
+        );
+        match outcome {
+            InboundOutcome::Blocked {
+                blocked_by,
+                blocked_reason,
+            } => {
+                return block_inbound(
+                    &state,
+                    log,
+                    &log_settings,
+                    lang,
+                    blocked_by,
+                    blocked_reason,
+                    start,
+                )
+                .await;
+            }
+            // 观察模式命中（票 04）：请求照常转发、照常计费，只标审计列。
+            InboundOutcome::Observed { blocked_by } => record_observed(&mut log, blocked_by),
+            InboundOutcome::Continue => {}
+        }
+        // 成本预算闸门（票 06）：本自然月花费超预算 → 拒绝。无 budget_gate 规则时零查询。
+        if let InboundOutcome::Blocked {
+            blocked_by,
+            blocked_reason,
+        } = state
+            .middleware
+            .check_budget(
+                &mw_settings,
+                &state.db,
+                &chat_req,
+                // 路由还没发生 → 拿不到重映射后的上游模型名，只能用客户端请求名。
+                // 口径说明见 aidog_middleware::budget 模块头。
+                &chat_req.model,
+                Some(&group.group_key),
+                None,
+                Some(&log.request_headers),
+            )
+            .await
+        {
+            return block_inbound(
+                &state,
+                log,
+                &log_settings,
+                lang,
+                blocked_by,
+                blocked_reason,
+                start,
+            )
+            .await;
+        }
+    }
+
+    // ── 路由选择有序候选平台列表（失败逐个重试）──
+    // 调度上下文：scheduler(熔断+延迟+在途) / sticky(粘性绑定) / scheduling settings。
+    let sched_settings = aidog_db::get_scheduling_settings(&state.db).await;
+    // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_key + 客户端稳定标识。
+    // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_key。
+    let sticky_key = {
+        let client_id = orig_headers
+            .get("x-session-id")
+            .or_else(|| orig_headers.get("session_id"))
+            .or_else(|| orig_headers.get("user-agent"))
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        Some(format!("{}|{}", group.group_key, client_id))
+    };
+    let sched_ctx = ScheduleCtx {
+        scheduler: &state.scheduler,
+        sticky: &state.sticky,
+        settings: &sched_settings,
+        sticky_key,
+    };
+    let candidate_set = match select_candidates_ctx(
+        &state.db,
+        &group,
+        &chat_req.model,
+        Some(&sched_ctx),
+        RequestKind::Chat,
+    )
+    .await
+    {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
+            // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
+            // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
+            // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
+            //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
+            if e == "no_chat_platform" || e == "peak_disabled" {
+                return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
+            }
+            log.response_body = format!("route error: {e}");
+            log.status_code = 400;
+            log.done = true;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log, &log_settings).await;
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                format!("{}: {e}", i18n::t(lang, ErrorKey::Route)),
+            )
+                .into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
+    };
+
+    let candidates: Vec<RouteResult> = candidate_set.candidates;
+
+    // ── Mock / ClaudeCode 透传：不参与重试（非目标），仅按首选候选终态处理。
+    // 二者本地生成 / 1:1 relay，无候选切换语义；放在重试循环外避免 move-in-loop 与无意义重试。──
+    {
+        let first = &candidates[0];
+        if matches!(first.platform.platform_type, Protocol::Mock) {
+            log.actual_model = first.target_model.clone();
+            log.platform_id = first.platform.id;
+            log.target_protocol = format!("{:?}", first.platform.platform_type).to_lowercase();
+            chat_req.model = first.target_model.clone();
+            tracing::info!(platform = %first.platform.name, "mock platform intercept, generating local response");
+            return handle_mock(
+                state,
+                log,
+                log_settings,
+                &first.platform.extra,
+                &chat_req,
+                &req_value,
+                &source_protocol,
+                &requested_model,
+                is_stream,
+                start,
+            )
+            .await;
+        }
+        if matches!(first.platform.platform_type, Protocol::ClaudeCode) {
+            log.platform_id = first.platform.id;
+            tracing::info!(platform = %first.platform.name, base_url = %first.platform.base_url, "claude-code passthrough intercept (1:1 relay)");
+            let base_url = first.platform.base_url.clone();
+            return handle_passthrough(
+                &state,
+                &mut log,
+                &log_settings,
+                orig_method,
+                orig_uri,
+                orig_headers,
+                bytes,
+                &base_url,
+                start,
+                lang,
+            )
+            .await;
+        }
+        // ── Devin（Cognition）：stateful session API，接入走 handle_devin（不经 forward_attempt / wire 层）。
+        // 重试循环外拦截（与 Mock / ClaudeCode 同层）：Devin 单 session 即终态，无候选切换语义。──
+        if matches!(first.platform.platform_type, Protocol::Devin) {
+            let platform = first.platform.clone();
+            log.target_protocol = "devin".to_string();
+            tracing::info!(platform = %platform.name, base_url = %platform.base_url, "devin session intercept (chat↔session)");
+            return super::devin::handle_devin(
+                state,
+                log,
+                log_settings,
+                &platform,
+                &chat_req,
+                &req_value,
+                &source_protocol,
+                &requested_model,
+                is_stream,
+                start,
+                lang,
+                &orig_headers,
+            )
+            .await;
+        }
+    }
+
+    // ── 重试编排：遍历候选，逐个 forward。
+    //   2xx → 成功（曾 auto_disabled 则恢复 enabled），进入下游成功处理直接 return。
+    //   401/402 → 内存 auth 冷却 5 分钟（不写 DB），换下个候选。
+    //   其他错误(5xx/超时/连接失败) → 换下个候选。
+    //   每次尝试均 record 进 attempts；超过 max_retries 或候选耗尽 → 返回最后一次错误。
+    let max_retries = group.max_retries as usize;
+    let mut attempts: Vec<ProxyAttempt> = Vec::new();
+    let candidate_total = candidates.len();
+    // R3（2026-09-28）：本次请求内已 connect 失败的 base_url 集合。死站对同站兄弟条目同样
+    // 连不上（站级事实，与 key 无关），后续候选命中同 base_url 直接跳过，省一遍 15s connect 死等。
+    // 仅 connect 失败联动；429/401 等 key 级错误不联动（同站不同 key 仍各有机会）。
+    let mut dead_base_urls: std::collections::HashSet<String> = std::collections::HashSet::new();
+
+    for (attempt_idx, route) in candidates.into_iter().enumerate() {
+        // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
+        if attempt_idx > max_retries {
+            break;
+        }
+        if dead_base_urls.contains(&route.platform.base_url) {
+            tracing::warn!(
+                platform = %route.platform.name, base_url = %route.platform.base_url,
+                "same-base_url sibling already failed to connect this request, skipping (R3)"
+            );
+            continue;
+        }
+        let route_base_url = route.platform.base_url.clone();
+        let attempt_start = std::time::Instant::now();
+        let attempt_ts = aidog_db::now();
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+
+        match forward_attempt(
+            &state,
+            &mut log,
+            &mut attempts,
+            route,
+            candidate_total,
+            is_last_candidate,
+            attempt_start,
+            attempt_ts,
+            &log_settings,
+            lang,
+            &group,
+            &mut chat_req,
+            &req_value,
+            &source_protocol,
+            &requested_model,
+            is_stream,
+            &orig_headers,
+            &sched_settings,
+            start,
+            &group_header_injects,
+        )
+        .await
+        {
+            AttemptOutcome::Respond(r) => return r,
+            AttemptOutcome::Next { connect_failed } => {
+                if connect_failed {
+                    dead_base_urls.insert(route_base_url);
+                }
+                continue;
+            }
+        }
+    } // ── end retry loop (for candidate) ──
+
+    // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
+    // 仅 attempt_idx > max_retries 的 break 会落到这里）。返回 503 + 已记录的 attempts。
+    log.status_code = 503;
+    log.done = true;
+    let err_body = format!(
+        "{}: all candidates exhausted",
+        i18n::t(lang, ErrorKey::Upstream)
+    );
+    log.response_body = "all candidates exhausted".to_string();
+    log.user_response_body = err_body.clone();
+    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.attempts = std::mem::take(&mut attempts);
+    upsert_log(&state, &log, &log_settings).await;
+    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    inject_trace_header(&mut r);
+    r
+}

@@ -1,0 +1,26 @@
+[package]
+name = "aidog_notification"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# aidog_notification：通知域（dispatch/render/tts/vars，拆自 aidog_core::gateway::notification，
+# 2026-08-16）。
+[dependencies]
+aidog_ctx = { path = "../aidog_ctx" }
+aidog_db = { path = "../aidog_db" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+chrono = { workspace = true }
+
+# tts.rs 的 CrossPlatform 后端；macOS 走系统 `say`，不需要它。
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+tts = { workspace = true }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true }
+tokio = { workspace = true }
+tempfile = { workspace = true }
+aidog_stats = { path = "../aidog_stats" }
