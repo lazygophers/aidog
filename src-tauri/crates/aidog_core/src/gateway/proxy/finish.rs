@@ -411,8 +411,10 @@ where
         // sse_line_buf 拼接后完整，同转换分支 idiom；字节内容除 model 外原样 relay）。──
         let out_bytes = if passthrough_response {
             // 跨 chunk 行重组后累计 usage（逐 chunk .lines() 会因 data: 行被切断而丢 usage）。
-            guard.agg.feed_sse_usage(&text);
+            // O8 收尾（perf-followup 票 10）：先经 sse_line_buf 重组再喂 usage，
+            // 一份行切分喂两处（原 feed_sse_usage(&text) 自带一套缓冲切分，重复扫一遍）。
             let line_ready_text = sse_line_buf.feed(&text);
+            guard.agg.feed_sse_usage(&line_ready_text);
             // 禁用思考：逐帧剔上游思维链帧（帧被 chunk 切断时由 stripper 内部缓冲）。
             // 末帧可能不带结尾空行 → 见到终止哨兵时冲刷残留，避免吞掉 message_stop / [DONE]。
             let line_ready_text = match sse_thinking_stripper.as_mut() {
@@ -427,21 +429,29 @@ where
                 }
                 None => line_ready_text,
             };
-            if line_ready_text.contains("\"model\"") {
+            if line_ready_text.contains("\"model\"")
+                // O8 收尾：上游自报模型已定格且与客户端请求一致时，改写必是恒等替换，
+                // 整块跳过 contains 扫描后的正则改写（同模型透传是常态路径）。
+                && guard
+                    .agg
+                    .peek_served_model()
+                    .is_none_or(|m| m != model_for_sse)
+            {
                 Bytes::from(replace_model_in_sse_text(&line_ready_text, &model_for_sse))
             } else {
                 Bytes::from(line_ready_text)
             }
         } else {
-            // token 累计走跨 chunk 行重组（逐 chunk .lines() 会因 data: 行被切断丢 usage）。
-            guard.agg.feed_sse_usage(&text);
+            // O8 收尾（perf-followup 票 10）：usage 累计并入事件解析单遍完成
+            // （parse_sse_events_and_usage 一次 serde 同时出事件 + usage + model 观察），
+            // 替代 feed_sse_usage + parse_upstream_sse 对同一批行的两次解析。
             // 内容路径同型跨 chunk 行重组：完整行立即随本 chunk 下发（不攒批，避免首 token
             // 时延退化），不完整尾行留 sse_line_buf 等下个 chunk 拼接（design.md 修法）。
             let line_ready_text = sse_line_buf.feed(&text);
             let mut output = String::new();
             // 上游帧格式（`data: ` 分帧 / DONE 哨兵 / 各协议 JSON 解析）知识全部收在 adapter 侧，
             // 此处只负责 model 字段改写 + 按客户端协议渲染下发。
-            for event in adapter::parse_upstream_sse(&line_ready_text, &protocol) {
+            for event in guard.agg.parse_sse_events_and_usage(&line_ready_text, &protocol) {
                 let event = if !model_for_sse.is_empty() {
                     match event {
                         ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
