@@ -113,7 +113,9 @@
             "vendor",
             ".wiki",
             ".ask-ui",
-            "graphify-out"
+            "graphify-out",
+            ".scratch",
+            ".claude"
         ]
     },
     "sandbox": {
