@@ -1,0 +1,24 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "Atria-Dawn-Preview",
+  "display_name": "Atria-Dawn-Preview",
+  "canonical_model": "atria-dawn-preview",
+  "family": "atria",
+  "capabilities": [
+    "text",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "free": true,
+    "input": 0.0,
+    "output": 0
+  }
+}

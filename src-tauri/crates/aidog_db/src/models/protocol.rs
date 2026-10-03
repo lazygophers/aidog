@@ -48,6 +48,10 @@ pub enum Protocol {
     /// Kimi 国际版（Moonshot AI，api.moonshot.ai）：模型集与美元价目独立于 CN 版。
     #[serde(rename = "kimi_en")]
     KimiEn,
+    /// 书生·端砚 Intern InkStone TokenPlan（上海 AI 实验室，discovery.intern-ai.org.cn）：
+    /// OpenAI/Anthropic 兼容双端点（discovery-api.intern-ai.org.cn），计价单位墨点（¥1/墨点）。
+    #[serde(rename = "intern_inkstone")]
+    InternInkstone,
     #[serde(rename = "minimax")]
     MiniMax,
     #[serde(rename = "minimax_en")]

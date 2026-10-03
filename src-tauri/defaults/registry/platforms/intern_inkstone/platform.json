@@ -1,0 +1,66 @@
+{
+  "last_updated": 1791041274,
+  "endpoints": {
+    "default": [
+      {
+        "protocol": "openai",
+        "base_url": "https://discovery-api.intern-ai.org.cn/v1"
+      },
+      {
+        "protocol": "openai_responses",
+        "base_url": "https://discovery-api.intern-ai.org.cn"
+      },
+      {
+        "protocol": "anthropic",
+        "base_url": "https://discovery-api.intern-ai.org.cn"
+      }
+    ]
+  },
+  "models": {
+    "default": {
+      "default": "glm-5.3"
+    }
+  },
+  "model_list": {
+    "default": [
+      "intern-s2",
+      "Atria-Dawn-Preview",
+      "Agents-A1",
+      "deepseek-v4-flash-0731",
+      "deepseek-v4-flash-vision",
+      "deepseek-v4-pro-0813",
+      "glm-5.3",
+      "kimi-k2.6",
+      "MiniMax-M3",
+      "qwen3.8-27b"
+    ]
+  },
+  "name": {
+    "en-US": "Intern InkStone",
+    "zh-Hans": "书生·端砚",
+    "ar-SA": "Intern InkStone",
+    "fr-FR": "Intern InkStone",
+    "de-DE": "Intern InkStone",
+    "ru-RU": "Intern InkStone",
+    "ja-JP": "Intern InkStone",
+    "es-ES": "Intern InkStone"
+  },
+  "source_urls": {
+    "docs": "https://discovery.intern-ai.org.cn/token-plan/home",
+    "pricing": "https://discovery.intern-ai.org.cn/token-plan/home"
+  },
+  "homepage": "https://discovery.intern-ai.org.cn",
+  "logo_url": "",
+  "keywords": [
+    "intern",
+    "inkstone",
+    "书生",
+    "shusheng",
+    "ss",
+    "端砚",
+    "duanyan",
+    "dy",
+    "tokenplan"
+  ],
+  "color": "#165DFF"
+}

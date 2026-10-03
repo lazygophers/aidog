@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "Agents-A1",
+  "display_name": "Agents-A1",
+  "canonical_model": "agents-a1",
+  "family": "agents",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "free": true,
+    "input": 0.0,
+    "output": 0
+  }
+}

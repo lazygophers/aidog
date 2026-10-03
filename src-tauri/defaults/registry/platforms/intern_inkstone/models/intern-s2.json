@@ -1,0 +1,25 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "intern-s2",
+  "display_name": "书生-S2",
+  "canonical_model": "intern-s2",
+  "family": "intern",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "free": true,
+    "input": 0.0,
+    "output": 0
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "kimi-k2.6",
+  "display_name": "Kimi-K2.6",
+  "canonical_model": "kimi-k2.6",
+  "family": "kimi",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 9.027777777777778e-07,
+    "output": 3.75e-06,
+    "cache_read": 1.527777777777778e-07
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": false
+}
