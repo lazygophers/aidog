@@ -79,7 +79,7 @@ dependencies = [
 
 [[package]]
 name = "aidog"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aes-gcm",
  "aidog_adapter",
@@ -146,7 +146,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_adapter"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "aidog_logs",
@@ -162,7 +162,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_backup"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_core",
  "aidog_ctx",
@@ -181,7 +181,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_core"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aes-gcm",
  "aidog_adapter",
@@ -249,7 +249,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_ctx"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "aidog_middleware",
@@ -260,7 +260,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_db"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "chrono",
  "chrono-tz",
@@ -284,7 +284,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_hooks"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "serde",
@@ -294,7 +294,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_i18n"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "serde",
  "serde_json",
@@ -302,7 +302,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_kernel"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_adapter",
  "aidog_backup",
@@ -328,7 +328,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_logs"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "chrono",
@@ -343,7 +343,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_mcp"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "chrono",
@@ -360,7 +360,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_menubar_ffi"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_core",
  "serde_json",
@@ -369,7 +369,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_middleware"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_adapter",
  "aidog_db",
@@ -384,7 +384,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_mitm"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "chrono",
@@ -408,7 +408,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_notification"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_ctx",
  "aidog_db",
@@ -425,7 +425,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_skills"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "chrono",
@@ -440,7 +440,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_stats"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_db",
  "aidog_logs",
@@ -456,7 +456,7 @@ dependencies = [
 
 [[package]]
 name = "aidog_test_util"
-version = "0.1.17"
+version = "0.1.18"
 dependencies = [
  "aidog_core",
  "aidog_db",
