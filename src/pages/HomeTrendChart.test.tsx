@@ -95,13 +95,20 @@ describe("HomeTrendChart（组件）", () => {
     loading: false,
   };
 
-  it("默认按平台 + Token 指标模式渲染堆叠面积与右轴请求线", () => {
+  it("默认总计 + Token 指标模式渲染单层面积与右轴请求线", () => {
     const { container } = render(<HomeTrendChart {...props} />);
     expect(container.querySelectorAll(".recharts-area").length).toBe(1);
     expect(container.querySelectorAll(".recharts-line").length).toBe(1); // 右轴请求线
-    expect(screen.getByText("home.tabPlatform").closest("button")?.getAttribute("aria-pressed")).toBe("true");
-    expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("p0");
+    expect(screen.getByRole("button", { name: "home.tabTotal" }).getAttribute("aria-pressed")).toBe("true");
+    // 总计层 = platformSeries 全合并，label 取 tabTotal key（测试 i18n 返 key）
+    expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("home.tabTotal");
     expect(screen.getByText("home.tokens").closest("button")?.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("切到按平台 → 消费 platformSeries 数据", () => {
+    const { container } = render(<HomeTrendChart {...props} />);
+    fireEvent.click(screen.getByText("home.tabPlatform"));
+    expect(container.querySelector(".recharts-legend-wrapper")?.textContent).toContain("p0");
   });
 
   it("切到按模型 → 消费 modelSeries 数据", () => {
