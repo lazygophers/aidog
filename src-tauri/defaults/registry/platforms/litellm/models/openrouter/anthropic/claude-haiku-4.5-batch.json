@@ -1,0 +1,27 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/anthropic/claude-haiku-4.5:batch",
+  "display_name": "Anthropic: Claude Haiku 4.5 (batch)",
+  "canonical_model": "claude-haiku-4.5:batch",
+  "family": "claude",
+  "version": "4.5",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 64000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5e-07,
+    "output": 2.5e-06
+  }
+}

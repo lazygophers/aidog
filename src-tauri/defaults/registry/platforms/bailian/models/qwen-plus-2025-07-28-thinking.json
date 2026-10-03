@@ -1,0 +1,23 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "qwen-plus-2025-07-28:thinking",
+  "canonical_model": "qwen-plus-2025-07-28:thinking",
+  "family": "qwen",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 1000000,
+  "max_output_tokens": 32768,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 2.6e-07,
+    "output": 7.8e-07,
+    "cache_write": 3.25e-07,
+    "cache_read": 0
+  }
+}

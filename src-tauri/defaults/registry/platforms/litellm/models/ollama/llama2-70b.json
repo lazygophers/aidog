@@ -1,0 +1,22 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "ollama/llama2:70b",
+  "canonical_model": "llama2-70b",
+  "family": "llama",
+  "capabilities": [
+    "text"
+  ],
+  "max_input_tokens": 4096,
+  "context_window": 4096,
+  "max_output_tokens": 4096,
+  "official": false,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

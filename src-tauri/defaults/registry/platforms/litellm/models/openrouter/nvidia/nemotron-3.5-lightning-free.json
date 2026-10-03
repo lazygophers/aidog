@@ -1,0 +1,26 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/nvidia/nemotron-3.5-lightning:free",
+  "display_name": "NVIDIA: Nemotron 3.5 Lightning (free)",
+  "canonical_model": "nemotron-3.5-lightning:free",
+  "family": "nemotron",
+  "version": "3.5",
+  "capabilities": [
+    "text",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "max_output_tokens": 65536,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 0,
+    "output": 0
+  }
+}

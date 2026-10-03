@@ -1,0 +1,28 @@
+{
+  "model_id": "openai/gpt-4o:batch",
+  "display_name": "OpenAI: GPT-4o (batch)",
+  "canonical_model": "gpt-4o",
+  "family": "gpt",
+  "version": "4o",
+  "max_input_tokens": 128000,
+  "context_window": 128000,
+  "official": true,
+  "max_output_tokens": 16384,
+  "thinking_supported": false,
+  "thinking_toggleable": false,
+  "price": {
+    "input": 1.25e-06,
+    "output": 5e-06,
+    "cache_read": 6.25e-07
+  },
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use"
+  ]
+}

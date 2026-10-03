@@ -1,0 +1,27 @@
+{
+  "last_updated": 1791007402,
+  "supported_protocols": [
+    "openai"
+  ],
+  "model_id": "openrouter/openai/o4-mini:batch",
+  "display_name": "OpenAI: o4 Mini (batch)",
+  "canonical_model": "o4-mini:batch",
+  "family": "o",
+  "version": "4",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 200000,
+  "context_window": 200000,
+  "max_output_tokens": 100000,
+  "official": false,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 5.5e-07,
+    "output": 2.2e-06
+  }
+}
