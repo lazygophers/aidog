@@ -587,8 +587,8 @@ pub fn filtered_count_proxy_logs<'a>(
 /// 请求日志页列表查询。
 ///
 /// 语义契约：
-/// - **默认 sources=[test, quota]**：调用方未显式传 sources 时强制覆盖为平台测试 +
-///   quota 探测两类（与 Logs 主页 `exclude_sources=[test,quota]` 相反，互不重叠）。
+/// - **默认 sources=[test, quota, fetch-models]**：调用方未显式传 sources 时强制覆盖为
+///   平台测试 + quota 探测 + 模型列表拉取三类（与 Logs 主页 `exclude_sources` 相反，互不重叠）。
 ///   调用方显式传 sources（含空 Vec）则尊重原值（`Some(vec![])` = 无条件包含所有 source）。
 /// - 复用 `build_filter_where`：platform_id / group_key / status / time / model / path / sources /
 ///   exclude_sources 全部生效。
@@ -604,9 +604,13 @@ pub fn list_request_logs<'a>(
     let __db_caller = std::panic::Location::caller();
     async move {
         let mut filter = filter.clone();
-        // 默认 sources 兜底：None → [test, quota]；Some(_) 尊重调用方（含空 Vec = 全 source）。
+        // 默认 sources 兜底：None → [test, quota, fetch-models]；Some(_) 尊重调用方（含空 Vec = 全 source）。
         if filter.sources.is_none() {
-            filter.sources = Some(vec!["test".to_string(), "quota".to_string()]);
+            filter.sources = Some(vec![
+                "test".to_string(),
+                "quota".to_string(),
+                "fetch-models".to_string(),
+            ]);
         }
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
@@ -714,10 +718,11 @@ fn build_filter_where(
         // 过滤的场景在此表上恒不触发），OR 分支是永假的死代码，删之不改变任何结果集。
         //
         // ⚠️ 本段谓词本身（`source_protocol NOT IN (...)`）**非恒真/非死代码**：Logs 主页
-        // 默认 exclude_sources=["test","quota"]（useLogsFilters.ts:39/:62），而这两类值
+        // 默认 exclude_sources=["test","quota","fetch-models"]（useLogsFilters.ts），而这三类值
         // 会被真实写入 proxy_log（ai_tools_cmd/model_test.rs:157 `source_protocol: "test"`、
-        // gateway/quota/http.rs:187 `source_protocol: "quota"`）。跳过此谓词会让
-        // 测试/quota 探测请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
+        // gateway/quota/http.rs:187 `source_protocol: "quota"`、
+        // platform_cmd/model_fetch.rs `source_protocol: "fetch-models"`）。跳过此谓词会让
+        // 测试/quota/模型拉取请求泄漏进主 Logs 列表，是行为回归，故**不跳过**（详见
         // research/s3-predicate.md 的恒真判定）。
         parts.push(format!(
             "AND source_protocol NOT IN ({})",
