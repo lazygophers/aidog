@@ -19,7 +19,7 @@ DisableProgramGroupPage=yes
 ; 与老 Tauri 壳同一个应用槽位：跨栈升级 = 原地替换，回滚 = 重装上一个 Tauri 安装包。
 UsedUserAreasWarning=no
 OutputDir=..\build\installer
-OutputBaseName=AiDog-Flutter-v{#MyAppVersion}-x64-setup
+OutputBaseFilename=AiDog-Flutter-v{#MyAppVersion}-x64-setup
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
