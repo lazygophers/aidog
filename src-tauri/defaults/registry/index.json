@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1791041274,
   "platforms": [
     {
       "code": "aihubmix",
@@ -3208,6 +3208,24 @@
         "glm-image.json",
         "glm-ocr.json",
         "glm-5.3-flashx.json"
+      ]
+    },
+    {
+      "code": "intern_inkstone",
+      "name": "Intern InkStone",
+      "platform_file": "platforms/intern_inkstone/platform.json",
+      "models_dir": "platforms/intern_inkstone/models",
+      "models": [
+        "Agents-A1.json",
+        "Atria-Dawn-Preview.json",
+        "MiniMax-M3.json",
+        "deepseek-v4-flash-0731.json",
+        "deepseek-v4-flash-vision.json",
+        "deepseek-v4-pro-0813.json",
+        "glm-5.3.json",
+        "intern-s2.json",
+        "kimi-k2.6.json",
+        "qwen3.8-27b.json"
       ]
     },
     {

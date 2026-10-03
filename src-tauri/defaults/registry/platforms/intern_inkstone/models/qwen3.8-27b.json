@@ -1,0 +1,27 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "model_id": "qwen3.8-27b",
+  "display_name": "Qwen3.8-27B",
+  "canonical_model": "qwen3.8-27b",
+  "family": "qwen",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 262144,
+  "context_window": 262144,
+  "official": true,
+  "price": {
+    "input": 1.1111111111111112e-07,
+    "output": 3.75e-07,
+    "cache_read": 1.388888888888889e-08
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": false
+}

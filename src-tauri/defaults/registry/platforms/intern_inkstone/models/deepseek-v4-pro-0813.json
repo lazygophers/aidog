@@ -1,0 +1,28 @@
+{
+  "last_updated": 1791041274,
+  "supported_protocols": [
+    "anthropic",
+    "openai",
+    "openai_responses"
+  ],
+  "model_id": "deepseek-v4-pro-0813",
+  "display_name": "DeepSeek-V4-Pro-0813",
+  "canonical_model": "deepseek-v4-pro-0813",
+  "family": "deepseek",
+  "capabilities": [
+    "text",
+    "vision",
+    "tool_use",
+    "reasoning"
+  ],
+  "max_input_tokens": 1048576,
+  "context_window": 1048576,
+  "official": true,
+  "price": {
+    "input": 6.25e-07,
+    "output": 1.875e-06,
+    "cache_read": 2.083333333333333e-08
+  },
+  "thinking_supported": true,
+  "thinking_toggleable": false
+}
