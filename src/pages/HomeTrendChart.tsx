@@ -5,15 +5,16 @@
 // 纯函数（buildDimTrend / buildSparkMap）导出供 Home.test 范式单测；组件只做 tab / 指标切换。
 import { useMemo, useState, type CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { useThemeMode } from "../themes/useThemeMode";
 import type { StatsBucket, StatsSeries } from "../services/api";
 import type { ChartConfig } from "@/components/ui/chart";
 import { StackedAreaChart, bucketMs } from "@/components/charts";
 import { formatNumber, formatCostUsd } from "../utils/formatters";
 import { F } from "../domains/shared/tokens";
-import { DIM_TOP_N, PANEL } from "./Home";
+import { DIM_TOP_N, usePanel, type PanelTokens } from "./Home";
 
 export type TrendMetric = "cost" | "tokens";
-export type TrendDim = "platform" | "model" | "group";
+export type TrendDim = "total" | "platform" | "model" | "group";
 
 const bucketTokens = (b: StatsBucket) => b.input_tokens + b.output_tokens + b.cache_tokens;
 const seriesTokens = (s: StatsSeries) => s.buckets.reduce((sum, b) => sum + bucketTokens(b), 0);
@@ -104,13 +105,14 @@ export function buildSparkMap(series: StatsSeries[], ungroupedLabel?: string): M
 // tab 切换器：对齐面板内控件 idiom（cmd-kb chip 同源 token——s1 深底 + line 描边 +
 // 琥珀 hover/激活），不走主题 CSS 变量（面板是硬编码深色面，浅色主题下深字不可读）。
 const AMBER = "#e8c547";
-const tabButton = (active: boolean): CSSProperties => ({
+const AMBER_TEXT_DARK = "#8a6d1e"; // 浅色底上琥珀文字改深（对比度），洗底/描边两模式通用
+const tabButton = (active: boolean, p: PanelTokens, mode: string): CSSProperties => ({
   fontSize: 11,
   padding: "3px 10px",
   borderRadius: 6,
-  border: `1px solid ${active ? "rgba(232,197,71,.4)" : PANEL.line}`,
+  border: `1px solid ${active ? "rgba(232,197,71,.4)" : p.line}`,
   background: active ? "rgba(232,197,71,.12)" : "transparent",
-  color: active ? AMBER : PANEL.muted,
+  color: active ? (mode === "light" ? AMBER_TEXT_DARK : AMBER) : p.muted,
   cursor: "pointer",
   whiteSpace: "nowrap",
 });
@@ -130,18 +132,30 @@ export function HomeTrendChart({
   loading: boolean;
 }) {
   const { t } = useTranslation();
-  // 默认按平台（2026-09-27 用户拍板：维度趋势缺按平台，默认应是按平台）；指标默认
-  // Token（2026-09-27 用户拍板：所有榜单/趋势默认按 tokens 而非价格）。
-  const [dim, setDim] = useState<TrendDim>("platform");
+  const P = usePanel();
+  const mode = useThemeMode();
+  // 默认总计（2026-10-03 用户拍板：缺全局总览，总计应作默认；此前默认按平台是
+  // 2026-09-27 拍板）；指标默认 Token（2026-09-27 用户拍板：默认按 tokens 而非价格）。
+  const [dim, setDim] = useState<TrendDim>("total");
   const [metric, setMetric] = useState<TrendMetric>("tokens");
 
-  const series = dim === "model" ? modelSeries : dim === "group" ? groupSeries : platformSeries;
+  // 总计 = 平台序列全合并（平台维度是请求的完整划分，跨维度恒同一条总曲线）。
+  const totalSeries = useMemo(
+    () => [{ ...mergeSeries(platformSeries), name: t("home.tabTotal", "总计") }],
+    [platformSeries, t],
+  );
+  const series =
+    dim === "total" ? totalSeries
+      : dim === "model" ? modelSeries
+        : dim === "group" ? groupSeries
+          : platformSeries;
   const { config, rows } = useMemo(
     () => buildDimTrend(series, metric, { other: t("home.dimOther", "其它"), ungrouped: dim === "group" ? ungroupedLabel : undefined }),
     [series, metric, t, dim, ungroupedLabel],
   );
 
   const dims: { id: TrendDim; key: string; def: string }[] = [
+    { id: "total", key: "home.tabTotal", def: "总计" },
     { id: "platform", key: "home.tabPlatform", def: "按平台" },
     { id: "model", key: "home.tabModel", def: "按模型" },
     { id: "group", key: "home.tabGroup", def: "按分组" },
@@ -154,18 +168,18 @@ export function HomeTrendChart({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-        <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t("home.dimTrendTitle", "维度趋势 · 24 小时")}</b>
+        <b style={{ fontSize: F.small + 1, color: P.fg }}>{t("home.dimTrendTitle", "维度趋势 · 24 小时")}</b>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
           <div role="group" aria-label={t("home.dimTrendTitle", "维度趋势 · 24 小时")} style={{ display: "flex", gap: 4 }}>
             {dims.map(d => (
-              <button key={d.id} type="button" style={tabButton(dim === d.id)} aria-pressed={dim === d.id} onClick={() => setDim(d.id)}>
+              <button key={d.id} type="button" style={tabButton(dim === d.id, P, mode)} aria-pressed={dim === d.id} onClick={() => setDim(d.id)}>
                 {t(d.key, d.def)}
               </button>
             ))}
           </div>
           <div role="group" aria-label={t("home.dimMetric", "tokens / 花费 / 请求")} style={{ display: "flex", gap: 4 }}>
             {metrics.map(m => (
-              <button key={m.id} type="button" style={tabButton(metric === m.id)} aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>
+              <button key={m.id} type="button" style={tabButton(metric === m.id, P, mode)} aria-pressed={metric === m.id} onClick={() => setMetric(m.id)}>
                 {t(m.key, m.def)}
               </button>
             ))}
@@ -177,7 +191,7 @@ export function HomeTrendChart({
           tooltip 自带 bg-background 不透明面，深浅主题本就可读）。 */}
       <StackedAreaChart
         bare
-        textColor={PANEL.muted}
+        textColor={P.muted}
         config={config}
         data={rows}
         height={240}

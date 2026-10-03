@@ -32,6 +32,7 @@ import { seriesColor } from "@/components/charts";
 import { HomeTrendChart, buildSparkMap } from "./HomeTrendChart";
 import { ProtocolLogo } from "../domains/platforms/ProtocolLogo";
 import { F } from "../domains/shared/tokens";
+import { useThemeMode } from "../themes/useThemeMode";
 
 export const DIM_TOP_N = 8;
 const DEFAULT_PORT = 7890;
@@ -98,6 +99,24 @@ export const PANEL = {
   line: "rgba(255,255,255,.07)",
   mono: '"SF Mono", ui-monospace, Menlo, monospace',
 } as const;
+
+// 浅色面板调色板（2026-10-03 用户报告浅色模式主页未适配）：暖纸面系，
+// 与暗色 PANEL 同构，由 usePanel 按主题切换。
+export type PanelTokens = { -readonly [K in keyof typeof PANEL]: string };
+const PANEL_LIGHT: PanelTokens = {
+  fg: "#1f1e1b",
+  muted: "#6f6a62",
+  s1: "#ffffff",
+  s2: "#f4f3f0",
+  line: "rgba(0,0,0,.08)",
+  mono: PANEL.mono,
+};
+
+/** 主题感知面板色（订阅 data-mode，切主题即 re-render）。 */
+export function usePanel(): PanelTokens {
+  const mode = useThemeMode();
+  return mode === "light" ? PANEL_LIGHT : PANEL;
+}
 // 琥珀渐变眉条（Raycast 品牌渐变位换琥珀系）。
 const BROW_GRADIENT = "linear-gradient(90deg, #64521d, #e8c547 55%, #f2dc8a)";
 
@@ -159,18 +178,19 @@ function Sparkline({
 
 /** KPI 紧凑格：等宽 label + 等宽 tabular-nums 大数字 + 行内 sparkline。 */
 function KpiCell({ label, value, spark, amber }: { label: string; value: string; spark: number[]; amber?: boolean }) {
+  const P = usePanel();
   return (
     <div style={{ padding: "14px 16px", minWidth: 0 }}>
-      <div style={{ fontFamily: PANEL.mono, fontSize: 10, letterSpacing: ".1em", color: PANEL.muted, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: P.mono, fontSize: 10, letterSpacing: ".1em", color: P.muted, whiteSpace: "nowrap" }}>
         {label}
       </div>
       <div
         style={{
-          fontFamily: PANEL.mono,
+          fontFamily: P.mono,
           fontSize: 24,
           fontWeight: 700,
           fontVariantNumeric: "tabular-nums",
-          color: PANEL.fg,
+          color: P.fg,
           marginTop: 3,
           whiteSpace: "nowrap",
           overflow: "hidden",
@@ -185,6 +205,7 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
 }
 
 export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavContext) => void }) {
+  const P = usePanel();
   const { t } = useTranslation();
   const [running, setRunning] = useState<boolean | null>(null);
   const [port, setPort] = useState<number>(DEFAULT_PORT);
@@ -305,8 +326,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
   const platformSparks = useMemo(() => buildSparkMap(todaySeriesPlatforms), [todaySeriesPlatforms]);
 
   const statusColor = running == null
-    ? PANEL.muted
-    : running ? "var(--color-success)" : PANEL.muted;
+    ? P.muted
+    : running ? "var(--color-success)" : P.muted;
   const statusText = running == null
     ? t("home.statusUnknown", "未知")
     : running ? t("home.statusRunning", "运行中") : t("home.statusStopped", "已停止");
@@ -370,18 +391,18 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
       {/* 命令面板单块 */}
       <div
         style={{
-          background: PANEL.s1,
-          border: `1px solid ${PANEL.line}`,
+          background: P.s1,
+          border: `1px solid ${P.line}`,
           borderRadius: 14,
           overflow: "hidden",
-          boxShadow: "0 8px 32px rgba(0,0,0,.6)",
+          boxShadow: "0 8px 32px rgba(0,0,0,.35)",
         }}
       >
         {/* 1. 搜索栏式状态行：运行态点 + 端口 + ⌘C 复制地址 */}
         <div
           ref={revealSearch.ref}
           className={`reveal${revealSearch.shown ? " in" : ""}`}
-          style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+          style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
         >
           <span
             style={{
@@ -393,7 +414,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
               boxShadow: running ? "0 0 0 4px color-mix(in srgb, var(--color-success) 14%, transparent)" : "none",
             }}
           />
-          <span style={{ fontSize: F.body, fontWeight: 600, color: PANEL.fg, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <span style={{ fontSize: F.body, fontWeight: 600, color: P.fg, minWidth: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {t("home.proxyStatus", "代理服务")} {statusText} · {t("home.port", "端口")} {port}
           </span>
           <button
@@ -412,16 +433,16 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
         <div
           ref={revealKpi.ref}
           className={`reveal${revealKpi.shown ? " in" : ""}`}
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", borderBottom: `1px solid ${PANEL.line}` }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", borderBottom: `1px solid ${P.line}` }}
         >
           {kpis.length > 0 ? (
             kpis.map((k, i) => (
-              <div key={k.label} style={{ borderInlineEnd: i < kpis.length - 1 ? `1px solid ${PANEL.line}` : undefined }}>
+              <div key={k.label} style={{ borderInlineEnd: i < kpis.length - 1 ? `1px solid ${P.line}` : undefined }}>
                 <KpiCell {...k} />
               </div>
             ))
           ) : (
-            <div style={{ padding: "14px 16px", fontSize: F.hint, color: PANEL.muted }}>
+            <div style={{ padding: "14px 16px", fontSize: F.hint, color: P.muted }}>
               {loading ? "" : t("home.noToday", "今日暂无请求")}
             </div>
           )}
@@ -432,7 +453,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
         <div
           ref={revealTrend.ref}
           className={`reveal${revealTrend.shown ? " in" : ""}`}
-          style={{ padding: "14px 16px", borderBottom: `1px solid ${PANEL.line}` }}
+          style={{ padding: "14px 16px", borderBottom: `1px solid ${P.line}` }}
         >
           <HomeTrendChart
             modelSeries={seriesModels}
@@ -453,8 +474,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
             display: "grid",
             gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))",
             gap: 1,
-            background: PANEL.line,
-            borderBottom: `1px solid ${PANEL.line}`,
+            background: P.line,
+            borderBottom: `1px solid ${P.line}`,
           }}
         >
           <DimPanel
@@ -500,13 +521,13 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
                 alignItems: "baseline",
                 gap: 12,
                 padding: "12px 16px",
-                borderBottom: `1px solid ${PANEL.line}`,
+                borderBottom: `1px solid ${P.line}`,
                 fontSize: F.small,
-                color: PANEL.muted,
+                color: P.muted,
               }}
             >
               <span>{t("home.totalBalance", "总余额")}</span>
-              <b style={{ fontSize: 17, color: PANEL.fg, fontFamily: PANEL.mono, fontVariantNumeric: "tabular-nums" }}>
+              <b style={{ fontSize: 17, color: P.fg, fontFamily: P.mono, fontVariantNumeric: "tabular-nums" }}>
                 {formatCostUsd(totalBalance)}
               </b>
             </div>
@@ -548,12 +569,13 @@ function DimPanel({
   logoOf?: (name: string) => Protocol | undefined;
   onRow: (name: string) => void;
 }) {
+  const P = usePanel();
   const { t } = useTranslation();
   return (
-    <div style={{ padding: "14px 16px", background: PANEL.s1 }}>
+    <div style={{ padding: "14px 16px", background: P.s1 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
-        <b style={{ fontSize: F.small + 1, color: PANEL.fg }}>{t(titleKey, titleDefault)}</b>
-        <span style={{ fontFamily: PANEL.mono, fontSize: 10, color: PANEL.muted }}>
+        <b style={{ fontSize: F.small + 1, color: P.fg }}>{t(titleKey, titleDefault)}</b>
+        <span style={{ fontFamily: P.mono, fontSize: 10, color: P.muted }}>
           TODAY · {t("home.dimMetric", "tokens / 花费 / 请求")}
         </span>
       </div>
@@ -571,7 +593,7 @@ function DimPanel({
                   alignItems: "center",
                   gap: 12,
                   padding: "9px 0",
-                  borderBottom: i < rows.length - 1 ? "1px solid rgba(255,255,255,.05)" : undefined,
+                  borderBottom: i < rows.length - 1 ? "1px solid rgba(127,127,127,.12)" : undefined,
                   cursor: r.unclickable ? undefined : "pointer",
                   opacity: r.unclickable ? 0.55 : 1,
                 }}
@@ -582,7 +604,7 @@ function DimPanel({
                   style={{
                     fontSize: F.small + 1,
                     fontWeight: 600,
-                    color: r.unclickable ? PANEL.muted : PANEL.fg,
+                    color: r.unclickable ? P.muted : P.fg,
                     flex: 1,
                     minWidth: 0,
                     maxWidth: 180,
@@ -601,28 +623,28 @@ function DimPanel({
                       display: "block",
                       width: `${totalTokens > 0 ? (dimTokens(r.d) / totalTokens) * 100 : 0}%`,
                       height: "100%",
-                      background: r.unclickable ? PANEL.muted : seriesColor(0),
+                      background: r.unclickable ? P.muted : seriesColor(0),
                       borderRadius: 2,
                       transition: "width 0.3s ease",
                     }}
                   />
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 64, textAlign: "end" }}>
                   {formatNumber(dimTokens(r.d))}
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 12, color: seriesColor(0), whiteSpace: "nowrap", minWidth: 56, textAlign: "end" }}>
                   {formatCostUsd(r.d.total_cost)}
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
                   {formatNumber(r.d.total_requests)}
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
                 </span>
-                <span style={{ fontFamily: PANEL.mono, fontSize: 11, color: PANEL.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
+                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
                   {r.other || r.d.total_requests === 0 ? "--" : formatDurationMs(r.d.avg_duration_ms)}
                 </span>
                 {/* 行尾今日 token 迷你走势（跟随面板窗口）：逐小时走势，灰阶不与占比条抢焦点 */}
@@ -632,7 +654,7 @@ function DimPanel({
           })}
         </div>
       ) : (
-        <div style={{ fontSize: F.hint, color: PANEL.muted, padding: "4px 0" }}>
+        <div style={{ fontSize: F.hint, color: P.muted, padding: "4px 0" }}>
           {loading ? "" : t("home.noToday", "今日暂无请求")}
         </div>
       )}
