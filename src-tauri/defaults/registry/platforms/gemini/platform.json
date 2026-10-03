@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790186493,
+  "last_updated": 1791006457,
   "endpoints": {
     "default": [
       {
@@ -161,7 +161,10 @@
       "zai-org/glm-5-2-maas",
       "zai-org/glm-5-maas",
       "lyria-3.5",
-      "claude-fable-5-1"
+      "claude-fable-5-1",
+      "gemini-3-pro-image-preview",
+      "gemini-3.1-flash-image-preview",
+      "gemini-3.1-flash-lite-preview"
     ]
   },
   "name": {

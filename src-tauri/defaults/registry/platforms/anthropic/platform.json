@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1791006457,
   "endpoints": {
     "default": [
       {
@@ -36,7 +36,8 @@
       "claude-sonnet-4-5",
       "claude-sonnet-4-5-20250902",
       "claude-opus-5-5",
-      "claude-sonnet-5-5"
+      "claude-sonnet-5-5",
+      "claude-opus-4"
     ]
   },
   "name": {

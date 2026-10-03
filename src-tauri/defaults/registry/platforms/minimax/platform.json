@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788200874,
+  "last_updated": 1791006457,
   "endpoints": {
     "default": [
       {
@@ -42,7 +42,9 @@
       "speech-2.6-hd",
       "speech-2.6-turbo",
       "speech-2.8-hd",
-      "speech-2.8-turbo"
+      "speech-2.8-turbo",
+      "MiniMax-M2.1-lightning",
+      "MiniMax-M2.5-lightning"
     ]
   },
   "name": {

@@ -1,7 +1,7 @@
 {
   "context_window": 160000,
   "max_input_tokens": 160000,
-  "last_updated": 1790859415,
+  "last_updated": 1791006457,
   "supported_protocols": [
     "anthropic",
     "gemini",

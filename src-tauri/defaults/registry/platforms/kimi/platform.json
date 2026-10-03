@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788200874,
+  "last_updated": 1791006457,
   "endpoints": {
     "default": [
       {
@@ -22,7 +22,10 @@
       "kimi-k2.6",
       "kimi-k2.7-code",
       "kimi-k2.7-code-highspeed",
-      "kimi-k3"
+      "kimi-k3",
+      "kimi-k2-0905-preview",
+      "kimi-k2.5",
+      "kimi-k2-thinking"
     ]
   },
   "name": {

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790771121,
+  "last_updated": 1791006457,
   "endpoints": {
     "default": [
       {
@@ -413,7 +413,8 @@
       "~moonshotai/kimi-latest",
       "~openai/gpt-mini-latest",
       "~x-ai/grok-latest",
-      "~z-ai/glm-latest"
+      "~z-ai/glm-latest",
+      "deepseek/deepseek-r1-distill-llama-70b"
     ]
   },
   "name": {
