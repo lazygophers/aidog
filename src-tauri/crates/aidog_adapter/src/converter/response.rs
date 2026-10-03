@@ -257,7 +257,7 @@ pub fn to_client_sse(
         }
         Gemini => super::super::gemini::to_gemini_sse(event, model),
         Anthropic | Mock | ClaudeCode | Glm | GlmCoding | GlmEn | GlmCodingEn | Kimi | KimiEn
-        | KimiCoding | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Cline | ClinePass | Bailian | BailianCoding
+        | KimiCoding | InternInkstone | MiniMax | MiniMaxEn | MinimaxCoding | Codex | Cline | ClinePass | Bailian | BailianCoding
         | BailianEn | BailianCodingEn | DeepSeek | StepFun | StepFunEn | Doubao | BytePlus
         | QianFan | QianfanCoding | XiaomiMimo | XiaomiMimoCoding | XiaomiMimoCodingEn
         | Longcat | SenseNova | SenseNovaEn | OpenRouter | SiliconFlow | SiliconFlowEn
