@@ -452,6 +452,23 @@ fn classify_429_rate_limit() {
     assert!(!classify_429(""));
 }
 
+// ── is_per_minute_rate_limit：分钟级限流=true / 其余（含小时级、裸 rate limit）=false ──
+#[test]
+fn per_minute_rate_limit_markers() {
+    assert!(is_per_minute_rate_limit(
+        "external key rate limit 40/min exceeded"
+    ));
+    assert!(is_per_minute_rate_limit("Rate Limit Per Minute"));
+    assert!(is_per_minute_rate_limit("每分钟请求过多"));
+    // 不按裸 rate limit 猜：小时/日级窗口误判成分钟级会提前放行
+    assert!(!is_per_minute_rate_limit(
+        "rate limit exceeded, please retry"
+    ));
+    assert!(!is_per_minute_rate_limit("rate limit 1000/hour exceeded"));
+    assert!(!is_per_minute_rate_limit("Too many requests"));
+    assert!(!is_per_minute_rate_limit(""));
+}
+
 // ── is_region_blocked：区域封锁 401=true / 普通鉴权失败=false ──
 #[test]
 fn region_blocked_markers() {
