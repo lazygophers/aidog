@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule, PlatformErrorStatus } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 
@@ -554,6 +554,9 @@ export const platformApi = {
   /** 拖拽排序：传入按新顺序排列的 platform id 列表 */
   reorder: (orderedIds: number[]) =>
     invoke<void>("platform_reorder", { orderedIds }),
+  /** 平台错误状态清单（plat-select-status）：调度态优先（429/402/401/503），回落 24h 日志最近失败码。 */
+  errorStatus: () =>
+    invoke<PlatformErrorStatus[]>("platform_error_status"),
 
   fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),

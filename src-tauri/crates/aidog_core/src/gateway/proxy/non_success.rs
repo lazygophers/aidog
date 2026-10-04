@@ -152,15 +152,23 @@ pub(crate) async fn handle_non_success(
     //   仅 401 鉴权失败、402 余额不足。403 一律不冷却（区域封锁常返 403，误伤代价高）；
     //   区域封锁的 401 同样不冷却（is_region_blocked 按 message 文本分类）。不写 DB status：
     //   平台 UI 仍是启用态，到点自动回调度；DB 存量 auto_disabled 行照旧按 until 过滤、成功时恢复。──
-    if (code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body))) || code == 402
-    {
+    if code == 402 {
+        state
+            .scheduler
+            .set_balance_cooldown(route.platform.id, aidog_db::now());
+        tracing::warn!(
+            platform = %route.platform.name, platform_id = route.platform.id, status = code,
+            cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
+            "platform out of scheduling for balance cooldown (memory-only, not disabled)"
+        );
+    } else if code == 401 && !is_region_blocked(extracted_msg.as_deref().unwrap_or(&body)) {
         state
             .scheduler
             .set_auth_cooldown(route.platform.id, aidog_db::now());
         tracing::warn!(
             platform = %route.platform.name, platform_id = route.platform.id, status = code,
             cooldown_ms = super::scheduling::AUTH_COOLDOWN_MS,
-            "platform out of scheduling for fixed auth/balance cooldown (memory-only, not disabled)"
+            "platform out of scheduling for fixed auth cooldown (memory-only, not disabled)"
         );
     }
 

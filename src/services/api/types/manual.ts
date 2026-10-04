@@ -59,6 +59,15 @@ export type RoutingMode =
 /** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
 
+/** platform_error_status 条目（plat-select-status）：多选「按状态选」数据源。
+ * source: "cooldown" = 实时调度态（429/402/401/503，until_ms 有值）；"log" = 24h 日志最近失败码（任意码）。 */
+export interface PlatformErrorStatus {
+  platform_id: number;
+  code: number;
+  source: "cooldown" | "log";
+  until_ms: number | null;
+}
+
 // ─── 2. camelCase DTO（跨层 snake_case 硬约束下的唯一例外）──────────────
 // 以下均对应 Rust `#[serde(rename_all = "camelCase")]` 结构（mcp.rs / cc-switch 导入 / codex 解析），禁加 #[derive(TS)]（会与 snake_case 契约冲突），维持手写。
 

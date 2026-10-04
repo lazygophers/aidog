@@ -13,6 +13,7 @@ async fn health_state_upsert_load_roundtrip() {
         breaker_until_ms: 1_800_000,
         quota_cooldown_until_ms: 1_700_000,
         auth_cooldown_until_ms: 0,
+        balance_cooldown_until_ms: 1_650_000,
         last_connect_fail_ms: 1_000_000,
         updated_at: 900_000,
     };
