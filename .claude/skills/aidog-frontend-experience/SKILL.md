@@ -1,6 +1,6 @@
 ---
 name: aidog-frontend-experience
-description: aidog（Tauri+React 桌面应用）前端体验优化——UI 视觉、布局、人机交互三合一。落地 Liquid Glass 风格、7 语言 i18n+阿拉伯 RTL、无路由本地 state 导航 + navGuard 离页拦截、formatters/shared 组件复用、主题 light/dark 双变量。视觉重构阶段调用 huashu-design skill 取设计品味。触发词：UI 优化、界面优化、视觉、好看、布局、对齐、间距、交互、体验、liquid glass、玻璃拟态、RTL、暗色、主题、组件复用、设计。
+description: aidog（Tauri+React 桌面应用）前端体验优化——UI 视觉、布局、人机交互三合一。落地 Liquid Glass 风格、8 语言 i18n+阿拉伯 RTL、无路由本地 state 导航 + navGuard 离页拦截、formatters/shared 组件复用、主题 light/dark 双变量。视觉重构阶段调用 huashu-design skill 取设计品味。触发词：UI 优化、界面优化、视觉、好看、布局、对齐、间距、交互、体验、liquid glass、玻璃拟态、RTL、暗色、主题、组件复用、设计。
 when_to_use: 改 aidog 前端 UI/布局/交互；新增页面或组件想保持风格一致；觉得某页"难用/不好看/挤"；做暗色或 RTL 适配；统一数值格式或抽公共组件时
 ---
 
@@ -25,7 +25,7 @@ aidog 是 Tauri 2.0 + React 19 + TS 桌面应用。本 skill 把「UI 视觉 / �
 | 展示组件 | 卡片/统计/余额条复用 shared | `src/components/shared/`（CompactCard / StatChip / BalanceBar / colorScale / usageColor） |
 | 导航 | 无 react-router，导航 = `App.tsx` 侧栏 + `AppSettings.tsx` tab 的本地 state | `src/App.tsx` / `src/pages/AppSettings.tsx` |
 | 离页拦截 | 禁原生 `confirm`/`beforeunload`（破坏 Tauri）；用 navGuard 注册表 | `src/utils/navGuard.ts` |
-| i18n | 7 语言（zh-CN/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP），文案禁硬编码，走 `t()` | `src/locales/`，门禁 `yarn check:i18n` |
+| i18n | 8 语言（zh-Hans/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES），文案禁硬编码，走 `t()` | `src-tauri/crates/aidog_i18n/locales/`，门禁 `yarn check:i18n`（已进 `make lint`） |
 | RTL | ar-SA 是 RTL，方向相关样式（margin/padding/对齐/图标方向）必须逻辑属性或 `[dir]` 适配 | — |
 | 拼音搜索 | 中文搜索走 `utils/pinyin.ts`，禁另写 | `src/utils/pinyin.ts` |
 
@@ -48,7 +48,7 @@ aidog 是 Tauri 2.0 + React 19 + TS 桌面应用。本 skill 把「UI 视觉 / �
 
 - 颜色/间距 → 用主题 CSS 变量，不写裸值；同步 light+dark。
 - 数字/金额/百分比 → `formatters.ts` 的函数；缺则加到 formatters 而非页内。
-- 新文案 → 加 7 语言 key（至少 zh/en，其余可英文兜底但要有 key）。
+- 新文案 → 加 8 语言 key（至少 zh/en，其余可英文兜底但要有 key）。
 - 方向相关样式 → 逻辑属性（`margin-inline-start` 等）或 `[dir="rtl"]` 适配。
 - 离页有未保存数据 → 走 navGuard 注册，禁原生 confirm。
 
@@ -77,7 +77,7 @@ yarn build          # tsc && vite build —— 类型 + 构建必须过
 2. ❌ 写裸 hex / `rgba(255,255,255,…)` fallback —— 用主题变量。
 3. ❌ 只改 light 不改 dark —— 两组必须同步。
 4. ❌ 用原生 `confirm` / `beforeunload` 做离页拦截 —— 破坏 Tauri，必用 navGuard。
-5. ❌ 新文案直接写中文字面量 —— 必走 `t()` + 7 语言 key。
+5. ❌ 新文案直接写中文字面量 —— 必走 `t()` + 8 语言 key。
 6. ❌ 把 `Platforms.tsx` 这种巨石文件整体重排 —— 只改相关段。
 7. ❌ 跳过 `yarn build` / `yarn check:i18n` 就说做完了。
 
