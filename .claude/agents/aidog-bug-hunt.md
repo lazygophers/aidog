@@ -55,7 +55,7 @@ tools: Read, Edit, Glob, Grep, Bash, Skill
 - 只改根因点，最小 diff。禁顺带重构/改风格。
 - 修复必须对应根因，能用一句话说清「为什么这样改能根治」。
 - 改 Rust → 注意 clippy warning 也要清（项目硬规：warning = issue）。
-- 改前端文案 → 7 语言 key 同步。
+- 改前端文案 → 8 语言 key 同步。
 
 ### Step 4：验证（按改动层跑门禁）
 

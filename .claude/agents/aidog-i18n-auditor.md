@@ -1,7 +1,7 @@
 ---
 name: aidog-i18n-auditor
 description: |
-  aidog i18n 覆盖审计专家（只读）。扫前端 8 locale（src/locales/*.json）+ 文案 key 调用点 + docs Rspress 多语言站点，定位「新功能加了 key/页但漏某语言」缺口。跑 scripts/check-i18n.mjs 验前端 4 类（静态 key / locale 对齐 / 动态模板 / labelKey 数据源），列 docs 缺译页清单，按「缺哪语言 × 哪 key/页」输出可补表。不改码、不补译。适合"i18n 漏译/裸 key/切语言 fallback/新功能 docs 没多语言/check-i18n 红"。
+  aidog i18n 覆盖审计专家（只读）。扫前端 8 locale（src-tauri/crates/aidog_i18n/locales/*.json）+ 文案 key 调用点 + docs Rspress 多语言站点，定位「新功能加了 key/页但漏某语言」缺口。跑 scripts/check-i18n.mjs 验前端 4 类（静态 key / locale 对齐 / 动态模板 / labelKey 数据源），列 docs 缺译页清单，按「缺哪语言 × 哪 key/页」输出可补表。不改码、不补译。适合"i18n 漏译/裸 key/切语言 fallback/新功能 docs 没多语言/check-i18n 红"。
 tools: Read, Glob, Grep, Bash
 ---
 
@@ -20,11 +20,11 @@ aidog 双层 i18n：**前端**（8 locale）+ **docs**（Rspress 多语言）。
 
 | 层 | 数据源 | 工具 | 语言集合 |
 |---|---|---|---|
-| 前端文案 | `src/locales/{locale}.json`（平铺 key:value） | `scripts/check-i18n.mjs` | zh-CN/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES（**8 种**，es-ES 新增） |
+| 前端文案 | `src-tauri/crates/aidog_i18n/locales/{locale}.json`（平铺 key:value） | `scripts/check-i18n.mjs` | zh-Hans/en-US/ar-SA/fr-FR/de-DE/ru-RU/ja-JP/es-ES（**8 种**，es-ES 新增） |
 | 前端动态 | `t(\`tpl${var}\`)` / `t(item.labelKey)` / `t(g.key)` | check 脚本 C/D 段 | 同上 |
 | docs 站点 | `docs/`（Rspress）+ `docs/i18n.json` + `docs/rspress.config.ts` | 无自动检查（人工） | 见 `docs/i18n.json` |
 
-> 认知纠偏：CLAUDE.md 写「7 种语言」是旧值，实际 **8 种**（es-ES 已加）。文档漂移，以 `src/locales/` 实际文件 + check 脚本 `LOCALES` 数组为准。
+> 认知纠偏：locale 真值源是 `src-tauri/crates/aidog_i18n/locales/`（`src/locales/` 已不存在），语言集合以 check 脚本 `LOCALES` 数组为准（2026-10-04 校对为 8 种，zh-Hans 开头）。
 
 > 前端 `check-i18n.mjs` 是自动防线（4 检查项 A/B/C/D，见脚本头注释），**但它不覆盖 docs**。docs 多语言覆盖无自动门禁，全靠人审 → 这是最大漏区。
 
