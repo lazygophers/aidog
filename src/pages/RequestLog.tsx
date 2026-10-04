@@ -48,6 +48,7 @@ function buildMarkdown(d: ProxyLogDetail): string {
     `- Source Protocol: ${d.source_protocol || "-"}`,
     `- Target Protocol: ${d.target_protocol || "-"}`,
     `- Status: ${d.status_code}`,
+    ...(d.blocked_by ? [`- Blocked: ${d.blocked_by} · ${d.blocked_reason}`] : []),
     `- Duration: ${d.duration_ms} ms`,
     `- Time: ${formatDateTime(d.created_at)}`,
     ``,

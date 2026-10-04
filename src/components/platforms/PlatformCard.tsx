@@ -16,7 +16,7 @@ import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "../../pages/platforms/usePlatformQuota";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
-import { parseDisableDuringPeak, parseMitmStats } from "../../services/api";
+import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, rateLimitsSummary } from "../../services/api";
 import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection, CcPlanBalance } from "./CcMitmInfo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -201,6 +201,9 @@ export const PlatformCard = memo(function PlatformCard({
   const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
   // p.extra 单次解析（原本在渲染体内被调 2 次，每次都内含独立 JSON.parse(extra)）。
   const disableDuringPeak = parseDisableDuringPeak(p.extra ?? "");
+  // 限频配置徽标（rate-limit-aware 票 04）：已配 rate_limits/quota_windows 才显。
+  // 运行态「命中/剩余」依赖调度侧实现（spec 票 03 后端），先落配置态展示。
+  const rateLimitsBundle = parseRateLimitsBundle(p.extra ?? "");
   // peakWindows 来自 useProtocolMeta：`extra.peak` ?? preset 默认。
   // 此前这里只读 `parsePlatformPeak(p.extra)`，不回落 preset，于是 glm_coding /
   // deepseek 这类自带预设高峰的平台在窗口内也不显徽标 —— 与 CLAUDE.md 写明的
@@ -331,6 +334,20 @@ export const PlatformCard = memo(function PlatformCard({
                       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     </svg>
                     {t("platform.autoDisabled", "自动禁用")}
+                  </div>
+                )}
+                {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
+                  <div
+                    style={{
+                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 10, fontWeight: 600, color: "var(--text-secondary)",
+                      background: "var(--bg-glass)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                    }}
+                    title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")}
+                  >
+                    ⚡ {rateLimitsSummary(rateLimitsBundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }))}
                   </div>
                 )}
                 {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}

@@ -497,7 +497,7 @@ pub fn list_proxy_logs(
         db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
-                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, blocked_by, blocked_reason, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
@@ -525,7 +525,9 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<aidog_db::models::
         cache_tokens: row.get(11)?,
         is_stream: row.get::<_, i64>(12)? == 1,
         retry_count: row.get(13)?,
-        created_at: row.get(14)?,
+        blocked_by: row.get::<_, Option<String>>(14)?.unwrap_or_default(),
+        blocked_reason: row.get::<_, Option<String>>(15)?.unwrap_or_default(),
+        created_at: row.get(16)?,
     })
 }
 
@@ -549,7 +551,7 @@ pub fn filtered_list_proxy_logs<'a>(
             p.push(Box::new(probe_limit));
             p.push(Box::new(offset));
             let sql = format!(
-                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, blocked_by, blocked_reason, created_at \
                  FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -646,7 +648,7 @@ pub fn list_request_logs<'a>(
             let sql = format!(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, \
                  platform_id, status_code, duration_ms, input_tokens, output_tokens, \
-                 cache_tokens, is_stream, retry_count, created_at \
+                 cache_tokens, is_stream, retry_count, blocked_by, blocked_reason, created_at \
                  FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;

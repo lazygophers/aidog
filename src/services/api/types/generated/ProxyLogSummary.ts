@@ -11,4 +11,12 @@ is_stream: boolean,
 /**
  * 重试次数（retry_count>0 时列表显示重试徽标）
  */
-retry_count: number, created_at: number, };
+retry_count: number, 
+/**
+ * 被拦截的环节（rate-limit-aware 票 04：'router' 等；空串 = 未被拦截）
+ */
+blocked_by: string, 
+/**
+ * 拦截原因（'rate_limit' / 'peak' / 'observe' / …；空串 = 未被拦截）
+ */
+blocked_reason: string, created_at: number, };

@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import {
   FormSection, ApiKeyField,
   DevinConfigSection, PassthroughConfigSection, EndpointsSection,
-  BreakerSection, PeakSection, GroupAssignSection,
+  BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
   ExpirySection, QuotaSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
@@ -53,6 +53,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peak, setPeak, windowsTz, setWindowsTz,
+    rateLimits, setRateLimits,
     disableDuringPeak, setDisableDuringPeak,
     mitmStats, setMitmStats,
     timeModels, setTimeModels,
@@ -290,6 +291,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             themeMode={themeMode}
             t={t}
           />
+        )}
+
+        {/* 限频配置（rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
+        {editing && !isPassthrough && (
+          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
         )}
 
         {/* 分组归属 */}

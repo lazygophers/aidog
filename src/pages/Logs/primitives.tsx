@@ -280,6 +280,16 @@ interface LogRowProps {
 // stagger idx*60 错峰；<tr> 不能加 glass-surface (position:relative 破坏 sticky 列),
 // 故只挂 reveal + hover-lift (纯 transform/opacity，不依赖 position)；
 // hover 反馈仍走 shadcn TableRow 的 hover:bg-muted/50。
+/** blocked_reason → 短标签（rate-limit-aware 票 04：被调度排除/拦截的行标记）。 */
+export function blockedReasonLabel(reason: string, t: (k: string, d: string) => string): string {
+  switch (reason) {
+    case "rate_limit": return t("logs.blockedRateLimit", "限频");
+    case "peak": return t("logs.blockedPeak", "高峰禁用");
+    case "observe": return t("logs.blockedObserve", "观察");
+    default: return reason;
+  }
+}
+
 export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupName, onOpen, onCopy, t }: LogRowProps) {
   const { ref, shown } = useReveal<HTMLTableRowElement>(idx * 60);
   return (
@@ -307,6 +317,12 @@ export const LogRow = memo(function LogRow({ log, idx = 0, platformName, groupNa
           {log.is_stream && (
             <span className="badge" style={SSE_BADGE_STYLE} title={t("logs.streaming", "流式")}>SSE</span>
           )}
+          {log.blocked_reason ? (
+            <span className="badge" style={RETRY_BADGE_STYLE}
+              title={`${t("logs.blockedBy", "拦截")}: ${log.blocked_by} · ${log.blocked_reason}`}>
+              {blockedReasonLabel(log.blocked_reason, t)}
+            </span>
+          ) : null}
         </span>
       </TdCell>
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
