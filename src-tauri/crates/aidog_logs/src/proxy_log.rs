@@ -586,6 +586,33 @@ pub fn filtered_count_proxy_logs<'a>(
 
 /// 请求日志页列表查询。
 ///
+/// per-platform 最近一次失败的上游状态码（plat-select-status 日志回落，2026-10-04）。
+/// 窗口 = `cutoff_ms` 起；失败 = `upstream_status_code >= 400`。同平台多行取
+/// `created_at` 最大那行（SQLite MAX 聚合裸列语义：GROUP BY 内取 max 行的列值）。
+#[track_caller]
+pub fn latest_error_codes_since(
+    db: &Db,
+    cutoff_ms: i64,
+) -> impl std::future::Future<Output = Result<Vec<(i64, i32)>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT platform_id, upstream_status_code, MAX(created_at) FROM proxy_log \
+                 WHERE deleted_at = 0 AND created_at >= ?1 AND upstream_status_code >= 400 \
+                 GROUP BY platform_id",
+            )?;
+            let rows =
+                stmt.query_map(params![cutoff_ms], |r| {
+                    Ok((r.get::<_, i64>(0)?, r.get::<_, i32>(1)?))
+                })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// 语义契约：
 /// - **默认 sources=[test, quota, fetch-models]**：调用方未显式传 sources 时强制覆盖为
 ///   平台测试 + quota 探测 + 模型列表拉取三类（与 Logs 主页 `exclude_sources` 相反，互不重叠）。

@@ -260,6 +260,7 @@ pub fn run() {
             aidog_core::platform_cmd::quota::platform_query_quota_newapi,
             aidog_core::platform_cmd::quota::platform_query_quota_devin,
             aidog_core::platform_cmd::platform::platform_reorder,
+            aidog_core::platform_cmd::platform::platform_error_status,
             // Model Prices
             aidog_core::platform_cmd::price::model_price_sync,
             aidog_core::platform_cmd::price::price_sync_settings_get,

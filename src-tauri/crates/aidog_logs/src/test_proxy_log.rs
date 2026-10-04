@@ -1003,3 +1003,46 @@ async fn body_omitted_column_roundtrip() {
     assert!(!row2.body_omitted, "UPDATE diff 把 body_omitted 变化写回 DB");
     let _ = mask;
 }
+
+/// plat-select-status 日志回落：24h 窗口内 per-platform 最近一次失败码。
+/// - 同平台多次失败取 created_at 最新那行；
+/// - 窗口外（>24h）失败行不计；
+/// - 全 2xx 平台不计；
+/// - 软删行不计。
+#[tokio::test]
+async fn latest_error_codes_since_takes_latest_per_platform() {
+    let db = test_db().await;
+    let now_ms = now();
+
+    // 平台 1：先 529 后 402 → 取 402（最新）
+    let mut a1 = sample_log("a1", "g", now_ms - 1000);
+    a1.platform_id = 1;
+    a1.upstream_status_code = 529;
+    let mut a2 = sample_log("a2", "g", now_ms - 500);
+    a2.platform_id = 1;
+    a2.upstream_status_code = 402;
+    // 平台 2：窗口外失败 → 不计
+    let mut b1 = sample_log("b1", "g", now_ms - 25 * 60 * 60 * 1000);
+    b1.platform_id = 2;
+    b1.upstream_status_code = 401;
+    // 平台 3：全 2xx → 不计
+    let mut c1 = sample_log("c1", "g", now_ms - 100);
+    c1.platform_id = 3;
+    c1.upstream_status_code = 200;
+    // 平台 4：软删失败行 → 不计
+    let mut d1 = sample_log("d1", "g", now_ms - 100);
+    d1.platform_id = 4;
+    d1.upstream_status_code = 503;
+    d1.deleted_at = 1;
+    for l in [&a1, &a2, &b1, &c1, &d1] {
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(l, false, false))
+            .await
+            .unwrap();
+    }
+
+    let mut rows = latest_error_codes_since(&db, now_ms - 24 * 60 * 60 * 1000)
+        .await
+        .unwrap();
+    rows.sort();
+    assert_eq!(rows, vec![(1, 402)], "只取平台 1 的最新失败码 402");
+}

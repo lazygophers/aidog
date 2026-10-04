@@ -1058,10 +1058,17 @@ ALTER TABLE "group_new" RENAME TO "group";
             breaker_until_ms INTEGER NOT NULL DEFAULT 0,
             quota_cooldown_until_ms INTEGER NOT NULL DEFAULT 0,
             auth_cooldown_until_ms INTEGER NOT NULL DEFAULT 0,
+            balance_cooldown_until_ms INTEGER NOT NULL DEFAULT 0,
             last_connect_fail_ms INTEGER NOT NULL DEFAULT 0,
             updated_at INTEGER NOT NULL DEFAULT 0
         );",
     )?;
+    // Migration 20261004-01（plat-select-status）：402 余额冷却拆独立列。存量库 ALTER 补列
+    // （幂等：已存在时报错忽略，与上方各 `let _ =` ALTER 同 idiom）。
+    let _ = conn.execute(
+        "ALTER TABLE platform_health_state ADD COLUMN balance_cooldown_until_ms INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     Ok(())
 }
 
