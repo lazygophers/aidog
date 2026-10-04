@@ -673,3 +673,93 @@ export function syncProtocolLogo(protocol: Protocol): Promise<void> {
   return invoke<void>("sync_protocol_logo", { protocol });
 }
 
+
+// ─── Rate Limits（rate-limit-aware 票 02/04：限频配置，存 platform.extra）─────────
+
+/** 模型级限频覆盖（extra.rate_limits.models 的条目）。 */
+export interface RateLimitModelOverride {
+  rpm?: number;
+  tpm?: number;
+}
+
+/** 平台级限频（extra.rate_limits）。models 键缺省回落平台级。 */
+export interface RateLimitsConfig {
+  rpm?: number;
+  tpm?: number;
+  models?: Record<string, RateLimitModelOverride>;
+}
+
+/** 额度窗口（extra.quota_windows 条目）：window 秒数 + token/点数预算二选一（端砚墨点 5h/7d）。 */
+export interface QuotaWindowConfig {
+  window: number;
+  budget_tokens?: number;
+  budget_points?: number;
+}
+
+/** 限频配置整体（表单编辑对象）。 */
+export interface RateLimitsBundle {
+  rate_limits?: RateLimitsConfig;
+  quota_windows?: QuotaWindowConfig[];
+}
+
+const isRateLimitsEmpty = (r: RateLimitsConfig | undefined) =>
+  !r || ((r.rpm ?? 0) === 0 && (r.tpm ?? 0) === 0 && (!r.models || Object.keys(r.models).length === 0));
+
+/** 从 platform.extra 解析限频配置（缺失/非法 → 空 bundle）。与 Rust 侧调度消费同一 JSON 形状（spec 票 02）。 */
+export function parseRateLimitsBundle(extra: string): RateLimitsBundle {
+  if (!extra.trim()) return {};
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (!parsed || typeof parsed !== "object") return {};
+    const o = parsed as Record<string, unknown>;
+    const out: RateLimitsBundle = {};
+    if (o.rate_limits && typeof o.rate_limits === "object") {
+      out.rate_limits = o.rate_limits as RateLimitsConfig;
+    }
+    if (Array.isArray(o.quota_windows)) {
+      out.quota_windows = o.quota_windows as QuotaWindowConfig[];
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** 把限频配置写回 extra JSON（保留其余键）。空值（无 rpm/tpm/models、windows 空数组）→ 删键（无覆盖）。 */
+export function serializeRateLimitsBundle(extra: string, bundle: RateLimitsBundle): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (isRateLimitsEmpty(bundle.rate_limits)) {
+    delete obj.rate_limits;
+  } else {
+    obj.rate_limits = bundle.rate_limits;
+  }
+  if (!bundle.quota_windows || bundle.quota_windows.length === 0) {
+    delete obj.quota_windows;
+  } else {
+    obj.quota_windows = bundle.quota_windows;
+  }
+  return JSON.stringify(obj);
+}
+
+/** 限频配置摘要（表单行 / 卡片徽标共用）：如 "60 RPM · 2.0M TPM · 2 窗口"。全空 → 空串。 */
+export function rateLimitsSummary(b: RateLimitsBundle, windowsLabel: (n: number) => string): string {
+  const parts: string[] = [];
+  const r = b.rate_limits;
+  if (r?.rpm) parts.push(`${r.rpm} RPM`);
+  if (r?.tpm) parts.push(`${r.tpm >= 1_000_000 ? `${(r.tpm / 1_000_000).toFixed(1)}M` : formatTpm(r.tpm)} TPM`);
+  const w = b.quota_windows?.length ?? 0;
+  if (w > 0) parts.push(windowsLabel(w));
+  return parts.join(" · ");
+}
+
+function formatTpm(v: number): string {
+  return v >= 1_000 ? `${(v / 1_000).toFixed(0)}K` : String(v);
+}

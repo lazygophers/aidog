@@ -652,8 +652,8 @@ export interface NotifyDispatchResult {
 
 // ─── 5. aidog_core::gateway::models 内已知 drift / 不兼容豁免 ──────────
 // 在授权编辑范围内，但故意不加 #[derive(TS)]：
-// - ProxyLogDetail：Rust 侧同义结构名为 `ProxyLog`（proxy_log.rs），且比 TS 手写版本多 2 字段
-//   （blocked_by/blocked_reason），属 c1-typedrift 已知遗留 drift，本轮不碰。
+// - ProxyLogDetail：Rust 侧同义结构名为 `ProxyLog`（proxy_log.rs）。历史曾比 TS 版多
+//   blocked_by/blocked_reason 两字段；rate-limit-aware 票 04 起已补齐进 TS。
 
 export interface ProxyLogDetail {
   id: string;
@@ -685,6 +685,9 @@ export interface ProxyLogDetail {
   attempts: import("./generated/ProxyAttempt").ProxyAttempt[];
   /** 重试次数 = attempts.length - 1（0 表示一次成功） */
   retry_count: number;
+  /** 调度/中间件拦截环节与原因；空串表示未拦截。 */
+  blocked_by: string;
+  blocked_reason: string;
   /** 「正文已省略」（perf-backend O6）：该行部分正文因日志写入队列字节预算超限被降级丢弃，
    *  只有元数据落库。置位后单调不回落。 */
   body_omitted: boolean;

@@ -13,6 +13,8 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
+import { RateLimitsEditModal } from "./RateLimitsEditModal";
+import { rateLimitsSummary, type RateLimitsBundle } from "../../services/api";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
@@ -1280,4 +1282,58 @@ export function QuotaSection({
 function quotaCustomScriptConfigured(customScript: string, variantId: string, variants: QuotaScriptVariant[]): boolean {
   if (customScript.trim() !== "") return true;
   return variantId !== "" && variantId !== QUOTA_CUSTOM_VARIANT && variants.some(v => v.id === variantId);
+}
+
+// ─── 限频配置（rate-limit-aware 票 04）─────────────────────
+// extra.rate_limits（平台级 RPM/TPM + per-model 覆盖）+ extra.quota_windows（额度窗口族）
+// 的编辑入口：摘要行 + 弹窗编辑（RateLimitsEditModal）。运行态「命中/剩余」展示依赖
+// 调度侧实现（spec 票 03 后端），本段先落「配得上、存得对」。
+export function RateLimitsSection({ bundle, setBundle, t }: {
+  bundle: RateLimitsBundle;
+  setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
+  t: TFunction;
+}) {
+  const [modalOpen, setModalOpen] = useState(false);
+  const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
+  const modelCount = Object.keys(bundle.rate_limits?.models ?? {}).length;
+  return (
+    <FormSection
+      title={t("platform.rateLimits.title", "限频")}
+      desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选（后续版本生效）。")}
+      action={
+        <Button
+          variant="ghost"
+          size="sm"
+          style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap", height: "auto" }}
+          onClick={() => setModalOpen(true)}
+        >
+          {t("platform.rateLimits.edit", "配置限频")}
+        </Button>
+      }
+    >
+      {summary === "" ? (
+        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          {t("platform.rateLimits.none", "未配置 → 调度不限频（沿用 429 兜底）")}
+        </div>
+      ) : (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
+          <span style={{ padding: "2px 8px", borderRadius: 5, background: "var(--bg-glass)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
+            {summary}
+          </span>
+          {modelCount > 0 && (
+            <span style={{ padding: "2px 8px", borderRadius: 5, background: "var(--bg-glass)", border: "1px solid var(--border)", color: "var(--text-tertiary)" }}>
+              {t("platform.rateLimits.modelCount", "{{n}} 个模型覆盖", { n: modelCount })}
+            </span>
+          )}
+        </div>
+      )}
+      <RateLimitsEditModal
+        open={modalOpen}
+        bundle={bundle}
+        onSave={setBundle}
+        onClose={() => setModalOpen(false)}
+        t={t}
+      />
+    </FormSection>
+  );
 }

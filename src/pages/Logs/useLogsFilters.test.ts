@@ -30,7 +30,7 @@ describe("useLogsFilters", () => {
   it("初始 activeFilter 只带 exclude_sources 默认值", async () => {
     const r = renderHook(() => useLogsFilters());
     await waitFor(() => expect(platformApiMock.list).toHaveBeenCalled());
-    expect(r.result.current.activeFilter).toEqual({ exclude_sources: ["test", "quota"] });
+    expect(r.result.current.activeFilter).toEqual({ exclude_sources: ["test", "quota", "fetch-models"] });
     expect(r.result.current.hasFilter).toBe(false);
   });
 

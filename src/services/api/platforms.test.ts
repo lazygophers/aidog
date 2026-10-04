@@ -9,6 +9,7 @@ import {
   readRequiresValue,
   parsePlatformPeak,
   serializePlatformPeak,
+  parseRateLimitsBundle, serializeRateLimitsBundle, rateLimitsSummary,
   parseDisableDuringPeak,
   serializeDisableDuringPeak,
   parseMitmStats,
@@ -370,5 +371,45 @@ describe("多特性共享 extra 串", () => {
     expect(parsePlatformPeak(extra)).toHaveLength(1);
     expect(parseDisableDuringPeak(extra)).toBe(true);
     expect(parsePlatformTimeWindows(extra)).toHaveLength(1);
+  });
+});
+
+// ─── Rate Limits（rate-limit-aware 票 04）──────────────────
+describe("rate limits bundle parse/serialize", () => {
+  it("roundtrip 保留其余 extra 键", () => {
+    let extra = '{"mitm_stats":true}';
+    extra = serializeRateLimitsBundle(extra, {
+      rate_limits: { rpm: 60, tpm: 2000000, models: { "glm-5.3": { tpm: 500000 } } },
+      quota_windows: [{ window: 18000, budget_tokens: 5000000 }, { window: 604800, budget_points: 50 }],
+    });
+    const o = JSON.parse(extra);
+    expect(o.mitm_stats).toBe(true);
+    const parsed = parseRateLimitsBundle(extra);
+    expect(parsed.rate_limits?.rpm).toBe(60);
+    expect(parsed.rate_limits?.models?.["glm-5.3"]?.tpm).toBe(500000);
+    expect(parsed.quota_windows).toHaveLength(2);
+    expect(parsed.quota_windows?.[1].budget_points).toBe(50);
+  });
+
+  it("空 bundle → 删键（无覆盖语义）", () => {
+    const extra = serializeRateLimitsBundle('{"rate_limits":{"rpm":60},"quota_windows":[{"window":100,"budget_points":1}],"peak":[{}]}', {});
+    const o = JSON.parse(extra);
+    expect(o.rate_limits).toBeUndefined();
+    expect(o.quota_windows).toBeUndefined();
+    expect(o.peak).toHaveLength(1);
+  });
+
+  it("非法 extra / 缺失 → 空 bundle", () => {
+    expect(parseRateLimitsBundle("not-json")).toEqual({});
+    expect(parseRateLimitsBundle('{"foo":1}')).toEqual({});
+  });
+});
+
+describe("rateLimitsSummary", () => {
+  const wl = (n: number) => `${n} 窗口`;
+  it("空 → 空串；RPM/TPM/窗口拼摘要", () => {
+    expect(rateLimitsSummary({}, wl)).toBe("");
+    expect(rateLimitsSummary({ rate_limits: { rpm: 60, tpm: 2000000 }, quota_windows: [{ window: 18000 }] }, wl)).toBe("60 RPM · 2.0M TPM · 1 窗口");
+    expect(rateLimitsSummary({ rate_limits: { tpm: 90000 } }, wl)).toBe("90K TPM");
   });
 });
