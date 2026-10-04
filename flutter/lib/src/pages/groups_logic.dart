@@ -1696,6 +1696,21 @@ class GroupsController {
     _notify();
   }
 
+  /// 按状态选数据源（plat-select-status，`GroupListItem.tsx:406-412`）：拉一次
+  /// `platform_error_status`；已到期的冷却条目剔除（fetch 一次不再刷新，过期码
+  /// 不该再列出）。
+  Future<List<PlatformErrorStatus>> fetchErrorStatus() async {
+    final v = await _invoke('platform_error_status');
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+    final items = (v is List ? v : const <Object?>[])
+        .whereType<Map<String, dynamic>>()
+        .map(PlatformErrorStatus.fromJson)
+        .toList();
+    return items
+        .where((i) => !(i.source == 'cooldown' && i.untilMs != null && i.untilMs! < nowMs))
+        .toList();
+  }
+
   /// 批量删除类操作完成后平台从 `gps` 消失会自动退出；非删除类（覆盖模型/改状态/
   /// 移组 add 模式）平台仍存活，靠调用方在拿到 [confirmBatch*] 结果后手动调用本方法。
   void exitAllBatchSelect() {
@@ -1749,4 +1764,35 @@ Map<String, List<String>> parseProtocolSearchTerms(String rawJson) {
     if (terms.isNotEmpty) out['$code'] = terms.toList();
   });
   return out;
+}
+
+
+// ── 多选「按状态选」纯函数（React `statusSelect.ts`）：选项构建与平台筛选 ──
+
+/// 组内平台 → 可选错误码选项（按码升序，含组内命中数）。组外平台的错误状态不计入。
+List<({int code, int count})> buildStatusOptions(
+  List<PlatformErrorStatus> items,
+  List<int> groupPlatformIds,
+) {
+  final byId = {for (final i in items) i.platformId: i.code};
+  final counts = <int, int>{};
+  for (final id in groupPlatformIds) {
+    final code = byId[id];
+    if (code != null) counts[code] = (counts[code] ?? 0) + 1;
+  }
+  return [
+    for (final e in (counts.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key))))
+      (code: e.key, count: e.value),
+  ];
+}
+
+/// 组内命中某错误码的平台 id 集（选中即 set 批量勾选）。
+Set<int> idsForCode(
+  List<PlatformErrorStatus> items,
+  List<int> groupPlatformIds,
+  int code,
+) {
+  final byId = {for (final i in items) i.platformId: i.code};
+  return groupPlatformIds.where((id) => byId[id] == code).toSet();
 }

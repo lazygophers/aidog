@@ -825,6 +825,31 @@ class BatchReport {
   final int applied;
 }
 
+/// `manual.ts::PlatformErrorStatus`（`platform_error_status` 返回，多选「按状态选」
+/// 数据源，plat-select-status）。source: "cooldown" = 实时调度态（429/402/401/503，
+/// until_ms 有值）；"log" = 24h 日志最近失败码（任意码）。
+class PlatformErrorStatus {
+  const PlatformErrorStatus({
+    required this.platformId,
+    required this.code,
+    required this.source,
+    required this.untilMs,
+  });
+
+  factory PlatformErrorStatus.fromJson(Map<String, dynamic> j) =>
+      PlatformErrorStatus(
+        platformId: (j['platform_id'] as num?)?.toInt() ?? 0,
+        code: (j['code'] as num?)?.toInt() ?? 0,
+        source: (j['source'] as String?) ?? 'log',
+        untilMs: (j['until_ms'] as num?)?.toInt(),
+      );
+
+  final int platformId;
+  final int code;
+  final String source;
+  final int? untilMs;
+}
+
 /// `generated/ProxyLogSummary.ts`。
 class ProxyLogSummary {
   const ProxyLogSummary({
@@ -840,6 +865,8 @@ class ProxyLogSummary {
     required this.cacheTokens,
     required this.isStream,
     required this.retryCount,
+    required this.blockedBy,
+    required this.blockedReason,
     required this.createdAt,
   });
 
@@ -856,6 +883,8 @@ class ProxyLogSummary {
     cacheTokens: (j['cache_tokens'] as num?)?.toInt() ?? 0,
     isStream: (j['is_stream'] as bool?) ?? false,
     retryCount: (j['retry_count'] as num?)?.toInt() ?? 0,
+    blockedBy: (j['blocked_by'] as String?) ?? '',
+    blockedReason: (j['blocked_reason'] as String?) ?? '',
     createdAt: (j['created_at'] as num?)?.toInt() ?? 0,
   );
 
@@ -871,6 +900,10 @@ class ProxyLogSummary {
   final int cacheTokens;
   final bool isStream;
   final int retryCount;
+
+  /// 调度/中间件拦截环节与原因；空串表示未拦截（rate-limit-aware 票 04 对齐 React）。
+  final String blockedBy;
+  final String blockedReason;
   final int createdAt;
 }
 

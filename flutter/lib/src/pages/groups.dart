@@ -1279,6 +1279,9 @@ class _BatchToolbar extends StatelessWidget {
                 c.selectAll(gid, [for (final gp in platforms) gp.platform.id]),
           ),
           const SizedBox(width: AidogSpace.ssm),
+          // 按状态选（plat-select-status，`GroupListItem.tsx:401-434`）。
+          _StatusSelect(controller: c, gid: gid, platforms: platforms),
+          const SizedBox(width: AidogSpace.ssm),
           Text(
             t.t('group.selectedCount', {'count': '${selected.length}'}),
             // 12 + secondary（GroupListItem.tsx:387）。
@@ -1331,6 +1334,94 @@ class _BatchToolbar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// 多选工具栏的「按状态选」下拉（`GroupListItem.tsx:401-434`）：打开时拉一次
+/// errorStatus（过期冷却条目剔除，fetch 后不再刷新）；选项 = 组内平台实际命中的
+/// 错误码（升序 + 计数）；选中即按码批量勾选。
+class _StatusSelect extends StatefulWidget {
+  const _StatusSelect({
+    required this.controller,
+    required this.gid,
+    required this.platforms,
+  });
+
+  final GroupsController controller;
+  final int gid;
+  final List<GroupPlatform> platforms;
+
+  @override
+  State<_StatusSelect> createState() => _StatusSelectState();
+}
+
+class _StatusSelectState extends State<_StatusSelect> {
+  List<PlatformErrorStatus>? _errStatus;
+
+  Future<void> _onOpen() async {
+    if (_errStatus != null) return;
+    final List<PlatformErrorStatus> items;
+    try {
+      items = await widget.controller.fetchErrorStatus();
+    } catch (_) {
+      // 拉失败与 React 同口径：空选项（显「无错误状态」），不弹错。
+      if (mounted) setState(() => _errStatus = const []);
+      return;
+    }
+    if (mounted) setState(() => _errStatus = items);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AidogI18n.of(context);
+    final theme = AidogTheme.of(context);
+    final ids = [for (final gp in widget.platforms) gp.platform.id];
+    final options = _errStatus != null ? buildStatusOptions(_errStatus!, ids) : const <({int code, int count})>[];
+    return PopupMenuButton<String>(
+      tooltip: t.t('group.selectByStatus'),
+      onOpened: _onOpen,
+      onSelected: (v) {
+        final hit = idsForCode(_errStatus ?? const [], ids, int.parse(v));
+        if (hit.isNotEmpty) {
+          widget.controller.selectAll(widget.gid, hit.toList());
+        }
+      },
+      itemBuilder: (_) => [
+        for (final o in options)
+          PopupMenuItem(
+            value: '${o.code}',
+            height: 36,
+            child: Text(
+              '${o.code} · ${_errLabel(t, o.code)}（${o.count}）',
+              style: AidogType.caption.copyWith(fontSize: 12, color: theme.c.fg),
+            ),
+          ),
+        if (options.isEmpty)
+          PopupMenuItem(
+            value: '__none__',
+            enabled: false,
+            height: 36,
+            // 未拉到显省略号，拉完仍空显「无错误状态」（GroupListItem.tsx:427-431）。
+            child: Text(
+              _errStatus == null ? '…' : t.t('group.selectByStatusNone'),
+            ),
+          ),
+      ],
+      child: SmallButton(
+        label: t.t('group.selectByStatus'),
+        ghost: true,
+        fontSize: 12,
+        padding: (10, 4),
+      ),
+    );
+  }
+
+  /// `group.err.<code>` 命中用文案，缺 key 回落 `HTTP <code>`
+  /// （React `t(\`group.err.${o.code}\`, \`HTTP ${o.code}\`)` 同口径）。
+  static String _errLabel(I18nController t, int code) {
+    final key = 'group.err.$code';
+    final v = t.t(key);
+    return v == key ? 'HTTP $code' : v;
   }
 }
 

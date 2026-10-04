@@ -73,7 +73,8 @@ class _HomePageState extends State<HomePage> {
   List<StatsSeries> _todaySeriesModels = const [];
   List<StatsSeries> _todaySeriesGroups = const [];
   // 趋势图状态：默认按平台、指标 Token（2026-09-27 两次用户拍板，HomeTrendChart.tsx:96-99）。
-  String _trendDim = 'platform';
+  // 默认总计（React 2026-10-03 拍板：缺全局总览，总计作默认；此前按平台是 2026-09-27 拍板）。
+  String _trendDim = 'total';
   String _trendMetric = 'tokens';
   bool _loading = true;
   bool _copied = false;
@@ -937,9 +938,9 @@ class _Chip extends StatelessWidget {
 }
 
 // ── 维度趋势图（home-dim-trend spec，React `HomeTrendChart.tsx`）──────
-// 按平台 / 按模型 / 按分组 24h 堆叠面积。数据源 = load() 里 batch 前三条 24h
-// series_by 查询；窗口恒 24h；默认维度 platform、默认指标 tokens（两次 2026-09-27
-// 用户拍板）。面板是固定深色，图与文字都走 PANEL 显式色（图表组件读主题 token，
+// 总计 / 按平台 / 按模型 / 按分组 24h 堆叠面积。数据源 = load() 里 batch 前三条 24h
+// series_by 查询；窗口恒 24h；默认维度 total（2026-10-03 拍板，React 对齐）、默认指标
+// tokens（2026-09-27 用户拍板）。面板是固定深色，图与文字都走 PANEL 显式色（图表组件读主题 token，
 // 这里用 Theme override 压成深色 token，浅色主题下轴/图例仍可读）。
 
 int _bucketTokens(StatsBucket b) =>
@@ -1049,7 +1050,7 @@ class _HomeTrendChart extends StatelessWidget {
   final List<StatsSeries> modelSeries;
   final List<StatsSeries> groupSeries;
 
-  /// platform / model / group（默认 platform）。状态在父级，本组件无本地态。
+  /// total / platform / model / group（默认 total，2026-10-03 与 React 对齐）。状态在父级，本组件无本地态。
   final String dim;
 
   /// tokens / cost（默认 tokens）。
@@ -1064,7 +1065,18 @@ class _HomeTrendChart extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = AidogI18n.of(context);
-    final series = dim == 'model'
+    // 总计 = 平台序列全合并（平台维度是请求的完整划分，跨维度恒同一条总曲线），
+    // 与 React totalSeries 同构（HomeTrendChart.tsx:143-145）。
+    // 总计 = 平台序列全合并单层（平台维度是请求的完整划分，跨维度恒同一条总曲线），
+    // 与 React totalSeries 同构（HomeTrendChart.tsx:143-145）。
+    final List<StatsSeries> series = dim == 'total'
+        ? <StatsSeries>[
+            StatsSeries(
+              name: t.t('home.tabTotal'),
+              buckets: _mergeSeries(platformSeries).buckets,
+            ),
+          ]
+        : dim == 'model'
         ? modelSeries
         : dim == 'group'
         ? groupSeries
@@ -1145,6 +1157,7 @@ class _HomeTrendChart extends StatelessWidget {
                     spacing: 4,
                     children: [
                       for (final d in const [
+                        ('total', 'home.tabTotal'),
                         ('platform', 'home.tabPlatform'),
                         ('model', 'home.tabModel'),
                         ('group', 'home.tabGroup'),

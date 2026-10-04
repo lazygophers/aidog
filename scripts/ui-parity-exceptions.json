@@ -228,6 +228,96 @@
       "type": "intentional",
       "reason": "同上，cc-switch 查重文案只在恒空 conflicts 分支出现，Flutter 已随 #7 删除该预览路径。孤儿 key 随 d97537ec 产生。",
       "evidence": "src/components/settings/CcSwitchImport.tsx:163"
+    },
+    {
+      "key": "platform.rateLimits.title",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:113"
+    },
+    {
+      "key": "platform.rateLimits.desc",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:115"
+    },
+    {
+      "key": "platform.rateLimits.edit",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/formSections.tsx:1310"
+    },
+    {
+      "key": "platform.rateLimits.none",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/formSections.tsx:1316"
+    },
+    {
+      "key": "platform.rateLimits.windowsCount",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/formSections.tsx:1297"
+    },
+    {
+      "key": "platform.rateLimits.modelCount",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/formSections.tsx:1325"
+    },
+    {
+      "key": "platform.rateLimits.rpm",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:123"
+    },
+    {
+      "key": "platform.rateLimits.tpm",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:127"
+    },
+    {
+      "key": "platform.rateLimits.modelOverrides",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:134"
+    },
+    {
+      "key": "platform.rateLimits.addModel",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:144"
+    },
+    {
+      "key": "platform.rateLimits.quotaWindows",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:150"
+    },
+    {
+      "key": "platform.rateLimits.windowSec",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:153"
+    },
+    {
+      "key": "platform.rateLimits.budgetTokens",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:154"
+    },
+    {
+      "key": "platform.rateLimits.budgetPoints",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/pages/platforms/RateLimitsEditModal.tsx:155"
+    },
+    {
+      "key": "platform.rateLimits.badgeHint",
+      "type": "intentional",
+      "reason": "[2026-10-04] 限频配置 UI（表单弹窗 + 卡片徽标，React 2010865de）Flutter 侧未实现——待实现缺口，非「决定不做」。复活条件：Flutter 平台表单实现限频配置节（RPM/TPM/额度窗口/模型覆盖编辑 + 平台卡 ⚡ 徽标）时删除本批例外。",
+      "evidence": "src/components/platforms/PlatformCard.tsx:348"
     }
   ]
 }

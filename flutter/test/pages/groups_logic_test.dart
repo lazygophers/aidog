@@ -1342,4 +1342,27 @@ void main() {
     });
   });
 
+  group('按状态选纯函数（buildStatusOptions / idsForCode）', () {
+    final items = [
+      PlatformErrorStatus(platformId: 1, code: 429, source: 'cooldown', untilMs: null),
+      PlatformErrorStatus(platformId: 2, code: 429, source: 'log', untilMs: null),
+      PlatformErrorStatus(platformId: 3, code: 402, source: 'log', untilMs: null),
+      // 组外平台（id 99）不计入。
+      PlatformErrorStatus(platformId: 99, code: 500, source: 'log', untilMs: null),
+    ];
+    const groupIds = [1, 2, 3, 4];
+
+    test('选项 = 组内命中码升序 + 计数，组外不计入', () {
+      expect(
+        buildStatusOptions(items, groupIds),
+        [(code: 402, count: 1), (code: 429, count: 2)],
+      );
+    });
+
+    test('idsForCode = 组内命中该码的平台集', () {
+      expect(idsForCode(items, groupIds, 429), {1, 2});
+      expect(idsForCode(items, groupIds, 500), isEmpty);
+    });
+  });
+
 }
