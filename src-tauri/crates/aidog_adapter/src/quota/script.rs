@@ -47,6 +47,9 @@ pub struct CustomQueryCtx {
     pub api_key: String,
     /// platform.extra 原文（JSON 字符串，脚本内 JSON.parse 使用）
     pub extra: String,
+    /// 平台协议 code（registry wire 名）。仅用于出站默认 UA 派生
+    /// （simulation_user_agent_for_protocol），脚本内不注入 ctx 对象。
+    pub protocol_code: String,
 }
 
 /// 执行 JS 自定义查询脚本，返回固定格式 PlatformQuota。
@@ -65,10 +68,14 @@ pub async fn run_custom_query(
     } else {
         QUOTA_PLATFORM_ID.try_get().unwrap_or(0)
     };
+    // 客户端模拟（2026-10-04）：余额/配额出站按平台协议注入模拟客户端 UA
+    // （anthropic→claude-cli、openai 系→Codex；无对应模拟 UA 的协议 → None 不注入）。
+    let default_ua = aidog_db::client_types_const::simulation_user_agent_for_protocol(&ctx.protocol_code);
     let outbound = Outbound {
         client: http_client(db).await,
         db: db.cloned(),
         platform_id: effective_platform_id,
+        default_ua,
     };
     let run = async move {
         // JS 引擎 Context 非 Send，spawn_blocking 线程内独占跑
@@ -93,9 +100,11 @@ struct Outbound {
     client: reqwest::Client,
     db: Option<Arc<Db>>,
     platform_id: i64,
+    /// 出站默认 UA（按平台协议派生的模拟客户端 UA）；脚本自带 user-agent 时不生效。
+    default_ua: Option<String>,
 }
 impl Finalize for Outbound {}
-// SAFETY: 字段（reqwest::Client / Option<Arc<Db>>）均非 boa Gc 可追踪类型。
+// SAFETY: 字段（reqwest::Client / Option<Arc<Db>> / Option<String>）均非 boa Gc 可追踪类型。
 unsafe impl Trace for Outbound {
     empty_trace!();
 }
@@ -224,14 +233,26 @@ fn js_headers_to_vec(headers: &JsValue, ctx: &mut Context) -> JsResult<Vec<(Stri
     Ok(out)
 }
 
+/// 脚本未自带 user-agent 时注入平台协议对应的模拟客户端 UA；脚本显式设置优先。
+fn inject_default_ua(headers: &mut Vec<(String, String)>, default_ua: &Option<String>) {
+    if let Some(ua) = default_ua
+        && !headers
+            .iter()
+            .any(|(k, _)| k.eq_ignore_ascii_case("user-agent"))
+    {
+        headers.insert(0, ("User-Agent".to_string(), ua.clone()));
+    }
+}
+
 fn fetch_and_to_json(
     outbound: &Outbound,
     ctx: &mut Context,
     method: reqwest::Method,
     url: String,
     body: Option<String>,
-    headers: Vec<(String, String)>,
+    mut headers: Vec<(String, String)>,
 ) -> JsResult<JsValue> {
+    inject_default_ua(&mut headers, &outbound.default_ua);
     let result: Result<serde_json::Value, String> = tokio::task::block_in_place(|| {
         tokio::runtime::Handle::current().block_on(quota_script_request(
             outbound.db.as_ref(),

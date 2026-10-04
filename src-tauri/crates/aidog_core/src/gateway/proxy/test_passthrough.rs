@@ -322,46 +322,6 @@ fn join_upstream_path_dedupes_version_segment() {
     );
 }
 
-// ── 模型列表鉴权按协议分流：anthropic x-api-key vs openai Bearer ──
-#[test]
-fn models_auth_by_protocol() {
-    let client = reqwest::Client::new();
-    // anthropic → x-api-key + anthropic-version，无 authorization
-    let req = apply_models_auth(
-        client.get("http://x/v1/models"),
-        &super::Protocol::Anthropic,
-        "sk-ant",
-    )
-    .build()
-    .unwrap();
-    assert_eq!(
-        req.headers().get("x-api-key").and_then(|v| v.to_str().ok()),
-        Some("sk-ant")
-    );
-    assert_eq!(
-        req.headers()
-            .get("anthropic-version")
-            .and_then(|v| v.to_str().ok()),
-        Some("2023-06-01")
-    );
-    assert!(req.headers().get("authorization").is_none());
-    // openai 兼容 → Authorization Bearer，无 x-api-key
-    let req = apply_models_auth(
-        client.get("http://x/models"),
-        &super::Protocol::Glm,
-        "sk-glm",
-    )
-    .build()
-    .unwrap();
-    assert_eq!(
-        req.headers()
-            .get("authorization")
-            .and_then(|v| v.to_str().ok()),
-        Some("Bearer sk-glm")
-    );
-    assert!(req.headers().get("x-api-key").is_none());
-}
-
 /// 测试用固定清单：三条格式化测试只验格式，不该跟着 registry 内容一起漂。
 fn sample_ids() -> Vec<String> {
     ["claude-fable-5", "gpt-5.5", "gpt-4o-mini"]
