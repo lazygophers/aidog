@@ -31,6 +31,7 @@ async fn run(script: &str, base_url: &str, extra: &str) -> crate::quota::Platfor
             base_url: base_url.to_string(),
             api_key: "sk-test".into(),
             extra: extra.into(),
+            protocol_code: String::new(),
         },
         script,
         0,

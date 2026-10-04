@@ -6,6 +6,7 @@ fn qctx() -> CustomQueryCtx {
         base_url: "https://example.com/v1".into(),
         api_key: "sk-test".into(),
         extra: r#"{"foo":1}"#.into(),
+        protocol_code: String::new(),
     }
 }
 
@@ -15,6 +16,7 @@ fn outbound() -> Outbound {
         client: reqwest::Client::new(),
         db: None,
         platform_id: 0,
+        default_ua: None,
     }
 }
 
@@ -303,6 +305,7 @@ fn registry_quota_script_parses_and_evaluates() {
             base_url: "https://example.com/v1".into(),
             api_key: "sk-test".into(),
             extra: r#"{"panel_url":"https://panel.example"}"#.into(),
+            protocol_code: String::new(),
         },
         &outbound(),
         &v.script,
@@ -312,4 +315,22 @@ fn registry_quota_script_parses_and_evaluates() {
     let b = q.balance.expect("balance");
     assert!((b.remaining - 1.5).abs() < 1e-9);
     assert_eq!(b.currency, "CNY");
+}
+
+#[test]
+fn default_ua_injected_only_when_script_omits_it() {
+    let mut h = vec![("authorization".to_string(), "Bearer x".to_string())];
+    inject_default_ua(&mut h, &Some("Codex/0.38.0".to_string()));
+    assert_eq!(h[0], ("User-Agent".to_string(), "Codex/0.38.0".to_string()));
+
+    // 脚本自带 UA（任意大小写）→ 不覆盖
+    let mut h = vec![("USER-AGENT".to_string(), "my-ua".to_string())];
+    inject_default_ua(&mut h, &Some("Codex/0.38.0".to_string()));
+    assert_eq!(h.len(), 1);
+    assert_eq!(h[0].1, "my-ua");
+
+    // 平台协议无模拟 UA（default entry）→ 不注入
+    let mut h = vec![];
+    inject_default_ua(&mut h, &None);
+    assert!(h.is_empty());
 }

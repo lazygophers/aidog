@@ -68,6 +68,7 @@ async fn run_script_at(
                 base_url: base_url.to_string(),
                 api_key: api_key.to_string(),
                 extra: extra.to_string(),
+                protocol_code: protocol_code.to_string(),
             },
             &script,
             platform_id,
