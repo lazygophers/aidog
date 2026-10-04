@@ -116,6 +116,20 @@ pub(crate) async fn finish_nonstream(
         body
     };
 
+    // ── DSML 文本工具标记 → tool_use（书生·端砚 dsv4：工具调用以 <｜DSML｜tool_calls>
+    //    文本写进 text 块）。anthropic wire 客户端（转换 / 透传两分支的 body 此时都是
+    //    anthropic 形状）统一在此改写；无标记时零改动直通。──
+    let body = if is_anthropic_wire_client(source_protocol) {
+        let mut json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+        if adapter::convert_dsml_in_body(&mut json) {
+            Bytes::from(serde_json::to_vec(&json).unwrap_or_else(|_| body.to_vec()))
+        } else {
+            body
+        }
+    } else {
+        body
+    };
+
     // 下发 model 始终回填客户端请求的模型名（含未 remap 但上游自报名不符的场景）
     let body = if !requested_model.is_empty() {
         replace_model_in_json(&body, requested_model)
@@ -337,6 +351,11 @@ where
     let disable_thinking = ctx.disable_thinking;
     let mut sse_thinking_stripper =
         disable_thinking.then(|| adapter::SseThinkingStripper::new(client_protocol.clone()));
+    // DSML 文本工具标记改写（书生·端砚 dsv4：工具调用以 <｜DSML｜tool_calls> 文本吐出）：
+    // 透传分支逐帧剥标记 + 合成 tool_use 帧；仅 anthropic wire 客户端（rewriter 按其帧格式实现）。
+    // 未激活且帧不含 "DSML" 时零解析成本直通。
+    let mut dsml_rewriter = (passthrough_response && is_anthropic_wire_client(&client_protocol))
+        .then(adapter::DsmlSseRewriter::new);
     // 上游流自然耗尽哨兵：chain 在 map 之前，上游 Stream 返 None 时置 exhausted 位，使 Drop
     // 兜底 flush 能区分「上游读完（无 [DONE]/message_stop 也算正常收尾，如 Gemini）」与
     // 「客户端提前断连」。哨兵额外产一个 `None` item（上游 item 包成 `Some`），供 map 冲刷
@@ -424,6 +443,19 @@ where
                         || line_ready_text.contains("message_stop")
                     {
                         out.push_str(&s.finish());
+                    }
+                    out
+                }
+                None => line_ready_text,
+            };
+            // DSML 改写（书生端砚 text 工具标记 → tool_use 帧）：终态帧到达时冲刷
+            // rewriter 内部残留（无终止符收尾的上游由流末哨兵分支兜底不了——透传分支
+            // 无哨兵处理，接受此限：anthropic wire 恒发 message_stop）。
+            let line_ready_text = match dsml_rewriter.as_mut() {
+                Some(r) => {
+                    let mut out = r.push(&line_ready_text);
+                    if line_ready_text.contains("message_stop") {
+                        out.push_str(&r.finish());
                     }
                     out
                 }
