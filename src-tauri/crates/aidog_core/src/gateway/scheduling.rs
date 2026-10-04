@@ -98,9 +98,12 @@ pub struct PlatformHealth {
     /// 配额冷却截止（unix ms，0 = 无）。429 配额耗尽且上游给出重置时间时设置：
     /// 该时刻前不参与调度，但**不改 DB status**（平台在 UI 仍是启用态，只是不被选中）。
     pub quota_cooldown_until_ms: i64,
-    /// 401 权限 / 402 余额冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，
-    /// 纯内存态（取代旧 DB auto_disabled），到点自动回调度。
+    /// 401 权限冷却截止（unix ms，0 = 无）。固定 AUTH_COOLDOWN_MS，纯内存态
+    /// （取代旧 DB auto_disabled），到点自动回调度。
     pub auth_cooldown_until_ms: i64,
+    /// 402 余额不足冷却截止（unix ms，0 = 无）。与 401 同固定 AUTH_COOLDOWN_MS、
+    /// 同写穿语义，独立通道（plat-select-status 2026-10-04：快照按 401 鉴权 / 402 余额分别归类）。
+    pub balance_cooldown_until_ms: i64,
     /// 最近一次 connect 失败时刻（unix ms，0 = 无）。本地网络保护条款的滑窗判据
     /// （见 [`SchedulerState::record_connect_failure`]）。
     pub last_connect_fail_ms: i64,
@@ -120,6 +123,7 @@ impl Default for PlatformHealth {
             inflight: 0,
             quota_cooldown_until_ms: 0,
             auth_cooldown_until_ms: 0,
+            balance_cooldown_until_ms: 0,
             last_connect_fail_ms: 0,
             penalty_until_ms: 0,
             penalty_tier: PenaltyTier::Client,
@@ -138,6 +142,34 @@ pub struct BreakerThresholds {
 
 /// EMA 平滑系数（新样本权重）。0.3 ≈ 近 ~6 个样本窗口。
 const EMA_ALPHA: f64 = 0.3;
+
+/// 摘除性状态快照条目（cooldown_snapshot 产出）。code 语义：429 配额 / 402 余额 /
+/// 401 鉴权 / 503 熔断 Open。
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlatformCooldownSnapshot {
+    pub platform_id: u64,
+    pub code: u16,
+    /// 冷却/熔断截止（unix ms）。
+    pub until_ms: i64,
+}
+
+/// 全局调度器访问器：start_proxy 时安装，命令层（platform_error_status）读快照用。
+/// RwLock 而非 OnceLock：代理可停/重启，重启换新实例（restore_from_db 重灌）。
+/// proxy_stop 不卸载：停代理后仍可读旧快照（到 until_ms 自然过期，时间有界），
+/// 展示口径可接受；代理从未启动过 → None → 命令层走纯日志回落。
+static GLOBAL_SCHEDULER: RwLock<Option<std::sync::Arc<SchedulerState>>> = RwLock::new(None);
+
+/// 安装全局调度器实例（start_proxy 调）。
+pub fn install_global(s: std::sync::Arc<SchedulerState>) {
+    if let Ok(mut g) = GLOBAL_SCHEDULER.write() {
+        *g = Some(s);
+    }
+}
+
+/// 取全局调度器实例（未运行 → None）。
+pub fn global() -> Option<std::sync::Arc<SchedulerState>> {
+    GLOBAL_SCHEDULER.read().ok().and_then(|g| g.clone())
+}
 
 /// 调度器状态单例：per-platform 健康表。随 ProxyState 持有，Arc clone 进后台。
 pub struct SchedulerState {
@@ -190,6 +222,9 @@ impl SchedulerState {
                 if row.auth_cooldown_until_ms > now_ms {
                     h.auth_cooldown_until_ms = row.auth_cooldown_until_ms;
                 }
+                if row.balance_cooldown_until_ms > now_ms {
+                    h.balance_cooldown_until_ms = row.balance_cooldown_until_ms;
+                }
                 if row.last_connect_fail_ms > 0
                     && now_ms - row.last_connect_fail_ms < CONNECT_FAIL_WINDOW_MS
                 {
@@ -227,6 +262,7 @@ impl SchedulerState {
                 breaker_until_ms: until,
                 quota_cooldown_until_ms: h.quota_cooldown_until_ms,
                 auth_cooldown_until_ms: h.auth_cooldown_until_ms,
+                balance_cooldown_until_ms: h.balance_cooldown_until_ms,
                 last_connect_fail_ms: h.last_connect_fail_ms,
                 updated_at: aidog_db::now(),
             }
@@ -282,7 +318,7 @@ impl SchedulerState {
             .is_some_and(|until| until > now_ms)
     }
 
-    /// 401 权限 / 402 余额不足：把平台冷却固定 [`AUTH_COOLDOWN_MS`]（取 max，不缩短已有冷却）。
+    /// 401 鉴权失败：把平台冷却固定 [`AUTH_COOLDOWN_MS`]（取 max，不缩短已有冷却）。
     /// 纯内存维度——不写 DB status，平台 UI 仍是启用态，到点自动回调度。
     pub fn set_auth_cooldown(&self, platform_id: u64, now_ms: i64) {
         if let Ok(mut g) = self.health.write() {
@@ -292,13 +328,65 @@ impl SchedulerState {
         self.persist(platform_id);
     }
 
-    /// 该平台此刻是否处于 auth 冷却中（到点自动失效，无需清理）。
+    /// 402 余额不足：同 [`set_auth_cooldown`] 语义，独立通道（快照按 402 归类，准入判定与 401 共用）。
+    pub fn set_balance_cooldown(&self, platform_id: u64, now_ms: i64) {
+        if let Ok(mut g) = self.health.write() {
+            let h = g.entry(platform_id).or_default();
+            h.balance_cooldown_until_ms =
+                (now_ms + AUTH_COOLDOWN_MS).max(h.balance_cooldown_until_ms);
+        }
+        self.persist(platform_id);
+    }
+
+    /// 该平台此刻是否处于 401/402 冷却中（两条通道任一活跃即冷却；到点自动失效，无需清理）。
     pub fn auth_cooled(&self, platform_id: u64, now_ms: i64) -> bool {
-        self.health
-            .read()
-            .ok()
-            .and_then(|g| g.get(&platform_id).map(|h| h.auth_cooldown_until_ms))
-            .is_some_and(|until| until > now_ms)
+        self.health.read().ok().is_some_and(|g| {
+            g.get(&platform_id).is_some_and(|h| {
+                h.auth_cooldown_until_ms > now_ms || h.balance_cooldown_until_ms > now_ms
+            })
+        })
+    }
+
+    /// 当前处于摘除性冷却/熔断态的平台快照（plat-select-status 2026-10-04）。
+    /// 每平台至多一条，按优先级取一：429 配额 > 402 余额 > 401 鉴权 > 熔断 Open(503)；
+    /// 降权（penalty）不在此列——它只沉排序不摘除，不算「坏到可选出来处理」。
+    pub fn cooldown_snapshot(&self, now_ms: i64) -> Vec<PlatformCooldownSnapshot> {
+        let Ok(g) = self.health.read() else {
+            return Vec::new();
+        };
+        g.iter()
+            .filter_map(|(&platform_id, h)| {
+                if h.quota_cooldown_until_ms > now_ms {
+                    Some(PlatformCooldownSnapshot {
+                        platform_id,
+                        code: 429,
+                        until_ms: h.quota_cooldown_until_ms,
+                    })
+                } else if h.balance_cooldown_until_ms > now_ms {
+                    Some(PlatformCooldownSnapshot {
+                        platform_id,
+                        code: 402,
+                        until_ms: h.balance_cooldown_until_ms,
+                    })
+                } else if h.auth_cooldown_until_ms > now_ms {
+                    Some(PlatformCooldownSnapshot {
+                        platform_id,
+                        code: 401,
+                        until_ms: h.auth_cooldown_until_ms,
+                    })
+                } else if let BreakerState::Open { until_ms } = h.breaker
+                    && until_ms > now_ms
+                {
+                    Some(PlatformCooldownSnapshot {
+                        platform_id,
+                        code: 503,
+                        until_ms,
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 
     /// 失败降权（health-aware 排序降权）：平台计入一次失败 → 按本次失败档位起步窗口降权，
@@ -386,6 +474,7 @@ impl SchedulerState {
             let non_default = h.breaker != BreakerState::Closed { fails: 0 }
                 || h.quota_cooldown_until_ms > 0
                 || h.auth_cooldown_until_ms > 0
+                || h.balance_cooldown_until_ms > 0
                 || h.last_connect_fail_ms > 0;
             Self::dec_inflight(h);
             let sample = latency_ms.max(0) as f64;
@@ -706,6 +795,84 @@ mod tests {
         ));
         assert_eq!(s.breaker_state(2), BreakerState::Closed { fails: 0 });
         assert!(s.quota_cooled(3, now));
+    }
+
+    #[test]
+    fn balance_and_auth_cooldown_are_independent_channels() {
+        // plat-select-status：402 余额独立通道，快照按 401/402 分别归类；准入判定两通道任一活跃即冷却。
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.set_balance_cooldown(7, now);
+        assert!(s.auth_cooled(7, now + 1));
+        let snap: std::collections::HashMap<u64, u16> = s
+            .cooldown_snapshot(now + 1)
+            .into_iter()
+            .map(|x| (x.platform_id, x.code))
+            .collect();
+        assert_eq!(snap.get(&7), Some(&402));
+        s.set_auth_cooldown(8, now);
+        let snap: std::collections::HashMap<u64, u16> = s
+            .cooldown_snapshot(now + 1)
+            .into_iter()
+            .map(|x| (x.platform_id, x.code))
+            .collect();
+        assert_eq!(snap.get(&8), Some(&401));
+        // 到点自动失效：两条通道都过期 → 不再出现在快照。
+        assert!(s
+            .cooldown_snapshot(now + AUTH_COOLDOWN_MS + 1)
+            .is_empty());
+    }
+
+    #[test]
+    fn cooldown_snapshot_priority_quota_over_balance_over_auth_over_breaker() {
+        let s = SchedulerState::new();
+        let th = thresholds(1, 30, 2);
+        let now = 1_000_000i64;
+        // 平台 1：四态叠加 → 取最高优先级 429。
+        s.set_quota_cooldown(1, now + 10_000);
+        s.set_balance_cooldown(1, now);
+        s.set_auth_cooldown(1, now);
+        s.inc_inflight(1);
+        s.record_failure(1, &th, now); // threshold=1 → Open
+        // 平台 2：余额 + 鉴权 + 熔断 → 402。
+        s.set_balance_cooldown(2, now);
+        s.set_auth_cooldown(2, now);
+        s.inc_inflight(2);
+        s.record_failure(2, &th, now);
+        // 平台 3：仅熔断 → 503。
+        s.inc_inflight(3);
+        s.record_failure(3, &th, now);
+        let mut snap: Vec<(u64, u16)> = s
+            .cooldown_snapshot(now + 1)
+            .into_iter()
+            .map(|x| (x.platform_id, x.code))
+            .collect();
+        snap.sort();
+        assert_eq!(
+            snap,
+            vec![(1, 429), (2, 402), (3, 503)]
+        );
+    }
+
+    #[test]
+    fn seed_from_rows_restores_balance_cooldown() {
+        use aidog_db::health_state::PlatformHealthStateRow as Row;
+        let s = SchedulerState::new();
+        let now = 1_000_000i64;
+        s.seed_from_rows(
+            vec![Row {
+                platform_id: 9,
+                balance_cooldown_until_ms: now + 30_000,
+                ..Default::default()
+            }],
+            now,
+        );
+        assert!(s.auth_cooled(9, now + 1));
+        assert_eq!(
+            s.cooldown_snapshot(now + 1)[0].code,
+            402,
+            "402 余额冷却重启恢复后仍按 402 归类"
+        );
     }
 
     #[test]

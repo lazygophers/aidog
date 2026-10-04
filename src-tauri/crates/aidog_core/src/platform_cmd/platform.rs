@@ -327,6 +327,55 @@ pub async fn platform_reorder(ordered_ids: Vec<u64>) -> Result<(), String> {
 }
 }
 
+crate::tauri_command! {
+/// 平台错误状态清单（plat-select-status，2026-10-04）：多选「按状态选」数据源。
+/// 混合口径（用户拍板）：调度态优先（429 配额 / 402 余额 / 401 鉴权 / 503 熔断，实时内存态），
+/// 无实时态平台回落 24h 日志内最近一次失败的上游状态码。代理未运行 → 纯日志回落。
+pub async fn platform_error_status() -> Result<Vec<PlatformErrorStatus>, String> {
+    let db = aidog_ctx::db();
+    let now_ms = aidog_db::now();
+    let mut out: Vec<PlatformErrorStatus> = Vec::new();
+    let mut covered: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    // ① 调度态快照（start_proxy 安装的全局实例；未运行 → None）。
+    if let Some(sched) = gateway::scheduling::global() {
+        for s in sched.cooldown_snapshot(now_ms) {
+            covered.insert(s.platform_id as i64);
+            out.push(PlatformErrorStatus {
+                platform_id: s.platform_id as i64,
+                code: s.code as i32,
+                source: "cooldown".to_string(),
+                until_ms: Some(s.until_ms),
+            });
+        }
+    }
+    // ② 日志回落：24h 窗口内每平台最近一次失败码（已有调度态的平台不覆盖）。
+    let cutoff = now_ms - 24 * 60 * 60 * 1000;
+    for (platform_id, code) in aidog_logs::latest_error_codes_since(db, cutoff).await? {
+        if covered.insert(platform_id) {
+            out.push(PlatformErrorStatus {
+                platform_id,
+                code,
+                source: "log".to_string(),
+                until_ms: None,
+            });
+        }
+    }
+    Ok(out)
+}
+}
+
+/// `platform_error_status` 条目。serde 蛇形命名（跨层契约：与 proxy.rs DTO 同约定）。
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PlatformErrorStatus {
+    pub platform_id: i64,
+    /// 归类状态码：调度态 429/402/401/503 或日志任意失败码（403/500/529/…）。
+    pub code: i32,
+    /// "cooldown"（实时调度态）| "log"（24h 日志回落）。
+    pub source: String,
+    /// 冷却/熔断截止 unix ms（source=cooldown 才有）。
+    pub until_ms: Option<i64>,
+}
+
 #[cfg(test)]
 #[path = "test_platform.rs"]
 mod test_platform;

@@ -302,6 +302,8 @@ pub async fn start_proxy(
         // R4：调度器带 platform.db 持久化 + 启动恢复（重启后熔断/冷却不丢，死站不回满血）。
         let scheduler = Arc::new(super::scheduling::SchedulerState::with_db(db.clone()));
         scheduler.restore_from_db().await;
+        // plat-select-status：命令层读冷却快照的全局入口（RwLock 可随重启换新实例）。
+        super::scheduling::install_global(scheduler.clone());
         ProxyState {
             db,
             middleware,

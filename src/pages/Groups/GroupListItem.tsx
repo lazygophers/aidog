@@ -3,7 +3,8 @@ import type { TFunction } from "i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import piIcon from "../../assets/platforms/pi.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
-import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate } from "../../services/api";
+import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
+import { buildStatusOptions, idsForCode } from "./statusSelect";
 import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
@@ -135,6 +136,9 @@ export const GroupListItem = memo(function GroupListItem({
   // ── per-group 多选模式（本地 state, 不持久化）──
   const [mode, setMode] = useState<"view" | "select">("view");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  // 按状态选数据（plat-select-status）：下拉首次展开拉一次；null = 未拉（含拉失败后重试语义：
+  // 失败置 [] 不再重试，避免每次展开都打失败 RPC）。
+  const [errStatus, setErrStatus] = useState<PlatformErrorStatus[] | null>(null);
 
   // ponytail: purge 确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规），open 态本地管理。
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
@@ -352,6 +356,11 @@ export const GroupListItem = memo(function GroupListItem({
     // 搜索命中过滤：仅渲染命中平台卡（null = 无搜索，保留原行为）
     .filter(pp => !visiblePlatformIds || visiblePlatformIds.has(pp.id));
 
+  // 按状态选选项（plat-select-status）：组内平台实际命中的错误码（升序 + 计数）。
+  const statusOptions = errStatus !== null
+    ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
+    : [];
+
   return (
     <div
       className="animate-fade-in"
@@ -391,6 +400,38 @@ export const GroupListItem = memo(function GroupListItem({
                   onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
                   {t("group.selectAll", "全选")}
                 </Button>
+                {/* 按状态选（plat-select-status）：动态错误码选项 = 组内平台实际命中的码；
+                    口径 = 实时调度态优先（429/402/401/503）回落 24h 日志最近失败码。 */}
+                <Select
+                  onOpenChange={(open) => {
+                    if (open && errStatus === null) {
+                      platformApi.errorStatus()
+                        // 已到期的冷却条目剔除（fetch 一次不再刷新，过期码不该再列出）。
+                        .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
+                        .catch(() => setErrStatus([]));
+                    }
+                  }}
+                  onValueChange={(v) => {
+                    const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
+                    if (ids.size > 0) setSelectedIds(ids);
+                  }}
+                >
+                  <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "4px 10px", minHeight: 26, width: "auto" }}>
+                    <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statusOptions.map(o => (
+                      <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
+                        {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
+                      </SelectItem>
+                    ))}
+                    {statusOptions.length === 0 && (
+                      <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
+                        {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
                 <span className="text-secondary" style={{ fontSize: 12 }}>
                   {t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}
                 </span>
