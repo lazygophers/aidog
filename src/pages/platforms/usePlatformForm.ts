@@ -16,6 +16,7 @@ import {
   parsePlatformPeak, serializePlatformPeak,
   parseDisableDuringPeak, serializeDisableDuringPeak,
   parseMitmStats, serializeMitmStats,
+  parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePlatformTimeWindows, serializePlatformTimeWindows,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
@@ -133,6 +134,8 @@ export interface PlatformFormState {
   mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
   /** time_windows：时段模型规则列表（按时段切换主力模型档） */
   timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
+  /** 限频配置（rate-limit-aware 票 04：extra.rate_limits + extra.quota_windows，弹窗编辑）。 */
+  rateLimits: RateLimitsBundle; setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   expiresAt: number; setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
@@ -231,6 +234,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   // peak（用户覆盖，存 platform.extra.peak；时区仅前端态，默认本地）
   const [peak, setPeak] = useState<TimeWindow[]>([]);
+  // 限频配置（rate-limit-aware 票 04：编辑弹窗整体读写，无独立子字段 state）
+  const [rateLimits, setRateLimits] = useState<RateLimitsBundle>({});
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
@@ -409,6 +414,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
+    setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
@@ -462,6 +468,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
     setPeak(parsePlatformPeak(p.extra ?? ""));
+    setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
@@ -663,6 +670,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = serializeMitmStats(extraPayload, mitmStats);
     // time_windows：空数组 → 移除键（无规则 → 用 default）；非空写入。
     extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
+    // 限频配置（rate-limit-aware 票 04）：空 bundle → 删键（无覆盖）。
+    extraPayload = serializeRateLimitsBundle(extraPayload, rateLimits);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
     return {
       platform_type: protocol,
@@ -802,6 +811,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     mitmStats, setMitmStats,
+  rateLimits, setRateLimits,
     timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,

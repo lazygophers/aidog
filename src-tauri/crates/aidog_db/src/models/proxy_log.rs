@@ -173,6 +173,12 @@ pub struct ProxyLogSummary {
     /// 重试次数（retry_count>0 时列表显示重试徽标）
     #[serde(default)]
     pub retry_count: i32,
+    /// 被拦截的环节（rate-limit-aware 票 04：'router' 等；空串 = 未被拦截）
+    #[serde(default)]
+    pub blocked_by: String,
+    /// 拦截原因（'rate_limit' / 'peak' / 'observe' / …；空串 = 未被拦截）
+    #[serde(default)]
+    pub blocked_reason: String,
     #[ts(type = "number")]
     pub created_at: i64,
 }
