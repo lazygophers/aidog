@@ -802,11 +802,28 @@ class _LogTableState extends State<_LogTable> {
                                         width: 170,
                                         // 模型名 12 w500（primitives.tsx:29）
                                         fontWeight: FontWeight.w500,
-                                        badge: log.isStream ? 'SSE' : null,
-                                        // SSE 徽标是 accent 语义色（primitives.tsx:30）
-                                        badgeColor: theme.c.accentText,
-                                        badgeBackground: theme.c.accentWash,
-                                        badgeTooltip: t.t('logs.streaming'),
+                                        // 拦截徽标与 SSE 同槽互斥展示：被拦截的
+                                        // 请求从未转发（is_stream 恒 false），两徽标
+                                        // 不会同时出现（primitives.tsx:307-312）。
+                                        badge: log.isStream
+                                            ? 'SSE'
+                                            : log.blockedReason.isEmpty
+                                            ? null
+                                            : _blockedReasonLabel(
+                                                log.blockedReason,
+                                                t,
+                                              ),
+                                        // SSE 徽标是 accent 语义色（primitives.tsx:30）；
+                                        // 拦截徽标同 React 复用 warning 语义色
+                                        badgeColor: log.isStream
+                                            ? theme.c.accentText
+                                            : theme.c.peak,
+                                        badgeBackground: log.isStream
+                                            ? theme.c.accentWash
+                                            : null,
+                                        badgeTooltip: log.isStream
+                                            ? t.t('logs.streaming')
+                                            : '${t.t('logs.blockedBy')}: ${log.blockedBy} · ${log.blockedReason}',
                                       ),
                                       _Cell(
                                         log.actualModel.isEmpty
@@ -898,6 +915,15 @@ class _LogTableState extends State<_LogTable> {
 /// 单元格内边距：React `ThCell` / `TdCell` 都是 `padding: 10px 14px`
 /// （`primitives.tsx:235,252`）。
 const EdgeInsets _kCellPad = EdgeInsets.symmetric(horizontal: 14, vertical: 10);
+
+/// blocked_reason → 短标签（React `blockedReasonLabel`，primitives.tsx:284-291）：
+/// rate-limit-aware 票 04 起被调度排除/拦截的行标记。
+String _blockedReasonLabel(String reason, I18nController t) => switch (reason) {
+  'rate_limit' => t.t('logs.blockedRateLimit'),
+  'peak' => t.t('logs.blockedPeak'),
+  'observe' => t.t('logs.blockedObserve'),
+  _ => reason,
+};
 
 class _CellWithBadge extends StatelessWidget {
   const _CellWithBadge({

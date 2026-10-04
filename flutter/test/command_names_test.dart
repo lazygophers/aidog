@@ -60,9 +60,10 @@ Map<String, List<String>> invokedCommands(Directory libDir) {
 }
 
 void main() {
-  // 204 = cc-sub-mitm 批次前实测；票 12 加 MITM 读侧 8 条 → 212。
-  test('generate_handler! 里有 212 个命令', () {
-    expect(registeredCommands(repoRoot()).length, 212);
+  // 204 = cc-sub-mitm 批次前实测；票 12 加 MITM 读侧 8 条 → 212；
+  // 213 = plat-select-status 批次加 platform_error_status（79a0bf56a，忘 bump）。
+  test('generate_handler! 里有 213 个命令', () {
+    expect(registeredCommands(repoRoot()).length, 213);
   });
 
   test('Dart 侧调的每个命令名都在 generate_handler! 里登记过', () {
