@@ -589,8 +589,10 @@ void main() {
     );
     await settle(tester);
 
-    // 标题 + 默认 platform tab + tokens 指标在。
+    // 标题 + 默认 total tab + tokens 指标在（2026-10-03 拍板默认总计，React 对齐）。
     expect(find.text(c.t('home.dimTrendTitle')), findsOneWidget);
+    // 「总计」既在 tab 按钮也在默认图例层（total 层 label），两处都在。
+    expect(find.text(c.t('home.tabTotal')), findsWidgets);
     expect(find.text(c.t('home.tabPlatform')), findsOneWidget);
     // 'Token' 同时出现在 KPI 标签与指标 tab，两处都在。
     expect(find.text(c.t('home.tokens')), findsWidgets);
