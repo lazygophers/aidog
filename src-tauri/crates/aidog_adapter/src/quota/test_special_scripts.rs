@@ -26,6 +26,7 @@ async fn run(
             base_url: base_url.to_string(),
             api_key: api_key.into(),
             extra: extra.into(),
+            protocol_code: String::new(),
         },
         script,
         0,

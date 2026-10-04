@@ -31,18 +31,21 @@ impl FetchModelsError {
     }
 }
 
-fn models_request_headers_log(protocol: &Protocol) -> String {
-    let headers = match protocol {
-        Protocol::Anthropic => serde_json::json!({
-            "x-api-key": "[REDACTED]",
-            "anthropic-version": "2023-06-01",
-        }),
-        _ => serde_json::json!({
-            "authorization": "[REDACTED]",
-            "api-key": "[REDACTED]",
-        }),
-    };
-    headers.to_string()
+/// 镜像实发头（与 apply_client_headers 同一 simulation 配置，api_key 全脱敏）。
+/// GET 无 body，剔 build_upstream_headers 固定塞的 Content-Type。UA 一并入日志。
+fn models_request_headers_log(client_type: &ClientType, protocol: &Protocol) -> String {
+    let empty = axum::http::HeaderMap::new();
+    let map: serde_json::Map<String, serde_json::Value> = gateway::proxy::build_upstream_headers(
+        client_type,
+        protocol,
+        "",
+        &empty,
+    )
+    .into_iter()
+    .filter(|(k, _)| !k.eq_ignore_ascii_case("content-type"))
+    .map(|(k, v)| (k, serde_json::Value::String(v)))
+    .collect();
+    serde_json::Value::Object(map).to_string()
 }
 
 fn models_response_headers_log(headers: &reqwest::header::HeaderMap) -> String {
@@ -126,6 +129,10 @@ pub async fn platform_fetch_models(
     let request_id = uuid::Uuid::new_v4().simple().to_string();
     let created_at = aidog_db::now();
     let target_protocol = format!("{:?}", protocol).to_lowercase();
+    // 客户端模拟（2026-10-04）：client_type 按协议派生（anthropic→claude_code、openai 系→
+    // codex_tui，registry::derive_client_type 与 proxy 端点缺省派生同源），UA + auth 全套
+    // 走 client-types.json simulation —— 用 openai base_url 拉模型列表就模拟 openai 客户端。
+    let client_type = aidog_db::registry::derive_client_type(&protocol.wire_str());
 
     // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
     let make_log = |upstream_status: i32,
@@ -144,7 +151,7 @@ pub async fn platform_fetch_models(
             platform_id: 0,
             request_headers: r#"{"source":"fetch-models"}"#.into(),
             request_body: String::new(),
-            upstream_request_headers: models_request_headers_log(&protocol),
+            upstream_request_headers: models_request_headers_log(&client_type, &protocol),
             upstream_request_body: String::new(),
             response_body: body.into(),
             request_url: "/fetch-models".into(),
@@ -191,7 +198,7 @@ pub async fn platform_fetch_models(
         || base_url.to_lowercase().contains("opencode.ai/zen");
     let api_key = gateway::proxy::opencode_zen_fallback(&api_key, is_zen);
     let url = gateway::proxy::build_models_url(&protocol, &base_url);
-    let rb = gateway::proxy::apply_models_auth(client.get(&url), &protocol, &api_key);
+    let rb = gateway::proxy::apply_client_headers(client.get(&url), &client_type, &protocol, &api_key);
     tracing::info!(method = "GET", url = %url, "fetch models request");
     let resp = match rb.send().await {
         Ok(r) => r,
@@ -284,15 +291,21 @@ mod tests {
 
     #[test]
     fn models_request_log_headers_match_protocol_without_credentials() {
-        let anthropic = models_request_headers_log(&Protocol::Anthropic);
+        let ct_anthropic = aidog_db::registry::derive_client_type("anthropic");
+        let anthropic = models_request_headers_log(&ct_anthropic, &Protocol::Anthropic);
         assert!(anthropic.contains("x-api-key"));
         assert!(anthropic.contains("anthropic-version"));
+        assert!(anthropic.contains("claude-cli/"));
         assert!(anthropic.contains("[REDACTED]"));
 
-        let openai = models_request_headers_log(&Protocol::OpenAI);
-        assert!(openai.contains("authorization"));
+        let ct_openai = aidog_db::registry::derive_client_type("openai");
+        let openai = models_request_headers_log(&ct_openai, &Protocol::OpenAI);
+        assert!(openai.to_lowercase().contains("authorization"));
         assert!(openai.contains("api-key"));
+        assert!(openai.contains("Codex/"));
         assert!(openai.contains("[REDACTED]"));
+        // GET 无 body，不该带 Content-Type
+        assert!(!openai.to_lowercase().contains("content-type"));
 
         let mut response = reqwest::header::HeaderMap::new();
         response.insert("content-type", "application/json".parse().unwrap());

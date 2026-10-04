@@ -85,7 +85,7 @@ pub use headers::{
 // redact_key 仅 headers 内部消费，但作为对外 API 一致性保留可达路径 `gateway::proxy::redact_key`。
 #[allow(unused_imports)]
 pub use headers::redact_key;
-pub use passthrough::{apply_models_auth, build_models_url};
+pub use passthrough::build_models_url;
 
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};

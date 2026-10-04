@@ -715,25 +715,6 @@ pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
     }
 }
 
-/// 按平台协议给上游模型列表请求注入鉴权头（平台凭证，非客户端 group token）。
-/// Anthropic → `x-api-key` + `anthropic-version`；其余 OpenAI 兼容 → `Authorization: Bearer`。
-/// 与 lib.rs `platform_fetch_models` 鉴权风格对齐。
-pub fn apply_models_auth(
-    rb: reqwest::RequestBuilder,
-    protocol: &Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    match protocol {
-        Protocol::Anthropic => rb
-            .header("x-api-key", api_key)
-            .header("anthropic-version", "2023-06-01"),
-        // openai/兼容：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求），其他上游忽略未知头。
-        _ => rb
-            .header("Authorization", format!("Bearer {api_key}"))
-            .header("api-key", api_key),
-    }
-}
-
 #[cfg(test)]
 #[path = "test_passthrough.rs"]
 mod test_passthrough;

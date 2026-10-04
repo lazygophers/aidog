@@ -185,105 +185,13 @@ pub(crate) fn passthrough_convert_headers(
 }
 // ── client-types.json simulation 配置驱动 ─────────────────────────────────────
 //
-// 真值源 = `src-tauri/defaults/client-types.json`（每 entry `simulation` 字段全自包含
-// UA + auth 矩阵 + 占位符）。Rust 执行引擎**禁写任何 client_type 特定代码依赖**
-// （用户逐字约束）—— 所有 client_type 差异由 JSON 配置表达，本文件仅提供通用：
-//   1. 配置加载（OnceLock 启动加载，禁每请求读盘/IPC）
-//   2. protocol key 查表（serde rename → auth headers 数组，`default` 兜底）
-//   3. 占位符引擎（`{api_key}` / `{uuid}` → 运行时值，非 client_type 特定）
-//
-// 远端同步链见 `client_types_sync.rs`（7 件套），schema gate 已扩 simulation 校验。
-// 数据流硬规：simulation 由 Rust 内部消费，前端不感知（仅消费 label/group/name 展示层）。
+// 配置加载 / 查表已下沉 aidog_db::client_types_const（2026-10-04，quota 脚本默认 UA 也要
+// 读它，core↔adapter 不能倒挂）；本文件仅保留通用引擎：
+//   1. protocol key 查表（serde rename → auth headers 数组，`default` 兜底）
+//   2. 占位符引擎（`{api_key}` / `{uuid}` → 运行时值，非 client_type 特定）
+// 数据流硬规不变：simulation 由 Rust 内部消费，前端不感知。
 
-/// 内置真值（client_types_const.rs，原外部 JSON 已内置化）。
-const BUNDLED_CLIENT_TYPES: &str = crate::gateway::client_types_const::BUNDLED;
-
-/// 单条 simulation header 定义（name + value 模板，value 含占位符由引擎替换）。
-#[derive(Debug, Clone, serde::Deserialize)]
-struct SimulationHeader {
-    name: String,
-    value: String,
-}
-
-/// per-protocol auth 矩阵：serde rename key（`anthropic`/`openai`/`gemini`/...）→ headers 数组。
-/// 含保留 key `default` 兜底未知 protocol。
-type AuthMatrix = std::collections::HashMap<String, Vec<SimulationHeader>>;
-
-/// 单 entry 的 simulation 配置（全自包含，禁 family 继承）。
-#[derive(Debug, Clone, Default, serde::Deserialize)]
-struct Simulation {
-    /// 缺省 = 不注入 UA（如 `default` entry）。
-    #[serde(default)]
-    user_agent: Option<String>,
-    #[serde(default)]
-    auth: AuthMatrix,
-}
-
-/// client-types.json 顶层文档（仅消费 simulation 相关字段，label/desc 忽略）。
-#[derive(Debug, Clone, serde::Deserialize)]
-struct ClientTypesDoc {
-    client_types: Vec<ClientTypeEntry>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct ClientTypeEntry {
-    value: String,
-    #[serde(default)]
-    simulation: Simulation,
-}
-
-/// 启动加载缓存：`client_type.as_str()` → Simulation（缺省 entry 不在 map = 等价 default 行为）。
-static SIMULATION_CACHE: std::sync::OnceLock<std::collections::HashMap<String, Simulation>> =
-    std::sync::OnceLock::new();
-
-/// 读 client-types.json body（app data 优先 → bundled fallback；同 `get_client_types_json` reader）。
-/// 启动一次（OnceLock get_or_init），禁每请求读盘。
-fn load_client_types_body() -> String {
-    let dir = match crate::shared::aidog_data_dir() {
-        Ok(d) => d,
-        Err(_) => return BUNDLED_CLIENT_TYPES.to_string(),
-    };
-    let path = dir.join("client-types.json");
-    if !path.exists() {
-        return BUNDLED_CLIENT_TYPES.to_string();
-    }
-    match std::fs::read_to_string(&path) {
-        Ok(content)
-            if !content.trim().is_empty()
-                && serde_json::from_str::<serde_json::Value>(&content).is_ok() =>
-        {
-            content
-        }
-        _ => {
-            tracing::warn!(
-                path = %path.display(),
-                "client-types.json empty/corrupt in sim load, fallback to bundled"
-            );
-            BUNDLED_CLIENT_TYPES.to_string()
-        }
-    }
-}
-
-/// 首次访问解析 simulation map；解析失败兜底空 map（apply 路径再兜底 Bearer）。
-fn simulation_map() -> &'static std::collections::HashMap<String, Simulation> {
-    SIMULATION_CACHE.get_or_init(|| {
-        let body = load_client_types_body();
-        match serde_json::from_str::<ClientTypesDoc>(&body) {
-            Ok(doc) => doc
-                .client_types
-                .into_iter()
-                .map(|e| (e.value, e.simulation))
-                .collect(),
-            Err(e) => {
-                tracing::warn!(
-                    error = %e,
-                    "client-types.json simulation parse failed (should never happen), using empty map"
-                );
-                std::collections::HashMap::new()
-            }
-        }
-    })
-}
+use crate::gateway::client_types_const::{Simulation, SimulationHeader, simulation_for};
 
 /// 取 protocol 的 serde rename 字符串（如 `Protocol::Anthropic` → `"anthropic"`）。
 /// 用于查 simulation.auth 矩阵的 protocol key。
@@ -313,26 +221,15 @@ fn resolve_auth_headers<'a>(sim: &'a Simulation, protocol_key: &str) -> &'a [Sim
         .unwrap_or(&[])
 }
 
-/// 未知 client_type（JSON 无 entry）→ 回落 `default` entry 的 simulation（PRD R2：
-/// 「等价 default」语义）—— default entry 的 auth 矩阵覆盖 anthropic/openai/gemini/default，
-/// 与重构前 `match _ => apply_default_headers` 行为对齐。`default` 也缺 → Bearer-only 终极兜底。
-fn resolve_simulation<'a>(
-    map: &'a std::collections::HashMap<String, Simulation>,
-    client_type: &str,
-) -> Option<&'a Simulation> {
-    map.get(client_type).or_else(|| map.get("default"))
-}
-
 pub fn apply_client_headers(
     req_builder: reqwest::RequestBuilder,
     client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    let map = simulation_map();
-    // 未知 client_type → 回落 `default` entry（等价旧 apply_default_headers，保留 client_type 审计字符串）。
-    // default entry 的 user_agent 缺省 → 不注入 UA（与旧 default 行为一致）。
-    let sim = resolve_simulation(map, client_type.as_str());
+    // 未知 client_type → 回落 `default` entry（simulation_for，等价旧 apply_default_headers，
+    // 保留 client_type 审计字符串）。default entry 的 user_agent 缺省 → 不注入 UA。
+    let sim = simulation_for(client_type.as_str());
     let mut rb = req_builder;
 
     // ① UA（若 simulation.user_agent 存在；default entry 无 UA）
@@ -404,9 +301,8 @@ pub fn build_upstream_headers(
     }
     // ② 覆盖：Content-Type + simulation 配置驱动的 UA/auth/extra headers（占位符用 redact_key 脱敏）。
     h.push(("Content-Type".into(), "application/json".into()));
-    let map = simulation_map();
-    // 未知 client_type → 回落 `default` entry（与 apply_client_headers 对称，保日志镜像与实发一致）。
-    let sim = resolve_simulation(map, client_type.as_str());
+    // 未知 client_type → 回落 `default` entry（simulation_for，与 apply_client_headers 对称，保日志镜像与实发一致）。
+    let sim = simulation_for(client_type.as_str());
     let redacted = redact_key(api_key);
     if let Some(ua) = sim.and_then(|s| s.user_agent.as_deref()) {
         h.push(("User-Agent".into(), ua.to_string()));

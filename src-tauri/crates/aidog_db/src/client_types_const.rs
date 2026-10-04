@@ -615,3 +615,96 @@ pub const BUNDLED: &str = r##"{
     }
   ]
 }"##;
+
+// ── simulation 配置加载（2026-10-04 自 aidog_core::gateway::proxy::headers 下沉）────
+// 下沉动机：aidog_adapter（quota 脚本出站默认 UA）也够得着，避免 core↔adapter 依赖倒挂。
+// 消费方：aidog_core apply_client_headers（proxy / model_test / fetch-models 客户端模拟）+
+// aidog_adapter quota 脚本默认 UA。真值源不变：app data `~/.aidog/client-types.json` 优先，
+// 缺失/空/非 JSON 回落 BUNDLED；OnceLock 启动加载，禁每请求读盘。
+
+use std::collections::HashMap;
+use std::sync::OnceLock;
+
+/// 单条 simulation header 定义（name + value 模板，占位符由调用方引擎替换）。
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct SimulationHeader {
+    pub name: String,
+    pub value: String,
+}
+
+/// per-protocol auth 矩阵：serde rename key（`anthropic`/`openai`/`gemini`/...）→ headers 数组。
+/// 含保留 key `default` 兜底未知 protocol。
+pub type AuthMatrix = HashMap<String, Vec<SimulationHeader>>;
+
+/// 单 entry 的 simulation 配置（全自包含，禁 family 继承）。
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+pub struct Simulation {
+    /// 缺省 = 不注入 UA（如 `default` entry）。
+    #[serde(default)]
+    pub user_agent: Option<String>,
+    #[serde(default)]
+    pub auth: AuthMatrix,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ClientTypeEntry {
+    value: String,
+    #[serde(default)]
+    simulation: Simulation,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ClientTypesDoc {
+    client_types: Vec<ClientTypeEntry>,
+}
+
+static SIMULATION_CACHE: OnceLock<HashMap<String, Simulation>> = OnceLock::new();
+
+/// app data `~/.aidog/client-types.json` 优先，缺失/空/非 JSON 回落 BUNDLED。
+fn load_client_types_body() -> String {
+    let path = dirs::home_dir().map(|h| h.join(".aidog").join("client-types.json"));
+    if let Some(p) = path
+        && let Ok(content) = std::fs::read_to_string(&p)
+        && !content.trim().is_empty()
+        && serde_json::from_str::<serde_json::Value>(&content).is_ok()
+    {
+        return content;
+    }
+    BUNDLED.to_string()
+}
+
+/// 首次访问解析 simulation map；解析失败兜底空 map（apply 路径再兜底 Bearer）。
+fn simulation_map() -> &'static HashMap<String, Simulation> {
+    SIMULATION_CACHE.get_or_init(|| {
+        let body = load_client_types_body();
+        match serde_json::from_str::<ClientTypesDoc>(&body) {
+            Ok(doc) => doc
+                .client_types
+                .into_iter()
+                .map(|e| (e.value, e.simulation))
+                .collect(),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "client-types.json simulation parse failed (should never happen), using empty map"
+                );
+                HashMap::new()
+            }
+        }
+    })
+}
+
+/// 未知 client_type（JSON 无 entry）→ 回落 `default` entry（PRD R2「等价 default」语义）；
+/// `default` 也缺 → None（apply 路径再兜底 Bearer-only）。
+pub fn simulation_for(client_type: &str) -> Option<&'static Simulation> {
+    simulation_map()
+        .get(client_type)
+        .or_else(|| simulation_map().get("default"))
+}
+
+/// 平台协议 code → 模拟客户端 UA（derive_client_type → simulation.user_agent）。
+/// quota 脚本出站默认 UA 用：协议无对应模拟 UA（default entry 无 UA）→ None 不注入。
+pub fn simulation_user_agent_for_protocol(protocol_code: &str) -> Option<String> {
+    let ct = crate::registry::derive_client_type(protocol_code);
+    simulation_for(&ct).and_then(|s| s.user_agent.clone())
+}
