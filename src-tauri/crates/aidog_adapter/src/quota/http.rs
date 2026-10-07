@@ -378,14 +378,8 @@ fn make_quota_log(
 ) -> aidog_db::models::ProxyLog {
     aidog_db::models::ProxyLog {
         id: request_id.to_string(),
-        group_key: "[quota]".into(),
-        model: String::new(),
-        actual_model: String::new(),
-        source_protocol: "quota".into(),
-        target_protocol: String::new(),
         platform_id: platform_id.max(0) as u64,
         request_headers: r#"{"source":"quota"}"#.into(),
-        request_body: String::new(),
         upstream_request_headers: request_headers_to_log_json(request_headers),
         upstream_request_body: request_body.to_string(),
         response_body: response_body.into(),
@@ -394,27 +388,14 @@ fn make_quota_log(
         upstream_request_url: redact_url_query(url),
         upstream_response_headers: response_headers.into(),
         upstream_status_code: upstream_status,
-        user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
         user_response_body: response_body.into(),
         status_code: upstream_status,
         duration_ms,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_tokens: 0,
-        cache_write_tokens: 0,
-        est_cost: 0.0,
-        is_stream: false,
-        attempts: Vec::new(),
-        retry_count: 0,
-        blocked_by: String::new(),
-        blocked_reason: String::new(),
         created_at,
         updated_at: created_at,
-        deleted_at: 0,
-        done: true,
-        field_trace: String::new(),
-        body_omitted: false,
+        ..Default::default()
     }
+    .out_of_band("[quota]", "quota")
 }
 
 /// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。

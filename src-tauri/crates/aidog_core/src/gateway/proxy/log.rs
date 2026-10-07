@@ -189,44 +189,18 @@ fn scoped_queue_log(
     let user = |nonempty: bool| carry_user && carry_bodies && nonempty;
     let up = |nonempty: bool| carry_up && carry_bodies && nonempty;
     ProxyLog {
-        id: log.id.clone(),
-        group_key: log.group_key.clone(),
-        model: log.model.clone(),
-        actual_model: log.actual_model.clone(),
-        source_protocol: log.source_protocol.clone(),
-        target_protocol: log.target_protocol.clone(),
-        platform_id: log.platform_id,
         request_headers: take(user(!log.request_headers.is_empty()), &log.request_headers),
         request_body: take(user(!log.request_body.is_empty()), &log.request_body),
         upstream_request_headers: take(up(!log.upstream_request_headers.is_empty()), &log.upstream_request_headers),
         upstream_request_body: take(up(!log.upstream_request_body.is_empty()), &log.upstream_request_body),
         // 响应侧终态强制携带（终态 UPDATE 强制覆盖写，即使值为空也要写），非终态不带。
         response_body: take(up(terminal || !log.response_body.is_empty()), &log.response_body),
-        request_url: log.request_url.clone(),
-        upstream_request_url: log.upstream_request_url.clone(),
         upstream_response_headers: take(up(terminal || !log.upstream_response_headers.is_empty()), &log.upstream_response_headers),
-        upstream_status_code: log.upstream_status_code,
         user_response_headers: take(user(terminal || !log.user_response_headers.is_empty()), &log.user_response_headers),
         user_response_body: take(user(terminal || !log.user_response_body.is_empty()), &log.user_response_body),
-        status_code: log.status_code,
-        duration_ms: log.duration_ms,
-        input_tokens: log.input_tokens,
-        output_tokens: log.output_tokens,
-        cache_tokens: log.cache_tokens,
-        cache_write_tokens: log.cache_write_tokens,
-        est_cost: log.est_cost,
-        is_stream: log.is_stream,
-        attempts: log.attempts.clone(),
-        retry_count: log.retry_count,
-        blocked_by: log.blocked_by.clone(),
-        blocked_reason: log.blocked_reason.clone(),
-        created_at: log.created_at,
-        updated_at: log.updated_at,
-        deleted_at: log.deleted_at,
-        done: log.done,
-        field_trace: log.field_trace.clone(),
         // 降级标记由 queue_upsert_log 在预算超限时置位。
         body_omitted: false,
+        ..log.clone()
     }
 }
 

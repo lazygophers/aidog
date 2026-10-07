@@ -71,7 +71,7 @@ mod test_integration;
 mod test_mitm_bypass;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
-pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
+pub use endpoint::{is_opencode_zen, opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
 /// settings_set 写 DB 后调此重建 ProxyState 设置缓存（跨 crate：commands_config 调用）。
 pub use settings_cache::refresh_proxy_settings_cache;
@@ -100,7 +100,7 @@ pub(crate) use headers::{
     inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
     passthrough_headers, sanitize_header_injects,
 };
-pub(crate) use non_success::handle_non_success;
+pub(crate) use non_success::{handle_non_success, NonSuccessCtx};
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
 #[allow(unused_imports)]
 pub(crate) use headers::is_official_anthropic_host;

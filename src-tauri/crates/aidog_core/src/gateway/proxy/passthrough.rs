@@ -222,151 +222,13 @@ async fn relay_passthrough(
 
     // ── 非流式：原样 relay bytes ──
     if !is_stream {
-        let body = resp.bytes().await.unwrap_or_default();
-        // record gate（与流式分支 guard 对称）：上游/客户端 body 各自受对应开关控制，
-        // 开启时走 cap_nonstream_body 截断 + 落库（对齐 NONSTREAM_BODY_MAX_BYTES 16MB）。
-        let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-        let record_client_body = log_settings.enabled && log_settings.log_user_request;
-        log.status_code = status.as_u16() as i32;
-        log.done = true;
-        log.duration_ms = start.elapsed().as_millis() as i32;
-        if opts.extract_usage {
-            // usage 借用：lossy 不经 to_string 中转
-            let (input_tokens, output_tokens, cache_tokens, cache_write_tokens) =
-                extract_usage(String::from_utf8_lossy(&body).as_ref());
-            log.input_tokens = input_tokens;
-            log.output_tokens = output_tokens;
-            log.cache_tokens = cache_tokens;
-            log.cache_write_tokens = cache_write_tokens;
-        }
-        // 透传：upstream body == client body（无协议转换），仍按侧 gate 落库
-        log.response_body = if record_upstream_body {
-            cap_nonstream_body(&body)
-        } else {
-            String::new()
-        };
-        log.user_response_body = if record_client_body {
-            cap_nonstream_body(&body)
-        } else {
-            String::new()
-        };
-        log.user_response_headers = log.upstream_response_headers.clone();
-        upsert_log(state, log, log_settings).await;
-
-        let mut response = (resp_status, body.to_vec()).into_response();
-        *response.headers_mut() = resp_header_map;
-        inject_trace_header(&mut response);
-        return response;
+        return relay_passthrough_nonstream(
+            state, log, log_settings, resp, status, resp_status, resp_header_map, start, opts,
+        )
+        .await;
     }
 
-    // ── 流式：原样透传 SSE bytes，不解析不转换；旁路累计 token + 聚合 body，[DONE]/断连回写 ──
-    log.is_stream = true;
-    log.status_code = status.as_u16() as i32;
-
-    let agg = Arc::new(StreamAggregator::new());
-    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
-    let req_span = tracing::Span::current();
-
-    // ── StreamLogGuard 配置单点：record_upstream_body / record_client_body 在此一处设（双写漂移
-    //   曾致 forward 误设 false，flush 跳过 user_response_body 回写 bug；memory symmetric-body-cap）。──
-    // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
-    // OOM 止血：response_body(上游) 受 log_upstream_request 同侧控制（与 finish.rs 一致）；
-    // user_response_body 受 log_user_request 控制。
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
-    // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
-    // 闭包把上游 chunk 同步 push 进 client_body，flush 即从 client_body 写 user_response_body。
-    // 故 guard.record_client_body 必须 == record_client_body（禁写 false，否则 flush 跳过 user_response_body）。
-    let guard = StreamLogGuard {
-        agg: agg.clone(),
-        est_fired: est_fired.clone(),
-        log: log.clone(),
-        state: state.clone(),
-        settings: log_settings.clone(),
-        start,
-        record_upstream_body,
-        record_client_body,
-        req_span: req_span.clone(),
-        // 透传分支历史上不做请求驱动预估，保持现状
-        est: None,
-    };
-
-    // 提前 copy 到局部，避免 opts 引用逃逸进 'static stream 闭包（E0521）。
-    let stream_error_msg_stop = opts.stream_error_msg_stop;
-    let idle_ping = opts.idle_ping;
-    let extract_usage = opts.extract_usage;
-    let proto_tag = opts.protocol_tag;
-    // stream_error_msg_stop：handle (wire=anthropic) 合成 message_stop 干净收尾，避免 CC
-    //   "error decoding response body"；forward (普通浏览流量) 空 chunk 收尾。
-    // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
-    // 上游流自然耗尽哨兵（同 finish.rs::finish_stream）：Stream 返 None 时置 exhausted 位，
-    // 使 Drop 兜底 flush 区分「上游读完」与「客户端断连」。恒返 Ready(None)，不产 item。
-    let agg_end = agg.clone();
-    let upstream_stream = resp
-        .bytes_stream()
-        .chain(futures::stream::poll_fn(move |_| {
-            agg_end.mark_exhausted();
-            std::task::Poll::Ready(None)
-        }));
-    let stream = upstream_stream.map(move |chunk_result| {
-        let chunk = match chunk_result {
-            Ok(c) => c,
-            Err(e) => {
-                // 终态标记：上游掐断 → flush 回写 502，禁再记 200 成功。
-                guard.agg.mark_upstream_err();
-                if stream_error_msg_stop {
-                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing gracefully with message_stop");
-                    return Ok::<_, std::io::Error>(Bytes::from(
-                        "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
-                    ));
-                } else {
-                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing");
-                    return Ok::<_, std::io::Error>(Bytes::new());
-                }
-            }
-        };
-        // 旁路累积上游 SSE 原文（受对应侧开关控制；push_upstream 内部 O(1) 判断是否已达
-        // STREAM_BODY_MAX_BYTES 上限，达上限后跳过不再增长）
-        if record_upstream_body {
-            guard.agg.push_upstream(&chunk);
-        }
-        // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
-        if record_client_body {
-            guard.agg.push_client(&chunk);
-        }
-        // 尽力从 SSE data 累计 usage（仅 extract_usage 分支需 token 入库；forward 跳过节省开销，
-        // cost=0 无需 token，且普通浏览流量 SSE 极少 feed_sse_usage 走通）。
-        if extract_usage {
-            // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
-            let text = String::from_utf8_lossy(&chunk);
-            guard.agg.feed_sse_usage(&text);
-            guard.flush_if_done(&text);
-        }
-        Ok::<_, std::io::Error>(chunk)
-    });
-
-    // 静默兜底：wire=anthropic 时给下行流包一层自发 ping（上游自己发 ping 则永不触发）。
-    let stream = if idle_ping {
-        futures::future::Either::Left(with_idle_ping(
-            stream,
-            ANTHROPIC_PING_FRAME,
-            IDLE_PING_INTERVAL,
-        ))
-    } else {
-        futures::future::Either::Right(stream)
-    };
-    let body = Body::from_stream(stream);
-
-    // 返回 stream 前的中间态 upsert（票 06：占位哨兵已废，done=false 标记流进行中，
-    // 最终态由 guard.flush（[DONE]/断连）置 done 回写）。
-    log.duration_ms = start.elapsed().as_millis() as i32;
-    log.user_response_headers = log.upstream_response_headers.clone();
-    upsert_log(state, log, log_settings).await;
-
-    let mut response = (resp_status, body).into_response();
-    *response.headers_mut() = resp_header_map;
-    inject_trace_header(&mut response);
-    response
+    relay_passthrough_stream(state, log, log_settings, opts, resp, status, resp_status, resp_header_map, start).await
 }
 
 /// 默认模型清单：registry 里官方渠道（`anthropic` + `openai` + `typesafe`）的模型 id，按平台目录顺序去重。
@@ -718,3 +580,177 @@ pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
 #[cfg(test)]
 #[path = "test_passthrough.rs"]
 mod test_passthrough;
+
+
+/// 阶段 fn：透传非流式 relay——usage 提取 + 双侧 gate 落库 + 原样回 bytes。
+#[allow(clippy::too_many_arguments)]
+async fn relay_passthrough_nonstream(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    resp: reqwest::Response,
+    status: reqwest::StatusCode,
+    resp_status: axum::http::StatusCode,
+    resp_header_map: axum::http::HeaderMap,
+    start: std::time::Instant,
+    opts: &PassthroughOpts,
+) -> Response {
+    let body = resp.bytes().await.unwrap_or_default();
+    // record gate（与流式分支 guard 对称）：上游/客户端 body 各自受对应开关控制，
+    // 开启时走 cap_nonstream_body 截断 + 落库（对齐 NONSTREAM_BODY_MAX_BYTES 16MB）。
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    log.status_code = status.as_u16() as i32;
+    log.done = true;
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    if opts.extract_usage {
+        // usage 借用：lossy 不经 to_string 中转
+        let (input_tokens, output_tokens, cache_tokens, cache_write_tokens) =
+            extract_usage(String::from_utf8_lossy(&body).as_ref());
+        log.input_tokens = input_tokens;
+        log.output_tokens = output_tokens;
+        log.cache_tokens = cache_tokens;
+        log.cache_write_tokens = cache_write_tokens;
+    }
+    // 透传：upstream body == client body（无协议转换），仍按侧 gate 落库
+    log.response_body = if record_upstream_body {
+        cap_nonstream_body(&body)
+    } else {
+        String::new()
+    };
+    log.user_response_body = if record_client_body {
+        cap_nonstream_body(&body)
+    } else {
+        String::new()
+    };
+    log.user_response_headers = log.upstream_response_headers.clone();
+    upsert_log(state, log, log_settings).await;
+
+    let mut response = (resp_status, body.to_vec()).into_response();
+    *response.headers_mut() = resp_header_map;
+    inject_trace_header(&mut response);
+    response
+}
+
+/// 阶段 fn：透传流式 relay——StreamLogGuard + chunk 旁路聚合 + idle ping + 中间态 upsert。
+#[allow(clippy::too_many_arguments)]
+async fn relay_passthrough_stream(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    opts: &PassthroughOpts,
+    resp: reqwest::Response,
+    status: reqwest::StatusCode,
+    resp_status: axum::http::StatusCode,
+    resp_header_map: axum::http::HeaderMap,
+    start: std::time::Instant,
+) -> Response {
+    // ── 流式：原样透传 SSE bytes，不解析不转换；旁路累计 token + 聚合 body，[DONE]/断连回写 ──
+    log.is_stream = true;
+    log.status_code = status.as_u16() as i32;
+
+    let agg = Arc::new(StreamAggregator::new());
+    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let req_span = tracing::Span::current();
+
+    // ── StreamLogGuard 配置单点：record_upstream_body / record_client_body 在此一处设（双写漂移
+    //   曾致 forward 误设 false，flush 跳过 user_response_body 回写 bug；memory symmetric-body-cap）。──
+    // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
+    // OOM 止血：response_body(上游) 受 log_upstream_request 同侧控制（与 finish.rs 一致）；
+    // user_response_body 受 log_user_request 控制。
+    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
+    // 闭包把上游 chunk 同步 push 进 client_body，flush 即从 client_body 写 user_response_body。
+    // 故 guard.record_client_body 必须 == record_client_body（禁写 false，否则 flush 跳过 user_response_body）。
+    let guard = StreamLogGuard {
+        agg: agg.clone(),
+        est_fired: est_fired.clone(),
+        log: log.clone(),
+        state: state.clone(),
+        settings: log_settings.clone(),
+        start,
+        record_upstream_body,
+        record_client_body,
+        req_span: req_span.clone(),
+        // 透传分支历史上不做请求驱动预估，保持现状
+        est: None,
+    };
+
+    // 提前 copy 到局部，避免 opts 引用逃逸进 'static stream 闭包（E0521）。
+    let stream_error_msg_stop = opts.stream_error_msg_stop;
+    let idle_ping = opts.idle_ping;
+    let extract_usage = opts.extract_usage;
+    let proto_tag = opts.protocol_tag;
+    // stream_error_msg_stop：handle (wire=anthropic) 合成 message_stop 干净收尾，避免 CC
+    //   "error decoding response body"；forward (普通浏览流量) 空 chunk 收尾。
+    // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
+    // 上游流自然耗尽哨兵（同 finish.rs::finish_stream）：Stream 返 None 时置 exhausted 位，
+    // 使 Drop 兜底 flush 区分「上游读完」与「客户端断连」。恒返 Ready(None)，不产 item。
+    let agg_end = agg.clone();
+    let upstream_stream = resp
+        .bytes_stream()
+        .chain(futures::stream::poll_fn(move |_| {
+            agg_end.mark_exhausted();
+            std::task::Poll::Ready(None)
+        }));
+    let stream = upstream_stream.map(move |chunk_result| {
+        let chunk = match chunk_result {
+            Ok(c) => c,
+            Err(e) => {
+                // 终态标记：上游掐断 → flush 回写 502，禁再记 200 成功。
+                guard.agg.mark_upstream_err();
+                if stream_error_msg_stop {
+                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing gracefully with message_stop");
+                    return Ok::<_, std::io::Error>(Bytes::from(
+                        "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                    ));
+                } else {
+                    tracing::warn!(error = %e, tag = %proto_tag, "passthrough upstream stream chunk error; closing");
+                    return Ok::<_, std::io::Error>(Bytes::new());
+                }
+            }
+        };
+        // 旁路累积上游 SSE 原文（受对应侧开关控制；push_upstream 内部 O(1) 判断是否已达
+        // STREAM_BODY_MAX_BYTES 上限，达上限后跳过不再增长）
+        if record_upstream_body {
+            guard.agg.push_upstream(&chunk);
+        }
+        // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
+        if record_client_body {
+            guard.agg.push_client(&chunk);
+        }
+        // 尽力从 SSE data 累计 usage（仅 extract_usage 分支需 token 入库；forward 跳过节省开销，
+        // cost=0 无需 token，且普通浏览流量 SSE 极少 feed_sse_usage 走通）。
+        if extract_usage {
+            // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
+            let text = String::from_utf8_lossy(&chunk);
+            guard.agg.feed_sse_usage(&text);
+            guard.flush_if_done(&text);
+        }
+        Ok::<_, std::io::Error>(chunk)
+    });
+
+    // 静默兜底：wire=anthropic 时给下行流包一层自发 ping（上游自己发 ping 则永不触发）。
+    let stream = if idle_ping {
+        futures::future::Either::Left(with_idle_ping(
+            stream,
+            ANTHROPIC_PING_FRAME,
+            IDLE_PING_INTERVAL,
+        ))
+    } else {
+        futures::future::Either::Right(stream)
+    };
+    let body = Body::from_stream(stream);
+
+    // 返回 stream 前的中间态 upsert（票 06：占位哨兵已废，done=false 标记流进行中，
+    // 最终态由 guard.flush（[DONE]/断连）置 done 回写）。
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.user_response_headers = log.upstream_response_headers.clone();
+    upsert_log(state, log, log_settings).await;
+
+    let mut response = (resp_status, body).into_response();
+    *response.headers_mut() = resp_header_map;
+    inject_trace_header(&mut response);
+    response
+}
