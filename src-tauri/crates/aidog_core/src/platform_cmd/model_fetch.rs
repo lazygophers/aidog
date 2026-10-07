@@ -144,43 +144,23 @@ pub async fn platform_fetch_models(
      -> gateway::models::ProxyLog {
         gateway::models::ProxyLog {
             id: request_id.clone(),
-            group_key: "[fetch-models]".into(),
-            model: String::new(),
-            actual_model: String::new(),
-            source_protocol: "fetch-models".into(),
             target_protocol: target_protocol.clone(),
-            platform_id: 0,
             request_headers: r#"{"source":"fetch-models"}"#.into(),
-            request_body: String::new(),
             upstream_request_headers: models_request_headers_log(&client_type, &protocol),
-            upstream_request_body: String::new(),
             response_body: body.into(),
             request_url: "/fetch-models".into(),
             upstream_request_url: redact_models_url(log_url),
             upstream_response_headers: response_headers.into(),
             upstream_status_code: upstream_status,
-            user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
             user_response_body: body.into(),
             status_code: user_status,
             duration_ms: start.elapsed().as_millis() as i32,
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_tokens: 0,
-            cache_write_tokens: 0,
-            est_cost: 0.0,
-            is_stream: false,
-            attempts: Vec::new(),
-            retry_count: 0,
-            blocked_by: String::new(),
-            blocked_reason: String::new(),
             created_at,
             updated_at: created_at,
-            deleted_at: 0,
-            done: true,
-            // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
-            field_trace: String::new(),
-            body_omitted: false,
+            ..Default::default()
         }
+        .out_of_band("[fetch-models]", "fetch-models")
+        // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
     };
 
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
@@ -195,8 +175,7 @@ pub async fn platform_fetch_models(
     let api_key = first_api_key(&api_key).to_string();
 
     // OpenCode Zen：api_key 留空时注入 $opencode（与 proxy 路径一致；/v1/models 无 auth 亦可）。
-    let is_zen = matches!(protocol, Protocol::OpenCodeZen)
-        || base_url.to_lowercase().contains("opencode.ai/zen");
+    let is_zen = gateway::proxy::is_opencode_zen(&protocol, &base_url, None);
     let api_key = gateway::proxy::opencode_zen_fallback(&api_key, is_zen);
     let url = gateway::proxy::build_models_url(&protocol, &base_url);
     let rb = gateway::proxy::apply_client_headers(client.get(&url), &client_type, &protocol, &api_key);
@@ -292,14 +271,14 @@ mod tests {
 
     #[test]
     fn models_request_log_headers_match_protocol_without_credentials() {
-        let ct_anthropic = aidog_db::registry::derive_client_type("anthropic");
+        let ct_anthropic = aidog_db::registry::derive_client_type_for_platform("anthropic");
         let anthropic = models_request_headers_log(&ct_anthropic, &Protocol::Anthropic);
         assert!(anthropic.contains("x-api-key"));
         assert!(anthropic.contains("anthropic-version"));
         assert!(anthropic.contains("claude-cli/"));
         assert!(anthropic.contains("[REDACTED]"));
 
-        let ct_openai = aidog_db::registry::derive_client_type("openai");
+        let ct_openai = aidog_db::registry::derive_client_type_for_platform("openai");
         let openai = models_request_headers_log(&ct_openai, &Protocol::OpenAI);
         assert!(openai.to_lowercase().contains("authorization"));
         assert!(openai.contains("api-key"));

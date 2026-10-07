@@ -1,5 +1,17 @@
 use super::*;
 
+/// attempt 级杂项上下文（`handle_non_success` 入参打包）：URL、时间戳对、候选位次、
+/// 日志开关、客户端请求的模型名（remap 前，中间件 applies_to.models 的匹配对象）。
+pub(crate) struct NonSuccessCtx<'a> {
+    pub url: &'a str,
+    pub start: std::time::Instant,
+    pub attempt_start: std::time::Instant,
+    pub attempt_ts: i64,
+    pub is_last_candidate: bool,
+    pub log_settings: &'a ProxyLogSettings,
+    pub requested_model: &'a str,
+}
+
 /// 上游返回非 2xx 时的处理：记录 attempt、熔断计数（仅 429-限流）、401/402 auth 冷却、
 /// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
 #[allow(clippy::too_many_arguments)]
@@ -12,15 +24,9 @@ pub(crate) async fn handle_non_success(
     route: &RouteResult,
     group: &Group,
     breaker_th: &super::scheduling::BreakerThresholds,
-    url: &str,
-    start: std::time::Instant,
-    attempt_start: std::time::Instant,
-    attempt_ts: i64,
-    is_last_candidate: bool,
-    log_settings: &ProxyLogSettings,
-    // 客户端请求的模型名（remap 前）：中间件 applies_to.models 的匹配对象。
-    requested_model: &str,
+    ctx: NonSuccessCtx<'_>,
 ) -> AttemptOutcome {
+    let NonSuccessCtx { url, start, attempt_start, attempt_ts, is_last_candidate, log_settings, requested_model } = ctx;
     // Retry-After 须在 resp 被 text() 消费前取（429 配额冷却用，见下）
     let retry_after = resp
         .headers()

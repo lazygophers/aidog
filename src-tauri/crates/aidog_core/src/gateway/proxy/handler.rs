@@ -110,44 +110,12 @@ pub(crate) async fn handle_proxy_core(
     // Load log settings once per request（从 ProxyState 缓存借，零 DB / serde 反序列化）
     let log_settings = state.settings_cache.read().await.log_settings.clone();
 
-    // ── 初始化日志条目 ──
+    // ── 初始化日志条目 ──（后续逐字段填充；非零默认值仅 id/created_at/updated_at）
     let mut log = ProxyLog {
         id: request_id,
-        group_key: String::new(),
-        model: String::new(),
-        actual_model: String::new(),
-        source_protocol: String::new(), // will be set from group
-        target_protocol: String::new(),
-        platform_id: 0,
-        request_headers: String::new(),
-        request_body: String::new(),
-        upstream_request_headers: String::new(),
-        upstream_request_body: String::new(),
-        response_body: String::new(),
-        request_url: String::new(),
-        upstream_request_url: String::new(),
-        upstream_response_headers: String::new(),
-        upstream_status_code: 0,
-        user_response_headers: String::new(),
-        user_response_body: String::new(),
-        status_code: 0,
-        duration_ms: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_tokens: 0,
-        cache_write_tokens: 0,
-        est_cost: 0.0,
-        is_stream: false,
-        attempts: Vec::new(),
-        retry_count: 0,
-        blocked_by: String::new(),
-        blocked_reason: String::new(),
         created_at,
         updated_at: created_at,
-        done: false,
-        deleted_at: 0,
-        field_trace: String::new(),
-        body_omitted: false,
+        ..Default::default()
     };
 
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
