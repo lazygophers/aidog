@@ -169,13 +169,28 @@ pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group>
 /// 其余平台原样返回（空即空）。枚举判定与 lib.rs(fetch_models/model_test) 对齐，
 /// 保证自定义 base_url 时 proxy 与 fetch_models 兜底一致（model-test-proxy parity）。
 pub fn resolve_opencode_zen_key(platform: &super::models::Platform) -> String {
-    let is_zen = matches!(platform.platform_type, Protocol::OpenCodeZen)
-        || platform.base_url.to_lowercase().contains("opencode.ai/zen")
-        || platform
-            .endpoints
-            .iter()
-            .any(|ep| ep.base_url.to_lowercase().contains("opencode.ai/zen"));
+    let is_zen = is_opencode_zen(
+        &platform.platform_type,
+        &platform.base_url,
+        Some(platform.endpoints.as_slice()),
+    );
     opencode_zen_fallback(&platform.api_key, is_zen)
+}
+
+/// 「opencode_zen 平台」判定谓词（真值源）：Protocol::OpenCodeZen 或 base_url / 任一
+/// endpoint base_url 含 `opencode.ai/zen`。proxy 与 fetch_models 共用，保证自定义
+/// base_url 时兜底一致（model-test-proxy parity）。
+pub fn is_opencode_zen(
+    protocol: &Protocol,
+    base_url: &str,
+    endpoints: Option<&[super::models::PlatformEndpoint]>,
+) -> bool {
+    matches!(protocol, Protocol::OpenCodeZen)
+        || base_url.to_lowercase().contains("opencode.ai/zen")
+        || endpoints.is_some_and(|eps| {
+            eps.iter()
+                .any(|ep| ep.base_url.to_lowercase().contains("opencode.ai/zen"))
+        })
 }
 
 /// `resolve_opencode_zen_key` 的纯决策核（便于单测，免构造 Platform）。

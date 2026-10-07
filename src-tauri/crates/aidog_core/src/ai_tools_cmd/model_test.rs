@@ -210,10 +210,8 @@ fn build_test_proxy_log(
 ) -> gateway::models::ProxyLog {
     gateway::models::ProxyLog {
         id: http_ctx.request_id.clone(),
-        group_key: "[test]".into(),
         model: http_ctx.model.clone(),
         actual_model: http_ctx.model.clone(),
-        source_protocol: "test".into(),
         target_protocol: format!("{:?}", target_protocol).to_lowercase(),
         platform_id,
         request_headers: r#"{"source":"model-test"}"#.into(),
@@ -228,28 +226,17 @@ fn build_test_proxy_log(
         upstream_request_url: http_ctx.url.clone(),
         upstream_response_headers: upstream_resp_headers.into(),
         upstream_status_code: upstream_status,
-        user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
         user_response_body: user_resp_body.into(),
         status_code: user_status,
         duration_ms: http_ctx.start.elapsed().as_millis() as i32,
         input_tokens: in_tok,
         output_tokens: out_tok,
-        cache_tokens: 0,
-        cache_write_tokens: 0,
-        est_cost: 0.0,
-        is_stream: false,
-        attempts: Vec::new(),
-        retry_count: 0,
-        blocked_by: String::new(),
-        blocked_reason: String::new(),
         created_at: http_ctx.created_at,
         updated_at: http_ctx.created_at,
-        deleted_at: 0,
-        done: true,
-        // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
-        field_trace: String::new(),
-        body_omitted: false,
+        ..Default::default()
     }
+    .out_of_band("[test]", "test")
+    // 不经代理出站 body 构造 seam，无字段留痕（票 10）。
 }
 
 // ── 阶段4：Mock 平台处理 ──

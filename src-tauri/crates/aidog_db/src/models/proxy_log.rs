@@ -99,6 +99,20 @@ pub struct ProxyLog {
     pub body_omitted: bool,
 }
 
+impl ProxyLog {
+    /// 带外请求日志（不经代理转发路径的出站记录：Quota Script 查询 / 拉模型列表 / 模型测试）
+    /// 的公共约定集中处，替代三份手写约定：marker group_key + marker source_protocol、
+    /// done 终态、user_response_headers 恒 application/json；token / est_cost 零值由 Default 承担。
+    /// 用法：`ProxyLog { 各自有逻辑的字段, ..Default::default() }.out_of_band(marker, marker_proto)`
+    pub fn out_of_band(mut self, group_key: &str, source_protocol: &str) -> Self {
+        self.group_key = group_key.into();
+        self.source_protocol = source_protocol.into();
+        self.user_response_headers = r#"{"content-type":"application/json"}"#.into();
+        self.done = true;
+        self
+    }
+}
+
 /// 平台使用统计（从 proxy_logs 聚合）
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
