@@ -220,6 +220,30 @@ pub fn derive_client_type(endpoint_protocol: &str) -> String {
     }
 }
 
+/// 平台 code（含 newapi / deepseek / glm_coding 等别名，非纯 wire 协议名）→ 该平台
+/// 默认端点的客户端形态。quota 出站默认 UA 与拉模型列表按平台发起，入参是平台别名
+/// 而非 endpoint 协议，`derive_client_type` 对别名一律落 "default" 不模拟（2026-10-07
+/// 现场实锤：cometapi quota 出站无 User-Agent）。
+/// 优先读 registry 该平台 default 端点第一条的 client_type（`endpoints_in` 缺省时已
+/// 按协议补派生）；无该平台条目或无端点 → 回落 [`derive_client_type`]。
+pub fn derive_client_type_for_platform(code: &str) -> String {
+    if let Some(ct) = default_endpoints(code)
+        .first()
+        .map(|ep| ep.client_type.clone())
+    {
+        return ct;
+    }
+    // registry 无端点的别名平台（newapi：paste_fallback 聚合平台，endpoints.default 空
+    // 数组，拉模型 / quota 出站均走 openai 风格）→ codex_tui。
+    if serde_json::from_str::<crate::models::Protocol>(&format!("\"{code}\""))
+        .ok()
+        .is_some_and(|p| matches!(p, crate::models::Protocol::NewApi))
+    {
+        return "codex_tui".to_string();
+    }
+    derive_client_type(code)
+}
+
 // ── 配额查询脚本（platform.json 顶层 `quota_scripts`）──────────────
 
 /// quota 脚本的用户参数声明（`quota_scripts[].requires` 一项）。
