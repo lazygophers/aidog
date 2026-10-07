@@ -48,7 +48,7 @@ pub struct CustomQueryCtx {
     /// platform.extra 原文（JSON 字符串，脚本内 JSON.parse 使用）
     pub extra: String,
     /// 平台协议 code（registry wire 名）。仅用于出站默认 UA 派生
-    /// （simulation_user_agent_for_protocol），脚本内不注入 ctx 对象。
+    /// （simulation_user_agent_for_platform），脚本内不注入 ctx 对象。
     pub protocol_code: String,
 }
 
@@ -70,7 +70,8 @@ pub async fn run_custom_query(
     };
     // 客户端模拟（2026-10-04）：余额/配额出站按平台协议注入模拟客户端 UA
     // （anthropic→claude-cli、openai 系→Codex；无对应模拟 UA 的协议 → None 不注入）。
-    let default_ua = aidog_db::client_types_const::simulation_user_agent_for_protocol(&ctx.protocol_code);
+    // protocol_code 是平台别名（newapi/deepseek/...），走平台级派生而非协议级。
+    let default_ua = aidog_db::client_types_const::simulation_user_agent_for_platform(&ctx.protocol_code);
     let outbound = Outbound {
         client: http_client(db).await,
         db: db.cloned(),

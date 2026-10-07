@@ -582,3 +582,18 @@ fn every_registry_platform_code_parses_as_protocol() {
         );
     }
 }
+
+/// 平台 code（含 newapi 等别名）→ 默认端点 client_type。别名不走协议级
+/// `derive_client_type`（一律落 "default" 不模拟），quota 出站默认 UA 与拉模型列表
+/// 用平台级派生（2026-10-07 cometapi quota 出站无 UA 实锤）。
+#[test]
+fn derive_client_type_for_platform_resolves_alias_via_registry_endpoints() {
+    // 别名平台 → registry 默认端点的 client_type（endpoints_in 缺省已按协议补派生）
+    assert_eq!(derive_client_type_for_platform("newapi"), "codex_tui");
+    // glm_coding registry 第一条端点是 openai 协议（/api/coding/paas/v4）→ codex_tui
+    assert_eq!(derive_client_type_for_platform("glm_coding"), "codex_tui");
+    // 纯 wire 协议名直接派生（registry 有条目，同样命中端点派生）
+    assert_eq!(derive_client_type_for_platform("anthropic"), "claude_code");
+    // registry 无该平台条目 → 回落协议级派生，未知 → "default"
+    assert_eq!(derive_client_type_for_platform("no-such-platform"), "default");
+}
