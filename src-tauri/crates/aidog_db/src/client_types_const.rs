@@ -702,9 +702,10 @@ pub fn simulation_for(client_type: &str) -> Option<&'static Simulation> {
         .or_else(|| simulation_map().get("default"))
 }
 
-/// 平台协议 code → 模拟客户端 UA（derive_client_type → simulation.user_agent）。
-/// quota 脚本出站默认 UA 用：协议无对应模拟 UA（default entry 无 UA）→ None 不注入。
-pub fn simulation_user_agent_for_protocol(protocol_code: &str) -> Option<String> {
-    let ct = crate::registry::derive_client_type(protocol_code);
+/// 平台 code（含 newapi / deepseek / glm_coding 等别名，非纯 wire 协议名）→ 模拟客户端
+/// UA（平台默认端点 client_type → simulation.user_agent）。quota 脚本出站默认 UA 用：
+/// 无对应模拟 UA（default entry 无 UA）→ None 不注入。
+pub fn simulation_user_agent_for_platform(code: &str) -> Option<String> {
+    let ct = crate::registry::derive_client_type_for_platform(code);
     simulation_for(&ct).and_then(|s| s.user_agent.clone())
 }
