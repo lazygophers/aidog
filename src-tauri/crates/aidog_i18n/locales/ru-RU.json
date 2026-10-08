@@ -88,6 +88,8 @@
   "action.refresh": "Обновить",
   "action.remove": "Удалить",
   "action.save": "Сохранить",
+  "common.priceFree": "Бесплатно",
+  "common.pricePeak": "Пик",
   "common.sectionTabs": "Разделы",
   "app.title": "AiDog",
   "app.version": "Версия",

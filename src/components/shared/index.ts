@@ -32,6 +32,7 @@ export {
 } from "./usageColor";
 export { stableStringify } from "./stableStringify";
 export { SectionTabs, type SectionTab } from "./SectionTabs";
+export { ModelPriceTag } from "./ModelPriceTag";
 export { JsonCodeEditor, type JsonCodeEditorProps } from "./JsonCodeEditor";
 export { PiUnsupportedNote } from "./PiUnsupportedNote";
 export { useReveal, useInView, useCounter, makeRipple } from "../../utils/motion";

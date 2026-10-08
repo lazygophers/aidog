@@ -88,6 +88,8 @@
   "action.refresh": "Refresh",
   "action.remove": "Remove",
   "action.save": "Save",
+  "common.priceFree": "Free",
+  "common.pricePeak": "Peak",
   "common.sectionTabs": "Sections",
   "app.title": "AiDog",
   "app.version": "Version",
