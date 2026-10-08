@@ -389,23 +389,49 @@ async fn group_max_context_window_ignores_haiku_and_gpt_slots() {
 }
 
 /// group_max_context_window 取的是最大值：宽模型在组里就按宽的算，不被窄模型拖低。
+/// 窗口数用自造 fixture 条目（registry 里 glm/deepseek 真实窗口随数据更新漂移，会让本测试误红）；
+/// model_id 起名避开 registry，保证查到的必是 DB fixture 行而非 bundled 回落。
 #[tokio::test]
 async fn group_max_context_window_takes_widest_main_loop_model() {
     use aidog_db::test_support::test_db;
     let db = test_db().await;
 
+    let entry = |model_id: &str, ctx: i64| aidog_db::models::ModelEntry {
+        platform_code: "fixture".to_string(),
+        model_id: model_id.to_string(),
+        display_name: model_id.to_string(),
+        canonical_model: model_id.to_string(),
+        family: "fixture".to_string(),
+        version: String::new(),
+        predecessor: String::new(),
+        capabilities: vec!["text".to_string()],
+        builtin_tools_excluded: vec![],
+        max_input_tokens: Some(ctx),
+        max_output_tokens: None,
+        context_window: None,
+        official: true,
+        price_data: "{}".to_string(),
+        updated_at: 0,
+    };
+    aidog_db::upsert_model_entries(
+        &db,
+        vec![entry("fixture-narrow", 131_072), entry("fixture-wide", 2_097_152)],
+    )
+    .await
+    .unwrap();
+
     let pm = aidog_db::models::PlatformModels {
-        default: Some("glm-4.5".to_string()),    // 131072
-        opus: Some("deepseek-chat".to_string()), // 1048576
+        default: Some("fixture-narrow".to_string()), // 131072
+        opus: Some("fixture-wide".to_string()),      // 2097152
         ..Default::default()
     };
 
     let got = super::group_max_context_window(&db, &[], &[&pm])
         .await
-        .expect("主对话槽模型在 registry 里查得到");
-    assert!(
-        got > 131_072,
-        "必须取组内最宽的主对话模型窗口，不得被 glm-4.5(131072) 拖低，got {got}"
+        .expect("fixture 条目已插入 model_entry，必须查得到");
+    assert_eq!(
+        got, 2_097_152,
+        "必须取组内最宽的主对话模型窗口，不得被窄模型拖低"
     );
 }
 
