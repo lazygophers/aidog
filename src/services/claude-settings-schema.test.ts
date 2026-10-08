@@ -117,10 +117,12 @@ describe("defaults/settings.json 隐私基线", () => {
   // CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 会让 Claude Code 强制把权限模式压成 default
   // （"Permission mode forced to default — CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set"），
   // 连显式 --permission-mode 都被它覆盖，与下面的 defaultMode 冲突。
-  it("不设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB，且 defaultMode 为 auto", () => {
+  // defaultMode = bypassPermissions 是有意基线：仓库工作流全程 bypass（用户裁决），
+  // defaults 随之。仍不得设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB（见上）。
+  it("不设 CLAUDE_CODE_SUBPROCESS_ENV_SCRUB，且 defaultMode 为 bypassPermissions", () => {
     expect(defaults.env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB).toBeUndefined();
     expect((defaults.permissions as { defaultMode?: string }).defaultMode).toBe(
-      "auto",
+      "bypassPermissions",
     );
   });
 

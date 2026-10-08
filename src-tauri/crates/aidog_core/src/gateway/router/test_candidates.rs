@@ -1445,10 +1445,18 @@ async fn penalty_demotes_platform_to_last() {
         .await
         .expect("penalty only reorders, never excludes");
     let ids: Vec<u64> = set.candidates.iter().map(|c| c.platform.id).collect();
+    // LoadBalance 的加权随机选首用时间种子（order_load_balance(now_ms)，now_ms 来自
+    // select_candidates_ctx 内的 db::now()，无注入点）：选首命中 penalized 平台时，两个
+    // 降权者沉底后的相对顺序随之翻转。断言取序不变式：healthy 恒在首位，penalized 以任意顺序殿后。
+    assert_eq!(ids[0], p2.id, "healthy platform must stay first");
     assert_eq!(
-        ids,
-        vec![p2.id, p1.id, p3.id],
-        "healthy first, penalized last (original order kept)"
+        {
+            let mut tail = ids[1..].to_vec();
+            tail.sort_unstable();
+            tail
+        },
+        vec![p1.id.min(p3.id), p1.id.max(p3.id)],
+        "penalized platforms must fill the tail in any order, got {ids:?}"
     );
 }
 
