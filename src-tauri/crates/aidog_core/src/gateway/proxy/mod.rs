@@ -53,6 +53,7 @@ mod retry;
 mod settings_cache;
 mod stream;
 mod timeout;
+mod ws;
 mod tokenizer;
 
 #[cfg(test)]
