@@ -10,7 +10,7 @@ import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
   PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
-import { CopyButton } from "../../components/shared";
+import { CopyButton, SectionTabs } from "../../components/shared";
 import { IconClose } from "../../components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -40,6 +40,14 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
   const [piApi, setPiApi] = useState<PiApi>(() => parseGroupPiApi(editTarget?.group.extra ?? ""));
   const editGroupId = editTarget?.group.id;
+  // ── 高级 tab（2026-10-08 改版）：模型映射 / 连接 / 环境变量，分组页恒 3 个 → 恒出条 ──
+  const [advTab, setAdvTab] = useState("mappings");
+  const groupTabs = [
+    { id: "mappings", label: t("group.modelMappings", "模型映射") },
+    { id: "connection", label: t("group.tabConnection", "连接") },
+    { id: "env", label: t("group.envVars", "环境变量") },
+  ];
+  const activeTab = advTab;
   const editGroupExtra = editTarget?.group.extra ?? "";
   useEffect(() => { setPiApi(parseGroupPiApi(editGroupExtra)); }, [editGroupId, editGroupExtra]);
   useEffect(() => {
@@ -108,48 +116,6 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           </div>
         </div>
 
-        {/* pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集） */}
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "start", gap: 12 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", paddingTop: 6 }}>{t("group.piApiLabel", "pi 线路协议")}</span>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
-            <Select value={piApi} onValueChange={v => { setPiApi(v as PiApi); setGroupPiApi(editTarget!.group.id, v as PiApi); }}>
-              <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PI_APIS.map(a => <SelectItem key={a} value={a}>{piApiLabel(t, a)}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{t("group.piApiHint", "决定 pi 用哪种线路调本组，地址由 aidog 自动推导。")}</span>
-          </div>
-        </div>
-
-        {/* Timeout */}
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.timeout", "超时")}</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Input type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
-              value={editReqTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { reqTimeout: Math.max(0, Number(e.target.value)) } })}
-              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-            <Input type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
-              value={editConnTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { connTimeout: Math.max(0, Number(e.target.value)) } })}
-              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
-          </div>
-        </div>
-
-        {/* Max retries（多平台失败逐个重试上限） */}
-        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大重试")}</span>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <Input type="number" min={0} max={10}
-              value={editMaxRetries}
-              onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.max(0, Number(e.target.value)) } })}
-              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.maxRetriesHint", "0 = 不重试，只试 1 个平台")}</span>
-          </div>
-        </div>
-
         {/* Auto badge */}
         {editTarget!.group.auto_from_platform && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)" }}>
@@ -174,7 +140,12 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         />
       </div>
 
+      {/* ── 高级 tab（2026-10-08 改版）：模型映射 / 连接 / 环境变量 ── */}
+      <SectionTabs tabs={groupTabs} active={activeTab} onChange={setAdvTab} />
+
+      {/* 模型映射 panel */}
       {/* Model Mappings */}
+      {activeTab === "mappings" && (
       <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.modelMappings", "模型映射")}</div>
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
@@ -258,7 +229,60 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         </div>
       </div>
 
+      )}
+
+      {/* 连接 panel：pi 线路协议 + 超时 + 最大重试（2026-10-08 改版收进 tab） */}
+      {activeTab === "connection" && (
+      <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.tabConnection", "连接")}</div>
+        {/* pi 线路协议：写 group.extra 即时生效（不参与 onSave 的字段集） */}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "start", gap: 12 }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", paddingTop: 6 }}>{t("group.piApiLabel", "pi 线路协议")}</span>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+            <Select value={piApi} onValueChange={v => { setPiApi(v as PiApi); setGroupPiApi(editTarget!.group.id, v as PiApi); }}>
+              <SelectTrigger style={{ fontSize: F.body, padding: S.inputPad }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PI_APIS.map(a => <SelectItem key={a} value={a}>{piApiLabel(t, a)}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <span style={{ fontSize: F.small, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{t("group.piApiHint", "决定 pi 用哪种线路调本组，地址由 aidog 自动推导。")}</span>
+          </div>
+        </div>
+
+        {/* Timeout */}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.timeout", "超时")}</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <Input type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
+              value={editReqTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { reqTimeout: Math.max(0, Number(e.target.value)) } })}
+              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+            <Input type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
+              value={editConnTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { connTimeout: Math.max(0, Number(e.target.value)) } })}
+              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
+          </div>
+        </div>
+
+        {/* Max retries（多平台失败逐个重试上限） */}
+        <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大重试")}</span>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <Input type="number" min={0} max={10}
+              value={editMaxRetries}
+              onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.max(0, Number(e.target.value)) } })}
+              style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.maxRetriesHint", "0 = 不重试，只试 1 个平台")}</span>
+          </div>
+        </div>
+
+      </div>
+      )}
+
+      {/* 环境变量 panel */}
       {/* Environment Variables（分组维度；sync 注入 Claude settings.env + Codex 复制命令前置 export） */}
+      {activeTab === "env" && (
       <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.envVars", "环境变量")}</div>
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
@@ -308,6 +332,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           </Button>
         </div>
       </div>
+      )}
     </div>
   );
 }
