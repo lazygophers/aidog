@@ -85,6 +85,12 @@ async fn handle_proxy_inner(
         return super::connect::handle_connect(state, req, request_id).await;
     }
 
+    // WS 透传（ADR 0008 票 03）：GET + Upgrade: websocket 走独立处理（连接级字节泵，
+    // 不进 RequestLogGuard 的 HTTP 请求生命周期——终态在 on_upgrade 收尾自管落库）。
+    if super::ws::is_ws_upgrade(req.method(), req.headers()) {
+        return super::ws::handle_ws_passthrough(state.0.clone(), req, request_id).await;
+    }
+
     // 中断兜底 guard：core 未正常返回（客户端断连致 future drop）时 Drop 补写终态 499。
     let mut guard = RequestLogGuard {
         state: state.0.clone(),
