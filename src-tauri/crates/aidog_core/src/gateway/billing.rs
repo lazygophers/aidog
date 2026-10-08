@@ -40,6 +40,13 @@ pub async fn calc_est_cost(
     platform_id: i64,
     created_at_ms: i64,
 ) -> f64 {
+    // 透传平台 est_cost 恒 0（ADR 0008 决策 1）：不查 registry 价格，也不走 fallback
+    // 单价——对完全未知上游套 3.0 $/M 是编造数据，假账比没账更误导统计。
+    // log.rs 的 est_cost==0 重算路径对本分支无害：重算仍走这里返 0，单次调用无循环。
+    if platform_type == "passthrough" {
+        return 0.0;
+    }
+
     let settings = crate::gateway::price_sync::get_sync_settings(db).await;
 
     // peak 窗口：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 空 → multiplier=1.0）。
@@ -126,6 +133,27 @@ pub fn est_cost_from(
 mod tests {
     use super::*;
     use crate::gateway::peak::TimeWindow;
+
+    /// 透传平台（ADR 0008 决策 1）：est_cost 恒 0——不查 registry 价格，也不走 fallback
+    /// 单价（fallback 之前短路），无论 tokens 多少。
+    #[tokio::test]
+    async fn passthrough_platform_est_cost_always_zero() {
+        use aidog_stats::DbInitTables;
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+
+        let cost = calc_est_cost(&db, "any-model", "passthrough", 1000, 2000, 0, 0, 1, 1).await;
+        assert_eq!(
+            cost, 0.0,
+            "passthrough platform must short-circuit to 0 before fallback"
+        );
+        // 非 passthrough 对照：走 fallback 默认价，非 0
+        let other = calc_est_cost(&db, "unknown-model", "anthropic", 1000, 0, 0, 0, 0, 0).await;
+        assert!(
+            other > 0.0,
+            "non-passthrough unknown model falls back to default price, got {other}"
+        );
+    }
 
     fn window(start_hour: i32, end_hour: i32, multiplier: f64) -> TimeWindow {
         TimeWindow {

@@ -151,6 +151,11 @@ pub(crate) async fn handle_proxy_core(
                 .and_then(|v| v.to_str().ok())
                 .map(|s| s.trim().to_string())
                 .filter(|s| !s.is_empty())
+        })
+        .or_else(|| {
+            // query 参数鉴权兜底（ADR 0008 决策 3）：Authorization / x-api-key 都缺失时
+            // 接受 URL `?api_key=<group_name>`（WS 客户端常无法在握手时加自定义 header）。
+            req.uri().query().and_then(query_api_key)
         });
     let path = req.uri().path().to_string();
     tracing::info!(method = %req.method(), path = %path, "http request");
@@ -613,6 +618,25 @@ pub(crate) async fn handle_proxy_core(
                 start,
                 lang,
                 &orig_headers,
+            )
+            .await;
+        }
+        // ── 透传平台（ADR 0008）：1:1 relay 到 base_url，仅认证头按平台配置重写。
+        // 重试循环外拦截（与 Mock / ClaudeCode 同层）：候选已是透传平台时 wire 层无从转发。──
+        if matches!(first.platform.platform_type, Protocol::Passthrough) {
+            let platform = first.platform.clone();
+            tracing::info!(platform = %platform.name, base_url = %platform.base_url, "passthrough platform intercept (1:1 relay + auth header injection)");
+            return super::passthrough::handle_passthrough_platform(
+                &state,
+                &mut log,
+                &log_settings,
+                orig_method,
+                orig_uri,
+                orig_headers,
+                bytes,
+                &platform,
+                start,
+                lang,
             )
             .await;
         }

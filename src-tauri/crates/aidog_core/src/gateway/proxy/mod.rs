@@ -92,7 +92,8 @@ pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
-    should_fallback_passthrough, is_decision_endpoint, select_endpoint_for_decision};
+    should_fallback_passthrough, is_decision_endpoint, select_endpoint_for_decision,
+    query_api_key};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
