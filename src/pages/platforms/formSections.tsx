@@ -11,7 +11,7 @@ import { writeText } from "../../services/platform";
 import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
-  type DevinConfig, type SchedulingBreakerSettings, type GroupDetail,
+  type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { RateLimitsEditModal } from "./RateLimitsEditModal";
 import { rateLimitsSummary, type RateLimitsBundle } from "../../services/api";
@@ -344,6 +344,123 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
       <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
         {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 Token 可留空。")}
       </div>
+    </FormSection>
+  );
+}
+
+// ─── 自定义透传（passthrough 协议）专属配置 ─────────────────────────────
+
+/** header 预设（共识稿 2026-10-08 §2）：Authorization Bearer 默认 / 三家裸 key header / 自定义。 */
+const PASS_THROUGH_HEADER_PRESETS: { id: string; header: string; template: string }[] = [
+  { id: "bearer", header: "Authorization", template: "Bearer {key}" },
+  { id: "x-api-key", header: "x-api-key", template: "{key}" },
+  { id: "api-key", header: "api-key", template: "{key}" },
+  { id: "x-goog-api-key", header: "x-goog-api-key", template: "{key}" },
+];
+const PASS_THROUGH_CUSTOM = "__custom__";
+
+export function PassThroughSection({
+  endpoints, setEndpoints, apiKey, setApiKey, showKey, setShowKey, auth, setAuth, t,
+}: {
+  endpoints: PlatformEndpoint[];
+  setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
+  apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  showKey: boolean; setShowKey: React.Dispatch<React.SetStateAction<boolean>>;
+  auth: PassthroughAuth;
+  setAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
+  t: TFunction;
+}) {
+  // 预设选中值派生：header+template 精确命中某预设 → 该预设 id；否则自定义。
+  const matchedPreset = PASS_THROUGH_HEADER_PRESETS.find(
+    p => p.header === auth.auth_header.trim() && p.template === auth.auth_template.trim(),
+  );
+  const selection = matchedPreset ? matchedPreset.id : PASS_THROUGH_CUSTOM;
+  return (
+    <FormSection
+      title={t("platform.passthrough.sectionTitle", "透传配置")}
+      desc={t("platform.passthrough.note", "仅定义认证：客户端请求剥认证头后注入下方 apikey header，其余 header 与 body 原样转发；path/query 原样拼接 base_url。")}
+    >
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+          {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
+        </div>
+        <Input
+          className="input"
+          placeholder="https://api.example.com"
+          value={endpoints[0]?.base_url ?? ""}
+          onChange={(e) => {
+            const next = [...endpoints];
+            if (next.length === 0) {
+              next.push({ protocol: "passthrough" as Protocol, base_url: e.target.value, client_type: "default", coding_plan: false });
+            } else {
+              next[0] = { ...next[0], base_url: e.target.value };
+            }
+            setEndpoints(next);
+          }}
+        />
+        <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
+        </div>
+      </div>
+      <ApiKeyField
+        value={apiKey} onChange={setApiKey} show={showKey} onToggleShow={() => setShowKey(!showKey)}
+        placeholder={t("platform.tokenPlaceholderEdit", "Token")}
+      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          {t("platform.passthrough.headerPreset", "认证 Header 预设")}
+        </div>
+        <Select
+          value={selection}
+          onValueChange={(v) => {
+            if (v === PASS_THROUGH_CUSTOM) {
+              setAuth(prev => ({ ...prev, auth_header: "", auth_template: "" }));
+            } else {
+              const p = PASS_THROUGH_HEADER_PRESETS.find(x => x.id === v);
+              if (p) setAuth({ auth_header: p.header, auth_template: p.template });
+            }
+          }}
+        >
+          <SelectTrigger className="input">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PASS_THROUGH_HEADER_PRESETS.map(p => (
+              <SelectItem key={p.id} value={p.id}>{`${p.header}: ${p.template}`}</SelectItem>
+            ))}
+            <SelectItem value={PASS_THROUGH_CUSTOM}>{t("platform.passthrough.headerCustom", "自定义")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {selection === PASS_THROUGH_CUSTOM && (
+        <>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.passthrough.headerName", "Header 名")}
+            </div>
+            <Input
+              className="input"
+              placeholder="X-My-Auth"
+              value={auth.auth_header}
+              onChange={(e) => setAuth(prev => ({ ...prev, auth_header: e.target.value }))}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.passthrough.headerTemplate", "值模板")}
+            </div>
+            <Input
+              className="input"
+              placeholder="Bearer {key}"
+              value={auth.auth_template}
+              onChange={(e) => setAuth(prev => ({ ...prev, auth_template: e.target.value }))}
+            />
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+              {t("platform.passthrough.headerTemplateHint", "{key} 占位符会被替换为上方 apikey。")}
+            </div>
+          </div>
+        </>
+      )}
     </FormSection>
   );
 }

@@ -12,8 +12,9 @@ export interface ParsedBaseUrl {
 
 /** 永不自动匹配的 preset value（测试/开发占位平台）。
  *  mock 关键字（"测试"/"调试"/"假数据"）是通用子串，会命中论坛分享文案噪声而误匹配；
- *  从 matchPlatform 候选中硬排除，用户仍可在下拉里手动选 mock。 */
-const NEVER_AUTO_MATCH = new Set(["mock"]);
+ *  passthrough（自定义透传）同理：base_url/认证全由用户手填，粘贴识别猜不出，命中即误配。
+ *  从 matchPlatform 候选中硬排除，用户仍可在下拉里手动选。 */
+const NEVER_AUTO_MATCH = new Set(["mock", "passthrough"]);
 
 /** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords/hosts/codingPlan 字段）。 */
 export interface PastePresetRef {
