@@ -70,6 +70,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   // ── 高级设置 tab（2026-10-08 改版）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
   const advTabs = [
     ...(!isMock && !isPassthrough ? [{ id: "billing", label: t("platform.tabBilling", "计费") }] : []),
+    ...(!isMock && !isPassthrough ? [{ id: "timemodels", label: t("platform.time_windows_section_title", "时段档") }] : []),
     ...(editing && !isPassthrough ? [{ id: "stability", label: t("platform.tabStability", "稳定性") }] : []),
     { id: "lifecycle", label: t("platform.tabLifecycle", "生命周期") },
   ];
@@ -260,11 +261,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </>
         )}
 
-        {/* ── 高级设置 tab（2026-10-08 改版，方向 A）：sticky 分段条 + 三个 panel ── */}
+        {/* ── 高级设置（2026-10-08 二轮）：左侧菜单 rail + panels（方向 B 左栏形态）── */}
+        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", width: "100%" }}>
         {advTabs.length > 1 && (
           <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
         )}
-        {/* 计费：配额查询 + 高峰倍率 + 时段档 */}
+        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+        {/* 计费：配额查询 + 高峰倍率 */}
         {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
           <>
         {/* 配额查询合区（quota-ia 票 03）：模型矩阵正下方，Tab「自动脚本 / 手动预算」互斥；
@@ -298,8 +301,12 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             t={t}
           />
         )}
+          </>
+        )}
 
-        {/* 时段档（时段模型切换）：从模型矩阵挪进计费 tab（2026-10-08 决策） */}
+        {/* 时段档（时段模型切换）：独立 tab，2026-10-08 二轮裁决（原塞计费 tab） */}
+        {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "timemodels") && (
+          <>
         <ModelsMatrixSection
           columns="time"
           titleOverride={t("platform.time_windows_section_title", "时段档")}
@@ -359,6 +366,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
           </>
         )}
+        </div>
+        </div>
 
         {saveError && (
           <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
