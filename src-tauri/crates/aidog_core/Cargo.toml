@@ -56,6 +56,7 @@ futures = { workspace = true }
 rusqlite = { workspace = true }
 tokio-rusqlite = { workspace = true }
 axum = { workspace = true }
+tokio-tungstenite = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 reqwest = { workspace = true }
