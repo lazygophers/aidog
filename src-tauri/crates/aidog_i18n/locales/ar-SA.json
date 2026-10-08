@@ -1286,6 +1286,8 @@
   "platform.tabStability": "الاستقرار",
   "platform.tabLifecycle": "دورة الحياة",
   "platform.time_windows_section_title": "نماذج الفترات",
+  "platform.time_windows_rule_n": "الفئة {{n}}",
+  "platform.time_windows_edit_button": "تعديل الفترة",
   "platform.sectionPassthrough": "إعداد التمرير",
   "platform.sectionSpecial": "إعداد خاص",
   "platform.selectModel": "اختيار",

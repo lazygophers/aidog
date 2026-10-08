@@ -1264,6 +1264,8 @@
   "platform.tabStability": "稳定性",
   "platform.tabLifecycle": "生命周期",
   "platform.time_windows_section_title": "时段档",
+  "platform.time_windows_rule_n": "档 {{n}}",
+  "platform.time_windows_edit_button": "编辑时段",
   "platform.sectionPassthrough": "透传配置",
   "platform.sectionSpecial": "特例配置",
   "platform.selectModel": "选择模型",
