@@ -1286,6 +1286,8 @@
   "platform.tabStability": "Stabilität",
   "platform.tabLifecycle": "Lebenszyklus",
   "platform.time_windows_section_title": "Zeitfenster-Modelle",
+  "platform.time_windows_rule_n": "Stufe {{n}}",
+  "platform.time_windows_edit_button": "Zeitfenster bearbeiten",
   "platform.sectionPassthrough": "Passthrough-Konfig",
   "platform.sectionSpecial": "Spezialkonfig",
   "platform.selectModel": "Auswählen",

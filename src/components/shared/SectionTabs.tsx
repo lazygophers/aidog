@@ -1,6 +1,6 @@
-// SectionTabs — 编辑页「常用平铺 + 高级 tab」的左侧菜单 tab 列（2026-10-08 改版二轮：
-// 由顶部 sticky 分段条改为左侧竖排 rail，用户裁决；方向 B 原型 .scratch 已删，结构同其左栏）。
-// sticky 吸在 <main> 滚动容器顶部，父级用 flex row 包裹（rail 左、panels 右）。
+// SectionTabs — 编辑页「常用平铺 + 高级 tab」的顶部 sticky 分段 tab 条（2026-10-08 改版）。
+// sticky 吸在 <main> 滚动容器顶部（复用 .settings-sticky-bar 玻璃分隔 idiom，同 SettingsHeader）。
+// 左侧菜单样式只用于「时段档」tab 内部的分层列表，不用于本组件（用户二/三轮裁决）。
 import { useTranslation } from "react-i18next";
 
 export interface SectionTab {
@@ -19,20 +19,17 @@ export function SectionTabs({ tabs, active, onChange }: {
       className="settings-sticky-bar"
       style={{
         position: "sticky",
-        top: 12,
+        top: 0,
         zIndex: 20,
         display: "flex",
-        flexDirection: "column",
-        alignItems: "stretch",
+        alignItems: "center",
         gap: 2,
-        flexShrink: 0,
-        width: 148,
-        padding: "8px 4px",
+        flexWrap: "nowrap",
+        padding: "10px 4px",
+        overflowX: "auto",
         background: "var(--bg-glass)",
-        borderRadius: "var(--radius-md)",
       }}
       role="tablist"
-      aria-orientation="vertical"
       aria-label={t("common.sectionTabs", "设置分区")}
     >
       {tabs.map(tab => {
@@ -45,18 +42,15 @@ export function SectionTabs({ tabs, active, onChange }: {
             aria-selected={on}
             onClick={() => onChange(tab.id)}
             style={{
-              border: 0,
-              background: on ? "var(--accent-subtle)" : "transparent",
+              border: on ? "1px solid var(--border)" : "1px solid transparent",
+              background: on ? "var(--bg-glass)" : "transparent",
               color: on ? "var(--text-primary)" : "var(--text-secondary)",
               fontSize: 13,
-              fontWeight: on ? 600 : 500,
-              padding: "7px 12px",
+              fontWeight: 600,
+              padding: "6px 14px",
               borderRadius: "var(--radius-sm)",
               cursor: "pointer",
               whiteSpace: "nowrap",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              textAlign: "left",
               transition: "all var(--transition)",
             }}
           >

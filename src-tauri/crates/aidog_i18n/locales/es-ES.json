@@ -1264,6 +1264,8 @@
   "platform.tabStability": "Estabilidad",
   "platform.tabLifecycle": "Ciclo de vida",
   "platform.time_windows_section_title": "Modelos por franja horaria",
+  "platform.time_windows_rule_n": "Nivel {{n}}",
+  "platform.time_windows_edit_button": "Editar franja",
   "platform.sectionPassthrough": "Configuración passthrough",
   "platform.sectionSpecial": "Configuración especial",
   "platform.selectModel": "Seleccionar modelo",
