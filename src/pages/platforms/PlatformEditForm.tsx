@@ -261,12 +261,10 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </>
         )}
 
-        {/* ── 高级设置（2026-10-08 二轮）：左侧菜单 rail + panels（方向 B 左栏形态）── */}
-        <div style={{ display: "flex", gap: 16, alignItems: "flex-start", width: "100%" }}>
+        {/* ── 高级设置（2026-10-08）：顶部 sticky 分段条 + panels；左菜单样式只用于时段档 tab 内部 ── */}
         {advTabs.length > 1 && (
           <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
         )}
-        <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 16 }}>
         {/* 计费：配额查询 + 高峰倍率 */}
         {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
           <>
@@ -366,8 +364,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
           </>
         )}
-        </div>
-        </div>
 
         {saveError && (
           <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>

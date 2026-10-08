@@ -1286,6 +1286,8 @@
   "platform.tabStability": "安定性",
   "platform.tabLifecycle": "ライフサイクル",
   "platform.time_windows_section_title": "時間帯モデル",
+  "platform.time_windows_rule_n": "段階 {{n}}",
+  "platform.time_windows_edit_button": "時間帯を編集",
   "platform.sectionPassthrough": "パススルー設定",
   "platform.sectionSpecial": "特殊設定",
   "platform.selectModel": "モデル選択",

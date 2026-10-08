@@ -1286,6 +1286,8 @@
   "platform.tabStability": "Стабильность",
   "platform.tabLifecycle": "Жизненный цикл",
   "platform.time_windows_section_title": "Модели по времени",
+  "platform.time_windows_rule_n": "Уровень {{n}}",
+  "platform.time_windows_edit_button": "Изменить окно",
   "platform.sectionPassthrough": "Настройка passthrough",
   "platform.sectionSpecial": "Спец. настройка",
   "platform.selectModel": "Выбрать",

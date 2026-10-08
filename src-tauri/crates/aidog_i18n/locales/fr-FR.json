@@ -1286,6 +1286,8 @@
   "platform.tabStability": "Stabilité",
   "platform.tabLifecycle": "Cycle de vie",
   "platform.time_windows_section_title": "Modèles par plage horaire",
+  "platform.time_windows_rule_n": "Palier {{n}}",
+  "platform.time_windows_edit_button": "Modifier la plage",
   "platform.sectionPassthrough": "Config passthrough",
   "platform.sectionSpecial": "Config spéciale",
   "platform.selectModel": "Sélectionner",

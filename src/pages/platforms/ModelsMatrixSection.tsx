@@ -117,6 +117,8 @@ export function ModelsMatrixSection({
   const [activeCell, setActiveCell] = useState<CellKey | null>(null);
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  // 时段档视图（columns="time"）左菜单选中档
+  const [selectedRuleIdx, setSelectedRuleIdx] = useState(0);
 
   // 默认列候选列表：getDefaultModelList async 化后 effect 缓存（同 ModelsSection 原逻辑）。
   //   时段档列复用同源（availableModels || defaultList）。
@@ -277,12 +279,151 @@ export function ModelsMatrixSection({
     display: "flex", gap: 8, width: "100%", alignItems: "center",
   };
 
+  // ── 时段档视图（columns === "time"，2026-10-08 三轮裁决）：左侧分层菜单 + 右侧选中档编辑器 ──
+  if (columns === "time") {
+    const selIdx = Math.min(selectedRuleIdx, rules.length - 1);
+    const sel = rules[selIdx];
+    const btnMini = {
+      padding: "1px 4px", fontSize: 11, height: "auto", minWidth: "auto",
+    } as const;
+    return (
+      <FormSection
+        title={titleOverride ?? t("platform.time_windows_section_title", "时段档")}
+        action={(
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
+              disabled={peak.length === 0}
+              title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
+              onClick={() => setImportModalOpen(true)}
+            >
+              {t("platform.time_windows_import_peak", "从高峰时段导入")}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
+              onClick={addRule}
+            >
+              + {t("platform.time_windows_add_rule", "添加时段档")}
+            </Button>
+          </div>
+        )}
+      >
+        {rules.length === 0 ? (
+          <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+            {t("platform.time_windows_empty", "未配置 → 全时段用默认模型档")}
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+            {/* 左：时段分层菜单 */}
+            <div style={{ flexShrink: 0, width: 200, display: "flex", flexDirection: "column", gap: 4 }}>
+              {rules.map((rule, idx) => {
+                const on = idx === selIdx;
+                return (
+                  <div
+                    key={idx}
+                    onClick={() => setSelectedRuleIdx(idx)}
+                    style={{
+                      display: "flex", flexDirection: "column", gap: 2,
+                      padding: "7px 10px", borderRadius: "var(--radius-sm)", cursor: "pointer",
+                      background: on ? "var(--accent-subtle)" : "transparent",
+                      border: `1px solid ${on ? "var(--border)" : "transparent"}`,
+                    }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: on ? "var(--text-primary)" : "var(--text-secondary)", flex: 1 }}>
+                        {t("platform.time_windows_rule_n", "档 {{n}}", { n: idx + 1 })}
+                      </span>
+                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === 0} onClick={() => moveUp(idx)} title={t("action.moveUp", "上移")}>↑</Button>
+                      <Button variant="ghost" size="icon" style={{ ...btnMini }} disabled={idx === rules.length - 1} onClick={() => moveDown(idx)} title={t("action.moveDown", "下移")}>↓</Button>
+                      <Button variant="ghost" size="icon" className="btn-danger" style={{ ...btnMini, color: "var(--color-danger)" }} onClick={() => removeRule(idx)} title={t("action.delete", "删除")}>×</Button>
+                    </div>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {describeWindows(rule.windows, tzMode, t)}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* 右：选中档编辑器 */}
+            <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {describeWindows(sel.windows, tzMode, t)}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={() => setEditingIdx(selIdx)}
+                >
+                  {t("platform.time_windows_edit_button", "编辑时段")}
+                </Button>
+              </div>
+              {MODEL_SLOTS.map(({ key, labelKey }) => (
+                <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <div style={{ width: 64, flexShrink: 0, fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)", textAlign: "right" }}>
+                    {t(labelKey)}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    {renderCell(
+                      `r${selIdx}:${key}`,
+                      sel.models[key] ?? "",
+                      (v) => updateRuleModel(selIdx, key, v),
+                      (v) => updateRuleModel(selIdx, key, v),
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <WindowsEditModal
+          open={editingIdx !== null}
+          windows={editingIdx !== null ? (rules[editingIdx]?.windows ?? []) : []}
+          onSave={(w) => {
+            if (editingIdx !== null) updateRule(editingIdx, { windows: w });
+            setEditingIdx(null);
+          }}
+          onClose={() => setEditingIdx(null)}
+          tzMode={tzMode}
+          setTzMode={setTzMode}
+          t={t}
+        />
+
+        <Dialog open={importModalOpen} onOpenChange={(v) => { if (!v) setImportModalOpen(false); }}>
+          <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
+            <DialogHeader>
+              <DialogTitle style={{ fontSize: 13 }}>
+                {t("platform.time_windows_import_confirm_title", "导入高峰时段配置？")}
+              </DialogTitle>
+              <DialogDescription style={{ fontSize: 12 }}>
+                {t("platform.time_windows_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peak.length))}
+              </DialogDescription>
+            </DialogHeader>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <Button variant="ghost" onClick={() => setImportModalOpen(false)}>
+                {t("action.cancel", "取消")}
+              </Button>
+              <Button className="ripple" onClick={(e) => { makeRipple(e); importFromPeak(); }}>
+                {t("platform.time_windows_import_confirm_button", "确认")}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </FormSection>
+    );
+  }
+
   return (
     <FormSection
       title={titleOverride ?? t("platform.models")}
       action={(
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-          {columns === "default" && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -302,27 +443,6 @@ export function ModelsMatrixSection({
           >
             {fetching ? t("status.loading") : t("platform.fetchModels")}
           </Button>
-          </>)}
-          {columns === "time" && (<>
-          <Button
-            variant="ghost"
-            size="sm"
-            style={{ fontSize: 12, padding: "4px 10px", whiteSpace: "nowrap" }}
-            disabled={peak.length === 0}
-            title={peak.length === 0 ? t("platform.time_windows_no_peak", "当前无高峰时段配置") : ""}
-            onClick={() => setImportModalOpen(true)}
-          >
-            {t("platform.time_windows_import_peak", "从高峰时段导入")}
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            style={{ fontSize: 12, padding: "4px 10px", color: "var(--accent)" }}
-            onClick={addRule}
-          >
-            + {t("platform.time_windows_add_rule", "添加时段档")}
-          </Button>
-          </>)}
         </div>
       )}
     >
@@ -339,68 +459,9 @@ export function ModelsMatrixSection({
           <div style={rowStyle}>
             <div style={{ width: LABEL_W, flexShrink: 0 }} />
             {/* 默认列头 */}
-            {columns === "default" && (
             <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.modelDefault")}
             </div>
-            )}
-            {/* 时段档列头 */}
-            {columns === "time" && rules.map((rule, idx) => (
-              <div
-                key={`hdr-${idx}`}
-                style={{
-                  flex: 1, minWidth: 80, display: "flex", flexDirection: "column",
-                  gap: 2, alignItems: "stretch",
-                }}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  style={{
-                    fontSize: 12, padding: "3px 4px", cursor: "pointer", height: "auto",
-                    color: "var(--text-secondary)", whiteSpace: "nowrap",
-                    overflow: "hidden", textOverflow: "ellipsis",
-                    border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
-                  }}
-                  title={t("platform.time_windows_edit_windows", "点击编辑时段窗口")}
-                  onClick={() => setEditingIdx(idx)}
-                >
-                  {describeWindows(rule.windows, tzMode, t)}
-                </Button>
-                <div style={{ display: "flex", gap: 2, justifyContent: "center" }}>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto" }}
-                    disabled={idx === 0}
-                    onClick={() => moveUp(idx)}
-                    title={t("action.moveUp", "上移")}
-                  >
-                    ↑
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto" }}
-                    disabled={idx === rules.length - 1}
-                    onClick={() => moveDown(idx)}
-                    title={t("action.moveDown", "下移")}
-                  >
-                    ↓
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="btn-danger"
-                    style={{ padding: "1px 4px", fontSize: 12, height: "auto", minWidth: "auto", color: "var(--color-danger)" }}
-                    onClick={() => removeRule(idx)}
-                    title={t("action.delete", "删除")}
-                  >
-                    ×
-                  </Button>
-                </div>
-              </div>
-            ))}
           </div>
 
           {/* 5 槽行 */}
@@ -415,7 +476,6 @@ export function ModelsMatrixSection({
                 {t(labelKey)}
               </div>
               {/* 默认列单元格 */}
-              {columns === "default" && (
               <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(
                   `d:${key}`,
@@ -424,18 +484,6 @@ export function ModelsMatrixSection({
                   (v) => handleModelSelect(key, v),
                 )}
               </div>
-              )}
-              {/* 时段档列单元格 */}
-              {columns === "time" && rules.map((rule, idx) => (
-                <div key={`r${idx}-${key}`} style={{ flex: 1, minWidth: 80 }}>
-                  {renderCell(
-                    `r${idx}:${key}`,
-                    rule.models[key] ?? "",
-                    (v) => updateRuleModel(idx, key, v),
-                    (v) => updateRuleModel(idx, key, v),
-                  )}
-                </div>
-              ))}
             </div>
           ))}
 

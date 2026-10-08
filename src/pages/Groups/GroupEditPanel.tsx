@@ -140,10 +140,8 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         />
       </div>
 
-      {/* ── 高级 tab（2026-10-08 二轮）：左侧菜单 rail + panels ── */}
-      <div style={{ display: "flex", gap: 16, alignItems: "flex-start", width: "100%" }}>
+      {/* ── 高级 tab（2026-10-08）：顶部 sticky 分段条 ── */}
       <SectionTabs tabs={groupTabs} active={activeTab} onChange={setAdvTab} />
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* 模型映射 panel */}
       {/* Model Mappings */}
@@ -335,8 +333,6 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         </div>
       </div>
       )}
-      </div>
-      </div>
     </div>
   );
 }

@@ -1264,6 +1264,8 @@
   "platform.tabStability": "Stability",
   "platform.tabLifecycle": "Lifecycle",
   "platform.time_windows_section_title": "Time-based models",
+  "platform.time_windows_rule_n": "Tier {{n}}",
+  "platform.time_windows_edit_button": "Edit window",
   "platform.sectionPassthrough": "Passthrough Config",
   "platform.sectionSpecial": "Special Config",
   "platform.selectModel": "Select model",
