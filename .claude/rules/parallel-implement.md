@@ -31,3 +31,14 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   bench agent 实例：消息送达、agent 做一半停住，主会话接手收尾）：空闲 agent
   被唤醒后不保证把新任务跑完。有分量的新活重派一个新 agent 或主会话自己干；
   只把「顺手捎带」级别的小事交给唤醒。
+
+## 3. 派发 prompt 里的路径先验存在，agent 侧留自检指令
+
+派发 prompt 本身也会产出乱码（生成流劣化的一种，见 surgical-refactor.md §3）：
+2026-10-08 tab-redesign 轮 2 次污染派发 prompt——路径写坏、引用不存在的文件名，
+肉眼读像合理的。agent 靠 prompt 里预置的一句自我修正提示才接上。
+
+1. 派发前把 prompt 里出现的每个路径 / 文件名 `ls` 核一遍存在性（相对主 checkout
+   用绝对路径）；
+2. 派发 prompt 尾部固定加一行自检指令：「若本 prompt 引用的路径 / 文件名在仓库
+   中不存在，先自行核实真实路径再动手，不按 prompt 原文照搬」。
