@@ -22,6 +22,13 @@ pub(crate) struct PassthroughOpts {
     /// forward=false（普通浏览流量不是 SSE，插帧只会污染响应体）。
     /// 转换分支的同一兜底在 `finish.rs::finish_stream`，两处共用 `stream::with_idle_ping`。
     pub idle_ping: bool,
+    /// 剥入站认证头（authorization / x-api-key / api-key / x-goog-api-key）。
+    /// 透传平台专用（ADR 0008：认证完全由平台配置接管，客户端带来的 key 一律不外泄）；
+    /// 其余透传分支 false（claude_code 客户端自带 OAuth，须原样转发）。
+    pub strip_inbound_auth: bool,
+    /// 注入的认证头 `(头名, 已填 key 的值)`。日志记录时该头名强制 REDACTED（值含真实 key）。
+    /// 透传平台专用；api_key 为空时 None（只剥不注，strip_inbound_auth 仍生效）。
+    pub auth_inject: Option<(String, String)>,
 }
 
 /// Claude Code 订阅平台纯透传：把客户端原始请求 1:1 relay 到 base_url，原样返回响应，记 proxy_log。
@@ -47,6 +54,8 @@ pub(crate) async fn handle_passthrough(
         strip_proxy_headers: false,
         stream_error_msg_stop: true,
         idle_ping: true,
+        strip_inbound_auth: false,
+        auth_inject: None,
     };
     relay_passthrough(
         state,
@@ -118,12 +127,21 @@ async fn relay_passthrough(
             fwd_headers.remove(*name);
         }
     }
-    // 记录上游请求头（透传 redact authorization）
+    // 透传平台认证接管（ADR 0008）：剥入站认证头 + 注入平台配置的认证头。
+    // 注入头名不在 SENSITIVE_AUTH_HEADERS 固定清单内（用户可自定义），下方日志记录对其单独 redact。
+    if opts.strip_inbound_auth {
+        apply_platform_auth_headers(&mut fwd_headers, &opts.auth_inject);
+    }
+    // 记录上游请求头（透传 redact authorization + 用户自定义认证头名）
     log.upstream_request_headers = {
         let mut h = serde_json::Map::new();
         for (k, v) in &fwd_headers {
             let name = k.as_str();
-            if is_sensitive_auth_header(name) {
+            let custom_auth = opts
+                .auth_inject
+                .as_ref()
+                .is_some_and(|(n, _)| name.eq_ignore_ascii_case(n));
+            if is_sensitive_auth_header(name) || custom_auth {
                 h.insert(name.to_string(), Value::String("[REDACTED]".into()));
             } else if let Ok(s) = v.to_str() {
                 h.insert(name.to_string(), Value::String(s.to_string()));
@@ -223,12 +241,31 @@ async fn relay_passthrough(
     // ── 非流式：原样 relay bytes ──
     if !is_stream {
         return relay_passthrough_nonstream(
-            state, log, log_settings, resp, status, resp_status, resp_header_map, start, opts,
+            state,
+            log,
+            log_settings,
+            resp,
+            status,
+            resp_status,
+            resp_header_map,
+            start,
+            opts,
         )
         .await;
     }
 
-    relay_passthrough_stream(state, log, log_settings, opts, resp, status, resp_status, resp_header_map, start).await
+    relay_passthrough_stream(
+        state,
+        log,
+        log_settings,
+        opts,
+        resp,
+        status,
+        resp_status,
+        resp_header_map,
+        start,
+    )
+    .await
 }
 
 /// 默认模型清单：registry 里官方渠道（`anthropic` + `openai` + `typesafe`）的模型 id，按平台目录顺序去重。
@@ -446,6 +483,119 @@ pub(crate) fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> St
     format!("{}{}", base, pq)
 }
 
+/// 透传平台认证头配置的缺省值（ADR 0008）：`Authorization: Bearer {key}`。
+pub(crate) const DEFAULT_AUTH_HEADER: &str = "Authorization";
+pub(crate) const DEFAULT_AUTH_TEMPLATE: &str = "Bearer {key}";
+
+/// 解析 `platform.extra` 的认证配置 → 注入头 `(名, 已填 key 值)`（纯函数）。
+///
+/// extra JSON 的 `auth_header` / `auth_template` 两键缺省 `Authorization` / `Bearer {key}`，
+/// 解析失败 / 值为空同样回落缺省。api_key 为空 → None（调用方仍剥入站认证头，只剥不注）。
+pub(crate) fn parse_passthrough_auth(extra: &str, api_key: &str) -> Option<(String, String)> {
+    if api_key.trim().is_empty() {
+        return None;
+    }
+    let cfg: Value = serde_json::from_str(extra).unwrap_or(Value::Null);
+    let header = cfg
+        .get("auth_header")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_AUTH_HEADER)
+        .to_string();
+    let template = cfg
+        .get("auth_template")
+        .and_then(|v| v.as_str())
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .unwrap_or(DEFAULT_AUTH_TEMPLATE)
+        .to_string();
+    Some((header, template.replace("{key}", api_key)))
+}
+
+/// 剥入站认证头 + 注入平台配置的认证头（纯函数，`relay_passthrough` 内消费）。
+///
+/// api_key 空时 `inject=None`：四个入站认证头照剥，不注入（客户端 group key 绝不外泄上游）。
+/// 注入头名/值非法（含控制字符等）时跳过注入并 warn（已剥的头不再恢复）。
+pub(crate) fn apply_platform_auth_headers(
+    fwd: &mut reqwest::header::HeaderMap,
+    inject: &Option<(String, String)>,
+) {
+    for name in ["authorization", "x-api-key", "api-key", "x-goog-api-key"] {
+        fwd.remove(name);
+    }
+    let Some((header, value)) = inject else {
+        return;
+    };
+    match (
+        reqwest::header::HeaderName::from_bytes(header.as_bytes()),
+        reqwest::header::HeaderValue::from_str(value),
+    ) {
+        (Ok(hn), Ok(hv)) => {
+            fwd.insert(hn, hv);
+        }
+        _ => {
+            tracing::warn!(header = %header, "passthrough platform: invalid auth header name/value, injection skipped");
+        }
+    }
+}
+
+/// 透传平台转发 base：endpoints 里第一条非空 base_url，缺省回落 platform.base_url
+/// （passthrough 平台 endpoints_locked，实际配置落在 base_url 字段）。
+pub(crate) fn passthrough_base_url(platform: &super::models::Platform) -> String {
+    platform
+        .endpoints
+        .iter()
+        .map(|ep| ep.base_url.trim())
+        .find(|b| !b.is_empty())
+        .unwrap_or(platform.base_url.trim())
+        .to_string()
+}
+
+/// 透传平台（Protocol::Passthrough，ADR 0008）：客户端原始请求 1:1 relay 到平台 base_url，
+/// 仅认证头按平台配置重写（剥入站认证头 + 注入 `extra.auth_header: auth_template({key})`）。
+/// 不识别协议不转换（wire 未知 → 不合成 message_stop / 不插 anthropic ping）；
+/// usage 尽力解析（复用 relay 的 extract_usage / feed_sse_usage），解析不出 tokens=0 落库。
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn handle_passthrough_platform(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    orig_method: axum::http::Method,
+    orig_uri: axum::http::Uri,
+    orig_headers: axum::http::HeaderMap,
+    bytes: axum::body::Bytes,
+    platform: &super::models::Platform,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    log.platform_id = platform.id;
+    let url = build_passthrough_url(&passthrough_base_url(platform), &orig_uri);
+    let auth_inject = parse_passthrough_auth(&platform.extra, &platform.api_key);
+    let opts = PassthroughOpts {
+        protocol_tag: "passthrough",
+        extract_usage: true,
+        strip_proxy_headers: false,
+        stream_error_msg_stop: false, // wire 未知，空收尾（不合成 anthropic message_stop）
+        idle_ping: false,             // 同理：非 anthropic SSE 插 ping 帧只会污染响应体
+        strip_inbound_auth: true,
+        auth_inject,
+    };
+    relay_passthrough(
+        state,
+        log,
+        log_settings,
+        url,
+        orig_method,
+        orig_headers,
+        bytes,
+        start,
+        lang,
+        &opts,
+    )
+    .await
+}
+
 /// 从 Host header + URI 重构完整 url（`scheme://host/path?query`）。
 ///
 /// 用途：origin-form URI（MITM 解密灌入 / reverse proxy）的 `req.uri()` 只含 path 段，
@@ -516,6 +666,8 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         strip_proxy_headers: true,    // MITM 解密灌入可能携带代理协商头
         stream_error_msg_stop: false, // 非 anthropic wire，空收尾即可
         idle_ping: false,             // 同理：普通浏览流量不是 SSE，不插 ping 帧
+        strip_inbound_auth: false,
+        auth_inject: None,
     };
     relay_passthrough(
         state,
@@ -580,7 +732,6 @@ pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
 #[cfg(test)]
 #[path = "test_passthrough.rs"]
 mod test_passthrough;
-
 
 /// 阶段 fn：透传非流式 relay——usage 提取 + 双侧 gate 落库 + 原样回 bytes。
 #[allow(clippy::too_many_arguments)]

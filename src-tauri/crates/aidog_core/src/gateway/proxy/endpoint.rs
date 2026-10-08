@@ -136,6 +136,58 @@ pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
     }
 }
 
+/// 从 URL query 串提取 `api_key` 参数值（ADR 0008 决策 3，Authorization 之外的第二通道）。
+/// 百分号解码 + `+`→空格（与浏览器表单编码兼容）；值空 / 参数缺席 → None。纯函数。
+pub(crate) fn query_api_key(query: &str) -> Option<String> {
+    for pair in query.split('&') {
+        let Some((k, v)) = pair.split_once('=') else {
+            continue;
+        };
+        if k != "api_key" {
+            continue;
+        }
+        let decoded = percent_decode(v);
+        return (!decoded.trim().is_empty()).then_some(decoded);
+    }
+    None
+}
+
+/// 极简 percent-decoding（`%XX` → 字节，`+` → 空格），仅用于 query 参数值。
+/// 非法 `%` 序列（非两位 hex）原样保留字符，不报错——解码尽力而为，group key 匹配不上
+/// 自然落 resolve_group 404，无需把编码错误上升为请求错误。
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        match bytes[i] {
+            b'+' => {
+                out.push(b' ');
+                i += 1;
+            }
+            b'%' if i + 3 <= bytes.len() => {
+                // bytes[i+1..i+3] 须是两位 hex
+                let hex = &s[i + 1..i + 3];
+                match u8::from_str_radix(hex, 16) {
+                    Ok(b) => {
+                        out.push(b);
+                        i += 3;
+                    }
+                    Err(_) => {
+                        out.push(b'%');
+                        i += 1;
+                    }
+                }
+            }
+            b => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
 /// 在已取出的分组列表中按 group_key（= Authorization Bearer apikey）精确匹配。
 /// 分组路由纯按 apikey(group_key)，不再支持 URL path 前缀匹配。
 pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {

@@ -525,7 +525,54 @@ fn decision_endpoint_prefers_typesafe_then_openai_family() {
         coding_plan: false,
     };
     let endpoints = vec![ep(Protocol::OpenAI), ep(Protocol::TypeSafe)];
-    assert_eq!(select_endpoint_for_decision(&endpoints).unwrap().protocol, Protocol::TypeSafe);
+    assert_eq!(
+        select_endpoint_for_decision(&endpoints).unwrap().protocol,
+        Protocol::TypeSafe
+    );
     let endpoints = vec![ep(Protocol::OpenAIResponses), ep(Protocol::OpenAI)];
-    assert_eq!(select_endpoint_for_decision(&endpoints).unwrap().protocol, Protocol::OpenAI);
+    assert_eq!(
+        select_endpoint_for_decision(&endpoints).unwrap().protocol,
+        Protocol::OpenAI
+    );
+}
+
+// ── query 参数鉴权（ADR 0008 决策 3）：`?api_key=<group_name>` 提取 ──
+
+#[test]
+fn query_api_key_extracts_and_decodes() {
+    // 基本提取
+    assert_eq!(
+        query_api_key("api_key=mygroup"),
+        Some("mygroup".to_string())
+    );
+    // 多参数（前 / 后位置都能取）
+    assert_eq!(
+        query_api_key("foo=1&api_key=g1&bar=2"),
+        Some("g1".to_string())
+    );
+    // 百分号解码（含保留字符）
+    assert_eq!(
+        query_api_key("api_key=my%20group%2Fkey"),
+        Some("my group/key".to_string())
+    );
+    // `+` → 空格（表单编码兼容）
+    assert_eq!(query_api_key("api_key=a+b"), Some("a b".to_string()));
+}
+
+#[test]
+fn query_api_key_absent_or_empty_returns_none() {
+    assert_eq!(query_api_key(""), None);
+    assert_eq!(query_api_key("foo=1&bar=2"), None);
+    // 空 / 纯空白值 → None（不产出空 token 破坏 header 优先链）
+    assert_eq!(query_api_key("api_key="), None);
+    assert_eq!(query_api_key("api_key=%20%20"), None);
+    // 同名多次出现取第一份（与常见服务端行为一致）
+    assert_eq!(
+        query_api_key("api_key=first&api_key=second"),
+        Some("first".to_string())
+    );
+    // 非法 % 序列原样保留（解码尽力而为，匹配不上 resolve_group 自然 404）
+    assert_eq!(query_api_key("api_key=100%zz"), Some("100%zz".to_string()));
+    // 尾部截断的 %（i+3 越界）不 panic、不丢字符
+    assert_eq!(query_api_key("api_key=a%2"), Some("a%2".to_string()));
 }
