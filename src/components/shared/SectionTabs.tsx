@@ -1,5 +1,6 @@
-// SectionTabs — 编辑页「常用平铺 + 高级 tab」的分段 tab 条（2026-10-08 编辑页改版，方向 A）。
-// sticky 吸在 <main> 滚动容器顶部（复用 .settings-sticky-bar 玻璃分隔 idiom，同 SettingsHeader）。
+// SectionTabs — 编辑页「常用平铺 + 高级 tab」的左侧菜单 tab 列（2026-10-08 改版二轮：
+// 由顶部 sticky 分段条改为左侧竖排 rail，用户裁决；方向 B 原型 .scratch 已删，结构同其左栏）。
+// sticky 吸在 <main> 滚动容器顶部，父级用 flex row 包裹（rail 左、panels 右）。
 import { useTranslation } from "react-i18next";
 
 export interface SectionTab {
@@ -18,17 +19,20 @@ export function SectionTabs({ tabs, active, onChange }: {
       className="settings-sticky-bar"
       style={{
         position: "sticky",
-        top: 0,
+        top: 12,
         zIndex: 20,
         display: "flex",
-        alignItems: "center",
+        flexDirection: "column",
+        alignItems: "stretch",
         gap: 2,
-        flexWrap: "nowrap",
-        padding: "10px 4px",
-        overflowX: "auto",
+        flexShrink: 0,
+        width: 148,
+        padding: "8px 4px",
         background: "var(--bg-glass)",
+        borderRadius: "var(--radius-md)",
       }}
       role="tablist"
+      aria-orientation="vertical"
       aria-label={t("common.sectionTabs", "设置分区")}
     >
       {tabs.map(tab => {
@@ -41,15 +45,18 @@ export function SectionTabs({ tabs, active, onChange }: {
             aria-selected={on}
             onClick={() => onChange(tab.id)}
             style={{
-              border: on ? "1px solid var(--border)" : "1px solid transparent",
-              background: on ? "var(--bg-glass)" : "transparent",
+              border: 0,
+              background: on ? "var(--accent-subtle)" : "transparent",
               color: on ? "var(--text-primary)" : "var(--text-secondary)",
               fontSize: 13,
-              fontWeight: 600,
-              padding: "6px 14px",
+              fontWeight: on ? 600 : 500,
+              padding: "7px 12px",
               borderRadius: "var(--radius-sm)",
               cursor: "pointer",
               whiteSpace: "nowrap",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              textAlign: "left",
               transition: "all var(--transition)",
             }}
           >
