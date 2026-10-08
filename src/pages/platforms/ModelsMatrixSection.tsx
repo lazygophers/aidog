@@ -24,7 +24,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { makeRipple } from "../../components/shared";
+import { makeRipple, ModelPriceTag } from "../../components/shared";
+import { useModelPrices } from "../../domains/platforms/modelPrices";
 
 // 单元格 key：默认列 = `d:<slot>`；时段档列 = `r<idx>:<slot>`。整矩阵单开（activeCell 唯一）。
 type CellKey = string;
@@ -119,6 +120,8 @@ export function ModelsMatrixSection({
   const [importModalOpen, setImportModalOpen] = useState(false);
   // 时段档视图（columns="time"）左菜单选中档
   const [selectedRuleIdx, setSelectedRuleIdx] = useState(0);
+  // 下拉行尾 / 选中格尾的置灰价格（grill-select-price spec）；无价格条目不渲染
+  const priceMap = useModelPrices(protocol);
 
   // 默认列候选列表：getDefaultModelList async 化后 effect 缓存（同 ModelsSection 原逻辑）。
   //   时段档列复用同源（availableModels || defaultList）。
@@ -200,13 +203,16 @@ export function ModelsMatrixSection({
       ? (query ? dropdownSource.filter((m) => pinyinMatch(query, m)) : dropdownSource)
       : [];
     const open = activeCell === cellKey && filtered.length > 0;
+    // 选中格尾紧凑价（编辑态隐藏，避免遮住输入中的过滤文本）
+    const cellPrice = value ? priceMap.get(value) : undefined;
+    const showCellPrice = !!cellPrice && activeCell !== cellKey;
     return (
       <Popover open={open} onOpenChange={(o) => { if (!o) setActiveCell(null); }}>
         <PopoverAnchor asChild>
           <div style={{ position: "relative", width: "100%" }}>
             <Input
               className="input"
-              style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
+              style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: showCellPrice ? 126 : hasDropdown ? 24 : undefined }}
               placeholder={t("platform.models_placeholder", "模型名")}
               value={value}
               onChange={(e) => {
@@ -235,6 +241,14 @@ export function ModelsMatrixSection({
                 ▾
               </Button>
             )}
+            {showCellPrice && (
+              <span style={{
+                position: "absolute", right: 26, top: "50%", transform: "translateY(-50%)",
+                maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none",
+              }}>
+                <ModelPriceTag info={cellPrice} compact />
+              </span>
+            )}
           </div>
         </PopoverAnchor>
         <PopoverContent
@@ -251,7 +265,8 @@ export function ModelsMatrixSection({
               style={{
                 width: "100%",
                 justifyContent: "flex-start",
-                padding: "8px 12px",
+                gap: 8,
+                padding: "6px 12px",
                 fontSize: 13,
                 fontWeight: value === m ? 600 : 400,
                 color: value === m ? "var(--accent)" : "var(--text-primary)",
@@ -264,7 +279,8 @@ export function ModelsMatrixSection({
                 setActiveCell(null);
               }}
             >
-              {m}
+              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", textAlign: "left" }}>{m}</span>
+              <ModelPriceTag info={priceMap.get(m)} />
             </Button>
           ))}
         </PopoverContent>

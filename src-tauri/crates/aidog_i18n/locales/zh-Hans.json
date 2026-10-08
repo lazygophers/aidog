@@ -88,6 +88,8 @@
   "action.refresh": "刷新",
   "action.remove": "Remove",
   "action.save": "保存",
+  "common.priceFree": "免费",
+  "common.pricePeak": "峰",
   "common.sectionTabs": "设置分区",
   "app.title": "AiDog",
   "app.version": "版本",

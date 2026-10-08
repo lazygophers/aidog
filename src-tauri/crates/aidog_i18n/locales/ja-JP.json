@@ -88,6 +88,8 @@
   "action.refresh": "更新",
   "action.remove": "削除",
   "action.save": "保存",
+  "common.priceFree": "無料",
+  "common.pricePeak": "ピーク",
   "common.sectionTabs": "セクション",
   "app.title": "AiDog",
   "app.version": "バージョン",

@@ -10,7 +10,8 @@ import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
   PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
-import { CopyButton, SectionTabs } from "../../components/shared";
+import { CopyButton, SectionTabs, ModelPriceTag } from "../../components/shared";
+import { useAllModelPrices } from "../../domains/platforms/modelPrices";
 import { IconClose } from "../../components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +40,8 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
   const [piApi, setPiApi] = useState<PiApi>(() => parseGroupPiApi(editTarget?.group.extra ?? ""));
+  // 模型映射目标模型 select 的价格表（一次 snapshot；逐行目标平台不同故取全平台嵌套表）
+  const allPrices = useAllModelPrices();
   const editGroupId = editTarget?.group.id;
   // ── 高级 tab（2026-10-08 改版）：模型映射 / 连接 / 环境变量，分组页恒 3 个 → 恒出条 ──
   const [advTab, setAdvTab] = useState("mappings");
@@ -156,6 +159,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           {editMappings.map((m, i) => {
             const targetPlat = platforms.find(p => p.id === m.target_platform_id);
             const models = targetPlat ? allModelValues(targetPlat.models) : [];
+            const priceMap = targetPlat ? allPrices.get(targetPlat.platform_type) : undefined;
             return (
               <div key={i} style={{
                 display: "flex", gap: 8, alignItems: "center",
@@ -198,11 +202,23 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                       dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }}>
                     <SelectTrigger style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}>
-                      <SelectValue placeholder={t("mapping.target", "目标模型")} />
+                      <SelectValue placeholder={t("mapping.target", "目标模型")}>
+                        {m.target_model ? (
+                          <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                            <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.target_model}</span>
+                            <ModelPriceTag info={priceMap?.get(m.target_model)} compact />
+                          </span>
+                        ) : undefined}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="__none__">{t("mapping.target", "目标模型")}</SelectItem>
-                      {models.map(m2 => <SelectItem key={m2} value={m2}>{m2}</SelectItem>)}
+                      {models.map(m2 => (
+                        <SelectItem key={m2} value={m2}>
+                          <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis" }}>{m2}</span>
+                          <ModelPriceTag info={priceMap?.get(m2)} />
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 ) : (
