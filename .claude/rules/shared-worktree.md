@@ -43,6 +43,10 @@ commit（c3bb3e4d0 把 crazyrouter gte-rerank-v2 写成 32768），其最终报�
 - 派 agent 时主会话要写明边界：只读取证 → 报告回传；需要落库的值由主会话采信后自己写。
 - agent 报告里标「存疑 / 需拍板 / 非官方源」的值不得出现在任何 commit 里——commit
   message 自己写着 `architectural limit` 的值，就是没被采信的值。
+- agent 填入数据的任何外部 slug / URL（registry `logo_url` 的 simpleicons slug、
+  `source_urls` 等），主会话采信前 curl 一次可达（2026-10-08 passthrough-platform 轮：
+  implementer 填 slug `shuffle` 双源 404，被 `known_simpleicons_slugs_are_valid`
+  白名单测试拦下——测试是最后一道防线，主会话核对是更早的一道）。
 
 ## implementer 挂掉后的半成品采信（2026-09-28 cc-sub-mitm PR #43）
 

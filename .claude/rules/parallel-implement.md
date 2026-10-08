@@ -1,7 +1,7 @@
 # 并行 implementer：基线红名单前置、追加任务不可靠
 
 2026-09-30 jev-decision-proxy 轮（PR #46：一个 spec 拆 7 步、5 个 implementer
-agent 各自 worktree 并行、逐个合并回 PR 分支）踩出的两条流程缺口。适用于一切
+agent 各自 worktree 并行、逐个合并回 PR 分支）踩出的流程缺口。适用于一切
 「主会话拆票 + 多 agent 并行实现 + 主会话合并验收」的形态。
 
 ## 1. 基线红测名单开工前跑一次，写进每个派发 prompt
@@ -16,6 +16,9 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - agent 发现 prompt 未列的红测只上报不动手；基线红只由主会话修一次。
 - 基线红 = 门禁信号丢失（红名单越长，「新引入 vs 预存」的判定越贵），发现
   当场开票，不修不等于不开票（该轮 Flutter 4 红 + vitest 1 红即此遗留）。
+- 修门禁红派 agent 时，修复范围预先写死文件清单（2026-10-08 passthrough-platform
+  轮：限 6 文件，agent 只改了 ws.rs，未漂移）——与「基线红只由主会话修一次」同精神：
+  修复 agent 只动清单内文件，清单外的红上报不动手。
 
 ## 2. SendMessage 追加任务给运行中的 agent 不可靠
 
@@ -42,3 +45,28 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
    用绝对路径）；
 2. 派发 prompt 尾部固定加一行自检指令：「若本 prompt 引用的路径 / 文件名在仓库
    中不存在，先自行核实真实路径再动手，不按 prompt 原文照搬」。
+
+## 4. harness worktree 隔离的 agent：开工前核对基点（2026-10-08 passthrough-platform 轮）
+
+两个 implementer 用 harness `isolation: "worktree"` 启动，各自 worktree HEAD 落在
+9650d99a——比主 checkout 当时 HEAD（596eb8cc）落后 7 个提交。agent 在旧代码上写
+补丁、门禁全绿；主会话合并时 `git apply --check` 一个过一个失败（PlatformEditForm.tsx
+上下文漂移），`git apply -3` 落出一个错位 hunk（BreakerSection 加在 tab 改版前的
+旧位置），被迫手工按 HEAD 新结构重解 + 全量重跑门禁。
+
+- **agent 在 worktree 跑的门禁 ≠ 主 HEAD 上的门禁**，门禁结论不随补丁迁移。
+- 派活后开工前核对基点：`git -C <worktree> rev-parse HEAD` 对比主 checkout HEAD；
+  落后就先 rebase / 重建 worktree，再让 agent 动手。agent 运行期间主 checkout 前进
+  （别的会话提交）同样造成漂移——合并前再对一次，不等开工时那一次管全程。
+- 基点已落后且补丁已产出：按 shared-worktree.md「采信半成品」三前提处理——逐 hunk
+  重审 + 主会话全量重跑门禁，不采信 agent 侧门禁结论。
+
+## 5. 多补丁流水线：`git apply --check` 通过 ≠ 已应用（2026-10-08）
+
+主会话对补丁 A 只跑了 `--check` 就转向补丁 B，直到 cargo 测试报
+「registry passthrough 不在 Protocol 枚举」才发现补丁 A 从未 apply。
+
+- 「检查」和「应用」走同一条命令：`git apply` 本身先检查后应用，失败即停；不单独
+  跑 `--check` 把应用留到之后。
+- 必须先查后做别的：应用完立即 `git status --short` 点数确认改动落盘，再转向下一个
+  补丁——「检查过」不占「应用过」的位置。
