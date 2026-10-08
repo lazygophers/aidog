@@ -594,3 +594,164 @@ fn passthrough_resp_blacklist_covers_content_encoding() {
         );
     }
 }
+
+// ── 透传平台（ADR 0008）：认证头配置解析 / 剥入站认证头 + 注入 / base_url 取值 ──
+
+/// extra 空 / 两键缺省 / 解析失败 / 空串值 → 缺省 `Authorization: Bearer <key>`。
+#[test]
+fn parse_passthrough_auth_defaults() {
+    let default = Some(("Authorization".to_string(), "Bearer sk-real".to_string()));
+    assert_eq!(parse_passthrough_auth("", "sk-real"), default);
+    // 非 JSON extra → 缺省
+    assert_eq!(parse_passthrough_auth("not json", "sk-real"), default);
+    // JSON 但两键缺失 → 缺省
+    assert_eq!(parse_passthrough_auth(r#"{"other":1}"#, "sk-real"), default);
+    // 空串值等同缺省
+    assert_eq!(
+        parse_passthrough_auth(r#"{"auth_header":"","auth_template":""}"#, "sk-real"),
+        default
+    );
+}
+
+/// 用户自定义头名 / 模板：`{key}` 占位符替换；模板不含占位符则原样（用户可能要固定 token 头）。
+#[test]
+fn parse_passthrough_auth_custom() {
+    assert_eq!(
+        parse_passthrough_auth(
+            r#"{"auth_header":"x-api-key","auth_template":"{key}"}"#,
+            "tok-123"
+        ),
+        Some(("x-api-key".to_string(), "tok-123".to_string()))
+    );
+    assert_eq!(
+        parse_passthrough_auth(
+            r#"{"auth_header":"api-key","auth_template":"key {key} tail"}"#,
+            "tok-123"
+        ),
+        Some(("api-key".to_string(), "key tok-123 tail".to_string()))
+    );
+    assert_eq!(
+        parse_passthrough_auth(
+            r#"{"auth_header":"x-static","auth_template":"fixed"}"#,
+            "unused"
+        ),
+        Some(("x-static".to_string(), "fixed".to_string()))
+    );
+}
+
+/// api_key 为空 → None（只剥入站认证头，不注入——客户端 group key 不外泄上游）。
+#[test]
+fn parse_passthrough_auth_empty_key_returns_none() {
+    assert_eq!(parse_passthrough_auth(r#"{"auth_header":"x"}"#, ""), None);
+    assert_eq!(parse_passthrough_auth("", "   "), None);
+}
+
+/// 剥四个入站认证头 + 注入配置头；非认证头原样保留。
+#[test]
+fn apply_platform_auth_headers_strips_and_injects() {
+    let mut fwd = reqwest::header::HeaderMap::new();
+    fwd.insert("authorization", "Bearer group-secret".parse().unwrap());
+    fwd.insert("x-api-key", "group-secret".parse().unwrap());
+    fwd.insert("api-key", "group-secret".parse().unwrap());
+    fwd.insert("x-goog-api-key", "group-secret".parse().unwrap());
+    fwd.insert("content-type", "application/json".parse().unwrap());
+
+    apply_platform_auth_headers(
+        &mut fwd,
+        &Some(("X-Custom-Auth".to_string(), "Bearer sk-real".to_string())),
+    );
+
+    for stripped in ["authorization", "x-api-key", "api-key", "x-goog-api-key"] {
+        assert!(!fwd.contains_key(stripped), "{stripped} must be stripped");
+    }
+    assert_eq!(
+        fwd.get("x-custom-auth").and_then(|v| v.to_str().ok()),
+        Some("Bearer sk-real")
+    );
+    assert!(fwd.contains_key("content-type"));
+}
+
+/// api_key 空（inject=None）：四个入站认证头照剥，不注入任何头。
+#[test]
+fn apply_platform_auth_headers_empty_key_strips_only() {
+    let mut fwd = reqwest::header::HeaderMap::new();
+    fwd.insert("authorization", "Bearer group-secret".parse().unwrap());
+    fwd.insert("x-goog-api-key", "group-secret".parse().unwrap());
+    fwd.insert("x-custom", "keep".parse().unwrap());
+
+    apply_platform_auth_headers(&mut fwd, &None);
+
+    assert!(!fwd.contains_key("authorization"));
+    assert!(!fwd.contains_key("x-goog-api-key"));
+    assert_eq!(
+        fwd.get("x-custom").and_then(|v| v.to_str().ok()),
+        Some("keep")
+    );
+    assert_eq!(fwd.keys().count(), 1, "no auth header injected");
+}
+
+/// 转发 base：endpoints 第一条非空 base_url 优先，缺省回落 platform.base_url。
+#[test]
+fn passthrough_base_url_prefers_endpoint_fallback_platform() {
+    use aidog_db::models::{Platform, PlatformEndpoint, PlatformModels, PlatformStatus, Protocol};
+
+    let mk = |base_url: &str, endpoints: Vec<PlatformEndpoint>| Platform {
+        id: 1,
+        name: "pt".into(),
+        platform_type: Protocol::Passthrough,
+        base_url: base_url.into(),
+        api_key: "k".into(),
+        extra: String::new(),
+        models: PlatformModels::default(),
+        available_models: vec![],
+        endpoints,
+        enabled: true,
+        status: PlatformStatus::Enabled,
+        auto_disabled_until: 0,
+        auto_disable_strikes: 0,
+        expires_at: 0,
+        created_at: 0,
+        updated_at: 0,
+        deleted_at: 0,
+        est_balance_remaining: 0.0,
+        est_coding_plan: String::new(),
+        rate_limit: String::new(),
+        last_real_query_at: 0,
+        estimate_count: 0,
+        show_in_tray: false,
+        tray_display: String::new(),
+        sort_order: 0,
+        manual_budgets: vec![],
+        coding_window_cost: 0.0,
+        balance_level: String::new(),
+        last_error: String::new(),
+        last_error_at: 0,
+        quota_script: String::new(),
+        quota_source: String::new(),
+    };
+    let ep = |u: &str| PlatformEndpoint {
+        protocol: Protocol::Passthrough,
+        base_url: u.into(),
+        client_type: Default::default(),
+        coding_plan: false,
+    };
+
+    // 无 endpoints → platform.base_url
+    assert_eq!(
+        passthrough_base_url(&mk("https://a.example", vec![])),
+        "https://a.example"
+    );
+    // endpoints 有非空 base_url → 优先（空串跳过）
+    assert_eq!(
+        passthrough_base_url(&mk(
+            "https://a.example",
+            vec![ep("https://b.example"), ep("")]
+        )),
+        "https://b.example"
+    );
+    // endpoints 全空 → 回落
+    assert_eq!(
+        passthrough_base_url(&mk("https://a.example", vec![ep("")])),
+        "https://a.example"
+    );
+}

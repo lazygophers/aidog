@@ -340,18 +340,22 @@ async fn handle_single_platform(
     }
 
     // 审核拒绝自动禁用是硬停：即使单平台组也不能绕过，否则同一 session 会再次撞回。
-    if only.platform.status == PlatformStatus::AutoDisabled
+    // 透传平台例外（ADR 0008 决策 2 永远在线）：auto_disabled 维度整体不参与，含审核硬停。
+    let is_passthrough = matches!(only.platform.platform_type, Protocol::Passthrough);
+    if !is_passthrough
+        && only.platform.status == PlatformStatus::AutoDisabled
         && only.platform.auto_disabled_until > now_ms
         && only.platform.last_error.contains("[censorship_blocked]")
     {
         return Err("group's only platform is censorship-blocked".to_string());
     }
 
-    // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）
+    // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）；
+    // 透传平台例外（ADR 0008 决策 2）：高峰禁用维度同样跳过，永远在线。
     let cache = extra_cache.get(&only.platform.id);
     let peak_windows: &[peak::TimeWindow] =
         cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
-    if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
+    if !is_passthrough && is_in_peak_window_cached(peak_windows, now_ms, source_model) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: peak-disabled, request blocked"
@@ -437,6 +441,13 @@ fn filter_candidates<'a>(
                 peak_disabled_count += 1;
             }
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
+        }
+
+        // 透传平台永远在线（ADR 0008 决策 2）：不参与失败计数，跳过配额/auth 冷却与熔断
+        // （candidate_state 已按 Passthrough 跳过高峰禁用与 auto_disabled）。
+        if matches!(gp.platform.platform_type, Protocol::Passthrough) {
+            active.push(gp);
+            continue;
         }
 
         // 冷却维度（内存态，与熔断总开关无关）：
@@ -620,6 +631,10 @@ fn resolve_target_model(
     decision_models: &DecisionModels,
     model_name: &str,
 ) -> String {
+    // 透传平台通配命中（ADR 0008）：不吃模型槽改写——body 原样转发，模型名仅作日志元数据。
+    if matches!(platform.platform_type, Protocol::Passthrough) {
+        return model_name.to_string();
+    }
     match kind {
         RequestKind::Decision => {
             resolve_decision_model(effective_models, platform, decision_models, model_name)

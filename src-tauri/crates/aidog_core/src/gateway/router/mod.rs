@@ -53,6 +53,17 @@ pub(crate) fn candidate_state(
     now_ms: i64,
     request_model: &str,
 ) -> Option<bool> {
+    // 透传平台永远在线（ADR 0008 决策 2）：跳过高峰禁用与 auto_disabled 自动摘除，
+    // 仅保留过期 / 手动 Disabled 两个用户显式维度。
+    if matches!(platform.platform_type, Protocol::Passthrough) {
+        if platform.expires_at > 0 && now_ms >= platform.expires_at {
+            return None;
+        }
+        return match platform.status {
+            PlatformStatus::Disabled => None,
+            _ => Some(false),
+        };
+    }
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
         return None;

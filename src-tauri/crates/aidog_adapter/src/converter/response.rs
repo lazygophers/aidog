@@ -266,7 +266,10 @@ pub fn to_client_sse(
         | Pateway | CcSub | ApiKeyFun | SudoCode | ClaudeApi | ClaudeCN | RunApi | RelaxyCode
         | CrazyRouter | SssAiCode | Compshare | CompshareCoding | Micu | CTok | EFlowCode
         | LemonData | PipeLlm | OpenCode | OpenCodeZen | TokenRhythm | NewApi | Devin
-        | TypeSafe | CommandCode | LiteLLM | Meta | Mistral | XAI => to_anthropic_sse(event),
+        | TypeSafe | CommandCode | LiteLLM | Meta | Mistral | XAI
+        // Passthrough 非 wire 协议（透传平台在 handler 拦截，不经 converter）；编译完备性挂 anthropic 渲染
+        | Passthrough => to_anthropic_sse(event),
+
     }
 }
 

@@ -214,6 +214,11 @@ pub enum Protocol {
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
+    /// 透传平台（ADR 0008）：用户只配 base_url + apikey + 认证头形式（存 platform.extra），
+    /// 请求原样转发（原始 path、body 字节不动、头仅换认证），不识别协议不做转换。
+    /// 非 wire 协议：路由通配命中、绕过状态机（永远在线）、est_cost 恒 0。
+    #[serde(rename = "passthrough")]
+    Passthrough,
     /// Devin（Cognition）平台：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层。
     /// API base `https://api.devin.ai`，Bearer `cog_` key + `org-` 前缀 org_id，计费 ACU，无原生流式。
     /// preset endpoints 为空（无标准 wire endpoint），models 5 档虚拟映射 devin-normal/fast/lite/ultra/fusion。
@@ -311,6 +316,9 @@ impl Protocol {
                 | SenseNova
                 | SenseNovaEn
                 | Devin
+                // 透传平台无标准 wire endpoint，端点不锁死编辑也没有意义——
+                // base_url 直接用 platform.base_url，endpoints 不参与（ADR 0008）。
+                | Passthrough
         )
     }
 }
@@ -364,6 +372,7 @@ mod test_endpoints_locked {
             ("mock", true),
             ("claude_code", true),
             ("devin", true),
+            ("passthrough", true),
             ("anthropic", false),
             ("openai", false),
             ("gemini", false),
