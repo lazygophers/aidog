@@ -203,52 +203,46 @@ export function ModelsMatrixSection({
       ? (query ? dropdownSource.filter((m) => pinyinMatch(query, m)) : dropdownSource)
       : [];
     const open = activeCell === cellKey && filtered.length > 0;
-    // 选中格尾紧凑价（编辑态隐藏，避免遮住输入中的过滤文本）
+    // 选中格尾紧凑价：flex 兄弟节点右对齐占位，不叠加在文本上（无 maxWidth 省略）
     const cellPrice = value ? priceMap.get(value) : undefined;
-    const showCellPrice = !!cellPrice && activeCell !== cellKey;
     return (
       <Popover open={open} onOpenChange={(o) => { if (!o) setActiveCell(null); }}>
         <PopoverAnchor asChild>
-          <div style={{ position: "relative", width: "100%" }}>
-            <Input
-              className="input"
-              style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: showCellPrice ? 126 : hasDropdown ? 24 : undefined }}
-              placeholder={t("platform.models_placeholder", "模型名")}
-              value={value}
-              onChange={(e) => {
-                onChange(e.target.value);
-                if (hasDropdown) setActiveCell(cellKey);
-              }}
-              onFocus={() => {
-                if (hasDropdown) setActiveCell(cellKey);
-              }}
-            />
-            {hasDropdown && (
-              <Button
-                variant="ghost"
-                size="icon"
-                style={{
-                  position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                  width: 22, height: 22, minWidth: 22, padding: 0,
-                  color: "var(--text-tertiary)", cursor: "pointer",
+          <div style={{ display: "flex", alignItems: "center", gap: 4, width: "100%" }}>
+            <div style={{ position: "relative", flex: 1, minWidth: 0 }}>
+              <Input
+                className="input"
+                style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
+                placeholder={t("platform.models_placeholder", "模型名")}
+                value={value}
+                onChange={(e) => {
+                  onChange(e.target.value);
+                  if (hasDropdown) setActiveCell(cellKey);
                 }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setActiveCell(activeCell === cellKey ? null : cellKey);
+                onFocus={() => {
+                  if (hasDropdown) setActiveCell(cellKey);
                 }}
-                title={t("platform.selectModel")}
-              >
-                ▾
-              </Button>
-            )}
-            {showCellPrice && (
-              <span style={{
-                position: "absolute", right: 26, top: "50%", transform: "translateY(-50%)",
-                maxWidth: 96, overflow: "hidden", textOverflow: "ellipsis", pointerEvents: "none",
-              }}>
-                <ModelPriceTag info={cellPrice} compact />
-              </span>
-            )}
+              />
+              {hasDropdown && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  style={{
+                    position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
+                    width: 22, height: 22, minWidth: 22, padding: 0,
+                    color: "var(--text-tertiary)", cursor: "pointer",
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setActiveCell(activeCell === cellKey ? null : cellKey);
+                  }}
+                  title={t("platform.selectModel")}
+                >
+                  ▾
+                </Button>
+              )}
+            </div>
+            <ModelPriceTag info={cellPrice} compact />
           </div>
         </PopoverAnchor>
         <PopoverContent
