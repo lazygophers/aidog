@@ -872,6 +872,8 @@ function PlatformActionButtons({
             ? t("platform.reenable", "重新启用")
             : t("platform.enable", "启用")}
       />
+      {/* 模型测试按钮：passthrough 平台无模型语义（原样透传），隐藏快速/自定义测试 */}
+      {platform.platform_type !== "passthrough" && (
       <div style={{ display: "inline-flex", fontSize: 11 }}>
         <Button
           variant="ghost"
@@ -895,6 +897,7 @@ function PlatformActionButtons({
           </svg>
         </Button>
       </div>
+      )}
       <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 2h10v10H2z" />

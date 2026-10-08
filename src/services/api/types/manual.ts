@@ -41,6 +41,8 @@ export type Protocol =
   | "newapi"
   // ── 订阅透传 ──
   | "claude_code"
+  // ── 自定义透传（用户配 base_url + apikey header，其余原样转发）──
+  | "passthrough"
   // ── Devin（Cognition）：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层，preset 无标准 endpoint ──
   | "devin"
   // ── 测试 ──
@@ -511,6 +513,14 @@ export interface NewApiConfig {
 export interface DevinConfig {
   devin_timeout: string;
   devin_mode: string;
+}
+
+/** 自定义透传（passthrough 协议）认证配置（持久化在 platform.extra 顶层 `auth_header` / `auth_template` 键）。
+ *  - auth_header：注入的认证 header 名（默认 Authorization）。
+ *  - auth_template：header 值模板，`{key}` 占位符替换为平台 api_key（默认 "Bearer {key}"）。 */
+export interface PassthroughAuth {
+  auth_header: string;
+  auth_template: string;
 }
 
 export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";

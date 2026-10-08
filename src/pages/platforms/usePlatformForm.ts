@@ -18,9 +18,10 @@ import {
   parseMitmStats, serializeMitmStats,
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
   parsePlatformTimeWindows, serializePlatformTimeWindows,
-  DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG,
+  parsePassthroughAuth, serializePassthroughAuth,
+  DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
-  type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig,
+  type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type FetchModelsError, type TimeModelRule,
 } from "../../services/api";
@@ -143,6 +144,10 @@ export interface PlatformFormState {
   lockedGroupId: number | null; setLockedGroupId: React.Dispatch<React.SetStateAction<number | null>>;
   isMock: boolean;
   isPassthrough: boolean;
+  /** 自定义透传协议（passthrough，非 claude_code 订阅透传）：专属编辑器门 + 模型槽/测试全隐藏。 */
+  isPassThrough: boolean;
+  /** passthrough 认证配置（extra 顶层 auth_header/auth_template；见 parsePassthroughAuth）。 */
+  passAuth: PassthroughAuth; setPassAuth: React.Dispatch<React.SetStateAction<PassthroughAuth>>;
   keyOptional: boolean;
   apiKeyMissing: boolean;
   resetForm: () => void;
@@ -226,6 +231,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [quotaRequires, setQuotaRequires] = useState<Record<string, string>>({});
   // Devin 平台配置（devin_timeout / devin_mode，持久化 platform.extra.devin）
   const [devinConfig, setDevinConfig] = useState<DevinConfig>({ ...DEFAULT_DEVIN_CONFIG });
+  // 自定义透传认证配置（passthrough 协议，持久化 platform.extra 顶层 auth_header/auth_template）
+  const [passAuth, setPassAuth] = useState<PassthroughAuth>({ ...DEFAULT_PASSTHROUGH_AUTH });
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
   // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
@@ -258,6 +265,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
   // 仅需 base_url（host 根），api_key 可空，隐藏 endpoints/models 编辑。
   const isPassthrough = protocol === "claude_code";
+  // 自定义透传：用户定义 base_url + apikey 注入 header，其余原样转发（共识稿 2026-10-08）。
+  const isPassThrough = protocol === "passthrough";
   // OpenCode Zen：免费匿名访问（api_key 留空时 proxy 兜底 $opencode），全程不校验 key 存在。
   const keyOptional = protocol === "opencode_zen";
   // 需要 api_key 但未填（keyOptional 平台不要求）—— fetch/列模型按钮共用的禁用判定。
@@ -328,6 +337,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     if (newProtocol === "devin") {
       setDevinConfig(parseDevinConfig(extra));
     }
+    // 切到 passthrough 时用当前 extra 初始化透传认证配置
+    if (newProtocol === "passthrough") {
+      setPassAuth(parsePassthroughAuth(extra));
+    }
     // quota 脚本选择随协议重置（变体列表由上面 protocol effect 重拉；
     //   requires 初值由 requires effect 从 extra 回填）。
     setQuotaVariantId("");
@@ -347,6 +360,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
     setQuotaSource("auto"); setQuotaSourcePristine(true);
     setDevinConfig({ ...DEFAULT_DEVIN_CONFIG });
+    setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false); setMitmStats(false);
@@ -418,6 +432,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
+    setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setLockedGroupId(null);
     try {
       const gds = await groupDetailApi.list();
@@ -472,6 +487,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
     setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
+    setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -620,7 +636,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
    *  编辑态 / keyOptional / 单 key → null（走原保存路径）。复用 splitApiKeys 拆分。 */
   const handleApiKeyChange = (v: string) => {
     setApiKey(v);
-    if (!editing && !keyOptional) {
+    // passthrough 单 key（共识稿 §2 隐藏多 key），不触发批量创建预览。
+    if (!editing && !keyOptional && !isPassThrough) {
       const keys = splitApiKeys(v);
       setBatchPreviewKeys(keys.length > 1 ? keys : null);
     } else {
@@ -647,6 +664,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     let extraPayload = extra;
     if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
     if (protocol === "devin") extraPayload = serializeDevinConfig(extraPayload, devinConfig);
+    // passthrough：认证 header 名 + 值模板写 extra 顶层（共识稿 §2）。
+    if (isPassThrough) extraPayload = serializePassthroughAuth(extraPayload, passAuth);
     // quota 脚本变体选择 + requires 参数（custom↔id 互斥、requires 顶层+旧嵌套镜像，
     //   见 serializeQuotaScriptConfig；须在 devin 序列化之后 —— org_id 镜像写 extra.devin）。
     extraPayload = serializeQuotaScriptConfig(
@@ -672,7 +691,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
     // 限频配置（rate-limit-aware 票 04）：空 bundle → 删键（无覆盖）。
     extraPayload = serializeRateLimitsBundle(extraPayload, rateLimits);
-    const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
+    const manualBudgetsPayload: ManualBudget[] = isPassthrough || isPassThrough ? [] : manualBudgets;
     return {
       platform_type: protocol,
       // 配额方式显式随保存提交：后端按 source 变化互斥清对侧（票 01/03 保存时清库）。
@@ -816,7 +835,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,
-    isMock, isPassthrough, keyOptional, apiKeyMissing,
+    isMock, isPassthrough, isPassThrough, passAuth, setPassAuth, keyOptional, apiKeyMissing,
     resetForm, openCreatePlatform, handleEdit, handleDuplicate, handleProtocolChange,
     handleModelChange, handleModelSelect, handleFetchModels, handleFillAll, buildModelsPayload,
     handleSave, handleViewLogs, applyPaste, runBatchCreateFromPaste,
