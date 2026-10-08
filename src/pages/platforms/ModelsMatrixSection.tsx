@@ -72,12 +72,17 @@ export function describeWindows(windows: TimeWindow[], tzMode: TzMode, t: TFunct
 }
 
 export function ModelsMatrixSection({
+  // 视图选择器："default" 只渲染默认列（平铺区），"time" 只渲染时段档列（计费 tab）。
+  // 2026-10-08 改版：时段档 UI 挪进计费 tab，同一组件渲染两个实例、各取一列视图。
+  columns = "default",
   // 默认列 props（沿用 ModelsSection 签名，行为不退化）
   models, handleModelChange, handleModelSelect,
   // activeDropdown / setActiveDropdown 接受签名兼容，矩阵内部用 activeCell 单开管理；
   //   外部 state 仅同步关闭（避免旧 dropdown 残留），不再驱动矩阵渲染。
   activeDropdown: _activeDropdown, setActiveDropdown: _setActiveDropdown,
   availableModels, protocol,
+  // tab 实例（columns="time"）的 card 标题覆盖（缺省「模型」）
+  titleOverride,
   fetchError, fetching,
   onFillAll, onFetchModels, apiKeyMissing, endpointsCount,
   // 时段档列 props
@@ -86,6 +91,8 @@ export function ModelsMatrixSection({
   tzMode, setTzMode,
   t,
 }: {
+  columns?: "default" | "time";
+  titleOverride?: string;
   models: Record<ModelSlot, string>;
   handleModelChange: (slot: ModelSlot, value: string) => void;
   handleModelSelect: (slot: ModelSlot, value: string) => void;
@@ -272,9 +279,10 @@ export function ModelsMatrixSection({
 
   return (
     <FormSection
-      title={t("platform.models")}
+      title={titleOverride ?? t("platform.models")}
       action={(
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {columns === "default" && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -294,6 +302,8 @@ export function ModelsMatrixSection({
           >
             {fetching ? t("status.loading") : t("platform.fetchModels")}
           </Button>
+          </>)}
+          {columns === "time" && (<>
           <Button
             variant="ghost"
             size="sm"
@@ -312,6 +322,7 @@ export function ModelsMatrixSection({
           >
             + {t("platform.time_windows_add_rule", "添加时段档")}
           </Button>
+          </>)}
         </div>
       )}
     >
@@ -328,11 +339,13 @@ export function ModelsMatrixSection({
           <div style={rowStyle}>
             <div style={{ width: LABEL_W, flexShrink: 0 }} />
             {/* 默认列头 */}
+            {columns === "default" && (
             <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.modelDefault")}
             </div>
+            )}
             {/* 时段档列头 */}
-            {rules.map((rule, idx) => (
+            {columns === "time" && rules.map((rule, idx) => (
               <div
                 key={`hdr-${idx}`}
                 style={{
@@ -402,6 +415,7 @@ export function ModelsMatrixSection({
                 {t(labelKey)}
               </div>
               {/* 默认列单元格 */}
+              {columns === "default" && (
               <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(
                   `d:${key}`,
@@ -410,8 +424,9 @@ export function ModelsMatrixSection({
                   (v) => handleModelSelect(key, v),
                 )}
               </div>
+              )}
               {/* 时段档列单元格 */}
-              {rules.map((rule, idx) => (
+              {columns === "time" && rules.map((rule, idx) => (
                 <div key={`r${idx}-${key}`} style={{ flex: 1, minWidth: 80 }}>
                   {renderCell(
                     `r${idx}:${key}`,

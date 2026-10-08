@@ -25,6 +25,7 @@ import {
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { CcMitmAccessSection } from "./CcMitmAccessSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
+import { SectionTabs } from "../../components/shared";
 import { makeRipple } from "../../components/shared";
 
 export function PlatformEditForm({ s }: { s: PlatformsState }) {
@@ -65,6 +66,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   // groupDetails 在 list slice（list 态字段，经 listDeps 注入 form hook 但 owner 是 list）。
   const { groupDetails } = s.list;
   const { getPrimaryBaseUrl } = s;
+
+  // ── 高级设置 tab（2026-10-08 改版）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
+  const advTabs = [
+    ...(!isMock && !isPassthrough ? [{ id: "billing", label: t("platform.tabBilling", "计费") }] : []),
+    ...(editing && !isPassthrough ? [{ id: "stability", label: t("platform.tabStability", "稳定性") }] : []),
+    { id: "lifecycle", label: t("platform.tabLifecycle", "生命周期") },
+  ];
+  const [advTab, setAdvTab] = useState("billing");
+  const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
 
   // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码（5 请求格式协议）→ key。
   // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
@@ -250,6 +260,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         </>
         )}
 
+        {/* ── 高级设置 tab（2026-10-08 改版，方向 A）：sticky 分段条 + 三个 panel ── */}
+        {advTabs.length > 1 && (
+          <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
+        )}
+        {/* 计费：配额查询 + 高峰倍率 + 时段档 */}
+        {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
+          <>
         {/* 配额查询合区（quota-ia 票 03）：模型矩阵正下方，Tab「自动脚本 / 手动预算」互斥；
             表单内切换只弹确认 + 记忆目标，清空在保存时由后端执行。mock / 透传无上游配额，整块不渲染。 */}
         {!isMock && !isPassthrough && (
@@ -270,17 +287,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
-        {editing && !isPassthrough && (
-          <BreakerSection
-            defaults={breakerDefaults}
-            failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
-            openSecs={breakerOpenSecs} setOpenSecs={setBreakerOpenSecs}
-            halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
-            t={t}
-          />
-        )}
-
         {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
         {editing && !isPassthrough && (
           <PeakSection
@@ -293,11 +299,46 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
+        {/* 时段档（时段模型切换）：从模型矩阵挪进计费 tab（2026-10-08 决策） */}
+        <ModelsMatrixSection
+          columns="time"
+          titleOverride={t("platform.time_windows_section_title", "时段档")}
+          models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
+          activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
+          availableModels={availableModels} protocol={proto}
+          fetchError={fetchError} fetching={fetching}
+          onFillAll={handleFillAll} onFetchModels={handleFetchModels}
+          apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
+          rules={timeModels} setRules={setTimeModels} peak={peak}
+          tzMode={windowsTz} setTzMode={setWindowsTz}
+          t={t}
+        />
+          </>
+        )}
+        {/* 稳定性：熔断 + 限频（2026-10-08 改版收进 tab） */}
+        {editing && !isPassthrough && (advTabs.length === 1 || activeAdvTab === "stability") && (
+          <>
+        {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
+        {editing && !isPassthrough && (
+          <BreakerSection
+            defaults={breakerDefaults}
+            failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
+            openSecs={breakerOpenSecs} setOpenSecs={setBreakerOpenSecs}
+            halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
+            t={t}
+          />
+        )}
+
         {/* 限频配置（rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
         {editing && !isPassthrough && (
           <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
         )}
 
+          </>
+        )}
+        {/* 生命周期：分组归属 + 过期时间（2026-10-08 改版收进 tab） */}
+        {(advTabs.length === 1 || activeAdvTab === "lifecycle") && (
+          <>
         {/* 分组归属 */}
         {!isPassthrough && (
           <GroupAssignSection
@@ -315,6 +356,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           themeMode={themeMode}
           t={t}
         />
+
+          </>
+        )}
 
         {saveError && (
           <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
