@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 // ponytail: 抽到 formSections.tsx 以控制本文件行数；主组件仅消费 props 派发。
 import {
   FormSection, ApiKeyField,
-  DevinConfigSection, PassthroughConfigSection, EndpointsSection,
+  DevinConfigSection, PassthroughConfigSection, PassThroughSection, EndpointsSection,
   BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
   ExpirySection, QuotaSection,
 } from "./formSections";
@@ -39,7 +39,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const {
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
     name, setName, protocol, codingPlan, handleProtocolChange,
-    isMock, isPassthrough, keyOptional, apiKeyMissing,
+    isMock, isPassthrough, isPassThrough, keyOptional, apiKeyMissing,
+    passAuth, setPassAuth,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
     batchPreviewKeys, handleApiKeyChange, previewNames,
@@ -69,9 +70,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
   // ── 高级设置 tab（2026-10-08 改版）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
   const advTabs = [
-    ...(!isMock && !isPassthrough ? [{ id: "billing", label: t("platform.tabBilling", "计费") }] : []),
-    ...(!isMock && !isPassthrough ? [{ id: "timemodels", label: t("platform.time_windows_section_title", "时段档") }] : []),
-    ...(editing && !isPassthrough ? [{ id: "stability", label: t("platform.tabStability", "稳定性") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "billing", label: t("platform.tabBilling", "计费") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.time_windows_section_title", "时段档") }] : []),
+    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "stability", label: t("platform.tabStability", "稳定性") }] : []),
     { id: "lifecycle", label: t("platform.tabLifecycle", "生命周期") },
   ];
   const [advTab, setAdvTab] = useState("billing");
@@ -130,7 +131,10 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
             disabled={!name
-              || (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
+              // passthrough（自定义透传）：base_url 与 api_key 都必填（共识稿 §2）
+              || (isPassThrough ? (endpoints.length === 0 || !apiKey)
+              : isPassthrough ? endpoints.length === 0
+              : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
             {editing
               ? t("action.save")
               : batchPreviewKeys && batchPreviewKeys.length > 1
@@ -205,6 +209,17 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
+        {/* 自定义透传（passthrough）配置：base_url + apikey + 认证 header 预设（共识稿 §2） */}
+        {isPassThrough && (
+          <PassThroughSection
+            endpoints={endpoints} setEndpoints={setEndpoints}
+            apiKey={apiKey} setApiKey={setApiKey}
+            showKey={showKey} setShowKey={setShowKey}
+            auth={passAuth} setAuth={setPassAuth}
+            t={t}
+          />
+        )}
+
         {/* 订阅透传 MITM 接入形态开关 + Root CA 引导（cc-sub-mitm 票 12） */}
         {isPassthrough && (
           <CcMitmAccessSection
@@ -219,7 +234,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
-        {!isMock && !isPassthrough && (
+        {!isMock && !isPassthrough && !isPassThrough && (
         <>
         <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
 
@@ -236,7 +251,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
         {/* 多 key 批量创建实时预览（创建态 + 非 keyOptional + 多 key 时触发，D1/D2/D3）。
             只读确认：name 自动生成 `{base}-{key尾4位}` 撞名追号，确认后复用 runBatchCreateFromPaste。 */}
-        {batchPreviewKeys && batchPreviewKeys.length > 1 && !isMock && !isPassthrough && !keyOptional && (
+        {batchPreviewKeys && batchPreviewKeys.length > 1 && !isMock && !isPassthrough && !isPassThrough && !keyOptional && (
           <MultiKeyPreview
             keys={batchPreviewKeys}
             previewNames={previewNames}
@@ -266,11 +281,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
         )}
         {/* 计费：配额查询 + 高峰倍率 */}
-        {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
+        {(!isMock && !isPassthrough && !isPassThrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
           <>
         {/* 配额查询合区（quota-ia 票 03）：模型矩阵正下方，Tab「自动脚本 / 手动预算」互斥；
             表单内切换只弹确认 + 记忆目标，清空在保存时由后端执行。mock / 透传无上游配额，整块不渲染。 */}
-        {!isMock && !isPassthrough && (
+        {!isMock && !isPassthrough && !isPassThrough && (
           <QuotaSection
             quotaSource={quotaSource} onSourceChange={setQuotaSource}
             protocol={protocol}
@@ -289,7 +304,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
-        {editing && !isPassthrough && (
+        {editing && !isPassthrough && !isPassThrough && (
           <PeakSection
             windows={peak} setWindows={setPeak}
             tzMode={windowsTz} setTzMode={setWindowsTz}
@@ -303,7 +318,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* 时段档（时段模型切换）：独立 tab，2026-10-08 二轮裁决（原塞计费 tab） */}
-        {(!isMock && !isPassthrough) && (advTabs.length === 1 || activeAdvTab === "timemodels") && (
+        {(!isMock && !isPassthrough && !isPassThrough) && (advTabs.length === 1 || activeAdvTab === "timemodels") && (
           <>
         <ModelsMatrixSection
           columns="time"
@@ -321,7 +336,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </>
         )}
         {/* 稳定性：熔断 + 限频（2026-10-08 改版收进 tab） */}
-        {editing && !isPassthrough && (advTabs.length === 1 || activeAdvTab === "stability") && (
+        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "stability") && (
           <>
         {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
         {editing && !isPassthrough && (
@@ -335,7 +350,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         )}
 
         {/* 限频配置（rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
-        {editing && !isPassthrough && (
+        {editing && !isPassthrough && !isPassThrough && (
           <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
         )}
 

@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule, PlatformErrorStatus } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule, PlatformErrorStatus } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 
@@ -115,6 +115,53 @@ export function serializeDevinConfig(extra: string, cfg: DevinConfig): string {
     if (timeoutNum > 0) devin.devin_timeout = timeoutNum;
     if (mode) devin.devin_mode = mode;
     obj.devin = devin;
+  }
+  return JSON.stringify(obj);
+}
+
+/** 自定义透传默认认证：Authorization: Bearer {key}（共识稿 2026-10-08 §2）。 */
+export const DEFAULT_PASSTHROUGH_AUTH: PassthroughAuth = {
+  auth_header: "Authorization",
+  auth_template: "Bearer {key}",
+};
+
+/** 从 platform.extra JSON 解析透传认证配置（顶层 auth_header / auth_template 键）。 */
+export function parsePassthroughAuth(extra: string): PassthroughAuth {
+  const fallback = { ...DEFAULT_PASSTHROUGH_AUTH };
+  if (!extra.trim()) return fallback;
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      const o = parsed as Record<string, unknown>;
+      return {
+        auth_header: typeof o.auth_header === "string" && o.auth_header.trim() ? o.auth_header : fallback.auth_header,
+        auth_template: typeof o.auth_template === "string" && o.auth_template.trim() ? o.auth_template : fallback.auth_template,
+      };
+    }
+  } catch { /* 非法 JSON → 回退默认 */ }
+  return fallback;
+}
+
+/** 把透传认证配置写回 extra JSON 顶层（保留其余键；值即默认时删键，保持 extra 干净）。 */
+export function serializePassthroughAuth(extra: string, cfg: PassthroughAuth): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* 非法 JSON → 重建 */ }
+  }
+  const header = cfg.auth_header.trim();
+  const template = cfg.auth_template.trim();
+  const isDefault = header === DEFAULT_PASSTHROUGH_AUTH.auth_header && template === DEFAULT_PASSTHROUGH_AUTH.auth_template;
+  if (!header || isDefault) {
+    delete obj.auth_header;
+    delete obj.auth_template;
+  } else {
+    obj.auth_header = header;
+    obj.auth_template = template;
   }
   return JSON.stringify(obj);
 }

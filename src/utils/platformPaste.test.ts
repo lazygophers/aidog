@@ -683,10 +683,11 @@ describe("collectKeyPrefixes — key 前缀数据驱动（禁代码硬编码平�
 });
 
 describe("全协议回归矩阵（platform-presets.json 数据驱动）", () => {
-  // 排除 mock（NEVER_AUTO_MATCH）、xiaomi_mimo_coding（coding 变体同族，需 tp- key 区分，见专项测试）、
-  // KNOWN_WEAK_KEYWORD_PROTOCOLS（brand 含 "claude" 子串，单独文档化）。
+  // 排除 mock / passthrough（NEVER_AUTO_MATCH 设计排除，用户手动下拉选）、xiaomi_mimo_coding
+  // （coding 变体同族，需 tp- key 区分，见专项测试）、KNOWN_WEAK_KEYWORD_PROTOCOLS
+  // （brand 含 "claude" 子串，单独文档化）。
   const matrixProtocols = Object.entries(PROTOCOLS_JSON).filter(
-    ([k]) => k !== "mock" && k !== "xiaomi_mimo_coding" && !KNOWN_WEAK_KEYWORD_PROTOCOLS.has(k),
+    ([k]) => k !== "mock" && k !== "passthrough" && k !== "xiaomi_mimo_coding" && !KNOWN_WEAK_KEYWORD_PROTOCOLS.has(k),
   );
 
   it.each(matrixProtocols)(

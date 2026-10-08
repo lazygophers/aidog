@@ -1,0 +1,36 @@
+{
+  "last_updated": 1791468066,
+  "endpoints": {
+    "default": []
+  },
+  "models": {
+    "default": {}
+  },
+  "model_list": {
+    "default": []
+  },
+  "name": {
+    "en-US": "Passthrough",
+    "zh-Hans": "透传",
+    "ar-SA": "تمرير",
+    "fr-FR": "Transfert direct",
+    "de-DE": "Durchleitung",
+    "ru-RU": "Сквозная передача",
+    "ja-JP": "パススルー",
+    "es-ES": "Paso a través"
+  },
+  "source_urls": {
+    "docs": "https://github.com/lazygophers/aidog"
+  },
+  "homepage": "https://github.com/lazygophers/aidog",
+  "logo_url": "",
+  "keywords": [
+    "passthrough",
+    "透传",
+    "touchuan",
+    "tc",
+    "自定义",
+    "custom"
+  ],
+  "color": "#8B5CF6"
+}

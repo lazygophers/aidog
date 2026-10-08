@@ -193,7 +193,9 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                     {platforms.filter(p => p.enabled).map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {models.length > 0 ? (
+                {/* 透传平台不吃模型槽（模型名原样透传，共识稿 §4）→ 隐藏 target_model 输入 */}
+                {targetPlat?.platform_type !== "passthrough" && (
+                models.length > 0 ? (
                   <Select
                     value={m.target_model || "__none__"}
                     onValueChange={(v) => {
@@ -230,6 +232,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
                       ms[i] = { ...ms[i], target_model: e.target.value };
                       dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }} />
+                )
                 )}
                 <Button type="button" variant="ghost" size="icon" style={{ height: "auto", color: "var(--text-tertiary)", padding: 4, minWidth: "auto" }} onClick={() => dispatchEdit({ type: "patch", patch: { mappings: editMappings.filter((_, j) => j !== i) } })}>
                   <IconClose size={12} />
