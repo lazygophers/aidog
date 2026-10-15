@@ -68,3 +68,25 @@ bump-registry-last-updated.mjs 的循环里 index.json 被 `continue` 跳过
 per-model 值、不是 endpoint 协议），新增第三种这类专用值时先想清楚它属于哪个词表。
 
 先例：supported_protocols（c74507db1）、price.free（显式免费标记，同日 jev 轮）。
+
+## 摘要型抓取工具的输出是假设不是事实（2026-10-15）
+
+registry-refresh 轮：webReader（MCP 网页摘要）第二次抓 docs.bigmodel.cn 套餐页
+时摘出 "GLM-5.4 (beta)"，同页 raw curl 零命中；第一次摘要正确——同工具同页，
+第一次对不构成第二次对的证据。
+
+- AI 摘要型抓取产物（webReader / WebFetch 的小模型回答）**只用来定位，不用来
+  取值**。落库前必须有 raw 一手（curl 原文）或双源对照；两次摘要互相印证不算双源。
+- 同模式先例：ui-color-bug-verify.md「静态推理是假设」、shared-worktree.md
+  r102「agent 外部值主会话一手核实」。
+
+## models 目录批量增删后必须同步 index.json 清单（2026-10-15）
+
+per-platform `models/*.json` 的增删不自动反映到 `index.json` 的平台 `models`
+清单。check-registry 能发现不一致但无修复工具，registry-refresh 轮靠手写一次性
+脚本修复。
+
+- 批量增删模型文件后，同轮同步 `index.json` 对应平台的 `models` 数组，再跑
+  `node scripts/check-registry.mjs`；两处 diff 属同一任务文件集，盖戳照常
+  （`node scripts/bump-registry-last-updated.mjs`）。
+- 2026-10-15 尚无 sync 脚本；若日后加了，以脚本为准删本节。
