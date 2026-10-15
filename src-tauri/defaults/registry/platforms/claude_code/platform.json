@@ -1,5 +1,5 @@
 {
-  "last_updated": 1788766169,
+  "last_updated": 1792068956,
   "endpoints": {
     "default": [
       {
@@ -27,6 +27,7 @@
       "claude-opus-4-8",
       "claude-sonnet-4-6",
       "claude-haiku-4-5",
+      "claude-haiku-5-5",
       "claude-opus-4-7",
       "claude-opus-4-6",
       "claude-opus-5-5",

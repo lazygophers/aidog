@@ -1,0 +1,34 @@
+{
+  "last_updated": 1792068956,
+  "supported_protocols": [
+    "anthropic"
+  ],
+  "model_id": "claude-haiku-5-5",
+  "display_name": "Claude Haiku 5.5",
+  "canonical_model": "claude-haiku-5-5",
+  "family": "claude",
+  "version": "5.5",
+  "predecessor": "claude-haiku-4-5",
+  "capabilities": [
+    "text"
+  ],
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "price": {
+    "input": 1e-07,
+    "output": 5e-07,
+    "cache_read": 1e-08,
+    "cache_write": 1.25e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 100001,
+        "input": 5e-07,
+        "output": 2.5e-06,
+        "cache_read": 5e-08
+      }
+    ]
+  }
+}
