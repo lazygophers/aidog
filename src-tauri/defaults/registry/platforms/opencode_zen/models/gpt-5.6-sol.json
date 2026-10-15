@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859419,
+  "last_updated": 1792055777,
   "supported_protocols": [
     "openai"
   ],
@@ -17,16 +17,16 @@
   "max_output_tokens": 128000,
   "official": true,
   "price": {
-    "input": 4,
-    "output": 20,
-    "cache_read": 2e-07,
-    "cache_write": 2.5e-06,
+    "input": 4e-06,
+    "output": 2e-05,
+    "cache_read": 4e-07,
+    "cache_write": 5e-06,
     "context_tiers": [
       {
         "min_tokens": 272001,
-        "input": 8,
-        "output": 30,
-        "cache_read": 4e-07
+        "input": 8e-06,
+        "output": 3e-05,
+        "cache_read": 8e-07
       }
     ]
   },
