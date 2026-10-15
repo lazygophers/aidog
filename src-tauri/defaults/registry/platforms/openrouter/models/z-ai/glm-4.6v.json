@@ -13,9 +13,9 @@
   "price": {
     "input": 3e-07,
     "output": 9e-07,
-    "cache_read": 5e-08
+    "cache_read": 5.5e-08
   },
-  "last_updated": 1790859420,
+  "last_updated": 1792068956,
   "supported_protocols": [
     "anthropic",
     "openai"

@@ -1,0 +1,38 @@
+{
+  "last_updated": 1792068956,
+  "model_id": "anthropic/claude-haiku-5.5",
+  "display_name": "Anthropic: Claude Haiku 5.5",
+  "canonical_model": "claude-haiku-5-5",
+  "family": "claude",
+  "version": "5.5",
+  "max_input_tokens": 1000000,
+  "context_window": 1000000,
+  "official": true,
+  "max_output_tokens": 128000,
+  "thinking_supported": true,
+  "thinking_toggleable": true,
+  "price": {
+    "input": 1e-07,
+    "output": 5e-07,
+    "cache_read": 1e-08,
+    "cache_write": 1.25e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 100001,
+        "input": 5e-07,
+        "output": 2.5e-06,
+        "cache_read": 5e-08
+      }
+    ]
+  },
+  "supported_protocols": [
+    "anthropic",
+    "openai"
+  ],
+  "capabilities": [
+    "reasoning",
+    "text",
+    "tool_use",
+    "vision"
+  ]
+}

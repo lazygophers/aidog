@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1792068956,
   "endpoints": {
     "default": [
       {
@@ -51,6 +51,7 @@
       "anthropic/claude-fable-5",
       "anthropic/claude-fable-5:batch",
       "anthropic/claude-haiku-4.5",
+      "anthropic/claude-haiku-5.5",
       "anthropic/claude-haiku-4.5:batch",
       "anthropic/claude-opus-4.1",
       "anthropic/claude-opus-4.1:batch",
