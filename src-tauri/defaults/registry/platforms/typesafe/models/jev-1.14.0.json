@@ -1,0 +1,21 @@
+{
+  "last_updated": 1792068956,
+  "supported_protocols": [
+    "typesafe"
+  ],
+  "model_id": "jev-1.14.0",
+  "canonical_model": "jev-1.14",
+  "display_name": "Jev 1.14",
+  "family": "jev",
+  "version": "1.14",
+  "context_window": 64000,
+  "capabilities": [
+    "decision"
+  ],
+  "max_input_tokens": 64000,
+  "official": true,
+  "price": {
+    "input": 4.2e-08,
+    "output": 0
+  }
+}
