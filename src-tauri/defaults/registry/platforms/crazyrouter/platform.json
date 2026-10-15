@@ -3,15 +3,15 @@
     "default": [
       {
         "protocol": "anthropic",
-        "base_url": "https://cn.crazyrouter.com"
+        "base_url": "https://api.crazyrouter.com"
       },
       {
         "protocol": "openai",
-        "base_url": "https://cn.crazyrouter.com/v1"
+        "base_url": "https://api.crazyrouter.com/v1"
       },
       {
         "protocol": "gemini",
-        "base_url": "https://cn.crazyrouter.com"
+        "base_url": "https://api.crazyrouter.com"
       }
     ]
   },
@@ -217,5 +217,5 @@
       "timezone": "Asia/Shanghai"
     }
   ],
-  "last_updated": 1790495834
+  "last_updated": 1792068956
 }
