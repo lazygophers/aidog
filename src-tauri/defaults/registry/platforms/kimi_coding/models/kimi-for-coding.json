@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792056061,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -7,7 +7,7 @@
   "model_id": "kimi-for-coding",
   "canonical_model": "kimi-for-coding",
   "family": "kimi",
-  "display_name": "Kimi K2.7 Code",
+  "display_name": "Kimi K2.8 Preview",
   "capabilities": [
     "text",
     "vision",
@@ -15,7 +15,7 @@
     "tool_use",
     "reasoning"
   ],
-  "context_window": 262144,
+  "context_window": 1048576,
   "official": true,
   "thinking_supported": true,
   "price": {
