@@ -10,11 +10,11 @@
   "thinking_supported": true,
   "thinking_toggleable": true,
   "price": {
-    "input": 1.32e-07,
-    "output": 3.96e-07,
-    "cache_read": 4.2e-09
+    "input": 2.02e-07,
+    "output": 8e-06,
+    "cache_read": 2e-07
   },
-  "last_updated": 1790859420,
+  "last_updated": 1792068956,
   "supported_protocols": [
     "anthropic",
     "openai"

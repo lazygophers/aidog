@@ -9,11 +9,11 @@
   "max_output_tokens": 471859,
   "thinking_supported": true,
   "price": {
-    "input": 9.5e-07,
+    "input": 1e-06,
     "output": 4.05e-06,
-    "cache_read": 1.6e-07
+    "cache_read": 1.7e-07
   },
-  "last_updated": 1790859420,
+  "last_updated": 1792068956,
   "supported_protocols": [
     "anthropic",
     "openai"
