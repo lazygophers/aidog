@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790927364,
+  "last_updated": 1792068956,
   "supported_protocols": [
     "openai"
   ],
@@ -17,6 +17,14 @@
   "price": {
     "input": 2e-06,
     "output": 1e-05,
-    "cache_read": 1e-07
+    "cache_read": 1e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 4e-06,
+        "output": 1.5e-05,
+        "cache_read": 2e-07
+      }
+    ]
   }
 }

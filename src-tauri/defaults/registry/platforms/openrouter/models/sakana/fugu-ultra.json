@@ -12,9 +12,17 @@
   "price": {
     "input": 5e-06,
     "output": 3e-05,
-    "cache_read": 5e-07
+    "cache_read": 5e-07,
+    "context_tiers": [
+      {
+        "min_tokens": 272001,
+        "input": 1e-05,
+        "output": 4.5e-05,
+        "cache_read": 1e-06
+      }
+    ]
   },
-  "last_updated": 1790859420,
+  "last_updated": 1792068956,
   "supported_protocols": [
     "anthropic",
     "openai"
