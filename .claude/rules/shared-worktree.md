@@ -111,3 +111,13 @@ last_updated 时间戳），但别人的 commit 会无声带上你的盖戳 diff
   （硬规则 1）。
 - 判据同 registry-data-edit.md「以输出数字为准」：输出「N 个文件已盖戳」的 N 远超自己的改动集
   时，先 `git diff -- <他人文件>` 核对只有时间戳一行变化，再继续。
+
+## commit -m 双引号里的 `$` 会被 shell 展开（2026-10-15）
+
+registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被 zsh
+展开成 `/bin/zsh`，message 变成「/bin/zsh.10//bin/zsh.50」，两条 commit 均中招，
+后经用户授权 rebase 改回。`$0` 这类位置性参数展开**不报错**，静默进历史——
+价格类 commit message 高频带 `$数字`，是重灾区。
+
+- 带 `$` 的 commit message 一律单引号 `'…'`，或写临时文件后 `git commit -F <file>`。
+- commit 后看一眼 git 输出首行摘要核对 message 原样落盘。
