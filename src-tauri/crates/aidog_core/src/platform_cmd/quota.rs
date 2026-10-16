@@ -8,14 +8,16 @@ crate::tauri_command! {
 pub async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>) -> Result<PlatformQuota, String> {
-    let db = aidog_ctx::db();
-    tracing::debug!(command = "platform_query_quota", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota(Some(&Arc::new(db.clone())), &base_url, &api_key, platform_id.unwrap_or(0) as i64).await;
-    tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
-    if q.success {
-        persist_quota_to_db(db, platform_id, &q).await;
-    }
-    Ok(q)
+    quota_command_adapter(
+        aidog_ctx::db(),
+        "platform_query_quota",
+        &base_url,
+        &api_key,
+        QuotaQueryKind::Auto,
+        platform_id,
+        true,
+    )
+    .await
 }
 }
 
@@ -24,14 +26,16 @@ crate::tauri_command! {
 pub async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>) -> Result<PlatformQuota, String> {
-    let db = aidog_ctx::db();
-    tracing::debug!(command = "platform_query_quota_newapi", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
-    tracing::info!(command = "platform_query_quota_newapi", platform_id = ?platform_id, success = q.success, "quota query result");
-    if q.success {
-        persist_quota_to_db(db, platform_id, &q).await;
-    }
-    Ok(q)
+    quota_command_adapter(
+        aidog_ctx::db(),
+        "platform_query_quota_newapi",
+        &base_url,
+        &api_key,
+        QuotaQueryKind::NewApi(&extra),
+        platform_id,
+        false,
+    )
+    .await
 }
 }
 
@@ -41,15 +45,68 @@ crate::tauri_command! {
 pub async fn platform_query_quota_devin(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>) -> Result<PlatformQuota, String> {
-    let db = aidog_ctx::db();
-    tracing::debug!(command = "platform_query_quota_devin", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota_devin(Some(&Arc::new(db.clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
-    tracing::info!(command = "platform_query_quota_devin", platform_id = ?platform_id, success = q.success, "quota query result");
+    quota_command_adapter(
+        aidog_ctx::db(),
+        "platform_query_quota_devin",
+        &base_url,
+        &api_key,
+        QuotaQueryKind::Devin(&extra),
+        platform_id,
+        false,
+    )
+    .await
+}
+}
+
+/// 查询分派：三个命令各调不同 gateway 入口。不用闭包注入——`FnOnce(&Arc<Db>) -> Fut`
+/// 返回的 Future 借用闭包入参，生命周期过不了编译；枚举静态分派无此问题。
+enum QuotaQueryKind<'a> {
+    /// base_url 启发式 + 行协议脚本路由（`query_quota`）
+    Auto,
+    /// New API 两步查询，携带 extra
+    NewApi(&'a str),
+    /// Devin ACU 查询，携带 extra（需含 org_id）
+    Devin(&'a str),
+}
+
+/// 三个 quota 查询命令共用的薄 adapter（票 architecture-deepening #10）：
+/// 取 db → debug 日志（api_key 恒 `[REDACTED]`）→ 分派查询 → info 结果日志 →
+/// 成功才 persist → 原样返回 `Ok(q)`。日志/persist/返回路径只此一份。
+///
+/// `tiers_in_result_log`：`platform_query_quota` 的 info 日志带 `tiers` 不带 `command`，
+/// newapi / devin 带 `command` 不带 `tiers`——收敛前即如此，原样保留不归一。
+async fn quota_command_adapter(
+    db: &Db,
+    command: &'static str,
+    base_url: &str,
+    api_key: &str,
+    kind: QuotaQueryKind<'_>,
+    platform_id: Option<u64>,
+    tiers_in_result_log: bool,
+) -> Result<PlatformQuota, String> {
+    tracing::debug!(command, platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
+    let db_arc = Arc::new(db.clone());
+    let pid = platform_id.unwrap_or(0) as i64;
+    let q = match kind {
+        QuotaQueryKind::Auto => {
+            gateway::quota::query_quota(Some(&db_arc), base_url, api_key, pid).await
+        }
+        QuotaQueryKind::NewApi(extra) => {
+            gateway::quota::query_quota_newapi(Some(&db_arc), base_url, api_key, extra, pid).await
+        }
+        QuotaQueryKind::Devin(extra) => {
+            gateway::quota::query_quota_devin(Some(&db_arc), base_url, api_key, extra, pid).await
+        }
+    };
+    if tiers_in_result_log {
+        tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
+    } else {
+        tracing::info!(command, platform_id = ?platform_id, success = q.success, "quota query result");
+    }
     if q.success {
         persist_quota_to_db(db, platform_id, &q).await;
     }
     Ok(q)
-}
 }
 
 /// 将 quota 真查结果写回 platform 表，并作为一次「校准」严格对齐 est = 真实。
@@ -62,6 +119,38 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
     let Some(pid) = platform_id else { return };
     let is_coding_plan = q.coding_plan.is_some();
     gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan).await;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn adapter_preserves_query_failures_for_all_three_commands() {
+        let db = Db::new(":memory:").await.unwrap();
+        for (command, kind, tiers) in [
+            ("platform_query_quota", QuotaQueryKind::Auto, true),
+            (
+                "platform_query_quota_newapi",
+                QuotaQueryKind::NewApi("{}"),
+                false,
+            ),
+            (
+                "platform_query_quota_devin",
+                QuotaQueryKind::Devin("{}"),
+                false,
+            ),
+        ] {
+            // Invalid URL prevents network IO even if a script tries to send a request.
+            let q = quota_command_adapter(&db, command, "://invalid", "", kind, None, tiers)
+                .await
+                .expect("query failures remain Ok(PlatformQuota)");
+            assert!(!q.success, "{command}");
+            assert!(q.error.is_some(), "{command}");
+            assert!(q.balance.is_none(), "{command}");
+            assert!(q.coding_plan.is_none(), "{command}");
+        }
+    }
 }
 
 /// 冷启动同时真查的平台数上限（出站并发，避免启动瞬间 N 个 HTTP）。
