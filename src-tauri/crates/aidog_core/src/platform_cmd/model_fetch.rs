@@ -133,7 +133,10 @@ pub async fn platform_fetch_models(
     // codex_tui，registry::derive_client_type 与 proxy 端点缺省派生同源），UA + auth 全套
     // 走 client-types.json simulation —— 用 openai base_url 拉模型列表就模拟 openai 客户端。
     // protocol 是平台别名（newapi/deepseek/...），走平台级派生而非协议级。
-    let client_type = aidog_db::registry::derive_client_type_for_platform(&protocol.wire_str());
+    let client_type =
+        aidog_db::registry::derive_client_type_for_platform(aidog_db::registry::PlatformCode(
+            &protocol.wire_str(),
+        ));
 
     // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
     let make_log = |upstream_status: i32,
@@ -271,14 +274,19 @@ mod tests {
 
     #[test]
     fn models_request_log_headers_match_protocol_without_credentials() {
-        let ct_anthropic = aidog_db::registry::derive_client_type_for_platform("anthropic");
+        let ct_anthropic = aidog_db::registry::derive_client_type_for_platform(
+            aidog_db::registry::PlatformCode("anthropic"),
+        );
         let anthropic = models_request_headers_log(&ct_anthropic, &Protocol::Anthropic);
         assert!(anthropic.contains("x-api-key"));
         assert!(anthropic.contains("anthropic-version"));
         assert!(anthropic.contains("claude-cli/"));
         assert!(anthropic.contains("[REDACTED]"));
 
-        let ct_openai = aidog_db::registry::derive_client_type_for_platform("openai");
+        let ct_openai =
+            aidog_db::registry::derive_client_type_for_platform(aidog_db::registry::PlatformCode(
+                "openai",
+            ));
         let openai = models_request_headers_log(&ct_openai, &Protocol::OpenAI);
         assert!(openai.to_lowercase().contains("authorization"));
         assert!(openai.contains("api-key"));

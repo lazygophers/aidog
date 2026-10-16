@@ -132,7 +132,7 @@ fn prepare_http_request(ctx: &TestContext) -> Result<HttpRequestContext, String>
                 ctx.platform.platform_type.clone(),
                 ctx.platform.base_url.clone(),
                 aidog_db::registry::derive_client_type_for_platform(
-                    &ctx.platform.platform_type.wire_str(),
+                    aidog_db::registry::PlatformCode(&ctx.platform.platform_type.wire_str()),
                 ),
                 false,
             )

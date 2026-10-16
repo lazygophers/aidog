@@ -706,6 +706,6 @@ pub fn simulation_for(client_type: &str) -> Option<&'static Simulation> {
 /// UA（平台默认端点 client_type → simulation.user_agent）。quota 脚本出站默认 UA 用：
 /// 无对应模拟 UA（default entry 无 UA）→ None 不注入。
 pub fn simulation_user_agent_for_platform(code: &str) -> Option<String> {
-    let ct = crate::registry::derive_client_type_for_platform(code);
+    let ct = crate::registry::derive_client_type_for_platform(crate::registry::PlatformCode(code));
     simulation_for(&ct).and_then(|s| s.user_agent.clone())
 }

@@ -589,11 +589,30 @@ fn every_registry_platform_code_parses_as_protocol() {
 #[test]
 fn derive_client_type_for_platform_resolves_alias_via_registry_endpoints() {
     // 别名平台 → registry 默认端点的 client_type（endpoints_in 缺省已按协议补派生）
-    assert_eq!(derive_client_type_for_platform("newapi"), "codex_tui");
+    assert_eq!(derive_client_type_for_platform(PlatformCode("newapi")), "codex_tui");
     // glm_coding registry 第一条端点是 openai 协议（/api/coding/paas/v4）→ codex_tui
-    assert_eq!(derive_client_type_for_platform("glm_coding"), "codex_tui");
+    assert_eq!(derive_client_type_for_platform(PlatformCode("glm_coding")), "codex_tui");
     // 纯 wire 协议名直接派生（registry 有条目，同样命中端点派生）
-    assert_eq!(derive_client_type_for_platform("anthropic"), "claude_code");
+    assert_eq!(derive_client_type_for_platform(PlatformCode("anthropic")), "claude_code");
     // registry 无该平台条目 → 回落协议级派生，未知 → "default"
-    assert_eq!(derive_client_type_for_platform("no-such-platform"), "default");
+    assert_eq!(derive_client_type_for_platform(PlatformCode("no-such-platform")), "default");
+}
+
+/// 类型混用防（票 07）：喂错命名空间必须在编译期断掉，不再可能静默落 default。
+/// `WireProtocolName` 字段私有 + 仅 crate 内可见——外部 crate 无法从任何字符串
+/// （含平台别名）构造它，cometapi 型误用（别名喂 wire 协议入口）根本无法写出。
+/// 下面两行取消注释即编译错（类型不匹配）：
+/// ```text
+/// let _ = derive_client_type(PlatformCode("newapi"));
+/// let _ = derive_client_type_for_platform(WireProtocolName("newapi"));
+/// ```
+/// crate 内部的全部构造点：`endpoints_in`（registry JSON 端点 protocol 字段，信任
+/// 边界）、`derive_client_type_for_platform` 的回落桥（显式注释标注）、本模块测试。
+#[test]
+fn derive_client_type_newtypes_reject_cross_namespace_at_compile_time() {
+    // 裸 &str 直喂两个入口：编译错，须显式声明命名空间（PlatformCode / WireProtocolName）。
+    // 运行期等价断言：别名仍不可经协议级入口拿非 default 形态。
+    assert_eq!(derive_client_type(WireProtocolName("newapi")), "default");
+    assert_eq!(derive_client_type(WireProtocolName("anthropic")), "claude_code");
+    assert_eq!(derive_client_type(WireProtocolName("openai_responses")), "codex_tui");
 }

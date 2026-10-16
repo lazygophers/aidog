@@ -197,7 +197,8 @@ pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformE
                 .and_then(Value::as_str)
                 .is_none_or(str::is_empty);
             if missing && let Some(p) = e.get("protocol").and_then(Value::as_str) {
-                e["client_type"] = Value::String(derive_client_type(p));
+                // registry JSON 是信任边界：端点 protocol 字段按定义属 wire 协议命名空间。
+                e["client_type"] = Value::String(derive_client_type(WireProtocolName(p)));
             }
             e
         })
@@ -208,13 +209,28 @@ pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformE
     })
 }
 
+/// wire 协议名（endpoint `protocol` 值域：anthropic / openai / …）的类型标记。
+/// 私有字段 + 仅 crate 内可见：外部 crate 拿到的任何字符串（含平台别名）都无法包成
+/// 它，喂错命名空间在编译期断掉（票 07；2026-10-07 cometapi 事故就是别名喂进了
+/// wire 协议入口，`&str` 参数挡不住）。
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct WireProtocolName<'a>(&'a str);
+
+/// 平台 code（registry index / `Protocol` serde rename 命名空间，含 newapi 等别名）
+/// 的类型标记。与 [`WireProtocolName`] 互不隐式转换：别名喂协议入口 / 协议名喂
+/// 平台入口（错的那侧）都是编译错；两个命名空间重叠的裸名（"anthropic"）两侧语义
+/// 本就一致，不受影响。
+#[derive(Debug, Clone, Copy)]
+pub struct PlatformCode<'a>(pub &'a str);
+
 /// endpoint 协议 → 默认客户端形态（registry 无 client_type 时的缺省派生，与前端
 /// `defaults.ts::clientTypeForProtocol` 对称）：anthropic → claude_code、openai 系 →
 /// codex_tui、其余（gemini / 未知）→ default。
-/// 入参是 wire 协议名，不是平台别名——平台别名走 [`derive_client_type_for_platform`]。
+/// 入参是 wire 协议名（[`WireProtocolName`]），不是平台别名——平台别名走
+/// [`derive_client_type_for_platform`]。
 /// 仅 crate 内可见：外部一律走平台级入口，杜绝别名误喂（2026-10-07 事故）。
-pub(crate) fn derive_client_type(endpoint_protocol: &str) -> String {
-    match endpoint_protocol {
+pub(crate) fn derive_client_type(endpoint_protocol: WireProtocolName<'_>) -> String {
+    match endpoint_protocol.0 {
         "anthropic" => "claude_code".to_string(),
         "openai" | "openai_responses" | "openai_completions" => "codex_tui".to_string(),
         _ => "default".to_string(),
@@ -227,8 +243,8 @@ pub(crate) fn derive_client_type(endpoint_protocol: &str) -> String {
 /// 现场实锤：cometapi quota 出站无 User-Agent）。
 /// 优先读 registry 该平台 default 端点第一条的 client_type（`endpoints_in` 缺省时已
 /// 按协议补派生）；无该平台条目或无端点 → 回落 [`derive_client_type`]。
-pub fn derive_client_type_for_platform(code: &str) -> String {
-    if let Some(ct) = default_endpoints(code)
+pub fn derive_client_type_for_platform(code: PlatformCode<'_>) -> String {
+    if let Some(ct) = default_endpoints(code.0)
         .first()
         .map(|ep| ep.client_type.clone())
     {
@@ -236,13 +252,13 @@ pub fn derive_client_type_for_platform(code: &str) -> String {
     }
     // registry 无端点的别名平台（newapi：paste_fallback 聚合平台，endpoints.default 空
     // 数组，拉模型 / quota 出站均走 openai 风格）→ codex_tui。
-    if serde_json::from_str::<crate::models::Protocol>(&format!("\"{code}\""))
-        .ok()
-        .is_some_and(|p| matches!(p, crate::models::Protocol::NewApi))
-    {
+    // 判定数据驱动：newapi 的裸名取自 `Protocol::NewApi` 的 serde rename，不硬编码字面量。
+    if code.0 == crate::models::Protocol::NewApi.wire_str() {
         return "codex_tui".to_string();
     }
-    derive_client_type(code)
+    // 显式命名空间桥：无该平台条目时，把平台 code 当 wire 协议名回落协议级派生
+    // （重叠裸名两侧语义一致；纯别名落 default 是既有行为）。
+    derive_client_type(WireProtocolName(code.0))
 }
 
 // ── 配额查询脚本（platform.json 顶层 `quota_scripts`）──────────────
