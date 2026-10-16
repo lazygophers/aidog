@@ -1,0 +1,612 @@
+{
+  "_comment": "peak 时段窗口 Rust↔TS golden 真值。Rust: aidog_core/src/gateway/peak.rs tests include_str!；TS: src/utils/timeWindow.test.ts import。语义：first-match wins、半开区间 [start,end)、minute 精度、IANA 本地时刻、start_at/end_at Unix 秒、models scope（exact 或 prefix*）、跨天 end<=start 为并集（start==end 全天）、minute 越界 clamp 0..59、非法 timezone 回落 UTC。weekday 0=Sun…6=Sat。",
+  "wall_time_cases": [
+    {
+      "name": "utc_default_tz",
+      "ms": 1704595800000,
+      "tz": null,
+      "hour": 2,
+      "minute": 50,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "utc_explicit",
+      "ms": 1704595800000,
+      "tz": "UTC",
+      "hour": 2,
+      "minute": 50,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "asia_shanghai_plus8",
+      "ms": 1704595800000,
+      "tz": "Asia/Shanghai",
+      "hour": 10,
+      "minute": 50,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "new_york_est_winter",
+      "ms": 1704595800000,
+      "tz": "America/New_York",
+      "hour": 21,
+      "minute": 50,
+      "weekday": 6,
+      "day_of_month": 6
+    },
+    {
+      "name": "kolkata_half_hour_offset",
+      "ms": 1704595800000,
+      "tz": "Asia/Kolkata",
+      "hour": 8,
+      "minute": 20,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "invalid_tz_falls_back_utc",
+      "ms": 1704595800000,
+      "tz": "Mars/Olympus",
+      "hour": 2,
+      "minute": 50,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "shanghai_day_rollover",
+      "ms": 1704564000000,
+      "tz": "Asia/Shanghai",
+      "hour": 2,
+      "minute": 0,
+      "weekday": 0,
+      "day_of_month": 7
+    },
+    {
+      "name": "new_york_dst_summer",
+      "ms": 1784086200000,
+      "tz": "America/New_York",
+      "hour": 23,
+      "minute": 30,
+      "weekday": 2,
+      "day_of_month": 14
+    }
+  ],
+  "resolve_cases": [
+    {
+      "name": "same_day_half_open_hit",
+      "windows": [
+        {
+          "start_hour": 9,
+          "end_hour": 12,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782437160000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "same_day_after_end_miss",
+      "windows": [
+        {
+          "start_hour": 9,
+          "end_hour": 12,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782451560000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "cross_day_union_hit",
+      "windows": [
+        {
+          "start_hour": 22,
+          "end_hour": 9,
+          "multiplier": 1.5
+        }
+      ],
+      "ms": 1704595800000,
+      "model": "",
+      "multiplier": 1.5,
+      "in_peak": true
+    },
+    {
+      "name": "cross_day_no_hit",
+      "windows": [
+        {
+          "start_hour": 22,
+          "end_hour": 6,
+          "multiplier": 1.5
+        }
+      ],
+      "ms": 1704110400000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "degenerate_start_eq_end_full_day",
+      "windows": [
+        {
+          "start_hour": 5,
+          "end_hour": 5,
+          "multiplier": 3
+        }
+      ],
+      "ms": 1704595800000,
+      "model": "",
+      "multiplier": 3,
+      "in_peak": true
+    },
+    {
+      "name": "minute_precision_start_inclusive",
+      "windows": [
+        {
+          "start_hour": 9,
+          "start_minute": 30,
+          "end_hour": 12,
+          "end_minute": 45,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782437400000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "minute_precision_before_start_miss",
+      "windows": [
+        {
+          "start_hour": 9,
+          "start_minute": 30,
+          "end_hour": 12,
+          "end_minute": 45,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782437340000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "minute_precision_inside_end_hit",
+      "windows": [
+        {
+          "start_hour": 9,
+          "start_minute": 30,
+          "end_hour": 12,
+          "end_minute": 45,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782449040000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "minute_precision_end_exclusive_miss",
+      "windows": [
+        {
+          "start_hour": 9,
+          "start_minute": 30,
+          "end_hour": 12,
+          "end_minute": 45,
+          "multiplier": 2,
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1782449100000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "first_match_wins",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 3,
+          "models": [
+            "glm-5.2"
+          ]
+        },
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2"
+          ]
+        }
+      ],
+      "ms": 1704092400000,
+      "model": "glm-5.2",
+      "multiplier": 3,
+      "in_peak": true
+    },
+    {
+      "name": "first_match_fallback_on_model_miss",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 3,
+          "models": [
+            "glm-5.2"
+          ]
+        },
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2
+        }
+      ],
+      "ms": 1704092400000,
+      "model": "other-model",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "start_at_before_activation_miss",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "start_at": 1790784000
+        }
+      ],
+      "ms": 1790783999000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "start_at_after_activation_hit",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "start_at": 1790784000
+        }
+      ],
+      "ms": 1790784001000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "end_at_boundary_expired",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "end_at": 1790784000
+        }
+      ],
+      "ms": 1790784000000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "end_at_before_expiry_hit",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "end_at": 1790784000
+        }
+      ],
+      "ms": 1790783999000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "models_absent_all_match",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "anything",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "models_wildcard_prefix_hit",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2*",
+            "kimi-k2"
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "glm-5.2-turbo",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "models_exact_hit",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2*",
+            "kimi-k2"
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "kimi-k2",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "models_exact_no_suffix_miss",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2*",
+            "kimi-k2"
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "kimi-k2-thinking",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "models_no_match_miss",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2*",
+            "kimi-k2"
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "gpt-4",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "models_empty_request_bypasses_filter",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "models": [
+            "glm-5.2*"
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "days_of_week_local_tz_hit",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2.5,
+          "days_of_week": [
+            0
+          ],
+          "timezone": "Asia/Shanghai"
+        }
+      ],
+      "ms": 1704564000000,
+      "model": "",
+      "multiplier": 2.5,
+      "in_peak": true
+    },
+    {
+      "name": "days_of_week_utc_miss",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2.5,
+          "days_of_week": [
+            0
+          ]
+        }
+      ],
+      "ms": 1704564000000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "days_of_month_hit",
+      "windows": [
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 2,
+          "days_of_month": [
+            26
+          ]
+        }
+      ],
+      "ms": 1782462600000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "days_of_month_and_week_and_defense",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2,
+          "days_of_week": [
+            5
+          ],
+          "days_of_month": [
+            1
+          ]
+        }
+      ],
+      "ms": 1782437160000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "multi_window_all_miss",
+      "windows": [
+        {
+          "start_hour": 0,
+          "end_hour": 1,
+          "multiplier": 2
+        },
+        {
+          "start_hour": 20,
+          "end_hour": 22,
+          "multiplier": 3
+        }
+      ],
+      "ms": 1782437160000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "per_window_tz_first_match_ny_first",
+      "windows": [
+        {
+          "start_hour": 21,
+          "end_hour": 23,
+          "multiplier": 4,
+          "timezone": "America/New_York"
+        },
+        {
+          "start_hour": 2,
+          "end_hour": 3,
+          "multiplier": 2
+        }
+      ],
+      "ms": 1704595800000,
+      "model": "",
+      "multiplier": 4,
+      "in_peak": true
+    },
+    {
+      "name": "per_window_tz_first_match_order_matters",
+      "windows": [
+        {
+          "start_hour": 2,
+          "end_hour": 3,
+          "multiplier": 2
+        },
+        {
+          "start_hour": 21,
+          "end_hour": 23,
+          "multiplier": 4,
+          "timezone": "America/New_York"
+        }
+      ],
+      "ms": 1704595800000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "minute_clamp_high_does_not_overflow",
+      "windows": [
+        {
+          "start_hour": 8,
+          "start_minute": 99,
+          "end_hour": 10,
+          "multiplier": 2
+        }
+      ],
+      "ms": 1704099600000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "minute_clamp_negative_to_zero",
+      "windows": [
+        {
+          "start_hour": 8,
+          "start_minute": -10,
+          "end_hour": 10,
+          "multiplier": 2
+        }
+      ],
+      "ms": 1704097800000,
+      "model": "",
+      "multiplier": 2,
+      "in_peak": true
+    },
+    {
+      "name": "empty_windows_resolve_one",
+      "windows": [],
+      "ms": 1782437160000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    },
+    {
+      "name": "no_hit_returns_default",
+      "windows": [
+        {
+          "start_hour": 20,
+          "end_hour": 22,
+          "multiplier": 3
+        }
+      ],
+      "ms": 1782437160000,
+      "model": "",
+      "multiplier": 1,
+      "in_peak": false
+    }
+  ]
+}

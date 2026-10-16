@@ -11,6 +11,7 @@ import {
   LOCAL_OFFSET_MINUTES,
 } from "./timeWindow";
 import type { TimeWindow } from "../domains/platforms/defaults";
+import goldenFixture from "../../src-tauri/crates/aidog_core/src/gateway/testdata/peak_golden.json";
 
 describe("shiftClock", () => {
   it("offset=0 恒等", () => {
@@ -100,129 +101,55 @@ describe("tzOffsetMinutes / utcToDisplay / displayToUtc", () => {
 });
 
 // hit() 的每个过滤维度独立测。基准时刻 2026-06-26T08:30:00Z = 周五(5)、26 号。
-describe("isCurrentlyPeak — 时段 / 星期 / 日期 / model scope", () => {
-  const NOW = Date.UTC(2026, 5, 26, 8, 30, 0);
-  const win = (extra: Partial<TimeWindow>): TimeWindow =>
-    ({ start_hour: 6, end_hour: 10, multiplier: 2, ...extra }) as TimeWindow;
+// 镜像 Rust peak 时区测试（wall_time_* / resolve_multiplier_* / is_in_peak_window_*）。
 
-  it("空 / null / undefined 窗口列表恒不命中", () => {
+// peak golden fixture：与 Rust include_str! 同一份共享真值（上面 import 的 peak_golden.json），
+// 向量维护只改 JSON，两侧测试只做驱动。TS 特有 API 形状（null / undefined 入参）留在本文件。
+type GoldenWallTimeCase = {
+  name: string;
+  ms: number;
+  tz: string | null;
+  hour: number;
+  minute: number;
+  weekday: number;
+  day_of_month: number;
+};
+type GoldenResolveCase = {
+  name: string;
+  windows: TimeWindow[];
+  ms: number;
+  model: string;
+  multiplier: number;
+  in_peak: boolean;
+};
+
+describe("isCurrentlyPeak — 空 / null / undefined 窗口列表（TS API 形状）", () => {
+  const NOW = Date.UTC(2026, 5, 26, 8, 30, 0);
+  it("空数组 / null / undefined 恒不命中", () => {
     expect(isCurrentlyPeak([], NOW)).toBe(false);
     expect(isCurrentlyPeak(null, NOW)).toBe(false);
     expect(isCurrentlyPeak(undefined, NOW)).toBe(false);
   });
 
-  it("同天窗口是半开区间 [start, end)", () => {
-    expect(isCurrentlyPeak([win({})], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: 30 })], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ start_hour: 6, end_hour: 8, end_minute: 30 })], NOW)).toBe(false);
-    expect(isCurrentlyPeak([win({ start_hour: 9, end_hour: 10 })], NOW)).toBe(false);
-  });
-
-  it("跨天窗口 end <= start 时是并集，start==end 退化为全天", () => {
-    expect(isCurrentlyPeak([win({ start_hour: 22, end_hour: 9 })], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ start_hour: 22, end_hour: 6 })], NOW)).toBe(false);
-    expect(isCurrentlyPeak([win({ start_hour: 5, end_hour: 5 })], NOW)).toBe(true);
-  });
-
-  it("越界 minute 被夹到 0..59 而非溢出成小时", () => {
-    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: 99 })], NOW)).toBe(false);
-    expect(isCurrentlyPeak([win({ start_hour: 8, start_minute: -10 })], NOW)).toBe(true);
-  });
-
-  it("days_of_week 用 0=Sun…6=Sat，缺省为每天", () => {
-    expect(isCurrentlyPeak([win({ days_of_week: [5] })], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ days_of_week: [0, 6] })], NOW)).toBe(false);
-  });
-
-  it("days_of_month 与 days_of_week 取 AND", () => {
-    expect(isCurrentlyPeak([win({ days_of_month: [26] })], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ days_of_month: [1] })], NOW)).toBe(false);
-    expect(isCurrentlyPeak([win({ days_of_week: [5], days_of_month: [1] })], NOW)).toBe(false);
-  });
-
-  it("end_at 到期后窗口失效", () => {
-    const sec = Math.floor(NOW / 1000);
-    expect(isCurrentlyPeak([win({ end_at: sec + 1 })], NOW)).toBe(true);
-    expect(isCurrentlyPeak([win({ end_at: sec })], NOW)).toBe(false);
-  });
-
-  it("model scope：空 requestModel 跳过过滤，通配取前缀", () => {
-    const scoped = [win({ models: ["glm-5.2*", "kimi-k2"] })];
-    expect(isCurrentlyPeak(scoped, NOW)).toBe(true); // 无 model 上下文
-    expect(isCurrentlyPeak(scoped, NOW, "glm-5.2")).toBe(true);
-    expect(isCurrentlyPeak(scoped, NOW, "glm-5.2-turbo")).toBe(true);
-    expect(isCurrentlyPeak(scoped, NOW, "kimi-k2")).toBe(true);
-    expect(isCurrentlyPeak(scoped, NOW, "kimi-k2-thinking")).toBe(false); // 非通配需精确
-    expect(isCurrentlyPeak(scoped, NOW, "gpt-4")).toBe(false);
-    expect(isCurrentlyPeak([win({ models: [] })], NOW, "gpt-4")).toBe(true); // 空列表=不限定
-  });
-
-  it("多窗口取任一命中", () => {
-    expect(isCurrentlyPeak([win({ start_hour: 0, end_hour: 1 }), win({})], NOW)).toBe(true);
-    expect(
-      isCurrentlyPeak([win({ start_hour: 0, end_hour: 1 }), win({ start_hour: 20, end_hour: 22 })], NOW),
-    ).toBe(false);
+  it("models: [] 空列表 = 不限定（本地钉住：与 Rust Some([]) 现实现有分歧，统一语义另开票）", () => {
+    const w = { start_hour: 6, end_hour: 10, multiplier: 2, models: [] } as TimeWindow;
+    expect(isCurrentlyPeak([w], NOW, "gpt-4")).toBe(true);
   });
 });
 
-describe("isCurrentlyPeak — start_at 生效期护栏", () => {
-  // 全天窗口（start_hour=0/end_hour=24）令时段判定恒真，命中与否只受 start_at 门控。
-  const w = { start_hour: 0, end_hour: 24, multiplier: 2.0, start_at: 1790784000 } as TimeWindow;
-
-  it("nowMs 未越过 start_at → 不命中", () => {
-    const beforeMs = (1790784000 - 1) * 1000;
-    expect(isCurrentlyPeak([w], beforeMs)).toBe(false);
-  });
-
-  it("nowMs 越过 start_at → 命中", () => {
-    const afterMs = (1790784000 + 1) * 1000;
-    expect(isCurrentlyPeak([w], afterMs)).toBe(true);
+describe("peak golden fixture — wall_time（与 Rust 同一份真值）", () => {
+  it.each(goldenFixture.wall_time_cases as unknown as GoldenWallTimeCase[])("$name", (c) => {
+    expect(wallTimeInTz(c.ms, c.tz ?? undefined)).toEqual({
+      hour: c.hour,
+      minute: c.minute,
+      weekday: c.weekday,
+      dayOfMonth: c.day_of_month,
+    });
   });
 });
 
-// 镜像 Rust peak 时区测试（wall_time_* / resolve_multiplier_* / is_in_peak_window_*）。
-describe("wallTimeInTz / isCurrentlyPeak — 窗口时区", () => {
-  // 1704595800000 = 2024-01-07T02:50:00Z；北京 = 同日 10:50，周日(0)、7 号。
-  const MS = 1704595800000;
-
-  it("Asia/Shanghai 平移 +8 且 None/UTC/非法名一致", () => {
-    const sh = wallTimeInTz(MS, "Asia/Shanghai");
-    expect(sh).toEqual({ hour: 10, minute: 50, weekday: 0, dayOfMonth: 7 });
-    const utc = wallTimeInTz(MS, undefined);
-    expect(utc).toEqual({ hour: 2, minute: 50, weekday: 0, dayOfMonth: 7 });
-    expect(wallTimeInTz(MS, "UTC")).toEqual(utc);
-    expect(wallTimeInTz(MS, "Not/AZone")).toEqual(utc); // 非法名回落 UTC
-  });
-
-  it("时区平移跨日时 weekday / day_of_month 翻转", () => {
-    // 1704564000000 = 2024-01-06T18:00:00Z 周六；北京 = 2024-01-07 02:00 周日、7 号。
-    const sh = wallTimeInTz(1704564000000, "Asia/Shanghai");
-    expect(sh).toEqual({ hour: 2, minute: 0, weekday: 0, dayOfMonth: 7 });
-    expect(wallTimeInTz(1704564000000, undefined).weekday).toBe(6); // UTC 周六
-  });
-
-  it("isCurrentlyPeak 按窗口时区判定：北京 9-12 窗口 UTC 01:26 命中、05:26 miss", () => {
-    const win = { start_hour: 9, end_hour: 12, multiplier: 2, timezone: "Asia/Shanghai" } as TimeWindow;
-    // 2026-06-26T01:26:00Z → 北京 09:26 命中
-    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 1, 26, 0))).toBe(true);
-    // 2026-06-26T05:26:00Z → 北京 13:26 miss
-    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 5, 26, 0))).toBe(false);
-  });
-
-  it("缺省 timezone = UTC（向后兼容）", () => {
-    const win = { start_hour: 9, end_hour: 12, multiplier: 2 } as TimeWindow;
-    // UTC 09:30 命中
-    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 9, 30, 0))).toBe(true);
-    // UTC 02:30（北京 10:30）不命中 —— 无 timezone 字段不按本地解释
-    expect(isCurrentlyPeak([win], Date.UTC(2026, 5, 26, 2, 30, 0))).toBe(false);
-  });
-
-  it("days_of_week 按窗口时区本地 weekday 过滤", () => {
-    // UTC 周六 18:00 = 北京周日 02:00；窗口限周日 → 仅带时区版本命中
-    const ms = 1704564000000;
-    const sunday = { start_hour: 0, end_hour: 24, multiplier: 1, days_of_week: [0] } as TimeWindow;
-    expect(isCurrentlyPeak([sunday], ms)).toBe(false); // UTC 周六
-    const sundaySh = { ...sunday, timezone: "Asia/Shanghai" } as TimeWindow;
-    expect(isCurrentlyPeak([sundaySh], ms)).toBe(true); // 北京周日
+describe("peak golden fixture — resolve / is_peak（与 Rust 同一份真值）", () => {
+  it.each(goldenFixture.resolve_cases as unknown as GoldenResolveCase[])("$name", (c) => {
+    expect(isCurrentlyPeak(c.windows, c.ms, c.model)).toBe(c.in_peak);
   });
 });
