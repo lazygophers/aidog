@@ -9,7 +9,7 @@ import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
-import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
+import { PlatformCard, type PlatformCardActions, type PlatformCardService } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
 import { buildClaudeCommand, buildCodexCommand, buildPiCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,8 @@ export interface GroupListItemProps {
   // cards 快照
   cards: CardsSnapshot;
   actions: PlatformCardActions;
+  /** 卡片行为服务（票 12）：只吃 platform 的 7 个回调，页级一份 */
+  cardService: PlatformCardService;
   // 稳定回调（父级 useCallback）
   t: TFunction;
   onToggleExpanded: (id: number) => void;
@@ -114,7 +116,7 @@ export const GroupListItem = memo(function GroupListItem({
   showMappingForm, mSource, mTargetPlatform, mTargetModel, availableModels,
   visiblePlatformIds, forceExpanded,
   groupTestRunning,
-  cards, actions, t,
+  cards, actions, cardService, t,
   onToggleExpanded: _onToggleExpanded, onSetCollapsed, onEdit, onDelete, onToggleDefault,
   onTestGroup, onCreatePlatform, onNavigate,
   onPlatPointerDown, onDeleteMapping, onSetMappingGroupId,
@@ -506,6 +508,7 @@ export const GroupListItem = memo(function GroupListItem({
                           testing={cards.testingId === p.id}
                           faviconFailed={cards.faviconFailed.has(p.id)}
                           actions={actions}
+                          service={cardService}
                           draggable={false}
                           lastTest={cards.lastTestMap[p.id]}
                           levelPriority={gps.find(gp => gp.platform.id === p.id)?.level_priority ?? 5}

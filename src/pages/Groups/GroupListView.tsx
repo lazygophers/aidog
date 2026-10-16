@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { TFunction } from "i18next";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
-import type { PlatformCardActions } from "../../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
 import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
 import { SortableList } from "../../components/SortableList";
 import { CopyButton, StatChip, successRateLevel, costLevel } from "../../components/shared";
@@ -69,6 +69,8 @@ export interface GroupListViewProps {
   // 卡片系统
   cards: ReturnType<typeof usePlatformCards>;
   makeGroupCardActions: (gid: number) => PlatformCardActions;
+  /** 卡片行为服务（票 12）：只吃 platform 的 7 个回调，页级一份 */
+  cardService: PlatformCardService;
   // 测试
   groupTest: GroupTestState | null;
   setGroupTest: (v: GroupTestState | null) => void;
@@ -130,7 +132,7 @@ export function GroupListView(props: GroupListViewProps) {
     mappingGroupId, mSource, mTargetPlatform, mTargetModel, availableModels,
     setMappingGroupId, setMSource, setMTargetPlatform, setMTargetModel,
     dropIndicator, dragOverGroup, onPlatPointerDown,
-    cards, makeGroupCardActions,
+    cards, makeGroupCardActions, cardService,
     groupTest, setGroupTest,
     removeTarget, setRemoveTarget, confirmDeletePlatform, removePlatformFromGroup,
     onToast,
@@ -246,6 +248,7 @@ export function GroupListView(props: GroupListViewProps) {
                 groupTestRunning={groupTest?.running === true}
                 cards={cardsSnap}
                 actions={makeGroupCardActions(group.id)}
+                cardService={cardService}
                 t={t}
                 onToggleExpanded={toggleGroupExpanded}
                 onSetCollapsed={setCollapsedGroups}
