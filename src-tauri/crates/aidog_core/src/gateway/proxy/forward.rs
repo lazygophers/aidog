@@ -133,7 +133,7 @@ pub(crate) async fn forward_attempt(
         OutboundRequest {
             req_body_str,
             header_injects,
-            client_type: target.client_type.clone(),
+            client_type: &target.client_type,
             eff_api_key: eff_api_key.clone(),
             orig_headers,
             is_stream,
@@ -2854,7 +2854,7 @@ async fn prepare_outbound(
 struct OutboundRequest<'a> {
     req_body_str: String,
     header_injects: Vec<(String, String)>,
-    client_type: String,
+    client_type: &'a String,
     eff_api_key: String,
     orig_headers: &'a axum::http::HeaderMap,
     is_stream: bool,
@@ -2914,7 +2914,7 @@ async fn send_upstream(
     // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
     // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
     let mut upstream_headers = build_upstream_headers(
-        &client_type,
+        client_type,
         target_protocol_enum,
         &eff_api_key,
         orig_headers,
@@ -2956,7 +2956,7 @@ async fn send_upstream(
                 .header("Content-Type", "application/json")
                 .headers(without_beta)
                 .body(req_body_str.clone()),
-            &client_type,
+            client_type,
             target_protocol_enum,
             &eff_api_key,
         )
@@ -2970,7 +2970,7 @@ async fn send_upstream(
     // ── 覆盖 UA + auth（平台 api_key）──
     req_builder = apply_client_headers(
         req_builder,
-        &client_type,
+        client_type,
         target_protocol_enum,
         &eff_api_key,
     );
