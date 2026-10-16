@@ -78,6 +78,49 @@ describe("unknown protocol repair", () => {
   });
 });
 
+describe("timemodel paste and save", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it.each([false, true])("fullShare preserves existing timemodel draft (%s) through save", async (hasDraft) => {
+    vi.spyOn(platformApi, "create").mockResolvedValue(undefined as any);
+    const { result } = renderHook(() => useForm());
+    const peak = [{ start_hour: 1, end_hour: 2, multiplier: 3 }];
+    const rules = [{ windows: [{ start_hour: 3, end_hour: 4, multiplier: 1 }], models: { default: "draft" } }];
+    if (hasDraft) act(() => {
+      result.current.timemodels.setPeak(peak);
+      result.current.timemodels.setDisableDuringPeak(true);
+      result.current.timemodels.setTimeModels(rules);
+      result.current.timemodels.setWindowsTz("utc");
+    });
+    // 原 fullShare 路径只写 extra，不回填 peak/time_windows 的独立表单态。
+    await act(() => result.current.applyPaste({
+      platform: null, baseUrls: [], apiKeys: [],
+      fullShare: {
+        name: "Shared", platform_type: "openai", api_key: "key", models: {},
+        extra: JSON.stringify({ keep: "shared", peak: [{ start_hour: 9, end_hour: 10, multiplier: 2 }],
+          disable_during_peak: true,
+          time_windows: [{ windows: [{ start_hour: 8, end_hour: 12, multiplier: 1 }], models: { default: "shared" } }],
+        }),
+      } as any,
+    }));
+    expect(result.current.timemodels.peak).toEqual(hasDraft ? peak : []);
+    expect(result.current.timemodels.timeModels).toEqual(hasDraft ? rules : []);
+    expect(result.current.timemodels.disableDuringPeak).toBe(hasDraft);
+    expect(result.current.timemodels.windowsTz).toBe(hasDraft ? "utc" : "local");
+    await act(() => result.current.handleSave());
+    expect(platformApi.create).toHaveBeenCalledOnce();
+    const saved = JSON.parse(vi.mocked(platformApi.create).mock.calls[0][0].extra!);
+    expect(saved.keep).toBe("shared");
+    expect(saved.peak).toEqual(hasDraft ? peak : undefined);
+    expect(saved.time_windows).toEqual(hasDraft ? rules : undefined);
+    expect(saved.disable_during_peak).toBe(hasDraft ? true : undefined);
+    expect(result.current.timemodels.peak).toEqual([]);
+    expect(result.current.timemodels.timeModels).toEqual([]);
+    expect(result.current.timemodels.disableDuringPeak).toBe(false);
+    expect(result.current.timemodels.windowsTz).toBe("local");
+  });
+});
+
 describe("usePlatformForm jev slot", () => {
   it("buildModelsPayload keeps jev, drops blank slots", () => {
     const { result } = renderHook(() => useForm());
