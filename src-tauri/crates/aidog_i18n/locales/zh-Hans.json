@@ -1319,6 +1319,7 @@
   "platform.timezone_utc": "UTC+0",
   "platform.todayUsageLabel": "今日",
   "platform.toggleDetail": "展开/收起明细",
+  "platform.unknownProtocol": "未知协议",
   "platform.toggleFail": "切换失败",
   "platform.usageLabel": "已使用",
   "platform.usageLoading": "用量加载中",

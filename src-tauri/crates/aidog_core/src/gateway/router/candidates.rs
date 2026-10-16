@@ -223,6 +223,7 @@ pub async fn select_candidates_ctx(
         breaker_rejected,
         peak_disabled_count,
         kind_rejected_count,
+        unknown_protocol_count,
     } = filter_candidates(&group_platforms, ctx, now_ms, source_model, &extra_cache, kind, &decision_models);
 
     // ── 阶段 2: 熔断全空回退透传 ──
@@ -261,6 +262,16 @@ pub async fn select_candidates_ctx(
 
     // ── 阶段 5: 空候选处理 ──
     if ordered.is_empty() {
+        // 整组所有候选是未知协议（DB platform_type 枚举外，票 06）→ 返特殊 Err，
+        // caller 据此落审计 proxy_log (blocked_by='router', blocked_reason='unknown_protocol',
+        // est_cost=0, status_code=503)。
+        if unknown_protocol_count > 0 && unknown_protocol_count == group_platforms.len() {
+            tracing::info!(
+                group = %group.name, unknown_protocol = unknown_protocol_count,
+                "all candidates have unknown protocol; returning unknown_protocol error for audit log"
+            );
+            return Err("unknown_protocol".to_string());
+        }
         // 整组所有候选被高峰禁用排除 → 返特殊 Err，caller handler.rs 据此落审计 proxy_log
         // (blocked_by='router', blocked_reason='peak', est_cost=0, status_code=503)。
         // 其他原因（disabled / auto_disabled / 熔断无回退）照旧 NoCandidate warn 不落库。
@@ -325,6 +336,15 @@ async fn handle_single_platform(
     kind: RequestKind,
     decision_models: &DecisionModels,
 ) -> Result<CandidateSet, String> {
+    // 未知协议（票 06）：无 wire 格式可转，唯一硬停之一（照 peak_disabled 先例，caller 落审计）。
+    if matches!(only.platform.platform_type, Protocol::Unknown) {
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            "single-platform group: unknown protocol, request blocked"
+        );
+        return Err("unknown_protocol".to_string());
+    }
+
     // 请求类型不匹配也是硬停（R5：单平台短路同样检查，2026-09-30 复核拍板）。
     if !platform_supports_kind(&only.platform, kind, decision_models) {
         tracing::info!(
@@ -400,6 +420,7 @@ struct FilteredCandidates<'a> {
     breaker_rejected: Vec<(&'a GroupPlatformDetail, Option<bool>)>,
     peak_disabled_count: usize,
     kind_rejected_count: usize,
+    unknown_protocol_count: usize,
 }
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
@@ -419,10 +440,18 @@ fn filter_candidates<'a>(
     let mut breaker_rejected = Vec::new();
     let mut peak_disabled_count = 0;
     let mut kind_rejected_count = 0;
+    let mut unknown_protocol_count = 0;
 
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
     for gp in group_platforms {
+        // 未知协议（票 06，用户裁决 2026-10-16）：DB platform_type 枚举外值，不进任何桶
+        // （无 wire 格式可转，路由必错）；整组皆未知 → 阶段 5 返 Err("unknown_protocol")。
+        if matches!(gp.platform.platform_type, Protocol::Unknown) {
+            unknown_protocol_count += 1;
+            continue;
+        }
+
         // 请求类型维度（R2/R3）：不支持该类型的平台剔除（先于 status 判定，
         // 纯决策平台 / 无决策能力的平台不进任何桶）。
         if !platform_supports_kind(&gp.platform, kind, decision_models) {
@@ -497,6 +526,7 @@ fn filter_candidates<'a>(
         breaker_rejected,
         peak_disabled_count,
         kind_rejected_count,
+        unknown_protocol_count,
     }
 }
 

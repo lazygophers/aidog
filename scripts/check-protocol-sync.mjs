@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Protocol Rust↔TS 跨层词表同步门禁（对照 scripts/check-registry.mjs 风格：失败一次列全部不匹配项，exit 1）。
 // ① protocol.rs Protocol 枚举 `#[serde(rename = "<code>")]` 变体 ↔ manual.ts Protocol 联合类型字面量（双向零差集）。
-//    serde rename 一旦发布禁改名（DB 持久值）；漏双写 → Protocol::from_db_str 静默回落 Anthropic，故此检查必须硬错。
+//    serde rename 一旦发布禁改名（DB 持久值）；漏双写 → Protocol::from_db_str 解析为 Unknown（票 06，平台被路由排除），故此检查必须硬错。
 // ② protocol.rs endpoints_locked() matches! 变体 ↔ constants.ts ENDPOINTS_LOCKED_PROTOCOLS。
 // ③ middleware.rs Target/MatchType/ActionKind 枚举变体（snake_case）↔ MiddlewareRules.tsx
 //    TARGETS/MATCH_TYPES/ACTION_KINDS 运行时数组（generated/*.ts 只有类型导出无运行时值，故抽 Rust 源枚举）。

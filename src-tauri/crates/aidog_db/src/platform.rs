@@ -36,11 +36,22 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let models_str: String = row.get(6)?;
     let available_str: String = row.get(7)?;
     let endpoints_str: String = row.get(8)?;
+    let platform_type = crate::models::Protocol::from_db_str(&platform_type_str);
+    if matches!(platform_type, crate::models::Protocol::Unknown) {
+        // 票 06（用户裁决 2026-10-16）：未知协议结构化 warn（含平台名与 DB 原始值），
+        // 引导用户重新选择平台类型；该平台不参与路由（candidates.rs 排除）。
+        tracing::warn!(
+            platform = ?row.get::<_, String>(1).ok(),
+            raw_platform_type = %platform_type_str,
+            "unknown platform_type in DB, parsed as Protocol::Unknown; \
+             re-select the platform type in settings (platform excluded from routing)"
+        );
+    }
     Ok(Platform {
         id: row.get::<_, i64>(0)? as u64,
         name: row.get(1)?,
         // 禁 unwrap：非法/未知 platform_type 会 panic 杀 DB 后台线程（见 Protocol::from_db_str）。
-        platform_type: crate::models::Protocol::from_db_str(&platform_type_str),
+        platform_type,
         base_url: row.get(3)?,
         api_key: row.get(4)?,
         extra: row.get(5)?,
