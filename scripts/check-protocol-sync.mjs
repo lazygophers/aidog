@@ -119,7 +119,7 @@ if (lockedCodes.size && tsLocked.size) {
     );
   } else {
     for (const c of rustOnly)
-      failures.push(["endpoints_locked", `Rust 多出（前端缺失）：${c}${INTENTIONAL_UNLOCKED.has(c) ? "" : ""}`]);
+      failures.push(["endpoints_locked", `Rust 多出（前端缺失）：${c}`]);
     for (const c of tsOnly) failures.push(["endpoints_locked", `前端多出（Rust 缺失）：${c}`]);
     if (whitelisted.length && !rustOnly.length)
       // 白名单项被前端补齐后：把它从 INTENTIONAL_UNLOCKED 删掉，防止白名单静默腐化
