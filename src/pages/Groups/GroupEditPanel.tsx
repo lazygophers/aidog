@@ -6,7 +6,8 @@ import codexIcon from "../../assets/platforms/openai.svg";
 import piIcon from "../../assets/platforms/pi.svg";
 import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
-import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
+import { allModelValues } from "../../domains/platforms";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, buildPiCommand, PlatformPicker, useProxyEnvVars,
   PI_APIS, type PiApi, piApiLabel, parseGroupPiApi, setGroupPiApi } from "../../domains/groups";
@@ -36,8 +37,8 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   const { i18n } = useTranslation();
   // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
   const proxyVars = useProxyEnvVars();
-  // 协议 label 全表（一次 RPC，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  // 协议 label 全表（共享 hook：首帧 {}，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
+  const labelMap = useProtocolLabelMap(i18n.language);
   // pi 线路协议存 group.extra，不在 UpdateGroup 字段集里 → 本地态 + 选中即写。
   const [piApi, setPiApi] = useState<PiApi>(() => parseGroupPiApi(editTarget?.group.extra ?? ""));
   // 模型映射目标模型 select 的价格表（一次 snapshot；逐行目标平台不同故取全平台嵌套表）
@@ -53,11 +54,6 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
   const activeTab = advTab;
   const editGroupExtra = editTarget?.group.extra ?? "";
   useEffect(() => { setPiApi(parseGroupPiApi(editGroupExtra)); }, [editGroupId, editGroupExtra]);
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
-    return () => { cancelled = true; };
-  }, [i18n.language]);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}

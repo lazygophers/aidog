@@ -12,7 +12,7 @@ import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
 import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
 import { ShareModal } from "../../components/platforms/ShareModal";
-import { getProtocolColorMap, getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import type { PlatformsState } from "./usePlatformsState";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,16 +39,9 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
       .finally(() => { if (!cancelled) setPreviewLoading(false); });
     return () => { cancelled = true; };
   }, [purgeConfirmOpen]);
-  // colorMap / labelMap：async 派生自 registry platform.json；首帧空 map（fallback platform_type key）。
-  const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancelled = false;
-    Promise.all([getProtocolColorMap(), getProtocolLabelMap(i18n.language)]).then(([c, l]) => {
-      if (!cancelled) { setColorMap(c); setLabelMap(l); }
-    });
-    return () => { cancelled = true; };
-  }, [i18n.language]);
+  // colorMap / labelMap：共享 hook（async 派生自 registry platform.json）；首帧空 map（fallback platform_type key）。
+  const colorMap = useProtocolColorMap();
+  const labelMap = useProtocolLabelMap(i18n.language);
   // ponytail: slice 化后字段拆在 list / form / drag / quota 四片，按消费就近解构。
   const {
     platforms, loading, headerActive, headerTotal,

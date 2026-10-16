@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   modelTestApi,
@@ -10,7 +10,7 @@ import { TestResultBody } from "../components/shared";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { getProtocolLabel } from "../domains/platforms/defaults";
+import { useProtocolLabel } from "../domains/platforms/useProtocolMeta";
 import { useReveal, makeRipple } from "../components/shared";
 
 interface Props {
@@ -29,8 +29,8 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   const [results, setResults] = useState<ModelTestResult[]>([]);
   const [running, setRunning] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(-1);
-  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
-  const [protocolLabel, setProtocolLabel] = useState("");
+  // 协议本地化 label（共享 hook：首帧 ""，fallback PROTOCOL_LABELS → key）
+  const protocolLabel = useProtocolLabel(platform?.platform_type, i18n.language);
 
   // jev 槽位是决策模型专用（jev-decision-proxy §3.6.2），不进聊天测试列表
   const allModels = (platform.available_models.length > 0
@@ -58,17 +58,6 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
     );
   };
 
-  // 协议本地化 label（依赖 platform.platform_type）
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!platform?.platform_type) return;
-      const label = await getProtocolLabel(platform.platform_type, i18n.language);
-      if (!cancelled) setProtocolLabel(label);
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language, platform?.platform_type]);
 
   const runTest = async () => {
     const models = getModels();

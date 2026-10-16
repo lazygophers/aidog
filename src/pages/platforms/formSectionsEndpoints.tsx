@@ -10,8 +10,8 @@ import {
   ENDPOINT_PROTOCOLS,
   ENDPOINTS_LOCKED_PROTOCOLS,
   defaultClientForProtocol,
-  buildClientTypesFromPresets,
 } from "../../domains/platforms";
+import { useClientTypeOptions } from "../../domains/platforms/useProtocolMeta";
 import { FormSection } from "./formSections";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,17 +28,10 @@ export function EndpointsSection({ endpoints, setEndpoints, protocol, t }: {
 }) {
   const { i18n } = useTranslation();
   const locked = ENDPOINTS_LOCKED_PROTOCOLS.has(protocol);
-  // CLIENT_TYPES 删除（JSON 派生）：仿 C3 buildProtocolsFromPresets 范式 — useState 空初始
-  // + useEffect + cancelled flag + locale key [i18n.language]，确保切语言时重拉派生层。
-  // 禁前端直读 github / 文件系统，一律 invoke get_client_types_json（封装在 buildClientTypesFromPresets 内）。
-  const [clientTypeOptions, setClientTypeOptions] = React.useState<Array<{ value: ClientType; group: string; label: string }>>([]);
-  React.useEffect(() => {
-    let cancelled = false;
-    buildClientTypesFromPresets(i18n.language).then((list) => {
-      if (!cancelled) setClientTypeOptions(list);
-    }).catch(() => { /* best-effort，空列表保下拉不崩 */ });
-    return () => { cancelled = true; };
-  }, [i18n.language]);
+  // CLIENT_TYPES 删除（JSON 派生）：共享 hook（useClientTypeOptions）— useState 空初始
+  // + cancelled flag + locale key，切语言重拉派生层。禁前端直读 github / 文件系统，
+  // 一律 invoke get_client_types_json（封装在 buildClientTypesFromPresets 内）。
+  const clientTypeOptions = useClientTypeOptions(i18n.language);
 
   return (
     <FormSection

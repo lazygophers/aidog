@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { writeText } from "../../services/platform";
 import { F } from "../../domains/shared/tokens";
@@ -7,7 +6,7 @@ import { safeParseJson } from "./types";
 import type { LogsDetailData } from "./useLogsDetail";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
-import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
 import {
@@ -106,23 +105,10 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
       ? safeParseJson(detail.response_body)
       : t("logs.streamResponse", "(流式响应，内容未记录)");
 
-  // 协议直观名 (复用 getProtocolLabel, fallback locale→en→key; copyText 仍保裸值供审计)
-  // ponytail: docPromise 单次 RPC 缓存, 双 await 实为内存查, 无 N+1
+  // 协议直观名（共享 hook，fallback locale→en→key; copyText 仍保裸值供审计）
   const { i18n } = useTranslation();
-  const [sourceLabel, setSourceLabel] = useState("");
-  const [targetLabel, setTargetLabel] = useState("");
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const sp = detail.source_protocol as Protocol | undefined;
-      const tp = detail.target_protocol as Protocol | undefined;
-      const s = sp ? await getProtocolLabel(sp, i18n.language) : "";
-      const tgt = tp ? await getProtocolLabel(tp, i18n.language) : "";
-      if (!cancelled) { setSourceLabel(s); setTargetLabel(tgt); }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language, detail.source_protocol, detail.target_protocol]);
+  const sourceLabel = useProtocolLabel(detail.source_protocol as Protocol | undefined, i18n.language);
+  const targetLabel = useProtocolLabel(detail.target_protocol as Protocol | undefined, i18n.language);
 
   return (
     <>

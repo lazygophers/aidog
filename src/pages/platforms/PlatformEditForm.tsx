@@ -9,7 +9,8 @@ import {
   SearchableProtocolSelect, MockConfigEditor,
   type ProtocolOption,
 } from "../../domains/platforms";
-import { getProtocolLabel, getProtocolColorMap, buildProtocolsFromPresets } from "../../domains/platforms/defaults";
+import { buildProtocolsFromPresets } from "../../domains/platforms/defaults";
+import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 import { Button } from "@/components/ui/button";
@@ -32,9 +33,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const { t, i18n } = useTranslation();
   const themeMode = useThemeMode();
 
-  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码 → key。
-  // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   // ponytail: slice 化后 form 字段全部从 s.form 读，list/quota slice 本视图不直接消费。
   const {
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
@@ -76,28 +74,11 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const [advTab, setAdvTab] = useState("billing");
   const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
 
-  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码（5 请求格式协议）→ key。
-  // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
-  // ponytail: 仅拉取当前 protocol + editing.platform_type（编辑态）的 label，最小 RPC。
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const keys = Array.from(new Set([protocol, editing?.platform_type].filter(Boolean) as string[]));
-      const entries = await Promise.all(
-        keys.map(async k => [k, await getProtocolLabel(k as any, i18n.language)] as const)
-      );
-      if (!cancelled) setLabelMap(prev => ({ ...prev, ...Object.fromEntries(entries) }));
-    })();
-    return () => { cancelled = true; };
-  }, [i18n.language, protocol, editing?.platform_type]);
-
+  // 协议本地化 label 映射（共享 hook 全表）。fallback: PROTOCOL_LABELS 硬编码 → key；
+  // 切语言重拉。全表覆盖原「仅 2 key」最小拉取（docPromise 单例缓存，无额外 RPC）。
+  const labelMap = useProtocolLabelMap(i18n.language);
   // 品牌色（async 派生自 registry platform.json 的 color）；首帧 fallback var(--accent)。
-  const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolColorMap().then(m => { if (!cancelled) setColorMap(m); });
-    return () => { cancelled = true; };
-  }, []);
+  const colorMap = useProtocolColorMap();
   // SmartPasteModal presets（ProtocolOption[]，hosts 内联派生）；首帧空数组（弹窗未开时不渲染）。
   const [presets, setPresets] = useState<ProtocolOption[]>([]);
   useEffect(() => {

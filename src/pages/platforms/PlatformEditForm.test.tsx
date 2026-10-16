@@ -9,6 +9,7 @@ vi.mock("../../domains/platforms", () => ({
 }));
 vi.mock("../../domains/platforms/defaults", () => ({
   getProtocolLabel: async (p: string) => p,
+  getProtocolLabelMap: async () => ({}),
   getProtocolColorMap: async () => ({}),
   buildProtocolsFromPresets: async () => [],
 }));

@@ -29,7 +29,7 @@ import {
   getDefaultEndpoints, getDefaultModels, getDefaultQuotaScripts, type QuotaScriptVariant,
   autoCategorize,
 } from "../../domains/platforms";
-import { getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
@@ -186,14 +186,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [name, setName] = useState("OpenAI");
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [codingPlan, setCodingPlan] = useState(false);
-  // 协议 label 全表（async 派生自 JSON name）；首帧 {} 用 key fallback，加载后 setState。
-  // DEFAULT_NAMES 运行时并入此 map 的 value 集合（替代旧 PROTOCOL_LABELS 全表派生）。
-  const [protocolLabelMap, setProtocolLabelMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolLabelMap().then(m => { if (!cancelled) setProtocolLabelMap(m); });
-    return () => { cancelled = true; };
-  }, []);
+  // 协议 label 全表（共享 hook）；首帧 {} 用 key fallback。lang 省略 = 沿用原非本地化
+  // 行为（表单挂载即定型，无 locale 重拉）。DEFAULT_NAMES 运行时并入此 map 的 value 集合。
+  const protocolLabelMap = useProtocolLabelMap();
   const [apiKey, setApiKey] = useState("");
   // 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表。
   // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。

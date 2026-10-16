@@ -16,7 +16,8 @@ import {
   type ImportReport,
   type Protocol,
 } from "../../services/api";
-import { buildProtocolsFromPresets, getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { buildProtocolsFromPresets } from "../../domains/platforms/defaults";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import type { ProtocolOption } from "../../domains/platforms";
 import { mapPlatformToProtocol, sub2apiAccountToPlatformJson } from "../../utils/sub2apiMatch";
 import { SectionIcon } from "./editors";
@@ -42,13 +43,11 @@ export function Sub2ApiImportSection({
   const { t, i18n } = useTranslation();
   // ponytail: 外层 section 单 useReveal, 账号行内部 glass-surface 各持 hover 边光。
   const sectionReveal = useReveal<HTMLElement>(0);
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  const labelMap = useProtocolLabelMap(i18n.language);
   const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
   useEffect(() => {
     let cancelled = false;
-    Promise.all([getProtocolLabelMap(i18n.language), buildProtocolsFromPresets(i18n.language)]).then(([m, list]) => {
-      if (!cancelled) { setLabelMap(m); setProtocols(list); }
-    });
+    buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setProtocols(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
   const [pasteText, setPasteText] = useState("");

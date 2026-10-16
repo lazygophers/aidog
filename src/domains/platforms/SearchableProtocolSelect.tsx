@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Protocol } from "../../services/api";
 import type { ProtocolOption } from "./constants";
-import { buildProtocolsFromPresets, getProtocolLabel } from "./defaults";
+import { buildProtocolsFromPresets } from "./defaults";
+import { useProtocolLabelMap } from "./useProtocolMeta";
 import { ProtocolLogo } from "./ProtocolLogo";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,24 +29,16 @@ export function SearchableProtocolSelect({
   // ProtocolOption 列表（async 派生自 registry）。
   // 首帧 fallback 空数组（不崩），加载后 setState 重渲染。
   const [protocols, setProtocols] = useState<ProtocolOption[]>([]);
-  // 协议本地化 label 映射（value → 按 i18n.language 取 JSON name）。
-  // fallback: locale 缺失 → en-US → value key。docPromise 单次 RPC，切语言重拉。
+  // 协议本地化 label 映射（共享 hook 全表，value → 按 i18n.language 取 JSON name）。
+  // 与逐 value getProtocolLabel 同一回落链（locale 缺失 → en-US → value key），docPromise 单次 RPC。
   // ponytail: value 作 key（coding 变体共用同 value 的 name，调用方追加 Coding 后缀）
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  const labelMap = useProtocolLabelMap(i18n.language);
   useEffect(() => {
     let cancelled = false;
     // 切语言或挂载时拉取；不阻塞渲染，先显空 fallback 后异步替换
-    (async () => {
-      const list = await buildProtocolsFromPresets(i18n.language);
-      if (cancelled) return;
-      setProtocols(list);
-      // labelMap 直接从 list派生（label 已按 locale 解析），免再发一次 RPC。
-      const entries = await Promise.all(
-        Array.from(new Set(list.map(p => p.value)))
-          .map(async v => [v, await getProtocolLabel(v, i18n.language)] as const),
-      );
-      if (!cancelled) setLabelMap(Object.fromEntries(entries));
-    })();
+    buildProtocolsFromPresets(i18n.language).then(list => {
+      if (!cancelled) setProtocols(list);
+    });
     return () => { cancelled = true; };
   }, [i18n.language]);
 
