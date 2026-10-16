@@ -133,7 +133,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           )}
           <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
           <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
-            disabled={!name
+            disabled={!name || protocol === "unknown"
               // passthrough（自定义透传）：base_url 与 api_key 都必填（共识稿 §2）
               || (isPassThrough ? (endpoints.length === 0 || !apiKey)
               : isPassthrough ? endpoints.length === 0
@@ -161,7 +161,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <FormSection title={t("platform.sectionBasic", "基础信息")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
-          {editing ? (
+          {editing && editing.platform_type !== "unknown" ? (
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
               padding: "10px 14px", borderRadius: "var(--radius-sm)",
@@ -186,6 +186,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
               codingPlan={codingPlan}
               onChange={handleProtocolChange}
             />
+          )}
+          {protocol === "unknown" && (
+            <p role="alert">{t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存")}</p>
           )}
         </FormSection>
 

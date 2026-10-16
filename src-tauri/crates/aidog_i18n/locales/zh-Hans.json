@@ -1320,6 +1320,7 @@
   "platform.todayUsageLabel": "今日",
   "platform.toggleDetail": "展开/收起明细",
   "platform.unknownProtocol": "未知协议",
+  "platform.unknownProtocolSave": "请选择有效的协议类型后再保存",
   "platform.toggleFail": "切换失败",
   "platform.usageLabel": "已使用",
   "platform.usageLoading": "用量加载中",
