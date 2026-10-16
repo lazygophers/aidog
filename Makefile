@@ -88,6 +88,8 @@ lint: ## Run linters
 	yarn check:registry
 	@printf "$(CYAN)▶ i18n key completeness...$(RESET)\n"
 	yarn check:i18n
+	@printf "$(CYAN)▶ Protocol sync check...$(RESET)\n"
+	node scripts/check-protocol-sync.mjs
 	@printf "$(CYAN)▶ Modal centering check...$(RESET)\n"
 	yarn check:modal
 	@printf "$(CYAN)▶ Design token check...$(RESET)\n"
