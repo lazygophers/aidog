@@ -238,7 +238,7 @@ async fn minimax_run(code: &str, host: &str, body: &'static str) -> crate::quota
 async fn minimax_general_bucket_counts() {
     for (code, host) in [
         ("minimax", "https://api.minimaxi.com"),
-        ("minimax_coding", "https://api.minimaxi.com"),
+        ("minimax_coding", "https://api.minimax.cn"),
         ("minimax_en", "https://api.minimax.io"),
     ] {
         let q = minimax_run(
