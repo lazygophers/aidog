@@ -1,8 +1,5 @@
 use super::*;
 
-/// 单次候选 forward 尝试的控制结果：Respond=已确定响应直接返回客户端；Next=换下个候选重试。
-/// Next.connect_failed：本次尝试的终态错误是否为连接建立失败（reqwest is_connect）——
-/// handler 用它做同 base_url 兄弟条目联动跳过（routing-health-optim R3，2026-09-28）。
 /// 阶段函数的退出契约。阶段只表达“换候选”或“终态响应”，
 /// 不把外层 forward_attempt 的结果类型泄漏进阶段。
 enum StageExit {
@@ -19,6 +16,9 @@ impl From<StageExit> for AttemptOutcome {
     }
 }
 
+/// 单次候选 forward 尝试的控制结果：Respond=已确定响应直接返回客户端；Next=换下个候选重试。
+/// Next.connect_failed：本次尝试的终态错误是否为连接建立失败（reqwest is_connect）——
+/// handler 用它做同 base_url 兄弟条目联动跳过（routing-health-optim R3，2026-09-28）。
 pub(crate) enum AttemptOutcome {
     Respond(axum::response::Response),
     Next { connect_failed: bool },
@@ -57,8 +57,7 @@ pub(crate) async fn forward_attempt(
     // OpenCode Zen：api_key 留空 → 注入匿名免费 key（$opencode）；用户填了用用户的。
     let eff_api_key = resolve_opencode_zen_key(&route.platform);
 
-    let TargetSel { target_protocol_enum, target_base_url, client_type, coding_plan, same_protocol_passthrough } =
-        match select_endpoint_target(
+    let target = match select_endpoint_target(
             state,
             &route,
             source_protocol,
@@ -77,7 +76,7 @@ pub(crate) async fn forward_attempt(
             Ok(v) => v,
             Err(o) => return o.into(),
         };
-    let target_protocol = target_protocol_enum.wire_str();
+    let target_protocol = target.target_protocol_enum.wire_str();
     let needs_model_remap = actual_model != requested_model;
     let disable_thinking = req_value.get("disable_thinking").and_then(|v| v.as_bool()).unwrap_or(false);
 
@@ -89,7 +88,7 @@ pub(crate) async fn forward_attempt(
         platform = %route.platform.name, platform_id = route.platform.id,
         requested_model = %requested_model, actual_model = %actual_model,
         source_protocol = ?source_protocol, target_protocol = %target_protocol,
-        coding_plan, stream = is_stream, remap = needs_model_remap,
+        coding_plan = target.coding_plan, stream = is_stream, remap = needs_model_remap,
         "request routed to upstream"
     );
     upsert_log(state, log, log_settings).await;
@@ -106,10 +105,8 @@ pub(crate) async fn forward_attempt(
         chat_req,
         req_value,
         &mut header_injects,
+        &target,
         actual_model.clone(),
-        target_protocol_enum,
-        &target_base_url,
-        coding_plan,
         is_stream,
         lang,
         log_settings,
@@ -117,8 +114,6 @@ pub(crate) async fn forward_attempt(
         attempts,
         attempt_start,
         attempt_ts,
-        same_protocol_passthrough,
-        &target_protocol,
         disable_thinking,
     )
         .await
@@ -135,14 +130,16 @@ pub(crate) async fn forward_attempt(
         group,
         log,
         attempts,
-        req_body_str,
-        &header_injects,
-        client_type,
-        eff_api_key.clone(),
-        orig_headers,
-        is_stream,
-        target_protocol_enum,
-        url.clone(),
+        OutboundRequest {
+            req_body_str,
+            header_injects,
+            client_type: target.client_type.clone(),
+            eff_api_key: eff_api_key.clone(),
+            orig_headers,
+            is_stream,
+            target_protocol_enum: target.target_protocol_enum,
+            url: url.clone(),
+        },
         lang,
         candidate_total,
         is_last_candidate,
@@ -300,13 +297,13 @@ pub(crate) async fn forward_attempt(
     // forward_attempt 本次路由决策的协议/模型元数据，finish_nonstream / finish_stream 共用（见 finish.rs::AttemptCtx）。
     let attempt_ctx = AttemptCtx {
         source_protocol: source_protocol.clone(),
-        target_protocol: target_protocol_enum.clone(),
-        same_protocol_passthrough,
-        coding_plan,
+        target_protocol: target.target_protocol_enum.clone(),
+        same_protocol_passthrough: target.same_protocol_passthrough,
+        coding_plan: target.coding_plan,
         requested_model: requested_model.to_string(),
         actual_model: actual_model.clone(),
         eff_api_key: eff_api_key.clone(),
-        quota_base_url: target_base_url.clone(),
+        quota_base_url: target.target_base_url.clone(),
         disable_thinking,
     };
 
@@ -2239,7 +2236,7 @@ mod test_hoist_mid_messages_system {
 
 
 // ── 阶段函数：select → prepare → send（forward_attempt 只留「选 → 备 → 发 → 收」骨架）──
-// 早退一律 Err(AttemptOutcome) 由 `?` 上抛，与原早退路径逐行等价（行为保持重构）。
+// 阶段早退使用 StageExit，由 forward_attempt 转成外层 AttemptOutcome；保留原早退副作用。
 
 /// 阶段 1：端点选择（含 UA 透传分支）+ target_protocol 合法性 / base_url guard。
 struct TargetSel<'a> {
@@ -2249,6 +2246,18 @@ struct TargetSel<'a> {
     client_type: String,
     coding_plan: bool,
     same_protocol_passthrough: bool,
+}
+
+// ponytail: 仅检测 5 协议，未来扩展协议需同步更新此列表。
+fn is_valid_wire_protocol(p: &Protocol) -> bool {
+    matches!(
+        p,
+        Protocol::Anthropic
+            | Protocol::OpenAI
+            | Protocol::OpenAIResponses
+            | Protocol::OpenAICompletions
+            | Protocol::Gemini
+    )
 }
 
 #[allow(clippy::too_many_arguments, clippy::result_large_err)]
@@ -2325,17 +2334,6 @@ async fn select_endpoint_target<'a>(
     // 这种情况下 target_protocol 会落库为平台名，导致后续统计/审计出错。
     //
     // 验收：endpoint 匹配失败时 target_protocol 必须落 5 协议之一；否则 route fail。
-    // ponytail: 仅检测 5 协议，未来扩展协议需同步更新此列表。
-    let is_valid_wire_protocol = |p: &Protocol| -> bool {
-        matches!(
-            p,
-            Protocol::Anthropic
-                | Protocol::OpenAI
-                | Protocol::OpenAIResponses
-                | Protocol::OpenAICompletions
-                | Protocol::Gemini
-        )
-    };
     if !is_valid_wire_protocol(target_protocol_enum) {
         tracing::error!(
             platform = %route.platform.name, platform_id = route.platform.id,
@@ -2473,10 +2471,8 @@ async fn prepare_outbound(
     chat_req: &mut ChatRequest,
     req_value: &Value,
     header_injects: &mut Vec<(String, String)>,
+    target: &TargetSel<'_>,
     actual_model: String,
-    target_protocol_enum: &Protocol,
-    target_base_url: &str,
-    coding_plan: bool,
     is_stream: bool,
     lang: Lang,
     log_settings: &ProxyLogSettings,
@@ -2484,8 +2480,6 @@ async fn prepare_outbound(
     attempts: &mut Vec<ProxyAttempt>,
     attempt_start: std::time::Instant,
     attempt_ts: i64,
-    same_protocol_passthrough: bool,
-    target_protocol: &str,
     disable_thinking: bool,
 ) -> Result<Prepared, StageExit> {
     // ── max_tokens 出站裁剪（convert_request 前）──
@@ -2666,14 +2660,14 @@ async fn prepare_outbound(
     //   path 由 wire 协议决定（passthrough_api_path，与 convert_request 一致但不转 body）。
     // - 转换分支：wire format 由 endpoint 协议决定，API path 由平台类型决定。
     let platform_protocol = &route.platform.platform_type;
-    let (mut req_body, mut api_path) = if same_protocol_passthrough {
+    let (mut req_body, mut api_path) = if target.same_protocol_passthrough {
         // O3 判定：保留 clone。model remap 对几乎每个透传请求都要改写 body（&mut 必需），
         // 下方 cap/strip/hoist 链也全按 &mut Value 写；Cow 只在「零改写」请求上省这一次拷贝，
         // 覆盖面太窄，不值当把整条链改成 to_mut。真正的全量拷贝已在 request.rs 从 raw 解析处省掉。
         let mut body = req_value.clone();
         // model remap：透传下仍必须替换路由模型名（请求体 model 字段）
         if let Some(obj) = body.as_object_mut() {
-            match target_protocol_enum {
+            match target.target_protocol_enum {
                 // Gemini generateContent 的 body 规范里没有顶层 model（模型在 URL path，
                 // 由下方 passthrough_api_path 用改写后的 actual_model 构造）。客户端若带了这个键，
                 // 上游按未知字段判 400，故剔除而非改写（票 09）。
@@ -2688,7 +2682,7 @@ async fn prepare_outbound(
         // 无签名 thinking 块清洗（仅 Anthropic wire 上游）：客户端回灌的历史里可能带 aidog 从
         // 非 Anthropic 上游合成的 thinking 块（reasoning_content / 行内 `<thinking>` 标签转换而来），
         // 这类块没有 Anthropic 签名，原样上送官方端点判 400。转换分支早有同语义丢弃，此处补齐透传分支。
-        if target_protocol_enum.same_wire_family(&Protocol::Anthropic) {
+        if target.target_protocol_enum.same_wire_family(&Protocol::Anthropic) {
             let removed = adapter::strip_unsigned_thinking_blocks(&mut body);
             if removed > 0 {
                 tracing::info!(
@@ -2698,15 +2692,15 @@ async fn prepare_outbound(
             }
         }
         let path =
-            adapter::passthrough_api_path(target_protocol_enum, &actual_model, platform_protocol);
-        tracing::debug!(protocol = %target_protocol, "same-protocol passthrough: skip request format conversion");
+            adapter::passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol);
+        tracing::debug!(protocol = %target.target_protocol_enum.wire_str(), "same-protocol passthrough: skip request format conversion");
         (body, path)
     } else {
-        adapter::convert_request(chat_req, target_protocol_enum, platform_protocol)
+        adapter::convert_request(chat_req, target.target_protocol_enum, platform_protocol)
     };
 
     // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径
-    if coding_plan {
+    if target.coding_plan {
         inject_coding_plan_fields(&mut req_body, platform_protocol);
         override_coding_plan_path(&mut api_path, platform_protocol);
     }
@@ -2718,8 +2712,8 @@ async fn prepare_outbound(
     apply_disable_thinking(
         &mut req_body,
         disable_thinking,
-        target_protocol_enum,
-        target_base_url,
+        target.target_protocol_enum,
+        target.target_base_url.as_str(),
     );
 
     // builtin-tool-compat：内置工具兼容（全局总开关，settings scope "proxy" / key
@@ -2736,11 +2730,11 @@ async fn prepare_outbound(
     // ── max_completion_tokens 归一（必须排在下方裁剪之前）──
     // 透传分支的 body 是客户端原体：新版 OpenAI SDK 只发 `max_completion_tokens`，
     // 不折成 `max_tokens` 的话下方 cap 找不到槽位 → 超模型上限的值原样上送（票 05）。
-    fold_openai_max_completion_tokens(&mut req_body, target_protocol_enum);
+    fold_openai_max_completion_tokens(&mut req_body, target.target_protocol_enum);
 
     // ── 图片块默认 detail 剔除（透传与转换两分支共用本 seam）──
     // OpenAI SDK 会自己填 `image_url.detail:"auto"`，部分兼容上游只认 low/high 见 auto 即 400。
-    let stripped_detail = strip_default_image_detail(&mut req_body, target_protocol_enum);
+    let stripped_detail = strip_default_image_detail(&mut req_body, target.target_protocol_enum);
     if stripped_detail > 0 {
         tracing::info!(
             count = stripped_detail, model = %actual_model,
@@ -2755,11 +2749,11 @@ async fn prepare_outbound(
     // 留痕：proxy_log 同时存客户端原始 body（request_body）与上游实际 body
     // （upstream_request_body），两者一比即知裁到多少。
     // 票 10：本次出站 body 被丢弃 / 被改写的字段名 token（只记名不记值），落 proxy_log.field_trace。
-    let capped_on_body = cap_body_max_tokens(&mut req_body, model_max, target_protocol_enum);
+    let capped_on_body = cap_body_max_tokens(&mut req_body, model_max, target.target_protocol_enum);
     if let Some((requested, capped)) = capped_on_body {
         tracing::info!(
             model = %actual_model, requested, capped_to = capped,
-            passthrough = same_protocol_passthrough,
+            passthrough = target.same_protocol_passthrough,
             "max_tokens exceeds model limit, capping outbound body"
         );
     }
@@ -2768,7 +2762,7 @@ async fn prepare_outbound(
     // 转换分支的 mask/override/inject 已在分叉前作用于 chat_req，两处都跑会把 system_append
     // 注入两遍，故此处只补透传分支（脱敏规则不再因为「恰好同协议」被绕过，票 02）。
     let mut middleware_changed = false;
-    if same_protocol_passthrough {
+    if target.same_protocol_passthrough {
         let mw_settings = state
             .settings_cache
             .read()
@@ -2779,7 +2773,7 @@ async fn prepare_outbound(
             &state.middleware,
             &mw_settings,
             &mut req_body,
-            target_protocol_enum,
+            target.target_protocol_enum,
             &actual_model,
             Some(&group.group_key),
             route.platform.id as i64,
@@ -2800,8 +2794,8 @@ async fn prepare_outbound(
     let dropped = apply_field_passthrough(
         &mut req_body,
         req_value,
-        target_protocol_enum,
-        target_base_url,
+        target.target_protocol_enum,
+        target.target_base_url.as_str(),
     );
 
     // 票 10：留痕落 log（无丢弃无改写时写空串，不产生噪音记录；本值随后续 upsert 入库，
@@ -2816,16 +2810,16 @@ async fn prepare_outbound(
 
     // ── 官方 OpenAI 输出长度键改写（票 05）──
     // 排在裁剪、中间件与兜底透传之后：前几步都按 `max_tokens` 认字段，改名放最后才不会漏。
-    if rename_openai_max_tokens_key(&mut req_body, target_protocol_enum, target_base_url) {
+    if rename_openai_max_tokens_key(&mut req_body, target.target_protocol_enum, target.target_base_url.as_str()) {
         tracing::debug!(model = %actual_model, "official OpenAI host: max_tokens → max_completion_tokens");
     }
 
     // 构建目标 URL
-    let base_url = target_base_url.trim_end_matches('/');
+    let base_url = target.target_base_url.as_str().trim_end_matches('/');
     // api_path 版本段与 base_url 末段重复时去重（anthropic 系 api_path 自带 /v1，聚合站 base_url 也带）。
     let mut url = super::passthrough::join_upstream_path(base_url, &api_path);
     // Gemini streamGenerateContent 不带 alt=sse 时上游返回单个 JSON 数组（非 SSE），流式解析全部落空。
-    if matches!(target_protocol_enum, Protocol::Gemini) && is_stream {
+    if matches!(target.target_protocol_enum, Protocol::Gemini) && is_stream {
         url.push_str("?alt=sse");
     }
     log.upstream_request_url = url.clone();
@@ -2840,7 +2834,7 @@ async fn prepare_outbound(
     //      官方 Anthropic 接受该 CC 注入的非标位置，第三方严格）。规整=将 messages 内 role=system
     //     合并到顶层 system 数组（语义等价、Anthropic 规范形式），messages 数组移除该消息。
     //     仅非流式触发：流式 + 同结构当前工作正常（9279 PASS），不动避免回归。
-    if matches!(target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
+    if matches!(target.target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
         strip_thinking_if_unmatched(&mut req_body);
         // 无条件剥离 redacted_thinking content block：第三方 anthropic 端点（火山 doubao coding、
         // deepseek 等）不认该 Claude 4.x extended thinking 加密块 → 400 InvalidParameter
@@ -2857,6 +2851,17 @@ async fn prepare_outbound(
 
 /// 阶段 3：建上游请求（超时/HTTP client/请求头/日志镜像/beta 备用 builder）→
 /// 熔断在途 +1 → 发送（同平台瞬时重试）→ anthropic-beta 400 剔头重试。返回上游响应。
+struct OutboundRequest<'a> {
+    req_body_str: String,
+    header_injects: Vec<(String, String)>,
+    client_type: String,
+    eff_api_key: String,
+    orig_headers: &'a axum::http::HeaderMap,
+    is_stream: bool,
+    target_protocol_enum: &'a Protocol,
+    url: String,
+}
+
 #[allow(clippy::too_many_arguments, clippy::result_large_err)]
 async fn send_upstream(
     state: &Arc<ProxyState>,
@@ -2864,14 +2869,7 @@ async fn send_upstream(
     group: &Group,
     log: &mut ProxyLog,
     attempts: &mut Vec<ProxyAttempt>,
-    req_body_str: String,
-    header_injects: &[(String, String)],
-    client_type: String,
-    eff_api_key: String,
-    orig_headers: &axum::http::HeaderMap,
-    is_stream: bool,
-    target_protocol_enum: &Protocol,
-    url: String,
+    outbound: OutboundRequest<'_>,
     lang: Lang,
     candidate_total: usize,
     is_last_candidate: bool,
@@ -2881,6 +2879,17 @@ async fn send_upstream(
     log_settings: &ProxyLogSettings,
     sched_settings: &super::models::SchedulingBreakerSettings,
 ) -> Result<(reqwest::Response, super::scheduling::BreakerThresholds), StageExit> {
+    let OutboundRequest {
+        req_body_str,
+        header_injects,
+        client_type,
+        eff_api_key,
+        orig_headers,
+        is_stream,
+        target_protocol_enum,
+        url,
+    } = outbound;
+
     // ── 解析超时：模型 > 分组 > 系统 ──（system_timeout + proxy_client 一次缓存借齐）
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -2915,7 +2924,7 @@ async fn send_upstream(
     // 认证头 / 代理自有头拒绝覆盖、非法头名值跳过，均记 warn 不阻断（见 sanitize_header_injects）。
     // 写进透传底座（insert = 替换同名客户端头），底座里的名与 apply_client_headers 覆盖的
     // UA/auth/CT 不相交（后者全在拒绝名单里），故不会产生同名多值。
-    let injected = sanitize_header_injects(header_injects);
+    let injected = sanitize_header_injects(&header_injects);
     let mut passthrough_base = passthrough_convert_headers(orig_headers);
     for (n, v) in &injected {
         passthrough_base.insert(n.clone(), v.clone());
@@ -3128,3 +3137,27 @@ async fn send_upstream(
     Ok((resp, breaker_th))
 }
 
+
+#[cfg(test)]
+mod stage_contract_tests {
+    use super::*;
+
+    #[test]
+    fn stage_exit_maps_only_at_forward_boundary() {
+        let retry: AttemptOutcome = StageExit::Retry { connect_failed: true }.into();
+        assert!(matches!(retry, AttemptOutcome::Next { connect_failed: true }));
+        let response: AttemptOutcome = StageExit::Respond(
+            (StatusCode::OK, "stage").into_response(),
+        )
+        .into();
+        assert!(matches!(response, AttemptOutcome::Respond(_)));
+    }
+
+    #[test]
+    fn endpoint_guard_accepts_wire_protocols_only() {
+        assert!(is_valid_wire_protocol(&Protocol::Anthropic));
+        assert!(is_valid_wire_protocol(&Protocol::OpenAIResponses));
+        assert!(!is_valid_wire_protocol(&Protocol::Glm));
+        assert!(!is_valid_wire_protocol(&Protocol::Unknown));
+    }
+}
