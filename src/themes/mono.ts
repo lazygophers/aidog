@@ -4,14 +4,14 @@ import type { ThemeDefinition, ThemeMode } from "./types";
 /**
  * Mono 主题 —— 色值来源是跨栈 token 表（票 13）。
  *
- * 真值源：`design/tokens/tokens.json`（同一份表也生成 Flutter 侧的 `tokens.dart`）。
+ * 真值源：`design/tokens/tokens.json`（同一份表生成 React 侧的 `tokens.generated.ts`）。
  * 改色一律改那份 JSON 再跑 `yarn tokens`；本文件只做「token 语义名 → shadcn 语义变量」的映射，
  * 不放任何字面色值。`yarn check:tokens` 拦住「改了 JSON 忘了重新生成」。
  *
  * 本文件只换颜色的来源，不改版式：radius / blur / transition / shadow 三档仍是原值
  * （token 表里的 radius 是 A′ 原型的版式，套到现仓等于改版，不在票 13 范围）。
  *
- * 映射里几个不是一对一的地方，理由写在各行。token 表缺项见 `.scratch/flutter-frontend/research/13-tokens.md`。
+ * 映射里几个不是一对一的地方，理由写在各行。
  */
 function vars(mode: ThemeMode): Record<string, string> {
   const c = tokens[mode];
@@ -84,8 +84,7 @@ function vars(mode: ThemeMode): Record<string, string> {
     "--accent-subtle": c["accent-wash"],
     // 图表主系列色（token `data-primary`）。**不跟随 accent 单色化**：
     // accent 深色下是近黑，近黑折线画在卡片上 1.01:1，线还在但数据看不见。
-    // 用户 2026-09-23 拍板「图表另用一个颜色，保留原来的蓝紫」，Flutter 侧
-    // 当天已落地（`ChartPalette.primary` 读 dataPrimary），这里是补齐 React 侧。
+    // 用户 2026-09-23 拍板「图表另用一个颜色，保留原来的蓝紫」    // 当天已落地（`ChartPalette.primary` 读 dataPrimary），这里是补齐 React 侧。
     "--data-primary": c["data-primary"],
     "--input": c["line-strong"],
     // 焦点环 = 主色带透明度，token 表里就是 live-edge（活着的格子的边）。
