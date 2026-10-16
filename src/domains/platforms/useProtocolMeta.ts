@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import type { Protocol } from "../../services/api";
+import type { ClientType, Protocol } from "../../services/api";
 import {
+  buildClientTypesFromPresets,
   getDefaultModels,
   getDefaultPeak,
   getProtocolColorMap,
@@ -106,4 +107,63 @@ export function useProtocolMeta(
   }, [protocol, extra, lang]);
 
   return meta;
+}
+
+/** useProtocolLabelMap — labelMap-only 维度共享 hook（票 11）。
+ *  消费点：GroupCreateModal / GroupEditPanel / ModelInfoTab / usePlatformForm /
+ *  Sub2ApiImport / SearchableProtocolSelect / PlatformEditForm / PlatformListView。
+ *  统一策略：首渲染 {}（调用方 fallback key / p.label）；cancelled flag 清理；
+ *  lang 变化重拉（docPromise 单次 RPC，无新增缓存层）。lang 省略 = 非本地化
+ *  （getProtocolLabelMap 内部默认 locale），沿用原 usePlatformForm 的 [] 依赖行为。 */
+export function useProtocolLabelMap(lang?: string): Record<string, string> {
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolLabelMap(lang).then(m => { if (!cancelled) setLabelMap(m); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lang]);
+  return labelMap;
+}
+
+/** useProtocolColorMap — colorMap-only 维度共享 hook（票 11）。
+ *  消费点：ProtocolLogo / PlatformListView / PlatformEditForm。
+ *  首渲染 {}（调用方 fallback var(--accent)）；无 locale 维度（color 与语言无关）。 */
+export function useProtocolColorMap(): Partial<Record<string, string>> {
+  const [colorMap, setColorMap] = useState<Partial<Record<string, string>>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolColorMap().then(m => { if (!cancelled) setColorMap(m); });
+    return () => { cancelled = true; };
+  }, []);
+  return colorMap;
+}
+
+/** useProtocolLabel — 单协议 label 维度共享 hook（票 11）。
+ *  消费点：SmartPasteModal / ModelTestPanel / Logs/DetailPanel（source+target 各一）。
+ *  首渲染 ""；protocol 为空（详情未选 / share 关闭）→ 置 ""。 */
+export function useProtocolLabel(protocol: Protocol | undefined, lang: string): string {
+  const [label, setLabel] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    if (!protocol) { setLabel(""); return; }
+    getProtocolLabel(protocol, lang).then(l => { if (!cancelled) setLabel(l); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [protocol, lang]);
+  return label;
+}
+
+/** useClientTypeOptions — clientTypeOptions 维度共享 hook（票 11）。
+ *  消费点：formSectionsEndpoints。首渲染 []（下拉空不崩）；best-effort catch
+ *  保空列表；lang 变化重拉。 */
+export function useClientTypeOptions(lang: string): Array<{ value: ClientType; group: string; label: string }> {
+  const [options, setOptions] = useState<Array<{ value: ClientType; group: string; label: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    buildClientTypesFromPresets(lang).then(list => { if (!cancelled) setOptions(list); })
+      .catch(() => { /* best-effort，空列表保下拉不崩 */ });
+    return () => { cancelled = true; };
+  }, [lang]);
+  return options;
 }

@@ -1,8 +1,7 @@
 import type { TFunction } from "i18next";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, RoutingMode } from "../../services/api";
-import { getProtocolLabelMap } from "../../domains/platforms";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, PlatformPicker } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -32,13 +31,8 @@ export function GroupCreateModal({
 }: GroupCreateModalProps) {
   const createPlatformOptions = platforms.filter(p => p.enabled);
   const { i18n } = useTranslation();
-  // 协议 label 全表（一次 RPC，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
-    return () => { cancelled = true; };
-  }, [i18n.language]);
+  // 协议 label 全表（共享 hook：首帧 {}，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
+  const labelMap = useProtocolLabelMap(i18n.language);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}
