@@ -307,6 +307,13 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const handleProtocolChange = async (newProtocol: Protocol, newCodingPlan?: boolean) => {
     const cp = !!newCodingPlan;
+    const repairingUnknown = editing?.platform_type === "unknown";
+    // 未知协议修复只替换协议，保留用户已有配置；正常切换仍按原逻辑填充默认值。
+    if (repairingUnknown) {
+      setProtocol(newProtocol);
+      setCodingPlan(cp);
+      return;
+    }
     // DEFAULT_NAMES 运行时并入 protocolLabelMap value 集合（覆盖 60+ platform JSON name）
     // + 静态 5 请求格式协议 label；任一命中视为「name 仍是协议默认名 → 切协议时自动覆盖」。
     const label = protocolLabelMap[newProtocol] || PROTOCOL_LABELS[newProtocol] || newProtocol;
@@ -657,6 +664,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
    *  保证批量创建的每个平台与表单配置完全一致（仅 token 不同），而非各用默认配置。
    *  update 路径也复用（api_key 由 caller 覆盖；auto_group 仅 create 语义）。 */
   const buildSharedCreateFields = () => {
+    if (protocol === "unknown") {
+      throw new Error(t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存"));
+    }
     const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
     const availablePayload = availableModels.length > 0 ? availableModels : undefined;
     const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
@@ -739,6 +749,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const handleSave = async () => {
     setSaveError("");
+    if (protocol === "unknown") {
+      const message = t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存");
+      setSaveError(message);
+      setToast({ text: message, ok: false });
+      return;
+    }
     // 多 key 预览态：右上角创建按钮直接批量创建（预览卡只读展示，无独立确认按钮）。
     if (batchPreviewKeys && batchPreviewKeys.length > 1) {
       await confirmBatchCreate();
