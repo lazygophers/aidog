@@ -150,6 +150,26 @@ export function Settings() {
     setConfig((prev) => updateConfigField(prev, field, value));
   }, []);
 
+  const handleModeChange = (nextMode: "json" | "gui") => {
+    if (nextMode === mode) return;
+    if (nextMode === "json") {
+      setEditJson(JSON.stringify(config, null, 2));
+      setSaveError("");
+      setMode(nextMode);
+      return;
+    }
+    try {
+      const value = JSON.parse(editJson);
+      if (!value || typeof value !== "object" || Array.isArray(value)) return;
+      setConfig(value);
+      setSaveError("");
+      setMode(nextMode);
+    } catch {
+      // Keep invalid JSON draft visible and dirty until it is fixed.
+      return;
+    }
+  };
+
   const handleSave = useCallback(async (): Promise<boolean> => {
     setSaving(true);
     setSaveError("");
@@ -467,10 +487,7 @@ export function Settings() {
         <>
           <SettingsHeader
             mode={mode}
-            onModeChange={(m) => {
-              if (m === "json") setEditJson(JSON.stringify(config, null, 2));
-              setMode(m);
-            }}
+            onModeChange={handleModeChange}
             search={searchQuery}
             onSearchChange={setSearchQuery}
             onLoadRecommended={handleLoadRecommended}
@@ -491,10 +508,7 @@ export function Settings() {
         <div ref={scrollRef} style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
           <SettingsHeader
             mode={mode}
-            onModeChange={(m) => {
-              if (m === "json") setEditJson(JSON.stringify(config, null, 2));
-              setMode(m);
-            }}
+            onModeChange={handleModeChange}
             search={searchQuery}
             onSearchChange={setSearchQuery}
             onLoadRecommended={handleLoadRecommended}
