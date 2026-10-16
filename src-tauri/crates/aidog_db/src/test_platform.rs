@@ -314,7 +314,8 @@ async fn create_materializes_first_variant() {
     input.platform_type = Protocol::Glm;
     input.extra = String::new();
     let created = create_platform(&db, input).await.unwrap();
-    let first = registry::quota_scripts_in(registry::presets(), "glm")[0]
+    let first = registry::quota_scripts_in(registry::presets(), "glm")
+        .unwrap_or_default()[0]
         .script
         .clone();
     assert_eq!(created.quota_script, first, "创建即物化首条变体（零配置）");

@@ -135,6 +135,31 @@ pub fn effective_presets() -> Arc<Value> {
     }
 }
 
+/// registry 条目读取结果：区分「没配置」与「配置坏了」（票 14）。
+/// `Absent` = 条目 / 字段不存在（正常空态）；`Corrupt` = 存在但解析失败——读取点已
+/// `tracing::error!` 记协议 code 与原始错误；`Found` = 解析成功。
+/// UI 通道现状：远程同步坏行走既有 `SyncStatusCard`（PriceSyncResult.failures）；
+/// 读取点解析失败无现成 UI 通道，按票面回落「结构化日志 + 返回值可辨」。
+#[derive(Debug, Clone, PartialEq)]
+pub enum RegistryLookup<T> {
+    Absent,
+    Corrupt(String),
+    Found(T),
+}
+
+impl<T> RegistryLookup<T> {
+    /// 旧「失败返空」语义的兼容读取：调用方不区分时按空值继续（Corrupt 已记 error 日志）。
+    pub fn unwrap_or_default(self) -> T
+    where
+        T: Default,
+    {
+        match self {
+            RegistryLookup::Found(v) => v,
+            _ => T::default(),
+        }
+    }
+}
+
 /// 用 per-platform JSON 文本组装 presets 文档（`{last_updated, protocols}`）。
 /// bundled（[`presets`]）与 DB 同步后的 `platform_preset` 行共用这一处形状定义。
 /// 单份文本解析失败 → 该协议整体跳过（DB 里的脏行不该炸掉整个文档）。
@@ -164,28 +189,35 @@ pub fn presets_json() -> &'static str {
 
 /// 按 protocol 名（serde rename 裸名）查 registry 默认端点。
 /// 厂商直连平台（`Protocol::endpoints_locked()`）保存时强制用此值，忽略用户传入。
-/// protocol 缺失 / 无 endpoints 字段 / 解析失败 → 空 Vec。
+/// protocol 缺失 / 无 endpoints 字段 → `Absent`；字段存在但解析失败 → `Corrupt`
+/// （已记 `tracing::error!`）。
 ///
 /// 读 [`effective_presets`]（DB 同步值优先）：否则平台保存会把刚同步下来的新 `base_url`
 /// 重置回二进制内置的旧值。
 pub fn default_endpoints(protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
-    endpoints_in(&effective_presets(), protocol)
+    endpoints_in(&effective_presets(), protocol).unwrap_or_default()
 }
 
 /// [`default_endpoints`] 的纯函数核心：从任意一篇 presets 文档取某协议的默认端点。
-pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformEndpoint> {
+pub fn endpoints_in(
+    doc: &Value,
+    protocol: &str,
+) -> RegistryLookup<Vec<crate::models::PlatformEndpoint>> {
     let Some(arr) = doc
         .get("protocols")
         .and_then(|p| p.get(protocol))
         .and_then(|e| e.get("endpoints"))
         .and_then(|e| e.get("default"))
     else {
-        return Vec::new();
+        return RegistryLookup::Absent;
     };
-    let raw: Vec<Value> = serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, protocol, "registry endpoints parse failed; empty");
-        Vec::new()
-    });
+    let raw: Vec<Value> = match serde_json::from_value(arr.clone()) {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::error!(error = %e, protocol, "registry endpoints 配置损坏：解析失败");
+            return RegistryLookup::Corrupt(e.to_string());
+        }
+    };
     // registry JSON 已不存冗余 client_type：缺省按 endpoint protocol 派生（仅例外平台
     // 显式标注，如官方 claude_code 直连端点标 default 不模拟）。不补的话 serde default
     // 会落 "default"，厂商直连锁定端点丢失模拟客户端（headers / user_agent）行为。
@@ -203,9 +235,9 @@ pub fn endpoints_in(doc: &Value, protocol: &str) -> Vec<crate::models::PlatformE
             e
         })
         .collect();
-    serde_json::from_value(Value::Array(filled)).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, protocol, "registry endpoints parse failed; empty");
-        Vec::new()
+    serde_json::from_value(Value::Array(filled)).map(RegistryLookup::Found).unwrap_or_else(|e| {
+        tracing::error!(error = %e, protocol, "registry endpoints 配置损坏：解析失败");
+        RegistryLookup::Corrupt(e.to_string())
     })
 }
 
@@ -302,36 +334,42 @@ pub struct QuotaScriptVariant {
 }
 
 /// 解析一份 platform.json 文本顶层的 `quota_scripts`。
-/// 无该字段 / 单份解析失败 → warn 后返回空 Vec（与 [`endpoints_in`] 同 idiom：
-/// DB 里远程同步来的脏行不该炸掉调用方）。运行时读取应取自 [`effective_presets`]
+/// 无该字段 → `Absent`；外层 JSON / 字段形状解析失败 → `Corrupt`（已记
+/// `tracing::error!`；与 [`endpoints_in`] 同 idiom：DB 里远程同步来的脏行
+/// 不该炸掉调用方）。运行时读取应取自 [`effective_presets`]
 /// 生效文档（DB 同步值优先），禁直读 bundled。
-pub fn parse_quota_scripts(platform_json: &str) -> Vec<QuotaScriptVariant> {
+pub fn parse_quota_scripts(platform_json: &str) -> RegistryLookup<Vec<QuotaScriptVariant>> {
     let Ok(map) = serde_json::from_str::<Map<String, Value>>(platform_json) else {
-        return Vec::new();
+        return RegistryLookup::Corrupt("platform.json 非 JSON 对象".into());
     };
     let Some(arr) = map.get("quota_scripts") else {
-        return Vec::new();
+        return RegistryLookup::Absent;
     };
-    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, "registry quota_scripts parse failed; empty");
-        Vec::new()
-    })
+    serde_json::from_value(arr.clone())
+        .map(RegistryLookup::Found)
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, "registry quota_scripts 配置损坏：解析失败");
+            RegistryLookup::Corrupt(e.to_string())
+        })
 }
 
 /// 从任意一篇 presets 文档取某协议的 quota 脚本变体列表（[`endpoints_in`] 同 idiom：
-/// 无该字段 / 解析失败 → 空 Vec）。运行时读取应取自 [`effective_presets`]（DB 同步值优先）。
-pub fn quota_scripts_in(doc: &Value, protocol: &str) -> Vec<QuotaScriptVariant> {
+/// 无该字段 → `Absent`，解析失败 → `Corrupt`）。运行时读取应取自
+/// [`effective_presets`]（DB 同步值优先）。
+pub fn quota_scripts_in(doc: &Value, protocol: &str) -> RegistryLookup<Vec<QuotaScriptVariant>> {
     let Some(arr) = doc
         .get("protocols")
         .and_then(|p| p.get(protocol))
         .and_then(|e| e.get("quota_scripts"))
     else {
-        return Vec::new();
+        return RegistryLookup::Absent;
     };
-    serde_json::from_value(arr.clone()).unwrap_or_else(|e| {
-        tracing::warn!(error = %e, protocol, "registry quota_scripts parse failed; empty");
-        Vec::new()
-    })
+    serde_json::from_value(arr.clone())
+        .map(RegistryLookup::Found)
+        .unwrap_or_else(|e| {
+            tracing::error!(error = %e, protocol, "registry quota_scripts 配置损坏：解析失败");
+            RegistryLookup::Corrupt(e.to_string())
+        })
 }
 
 /// 变体选中语义（spec「变体选择」）：`quota_script_id` 命中取该条；缺省 / id 失效
@@ -398,7 +436,7 @@ pub fn resolve_quota_script(
     {
         return Some(custom);
     }
-    let variants = quota_scripts_in(&effective_presets(), protocol);
+    let variants = quota_scripts_in(&effective_presets(), protocol).unwrap_or_default();
     let id = extra_str_key(extra_json, "quota_script_id");
     select_quota_variant(&variants, id.as_deref()).map(|v| v.script.clone())
 }
@@ -425,7 +463,7 @@ pub fn materialize_quota_script(
     if id.is_none() && !current.is_empty() && !type_changed {
         return current.to_string();
     }
-    let variants = quota_scripts_in(&effective_presets(), protocol);
+    let variants = quota_scripts_in(&effective_presets(), protocol).unwrap_or_default();
     select_quota_variant(&variants, id.as_deref())
         .map(|v| v.script.clone())
         .unwrap_or_default()
