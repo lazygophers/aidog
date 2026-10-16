@@ -3,6 +3,22 @@ use super::*;
 /// 单次候选 forward 尝试的控制结果：Respond=已确定响应直接返回客户端；Next=换下个候选重试。
 /// Next.connect_failed：本次尝试的终态错误是否为连接建立失败（reqwest is_connect）——
 /// handler 用它做同 base_url 兄弟条目联动跳过（routing-health-optim R3，2026-09-28）。
+/// 阶段函数的退出契约。阶段只表达“换候选”或“终态响应”，
+/// 不把外层 forward_attempt 的结果类型泄漏进阶段。
+enum StageExit {
+    Retry { connect_failed: bool },
+    Respond(axum::response::Response),
+}
+
+impl From<StageExit> for AttemptOutcome {
+    fn from(exit: StageExit) -> Self {
+        match exit {
+            StageExit::Retry { connect_failed } => Self::Next { connect_failed },
+            StageExit::Respond(response) => Self::Respond(response),
+        }
+    }
+}
+
 pub(crate) enum AttemptOutcome {
     Respond(axum::response::Response),
     Next { connect_failed: bool },
@@ -59,7 +75,7 @@ pub(crate) async fn forward_attempt(
         .await
         {
             Ok(v) => v,
-            Err(o) => return o,
+            Err(o) => return o.into(),
         };
     let target_protocol = target_protocol_enum.wire_str();
     let needs_model_remap = actual_model != requested_model;
@@ -108,7 +124,7 @@ pub(crate) async fn forward_attempt(
         .await
         {
             Ok(v) => v,
-            Err(o) => return o,
+            Err(o) => return o.into(),
         };
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
@@ -139,7 +155,7 @@ pub(crate) async fn forward_attempt(
         .await
         {
             Ok(v) => v,
-            Err(o) => return o,
+            Err(o) => return o.into(),
         };
 
 
@@ -2249,7 +2265,7 @@ async fn select_endpoint_target<'a>(
     start: std::time::Instant,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
-) -> Result<TargetSel<'a>, AttemptOutcome> {
+) -> Result<TargetSel<'a>, StageExit> {
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点。
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
     // （普通 chat/completions 平台），出站经 to_openai 转换。
@@ -2347,7 +2363,7 @@ async fn select_endpoint_target<'a>(
                 )),
             )
             .await;
-            return Err(AttemptOutcome::Next {
+            return Err(StageExit::Retry {
                 connect_failed: false,
             });
         }
@@ -2356,7 +2372,7 @@ async fn select_endpoint_target<'a>(
             "{}: endpoint selection failed (no valid wire protocol)",
             i18n::t(lang, ErrorKey::Upstream)
         );
-        return Err(AttemptOutcome::Respond(
+        return Err(StageExit::Respond(
             finalize_proxy_502(
                 state,
                 log,
@@ -2396,12 +2412,12 @@ async fn select_endpoint_target<'a>(
         )
         .await;
         if !is_last_candidate {
-            return Err(AttemptOutcome::Next {
+            return Err(StageExit::Retry {
                 connect_failed: false,
             });
         }
         let msg = format!("{}: base_url 缺失", i18n::t(lang, ErrorKey::Upstream));
-        return Err(AttemptOutcome::Respond(
+        return Err(StageExit::Respond(
             finalize_proxy_502(
                 state,
                 log,
@@ -2471,7 +2487,7 @@ async fn prepare_outbound(
     same_protocol_passthrough: bool,
     target_protocol: &str,
     disable_thinking: bool,
-) -> Result<Prepared, AttemptOutcome> {
+) -> Result<Prepared, StageExit> {
     // ── max_tokens 出站裁剪（convert_request 前）──
     // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
     // 此处裁 chat_req（转换分支的入参，同时是 token 估算口径）；出站 body 上的同上限复裁
@@ -2531,7 +2547,7 @@ async fn prepare_outbound(
                 blocked_reason,
             } => {
                 log.platform_id = route.platform.id;
-                return Err(AttemptOutcome::Respond(
+                return Err(StageExit::Respond(
                     block_inbound(
                         state,
                         log.clone(),
@@ -2570,7 +2586,7 @@ async fn prepare_outbound(
             .await
         {
             log.platform_id = route.platform.id;
-            return Err(AttemptOutcome::Respond(
+            return Err(StageExit::Respond(
                 block_inbound(
                     state,
                     log.clone(),
@@ -2633,7 +2649,7 @@ async fn prepare_outbound(
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(attempts);
         upsert_log(state, log, log_settings).await;
-        return Err(AttemptOutcome::Respond({
+        return Err(StageExit::Respond({
             let mut r = (
                 StatusCode::PAYMENT_REQUIRED,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -2864,7 +2880,7 @@ async fn send_upstream(
     start: std::time::Instant,
     log_settings: &ProxyLogSettings,
     sched_settings: &super::models::SchedulingBreakerSettings,
-) -> Result<(reqwest::Response, super::scheduling::BreakerThresholds), AttemptOutcome> {
+) -> Result<(reqwest::Response, super::scheduling::BreakerThresholds), StageExit> {
     // ── 解析超时：模型 > 分组 > 系统 ──（system_timeout + proxy_client 一次缓存借齐）
     let (system_timeout, proxy_client) = {
         let c = state.settings_cache.read().await;
@@ -3067,12 +3083,12 @@ async fn send_upstream(
                 )
                 .await;
                 if !is_last_candidate {
-                    return Err(AttemptOutcome::Next {
+                    return Err(StageExit::Retry {
                         connect_failed: e.is_connect(),
                     });
                 }
                 let msg = format!("{}: {detail}", i18n::t(lang, ErrorKey::Upstream));
-                return Err(AttemptOutcome::Respond(
+                return Err(StageExit::Respond(
                     finalize_proxy_502(
                         state,
                         log,
