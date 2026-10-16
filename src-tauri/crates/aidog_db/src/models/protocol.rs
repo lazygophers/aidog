@@ -224,6 +224,13 @@ pub enum Protocol {
     /// preset endpoints 为空（无标准 wire endpoint），models 5 档虚拟映射 devin-normal/fast/lite/ultra/fusion。
     #[serde(rename = "devin")]
     Devin,
+    /// 未知协议（票 architecture-deepening 06，用户裁决 2026-10-16）：DB `platform_type` 落了
+    /// 枚举外的值（降级读新数据 / 脏数据 / 手工 SQL）时的显式标记，取代旧「warn 回落 Anthropic」
+    /// ——静默回落会把平台路由到错误 wire 格式且不可辨。不参与路由（candidates.rs 排除，
+    /// 整组皆未知 → Err("unknown_protocol")，proxy_log blocked_reason='unknown_protocol'），
+    /// est_cost 恒 0（billing.rs 照 passthrough 先例）。正常写入路径永不产生 "unknown"。
+    #[serde(rename = "unknown")]
+    Unknown,
 }
 
 impl Protocol {
@@ -246,21 +253,18 @@ impl Protocol {
     /// 耗尽 → 路由 `get_group_platforms` 失败 → 全部代理请求 400 "route error: ConnectionClosed"
     /// （2026-08-28 现场：DB 存了裸 `minimax_coding`，整池死，UI + 转发同时瘫）。
     ///
-    /// 无法识别的值（枚举里没有的协议名，如降级到旧版本读新版本写的数据）回落 `Anthropic`
-    /// 并打 warn：平台可能路由到错误 wire 格式，但服务存活、日志可定位，好过整池崩。
+    /// 无法识别的值（枚举里没有的协议名，如降级到旧版本读新版本写的数据）解析为
+    /// `Protocol::Unknown`（票 06，用户裁决 2026-10-16，取代旧「回落 Anthropic」）：
+    /// 未知协议平台不参与路由、不计价，`row_to_platform` 落结构化 warn 引导用户重选平台类型。
+    /// serde 词表内的 `"unknown"` 字面量同样解析为 `Unknown`（DB 手写该值语义一致）。
+    /// 本函数不 panic、不打日志（日志由唯一 caller `row_to_platform` 带平台上下文打）。
     pub fn from_db_str(raw: &str) -> Protocol {
         if let Ok(p) = serde_json::from_str::<Protocol>(raw) {
             return p;
         }
         let bare = raw.trim().trim_matches('"');
-        if let Ok(p) = serde_json::from_str::<Protocol>(&format!("\"{bare}\"")) {
-            return p;
-        }
-        tracing::warn!(
-            raw = %raw,
-            "unknown platform_type in DB, falling back to anthropic"
-        );
-        Protocol::Anthropic
+        serde_json::from_str::<Protocol>(&format!("\"{bare}\""))
+            .unwrap_or(Protocol::Unknown)
     }
 
     /// 判定两个协议是否属于同一「wire family」（可互相跳过响应转换 / 共用错误体与 SSE 渲染）。
@@ -470,15 +474,19 @@ mod test_from_db_str {
         assert_eq!(Protocol::from_db_str(" newapi "), Protocol::NewApi);
     }
 
-    /// 未知值回落 Anthropic 且不 panic（降级运行 / 未来新协议读旧版本）。
+    /// 未知值解析为显式 `Unknown` 且不 panic（票 06：取代旧「回落 Anthropic」——
+    /// 静默回落会把平台路由到错误 wire 格式；Unknown 不参与路由、不计价）。
     #[test]
-    fn unknown_falls_back_without_panic() {
+    fn unknown_parses_to_unknown_variant() {
         assert_eq!(
             Protocol::from_db_str("no_such_protocol"),
-            Protocol::Anthropic
+            Protocol::Unknown
         );
-        assert_eq!(Protocol::from_db_str(""), Protocol::Anthropic);
-        assert_eq!(Protocol::from_db_str("{\"a\":1}"), Protocol::Anthropic);
+        assert_eq!(Protocol::from_db_str(""), Protocol::Unknown);
+        assert_eq!(Protocol::from_db_str("{\"a\":1}"), Protocol::Unknown);
+        // 词表内 "unknown" 字面量同义（serde 直达，非 fallback 路径）
+        assert_eq!(Protocol::from_db_str("\"unknown\""), Protocol::Unknown);
+        assert_eq!(Protocol::from_db_str("unknown"), Protocol::Unknown);
     }
 }
 

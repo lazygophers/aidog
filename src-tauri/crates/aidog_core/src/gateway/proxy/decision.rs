@@ -26,6 +26,7 @@ pub(crate) fn kind_route_error_message(e: &str) -> String {
 
 /// 按请求类型 route fail 落库（R7，聊天 / 决策两路径共用）：`blocked_by='router'`、`est_cost=0`。
 /// - `peak_disabled`（整组被高峰禁用排除）→ 503 + `blocked_reason='peak'`；
+/// - `unknown_protocol`（整组候选皆未知协议，票 06）→ 503 + `blocked_reason='unknown_protocol'`；
 /// - 其余（`no_decision_platform` / `no_chat_platform` …）→ 400 + `blocked_reason`=Err 字符串。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn route_fail_response(
@@ -40,6 +41,15 @@ pub(crate) async fn route_fail_response(
     log.done = true;
     let (status, client_msg) = if err == "peak_disabled" {
         log.blocked_reason = "peak".to_string();
+        log.response_body = format!("route error: {err}");
+        (
+            StatusCode::SERVICE_UNAVAILABLE,
+            format!("{}: {err}", i18n::t(lang, ErrorKey::Route)),
+        )
+    } else if err == "unknown_protocol" {
+        // 整组候选皆未知协议（票 06，用户裁决 2026-10-16）：DB 数据条件而非客户端错误 → 503，
+        // est_cost 0 不计价（billing.rs 对 "unknown" 同 passthrough 先例短路）。
+        log.blocked_reason = "unknown_protocol".to_string();
         log.response_body = format!("route error: {err}");
         (
             StatusCode::SERVICE_UNAVAILABLE,

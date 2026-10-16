@@ -567,8 +567,9 @@ fn materialize_quota_script_rules() {
 }
 
 /// 🔴 新平台守门（2026-10-02 补，commandcode 漏枚举复盘）：registry 每个平台 code 必须能被
-/// `Protocol` 枚举 serde 解析。漏加变体 → `Protocol::from_db_str` 静默回落 Anthropic（仅 warn 日志），
-/// UI 平台类型名显示错、平台类型派生全错，而 check-registry / cargo build 全绿发现不了。
+/// `Protocol` 枚举 serde 解析。漏加变体 → `Protocol::from_db_str` 解析为 `Protocol::Unknown`
+/// （票 06，2026-10-16 起取代旧「静默回落 Anthropic」）：UI 平台类型名错、平台类型派生全错、
+/// 该平台被路由排除，而 check-registry / cargo build 全绿发现不了。
 /// 修法：`models/protocol.rs` 加 `#[serde(rename = "<code>")]` 变体，
 /// 并在 `src/services/api/types/manual.ts` Protocol 联合类型加同名字面量（双写逐字一致）。
 /// 2026-10-02 已补齐存量缺口（litellm / meta / mistral / xai 升正式平台时漏加枚举）。
