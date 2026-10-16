@@ -43,7 +43,9 @@ pub async fn calc_est_cost(
     // 透传平台 est_cost 恒 0（ADR 0008 决策 1）：不查 registry 价格，也不走 fallback
     // 单价——对完全未知上游套 3.0 $/M 是编造数据，假账比没账更误导统计。
     // log.rs 的 est_cost==0 重算路径对本分支无害：重算仍走这里返 0，单次调用无循环。
-    if platform_type == "passthrough" {
+    // 未知协议（票 architecture-deepening 06，用户裁决 2026-10-16）同样不计价（照 passthrough
+    // 先例）：此类平台不参与路由（正常路径不会到达计价），历史行 / 边角重算落到这里也保 0。
+    if platform_type == "passthrough" || platform_type == "unknown" {
         return 0.0;
     }
 
@@ -152,6 +154,21 @@ mod tests {
         assert!(
             other > 0.0,
             "non-passthrough unknown model falls back to default price, got {other}"
+        );
+    }
+
+    /// 未知协议（票 architecture-deepening 06，用户裁决 2026-10-16）：est_cost 恒 0，
+    /// 照 passthrough 先例——未知协议无 registry 条目，套 fallback 单价是编造数据。
+    #[tokio::test]
+    async fn unknown_protocol_est_cost_always_zero() {
+        use aidog_stats::DbInitTables;
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+
+        let cost = calc_est_cost(&db, "any-model", "unknown", 1000, 2000, 0, 0, 1, 1).await;
+        assert_eq!(
+            cost, 0.0,
+            "unknown protocol must short-circuit to 0 before fallback"
         );
     }
 

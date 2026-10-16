@@ -315,7 +315,8 @@ export const PlatformCard = memo(function PlatformCard({
                   </div>
                 )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                  {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
+                  {p.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
                 {p.status === "auto_disabled" && (
                   <div

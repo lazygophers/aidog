@@ -46,7 +46,11 @@ export type Protocol =
   // ── Devin（Cognition）：特殊平台，接入走 handler.rs 平台分支不经 wire 协议层，preset 无标准 endpoint ──
   | "devin"
   // ── 测试 ──
-  | "mock";
+  | "mock"
+  // ── 未知协议（票 architecture-deepening 06）：DB platform_type 枚举外值的显式标记（Rust
+  //    Protocol::Unknown 对称）；正常写入路径不产生，仅读 DB 脏行 / 降级读新数据时出现，
+  //    不参与路由、不计价，UI 显示「未知协议」──
+  | "unknown";
 
 /** 路由 / 调度策略。
  *  load_balance: 加权随机；failover: priority 升序；

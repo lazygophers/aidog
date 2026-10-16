@@ -541,9 +541,10 @@ pub(crate) async fn handle_proxy_core(
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
+            // 整组候选皆未知协议（票 06）→ 同样落审计（blocked_reason='unknown_protocol', 503）。
             // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
-            if e == "no_chat_platform" || e == "peak_disabled" {
+            if e == "no_chat_platform" || e == "peak_disabled" || e == "unknown_protocol" {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
             log.response_body = format!("route error: {e}");

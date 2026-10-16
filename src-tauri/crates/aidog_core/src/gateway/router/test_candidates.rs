@@ -429,6 +429,112 @@ async fn multi_platform_partial_peak_disabled_skipped() {
     );
 }
 
+/// 票 06：把 platform.platform_type 直写为枚举外值（模拟降级读新数据 / 脏数据）。
+/// UpdatePlatform.platform_type 是 Option<Protocol> 走不了 API，只能 raw SQL。
+async fn set_unknown_platform_type(target_db: &db::Db, id: u64) {
+    target_db
+        .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "UPDATE platform SET platform_type='no_such_protocol' WHERE id=?1",
+                rusqlite::params![id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .expect("set unknown platform_type");
+    target_db.invalidate_group_details_cache();
+}
+
+/// 单平台分组：唯一平台协议未知（DB 枚举外值 → Protocol::Unknown）→ Err("unknown_protocol")，
+/// 不 bypass（照 peak_disabled 先例，caller 落 proxy_log blocked_reason='unknown_protocol'）。
+#[tokio::test]
+async fn single_platform_unknown_protocol_errs() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "p").await;
+    set_unknown_platform_type(&db, p.id).await;
+    let g = mk_db_group(&db, "solo-unknown", &[p.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let res =
+        select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
+    assert!(res.is_err(), "unknown-protocol sole platform must Err");
+    if let Err(e) = res {
+        assert_eq!(
+            e, "unknown_protocol",
+            "expected unknown_protocol error, got: {e}"
+        );
+    }
+}
+
+/// 多平台分组：所有候选协议未知 → 返 Err("unknown_protocol")（区别于普通 NoCandidate）。
+#[tokio::test]
+async fn multi_platform_all_unknown_protocol_errs() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "p1").await;
+    let p2 = mk_db_platform(&db, "p2").await;
+    set_unknown_platform_type(&db, p1.id).await;
+    set_unknown_platform_type(&db, p2.id).await;
+    let g = mk_db_group(&db, "multi-unknown", &[p1.id, p2.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let res =
+        select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat).await;
+    assert!(res.is_err(), "all unknown-protocol must Err");
+    if let Err(e) = res {
+        assert_eq!(
+            e, "unknown_protocol",
+            "expected unknown_protocol error, got: {e}"
+        );
+    }
+}
+
+/// 多平台分组：仅部分候选协议未知 → 被排除，其他候选正常纳入（不影响）。
+#[tokio::test]
+async fn multi_platform_partial_unknown_protocol_skipped() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "p1").await; // 协议未知
+    let p2 = mk_db_platform(&db, "p2").await; // 正常
+    set_unknown_platform_type(&db, p1.id).await;
+    let g = mk_db_group(&db, "multi-partial-unknown", &[p1.id, p2.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("partial unknown-protocol: must still have p2 candidate");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(
+        set.candidates[0].platform.id, p2.id,
+        "only p2 (known protocol) remains"
+    );
+}
+
 /// 空平台分组 → Err("group has no platforms").
 #[tokio::test]
 async fn empty_group_returns_err() {

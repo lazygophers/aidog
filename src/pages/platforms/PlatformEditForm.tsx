@@ -119,7 +119,10 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             {editing ? editing.name : t("platform.add")}
           </div>
           {editing && (
-            <div className="section-desc">{labelMap[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
+            <div className="section-desc">
+              {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
+              {editing.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : labelMap[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}
+            </div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>

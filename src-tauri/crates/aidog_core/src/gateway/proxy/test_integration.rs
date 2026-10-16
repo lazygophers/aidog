@@ -3083,3 +3083,39 @@ async fn chat_peak_disabled_503_and_audit_log() {
     assert_eq!(log.blocked_by, "router");
     assert_eq!(log.blocked_reason, "peak");
 }
+
+/// 票 06（用户裁决 2026-10-16）：分组平台 platform_type 为枚举外值（协议未知）→
+/// 503 + proxy_log blocked_by='router', blocked_reason='unknown_protocol', est_cost=0。
+/// DB 直写脏值模拟降级读新数据（UpdatePlatform API 走 Option<Protocol>，写不进枚举外值）。
+#[tokio::test]
+async fn chat_unknown_protocol_503_and_audit_log() {
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkunknown", "https://example.invalid").await;
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        let pid = p.id as i64;
+        state
+            .db
+            .call_platform_traced(None, std::panic::Location::caller(), move |conn| {
+                conn.execute(
+                    "UPDATE platform SET platform_type='no_such_protocol' WHERE id=?1",
+                    rusqlite::params![pid],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+    }
+    state.db.invalidate_group_details_cache();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkunknown", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkunknown").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "unknown_protocol");
+    assert_eq!(log.est_cost, 0.0, "unknown protocol must not be priced");
+}
