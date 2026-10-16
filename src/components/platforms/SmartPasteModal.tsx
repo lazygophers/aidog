@@ -12,7 +12,7 @@ import {
   type ParsedProtocol,
 } from "../../utils/platformPaste";
 import { platformApi, type SharePlatform } from "../../services/api";
-import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import { formatDateTime } from "../../utils/formatters";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -69,7 +69,8 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
   const [share, setShare] = useState<SharePlatform | null>(null);
-  const [protocolLabel, setProtocolLabel] = useState("");
+  // 协议本地化 label（共享 hook：首帧 ""，locale / platform_type 变化重取）
+  const protocolLabel = useProtocolLabel(share?.platform_type, i18n.language);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,17 +122,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (!share?.platform_type) return;
-      const label = await getProtocolLabel(share.platform_type, i18n.language);
-      if (!cancelled) setProtocolLabel(label);
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [i18n.language, share?.platform_type]);
 
   useEffect(() => {
     const byProto = new Map<ParsedProtocol, string>();

@@ -17,7 +17,7 @@ import {
   type PriceSyncSettings,
   type Protocol,
 } from "../../services/api";
-import { getProtocolLabelMap } from "../../domains/platforms/defaults";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
 import { F } from "../../domains/shared/tokens";
 import { useReveal } from "../../components/shared";
@@ -64,7 +64,7 @@ const DEFAULT_SYNC_SETTINGS: PriceSyncSettings = {
 export function ModelInfoTab() {
   const { t, i18n } = useTranslation();
   const [snapshot, setSnapshot] = useState<ModelInfoSnapshot | null>(null);
-  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  const labelMap = useProtocolLabelMap(i18n.language);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<PriceSyncResult | null>(null);
@@ -107,11 +107,6 @@ export function ModelInfoTab() {
     priceSyncApi.get().then(setSettings).catch(() => { /* 用默认值 */ });
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
-    return () => { cancelled = true; };
-  }, [i18n.language]);
 
   const groups = useMemo(() => snapshot?.groups ?? [], [snapshot]);
 
