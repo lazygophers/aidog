@@ -7,7 +7,7 @@
 // 行为零变更（纯结构重构）：不改业务逻辑 / i18n key / Tauri command 签名。
 // App.tsx import 路径 `./pages/Platforms` 保持不变。
 import { useRef, useMemo } from "react";
-import type { PlatformCardActions } from "../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformsState } from "./platforms/usePlatformsState";
 import { PlatformEditForm } from "./platforms/PlatformEditForm";
 import { PlatformListView } from "./platforms/PlatformListView";
@@ -66,15 +66,19 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     onPointerUp: () => actionsRef.current.s_handlePlatPointerUp(),
     onToggleExpanded: (id, next) => actionsRef.current.s_toggleExpanded(id, next),
     onRefreshQuota: (p) => actionsRef.current.refreshQuota(p),
+    onDelete: (id) => actionsRef.current.s_handleDelete(id),
+    onFaviconFailed: (id) => actionsRef.current.s_setFaviconFailed(prev => new Set(prev).add(id)),
+  }), []);
+  // 卡片行为服务（票 12）：只吃 platform 的 7 个回调独立成 service 对象，
+  // 同样走 latest-ref 稳定引用，保 PlatformCard memo 生效。
+  const cardService = useMemo<PlatformCardService>(() => ({
     onToggleEnabled: (p) => actionsRef.current.s_handleToggle(p),
     onEdit: (p) => actionsRef.current.s_handleEdit(p),
     onShare: (p) => actionsRef.current.s_handleShare(p),
     onDuplicate: (p) => actionsRef.current.s_handleDuplicate(p),
-    onDelete: (id) => actionsRef.current.s_handleDelete(id),
     onViewLogs: (p) => actionsRef.current.s_handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.s_handleQuickTest(p),
     onCustomTest: (p) => actionsRef.current.s_setTestingPlatform(p),
-    onFaviconFailed: (id) => actionsRef.current.s_setFaviconFailed(prev => new Set(prev).add(id)),
   }), []);
 
   // ── Edit / Add form (full page, no list) ──
@@ -83,5 +87,5 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   }
 
   // ── List view ──
-  return <PlatformListView s={s} cardActions={cardActions} openCreateGroupRef={openCreateGroupRef} />;
+  return <PlatformListView s={s} cardActions={cardActions} cardService={cardService} openCreateGroupRef={openCreateGroupRef} />;
 }
