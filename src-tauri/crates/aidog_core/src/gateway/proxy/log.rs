@@ -353,10 +353,12 @@ pub(crate) async fn process_upsert(
         } else {
             log.actual_model.clone()
         };
-        let platform_type = aidog_db::get_platform(&state.db, log.platform_id)
+        let platform = aidog_db::get_platform(&state.db, log.platform_id)
             .await
             .ok()
-            .flatten()
+            .flatten();
+        let platform_type = platform
+            .as_ref()
             .map(|p| p.platform_type.wire_str())
             .unwrap_or_default();
         Some(
@@ -364,6 +366,7 @@ pub(crate) async fn process_upsert(
                 &state.db,
                 &model_name,
                 &platform_type,
+                platform.as_ref().map_or("", |p| p.extra.as_str()),
                 log.input_tokens,
                 log.output_tokens,
                 log.cache_tokens,

@@ -26,6 +26,7 @@ use aidog_db::Db;
 /// （内部 `get_model_entry`）/ `get_platform` 各自获取并释放 db 锁，不会重入死锁。
 ///
 /// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
+/// `platform_extra` 是已读取的平台行 extra，避免调用方为 peak 再次查询同一行。
 /// 传 `""` 时 override 不命中，但回退链仍保证非 0。`platform_id`=0（自动分组日志无源平台）
 /// / `created_at_ms`=0（缺失）时 peak 不生效（multiplier=1.0）。
 #[allow(clippy::too_many_arguments)]
@@ -33,6 +34,7 @@ pub async fn calc_est_cost(
     db: &Db,
     model_name: &str,
     platform_type: &str,
+    platform_extra: &str,
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
@@ -54,10 +56,7 @@ pub async fn calc_est_cost(
     // peak 窗口：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 空 → multiplier=1.0）。
     // 必须先于价格解析——`is_peak` 决定条目里的 peak 绝对价是否生效。
     let windows = if platform_id > 0 && created_at_ms > 0 {
-        match aidog_db::get_platform(db, platform_id as u64).await {
-            Ok(Some(p)) => super::peak::peak_for(&p.extra, platform_type),
-            _ => super::peak::default_peak(platform_type),
-        }
+        super::peak::peak_for(platform_extra, platform_type)
     } else {
         Vec::new()
     };
@@ -144,13 +143,13 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "passthrough", 1000, 2000, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 1, 1).await;
         assert_eq!(
             cost, 0.0,
             "passthrough platform must short-circuit to 0 before fallback"
         );
         // 非 passthrough 对照：走 fallback 默认价，非 0
-        let other = calc_est_cost(&db, "unknown-model", "anthropic", 1000, 0, 0, 0, 0, 0).await;
+        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0).await;
         assert!(
             other > 0.0,
             "non-passthrough unknown model falls back to default price, got {other}"
@@ -165,7 +164,7 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "unknown", 1000, 2000, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 1, 1).await;
         assert_eq!(
             cost, 0.0,
             "unknown protocol must short-circuit to 0 before fallback"
@@ -253,6 +252,21 @@ mod tests {
         );
         // 3 倍只来自绝对价本身，不是 1e-6 × 3 再 × 3
         assert!((cost - 1000.0 * 3.0e-6).abs() < 1e-12);
+    }
+
+    #[tokio::test]
+    async fn calc_est_cost_uses_supplied_platform_extra() {
+        let _ = tracing_subscriber::fmt().with_env_filter("sql=debug").try_init();
+        use aidog_stats::DbInitTables;
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00 UTC
+        let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":2.0}]}"#;
+        let cost = calc_est_cost(
+            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 1, created_at_ms,
+        )
+        .await;
+        assert!((cost - 0.003 * 2.0).abs() < 1e-12, "cost = {cost}");
     }
 }
 

@@ -148,6 +148,7 @@ pub(crate) async fn handle_mock(
             &state.db,
             &log.actual_model,
             "mock",
+            "",
             log.input_tokens,
             log.output_tokens,
             log.cache_tokens,
