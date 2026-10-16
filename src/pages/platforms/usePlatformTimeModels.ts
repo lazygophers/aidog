@@ -24,11 +24,15 @@ export interface PlatformTimeModelsState {
   serialize: (extra: string) => string;
 }
 
-/** Peak and time-window form state. Extra remains the persistence boundary. */
+/** 高峰与时段模型表单态，统一通过 extra 读写持久化字段。 */
 export function usePlatformTimeModels(): PlatformTimeModelsState {
+  /** peak：用户覆盖，空数组删除键，空值回落 preset 默认。 */
   const [peak, setPeak] = useState<TimeWindow[]>([]);
+  /** 时区只影响表单展示；不写入 platform.extra。 */
   const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
+  /** disable_during_peak：false 删除键，true 写入用户覆盖。 */
   const [disableDuringPeak, setDisableDuringPeak] = useState(false);
+  /** time_windows：空数组删除键，无规则时使用默认模型。 */
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
 
   const reset = () => {
