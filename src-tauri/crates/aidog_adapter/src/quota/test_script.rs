@@ -291,7 +291,7 @@ fn registry_quota_script_parses_and_evaluates() {
     })
     .to_string();
 
-    let variants = aidog_db::registry::parse_quota_scripts(&platform_json);
+    let variants = aidog_db::registry::parse_quota_scripts(&platform_json).unwrap_or_default();
     assert_eq!(variants.len(), 1);
     let v = &variants[0];
     assert_eq!(v.id, "official");

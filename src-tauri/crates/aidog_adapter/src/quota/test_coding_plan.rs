@@ -8,6 +8,7 @@ use aidog_db::registry;
 
 fn script_for(code: &str) -> String {
     registry::quota_scripts_in(registry::presets(), code)
+        .unwrap_or_default()
         .into_iter()
         .next()
         .map(|v| v.script)
