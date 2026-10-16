@@ -54,11 +54,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
-    peak, setPeak, windowsTz, setWindowsTz,
+    timemodels,
     rateLimits, setRateLimits,
-    disableDuringPeak, setDisableDuringPeak,
     mitmStats, setMitmStats,
-    timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     saveError,
@@ -275,8 +273,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
-          rules={timeModels} setRules={setTimeModels} peak={peak}
-          tzMode={windowsTz} setTzMode={setWindowsTz}
+          rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
+          tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           t={t}
         />
         </>
@@ -312,9 +310,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
         {editing && !isPassthrough && !isPassThrough && (
           <PeakSection
-            windows={peak} setWindows={setPeak}
-            tzMode={windowsTz} setTzMode={setWindowsTz}
-            disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
+            windows={timemodels.peak} setWindows={timemodels.setPeak}
+            tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
+            disableDuringPeak={timemodels.disableDuringPeak} setDisableDuringPeak={timemodels.setDisableDuringPeak}
             protocol={protocol}
             themeMode={themeMode}
             t={t}
@@ -335,8 +333,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
-          rules={timeModels} setRules={setTimeModels} peak={peak}
-          tzMode={windowsTz} setTzMode={setWindowsTz}
+          rules={timemodels.timeModels} setRules={timemodels.setTimeModels} peak={timemodels.peak}
+          tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           t={t}
         />
           </>
