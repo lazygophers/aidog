@@ -13,27 +13,25 @@ import {
   parseDevinConfig, serializeDevinConfig,
   parseQuotaScriptConfig, serializeQuotaScriptConfig, readRequiresValue,
   parsePlatformBreaker, serializePlatformBreaker,
-  parsePlatformPeak, serializePlatformPeak,
-  parseDisableDuringPeak, serializeDisableDuringPeak,
   parseMitmStats, serializeMitmStats,
   parseRateLimitsBundle, serializeRateLimitsBundle, type RateLimitsBundle,
-  parsePlatformTimeWindows, serializePlatformTimeWindows,
   parsePassthroughAuth, serializePassthroughAuth,
   DEFAULT_MOCK_CONFIG, DEFAULT_DEVIN_CONFIG, DEFAULT_PASSTHROUGH_AUTH,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type DevinConfig, type PassthroughAuth,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
-  type FetchModelsError, type TimeModelRule,
+  type FetchModelsError,
 } from "../../services/api";
 import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import {
   PROTOCOL_LABELS, MODEL_SLOTS, DEFAULT_NAMES,
   getDefaultEndpoints, getDefaultModels, getDefaultQuotaScripts, type QuotaScriptVariant,
-  autoCategorize, type TimeWindow,
+  autoCategorize,
 } from "../../domains/platforms";
 import { getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
+import { usePlatformTimeModels } from "./usePlatformTimeModels";
 import { QUOTA_CUSTOM_VARIANT } from "./formSections";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
@@ -127,14 +125,9 @@ export interface PlatformFormState {
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
-  peak: TimeWindow[]; setPeak: React.Dispatch<React.SetStateAction<TimeWindow[]>>;
-  windowsTz: "local" | "utc"; setWindowsTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
-  /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
-  disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
+  timemodels: ReturnType<typeof usePlatformTimeModels>;
   /** mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台 MITM 接入形态标记，存 platform.extra.mitm_stats）。 */
   mitmStats: boolean; setMitmStats: React.Dispatch<React.SetStateAction<boolean>>;
-  /** time_windows：时段模型规则列表（按时段切换主力模型档） */
-  timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   /** 限频配置（rate-limit-aware 票 04：extra.rate_limits + extra.quota_windows，弹窗编辑）。 */
   rateLimits: RateLimitsBundle; setRateLimits: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
@@ -239,17 +232,11 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
   const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
-  // peak（用户覆盖，存 platform.extra.peak；时区仅前端态，默认本地）
-  const [peak, setPeak] = useState<TimeWindow[]>([]);
-  // 限频配置（rate-limit-aware 票 04：编辑弹窗整体读写，无独立子字段 state）
-  const [rateLimits, setRateLimits] = useState<RateLimitsBundle>({});
-  const [windowsTz, setWindowsTz] = useState<"local" | "utc">("local");
-  // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
-  const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
+  const timemodels = usePlatformTimeModels();
   // mitm_stats（订阅透传 MITM 接入形态标记；仅 claude_code 协议表单暴露 UI）
   const [mitmStats, setMitmStats] = useState<boolean>(false);
-  // time_windows（时段模型规则，存 platform.extra.time_windows；默认空数组）
-  const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
+  // 限频配置（rate-limit-aware 票 04：编辑弹窗整体读写，无独立子字段 state）
+  const [rateLimits, setRateLimits] = useState<RateLimitsBundle>({});
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
@@ -370,8 +357,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setPassAuth({ ...DEFAULT_PASSTHROUGH_AUTH });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setPeak([]); setWindowsTz("local"); setDisableDuringPeak(false); setMitmStats(false);
-    setTimeModels([]);
+    timemodels.reset(); setMitmStats(false);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
@@ -434,10 +420,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
-    setPeak(parsePlatformPeak(p.extra ?? ""));
+    timemodels.hydrate(p.extra ?? "");
     setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
-    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
-    setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
+    setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setLockedGroupId(null);
@@ -489,10 +474,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
-    setPeak(parsePlatformPeak(p.extra ?? ""));
+    timemodels.hydrate(p.extra ?? "");
     setRateLimits(parseRateLimitsBundle(p.extra ?? ""));
-    setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? "")); setMitmStats(parseMitmStats(p.extra ?? ""));
-    setTimeModels(parsePlatformTimeWindows(p.extra ?? ""));
+    setMitmStats(parseMitmStats(p.extra ?? ""));
     setDevinConfig(parseDevinConfig(p.extra ?? ""));
     setPassAuth(parsePassthroughAuth(p.extra ?? ""));
     setLockedGroupId(null);
@@ -691,14 +675,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       open_secs: toBreakerNum(breakerOpenSecs),
       half_open_max: toBreakerNum(breakerHalfOpenMax),
     });
-    // peak：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
-    extraPayload = serializePlatformPeak(extraPayload, peak);
-    // disable_during_peak：false → 移除键（默认行为）；true → 写入。
-    extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
+    extraPayload = timemodels.serialize(extraPayload);
     // mitm_stats：false → 移除键（默认行为）；true → 写入。
     extraPayload = serializeMitmStats(extraPayload, mitmStats);
-    // time_windows：空数组 → 移除键（无规则 → 用 default）；非空写入。
-    extraPayload = serializePlatformTimeWindows(extraPayload, timeModels);
     // 限频配置（rate-limit-aware 票 04）：空 bundle → 删键（无覆盖）。
     extraPayload = serializeRateLimitsBundle(extraPayload, rateLimits);
     const manualBudgetsPayload: ManualBudget[] = isPassthrough || isPassThrough ? [] : manualBudgets;
@@ -843,11 +822,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerOpenSecs, setBreakerOpenSecs,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
     breakerDefaults,
-    peak, setPeak, windowsTz, setWindowsTz,
-    disableDuringPeak, setDisableDuringPeak,
+    timemodels,
     mitmStats, setMitmStats,
-  rateLimits, setRateLimits,
-    timeModels, setTimeModels,
+    rateLimits, setRateLimits,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,

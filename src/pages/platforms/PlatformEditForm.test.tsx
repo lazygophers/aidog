@@ -35,7 +35,10 @@ function state(original: "unknown" | "openai", protocol = original): PlatformsSt
       editing: { name: "Existing", platform_type: original, endpoints: [] },
       name: "Existing", protocol, endpoints: [{ protocol: "openai", base_url: "https://example.test" }],
       apiKey: "key", quotaVariants: [], models: {}, availableModels: [],
-      manualBudgets: [], peak: [], timeModels: [], joinGroupIds: [], rateLimits: {},
+      manualBudgets: [], timemodels: {
+        peak: [], setPeak: vi.fn(), windowsTz: "local", setWindowsTz: vi.fn(),
+        disableDuringPeak: false, setDisableDuringPeak: vi.fn(), timeModels: [], setTimeModels: vi.fn(),
+      }, joinGroupIds: [], rateLimits: {},
     },
     list: { groupDetails: [] },
     getPrimaryBaseUrl: () => "",
