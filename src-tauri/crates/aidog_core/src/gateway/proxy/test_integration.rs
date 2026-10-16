@@ -2197,6 +2197,48 @@ async fn gemini_passthrough_uses_remapped_model_in_path_not_body() {
     }
 }
 
+#[tokio::test]
+async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
+    let (upstream, rec) = spawn_recording_upstream(GEMINI_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_gemini_passthrough_group(&state, "stage-seam", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    let request = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1beta/models/gemini-src:generateContent")
+        .header("authorization", "Bearer stage-seam")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"gemini-src","contents":[{"role":"user","parts":[{"text":"hi"}]}]}"#,
+        ))
+        .unwrap();
+    let response = handle_proxy(AxumState(state.clone()), request).await;
+    assert_eq!(response.status(), StatusCode::OK);
+    let row = only_log_of(&state, "stage-seam").await;
+    let captured = rec.lock().unwrap().clone();
+    assert_eq!(captured.len(), 1);
+    assert!(captured[0].0.contains("gemini-target"));
+    assert!(!captured[0].0.contains("gemini-src"));
+    assert_eq!(
+        serde_json::from_str::<serde_json::Value>(&captured[0].1).unwrap(),
+        serde_json::json!({
+            "contents": [{"role": "user", "parts": [{"text": "hi"}]}]
+        })
+    );
+    assert_eq!(row.upstream_request_body, captured[0].1);
+    assert_eq!(row.target_protocol, "gemini");
+    assert_eq!(row.model, "gemini-src");
+    assert!(row.done);
+}
+
 /// 04-endpoint-security 验收 1：无鉴权调试端点 `/api/debug/bench-query` 已从产品中删除，
 /// 路由表不再有它 —— 请求落 fallback（handle_proxy 无匹配 group）返 404，且响应体
 /// 绝不含旧 handler 的量测字段。
