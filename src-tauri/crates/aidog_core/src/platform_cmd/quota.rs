@@ -121,38 +121,6 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
     gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan).await;
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn adapter_preserves_query_failures_for_all_three_commands() {
-        let db = Db::new(":memory:").await.unwrap();
-        for (command, kind, tiers) in [
-            ("platform_query_quota", QuotaQueryKind::Auto, true),
-            (
-                "platform_query_quota_newapi",
-                QuotaQueryKind::NewApi("{}"),
-                false,
-            ),
-            (
-                "platform_query_quota_devin",
-                QuotaQueryKind::Devin("{}"),
-                false,
-            ),
-        ] {
-            // Invalid URL prevents network IO even if a script tries to send a request.
-            let q = quota_command_adapter(&db, command, "://invalid", "", kind, None, tiers)
-                .await
-                .expect("query failures remain Ok(PlatformQuota)");
-            assert!(!q.success, "{command}");
-            assert!(q.error.is_some(), "{command}");
-            assert!(q.balance.is_none(), "{command}");
-            assert!(q.coding_plan.is_none(), "{command}");
-        }
-    }
-}
-
 /// 冷启动同时真查的平台数上限（出站并发，避免启动瞬间 N 个 HTTP）。
 const COLD_START_CONCURRENCY: usize = 4;
 
@@ -235,4 +203,36 @@ fn has_quota_script(p: &gateway::models::Platform) -> bool {
             &p.quota_script,
         )
         .is_some()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn adapter_preserves_query_failures_for_all_three_commands() {
+        let db = Db::new(":memory:").await.unwrap();
+        for (command, kind, tiers) in [
+            ("platform_query_quota", QuotaQueryKind::Auto, true),
+            (
+                "platform_query_quota_newapi",
+                QuotaQueryKind::NewApi("{}"),
+                false,
+            ),
+            (
+                "platform_query_quota_devin",
+                QuotaQueryKind::Devin("{}"),
+                false,
+            ),
+        ] {
+            // Invalid URL prevents network IO even if a script tries to send a request.
+            let q = quota_command_adapter(&db, command, "://invalid", "", kind, None, tiers)
+                .await
+                .expect("query failures remain Ok(PlatformQuota)");
+            assert!(!q.success, "{command}");
+            assert!(q.error.is_some(), "{command}");
+            assert!(q.balance.is_none(), "{command}");
+            assert!(q.coding_plan.is_none(), "{command}");
+        }
+    }
 }
