@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-// tokens.json → tokens.css（原型 / Flutter 侧同用）+ lib/tokens.dart（Flutter 版，pub 包 aidog_tokens）
-//              + src/themes/tokens.generated.ts（现仓 React 版，mono 主题的色值来源）
+// tokens.json → tokens.css（原型）+ src/themes/tokens.generated.ts（现仓 React 版，mono 主题的色值来源）
 // 跑法：node design/tokens/build-tokens.mjs   （无依赖，Node ≥ 18）
 // 自检：node design/tokens/build-tokens.mjs --check
-//   ① 每个颜色 token 两个 mode 一一对应；② 三份生成物与 tokens.json 当前内容逐字节一致。
+//   ① 每个颜色 token 两个 mode 一一对应；② 两份生成物与 tokens.json 当前内容逐字节一致。
 //   ② 就是 lint 门禁：改了 tokens.json 不重新生成 → 退出码 1。
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -22,7 +21,7 @@ for (const [k, v] of Object.entries(colors)) {
 if (check.length) { console.error(check.join("\n")); process.exit(1); }
 
 // 行高。比例字要松（中文混排下 1.35 挤成一坨），等宽的数字要紧（数字块本来就靠行距成列，
-// 松了反而散）。两个值同时喂给 CSS 与 Dart，两端不会漂。
+// 松了反而散）。
 const LEADING_SANS = 1.55;
 const LEADING_MONO = 1.35;
 const leadingOf = (v) => (v.mono ? LEADING_MONO : LEADING_SANS);
@@ -49,80 +48,6 @@ ${Object.entries(T.motion).map(([k, v]) => `  --motion-${k}: ${Array.isArray(v) 
 }
 [data-theme="light"] {
 ${cssVars("light")}
-}
-`;
-
-// ── Dart ──
-const dartColor = (raw) => {
-  const s = String(raw).trim();
-  let m = /^#([0-9a-f]{6})$/i.exec(s);
-  if (m) return `Color(0xFF${m[1].toUpperCase()})`;
-  m = /^rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)$/i.exec(s);
-  if (m) {
-    const a = Math.round(parseFloat(m[4]) * 255).toString(16).padStart(2, "0").toUpperCase();
-    const hex = [m[1], m[2], m[3]].map((n) => (+n).toString(16).padStart(2, "0")).join("").toUpperCase();
-    return `Color(0x${a}${hex})`;
-  }
-  return null; // 阴影 / none 之类，走 raw 字符串
-};
-const dartField = (k) => k.replace(/-(\w)/g, (_, c) => c.toUpperCase());
-const colorFields = Object.entries(colors).filter(([, v]) => dartColor(v.dark) && dartColor(v.light));
-const rawFields = Object.entries(colors).filter(([, v]) => !(dartColor(v.dark) && dartColor(v.light)));
-
-// 落在 lib/ 下是为了让 design/tokens 成为一个可被 path 依赖的 pub 包
-// （flutter/pubspec.yaml 的 aidog_tokens），这样 Flutter 侧不用复制第二份色值。
-out["design/tokens/lib/tokens.dart"] = `// 由 build-tokens.mjs 从 tokens.json 生成，禁止手改。
-// 用法：AidogColors.dark / AidogColors.light 喂进 ThemeExtension，
-// 尺寸与字阶走 AidogSpace / AidogRadius / AidogLayout / AidogType / AidogMotion（与模式无关）。
-import 'package:flutter/widgets.dart';
-
-@immutable
-class AidogColors {
-${colorFields.map(([k]) => `  final Color ${dartField(k)};`).join("\n")}
-${rawFields.map(([k]) => `  final String ${dartField(k)}; // 阴影/none，按平台自行解析`).join("\n")}
-
-  const AidogColors({
-${[...colorFields, ...rawFields].map(([k]) => `    required this.${dartField(k)},`).join("\n")}
-  });
-
-  static const dark = AidogColors(
-${colorFields.map(([k, v]) => `    ${dartField(k)}: ${dartColor(v.dark)},`).join("\n")}
-${rawFields.map(([k, v]) => `    ${dartField(k)}: ${JSON.stringify(v.dark)},`).join("\n")}
-  );
-
-  static const light = AidogColors(
-${colorFields.map(([k, v]) => `    ${dartField(k)}: ${dartColor(v.light)},`).join("\n")}
-${rawFields.map(([k, v]) => `    ${dartField(k)}: ${JSON.stringify(v.light)},`).join("\n")}
-  );
-}
-
-class AidogSpace {
-${Object.entries(drop(T.space)).map(([k, v]) => `  static const double s${k.replace(/^(\d)/, "_$1")} = ${v.toFixed(1)};`).join("\n")}
-}
-
-class AidogRadius {
-${Object.entries(drop(T.radius)).map(([k, v]) => `  static const double ${k} = ${v.toFixed(1)};`).join("\n")}
-}
-
-class AidogLayout {
-${Object.entries(drop(T.layout)).map(([k, v]) => `  static const double ${dartField(k)} = ${v.toFixed(1)};`).join("\n")}
-}
-
-class AidogType {
-  // 字体族跟系统走（用户 2026-09-24 定）：sans 不指定 family（null = 平台默认，
-  // macOS SF Pro / Windows Segoe UI）；mono 首选 SF Mono，其余平台走回落链。
-  static const String? familySans = null;
-  static const familyMono = 'SF Mono';
-  static const familyMonoFallback = ['Menlo', 'Consolas'];
-${Object.entries(drop(T.type)).filter(([, v]) => typeof v === "object").map(([k, v]) =>
-  `  static const ${dartField(k)} = TextStyle(fontFamily: ${v.mono ? "familyMono" : "familySans"}, ` +
-  (v.mono ? `fontFamilyFallback: familyMonoFallback, ` : ``) +
-  `fontSize: ${v.size.toFixed(1)}, fontWeight: FontWeight.w${v.weight}, letterSpacing: ${(v.tracking * v.size).toFixed(2)}, height: ${leadingOf(v)});`).join("\n")}
-}
-
-class AidogMotion {
-${Object.entries(T.motion).filter(([, v]) => !Array.isArray(v)).map(([k, v]) => `  static const ${dartField(k)} = Duration(milliseconds: ${v});`).join("\n")}
-${Object.entries(T.motion).filter(([, v]) => Array.isArray(v)).map(([k, v]) => `  static const ${dartField(k)} = Cubic(${v.map((n) => n.toFixed(2)).join(", ")});`).join("\n")}
 }
 `;
 
