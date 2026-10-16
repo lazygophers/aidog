@@ -232,18 +232,19 @@ fn merge_presets_doc_keeps_newer_bundled_over_stale_db_row() {
 /// 用户端点重置回二进制里的旧 `base_url`。
 #[test]
 fn endpoints_follow_db_synced_preset() {
-    let bundled = endpoints_in(presets(), "anthropic");
+    let bundled = endpoints_in(presets(), "anthropic").unwrap_or_default();
     assert!(!bundled.is_empty());
     assert_ne!(bundled[0].base_url, "https://db.example/v1");
 
     let patched = r#"{"last_updated":9999999999,"endpoints":{"default":[{"protocol":"anthropic","base_url":"https://db.example/v1"}]}}"#;
     let merged = merge_presets_doc([("anthropic", patched)], Some(9_999_999_999));
-    let got = endpoints_in(&merged, "anthropic");
+    let got = endpoints_in(&merged, "anthropic").unwrap_or_default();
     assert_eq!(got.len(), 1);
     assert_eq!(got[0].base_url, "https://db.example/v1");
     // 未被 DB 覆盖的协议照旧走 bundled 端点
     let urls = |d: &Value| {
         endpoints_in(d, "openai")
+            .unwrap_or_default()
             .iter()
             .map(|e| e.base_url.clone())
             .collect::<Vec<_>>()
@@ -367,7 +368,7 @@ fn every_model_has_an_official_platform() {
 #[test]
 fn bundled_quota_scripts_parse() {
     for (code, json) in bundled_platform_files() {
-        for v in parse_quota_scripts(json) {
+        for v in parse_quota_scripts(json).unwrap_or_default() {
             assert!(!v.id.is_empty(), "{code} quota_scripts 有空 id");
             assert!(!v.script.trim().is_empty(), "{code}/{} script 为空", v.id);
         }
@@ -392,7 +393,7 @@ fn quota_scripts_parse_fields_and_defaults() {
         ],
     })
     .to_string();
-    let vs = parse_quota_scripts(&doc);
+    let vs = parse_quota_scripts(&doc).unwrap_or_default();
     assert_eq!(vs.len(), 2);
     // requires / returns 缺省补全
     assert!(vs[0].requires.is_empty());
@@ -404,22 +405,37 @@ fn quota_scripts_parse_fields_and_defaults() {
     assert_eq!(vs[1].requires[0].label["en-US"], "Official");
     assert!(vs[1].returns.balance && vs[1].returns.mcp && !vs[1].returns.coding_plan);
     assert_eq!(vs[1].returns.tiers, ["five_hour", "mcp_monthly"]);
-    // 无字段 / 坏 JSON / 错类型 → 空 Vec（脏行不炸调用方）
-    assert!(parse_quota_scripts(r#"{"last_updated":1}"#).is_empty());
-    assert!(parse_quota_scripts("{oops").is_empty());
-    assert!(parse_quota_scripts(r#"{"quota_scripts":"oops"}"#).is_empty());
+    // 无字段 → Absent；坏 JSON / 错类型 → Corrupt（脏行不炸调用方，票 14 可区分）
+    assert_eq!(
+        parse_quota_scripts(r#"{"last_updated":1}"#),
+        RegistryLookup::Absent
+    );
+    assert!(matches!(
+        parse_quota_scripts("{oops"),
+        RegistryLookup::Corrupt(_)
+    ));
+    assert!(matches!(
+        parse_quota_scripts(r#"{"quota_scripts":"oops"}"#),
+        RegistryLookup::Corrupt(_)
+    ));
 }
 
 /// T4：`quota_scripts_in`（presets 文档形状）+ 变体选中 / 脚本解析回落链。
 #[test]
 fn quota_scripts_in_and_selection() {
     // bundled 文档：glm 有脚本、kimi_en 无
-    assert!(!quota_scripts_in(presets(), "glm").is_empty());
-    assert!(quota_scripts_in(presets(), "kimi_en").is_empty());
-    assert!(quota_scripts_in(presets(), "nonexistent").is_empty());
+    assert!(!quota_scripts_in(presets(), "glm").unwrap_or_default().is_empty());
+    assert_eq!(
+        quota_scripts_in(presets(), "kimi_en"),
+        RegistryLookup::Absent
+    );
+    assert_eq!(
+        quota_scripts_in(presets(), "nonexistent"),
+        RegistryLookup::Absent
+    );
 
     // 选中：id 命中 / 缺省首条 / id 失效回落首条
-    let vs = quota_scripts_in(presets(), "glm");
+    let vs = quota_scripts_in(presets(), "glm").unwrap_or_default();
     assert_eq!(
         select_quota_variant(&vs, Some("default")).unwrap().id,
         "default"
@@ -499,7 +515,9 @@ fn quota_code_for_base_url_matches_bundled_keywords() {
 
 #[test]
 fn resolve_quota_script_fallback_chain() {
-    let first = quota_scripts_in(presets(), "deepseek")[0].script.clone();
+    let first = quota_scripts_in(presets(), "deepseek").unwrap_or_default()[0]
+        .script
+        .clone();
     // ① 物化列非空 → 直接用之（不被 extra 覆盖）
     assert_eq!(
         resolve_quota_script("deepseek", r#"{"quota_script_id":"x"}"#, "MATERIALIZED"),
@@ -531,7 +549,9 @@ fn resolve_quota_script_fallback_chain() {
 
 #[test]
 fn materialize_quota_script_rules() {
-    let first = quota_scripts_in(presets(), "glm")[0].script.clone();
+    let first = quota_scripts_in(presets(), "glm").unwrap_or_default()[0]
+        .script
+        .clone();
     // 全新（列空）→ 首条变体；无脚本协议 → 空串
     assert_eq!(materialize_quota_script("glm", "{}", "", true), first);
     assert_eq!(materialize_quota_script("kimi_en", "{}", "", true), "");
@@ -616,4 +636,166 @@ fn derive_client_type_newtypes_reject_cross_namespace_at_compile_time() {
     assert_eq!(derive_client_type(WireProtocolName("newapi")), "default");
     assert_eq!(derive_client_type(WireProtocolName("anthropic")), "claude_code");
     assert_eq!(derive_client_type(WireProtocolName("openai_responses")), "codex_tui");
+}
+
+// ── 票 14：registry 读边界 ─────────────────────────────────────────
+
+/// 本 crate 测试二进制内操作 merged 缓存的测试共用一把锁：测试互相之间不踩
+/// （外部 invalidate 只会清缓存，由各测试的重试 / 重装逻辑消化）。
+/// tokio Mutex：异步测试持锁跨 await 不触发 clippy await_holding_lock。
+static CACHE_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
+/// 票 14 ①：解析失败不再静默混同「没配置」——坏配置走 `Corrupt`（结构化 error 已在
+/// 读取点记协议 code + 原始错误），没配置是 `Absent`，正常路径 `Found` 值不变。
+#[test]
+fn endpoints_in_distinguishes_absent_from_corrupt() {
+    // 没配置：协议不在文档 / 协议在但无 endpoints
+    assert!(matches!(
+        endpoints_in(presets(), "no-such-proto"),
+        RegistryLookup::Absent
+    ));
+    let bare = serde_json::json!({"protocols": {"ghost": {"name": {"en-US": "Ghost"}}}});
+    assert!(matches!(endpoints_in(&bare, "ghost"), RegistryLookup::Absent));
+
+    // 配置坏了（测试内临时构造，不碰真数据）：endpoints.default 存在但形状错
+    let broken = serde_json::json!({"protocols": {"ghost": {"endpoints": {"default": "not-an-array"}}}});
+    assert!(matches!(
+        endpoints_in(&broken, "ghost"),
+        RegistryLookup::Corrupt(_)
+    ));
+    // 逐条形状错（缺 base_url）同样 Corrupt，不落 Absent
+    let broken_item = serde_json::json!({"protocols": {"ghost": {"endpoints": {"default": [{"protocol": "anthropic"}]}}}});
+    assert!(matches!(
+        endpoints_in(&broken_item, "ghost"),
+        RegistryLookup::Corrupt(_)
+    ));
+
+    // 正常路径：Found 且值与旧行为逐值一致（bundled anthropic 端点非空）
+    match endpoints_in(presets(), "anthropic") {
+        RegistryLookup::Found(v) => assert!(!v.is_empty()),
+        other => panic!("bundled anthropic 应为 Found，实际 {other:?}"),
+    }
+}
+
+/// 票 14②：merged 缓存作废原语——作废后读取回落编译期内置那份（与 presets_json
+/// 逐字节一致），不再吃旧值。
+#[test]
+fn preset_cache_invalidate_falls_back_to_bundled() {
+    let _guard = CACHE_TEST_LOCK.blocking_lock();
+    invalidate_presets_cache();
+    assert!(cached_presets().is_none());
+    assert_eq!(effective_presets().to_string(), presets_json());
+}
+
+/// 票 14②：远程同步的 upsert 作废缓存、refresh 装回——upsert 后缓存必须为空
+/// （热路径不吃旧值），refresh 后生效文档可见新值（bundled 无 alpha，看到新值
+/// 只能来自本次同步装回，排除巧合）。
+#[tokio::test]
+async fn preset_cache_upsert_invalidates_and_refresh_reloads() {
+    use crate::models::PlatformPreset;
+    use crate::refresh_presets_cache;
+    use crate::test_support::test_db;
+    use crate::upsert_platform_presets;
+
+    let _guard = CACHE_TEST_LOCK.lock().await;
+    let db = test_db().await;
+    let row = |homepage: &str| {
+        vec![PlatformPreset {
+            code: "alpha".into(),
+            preset_data: format!(r#"{{"last_updated":9999999999,"homepage":"{homepage}"}}"#),
+            updated_at: 0,
+        }]
+    };
+
+    upsert_platform_presets(&db, row("https://v1.example"))
+        .await
+        .unwrap();
+    refresh_presets_cache(&db).await.unwrap();
+    assert_eq!(
+        effective_presets()["protocols"]["alpha"]["homepage"],
+        "https://v1.example"
+    );
+
+    // 第二轮改值：upsert 后缓存作废（失效正确性），refresh 装回新值
+    upsert_platform_presets(&db, row("https://v2.example"))
+        .await
+        .unwrap();
+    assert!(
+        cached_presets().is_none(),
+        "upsert 后 merged 缓存必须作废"
+    );
+    // 并发的外部 invalidate 只会清缓存回落 bundled（无 alpha）；轮询重装直到新值可见。
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    loop {
+        refresh_presets_cache(&db).await.unwrap();
+        if effective_presets()["protocols"]["alpha"]["homepage"] == "https://v2.example" {
+            break;
+        }
+        assert!(
+            std::time::Instant::now() < deadline,
+            "refresh 后生效文档未更新到 v2"
+        );
+    }
+    invalidate_presets_cache();
+}
+
+/// 票 14③：merged 缓存并发读安全——多读者与写者（store / invalidate 交替）并发下
+/// 无死锁（timeout 内完成）、无撕裂（每份读到的是完整 JSON 文档：protocols 非空、
+/// last_updated 是数字）。
+#[tokio::test(flavor = "multi_thread")]
+async fn presets_cache_concurrent_reads_are_consistent() {
+    let _guard = CACHE_TEST_LOCK.lock().await;
+    // docA/docB 只改 last_updated，protocols 与 bundled 全同：并发期间其他测试
+    // 读 effective_presets 的 bundled 依赖不受影响。
+    let variant = |tag: i64| {
+        let mut doc = presets_arc().as_ref().clone();
+        doc["last_updated"] = Value::from(1_000_000_000 + tag);
+        doc
+    };
+    let doc_a = Arc::new(variant(1));
+    let doc_b = Arc::new(variant(2));
+    store_presets_cache(presets_arc().as_ref().clone());
+
+    let read_batches = 500u32;
+    let mut readers = Vec::new();
+    for _ in 0..4 {
+        readers.push(tokio::task::spawn_blocking(move || {
+            for _ in 0..read_batches {
+                let doc = effective_presets();
+                let p = doc["protocols"]
+                    .as_object()
+                    .expect("完整文档：protocols 对象");
+                assert!(!p.is_empty(), "撕裂读：protocols 为空");
+                assert!(
+                    doc["last_updated"].as_i64().is_some(),
+                    "撕裂读：last_updated 非数字"
+                );
+            }
+        }));
+    }
+    let writer = tokio::spawn(async move {
+        for i in 0..200 {
+            if i % 3 == 2 {
+                invalidate_presets_cache();
+            } else if i % 2 == 0 {
+                store_presets_cache(doc_a.as_ref().clone());
+            } else {
+                store_presets_cache(doc_b.as_ref().clone());
+            }
+            tokio::task::yield_now().await;
+        }
+    });
+
+    // 死锁检测：整体必须在 timeout 内收敛（RwLock 读写互等会在这里挂死）
+    let converge = async {
+        for r in readers {
+            r.await.unwrap();
+        }
+        writer.await.unwrap();
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(30), converge)
+        .await
+        .expect("并发读写 merged 缓存在 30s 内未收敛：疑似死锁");
+
+    invalidate_presets_cache();
 }
