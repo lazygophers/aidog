@@ -72,15 +72,18 @@ describe("PlatformCard", () => {
     onPointerUp: vi.fn(),
     onToggleExpanded: vi.fn(),
     onRefreshQuota: vi.fn(),
+    onDelete: vi.fn(),
+    onFaviconFailed: vi.fn(),
+  };
+  // 票 12：只吃 platform 的 7 个回调拆进 service 对象
+  const mockService = {
     onToggleEnabled: vi.fn(),
     onEdit: vi.fn(),
     onShare: vi.fn(),
     onDuplicate: vi.fn(),
-    onDelete: vi.fn(),
     onViewLogs: vi.fn(),
     onQuickTest: vi.fn(),
     onCustomTest: vi.fn(),
-    onFaviconFailed: vi.fn(),
   };
 
   const basePlatform: Platform = {
@@ -124,11 +127,13 @@ describe("PlatformCard", () => {
     testing: false,
     faviconFailed: false,
     actions: mockActions,
+    service: mockService,
     draggable: true,
   };
 
   beforeEach(() => {
     Object.values(mockActions).forEach(fn => fn.mockClear());
+    Object.values(mockService).forEach(fn => fn.mockClear());
   });
 
   it("折叠态: 渲染平台名 + 操作按钮", () => {
@@ -145,11 +150,11 @@ describe("PlatformCard", () => {
   it("操作按钮点击: 派发对应 handler（携带 platform）", () => {
     render(<PlatformCard {...baseProps} />);
     fireEvent.click(screen.getByTitle("platform.viewLogs"));
-    expect(mockActions.onViewLogs).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onViewLogs).toHaveBeenCalledWith(basePlatform);
     fireEvent.click(screen.getByTitle("platform.share.button"));
-    expect(mockActions.onShare).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onShare).toHaveBeenCalledWith(basePlatform);
     fireEvent.click(screen.getByTitle("platform.duplicate"));
-    expect(mockActions.onDuplicate).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onDuplicate).toHaveBeenCalledWith(basePlatform);
   });
 
   it("启用/禁用开关: 点击派发 onToggleEnabled", () => {
@@ -157,7 +162,7 @@ describe("PlatformCard", () => {
     // toggle 是 div（非 button），按 title 查（status=enabled → title="platform.disable"）
     const toggle = screen.getByTitle("platform.disable");
     fireEvent.click(toggle);
-    expect(mockActions.onToggleEnabled).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onToggleEnabled).toHaveBeenCalledWith(basePlatform);
   });
 
   it("展开态: usage 有数据时显示明细 toggle + 点击派发 onToggleExpanded", () => {
@@ -223,15 +228,15 @@ describe("PlatformCard", () => {
     const quickBtn = screen.getByTitle("platform.quickTest");
     expect(quickBtn).toBeDisabled();
     fireEvent.click(quickBtn);
-    expect(mockActions.onQuickTest).not.toHaveBeenCalled();
+    expect(mockService.onQuickTest).not.toHaveBeenCalled();
   });
 
   it("快速测试/自定义测试按钮: 非 testing 态点击派发 handler", () => {
     render(<PlatformCard {...baseProps} />);
     fireEvent.click(screen.getByTitle("platform.quickTest"));
-    expect(mockActions.onQuickTest).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onQuickTest).toHaveBeenCalledWith(basePlatform);
     fireEvent.click(screen.getByTitle("platform.customTest"));
-    expect(mockActions.onCustomTest).toHaveBeenCalledWith(basePlatform);
+    expect(mockService.onCustomTest).toHaveBeenCalledWith(basePlatform);
   });
 
   it("余额行门控: 平台不支持配额查询，coding 已用 tokens 仍然显示", () => {
@@ -302,5 +307,20 @@ describe("PlatformCard", () => {
     render(<PlatformCard {...props} />);
     expect(screen.getByText("✓")).toBeInTheDocument();
     expect(screen.getByText("1234ms")).toBeInTheDocument();
+  });
+
+  // 票 12 验收：memo 渲染策略不回退。渲染计数以 useProtocolMeta 调用次数代理
+  // （每次 PlatformCard 函数体执行恰好调一次，且已被 mock）。
+  it("memo: 相同 props rerender 不重渲、props 变化正常重渲（渲染计数对比）", () => {
+    const metaSpy = vi.mocked(useProtocolMeta);
+    metaSpy.mockClear();
+    const { rerender } = render(<PlatformCard {...baseProps} />);
+    expect(metaSpy).toHaveBeenCalledTimes(1);
+    // 同一 props（含同一 actions/service 对象引用）再 rerender → memo 浅比较全等，不重渲
+    rerender(<PlatformCard {...baseProps} />);
+    expect(metaSpy).toHaveBeenCalledTimes(1);
+    // props 实际变化（expanded）→ 正常重渲，证明 memo 没有过度缓存
+    rerender(<PlatformCard {...baseProps} expanded={true} />);
+    expect(metaSpy).toHaveBeenCalledTimes(2);
   });
 });

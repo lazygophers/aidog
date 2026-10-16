@@ -10,7 +10,7 @@ import { platformApi, type Platform, type PurgeCandidate } from "../../services/
 import { IconClose, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
-import { PlatformCard, type PlatformCardActions } from "../../components/platforms/PlatformCard";
+import { PlatformCard, type PlatformCardActions, type PlatformCardService } from "../../components/platforms/PlatformCard";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import type { PlatformsState } from "./usePlatformsState";
@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
+export function PlatformListView({ s, cardActions, cardService, openCreateGroupRef }: {
   s: PlatformsState;
   cardActions: PlatformCardActions;
+  cardService: PlatformCardService;
   openCreateGroupRef: React.MutableRefObject<(() => void) | null>;
 }) {
   const { t, i18n } = useTranslation();
@@ -186,6 +187,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
                   testing={testingId === p.id}
                   faviconFailed={faviconFailed.has(p.id)}
                   actions={actions}
+                  service={cardService}
                   platformMembership={platformMembership.get(p.id)}
                   lastTest={lastTestMap[p.id]}
                 />

@@ -30,15 +30,23 @@ export interface PlatformCardActions {
   onPointerUp: () => void;
   onToggleExpanded: (id: number, next: boolean) => void;
   onRefreshQuota: (p: Platform) => void;
+  onDelete: (id: number) => void;
+  onFaviconFailed: (id: number) => void;
+}
+
+/**
+ * 卡片行为服务（票 12 / 契约 #7）：只吃 platform 一个参数的 7 个回调。
+ * 页级注入一次、与 gid 无关；quota 刷新因 Platforms 侧 IntersectionObserver
+ * 批量调度留在 actions（父级编排），不进本服务。
+ */
+export interface PlatformCardService {
   onToggleEnabled: (p: Platform) => void;
   onEdit: (p: Platform) => void;
   onShare: (p: Platform) => void;
   onDuplicate: (p: Platform) => void;
-  onDelete: (id: number) => void;
   onViewLogs: (p: Platform) => void;
   onQuickTest: (p: Platform) => void;
   onCustomTest: (p: Platform) => void;
-  onFaviconFailed: (id: number) => void;
 }
 
 export interface PlatformCardProps {
@@ -64,6 +72,7 @@ export interface PlatformCardProps {
   testing: boolean;
   faviconFailed: boolean;
   actions: PlatformCardActions;
+  service: PlatformCardService;
   platformMembership?: string[];
   /** 是否显示拖拽把手（默认 true；分组展开区等只读场景传 false） */
   draggable?: boolean;
@@ -96,6 +105,7 @@ export const PlatformCard = memo(function PlatformCard({
   testing,
   faviconFailed: faviconHasFailed,
   actions,
+  service,
   platformMembership,
   draggable = true,
   lastTest,
@@ -485,6 +495,7 @@ export const PlatformCard = memo(function PlatformCard({
                 testing={testing}
                 platform={p}
                 actions={actions}
+                service={service}
               />
             </div>
             {/* ── 行 1.5：per-group 优先级编辑（仅分组展开区上下文，主列表不渲染） ── */}
@@ -836,12 +847,14 @@ function PlatformActionButtons({
   testing,
   platform,
   actions,
+  service,
 }: {
   canRefresh: boolean;
   refreshing: boolean;
   testing: boolean;
   platform: Platform;
   actions: PlatformCardActions;
+  service: PlatformCardService;
 }) {
   const { t } = useTranslation();
   return (
@@ -866,7 +879,7 @@ function PlatformActionButtons({
       <div
         className={`toggle ${platform.status === "enabled" ? "active" : ""}`}
         style={{ cursor: "pointer" }}
-        onClick={(e) => { e.stopPropagation(); actions.onToggleEnabled(platform); }}
+        onClick={(e) => { e.stopPropagation(); service.onToggleEnabled(platform); }}
         title={platform.status === "enabled"
           ? t("platform.disable", "禁用")
           : platform.status === "auto_disabled"
@@ -880,7 +893,7 @@ function PlatformActionButtons({
           variant="ghost"
           style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
           disabled={testing}
-          onClick={(e) => { e.stopPropagation(); actions.onQuickTest(platform); }}
+          onClick={(e) => { e.stopPropagation(); service.onQuickTest(platform); }}
           title={t("platform.quickTest", "快速测试默认模型")}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
@@ -890,7 +903,7 @@ function PlatformActionButtons({
         <Button
           variant="ghost"
           style={{ fontSize: 11, padding: "3px 6px", height: "auto", borderRadius: "0 6px 6px 0" }}
-          onClick={(e) => { e.stopPropagation(); actions.onCustomTest(platform); }}
+          onClick={(e) => { e.stopPropagation(); service.onCustomTest(platform); }}
           title={t("platform.customTest", "自定义测试")}
         >
           <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -899,18 +912,18 @@ function PlatformActionButtons({
         </Button>
       </div>
       )}
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); service.onViewLogs(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M2 2h10v10H2z" />
           <path d="M4 5h6M4 7h4M4 9h5" />
         </svg>
       </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); actions.onEdit(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
         </svg>
       </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); service.onShare(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="11" cy="3" r="1.6" />
           <circle cx="3" cy="7" r="1.6" />
@@ -918,7 +931,7 @@ function PlatformActionButtons({
           <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
         </svg>
       </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); service.onDuplicate(platform); }}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <rect x="4" y="4" width="8" height="8" rx="1.2" />
           <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />

@@ -7,7 +7,7 @@ import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { setUiExtra } from "../services/api/ui_extra";
 import { allModelValues } from "../domains/platforms";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
-import type { PlatformCardActions } from "../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import {
   editReducer, EMPTY_EDIT,
@@ -463,11 +463,21 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   }, [batchMoveGroupTarget, silentReload, onToast, t, onGroupsChanged]);
 
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
-  // 拖拽 no-op（分组内禁拖拽）；启停后只给那一行打补丁，不重拉列表。
+  // 拖拽 no-op（分组内禁拖拽）。
   const makeGroupCardActions = useCallback((gid: number): PlatformCardActions => ({
     onPointerDown: () => {}, onPointerMove: () => {}, onPointerUp: () => {},
     onToggleExpanded: cards.toggleExpanded,
     onRefreshQuota: cards.refreshQuota,
+    onDelete: (id) => {
+      const p = platforms.find(pp => pp.id === id);
+      if (p) handleGroupRemovePlatform(p, gid);
+    },
+    onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [cards, platforms, handleGroupRemovePlatform]);
+  // 卡片行为服务（票 12）：只吃 platform 的 7 个回调，页级一份、与 gid 无关。
+  // 启停乐观更新后只给那一行打补丁，不重拉列表。
+  const cardService = useMemo((): PlatformCardService => ({
     onToggleEnabled: async (p) => {
       // 乐观：先本地翻转那一行，界面立刻响应；后端回来再用写回值校正，失败则回滚。
       const nextStatus = p.status === "enabled" ? "disabled" : "enabled";
@@ -481,16 +491,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       if (onDuplicatePlatform) onDuplicatePlatform(p);
       else onNavigate?.("platforms", { platformId: p.id, platformName: p.name, duplicate: true });
     },
-    onDelete: (id) => {
-      const p = platforms.find(pp => pp.id === id);
-      if (p) handleGroupRemovePlatform(p, gid);
-    },
     onViewLogs: cards.handleViewLogs,
     onQuickTest: cards.handleQuickTest,
     onCustomTest: cards.handleCustomTest,
-    onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cards, platforms, handleGroupRemovePlatform, onDuplicatePlatform, onNavigate]);
+  }), [cards, onDuplicatePlatform, onNavigate]);
 
   // ── per-group 优先级（level_priority）就地编辑：乐观更新 + 失败回滚 + toast ──
   const handleSetLevelPriority = useCallback((gid: number, pid: number, next: number) => {
@@ -799,6 +804,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       onPlatPointerDown={onPlatPointerDown}
       cards={cards}
       makeGroupCardActions={makeGroupCardActions}
+      cardService={cardService}
       groupTest={groupTest}
       setGroupTest={setGroupTest}
       removeTarget={removeTarget}
