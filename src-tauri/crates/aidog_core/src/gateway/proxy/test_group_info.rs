@@ -31,12 +31,8 @@ fn bearer(gk: &str) -> HeaderMap {
     h
 }
 
-fn ci() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
-    axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap())
-}
-
-fn ci_lan() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
-    axum::extract::ConnectInfo("192.168.1.5:50000".parse().unwrap())
+fn ci(ip: &str) -> axum::extract::ConnectInfo<std::net::SocketAddr> {
+    axum::extract::ConnectInfo(ip.parse().unwrap())
 }
 
 async fn body_json(resp: Response) -> serde_json::Value {
@@ -49,7 +45,7 @@ async fn body_json(resp: Response) -> serde_json::Value {
 #[tokio::test]
 async fn missing_auth_returns_401() {
     let state = make_state(test_db().await).await;
-    let resp = handle_group_info(AxumState(state), HeaderMap::new(), ci()).await;
+    let resp = handle_group_info(AxumState(state), HeaderMap::new(), ci("127.0.0.1:50000")).await;
     assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
 }
 
@@ -57,14 +53,14 @@ async fn missing_auth_returns_401() {
 #[tokio::test]
 async fn non_loopback_rejected_403() {
     let state = make_state(test_db().await).await;
-    let resp = handle_group_info(AxumState(state), bearer("g0"), ci_lan()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g0"), ci("192.168.1.5:50000")).await;
     assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 #[tokio::test]
 async fn unknown_group_returns_not_applicable() {
     let state = make_state(test_db().await).await;
-    let resp = handle_group_info(AxumState(state), bearer("nope"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("nope"), ci("127.0.0.1:50000")).await;
     assert_eq!(resp.status(), StatusCode::OK);
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], false);
@@ -76,7 +72,7 @@ async fn group_no_platform_not_applicable() {
     aidog_db::create_group(&state.db, sample_group("g0", vec![]))
         .await
         .unwrap();
-    let resp = handle_group_info(AxumState(state), bearer("g0"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g0"), ci("127.0.0.1:50000")).await;
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], false);
 }
@@ -103,7 +99,7 @@ async fn single_platform_applicable() {
     .await
     .unwrap();
 
-    let resp = handle_group_info(AxumState(state), bearer("g1"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g1"), ci("127.0.0.1:50000")).await;
     assert_eq!(resp.status(), StatusCode::OK);
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], true);
@@ -144,7 +140,7 @@ async fn two_platforms_not_applicable() {
     .await
     .unwrap();
 
-    let resp = handle_group_info(AxumState(state), bearer("g2"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g2"), ci("127.0.0.1:50000")).await;
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], false);
 }
@@ -196,7 +192,7 @@ async fn two_platforms_with_success_log_uses_last_platform() {
         .await
         .unwrap();
 
-    let resp = handle_group_info(AxumState(state), bearer("g3"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g3"), ci("127.0.0.1:50000")).await;
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], true);
     assert_eq!(v["last_platform_name"], p2.name);
@@ -270,7 +266,7 @@ async fn multi_platform_sole_enabled_applicable() {
     .await
     .unwrap();
 
-    let resp = handle_group_info(AxumState(state), bearer("g3"), ci()).await;
+    let resp = handle_group_info(AxumState(state), bearer("g3"), ci("127.0.0.1:50000")).await;
     assert_eq!(resp.status(), StatusCode::OK);
     let v = body_json(resp).await;
     assert_eq!(v["applicable"], true);

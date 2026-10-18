@@ -24,28 +24,24 @@ struct NotifyReq {
 /// 鉴权用的 group_key 校验存在性，并作为 `{group}` 变量回填（脚本未显式带 group 时）。
 pub(crate) async fn handle_notify(
     state: AxumState<Arc<ProxyState>>,
-    connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> Response {
     let span = tracing::info_span!("notify", trace_id = %crate::logging::new_trace_id());
-    handle_notify_inner(state, connect_info, headers, body)
+    handle_notify_inner(state, addr, headers, body)
         .instrument(span)
         .await
 }
 
 async fn handle_notify_inner(
     AxumState(state): AxumState<Arc<ProxyState>>,
-    connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
+    addr: std::net::SocketAddr,
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> Response {
-    let axum::extract::ConnectInfo(addr) = connect_info;
     if !addr.ip().is_loopback() {
-        tracing::warn!(peer = %addr, "notify: non-loopback request rejected");
-        let mut r = StatusCode::FORBIDDEN.into_response();
-        inject_trace_header(&mut r);
-        return r;
+        return reject_non_loopback(&addr, "notify");
     }
     // Bearer group_key 鉴权
     let group_key = headers

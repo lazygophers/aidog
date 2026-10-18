@@ -1349,12 +1349,8 @@ async fn responses_subendpoint_upstream_unreachable_502() {
 // /api/notify：handle_notify 鉴权 + dispatch 全链路
 // ──────────────────────────────────────────────────────────────
 
-fn notify_ci() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
-    axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap())
-}
-
-fn notify_ci_lan() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
-    axum::extract::ConnectInfo("192.168.1.5:50000".parse().unwrap())
+fn notify_ci(ip: &str) -> axum::extract::ConnectInfo<std::net::SocketAddr> {
+    axum::extract::ConnectInfo(ip.parse().unwrap())
 }
 
 fn notify_headers(bearer: Option<&str>) -> axum::http::HeaderMap {
@@ -1374,7 +1370,7 @@ async fn notify_missing_auth_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
-        notify_ci(),
+        notify_ci("127.0.0.1:50000"),
         notify_headers(None),
         Bytes::from_static(b"{}"),
     )
@@ -1388,7 +1384,7 @@ async fn notify_empty_bearer_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
-        notify_ci(),
+        notify_ci("127.0.0.1:50000"),
         notify_headers(Some("")),
         Bytes::from_static(b"{}"),
     )
@@ -1402,7 +1398,7 @@ async fn notify_unknown_group_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
-        notify_ci(),
+        notify_ci("127.0.0.1:50000"),
         notify_headers(Some("ghost-key")),
         Bytes::from_static(b"{}"),
     )
@@ -1422,7 +1418,7 @@ async fn notify_bad_body_returns_400() {
     .unwrap();
     let resp = handle_notify(
         AxumState(state),
-        notify_ci(),
+        notify_ci("127.0.0.1:50000"),
         notify_headers(Some("gkn1")),
         Bytes::from_static(b"not json"),
     )
@@ -1444,7 +1440,7 @@ async fn notify_success_dispatches_and_returns_result() {
         br#"{"type":"TaskComplete","content":"done","vars":{"project":"demo"}}"#,
     );
     let resp =
-        handle_notify(AxumState(state.clone()), notify_ci(), notify_headers(Some("gkn2")), body)
+        handle_notify(AxumState(state.clone()), notify_ci("127.0.0.1:50000"), notify_headers(Some("gkn2")), body)
             .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
@@ -1469,7 +1465,7 @@ async fn notify_event_path_injects_builtin_vars() {
     // 仅 event，无 vars → 内置 group/time 注入分支命中
     let body = Bytes::from_static(br#"{"event":"Stop","content":"hello"}"#);
     let resp =
-        handle_notify(AxumState(state), notify_ci(), notify_headers(Some("gkn3")), body).await;
+        handle_notify(AxumState(state), notify_ci("127.0.0.1:50000"), notify_headers(Some("gkn3")), body).await;
     assert_eq!(resp.status(), StatusCode::OK);
 }
 
@@ -1479,7 +1475,7 @@ async fn notify_non_loopback_rejected_403() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
-        notify_ci_lan(),
+        notify_ci("192.168.1.5:50000"),
         notify_headers(Some("any")),
         Bytes::from_static(b"{}"),
     )
