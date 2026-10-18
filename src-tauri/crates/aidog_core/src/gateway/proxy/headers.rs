@@ -340,6 +340,33 @@ pub fn redact_key(key: &str) -> String {
     }
 }
 
+/// URL query 里的 `api_key` 参数值是 group_key（鉴权凭证，?api_key= 通道），落库/回显前
+/// 替换为 [REDACTED]。只动参数名前为 `?` 或 `&` 的真参数（防 `my_api_key=` 误伤）。
+pub(crate) fn redact_api_key_query(url: &str) -> String {
+    const NEEDLE: &str = "api_key=";
+    if !url.contains(NEEDLE) {
+        return url.to_string();
+    }
+    let mut out = String::with_capacity(url.len());
+    let mut rest = url;
+    while let Some(pos) = rest.find(NEEDLE) {
+        let is_param = pos == 0 || matches!(rest.as_bytes()[pos - 1], b'?' | b'&');
+        let cut = pos + NEEDLE.len();
+        if is_param {
+            let tail = &rest[cut..];
+            let val_end = tail.find('&').unwrap_or(tail.len());
+            out.push_str(&rest[..cut]);
+            out.push_str("[REDACTED]");
+            rest = &tail[val_end..];
+        } else {
+            out.push_str(&rest[..cut]);
+            rest = &rest[cut..];
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 /// 为 Coding Plan 端点注入平台特有字段
 /// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
 pub fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protocol) {

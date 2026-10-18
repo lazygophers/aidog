@@ -110,3 +110,34 @@ async fn ui_extra_group_round_trip() {
     let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
     assert_eq!(v["_ui_collapsed"], serde_json::json!(true));
 }
+
+/// 文件库（三库分离）下的写路由回归：修复前 update_extra_key 走主库 handle，
+/// 文件库主库无 platform 表 → no such table，UI 态永不持久化（审计发现 3）。
+#[tokio::test]
+async fn ui_extra_platform_routes_to_platform_db() {
+    let (db, _dir) = three_file_db().await;
+    let p = create_platform(&db, sample_platform("p1"))
+        .await
+        .unwrap();
+    update_extra_key(&db, "platform", p.id, "_ui_collapsed", serde_json::json!(true))
+        .await
+        .unwrap();
+    let got = get_platform(&db, p.id).await.unwrap().expect("platform exists");
+    let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
+    assert_eq!(v["_ui_collapsed"], serde_json::json!(true));
+}
+
+/// 同上，group 侧
+#[tokio::test]
+async fn ui_extra_group_routes_to_platform_db() {
+    let (db, _dir) = three_file_db().await;
+    let g = create_group(&db, sample_group("ug", vec![]))
+        .await
+        .unwrap();
+    update_extra_key(&db, "group", g.id, "_ui_collapsed", serde_json::json!(false))
+        .await
+        .unwrap();
+    let got = get_group(&db, g.id).await.unwrap().unwrap();
+    let v: serde_json::Value = serde_json::from_str(&got.extra).unwrap();
+    assert_eq!(v["_ui_collapsed"], serde_json::json!(false));
+}

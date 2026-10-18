@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi, onProxyLogUpdated, type ProxyLogSummary, type ProxyLogFilter } from "../../services/api";
 
@@ -18,15 +18,24 @@ export function useLogsList(activeFilter: ProxyLogFilter, hasFilter: boolean) {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [cleanupMessage, setCleanupMessage] = useState<string>("");
 
+  // 加载序号守卫（同 Groups useGroupData 的 loadSeqRef idiom）：筛选/分页切换或
+  // 500ms 静默刷新并发时，迟到的旧响应据此丢弃，不覆盖新一轮结果。
+  const loadSeqRef = useRef(0);
+
   const load = useCallback(async (silent = false) => {
+    const seq = ++loadSeqRef.current;
     if (!silent) setLoading(true);
     try {
       // 始终走 filtered 路径：activeFilter 默认带 exclude_sources=["test","quota"]
       // logs-query-ipc-slimming s2：不再跟精确 COUNT（转发期 500ms 轮询下是全表扫浪费），
       // 改 has_more 探测「有没有下一页」，分页 UI 相应退化（见 primitives.tsx Pagination）。
       const page = await proxyLogApi.listFiltered(activeFilter, pageSize, offset);
-      setLogs(page.items || []);
-      setHasMore(page.has_more);
+      // 陈旧轮次只跳过数据写入，不动 loading（早退会吞 setLoading(false)，
+      // 静默刷新轮次不收尾 → spinner 卡死）
+      if (loadSeqRef.current === seq) {
+        setLogs(page.items || []);
+        setHasMore(page.has_more);
+      }
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
   }, [offset, pageSize, activeFilter]);

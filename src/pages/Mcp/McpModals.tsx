@@ -2,7 +2,7 @@ import { useState } from "react";
 import { type McpTransport } from "../../services/api";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import type { McpData } from "./useMcpData";
-import { summaryOf, CATEGORY_ORDER, descFor, cmdSummary } from "./constants";
+import { CATEGORY_ORDER, descFor, cmdSummary } from "./constants";
 import { TransportBadge, KVRows } from "./primitives";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -143,7 +143,7 @@ export function McpModals({ d }: { d: McpData }) {
                         )}
                       </div>
                       <div style={{ color: "var(--text-tertiary)", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {summaryOf(it)}
+                        <span title={cmdSummary(it)}>{cmdSummary(it)}</span>
                       </div>
                     </div>
                   </label>

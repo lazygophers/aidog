@@ -23,7 +23,14 @@ pub fn convert_request(
         Protocol::Gemini => {
             let gemini_req = super::super::gemini::to_gemini(req);
             let json = serde_json::to_value(&gemini_req).unwrap();
-            let path = format!("/v1beta/models/{}:streamGenerateContent", req.model);
+            // verb 跟随请求的 stream 位：非流式打 :generateContent（stream 端点对非流式请求
+            // 返回 JSON 数组，is_nonstream_body_valid 判无效 → 全候选 failover → 502）。
+            let verb = if req.stream.unwrap_or(false) {
+                "streamGenerateContent"
+            } else {
+                "generateContent"
+            };
+            let path = format!("/v1beta/models/{}:{verb}", req.model);
             (json, path)
         }
         Protocol::OpenAIResponses => {
@@ -64,10 +71,19 @@ pub fn passthrough_api_path(
     wire_protocol: &Protocol,
     model: &str,
     platform_protocol: &Protocol,
+    is_stream: bool,
 ) -> String {
     match wire_protocol {
         Protocol::Anthropic => "/v1/messages".to_string(),
-        Protocol::Gemini => format!("/v1beta/models/{}:streamGenerateContent", model),
+        // verb 与 convert_request 同规则（非流式 :generateContent，见该函数注释）
+        Protocol::Gemini => {
+            let verb = if is_stream {
+                "streamGenerateContent"
+            } else {
+                "generateContent"
+            };
+            format!("/v1beta/models/{model}:{verb}")
+        }
         Protocol::OpenAIResponses => "/responses".to_string(),
         Protocol::OpenAICompletions => "/completions".to_string(),
         _ => provider_api_path(platform_protocol),

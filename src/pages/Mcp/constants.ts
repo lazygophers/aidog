@@ -26,15 +26,6 @@ export function transportStyle(transport: string): { bg: string; fg: string } {
   }
 }
 
-/** 摘要：stdio→command + 首参；http/sse→url。 */
-export function summaryOf(m: { transport: string; command: string; args: string[]; url: string }): string {
-  if (m.transport === "stdio") {
-    const first = m.args[0] ?? "";
-    return [m.command, first].filter(Boolean).join(" ");
-  }
-  return m.url || "—";
-}
-
 // ─── 推荐清单（票 09）───
 
 /** 分类分组顺序（spec §3.1）；未知 category 按首现顺序排在末尾。 */
@@ -45,7 +36,7 @@ export function descFor(e: McpRecommendedEntry, lang: string): string {
   return e.description[lang] ?? e.description["en-US"] ?? e.description["zh-Hans"] ?? "";
 }
 
-/** 推荐卡命令行摘要：stdio → command + 全部 args；http/sse → url（全参，区别于列表页首参 summaryOf）。 */
+/** 命令行摘要：stdio → command + 全部 args；http/sse → url。 */
 export function cmdSummary(e: Pick<McpRecommendedEntry, "transport" | "command" | "args" | "url">): string {
   if (e.transport === "stdio") return [e.command, ...e.args].filter(Boolean).join(" ");
   return e.url || "—";

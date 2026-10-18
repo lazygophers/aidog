@@ -27,7 +27,7 @@ fn passthrough_path_matches_convert_request() {
     };
     for wire in wires {
         let (_body, conv_path) = convert_request(&req, &wire, &Protocol::OpenAI);
-        let pass_path = passthrough_api_path(&wire, &req.model, &Protocol::OpenAI);
+        let pass_path = passthrough_api_path(&wire, &req.model, &Protocol::OpenAI, req.stream.unwrap_or(false));
         assert_eq!(conv_path, pass_path, "path mismatch for {:?}", wire);
     }
 }
@@ -35,11 +35,11 @@ fn passthrough_path_matches_convert_request() {
 // ── Gemini path 含模型名 ──
 #[test]
 fn passthrough_path_gemini_embeds_model() {
-    let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini);
-    assert_eq!(
-        path,
-        "/v1beta/models/gemini-2.0-flash:streamGenerateContent"
-    );
+    // stream 位决定 verb：流式 streamGenerateContent，非流式 generateContent（票 01 修复）
+    let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini, true);
+    assert_eq!(path, "/v1beta/models/gemini-2.0-flash:streamGenerateContent");
+    let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini, false);
+    assert_eq!(path, "/v1beta/models/gemini-2.0-flash:generateContent");
 }
 
 // ── Anthropic 入站含未知 block(thinking/image) 不再 400，降级 Unknown ──
@@ -306,4 +306,16 @@ fn anthropic_parse_tolerates_pi_specific_fields() {
             .and_then(|e| e.get("eager_input_streaming")),
         Some(&serde_json::json!(true))
     );
+}
+
+// ── Gemini convert_request 的 verb 跟随 stream 位（票 01：非流式打 :generateContent）──
+#[test]
+fn convert_request_gemini_verb_follows_stream() {
+    let body = serde_json::json!({"contents":[{"role":"user","parts":[{"text":"hi"}]}]});
+    let mut req = parse_incoming_request(&Protocol::Gemini, &body, None).expect("parse");
+    let (_, p) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert!(p.ends_with(":generateContent"), "非流式应为 generateContent: {p}");
+    req.stream = Some(true);
+    let (_, p) = convert_request(&req, &Protocol::Gemini, &Protocol::Gemini);
+    assert!(p.ends_with(":streamGenerateContent"), "流式应为 streamGenerateContent: {p}");
 }

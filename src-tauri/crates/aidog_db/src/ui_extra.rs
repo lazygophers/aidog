@@ -38,7 +38,10 @@ pub fn update_extra_key<'a>(
         // 须用双引号包标识符；"platform" 加引号同样合法。
         let sql_read = format!("SELECT extra FROM \"{table}\" WHERE id = ?1");
         let sql_write = format!("UPDATE \"{table}\" SET extra = ?1 WHERE id = ?2");
-        db.call_traced(None, __db_caller, move |conn| {
+        // EXTRA_TABLES 全部在 platform.db，必须走 platform handle：主库在 config-db-split
+        // Phase 4 后没有 platform/group 表，走 call_traced 会 no such table（被前端吞成
+        // 「UI 态永不持久化」，内存库测试测不出——db-pool-routing.md）。
+        db.call_platform_traced(None, __db_caller, move |conn| {
             // 闭包返回 tokio_rusqlite::Result<u64>（行计数），String 包装在外层 await 后做。
             let raw: String = conn.query_row(&sql_read, params![id as i64], |r| r.get(0))?;
             let mut root: serde_json::Value = if raw.trim().is_empty() {

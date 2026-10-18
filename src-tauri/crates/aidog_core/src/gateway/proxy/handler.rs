@@ -189,8 +189,10 @@ pub(crate) async fn handle_proxy_core(
     // origin-form URI（MITM 解密灌入 / reverse proxy）只有 path 段，须从 Host header 重构完整 url。
     // absolute-form（forward proxy `GET http://host/path`）req.uri() 本身含 scheme+host，build_url_from_host
     // 兼容（直接取 uri.scheme_str）；缺 Host header 时 fallback origin-form path-only 行为（不破坏旧日志）。
-    log.request_url =
-        build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string());
+    // ?api_key=<group_key> 是鉴权通道（WS 客户端），query 值即凭证，落库前脱敏
+    log.request_url = redact_api_key_query(
+        &build_url_from_host(req.headers(), req.uri()).unwrap_or_else(|| req.uri().to_string()),
+    );
 
     // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
     // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前取走原始量。
@@ -294,8 +296,12 @@ pub(crate) async fn handle_proxy_core(
                         .await;
                     }
                     if let Some(ref token) = auth_header {
-                        log.response_body =
-                            format!("no matching group for token '{}' or path '{}'", token, path);
+                        // token 是 group_key 凭证，回显/落库前脱敏（同 request_headers 的 REDACT 口径）
+                        log.response_body = format!(
+                            "no matching group for token '{}' or path '{}'",
+                            redact_key(token),
+                            path
+                        );
                         log.status_code = 404;
                         log.done = true;
                         log.duration_ms = start.elapsed().as_millis() as i32;

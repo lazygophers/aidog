@@ -27,10 +27,36 @@ jobs:
           V=$(tr -d '[:space:]' < .version)
           gh release delete "v$V" --repo "$GITHUB_REPOSITORY" --yes --cleanup-tag || true
 
+  # 发版前全量门禁（审计发现 6：此前六道 lint + 全部测试只在本地跑，master 推上去直接出包）。
+  # 与 make lint / make check 同源：类型 + 六道 lint + 前端测试 + Rust 全量测试。
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install JS deps
+        run: yarn install --immutable
+      - name: Type checks (tsc + cargo check)
+        run: make check
+      - name: Lint gates (registry/i18n/protocol/modal/tokens/clippy)
+        run: make lint
+      - name: Frontend tests (vitest)
+        run: yarn test
+      - name: Rust tests (cargo test --workspace)
+        run: cargo test --manifest-path src-tauri/Cargo.toml --workspace
+
   release:
     # cleanup 在 push 事件被 skip：always() && result != failure 让 push 路径照跑（skipped != failure）。
-    needs: cleanup
-    if: always() && needs.cleanup.result != 'failure'
+    needs: [cleanup, gates]
+    if: always() && needs.cleanup.result != 'failure' && needs.gates.result != 'failure'
     strategy:
       fail-fast: false
       matrix:

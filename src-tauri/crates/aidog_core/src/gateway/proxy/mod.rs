@@ -100,7 +100,7 @@ pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
-    passthrough_headers, reject_non_loopback, sanitize_header_injects,
+    passthrough_headers, redact_api_key_query, reject_non_loopback, sanitize_header_injects,
 };
 pub(crate) use non_success::{handle_non_success, NonSuccessCtx};
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
