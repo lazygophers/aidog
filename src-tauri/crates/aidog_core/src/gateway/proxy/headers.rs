@@ -19,6 +19,15 @@ pub(crate) fn inject_trace_header(response: &mut axum::response::Response) {
     }
 }
 
+/// 非回环来源的本地端点请求直接 403（bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
+/// `who` 仅用于 warn 文案前缀（如 "group-info" / "notify"）。
+pub(crate) fn reject_non_loopback(addr: &std::net::SocketAddr, who: &str) -> Response {
+    tracing::warn!(peer = %addr, "{who}: non-loopback request rejected");
+    let mut r = StatusCode::FORBIDDEN.into_response();
+    inject_trace_header(&mut r);
+    r
+}
+
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
 /// 仅剔除 hop-by-hop（Host / Content-Length，由 reqwest 按目标 URL + body 重设）。
 pub(crate) fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {

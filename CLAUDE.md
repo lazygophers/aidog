@@ -47,7 +47,7 @@
 
 ### Local API
 - 应用 API 端点以 `/api/` 开头，仅允许 POST 方法
-- `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权。**唯一防线就是这个 Bearer**：代理无任何来源 IP 检查（全库零 `ConnectInfo` / `is_loopback` / `peer_addr`），`bind_lan=true` 时监听 `0.0.0.0`，同局域网设备可直达 `/api/*`。新增 `/api/*` 端点必须自带鉴权，禁按「localhost-only」假设省略。`bind_lan` 默认 false（仅 `127.0.0.1`）
+- `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权 + loopback 闸（非回环 403，`headers.rs::reject_non_loopback`；`bind_lan=true` 监听 `0.0.0.0` 时同样只放行本机）。`/api/notify` 同此双防线；`/api/hello`、`/`、`/models` 等探测端点故意无鉴权。新增 `/api/*` 端点必须自带鉴权，禁按「localhost-only」假设省略（ConnectInfo 已全局注入，`mod.rs` 的 serve 用 `into_make_service_with_connect_info`）。`bind_lan` 默认 false（仅 `127.0.0.1`）
 - `GET /` + `GET /proxy`：健康端点，返回 `{"service":"aidog","ok":true}`，无鉴权、不落 proxy_log、跳过组路由（客户端启动探测命中代理根 URL 用，禁删）
 - `GET /models` + `GET /v1/models`：总是返回默认模型列表（registry 的 Claude + Codex 官方条目），**不依赖 group / token、不 relay 上游**，按 path 协议格式化（含 `/v1/`→openai 列表格式；裸 `/proxy/models`→anthropic 列表格式）。分流前置于 `resolve_group` 之前，tokenless 探测不再 404。仍落 proxy_log(status=200)。模型 id 由 `default_model_ids`（`gateway/proxy/passthrough.rs`）从 registry 的 anthropic / openai 平台条目读出（旧硬编码 `STATIC_MODEL_IDS` 已删），跟随远程同步自动更新，无需手工核对。
 - statusline bash 脚本通过 `ANTHROPIC_BASE_URL`（推导代理根 URL）+ `ANTHROPIC_AUTH_TOKEN`（= group_name）调用端点
