@@ -121,3 +121,19 @@ registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被
 
 - 带 `$` 的 commit message 一律单引号 `'…'`，或写临时文件后 `git commit -F <file>`。
 - commit 后看一眼 git 输出首行摘要核对 message 原样落盘。
+
+## 别的会话当天 commit 改夹具，绿门禁中途变红（2026-10-18）
+
+整仓审计收官全量门禁时 hooks 测试转红，本 session 的 diff 不碰它。根因：另一会话
+2a17cc818 给 `src-tauri/defaults/settings.json` 加了用户 hooks（tracking_progress
+等），测试断言「remove 后 hooks.Stop 键消失」随之过时——夹具语义变了，断言没跟。
+主会话按 parallel-implement.md「基线红只由主会话修一次」收敛断言为「aidog hook
+项已清」（9d085a726），不删别人夹具里的用户 hook。
+
+- **排查中途新红先看夹具的近期提交**：`git log --oneline -5 -- <测试断言涉及的
+  夹具文件>`，别的会话当天改过就先归因到它，不在自己 diff 里翻（perf-testing.md
+  §6「按理已删的函数出现在 profile 里」同模式：先核实环境，再怀疑自己）。
+- 共享 checkout 上「开工时跑过全绿」不能保证收官时还绿——夹具、默认配置
+  （defaults/*.json）、门禁脚本本身都可能被并行会话推进。修法守基线红纪律：
+  主会话修一次、修断言不改别人夹具、commit 里注明夹具来源（9d085a726 的
+  "defaults now ships user hooks" 即此）。
