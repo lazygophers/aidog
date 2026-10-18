@@ -31,12 +31,26 @@ struct Job {
     is_platform: bool,
 }
 
+/// 并发互斥：启动 spawn / 每小时 loop / 手动命令三个触发点可重叠；旧轮（拉到旧 index）
+/// 后完成会把新价盖回旧价并回拨 registry_last_updated（审计发现 11）。
+/// 同 backup scheduler 的 BACKUP_RUNNING 三行 idiom。
+static SYNCING: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 /// 拉取整份 registry 并 upsert 入库。
 ///
 /// 后台周期同步的每轮入口：建独立 trace_id span（非请求触发），本轮所有日志
 /// 自动带 price_sync{trace_id=xxxxxxxx} 前缀，可按 id grep 出完整一轮同步。
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_registry(db: &Db) -> Result<PriceSyncResult, String> {
+    if SYNCING.swap(true, std::sync::atomic::Ordering::SeqCst) {
+        return Err("sync already running".to_string());
+    }
+    let result = sync_registry_inner(db).await;
+    SYNCING.store(false, std::sync::atomic::Ordering::SeqCst);
+    result
+}
+
+async fn sync_registry_inner(db: &Db) -> Result<PriceSyncResult, String> {
     let result = sync_registry_from(db, &[REGISTRY_PRIMARY_BASE, REGISTRY_FALLBACK_BASE]).await?;
     // 注册表镜像表有实际变更 → 通知前端（模型信息页重拉 snapshot、defaults docPromise 失效）。
     // 无变更的周期空转不发，避免页面无谓 refetch。
@@ -218,6 +232,8 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         .collect();
     // DB 写入同样 best-effort：一行脏数据不该吞掉整轮结果（`last_sync_at` 不写、
     // failures 清单整个丢失、前端只看到一个字符串错误）。写失败的行并进 failures。
+    let remote_preset_codes_all: std::collections::HashSet<String> =
+        presets.iter().map(|p| p.code.clone()).collect();
     failures.extend(write_failures(
         "platform_preset",
         aidog_db::upsert_platform_presets(db, presets).await,
@@ -233,6 +249,14 @@ async fn sync_registry_from(db: &Db, bases: &[&str]) -> Result<PriceSyncResult, 
         if let Err(error) = aidog_db::prune_model_entries(db, &keys).await {
             failures.push(SyncFailure {
                 file: "model_entry".into(),
+                error,
+            });
+        }
+        // 对称 prune：上游下架的 platform_preset 镜像行同步后删除（此前滞留到二进制升级）
+        let remote_preset_codes: std::collections::HashSet<String> = remote_preset_codes_all;
+        if let Err(error) = aidog_db::prune_platform_presets(db, &remote_preset_codes).await {
+            failures.push(SyncFailure {
+                file: "platform_preset".into(),
                 error,
             });
         }
