@@ -413,7 +413,8 @@
     "enabledPlugins": {
         "caveman@caveman": true,
         "i-have-adhd@i-have-adhd": true,
-        "ponytail@ponytail": true
+        "ponytail@ponytail": true,
+        "context-mode@context-mode": true
     },
     "extraKnownMarketplaces": {
         "caveman": {
@@ -449,6 +450,12 @@
             "source": {
                 "repo": "DietrichGebert/ponytail",
                 "source": "github"
+            }
+        },
+        "context-mode": {
+            "source": {
+                "source": "github",
+                "repo": "mksglu/context-mode"
             }
         }
     }
