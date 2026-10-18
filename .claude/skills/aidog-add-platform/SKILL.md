@@ -1,6 +1,6 @@
 ---
 name: aidog-add-platform
-description: 在 aidog 里加一个新平台或改一个平台的默认配置（base_url / 端点协议 / coding plan / 默认模型 / 余额查询）。registry 化后流程 = ① registry JSON 三件套（platform.json + index.json + models/*.json）② Protocol 枚举 Rust↔TS 双写（aidog_db/src/models/protocol.rs + src/services/api/types/manual.ts，commandcode 2026-10-01 漏过）③ 可选 quota_scripts（数据驱动）。覆盖全套触点与顺序，并避开反直觉陷阱（平台预设住 registry JSON 非前端代码、quota 按 quota_url_match 数据分派、coding 套餐一律独立协议）。触发词：加平台、新增平台、添加平台、改平台默认配置、平台 base_url、平台预设、getDefaultEndpoints、获取余额、查余额、coding plan 配额、coding plan 查询、默认模型、Protocol 枚举、新协议、新增 adapter、supported_protocols、platform.json。
+description: 在 aidog 里加一个新平台或改一个平台的默认配置（base_url / 端点协议 / coding plan / 默认模型 / 余额查询）。registry 化后流程 = ① registry JSON 三件套（platform.json + index.json + models/*.json）② Protocol 枚举 Rust↔TS 双写（aidog_db/src/models/protocol.rs + src/services/api/types/manual.ts，commandcode 2026-10-01 漏过）③ 可选 quota_scripts（数据驱动）。覆盖全套触点与顺序，并避开反直觉陷阱（平台预设住 registry JSON 非前端代码、quota 按 quota_url_match 数据分派、coding 套餐一律独立协议）。触发词：加平台、新增平台、添加平台、改平台默认配置、平台 base_url、平台预设、getDefaultEndpoints、获取余额、查余额、coding plan 配额、coding plan 查询、默认模型、Protocol 枚举、新协议、supported_protocols、platform.json。
 when_to_use: 给 aidog 新增一个平台（下拉里能选、自动填 base_url 和默认模型）；改某平台的默认 base_url/端点/coding plan；给平台接上游余额或 coding plan 配额查询；加一个全新的 wire 协议（anthropic/openai/gemini/typesafe 都不匹配）时
 ---
 
@@ -24,7 +24,7 @@ when_to_use: 给 aidog 新增一个平台（下拉里能选、自动填 base_url
    ⚠️ 已知存量例外（缺双写、待主会话裁决）：`litellm` / `meta` / `mistral` / `xai`。
 
 3. **Protocol 变体有两类语义**（`protocol.rs` 注释划分）：
-   - **wire 协议（可作 endpoint 协议）**：`anthropic / openai / openai_responses / openai_completions / gemini / typesafe / mock`，决定请求体格式 / api_path / SSE 解析，实现在 `src-tauri/crates/aidog_adapter/src/protocols/<name>/`，经 `converter/registry.rs::converter_registry` 注册表分派。
+   - **wire 协议（可作 endpoint 协议）**：`anthropic / openai / openai_responses / openai_completions / gemini / typesafe / mock`，决定请求体格式 / api_path / SSE 解析，实现在 `src-tauri/crates/aidog_adapter/src/protocols/<name>/`，由 `aidog_adapter/src/converter/request.rs` / `response.rs` 的 `match wire_protocol` 分派（无注册表）。
    - **平台类型（仅作平台主协议）**：其余全部（glm/deepseek/openrouter/…），只是身份标签，**不参与 wire 转换**。新平台加的枚举变体几乎总是这一类。
    90%+ 的「加平台」只是又一个 OpenAI/Anthropic 兼容中转/聚合站，wire 复用前 6 个之一，给它 registry 条目 + 枚举双写即可。
 
@@ -43,7 +43,7 @@ when_to_use: 给 aidog 新增一个平台（下拉里能选、自动填 base_url
 │     → endpoint.protocol = 对应 wire 协议，base_url 含版本前缀
 │     → 【路径 1】零 wire 代码改动
 └─ 全新私有 wire 格式（几乎不出现）
-      → 【路径 2】新建 ProtocolConverter + 注册表 + 前端两处派生（重活）
+      → 【路径 2】新建 protocols/<name>/ 转换函数 + converter match 分支 + 前端两处派生（重活）
 ```
 
 ---
@@ -70,7 +70,7 @@ Foo,
 
 ### 可选（按需）
 - **厂商直连端点锁死**：`Protocol::endpoints_locked()`（`protocol.rs:261` matches! 链）↔ 前端 `ENDPOINTS_LOCKED_PROTOCOLS`（`src/domains/platforms/constants.ts`）**同集双写**（有对称测试锚点），官方端点固定的平台才加。
-- **per-platform wire 微调**：`src-tauri/crates/aidog_adapter/src/<platform>/`（如 `glm/openai_chat.rs`）+ `aidog_adapter/src/lib.rs` 声明 mod。仅该平台请求/响应要特调时才建；多数新平台（如 commandcode / tokenrhythm）没有。
+- **per-platform adapter 目录已删**（2026-10-18：63 个零引用平台目录连同 `lib.rs` mod 声明移除，仅留 mock / devin / newapi，新平台不写 adapter 代码）。如确需 wire 级特调，在 `aidog_adapter/src/protocols/` 或 `converter/` 加分支，不新建平台目录。
 - **默认模型**：就是 ① 的 `models.default`（slot 键见 `ModelSlot`），见 `references/default-model.md`。
 - **余额 / coding plan 配额**：① 的 `quota_url_match` + `quota_scripts`，见 `references/quota-coding-plan.md`。
 
@@ -85,8 +85,8 @@ Foo,
 
 仅当 6 个 wire 协议全不匹配时。除路径 1 外还需：
 
-1. **新建 converter**：`src-tauri/crates/aidog_adapter/src/protocols/<name>/` 实现 `ProtocolConverter` trait（参考 `protocols/openai/` / `anthropic/`）。
-2. **注册表**：`aidog_adapter/src/converter/registry.rs::converter_registry` map 加一行（注册表驱动，不再是大 match）。
+1. **新建 converter**：`src-tauri/crates/aidog_adapter/src/protocols/<name>/` 写 from_<name> / to_<name> 等转换函数（参考 `protocols/openai/` / `anthropic/` 的 convert 子模块，无 trait、无注册表）。
+2. **分派**：`aidog_adapter/src/converter/request.rs` / `response.rs` 的 `match wire_protocol` 加分支。
 3. **Protocol 枚举 wire 段**：`protocol.rs` 的「AI 请求协议」段加变体（同 ②，但放 wire 段）。
 4. **鉴权头**：`aidog_core/src/gateway/proxy/` 的 upstream headers 构造按协议加分支（anthropic `x-api-key` / gemini `x-goog-api-key` / 默认 Bearer）。
 5. **前端端点协议选项**：`src/domains/platforms/constants.ts` 的 `ENDPOINT_PROTOCOLS` + `PROTOCOL_LABELS`（两处同集）。

@@ -24,7 +24,7 @@
 | 触点 | 位置 | 何时改 |
 |---|---|---|
 | 厂商直连端点锁死 | `protocol.rs::endpoints_locked` ↔ `src/domains/platforms/constants.ts::ENDPOINTS_LOCKED_PROTOCOLS`（**同集双写**，有对称测试） | 官方端点固定、禁用户改端点的平台 |
-| per-platform wire 微调 | `src-tauri/crates/aidog_adapter/src/<platform>/` + `aidog_adapter/src/lib.rs` mod 声明 | 该平台请求/响应需特调（如 glm）；多数新平台不需要 |
+| per-platform wire 微调 | ~~`aidog_adapter/src/<platform>/`~~ 已删（2026-10-18，63 个零引用目录移除，仅留 mock/devin/newapi）；wire 特调改在 `aidog_adapter/src/protocols/` 或 `converter/` 加分支 | 该平台请求/响应需特调；多数新平台不需要 |
 | 余额 / 配额脚本 | platform.json `quota_url_match` + `quota_scripts` | 平台有上游查询 API（见 quota-coding-plan.md） |
 | key 前缀识别 | platform.json `key_prefixes` | 平台 API key 有专属前缀（如 sk-ant-） |
 
@@ -37,7 +37,7 @@
 | match / 派生 | 位置 | 兜底? | 加变体后 |
 |---|---|---|---|
 | fetch models 等 dispatch | `aidog_core/src/platform_cmd/model_fetch.rs`（`matches!` + `_`） | 有 | 多数不补 |
-| `convert_request` / `parse_sse` | `aidog_adapter/src/converter/{request,response}.rs` | 有 `_`（按 wire 协议注册表分派） | 不补（平台类型不参与 wire 转换） |
+| `convert_request` / `parse_sse` | `aidog_adapter/src/converter/{request,response}.rs` | 有 `_`（按 wire 协议 match 分派） | 不补（平台类型不参与 wire 转换） |
 | `inject_coding_plan_fields` | `aidog_core/src/gateway/proxy/headers.rs:440` | 有 `_` | 仅注特殊 body 字段才补（🔴 proxy 与 model-test 两处调用点必须同步） |
 | `client_type` 缺省 | `aidog_db/src/registry.rs::derive_client_type` ↔ `src/domains/platforms/defaults.ts::clientTypeForProtocol` | 有 | 不补（跨层对称，禁单侧改） |
 | `endpoints_locked` | `protocol.rs:261` ↔ `constants.ts` | — | 仅厂商直连（见 A 可选） |
@@ -49,7 +49,7 @@
 | # | 触点 | 位置 | 标记 |
 |---|---|---|---|
 | 1 | 新建 converter（实现 `ProtocolConverter` trait） | `src-tauri/crates/aidog_adapter/src/protocols/<name>/` | 🔺 |
-| 2 | converter 注册表 | `aidog_adapter/src/converter/registry.rs::converter_registry` | 🔺 |
+| 2 | converter match 分派 | `aidog_adapter/src/converter/{request,response}.rs` 的 `match wire_protocol` | 🔺 |
 | 3 | Protocol 枚举 **wire 段**加变体 | `protocol.rs`「AI 请求协议」段 | 🔺 |
 | 4 | wire 鉴权头 | `aidog_core/src/gateway/proxy/`（upstream headers 构造） | 🔺 |
 | 5 | 端点协议选项 + 显示名 | `src/domains/platforms/constants.ts` 的 `ENDPOINT_PROTOCOLS` + `PROTOCOL_LABELS`（两处同集） | 🔺 |
@@ -89,5 +89,5 @@
 | 前端预设常量（Platforms.tsx / defaults.ts / constants.ts 的平台列表） | 全部数据驱动派生，不存在硬编码预设 |
 | `aidog_db::registry` 合并视图 / presets() | build.rs 自动枚举文件，无需改 Rust |
 | db.rs 平台 seed | 不存在 |
-| `aidog_adapter/src/<platform>/`（glm / deepseek 等既有目录） | 仅该平台需要 wire 微调才有内容；新平台默认不建 |
+| `aidog_adapter/src/<platform>/` | 已删（2026-10-18 全部 63 个零引用目录移除，仅留 mock/devin/newapi）；新平台默认不建 |
 | PricingTab / 定价 UI | 定价按模型条目键，与平台无关 |
