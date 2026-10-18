@@ -1349,6 +1349,14 @@ async fn responses_subendpoint_upstream_unreachable_502() {
 // /api/notify：handle_notify 鉴权 + dispatch 全链路
 // ──────────────────────────────────────────────────────────────
 
+fn notify_ci() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
+    axum::extract::ConnectInfo("127.0.0.1:50000".parse().unwrap())
+}
+
+fn notify_ci_lan() -> axum::extract::ConnectInfo<std::net::SocketAddr> {
+    axum::extract::ConnectInfo("192.168.1.5:50000".parse().unwrap())
+}
+
 fn notify_headers(bearer: Option<&str>) -> axum::http::HeaderMap {
     let mut h = axum::http::HeaderMap::new();
     if let Some(b) = bearer {
@@ -1366,6 +1374,7 @@ async fn notify_missing_auth_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
+        notify_ci(),
         notify_headers(None),
         Bytes::from_static(b"{}"),
     )
@@ -1379,6 +1388,7 @@ async fn notify_empty_bearer_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
+        notify_ci(),
         notify_headers(Some("")),
         Bytes::from_static(b"{}"),
     )
@@ -1392,6 +1402,7 @@ async fn notify_unknown_group_returns_401() {
     let state = make_state(test_db().await).await;
     let resp = handle_notify(
         AxumState(state),
+        notify_ci(),
         notify_headers(Some("ghost-key")),
         Bytes::from_static(b"{}"),
     )
@@ -1411,6 +1422,7 @@ async fn notify_bad_body_returns_400() {
     .unwrap();
     let resp = handle_notify(
         AxumState(state),
+        notify_ci(),
         notify_headers(Some("gkn1")),
         Bytes::from_static(b"not json"),
     )
@@ -1431,7 +1443,9 @@ async fn notify_success_dispatches_and_returns_result() {
     let body = Bytes::from_static(
         br#"{"type":"TaskComplete","content":"done","vars":{"project":"demo"}}"#,
     );
-    let resp = handle_notify(AxumState(state.clone()), notify_headers(Some("gkn2")), body).await;
+    let resp =
+        handle_notify(AxumState(state.clone()), notify_ci(), notify_headers(Some("gkn2")), body)
+            .await;
     assert_eq!(resp.status(), StatusCode::OK);
     let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20)
         .await
@@ -1454,8 +1468,23 @@ async fn notify_event_path_injects_builtin_vars() {
     .unwrap();
     // 仅 event，无 vars → 内置 group/time 注入分支命中
     let body = Bytes::from_static(br#"{"event":"Stop","content":"hello"}"#);
-    let resp = handle_notify(AxumState(state), notify_headers(Some("gkn3")), body).await;
+    let resp =
+        handle_notify(AxumState(state), notify_ci(), notify_headers(Some("gkn3")), body).await;
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+/// notify loopback 闸：非回环来源（bind_lan 下同网段设备）直接 403，不碰鉴权。
+#[tokio::test]
+async fn notify_non_loopback_rejected_403() {
+    let state = make_state(test_db().await).await;
+    let resp = handle_notify(
+        AxumState(state),
+        notify_ci_lan(),
+        notify_headers(Some("any")),
+        Bytes::from_static(b"{}"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::FORBIDDEN);
 }
 
 // ── fallback 直通：MITM 解密非 API 流量未匹配分组 → 直通原 host + 虚拟桶统计 ──
@@ -1721,7 +1750,14 @@ async fn spawn_proxy_router(state: Arc<ProxyState>) -> String {
     let app = super::build_router(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .ok();
+    });
     format!("http://127.0.0.1:{port}", port = addr.port())
 }
 
@@ -1839,7 +1875,14 @@ async fn absolute_form_https_uri_scheme_adaptive() {
     let app = super::build_router(state.clone());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let proxy_addr = listener.local_addr().unwrap();
-    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    tokio::spawn(async move {
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .ok();
+    });
 
     // raw TCP 发 absolute-form HTTPS URI（`GET https://example.invalid/ HTTP/1.1`）。
     // 手写 h1 请求：reqwest/hyper 客户端发 HTTPS forward 会自动转 CONNECT，禁用之需 raw 字节。
