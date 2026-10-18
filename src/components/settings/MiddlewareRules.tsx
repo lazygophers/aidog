@@ -580,12 +580,16 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<{ id: number; name: string }[]>([]);
   const [groups, setGroups] = useState<{ id: number; name: string; group_key: string }[]>([]);
+  // 加载失败必须可见：静默吞错会让 picker 空列表被当成「空 = 全部平台/分组」，
+  // 用户本想限定单平台的规则保存成作用于全部流量（审计发现 12，语义反转）
+  const [loadFailed, setLoadFailed] = useState(false);
   useEffect(() => {
+    setLoadFailed(false);
     platformApi
       .list()
       .then((ps: { id: number; name: string }[]) => setPlatforms(ps.map((x) => ({ id: x.id, name: x.name }))))
-      .catch(() => {});
-    groupApi.list().then((gs: { id: number; name: string; group_key: string }[]) => setGroups(gs)).catch(() => {});
+      .catch(() => setLoadFailed(true));
+    groupApi.list().then((gs: { id: number; name: string; group_key: string }[]) => setGroups(gs)).catch(() => setLoadFailed(true));
   }, []);
   const toggle = (dim: "platforms" | "groups", v: number | string, on: boolean) => {
     const cur = value[dim] as (number | string)[];
@@ -597,6 +601,11 @@ function AppliesToEditor({ value, onChange }: { value: AppliesTo; onChange: (a: 
   const check = (dim: "platforms" | "groups", v: number | string) => (value[dim] as (number | string)[]).includes(v);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      {loadFailed && (
+        <div style={{ color: "var(--destructive)" }}>
+          {t("skills.loadFailed")} — {t("middleware.appliesPlatforms", "平台（空 = 全部）")}
+        </div>
+      )}
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>
           {t("middleware.appliesPlatforms", "平台（空 = 全部）")}

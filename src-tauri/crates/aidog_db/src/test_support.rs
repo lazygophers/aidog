@@ -251,3 +251,19 @@ pub async fn count_all_proxy_logs(db: &Db) -> i64 {
     .await
     .unwrap()
 }
+
+/// 文件库 fixture：主库 + log.db + platform.db 三独立文件路径（Db::new 对文件路径自动拆）。
+/// 内存库下三个 handle 复用同一物理连接，路由错误（split 表 call 站点走错 handle）
+/// 测试不可见（.claude/rules/db-pool-routing.md）——platform / group / proxy_log 的
+/// call 站点测试必须用它才能暴露错库。返回 (Db, TempDir)；TempDir 由调用方持有。
+pub async fn three_file_db() -> (Db, tempfile::TempDir) {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let main = dir.path().join("aidog.db");
+    let db = Db::new(main.to_str().expect("utf8 path"))
+        .await
+        .expect("open file db");
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_conn, _map| Ok(())))
+        .await
+        .expect("init tables");
+    (db, dir)
+}

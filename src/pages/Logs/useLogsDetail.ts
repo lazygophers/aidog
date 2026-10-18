@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { proxyLogApi, onProxyLogUpdated, type ProxyLogDetail } from "../../services/api";
 import { writeText } from "../../services/platform";
@@ -11,6 +11,8 @@ import { writeText } from "../../services/platform";
 export function useLogsDetail() {
   const { t } = useTranslation();
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
+  // 详情竞态守卫：当前请求的 id，迟到的旧响应据此丢弃（见 openDetail）
+  const detailIdRef = useRef<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
 
@@ -77,9 +79,11 @@ export function useLogsDetail() {
   }, []);
 
   const openDetail = useCallback(async (id: string) => {
+    // 竞态守卫：快速连点两行时慢的旧请求后到，不比对会覆盖面板显示错误请求的内容
+    detailIdRef.current = id;
     try {
       const d = await proxyLogApi.get(id);
-      if (d) setDetail(d);
+      if (d && detailIdRef.current === id) setDetail(d);
     } catch (e) { console.error(e); }
   }, []);
 
