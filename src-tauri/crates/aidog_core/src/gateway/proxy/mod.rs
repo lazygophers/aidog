@@ -358,7 +358,13 @@ pub async fn start_proxy(
     let app = build_router(state);
 
     let handle = crate::logging::spawn_traced("axum_serve", async move {
-        axum::serve(listener, app).await.ok();
+        // ConnectInfo 注入：/api/group-info 与 /api/notify 的 loopback 闸依赖对端地址。
+        axum::serve(
+            listener,
+            app.into_make_service_with_connect_info::<std::net::SocketAddr>(),
+        )
+        .await
+        .ok();
     });
 
     Ok(handle)
