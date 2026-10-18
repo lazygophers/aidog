@@ -48,6 +48,15 @@ fn store_session_at(client_id: String, devin_id: String, now: std::time::Instant
     let map = session_map();
     if map.len() > 128 {
         map.retain(|_, v| now.duration_since(v.created_at).as_secs() <= DEVIN_SESSION_TTL_SECS);
+        // TTL 内全新鲜时 retain 删不掉任何条目：仍超限按 created_at 最旧硬淘汰
+        while map.len() >= 128
+            && let Some(oldest) = map
+                .iter()
+                .min_by_key(|e| e.value().created_at)
+                .map(|e| e.key().clone())
+        {
+            map.remove(&oldest);
+        }
     }
     map.insert(
         client_id,

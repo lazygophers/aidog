@@ -132,7 +132,8 @@ fn default_level() -> String {
     "info".to_string()
 }
 fn default_retention_hours() -> u32 {
-    3
+    // 24h（用户 2026-10-18 拍板）：卡顿/问题定位需要跨天回看；已存 3 的用户行不回改
+    24
 }
 
 impl Default for AppLogSettings {

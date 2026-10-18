@@ -380,28 +380,36 @@ pub async fn estimate_after_request(
     input_tokens: i64,
     output_tokens: i64,
     cache_tokens: i64,
+    cache_write_tokens: i64,
     is_coding_plan: bool,
+    created_at_ms: i64,
 ) {
+    // 判峰时刻与 calc_est_cost 同源：用请求发起时刻（created_at_ms），不用完成后的 now()
+    // —— 跨峰边界请求（17:59 发 18:05 完）此前两套口径对不上。缺时间戳（0）才退 now()。
+    let at_ms = if created_at_ms > 0 { created_at_ms } else { now() };
     // peak 窗口先算：`is_peak` 决定条目里的 peak 绝对价是否生效（票 T4）。
     // 与 calc_est_cost（proxy/log.rs → billing.rs）同一口径，估算链此前漏乘（既存 bug）。
     let windows = crate::gateway::peak::peak_for(extra, platform_type);
-    let is_peak = crate::gateway::peak::is_in_peak_window(&windows, now(), model);
+    let is_peak = crate::gateway::peak::is_in_peak_window(&windows, at_ms, model);
+    // fallback 价与 billing 同源（PriceSyncSettings）：此前硬传 0.0，无条目模型扣恒 0、
+    // 同一请求 est_cost 却按默认价记账，余额与日志两套账（审计发现 7）。
+    let sync_settings = crate::gateway::price_sync::get_sync_settings(db).await;
     // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一结果
     // （同一 (platform_type, model, input_tokens)，结果等价），避免对余额平台重复解析两次。
     let resolved = aidog_db::resolve_price(
         db,
         platform_type,
         model,
-        0.0,
-        0.0,
+        sync_settings.fallback_input_price,
+        sync_settings.fallback_output_price,
         input_tokens,
-        now(),
+        at_ms,
         is_peak,
     )
     .await
     .ok();
     // 高峰绝对价已含涨价 → 倍率压成 1.0，否则乘平台 peak 倍率（避免双重计价）。
-    let raw_mult = crate::gateway::peak::resolve_multiplier(&windows, now(), model);
+    let raw_mult = crate::gateway::peak::resolve_multiplier(&windows, at_ms, model);
     let peak_mult = resolved
         .as_ref()
         .map_or(raw_mult, |r| r.multiplier(raw_mult));
@@ -409,7 +417,8 @@ pub async fn estimate_after_request(
 
     // 1. 增量预估
     if is_coding_plan {
-        let total = (input_tokens + output_tokens + cache_tokens) as f64;
+        // cache_write 计入 plan token 总量（coding 套餐 5h 窗口按总 token 计，含缓存写）
+        let total = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
         let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
     } else if let Some(ref price) = resolved_price {
         // 按量平台扣金额
@@ -417,9 +426,11 @@ pub async fn estimate_after_request(
             input_tokens,
             output_tokens,
             cache_tokens,
+            cache_write_tokens,
             price.input_cost_per_token,
             price.output_cost_per_token,
             price.cache_read_input_token_cost,
+            price.cache_write_input_token_cost,
         ) * peak_mult;
         let _ = apply_balance_delta(db, platform_id, cost).await;
     }
@@ -427,7 +438,7 @@ pub async fn estimate_after_request(
     // 1b. 手动预算扣减（独立于上游 quota 的并行机制；无 manual_budgets 则 no-op）。
     //     est_cost 走 resolve_price（与按量平台一致，含默认价回退）；token 扣总 token。
     {
-        let total_tokens = (input_tokens + output_tokens + cache_tokens) as f64;
+        let total_tokens = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
         let est_cost = resolved_price
             .as_ref()
             .map(|price| {
@@ -435,9 +446,11 @@ pub async fn estimate_after_request(
                     input_tokens,
                     output_tokens,
                     cache_tokens,
+                    cache_write_tokens,
                     price.input_cost_per_token,
                     price.output_cost_per_token,
                     price.cache_read_input_token_cost,
+                    price.cache_write_input_token_cost,
                 ) * peak_mult
             })
             .unwrap_or(0.0);

@@ -589,7 +589,9 @@ pub(crate) fn spawn_estimate(
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
+    cache_write_tokens: i32,
     is_coding_plan: bool,
+    created_at_ms: i64,
     span: tracing::Span,
 ) {
     // 无 token（请求失败 / 无 usage）则跳过
@@ -611,7 +613,9 @@ pub(crate) fn spawn_estimate(
                 input_tokens as i64,
                 output_tokens as i64,
                 cache_tokens as i64,
+                cache_write_tokens as i64,
                 is_coding_plan,
+                created_at_ms,
             )
             .await;
             // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）

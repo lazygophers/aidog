@@ -137,3 +137,7 @@ _避免_: quota.rs、custom query script（那是旧的泛型用户脚本入口�
 保存时单条正文物化进 platform 行的 `quota_script` 列执行；用户自定义脚本合成为伪变体
 （custom 正文优先于 id 选中）。远程同步只更新 registry 变体清单，不自动换已物化脚本。
 _避免_: deployment、provider preset
+
+## 统一日志（卡顿/故障定位入口）
+
+前后端同文件：`~/.aidog/logs/aidog.<YYYY-MM-DD-HH>.log`，按小时分割，按 `retention_hours`（默认 24）自动清理，设置页可调（`app_log_settings_get/set`，file_enabled/level/retention_hours）。前端 console（error/warn/info/debug）与未捕获异常由 `src/utils/frontendLog.ts` 入口 patch 转发 `app_log_frontend` 命令，Rust 侧 tracing `target=frontend` 落同一 appender。定位卡顿：复现时段内 grep `frontend`（前端渲染异常）+ `trace_id`（代理请求链）+ `ERROR`（后端），打包给 AI：`tar czf aidog-logs.tgz -C ~/.aidog logs`。_避免_: appender、webview console

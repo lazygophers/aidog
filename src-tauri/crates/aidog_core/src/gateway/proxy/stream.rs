@@ -558,7 +558,9 @@ impl StreamLogGuard {
                 input_tokens,
                 output_tokens,
                 cache_tokens,
+                cache_write_tokens,
                 est.coding_plan,
+                final_log.created_at,
                 self.req_span.clone(),
             );
         }
