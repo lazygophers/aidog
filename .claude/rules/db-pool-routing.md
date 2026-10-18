@@ -26,5 +26,15 @@
    grep -rn 'call_read_traced\|call_traced(' src-tauri/crates/aidog_db/src/ | grep -v _platform_traced | grep -v _proxy_log_traced
    ```
 
-长期修法（未做）：给 aidog_db 测试加一个三路径文件 fixture helper，让「路由错误
-测试可见」成为默认而不是每次手挑。
+fixture helper 已存在（2026-10-18 起）：`aidog_db::test_support::three_file_db()`
+（test_support.rs，主库 + log.db + platform.db 三独立文件路径）。platform / group /
+proxy_log 的 call 站点测试一律用它构造 `Db`，错路由当场 `no such table`。
+
+## 第二次复发（2026-10-18 ui_extra）
+
+`update_extra_key`（ui_extra.rs）对 platform/group 表走 `call_traced`，f551a5a 同族
+第二案（afe00198d 修）。症状新形态：**完全不炸**——内存库测试三 handle 同连接
+测不出，真机错误被前端吞成「UI 态永不持久化」这种静默失效，比 `no such table`
+更难发现（本例靠整仓审计抓到，不是靠报错）。教训：split 表 call 站点的错路由
+可以零报错；新增/改动这类站点时 three_file_db 测试不是可选项，且断言要落到
+「写后重开 DB 读回」级别，不能只断言不 panic。
