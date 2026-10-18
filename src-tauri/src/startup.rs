@@ -222,6 +222,7 @@ pub fn run() {
             // App Logging
             aidog_core::system_cmd::app_log::app_log_settings_get,
             aidog_core::system_cmd::app_log::app_log_settings_set,
+            aidog_core::system_cmd::app_log::app_log_frontend,
             // Auto-update toggle (gates startup daily check; manual button unaffected)
             aidog_core::system_cmd::auto_update::get_auto_update_enabled,
             aidog_core::system_cmd::auto_update::set_auto_update_enabled,

@@ -29,3 +29,18 @@ async fn load_settings_helper() {
     let db = test_db().await;
     let _ = load_app_log_settings_from_db(&db).await;
 }
+
+// ── app_log_frontend（unified-logging 票 01）：级别分派 + 截断，命令本身无返回数据 ──
+#[tokio::test]
+async fn app_log_frontend_accepts_levels() {
+    for (lvl, msg) in [("error", "boom"), ("warn", "careful"), ("info", "hi"), ("debug", "x")] {
+        let r = app_log_frontend(lvl.to_string(), msg.to_string()).await;
+        assert!(r.is_ok(), "level {lvl} should be accepted");
+    }
+}
+
+#[tokio::test]
+async fn app_log_frontend_truncates_huge_message() {
+    let r = app_log_frontend("error".into(), "x".repeat(50_000)).await;
+    assert!(r.is_ok());
+}

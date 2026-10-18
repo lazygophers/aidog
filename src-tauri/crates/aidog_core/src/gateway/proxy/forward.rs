@@ -2692,7 +2692,7 @@ async fn prepare_outbound(
             }
         }
         let path =
-            adapter::passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol);
+            adapter::passthrough_api_path(target.target_protocol_enum, &actual_model, platform_protocol, is_stream);
         tracing::debug!(protocol = %target.target_protocol_enum.wire_str(), "same-protocol passthrough: skip request format conversion");
         (body, path)
     } else {

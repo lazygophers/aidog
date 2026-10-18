@@ -44,6 +44,8 @@ release-debug: ## Build installer with debug symbols (faster, larger)
 check: ## Run TypeScript + Rust type checks
 	@printf "$(CYAN)▶ TypeScript check...$(RESET)\n"
 	npx tsc --noEmit
+	@printf "$(CYAN)▶ TypeScript check (tests)...$(RESET)\n"
+	npx tsc -p tsconfig.test.json --noEmit
 	@printf "$(CYAN)▶ Rust check...$(RESET)\n"
 	cd $(TAURI_DIR) && cargo check --workspace --all-targets
 

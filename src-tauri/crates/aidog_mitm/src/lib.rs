@@ -119,6 +119,12 @@ impl MitmState {
         // 这里补批量 sweep 兜底从未被复查的 host，防无界堆积）。
         if guard.len() > SUSPECT_CACHE_MAX {
             guard.retain(|_, ts| *ts + SUSPECT_TTL_SECS > now);
+            // TTL 内全新鲜时 retain 一个都删不掉：仍超限就按最旧硬淘汰到上限
+            while guard.len() >= SUSPECT_CACHE_MAX
+                && let Some(oldest) = guard.iter().min_by_key(|(_, ts)| **ts).map(|(k, _)| k.clone())
+            {
+                guard.remove(&oldest);
+            }
         }
         guard.insert(host, now);
     }

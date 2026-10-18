@@ -38,8 +38,6 @@ export const proxyApi = {
 // ─── Proxy Log API ─────────────────────────────────────────
 
 export const proxyLogApi = {
-  list: (limit = 50, offset = 0) =>
-    invoke<ProxyLogSummary[]>("proxy_log_list", { limit, offset }),
   // logs-query-ipc-slimming s2：不再返精确总数，改 has_more 探测（LIMIT limit+1 由 Rust 侧截断）。
   listFiltered: (filter: ProxyLogFilter, limit = 50, offset = 0) =>
     invoke<ProxyLogPage>("proxy_log_list_filtered", { filter, limit, offset }),

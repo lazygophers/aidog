@@ -187,6 +187,7 @@ pub(crate) async fn finish_nonstream(
         duration_ms = log.duration_ms, input_tokens, output_tokens, cache_tokens,
         "request completed"
     );
+    let created_at_ms = log.created_at;
     upsert_log(state, log, log_settings).await;
 
     // ── 上游速率限制余量落库（后台）──
@@ -209,7 +210,9 @@ pub(crate) async fn finish_nonstream(
         input_tokens,
         output_tokens,
         cache_tokens,
+        cache_write_tokens,
         coding_plan,
+        created_at_ms,
         tracing::Span::current(),
     );
 

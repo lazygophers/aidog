@@ -16,9 +16,10 @@ pub async fn load_proxy_client_settings(db: &Db) -> ProxyClientSettings {
         .unwrap_or_default()
 }
 
-/// Client cache key: (use_proxy, effective no_proxy, timeout_secs, conn_timeout_secs)
-/// no_proxy 入键：编辑排除列表后必须重建 client 才生效（proxy 在 client 构建期固化）。
-type ClientKey = (bool, String, u64, u64);
+/// Client cache key: (use_proxy, proxy 地址串, effective no_proxy, timeout_secs, conn_timeout_secs)
+/// proxy 地址与 no_proxy 都入键：这两者在 client 构建期固化，改配置必须重建 client 才生效。
+/// 漏掉地址会命中旧 client（审计发现 10：换 socks5 host/port 后请求继续打旧代理直到重启）。
+type ClientKey = (bool, String, String, u64, u64);
 
 /// Simple LRU cache for reqwest::Client instances.
 /// Reuses TLS/connections across requests with same proxy+timeout config.
@@ -37,8 +38,14 @@ impl ClientCache {
         }
     }
 
-    fn get(&self, key: ClientKey) -> Option<Arc<reqwest::Client>> {
-        self.map.get(&key).cloned()
+    fn get(&self, key: &ClientKey) -> Option<Arc<reqwest::Client>> {
+        self.map.get(key).cloned()
+    }
+
+    /// LRU touch：命中后把 key 移到 order 尾部（不更新则 order 只反映插入序 = FIFO）
+    fn touch(&mut self, key: &ClientKey) {
+        self.order.retain(|k| k != key);
+        self.order.push(key.clone());
     }
 
     fn put(&mut self, key: ClientKey, client: Arc<reqwest::Client>) {
@@ -108,6 +115,15 @@ pub async fn build_http_client(
     let cache_key = (
         use_proxy,
         if use_proxy {
+            // 代理完整地址（含认证 + DNS 模式）入键：构建期固化，任何一项变更都须重建 client
+            format!(
+                "{}://{}:{}#{}#{}",
+                settings.proxy_type, settings.host, settings.port, settings.username, settings.dns_over_proxy
+            )
+        } else {
+            String::new()
+        },
+        if use_proxy {
             settings.effective_no_proxy().to_string()
         } else {
             String::new()
@@ -119,7 +135,9 @@ pub async fn build_http_client(
     // Try cache first (read lock, fast path)
     {
         let cache = global_client_cache().read().unwrap();
-        if let Some(client) = cache.get(cache_key.clone()) {
+        if let Some(client) = cache.get(&cache_key) {
+            drop(cache);
+            global_client_cache().write().unwrap().touch(&cache_key);
             return (*client).clone();
         }
     }

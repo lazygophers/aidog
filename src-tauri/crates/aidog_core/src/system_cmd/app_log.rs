@@ -66,3 +66,27 @@ crate::tauri_command! {
 #[cfg(test)]
 #[path = "test_app_log.rs"]
 mod test_app_log;
+
+// 前端 console 日志接入（unified-logging 票 01）：前端 shim（utils/frontendLog.ts）
+// 把 console.error/warn 及未捕获异常转发到这里，与后端 tracing 落同一个
+// `~/.aidog/logs/aidog.<hour>.log`。前端自身不落盘——webview 无文件系统，
+// 统一经 Rust appender 才能前后端同文件按小时分割。
+crate::tauri_command! {
+    pub async fn app_log_frontend(level: String, message: String) -> Result<(), String> {
+        // 长度截断：前端一行可能是巨型对象 dump，别让日志文件被单条撑爆
+        let message = if message.chars().count() > 4000 {
+            let mut m: String = message.chars().take(4000).collect();
+            m.push_str("…[truncated]");
+            m
+        } else {
+            message
+        };
+        match level.as_str() {
+            "error" => tracing::error!(target: "frontend", "{message}"),
+            "warn" => tracing::warn!(target: "frontend", "{message}"),
+            "info" => tracing::info!(target: "frontend", "{message}"),
+            _ => tracing::debug!(target: "frontend", "{message}"),
+        }
+        Ok(())
+    }
+}

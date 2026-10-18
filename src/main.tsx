@@ -4,6 +4,9 @@ import App from "./App";
 import { AppProvider } from "./context/AppContext";
 import "./locales";
 import "./styles/globals.css";
+import { installFrontendLog } from "./utils/frontendLog";
+
+installFrontendLog();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>

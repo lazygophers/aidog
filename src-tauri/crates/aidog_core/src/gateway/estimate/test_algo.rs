@@ -170,7 +170,7 @@ fn calibrate_thresholds() {
 
 #[test]
 fn balance_cost_sums_components() {
-    let c = balance_cost(100, 50, 200, 1e-6, 2e-6, 5e-7);
+    let c = balance_cost(100, 50, 200, 0, 1e-6, 2e-6, 5e-7, 0.0);
     let expect = 100.0 * 1e-6 + 50.0 * 2e-6 + 200.0 * 5e-7;
     assert!((c - expect).abs() < 1e-15);
 }
