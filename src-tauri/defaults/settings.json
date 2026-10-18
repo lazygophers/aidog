@@ -383,6 +383,78 @@
             "Bash(git checkout:*)"
         ]
     },
+    "hooks": {
+      "PreToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "graphify hook-guard search",
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash|Grep"
+        },
+        {
+          "hooks": [
+            {
+              "command": "graphify hook-guard read",
+              "type": "command"
+            }
+          ],
+          "matcher": "Read|Glob"
+        },
+        {
+          "hooks": [
+            {
+              "command": "rtk hook claude",
+              "type": "command"
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "command": "python3 ~/.agents/skills/tracking-progress/scripts/tracking_progress.py",
+              "type": "command"
+            }
+          ]
+        }
+      ],
+      "PostToolUse": [
+        {
+          "hooks": [
+            {
+              "command": "sqz hook claude-post",
+              "type": "command"
+            }
+          ],
+          "matcher": "Bash"
+        }
+      ],
+      "PreCompact": [
+        {
+          "hooks": [
+            {
+              "command": "sqz hook precompact",
+              "type": "command"
+            }
+          ]
+        }
+      ],
+      "SessionStart": [
+        {
+          "hooks": [
+            {
+              "command": "sqz resume",
+              "type": "command"
+            }
+          ],
+          "matcher": "compact"
+        }
+      ]
+    },
     "env": {
         "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY": "0",
         "CLAUDE_CODE_DISABLE_ARTIFACT": "1",
