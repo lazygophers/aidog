@@ -369,7 +369,27 @@ mod test_hooks {
         )
         .await
         .unwrap();
-        assert!(config2.get("hooks").and_then(|h| h.get("Stop")).is_none());
+        // remove 语义 = 清 aidog 注入项、保留用户项（2a17cc818 起 defaults 自带
+        // tracking_progress 用户 hook，整个 Stop 键不再消失），断言收敛为 aidog 项已清
+        let stop = config2
+            .get("hooks")
+            .and_then(|h| h.get("Stop"))
+            .and_then(|v| v.as_array());
+        if let Some(matchers) = stop {
+            for m in matchers {
+                if let Some(inner) = m.get("hooks").and_then(|v| v.as_array()) {
+                    assert!(
+                        inner.iter().all(|h| {
+                            h.get("command")
+                                .and_then(|c| c.as_str())
+                                .map(|c| !c.contains("aidog"))
+                                .unwrap_or(true)
+                        }),
+                        "aidog hook 项应已全部移除: {inner:?}"
+                    );
+                }
+            }
+        }
     }
 
     #[tokio::test]

@@ -9,6 +9,7 @@ pub fn should_calibrate(now_ms: i64, last_real_query_at: i64, estimate_count: i6
 
 /// 余额预估增量 cost = in×in_cost + out×out_cost + cache_read×cache_cost + cache_write×cache_write_cost。
 /// cache_write 计价与 billing::est_cost_from 同口径（此前预估链丢弃该项，重度 caching 客户端余额系统性高估）。
+#[allow(clippy::too_many_arguments)]
 pub fn balance_cost(
     input_tokens: i64,
     output_tokens: i64,
