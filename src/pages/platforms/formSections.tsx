@@ -742,7 +742,13 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   const [modelInput, setModelInput] = useState<Record<number, string>>({});
 
   useEffect(() => {
-    getDefaultPeak(protocol).then(setDefaultCache);
+    // 竞态守卫：快速切协议时旧协议的默认 peak 后到会覆盖新协议的缓存，
+    // 「导入默认配置」按钮按错误协议导入；对齐下方 getDefaultModelList 的 cancelled 写法
+    let cancelled = false;
+    getDefaultPeak(protocol)
+      .then((w) => { if (!cancelled) setDefaultCache(w); })
+      .catch(() => { if (!cancelled) setDefaultCache(null); });
+    return () => { cancelled = true; };
   }, [protocol]);
 
   useEffect(() => {

@@ -1239,3 +1239,24 @@ fn header_inject_same_name_last_wins() {
         "同名多条后者覆盖前者（与 HeaderMap::insert 替换语义一致）"
     );
 }
+
+// ── redact_api_key_query: URL query 里的 api_key 凭证脱敏（票 02）──
+#[test]
+fn redact_api_key_query_replaces_value() {
+    assert_eq!(
+        redact_api_key_query("http://h/p?api_key=secret-group-key"),
+        "http://h/p?api_key=[REDACTED]"
+    );
+    // 多参数：保留 api_key 前后的参数
+    assert_eq!(
+        redact_api_key_query("http://h/p?a=1&api_key=gk&b=2"),
+        "http://h/p?a=1&api_key=[REDACTED]&b=2"
+    );
+    // 非 api_key 参数名不误伤（前缀命中但不是参数边界）
+    assert_eq!(
+        redact_api_key_query("http://h/p?my_api_key=gk"),
+        "http://h/p?my_api_key=gk"
+    );
+    // 无 api_key 原样返回
+    assert_eq!(redact_api_key_query("http://h/p"), "http://h/p");
+}

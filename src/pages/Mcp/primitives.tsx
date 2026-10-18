@@ -6,7 +6,7 @@ import {
   AGENT_ICONS,
   agentSupported,
   transportStyle,
-  summaryOf,
+  cmdSummary,
 } from "./constants";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,7 +62,7 @@ export function McpRow({
             whiteSpace: "nowrap",
           }}
         >
-          {summaryOf(srv)}
+          <span title={cmdSummary(srv)}>{cmdSummary(srv)}</span>
         </div>
         {/* env 脱敏展示 */}
         {Object.keys(srv.env).length > 0 && (
