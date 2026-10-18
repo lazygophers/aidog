@@ -18,25 +18,35 @@ struct NotifyReq {
     vars: std::collections::HashMap<String, String>,
 }
 
-/// 通知端点 — localhost-only，鉴权 `Authorization: Bearer <group_key>`（仿 /api/group-info）。
+/// 通知端点 — localhost-only（非回环连接 403，bind_lan=true 时同样只放行本机），
+/// 鉴权 `Authorization: Bearer <group_key>`（仿 /api/group-info）。
 /// hook 脚本调用此端点触发通知。body `{type, content?, vars?}`。
 /// 鉴权用的 group_key 校验存在性，并作为 `{group}` 变量回填（脚本未显式带 group 时）。
 pub(crate) async fn handle_notify(
     state: AxumState<Arc<ProxyState>>,
+    connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> Response {
     let span = tracing::info_span!("notify", trace_id = %crate::logging::new_trace_id());
-    handle_notify_inner(state, headers, body)
+    handle_notify_inner(state, connect_info, headers, body)
         .instrument(span)
         .await
 }
 
 async fn handle_notify_inner(
     AxumState(state): AxumState<Arc<ProxyState>>,
+    connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> Response {
+    let axum::extract::ConnectInfo(addr) = connect_info;
+    if !addr.ip().is_loopback() {
+        tracing::warn!(peer = %addr, "notify: non-loopback request rejected");
+        let mut r = StatusCode::FORBIDDEN.into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
     // Bearer group_key 鉴权
     let group_key = headers
         .get("authorization")

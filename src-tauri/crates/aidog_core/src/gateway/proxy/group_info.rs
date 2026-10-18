@@ -45,16 +45,18 @@ struct CodingTierResp {
 }
 
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
-/// 鉴权：`Authorization: Bearer <group_key>`，localhost-only 端点。
+/// 鉴权：`Authorization: Bearer <group_key>`；localhost-only（非回环连接 403，
+/// bind_lan=true 监听 0.0.0.0 时同样只放行本机）。
 /// 多平台 / 无平台分组返回 `{ applicable:false, ... }`（200）。
 pub(crate) async fn handle_group_info(
     state: AxumState<Arc<ProxyState>>,
     headers: axum::http::HeaderMap,
+    connect_info: axum::extract::ConnectInfo<std::net::SocketAddr>,
 ) -> Response {
     // 每次 group-info 调用生成独立 trace id（statusline 周期拉取，无上游请求关联），
     // span 内所有日志自动带 group_info{trace_id=xxxxxxxx} 前缀。
     let span = tracing::info_span!("group_info", trace_id = %crate::logging::new_trace_id());
-    handle_group_info_inner(state, headers)
+    handle_group_info_inner(state, headers, connect_info)
         .instrument(span)
         .await
 }
@@ -62,7 +64,14 @@ pub(crate) async fn handle_group_info(
 async fn handle_group_info_inner(
     AxumState(state): AxumState<Arc<ProxyState>>,
     headers: axum::http::HeaderMap,
+    axum::extract::ConnectInfo(addr): axum::extract::ConnectInfo<std::net::SocketAddr>,
 ) -> Response {
+    if !addr.ip().is_loopback() {
+        tracing::warn!(peer = %addr, "group-info: non-loopback request rejected");
+        let mut r = StatusCode::FORBIDDEN.into_response();
+        inject_trace_header(&mut r);
+        return r;
+    }
     let empty = || GroupInfoResp {
         applicable: false,
         balance: 0.0,
