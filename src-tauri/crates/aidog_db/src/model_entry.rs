@@ -552,6 +552,10 @@ pub async fn model_entry_for_billing(
             .map(|e| (e, true))
     };
     if let Ok(mut g) = db.1.model_entry_billing.write() {
+        // 硬上限 4096：key 含请求可控 model_id，防客户端刷唯一模型名撑爆常驻缓存
+        if g.len() > 4096 {
+            g.clear();
+        }
         g.insert(
             (platform_code.to_string(), model_id.to_string()),
             result.clone(),
@@ -593,6 +597,40 @@ pub fn prune_model_entries<'a>(
         .await
         .map_err(|e| format!("prune model entries: {e}"))
         .inspect(|_| db.invalidate_model_entry_cache())
+    }
+}
+
+/// 删 DB 里已不在远程清单的 platform_preset 镜像行（上游下架平台时跟随清理；
+/// 与 prune_model_entries 对称——此前只 prune model_entry，死平台 preset 滞留下拉
+/// 直到二进制升级，审计发现 20）。
+#[track_caller]
+pub fn prune_platform_presets<'a>(
+    db: &'a Db,
+    remote_codes: &'a std::collections::HashSet<String>,
+) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let remote = remote_codes.clone();
+        db.call_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare("SELECT code FROM platform_preset WHERE deleted_at = 0")?;
+            let rows = stmt
+                .query_map([], |row| row.get::<_, String>(0))?
+                .collect::<SqlResult<Vec<_>>>()?;
+            let tx = conn.unchecked_transaction()?;
+            let mut removed = 0u32;
+            for code in rows {
+                if !remote.contains(&code) {
+                    removed += tx
+                        .execute("DELETE FROM platform_preset WHERE code = ?1", params![code])?
+                        as u32;
+                }
+            }
+            tx.commit()?;
+            Ok(removed)
+        })
+        .await
+        .map_err(|e| format!("prune platform presets: {e}"))
+        .inspect(|_| crate::registry::invalidate_presets_cache())
     }
 }
 

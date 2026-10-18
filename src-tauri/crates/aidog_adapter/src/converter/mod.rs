@@ -4,7 +4,6 @@
 
 mod request;
 mod response;
-pub mod traits;
 
 pub use request::{convert_request, decision_api_path, parse_incoming_request, passthrough_api_path};
 pub use response::{
@@ -12,4 +11,3 @@ pub use response::{
     response_model, response_model_or, split_stream_inline_reasoning, to_client_sse,
     to_client_sse_stateful,
 };
-pub use traits::*;
