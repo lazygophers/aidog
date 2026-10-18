@@ -71,7 +71,7 @@ async fn balance_atomic_decrement() {
     // 先设个初始余额
     write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
 
-    let cost = balance_cost(1000, 500, 200, 0.001, 0.002, 0.0005);
+    let cost = balance_cost(1000, 500, 200, 0, 0.001, 0.002, 0.0005, 0.0);
     assert!((cost - (1.0 + 1.0 + 0.1)).abs() < 1e-9, "cost = {cost}");
 
     apply_balance_delta(&db, id, cost).await.unwrap();
@@ -369,7 +369,9 @@ async fn estimate_after_request_balance_path_no_calibration() {
         1000,
         500,
         0,
+        0,       // cache_write
         false, // 非 coding plan
+        0,       // created_at
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
@@ -405,13 +407,15 @@ async fn estimate_after_request_applies_peak_multiplier() {
         1000,
         500,
         0,
+        0,
         false,
+        0,
     )
     .await;
 
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
     // 基准 cost = 1000*0.001 + 500*0.002 = 2.0；命中 x2 倍率 → 实扣 4.0
-    let base_cost = balance_cost(1000, 500, 0, 0.001, 0.002, 0.0);
+    let base_cost = balance_cost(1000, 500, 0, 0, 0.001, 0.002, 0.0, 0.0);
     assert!((base_cost - 2.0).abs() < 1e-9, "base_cost = {base_cost}");
     assert!(
         (p.est_balance_remaining - (100.0 - 2.0 * base_cost)).abs() < 1e-9,
@@ -447,7 +451,9 @@ async fn estimate_after_request_coding_path_no_calibration() {
         1000,
         0,
         0,
+        0,
         true,
+        0,
     )
     .await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();

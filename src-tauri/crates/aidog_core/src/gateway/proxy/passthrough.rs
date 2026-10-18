@@ -746,7 +746,22 @@ async fn relay_passthrough_nonstream(
     start: std::time::Instant,
     opts: &PassthroughOpts,
 ) -> Response {
-    let body = resp.bytes().await.unwrap_or_default();
+    // body 读取失败（读一半上游断连）不能吞成 200 空 body——转换路径有 is_nonstream_body_valid
+    // 闸，透传路径此前无等价闸，客户端拿到「成功」的空回答且日志无错（审计发现 14）。
+    let body = match resp.bytes().await {
+        Ok(b) => b,
+        Err(e) => {
+            tracing::error!(error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough nonstream body read failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.done = true;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            let mut r = (StatusCode::BAD_GATEWAY, format!("upstream error: {e}")).into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
+    };
     // record gate（与流式分支 guard 对称）：上游/客户端 body 各自受对应开关控制，
     // 开启时走 cap_nonstream_body 截断 + 落库（对齐 NONSTREAM_BODY_MAX_BYTES 16MB）。
     let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;

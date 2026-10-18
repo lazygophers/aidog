@@ -91,7 +91,7 @@ pub struct DbCache {
     /// estimate 各查一次）。key 借用探测复用 [`KeyPair`] 惯用，命中零分配。
     /// 外层 Option = 是否已缓存，内层 = DB+bundled 都没查到（miss 也缓存，fallback 单价
     /// 的模型每次白查两遍 DB 更亏）。model_entry 任何写入（upsert / prune）整体失效。
-    /// ponytail: 无淘汰上限，条目数 ≤ 进程实际查过的 (platform, model) 对；若将来膨胀
-    /// 失控再加 LRU / 容量截断。
+    /// 硬上限（内存泄露扫描 2026-10-18）：key 含请求可控的 model_id（客户端可刷唯一
+    /// 模型名），无上限只涨不缩；超限整表清空（同步重建代价低，宁全勿漏）。
     pub model_entry_billing: RwLock<BillingEntryCache>,
 }

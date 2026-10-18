@@ -119,6 +119,15 @@ impl CertSigner {
                 guard.retain(|_, v| {
                     now.duration_since(v.signed_at).as_secs() <= CERT_CACHE_ENTRY_TTL_SECS
                 });
+                // TTL 内全新鲜时 retain 删不掉任何条目：仍超限按 signed_at 最旧硬淘汰
+                while guard.len() >= CERT_CACHE_MAX
+                    && let Some(oldest) = guard
+                        .iter()
+                        .min_by_key(|(_, v)| v.signed_at)
+                        .map(|(k, _)| k.clone())
+                {
+                    guard.remove(&oldest);
+                }
             }
             guard.insert(
                 host.to_string(),
