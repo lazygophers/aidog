@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859417,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 3e-07,
     "output": 9e-07
-  }
+  },
+  "display_name": "Codestral 2"
 }

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -21,5 +21,6 @@
   "price": {
     "input": 5.8e-07,
     "output": 1.68e-06
-  }
+  },
+  "display_name": "DeepSeek V3"
 }
