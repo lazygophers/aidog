@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -18,5 +18,8 @@
     "input": 2.777777777777778e-08,
     "output": 5.555555555555556e-08
   },
-  "context_window": 32768
+  "context_window": 32768,
+  "family": "tongyi",
+  "version": "0",
+  "display_name": "Tongyi Xiaomi Analysis Flash"
 }
