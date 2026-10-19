@@ -1,0 +1,20 @@
+[
+  {
+    "id": 1,
+    "prompt": "openai 的 gpt-5 价格变了，帮我更新 aidog 的定价",
+    "scenario": "happy path：单模型价格刷新",
+    "expected": "skill 引导：定位 models/<model>.json（不是 models.json）→ 改 price 子树 input/output/cache_read → bump-registry-last-updated 盖戳 → 单一 commit 路径 → 验证 check-registry.mjs 绿"
+  },
+  {
+    "id": 2,
+    "prompt": "我在 estimate.rs 里加了一段硬编码 default price 让 est_cost 算得快一点，可以吗",
+    "scenario": "失败/反例：违反架构铁律",
+    "expected": "skill 必须显式禁止（铁律 1）+ 引导改 resolve_price 走回退链 + 给出反例黑名单 1"
+  },
+  {
+    "id": 3,
+    "prompt": "openai 出了 o3-pro 上下文 256k 但超过 200k 收费翻倍，怎么加阶梯",
+    "scenario": "复杂：context_tiers 阶梯计费",
+    "expected": "skill 引导：编辑 models/<model>.json 加 context_tiers 数据 → 不动 resolve_price 选档逻辑（铁律）+ push master / 远程同步路径 + 验证 cargo test 选档"
+  }
+]
