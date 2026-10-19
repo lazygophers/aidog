@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -22,5 +22,6 @@
   "price": {
     "input": 2.1875e-06,
     "output": 1.75e-05
-  }
+  },
+  "display_name": "Nova 2 Pro Preview 20251202"
 }

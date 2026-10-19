@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -22,5 +22,6 @@
   "price": {
     "input": 3.6e-06,
     "output": 1.8e-05
-  }
+  },
+  "display_name": "Claude 3 7 Sonnet 20240620"
 }

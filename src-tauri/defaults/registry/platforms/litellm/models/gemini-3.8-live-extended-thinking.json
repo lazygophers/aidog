@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859418,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -22,5 +22,6 @@
   "price": {
     "input": 7.5e-07,
     "output": 4.5e-06
-  }
+  },
+  "display_name": "Gemini 3.8 Live Extended Thinking"
 }

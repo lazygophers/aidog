@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859417,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -20,5 +20,6 @@
   "price": {
     "input": 4e-06,
     "output": 2e-05
-  }
+  },
+  "display_name": "Daybreak Blue Latest"
 }

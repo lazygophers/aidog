@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -21,5 +21,6 @@
   "price": {
     "input": 4e-06,
     "output": 1.6e-05
-  }
+  },
+  "display_name": "Ft:o4 Mini 2025 04 16"
 }

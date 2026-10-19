@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 3e-06,
     "output": 6e-06
-  }
+  },
+  "display_name": "Ft:gpt 3.5 Turbo 0125"
 }

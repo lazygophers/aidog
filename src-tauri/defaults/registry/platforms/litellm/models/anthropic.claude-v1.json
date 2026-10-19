@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 8e-06,
     "output": 2.4e-05
-  }
+  },
+  "display_name": "Claude"
 }

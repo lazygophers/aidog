@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -20,5 +20,6 @@
   "price": {
     "input": 2e-06,
     "output": 6e-06
-  }
+  },
+  "display_name": "Mistral Pixtral Large 2502"
 }

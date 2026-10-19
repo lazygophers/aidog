@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859417,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -17,5 +17,6 @@
   "price": {
     "unit": "image",
     "unit_price": 0.134
-  }
+  },
+  "display_name": "Deep Research Pro Preview 12 2025"
 }

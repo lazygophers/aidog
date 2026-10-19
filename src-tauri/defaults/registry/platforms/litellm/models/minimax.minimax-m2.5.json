@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859418,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -20,5 +20,6 @@
   "price": {
     "input": 3e-07,
     "output": 1.2e-06
-  }
+  },
+  "display_name": "MiniMax MiniMax M\u0001ph0\u0001"
 }

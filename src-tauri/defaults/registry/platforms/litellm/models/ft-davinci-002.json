@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791007402,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 1.2e-05,
     "output": 1.2e-05
-  }
+  },
+  "display_name": "Ft:davinci 002"
 }
