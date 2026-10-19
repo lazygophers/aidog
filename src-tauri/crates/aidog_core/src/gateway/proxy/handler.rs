@@ -252,6 +252,30 @@ pub(crate) async fn handle_proxy_core(
     // 阶段就 404（晚于旧分流位置），故分流前置于 group 解析之前彻底消除 404 根因。不 relay 上游。
     // token 在这里只用来挑清单（认得出就报该分组真配的模型，认不出就报默认清单），不做准入。
     if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
+        // 例外：透传分组（ADR 0008）原样转发上游，客户端拿上游真实模型列表。
+        let group = match &bound_group {
+            Some(g) => Some(g.clone()),
+            None => resolve_group(&state.db, auth_header.as_deref()).await,
+        };
+        if let Some(g) = group
+            && let Some(platform) =
+                super::passthrough::passthrough_first_candidate(&state.db, &g, "").await
+        {
+            log.group_key = g.group_key;
+            return super::passthrough::handle_passthrough_platform(
+                &state,
+                &mut log,
+                &log_settings,
+                orig_method,
+                orig_uri,
+                orig_headers,
+                bytes,
+                &platform,
+                start,
+                lang,
+            )
+            .await;
+        }
         return handle_models_list(
             &state,
             &mut log,
