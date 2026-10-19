@@ -73,50 +73,51 @@
         ]
     },
     "worktree": {
-        "symlinkDirectories": [
-            "node_modules",
-            ".pnpm-store",
-            ".yarn",
-            ".next",
-            ".nuxt",
-            ".vite",
-            ".parcel-cache",
-            ".svelte-kit",
-            ".angular",
-            ".expo",
-            ".serverless",
-            ".docusaurus",
-            ".turbo",
-            ".cache",
-            "coverage",
-            "target",
-            ".venv",
-            "venv",
-            ".tox",
-            "__pycache__",
-            ".pytest_cache",
-            ".mypy_cache",
-            ".ruff_cache",
-            ".hypothesis",
-            ".ipynb_checkpoints",
-            ".eggs",
-            ".dart_tool",
-            "build",
-            ".gradle",
-            ".cxx",
-            ".externalNativeBuild",
-            ".kotlin",
-            "captures",
-            "Pods",
-            "dist",
-            "out",
-            "vendor",
-            ".wiki",
-            ".ask-me",
-            "graphify-out",
-            ".scratch",
-            ".claude"
-        ]
+      "symlinkDirectories": [
+        "node_modules",
+        ".pnpm-store",
+        ".yarn",
+        ".next",
+        ".nuxt",
+        ".vite",
+        ".parcel-cache",
+        ".svelte-kit",
+        ".angular",
+        ".expo",
+        ".serverless",
+        ".docusaurus",
+        ".turbo",
+        ".cache",
+        "coverage",
+        "target",
+        ".venv",
+        "venv",
+        ".tox",
+        "__pycache__",
+        ".pytest_cache",
+        ".mypy_cache",
+        ".ruff_cache",
+        ".hypothesis",
+        ".ipynb_checkpoints",
+        ".eggs",
+        ".dart_tool",
+        "build",
+        ".gradle",
+        ".cxx",
+        ".externalNativeBuild",
+        ".kotlin",
+        "captures",
+        "Pods",
+        "dist",
+        "out",
+        "vendor",
+        ".wiki",
+        ".ask-ui",
+        "graphify-out",
+        ".gitnexus",
+        ".scratch",
+        ".claude"
+      ]
     },
     "sandbox": {
         "enabled": false,
@@ -410,6 +411,17 @@
               "type": "command"
             }
           ]
+        },
+        {
+          "matcher": "Grep|Glob|Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+              "timeout": 10,
+              "statusMessage": "Enriching with GitNexus graph context..."
+            }
+          ]
         }
       ],
       "Stop": [
@@ -431,6 +443,17 @@
             }
           ],
           "matcher": "Bash"
+        },
+        {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "mise exec node@22 -- node ~/.claude/hooks/gitnexus/gitnexus-hook.cjs",
+              "timeout": 10,
+              "statusMessage": "Checking GitNexus index freshness..."
+            }
+          ]
         }
       ],
       "PreCompact": [
@@ -452,6 +475,14 @@
             }
           ],
           "matcher": "compact"
+        },
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "mise exec node@22 -- node ~/.claude/hooks/context-mode-cache-heal.mjs"
+            }
+          ]
         }
       ]
     },
