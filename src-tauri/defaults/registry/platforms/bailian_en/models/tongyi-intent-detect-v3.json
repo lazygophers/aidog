@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -18,5 +18,8 @@
     "output": 1.44e-07
   },
   "max_output_tokens": 4096,
-  "context_window": 8192
+  "context_window": 8192,
+  "family": "tongyi",
+  "version": "0",
+  "display_name": "Tongyi Intent Detect V 3"
 }
