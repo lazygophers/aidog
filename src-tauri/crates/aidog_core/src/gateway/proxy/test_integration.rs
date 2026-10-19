@@ -3250,7 +3250,7 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
     let state = make_state(test_db().await).await;
     setup_passthrough_platform_group(&state, "gkraw", &upstream).await;
 
-    let cases: [(&str, &str, &str); 7] = [
+    let cases: [(&str, &str, &str); 8] = [
         ("POST", "/v1/messages", "not json at all"),
         ("POST", "/v1/messages", r#"{"foo":1}"#),
         ("POST", "/v1/custom/thing", r#"{"input":"x"}"#),
@@ -3258,6 +3258,7 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
         ("GET", "/v1/files", ""),
         ("GET", "/v1/responses/resp_1", ""),
         ("POST", "/v1/systemone", r#"{"answers":[]}"#),
+        ("GET", "/v1/models", ""),
     ];
     for (method, path, body) in cases {
         let req = HttpRequest::builder()
