@@ -596,6 +596,24 @@ pub(crate) async fn handle_passthrough_platform(
     .await
 }
 
+/// 分组首选候选是透传平台时返回它，否则 None（调用方照原路径处理）。
+/// 透传不识别协议（ADR 0008）：body 解析失败、协议子端点分流这些按协议走的分支，
+/// 先用本函数问一次路由，透传分组直接原样转发。仅在这些非常规路径上调用，正常请求不多查一次路由。
+pub(crate) async fn passthrough_first_candidate(
+    db: &Db,
+    group: &Group,
+    model: &str,
+) -> Option<super::models::Platform> {
+    select_candidates_ctx(db, group, model, None, RequestKind::Chat)
+        .await
+        .ok()?
+        .candidates
+        .into_iter()
+        .next()
+        .map(|c| c.platform)
+        .filter(|p| matches!(p.platform_type, Protocol::Passthrough))
+}
+
 /// 从 Host header + URI 重构完整 url（`scheme://host/path?query`）。
 ///
 /// 用途：origin-form URI（MITM 解密灌入 / reverse proxy）的 `req.uri()` 只含 path 段，
