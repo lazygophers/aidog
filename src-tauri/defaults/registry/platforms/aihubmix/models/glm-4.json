@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -10,12 +10,13 @@
   "version": "4",
   "family": "glm",
   "display_name": "GLM 4",
-  "capabilities": [],
+  "capabilities": ["tool_use"],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
     "input": 1.42e-05,
     "output": 1.42e-05
-  }
+  },
+  "context_window": 128000
 }

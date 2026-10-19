@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "gemini",
@@ -9,12 +9,13 @@
   "canonical_model": "command-r",
   "family": "command",
   "display_name": "Command R",
-  "capabilities": [],
+  "capabilities": ["tool_use"],
   "official": false,
   "thinking_supported": false,
   "thinking_toggleable": false,
   "price": {
     "input": 6.4e-07,
     "output": 1.92e-06
-  }
+  },
+  "context_window": 128000
 }
