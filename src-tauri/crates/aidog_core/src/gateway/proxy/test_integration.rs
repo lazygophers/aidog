@@ -3200,3 +3200,81 @@ async fn chat_unknown_protocol_503_and_audit_log() {
     assert_eq!(log.blocked_reason, "unknown_protocol");
     assert_eq!(log.est_cost, 0.0, "unknown protocol must not be priced");
 }
+
+/// 注册一个透传平台（Protocol::Passthrough）+ group 并关联。
+async fn setup_passthrough_platform_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    let plat = aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "pt".into(),
+            platform_type: Protocol::Passthrough,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group(gk, vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+/// ADR 0008：透传平台不识别协议，body 解析不出（非 JSON / 不符合 path 推断的协议 /
+/// 未知 path / count_tokens 等子端点）都必须原样转发到上游，不得 400。
+/// 能解析出 usage 时照常记 tokens。
+#[tokio::test]
+async fn passthrough_platform_relays_unparseable_requests_verbatim() {
+    const OPENAI_USAGE: &str = r#"{"id":"x","usage":{"prompt_tokens":7,"completion_tokens":2}}"#;
+    let (upstream, seen) = spawn_recording_upstream(OPENAI_USAGE).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkraw", &upstream).await;
+
+    let cases: [(&str, &str, &str); 7] = [
+        ("POST", "/v1/messages", "not json at all"),
+        ("POST", "/v1/messages", r#"{"foo":1}"#),
+        ("POST", "/v1/custom/thing", r#"{"input":"x"}"#),
+        ("POST", "/v1/messages/count_tokens", r#"{"model":"m","messages":[]}"#),
+        ("GET", "/v1/files", ""),
+        ("GET", "/v1/responses/resp_1", ""),
+        ("POST", "/v1/systemone", r#"{"answers":[]}"#),
+    ];
+    for (method, path, body) in cases {
+        let req = HttpRequest::builder()
+            .method(method)
+            .uri(path)
+            .header("authorization", "Bearer gkraw")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap();
+        let resp = handle_proxy(AxumState(state.clone()), req).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{method} {path} body={body}");
+        let got = seen.lock().unwrap().last().cloned().expect("upstream not hit");
+        assert_eq!(got, (path.to_string(), body.to_string()), "{method} {path}");
+    }
+    assert_eq!(seen.lock().unwrap().len(), cases.len());
+
+    let log = last_log_for(&state, "gkraw").await;
+    assert_eq!(log.status_code, 200);
+    assert_eq!((log.input_tokens, log.output_tokens), (7, 2));
+}

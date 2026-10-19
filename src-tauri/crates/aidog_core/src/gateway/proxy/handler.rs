@@ -337,6 +337,28 @@ pub(crate) async fn handle_proxy_core(
     tracing::info!(group = %group.name, source_protocol = %log.source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
 
+    // ── 透传平台（ADR 0008）认领协议子端点：下方三个分流按协议处理、不认识透传平台 ──
+    if (is_responses_subendpoint(&path)
+        || is_count_tokens_endpoint(&path)
+        || is_decision_endpoint(&path))
+        && let Some(platform) =
+            super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
+    {
+        return super::passthrough::handle_passthrough_platform(
+            &state,
+            &mut log,
+            &log_settings,
+            orig_method,
+            orig_uri,
+            orig_headers,
+            bytes,
+            &platform,
+            start,
+            lang,
+        )
+        .await;
+    }
+
     // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
     // retrieve(GET /v1/responses/{id}) / cancel(POST .../{id}/cancel) / delete(DELETE .../{id})
     // / compact(POST /v1/responses/compact) / input_items(GET .../{id}/input_items)。
@@ -377,9 +399,34 @@ pub(crate) async fn handle_proxy_core(
 
     // ── 解析 ChatRequest（按入站协议解析） ──
     // ponytail: 复用上面已解析的 req_value_opt，避免重复 from_slice
-    let req_value = match req_value_opt {
-        Some(v) => v,
-        None => {
+    let parsed = match req_value_opt {
+        Some(v) => adapter::parse_incoming_request(&source_protocol, &v, Some(&bytes))
+            .map(|r| (v, r))
+            .map_err(Some),
+        None => Err(None),
+    };
+    // 解析失败（非 JSON / 不符合 path 推断的协议）：透传平台不依赖协议（ADR 0008），照样原样转发。
+    if parsed.is_err()
+        && let Some(platform) =
+            super::passthrough::passthrough_first_candidate(&state.db, &group, &raw_model).await
+    {
+        return super::passthrough::handle_passthrough_platform(
+            &state,
+            &mut log,
+            &log_settings,
+            orig_method,
+            orig_uri,
+            orig_headers,
+            bytes,
+            &platform,
+            start,
+            lang,
+        )
+        .await;
+    }
+    let (req_value, mut chat_req) = match parsed {
+        Ok(p) => p,
+        Err(None) => {
             log.response_body = "parse request json error: invalid JSON".to_string();
             log.status_code = 400;
             log.done = true;
@@ -393,28 +440,24 @@ pub(crate) async fn handle_proxy_core(
             inject_trace_header(&mut r);
             return r;
         }
+        Err(Some(e)) => {
+            log.response_body = format!(
+                "failed to parse request for protocol ({}): {e}",
+                log.source_protocol
+            );
+            log.status_code = 400;
+            log.done = true;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log, &log_settings).await;
+            let mut r = (
+                StatusCode::BAD_REQUEST,
+                i18n::t(lang, ErrorKey::ParseRequest),
+            )
+                .into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
     };
-    let mut chat_req: ChatRequest =
-        match adapter::parse_incoming_request(&source_protocol, &req_value, Some(&bytes)) {
-            Ok(r) => r,
-            Err(e) => {
-                log.response_body = format!(
-                    "failed to parse request for protocol ({}): {e}",
-                    log.source_protocol
-                );
-                log.status_code = 400;
-                log.done = true;
-                log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log, &log_settings).await;
-                let mut r = (
-                    StatusCode::BAD_REQUEST,
-                    i18n::t(lang, ErrorKey::ParseRequest),
-                )
-                    .into_response();
-                inject_trace_header(&mut r);
-                return r;
-            }
-        };
 
     let is_stream = chat_req.stream.unwrap_or(false);
     log.is_stream = is_stream;
