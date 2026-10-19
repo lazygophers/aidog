@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859418,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 6e-08,
     "output": 2.4e-07
-  }
+  },
+  "display_name": "Nvidia Nemotron Nano 3 30B"
 }

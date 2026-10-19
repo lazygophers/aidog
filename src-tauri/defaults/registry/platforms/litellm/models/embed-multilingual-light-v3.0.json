@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859417,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "openai"
   ],
@@ -19,5 +19,6 @@
   "price": {
     "input": 0.0001,
     "output": 0
-  }
+  },
+  "display_name": "Embed Multilingual Light V\u0001ph0\u0001"
 }
