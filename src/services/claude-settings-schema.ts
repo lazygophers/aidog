@@ -723,16 +723,9 @@ export const ALL_SETTING_KEYS = SECTIONS.flatMap(s => s.fields.map(f => f.key));
 
 // ── Recommended config (from settings.glm.json, sanitized) ──
 
-/** Detect system language and map to locale code */
-function detectLanguage(): string {
-  const nav = typeof navigator !== "undefined" ? navigator : null;
-  const lang = nav?.language ?? "en-US";
-  return lang;
-}
-
-// 单一事实源：派生自后端内置默认 src-tauri/defaults/settings.json，避免前后端两份默认漂移。
-// 仅 language 用运行时检测覆盖（JSON 内固定为 zh-Hans）。
+// 单一事实源：后端内置默认 src-tauri/defaults/settings.json 原文展开，不做任何
+// 运行时覆盖（2026-10-19：旧 language 检测覆盖会抹平 defaults 与当前配置的
+// language 差异，推荐 diff 因此漏比；改后 diff / 重置默认 / 首次填充三处一致）。
 export const RECOMMENDED_CONFIG: Record<string, any> = {
   ...DEFAULT_SETTINGS,
-  language: detectLanguage(),
 };
