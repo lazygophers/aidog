@@ -139,6 +139,7 @@ export function buildImportDiffTree(
   current: Record<string, any>,
   incoming: Record<string, any>,
   managed: Set<string>,
+  skipRuntimeIgnore = false,
 ): DiffNode[] {
   const nodes: DiffNode[] = [];
   const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
@@ -163,7 +164,7 @@ export function buildImportDiffTree(
         // — keeping any user-added sibling/leaf inside that subtree.
         if (
           managed.has(childPath) ||
-          isCcRuntimeIgnored(childPath) ||
+          (!skipRuntimeIgnore && isCcRuntimeIgnored(childPath)) ||
           isFullyManaged(incObj[ck], childPath, managed)
         )
           continue;
@@ -183,35 +184,26 @@ export function buildImportDiffTree(
     }
     // Scalar / array top-level leaf: exclude when the whole key is managed
     // or is a CC self-written runtime preference.
-    if (managed.has(key) || isCcRuntimeIgnored(key)) continue;
+    if (managed.has(key) || (!skipRuntimeIgnore && isCcRuntimeIgnored(key))) continue;
     nodes.push({ path: key, label: key, current: cur, incoming: inc });
   }
   return nodes;
 }
 
 /**
- * 由 `_aidog_*` 内部配置物化出来的原生字段，不是用户在这棵 diff 里编辑的对象：
- * `statusLine` / `subagentStatusLine` 由 Rust 侧 `inject_statusline` 按
- * `_aidog_statusline` / `_aidog_subagent_statusline` 在每次 sync 时重新生成（脚本
- * 一并重写），`hooks` 由 Rust 侧 `inject_claude_code_hooks` 按 `_aidog_hooks` 注入。RECOMMENDED_CONFIG 只带
- * `_aidog_*` 源字段、不带物化结果，若不排除，用户已启用的状态栏 / 通知 hook 会被
- * 列成「删除」项——而它们下一次保存又会被重新写回，提示本身就是错的。
- */
-const DERIVED_KEYS = new Set(["statusLine", "subagentStatusLine", "hooks"]);
-
-/**
  * 推荐配置差异树：与「从 Claude Code 导入」共用同一棵 diff / 同一个选择弹窗，
- * 唯一区别是不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）。
- * 推荐配置里没有、当前配置里有的键照常列为「删除」项，由用户逐项决定；
- * 例外是 `DERIVED_KEYS`，它们由 `_aidog_*` 物化而来，不参与本 diff。
+ * 区别是推荐路径不做 aidog managed 过滤（推荐值本就是 aidog 自己的默认）、
+ * 也不做 CC runtime 过滤（defaults/settings.json 是 aidog 单一事实源，新增 key
+ * 如 hooks / language / 未来的键都要如实对比，2026-10-19 用户拍板：
+ * 除 `_aidog_*` 内部键外全部对比）。
+ * 推荐配置里没有、当前配置里有的键（含 statusLine 等物化残留）照常列为
+ * 「删除」项，由用户逐项决定——删除后 Rust sync 仍会按 `_aidog_*` 重新物化。
  */
 export function buildRecommendedDiffTree(
   current: Record<string, any>,
   recommended: Record<string, any>,
 ): DiffNode[] {
-  return buildImportDiffTree(current, recommended, new Set()).filter(
-    (n) => !DERIVED_KEYS.has(n.path),
-  );
+  return buildImportDiffTree(current, recommended, new Set(), true);
 }
 
 export function ImportDiffModal({

@@ -31,15 +31,35 @@ describe("buildRecommendedDiffTree", () => {
     expect(buildRecommendedDiffTree({ a: 1 }, { a: 1 })).toEqual([]);
   });
 
-  it("不把 _aidog_* 物化出来的 statusLine / subagentStatusLine / hooks 列为删除项", () => {
+  it("除 _aidog_* 外全部对比：物化残留 statusLine 与原生 hooks/language 都入树", () => {
     const current = {
       statusLine: { type: "command", command: "uv run --script ~/.aidog/scripts/aidog-statusline.py" },
-      subagentStatusLine: { type: "command", command: "uv run --script ~/.aidog/scripts/aidog-subagent-statusline.py" },
       hooks: { PreToolUse: [{ hooks: [{ type: "command", command: "rtk hook claude" }] }] },
+      language: "zh-SG",
       userOnly: "keep",
     };
-    const diff = buildRecommendedDiffTree(current, { _aidog_statusline: { enabled: true } });
-    expect(diff.map((n) => n.path)).toEqual(["userOnly"]);
+    const recommended = {
+      _aidog_statusline: { enabled: true },
+      hooks: { Stop: [{ hooks: [{ type: "command", command: "tracking_progress.py" }] }] },
+      language: "zh-Hans",
+    };
+    const diff = buildRecommendedDiffTree(current, recommended);
+    expect(diff.map((n) => n.path).sort()).toEqual(["hooks", "language", "statusLine", "userOnly"]);
+    // hooks 展开到事件级子节点
+    expect(diff.find((n) => n.path === "hooks")!.children?.map((c) => c.path).sort())
+      .toEqual(["hooks.PreToolUse", "hooks.Stop"]);
+    expect(diff.find((n) => n.path === "language")!.incoming).toBe("zh-Hans");
+  });
+
+  it("推荐路径不做 CC runtime 过滤：effortLevel 等也对比", () => {
+    const diff = buildRecommendedDiffTree({ effortLevel: "high" }, { effortLevel: "medium" });
+    expect(diff.map((n) => n.path)).toEqual(["effortLevel"]);
+  });
+
+  it("推荐配置新增的未知 key 自动入 diff（兼容后续新增配置 key）", () => {
+    const diff = buildRecommendedDiffTree({}, { futureNewKey: { nested: [1, 2] } });
+    expect(diff.map((n) => n.path)).toEqual(["futureNewKey"]);
+    expect(diff[0].children?.map((c) => c.path)).toEqual(["futureNewKey.nested"]);
   });
 
   it("跳过 _aidog_ 内部键", () => {
