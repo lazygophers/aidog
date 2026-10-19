@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859415,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -16,5 +16,7 @@
   "price": {
     "unit": "second",
     "unit_price": 0.000277778
-  }
+  },
+  "family": "fun-music",
+  "version": "0"
 }

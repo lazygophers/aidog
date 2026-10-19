@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859415,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -20,5 +20,7 @@
     "input": 4.166666666666666e-08,
     "output": 8.333333333333333e-08,
     "cache_read": 0
-  }
+  },
+  "version": "0",
+  "display_name": "Qwen Turbo"
 }

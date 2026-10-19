@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859415,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -17,5 +17,10 @@
     "input": 2.083333333333333e-07,
     "output": 6.25e-07
   },
-  "context_window": 256000
+  "context_window": 256000,
+  "family": "gui-plus",
+  "version": "0",
+  "display_name": "Gui Plus",
+  "thinking_supported": false,
+  "thinking_toggleable": false
 }

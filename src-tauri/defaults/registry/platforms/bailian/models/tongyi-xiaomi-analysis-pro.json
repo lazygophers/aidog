@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -18,5 +18,8 @@
     "input": 1.388888888888889e-07,
     "output": 3.75e-07
   },
-  "context_window": 32768
+  "context_window": 32768,
+  "family": "tongyi",
+  "version": "0",
+  "display_name": "Tongyi Xiaomi Analysis Pro"
 }

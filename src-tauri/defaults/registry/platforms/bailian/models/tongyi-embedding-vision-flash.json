@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859416,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -15,5 +15,9 @@
   "price": {
     "input": 2.08333e-08,
     "output": 2.08333e-08
-  }
+  },
+  "family": "tongyi-embedding",
+  "version": "0",
+  "context_window": 2048,
+  "display_name": "Tongyi Embedding Vision Flash"
 }

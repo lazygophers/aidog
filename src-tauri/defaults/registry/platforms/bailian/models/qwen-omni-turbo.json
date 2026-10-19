@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859415,
+  "last_updated": 1792414866,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -20,5 +20,6 @@
   "price": {
     "input": 5.55556e-08,
     "output": 2.22222e-07
-  }
+  },
+  "version": "0"
 }
