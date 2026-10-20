@@ -670,6 +670,8 @@
   "logs.copy": "Copiar",
   "logs.copyAll": "Copiar info completa",
   "logs.copyRequestId": "Copiar ID de solicitud",
+  "logs.copyUserCurl": "Copiar curl de la petición del usuario",
+  "logs.copyUpstreamCurl": "Copiar curl de la petición upstream",
   "logs.detail": "Detalle de petición",
   "logs.duration": "Duración",
   "logs.empty": "Aún no hay registros.",

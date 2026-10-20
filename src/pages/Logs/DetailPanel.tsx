@@ -6,6 +6,7 @@ import { safeParseJson } from "./types";
 import type { LogsDetailData } from "./useLogsDetail";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
+import { CopyCurlButtons } from "./CopyCurlButtons";
 import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
@@ -124,6 +125,8 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
           )}
         </Button>
+        {/* 票 passthrough-log-fixes/04：一键复制用户侧/上游侧 curl */}
+        <CopyCurlButtons detail={detail} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
         </div>
