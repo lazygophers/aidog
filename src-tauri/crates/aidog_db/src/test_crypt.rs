@@ -460,3 +460,114 @@ async fn mcp_migration_failure_keeps_bad_row_and_continues() {
         .unwrap();
     assert_eq!(bad_bytes, vec![0x80, 0xFF], "失败行明文字节须保留");
 }
+
+// ── oauth 观测表 raw 列存量迁移（db-obs-encryption 票 01）───────────────
+
+const OAUTH_RAW: &str = r#"{"email":"u@example.com","account_uuid":"acct-42"}"#;
+
+/// 绕过收口直接塞 oauth_usage_sample 明文行（模拟存量 DB）。
+async fn insert_legacy_sample(db: &Db, group: &str, raw_sql: &str) -> i64 {
+    let (group, raw_sql) = (group.to_string(), raw_sql.to_string());
+    db.call_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            &format!(
+                "INSERT INTO oauth_usage_sample (group_name, five_hour_pct, seven_day_pct, raw, sampled_at) \
+                 VALUES ('{group}', 0, 0, {raw_sql}, 0)"
+            ),
+            [],
+        )?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await
+    .unwrap()
+}
+
+/// 绕过收口直接塞 cc_oauth_profile 明文行（模拟存量 DB）。
+async fn insert_legacy_profile(db: &Db, group: &str, raw_sql: &str) {
+    let (group, raw_sql) = (group.to_string(), raw_sql.to_string());
+    db.call_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            &format!(
+                "INSERT INTO cc_oauth_profile (group_name, tier, raw, updated_at) \
+                 VALUES ('{group}', 't', {raw_sql}, 0)"
+            ),
+            [],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap()
+}
+
+fn raw_oauth_col(dir: &std::path::Path, sql: &str) -> String {
+    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    conn.query_row(sql, [], |r| r.get::<_, String>(0)).unwrap()
+}
+
+#[tokio::test]
+async fn oauth_raw_legacy_rows_migrated_idempotently() {
+    let (db, dir) = three_file_db().await;
+    let sid = insert_legacy_sample(&db, "cc", &format!("'{OAUTH_RAW}'")).await;
+    insert_legacy_profile(&db, "cc", &format!("'{OAUTH_RAW}'")).await;
+
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+
+    let sample = raw_oauth_col(
+        dir.path(),
+        &format!("SELECT raw FROM oauth_usage_sample WHERE id = {sid}"),
+    );
+    let profile = raw_oauth_col(
+        dir.path(),
+        "SELECT raw FROM cc_oauth_profile WHERE group_name = 'cc'",
+    );
+    for (name, raw) in [("sample", &sample), ("profile", &profile)] {
+        assert!(raw.starts_with(crypt::ENC_PREFIX), "{name} 迁移后须密文: {raw}");
+        assert!(!raw.contains("u@example.com"));
+        assert_eq!(crypt::decrypt_field(raw).unwrap(), OAUTH_RAW, "{name} 读回须还原明文");
+    }
+
+    // 幂等：再跑一次密文值不变
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+    assert_eq!(
+        raw_oauth_col(dir.path(), &format!("SELECT raw FROM oauth_usage_sample WHERE id = {sid}")),
+        sample,
+        "二次迁移不得改写密文"
+    );
+    assert_eq!(
+        raw_oauth_col(dir.path(), "SELECT raw FROM cc_oauth_profile WHERE group_name = 'cc'"),
+        profile,
+        "二次迁移不得改写密文"
+    );
+}
+
+#[tokio::test]
+async fn oauth_raw_migration_failure_keeps_row_and_continues() {
+    let (db, dir) = three_file_db().await;
+    // 两表各一行正常明文 + sample 表一行非法 UTF-8（读侧失败注入：该行迁移必失败）
+    let good = insert_legacy_sample(&db, "good", &format!("'{OAUTH_RAW}'")).await;
+    insert_legacy_sample(&db, "bad", "CAST(x'80FF4142' AS TEXT)").await;
+    insert_legacy_profile(&db, "good", &format!("'{OAUTH_RAW}'")).await;
+
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+
+    let sample = raw_oauth_col(dir.path(), &format!("SELECT raw FROM oauth_usage_sample WHERE id = {good}"));
+    assert!(sample.starts_with(crypt::ENC_PREFIX), "好行须已加密: {sample}");
+    let profile = raw_oauth_col(dir.path(), "SELECT raw FROM cc_oauth_profile WHERE group_name = 'good'");
+    assert!(profile.starts_with(crypt::ENC_PREFIX), "另一表好行须已加密: {profile}");
+    // 坏行原样保留（字节级），下次启动重试
+    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let bad_bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT CAST(raw AS BLOB) FROM oauth_usage_sample WHERE group_name = 'bad'",
+            [],
+            |r| r.get::<_, Vec<u8>>(0),
+        )
+        .unwrap();
+    assert_eq!(bad_bytes, vec![0x80, 0xFF, 0x41, 0x42], "失败行明文字节须保留");
+}

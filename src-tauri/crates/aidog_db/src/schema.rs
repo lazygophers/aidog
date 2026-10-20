@@ -306,6 +306,8 @@ pub fn init_tables_raw(
                     migrate_mcp_server_json(conn);
                     // db-field-encryption 票 03：存量明文 cc_proxy_auth 值逐行加密写回（幂等，失败保留）。
                     crate::settings::migrate_cc_proxy_auth(conn);
+                    // db-obs-encryption 票 01：oauth 观测两表存量明文 raw 列逐行加密写回（幂等，失败保留）。
+                    crate::schema_late::migrate_oauth_raw_columns(conn);
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
                     // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（原 Mig 046 在 log.db 上的

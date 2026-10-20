@@ -82,6 +82,8 @@ pub fn insert_oauth_usage_sample<'a>(
     let group = group_name.to_string();
     let raw = raw.to_string();
     async move {
+        // db-obs-encryption 票 01：raw 落库前加密（空串/已密文形态 encrypt_field 内置跳过）。
+        let raw = aidog_db::crypt::encrypt_field(&raw).map_err(|e| format!("encrypt oauth_usage_sample raw: {e}"))?;
         db.call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO oauth_usage_sample (group_name, five_hour_pct, seven_day_pct, raw, sampled_at)
@@ -108,6 +110,8 @@ pub fn upsert_cc_oauth_profile<'a>(
     let tier = tier.to_string();
     let raw = raw.to_string();
     async move {
+        // db-obs-encryption 票 01：raw 落库前加密（同 insert_oauth_usage_sample）。
+        let raw = aidog_db::crypt::encrypt_field(&raw).map_err(|e| format!("encrypt cc_oauth_profile raw: {e}"))?;
         db.call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO cc_oauth_profile (group_name, tier, raw, updated_at)
