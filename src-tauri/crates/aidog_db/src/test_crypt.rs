@@ -28,7 +28,7 @@ fn input(name: &str, api_key: &str) -> CreatePlatform {
 
 /// 直接 sqlite 打开 platform.db 读 api_key 原始列值（不经行编解码层）。
 fn raw_api_key(dir: &std::path::Path, id: i64) -> String {
-    let conn = rusqlite::Connection::open(dir.join("platform.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.join("platform.db")).unwrap();
     conn.query_row(
         "SELECT api_key FROM platform WHERE id = ?1",
         params![id],
@@ -229,7 +229,7 @@ async fn migration_failure_keeps_bad_row_and_continues() {
     let good_raw = raw_api_key(dir.path(), good);
     assert!(good_raw.starts_with(crypt::ENC_PREFIX), "好行须已加密: {good_raw}");
     // 坏行原样保留（字节级），下次启动重试
-    let conn = rusqlite::Connection::open(dir.path().join("platform.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.path().join("platform.db")).unwrap();
     let bad_bytes: Vec<u8> = conn
         .query_row(
             "SELECT CAST(api_key AS BLOB) FROM platform WHERE id = ?1",
@@ -246,7 +246,7 @@ const CC_PW: &str = "pw-Aa11Bb22Cc33Dd44";
 
 /// 直接 sqlite 打开主库 aidog.db 读 cc_proxy_auth 原始列值（不经收口）。
 fn raw_cc_value(dir: &std::path::Path, key: &str) -> String {
-    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.join("aidog.db")).unwrap();
     conn.query_row(
         "SELECT value FROM setting WHERE scope = 'cc_proxy_auth' AND key = ?1",
         params![key],
@@ -300,7 +300,7 @@ async fn other_scope_value_stays_plaintext() {
     )
     .await
     .unwrap();
-    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.path().join("aidog.db")).unwrap();
     let raw: String = conn
         .query_row("SELECT value FROM setting WHERE scope = 'lang'", [], |r| r.get(0))
         .unwrap();
@@ -368,7 +368,7 @@ async fn cc_proxy_auth_migration_failure_keeps_row_and_continues() {
     let good_raw = raw_cc_value(dir.path(), "good");
     assert!(good_raw.starts_with(&format!("\"{}", crypt::ENC_PREFIX)), "好行须已加密: {good_raw}");
     // 坏行原样保留（字节级），下次启动重试
-    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.path().join("aidog.db")).unwrap();
     let bad_bytes: Vec<u8> = conn
         .query_row(
             "SELECT CAST(value AS BLOB) FROM setting WHERE scope = 'cc_proxy_auth' AND key = 'bad'",
@@ -397,7 +397,7 @@ async fn insert_legacy_mcp_row(db: &Db, name: &str, env_sql: &str, headers_sql: 
 }
 
 fn raw_mcp_json(dir: &std::path::Path, id: i64) -> (String, String) {
-    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.join("aidog.db")).unwrap();
     conn.query_row(
         "SELECT env_json, headers_json FROM mcp_server WHERE id = ?1",
         params![id],
@@ -450,7 +450,7 @@ async fn mcp_migration_failure_keeps_bad_row_and_continues() {
     let (env, _) = raw_mcp_json(dir.path(), good);
     assert!(env.starts_with(crypt::ENC_PREFIX), "好行须已加密: {env}");
     // 坏行原样保留（字节级），下次启动重试
-    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.path().join("aidog.db")).unwrap();
     let bad_bytes: Vec<u8> = conn
         .query_row(
             "SELECT CAST(env_json AS BLOB) FROM mcp_server WHERE id = ?1",

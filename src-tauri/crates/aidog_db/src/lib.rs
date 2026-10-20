@@ -16,6 +16,7 @@ mod trace;
 
 pub mod helpers;
 pub mod crypt;
+pub mod sqlcipher;
 pub mod schema;
 pub mod schema_early;
 pub mod schema_late;
@@ -213,18 +214,24 @@ pub fn resolve_eff_pid(platform_id: i64, group_key: &str, map: &HashMap<String, 
 
 impl Db {
     pub async fn new(path: &str) -> Result<Self, String> {
+        // SQLCipher（db-sqlcipher-full 票 01）：文件库先迁移存量明文（幂等）、key 不可得即
+        // 在 open 之前失败（不建明文库）；`PRAGMA key` 必须是首个语句（内存库返回空串，无 key
+        // 时 SQLCipher 行为等同标准 SQLite，测试透明）。
+        crate::sqlcipher::migrate_plaintext_if_needed(path)?;
+        let key_sql = crate::sqlcipher::key_pragma_sql(path)?;
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
         // pragma 是 connection 级状态，绑定后台线程那条物理连接，设一次永久生效。
         // WAL 下 synchronous=NORMAL 安全；单连接模型下 busy_timeout 实际罕触发，设置无害。
-        conn.call(|c| {
-            c.execute_batch(
-                "PRAGMA journal_mode=WAL; \
+        conn.call(move |c| {
+            c.execute_batch(&format!(
+                "{key_sql} \
+                 PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000; \
                  PRAGMA synchronous=NORMAL;",
-            )?;
+            ))?;
             // 新库（无任何表）建表前设 auto_vacuum=INCREMENTAL，让后续 DELETE/free pages
             // 可被 incremental_vacuum 回收。auto_vacuum 只能建库前设；老库走 migrate_auto_vacuum。
             // 仅在 sqlite_master 空时设，避免对已有库误改（老库 =NONE 需 VACUUM 重建切换，见 migrate）。
@@ -316,16 +323,18 @@ impl Db {
     /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
     /// 供 `Db::new` 初始化 + `call_proxy_log_traced` ConnectionClosed 后重连复用。
     async fn open_proxy_log_conn(path: &str) -> Result<AsyncConnection, String> {
+        crate::sqlcipher::migrate_plaintext_if_needed(path)?;
+        let key_sql = crate::sqlcipher::key_pragma_sql(path)?;
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
-        conn.call(|c| {
+        conn.call(move |c| {
             c.execute_batch(
-                "PRAGMA journal_mode=WAL; \
+                &format!("{key_sql} PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000; \
                  PRAGMA synchronous=NORMAL;",
-            )?;
+            ))?;
             let table_count: i64 = c.query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
                 [],
@@ -346,16 +355,18 @@ impl Db {
     /// auto_vacuum 仅空库可设；新独立文件库首次打开必然空 → 直接设 INCREMENTAL。
     /// 供 `Db::new` 初始化 + `call_platform_traced` ConnectionClosed 后重连复用。
     async fn open_platform_conn(path: &str) -> Result<AsyncConnection, String> {
+        crate::sqlcipher::migrate_plaintext_if_needed(path)?;
+        let key_sql = crate::sqlcipher::key_pragma_sql(path)?;
         let conn = AsyncConnection::open(path)
             .await
             .map_err(|e| e.to_string())?;
-        conn.call(|c| {
+        conn.call(move |c| {
             c.execute_batch(
-                "PRAGMA journal_mode=WAL; \
+                &format!("{key_sql} PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000; \
                  PRAGMA synchronous=NORMAL;",
-            )?;
+            ))?;
             let table_count: i64 = c.query_row(
                 "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
                 [],
@@ -425,6 +436,8 @@ impl Db {
         // 此 env（YAGNI，写档不参与二分，维持 SQLite 默认不变）。
         let cache_pragma =
             Self::read_cache_pragma(std::env::var("AIDOG_SQLITE_READ_CACHE_KB").ok());
+        // SQLCipher：只读连接同样要 `PRAGMA key`（内存库已在上方 early return）。
+        let key_sql = crate::sqlcipher::key_pragma_sql(path)?;
         for _ in 0..READ_POOL_SIZE {
             let c = AsyncConnection::open_with_flags(path, flags)
                 .await
@@ -432,7 +445,8 @@ impl Db {
             // 只读连接 pragma：与写连接保持一致（auto_vacuum / synchronous 是写侧概念，只读连接
             // 无需设；WAL 必设以读到 WAL 已提交快照）。profile 回调让此连接 SQL 同样进 sql 日志。
             let batch = format!(
-                "PRAGMA journal_mode=WAL; \
+                "{key_sql} \
+                 PRAGMA journal_mode=WAL; \
                  PRAGMA foreign_keys=ON; \
                  PRAGMA busy_timeout=5000;{cache_pragma}"
             );
@@ -1047,16 +1061,18 @@ fn set_db_ctx(req: Option<String>, caller: &'static std::panic::Location<'static
 /// 用于 `call_traced` 检测到 `ConnectionClosed` 后的兜底重连。auto_vacuum 不需重设
 /// （仅在「空库」时生效，重开时库已非空）。
 async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
+    // SQLCipher：重连同要 `PRAGMA key`（内存库空串透明）。迁移无需重跑（Db::new 启动时已做）。
+    let key_sql = crate::sqlcipher::key_pragma_sql(path)?;
     let conn = AsyncConnection::open(path)
         .await
         .map_err(|e| e.to_string())?;
-    conn.call(|c| {
+    conn.call(move |c| {
         c.execute_batch(
-            "PRAGMA journal_mode=WAL; \
+            &format!("{key_sql} PRAGMA journal_mode=WAL; \
              PRAGMA foreign_keys=ON; \
              PRAGMA busy_timeout=5000; \
              PRAGMA synchronous=NORMAL;",
-        )?;
+        ))?;
         c.profile(Some(sql_profile_callback));
         Ok(())
     })
@@ -1131,6 +1147,8 @@ mod test_platform_lifecycle;
 mod test_price_resolve;
 #[cfg(test)]
 mod test_rw_pool;
+#[cfg(test)]
+mod test_sqlcipher;
 #[cfg(test)]
 mod test_trace;
 #[cfg(test)]

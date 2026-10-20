@@ -42,8 +42,8 @@ url = "2"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
 futures = "0.3"
 # 存储
-rusqlite = { version = "0.32", features = ["bundled", "trace"] }
-tokio-rusqlite = { version = "0.6", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher", "trace"] }
+tokio-rusqlite = "0.6"
 # Web / 代理
 axum = { version = "0.8", features = ["json", "ws"] }
 # WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
@@ -181,8 +181,8 @@ toml = "0.8"
 uuid = { version = "1", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
 chrono-tz = "0.10"
-rusqlite = { version = "0.32", features = ["bundled", "trace"] }
-tokio-rusqlite = { version = "0.6", features = ["bundled"] }
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher", "trace"] }
+tokio-rusqlite = "0.6"
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
 axum = { version = "0.8", features = ["json", "ws"] }
 # WS 透传（ADR 0008 票 03）：上游 ws 客户端；native-tls 与 reqwest default-tls 对齐。
