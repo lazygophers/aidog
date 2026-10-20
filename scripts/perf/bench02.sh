@@ -14,7 +14,17 @@ KPID=$(cat "$ISO/kernel.pid"); MPID=$(cat "$ISO/mock.pid")
 ru() { python3 "$HARNESS_DIR/rusage.py" "$1"; }   # cpu_s disk_w disk_r footprint
 pst() { ps -o time= -p "$1" | tr -d ' '; }
 dbsz() { local s=0 f; for f in "$ISO/.aidog/log.db" "$ISO/.aidog/log.db-wal"; do [ -f "$f" ] && s=$((s + $(stat -f %z "$f"))); done; echo $s; }
-rows() { sqlite3 "file:$ISO/.aidog/log.db?mode=ro" "SELECT count(*) FROM proxy_log"; }
+# 明文 sqlite3 直查；打不开时（SQLCipher 全库加密，spec db-sqlcipher-full）回落内核 /rpc 数行
+rows() {
+  local n=""
+  n=$(sqlite3 "file:$ISO/.aidog/log.db?mode=ro" "SELECT count(*) FROM proxy_log" 2>/dev/null) || n=""
+  if [ -z "$n" ]; then
+    n=$(curl -sf -X POST "http://127.0.0.1:$MGMT_PORT/rpc/proxy_log_list_filtered" \
+      -H 'content-type: application/json' \
+      -d '{"filter":{},"limit":200000,"offset":0}' | jq '.items | length')
+  fi
+  echo "$n"
+}
 PROXY="http://127.0.0.1:$PROXY_PORT/v1/messages"
 oha_json() { # label group|key url body  extra-oha-args...
   local label=$1 key=$2 url=$3 body=$4; shift 4
