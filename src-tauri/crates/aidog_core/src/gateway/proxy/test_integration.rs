@@ -66,13 +66,22 @@ async fn make_state(db: aidog_db::Db) -> Arc<ProxyState> {
 
 /// 注册一个 Anthropic 平台（base_url=stub）+ 一个 group（group_key=gk）并关联。
 async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    setup_group_with_upstream_key(state, gk, base_url, "sk-up").await;
+}
+
+async fn setup_group_with_upstream_key(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    base_url: &str,
+    api_key: &str,
+) {
     let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
             name: "stub".into(),
             platform_type: Protocol::Anthropic,
             base_url: base_url.to_string(),
-            api_key: "sk-up".into(),
+            api_key: api_key.into(),
             extra: String::new(),
             models: None,
             available_models: None,
@@ -510,6 +519,89 @@ async fn user_side_request_headers_redact_cookie_and_auth() {
     assert_eq!(h["x-api-key"], "[REDACTED]");
     assert_eq!(h["user-agent"], "claude-cli/1.0", "名单外头原样");
     assert_eq!(h["content-type"], "application/json", "名单外头原样");
+}
+
+/// 上游请求头 key 全脱敏（db-log-redact-hardening 票 02）：长 key 落库不得出现
+/// 「首 4 + **** + 尾 4」残段——首尾 8 字符跨行一致，可当关联指纹。
+#[tokio::test]
+async fn upstream_request_headers_no_partial_key_fragment() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    let key = "sk-upstream-long-key-1234567890";
+    setup_group_with_upstream_key(&state, "gkfullred", &upstream, key).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = messages_request(
+        "gkfullred",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = last_log_for(&state, "gkfullred").await;
+    assert!(
+        !row.upstream_request_headers.contains("****"),
+        "上游 key 必须整值脱敏，无残段: {}",
+        row.upstream_request_headers
+    );
+    let h: serde_json::Value = serde_json::from_str(&row.upstream_request_headers).unwrap();
+    assert_eq!(h["x-api-key"], "[REDACTED]", "平台定位靠 platform_name 字段，key 残段不需要");
+}
+
+/// 透传路径（ADR 0008）上游请求头全脱敏回归：authorization/cookie 整值 [REDACTED]，
+/// 名单外头原样；无 **** 残段。
+#[tokio::test]
+async fn passthrough_upstream_headers_full_redaction() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_group(&state, "gkptred", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkptred")
+        .header("content-type", "application/json")
+        .header("cookie", "session=secret-cookie")
+        .header("anthropic-version", "2023-06-01")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = last_log_for(&state, "gkptred").await;
+    let h: serde_json::Value = serde_json::from_str(&row.upstream_request_headers).unwrap();
+    assert!(
+        h.get("authorization").is_none_or(|v| v == "[REDACTED]"),
+        "透传侧鉴权头要么整头剥除要么 [REDACTED]，不得明文"
+    );
+    assert_eq!(h["x-api-key"], "[REDACTED]", "透传侧注入的平台鉴权头全脱敏");
+    assert_eq!(h["cookie"], "[REDACTED]", "透传侧 cookie 全脱敏不回退");
+    assert!(
+        !row.upstream_request_headers.contains("****"),
+        "透传侧不得出现部分脱敏残段"
+    );
+    assert_eq!(h["anthropic-version"], "2023-06-01", "名单外头原样");
 }
 
 /// 主开关 enabled=false：不落 proxy_log 行（统计聚合照常，不在此断言）。
