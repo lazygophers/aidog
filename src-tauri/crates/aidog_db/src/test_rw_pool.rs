@@ -58,13 +58,10 @@ async fn memory_fallback_read_sees_writes() {
 /// 真实文件库：读池为独立只读连接，WAL 下写连接提交后读连接看到最新数据。
 #[tokio::test]
 async fn file_db_read_pool_sees_committed_writes() {
-    let dir = std::env::temp_dir();
-    let path = dir.join(format!("aidog_rwpool_test_{}.db", std::process::id()));
-    let path_str = path.to_string_lossy().to_string();
-    // 清理可能的前次残留（含 WAL/SHM 旁文件）。
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
-    }
+    // 主库放独立 tempdir：Db::new 会在主库父目录派生固定名伴生库（log.db/platform.db），
+    // 落共享 temp_dir() 根会跨测试进程互踩（SQLCipher 后 plain 打不开加密伴生库）。
+    let dir = tempfile::tempdir().unwrap();
+    let path_str = dir.path().join("main.db").to_string_lossy().to_string();
 
     {
         crate::test_support::ensure_test_master_key();
@@ -125,12 +122,9 @@ fn read_cache_pragma_valid_kb_maps_to_negative_cache_size() {
 /// 写阻塞致挂死；轮询 `pick()` 跨多条读连接分摊，验证并发读真走读池而非单点串行。
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_reads_not_blocked_by_writes() {
-    let dir = std::env::temp_dir();
-    let path = dir.join(format!("aidog_rwpool_conc_{}.db", std::process::id()));
-    let path_str = path.to_string_lossy().to_string();
-    for suffix in ["", "-wal", "-shm"] {
-        let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
-    }
+    // 同上：独立 tempdir，伴生库随目录隔离。
+    let dir = tempfile::tempdir().unwrap();
+    let path_str = dir.path().join("main.db").to_string_lossy().to_string();
 
     {
         crate::test_support::ensure_test_master_key();
