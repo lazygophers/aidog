@@ -350,12 +350,16 @@ export function PassthroughConfigSection({ endpoints, setEndpoints, apiKey, setA
 
 // ─── 自定义透传（passthrough 协议）专属配置 ─────────────────────────────
 
-/** header 预设（共识稿 2026-10-08 §2）：Authorization Bearer 默认 / 三家裸 key header / 自定义。 */
-const PASS_THROUGH_HEADER_PRESETS: { id: string; header: string; template: string }[] = [
+/** header 预设（共识稿 2026-10-08 §2）：Authorization Bearer 默认 / 三家裸 key header / psfix-03 补 4 种授权前缀形态（Key / token / APIKey / API-KEY）/ 自定义。 */
+export const PASS_THROUGH_HEADER_PRESETS: { id: string; header: string; template: string }[] = [
   { id: "bearer", header: "Authorization", template: "Bearer {key}" },
   { id: "x-api-key", header: "x-api-key", template: "{key}" },
   { id: "api-key", header: "api-key", template: "{key}" },
   { id: "x-goog-api-key", header: "x-goog-api-key", template: "{key}" },
+  { id: "key", header: "Authorization", template: "Key {key}" },
+  { id: "token", header: "Authorization", template: "token {key}" },
+  { id: "apikey", header: "Authorization", template: "APIKey {key}" },
+  { id: "apikey2", header: "Authorization", template: "API-KEY {key}" },
 ];
 const PASS_THROUGH_CUSTOM = "__custom__";
 
