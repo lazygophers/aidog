@@ -132,7 +132,7 @@ pub(crate) async fn handle_proxy_core(
         let mut h = serde_json::Map::new();
         for (k, v) in req.headers() {
             if let Ok(s) = v.to_str() {
-                if is_sensitive_auth_header(k.as_str()) {
+                if is_sensitive_log_header(k.as_str()) {
                     h.insert(k.to_string(), Value::String("[REDACTED]".into()));
                 } else {
                     h.insert(k.to_string(), Value::String(s.to_string()));
