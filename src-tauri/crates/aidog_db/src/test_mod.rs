@@ -233,6 +233,7 @@ async fn call_traced_reopens_after_panic_kills_thread() {
         let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
     }
 
+    crate::test_support::ensure_test_master_key();
     let db = Db::new(&path_str).await.expect("open db");
     crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
         .await
@@ -307,6 +308,7 @@ async fn call_read_traced_retries_on_dead_pool_slot() {
         let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
     }
 
+    crate::test_support::ensure_test_master_key();
     let db = Db::new(&path_str).await.expect("open file db");
     crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
         .await
