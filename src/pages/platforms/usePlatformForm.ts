@@ -391,7 +391,18 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       jev: p.models.jev ?? "",
     });
     setAvailableModels(p.available_models ?? []);
-    setEndpoints(p.endpoints ?? []);
+    // 透传平台保存侧允许 endpoints 空、只落顶层 base_url；编辑时回填进 endpoints[0]，
+    // 否则表单 Base URL 输入框（绑定 endpoints[0]?.base_url）显示为空（票 02）。
+    // 拷贝一份再改，不动 list state 里的 p.endpoints。
+    const eps = [...(p.endpoints ?? [])];
+    if (p.platform_type === "passthrough" && p.base_url) {
+      if (eps.length === 0) {
+        eps.push({ protocol: "passthrough", base_url: p.base_url, client_type: "default", coding_plan: false });
+      } else if (!eps[0].base_url) {
+        eps[0] = { ...eps[0], base_url: p.base_url };
+      }
+    }
+    setEndpoints(eps);
     setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
