@@ -334,3 +334,94 @@ async fn conflict_detected_on_existing_group() {
     let pv = preview(&cipher, &target).await.unwrap();
     assert!(!pv.conflicts.is_empty());
 }
+
+/// db-field-encryption 票 04：新机器恢复——明文凭据 payload（collect 已解密）apply 进
+/// 全新 DB，三处凭据经收口读回可用，且 cc_proxy_auth 原始列以本机密钥重加密（enc1:）。
+/// 同进程共享主密钥（OnceLock 进程级缓存）；跨机器正确性由「payload 零密文」保证
+/// （见 test_collect::collect_exports_credentials_plaintext）。
+#[tokio::test]
+async fn import_restores_credentials_on_new_db() {
+    use crate::gateway::mcp::McpServerRow;
+    let _h = HomeGuard::new();
+    let src = test_db().await;
+    let mut plat = sample_platform("crypt-src");
+    plat.api_key = "sk-live-secret".into();
+    aidog_db::create_platform(&src, plat).await.unwrap();
+    aidog_mcp::store::upsert_mcp_server(
+        &src,
+        &McpServerRow {
+            id: 0,
+            name: "ctx7".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args_json: "[]".into(),
+            env_json: r#"{"API_TOKEN":"mcp-secret"}"#.into(),
+            url: String::new(),
+            headers_json: r#"{"Authorization":"Bearer hdr-secret"}"#.into(),
+            enabled_agents: "claude-code".into(),
+            created_at: 1,
+            updated_at: 1,
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::set_setting(
+        &src,
+        crate::gateway::models::SetSettingInput {
+            scope: aidog_db::CC_PROXY_AUTH_SCOPE.into(),
+            key: "g1".into(),
+            value: serde_json::json!("pw-secret"),
+        },
+    )
+    .await
+    .unwrap();
+
+    let payload = collect::collect(
+        &src,
+        &[
+            crate::gateway::import_export::SCOPE_PLATFORM.to_string(),
+            crate::gateway::import_export::SCOPE_MCP.to_string(),
+            SCOPE_SETTING.to_string(),
+        ],
+    )
+    .await
+    .unwrap();
+    // 导出 payload 零密文：三处凭据值均无密文前缀。
+    let enc = aidog_db::crypt::ENC_PREFIX;
+    assert!(!payload.platform[0]["api_key"].as_str().unwrap().starts_with(enc));
+    assert!(!payload.mcp[0]["env_json"].as_str().unwrap().starts_with(enc));
+    assert!(!payload.mcp[0]["headers_json"].as_str().unwrap().starts_with(enc));
+    let cc_plain = payload
+        .setting
+        .iter()
+        .find(|[s, _, _]| *s == aidog_db::CC_PROXY_AUTH_SCOPE)
+        .expect("cc_proxy_auth exported");
+    assert_eq!(cc_plain[2], serde_json::json!("pw-secret").to_string());
+
+    let dst = test_db().await;
+    let report = apply(payload, &[], None, &dst).await.unwrap();
+    assert!(report.errors.is_empty(), "{:?}", report.errors);
+
+    // 三处凭据经收口读回 = 明文。
+    assert_eq!(
+        aidog_db::list_platforms(&dst).await.unwrap()[0].api_key,
+        "sk-live-secret"
+    );
+    let mcp = aidog_mcp::store::list_mcp_servers(&dst).await.unwrap();
+    assert_eq!(mcp[0].env_json, r#"{"API_TOKEN":"mcp-secret"}"#);
+    assert_eq!(mcp[0].headers_json, r#"{"Authorization":"Bearer hdr-secret"}"#);
+    let cc = aidog_db::get_setting(&dst, aidog_db::CC_PROXY_AUTH_SCOPE, "g1")
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(cc, serde_json::json!("pw-secret"));
+
+    // 导入写入走加密收口：原始列是密文而非明文落库。
+    let raw = aidog_db::list_all_settings_raw(&dst).await.unwrap();
+    let cc_raw = raw
+        .iter()
+        .find(|(s, _, _)| s == aidog_db::CC_PROXY_AUTH_SCOPE)
+        .expect("cc_proxy_auth row exists");
+    // 列值形态 = JSON 串包裹密文（`"enc1:…"`，与 set_setting / migrate 写入形态对称）。
+    assert!(cc_raw.2.starts_with(&format!("\"{}", aidog_db::crypt::ENC_PREFIX)));
+}
