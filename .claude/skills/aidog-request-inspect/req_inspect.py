@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Aidog request inspector — 按 request id 从 ~/.aidog/log.db 读取一条 proxy_log 并格式化输出。
+"""Aidog request inspector — 经 aidog-kernel 管理面 (/rpc) 读取一条 proxy_log 并格式化输出。
+
+背景: SQLCipher 全库加密落地后(spec db-sqlcipher-full 票 01, 2026-10-20), sqlite3 直查
+~/.aidog/log.db 报 "file is not a database", 本脚本改走内核命令
+POST /rpc/proxy_log_get 与 /rpc/proxy_log_list_filtered。
 
 用法:
   python3 req_inspect.py <request_id>              # 查单条(摘要 + 各 body, body 默认截断)
@@ -7,40 +11,42 @@
   python3 req_inspect.py <request_id> --raw        # 输出原始 JSON(机读, 不脱敏格式化)
   python3 req_inspect.py --recent [N]              # 最近 N 条摘要(默认 10)
   python3 req_inspect.py --recent 20 --group glm-coding-plan-auto   # 过滤 group
-  python3 req_inspect.py --recent 20 --status 400  # 过滤状态码 (定位失败请求)
-  python3 req_inspect.py --db /path/to/log.db ...# 覆盖默认库路径
+  python3 req_inspect.py --recent 20 --status 400  # 过滤状态码 (200=仅成功, -1=仅失败, 其它=精确码)
+  python3 req_inspect.py --port 9891 --token <t>   # 管理面端口/凭据 (默认 127.0.0.1:9891, 无凭据)
 
+前置: 需有 aidog-kernel --ui 在跑(读写同一 ~/.aidog 数据 + keychain 密钥)。
+  aidog-kernel --ui --port 9891
 约定:
-  - 默认库路径 ~/.aidog/log.db, 只读连接(WAL 模式可读未 checkpoint 的最新行)。
   - headers 里的鉴权字段(authorization/x-api-key/x-goog-api-key/api-key/cookie)自动脱敏。
   - body 若是 JSON 则 pretty-print; 默认截断 4000 字符, --full 关闭截断。
 """
-import sys, os, json, sqlite3, argparse
+import sys, json, argparse, urllib.request, urllib.error
 
-DEFAULT_DB = os.path.expanduser("~/.aidog/log.db")
+DEFAULT_PORT = 9891
 TRUNC = 4000
 SENSITIVE_KEYS = {"authorization", "x-api-key", "x-goog-api-key", "api-key",
                   "apikey", "cookie", "set-cookie", "x-goog-api-client"}
 
-COLS = [
-    "id", "group_key", "model", "actual_model", "source_protocol", "target_protocol",
-    "platform_id", "request_headers", "request_body", "upstream_request_headers",
-    "upstream_request_body", "response_body", "request_url", "upstream_request_url",
-    "upstream_response_headers", "upstream_status_code", "user_response_headers",
-    "user_response_body", "status_code", "duration_ms", "input_tokens", "output_tokens",
-    "cache_tokens", "created_at", "updated_at", "est_cost", "is_stream",
-    "attempts", "retry_count",
-]
+# 无代理 opener: 本机 127.0.0.1 不走环境变量里的 HTTP_PROXY
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 
-def connect(db_path):
-    if not os.path.exists(db_path):
-        sys.exit(f"DB not found: {db_path}")
-    # 只读 URI, 不锁库, 不干扰运行中的 aidog
-    uri = f"file:{db_path}?mode=ro"
-    con = sqlite3.connect(uri, uri=True)
-    con.row_factory = sqlite3.Row
-    return con
+def rpc(base, token, name, args):
+    req = urllib.request.Request(
+        f"{base}/rpc/{name}", method="POST",
+        data=json.dumps(args).encode(),
+        headers={"content-type": "application/json"})
+    if token:
+        req.add_header("authorization", f"Bearer {token}")
+    try:
+        with _OPENER.open(req, timeout=10) as resp:
+            return json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")
+        sys.exit(f"/rpc/{name} HTTP {e.code}: {body}")
+    except urllib.error.URLError as e:
+        sys.exit(f"连不上内核管理面 {base}: {e.reason}\n"
+                 f"先起内核: aidog-kernel --ui --port <端口>  (纯内核形态无 /rpc)")
 
 
 def mask(val):
@@ -90,8 +96,7 @@ def fmt_ts(epoch):
         return str(epoch)
 
 
-def print_detail(row, full, raw_mode):
-    d = dict(row)
+def print_detail(d, full, raw_mode):
     if raw_mode:
         print(json.dumps(d, ensure_ascii=False, indent=2))
         return
@@ -109,17 +114,14 @@ def print_detail(row, full, raw_mode):
     print(f"client URL: {d['request_url']}")
     print(f"upstream  : {d['upstream_request_url']}")
 
-    # 重试链
-    try:
-        att = json.loads(d["attempts"] or "[]")
-        if att:
-            print("\n--- 重试链 (attempts) ---")
-            for i, a in enumerate(att):
-                err = a.get("error") or "-"
-                print(f"  [{i}] platform={a.get('platform_name')}(id={a.get('platform_id')}) "
-                      f"status={a.get('status_code')} {a.get('duration_ms')}ms err={err}")
-    except Exception:
-        pass
+    # 重试链 (kernel 已把 attempts 列反序列化成数组对象)
+    att = d.get("attempts") or []
+    if att:
+        print("\n--- 重试链 (attempts) ---")
+        for i, a in enumerate(att):
+            err = a.get("error") or "-"
+            print(f"  [{i}] platform={a.get('platform_name')}(id={a.get('platform_id')}) "
+                  f"status={a.get('status_code')} {a.get('duration_ms')}ms err={err}")
 
     print("\n--- 入站请求 headers (脱敏) ---")
     print(desensitize_headers(d["request_headers"]))
@@ -135,18 +137,14 @@ def print_detail(row, full, raw_mode):
     print(fmt_body(d["user_response_body"] or d["response_body"], full))
 
 
-def print_recent(con, n, group, status):
-    where = ["deleted_at=0"]
-    params = []
+def print_recent(base, token, n, group, status):
+    flt = {}
     if group:
-        where.append("group_key=?"); params.append(group)
+        flt["group_key"] = group
     if status is not None:
-        where.append("status_code=?"); params.append(status)
-    sql = (f"SELECT id, created_at, group_key, model, actual_model, status_code, "
-           f"duration_ms, output_tokens FROM proxy_log WHERE {' AND '.join(where)} "
-           f"ORDER BY created_at DESC LIMIT ?")
-    params.append(n)
-    rows = con.execute(sql, params).fetchall()
+        flt["status"] = status
+    page = rpc(base, token, "proxy_log_list_filtered", {"filter": flt, "limit": n, "offset": 0})
+    rows = page.get("items") or []
     if not rows:
         print("无匹配记录")
         return
@@ -162,7 +160,8 @@ def print_recent(con, n, group, status):
 def main():
     ap = argparse.ArgumentParser(add_help=True)
     ap.add_argument("request_id", nargs="?")
-    ap.add_argument("--db", default=DEFAULT_DB)
+    ap.add_argument("--port", type=int, default=DEFAULT_PORT)
+    ap.add_argument("--token", default="")
     ap.add_argument("--full", action="store_true")
     ap.add_argument("--raw", action="store_true")
     ap.add_argument("--recent", nargs="?", const=10, type=int)
@@ -170,18 +169,16 @@ def main():
     ap.add_argument("--status", type=int)
     a = ap.parse_args()
 
-    con = connect(a.db)
+    base = f"http://127.0.0.1:{a.port}"
     if a.recent is not None:
-        print_recent(con, a.recent, a.group, a.status)
+        print_recent(base, a.token, a.recent, a.group, a.status)
         return
     if not a.request_id:
         sys.exit("需要 <request_id>, 或用 --recent [N] 列最近请求")
-    row = con.execute(
-        "SELECT * FROM proxy_log WHERE id=? AND deleted_at=0", (a.request_id,)
-    ).fetchone()
-    if not row:
+    d = rpc(base, a.token, "proxy_log_get", {"id": a.request_id})
+    if d is None:
         sys.exit(f"未找到 request id: {a.request_id} (确认 id 正确且未被清理)")
-    print_detail(row, a.full, a.raw)
+    print_detail(d, a.full, a.raw)
 
 
 if __name__ == "__main__":
