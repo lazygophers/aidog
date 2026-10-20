@@ -67,6 +67,7 @@ async fn file_db_read_pool_sees_committed_writes() {
     }
 
     {
+        crate::test_support::ensure_test_master_key();
         let db = Db::new(&path_str).await.expect("open file db");
         crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
             .await
@@ -132,6 +133,7 @@ async fn concurrent_reads_not_blocked_by_writes() {
     }
 
     {
+        crate::test_support::ensure_test_master_key();
         let db = std::sync::Arc::new(Db::new(&path_str).await.expect("open file db"));
         crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
             .await
