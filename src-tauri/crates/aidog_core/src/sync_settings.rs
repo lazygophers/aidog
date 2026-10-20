@@ -1,7 +1,7 @@
 use crate::gateway;
 use crate::hooks::{enabled_hook_events, generate_hook_scripts};
 use crate::shared::*;
-use aidog_db::Db;
+use aidog_db::{CC_PROXY_AUTH_SCOPE, Db};
 
 crate::tauri_command! {
 pub fn export_claude_config(port: u16) -> Result<String, String> {
@@ -204,9 +204,6 @@ fn proxy_url_from_config(config: &serde_json::Value) -> Option<String> {
         .filter(|v| !v.is_empty())
         .map(str::to_string)
 }
-
-/// 纯 cc（订阅透传）组 HTTPS_PROXY 占位密码的 KV scope（key = group_key，value = 密码串）。
-const CC_PROXY_AUTH_SCOPE: &str = "cc_proxy_auth";
 
 /// 生成 pure cc 组的 HTTPS_PROXY URL：username = group 名（CONNECT 端 `resolve_connect_auth`
 /// 按名匹配，是记账载体），密码占位非空（仅满足 URL 形状）。

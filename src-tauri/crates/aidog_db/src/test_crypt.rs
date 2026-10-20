@@ -239,3 +239,142 @@ async fn migration_failure_keeps_bad_row_and_continues() {
         .unwrap();
     assert_eq!(bad_bytes, vec![0x80, 0xFF, 0x41, 0x42], "失败行明文字节须保留");
 }
+
+// ── setting 表 cc_proxy_auth 值加密（票 03）──────────────────────────────
+
+const CC_PW: &str = "pw-Aa11Bb22Cc33Dd44";
+
+/// 直接 sqlite 打开主库 aidog.db 读 cc_proxy_auth 原始列值（不经收口）。
+fn raw_cc_value(dir: &std::path::Path, key: &str) -> String {
+    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    conn.query_row(
+        "SELECT value FROM setting WHERE scope = 'cc_proxy_auth' AND key = ?1",
+        params![key],
+        |r| r.get::<_, String>(0),
+    )
+    .unwrap()
+}
+
+async fn set_cc(db: &Db, key: &str, v: &str) {
+    set_setting(
+        db,
+        crate::models::SetSettingInput {
+            scope: CC_PROXY_AUTH_SCOPE.to_string(),
+            key: key.to_string(),
+            value: serde_json::Value::String(v.to_string()),
+        },
+    )
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn cc_proxy_auth_stores_ciphertext_reads_plaintext() {
+    let (db, dir) = three_file_db().await;
+    set_cc(&db, "gk1", CC_PW).await;
+    let raw = raw_cc_value(dir.path(), "gk1");
+    assert!(
+        raw.starts_with(&format!("\"{}", crypt::ENC_PREFIX)),
+        "列值须 JSON 串包裹的密文形态: {raw}"
+    );
+    assert!(!raw.contains(CC_PW), "列值不得含明文密码");
+    // 读回透明（首次 DB 读 + 二次缓存命中两条路径都是明文）
+    for _ in 0..2 {
+        assert_eq!(
+            get_setting(&db, CC_PROXY_AUTH_SCOPE, "gk1").await.unwrap().unwrap(),
+            serde_json::Value::String(CC_PW.to_string())
+        );
+    }
+}
+
+#[tokio::test]
+async fn other_scope_value_stays_plaintext() {
+    let (db, dir) = three_file_db().await;
+    set_setting(
+        &db,
+        crate::models::SetSettingInput {
+            scope: "lang".to_string(),
+            key: "k".to_string(),
+            value: serde_json::Value::String("zh-Hans".to_string()),
+        },
+    )
+    .await
+    .unwrap();
+    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let raw: String = conn
+        .query_row("SELECT value FROM setting WHERE scope = 'lang'", [], |r| r.get(0))
+        .unwrap();
+    assert_eq!(raw, "\"zh-Hans\"", "非 cc_proxy_auth scope 不得加密");
+}
+
+/// 绕过收口直接塞明文 JSON 行（模拟存量 DB）。
+async fn insert_legacy_cc_row(db: &Db, key: &str, value_sql: &str) {
+    let (key, value_sql) = (key.to_string(), value_sql.to_string());
+    db.call_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(
+            &format!(
+                "INSERT INTO setting (scope, key, value, created_at, updated_at) \
+                 VALUES ('cc_proxy_auth', '{key}', {value_sql}, 0, 0)"
+            ),
+            [],
+        )?;
+        Ok(())
+    })
+    .await
+    .unwrap();
+}
+
+#[tokio::test]
+async fn cc_proxy_auth_legacy_row_migrated_idempotently() {
+    let (db, dir) = three_file_db().await;
+    insert_legacy_cc_row(&db, "lg1", "'\"pw-legacy-7777\"'").await;
+
+    // 迁移前：明文兼容读取
+    assert_eq!(
+        get_setting(&db, CC_PROXY_AUTH_SCOPE, "lg1").await.unwrap().unwrap(),
+        serde_json::Value::String("pw-legacy-7777".to_string())
+    );
+
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+    let migrated = raw_cc_value(dir.path(), "lg1");
+    assert!(migrated.starts_with(&format!("\"{}", crypt::ENC_PREFIX)), "迁移后须密文: {migrated}");
+    assert!(!migrated.contains("pw-legacy-7777"));
+    assert_eq!(
+        get_setting(&db, CC_PROXY_AUTH_SCOPE, "lg1").await.unwrap().unwrap(),
+        serde_json::Value::String("pw-legacy-7777".to_string()),
+        "读回仍透明"
+    );
+
+    // 幂等：再跑一次密文值不变
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+    assert_eq!(raw_cc_value(dir.path(), "lg1"), migrated, "二次迁移不得改写密文");
+}
+
+#[tokio::test]
+async fn cc_proxy_auth_migration_failure_keeps_row_and_continues() {
+    let (db, dir) = three_file_db().await;
+    // 一行正常明文 + 一行非法 UTF-8（读侧 JSON 解析必失败，失败注入）
+    insert_legacy_cc_row(&db, "good", "'\"pw-good-11\"'").await;
+    insert_legacy_cc_row(&db, "bad", "CAST(x'80FF4142' AS TEXT)").await;
+
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+
+    let good_raw = raw_cc_value(dir.path(), "good");
+    assert!(good_raw.starts_with(&format!("\"{}", crypt::ENC_PREFIX)), "好行须已加密: {good_raw}");
+    // 坏行原样保留（字节级），下次启动重试
+    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let bad_bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT CAST(value AS BLOB) FROM setting WHERE scope = 'cc_proxy_auth' AND key = 'bad'",
+            [],
+            |r| r.get::<_, Vec<u8>>(0),
+        )
+        .unwrap();
+    assert_eq!(bad_bytes, vec![0x80, 0xFF, 0x41, 0x42], "失败行明文字节须保留");
+}
