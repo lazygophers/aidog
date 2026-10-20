@@ -271,14 +271,8 @@ fn migrate_mcp_server_json(conn: &rusqlite::Connection) {
                     |r| Ok((r.get(0)?, r.get(1)?)),
                 )
                 .map_err(|e| e.to_string())?;
-            // 单列已密文（另一列明文）时原样保留，防双重加密
-            let enc = |v: String| {
-                if v.starts_with(crate::crypt::ENC_PREFIX) {
-                    Ok(v)
-                } else {
-                    crate::crypt::encrypt_with(key, &v)
-                }
-            };
+            // 单列已密文（另一列明文）时原样保留——encrypt_with 内置前缀短路，防双重加密
+            let enc = |v: String| crate::crypt::encrypt_with(key, &v);
             conn.execute(
                 "UPDATE mcp_server SET env_json = ?1, headers_json = ?2 WHERE id = ?3",
                 params![enc(env)?, enc(headers)?, id],
