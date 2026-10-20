@@ -791,3 +791,27 @@ fn cc_proxy_export_line_shape() {
     let line = super::cc_proxy_export_line("my.cc_group", "pw123", 9100);
     assert_eq!(line, "export HTTPS_PROXY='http://my.cc_group:pw123@127.0.0.1:9100'");
 }
+
+#[tokio::test]
+async fn cc_proxy_password_stable_and_encrypted_at_rest() {
+    use aidog_db::test_support::test_db;
+    let db = test_db().await;
+    let pw1 = super::cc_proxy_password(&db, "gk_cc_crypt").await.unwrap();
+    assert_eq!(pw1.len(), 16, "占位密码 16 位随机");
+    let pw2 = super::cc_proxy_password(&db, "gk_cc_crypt").await.unwrap();
+    assert_eq!(pw1, pw2, "密码须持久化跨调用稳定（读回明文）");
+    // 落库密文形态（test_db 已注入 ensure_test_master_key，不触真 keychain）
+    let raw: String = db
+        .call_read_traced(None, std::panic::Location::caller(), |conn| {
+            conn.query_row(
+                "SELECT value FROM setting WHERE scope = 'cc_proxy_auth' AND key = 'gk_cc_crypt'",
+                [],
+                |r| r.get(0),
+            )
+            .map_err(tokio_rusqlite::Error::from)
+        })
+        .await
+        .unwrap();
+    assert!(raw.starts_with("\"enc1:"), "列值须密文形态: {raw}");
+    assert!(!raw.contains(&pw1), "列值不得含明文密码");
+}

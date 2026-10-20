@@ -3,6 +3,12 @@ use crate::models::SetSettingInput;
 use crate::{Db, now, platform_id_name_map};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
+/// db-field-encryption 票 03：纯 cc（订阅透传）组 HTTPS_PROXY 占位密码的 KV scope
+/// （key = group_key，value = 密码串）。该 scope 的**值**静态加密落库（`enc1:` 前缀，
+/// 键保持明文，其它 scope 一律不碰），收口在下方 set/get；单一真值源，
+/// aidog_core 经 `aidog_db::CC_PROXY_AUTH_SCOPE` 引用。
+pub const CC_PROXY_AUTH_SCOPE: &str = "cc_proxy_auth";
+
 #[track_caller]
 pub fn get_setting<'a>(
     db: &'a Db,
@@ -43,6 +49,18 @@ pub fn get_setting<'a>(
         })
         .await
         .map_err(|e| e.to_string())?;
+        // db-field-encryption 票 03：该 scope 值透明解密（仅密文前缀命中才解，存量明文兼容；
+        // 缓存 insert 在解密后，set/delete 已 invalidate，密文不会入缓存）。
+        let result = match result {
+            Some(serde_json::Value::String(s))
+                if scope == CC_PROXY_AUTH_SCOPE && s.starts_with(crate::crypt::ENC_PREFIX) =>
+            {
+                let plain = crate::crypt::decrypt_field(&s)
+                    .map_err(|e| format!("decrypt cc_proxy_auth setting: {e}"))?;
+                Some(serde_json::Value::String(plain))
+            }
+            other => other,
+        };
         if let Ok(mut g) = db.1.settings.write() {
             g.insert((scope, key), result.clone());
         }
@@ -58,8 +76,17 @@ pub fn set_setting(
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
+        // db-field-encryption 票 03：cc_proxy_auth scope 值加密落库（键明文不动，其它 scope 不碰；
+        // 空串保持空、已是密文形态防双重加密，见 encrypt_field）。
+        let value = match (input.scope.as_str(), input.value.as_str()) {
+            (CC_PROXY_AUTH_SCOPE, Some(s)) => serde_json::Value::String(
+                crate::crypt::encrypt_field(s)
+                    .map_err(|e| format!("encrypt cc_proxy_auth setting: {e}"))?,
+            ),
+            _ => input.value.clone(),
+        };
         let value_str =
-            serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
+            serde_json::to_string(&value).map_err(|e| format!("serialize setting: {e}"))?;
         db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
@@ -186,3 +213,54 @@ pub fn list_all_group_platform_pairs(
 }
 
 // ─── Middleware Rule CRUD (C1 基座) ────────────────────────
+
+/// db-field-encryption 票 03：存量明文 cc_proxy_auth 值迁移（init_tables_raw Phase 1 主库
+/// conn 内调用，每次启动跑）。模式照抄票 01 `migrate_platform_api_keys`：幂等（密文行
+/// 不再命中）、单行失败 warn 后继续明文保留下次启动重试、主密钥不可得整体跳过
+/// （读侧明文兼容兜底，key 可得后的下次启动再迁）。
+pub fn migrate_cc_proxy_auth(conn: &rusqlite::Connection) {
+    let Ok(key) = crate::crypt::master_key() else {
+        tracing::warn!("cc_proxy_auth migration skipped: master key unavailable");
+        return;
+    };
+    // 列值 = JSON 串包裹（`"pw"`）；密文形态 `\"enc1:…\"` 与空串 `\"\"` 均跳过（后者无密可加，
+    // 过滤掉可免每启动一次无意义改写）。
+    let keys: Vec<String> = match conn
+        .prepare(&format!(
+            "SELECT key FROM setting WHERE scope = '{CC_PROXY_AUTH_SCOPE}' \
+             AND value NOT LIKE '\"{}%' AND value != '\"\"' AND deleted_at = 0",
+            crate::crypt::ENC_PREFIX
+        ))
+        .and_then(|mut s| s.query_map([], |r| r.get::<_, String>(0))?.collect())
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(error = %e, "cc_proxy_auth migration: select failed");
+            return;
+        }
+    };
+    for key_name in keys {
+        let row: Result<(), String> = (|| {
+            let raw: String = conn
+                .query_row(
+                    "SELECT value FROM setting WHERE scope = ?1 AND key = ?2",
+                    params![CC_PROXY_AUTH_SCOPE, key_name],
+                    |r| r.get(0),
+                )
+                .map_err(|e| e.to_string())?;
+            // 非 JSON 字符串形态（坏行 / 历史非串值）→ 解析失败，明文保留下次重试
+            let plain: String = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
+            let enc = crate::crypt::encrypt_with(key, &plain)?;
+            let value_str = serde_json::to_string(&enc).map_err(|e| e.to_string())?;
+            conn.execute(
+                "UPDATE setting SET value = ?1 WHERE scope = ?2 AND key = ?3",
+                params![value_str, CC_PROXY_AUTH_SCOPE, key_name],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        })();
+        if let Err(e) = row {
+            tracing::warn!(key = %key_name, error = %e, "cc_proxy_auth migration row failed, plaintext kept for next startup");
+        }
+    }
+}
