@@ -359,7 +359,7 @@ export const PASS_THROUGH_HEADER_PRESETS: { id: string; header: string; template
   { id: "key", header: "Authorization", template: "Key {key}" },
   { id: "token", header: "Authorization", template: "token {key}" },
   { id: "apikey", header: "Authorization", template: "APIKey {key}" },
-  { id: "apikey2", header: "Authorization", template: "API-KEY {key}" },
+  { id: "api-key-dash", header: "Authorization", template: "API-KEY {key}" },
 ];
 const PASS_THROUGH_CUSTOM = "__custom__";
 
