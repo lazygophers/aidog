@@ -98,6 +98,28 @@ fn redact_key_never_leaks_key_fragment() {
     assert!(!result.contains("sk-a") && !result.contains("0xyz"));
 }
 
+// ── redact_log_header_value: 敏感头值保留认证 scheme，只脱 key 部分（2026-10-20 追加）──
+#[test]
+fn redact_log_header_value_keeps_scheme() {
+    assert_eq!(redact_log_header_value("Bearer sk-secret"), "Bearer [REDACTED]");
+    assert_eq!(redact_log_header_value("Basic dXNlcjpwYXNz"), "Basic [REDACTED]");
+    // 透传自定义认证模板的首 token 同样是 scheme
+    assert_eq!(redact_log_header_value("API-KEY tp-secret"), "API-KEY [REDACTED]");
+    assert_eq!(redact_log_header_value("Key  tp-secret"), "Key [REDACTED]", "多空白压成单个");
+}
+
+#[test]
+fn redact_log_header_value_direct_and_cookie_fully_redacted() {
+    // api-key 系直值：无 scheme 结构
+    assert_eq!(redact_log_header_value("sk-ant-secret"), "[REDACTED]");
+    // cookie / set-cookie：k=v 串与属性形态，首 token 含 = 或 ; 不当 scheme
+    assert_eq!(redact_log_header_value("session=abc"), "[REDACTED]");
+    assert_eq!(redact_log_header_value("a=secret; Path=/; HttpOnly"), "[REDACTED]");
+    // 空值 / 只有 scheme 没凭证
+    assert_eq!(redact_log_header_value(""), "[REDACTED]");
+    assert_eq!(redact_log_header_value("Bearer "), "[REDACTED]");
+}
+
 // ── is_official_anthropic_host ──
 #[test]
 fn is_official_anthropic_host_variants() {

@@ -133,7 +133,10 @@ pub(crate) async fn handle_proxy_core(
         for (k, v) in req.headers() {
             if let Ok(s) = v.to_str() {
                 if is_sensitive_log_header(k.as_str()) {
-                    h.insert(k.to_string(), Value::String("[REDACTED]".into()));
+                    h.insert(
+                        k.to_string(),
+                        Value::String(redact_log_header_value(s)),
+                    );
                 } else {
                     h.insert(k.to_string(), Value::String(s.to_string()));
                 }
@@ -520,7 +523,7 @@ pub(crate) async fn handle_proxy_core(
             .middleware_settings
             .clone();
         // request_headers 条件求值用 log.request_headers（已按 proxy_log 规则脱敏的
-        // 请求头 JSON），规则可匹配 header 名/非敏感值，敏感头值为 [REDACTED] 不落明文。
+        // 请求头 JSON），规则可匹配 header 名/非敏感值，敏感头值脱敏（scheme 保留）不落明文。
         let outcome = state.middleware.apply_inbound(
             &mw_settings,
             &mut chat_req,

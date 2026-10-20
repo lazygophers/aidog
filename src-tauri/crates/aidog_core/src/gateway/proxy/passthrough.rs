@@ -26,7 +26,7 @@ pub(crate) struct PassthroughOpts {
     /// 透传平台专用（ADR 0008：认证完全由平台配置接管，客户端带来的 key 一律不外泄）；
     /// 其余透传分支 false（claude_code 客户端自带 OAuth，须原样转发）。
     pub strip_inbound_auth: bool,
-    /// 注入的认证头 `(头名, 已填 key 的值)`。日志记录时该头名强制 REDACTED（值含真实 key）。
+    /// 注入的认证头 `(头名, 已填 key 的值)`。日志记录时该头值脱敏（scheme 保留、key 置 [REDACTED]）。
     /// 透传平台专用；api_key 为空时 None（只剥不注，strip_inbound_auth 仍生效）。
     pub auth_inject: Option<(String, String)>,
 }
@@ -142,7 +142,7 @@ async fn relay_passthrough(
                 .as_ref()
                 .is_some_and(|(n, _)| name.eq_ignore_ascii_case(n));
             if is_sensitive_log_header(name) || custom_auth {
-                h.insert(name.to_string(), Value::String("[REDACTED]".into()));
+                h.insert(name.to_string(), Value::String(redact_log_header_value(v.to_str().unwrap_or(""))));
             } else if let Ok(s) = v.to_str() {
                 h.insert(name.to_string(), Value::String(s.to_string()));
             }

@@ -108,7 +108,7 @@ pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
         .any(|h| name.eq_ignore_ascii_case(h))
 }
 
-/// 判定 header 是否为落库前须整值 [REDACTED] 的敏感头（不区分大小写）。
+/// 判定 header 是否为落库前须脱敏的敏感头（不区分大小写；值经 `redact_log_header_value`，认证 scheme 保留）。
 /// 全仓库唯一一份日志脱敏判定（用户侧与上游侧共用，db-log-redact-hardening 票 01）：
 /// 鉴权四头（派生自 `SENSITIVE_AUTH_HEADERS`，不另抄一份）+ cookie/set-cookie（浏览器型客户端的 session 凭据）。
 /// 所有落库 headers 的路径（用户请求捕获、上游请求、上游/用户响应）共用本判定。
@@ -312,7 +312,7 @@ pub fn build_upstream_headers(
         }
         let val = v.to_str().unwrap_or("");
         let val = if is_sensitive_log_header(name) {
-            "[REDACTED]".to_string()
+            redact_log_header_value(val)
         } else {
             val.to_string()
         };
@@ -345,6 +345,22 @@ pub fn build_upstream_headers(
 /// 信息量更不可忽略，故整值替换、不留任何残段。定位「哪条日志是哪个平台」用 platform_name 字段。
 pub fn redact_key(_key: &str) -> String {
     "[REDACTED]".into()
+}
+
+/// 敏感头**值**落库脱敏（db-log-redact-hardening 追加 2026-10-20）：保留凭证前的认证
+/// scheme（`Bearer` / `Basic` / 自定义模板的 `API-KEY` 等首 token），只把 key 部分换成
+/// [REDACTED]——日志读者能确认「配的就是 Bearer {key}」这类认证形态，凭证零残留。
+/// 无 scheme 结构（api-key 直值 / cookie `k=v` 串）整值替换。
+/// 判据：首个空白前的 token 视为 scheme，含 `=` 或 `;`（cookie/set-cookie 属性形态）不算。
+pub(crate) fn redact_log_header_value(value: &str) -> String {
+    let v = value.trim();
+    if let Some(idx) = v.find(char::is_whitespace) {
+        let (scheme, rest) = v.split_at(idx);
+        if !scheme.contains('=') && !scheme.contains(';') && !rest.trim().is_empty() {
+            return format!("{scheme} [REDACTED]");
+        }
+    }
+    "[REDACTED]".to_string()
 }
 
 /// URL query 里的 `api_key` 参数值是 group_key（鉴权凭证，?api_key= 通道），落库/回显前

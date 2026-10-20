@@ -478,7 +478,7 @@ async fn log_switches_record_user_side_only() {
 }
 
 /// 用户侧 request_headers 脱敏（db-log-redact-hardening 票 01）：六头名单（含
-/// cookie/set-cookie）整值 [REDACTED]，名单外头原样落库。浏览器型客户端发 cookie 也不明文进 log.db。
+/// cookie/set-cookie）脱敏（带 scheme 的凭证保留 scheme），名单外头原样落库。浏览器型客户端发 cookie 也不明文进 log.db。
 #[tokio::test]
 async fn user_side_request_headers_redact_cookie_and_auth() {
     let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
@@ -515,7 +515,7 @@ async fn user_side_request_headers_redact_cookie_and_auth() {
     let h: serde_json::Value = serde_json::from_str(&row.request_headers).unwrap();
     assert_eq!(h["cookie"], "[REDACTED]", "cookie 必须脱敏");
     assert_eq!(h["set-cookie"], "[REDACTED]", "set-cookie 必须脱敏");
-    assert_eq!(h["authorization"], "[REDACTED]");
+    assert_eq!(h["authorization"], "Bearer [REDACTED]", "保留 scheme，只脱 key 部分");
     assert_eq!(h["x-api-key"], "[REDACTED]");
     assert_eq!(h["user-agent"], "claude-cli/1.0", "名单外头原样");
     assert_eq!(h["content-type"], "application/json", "名单外头原样");
@@ -557,7 +557,7 @@ async fn upstream_request_headers_no_partial_key_fragment() {
     assert_eq!(h["x-api-key"], "[REDACTED]", "平台定位靠 platform_name 字段，key 残段不需要");
 }
 
-/// 透传路径（ADR 0008）上游请求头全脱敏回归：authorization/cookie 整值 [REDACTED]，
+/// 透传路径（ADR 0008）上游请求头全脱敏回归：authorization/cookie 脱敏，
 /// 名单外头原样；无 **** 残段。
 #[tokio::test]
 async fn passthrough_upstream_headers_full_redaction() {
@@ -592,8 +592,9 @@ async fn passthrough_upstream_headers_full_redaction() {
     let row = last_log_for(&state, "gkptred").await;
     let h: serde_json::Value = serde_json::from_str(&row.upstream_request_headers).unwrap();
     assert!(
-        h.get("authorization").is_none_or(|v| v == "[REDACTED]"),
-        "透传侧鉴权头要么整头剥除要么 [REDACTED]，不得明文"
+        h.get("authorization")
+            .is_none_or(|v| v == "[REDACTED]" || v.as_str().is_some_and(|s| s.ends_with(" [REDACTED]"))),
+        "透传侧鉴权头要么整头剥除要么脱敏，不得明文"
     );
     assert_eq!(h["x-api-key"], "[REDACTED]", "透传侧注入的平台鉴权头全脱敏");
     assert_eq!(h["cookie"], "[REDACTED]", "透传侧 cookie 全脱敏不回退");
