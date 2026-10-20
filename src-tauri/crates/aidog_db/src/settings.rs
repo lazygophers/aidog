@@ -9,6 +9,36 @@ use rusqlite::{OptionalExtension, Result as SqlResult, params};
 /// aidog_core 经 `aidog_db::CC_PROXY_AUTH_SCOPE` 引用。
 pub const CC_PROXY_AUTH_SCOPE: &str = "cc_proxy_auth";
 
+/// db-field-encryption 票 03/04：cc_proxy_auth 值（JSON 串包裹）加密为落库形态。
+/// 全仓库唯一收口——set_setting 与导入侧（import_export apply）共用；其它 scope /
+/// 非串值原样返回（encrypt_field 对空串与已密文形态防双重处理）。
+pub fn encrypt_setting_value(scope: &str, value_json: &str) -> Result<String, String> {
+    if scope != CC_PROXY_AUTH_SCOPE {
+        return Ok(value_json.to_string());
+    }
+    match serde_json::from_str::<serde_json::Value>(value_json) {
+        Ok(serde_json::Value::String(s)) => serde_json::to_string(&serde_json::Value::String(
+            crate::crypt::encrypt_field(&s)?,
+        ))
+        .map_err(|e| e.to_string()),
+        _ => Ok(value_json.to_string()),
+    }
+}
+
+/// db-field-encryption 票 04：cc_proxy_auth 落库形态解密为明文 JSON 串（导出用）。
+/// 与 get_setting 读侧判定对称；其它 scope / 非密文 / 非串形态原样返回（存量明文兼容）。
+pub fn decrypt_setting_value(scope: &str, raw: &str) -> Result<String, String> {
+    if scope != CC_PROXY_AUTH_SCOPE {
+        return Ok(raw.to_string());
+    }
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(serde_json::Value::String(inner)) if inner.starts_with(crate::crypt::ENC_PREFIX) => {
+            serde_json::to_string(&crate::crypt::decrypt_field(&inner)?).map_err(|e| e.to_string())
+        }
+        _ => Ok(raw.to_string()),
+    }
+}
+
 #[track_caller]
 pub fn get_setting<'a>(
     db: &'a Db,
@@ -76,17 +106,12 @@ pub fn set_setting(
     let __db_caller = std::panic::Location::caller();
     async move {
         let ts = now();
-        // db-field-encryption 票 03：cc_proxy_auth scope 值加密落库（键明文不动，其它 scope 不碰；
-        // 空串保持空、已是密文形态防双重加密，见 encrypt_field）。
-        let value = match (input.scope.as_str(), input.value.as_str()) {
-            (CC_PROXY_AUTH_SCOPE, Some(s)) => serde_json::Value::String(
-                crate::crypt::encrypt_field(s)
-                    .map_err(|e| format!("encrypt cc_proxy_auth setting: {e}"))?,
-            ),
-            _ => input.value.clone(),
-        };
+        // db-field-encryption 票 03：cc_proxy_auth scope 值加密落库（键明文不动，其它 scope 不碰），
+        // 收口在 encrypt_setting_value（单一真值源，导入侧共用）。
         let value_str =
-            serde_json::to_string(&value).map_err(|e| format!("serialize setting: {e}"))?;
+            serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
+        let value_str = encrypt_setting_value(&input.scope, &value_str)
+            .map_err(|e| format!("encrypt cc_proxy_auth setting: {e}"))?;
         db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(

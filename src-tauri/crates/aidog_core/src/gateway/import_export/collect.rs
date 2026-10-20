@@ -264,17 +264,8 @@ fn hostname_or_unknown() -> String {
 }
 
 /// db-field-encryption 票 04：导出侧解密 cc_proxy_auth setting。列值是 JSON 串包裹的密文
-/// （`"enc1:…"`，票 03 set_setting / migrate 写入形态）——解内层后重新包 JSON 串，与
-/// get_setting 读侧判定对称；其它 scope 与非密文 / 非串形态原样返回（存量明文兼容）。
+/// db-field-encryption 票 04：导出侧解密收口（aidog_db::decrypt_setting_value 单一真值源，
+/// 与 get_setting 读侧判定对称；其它 scope 与非密文 / 非串形态原样返回，存量明文兼容）。
 fn decrypt_setting_export(scope: &str, raw: &str) -> Result<String, String> {
-    if scope != aidog_db::CC_PROXY_AUTH_SCOPE {
-        return Ok(raw.to_string());
-    }
-    match serde_json::from_str::<serde_json::Value>(raw) {
-        Ok(serde_json::Value::String(inner)) if inner.starts_with(aidog_db::crypt::ENC_PREFIX) => {
-            let plain = aidog_db::crypt::decrypt_field(&inner)?;
-            serde_json::to_string(&plain).map_err(|e| e.to_string())
-        }
-        _ => Ok(raw.to_string()),
-    }
+    aidog_db::decrypt_setting_value(scope, raw)
 }

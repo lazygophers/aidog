@@ -175,6 +175,18 @@ pub fn decrypt_field(stored: &str) -> Result<String, String> {
     decrypt_with(master_key()?, stored)
 }
 
+/// db-field-encryption：解密列 → rusqlite 行级错误（key 不可得 / 密文损坏 → 行级清晰报错不 panic）。
+/// store 侧（mcp env/headers）与行编解码侧（platform.api_key）共用，禁各写一份 map_err。
+pub fn decrypt_col_err(idx: usize, raw: &str) -> rusqlite::Result<String> {
+    decrypt_field(raw).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            idx,
+            rusqlite::types::Type::Text,
+            Box::new(std::io::Error::other(e)),
+        )
+    })
+}
+
 pub(crate) fn encrypt_with(key: &[u8; KEY_LEN], plain: &str) -> Result<String, String> {
     if plain.is_empty() || plain.starts_with(ENC_PREFIX) {
         return Ok(plain.to_string());

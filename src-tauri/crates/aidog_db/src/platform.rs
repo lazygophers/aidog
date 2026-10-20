@@ -53,14 +53,7 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         // 禁 unwrap：非法/未知 platform_type 会 panic 杀 DB 后台线程（见 Protocol::from_db_str）。
         platform_type,
         base_url: row.get(3)?,
-        api_key: crate::crypt::decrypt_field(&row.get::<_, String>(4)?).map_err(|e| {
-            // key 不可得 / 密文损坏 → 行级清晰报错，不 panic（禁 unwrap 杀 DB 后台线程）
-            rusqlite::Error::FromSqlConversionFailure(
-                4,
-                rusqlite::types::Type::Text,
-                Box::new(std::io::Error::other(e)),
-            )
-        })?,
+        api_key: crate::crypt::decrypt_col_err(4, &row.get::<_, String>(4)?)?,
         extra: row.get(5)?,
         models: parse_models(&models_str),
         available_models: parse_available_models(&available_str),
