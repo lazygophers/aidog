@@ -100,7 +100,7 @@ pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     inject_trace_header, is_sensitive_log_header, passthrough_convert_headers, passthrough_headers,
-    redact_api_key_query, reject_non_loopback, sanitize_header_injects,
+    redact_api_key_query, redact_log_header_value, reject_non_loopback, sanitize_header_injects,
 };
 // is_sensitive_auth_header（inject denylist 判定）日志路径已并入 is_sensitive_log_header，
 // 非 test cfg 仅 headers.rs 内部消费；重导出供 test_headers 可达，同 is_official_anthropic_host 先例。
