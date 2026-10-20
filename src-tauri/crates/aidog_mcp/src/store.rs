@@ -1,6 +1,18 @@
 use aidog_db::{Db, now};
 use rusqlite::params;
 
+/// db-field-encryption 票 02：读侧 env_json/headers_json 解密（非密文前缀按明文兼容，
+/// 见 crypt.rs）。key 不可得 / 密文损坏 → 行级清晰报错，不 panic（同 platform.api_key idiom）。
+fn decrypt_json_col(idx: usize, raw: String) -> rusqlite::Result<String> {
+    aidog_db::crypt::decrypt_field(&raw).map_err(|e| {
+        rusqlite::Error::FromSqlConversionFailure(
+            idx,
+            rusqlite::types::Type::Text,
+            Box::new(std::io::Error::other(e)),
+        )
+    })
+}
+
 #[track_caller]
 pub fn list_mcp_servers(
     db: &Db,
@@ -19,9 +31,9 @@ pub fn list_mcp_servers(
                     transport: r.get(2)?,
                     command: r.get(3)?,
                     args_json: r.get(4)?,
-                    env_json: r.get(5)?,
+                    env_json: decrypt_json_col(5, r.get(5)?)?,
                     url: r.get(6)?,
-                    headers_json: r.get(7)?,
+                    headers_json: decrypt_json_col(7, r.get(7)?)?,
                     enabled_agents: r.get(8)?,
                     created_at: r.get(9)?,
                     updated_at: r.get(10)?,
@@ -58,9 +70,9 @@ pub fn get_mcp_server<'a>(
                     transport: r.get(2)?,
                     command: r.get(3)?,
                     args_json: r.get(4)?,
-                    env_json: r.get(5)?,
+                    env_json: decrypt_json_col(5, r.get(5)?)?,
                     url: r.get(6)?,
-                    headers_json: r.get(7)?,
+                    headers_json: decrypt_json_col(7, r.get(7)?)?,
                     enabled_agents: r.get(8)?,
                     created_at: r.get(9)?,
                     updated_at: r.get(10)?,
@@ -85,6 +97,11 @@ pub fn upsert_mcp_server<'a>(
     let __db_caller = std::panic::Location::caller();
     async move {
         let row = row.clone();
+        // db-field-encryption 票 02：两 JSON 列整串加密落库（空串保持空，防双重加密，见 encrypt_field）
+        let env_db = aidog_db::crypt::encrypt_field(&row.env_json)
+            .map_err(|e| format!("upsert mcp server: encrypt env_json: {e}"))?;
+        let headers_db = aidog_db::crypt::encrypt_field(&row.headers_json)
+            .map_err(|e| format!("upsert mcp server: encrypt headers_json: {e}"))?;
         db.call_traced(None, __db_caller, move |conn| {
         conn.execute(
             "INSERT INTO mcp_server \
@@ -99,9 +116,9 @@ pub fn upsert_mcp_server<'a>(
                 row.transport,
                 row.command,
                 row.args_json,
-                row.env_json,
+                env_db,
                 row.url,
-                row.headers_json,
+                headers_db,
                 row.enabled_agents,
                 row.created_at,
                 row.updated_at
@@ -174,3 +191,8 @@ pub fn list_mcp_server_names(
 }
 
 // ─── Tests: DB Schema v2 规范固化 ──────────────────────────
+
+// 507facaf5 调整 mod 声明时丢失（test_store.rs 存在但从未编译），票 02 复测时补回。
+#[cfg(test)]
+#[path = "test_store.rs"]
+mod test_store;
