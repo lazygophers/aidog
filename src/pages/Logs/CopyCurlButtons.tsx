@@ -1,6 +1,6 @@
 // 票 passthrough-log-fixes/04：日志详情工具栏两按钮 —「复制用户请求 curl」「复制上游请求 curl」。
 // 生成逻辑在 ./curl（buildCurl）；log.db 落库头已整值脱敏，{key} 占位换 key 即重放。
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { writeText } from "../../services/platform";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,9 @@ type Side = "user" | "upstream";
 export function CopyCurlButtons({ detail }: { detail: ProxyLogDetail }) {
   const { t } = useTranslation();
   const [copied, setCopied] = useState<Side | null>(null);
+  // 卸载后不再 setState（快速关面板时 2s 复位定时器还挂着）
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(copiedTimer.current), []);
 
   const copy = async (side: Side) => {
     const isUser = side === "user";
@@ -26,7 +29,8 @@ export function CopyCurlButtons({ detail }: { detail: ProxyLogDetail }) {
     try {
       await writeText(curl);
       setCopied(side);
-      setTimeout(() => setCopied(null), 2000);
+      clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(null), 2000);
     } catch (e) {
       console.error(e);
     }
