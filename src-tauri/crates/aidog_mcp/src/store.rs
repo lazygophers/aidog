@@ -4,13 +4,7 @@ use rusqlite::params;
 /// db-field-encryption 票 02：读侧 env_json/headers_json 解密（非密文前缀按明文兼容，
 /// 见 crypt.rs）。key 不可得 / 密文损坏 → 行级清晰报错，不 panic（同 platform.api_key idiom）。
 fn decrypt_json_col(idx: usize, raw: String) -> rusqlite::Result<String> {
-    aidog_db::crypt::decrypt_field(&raw).map_err(|e| {
-        rusqlite::Error::FromSqlConversionFailure(
-            idx,
-            rusqlite::types::Type::Text,
-            Box::new(std::io::Error::other(e)),
-        )
-    })
+    aidog_db::crypt::decrypt_col_err(idx, &raw)
 }
 
 #[track_caller]

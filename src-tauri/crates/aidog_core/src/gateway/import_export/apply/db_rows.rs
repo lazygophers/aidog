@@ -352,20 +352,10 @@ pub(super) async fn upsert_setting_row(
 ) -> Result<(), String> {
     let scope = scope.to_string();
     let key = key.to_string();
-    // db-field-encryption 票 04：与 set_setting 同收口——cc_proxy_auth 值（JSON 串）解出
-    // 内层明文串加密后重新包 JSON 串落库；导出 payload 是明文（见 collect），老导出文件
-    // 若带密文，encrypt_field 防双重加密原样保留；非串值原样（该 scope 语义上必为串）。
-    let value = if scope == aidog_db::CC_PROXY_AUTH_SCOPE {
-        match serde_json::from_str::<serde_json::Value>(value_json) {
-            Ok(serde_json::Value::String(s)) => serde_json::to_string(&serde_json::Value::String(
-                aidog_db::crypt::encrypt_field(&s)?,
-            ))
-            .map_err(|e| e.to_string())?,
-            _ => value_json.to_string(),
-        }
-    } else {
-        value_json.to_string()
-    };
+    // db-field-encryption 票 04：cc_proxy_auth 值经 aidog_db::encrypt_setting_value 加密落库
+    // （set_setting 同源收口）；导出 payload 是明文（见 collect），老导出文件若带密文，
+    // 收口内防双重加密原样保留；非串值原样（该 scope 语义上必为串）。
+    let value = aidog_db::encrypt_setting_value(&scope, value_json)?;
     db.write_conn()
         .call(move |conn| {
             let now = now_ts();
