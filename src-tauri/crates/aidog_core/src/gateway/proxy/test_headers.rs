@@ -32,6 +32,8 @@ fn build_upstream_headers_passes_through_and_overrides_auth() {
     assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
     // cookie 脱敏
     assert_eq!(m.get("cookie"), Some(&"[REDACTED]"));
+    // 入站 authorization（用户 group key）被 STRIPPED_ON_CONVERT_PASSTHROUGH 整头剔除，不进镜像
+    assert_eq!(m.get("authorization"), None);
     // auth 覆盖为平台 key（redact）+ UA 模拟
     assert!(
         m.get("x-api-key").unwrap().contains("****"),
@@ -205,6 +207,29 @@ fn is_sensitive_auth_header_cases() {
     assert!(is_sensitive_auth_header("api-key"));
     assert!(!is_sensitive_auth_header("content-type"));
     assert!(!is_sensitive_auth_header("user-agent"));
+}
+
+// ── is_sensitive_log_header（六头统一名单，用户侧与上游侧共用）──
+#[test]
+fn is_sensitive_log_header_cases() {
+    for name in [
+        "authorization",
+        "Authorization",
+        "api-key",
+        "x-api-key",
+        "X-Api-Key",
+        "x-goog-api-key",
+        "cookie",
+        "Cookie",
+        "COOKIE",
+        "set-cookie",
+        "Set-Cookie",
+    ] {
+        assert!(is_sensitive_log_header(name), "{name} 须脱敏");
+    }
+    assert!(!is_sensitive_log_header("content-type"));
+    assert!(!is_sensitive_log_header("user-agent"));
+    assert!(!is_sensitive_log_header("accept"));
 }
 
 // ── build_upstream_headers: codex family with OpenAI protocol ──

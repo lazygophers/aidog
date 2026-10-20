@@ -228,7 +228,7 @@ pub(crate) async fn handle_ws_passthrough(
             let custom_auth = inject
                 .as_ref()
                 .is_some_and(|(n, _)| name.eq_ignore_ascii_case(n));
-            if is_sensitive_auth_header(name) || custom_auth {
+            if is_sensitive_log_header(name) || custom_auth {
                 h.insert(name.to_string(), Value::String("[REDACTED]".into()));
             } else if let Ok(s) = v.to_str() {
                 h.insert(name.to_string(), Value::String(s.to_string()));

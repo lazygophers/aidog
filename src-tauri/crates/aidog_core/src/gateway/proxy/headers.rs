@@ -107,6 +107,25 @@ pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
         .any(|h| name.eq_ignore_ascii_case(h))
 }
 
+/// 日志脱敏敏感头名单（全仓库唯一一份，用户侧与上游侧共用，db-log-redact-hardening 票 01）：
+/// 鉴权四头 + cookie/set-cookie（浏览器型客户端的 session 凭据）。
+const SENSITIVE_LOG_HEADERS: &[&str] = &[
+    "authorization",
+    "api-key",
+    "x-api-key",
+    "x-goog-api-key",
+    "cookie",
+    "set-cookie",
+];
+
+/// 判定 header 是否为落库前须整值 [REDACTED] 的敏感头（不区分大小写）。
+/// 所有落库 headers 的路径（用户请求捕获、上游请求、上游/用户响应）共用本判定。
+pub(crate) fn is_sensitive_log_header(name: &str) -> bool {
+    SENSITIVE_LOG_HEADERS
+        .iter()
+        .any(|h| name.eq_ignore_ascii_case(h))
+}
+
 /// 中间件 `inject`/`header_set` **不得覆盖**的头名（不区分大小写）。
 ///
 /// 两类，都是「代理自己拥有」的头，被规则覆盖只会坏事而不是配置能力：
@@ -300,8 +319,7 @@ pub fn build_upstream_headers(
             continue;
         }
         let val = v.to_str().unwrap_or("");
-        let val = if name.eq_ignore_ascii_case("cookie") || name.eq_ignore_ascii_case("set-cookie")
-        {
+        let val = if is_sensitive_log_header(name) {
             "[REDACTED]".to_string()
         } else {
             val.to_string()

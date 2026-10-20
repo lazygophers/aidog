@@ -468,6 +468,50 @@ async fn log_switches_record_user_side_only() {
     );
 }
 
+/// 用户侧 request_headers 脱敏（db-log-redact-hardening 票 01）：六头名单（含
+/// cookie/set-cookie）整值 [REDACTED]，名单外头原样落库。浏览器型客户端发 cookie 也不明文进 log.db。
+#[tokio::test]
+async fn user_side_request_headers_redact_cookie_and_auth() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkredact", &upstream).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer gkredact")
+        .header("content-type", "application/json")
+        .header("cookie", "session=secret-cookie-value")
+        .header("SeT-CoOkIe", "a=secret")
+        .header("x-api-key", "gkredact")
+        .header("user-agent", "claude-cli/1.0")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let row = last_log_for(&state, "gkredact").await;
+    let h: serde_json::Value = serde_json::from_str(&row.request_headers).unwrap();
+    assert_eq!(h["cookie"], "[REDACTED]", "cookie 必须脱敏");
+    assert_eq!(h["set-cookie"], "[REDACTED]", "set-cookie 必须脱敏");
+    assert_eq!(h["authorization"], "[REDACTED]");
+    assert_eq!(h["x-api-key"], "[REDACTED]");
+    assert_eq!(h["user-agent"], "claude-cli/1.0", "名单外头原样");
+    assert_eq!(h["content-type"], "application/json", "名单外头原样");
+}
+
 /// 主开关 enabled=false：不落 proxy_log 行（统计聚合照常，不在此断言）。
 #[tokio::test]
 async fn log_master_off_writes_no_row() {
