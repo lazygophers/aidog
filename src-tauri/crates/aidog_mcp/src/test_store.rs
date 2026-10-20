@@ -62,7 +62,7 @@ use rusqlite::params;
 
 /// 直接 sqlite 打开主库读两列原始值（不经行编解码层）。
 fn raw_json_cols(dir: &std::path::Path, name: &str) -> (String, String) {
-    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    let conn = aidog_db::sqlcipher::open_keyed_conn(dir.join("aidog.db")).unwrap();
     conn.query_row(
         "SELECT env_json, headers_json FROM mcp_server WHERE name = ?1",
         params![name],
