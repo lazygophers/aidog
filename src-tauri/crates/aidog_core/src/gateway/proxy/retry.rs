@@ -132,7 +132,7 @@ pub(crate) fn resp_headers_to_log_json(
         if let Ok(s) = v.to_str() {
             h.entry(k.as_str().to_string()).or_insert_with(|| {
                 Value::String(if is_sensitive_log_header(k.as_str()) {
-                    "[REDACTED]".to_string()
+                    redact_log_header_value(s)
                 } else {
                     s.to_string()
                 })
@@ -150,7 +150,7 @@ pub(crate) fn upstream_headers_to_json(headers: &reqwest::header::HeaderMap) -> 
         if let Ok(s) = v.to_str() {
             h.entry(k.as_str().to_string()).or_insert_with(|| {
                 Value::String(if is_sensitive_log_header(k.as_str()) {
-                    "[REDACTED]".to_string()
+                    redact_log_header_value(s)
                 } else {
                     s.to_string()
                 })
