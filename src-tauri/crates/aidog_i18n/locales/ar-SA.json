@@ -692,6 +692,8 @@
   "logs.copy": "نسخ",
   "logs.copyAll": "نسخ المعلومات الكاملة",
   "logs.copyRequestId": "نسخ معرّف الطلب",
+  "logs.copyUserCurl": "نسخ curl طلب المستخدم",
+  "logs.copyUpstreamCurl": "نسخ curl طلب المنبع",
   "logs.detail": "تفاصيل الطلب",
   "logs.duration": "المدة",
   "logs.empty": "لا توجد سجلات",
