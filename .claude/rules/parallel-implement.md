@@ -44,7 +44,11 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 1. 派发前把 prompt 里出现的每个路径 / 文件名 `ls` 核一遍存在性（相对主 checkout
    用绝对路径）；
 2. 派发 prompt 尾部固定加一行自检指令：「若本 prompt 引用的路径 / 文件名在仓库
-   中不存在，先自行核实真实路径再动手，不按 prompt 原文照搬」。
+   中不存在，先自行核实真实路径再动手，不按 prompt 原文照搬」；
+3. **多 worktree 并存时 prompt 全文内联，或写明唯一绝对路径并明令「禁入其它
+   /tmp/aidog-* 目录」**（2026-10-20 db-sqlcipher-full 票 02：prompt 经 /tmp 下
+   文件间接引用，agent 顺着同名 PROMPT.md 走进 obs 旧 worktree，白跑一轮。
+   /tmp 下的 `aidog-*` 是多轮共用的命名约定，同名文件撞车是常态不是意外）。
 
 ## 4. harness worktree 隔离的 agent：开工前核对基点（2026-10-08 passthrough-platform 轮）
 
@@ -86,3 +90,33 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
 - 交叉验证是必做步骤，不是可省的收尾：本例若无交叉验证，脚本 agent 的错误结论会
   保住 4000 行死码。合并多 agent 报告时显式找「两份报告对同一符号/文件的不同说法」
   逐条对账。
+
+## 7. agent 门禁结论的两个假绿盲区（2026-10-20 obs 轮实锤）
+
+obs implementer 回报 clippy exit 0，主会话 `--all-targets -D warnings` 复跑当场
+红（items_after_test_module 在 lib test 目标下才 warn，agent 只跑了部分 target 或
+读了缓存）；同轮另一条：obs 只跑 aidog_db+aidog_logs 门禁，aidog_core 的
+mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 master 才炸
+（e75cd454e 修）。**「agent 报绿」和「门禁真绿」之间隔着命令面和 crate 面两个
+盲区，口头回报不构成证据。**
+
+- 派发 prompt 的门禁命令写全文不写缩写：clippy 一律 `cargo clippy --all-targets
+  -- -D warnings`，要求 agent 回报贴命令行原文 + warning/failed 计数；修完必须
+  重跑同一条命令再报。
+- **子集门禁的范围按数据流向定，不按改动 crate 定**：spec 改共享层（写入层——
+  列加密、列改格式、写入语义变更）时，验收范围 = grep 该列/表名找所有 select
+  它的测试所在 crate（`grep -rn '<列名>' src-tauri/crates/*/src/ --include='*test*'`），
+  grep 一圈比事后跑全量门禁便宜。
+- 主会话采信 agent 门禁前自己复跑一次（合并轮的「全量重跑门禁」三前提已含此条，
+  无 PR / 直合路径同样成立）。
+- 门禁输出禁纯 grep 过滤 test result：连续三轮（db-field-encryption ×2 +
+  passthrough-log-fixes ×1）「首跑 1 红复跑绿、失败名被 grep 过滤丢失」无法归因。
+  命令模板改 `2>&1 | tee /tmp/gate.log | grep -E 'test result|error'`——全量落
+  文件，屏幕只留摘要，flaky 复现时失败名还在。
+
+## 8. 派 agent 前先数在途数（2026-10-21）
+
+后台 agent 同时不超过 2（全局约束），三个并行 spec 各要 code-review 时必然串行
+排队——这是可接受代价，不改规则；但**派之前先数在途 agent 数**，排队会饿住关键
+路径（如 review 挡合并）时，把顺序重排或将轻票收给主会话自己干，而不是派完才发现
+卡在队尾。
