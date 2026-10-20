@@ -86,3 +86,28 @@ describe("PlatformEditForm advanced tabs (7-tab split)", () => {
     expect(screen.queryAllByRole("tab")).toHaveLength(0);
   });
 });
+
+describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
+  const labels = () => screen.getAllByRole("tab").map(b => b.textContent);
+
+  it("create state (editing=null) shows only the 4 non-editing tabs", () => {
+    const s = state("openai");
+    (s.form as { editing: unknown }).editing = null;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["配额查询", "时段档", "过期时间", "分组归属"]);
+  });
+
+  it("mock platform hides quota/timemodels/peak, keeps ratelimits/breaker/expiry/group", () => {
+    const s = state("openai");
+    (s.form as { isMock: boolean }).isMock = true;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["限频", "熔断", "过期时间", "分组归属"]);
+  });
+
+  it("passThrough platform shows only expiry + group tabs", () => {
+    const s = state("openai");
+    (s.form as { isPassThrough: boolean }).isPassThrough = true;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["过期时间", "分组归属"]);
+  });
+});

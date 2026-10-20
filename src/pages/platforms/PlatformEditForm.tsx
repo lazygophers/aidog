@@ -68,7 +68,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const advTabs = [
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "配额查询") }] : []),
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "时段档") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
+    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
     { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
