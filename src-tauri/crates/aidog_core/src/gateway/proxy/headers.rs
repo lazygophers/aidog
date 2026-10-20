@@ -95,35 +95,27 @@ pub(crate) fn is_official_anthropic_host(upstream_url: &str) -> bool {
     host.eq_ignore_ascii_case("api.anthropic.com")
 }
 
-/// 鉴权凭证头名（proxy_log 脱敏判定，不区分大小写）。
-/// `api-key` 系小米 token-plan openai 端点要求的鉴权头（与 Authorization 同发），属凭证须 redact。
+/// 鉴权凭证头名（不区分大小写）。
+/// `api-key` 系小米 token-plan openai 端点要求的鉴权头（与 Authorization 同发），属凭证。
 const SENSITIVE_AUTH_HEADERS: &[&str] =
     &["authorization", "api-key", "x-api-key", "x-goog-api-key"];
 
-/// 判定 header 是否为需脱敏的鉴权凭证头（不区分大小写）。
+/// 判定 header 是否为鉴权凭证头（不区分大小写）。
+/// 职责是 inject denylist（见 `sanitize_header_injects`）；日志脱敏判定走 `is_sensitive_log_header`。
 pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
     SENSITIVE_AUTH_HEADERS
         .iter()
         .any(|h| name.eq_ignore_ascii_case(h))
 }
 
-/// 日志脱敏敏感头名单（全仓库唯一一份，用户侧与上游侧共用，db-log-redact-hardening 票 01）：
-/// 鉴权四头 + cookie/set-cookie（浏览器型客户端的 session 凭据）。
-const SENSITIVE_LOG_HEADERS: &[&str] = &[
-    "authorization",
-    "api-key",
-    "x-api-key",
-    "x-goog-api-key",
-    "cookie",
-    "set-cookie",
-];
-
 /// 判定 header 是否为落库前须整值 [REDACTED] 的敏感头（不区分大小写）。
+/// 全仓库唯一一份日志脱敏判定（用户侧与上游侧共用，db-log-redact-hardening 票 01）：
+/// 鉴权四头（派生自 `SENSITIVE_AUTH_HEADERS`，不另抄一份）+ cookie/set-cookie（浏览器型客户端的 session 凭据）。
 /// 所有落库 headers 的路径（用户请求捕获、上游请求、上游/用户响应）共用本判定。
 pub(crate) fn is_sensitive_log_header(name: &str) -> bool {
-    SENSITIVE_LOG_HEADERS
-        .iter()
-        .any(|h| name.eq_ignore_ascii_case(h))
+    is_sensitive_auth_header(name)
+        || name.eq_ignore_ascii_case("cookie")
+        || name.eq_ignore_ascii_case("set-cookie")
 }
 
 /// 中间件 `inject`/`header_set` **不得覆盖**的头名（不区分大小写）。
