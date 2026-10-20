@@ -501,6 +501,7 @@ mod tests {
         use aidog_stats::DbInitTables;
 
         let dir = tempfile::tempdir().unwrap();
+        aidog_db::test_support::ensure_test_master_key();
         let db_path = dir.path().join("aidog.db").to_string_lossy().into_owned();
         let db = Db::new(&db_path).await.expect("open file db");
         db.init_tables().await.expect("init tables");
