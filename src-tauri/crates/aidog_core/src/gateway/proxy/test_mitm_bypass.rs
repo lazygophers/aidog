@@ -278,7 +278,9 @@ async fn mitm_bypass_writes_mitm_log_not_proxy_log() {
         .expect("read oauth_usage_sample");
     assert_eq!(sample.0, 61.0);
     assert_eq!(sample.1, 12.4);
-    assert!(sample.2.contains("five_hour"));
+    // raw 列落库为 enc1: 密文（spec db-obs-encryption），解密后断言原文。
+    assert!(sample.2.starts_with("enc1:"), "raw 须密文形态: {:?}", sample.2);
+    assert!(aidog_db::crypt::decrypt_field(&sample.2).unwrap().contains("five_hour"));
 
     // 失败计数（票 12 消费接口）：1 次尝试 0 失败。
     let (attempts, failures) = aidog_logs::oauth_token_refresh_failures(&state.db, 0)
