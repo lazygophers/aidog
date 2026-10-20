@@ -692,6 +692,8 @@
   "logs.copy": "Kopieren",
   "logs.copyAll": "Vollständige Info kopieren",
   "logs.copyRequestId": "Anfrage-ID kopieren",
+  "logs.copyUserCurl": "Nutzeranfrage-curl kopieren",
+  "logs.copyUpstreamCurl": "Upstream-Anfrage-curl kopieren",
   "logs.detail": "Anfragedetails",
   "logs.duration": "Dauer",
   "logs.empty": "Keine Protokolle",

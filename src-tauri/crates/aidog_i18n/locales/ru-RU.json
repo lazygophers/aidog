@@ -692,6 +692,8 @@
   "logs.copy": "Копировать",
   "logs.copyAll": "Копировать полную информацию",
   "logs.copyRequestId": "Копировать ID запроса",
+  "logs.copyUserCurl": "Копировать curl запроса пользователя",
+  "logs.copyUpstreamCurl": "Копировать curl запроса к апстриму",
   "logs.detail": "Детали запроса",
   "logs.duration": "Длительность",
   "logs.empty": "Нет журналов",
