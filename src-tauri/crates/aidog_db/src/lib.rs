@@ -15,6 +15,7 @@ pub mod models;
 mod trace;
 
 pub mod helpers;
+pub mod crypt;
 pub mod schema;
 pub mod schema_early;
 pub mod schema_late;
@@ -1118,6 +1119,7 @@ mod test_maintenance;
 #[cfg(test)]
 mod test_middleware;
 #[cfg(test)]
+mod test_crypt;
 mod test_mod;
 #[cfg(test)]
 mod test_model_entry;

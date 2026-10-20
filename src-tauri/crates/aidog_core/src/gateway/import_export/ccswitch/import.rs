@@ -59,6 +59,7 @@ mod tests {
     use aidog_stats::DbInitTables;
 
     async fn test_db() -> Db {
+    aidog_db::test_support::ensure_test_master_key();
         let db = Db::new(":memory:").await.unwrap();
         db.init_tables().await.unwrap();
         db

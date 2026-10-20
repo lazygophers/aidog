@@ -53,7 +53,14 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         // 禁 unwrap：非法/未知 platform_type 会 panic 杀 DB 后台线程（见 Protocol::from_db_str）。
         platform_type,
         base_url: row.get(3)?,
-        api_key: row.get(4)?,
+        api_key: crate::crypt::decrypt_field(&row.get::<_, String>(4)?).map_err(|e| {
+            // key 不可得 / 密文损坏 → 行级清晰报错，不 panic（禁 unwrap 杀 DB 后台线程）
+            rusqlite::Error::FromSqlConversionFailure(
+                4,
+                rusqlite::types::Type::Text,
+                Box::new(std::io::Error::other(e)),
+            )
+        })?,
         extra: row.get(5)?,
         models: parse_models(&models_str),
         available_models: parse_available_models(&available_str),
@@ -82,6 +89,46 @@ pub fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         rate_limit: row.get(27)?,
         quota_source: row.get(28)?,
     })
+}
+
+/// db-field-encryption 票 01：存量明文 api_key 迁移（init_tables_raw Phase 3 尾调用，每次启动跑）。
+/// 幂等：密文前缀行不再命中；单行失败（非法 UTF-8 / 加密失败）warn 后继续，明文行保留下次启动重试。
+/// 主密钥不可得 → 整体跳过不报错（读侧明文兼容兜底，key 可得后的下次启动再迁）。
+pub fn migrate_platform_api_keys(conn: &rusqlite::Connection) {
+    let Ok(key) = crate::crypt::master_key() else {
+        tracing::warn!("platform api_key migration skipped: master key unavailable");
+        return;
+    };
+    let ids: Vec<i64> = match conn
+        .prepare(&format!(
+            "SELECT id FROM platform WHERE api_key != '' AND api_key NOT LIKE '{}%'",
+            crate::crypt::ENC_PREFIX
+        ))
+        .and_then(|mut s| s.query_map([], |r| r.get::<_, i64>(0))?.collect())
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(error = %e, "platform api_key migration: select failed");
+            return;
+        }
+    };
+    for id in ids {
+        let row: Result<(), String> = (|| {
+            let raw: String = conn
+                .query_row("SELECT api_key FROM platform WHERE id = ?1", params![id], |r| r.get(0))
+                .map_err(|e| e.to_string())?;
+            let enc = crate::crypt::encrypt_with(key, &raw)?;
+            conn.execute(
+                "UPDATE platform SET api_key = ?1 WHERE id = ?2",
+                params![enc, id],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        })();
+        if let Err(e) = row {
+            tracing::warn!(platform_id = id, error = %e, "api_key migration row failed, plaintext kept for next startup");
+        }
+    }
 }
 
 /// 按 id 批量取未软删平台 → id→Platform 映射（动态 IN 占位）。供去 JOIN 后关联表行
@@ -154,6 +201,9 @@ pub fn create_platform(
         let ts = now();
         // 粘贴的 key 带首尾空白（如尾部换行）会让 reqwest 报 builder error: failed to parse header value，入口剥净
         input.api_key = input.api_key.trim().to_string();
+        // db-field-encryption 票 01：api_key 落库前加密（空串保持空，见 encrypt_field）
+        let api_key_db = crate::crypt::encrypt_field(&input.api_key)
+            .map_err(|e| format!("create platform: {e}"))?;
         let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
         // If name is empty, auto-generate: {platform_type}-{random8}
         if input.name.trim().is_empty() {
@@ -213,7 +263,7 @@ pub fn create_platform(
         .call_platform_traced(None, __db_caller, {
             let name = input.name.clone();
             let base_url = input.base_url.clone();
-            let api_key = input.api_key.clone();
+            let api_key = api_key_db.clone();
             let extra = input.extra.clone();
             let quota_script_db = quota_script.clone();
             let quota_source_db = quota_source.clone();
@@ -468,11 +518,14 @@ pub fn update_platform(
         let available_str = serialize_available_models(&updated.available_models);
         let endpoints_str = serialize_endpoints(&updated.endpoints);
         let manual_budgets_str = crate::models::serialize_manual_budgets(&updated.manual_budgets);
+        // db-field-encryption 票 01：api_key 落库前加密（updated.api_key 保持明文返回给上层）
+        let api_key_db = crate::crypt::encrypt_field(&updated.api_key)
+            .map_err(|e| format!("update platform: {e}"))?;
         let final_name = db
         .call_platform_traced(None, __db_caller, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
-            let api_key = updated.api_key.clone();
+            let api_key = api_key_db.clone();
             let extra = updated.extra.clone();
             let enabled = updated.enabled as i64;
             let status_str = updated.status.as_db_str().to_string();

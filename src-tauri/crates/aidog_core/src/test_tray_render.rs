@@ -8,6 +8,7 @@ use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
 
 async fn test_db() -> Db {
+    aidog_db::test_support::ensure_test_master_key();
     let db = Db::new(":memory:").await.expect("open memory db");
     db.init_tables().await.expect("init tables");
     db
