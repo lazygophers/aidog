@@ -64,3 +64,50 @@ describe("PlatformEditForm unknown protocol", () => {
     await waitFor(() => expect(screen.getByText("Protocol cannot be changed after creation")).toBeInTheDocument());
   });
 });
+
+describe("PlatformEditForm advanced tabs (7-tab split)", () => {
+  it("shows 7 tabs in order with quota first selected, old labels gone", () => {
+    render(<PlatformEditForm s={state("openai")} />);
+    const tabs = screen.getAllByRole("tab");
+    expect(tabs.map(b => b.textContent)).toEqual([
+      "配额查询", "时段档", "高峰时段倍率", "限频", "熔断", "过期时间", "分组归属",
+    ]);
+    expect(tabs[0]).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByText("计费")).not.toBeInTheDocument();
+    expect(screen.queryByText("稳定性")).not.toBeInTheDocument();
+    expect(screen.queryByText("生命周期")).not.toBeInTheDocument();
+  });
+
+  it("passthrough shows only the expiry tab flat (no tab bar)", () => {
+    const s = state("openai");
+    (s.form as { isPassthrough: boolean }).isPassthrough = true;
+    render(<PlatformEditForm s={s} />);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(screen.queryAllByRole("tab")).toHaveLength(0);
+  });
+});
+
+describe("PlatformEditForm advanced tabs visibility matrix (spec)", () => {
+  const labels = () => screen.getAllByRole("tab").map(b => b.textContent);
+
+  it("create state (editing=null) shows only the 4 non-editing tabs", () => {
+    const s = state("openai");
+    (s.form as { editing: unknown }).editing = null;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["配额查询", "时段档", "过期时间", "分组归属"]);
+  });
+
+  it("mock platform hides quota/timemodels/peak, keeps ratelimits/breaker/expiry/group", () => {
+    const s = state("openai");
+    (s.form as { isMock: boolean }).isMock = true;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["限频", "熔断", "过期时间", "分组归属"]);
+  });
+
+  it("passThrough platform shows only expiry + group tabs", () => {
+    const s = state("openai");
+    (s.form as { isPassThrough: boolean }).isPassThrough = true;
+    render(<PlatformEditForm s={s} />);
+    expect(labels()).toEqual(["过期时间", "分组归属"]);
+  });
+});

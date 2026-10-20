@@ -64,14 +64,17 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const { groupDetails } = s.list;
   const { getPrimaryBaseUrl } = s;
 
-  // ── 高级设置 tab（2026-10-08 改版）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
+  // ── 高级设置 tab（2026-10-20 拆 7 tab）：内容全被条件隐藏的 tab 不进列表；只剩 1 个 → 不出条直接平铺 ──
   const advTabs = [
-    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "billing", label: t("platform.tabBilling", "计费") }] : []),
-    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.time_windows_section_title", "时段档") }] : []),
-    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "stability", label: t("platform.tabStability", "稳定性") }] : []),
-    { id: "lifecycle", label: t("platform.tabLifecycle", "生命周期") },
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "配额查询") }] : []),
+    ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "时段档") }] : []),
+    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
+    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
+    ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
+    { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
+    ...(!isPassthrough ? [{ id: "group", label: t("platform.tabGroupAssign", "分组归属") }] : []),
   ];
-  const [advTab, setAdvTab] = useState("billing");
+  const [advTab, setAdvTab] = useState("quota");
   const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
 
   // 协议本地化 label 映射（共享 hook 全表）。fallback: PROTOCOL_LABELS 硬编码 → key；
@@ -265,12 +268,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         {advTabs.length > 1 && (
           <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
         )}
-        {/* 计费：配额查询 + 高峰倍率 */}
-        {(!isMock && !isPassthrough && !isPassThrough) && (advTabs.length === 1 || activeAdvTab === "billing") && (
-          <>
-        {/* 配额查询合区（quota-ia 票 03）：模型矩阵正下方，Tab「自动脚本 / 手动预算」互斥；
+        {/* 配额查询（quota-ia 票 03；2026-10-20 从计费 tab 拆出独立 tab）：Tab「自动脚本 / 手动预算」互斥；
             表单内切换只弹确认 + 记忆目标，清空在保存时由后端执行。mock / 透传无上游配额，整块不渲染。 */}
-        {!isMock && !isPassthrough && !isPassThrough && (
+        {!isMock && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "quota") && (
           <QuotaSection
             quotaSource={quotaSource} onSourceChange={setQuotaSource}
             protocol={protocol}
@@ -288,8 +288,8 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
-        {editing && !isPassthrough && !isPassThrough && (
+        {/* 高峰时段倍率（2026-10-20 从计费 tab 拆出；仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
+        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "peak") && (
           <PeakSection
             windows={timemodels.peak} setWindows={timemodels.setPeak}
             tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
@@ -298,8 +298,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             themeMode={themeMode}
             t={t}
           />
-        )}
-          </>
         )}
 
         {/* 时段档（时段模型切换）：独立 tab，2026-10-08 二轮裁决（原塞计费 tab） */}
@@ -320,11 +318,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         />
           </>
         )}
-        {/* 稳定性：熔断 + 限频（2026-10-08 改版收进 tab） */}
-        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "stability") && (
-          <>
-        {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
-        {editing && !isPassthrough && (
+        {/* 限频（2026-10-20 从稳定性 tab 拆出；rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
+        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "ratelimits") && (
+          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
+        )}
+
+        {/* 熔断（2026-10-20 从稳定性 tab 拆出）：Circuit Breaker 覆盖（仅编辑态可配；空 = 继承全局默认） */}
+        {editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "breaker") && (
           <BreakerSection
             defaults={breakerDefaults}
             failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
@@ -334,35 +334,24 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* 限频配置（rate-limit-aware 票 04：extra.rate_limits / extra.quota_windows） */}
-        {editing && !isPassthrough && !isPassThrough && (
-          <RateLimitsSection bundle={rateLimits} setBundle={setRateLimits} t={t} />
+        {/* 过期时间（2026-10-20 从生命周期 tab 拆出；可选） */}
+        {(advTabs.length === 1 || activeAdvTab === "expiry") && (
+          <ExpirySection
+            expiresAt={expiresAt} setExpiresAt={setExpiresAt}
+            expiryEnabled={expiryEnabled} setExpiryEnabled={setExpiryEnabled}
+            themeMode={themeMode}
+            t={t}
+          />
         )}
 
-          </>
-        )}
-        {/* 生命周期：分组归属 + 过期时间（2026-10-08 改版收进 tab） */}
-        {(advTabs.length === 1 || activeAdvTab === "lifecycle") && (
-          <>
-        {/* 分组归属 */}
-        {!isPassthrough && (
+        {/* 分组归属（2026-10-20 从生命周期 tab 拆出；透传平台隐藏） */}
+        {!isPassthrough && (advTabs.length === 1 || activeAdvTab === "group") && (
           <GroupAssignSection
             editing={editing} lockedGroupId={lockedGroupId} groupDetails={groupDetails}
             autoGroup={autoGroup} setAutoGroup={setAutoGroup}
             joinGroupIds={joinGroupIds} setJoinGroupIds={setJoinGroupIds}
             t={t}
           />
-        )}
-
-        {/* 过期时间（可选） */}
-        <ExpirySection
-          expiresAt={expiresAt} setExpiresAt={setExpiresAt}
-          expiryEnabled={expiryEnabled} setExpiryEnabled={setExpiryEnabled}
-          themeMode={themeMode}
-          t={t}
-        />
-
-          </>
         )}
 
         {saveError && (
