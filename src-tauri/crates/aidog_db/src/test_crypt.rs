@@ -239,3 +239,84 @@ async fn migration_failure_keeps_bad_row_and_continues() {
         .unwrap();
     assert_eq!(bad_bytes, vec![0x80, 0xFF, 0x41, 0x42], "失败行明文字节须保留");
 }
+
+// ── mcp_server.env_json/headers_json 存量迁移（票 02）──────────────────
+
+/// 绕过收口直接塞 mcp_server 行（env/headers 用 SQL 字面量，模拟存量明文 DB）。
+async fn insert_legacy_mcp_row(db: &Db, name: &str, env_sql: &str, headers_sql: &str) -> i64 {
+    let sql = format!(
+        "INSERT INTO mcp_server (name, transport, command, args_json, env_json, url, headers_json, enabled_agents, created_at, updated_at) \
+         VALUES ('{name}', 'stdio', 'npx', '[]', {env_sql}, '', {headers_sql}, '', 0, 0)"
+    );
+    db.call_traced(None, std::panic::Location::caller(), move |conn| {
+        conn.execute(&sql, [])?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await
+    .unwrap()
+}
+
+fn raw_mcp_json(dir: &std::path::Path, id: i64) -> (String, String) {
+    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    conn.query_row(
+        "SELECT env_json, headers_json FROM mcp_server WHERE id = ?1",
+        params![id],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    )
+    .unwrap()
+}
+
+#[tokio::test]
+async fn mcp_legacy_plaintext_rows_migrated_idempotently() {
+    let (db, dir) = three_file_db().await;
+    let id = insert_legacy_mcp_row(
+        &db,
+        "mcp-legacy",
+        r#"'{"API_TOKEN":"mcp-secret-42"}'"#,
+        r#"'{"Authorization":"Bearer mcp-bk-42"}'"#,
+    )
+    .await;
+
+    // 启动迁移入口重放（init_tables_raw 幂等）
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+
+    let (env, headers) = raw_mcp_json(dir.path(), id);
+    assert!(env.starts_with(crypt::ENC_PREFIX), "env_json 迁移后须密文: {env}");
+    assert!(headers.starts_with(crypt::ENC_PREFIX), "headers_json 迁移后须密文: {headers}");
+    assert!(!env.contains("mcp-secret-42"));
+    assert!(!headers.contains("mcp-bk-42"));
+
+    // 幂等：再跑一次密文值不变
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+    assert_eq!(raw_mcp_json(dir.path(), id), (env.clone(), headers.clone()), "二次迁移不得改写密文");
+}
+
+#[tokio::test]
+async fn mcp_migration_failure_keeps_bad_row_and_continues() {
+    let (db, dir) = three_file_db().await;
+    // 一行正常明文 + 一行非法 UTF-8（读侧失败注入：该行迁移必失败）
+    let good = insert_legacy_mcp_row(&db, "mcp-good", r#"'{"A":"b"}'"#, "'{}'").await;
+    let bad = insert_legacy_mcp_row(&db, "mcp-bad", "CAST(x'80FF' AS TEXT)", "'{}'").await;
+
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+
+    // 好行照常迁移
+    let (env, _) = raw_mcp_json(dir.path(), good);
+    assert!(env.starts_with(crypt::ENC_PREFIX), "好行须已加密: {env}");
+    // 坏行原样保留（字节级），下次启动重试
+    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let bad_bytes: Vec<u8> = conn
+        .query_row(
+            "SELECT CAST(env_json AS BLOB) FROM mcp_server WHERE id = ?1",
+            params![bad],
+            |r| r.get::<_, Vec<u8>>(0),
+        )
+        .unwrap();
+    assert_eq!(bad_bytes, vec![0x80, 0xFF], "失败行明文字节须保留");
+}

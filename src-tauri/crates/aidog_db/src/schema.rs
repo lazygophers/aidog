@@ -240,6 +240,58 @@ pub type BackfillFn = std::sync::Arc<
 >;
 
 #[track_caller]
+/// db-field-encryption 票 02：mcp_server 存量明文 env_json/headers_json 迁移
+/// （init_tables_raw Phase 1 每次启动跑）。幂等：两列均密文前缀的行不再命中；
+/// 单行失败（非法 UTF-8 / 加密失败）warn 后继续，明文行保留下次启动重试；
+/// 主密钥不可得 → 整体跳过不报错（读侧明文兼容兜底，同 migrate_platform_api_keys）。
+fn migrate_mcp_server_json(conn: &rusqlite::Connection) {
+    let Ok(key) = crate::crypt::master_key() else {
+        tracing::warn!("mcp_server json migration skipped: master key unavailable");
+        return;
+    };
+    let ids: Vec<i64> = match conn
+        .prepare(&format!(
+            "SELECT id FROM mcp_server WHERE env_json NOT LIKE '{p}%' OR headers_json NOT LIKE '{p}%'",
+            p = crate::crypt::ENC_PREFIX
+        ))
+        .and_then(|mut s| s.query_map([], |r| r.get::<_, i64>(0))?.collect())
+    {
+        Ok(v) => v,
+        Err(e) => {
+            tracing::warn!(error = %e, "mcp_server json migration: select failed");
+            return;
+        }
+    };
+    for id in ids {
+        let row: Result<(), String> = (|| {
+            let (env, headers): (String, String) = conn
+                .query_row(
+                    "SELECT env_json, headers_json FROM mcp_server WHERE id = ?1",
+                    params![id],
+                    |r| Ok((r.get(0)?, r.get(1)?)),
+                )
+                .map_err(|e| e.to_string())?;
+            // 单列已密文（另一列明文）时原样保留，防双重加密
+            let enc = |v: String| {
+                if v.starts_with(crate::crypt::ENC_PREFIX) {
+                    Ok(v)
+                } else {
+                    crate::crypt::encrypt_with(key, &v)
+                }
+            };
+            conn.execute(
+                "UPDATE mcp_server SET env_json = ?1, headers_json = ?2 WHERE id = ?3",
+                params![enc(env)?, enc(headers)?, id],
+            )
+            .map_err(|e| e.to_string())?;
+            Ok(())
+        })();
+        if let Err(e) = row {
+            tracing::warn!(mcp_id = id, error = %e, "mcp_server json migration row failed, plaintext kept for next startup");
+        }
+    }
+}
+
 pub fn init_tables_raw(
     db: &Db,
     backfill: BackfillFn,
@@ -256,6 +308,8 @@ pub fn init_tables_raw(
                     run_migrations_early(conn)?;
                     run_migrations_late(conn, backfill.clone())?;
                     cleanup_delisted_registry_mirror_rows(conn);
+                    // db-field-encryption 票 02：存量明文 env_json/headers_json 逐行加密写回（幂等，失败保留明文）。
+                    migrate_mcp_server_json(conn);
                     let auto_map = load_auto_from_map(conn)?;
                     let cpa_pids = fetch_cpa_platform_ids(conn);
                     // stats-agg-to-main-db s5：CPA stats_agg_hourly 清理（原 Mig 046 在 log.db 上的
