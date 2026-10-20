@@ -34,10 +34,11 @@ fn build_upstream_headers_passes_through_and_overrides_auth() {
     assert_eq!(m.get("cookie"), Some(&"[REDACTED]"));
     // 入站 authorization（用户 group key）被 STRIPPED_ON_CONVERT_PASSTHROUGH 整头剔除，不进镜像
     assert_eq!(m.get("authorization"), None);
-    // auth 覆盖为平台 key（redact）+ UA 模拟
-    assert!(
-        m.get("x-api-key").unwrap().contains("****"),
-        "x-api-key must be redacted platform key"
+    // auth 覆盖为平台 key（整值 redact，无残段）+ UA 模拟
+    assert_eq!(
+        m.get("x-api-key"),
+        Some(&"[REDACTED]"),
+        "x-api-key must be fully redacted platform key"
     );
     assert!(m.get("User-Agent").unwrap().starts_with("claude-cli/"));
     assert_eq!(m.get("Content-Type"), Some(&"application/json"));
@@ -80,7 +81,7 @@ fn build_upstream_headers_keeps_anthropic_beta_for_third_party() {
     assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
 }
 
-// ── redact_key: 短key完全遮盖，长key首4末4可见 ──
+// ── redact_key: 整值 [REDACTED]，不留任何 key 残段（票 02：首尾 8 字符可当跨行关联指纹）──
 #[test]
 fn redact_key_short_is_fully_redacted() {
     assert_eq!(redact_key("short"), "[REDACTED]");
@@ -89,14 +90,12 @@ fn redact_key_short_is_fully_redacted() {
 }
 
 #[test]
-fn redact_key_long_shows_prefix_suffix() {
+fn redact_key_never_leaks_key_fragment() {
     let key = "sk-abc1234567890xyz";
     let result = redact_key(key);
-    // First 4 chars: "sk-a"
-    assert!(result.starts_with("sk-a"), "should show first 4: {result}");
-    // Last 4 chars: "0xyz"
-    assert!(result.ends_with("0xyz"), "should show last 4: {result}");
-    assert!(result.contains("****"), "should contain mask: {result}");
+    assert_eq!(result, "[REDACTED]", "长 key 也整值脱敏");
+    assert!(!result.contains("****"), "不得出现部分脱敏残段: {result}");
+    assert!(!result.contains("sk-a") && !result.contains("0xyz"));
 }
 
 // ── is_official_anthropic_host ──
@@ -1156,26 +1155,24 @@ fn build_upstream_headers_all_client_types_protocol_matrix() {
                     "[{c}/{proto_key}] UA mismatch: {ua}"
                 );
             }
-            // auth redact：api_key 值经 redact_key 后出现在日志镜像中
+            // auth redact：api_key 值经 redact_key 整值脱敏后出现在日志镜像中（无残段）
             if *proto == crate::gateway::models::Protocol::Anthropic {
                 let v = m.get("x-api-key").unwrap();
-                assert!(
-                    v.contains("****"),
-                    "[{c}/{proto_key}] x-api-key redacted: {v}"
-                );
+                assert_eq!(*v, "[REDACTED]", "[{c}/{proto_key}] x-api-key redacted");
             } else if *proto == crate::gateway::models::Protocol::Gemini {
                 let v = m.get("x-goog-api-key").unwrap();
-                assert!(
-                    v.contains("****"),
-                    "[{c}/{proto_key}] x-goog-api-key redacted: {v}"
+                assert_eq!(
+                    *v,
+                    "[REDACTED]",
+                    "[{c}/{proto_key}] x-goog-api-key redacted"
                 );
             } else {
                 // openai
                 let v = m.get("Authorization").unwrap();
-                assert!(v.starts_with("Bearer "), "[{c}/{proto_key}] Bearer prefix");
-                assert!(
-                    v.contains("****"),
-                    "[{c}/{proto_key}] Authorization redacted: {v}"
+                assert_eq!(
+                    *v,
+                    "Bearer [REDACTED]",
+                    "[{c}/{proto_key}] Authorization redacted"
                 );
             }
             // codex×openai extras
