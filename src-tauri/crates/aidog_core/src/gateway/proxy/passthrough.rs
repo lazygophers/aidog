@@ -473,12 +473,23 @@ pub(crate) async fn handle_models_list(
     response
 }
 
-/// 透传目标 URL 拼接：base_url(去尾斜杠) + 客户端原始 path(+query)
+/// 剥客户端请求的字面挂载前缀 `/proxy`（段边界匹配）：`/proxy`→`/`、`/proxy/health`→`/health`。
+/// 其余（无前缀、`/proxyfoo` 这类相似前缀）原样。两条透传出站路径（平台 base_url / 回落原 host）
+/// 共用；特判分流（models / hello / responses / count_tokens）按客户端原 path 判定，不走本函数。
+pub(crate) fn strip_proxy_mount(pq: &str) -> &str {
+    match pq.strip_prefix("/proxy") {
+        Some("") => "/",
+        Some(rest) if rest.starts_with('/') => rest,
+        _ => pq,
+    }
+}
+
+/// 透传目标 URL 拼接：base_url(去尾斜杠) + 客户端原始 path(+query)，拼前剥挂载前缀（票 01）。
 pub(crate) fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
     let base = base_url.trim_end_matches('/');
     let pq = uri
         .path_and_query()
-        .map(|pq| pq.as_str())
+        .map(|pq| strip_proxy_mount(pq.as_str()))
         .unwrap_or_else(|| uri.path());
     format!("{}{}", base, pq)
 }
@@ -627,13 +638,22 @@ pub(crate) fn build_url_from_host(
     headers: &axum::http::HeaderMap,
     uri: &axum::http::Uri,
 ) -> Option<String> {
+    let pq = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+    build_url_from_host_pq(headers, uri.scheme_str(), pq)
+}
+
+/// scheme/pq 显式版：回落原 host 出站拼 URL 前剥挂载前缀（票 01）；
+/// 日志侧 request_url（handler.rs）保留客户端原样，不走剥离。
+pub(crate) fn build_url_from_host_pq(
+    headers: &axum::http::HeaderMap,
+    scheme: Option<&str>,
+    pq: &str,
+) -> Option<String> {
     let host = headers.get(axum::http::header::HOST)?.to_str().ok()?.trim();
     if host.is_empty() {
         return None;
     }
-    let pq = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
-    let scheme = uri.scheme_str().unwrap_or("https");
-    Some(format!("{scheme}://{host}{pq}"))
+    Some(format!("{}://{host}{pq}", scheme.unwrap_or("https")))
 }
 
 /// 虚拟「未匹配」桶 group_key（proxy_log.group_key + stats_agg_hourly 聚合键）。
@@ -663,10 +683,15 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     // 虚拟桶标记：group_key/platform_id/cost 全部归零位（cost=0 不计费由 est_cost 默认 0.0 保证）。
     log.group_key = UNMATCHED_GROUP_KEY.to_string();
 
-    // 目标 URL = {scheme}://{Host header}{path}?{query}，复用 build_url_from_host helper（与
-    // handler.rs request_url 重构同源）。scheme 自适应：absolute-form 保留原 scheme 透传，
+    // 目标 URL = {scheme}://{Host header}{path}?{query}，复用 build_url_from_host_pq helper（与
+    // handler.rs request_url 重构同源；出站在拼 URL 前剥挂载前缀，日志侧保留原样）。
+    // scheme 自适应：absolute-form 保留原 scheme 透传，
     // MITM 解密灌入（无 scheme，明文 Request URI 仅 path 段）默认 https 保持原行为。
-    let Some(url) = build_url_from_host(&orig_headers, &orig_uri) else {
+    let orig_pq = orig_uri
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    let Some(url) = build_url_from_host_pq(&orig_headers, orig_uri.scheme_str(), strip_proxy_mount(orig_pq)) else {
         // 缺 Host header / 非可见 ASCII → 400（fallback 直通无目标 host 无法转发）。
         log.response_body = "passthrough unmatched: missing Host header".to_string();
         log.status_code = 400;

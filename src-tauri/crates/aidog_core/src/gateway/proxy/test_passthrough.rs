@@ -755,3 +755,66 @@ fn passthrough_base_url_prefers_endpoint_fallback_platform() {
         "https://a.example"
     );
 }
+
+// ── 票 01：透传出站剥 /proxy 挂载前缀 ──
+
+#[test]
+fn passthrough_url_strips_proxy_prefix() {
+    let uri: axum::http::Uri = "/proxy/health".parse().unwrap();
+    assert_eq!(
+        build_passthrough_url("https://api.anthropic.com", &uri),
+        "https://api.anthropic.com/health"
+    );
+}
+
+#[test]
+fn passthrough_url_strips_proxy_prefix_keeps_query() {
+    let uri: axum::http::Uri = "/proxy/v1/messages?beta=true".parse().unwrap();
+    assert_eq!(
+        build_passthrough_url("https://api.anthropic.com", &uri),
+        "https://api.anthropic.com/v1/messages?beta=true"
+    );
+}
+
+#[test]
+fn passthrough_url_no_proxy_prefix_unchanged() {
+    let uri: axum::http::Uri = "/v1/messages".parse().unwrap();
+    assert_eq!(
+        build_passthrough_url("https://api.anthropic.com", &uri),
+        "https://api.anthropic.com/v1/messages"
+    );
+}
+
+#[test]
+fn strip_proxy_mount_segment_boundary() {
+    assert_eq!(strip_proxy_mount("/proxy"), "/");
+    assert_eq!(strip_proxy_mount("/proxy/health"), "/health");
+    assert_eq!(
+        strip_proxy_mount("/proxy/v1/messages?x=1"),
+        "/v1/messages?x=1"
+    );
+    // 无前缀 / 相似前缀不碰
+    assert_eq!(strip_proxy_mount("/v1/messages"), "/v1/messages");
+    assert_eq!(strip_proxy_mount("/proxyfoo"), "/proxyfoo");
+    assert_eq!(strip_proxy_mount("/proxxy/a"), "/proxxy/a");
+}
+
+#[test]
+fn fallback_orig_host_strips_proxy_prefix() {
+    let mut headers = axum::http::HeaderMap::new();
+    headers.insert("host", "orig.example.com".parse().unwrap());
+    let uri: axum::http::Uri = "/proxy/health?x=1".parse().unwrap();
+    let pq = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+    assert_eq!(
+        build_url_from_host_pq(&headers, uri.scheme_str(), strip_proxy_mount(pq)).unwrap(),
+        "https://orig.example.com/health?x=1"
+    );
+}
+
+#[test]
+fn special_cases_judge_client_path_before_strip() {
+    assert!(is_hello_endpoint("/proxy/api/hello"));
+    assert!(is_models_endpoint("/proxy/models"));
+    assert!(is_models_endpoint("/proxy/v1/models"));
+    assert!(!is_models_endpoint("/proxy/v1/messages"));
+}
