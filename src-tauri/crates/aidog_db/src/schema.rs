@@ -307,6 +307,8 @@ pub fn init_tables_raw(
             insert_platform_table_rows(conn, "group_platform", &gp_rows.0, &gp_rows.1)?;
             // 回填之后再清：首次迁移（主库存量 → platform.db）若先清，回填会把待删行原样搬回。
             cleanup_delisted_platform_rows(conn);
+            // db-field-encryption 票 01：存量明文 api_key 逐行加密写回（幂等，失败保留明文）。
+            crate::platform::migrate_platform_api_keys(conn);
             Ok(())
         })
         .await

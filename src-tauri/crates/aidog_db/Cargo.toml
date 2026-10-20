@@ -26,3 +26,8 @@ rand = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
 tempfile = { workspace = true }
+# db-field-encryption 票 01：platform.api_key 列级 AES-256-GCM + 主密钥 keychain/key 文件
+aes-gcm = { workspace = true }
+keyring = { workspace = true }
+# base64 已在依赖树（aidog_core 0.22），非新增外部 crate；密文列值与 keychain 钥编解码用
+base64 = "0.22"

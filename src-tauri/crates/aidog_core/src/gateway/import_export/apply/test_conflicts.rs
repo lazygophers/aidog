@@ -8,6 +8,7 @@ use serde_json::json;
 
 /// 内存库（同 db.rs test 约定）。
 async fn test_db() -> Db {
+    aidog_db::test_support::ensure_test_master_key();
     let db = Db::new(":memory:").await.expect("open memory db");
     db.init_tables().await.expect("init tables");
     db

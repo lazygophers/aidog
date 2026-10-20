@@ -24,6 +24,30 @@ pub async fn set_legacy_auto_disabled(db: &Db, id: u64, strikes: i64, until_ms: 
 
 pub static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// 测试主密钥注入（db-field-encryption 票 01）：`AIDOG_DB_MASTER_KEY_FILE` 指向固定临时
+/// key 文件（首次创建，0600），加密收口经此全部走临时文件、**不触真 keychain**
+/// （避免弹窗与平台差异）。必须在任何 create/update/迁移（即任何 master_key() 调用）之前
+/// 调用——test_db / three_file_db 已内置；直接做加密原语单测的模块需自行先调它。
+pub fn ensure_test_master_key() {
+    static INIT: std::sync::Once = std::sync::Once::new();
+    INIT.call_once(|| {
+        let p = std::env::temp_dir().join("aidog-db-test-master.key");
+        if !p.exists() {
+            if let Err(e) = std::fs::write(&p, [7u8; 32]) {
+                panic!("test master key file: {e}");
+            }
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                let _ = std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o600));
+            }
+        }
+        unsafe {
+            std::env::set_var("AIDOG_DB_MASTER_KEY_FILE", p.as_os_str());
+        }
+    });
+}
+
 /// HOME / CODEX_HOME / CLAUDE_CONFIG_DIR 指向 tempdir 的 RAII 守卫；Drop 时恢复原值。
 /// 构造时持有 ENV_LOCK（跨模块共享，所有 env-mutating 测试串行）。
 /// 吸收了 skills/test_list 的 EnvGuard 语义：CLAUDE_CONFIG_DIR 默认设为 tempdir 内的
@@ -100,6 +124,7 @@ impl Drop for HomeGuard {
 
 /// 创建一个初始化好的内存库
 pub async fn test_db() -> Db {
+    ensure_test_master_key();
     let db = Db::new(":memory:").await.expect("open memory db");
     crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_conn, _map| Ok(())))
         .await
@@ -257,6 +282,7 @@ pub async fn count_all_proxy_logs(db: &Db) -> i64 {
 /// 测试不可见（.claude/rules/db-pool-routing.md）——platform / group / proxy_log 的
 /// call 站点测试必须用它才能暴露错库。返回 (Db, TempDir)；TempDir 由调用方持有。
 pub async fn three_file_db() -> (Db, tempfile::TempDir) {
+    ensure_test_master_key();
     let dir = tempfile::tempdir().expect("tempdir");
     let main = dir.path().join("aidog.db");
     let db = Db::new(main.to_str().expect("utf8 path"))
