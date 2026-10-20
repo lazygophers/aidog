@@ -76,7 +76,22 @@ pub(crate) fn resolve_master_key_from(env_path: Option<&std::path::Path>) -> Res
 }
 
 fn resolve_master_key() -> Result<[u8; KEY_LEN], String> {
-    resolve_master_key_from(std::env::var_os(ENV_KEY_FILE).as_ref().map(std::path::PathBuf::from).as_deref())
+    if let Some(p) = std::env::var_os(ENV_KEY_FILE) {
+        return resolve_master_key_from(Some(std::path::Path::new(&p)));
+    }
+    // shortcut: debug 构建（cargo test 全跑 debug）下 env 未设时先认 test_support 落的
+    // 测试 key 文件——并行测试里未 ensure_test_master_key 的路径（迁移挂在 init_tables_raw
+    // 后 test_rw_pool 等也摸 master_key）会直接读 macOS Keychain，未签名测试二进制每次弹
+    // 授权窗（用户 2026-10-20 插话拍板修）。release 构建不走此短路，生产语义不变；
+    // 升级条件：测试进程有统一注入点时删掉。
+    #[cfg(debug_assertions)]
+    {
+        let test_key = std::env::temp_dir().join("aidog-db-test-master.key");
+        if test_key.is_file() {
+            return load_key_file(&test_key);
+        }
+    }
+    resolve_master_key_from(None)
 }
 
 /// keychain 读/init 失败：降级文件存在则用之；不存在则报错（不生成新钥——旧密文会永久不可读）。
