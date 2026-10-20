@@ -62,7 +62,13 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
 
     if scope_set.contains(super::SCOPE_SETTING) {
         let rows = aidog_db::list_all_settings_raw(db).await?;
-        payload.setting = rows.into_iter().map(|(s, k, v)| [s, k, v]).collect();
+        // db-field-encryption 票 04：解密后导出——cc_proxy_auth 列值是密文（票 03），解出后
+        // 进 payload；导出文件内凭据为明文、主密钥不随导出走：新机器凭导出文件即可恢复
+        //（导入侧重加密落库）。
+        payload.setting = rows
+            .into_iter()
+            .map(|(s, k, v)| Ok([s.clone(), k, decrypt_setting_export(&s, &v)?]))
+            .collect::<Result<Vec<_>, String>>()?;
     }
 
     if scope_set.contains(super::SCOPE_CODEX) {
@@ -255,4 +261,20 @@ fn hostname_or_unknown() -> String {
     std::env::var("HOSTNAME")
         .or_else(|_| std::env::var("COMPUTERNAME"))
         .unwrap_or_else(|_| "unknown".to_string())
+}
+
+/// db-field-encryption 票 04：导出侧解密 cc_proxy_auth setting。列值是 JSON 串包裹的密文
+/// （`"enc1:…"`，票 03 set_setting / migrate 写入形态）——解内层后重新包 JSON 串，与
+/// get_setting 读侧判定对称；其它 scope 与非密文 / 非串形态原样返回（存量明文兼容）。
+fn decrypt_setting_export(scope: &str, raw: &str) -> Result<String, String> {
+    if scope != aidog_db::CC_PROXY_AUTH_SCOPE {
+        return Ok(raw.to_string());
+    }
+    match serde_json::from_str::<serde_json::Value>(raw) {
+        Ok(serde_json::Value::String(inner)) if inner.starts_with(aidog_db::crypt::ENC_PREFIX) => {
+            let plain = aidog_db::crypt::decrypt_field(&inner)?;
+            serde_json::to_string(&plain).map_err(|e| e.to_string())
+        }
+        _ => Ok(raw.to_string()),
+    }
 }

@@ -381,3 +381,72 @@ async fn collect_platform_strips_ui_keys_from_extra() {
         "仅含 _ui_* 的 extra strip 后省略: {ui_only}"
     );
 }
+
+/// db-field-encryption 票 04：导出 payload 三处凭据（平台 api_key / MCP env+headers /
+/// cc_proxy_auth setting 值）必须是明文——导出文件不携带原机器密钥加密的密文，新机器
+/// 凭导出文件即可恢复。platform / MCP 走行 struct 透明解密（票 01/02 已覆盖），setting
+/// 走 raw 读取，解密责任在 collect 层。
+#[tokio::test]
+async fn collect_exports_credentials_plaintext() {
+    use crate::gateway::mcp::McpServerRow;
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    let mut plat = sample_platform("crypt-p");
+    plat.api_key = "sk-live-secret".into();
+    aidog_db::create_platform(&db, plat).await.unwrap();
+    aidog_mcp::store::upsert_mcp_server(
+        &db,
+        &McpServerRow {
+            id: 0,
+            name: "ctx7".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args_json: "[]".into(),
+            env_json: r#"{"API_TOKEN":"mcp-secret"}"#.into(),
+            url: String::new(),
+            headers_json: r#"{"Authorization":"Bearer hdr-secret"}"#.into(),
+            enabled_agents: "claude-code".into(),
+            created_at: 1,
+            updated_at: 1,
+        },
+    )
+    .await
+    .unwrap();
+    aidog_db::set_setting(
+        &db,
+        crate::gateway::models::SetSettingInput {
+            scope: aidog_db::CC_PROXY_AUTH_SCOPE.into(),
+            key: "g1".into(),
+            value: serde_json::json!("pw-secret"),
+        },
+    )
+    .await
+    .unwrap();
+
+    let p = collect::collect(
+        &db,
+        &[
+            SCOPE_PLATFORM.to_string(),
+            SCOPE_MCP.to_string(),
+            SCOPE_SETTING.to_string(),
+        ],
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(p.platform[0]["api_key"].as_str().unwrap(), "sk-live-secret");
+    assert_eq!(
+        p.mcp[0]["env_json"].as_str().unwrap(),
+        r#"{"API_TOKEN":"mcp-secret"}"#
+    );
+    assert_eq!(
+        p.mcp[0]["headers_json"].as_str().unwrap(),
+        r#"{"Authorization":"Bearer hdr-secret"}"#
+    );
+    let cc = p
+        .setting
+        .iter()
+        .find(|[s, _, _]| s == aidog_db::CC_PROXY_AUTH_SCOPE)
+        .expect("cc_proxy_auth setting exported");
+    assert_eq!(cc[2], serde_json::json!("pw-secret").to_string());
+}

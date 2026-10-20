@@ -1,6 +1,8 @@
 use aidog_core::gateway;
 
 aidog_core::tauri_command! {
+    /// 导出（db-field-encryption 票 04）：容器内 payload 的凭据字段为解密后明文，
+    /// 主密钥不随导出文件走——新机器凭导出文件即可恢复（导入用本机密钥重加密落库）。
     pub async fn export_to_file(
         scopes: Vec<String>,
         path: String,
