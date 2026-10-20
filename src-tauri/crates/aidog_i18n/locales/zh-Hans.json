@@ -670,6 +670,8 @@
   "logs.copy": "复制",
   "logs.copyAll": "复制完整信息",
   "logs.copyRequestId": "复制请求 ID",
+  "logs.copyUserCurl": "复制用户请求 curl",
+  "logs.copyUpstreamCurl": "复制上游请求 curl",
   "logs.detail": "请求详情",
   "logs.duration": "耗时",
   "logs.empty": "暂无日志",
