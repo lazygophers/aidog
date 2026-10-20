@@ -137,3 +137,21 @@ registry-refresh 轮：`git commit -m "…$0.10/$0.50…"` 中两个 `$0` 均被
   （defaults/*.json）、门禁脚本本身都可能被并行会话推进。修法守基线红纪律：
   主会话修一次、修断言不改别人夹具、commit 里注明夹具来源（9d085a726 的
   "defaults now ships user hooks" 即此）。
+
+## 共享 $TMPDIR 固定名 fixture：格式变更后跨 worktree 互踩从无害变致命（2026-10-20）
+
+`test_rw_pool` 的两文件测试把主库存 `temp_dir()` 根，伴生库 log.db / platform.db
+由 `Db` 派生逻辑落在 `$TMPDIR` 顶层固定名（无 pid 后缀，清理循环也不删）。明文
+时代两个 worktree 并发跑测试，后写者覆盖先写者的文件，恰好无害；SQLCipher 整库
+加密后该文件变成加密库，plain worktree 的 `Db::new` 直接打不开——跨 worktree
+并发测试互踩从「碰巧无害」变「随机测试红」（00627eb41 改 `tempfile::tempdir()`
+修）。
+
+- **测试 fixture 的 DB / 文件路径必须进程级唯一**（`tempfile::tempdir()` 或带
+  pid + 随机后缀），禁 `$TMPDIR` 顶层固定名。判据：换台机器并发跑两个 checkout，
+  你的 fixture 文件名会不会撞。
+- 「无害的共享」是格式决定的，不是结构决定的：做格式/编码变更类 spec（加密、
+  序列化格式、schema 迁移）时把 fixture 路径列进审查面——上一代认为安全的共享，
+  在格式变更后会变致命。
+- 排查这类红的对照法：隔离 `TMPDIR`（`TMPDIR=$(mktemp -d) cargo test ...`）全绿、
+  真 `$TMPDIR` 偶发红 = fixture 互踩实锤，不是 flaky。
