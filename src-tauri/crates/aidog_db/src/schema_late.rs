@@ -1433,6 +1433,60 @@ fn table_exists(conn: &Connection, table: &str) -> bool {
         .unwrap_or(false)
 }
 
+/// db-obs-encryption 票 01：oauth_usage_sample / cc_oauth_profile 存量明文 raw 列迁移
+/// （init_tables_raw Phase 1 主库 conn 内调用，每次启动跑）。模式照抄
+/// migrate_mcp_server_json：幂等（密文行不再命中）、单行失败 warn 后继续明文保留
+/// 下次启动重试、主密钥不可得整体跳过（读侧无 raw 消费者，明文兼容兜底不适用，
+/// 但保留下次启动重迁语义）。
+pub fn migrate_oauth_raw_columns(conn: &Connection) {
+    let Ok(key) = crate::crypt::master_key() else {
+        tracing::warn!("oauth raw migration skipped: master key unavailable");
+        return;
+    };
+    // 两表 raw 列语义相同，仅主键形态不同（id INTEGER / group_name TEXT），
+    // 统一以 rusqlite::Value 传递。
+    for (table, key_col) in [("oauth_usage_sample", "id"), ("cc_oauth_profile", "group_name")] {
+        let keys: Vec<rusqlite::types::Value> = match conn
+            .prepare(&format!(
+                "SELECT {key_col} FROM {table} WHERE raw NOT LIKE '{p}%' AND raw != ''",
+                p = crate::crypt::ENC_PREFIX
+            ))
+            .and_then(|mut s| {
+                s.query_map([], |r| r.get::<_, rusqlite::types::Value>(0))?
+                    .collect()
+            })
+        {
+            Ok(v) => v,
+            Err(e) => {
+                tracing::warn!(table, error = %e, "oauth raw migration: select failed");
+                return;
+            }
+        };
+        for k in keys {
+            let row: Result<(), String> = (|| {
+                let raw: String = conn
+                    .query_row(
+                        &format!("SELECT raw FROM {table} WHERE {key_col} = ?1"),
+                        params![k],
+                        |r| r.get(0),
+                    )
+                    .map_err(|e| e.to_string())?;
+                let enc = crate::crypt::encrypt_with(key, &raw)?;
+                conn.execute(
+                    &format!("UPDATE {table} SET raw = ?1 WHERE {key_col} = ?2"),
+                    params![enc, k],
+                )
+                .map_err(|e| e.to_string())?;
+                Ok(())
+            })();
+            if let Err(e) = row {
+                tracing::warn!(table, key = ?k, error = %e, "oauth raw migration row failed, plaintext kept for next startup");
+            }
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2741,3 +2795,4 @@ mod tests {
         }
     }
 }
+
