@@ -3,6 +3,11 @@
 //! 复用 [`aidog_core::gateway::import_export`] 的 collect + encrypt (AES-256-GCM `.aidogx`),
 //! 把全量数据按用户设定间隔导出落盘到 `~/.aidog/backups/`, 超期自动清理。
 //!
+//! db-field-encryption 票 04：导出 payload 内凭据（平台 api_key / MCP env+headers /
+//! cc_proxy_auth setting）为**明文**——解密后导出，属既有信任边界（导出文件本来就是用户
+//! 主动拿走的）；DB 静态加密的主密钥**不随导出文件走**。新机器导入后凭据用本机密钥
+//! 重新加密落库，恢复不需要原机器的 keychain。
+//!
 //! - 设置存 `setting` 表 (scope=`backup`, key=`settings`, value=JSON), 缺省/解析失败 → 默认值。
 //! - 触发: setup 启动检查 (throttle) + 常驻 sleep loop (每轮读 settings 即时生效)。
 //! - 重入防护: `AtomicBool`。
