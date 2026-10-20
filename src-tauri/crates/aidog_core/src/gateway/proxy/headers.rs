@@ -349,13 +349,10 @@ pub fn build_upstream_headers(
     h
 }
 
-/// Redact API key: show first 4 and last 4 chars, mask the rest
-pub fn redact_key(key: &str) -> String {
-    if key.len() <= 12 {
-        "[REDACTED]".into()
-    } else {
-        format!("{}****{}", &key[..4], &key[key.len() - 4..])
-    }
+/// Redact API key to a fixed mask（票 02）：首尾 8 字符跨行一致可当关联指纹，对短 key
+/// 信息量更不可忽略，故整值替换、不留任何残段。定位「哪条日志是哪个平台」用 platform_name 字段。
+pub fn redact_key(_key: &str) -> String {
+    "[REDACTED]".into()
 }
 
 /// URL query 里的 `api_key` 参数值是 group_key（鉴权凭证，?api_key= 通道），落库/回显前
