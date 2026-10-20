@@ -72,6 +72,7 @@ ts-rs = { version = "10", features = ["no-serde-warnings"] }
 tts = "0.26"
 # TTS / 加密 / 杂项
 aes-gcm = "0.11"
+keyring = "4"
 sha2 = "0.11"
 sha1 = "0.10"
 hmac = "0.13"
