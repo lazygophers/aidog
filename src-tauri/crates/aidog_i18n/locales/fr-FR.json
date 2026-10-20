@@ -692,6 +692,8 @@
   "logs.copy": "Copier",
   "logs.copyAll": "Copier toutes les infos",
   "logs.copyRequestId": "Copier l'ID de requête",
+  "logs.copyUserCurl": "Copier le curl de la requête utilisateur",
+  "logs.copyUpstreamCurl": "Copier le curl de la requête amont",
   "logs.detail": "Détails de la requête",
   "logs.duration": "Durée",
   "logs.empty": "Aucun journal",
