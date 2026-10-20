@@ -122,13 +122,6 @@ fn normalize_retry_after(
     }
 }
 
-fn is_sensitive_log_header(name: &str) -> bool {
-    matches!(
-        name.to_ascii_lowercase().as_str(),
-        "authorization" | "api-key" | "x-api-key" | "x-goog-api-key" | "cookie" | "set-cookie"
-    )
-}
-
 /// 把实发头集合（HeaderName, HeaderValue）序列化为日志 JSON 字符串，
 /// 与 upstream_response_headers 同格式 `{name: value}`；多值同名头保留首值（与既有格式约定一致）。
 pub(crate) fn resp_headers_to_log_json(
