@@ -1042,7 +1042,6 @@
   "platform.rateLimits.none": "Не настроено → без лимитов (только 429)",
   "platform.rateLimits.windowsCount": "{{n}} окон",
   "platform.rateLimits.modelCount": "{{n}} переопределений",
-  "platform.rateLimits.edit": "Настроить лимиты",
   "platform.rateLimits.badgeHint": "Лимиты настроены; при превышении платформа исключается (в след. версии)",
   "logs.blockedRateLimit": "Лимит",
   "logs.blockedPeak": "Отключён в пик",
