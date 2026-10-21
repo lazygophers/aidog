@@ -299,14 +299,13 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
         });
     }
 
-    // registry 自动同步：启动时一次性尝试（开关/间隔判定全在 maybe_auto_sync 内部，
-    // 外层不加逻辑）。全新安装未点过「立即同步」按钮时 model_entry / platform_preset 表为空，
-    // 此调用是唯一接回生产的入口。失败仅 warn，不阻塞启动。
+    // registry 灌种：启动一次（编译期内置 → 镜像表，幂等 diff；远程同步已删 2026-10-21，
+    // 无周期任务）。全新安装的 model_entry / platform_preset 表靠它填充。失败仅 warn，不阻塞启动。
     {
         let db = app.state::<Db>().inner().clone();
         tauri::async_runtime::spawn(async move {
-            if let Err(e) = gateway::price_sync::maybe_auto_sync(&db).await {
-                tracing::warn!(error = %e, "price auto-sync failed at startup");
+            if let Err(e) = gateway::price_sync::seed_registry_from_bundled(&db).await {
+                tracing::warn!(error = %e, "registry seed from bundled failed at startup");
             }
         });
     }

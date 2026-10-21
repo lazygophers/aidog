@@ -464,14 +464,11 @@ fn spawn_scheduled_jobs() {
         }
     });
 
-    // registry / 价格同步：启动尝试一次，之后交给 maybe_auto_sync 自己的间隔判定，
-    // 每小时敲一次门（开关与间隔全在 maybe_auto_sync 内部，外层不加逻辑）。
+    // registry 灌种：启动一次（编译期内置 → 镜像表，幂等 diff，内容变才写；
+    // 远程同步已删 2026-10-21，无周期任务）。
     tokio::spawn(async move {
-        loop {
-            if let Err(e) = aidog_core::gateway::price_sync::maybe_auto_sync(aidog_ctx::db()).await {
-                tracing::warn!(error = %e, "scheduled: price auto-sync failed");
-            }
-            tokio::time::sleep(std::time::Duration::from_secs(3600)).await;
+        if let Err(e) = aidog_core::gateway::price_sync::seed_registry_from_bundled(aidog_ctx::db()).await {
+            tracing::warn!(error = %e, "startup: registry seed from bundled failed");
         }
     });
 
