@@ -1,4 +1,5 @@
-// 「模型信息」页（原 PricingTab 位置）：同步状态区 + 模型维度 / 平台维度双 tab 列表 + 详情弹窗。
+// 「模型信息」页（原 PricingTab 位置）：兜底单价设置 + 模型维度 / 平台维度双 tab 列表 + 详情弹窗。
+// 远程同步已删（2026-10-21 registry 只读内置）：registry-updated 事件现由启动灌种 emit。
 //
 // 数据源：`model_info_snapshot` 一次 RPC 拿全（聚合行 + 平台预设），前端不做二次拼装、不分页请求；
 // 平台展示名 / logo 走 registry 读取层（getProtocolLabelMap / ProtocolLogo），UI 不再写回落分支。
@@ -7,13 +8,11 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   modelInfoApi,
-  modelPriceApi,
   priceSyncApi,
   onRegistryUpdated,
   type ModelEntry,
   type ModelEntryGroup,
   type ModelInfoSnapshot,
-  type PriceSyncResult,
   type PriceSyncSettings,
   type Protocol,
 } from "../../services/api";
@@ -42,7 +41,6 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { SyncStatusCard } from "./SyncStatusCard";
 import { ModelDetailDialog } from "./ModelDetailDialog";
 import { CAPABILITIES, CapabilityBadges, capabilityLabel } from "./CapabilityBadges";
 import { PAGE_SIZE_OPTIONS, Pagination } from "./Pagination";
@@ -53,9 +51,6 @@ import { fmtPricePerM, fmtTokens, parsePriceData } from "./priceData";
 const NONE = "__none__";
 
 const DEFAULT_SYNC_SETTINGS: PriceSyncSettings = {
-  auto_sync_enabled: false,
-  sync_interval_secs: 86400,
-  last_sync_at: 0,
   registry_last_updated: 0,
   fallback_input_price: 3.0,
   fallback_output_price: 3.0,
@@ -66,8 +61,6 @@ export function ModelInfoTab() {
   const [snapshot, setSnapshot] = useState<ModelInfoSnapshot | null>(null);
   const labelMap = useProtocolLabelMap(i18n.language);
   const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [syncResult, setSyncResult] = useState<PriceSyncResult | null>(null);
   const [message, setMessage] = useState("");
   const [settings, setSettings] = useState<PriceSyncSettings>(DEFAULT_SYNC_SETTINGS);
 
@@ -98,9 +91,8 @@ export function ModelInfoTab() {
 
   useEffect(() => { load(); }, [load]);
 
-  // 注册表远程同步落库有变更（周期自动同步 / 他处手动同步，Rust emit "registry-updated"）
-  // → 静默重拉 snapshot：停留本页也能看到新数据，不闪 loading、不清筛选。
-  // 本页手动同步按钮自身走 load()，与这里的静默重拉 debounce 后偶发双拉，无害。
+  // 启动灌种落库有变更（Rust emit "registry-updated"）→ 静默重拉 snapshot：
+  // 停留本页也能看到新数据，不闪 loading、不清筛选。
   useEffect(() => onRegistryUpdated(() => { load(true); }), [load]);
 
   useEffect(() => {
@@ -167,22 +159,6 @@ export function ModelInfoTab() {
     [groups, selected],
   );
 
-  const handleSync = async () => {
-    setSyncing(true);
-    setMessage("");
-    try {
-      const result = await modelPriceApi.sync();
-      setSyncResult(result);
-      const s = await priceSyncApi.get().catch(() => settings);
-      setSettings(s);
-      await load();
-    } catch (e) {
-      setMessage(String(e));
-    } finally {
-      setSyncing(false);
-    }
-  };
-
   const updateSettings = async (partial: Partial<PriceSyncSettings>) => {
     const next = { ...settings, ...partial };
     setSettings(next);
@@ -205,14 +181,27 @@ export function ModelInfoTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-      <SyncStatusCard
-        settings={settings}
-        onUpdateSettings={updateSettings}
-        syncing={syncing}
-        onSync={handleSync}
-        result={syncResult}
-        bundled={!!snapshot?.bundled}
-      />
+      <div className="glass-surface hover-lift" style={{ padding: "12px 20px", display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
+        <span style={{ fontSize: F.small, fontWeight: 600 }}>{t("modelInfo.fallback")}</span>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <label style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("modelInfo.input")}</label>
+          <Input
+            type="number" min={0} step={0.1}
+            value={settings.fallback_input_price}
+            onChange={(e) => updateSettings({ fallback_input_price: Math.max(0, Number(e.target.value)) })}
+            style={{ width: 70, padding: "3px 6px", fontSize: F.small, height: 30 }}
+          />
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <label style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("modelInfo.output")}</label>
+          <Input
+            type="number" min={0} step={0.1}
+            value={settings.fallback_output_price}
+            onChange={(e) => updateSettings({ fallback_output_price: Math.max(0, Number(e.target.value)) })}
+            style={{ width: 70, padding: "3px 6px", fontSize: F.small, height: 30 }}
+          />
+        </div>
+      </div>
 
       {/* 筛选栏（两个 tab 共用；平台维度下平台下拉退化为左侧平台列表的选中态） */}
       <div ref={filterCard.ref} className={`glass-surface hover-lift reveal${filterCard.shown ? " in" : ""}`} style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>

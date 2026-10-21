@@ -20,21 +20,12 @@ pub struct ResolvedPrice {
     pub source: String, // "platform_override" | "default_platform" | "top_level" | "fallback"
 }
 
-/// 模型价格同步设置
+/// 价格设置（远程同步已删 2026-10-21：registry 只读编译期内置，启动灌种进镜像表；
+/// setting key 仍叫 `price_sync`，历史持久化行里已删键的 JSON 会被 serde 忽略）。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct PriceSyncSettings {
-    #[serde(default)]
-    pub auto_sync_enabled: bool,
-    /// 同步间隔（秒），默认 86400 = 24h
-    #[serde(default = "default_sync_interval")]
-    #[ts(type = "number")]
-    pub sync_interval_secs: u64,
-    /// 上次同步时间（ms timestamp）
-    #[serde(default)]
-    #[ts(type = "number")]
-    pub last_sync_at: i64,
-    /// 上次入库的 registry index `last_updated`（Unix 秒）；远程不比它新则整轮跳过
+    /// 上次灌种的 registry index `last_updated`（Unix 秒），诊断用
     #[serde(default)]
     #[ts(type = "number")]
     pub registry_last_updated: i64,
@@ -45,9 +36,6 @@ pub struct PriceSyncSettings {
     pub fallback_output_price: f64,
 }
 
-fn default_sync_interval() -> u64 {
-    86400
-}
 fn default_fallback_price() -> f64 {
     3.0
 }
@@ -55,9 +43,6 @@ fn default_fallback_price() -> f64 {
 impl Default for PriceSyncSettings {
     fn default() -> Self {
         Self {
-            auto_sync_enabled: false,
-            sync_interval_secs: default_sync_interval(),
-            last_sync_at: 0,
             registry_last_updated: 0,
             fallback_input_price: default_fallback_price(),
             fallback_output_price: default_fallback_price(),

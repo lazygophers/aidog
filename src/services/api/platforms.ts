@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, PriceSyncResult, TimeModelRule, PlatformErrorStatus } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, DevinConfig, PassthroughAuth, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, TimeModelRule, PlatformErrorStatus } from "./types";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { normalizeWindow } from "../../utils/timeWindow";
 
@@ -680,19 +680,6 @@ export const quotaApi = {
     invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, apiKey, extra, platformId: platformId ?? null }),
   queryDevin: (baseUrl: string, apiKey: string, extra: string, platformId?: number) =>
     invoke<PlatformQuota>("platform_query_quota_devin", { baseUrl, apiKey, extra, platformId: platformId ?? null }),
-};
-
-// ─── Model Price Types & API ──────────────────────────────
-
-
-/** registry 同步（platform.json 品牌/端点 + 逐平台模型条目整份拉取入库）。
- *  command 名保留 `model_price_` 前缀的理由见 `platform_cmd/price.rs` 顶部注释
- *  （与之成组的 setting key `price_sync` 已持久化在用户 DB，单改命令名反而更不一致）。
- *  旧的 list / count / search / listFiltered / countFiltered / resolve 随 `model_price`
- *  表 DROP 一并删除；模型清单与价格改走 `modelEntryApi` / `modelInfoApi`。 */
-export const modelPriceApi = {
-  sync: () =>
-    invoke<PriceSyncResult>("model_price_sync"),
 };
 
 /** 平台默认配置与品牌字段（endpoints / models / model_list / client_type / name / logo_url /
