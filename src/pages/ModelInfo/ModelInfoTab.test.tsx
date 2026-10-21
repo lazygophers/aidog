@@ -1,17 +1,15 @@
-// 行为测试：双 tab 列表渲染 + 详情弹窗按平台聚合比价 + partial 失败清单。
+// 行为测试：双 tab 列表渲染 + 详情弹窗按平台聚合比价（远程同步已删 2026-10-21）。
 // 断言用 i18n key（render.tsx 空 resources 回退 key），不依赖文案。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor, within } from "../../test/render";
 import { ModelInfoTab } from "./ModelInfoTab";
-import type { ModelEntry, ModelInfoSnapshot, PriceSyncResult } from "../../services/api";
+import type { ModelEntry, ModelInfoSnapshot } from "../../services/api";
 
 const snapshotMock = vi.fn();
-const syncMock = vi.fn();
 const settingsGetMock = vi.fn();
 
 vi.mock("../../services/api", () => ({
   modelInfoApi: { snapshot: () => snapshotMock() },
-  modelPriceApi: { sync: () => syncMock() },
   priceSyncApi: { get: () => settingsGetMock(), set: vi.fn().mockResolvedValue(undefined) },
   // registry-updated 订阅：测试环境无事件总线，no-op 注册器（同 usePlatformsState.test.ts idiom）。
   onRegistryUpdated: (_cb: () => void) => () => {},
@@ -100,12 +98,9 @@ const SNAPSHOT: ModelInfoSnapshot = {
 describe("ModelInfoTab", () => {
   beforeEach(() => {
     snapshotMock.mockReset().mockResolvedValue(SNAPSHOT);
-    syncMock.mockReset();
     writeText.mockClear();
     settingsGetMock.mockReset().mockResolvedValue({
-      auto_sync_enabled: false,
-      sync_interval_secs: 86400,
-      last_sync_at: 0,
+      registry_last_updated: 0,
       fallback_input_price: 3,
       fallback_output_price: 3,
     });
@@ -211,20 +206,6 @@ describe("ModelInfoTab", () => {
     expect(within(dialog).getAllByText("coding-glm-5.3").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("同步失败清单: partial failures 列出文件与原因", async () => {
-    const result: PriceSyncResult = {
-      added: 1, updated: 2, unchanged: 0, failed: 1, total: 4,
-      failures: [{ file: "platforms/glm/models/glm-4.6.json", error: "404" }],
-    };
-    syncMock.mockResolvedValue(result);
-    render(<ModelInfoTab />);
-    await screen.findByText("glm-4.6");
-    fireEvent.click(screen.getByText("modelInfo.syncNow"));
-    await waitFor(() => expect(syncMock).toHaveBeenCalled());
-    expect(await screen.findByText("platforms/glm/models/glm-4.6.json")).toBeInTheDocument();
-    expect(screen.getByText(/404/)).toBeInTheDocument();
-  });
-
   // 票 13-I：litellm / meta / mistral 只提供比价条目，没有 platform.json，
   // 用户在平台页选不到 → 不能进平台筛选下拉与平台维度列表，详情弹窗里要标出来。
   it("pricing_only 来源: 不进平台筛选与平台维度，详情弹窗标为比价参考", async () => {
@@ -246,11 +227,5 @@ describe("ModelInfoTab", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("tab", { name: /OpenRouter/ })).toBeInTheDocument();
     expect(within(dialog).getByText("modelInfo.priceRefOnly")).toBeInTheDocument();
-  });
-
-  it("bundled 兜底: snapshot.bundled=true 时提示尚未同步", async () => {
-    snapshotMock.mockResolvedValue({ ...SNAPSHOT, bundled: true });
-    render(<ModelInfoTab />);
-    expect(await screen.findByText("modelInfo.bundledNotice")).toBeInTheDocument();
   });
 });
