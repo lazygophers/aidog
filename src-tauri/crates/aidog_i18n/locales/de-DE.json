@@ -1042,7 +1042,6 @@
   "platform.rateLimits.none": "Nicht konfiguriert → kein Rate-Limit (nur 429-Fallback)",
   "platform.rateLimits.windowsCount": "{{n}} Fenster",
   "platform.rateLimits.modelCount": "{{n}} Modell-Overrides",
-  "platform.rateLimits.edit": "Rate-Limits konfigurieren",
   "platform.rateLimits.badgeHint": "Rate-Limits konfiguriert; Plattform wird bei Überschreitung ausgeschlossen (kommende Version)",
   "logs.blockedRateLimit": "Begrenzt",
   "logs.blockedPeak": "Sperrzeit",

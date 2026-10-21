@@ -1020,7 +1020,6 @@
   "platform.rateLimits.none": "未配置 → 调度不限频（沿用 429 兜底）",
   "platform.rateLimits.windowsCount": "{{n}} 个窗口",
   "platform.rateLimits.modelCount": "{{n}} 个模型覆盖",
-  "platform.rateLimits.edit": "配置限频",
   "platform.rateLimits.badgeHint": "已配限频；超限自动排除候选（后续版本生效）",
   "logs.blockedRateLimit": "限频",
   "logs.blockedPeak": "高峰禁用",
