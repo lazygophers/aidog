@@ -1020,7 +1020,6 @@
   "platform.rateLimits.none": "Not configured → no rate limiting (429 fallback only)",
   "platform.rateLimits.windowsCount": "{{n}} windows",
   "platform.rateLimits.modelCount": "{{n}} model overrides",
-  "platform.rateLimits.edit": "Configure rate limits",
   "platform.rateLimits.badgeHint": "Rate limits configured; exceeded platform excluded from scheduling (future release)",
   "logs.blockedRateLimit": "Rate limited",
   "logs.blockedPeak": "Peak disabled",

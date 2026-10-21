@@ -13,8 +13,7 @@ import {
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type DevinConfig, type PassthroughAuth, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
-import { RateLimitsEditModal } from "./RateLimitsEditModal";
-import { rateLimitsSummary, type RateLimitsBundle } from "../../services/api";
+import { rateLimitsSummary, type RateLimitsBundle, type QuotaWindowConfig } from "../../services/api";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
 import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
@@ -1411,32 +1410,103 @@ function quotaCustomScriptConfigured(customScript: string, variantId: string, va
   return variantId !== "" && variantId !== QUOTA_CUSTOM_VARIANT && variants.some(v => v.id === variantId);
 }
 
-// ─── 限频配置（rate-limit-aware 票 04）─────────────────────
+// ─── 限频配置（rate-limit-aware 票 04；2026-10-21 弹窗平铺进 tab 正文）───
 // extra.rate_limits（平台级 RPM/TPM + per-model 覆盖）+ extra.quota_windows（额度窗口族）
-// 的编辑入口：摘要行 + 弹窗编辑（RateLimitsEditModal）。运行态「命中/剩余」展示依赖
-// 调度侧实现（spec 票 03 后端），本段先落「配得上、存得对」。
+// 的编辑：tab 正文一屏直编，无弹窗无按钮（2026-10-21 表单拍板）。编辑态就地转换，
+// 未按平台「保存」前只进平台表单态、不落库。原 RateLimitsEditModal 的 draft 助手原样搬入。
+
+/** 编辑态：数字一律字符串持有（空串 = 未配），commit 时经 draftToBundle 净化。 */
+export interface RateLimitsDraft {
+  rpm: string;
+  tpm: string;
+  models: { model: string; rpm: string; tpm: string }[];
+  windows: { window: string; budgetTokens: string; budgetPoints: string }[];
+}
+
+/** bundle → 编辑态。 */
+export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
+  return {
+    rpm: b.rate_limits?.rpm ? String(b.rate_limits.rpm) : "",
+    tpm: b.rate_limits?.tpm ? String(b.rate_limits.tpm) : "",
+    models: Object.entries(b.rate_limits?.models ?? {}).map(([model, o]) => ({
+      model,
+      rpm: o.rpm ? String(o.rpm) : "",
+      tpm: o.tpm ? String(o.tpm) : "",
+    })),
+    windows: (b.quota_windows ?? []).map(w => ({
+      window: String(w.window),
+      budgetTokens: w.budget_tokens ? String(w.budget_tokens) : "",
+      budgetPoints: w.budget_points ? String(w.budget_points) : "",
+    })),
+  };
+}
+
+/** 编辑态 → bundle（净化：非法数字丢弃；空即 undefined，serialize 侧删键）。 */
+export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
+  const num = (s: string): number | undefined => {
+    const v = Math.floor(Number(s));
+    return s.trim() !== "" && Number.isFinite(v) && v > 0 ? v : undefined;
+  };
+  const models: Record<string, { rpm?: number; tpm?: number }> = {};
+  for (const m of d.models) {
+    const key = m.model.trim();
+    if (!key) continue;
+    const o = { rpm: num(m.rpm), tpm: num(m.tpm) };
+    if (o.rpm !== undefined || o.tpm !== undefined) models[key] = o;
+  }
+  const rate_limits = {
+    rpm: num(d.rpm),
+    tpm: num(d.tpm),
+    models: Object.keys(models).length > 0 ? models : undefined,
+  };
+  const windows: QuotaWindowConfig[] = [];
+  for (const w of d.windows) {
+    const win = num(w.window);
+    if (win === undefined) continue;
+    // 票 02：budget_tokens / budget_points 二选一——同填时取 tokens 优先。
+    const budget_tokens = num(w.budgetTokens);
+    const q: QuotaWindowConfig = {
+      window: win,
+      budget_tokens,
+      budget_points: budget_tokens !== undefined ? undefined : num(w.budgetPoints),
+    };
+    if (q.budget_tokens !== undefined || q.budget_points !== undefined) windows.push(q);
+  }
+  return {
+    rate_limits: rate_limits.rpm !== undefined || rate_limits.tpm !== undefined || rate_limits.models ? rate_limits : undefined,
+    quota_windows: windows.length > 0 ? windows : undefined,
+  };
+}
+
 export function RateLimitsSection({ bundle, setBundle, t }: {
   bundle: RateLimitsBundle;
   setBundle: React.Dispatch<React.SetStateAction<RateLimitsBundle>>;
   t: TFunction;
 }) {
-  const [modalOpen, setModalOpen] = useState(false);
+  const [draft, setDraft] = useState<RateLimitsDraft>(() => bundleToDraft(bundle));
+  // 自身 commit 的 bundle 回声不回灌编辑态；外部重置（载入平台 / resetForm / 粘贴导入）才重取。
+  const lastEmitted = React.useRef<string>("");
+  useEffect(() => {
+    if (JSON.stringify(draftToBundle(bundleToDraft(bundle))) !== lastEmitted.current) {
+      setDraft(bundleToDraft(bundle));
+    }
+  }, [bundle]);
+  const commit = (d: RateLimitsDraft) => {
+    const b = draftToBundle(d);
+    lastEmitted.current = JSON.stringify(b);
+    setDraft(d);
+    setBundle(b);
+  };
+  const upd = <K extends keyof RateLimitsDraft>(k: K, v: RateLimitsDraft[K]) => commit({ ...draft, [k]: v });
+
   const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
   const modelCount = Object.keys(bundle.rate_limits?.models ?? {}).length;
+  const inputStyle = { fontSize: 12, height: 28, minWidth: 70 };
+  const labelStyle = { fontSize: 11, opacity: 0.7 };
   return (
     <FormSection
       title={t("platform.rateLimits.title", "限频")}
       desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选（后续版本生效）。")}
-      action={
-        <Button
-          variant="ghost"
-          size="sm"
-          style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap", height: "auto" }}
-          onClick={() => setModalOpen(true)}
-        >
-          {t("platform.rateLimits.edit", "配置限频")}
-        </Button>
-      }
     >
       {summary === "" ? (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
@@ -1454,13 +1524,55 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
           )}
         </div>
       )}
-      <RateLimitsEditModal
-        open={modalOpen}
-        bundle={bundle}
-        onSave={setBundle}
-        onClose={() => setModalOpen(false)}
-        t={t}
-      />
+
+      {/* 平台级 RPM/TPM */}
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+          <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM（请求/分钟）")}</span>
+          <Input type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)} style={inputStyle} placeholder="—" />
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+          <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM（token/分钟）")}</span>
+          <Input type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)} style={inputStyle} placeholder="—" />
+        </label>
+      </div>
+
+      {/* 模型级覆盖 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+        <span style={labelStyle}>{t("platform.rateLimits.modelOverrides", "模型级覆盖（缺省回落平台级）")}</span>
+        {draft.models.map((m, i) => (
+          <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110 }} />
+            <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={inputStyle} />
+            <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={inputStyle} />
+            <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
+          </div>
+        ))}
+        <Button variant="outline" style={{ fontSize: 12, height: 28, width: "fit-content" }} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
+          + {t("platform.rateLimits.addModel", "加模型覆盖")}
+        </Button>
+      </div>
+
+      {/* 额度窗口 */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
+        <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口（5h=18000 / 7d=604800 秒）")}</span>
+        {draft.windows.map((w, i) => (
+          <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={inputStyle} />
+            <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={inputStyle} />
+            <Input type="number" value={w.budgetPoints} placeholder={t("platform.rateLimits.budgetPoints", "点数预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetPoints: e.target.value } : x))} style={inputStyle} />
+            <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
+          </div>
+        ))}
+        <div style={{ display: "flex", gap: 6 }}>
+          <Button variant="outline" style={{ fontSize: 12, height: 28 }} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
+            + 5h
+          </Button>
+          <Button variant="outline" style={{ fontSize: 12, height: 28 }} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
+            + 7d
+          </Button>
+        </div>
+      </div>
     </FormSection>
   );
 }

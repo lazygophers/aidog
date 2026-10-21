@@ -1042,7 +1042,6 @@
   "platform.rateLimits.none": "未設定 → 制限なし（429 兜底のみ）",
   "platform.rateLimits.windowsCount": "{{n}} 枠",
   "platform.rateLimits.modelCount": "{{n}} 件のモデル上書き",
-  "platform.rateLimits.edit": "レート制限を設定",
   "platform.rateLimits.badgeHint": "レート制限設定済み。超過時は候補から除外（将来バージョン）",
   "logs.blockedRateLimit": "制限",
   "logs.blockedPeak": "ピーク無効",

@@ -1020,7 +1020,6 @@
   "platform.rateLimits.none": "Sin configurar → sin límites (solo respaldo 429)",
   "platform.rateLimits.windowsCount": "{{n}} ventanas",
   "platform.rateLimits.modelCount": "{{n}} anulaciones",
-  "platform.rateLimits.edit": "Configurar límites",
   "platform.rateLimits.badgeHint": "Límites configurados; la plataforma se excluye al exceder (versión futura)",
   "logs.blockedRateLimit": "Limitado",
   "logs.blockedPeak": "Desact. en pico",

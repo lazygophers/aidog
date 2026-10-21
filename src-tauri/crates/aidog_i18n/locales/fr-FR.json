@@ -1042,7 +1042,6 @@
   "platform.rateLimits.none": "Non configuré → pas de limite (repli 429)",
   "platform.rateLimits.windowsCount": "{{n}} fenêtres",
   "platform.rateLimits.modelCount": "{{n}} remplacements",
-  "platform.rateLimits.edit": "Configurer les limites",
   "platform.rateLimits.badgeHint": "Limites configurées ; plateforme exclue du scheduling en cas de dépassement (version ultérieure)",
   "logs.blockedRateLimit": "Limité",
   "logs.blockedPeak": "Désactivé en pointe",
