@@ -500,7 +500,7 @@ async fn insert_legacy_profile(db: &Db, group: &str, raw_sql: &str) {
 }
 
 fn raw_oauth_col(dir: &std::path::Path, sql: &str) -> String {
-    let conn = rusqlite::Connection::open(dir.join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.join("aidog.db")).unwrap();
     conn.query_row(sql, [], |r| r.get::<_, String>(0)).unwrap()
 }
 
@@ -561,7 +561,7 @@ async fn oauth_raw_migration_failure_keeps_row_and_continues() {
     let profile = raw_oauth_col(dir.path(), "SELECT raw FROM cc_oauth_profile WHERE group_name = 'good'");
     assert!(profile.starts_with(crypt::ENC_PREFIX), "另一表好行须已加密: {profile}");
     // 坏行原样保留（字节级），下次启动重试
-    let conn = rusqlite::Connection::open(dir.path().join("aidog.db")).unwrap();
+    let conn = crate::sqlcipher::open_keyed_conn(dir.path().join("aidog.db")).unwrap();
     let bad_bytes: Vec<u8> = conn
         .query_row(
             "SELECT CAST(raw AS BLOB) FROM oauth_usage_sample WHERE group_name = 'bad'",
