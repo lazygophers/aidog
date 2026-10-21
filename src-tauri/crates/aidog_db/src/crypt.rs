@@ -1,11 +1,13 @@
 //! platform.api_key 列级静态加密（db-field-encryption 票 01）。
 //!
-//! 主密钥 32B 随机，来源优先级：
+//! 主密钥 32B 随机，来源优先级（2026-10-21 拍板「永远静默」后调整）：
 //! 1. env `AIDOG_DB_MASTER_KEY_FILE`（测试 / headless 显式注入，指向 key 文件，缺省创建）；
-//! 2. OS keychain（keyring crate v1 模式：macOS Keychain / Windows Credential Manager /
-//!    Linux Secret Service）；
-//! 3. keychain 不可用（Linux 无 Secret Service 等）降级 key 文件 `<$HOME>/.aidog/master.key`
-//!    （0600）。威胁面（spec 前置决策 2026-10-20）：防备份/同步带走 DB 但没带走 key 文件；
+//! 2. key 文件 `<$HOME>/.aidog/master.key`（0600）——存在即用，**不碰 keychain**；
+//! 3. keychain 存量条目 → 一次性读出落盘 key 文件（此后永走 2；不删 keychain 条目，
+//!    留作文件丢失时的恢复手段）；
+//! 4. 全新安装 → 生成新钥写 key 文件（**不写 keychain**：未签名 / 每次重签的二进制
+//!    每读一次 keychain 就弹一次系统授权窗，make install / cicdbuild 产物全中招）。
+//!    威胁面（spec 前置决策 2026-10-20）：防备份/同步带走 DB 但没带走 key 文件；
 //!    不防同用户进程——能读家目录的进程本就在威胁模型边界外。
 //!
 //! 列值形态 `enc1:<base64(nonce12||ct+tag)>`；读取侧非该前缀按明文兼容处理（存量未迁移行）。
@@ -30,8 +32,7 @@ const KEY_LEN: usize = 32;
 static MASTER_KEY: OnceLock<[u8; KEY_LEN]> = OnceLock::new();
 
 /// 进程内主密钥。成功即缓存（OnceLock）；失败不缓存，下次调用重新解析。
-/// shortcut: 并发首取在 keychain NoEntry 时可能双生成（一个覆盖另一个）——仅进程首次调用
-/// 窗口；启动迁移（init_tables Phase 3）先于任何用户写路径跑一次，实际已串行化。
+/// 并发首建的互斥由 install_key_file 的 create_new 兜住（输的一方改读赢方落盘的文件）。
 pub fn master_key() -> Result<&'static [u8; KEY_LEN], String> {
     if let Some(k) = MASTER_KEY.get() {
         return Ok(k);
@@ -46,32 +47,50 @@ pub(crate) fn resolve_master_key_from(env_path: Option<&std::path::Path>) -> Res
     if let Some(p) = env_path {
         return load_or_create_key_file(p);
     }
+    // key 文件优先：存在即用，不碰 keychain（静默主路径）。
+    let path = fallback_key_path()?;
+    if path.exists() {
+        return load_key_file(&path);
+    }
     match keyring::v1::Entry::new(KEYCHAIN_SERVICE, KEYCHAIN_USER) {
         Ok(entry) => match entry.get_password() {
-            Ok(b64) => key_from_b64(&b64),
-            Err(keyring::v1::Error::NoEntry) => {
-                // 首次使用：keychain 无条目但降级文件已存在（此前降级运行过 / keychain 条目被删）
-                // → 沿用文件里的旧钥，避免新旧钥混写。
-                let path = fallback_key_path()?;
-                if path.exists() {
-                    return load_key_file(&path);
+            // 存量迁移：读出旧钥落盘（这次读可能弹最后一次授权窗），此后永走文件。
+            // 不删 keychain 条目——删除也可能触发授权，且留作文件丢失时的恢复手段。
+            Ok(b64) => {
+                let k = key_from_b64(&b64)?;
+                let installed = install_key_file(&path, &k);
+                if installed.is_ok() {
+                    tracing::info!(path = %path.display(), "master key exported from keychain to key file");
                 }
-                let k = new_random_key();
-                match entry.set_password(&b64_key(&k)) {
-                    Ok(()) => Ok(k),
-                    Err(e) => {
-                        tracing::warn!(
-                            error = %e,
-                            service = KEYCHAIN_SERVICE,
-                            "keychain unavailable, storing master key in 0600 key file"
-                        );
-                        create_key_file(&path, &k)
-                    }
-                }
+                installed
             }
-            Err(e) => existing_fallback_or_err(&format!("keychain read failed ({e})")),
+            Err(keyring::v1::Error::NoEntry) => {
+                // 全新安装：直接生成新钥落文件，不写 keychain（见模块头注释）。
+                let k = new_random_key();
+                install_key_file(&path, &k)
+            }
+            // keychain 读失败且无文件：不生成新钥（旧密文将永久不可读，宁可报错）。
+            Err(e) => Err(format!(
+                "master key unavailable: keychain read failed ({e}); no key file at {}",
+                path.display()
+            )),
         },
-        Err(e) => existing_fallback_or_err(&format!("keychain init failed ({e})")),
+        Err(e) => Err(format!(
+            "master key unavailable: keychain init failed ({e}); no key file at {}",
+            path.display()
+        )),
+    }
+}
+
+/// 生成 / 迁移出的钥落盘；并发首建撞 create_new 时认另一进程已写好的文件。
+fn install_key_file(
+    path: &std::path::Path,
+    key: &[u8; KEY_LEN],
+) -> Result<[u8; KEY_LEN], String> {
+    match create_key_file(path, key) {
+        Ok(_) => Ok(*key),
+        Err(_) if path.exists() => load_key_file(path),
+        Err(e) => Err(e),
     }
 }
 
@@ -92,18 +111,6 @@ fn resolve_master_key() -> Result<[u8; KEY_LEN], String> {
         }
     }
     resolve_master_key_from(None)
-}
-
-/// keychain 读/init 失败：降级文件存在则用之；不存在则报错（不生成新钥——旧密文会永久不可读）。
-fn existing_fallback_or_err(reason: &str) -> Result<[u8; KEY_LEN], String> {
-    let path = fallback_key_path()?;
-    if path.exists() {
-        return load_key_file(&path);
-    }
-    Err(format!(
-        "master key unavailable: {reason}; no fallback key file at {}",
-        path.display()
-    ))
 }
 
 fn fallback_key_path() -> Result<std::path::PathBuf, String> {
@@ -158,10 +165,6 @@ fn new_random_key() -> [u8; KEY_LEN] {
     let mut k = [0u8; KEY_LEN];
     rand::RngCore::fill_bytes(&mut rand::thread_rng(), &mut k);
     k
-}
-
-fn b64_key(k: &[u8; KEY_LEN]) -> String {
-    base64::engine::general_purpose::STANDARD.encode(k)
 }
 
 fn key_from_b64(s: &str) -> Result<[u8; KEY_LEN], String> {
