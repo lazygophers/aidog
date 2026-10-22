@@ -144,34 +144,25 @@ pub(crate) async fn handle_ws_passthrough(
         ..Default::default()
     };
 
-    // token 提取与 handle_proxy_core 同链：Bearer → x-api-key → ?api_key=（ADR 0008 决策 3）。
-    let token = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-        .or_else(|| {
-            req.headers()
-                .get("x-api-key")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-        })
-        .or_else(|| req.uri().query().and_then(query_api_key));
+    // 分组密钥候选与 handle_proxy_core 同一套（ADR 0009）。
+    let custom_key_channels = load_custom_key_channels(&state.db).await;
+    let custom_key_headers = custom_key_header_names(&custom_key_channels);
+    let key_cands = key_candidates(req.headers(), req.uri().query(), &custom_key_channels);
 
     let orig_uri = req.uri().clone();
-    let orig_headers = req.headers().clone();
-    log.request_url = orig_uri.to_string();
+    let mut orig_headers = req.headers().clone();
+    log.request_headers = capture_request_headers(&orig_headers, &custom_key_headers);
+    log.request_url = redact_api_key_query(&orig_uri.to_string());
     // WS 无请求体无 model 字段；path 入 model 供统计/日志页辨认端点。
     log.model = orig_uri.path().to_string();
     log.is_stream = true;
 
-    let group = match resolve_group(&state.db, token.as_deref()).await {
-        Some(g) => g,
+    let (group, matched_key) = match resolve_group(&state.db, &key_cands).await {
+        Some(x) => x,
         None => {
-            log.response_body = "no matching group".to_string();
+            // 未发生上游握手：回应记用户侧两列（同 handle_proxy_core 未匹配分组口径）
+            log.user_response_headers = r#"{"content-type":"text/plain; charset=utf-8"}"#.into();
+            log.user_response_body = "no matching group".to_string();
             log.status_code = 404;
             log.done = true;
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -214,11 +205,16 @@ pub(crate) async fn handle_ws_passthrough(
     log.platform_id = platform.id;
 
     // 上游 URL：base_url（http→ws / https→wss）+ 客户端原始 path_and_query（共识稿 §3/§7）。
+    // 认证：与 HTTP 透传同一套（ADR 0009：原位替换或按平台配置注入，剥密钥通道）。
     let base = super::passthrough::passthrough_base_url(&platform);
-    let ws_url = to_ws_url(&super::passthrough::build_passthrough_url(&base, &orig_uri));
-
-    // 认证：与 HTTP 透传同一解析（extra.auth_header/auth_template + api_key）。
-    let inject = super::passthrough::parse_passthrough_auth(&platform.extra, &platform.api_key);
+    let (url, inject) = super::passthrough::passthrough_outbound_auth(
+        &platform,
+        &super::passthrough::build_passthrough_url(&base, &orig_uri),
+        Some(&matched_key),
+        &custom_key_headers,
+        &mut orig_headers,
+    );
+    let ws_url = to_ws_url(&url);
     let hs_headers = ws_upstream_handshake_headers(&orig_headers, &inject);
     // 上游握手头落日志：固定敏感清单 + 用户自定义认证头名 redact（与 passthrough.rs 同型）。
     {

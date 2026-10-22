@@ -65,6 +65,7 @@ const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
     "upgrade",
     "authorization",
     "x-api-key",
+    "api-key",
     "x-goog-api-key",
     "user-agent",
     "content-type",
@@ -363,18 +364,24 @@ pub(crate) fn redact_log_header_value(value: &str) -> String {
     "[REDACTED]".to_string()
 }
 
-/// URL query 里的 `api_key` 参数值是 group_key（鉴权凭证，?api_key= 通道），落库/回显前
+/// URL query 里的密钥通道参数（`api_key` / `key`，ADR 0009）值是凭证，落库/回显前
 /// 替换为 [REDACTED]。只动参数名前为 `?` 或 `&` 的真参数（防 `my_api_key=` 误伤）。
 pub(crate) fn redact_api_key_query(url: &str) -> String {
-    const NEEDLE: &str = "api_key=";
-    if !url.contains(NEEDLE) {
+    super::endpoint::KEY_QUERY_PARAMS
+        .iter()
+        .fold(url.to_string(), |u, name| redact_query_param(&u, name))
+}
+
+fn redact_query_param(url: &str, name: &str) -> String {
+    let needle = format!("{name}=");
+    if !url.contains(&needle) {
         return url.to_string();
     }
     let mut out = String::with_capacity(url.len());
     let mut rest = url;
-    while let Some(pos) = rest.find(NEEDLE) {
+    while let Some(pos) = rest.find(&needle) {
         let is_param = pos == 0 || matches!(rest.as_bytes()[pos - 1], b'?' | b'&');
-        let cut = pos + NEEDLE.len();
+        let cut = pos + needle.len();
         if is_param {
             let tail = &rest[cut..];
             let val_end = tail.find('&').unwrap_or(tail.len());
@@ -388,6 +395,24 @@ pub(crate) fn redact_api_key_query(url: &str) -> String {
     }
     out.push_str(rest);
     out
+}
+
+/// 入站请求头落库形态（JSON 对象串）：敏感头 + 自定义密钥通道头（ADR 0009）值脱敏。
+pub(crate) fn capture_request_headers(
+    headers: &axum::http::HeaderMap,
+    custom_key_headers: &[String],
+) -> String {
+    let mut h = serde_json::Map::new();
+    for (k, v) in headers {
+        if let Ok(s) = v.to_str() {
+            let name = k.as_str();
+            let sensitive = is_sensitive_log_header(name)
+                || custom_key_headers.iter().any(|n| name.eq_ignore_ascii_case(n));
+            let val = if sensitive { redact_log_header_value(s) } else { s.to_string() };
+            h.insert(name.to_string(), Value::String(val));
+        }
+    }
+    Value::Object(h).to_string()
 }
 
 /// 为 Coding Plan 端点注入平台特有字段

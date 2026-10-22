@@ -331,6 +331,28 @@ pub fn list_platforms(
     }
 }
 
+/// 未软删透传平台的 `extra` 原文（ADR 0009：其中认证头配置兼作入站密钥通道）。
+/// 每个代理请求查一次，只取一列，不解密 api_key。
+#[track_caller]
+pub fn list_passthrough_extras(
+    db: &Db,
+) -> impl std::future::Future<Output = Result<Vec<String>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        db.call_read_platform_traced(None, __db_caller, |conn| {
+            // 列存两种形态：JSON 串 `"passthrough"`（正常写入）与裸名（见 Protocol::from_db_str）
+            let mut stmt = conn.prepare(
+                "SELECT extra FROM platform WHERE deleted_at = 0 \
+                 AND platform_type IN ('\"passthrough\"', 'passthrough')",
+            )?;
+            let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 /// 按 id 批量取未软删平台（跨 crate 公开版，包一层 `load_platforms_by_ids`）。
 /// 供 tray_layout 等需按一批 platform_id 渲染的场景消 N+1 单查（IN 批量替代逐 id get_platform）。
 #[track_caller]
