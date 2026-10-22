@@ -83,17 +83,18 @@ async fn cleanup_user_request_fields_clears_old_bodies() {
         .await
         .unwrap();
 
-    let (req_h, req_body, ur_h, resp_body): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+    let (req_h, req_body, ur_h, resp_body, req_url): (String, String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
-                "SELECT request_headers, request_body, user_response_headers, user_response_body FROM proxy_log WHERE id='maint-u1'",
-                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                "SELECT request_headers, request_body, user_response_headers, user_response_body, request_url FROM proxy_log WHERE id='maint-u1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )?)
         }).await.unwrap();
-    // 用户侧「原始信息」全集（headers + body）均清空。
+    // 用户侧「原始信息」全集（headers + body + url）均清空。
     assert_eq!(req_h, "", "request_headers should be cleared");
     assert_eq!(req_body, "", "request_body should be cleared");
     assert_eq!(ur_h, "", "user_response_headers should be cleared");
     assert_eq!(resp_body, "", "user_response_body should be cleared");
+    assert_eq!(req_url, "", "request_url should be cleared (user side, 2026-10-22)");
 
     // Row still exists
     let cnt: i64 = db
@@ -120,8 +121,8 @@ async fn cleanup_upstream_request_fields_clears_old_bodies() {
                 "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,\
                  status_code,input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,\
                  is_stream,request_url,request_headers,request_body,upstream_request_body,\
-                 upstream_request_headers,upstream_response_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
-                 VALUES ('maint-up1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','','old-up-req','{{}}','old-up-resp-h','old-resp','','[]',\
+                 upstream_request_headers,upstream_response_headers,response_body,user_response_body,attempts,upstream_request_url,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-up1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','','old-up-req','{{}}','old-up-resp-h','old-resp','','[]','up-url',\
                  {old_ts},{old_ts},0)"
             ))?;
             Ok(())
@@ -131,17 +132,23 @@ async fn cleanup_upstream_request_fields_clears_old_bodies() {
         .await
         .unwrap();
 
-    let (up_h, up_req, up_resp_h, resp): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+    let (up_h, up_req, up_resp_h, resp, up_url): (String, String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
-                "SELECT upstream_request_headers, upstream_request_body, upstream_response_headers, response_body FROM proxy_log WHERE id='maint-up1'",
-                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+                "SELECT upstream_request_headers, upstream_request_body, upstream_response_headers, response_body, upstream_request_url FROM proxy_log WHERE id='maint-up1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
             )?)
         }).await.unwrap();
-    // 上游侧「原始信息」全集（headers + body + 上游响应正文）均清空。
+    // 上游侧「原始信息」全集（headers + body + 上游响应正文 + url）均清空。
     assert_eq!(up_h, "", "upstream_request_headers should be cleared");
     assert_eq!(up_req, "", "upstream_request_body should be cleared");
     assert_eq!(up_resp_h, "", "upstream_response_headers should be cleared");
     assert_eq!(resp, "", "response_body should be cleared");
+    assert_eq!(up_url, "", "upstream_request_url should be cleared (upstream side, 2026-10-22)");
+    // 用户侧 request_url 属另一档，不得被上游档误清。
+    let user_url: String = db.call_traced(None, std::panic::Location::caller(), |c| {
+        Ok(c.query_row("SELECT request_url FROM proxy_log WHERE id='maint-up1'", [], |r| r.get(0))?)
+    }).await.unwrap();
+    assert_eq!(user_url, "url", "upstream tier must not clear user-side request_url");
 }
 
 /// 票 10：field_trace 归上游侧，随 upstream retention 一同清空（行保留）。
