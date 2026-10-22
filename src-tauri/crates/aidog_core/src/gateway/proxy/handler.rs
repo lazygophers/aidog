@@ -193,7 +193,7 @@ pub(crate) async fn handle_proxy_core(
     };
     // OOM 止血：request_body 仅在 log_user_request 开启时克隆到 String（默认关 → 省一次全量拷贝）。
     // model 提取走下方 serde_json::from_slice(&bytes) 借用，不依赖此 String。
-    log.request_body = if log_settings.enabled && log_settings.log_user_request {
+    log.request_body = if log_settings.log_user_request {
         String::from_utf8_lossy(&bytes).to_string()
     } else {
         String::new()

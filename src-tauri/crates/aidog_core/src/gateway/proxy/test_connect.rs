@@ -97,7 +97,6 @@ async fn upsert_connect_log_writes_http_connect_row() {
         platform_id: 0,
         conn_group_key: String::new(),
         start: std::time::Instant::now(),
-        log_enabled: true,
         blocked_reason: "",
         group_name: String::new(),
         req_bytes: 0,

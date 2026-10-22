@@ -1523,7 +1523,7 @@
   "proxy.exportConfig": "Записать конфиг Claude Code",
   "proxy.listening": "Слушает на",
   "proxy.logRequests": "Запись запросов",
-  "proxy.logRequestsDesc": "Записывать заголовки, тело, длительность и использование токенов запроса",
+  "proxy.logRequestsDesc": "Метаданные (модель, длительность, токены, стоимость) записываются всегда; тела и заголовки — переключателями ниже",
   "proxy.logRetention": "Время хранения журнала",
   "proxy.logRetentionForever": "Хранить вечно",
   "proxy.logRetentionHint": "0 = хранить вечно",

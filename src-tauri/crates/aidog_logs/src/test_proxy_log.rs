@@ -9,7 +9,6 @@ use rusqlite::params;
 /// 需要 body 原样落库的用例先开这两个开关。
 async fn enable_raw_logging(db: &aidog_db::Db) {
     let settings = ProxyLogSettings {
-        enabled: true,
         log_user_request: true,
         log_upstream_request: true,
         ..Default::default()

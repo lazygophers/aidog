@@ -6,12 +6,9 @@ import type { RetentionUnit } from "./RetentionUnit";
  */
 export type ProxyLogSettings = { 
 /**
- * Master switch: whether to log proxy requests at all
- */
-enabled: boolean, 
-/**
  * Whether to record user-side raw data (request headers + request body +
- * response headers + response body to client). 关闭后这些列入库即清空，只留解析后元数据。
+ * response headers + response body to client + request_url). 关闭后这些列入库即清空，只留解析后元数据。
+ * 元数据（token / cost / status / model / duration 等）恒记录，无总开关（2026-10-22 移除 enabled）。
  */
 log_user_request: boolean, 
 /**

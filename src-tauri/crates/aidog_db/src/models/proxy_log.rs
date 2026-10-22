@@ -1,6 +1,6 @@
 //! 代理日志模型：完整日志行 / 平台用量统计 / 测试结果 / 列表摘要 / 筛选 / 日志设置。
 
-use super::{ProxyAttempt, default_true};
+use super::ProxyAttempt;
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -274,12 +274,9 @@ pub struct CleanupEstimate {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
 pub struct ProxyLogSettings {
-    /// Master switch: whether to log proxy requests at all
-    #[serde(default = "default_true")]
-    pub enabled: bool,
-
     /// Whether to record user-side raw data (request headers + request body +
-    /// response headers + response body to client). 关闭后这些列入库即清空，只留解析后元数据。
+    /// response headers + response body to client + request_url). 关闭后这些列入库即清空，只留解析后元数据。
+    /// 元数据（token / cost / status / model / duration 等）恒记录，无总开关（2026-10-22 移除 enabled）。
     #[serde(default)]
     pub log_user_request: bool,
 
@@ -384,7 +381,6 @@ impl Default for ProxyLogSettings {
         // serde 反序列化路径独立：老 settings.json 走 serde field default（days 7/7/90 + unit Day），
         // 此处仅新装首次落库走 Default impl。
         Self {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: false,
             user_request_retention_days: 6,

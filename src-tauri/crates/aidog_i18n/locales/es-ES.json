@@ -1501,7 +1501,7 @@
   "proxy.exportConfig": "Escribir config de Claude Code",
   "proxy.listening": "Escuchando en",
   "proxy.logRequests": "Registrar peticiones",
-  "proxy.logRequestsDesc": "Registrar cabeceras, cuerpo, duración y uso de tokens de la petición",
+  "proxy.logRequestsDesc": "Los metadatos (modelo, duración, tokens, coste) se registran siempre; cuerpos y cabeceras según los interruptores de abajo",
   "proxy.logRetention": "Tiempo de conservación del registro",
   "proxy.logRetentionForever": "Conservar indefinidamente",
   "proxy.logRetentionHint": "0 = conservar indefinidamente",

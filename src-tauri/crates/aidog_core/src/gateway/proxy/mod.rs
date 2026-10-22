@@ -182,7 +182,7 @@ pub struct ProxyState {
     /// 已聚合（写入 stats_agg_hourly）的请求 id 去重缓存，防重复计数。
     /// 背景：upsert_log 在单个请求生命周期内被调用 40+ 次（insert + 多次 update + 流式 flush），
     /// 终态后每次调用仍满足 agg gate → 同一请求被 +1 多次（实测 ~8 倍虚高）。
-    /// 不能复用 log_snapshots 去重：(1) agg 写在 `!settings.enabled` 早退之前，关日志时 snapshot
+    /// 不能复用 log_snapshots 去重：(1) 关原始信息开关时日志行仍落库但 snapshot
     /// 根本不存在；(2) snapshot 在终态后被 remove_log_snapshot 立即移除，而终态 upsert_log 会被
     /// 反复调用（remove 后下次又见 prev=None），无法据此防止重复 agg。
     /// 用**有界 FIFO 去重缓存**（非按请求生命周期清理）：插入返回是否首次出现，首次才聚合；

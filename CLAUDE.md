@@ -36,8 +36,8 @@
 - 最终 URL = `base_url + provider_api_path`，禁止额外拼接
 
 ### Proxy 日志
-- ProxyLogSettings 控制 3 级记录：master switch(enabled) / 用户原始请求(log_user_request) / 上游请求(log_upstream_request)
-- 「原始信息」= headers + body + 上游响应正文，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log`，`gateway/models/proxy_log.rs` + `gateway/db/proxy_log.rs`）。关开关后这些列入库即清空，**只留解析后元数据**（token / cost / url / status / model 等）。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。流式日志终态由显式 `done` 列判定（终态 = status!=0 且 done=1；流式 flush/断连兜底/非流式终态/中断补写置位），`[stream]` 占位哨兵已废（2026-08-24 票 06），body 列不承载控制语义。
+- ProxyLogSettings 控制 2 级记录（master switch 已删 2026-10-22，元数据恒落库）：用户原始请求(log_user_request) / 上游请求(log_upstream_request)。**元数据（token / cost / status / model / duration 等）无开关恒记录**。
+- 「原始信息」= headers + body + 上游响应正文 + url，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log` 与 `strip_raw_sides`，两处列集必须一致，`raw_field_sides_match` 测试互证）。关开关后这些列入库即清空。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body/request_url) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body/field_trace/upstream_request_url) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。流式日志终态由显式 `done` 列判定（终态 = status!=0 且 done=1；流式 flush/断连兜底/非流式终态/中断补写置位），`[stream]` 占位哨兵已废（2026-08-24 票 06），body 列不承载控制语义。
 - 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
 - retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
 

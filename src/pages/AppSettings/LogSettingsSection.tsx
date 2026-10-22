@@ -16,7 +16,7 @@ import { Switch } from "@/components/ui/switch";
 export function LogSettingsSection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
   const {
-    logEnabled, logUserReq, logUpstreamReq,
+    logUserReq, logUpstreamReq,
     userReqRetention, userReqRetentionUnit,
     upstreamReqRetention, upstreamReqRetentionUnit,
     logRetention, logRetentionUnit,
@@ -24,7 +24,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     setUserReqRetention, setUserReqRetentionUnit,
     setUpstreamReqRetention, setUpstreamReqRetentionUnit,
     setLogRetention, setLogRetentionUnit,
-    handleLogEnabledChange, updateLogSettings,
+    updateLogSettings,
     logFileEnabled, logLevel, logRetHours, handleLogSettingsChange,
   } = s;
 
@@ -110,15 +110,12 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
           <div>
             <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
             <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {t("proxy.logRequestsDesc", "记录代理请求的头部、内容、耗时和 Token 消耗")}
+              {t("proxy.logRequestsDesc", "元数据（模型、耗时、Token、费用）恒记录；正文与请求头按下方开关控制")}
             </div>
           </div>
-          <Switch checked={logEnabled} onCheckedChange={handleLogEnabledChange} />
         </div>
 
-        {logEnabled && (
-          <>
-            {/* Sub-toggles for recording scope */}
+        {/* Sub-toggles for recording scope */}
             <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
@@ -204,8 +201,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                 )}
               </div>
             </div>
-          </>
-        )}
+
 
         {/* Cleanup actions — 独立于 logEnabled：关闭记录后仍需可清已存日志 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>

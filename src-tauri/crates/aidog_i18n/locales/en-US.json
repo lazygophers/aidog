@@ -1501,7 +1501,7 @@
   "proxy.exportConfig": "Write Claude Code Config",
   "proxy.listening": "Listening on",
   "proxy.logRequests": "Log Requests",
-  "proxy.logRequestsDesc": "Record request headers, body, duration and token usage",
+  "proxy.logRequestsDesc": "Metadata (model, duration, tokens, cost) is always recorded; bodies and headers follow the toggles below",
   "proxy.logRetention": "Log retention time",
   "proxy.logRetentionForever": "Keep forever",
   "proxy.logRetentionHint": "0 = keep forever",

@@ -26,22 +26,22 @@ const ImportExportTab = lazy(() => import("../components/settings/ImportExport/I
 const CodingToolsSettingsTab = lazy(() => import("../components/settings/CodingToolsSettings").then(m => ({ default: m.CodingToolsSettingsTab })));
 const MitmConfigTab = lazy(() => import("../components/settings/MitmConfig").then(m => ({ default: m.MitmConfigTab })));
 
-export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
+export function AppSettings({ tab, onNotifSettingsChanged }: { tab: Tab; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   return (
     <Suspense fallback={null}>
-      <AppSettingsTabContent tab={tab} onLogSettingsChanged={onLogSettingsChanged} onNotifSettingsChanged={onNotifSettingsChanged} />
+      <AppSettingsTabContent tab={tab} onNotifSettingsChanged={onNotifSettingsChanged} />
     </Suspense>
   );
 }
 
-function AppSettingsTabContent({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
+function AppSettingsTabContent({ tab, onNotifSettingsChanged }: { tab: Tab; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   if (tab === "pricing") return <ModelInfoTab />;
   if (tab === "tray") return <TrayConfigTab />;
   if (tab === "popover") return <PopoverConfigTab />;
   if (tab === "middleware") return <MiddlewareSettingsTab />;
   if (tab === "scheduling") return <SchedulingSettingsTab />;
   if (tab === "notifications") return <NotificationSettingsTab onEnabledChanged={onNotifSettingsChanged} />;
-  if (tab === "system") return <SystemTab onLogSettingsChanged={onLogSettingsChanged} />;
+  if (tab === "system") return <SystemTab />;
   if (tab === "codex") return <CodexSettings />;
   if (tab === "pi") return <PiSettings />;
   if (tab === "coding_tools") return <CodingToolsSettingsTab />;
@@ -65,8 +65,8 @@ function RevealedSection({ staggerMs, children }: { staggerMs: number; children:
  * system tab 编排：useSystemSettings 收 state/actions, section 子组件按原视觉顺序渲染。
  * 顺序与拆前 L258-837 完全一致（零 UI 变更）。
  */
-function SystemTab({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
-  const s = useSystemSettings(onLogSettingsChanged);
+function SystemTab() {
+  const s = useSystemSettings();
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
       <RevealedSection staggerMs={0}><ProxyStatusSection s={s} /></RevealedSection>

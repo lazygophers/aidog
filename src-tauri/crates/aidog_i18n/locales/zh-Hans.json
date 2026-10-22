@@ -1501,7 +1501,7 @@
   "proxy.exportConfig": "写入 Claude Code 配置",
   "proxy.listening": "监听于",
   "proxy.logRequests": "记录请求日志",
-  "proxy.logRequestsDesc": "记录代理请求的头部、内容、耗时和 Token 消耗",
+  "proxy.logRequestsDesc": "元数据（模型、耗时、Token、费用）恒记录；正文与请求头按下方开关控制",
   "proxy.logRetention": "日志记录保留时间",
   "proxy.logRetentionForever": "永久保留",
   "proxy.logRetentionHint": "0 = 永久保留",

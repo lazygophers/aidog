@@ -112,7 +112,6 @@ async fn proxy_log_count(state: &Arc<ProxyState>) -> i64 {
 
 fn settings_logging() -> ProxyLogSettings {
     ProxyLogSettings {
-        enabled: true,
         log_upstream_request: true,
         ..Default::default()
     }
@@ -335,7 +334,6 @@ async fn mitm_bypass_master_switch_off_still_records_metadata() {
     let state = make_state().await;
     let base = spawn_stub_upstream().await;
     let settings = ProxyLogSettings {
-        enabled: false,
         log_upstream_request: true,
         ..Default::default()
     };
@@ -351,7 +349,6 @@ async fn mitm_bypass_master_switch_off_still_records_metadata() {
         Bytes::from("x"),
         "g1",
         &ProxyLogSettings {
-            enabled: false,
             ..settings
         },
     )
