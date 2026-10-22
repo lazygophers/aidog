@@ -1,5 +1,5 @@
 {
-  "last_updated": 1791006457,
+  "last_updated": 1792628075,
   "endpoints": {
     "default": [
       {
@@ -20,6 +20,7 @@
   },
   "model_list": {
     "default": [
+      "MiniMax-M3.1-Flash",
       "MiniMax-M3",
       "MiniMax-M2.7",
       "MiniMax-M2.7-highspeed",

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1792414866,
+  "last_updated": 1792628075,
   "platforms": [
     {
       "code": "aihubmix",
@@ -6665,6 +6665,7 @@
         "MiniMax-M2.7-highspeed.json",
         "MiniMax-M2.7.json",
         "MiniMax-M2.json",
+        "MiniMax-M3.1-Flash.json",
         "MiniMax-M3.json",
         "image-01-live.json",
         "image-01.json",
