@@ -172,3 +172,19 @@ describe("currentPeakMultiplier — first-match 倍率（PeakSection pill 展示
     expect(currentPeakMultiplier([badMult], NOW)).toBe(1.0);
   });
 });
+
+describe("currentPeakMultiplier — 时区与 model scope（补充覆盖）", () => {
+  const NOW = Date.UTC(2026, 5, 26, 8, 30, 0); // 周五 08:30 UTC
+  it("带 timezone 的窗口按该时区本地时刻判定命中（北京 16:30 命中 14-18）", () => {
+    const w = { start_hour: 14, end_hour: 18, multiplier: 3, timezone: "Asia/Shanghai" } as TimeWindow;
+    expect(currentPeakMultiplier([w], NOW)).toBe(3);
+    // 同一时刻 UTC 视角（无 timezone）14-18 不命中 → 1.0
+    const utcW = { start_hour: 14, end_hour: 18, multiplier: 3 } as TimeWindow;
+    expect(currentPeakMultiplier([utcW], NOW)).toBe(1.0);
+  });
+  it("model scope 过滤：命中时段但模型不在窗口 models → 1.0；命中 → multiplier", () => {
+    const w = { start_hour: 0, end_hour: 24, multiplier: 2, models: ["glm-5.2*"] } as TimeWindow;
+    expect(currentPeakMultiplier([w], NOW, "glm-5.2-turbo")).toBe(2);
+    expect(currentPeakMultiplier([w], NOW, "deepseek-v4")).toBe(1.0);
+  });
+});
