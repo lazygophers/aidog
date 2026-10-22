@@ -183,8 +183,8 @@ fn scoped_queue_log(
     // O9：大字段携带门。比 is_terminal_log 宽一档（status!=0 即带）：无 done 的错误行
     // （路由失败 503 / 拦截 403 等一次性终写）也必须把 request body 落上。
     let carry_bodies = log.status_code != 0 || log.done || terminal;
-    let carry_user = settings.enabled && settings.log_user_request;
-    let carry_up = settings.enabled && settings.log_upstream_request;
+    let carry_user = settings.log_user_request;
+    let carry_up = settings.log_upstream_request;
     let take = |carry: bool, s: &str| if carry { s.to_owned() } else { String::new() };
     let user = |nonempty: bool| carry_user && carry_bodies && nonempty;
     let up = |nonempty: bool| carry_up && carry_bodies && nonempty;
@@ -312,17 +312,17 @@ fn prev_sticky_body_omitted(state: &Arc<ProxyState>, id: &str) -> bool {
 }
 
 /// upsert 落库主逻辑（原 upsert_log 函数体，现只在 `spawn_log_writer` 内单 writer 串行调用）。
-/// 语义不变：Respects ProxyLogSettings: if logging disabled, does nothing;
+/// 语义不变：Respects ProxyLogSettings: 元数据恒落库（无总开关，2026-10-22 移除 enabled）；
 /// if user/upstream recording disabled, clears those fields before writing.
 pub(crate) async fn process_upsert(
     state: &Arc<ProxyState>,
     log: &ProxyLog,
     settings: &ProxyLogSettings,
 ) {
-    // ── 聚合统计写入（解耦于日志开关）──
-    // 必须在 `!settings.enabled` 早退之前：关日志时统计仍需写。仅终态请求计入
+    // ── 聚合统计写入（解耦于原始信息开关）──
+    // 仅终态请求计入
     // （status!=0 且 done 置位，与下方 is_terminal 同判定，避免中间节点重复计）。
-    // est_cost：log 已带则用；否则（关日志路径不会经下方计算）就地走 calc_est_cost 回退链。
+    // est_cost：log 已带则用；否则就地走 calc_est_cost 回退链。
     // 失败非致命：warn 不中断请求。eff_pid 回溯在 upsert_stats_agg 的 SQL 内做。
     //
     // 去重：upsert_log 在单个请求生命周期内被多次调用（insert + 多次 update + 流式 flush），
@@ -418,9 +418,6 @@ pub(crate) async fn process_upsert(
         );
     }
 
-    if !settings.enabled {
-        return;
-    }
     // 按 settings 就地脱敏构造入库列快照（仅克隆受影响 String 字段，不再 clone 整 ProxyLog 结构）。
     let strip_user = !settings.log_user_request;
     let strip_upstream = !settings.log_upstream_request;
@@ -656,14 +653,14 @@ pub(crate) use aidog_logs::MITM_OPAQUE_REASON;
 /// 原因：upsert_log 会触发 `upsert_stats_agg`（污染今日统计 — 隧道不计费，token=0）+
 /// calc_est_cost（0 token 无意义）+ log_snapshots 渐进式 diff（隧道一次性终态，无中间节点）。
 /// 本函数直接构造 `ProxyLogColumns`（全空 body / 0 token / 0 cost）→ insert_proxy_log_columns
-/// 落一行。日志开关（settings.enabled）由调用方判断：disabled 时不调本函数。
+/// 落一行（元数据恒记录，无总开关）。
 ///
 /// 热路径入口：一次性终态入队（同 upsert_log 终态分支——队满阻塞等待腾位，不丢），不 `.await`
 /// 落库；实际 INSERT 移入 `process_connect_log`（`spawn_log_writer` 单 writer 串行执行）。
 /// ponytail: 8 参数是隧道一次性终态上下文（同 spawn_blind_relay 先例），allow too_many_arguments。
 #[allow(clippy::too_many_arguments)]
 /// CONNECT 隧道的 proxy_log 记账上下文：request_id / platform_id / conn_group_key /
-/// start / log_enabled 五元组 + blocked_reason（空串 = 普通盲转行；`MITM_OPAQUE_REASON` =
+/// start + blocked_reason（空串 = 普通盲转行；`MITM_OPAQUE_REASON` =
 /// 认证绑定但未解密的盲转行），spawn_blind_relay → blind_relay_after_connect →
 /// handle_mitm → upsert_connect_log 一路同传（替代六层散参）。
 #[derive(Clone)]
@@ -672,7 +669,6 @@ pub(crate) struct ConnectLogCtx {
     pub(crate) platform_id: u64,
     pub(crate) conn_group_key: String,
     pub(crate) start: std::time::Instant,
-    pub(crate) log_enabled: bool,
     /// 与 proxy_log.blocked_reason 列同名同义。
     pub(crate) blocked_reason: &'static str,
     /// 绑定 group 名（认证命中时）；空串 = 未绑定。mitm_log 观测行消费。
@@ -691,16 +687,13 @@ impl ConnectLogCtx {
         }
     }
 
-    /// log_enabled 时写一行 CONNECT 终态（200 = 隧道建立成功 / 502 = 上游失败 / 499 = upgrade 断）。
+    /// 写一行 CONNECT 终态（200 = 隧道建立成功 / 502 = 上游失败 / 499 = upgrade 断）。
     pub(crate) async fn log_terminal(
         &self,
         state: &Arc<ProxyState>,
         request_url: String,
         status_code: i32,
     ) {
-        if !self.log_enabled {
-            return;
-        }
         upsert_connect_log(
             state,
             self,

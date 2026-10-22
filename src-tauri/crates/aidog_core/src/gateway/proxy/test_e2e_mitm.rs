@@ -670,7 +670,6 @@ async fn mitm_bypass_oauth_meta_body_follows_config() {
     let (state, _ca) = make_state_with_ca().await;
     let upstream_url = spawn_stub_upstream().await;
     let settings = ProxyLogSettings {
-        enabled: true,
         log_upstream_request: true,
         ..Default::default()
     };

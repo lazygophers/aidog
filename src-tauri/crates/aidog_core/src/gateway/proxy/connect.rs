@@ -183,13 +183,11 @@ async fn handle_connect_inner(
         .map(|(id, _)| id)
         .unwrap_or(0u64);
 
-    // 日志开关：disabled 时整条不落 proxy_log（与 upsert_log 早退语义一致）。
-    // settings + system_timeout 一次缓存借齐（每请求 ≥2 次 DB 缓存读 → 1 次 read lock）。
-    let (settings, system_timeout) = {
+    // system_timeout 一次缓存借齐（CONNECT 无 group/model_mapping 输入，仅 system 兜底）。
+    let system_timeout = {
         let c = state.settings_cache.read().await;
-        (c.log_settings.clone(), c.system_timeout.clone())
+        c.system_timeout.clone()
     };
-    let log_enabled = settings.enabled;
 
     // P2-A：connect 阶段超时（system 级；CONNECT 无 group/model_mapping 输入，仅 system 兜底）。
     // 隧道建后 idle 不套超时（避长连接 SSE/WebSocket over TLS 误杀），仅 TCP 握手阶段超时。
@@ -209,7 +207,6 @@ async fn handle_connect_inner(
             platform_id: 0,
             conn_group_key: String::new(),
             start,
-            log_enabled,
             blocked_reason: "",
             group_name: String::new(),
             req_bytes: 0,
@@ -255,7 +252,6 @@ async fn handle_connect_inner(
         platform_id,
         conn_group_key,
         start,
-        log_enabled,
         blocked_reason,
         group_name: bound_group
             .as_ref()
@@ -273,7 +269,7 @@ async fn handle_connect_inner(
     let mitm_state = aidog_mitm::mitm_state();
     tracing::info!(
         target = %target, host_only = %host_only, request_id = %log_ctx.request_id,
-        mitm_candidate, log_enabled, platform_id,
+        mitm_candidate, platform_id,
         "connect dispatch: mitm_candidate decision",
     );
 

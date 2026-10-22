@@ -51,7 +51,8 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
 ///
 /// **口径唯一真值源**：本函数与 [`ProxyLogColumns::from_log`] 必须清同一组列
 /// （`raw_field_sides_match` 用同一份数据双跑两条路径断言一致，改一边漏另一边即红）。
-/// 用户侧 4 列受 `log_user_request`，上游侧 5 列（含 `field_trace`）受 `log_upstream_request`。
+/// 用户侧 5 列（含 `request_url`）受 `log_user_request`，上游侧 6 列（含 `field_trace` /
+/// `upstream_request_url`）受 `log_upstream_request`。
 pub fn strip_raw_sides(
     log: &mut aidog_db::models::ProxyLog,
     strip_user: bool,
@@ -62,6 +63,7 @@ pub fn strip_raw_sides(
         log.request_body.clear();
         log.user_response_headers.clear();
         log.user_response_body.clear();
+        log.request_url.clear();
     }
     if strip_upstream {
         log.upstream_request_headers.clear();
@@ -69,10 +71,11 @@ pub fn strip_raw_sides(
         log.upstream_response_headers.clear();
         log.response_body.clear();
         log.field_trace.clear();
+        log.upstream_request_url.clear();
     }
 }
 
-/// 读 `proxy.logging` 设置（缺失 / 解析失败 → 默认值：master 开、两侧原始信息关）。
+/// 读 `proxy.logging` 设置（缺失 / 解析失败 → 默认值：两侧原始信息关）。
 async fn log_settings(db: &Db) -> ProxyLogSettings {
     aidog_db::get_setting(db, "proxy", "logging")
         .await
@@ -98,9 +101,6 @@ pub fn upsert_proxy_log(
     let __db_caller = std::panic::Location::caller();
     async move {
         let settings = log_settings(db).await;
-        if !settings.enabled {
-            return Ok(()); // master switch 关 → 不落库（与 upsert_log 早退同语义）
-        }
         let mut log = log;
         strip_raw_sides(
             &mut log,
@@ -189,11 +189,12 @@ type ColBind = (&'static str, Box<dyn rusqlite::types::ToSql + Send>);
 
 impl ProxyLogColumns {
     /// 由 `ProxyLog` 构造入库列快照。
-    /// 「原始信息」（headers + body + 上游响应正文）按用户 / 上游侧归类，受开关控制就地清空：
+    /// 「原始信息」（headers + body + 上游响应正文 + url）按用户 / 上游侧归类，受开关控制就地清空：
     /// - `strip_user`（!log_user_request）清空用户侧：`request_headers` / `request_body` /
-    ///   `user_response_headers` / `user_response_body`；
+    ///   `user_response_headers` / `user_response_body` / `request_url`；
     /// - `strip_upstream`（!log_upstream_request）清空上游侧：`upstream_request_headers` /
-    ///   `upstream_request_body` / `upstream_response_headers` / `response_body`（上游响应正文）。
+    ///   `upstream_request_body` / `upstream_response_headers` / `response_body`（上游响应正文）/
+    ///   `upstream_request_url`。
     ///
     /// 关开关后只保留解析后元数据（token / cost / url / status / model 等），不存任何原始 headers/body/正文。
     /// 开关开启时入库的 Authorization 等敏感头已在上游脱敏为 `[REDACTED]`。
@@ -238,8 +239,16 @@ impl ProxyLogColumns {
             } else {
                 log.response_body.clone()
             },
-            request_url: log.request_url.clone(),
-            upstream_request_url: log.upstream_request_url.clone(),
+            request_url: if strip_user {
+                empty()
+            } else {
+                log.request_url.clone()
+            },
+            upstream_request_url: if strip_upstream {
+                empty()
+            } else {
+                log.upstream_request_url.clone()
+            },
             upstream_response_headers: if strip_upstream {
                 empty()
             } else {
@@ -1403,7 +1412,6 @@ mod test_upsert_gate {
     #[tokio::test]
     async fn upstream_only_setting_strips_user_side() {
         let s = ProxyLogSettings {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: true,
             ..Default::default()
@@ -1419,7 +1427,6 @@ mod test_upsert_gate {
     #[tokio::test]
     async fn both_off_strips_everything() {
         let s = ProxyLogSettings {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: false,
             ..Default::default()
@@ -1434,7 +1441,6 @@ mod test_upsert_gate {
     #[tokio::test]
     async fn master_switch_off_writes_no_row() {
         let s = ProxyLogSettings {
-            enabled: false,
             ..Default::default()
         };
         let db = db_with_settings(&s).await;

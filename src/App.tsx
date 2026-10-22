@@ -23,7 +23,6 @@ const RequestLog = lazy(() => import("./pages/RequestLog").then(m => ({ default:
 const MitmLog = lazy(() => import("./pages/MitmLog").then(m => ({ default: m.MitmLog })));
 const About = lazy(() => import("./pages/About").then(m => ({ default: m.About })));
 import {
-  proxyLogApi,
   notificationApi,
   NOTIF_SPEAK,
   autoUpdateApi,
@@ -71,16 +70,9 @@ const BASE_NAV: NavItem[] = [
 function App() {
   const [activeNav, setActiveNav] = useState("home");
   const [navContext, setNavContext] = useState<NavContext>({});
-  const [logEnabled, setLogEnabled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [, startTransition] = useTransition();
-
-  useEffect(() => {
-    proxyLogApi.getSettings()
-      .then(s => setLogEnabled(s.enabled))
-      .catch(() => {});
-  }, []);
 
   // 通知总开关 off 时隐藏「通知中心」侧栏入口（仿 logs 隐藏模式）。
   useEffect(() => {
@@ -178,26 +170,18 @@ function App() {
         setActiveNav(id);
         setNavContext(context ?? {});
       });
-      if (id === "logs") {
-        proxyLogApi.getSettings()
-          .then(s => setLogEnabled(s.enabled))
-          .catch(() => {});
-      }
     });
   };
 
   // 隐藏菜单：日志关闭去 logs；通知关闭去 notifications。
   const navItems = BASE_NAV.filter(n => {
-    // mitm-log 同走 logs 的开关门（mitm_log 落库受 master switch gate，关了页面恒空）。
-    if (!logEnabled && (n.id === "logs" || n.id === "mitm-log")) return false;
     if (!notifEnabled && n.id === "notifications") return false;
     return true;
   });
 
   // 保留子页后缀（如 "settings/claude"），Sidebar 靠它高亮二级菜单项。
   const resolvedNav =
-    (activeNav === "logs" || activeNav === "mitm-log") && !logEnabled ? "platforms"
-    : activeNav === "notifications" && !notifEnabled ? "platforms"
+    activeNav === "notifications" && !notifEnabled ? "platforms"
     : activeNav;
   const effectiveNav = resolvedNav.split("/")[0];
   // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。
@@ -234,7 +218,7 @@ function App() {
             {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
             {effectiveNav === "request-log" && <RequestLog />}
             {effectiveNav === "mitm-log" && <MitmLog />}
-            {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
+            {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
             {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
             {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
             {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}

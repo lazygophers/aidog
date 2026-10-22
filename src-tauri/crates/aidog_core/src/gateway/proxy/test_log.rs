@@ -132,7 +132,6 @@ async fn agg_dedup_terminal_counts_once_logging_disabled() {
     let id = "agg_dedup_off_0001";
     let log = terminal_log(id);
     let settings = ProxyLogSettings {
-        enabled: false,
         ..Default::default()
     }; // 关日志路径
 
@@ -306,7 +305,6 @@ async fn queue_over_byte_budget_degrades_to_metadata() {
     let (db, path) = flush_test_db().await;
     let state = flush_test_state(db.clone());
     let settings = ProxyLogSettings {
-        enabled: true,
         log_user_request: true,
         log_upstream_request: true,
         ..Default::default()
@@ -342,7 +340,6 @@ async fn body_omitted_sticky_across_subsequent_upserts() {
     let (db, path) = flush_test_db().await;
     let state = flush_test_state(db.clone());
     let settings = ProxyLogSettings {
-        enabled: true,
         log_user_request: true,
         log_upstream_request: true,
         ..Default::default()
@@ -386,7 +383,6 @@ async fn scoped_queue_log_carries_bodies_only_at_terminal() {
     let (db, path) = flush_test_db().await;
     let state = flush_test_state(db.clone());
     let settings = ProxyLogSettings {
-        enabled: true,
         log_user_request: true,
         log_upstream_request: true,
         ..Default::default()
@@ -420,7 +416,6 @@ async fn scoped_queue_log_carries_bodies_only_at_terminal() {
 
     // 开关关闭：对应侧不带（writer 侧 from_log 反正会清空，带了白拷）。
     let off = ProxyLogSettings {
-        enabled: true,
         log_user_request: false,
         log_upstream_request: false,
         ..Default::default()

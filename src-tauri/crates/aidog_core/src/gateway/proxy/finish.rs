@@ -63,7 +63,7 @@ pub(crate) async fn finish_nonstream(
 
     // ── record gate（与 finish_stream :186-187 对称）：上游侧 body 受 log_upstream_request，
     //   客户端侧 body 受 log_user_request。body 先不分配——gate 开才走 cap_nonstream_body 截断 + 落库。──
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
+    let record_upstream_body = log_settings.log_upstream_request;
     let upstream_body_str: String = if record_upstream_body {
         cap_nonstream_body(&body)
     } else {
@@ -160,7 +160,7 @@ pub(crate) async fn finish_nonstream(
         s.into_bytes()
     };
     // 客户端侧 body gate（受 log_user_request）+ 16MB cap
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    let record_client_body = log_settings.log_user_request;
     log.user_response_body = if record_client_body {
         cap_nonstream_body(&body)
     } else {
@@ -308,8 +308,8 @@ where
     // OOM 止血：response_body(上游) 改受 log_upstream_request 同侧控制（默认关 → 流式不累积上游原文，
     // 内存占用与开关语义一致；upstream response_body 仍按 settings 二次脱敏写库）。
     // user_response_body 受 log_user_request 控制。master switch(enabled) 仍由 upsert_log 早退兜底。──
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    let record_upstream_body = log_settings.log_upstream_request;
+    let record_client_body = log_settings.log_user_request;
 
     // ── 最终回写 guard：[DONE] 正常结束 或 客户端断连 Drop 时回写聚合 token/body（幂等）。──
     let guard = StreamLogGuard {
