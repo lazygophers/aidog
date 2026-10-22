@@ -215,3 +215,18 @@ describe("WindowsEditModal — 维度分段控件 ARIA 分组", () => {
     expect(groups[groups.length - 1].querySelectorAll('[role="radio"]').length).toBe(3);
   });
 });
+
+describe("WindowsEditModal — 摘要行 scope/跨天", () => {
+  it("每月几日：选 1 与 15 → 摘要含 \"1·15\"（数据拼接，非 i18n 译文）", () => {
+    const { container } = renderModal([{ start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
+    fireEvent.click(container.querySelector("#dim-0-month") as HTMLElement);
+    const days = monthButtons(container).filter(b => ["1", "15"].includes(b.textContent ?? ""));
+    days.forEach(d => fireEvent.click(d));
+    expect(container.textContent).toContain("1·15");
+  });
+
+  it("跨天窗口（止<起）→ 摘要出「次日」徽标", () => {
+    const { container } = renderModal([{ start_hour: 22, end_hour: 6, multiplier: 1.0 }]);
+    expect(container.textContent).toContain("次日");
+  });
+});
