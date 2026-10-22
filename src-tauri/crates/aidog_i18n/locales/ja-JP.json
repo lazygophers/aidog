@@ -1523,7 +1523,7 @@
   "proxy.exportConfig": "Claude Code 設定を書き込む",
   "proxy.listening": "リスニング",
   "proxy.logRequests": "リクエストを記録",
-  "proxy.logRequestsDesc": "リクエストヘッダー、本文、所要時間、トークン使用量を記録",
+  "proxy.logRequestsDesc": "メタデータ（モデル、所要時間、トークン、費用）は常に記録。本文とヘッダーは下のスイッチで制御",
   "proxy.logRetention": "ログ保持時間",
   "proxy.logRetentionForever": "無期限で保持",
   "proxy.logRetentionHint": "0 = 無期限",

@@ -147,6 +147,14 @@ fn hello_endpoint_matches_prefixed_paths() {
 #[tokio::test]
 async fn hello_probe_returns_ok_and_records_request_log() {
     let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    ).await;
     let mut ids = Vec::new();
     for method in ["HEAD", "GET"] {
         let req = HttpRequest::builder()
@@ -390,7 +398,6 @@ async fn log_switches_record_upstream_side_only() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: true,
             ..Default::default()
@@ -442,7 +449,6 @@ async fn log_switches_record_user_side_only() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: true,
             log_upstream_request: false,
             ..Default::default()
@@ -487,7 +493,6 @@ async fn user_side_request_headers_redact_cookie_and_auth() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: true,
             log_upstream_request: true,
             ..Default::default()
@@ -532,7 +537,6 @@ async fn upstream_request_headers_no_partial_key_fragment() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: true,
             ..Default::default()
@@ -567,7 +571,6 @@ async fn passthrough_upstream_headers_full_redaction() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: true,
             log_upstream_request: true,
             ..Default::default()
@@ -605,16 +608,16 @@ async fn passthrough_upstream_headers_full_redaction() {
     assert_eq!(h["anthropic-version"], "2023-06-01", "名单外头原样");
 }
 
-/// 主开关 enabled=false：不落 proxy_log 行（统计聚合照常，不在此断言）。
+/// 两侧原始信息全关（缺省）：元数据行照落——2026-10-22 移除总开关后元数据恒记录，
+/// 原始列（headers/body/url）按侧清空。
 #[tokio::test]
-async fn log_master_off_writes_no_row() {
+async fn log_raw_off_writes_metadata_row() {
     let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
     let state = make_state(test_db().await).await;
     setup_group_with_upstream(&state, "gklogoff", &upstream).await;
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: false,
             ..Default::default()
         },
     )
@@ -631,10 +634,22 @@ async fn log_master_off_writes_no_row() {
     let logs = aidog_logs::list_proxy_logs(&state.db, 100, 0)
         .await
         .unwrap();
-    assert!(
-        logs.iter().all(|l| l.group_key != "gklogoff"),
-        "master off 时不得落 proxy_log 行"
-    );
+    let row = logs
+        .iter()
+        .find(|l| l.group_key == "gklogoff")
+        .expect("原始信息全关时元数据行必须照落");
+    assert_eq!(row.status_code, 200);
+    assert!(row.input_tokens + row.output_tokens > 0, "token 元数据保留");
+    // 原始列断言走整行读取（Summary 不含 headers/body/url 列）
+    let full = aidog_logs::get_proxy_log(&state.db, &row.id)
+        .await
+        .unwrap()
+        .expect("整行必须存在");
+    assert_eq!(full.request_headers, "");
+    assert_eq!(full.request_body, "");
+    assert_eq!(full.upstream_request_headers, "");
+    assert_eq!(full.request_url, "", "用户侧关 → request_url 清空");
+    assert_eq!(full.upstream_request_url, "", "上游侧关 → upstream_request_url 清空");
 }
 
 #[tokio::test]
@@ -1393,6 +1408,14 @@ async fn responses_subendpoint_get_relays_upstream() {
 async fn responses_subendpoint_post_cancel_forwards_body() {
     let upstream = spawn_stub_upstream(200, r#"{"id":"resp_2","status":"cancelled"}"#).await;
     let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    ).await;
     setup_responses_group(&state, "gkrc", &upstream).await;
 
     let req = HttpRequest::builder()
@@ -1767,6 +1790,14 @@ async fn api_path_wrong_token_still_404_no_bypass() {
 #[tokio::test]
 async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
     let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    ).await;
     // 代理监听端口与 stub 不同（stub 端口由 spawn 异步绑定），Host=stub 端口被判为「非自身」→ 直通。
     let _ = state.listen_addr.set((
         std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
@@ -1909,6 +1940,14 @@ async fn forward_proxy_get(proxy_url: &str, target_url: &str) -> reqwest::Respon
 #[tokio::test]
 async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
     let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    ).await;
     // listen_addr 设为代理自身 loopback（任意端口均可，识别代理自身用）；具体端口由
     // spawn_proxy_router 异步绑定，should_fallback_passthrough 用 loopback host 名 + 端口
     // 比对识别。这里设一个**非** stub 端口的 loopback 地址，让外部 host（stub）被判为「非自身」。
@@ -2000,6 +2039,14 @@ async fn path_only_uri_still_hits_health_endpoint_no_regression() {
 #[tokio::test]
 async fn absolute_form_https_uri_scheme_adaptive() {
     let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    ).await;
     let _ = state.listen_addr.set((
         std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
         65535u16,
@@ -2381,7 +2428,6 @@ async fn stage_prepare_send_preserves_remapped_body_and_upstream_log() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_upstream_request: true,
             ..Default::default()
         },
@@ -3222,7 +3268,6 @@ async fn decision_log_switches_off_drop_bodies() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: false,
             log_upstream_request: false,
             ..Default::default()
@@ -3481,7 +3526,6 @@ async fn no_group_404_records_user_side_request_and_response() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: true,
             log_upstream_request: false,
             ..Default::default()
@@ -3579,7 +3623,6 @@ async fn passthrough_auth_config_doubles_as_inbound_key_channel() {
     set_log_settings(
         &state,
         ProxyLogSettings {
-            enabled: true,
             log_user_request: true,
             log_upstream_request: true,
             ..Default::default()

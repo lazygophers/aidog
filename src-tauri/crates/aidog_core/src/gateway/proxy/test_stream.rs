@@ -295,7 +295,7 @@ fn make_guard(
             ..ProxyLogSettings::default()
         },
         start: std::time::Instant::now(),
-        record_upstream_body: true, // = log_settings.enabled
+        record_upstream_body: true, // = log_upstream_request（总开关已移除）
         record_client_body: false,  // log_user_request=false
         req_span: tracing::Span::current(),
         est: None,

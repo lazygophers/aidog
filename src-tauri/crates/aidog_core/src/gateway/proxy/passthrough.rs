@@ -870,8 +870,8 @@ async fn relay_passthrough_nonstream(
     };
     // record gate（与流式分支 guard 对称）：上游/客户端 body 各自受对应开关控制，
     // 开启时走 cap_nonstream_body 截断 + 落库（对齐 NONSTREAM_BODY_MAX_BYTES 16MB）。
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    let record_upstream_body = log_settings.log_upstream_request;
+    let record_client_body = log_settings.log_user_request;
     log.status_code = status.as_u16() as i32;
     log.done = true;
     log.duration_ms = start.elapsed().as_millis() as i32;
@@ -930,8 +930,8 @@ async fn relay_passthrough_stream(
     // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
     // OOM 止血：response_body(上游) 受 log_upstream_request 同侧控制（与 finish.rs 一致）；
     // user_response_body 受 log_user_request 控制。
-    let record_upstream_body = log_settings.enabled && log_settings.log_upstream_request;
-    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    let record_upstream_body = log_settings.log_upstream_request;
+    let record_client_body = log_settings.log_user_request;
     // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
     // 闭包把上游 chunk 同步 push 进 client_body，flush 即从 client_body 写 user_response_body。
     // 故 guard.record_client_body 必须 == record_client_body（禁写 false，否则 flush 跳过 user_response_body）。

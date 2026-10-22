@@ -7,7 +7,7 @@ import { proxyApi, isProxyStartError, proxyLogApi, proxyTimeoutApi, builtinToolC
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
  * 23 useState + 3 useEffect + 13 handler 原样外迁，无逻辑变更。
  */
-export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => void) {
+export function useSystemSettings() {
   const { t } = useTranslation();
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9890);
@@ -15,7 +15,6 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [bindLan, setBindLan] = useState(false);
   const [autolaunch, setAutolaunch] = useState(false);
   const [silentLaunch, setSilentLaunch] = useState(false);
-  const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(90);
   const [logRetentionUnit, setLogRetentionUnit] = useState<RetentionUnit>("day");
   const [logUserReq, setLogUserReq] = useState(true);
@@ -74,7 +73,6 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
       } catch { /* defaults */ }
       try {
         const ls = await proxyLogApi.getSettings();
-        setLogEnabled(ls.enabled);
         setLogRetention(ls.retention_days);
         setLogRetentionUnit(ls.retention_unit ?? "day");
         setLogUserReq(ls.log_user_request);
@@ -183,7 +181,6 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   };
 
   const buildLogSettings = (): ProxyLogSettings => ({
-    enabled: logEnabled,
     log_user_request: logUserReq,
     log_upstream_request: logUpstreamReq,
     user_request_retention_days: userReqRetention,
@@ -193,15 +190,6 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     retention_days: logRetention,
     retention_unit: logRetentionUnit,
   });
-
-  const handleLogEnabledChange = async (val: boolean) => {
-    try {
-      const settings: ProxyLogSettings = { ...buildLogSettings(), enabled: val };
-      await proxyLogApi.setSettings(settings);
-      setLogEnabled(val);
-      onLogSettingsChanged?.(val);
-    } catch (e: any) { setMessage(e.toString()); }
-  };
 
   const updateLogSettings = async (partial: Partial<ProxyLogSettings>) => {
     const settings = { ...buildLogSettings(), ...partial };
@@ -279,7 +267,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   return {
     // state
     running, proxyPort, autostart, bindLan, autolaunch, silentLaunch,
-    logEnabled, logRetention, logRetentionUnit, logUserReq, logUpstreamReq,
+    logRetention, logRetentionUnit, logUserReq, logUpstreamReq,
     userReqRetention, userReqRetentionUnit,
     upstreamReqRetention, upstreamReqRetentionUnit,
     reqTimeout, connTimeout, btcGlobalEnabled,
@@ -295,7 +283,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     handleProxyStart, handleProxyStop,
     handleAutostartChange, handleBindLanChange,
     handleAutolaunchChange, handleSilentLaunchChange,
-    handleProxyClientChange, handleLogEnabledChange, updateLogSettings,
+    handleProxyClientChange, updateLogSettings,
     requestDbCompact, runDbCompact, handleStatsRetentionChange, handleStatsRebuild,
     handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange, handleBtcGlobalChange,
   };
