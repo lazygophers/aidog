@@ -41,7 +41,7 @@ describe("WindowsEditModal", () => {
     const { container } = renderModal([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
     const weekRadio = container.querySelector("#dim-0-week") as HTMLElement;
     fireEvent.click(weekRadio);
-    expect(weekRadio).toHaveAttribute("data-state", "checked");
+    expect(weekRadio).toHaveAttribute("data-state", "on");
     expect(weekdayButtons(container)).toHaveLength(7);
     expect(monthButtons(container)).toHaveLength(0);
   });
@@ -81,10 +81,10 @@ describe("WindowsEditModal", () => {
     ]);
     fireEvent.click(container.querySelector("#dim-0-week") as HTMLElement);
 
-    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "on");
     // window 1 仍是初始「无」选中态，未被 window 0 的切换影响
-    expect(container.querySelector("#dim-1-none")).toHaveAttribute("data-state", "checked");
-    expect(container.querySelector("#dim-1-week")).toHaveAttribute("data-state", "unchecked");
+    expect(container.querySelector("#dim-1-none")).toHaveAttribute("data-state", "on");
+    expect(container.querySelector("#dim-1-week")).toHaveAttribute("data-state", "off");
     // 只有 window 0 露出了周几选择器（7 个），不是 14 个（两个窗口都露出）
     expect(weekdayButtons(container)).toHaveLength(7);
   });
@@ -110,9 +110,9 @@ describe("WindowsEditModal", () => {
         tzMode="utc" setTzMode={vi.fn()} t={t} />
     );
 
-    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "checked");
-    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "checked");
-    expect(container.querySelector("#dim-2-none")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "on");
+    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "on");
+    expect(container.querySelector("#dim-2-none")).toHaveAttribute("data-state", "on");
   });
 
   it("删中间窗口: 剩余窗口的选中态各自不变（不因数组前移而错位）", () => {
@@ -130,10 +130,10 @@ describe("WindowsEditModal", () => {
     fireEvent.click(removeButtons[1]);
 
     // 剩余两窗口：原 widx0(none) 现仍是 dim-0-none，原 widx2(month) 现变成 dim-1-month
-    expect(container.querySelector("#dim-0-none")).toHaveAttribute("data-state", "checked");
-    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "checked");
+    expect(container.querySelector("#dim-0-none")).toHaveAttribute("data-state", "on");
+    expect(container.querySelector("#dim-1-month")).toHaveAttribute("data-state", "on");
     // 不应错位成 dim-1-none 被选中（那是删除前 widx2 的位置套了 widx1 的选中态）
-    expect(container.querySelector("#dim-1-none")).toHaveAttribute("data-state", "unchecked");
+    expect(container.querySelector("#dim-1-none")).toHaveAttribute("data-state", "off");
     expect(monthButtons(container)).toHaveLength(31);
     expect(weekdayButtons(container)).toHaveLength(0);
   });

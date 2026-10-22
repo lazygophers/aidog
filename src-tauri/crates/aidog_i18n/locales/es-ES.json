@@ -2961,5 +2961,6 @@
   "platform.codingWindowCost": "Estimado del ciclo",
   "platform.rateLimit": "Tasa",
   "platform.rateLimitTitle": "Margen del límite de tasa del proveedor (por minuto), de las cabeceras de {{vendor}}",
-  "platform.codingPlanPrice": "Plan"
+  "platform.codingPlanPrice": "Plan",
+  "platform.windows_step_hint": "Ajusta con flechas o rueda del ratón (pasos de 15 min)"
 }

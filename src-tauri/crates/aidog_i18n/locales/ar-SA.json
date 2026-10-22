@@ -2983,5 +2983,6 @@
   "platform.codingWindowCost": "تقدير هذه الدورة",
   "platform.rateLimit": "المعدل",
   "platform.rateLimitTitle": "هامش حد المعدل للمزود (في الدقيقة)، من رؤوس استجابة {{vendor}}",
-  "platform.codingPlanPrice": "الخطة"
+  "platform.codingPlanPrice": "الخطة",
+  "platform.windows_step_hint": "استخدم الأسهم أو عجلة الفأرة (خطوات 15 دقيقة)"
 }
