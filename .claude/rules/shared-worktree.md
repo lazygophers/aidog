@@ -81,6 +81,29 @@ perf-backend 收尾轮：PreToolUse hook 把 `git worktree add` 改写经 rtk �
   `rev-parse --show-toplevel` 验一次 toplevel 指向新目录——「命令输出 ok」
   不等于「worktree 存在」（registry-data-edit.md「判脚本干了什么以输出数字为准」
   同模式）。
+- **判断工作区状态也走 `/usr/bin/git status --short`**（2026-10-22 入站密钥轮）：
+  rtk 包装的 `git status --short` 输出被截断，只列部分已改文件，一度误判改动
+  丢失。rtk 版只当摘要，数文件数以 `/usr/bin/git` 为准。
+
+## detach worktree 必须独立 CARGO_TARGET_DIR（2026-10-22）
+
+为跑基线 `git worktree add --detach /tmp/aidog-baseline-*` 并把 `CARGO_TARGET_DIR`
+指向主仓 `src-tauri/target` 共享，两个 checkout 的同名 workspace crate 产物串味：
+
+- 主仓给 `aidog_db` 加 pub fn 后，`aidog_core` 报 `cannot find function ... in crate
+  aidog_db`（`aidog_db` 没重编，touch 源文件才好）；
+- worktree 删除后，`aidog_db` 的 build-script 产物仍写死已删路径，报
+  `build.rs:31 registry dir: NotFound`，只能 `cargo clean -p aidog_db`——这会清掉
+  共享 target 里其他会话的产物。
+
+做法：worktree 构建一律 `CARGO_TARGET_DIR=/tmp/<worktree 同名>-target`，收尾
+随 worktree 一起删；主仓 `src-tauri/target` 只给主仓构建用。
+
+## `.git/index.lock` 残留（2026-10-22）
+
+0 字节 `.git/index.lock` 残留 33 分钟、无 git 进程时：先
+`pgrep -fl 'git '` 确认无进程、`ls -l` 确认 0 字节且 mtime 久远，再删，然后提交。
+有进程或非 0 字节就停，那是别的会话正在写。
 
 ## agent 子会话的 Bash cwd 每次调用重置（2026-09-30）
 

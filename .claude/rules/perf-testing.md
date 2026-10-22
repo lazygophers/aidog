@@ -73,6 +73,9 @@ master，采到的是 master 二进制——证据为二进制里零 mimalloc �
   `strings $KERNEL_BIN | grep -c mimalloc` >0（本次改动引入的符号在）；
   `strings $KERNEL_BIN | grep -c format_pretty_json` =0（本次删掉的符号不在）。
   符号随分支内容定，测前想清楚「这轮引入了什么、删了什么」，各验一条。
+- 该 worktree 的 `CARGO_TARGET_DIR` 指 /tmp 独立目录，禁共享主仓 target
+  （产物串味与 `cargo clean -p` 误伤见 shared-worktree.md「detach worktree 必须
+  独立 CARGO_TARGET_DIR」）。
 - profile 里出现「按理已删的函数」就是血统污染的直接信号，先验二进制再怀疑
   采样工具（ui-parity-audit.md「先核实再下结论」同模式）。
 
