@@ -94,12 +94,13 @@ pub(crate) use endpoint::{
     detect_source_protocol, infer_passthrough_protocol_from_ua, is_api_endpoint,
     match_platform_by_host, model_from_gemini_path, resolve_group, select_endpoint_for_protocol,
     should_fallback_passthrough, is_decision_endpoint, select_endpoint_for_decision,
-    query_api_key};
+    KeyCandidate, KeyChannel, custom_key_header_names, key_candidates, load_custom_key_channels};
 pub(crate) use finish::{AttemptCtx, finish_nonstream, finish_stream};
 pub(crate) use forward::{AttemptOutcome, finalize_proxy_502, forward_attempt};
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
-    inject_trace_header, is_sensitive_log_header, passthrough_convert_headers, passthrough_headers,
+    capture_request_headers, inject_trace_header, is_sensitive_log_header,
+    passthrough_convert_headers, passthrough_headers,
     redact_api_key_query, redact_log_header_value, reject_non_loopback, sanitize_header_injects,
 };
 // is_sensitive_auth_header（inject denylist 判定）日志路径已并入 is_sensitive_log_header，
