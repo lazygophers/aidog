@@ -2961,5 +2961,6 @@
   "platform.codingWindowCost": "本周期折算",
   "platform.rateLimit": "速率",
   "platform.rateLimitTitle": "上游速率限制余量（每分钟），来自 {{vendor}} 响应头",
-  "platform.codingPlanPrice": "套餐"
+  "platform.codingPlanPrice": "套餐",
+  "platform.windows_step_hint": "点箭头或滚轮调整（15 分钟步进）"
 }

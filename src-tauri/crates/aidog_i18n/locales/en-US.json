@@ -2961,5 +2961,6 @@
   "platform.codingWindowCost": "This cycle est.",
   "platform.rateLimit": "Rate",
   "platform.rateLimitTitle": "Upstream rate limit headroom (per minute), from {{vendor}} response headers",
-  "platform.codingPlanPrice": "Plan"
+  "platform.codingPlanPrice": "Plan",
+  "platform.windows_step_hint": "Use arrows or scroll wheel (15-min steps)"
 }

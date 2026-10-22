@@ -2983,5 +2983,6 @@
   "platform.codingWindowCost": "За текущий цикл",
   "platform.rateLimit": "Лимит",
   "platform.rateLimitTitle": "Остаток лимита частоты запросов (в минуту), из заголовков ответа {{vendor}}",
-  "platform.codingPlanPrice": "Тариф"
+  "platform.codingPlanPrice": "Тариф",
+  "platform.windows_step_hint": "Стрелки или колесо мыши (шаг 15 минут)"
 }

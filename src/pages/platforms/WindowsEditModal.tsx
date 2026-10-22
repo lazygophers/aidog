@@ -1,10 +1,8 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { TFunction } from "i18next";
 import type { TimeWindow } from "../../domains/platforms/defaults";
 import { type TzMode, utcToDisplay, displayToUtc, WINDOW_TIMEZONES } from "../../utils/timeWindow";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { makeRipple } from "../../components/shared";
 import {
@@ -14,8 +12,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-/** 周几按钮标签（0=Sunday…6=Saturday，与 TimeWindow.days_of_week 索引对齐）。 */
-const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+/** 周几按钮标签：locale `platform.weekday_short.<i>`（0=Sunday…6=Saturday，与 TimeWindow.days_of_week 索引对齐）。 */
+const WEEKDAY_INDEX = [0, 1, 2, 3, 4, 5, 6] as const;
+
+const pad = (n: number) => String(n).padStart(2, "0");
 
 /** 单窗口维度 radio 三态：
  *  - "none"   → days_of_week=undefined, days_of_month=undefined（每天适用）
@@ -36,7 +36,78 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
   return Math.max(min, Math.min(max, Math.trunc(v)));
 }
 
-/** WindowsEditModal — 列头点击弹窗编辑时段档 windows。
+/** 单侧时间步进器（C 方向稿）：大号只读时:分 + 时/分上下箭头 + 滚轮 15 分钟步进。
+ *  值变更走 onSet 回调（display 层），UTC 换算由调用方 fromDisp 负责。
+ *  maxHour=24 的止侧：24:xx 只允许 24:00（步进时强制分=0）。 */
+function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
+  suffix: string;
+  hour: number;
+  minute: number;
+  maxHour: number;
+  onSet: (hour: number, minute: number) => void;
+  t: TFunction;
+}) {
+  const step = (dh: number, dm: number) => {
+    const h = clampInt(hour + dh, 0, maxHour, hour);
+    const m = clampInt(minute + dm, 0, h === maxHour ? 0 : 59, minute);
+    if (h !== hour || m !== minute) onSet(h, m);
+  };
+  // React 根节点上的 wheel 监听是 passive 的，preventDefault 无效 → ref 挂非 passive 监听
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = boxRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      step(0, e.deltaY < 0 ? 15 : -15);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+    // step 闭包引用 hour/minute，值变即重挂以拿到新闭包
+  }, [hour, minute, maxHour, onSet]);
+
+  const arrowBtn = (dh: number, dm: number, up: boolean) => (
+    <Button
+      type="button"
+      variant="ghost"
+      size="sm"
+      style={{ padding: "0 7px", fontSize: 8, height: 16, lineHeight: 1, color: "var(--text-tertiary)" }}
+      onClick={() => step(dh, dm)}
+      title={up ? "+" : "-"}
+    >
+      {up ? "▲" : "▼"}
+    </Button>
+  );
+
+  return (
+    <div ref={boxRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+      <div
+        style={{
+          display: "flex", alignItems: "baseline", gap: 2,
+          background: "var(--card)", border: "1px solid var(--border)",
+          borderRadius: "var(--radius-sm)", padding: "4px 10px",
+          fontVariantNumeric: "tabular-nums", cursor: "ns-resize", userSelect: "none",
+        }}
+        title={t("platform.windows_step_hint", "点箭头或滚轮调整（15 分钟步进）")}
+      >
+        <b style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0.5 }}>{pad(hour)}</b>
+        <span style={{ color: "var(--text-tertiary)", fontSize: 13, fontWeight: 600 }}>:</span>
+        <b style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0.5 }}>{pad(minute)}</b>
+        <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 2 }}>{suffix}</span>
+      </div>
+      <div style={{ display: "flex", gap: 3 }}>
+        {arrowBtn(-1, 0, true)}
+        {arrowBtn(0, -15, true)}
+      </div>
+      <div style={{ display: "flex", gap: 3 }}>
+        {arrowBtn(1, 0, false)}
+        {arrowBtn(0, 15, false)}
+      </div>
+    </div>
+  );
+}
+
+/** WindowsEditModal — 列头点击弹窗编辑时段档 windows（C 方向稿：摘要行 + 时间步进器 + 生效日分段控件）。
  *  内部持 localCopy state（windows 副本），编辑不直接改 props；确认 → onSave(localCopy) + onClose。
  *  Dialog 走 Radix Portal（替代 shared/Modal，liquid glass 居中由 Portal 保证）。 */
 export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTzMode, t }: {
@@ -118,9 +189,15 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
     onClose();
   };
 
+  const DIM_OPTIONS = [
+    { key: "none" as const,  label: t("platform.windows_dim_none", "每天") },
+    { key: "week" as const,  label: t("platform.windows_dim_week", "周几") },
+    { key: "month" as const, label: t("platform.windows_dim_month", "每月几日") },
+  ];
+
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent style={{ maxWidth: 500, padding: 16 }}>
+      <DialogContent style={{ maxWidth: 520, padding: 16 }}>
         <DialogHeader>
           <DialogTitle style={{ margin: "0 0 12px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
@@ -153,95 +230,89 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {local.map((w, widx) => {
             const dim = uiDim[widx] ?? dimensionOf(w);
+            // 起 / 止 hour:minute —— 无 timezone（= UTC 存储）按 tzMode 双向换算；
+            // 带 timezone：存值即该时区本地值，直接读写不换算
+            const toDisp = (h: number, m: number) =>
+              w.timezone ? { hour: h, minute: m } : utcToDisplay(h, m, tzMode);
+            const fromDisp = (h: number, m: number) =>
+              w.timezone ? { hour: h, minute: m } : displayToUtc(h, m, tzMode);
+            const startDisp = toDisp(w.start_hour, w.start_minute ?? 0);
+            const endDisp = toDisp(w.end_hour, w.end_minute ?? 0);
+            // 跨天判定用原始存储值比较（与 formSections.tsx formatWindowPreview 同口径），不在 display 层比较
+            const isNextDay = w.end_hour < w.start_hour;
+            // 摘要行的生效日文案：周几/几日用 locale 短标签连接，「每天」直取维度标签
+            const scopeText = dim === "week"
+              ? (w.days_of_week && w.days_of_week.length > 0
+                  ? w.days_of_week.map(d => t(`platform.weekday_short.${d}`)).join("·")
+                  : t("platform.windows_dim_week", "周几"))
+              : dim === "month"
+                ? (w.days_of_month && w.days_of_month.length > 0
+                    ? w.days_of_month.join("·")
+                    : t("platform.windows_dim_month", "每月几日"))
+                : t("platform.windows_dim_none", "每天");
+            const tzLabel = w.timezone ?? (tzMode === "local"
+              ? t("platform.timezone_local", "本地")
+              : t("platform.timezone_utc", "UTC+0"));
             return (
               <div
                 key={widx}
                 style={{
-                  padding: 10, borderRadius: "var(--radius-sm)",
+                  padding: 12, borderRadius: "var(--radius-md)",
                   background: "var(--bg-glass)", border: "1px solid var(--border)",
-                  display: "flex", flexDirection: "column", gap: 8,
+                  display: "flex", flexDirection: "column", gap: 10,
                 }}
               >
-                {/* 起 / 止 hour:minute —— 无 timezone（= UTC 存储）按 tzMode 双向换算；
-                    带 timezone：存值即该时区本地值，直接读写不换算 */}
-                {(() => {
-                  const toDisp = (h: number, m: number) =>
-                    w.timezone ? { hour: h, minute: m } : utcToDisplay(h, m, tzMode);
-                  const fromDisp = (h: number, m: number) =>
-                    w.timezone ? { hour: h, minute: m } : displayToUtc(h, m, tzMode);
-                  const startDisp = toDisp(w.start_hour, w.start_minute ?? 0);
-                  const endDisp = toDisp(w.end_hour, w.end_minute ?? 0);
-                  // 跨天判定用原始存储值比较（与 formSections.tsx formatWindowPreview 同口径），不在 display 层比较
-                  const isNextDay = w.end_hour < w.start_hour;
-                  return (
-                    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                        <span>{t("platform.start_hour", "起")}</span>
-                        <Input className="input" type="number" min={0} max={23} style={{ width: 64, height: "auto" }}
-                          value={startDisp.hour}
-                          onChange={e => {
-                            const h = clampInt(Number(e.target.value), 0, 23, 0);
-                            const utc = fromDisp(h, startDisp.minute);
-                            updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
-                          }}
-                        />
-                        <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                        <Input className="input" type="number" min={0} max={59} style={{ width: 64, height: "auto" }}
-                          value={startDisp.minute}
-                          onChange={e => {
-                            const m = clampInt(Number(e.target.value), 0, 59, 0);
-                            const utc = fromDisp(startDisp.hour, m);
-                            updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
-                          }}
-                        />
-                      </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                        <span>{t("platform.end_hour", "止")}</span>
-                        <Input className="input" type="number" min={0} max={24} style={{ width: 64, height: "auto" }}
-                          value={endDisp.hour}
-                          onChange={e => {
-                            const h = clampInt(Number(e.target.value), 0, 24, 0);
-                            const utc = fromDisp(h, endDisp.minute);
-                            updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
-                          }}
-                        />
-                        <span style={{ color: "var(--text-tertiary)" }}>:</span>
-                        <Input className="input" type="number" min={0} max={59} style={{ width: 64, height: "auto" }}
-                          value={endDisp.minute}
-                          onChange={e => {
-                            const m = clampInt(Number(e.target.value), 0, 59, 0);
-                            const utc = fromDisp(endDisp.hour, m);
-                            updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
-                          }}
-                        />
-                      </div>
-                      {isNextDay && (
-                        <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontStyle: "italic" }}>
-                          （{t("platform.peak_next_day", "次日")}）
-                        </span>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        style={{ padding: "2px 6px", fontSize: 10, marginLeft: "auto", color: "var(--color-danger)" }}
-                        onClick={() => removeWindow(widx)}
-                        title={t("action.delete", "删除")}
-                      >
-                        ×
-                      </Button>
-                    </div>
-                  );
-                })()}
+                {/* 人话摘要行：生效日 + 起止 + 时区（跨天带「次日」徽标） */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
+                  fontSize: 12, color: "var(--text-secondary)", padding: "5px 10px",
+                  background: "var(--accent-subtle)", borderRadius: "var(--radius-sm)",
+                }}>
+                  <span style={{
+                    width: 6, height: 6, borderRadius: "50%", flex: "none",
+                    background: "var(--primary)", boxShadow: "0 0 8px var(--primary)",
+                  }} />
+                  <b style={{ color: "var(--foreground)", fontWeight: 600 }}>{scopeText}</b>
+                  <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--foreground)", fontWeight: 600 }}>
+                    {pad(startDisp.hour)}:{pad(startDisp.minute)} – {pad(endDisp.hour)}:{pad(endDisp.minute)}
+                  </span>
+                  {isNextDay && (
+                    <span style={{
+                      fontSize: 10, padding: "1px 6px", borderRadius: 4,
+                      border: "1px solid var(--border)", color: "var(--text-secondary)",
+                    }}>
+                      {t("platform.peak_next_day", "次日")}
+                    </span>
+                  )}
+                  <span>· {tzLabel}</span>
+                </div>
 
-                {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
-                    切换时区只改解释基准，存值数字不动（与 formSections PeakSection 同口径）。 */}
-                <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                  <span>{t("platform.window_timezone", "时区")}</span>
+                {/* 双时间步进器 + 时区 + 删除 */}
+                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                  <TimeStepper
+                    suffix={t("platform.start_hour", "起")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
+                    t={t}
+                    onSet={(h, m) => {
+                      const utc = fromDisp(h, m);
+                      updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
+                    }}
+                  />
+                  <span style={{ color: "var(--text-tertiary)", fontSize: 12, marginTop: 14 }}>→</span>
+                  <TimeStepper
+                    suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
+                    t={t}
+                    onSet={(h, m) => {
+                      const utc = fromDisp(h, m);
+                      updateWindow(widx, { end_hour: utc.hour, end_minute: utc.minute });
+                    }}
+                  />
+                  {/* 窗口时区：__utc__ 哨兵 = 无 timezone 字段（= UTC，向后兼容）；
+                      切换时区只改解释基准，存值数字不动（与 formSections PeakSection 同口径）。 */}
                   <Select
                     value={w.timezone ?? "__utc__"}
                     onValueChange={(v) => updateWindow(widx, { timezone: v === "__utc__" ? undefined : v })}
                   >
-                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28 }}>
+                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28, marginLeft: "auto", marginTop: 8 }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -252,35 +323,47 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)", marginTop: 8 }}
+                    onClick={() => removeWindow(widx)}
+                    title={t("action.delete", "删除")}
+                  >
+                    ×
+                  </Button>
                 </div>
 
-                {/* 维度 radio：无 / 周几 / 每月几日（互斥） */}
-                <RadioGroup
-                  value={dim}
-                  onValueChange={(v) => switchDimension(widx, v as Dimension)}
-                  style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}
-                >
-                  <span style={{ color: "var(--text-tertiary)", fontWeight: 600 }}>
+                {/* 维度分段控件：无 / 周几 / 每月几日（互斥） */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>
                     {t("platform.windows_dimension", "生效日")}
                   </span>
-                  {([
-                    { key: "none" as const,  label: t("platform.windows_dim_none", "每天") },
-                    { key: "week" as const,  label: t("platform.windows_dim_week", "周几") },
-                    { key: "month" as const, label: t("platform.windows_dim_month", "每月几日") },
-                  ]).map(opt => (
-                    <div key={opt.key} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                      <RadioGroupItem value={opt.key} id={`dim-${widx}-${opt.key}`} />
-                      <label htmlFor={`dim-${widx}-${opt.key}`} style={{ cursor: "pointer", color: "var(--text-secondary)" }}>
+                  <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                    {DIM_OPTIONS.map(opt => (
+                      <Button
+                        key={opt.key}
+                        type="button"
+                        id={`dim-${widx}-${opt.key}`}
+                        role="radio"
+                        aria-checked={dim === opt.key}
+                        data-state={dim === opt.key ? "on" : "off"}
+                        variant="ghost"
+                        size="sm"
+                        className={dim === opt.key ? "btn-primary" : ""}
+                        style={{ padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                        onClick={() => switchDimension(widx, opt.key)}
+                      >
                         {opt.label}
-                      </label>
-                    </div>
-                  ))}
-                </RadioGroup>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
 
-                {/* 维度对应编辑器：周几 / 每月几日 = ToggleGroup 风格的多选 toggle */}
+                {/* 维度对应编辑器：周几 / 每月几日 = 多选 toggle */}
                 {dim === "week" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 2, flexWrap: "wrap" }}>
-                    {WEEKDAY_LABELS.map((d, di) => {
+                    {WEEKDAY_INDEX.map(di => {
                       const active = (w.days_of_week ?? []).includes(di);
                       return (
                         <Button
@@ -288,11 +371,11 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 5px", fontSize: 10, minWidth: 22, height: "auto" }}
+                          style={{ padding: "1px 6px", fontSize: 10, minWidth: 24, height: "auto", fontWeight: 600 }}
                           onClick={() => toggleWeekday(widx, di)}
                           title={t(`platform.weekday_short.${di}`)}
                         >
-                          {d}
+                          {t(`platform.weekday_short.${di}`)}
                         </Button>
                       );
                     })}

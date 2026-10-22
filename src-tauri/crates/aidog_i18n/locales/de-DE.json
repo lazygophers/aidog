@@ -2983,5 +2983,6 @@
   "platform.codingWindowCost": "Geschätzt diese Periode",
   "platform.rateLimit": "Rate",
   "platform.rateLimitTitle": "Verbleibendes Ratenlimit des Anbieters (pro Minute), aus {{vendor}}-Response-Headern",
-  "platform.codingPlanPrice": "Tarif"
+  "platform.codingPlanPrice": "Tarif",
+  "platform.windows_step_hint": "Mit Pfeilen oder Mausrad anpassen (15-Min-Schritte)"
 }
