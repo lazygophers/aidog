@@ -633,11 +633,25 @@ fn rename_openai_max_tokens_key(body: &mut Value, wire: &Protocol, upstream_url:
 /// （`adapter::convert_request`），`disable_thinking` 这种未建模的 aidog 私有字段在那一步就被丢掉，
 /// 从 `body` 读 key 在转换分支恒为 false（审计实证：本仓 707/1016 请求走 anthropic→openai 转换）。
 /// 函数内仍剥 `body` 上残留的同名 key，透传分支靠它把非标字段挡在上游之外。
-fn apply_disable_thinking(body: &mut Value, disable: bool, wire: &Protocol, upstream_url: &str) {
+fn apply_disable_thinking(
+    body: &mut Value,
+    disable: bool,
+    wire: &Protocol,
+    upstream_url: &str,
+    forced_thinking: bool,
+) {
     let Some(obj) = body.as_object_mut() else {
         return;
     };
     obj.remove("disable_thinking");
+    // 强制思考模型（registry `thinking_toggleable: false`，如 MiniMax-M3.1-Flash）：上游拒绝
+    // 任何显式禁用（400 code 2013 "requires adaptive thinking"），只剥禁用参数、一个都不写。
+    // 客户端自带的 `thinking.type=disabled` / `reasoning.effort=none` 同样会被上游拒收，一并剥。
+    // 响应侧照旧按 disable_thinking 剥 thinking 块（模型反正要思考，客户端 UX 不变）。
+    if forced_thinking {
+        strip_disable_shaped_params(obj);
+        return;
+    }
     if !disable {
         return;
     }
@@ -705,6 +719,42 @@ fn apply_disable_thinking(body: &mut Value, disable: bool, wire: &Protocol, upst
         // 其余枚举值不是 wire 协议（平台类型），不会作为 endpoint 协议出现
         _ => {}
     }
+}
+
+/// 剥「显式禁用思考」形态的参数（保留开启型值）：`thinking.type=disabled`、
+/// `reasoning.effort=none`、`reasoning_effort=none`。强制思考模型专用。
+fn strip_disable_shaped_params(obj: &mut serde_json::Map<String, Value>) {
+    let is_disabled_thinking = obj
+        .get("thinking")
+        .and_then(|t| t.get("type"))
+        .and_then(Value::as_str)
+        == Some("disabled");
+    if is_disabled_thinking {
+        obj.remove("thinking");
+    }
+    let effort_none = obj
+        .get("reasoning")
+        .and_then(|r| r.get("effort"))
+        .and_then(Value::as_str)
+        == Some("none");
+    if effort_none {
+        obj.remove("reasoning");
+    }
+    if obj.get("reasoning_effort").and_then(Value::as_str) == Some("none") {
+        obj.remove("reasoning_effort");
+    }
+}
+
+/// registry 条目是否强制思考（price_data 里 `thinking_toggleable == false`；
+/// 未标注 / 条目缺失 / 查询失败 → false，行为同现状）。
+async fn model_forces_thinking(db: &aidog_db::Db, platform_code: &str, model_id: &str) -> bool {
+    aidog_db::get_model_entry(db, platform_code, model_id)
+        .await
+        .ok()
+        .flatten()
+        .and_then(|e| serde_json::from_str::<Value>(&e.price_data).ok())
+        .and_then(|v| v.get("thinking_toggleable").and_then(Value::as_bool))
+        .is_some_and(|t| !t)
 }
 
 /// 官方 OpenAI 端点判定（host == api.openai.com）。官方 Chat Completions 对未知顶层字段
@@ -1765,10 +1815,67 @@ mod test_disable_thinking {
             true,
             &Protocol::Anthropic,
             "https://api.minimax.io/anthropic",
+            false,
         );
         assert!(b.get("disable_thinking").is_none());
         assert!(b.get("context_management").is_none());
         assert_eq!(b["thinking"], json!({"type": "disabled"}));
+    }
+
+    /// 强制思考模型（registry `thinking_toggleable: false`，MiniMax-M3.1-Flash 实证 400
+    /// code 2013 "requires adaptive thinking"）：只剥禁用参数，出站不写任何禁用指令。
+    #[test]
+    fn forced_thinking_strips_disable_and_writes_nothing() {
+        let mut b = json!({
+            "model": "m", "max_tokens": 300, "disable_thinking": true,
+            "thinking": {"type": "disabled"},
+        });
+        apply_disable_thinking(
+            &mut b,
+            true,
+            &Protocol::Anthropic,
+            "https://api.minimaxi.com/anthropic",
+            true,
+        );
+        assert!(b.get("disable_thinking").is_none());
+        assert!(b.get("thinking").is_none());
+    }
+
+    /// 客户端自带显式禁用（未设 aidog 扩展字段）在强制思考模型下同样剥掉——
+    /// 上游对这些形态一视同仁返 2013。
+    #[test]
+    fn forced_thinking_strips_client_disabled_even_when_disable_false() {
+        let mut b = json!({
+            "model": "m",
+            "thinking": {"type": "disabled"},
+            "reasoning_effort": "none",
+        });
+        apply_disable_thinking(
+            &mut b,
+            false,
+            &Protocol::Anthropic,
+            "https://api.minimaxi.com/anthropic",
+            true,
+        );
+        assert!(b.get("thinking").is_none());
+        assert!(b.get("reasoning_effort").is_none());
+    }
+
+    /// 开启型 thinking 不受强制分支影响（只剥禁用形态，不改语义）。
+    #[test]
+    fn forced_thinking_keeps_enabled_params() {
+        let mut b = json!({
+            "model": "m",
+            "thinking": {"type": "enabled", "budget_tokens": 1024},
+        });
+        apply_disable_thinking(
+            &mut b,
+            false,
+            &Protocol::Anthropic,
+            "https://api.minimaxi.com/anthropic",
+            true,
+        );
+        assert_eq!(b["thinking"]["type"], json!("enabled"));
     }
 
     /// 第三方 OpenAI 兼容端点：`chat_template_kwargs.enable_thinking=false`，开启型参数不残留。
@@ -1783,6 +1890,7 @@ mod test_disable_thinking {
             true,
             &Protocol::OpenAI,
             "https://open.bigmodel.cn/api/paas/v4",
+            false,
         );
         assert!(b.get("reasoning_effort").is_none());
         assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
@@ -1797,7 +1905,13 @@ mod test_disable_thinking {
     #[test]
     fn official_openai_emits_reasoning_effort() {
         let mut b = json!({"model": "gpt-5", "disable_thinking": true});
-        apply_disable_thinking(&mut b, true, &Protocol::OpenAI, "https://api.openai.com/v1");
+        apply_disable_thinking(
+            &mut b,
+            true,
+            &Protocol::OpenAI,
+            "https://api.openai.com/v1",
+            false,
+        );
         assert_eq!(b["reasoning_effort"], json!("none"));
         assert!(b.get("chat_template_kwargs").is_none());
     }
@@ -1812,6 +1926,7 @@ mod test_disable_thinking {
             true,
             &Protocol::OpenAIResponses,
             "https://api.openai.com/v1",
+            false,
         );
         assert_eq!(b["reasoning"], json!({"effort": "none"}));
     }
@@ -1828,6 +1943,7 @@ mod test_disable_thinking {
             true,
             &Protocol::Gemini,
             "https://generativelanguage.googleapis.com",
+            false,
         );
         assert_eq!(
             b["generationConfig"]["thinkingConfig"],
@@ -1841,6 +1957,7 @@ mod test_disable_thinking {
             true,
             &Protocol::Gemini,
             "https://generativelanguage.googleapis.com",
+            false,
         );
         assert_eq!(
             b["generationConfig"]["thinkingConfig"]["thinkingBudget"],
@@ -1851,7 +1968,7 @@ mod test_disable_thinking {
     #[test]
     fn false_strips_field_only_and_absent_is_noop() {
         let mut b = json!({"disable_thinking": false, "thinking": {"type": "enabled"}});
-        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com");
+        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com", false);
         assert!(b.get("disable_thinking").is_none(), "非标字段仍剥");
         assert_eq!(
             b["thinking"],
@@ -1860,7 +1977,7 @@ mod test_disable_thinking {
         );
 
         let mut b = json!({"model": "m"});
-        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com");
+        apply_disable_thinking(&mut b, false, &Protocol::Anthropic, "https://example.com", false);
         assert_eq!(b, json!({"model": "m"}), "未请求禁用时整体不动");
     }
 
@@ -1874,6 +1991,7 @@ mod test_disable_thinking {
             true,
             &Protocol::OpenAI,
             "https://open.bigmodel.cn/api/paas/v4",
+            false,
         );
         assert_eq!(b["chat_template_kwargs"]["enable_thinking"], json!(false));
         assert!(b.get("reasoning_effort").is_none());
@@ -2709,11 +2827,35 @@ async fn prepare_outbound(
     // 识别后必剥除。语义 = 剔掉开启型思考参数后，按目标 wire 协议写入显式禁用参数
     // （用户决策 2026-08-26；只剔不写会让上游按自身默认开启思考，见 apply_disable_thinking 注释）。
     // MiniMax-M2 等内置思考模型上游仍无法真正禁用，响应不剥离。
+    //
+    // 强制思考模型（registry `thinking_toggleable: false`，MiniMax-M3.1-Flash 实证 400 code 2013
+    // "requires adaptive thinking"）：显式禁用参数一个都不写出站。仅当请求带显式禁用才查
+    // registry（多数请求零额外 DB 读）。
+    let explicit_disable = disable_thinking
+        || req_body
+            .get("thinking")
+            .and_then(|t| t.get("type"))
+            .and_then(Value::as_str)
+            == Some("disabled")
+        || req_body.get("reasoning_effort").and_then(Value::as_str) == Some("none")
+        || req_body
+            .get("reasoning")
+            .and_then(|r| r.get("effort"))
+            .and_then(Value::as_str)
+            == Some("none");
+    let forced_thinking = explicit_disable
+        && model_forces_thinking(
+            &state.db,
+            &route.platform.platform_type.wire_str(),
+            &actual_model,
+        )
+        .await;
     apply_disable_thinking(
         &mut req_body,
         disable_thinking,
         target.target_protocol_enum,
         target.target_base_url.as_str(),
+        forced_thinking,
     );
 
     // builtin-tool-compat：内置工具兼容（全局总开关，settings scope "proxy" / key
