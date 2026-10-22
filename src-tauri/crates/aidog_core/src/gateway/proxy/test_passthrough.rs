@@ -818,3 +818,12 @@ fn special_cases_judge_client_path_before_strip() {
     assert!(is_models_endpoint("/proxy/v1/models"));
     assert!(!is_models_endpoint("/proxy/v1/messages"));
 }
+
+// ── ADR 0009：URL 里的密钥参数剥离 / 原位写回 ──
+#[test]
+fn rewrite_key_query_strips_and_sets() {
+    assert_eq!(rewrite_key_query("http://u/p?a=1&api_key=g&key=g&b=%2F", None), "http://u/p?a=1&b=%2F");
+    assert_eq!(rewrite_key_query("http://u/p?api_key=g", None), "http://u/p");
+    assert_eq!(rewrite_key_query("http://u/p", Some(("key", "sk a/b"))), "http://u/p?key=sk+a%2Fb");
+    assert_eq!(rewrite_key_query("http://u/p?my_key=1&key=g", Some(("key", "sk"))), "http://u/p?my_key=1&key=sk");
+}

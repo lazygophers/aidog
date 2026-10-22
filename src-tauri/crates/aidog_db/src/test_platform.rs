@@ -650,3 +650,23 @@ async fn api_key_whitespace_trimmed_on_create_and_update() {
     }).await.unwrap();
     assert_eq!(updated.api_key, "sk-new");
 }
+
+/// ADR 0009：只取未软删透传平台的 extra；走 platform.db 读池（three_file_db 错路由当场 no such table）。
+#[tokio::test]
+async fn list_passthrough_extras_only_live_passthrough_platforms() {
+    let (db, _dir) = three_file_db().await;
+    let mk = |name: &str, extra: &str| CreatePlatform {
+        platform_type: Protocol::Passthrough,
+        extra: extra.to_string(),
+        ..sample_platform(name)
+    };
+    create_platform(&db, mk("pt1", r#"{"auth_header":"X-Token"}"#)).await.unwrap();
+    let gone = create_platform(&db, mk("pt2", r#"{"auth_header":"X-Gone"}"#)).await.unwrap();
+    create_platform(&db, sample_platform("anth")).await.unwrap();
+    delete_platform(&db, gone.id).await.unwrap();
+
+    assert_eq!(
+        list_passthrough_extras(&db).await.unwrap(),
+        [r#"{"auth_header":"X-Token"}"#.to_string()]
+    );
+}

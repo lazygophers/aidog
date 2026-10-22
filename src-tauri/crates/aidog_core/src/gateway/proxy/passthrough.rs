@@ -94,7 +94,8 @@ async fn relay_passthrough(
 ) -> Response {
     log.source_protocol = opts.protocol_tag.to_string();
     log.target_protocol = opts.protocol_tag.to_string();
-    log.upstream_request_url = url.clone();
+    // url 可能带密钥 query 参数（客户端 ?api_key= 或原位替换写回的平台 key），落库前脱敏
+    log.upstream_request_url = redact_api_key_query(&url);
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）—— system_timeout + proxy_client 一次缓存借齐
     let (system_timeout, proxy_client) = {
@@ -150,8 +151,8 @@ async fn relay_passthrough(
         Value::Object(h).to_string()
     };
     log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
-    tracing::info!(method = %orig_method, url = %url, tag = %opts.protocol_tag, "passthrough upstream request");
-    tracing::debug!(method = %orig_method, url = %url, body = %super::log_util::log_body_preview(&log.upstream_request_body), "passthrough upstream request body");
+    tracing::info!(method = %orig_method, url = %log.upstream_request_url, tag = %opts.protocol_tag, "passthrough upstream request");
+    tracing::debug!(method = %orig_method, url = %log.upstream_request_url, body = %super::log_util::log_body_preview(&log.upstream_request_body), "passthrough upstream request body");
 
     let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
         Ok(m) => m,
@@ -169,7 +170,7 @@ async fn relay_passthrough(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
-            tracing::error!(url = %url, error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream request failed (502)");
+            tracing::error!(url = %log.upstream_request_url, error = %e, duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
             log.done = true;
@@ -189,7 +190,7 @@ async fn relay_passthrough(
 
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
-    tracing::info!(url = %url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream responded");
+    tracing::info!(url = %log.upstream_request_url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, tag = %opts.protocol_tag, "passthrough upstream responded");
 
     // 捕获上游响应头（原样照搬给客户端）
     let mut resp_header_map = axum::http::HeaderMap::new();
@@ -315,8 +316,8 @@ pub(crate) fn merge_group_model_names(
 /// 带 group token 时的模型清单：该分组真正配着的模型（见 `merge_group_model_names`）。
 ///
 /// 返回 `None` 表示「没有 token / token 认不出分组 / 该分组一个模型都没配」，调用方回落默认清单。
-async fn group_model_ids(db: &Db, auth_header: Option<&str>) -> Option<Vec<String>> {
-    let group = resolve_group(db, Some(auth_header?)).await?;
+async fn group_model_ids(db: &Db, candidates: &[KeyCandidate]) -> Option<Vec<String>> {
+    let (group, _) = resolve_group(db, candidates).await?;
     let detail = aidog_db::get_group_detail(db, group.id).await.ok()??;
     let platform_models: Vec<aidog_db::models::PlatformModels> = detail
         .platforms
@@ -438,7 +439,7 @@ pub(crate) async fn handle_models_list(
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
     path: &str,
-    auth_header: Option<&str>,
+    candidates: &[KeyCandidate],
     start: std::time::Instant,
 ) -> Response {
     let proto = detect_source_protocol(path);
@@ -448,7 +449,7 @@ pub(crate) async fn handle_models_list(
         .await
         .map(|entries| build_context_map(&entries))
         .unwrap_or_default();
-    let ids = match group_model_ids(&state.db, auth_header).await {
+    let ids = match group_model_ids(&state.db, candidates).await {
         Some(v) => v,
         None => default_model_ids(&state.db).await,
     };
@@ -574,15 +575,22 @@ pub(crate) async fn handle_passthrough_platform(
     log_settings: &ProxyLogSettings,
     orig_method: axum::http::Method,
     orig_uri: axum::http::Uri,
-    orig_headers: axum::http::HeaderMap,
+    mut orig_headers: axum::http::HeaderMap,
     bytes: axum::body::Bytes,
     platform: &super::models::Platform,
+    matched_key: Option<&KeyCandidate>,
+    custom_key_headers: &[String],
     start: std::time::Instant,
     lang: Lang,
 ) -> Response {
     log.platform_id = platform.id;
-    let url = build_passthrough_url(&passthrough_base_url(platform), &orig_uri);
-    let auth_inject = parse_passthrough_auth(&platform.extra, &platform.api_key);
+    let (url, auth_inject) = passthrough_outbound_auth(
+        platform,
+        &build_passthrough_url(&passthrough_base_url(platform), &orig_uri),
+        matched_key,
+        custom_key_headers,
+        &mut orig_headers,
+    );
     let opts = PassthroughOpts {
         protocol_tag: "passthrough",
         extract_usage: true,
@@ -605,6 +613,61 @@ pub(crate) async fn handle_passthrough_platform(
         &opts,
     )
     .await
+}
+
+/// 透传出站认证（ADR 0009 决策 3/4）：剥自定义密钥通道头与 URL 里的密钥参数；平台没显式
+/// 配置认证头且已知定组通道时原位替换（header 通道返回同名注入头，query 通道写回 URL），
+/// 否则按平台配置注入。返回 (上游 url, 注入头)；默认四个认证头由 `apply_platform_auth_headers` 剥。
+pub(crate) fn passthrough_outbound_auth(
+    platform: &super::models::Platform,
+    url: &str,
+    matched_key: Option<&KeyCandidate>,
+    custom_key_headers: &[String],
+    headers: &mut axum::http::HeaderMap,
+) -> (String, Option<(String, String)>) {
+    for name in custom_key_headers {
+        headers.remove(name.as_str());
+    }
+    let explicit = !super::endpoint::custom_key_channels(std::slice::from_ref(&platform.extra))
+        .is_empty();
+    let in_place = matched_key.filter(|_| !explicit && !platform.api_key.trim().is_empty());
+    let set_query = match in_place.map(|c| &c.channel) {
+        Some(KeyChannel::Query(name)) => Some((*name, platform.api_key.as_str())),
+        _ => None,
+    };
+    let url = rewrite_key_query(url, set_query);
+    let inject = match in_place {
+        Some(KeyCandidate {
+            channel: KeyChannel::Header(name),
+            prefix,
+            suffix,
+            ..
+        }) => Some((name.clone(), format!("{prefix}{}{suffix}", platform.api_key))),
+        Some(_) => None,
+        None => parse_passthrough_auth(&platform.extra, &platform.api_key),
+    };
+    (url, inject)
+}
+
+/// 剥 URL 里的密钥 query 参数（`api_key` / `key`），`set` 给定时追加 `name=<编码值>`。
+/// 其余参数字节原样保留（不经 Url 重编码）。纯函数。
+pub(crate) fn rewrite_key_query(url: &str, set: Option<(&str, &str)>) -> String {
+    let (base, query) = url.split_once('?').unwrap_or((url, ""));
+    let mut pairs: Vec<String> = query
+        .split('&')
+        .filter(|p| !p.is_empty())
+        .filter(|p| !super::endpoint::KEY_QUERY_PARAMS.contains(&p.split('=').next().unwrap_or("")))
+        .map(str::to_string)
+        .collect();
+    if let Some((name, value)) = set {
+        let encoded: String = url::form_urlencoded::byte_serialize(value.as_bytes()).collect();
+        pairs.push(format!("{name}={encoded}"));
+    }
+    if pairs.is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}?{}", pairs.join("&"))
+    }
 }
 
 /// 分组首选候选是透传平台时返回它，否则 None（调用方照原路径处理）。

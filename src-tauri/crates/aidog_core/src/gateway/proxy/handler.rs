@@ -127,45 +127,13 @@ pub(crate) async fn handle_proxy_core(
     // ── 读取当前语言（用于错误消息翻译；从 ProxyState 缓存借） ──
     let lang = state.settings_cache.read().await.lang;
 
-    // ── 捕获请求头 ──
-    log.request_headers = {
-        let mut h = serde_json::Map::new();
-        for (k, v) in req.headers() {
-            if let Ok(s) = v.to_str() {
-                if is_sensitive_log_header(k.as_str()) {
-                    h.insert(
-                        k.to_string(),
-                        Value::String(redact_log_header_value(s)),
-                    );
-                } else {
-                    h.insert(k.to_string(), Value::String(s.to_string()));
-                }
-            }
-        }
-        serde_json::Value::Object(h).to_string()
-    };
+    // ── 分组密钥候选（ADR 0009）：透传平台声明的自定义通道 + 默认通道，consume 请求前取出 ──
+    let custom_key_channels = load_custom_key_channels(&state.db).await;
+    let custom_key_headers = custom_key_header_names(&custom_key_channels);
+    let key_cands = key_candidates(req.headers(), req.uri().query(), &custom_key_channels);
 
-    // Extract auth header and path BEFORE consuming the request
-    // group token 来源: Authorization: Bearer <key> (OpenAI/通用) 或 x-api-key (Anthropic SDK/claude-cli)。
-    // 二者皆承载 group_key —— 只读前者会让原生 Anthropic 客户端 (仅发 x-api-key) 在 resolve_group 落空 → 404 no matching group。
-    let auth_header = req
-        .headers()
-        .get("authorization")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|s| s.trim().to_string())
-        .or_else(|| {
-            req.headers()
-                .get("x-api-key")
-                .and_then(|v| v.to_str().ok())
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-        })
-        .or_else(|| {
-            // query 参数鉴权兜底（ADR 0008 决策 3）：Authorization / x-api-key 都缺失时
-            // 接受 URL `?api_key=<group_name>`（WS 客户端常无法在握手时加自定义 header）。
-            req.uri().query().and_then(query_api_key)
-        });
+    // ── 捕获请求头（自定义密钥通道头同敏感头脱敏）──
+    log.request_headers = capture_request_headers(req.headers(), &custom_key_headers);
     let path = req.uri().path().to_string();
     tracing::info!(method = %req.method(), path = %path, "http request");
 
@@ -202,7 +170,7 @@ pub(crate) async fn handle_proxy_core(
     // O3（perf-backend spec §2）：mem::take 移动而非 clone，省一次 HeaderMap 深拷贝。
     let orig_method = std::mem::take(req.method_mut());
     let orig_uri = std::mem::take(req.uri_mut());
-    let orig_headers = std::mem::take(req.headers_mut());
+    let mut orig_headers = std::mem::take(req.headers_mut());
 
     // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
@@ -257,10 +225,12 @@ pub(crate) async fn handle_proxy_core(
     if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
         // 例外：透传分组（ADR 0008）原样转发上游，客户端拿上游真实模型列表。
         let group = match &bound_group {
-            Some(g) => Some(g.clone()),
-            None => resolve_group(&state.db, auth_header.as_deref()).await,
+            Some(g) => Some((g.clone(), None)),
+            None => resolve_group(&state.db, &key_cands)
+                .await
+                .map(|(g, c)| (g, Some(c))),
         };
-        if let Some(g) = group
+        if let Some((g, matched_key)) = group
             && let Some(platform) =
                 super::passthrough::passthrough_first_candidate(&state.db, &g, "").await
         {
@@ -274,19 +244,14 @@ pub(crate) async fn handle_proxy_core(
                 orig_headers,
                 bytes,
                 &platform,
+                matched_key.as_ref(),
+                &custom_key_headers,
                 start,
                 lang,
             )
             .await;
         }
-        return handle_models_list(
-            &state,
-            &mut log,
-            &log_settings,
-            &path,
-            auth_header.as_deref(),
-            start,
-        )
+        return handle_models_list(&state, &mut log, &log_settings, &path, &key_cands, start)
         .await;
     }
 
@@ -294,11 +259,11 @@ pub(crate) async fn handle_proxy_core(
     // CONNECT 层绑定的 group 优先（spec cc-sub-mitm D2）：MITM 明文请求的 Authorization 是
     // 订阅 OAuth Bearer（resolve_group 必落空），归属由隧道绑定注入；绑定仅出现在 AI API
     // 端点请求（serve_plaintext 归属注入门），非 API 流量仍走下方 resolve_group → fallback。
-    let group = match bound_group {
-        Some(g) => g,
+    let (group, matched_key) = match bound_group {
+        Some(g) => (g, None),
         None => {
-            match resolve_group(&state.db, auth_header.as_deref()).await {
-                Some(g) => g,
+            match resolve_group(&state.db, &key_cands).await {
+                Some((g, c)) => (g, Some(c)),
                 None => {
                     // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
                     // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
@@ -322,39 +287,37 @@ pub(crate) async fn handle_proxy_core(
                         )
                         .await;
                     }
-                    if let Some(ref token) = auth_header {
-                        // token 是 group_key 凭证，回显/落库前脱敏（同 request_headers 的 REDACT 口径）
-                        log.response_body = format!(
+                    // 未匹配分组：没发生上游请求，回给客户端的内容记用户侧两列（上游侧留空），
+                    // 这样「记录用户请求」开着就能看到完整的请求与 404 回应。
+                    let body = match key_cands.first() {
+                        // 候选值是凭证，回显/落库前脱敏（同 request_headers 的 REDACT 口径）
+                        Some(c) => format!(
                             "no matching group for token '{}' or path '{}'",
-                            redact_key(token),
+                            redact_key(&c.key),
                             path
-                        );
-                        log.status_code = 404;
-                        log.done = true;
-                        log.duration_ms = start.elapsed().as_millis() as i32;
-                        upsert_log(&state, &log, &log_settings).await;
-                        let mut r =
-                            (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
-                        inject_trace_header(&mut r);
-                        return r;
-                    } else {
-                        log.response_body = "no matching group".to_string();
-                        log.status_code = 404;
-                        log.done = true;
-                        log.duration_ms = start.elapsed().as_millis() as i32;
-                        upsert_log(&state, &log, &log_settings).await;
-                        let mut r = (
-                            StatusCode::NOT_FOUND,
-                            i18n::t(lang, ErrorKey::NoMatchingGroup),
-                        )
-                            .into_response();
-                        inject_trace_header(&mut r);
-                        return r;
-                    }
+                        ),
+                        None => i18n::t(lang, ErrorKey::NoMatchingGroup).to_string(),
+                    };
+                    log.user_response_headers =
+                        r#"{"content-type":"text/plain; charset=utf-8"}"#.into();
+                    log.user_response_body = body.clone();
+                    log.status_code = 404;
+                    log.done = true;
+                    log.duration_ms = start.elapsed().as_millis() as i32;
+                    upsert_log(&state, &log, &log_settings).await;
+                    let mut r = (StatusCode::NOT_FOUND, body).into_response();
+                    inject_trace_header(&mut r);
+                    return r;
                 }
             }
         }
     };
+
+    // 自定义密钥通道头装的是分组密钥（ADR 0009 决策 4），后续任何转发都不得带给上游；
+    // 透传平台的原位替换只用 matched_key，不再需要原头。
+    for name in &custom_key_headers {
+        orig_headers.remove(name.as_str());
+    }
 
     // Upsert #2: group resolved
     log.group_key = group.group_key.clone();
@@ -380,6 +343,8 @@ pub(crate) async fn handle_proxy_core(
             orig_headers,
             bytes,
             &platform,
+            matched_key.as_ref(),
+            &custom_key_headers,
             start,
             lang,
         )
@@ -446,6 +411,8 @@ pub(crate) async fn handle_proxy_core(
             orig_headers,
             bytes,
             &platform,
+            matched_key.as_ref(),
+            &custom_key_headers,
             start,
             lang,
         )
@@ -718,6 +685,8 @@ pub(crate) async fn handle_proxy_core(
                 orig_headers,
                 bytes,
                 &platform,
+                matched_key.as_ref(),
+                &custom_key_headers,
                 start,
                 lang,
             )

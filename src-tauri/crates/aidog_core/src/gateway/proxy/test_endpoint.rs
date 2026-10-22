@@ -539,40 +539,130 @@ fn decision_endpoint_prefers_typesafe_then_openai_family() {
 // ── query 参数鉴权（ADR 0008 决策 3）：`?api_key=<group_name>` 提取 ──
 
 #[test]
-fn query_api_key_extracts_and_decodes() {
+fn query_param_api_key_extracts_and_decodes() {
     // 基本提取
     assert_eq!(
-        query_api_key("api_key=mygroup"),
+        query_param("api_key=mygroup", "api_key"),
         Some("mygroup".to_string())
     );
     // 多参数（前 / 后位置都能取）
     assert_eq!(
-        query_api_key("foo=1&api_key=g1&bar=2"),
+        query_param("foo=1&api_key=g1&bar=2", "api_key"),
         Some("g1".to_string())
     );
     // 百分号解码（含保留字符）
     assert_eq!(
-        query_api_key("api_key=my%20group%2Fkey"),
+        query_param("api_key=my%20group%2Fkey", "api_key"),
         Some("my group/key".to_string())
     );
     // `+` → 空格（表单编码兼容）
-    assert_eq!(query_api_key("api_key=a+b"), Some("a b".to_string()));
+    assert_eq!(query_param("api_key=a+b", "api_key"), Some("a b".to_string()));
 }
 
 #[test]
-fn query_api_key_absent_or_empty_returns_none() {
-    assert_eq!(query_api_key(""), None);
-    assert_eq!(query_api_key("foo=1&bar=2"), None);
+fn query_param_api_key_absent_or_empty_returns_none() {
+    assert_eq!(query_param("", "api_key"), None);
+    assert_eq!(query_param("foo=1&bar=2", "api_key"), None);
     // 空 / 纯空白值 → None（不产出空 token 破坏 header 优先链）
-    assert_eq!(query_api_key("api_key="), None);
-    assert_eq!(query_api_key("api_key=%20%20"), None);
+    assert_eq!(query_param("api_key=", "api_key"), None);
+    assert_eq!(query_param("api_key=%20%20", "api_key"), None);
     // 同名多次出现取第一份（与常见服务端行为一致）
     assert_eq!(
-        query_api_key("api_key=first&api_key=second"),
+        query_param("api_key=first&api_key=second", "api_key"),
         Some("first".to_string())
     );
     // 非法 % 序列原样保留（解码尽力而为，匹配不上 resolve_group 自然 404）
-    assert_eq!(query_api_key("api_key=100%zz"), Some("100%zz".to_string()));
+    assert_eq!(query_param("api_key=100%zz", "api_key"), Some("100%zz".to_string()));
     // 尾部截断的 %（i+3 越界）不 panic、不丢字符
-    assert_eq!(query_api_key("api_key=a%2"), Some("a%2".to_string()));
+    assert_eq!(query_param("api_key=a%2", "api_key"), Some("a%2".to_string()));
+}
+
+// ── ADR 0009：密钥通道候选 ──
+
+fn hm(pairs: &[(&str, &str)]) -> axum::http::HeaderMap {
+    let mut h = axum::http::HeaderMap::new();
+    for (k, v) in pairs {
+        h.append(
+            axum::http::HeaderName::from_bytes(k.as_bytes()).unwrap(),
+            v.parse().unwrap(),
+        );
+    }
+    h
+}
+
+#[test]
+fn key_candidates_follow_adr_0009_order() {
+    let custom = vec![("x-token".to_string(), "Token {key}".to_string())];
+    let h = hm(&[
+        ("x-goog-api-key", "g5"),
+        ("api-key", "g4"),
+        ("x-api-key", "g3"),
+        ("authorization", "Bearer g2"),
+        ("x-token", "token g1"),
+    ]);
+    let keys: Vec<String> = key_candidates(&h, Some("key=g7&api_key=g6"), &custom)
+        .into_iter()
+        .map(|c| c.key)
+        .collect();
+    assert_eq!(keys, ["g1", "Bearer g2", "g2", "g3", "g4", "g5", "g6", "g7"]);
+}
+
+#[test]
+fn key_candidates_keep_channel_and_wrapper_for_in_place_replacement() {
+    let custom = vec![("x-token".to_string(), "Token {key}".to_string())];
+    let c = key_candidates(&hm(&[("x-token", "token g1")]), None, &custom);
+    assert_eq!(
+        c,
+        [KeyCandidate {
+            key: "g1".into(),
+            channel: KeyChannel::Header("x-token".into()),
+            prefix: "token ".into(),
+            suffix: String::new(),
+        }]
+    );
+    let c = key_candidates(&hm(&[("authorization", "Key g2")]), None, &[]);
+    assert_eq!(c[1].prefix, "Key ");
+    assert_eq!(c[1].key, "g2");
+    let c = key_candidates(&hm(&[]), Some("key=g3"), &[]);
+    assert_eq!(c[0].channel, KeyChannel::Query("key"));
+}
+
+#[test]
+fn key_candidates_skip_empty_and_non_matching_template() {
+    let custom = vec![("x-token".to_string(), "Token {key}".to_string())];
+    let h = hm(&[("x-token", "Basic g1"), ("x-api-key", "  "), ("authorization", "Bearer ")]);
+    let keys: Vec<String> = key_candidates(&h, Some("api_key="), &custom)
+        .into_iter()
+        .map(|c| c.key)
+        .collect();
+    assert_eq!(keys, ["Bearer"], "模板不匹配 / 空值都不产出");
+}
+
+#[test]
+fn custom_key_channels_only_from_explicit_auth_config() {
+    let extras = [
+        String::new(),
+        r#"{"other":1}"#.to_string(),
+        r#"{"auth_header":"X-Token"}"#.to_string(),
+        r#"{"auth_template":"Key {key}"}"#.to_string(),
+        r#"{"auth_header":"X-A","auth_template":"no placeholder"}"#.to_string(),
+    ];
+    assert_eq!(
+        custom_key_channels(&extras),
+        [
+            ("x-token".to_string(), "Bearer {key}".to_string()),
+            ("authorization".to_string(), "Key {key}".to_string()),
+        ]
+    );
+}
+
+#[test]
+fn custom_key_header_names_exclude_default_channels() {
+    let custom = [
+        ("x-token".to_string(), "{key}".to_string()),
+        ("authorization".to_string(), "Key {key}".to_string()),
+        ("x-token".to_string(), "T {key}".to_string()),
+        ("api-key".to_string(), "{key}".to_string()),
+    ];
+    assert_eq!(custom_key_header_names(&custom), ["x-token"]);
 }

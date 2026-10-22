@@ -13,7 +13,7 @@
 
 1. **est_cost 恒 0**：透传平台不查 registry 价格，也不走 `PriceSyncSettings` fallback 单价（默认 3.0 $/M）。计费链（ADR 0006 / `billing.rs::calc_est_cost`）对透传平台在 fallback 之前短路返回 0。
 2. **绕过状态机**：透传平台不参与失败计数 / auto_disabled / 熔断，永远在线候选。请求只发给分组首选候选，失败直接回给客户端，不切下一个候选（2026-10-19 用户拍板以代码为准，原文「重试链照常」与实现不符）；状态不衰减——上游挂了不自动摘除。
-3. **query 参数鉴权全量兼容**：所有请求（HTTP 与 WS）除 Bearer header 外同时接受 `?api_key=<group_name>` 查询参数定组。
+3. **query 参数鉴权全量兼容**：所有请求（HTTP 与 WS）除 Bearer header 外同时接受 `?api_key=<group_name>` 查询参数定组。 （2026-10-22 起由 [ADR 0009](0009-inbound-key-channels.md) 扩展为多通道 first-match。）
 
 4. **协议无关（2026-10-19 补）**：转发不依赖任何协议解析。body 非 JSON、不符合 path 推断的协议、responses 子端点 / count_tokens / 决策端点、`GET /models` 都原样转发；能解析出 usage 才记 tokens，解析不出照转。
 

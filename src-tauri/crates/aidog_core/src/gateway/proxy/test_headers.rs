@@ -1304,3 +1304,22 @@ fn redact_api_key_query_replaces_value() {
     // 无 api_key 原样返回
     assert_eq!(redact_api_key_query("http://h/p"), "http://h/p");
 }
+
+// ── ADR 0009：?key= 也是密钥通道，同样脱敏 ──
+#[test]
+fn redact_api_key_query_covers_key_param() {
+    assert_eq!(
+        redact_api_key_query("http://h/p?key=gk&api_key=gk2&monkey=1"),
+        "http://h/p?key=[REDACTED]&api_key=[REDACTED]&monkey=1"
+    );
+}
+
+#[test]
+fn capture_request_headers_redacts_custom_key_headers() {
+    let mut h = axum::http::HeaderMap::new();
+    h.insert("x-token", "Token gk".parse().unwrap());
+    h.insert("x-other", "v".parse().unwrap());
+    let out = capture_request_headers(&h, &["x-token".to_string()]);
+    assert!(out.contains(r#""x-token":"Token [REDACTED]""#), "{out}");
+    assert!(out.contains(r#""x-other":"v""#), "{out}");
+}

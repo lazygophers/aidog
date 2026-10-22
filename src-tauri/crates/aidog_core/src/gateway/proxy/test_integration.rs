@@ -3340,6 +3340,16 @@ async fn chat_unknown_protocol_503_and_audit_log() {
 
 /// 注册一个透传平台（Protocol::Passthrough）+ group 并关联。
 async fn setup_passthrough_platform_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    setup_passthrough_platform_group_extra(state, gk, base_url, "").await;
+}
+
+/// 同上，平台 extra 可指定（认证头配置 auth_header / auth_template）。
+async fn setup_passthrough_platform_group_extra(
+    state: &Arc<ProxyState>,
+    gk: &str,
+    base_url: &str,
+    extra: &str,
+) {
     let plat = aidog_db::create_platform(
         &state.db,
         CreatePlatform {
@@ -3347,7 +3357,7 @@ async fn setup_passthrough_platform_group(state: &Arc<ProxyState>, gk: &str, bas
             platform_type: Protocol::Passthrough,
             base_url: base_url.to_string(),
             api_key: "sk-up".into(),
-            extra: String::new(),
+            extra: extra.to_string(),
             models: None,
             available_models: None,
             endpoints: None,
@@ -3415,4 +3425,206 @@ async fn passthrough_platform_relays_unparseable_requests_verbatim() {
     let log = last_log_for(&state, "gkraw").await;
     assert_eq!(log.status_code, 200);
     assert_eq!((log.input_tokens, log.output_tokens), (7, 2));
+}
+
+// ═══════════════ ADR 0009：入站密钥通道 + 未匹配分组日志 ═══════════════
+
+/// 记录每次上游请求 (uri, 小写头名→值) 的 stub 上游，返回固定 body。
+type SeenHeaders = Arc<std::sync::Mutex<Vec<(String, std::collections::HashMap<String, String>)>>>;
+async fn spawn_header_recording_upstream(body: &'static str) -> (String, SeenHeaders) {
+    use axum::routing::any;
+    let rec: SeenHeaders = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let rec_srv = rec.clone();
+    let app = axum::Router::new().fallback(any(move |req: HttpRequest<Body>| {
+        let rec = rec_srv.clone();
+        async move {
+            let headers = req
+                .headers()
+                .iter()
+                .map(|(k, v)| (k.as_str().to_string(), v.to_str().unwrap_or("").to_string()))
+                .collect();
+            rec.lock().unwrap().push((req.uri().to_string(), headers));
+            (
+                axum::http::StatusCode::OK,
+                [("content-type", "application/json")],
+                body,
+            )
+        }
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(listener, app).await.ok();
+    });
+    (format!("http://{addr}"), rec)
+}
+
+fn request_with(uri: &str, headers: &[(&str, &str)]) -> Request {
+    let mut b = HttpRequest::builder()
+        .method("POST")
+        .uri(uri)
+        .header("content-type", "application/json");
+    for (k, v) in headers {
+        b = b.header(*k, *v);
+    }
+    b.body(Body::from(
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+    ))
+    .unwrap()
+}
+
+/// 用户插话（2026-10-22）：开着「记录用户请求」时，未匹配分组也要记全请求与回给客户端的 404。
+/// 404 文本只进用户侧两列，上游侧留空（没发生上游请求）。
+#[tokio::test]
+async fn no_group_404_records_user_side_request_and_response() {
+    let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: true,
+            log_upstream_request: false,
+            ..Default::default()
+        },
+    )
+    .await;
+    let resp = handle_proxy(AxumState(state.clone()), messages_request("ghost", r#"{"model":"m"}"#)).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+    let row = last_log_for(&state, "").await;
+    assert_eq!(row.status_code, 404);
+    assert!(row.request_headers.contains("authorization"), "{}", row.request_headers);
+    assert!(!row.request_headers.contains("ghost"), "密钥须脱敏: {}", row.request_headers);
+    assert_eq!(row.request_body, r#"{"model":"m"}"#);
+    assert!(row.user_response_body.contains("no matching group"), "{}", row.user_response_body);
+    assert!(!row.user_response_body.contains("ghost"));
+    assert!(row.user_response_headers.contains("content-type"));
+    assert!(row.response_body.is_empty(), "上游侧不应有内容: {}", row.response_body);
+}
+
+/// ADR 0009 决策 1：各默认通道都能定组；多个通道同时出现时第一个对上分组的胜
+/// （Authorization 里是客户端自带的上游 key，x-api-key 才是分组密钥）。
+#[tokio::test]
+async fn default_key_channels_resolve_group_first_match() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkch", &upstream).await;
+
+    let cases: [(&str, &[(&str, &str)]); 8] = [
+        ("/v1/messages", &[("authorization", "bearer gkch")]),
+        ("/v1/messages", &[("authorization", "Key gkch")]),
+        ("/v1/messages", &[("authorization", "gkch")]),
+        ("/v1/messages", &[("api-key", "gkch")]),
+        ("/v1/messages", &[("x-goog-api-key", "gkch")]),
+        ("/v1/messages?key=gkch", &[]),
+        ("/v1/messages?api_key=gkch", &[]),
+        (
+            "/v1/messages",
+            &[("authorization", "Bearer sk-upstream-own"), ("x-api-key", "gkch")],
+        ),
+    ];
+    for (uri, headers) in cases {
+        let resp = handle_proxy(AxumState(state.clone()), request_with(uri, headers)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{uri} {headers:?}");
+    }
+}
+
+/// ADR 0009 决策 3：透传平台未显式配置认证头 → 客户端从哪个通道传来就在同一通道换成平台 key，
+/// 其它凭证头一律剥。
+#[tokio::test]
+async fn passthrough_replaces_key_in_the_channel_client_used() {
+    let (upstream, seen) = spawn_header_recording_upstream(r#"{"ok":true}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_passthrough_platform_group(&state, "gkpt", &upstream).await;
+
+    let last = || seen.lock().unwrap().last().cloned().expect("upstream not hit");
+
+    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("x-goog-api-key", "gkpt")])).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let (_, h) = last();
+    assert_eq!(h.get("x-goog-api-key").map(String::as_str), Some("sk-up"));
+    assert!(!h.contains_key("authorization"));
+
+    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("authorization", "Key gkpt")])).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert_eq!(last().1.get("authorization").map(String::as_str), Some("Key sk-up"));
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x?a=1&key=gkpt", &[("authorization", "Bearer sk-client-own")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let (uri, h) = last();
+    assert_eq!(uri, "/v1/x?a=1&key=sk-up");
+    assert!(!h.contains_key("authorization"), "未定组的凭证头须剥: {h:?}");
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        request_with("/v1/x", &[("authorization", "Bearer sk-client-own"), ("x-api-key", "gkpt")]),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let (_, h) = last();
+    assert_eq!(h.get("x-api-key").map(String::as_str), Some("sk-up"));
+    assert!(!h.contains_key("authorization"));
+}
+
+/// ADR 0009 决策 2：透传平台显式配置的认证头兼作入站密钥通道；出站按配置注入，
+/// 日志里该头值脱敏。
+#[tokio::test]
+async fn passthrough_auth_config_doubles_as_inbound_key_channel() {
+    let (upstream, seen) = spawn_header_recording_upstream(r#"{"ok":true}"#).await;
+    let state = make_state(test_db().await).await;
+    set_log_settings(
+        &state,
+        ProxyLogSettings {
+            enabled: true,
+            log_user_request: true,
+            log_upstream_request: true,
+            ..Default::default()
+        },
+    )
+    .await;
+    setup_passthrough_platform_group_extra(
+        &state,
+        "gkcustom",
+        &upstream,
+        r#"{"auth_header":"X-Token","auth_template":"Token {key}"}"#,
+    )
+    .await;
+
+    let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/x", &[("x-token", "token gkcustom")])).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let (_, h) = seen.lock().unwrap().last().cloned().unwrap();
+    assert_eq!(h.get("x-token").map(String::as_str), Some("Token sk-up"));
+
+    let row = last_log_for(&state, "gkcustom").await;
+    assert!(!row.request_headers.contains("gkcustom"), "{}", row.request_headers);
+    assert!(row.request_headers.contains("x-token"));
+}
+
+/// ADR 0009 决策 4：自定义通道头与 api-key 不得透给转换路径的上游（装的是分组密钥）。
+#[tokio::test]
+async fn convert_path_strips_key_channel_headers() {
+    let (upstream, seen) = spawn_header_recording_upstream(ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkconv", &upstream).await;
+    // 另一个分组的透传平台声明了 X-Token 通道；运行时对所有请求生效
+    setup_passthrough_platform_group_extra(
+        &state,
+        "gkother",
+        "http://127.0.0.1:9",
+        r#"{"auth_header":"X-Token","auth_template":"{key}"}"#,
+    )
+    .await;
+
+    for headers in [&[("x-token", "gkconv")][..], &[("api-key", "gkconv")][..]] {
+        let resp = handle_proxy(AxumState(state.clone()), request_with("/v1/messages", headers)).await;
+        assert_eq!(resp.status(), StatusCode::OK, "{headers:?}");
+        let (_, h) = seen.lock().unwrap().last().cloned().unwrap();
+        assert!(!h.contains_key("x-token"), "{h:?}");
+        assert!(!h.contains_key("api-key"), "{h:?}");
+        assert_eq!(h.get("x-api-key").map(String::as_str), Some("sk-up"));
+    }
 }

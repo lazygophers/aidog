@@ -136,14 +136,166 @@ pub(crate) fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<Protocol> {
     }
 }
 
-/// 从 URL query 串提取 `api_key` 参数值（ADR 0008 决策 3，Authorization 之外的第二通道）。
+/// 密钥通道（ADR 0009）：客户端把分组密钥放进请求的一个位置。
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum KeyChannel {
+    /// header 名（小写）。
+    Header(String),
+    /// URL query 参数名。
+    Query(&'static str),
+}
+
+/// 从某个密钥通道解出的一个候选。原值 = `prefix + key + suffix`；透传出站原位替换时只换 key 段。
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct KeyCandidate {
+    pub key: String,
+    pub channel: KeyChannel,
+    pub prefix: String,
+    pub suffix: String,
+}
+
+/// 默认 header 通道（除 Authorization，它另按方案词拆分）。
+const DEFAULT_KEY_HEADERS: [&str; 3] = ["x-api-key", "api-key", "x-goog-api-key"];
+/// 默认 query 通道。
+pub(crate) const KEY_QUERY_PARAMS: [&str; 2] = ["api_key", "key"];
+
+/// 头名是否属于默认密钥通道（不区分大小写）。
+fn is_default_key_header(name: &str) -> bool {
+    name.eq_ignore_ascii_case("authorization")
+        || DEFAULT_KEY_HEADERS.iter().any(|h| name.eq_ignore_ascii_case(h))
+}
+
+/// 透传平台 extra → 自定义密钥通道 `(头名小写, 模板)`（ADR 0009 决策 2）。
+/// 只认显式配置了 `auth_header` 或 `auth_template` 的平台；缺省的 `Authorization: Bearer {key}`
+/// 已在默认通道里。模板不含 `{key}` 的跳过（解不出 key）。
+pub(crate) fn custom_key_channels(extras: &[String]) -> Vec<(String, String)> {
+    extras
+        .iter()
+        .filter_map(|extra| {
+            let cfg: Value = serde_json::from_str(extra).ok()?;
+            let field = |k: &str| {
+                cfg.get(k)
+                    .and_then(|v| v.as_str())
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+            };
+            let (header, template) = (field("auth_header"), field("auth_template"));
+            if header.is_none() && template.is_none() {
+                return None;
+            }
+            let template = template.unwrap_or_else(|| "Bearer {key}".to_string());
+            template.contains("{key}").then(|| {
+                (
+                    header.unwrap_or_else(|| "authorization".to_string()).to_ascii_lowercase(),
+                    template,
+                )
+            })
+        })
+        .collect()
+}
+
+/// 自定义通道里不属于默认通道的头名（去重）：转发前要额外剥掉的头。
+pub(crate) fn custom_key_header_names(custom: &[(String, String)]) -> Vec<String> {
+    let mut names: Vec<String> = custom
+        .iter()
+        .map(|(n, _)| n.clone())
+        .filter(|n| !is_default_key_header(n))
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// 按模板 `pre{key}post` 从头值解出 key（前后缀不区分大小写）。
+fn match_template(value: &str, template: &str) -> Option<KeyCandidate> {
+    let (pre, post) = template.split_once("{key}")?;
+    if value.len() < pre.len() + post.len() {
+        return None;
+    }
+    let head = value.get(..pre.len())?;
+    let tail = value.get(value.len() - post.len()..)?;
+    if !head.eq_ignore_ascii_case(pre) || !tail.eq_ignore_ascii_case(post) {
+        return None;
+    }
+    let key = value.get(pre.len()..value.len() - post.len())?.trim();
+    Some(KeyCandidate {
+        key: key.to_string(),
+        channel: KeyChannel::Header(String::new()),
+        prefix: head.to_string(),
+        suffix: tail.to_string(),
+    })
+}
+
+/// 按 ADR 0009 顺序列出请求里全部密钥候选：自定义通道 → Authorization（整值、首个空白后部分）
+/// → x-api-key → api-key → x-goog-api-key → ?api_key= → ?key=。空值不产出。纯函数。
+pub(crate) fn key_candidates(
+    headers: &axum::http::HeaderMap,
+    query: Option<&str>,
+    custom: &[(String, String)],
+) -> Vec<KeyCandidate> {
+    let header = |name: &str| {
+        headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+    };
+    let whole = |name: &str, v: &str| KeyCandidate {
+        key: v.to_string(),
+        channel: KeyChannel::Header(name.to_string()),
+        prefix: String::new(),
+        suffix: String::new(),
+    };
+    let mut out = Vec::new();
+    for (name, template) in custom {
+        if let Some(c) = header(name).and_then(|v| match_template(v, template)) {
+            out.push(KeyCandidate {
+                channel: KeyChannel::Header(name.clone()),
+                ..c
+            });
+        }
+    }
+    if let Some(v) = header("authorization") {
+        out.push(whole("authorization", v));
+        if let Some((scheme, rest)) = v.split_once(char::is_whitespace)
+            && !rest.trim().is_empty()
+        {
+            out.push(KeyCandidate {
+                key: rest.trim().to_string(),
+                channel: KeyChannel::Header("authorization".into()),
+                prefix: format!("{scheme} "),
+                suffix: String::new(),
+            });
+        }
+    }
+    for name in DEFAULT_KEY_HEADERS {
+        if let Some(v) = header(name) {
+            out.push(whole(name, v));
+        }
+    }
+    for name in KEY_QUERY_PARAMS {
+        if let Some(v) = query.and_then(|q| query_param(q, name)) {
+            out.push(KeyCandidate {
+                key: v,
+                channel: KeyChannel::Query(name),
+                prefix: String::new(),
+                suffix: String::new(),
+            });
+        }
+    }
+    out.retain(|c| !c.key.is_empty());
+    out
+}
+
+/// 从 URL query 串提取参数 `name` 的值（首个同名参数）。
 /// 百分号解码 + `+`→空格（与浏览器表单编码兼容）；值空 / 参数缺席 → None。纯函数。
-pub(crate) fn query_api_key(query: &str) -> Option<String> {
+pub(crate) fn query_param(query: &str, name: &str) -> Option<String> {
     for pair in query.split('&') {
         let Some((k, v)) = pair.split_once('=') else {
             continue;
         };
-        if k != "api_key" {
+        if k != name {
             continue;
         }
         let decoded = percent_decode(v);
@@ -188,9 +340,12 @@ fn percent_decode(s: &str) -> String {
     String::from_utf8_lossy(&out).into_owned()
 }
 
-/// 在已取出的分组列表中按 group_key（= Authorization Bearer apikey）精确匹配。
-/// 分组路由纯按 apikey(group_key)，不再支持 URL path 前缀匹配。
-pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {
+/// 按序拿密钥候选与分组 group_key 精确比对，第一个对上的胜（ADR 0009 决策 1）。
+/// 返回命中的分组与定组用的那个候选（透传出站原位替换要用）。
+pub(crate) async fn resolve_group(
+    db: &Db,
+    candidates: &[KeyCandidate],
+) -> Option<(Group, KeyCandidate)> {
     let groups = match aidog_db::list_groups(db).await {
         Ok(g) => g,
         Err(e) => {
@@ -198,17 +353,31 @@ pub(crate) async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group>
             return None;
         }
     };
-    if let Some(token) = token {
-        if let Some(idx) = groups.iter().position(|g| g.group_key == token) {
-            return groups.into_iter().nth(idx);
-        }
-        tracing::warn!(token = %token, "resolve_group: token did not match any group_key");
+    let hit = candidates.iter().find_map(|c| {
+        groups
+            .iter()
+            .find(|g| g.group_key == c.key)
+            .map(|g| (g.clone(), c.clone()))
+    });
+    if hit.is_none() {
+        tracing::warn!(
+            candidate_count = candidates.len(),
+            group_count = groups.len(),
+            "resolve_group: no group matched any key candidate"
+        );
     }
-    tracing::warn!(
-        group_count = groups.len(),
-        "resolve_group: no group matched token"
-    );
-    None
+    hit
+}
+
+/// 加载全部透传平台声明的自定义密钥通道（DB 失败按无自定义通道处理并 warn，同 resolve_group 口径）。
+pub(crate) async fn load_custom_key_channels(db: &Db) -> Vec<(String, String)> {
+    match aidog_db::list_passthrough_extras(db).await {
+        Ok(extras) => custom_key_channels(&extras),
+        Err(e) => {
+            tracing::warn!(error = %e, "load_custom_key_channels: list_passthrough_extras failed");
+            Vec::new()
+        }
+    }
 }
 
 // ─── 客户端模拟 Header ────────────────────────────────────────
