@@ -15,13 +15,12 @@ import {
 } from "../../services/api";
 import { rateLimitsSummary, type RateLimitsBundle, type QuotaWindowConfig } from "../../services/api";
 import { newManualBudget, type TimeWindow, getDefaultPeak, getDefaultModelList, getDefaultPlanQuotas, type PlanQuotaTier, type QuotaScriptVariant, quotaVariantLabel } from "../../domains/platforms";
-import { isCurrentlyPeak, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
+import { isCurrentlyPeak, currentPeakMultiplier, utcToDisplay, displayToUtc, WINDOW_TIMEZONES, type TzMode } from "../../utils/timeWindow";
 import { formatDateTime, pad } from "../../utils/formatters";
 import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
-import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -75,6 +74,62 @@ export function FormSection({ title, desc, action, children }: { title: string; 
 /** Token 显隐 + 复制按钮（透传配置区 / 认证区共用）。
  *  multiline=true（创建态认证区）：textarea 多行输入，每行一个 token，多行触发批量创建预览
  *  （拆分/批量链路见 splitApiKeys + runBatchCreateFromPaste）；无密码遮蔽（textarea 不支持 password）。 */
+/** ── C 方向稿共享视觉件（2026-10-22 预算治理三区重设计：去抽屉版）──
+ *  三区（高峰倍率 / 限频 / 手动预算）统一的实时态条与行卡样式；
+ *  分区仍各自独立常展开（三区分居不同 tab，无折叠收纳，用户拍板原话见 ask d1c9fc964eab）。 */
+const C = {
+  /** 分区头图标瓦片 */
+  tile: (color: string): React.CSSProperties => ({
+    width: 30, height: 30, borderRadius: 9, flex: "none", fontSize: 13, fontWeight: 600,
+    display: "flex", alignItems: "center", justifyContent: "center",
+    color, background: `color-mix(in srgb, ${color} 12%, transparent)`,
+    border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
+  }),
+  /** 实时态 / 摘要 pill */
+  pill: (tone: "neutral" | "hot" | "ok"): React.CSSProperties => {
+    const c = tone === "hot" ? "var(--color-warning)" : tone === "ok" ? "var(--color-success)" : "var(--text-tertiary)";
+    return {
+      fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
+      color: c, border: `1px solid color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 35%, transparent)`,
+      background: `color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 8%, transparent)`,
+    };
+  },
+  /** 编辑行卡 */
+  row: {
+    display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+    padding: "9px 12px", borderRadius: "var(--radius-sm)",
+    background: "var(--card)", border: "1px solid var(--border)",
+  } as React.CSSProperties,
+  /** 虚线添加按钮 */
+  addBtn: {
+    fontSize: 11, padding: "5px 12px", borderRadius: "var(--radius-sm)",
+    border: "1px dashed var(--border)", background: "none", color: "var(--text-secondary)",
+    cursor: "pointer", width: "fit-content",
+  } as React.CSSProperties,
+  /** 分区实时态条容器 */
+  strip: {
+    display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10,
+  } as React.CSSProperties,
+};
+
+/** 24h spark 条：命中时段点亮（跨天窗口首尾两段都亮）。纯展示，宽 ~96px。 */
+function PeakSpark({ w }: { w: TimeWindow }) {
+  const on = (h: number) => {
+    const s = w.start_hour, e = w.end_hour;
+    return e < s ? h >= s || h < e : h >= s && h < e; // e===s 视为空窗
+  };
+  return (
+    <div style={{ display: "flex", gap: 1, width: 96, height: 12, flex: "none" }}>
+      {Array.from({ length: 24 }, (_, h) => (
+        <i key={h} style={{
+          flex: 1, borderRadius: 1,
+          background: on(h) ? "color-mix(in srgb, var(--color-warning) 85%, transparent)" : "var(--bg-glass)",
+        }} />
+      ))}
+    </div>
+  );
+}
+
 export function ApiKeyField({ value, onChange, show, onToggleShow, editing, placeholder = "Token", multiline = false }: {
   value: string;
   onChange: (v: string) => void;
@@ -493,6 +548,19 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
 }) {
   return (
     <>
+      {/* 实时态条：限额计数（用量扣减数据未回传表单，先展示静态配置态） */}
+      <div style={C.strip}>
+        <div style={C.tile("var(--color-success)")}>预</div>
+        <span style={C.pill("neutral")}>
+          {t("platform.manualBudgetCount", "{{n}} 个限额", { n: budgets.length })}
+          {budgets.length > 0 && ` · ${budgets.filter(b => b.enabled).length}/${budgets.length}`}
+        </span>
+        {budgets.length === 0 && (
+          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+            {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
+          </span>
+        )}
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 10 }}>
           {tiers.length > 0 && (
             <>
@@ -517,20 +585,14 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               </Button>
             </>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+          <button
+            type="button"
+            style={C.addBtn}
             onClick={() => setBudgets([...budgets, newManualBudget()])}
           >
-            {t("platform.manualBudgetAdd", "添加限额")}
-          </Button>
+            + {t("platform.manualBudgetAdd", "添加限额")}
+          </button>
       </div>
-      {budgets.length === 0 && (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0" }}>
-          {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
-        </div>
-      )}
       {budgets.map((b, idx) => {
         const update = (patch: Partial<ManualBudget>) =>
           setBudgets(budgets.map((x, i) => i === idx ? { ...x, ...patch } : x));
@@ -545,7 +607,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           }
         };
         return (
-          <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+          <div key={b.id} style={C.row}>
             <Select
               value={b.kind}
               onValueChange={(v) => onKindChange(v as ManualBudgetKind)}
@@ -613,7 +675,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               </>
             )}
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-              <Checkbox
+              <Switch
                 checked={b.enabled}
                 onCheckedChange={v => update({ enabled: v === true })}
               />
@@ -680,7 +742,7 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
 // ─── Peak Hours（高峰/低峰时段倍率）─────────────────────
 // 时区切换：仅前端运行时态（默认本地，可切 UTC+0），不持久化。
 // 存储恒 UTC+0；展示 / 输入按选中时区换算，换算内核见 src/utils/peak.ts（shiftClock，按绝对分钟，半时区精确）。
-const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+
 
 /** number input 值裁到 [min,max]；非法输入回落 min。 */
 function clampInt(raw: string, min: number, max: number): number {
@@ -813,6 +875,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
 
   // 高峰禁用预览：实时算（基于当前 windows + now）。无窗口 → 视为非高峰（不会触发排除）。
   const nowPeak = isCurrentlyPeak(windows, Date.now());
+  const nowMult = currentPeakMultiplier(windows, Date.now());
 
   return (
     <FormSection
@@ -847,10 +910,25 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         </div>
       }
     >
+      {/* 实时态条：当前生效倍率（first-match 实时判定，与路由同 hit 逻辑） */}
+      <div style={C.strip}>
+        <div style={C.tile("var(--color-warning)")}>倍</div>
+        <span style={C.pill(nowPeak ? "hot" : "neutral")}>
+          {nowPeak
+            ? t("platform.peakPillPeak", "高峰中 ×{{n}}").replace("{{n}}", String(nowMult))
+            : t("platform.peakPillOff", "非高峰 ×1.0")}
+        </span>
+        {windows.length > 0 && (
+          <span style={C.pill("neutral")}>
+            {t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n: windows.length })}
+          </span>
+        )}
+      </div>
+
       {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
-          <Checkbox
+        <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+          <Switch
             checked={disableDuringPeak}
             onCheckedChange={v => setDisableDuringPeak(v === true)}
           />
@@ -971,7 +1049,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               </Select>
             </label>
             <div style={{ display: "flex", gap: 2 }}>
-              {WEEKDAY_LABELS.map((lbl, di) => {
+              {[0, 1, 2, 3, 4, 5, 6].map(di => {
                 const active = (w.days_of_week ?? []).includes(di);
                 return (
                   <Button
@@ -988,7 +1066,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                       border: "1px solid var(--border)",
                     }}
                   >
-                    {lbl}
+                    {t(`platform.weekday_short.${di}`)}
                   </Button>
                 );
               })}
@@ -1003,9 +1081,12 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               ✕
             </Button>
           </div>
-          {/* 窗口预览行：可读时段（半开区间 [start, end) → end-1:59:59） */}
-          <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
-            {formatWindowPreview(w, tzMode, t)}
+          {/* 窗口预览行：24h spark（命中时段点亮）+ 可读时段（半开区间 [start, end) → end-1:59:59） */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <PeakSpark w={w} />
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, minWidth: 0 }}>
+              {formatWindowPreview(w, tzMode, t)}
+            </div>
           </div>
           {/* model scope（受影响模型）：chip 多选 + 自由输入（支持 `prefix*` 通配）。
               absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
@@ -1100,9 +1181,9 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           </div>
         </div>
       ))}
-      <Button variant="ghost" size="sm" onClick={add}>
+      <button type="button" style={C.addBtn} onClick={add}>
         + {t("platform.add_window", "添加窗口")}
-      </Button>
+      </button>
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
         <DialogContent className="glass-elevated" style={{ maxWidth: 400 }}>
           <DialogHeader>
@@ -1508,32 +1589,38 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
       title={t("platform.rateLimits.title", "限频")}
       desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选（后续版本生效）。")}
     >
-      {summary === "" ? (
-        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-          {t("platform.rateLimits.none", "未配置 → 调度不限频（沿用 429 兜底）")}
-        </div>
-      ) : (
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", fontSize: 12 }}>
-          <span style={{ padding: "2px 8px", borderRadius: 5, background: "var(--bg-glass)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
-            {summary}
+      {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
+      <div style={C.strip}>
+        <div style={C.tile("var(--data-primary)")}>频</div>
+        {summary === "" ? (
+          <span style={C.pill("neutral")}>
+            {t("platform.rateLimits.none", "未配置 → 调度不限频（沿用 429 兜底）")}
           </span>
-          {modelCount > 0 && (
-            <span style={{ padding: "2px 8px", borderRadius: 5, background: "var(--bg-glass)", border: "1px solid var(--border)", color: "var(--text-tertiary)" }}>
-              {t("platform.rateLimits.modelCount", "{{n}} 个模型覆盖", { n: modelCount })}
-            </span>
-          )}
-        </div>
-      )}
+        ) : (
+          <>
+            <span style={C.pill("ok")}>{summary}</span>
+            {modelCount > 0 && (
+              <span style={C.pill("neutral")}>
+                {t("platform.rateLimits.modelCount", "{{n}} 个模型覆盖", { n: modelCount })}
+              </span>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* 平台级 RPM/TPM */}
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+      {/* 平台级 RPM/TPM：C 方向稿大数字底边线输入 */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+        <label style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM（请求/分钟）")}</span>
-          <Input type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)} style={inputStyle} placeholder="—" />
+          <Input type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)}
+            style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
+            placeholder="—" />
         </label>
-        <label style={{ display: "flex", flexDirection: "column", gap: 4, flex: 1 }}>
+        <label style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM（token/分钟）")}</span>
-          <Input type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)} style={inputStyle} placeholder="—" />
+          <Input type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)}
+            style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
+            placeholder="—" />
         </label>
       </div>
 
@@ -1541,23 +1628,24 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.modelOverrides", "模型级覆盖（缺省回落平台级）")}</span>
         {draft.models.map((m, i) => (
-          <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div key={i} style={C.row}>
             <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110 }} />
             <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={inputStyle} />
             <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={inputStyle} />
             <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
-        <Button variant="outline" style={{ fontSize: 12, height: 28, width: "fit-content" }} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
+        <button type="button" style={C.addBtn} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
           + {t("platform.rateLimits.addModel", "加模型覆盖")}
-        </Button>
+        </button>
       </div>
 
       {/* 额度窗口 */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口（5h=18000 / 7d=604800 秒）")}</span>
         {draft.windows.map((w, i) => (
-          <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div key={i} style={C.row}>
+            <span style={C.pill("hot")}>{w.window === "18000" ? "5h" : w.window === "604800" ? "7d" : `${Number(w.window) / 3600}h`}</span>
             <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={inputStyle} />
             <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={inputStyle} />
             <Input type="number" value={w.budgetPoints} placeholder={t("platform.rateLimits.budgetPoints", "点数预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetPoints: e.target.value } : x))} style={inputStyle} />
@@ -1565,12 +1653,12 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
           </div>
         ))}
         <div style={{ display: "flex", gap: 6 }}>
-          <Button variant="outline" style={{ fontSize: 12, height: 28 }} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
+          <button type="button" style={C.addBtn} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
             + 5h
-          </Button>
-          <Button variant="outline" style={{ fontSize: 12, height: 28 }} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
+          </button>
+          <button type="button" style={C.addBtn} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
             + 7d
-          </Button>
+          </button>
         </div>
       </div>
     </FormSection>

@@ -2962,5 +2962,8 @@
   "platform.rateLimit": "Rate",
   "platform.rateLimitTitle": "Upstream rate limit headroom (per minute), from {{vendor}} response headers",
   "platform.codingPlanPrice": "Plan",
-  "platform.windows_step_hint": "Use arrows or scroll wheel (15-min steps)"
+  "platform.windows_step_hint": "Use arrows or scroll wheel (15-min steps)",
+  "platform.peakPillPeak": "Peak ×{{n}}",
+  "platform.peakPillOff": "Off-peak ×1.0",
+  "platform.manualBudgetCount": "{{n}} budgets"
 }

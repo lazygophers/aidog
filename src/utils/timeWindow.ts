@@ -187,3 +187,21 @@ export function isCurrentlyPeak(
     return hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec);
   });
 }
+
+/** first-match 命中窗口的倍率（PeakSection 实时态 pill 展示用）；无命中 / 无窗口 → 1.0。
+ *  与 isCurrentlyPeak 同一套 hit 判定，仅返回值不同（first-match 的 multiplier）。 */
+export function currentPeakMultiplier(
+  windows: TimeWindow[] | undefined | null,
+  nowMs: number,
+  requestModel: string = "",
+): number {
+  if (!windows || windows.length === 0) return 1.0;
+  const epochSec = Math.floor(nowMs / 1000);
+  for (const w of windows) {
+    const { hour, minute, weekday, dayOfMonth } = wallTimeInTz(nowMs, w.timezone);
+    if (hit(w, hour, minute, weekday, dayOfMonth, requestModel, epochSec)) {
+      return typeof w.multiplier === "number" && w.multiplier > 0 ? w.multiplier : 1.0;
+    }
+  }
+  return 1.0;
+}
