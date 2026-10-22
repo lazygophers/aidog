@@ -100,16 +100,14 @@ const C = {
     padding: "9px 12px", borderRadius: "var(--radius-sm)",
     background: "var(--card)", border: "1px solid var(--border)",
   } as React.CSSProperties,
-  /** 虚线添加按钮 */
-  addBtn: {
-    fontSize: 11, padding: "5px 12px", borderRadius: "var(--radius-sm)",
-    border: "1px dashed var(--border)", background: "none", color: "var(--text-secondary)",
-    cursor: "pointer", width: "fit-content",
-  } as React.CSSProperties,
+  /** 虚线添加按钮类名（含 hover，样式在 globals.css .aidog-addbtn） */
+  addBtnClass: "aidog-addbtn",
   /** 分区实时态条容器 */
   strip: {
     display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 10,
   } as React.CSSProperties,
+  /** 行卡 hover 类名（边框过渡在 globals.css .aidog-rowcard） */
+  rowClass: "aidog-rowcard",
 };
 
 /** 24h spark 条：命中时段点亮（跨天窗口首尾两段都亮）。纯展示，宽 ~96px。 */
@@ -124,6 +122,7 @@ function PeakSpark({ w }: { w: TimeWindow }) {
         <i key={h} style={{
           flex: 1, borderRadius: 1,
           background: on(h) ? "color-mix(in srgb, var(--color-warning) 85%, transparent)" : "var(--bg-glass)",
+          boxShadow: on(h) ? "0 0 6px color-mix(in srgb, var(--color-warning) 35%, transparent)" : undefined,
         }} />
       ))}
     </div>
@@ -549,7 +548,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
   return (
     <>
       {/* 实时态条：限额计数（用量扣减数据未回传表单，先展示静态配置态） */}
-      <div style={C.strip}>
+      <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--color-success)")}>预</div>
         <span style={C.pill("neutral")}>
           {t("platform.manualBudgetCount", "{{n}} 个限额", { n: budgets.length })}
@@ -587,7 +586,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           )}
           <button
             type="button"
-            style={C.addBtn}
+            className={C.addBtnClass}
             onClick={() => setBudgets([...budgets, newManualBudget()])}
           >
             + {t("platform.manualBudgetAdd", "添加限额")}
@@ -607,7 +606,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           }
         };
         return (
-          <div key={b.id} style={C.row}>
+          <div key={b.id} className={C.rowClass} style={C.row}>
             <Select
               value={b.kind}
               onValueChange={(v) => onKindChange(v as ManualBudgetKind)}
@@ -911,7 +910,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
       }
     >
       {/* 实时态条：当前生效倍率（first-match 实时判定，与路由同 hit 逻辑） */}
-      <div style={C.strip}>
+      <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--color-warning)")}>倍</div>
         <span style={C.pill(nowPeak ? "hot" : "neutral")}>
           {nowPeak
@@ -963,7 +962,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         </div>
       )}
       {windows.map((w, idx) => (
-        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+        <div key={idx} className="aidog-anim-rise" style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
           {/* 顶行：时段 + 倍率 + 周日 + 删除 */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             {(() => {
@@ -1181,7 +1180,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           </div>
         </div>
       ))}
-      <button type="button" style={C.addBtn} onClick={add}>
+      <button type="button" className={C.addBtnClass} onClick={add}>
         + {t("platform.add_window", "添加窗口")}
       </button>
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
@@ -1590,7 +1589,7 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
       desc={t("platform.rateLimits.desc", "按平台套餐配置 RPM/TPM 与额度窗口；调度侧超限自动排除候选（后续版本生效）。")}
     >
       {/* 实时态条：配置摘要（调度数据未回传，先展示静态配置态） */}
-      <div style={C.strip}>
+      <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--data-primary)")}>频</div>
         {summary === "" ? (
           <span style={C.pill("neutral")}>
@@ -1628,14 +1627,14 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.modelOverrides", "模型级覆盖（缺省回落平台级）")}</span>
         {draft.models.map((m, i) => (
-          <div key={i} style={C.row}>
+          <div key={i} className={C.rowClass} style={C.row}>
             <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110 }} />
             <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={inputStyle} />
             <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={inputStyle} />
             <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
-        <button type="button" style={C.addBtn} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
+        <button type="button" className={C.addBtnClass} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
           + {t("platform.rateLimits.addModel", "加模型覆盖")}
         </button>
       </div>
@@ -1644,7 +1643,7 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
         <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口（5h=18000 / 7d=604800 秒）")}</span>
         {draft.windows.map((w, i) => (
-          <div key={i} style={C.row}>
+          <div key={i} className={C.rowClass} style={C.row}>
             <span style={C.pill("hot")}>{w.window === "18000" ? "5h" : w.window === "604800" ? "7d" : `${Number(w.window) / 3600}h`}</span>
             <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={inputStyle} />
             <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={inputStyle} />
@@ -1653,10 +1652,10 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
           </div>
         ))}
         <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" style={C.addBtn} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
+          <button type="button" className={C.addBtnClass} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
             + 5h
           </button>
-          <button type="button" style={C.addBtn} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
+          <button type="button" className={C.addBtnClass} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
             + 7d
           </button>
         </div>

@@ -82,6 +82,7 @@ function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
   return (
     <div ref={boxRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
       <div
+        className="aidog-stepper-val"
         style={{
           display: "flex", alignItems: "baseline", gap: 2,
           background: "var(--card)", border: "1px solid var(--border)",
@@ -197,7 +198,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next) onClose(); }}>
-      <DialogContent style={{ maxWidth: 520, padding: 16 }}>
+      <DialogContent className="aidog-anim-pop" style={{ maxWidth: 520, padding: 16 }}>
         <DialogHeader>
           <DialogTitle style={{ margin: "0 0 12px", fontSize: 14, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
             <span>{t("platform.windows_edit_title", "编辑时段窗口")}</span>
@@ -256,6 +257,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
             return (
               <div
                 key={widx}
+                className="aidog-anim-rise"
                 style={{
                   padding: 12, borderRadius: "var(--radius-md)",
                   background: "var(--bg-glass)", border: "1px solid var(--border)",
@@ -279,7 +281,9 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   {isNextDay && (
                     <span style={{
                       fontSize: 10, padding: "1px 6px", borderRadius: 4,
-                      border: "1px solid var(--border)", color: "var(--text-secondary)",
+                      border: "1px solid color-mix(in srgb, var(--color-warning) 40%, transparent)",
+                      color: "var(--color-warning)",
+                      background: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
                     }}>
                       {t("platform.peak_next_day", "次日")}
                     </span>
