@@ -2984,5 +2984,8 @@
   "platform.rateLimit": "レート",
   "platform.rateLimitTitle": "上流のレート制限残量（毎分）、{{vendor}} のレスポンスヘッダー由来",
   "platform.codingPlanPrice": "プラン",
-  "platform.windows_step_hint": "矢印またはホイールで調整（15分刻み）"
+  "platform.windows_step_hint": "矢印またはホイールで調整（15分刻み）",
+  "platform.peakPillPeak": "ピーク ×{{n}}",
+  "platform.peakPillOff": "オフピーク ×1.0",
+  "platform.manualBudgetCount": "上限 {{n}} 件"
 }

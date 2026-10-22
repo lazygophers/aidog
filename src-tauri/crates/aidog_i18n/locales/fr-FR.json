@@ -2984,5 +2984,8 @@
   "platform.rateLimit": "Débit",
   "platform.rateLimitTitle": "Marge de limite de débit amont (par minute), d'après les en-têtes {{vendor}}",
   "platform.codingPlanPrice": "Forfait",
-  "platform.windows_step_hint": "Ajustez avec les flèches ou la molette (pas de 15 min)"
+  "platform.windows_step_hint": "Ajustez avec les flèches ou la molette (pas de 15 min)",
+  "platform.peakPillPeak": "Heure de pointe ×{{n}}",
+  "platform.peakPillOff": "Heure creuse ×1.0",
+  "platform.manualBudgetCount": "{{n}} budgets"
 }

@@ -2984,5 +2984,8 @@
   "platform.rateLimit": "Лимит",
   "platform.rateLimitTitle": "Остаток лимита частоты запросов (в минуту), из заголовков ответа {{vendor}}",
   "platform.codingPlanPrice": "Тариф",
-  "platform.windows_step_hint": "Стрелки или колесо мыши (шаг 15 минут)"
+  "platform.windows_step_hint": "Стрелки или колесо мыши (шаг 15 минут)",
+  "platform.peakPillPeak": "Пик ×{{n}}",
+  "platform.peakPillOff": "Не пик ×1.0",
+  "platform.manualBudgetCount": "Лимитов: {{n}}"
 }
