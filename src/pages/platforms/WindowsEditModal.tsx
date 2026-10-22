@@ -36,10 +36,32 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
   return Math.max(min, Math.min(max, Math.trunc(v)));
 }
 
+/** 步进器单个数字位：可直接键入（每击键即钳位提交，同旧 Input 行为）；非法/空串不打扰。 */
+function StepperDigit({ value, max, onCommit }: { value: number; max: number; onCommit: (v: number) => void }) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      value={pad(value)}
+      onChange={e => {
+        const n = parseInt(e.target.value, 10);
+        if (Number.isFinite(n)) onCommit(clampInt(n, 0, max, value));
+      }}
+      style={{
+        width: 26, background: "transparent", border: 0, outline: "none", padding: 0,
+        color: "inherit", font: "inherit", fontSize: 16, fontWeight: 600, letterSpacing: 0.5,
+        textAlign: "center",
+      }}
+      aria-label={String(max)}
+    />
+  );
+}
+
 /** 单侧时间步进器（C 方向稿）：大号只读时:分 + 时/分上下箭头 + 滚轮 15 分钟步进。
  *  值变更走 onSet 回调（display 层），UTC 换算由调用方 fromDisp 负责。
- *  maxHour=24 的止侧：24:xx 只允许 24:00（步进时强制分=0）。 */
-function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
+ *  maxHour=24 的止侧：24:xx 只允许 24:00（步进与键入都强制分=0）。
+ *  时/分是可直接键入的数字输入（箭头/滚轮 15 分钟步进之外的精确录入路径）。 */
+export function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
   suffix: string;
   hour: number;
   minute: number;
@@ -49,7 +71,10 @@ function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
 }) {
   const step = (dh: number, dm: number) => {
     const h = clampInt(hour + dh, 0, maxHour, hour);
-    const m = clampInt(minute + dm, 0, h === maxHour ? 0 : 59, minute);
+    // 分钟上限 59；唯止侧 24:00 终点例外（半开区间 24:xx 只有 24:00 合法）。
+    // 不能写 h === maxHour：起侧 maxHour=23 时 23:xx 分钟合法到 59。
+    const minuteMax = maxHour === 24 && h === 24 ? 0 : 59;
+    const m = clampInt(minute + dm, 0, minuteMax, minute);
     if (h !== hour || m !== minute) onSet(h, m);
   };
   // React 根节点上的 wheel 监听是 passive 的，preventDefault 无效 → ref 挂非 passive 监听
@@ -87,22 +112,22 @@ function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
           display: "flex", alignItems: "baseline", gap: 2,
           background: "var(--card)", border: "1px solid var(--border)",
           borderRadius: "var(--radius-sm)", padding: "4px 10px",
-          fontVariantNumeric: "tabular-nums", cursor: "ns-resize", userSelect: "none",
+          fontVariantNumeric: "tabular-nums",
         }}
-        title={t("platform.windows_step_hint", "点箭头或滚轮调整（15 分钟步进）")}
+        title={t("platform.windows_step_hint", "可直接键入，或点箭头/滚轮调整（15 分钟步进）")}
       >
-        <b style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0.5 }}>{pad(hour)}</b>
+        <StepperDigit value={hour} max={maxHour} onCommit={h => step(h - hour, 0)} />
         <span style={{ color: "var(--text-tertiary)", fontSize: 13, fontWeight: 600 }}>:</span>
-        <b style={{ fontSize: 16, fontWeight: 600, letterSpacing: 0.5 }}>{pad(minute)}</b>
+        <StepperDigit value={minute} max={59} onCommit={m => step(0, m - minute)} />
         <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 2 }}>{suffix}</span>
       </div>
       <div style={{ display: "flex", gap: 3 }}>
-        {arrowBtn(-1, 0, true)}
-        {arrowBtn(0, -15, true)}
+        {arrowBtn(1, 0, true)}
+        {arrowBtn(0, 15, true)}
       </div>
       <div style={{ display: "flex", gap: 3 }}>
-        {arrowBtn(1, 0, false)}
-        {arrowBtn(0, 15, false)}
+        {arrowBtn(-1, 0, false)}
+        {arrowBtn(0, -15, false)}
       </div>
     </div>
   );
@@ -338,12 +363,17 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   </Button>
                 </div>
 
-                {/* 维度分段控件：无 / 周几 / 每月几日（互斥） */}
+                {/* 维度分段控件：无 / 周几 / 每月几日（互斥）。
+                    容器带 radiogroup 语义（按钮 role=radio 必须有分组父级，ARIA 要求）。 */}
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>
                     {t("platform.windows_dimension", "生效日")}
                   </span>
-                  <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+                  <div
+                    role="radiogroup"
+                    aria-label={t("platform.windows_dimension", "生效日")}
+                    style={{ display: "flex", gap: 4, padding: 2, background: "var(--card)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}
+                  >
                     {DIM_OPTIONS.map(opt => (
                       <Button
                         key={opt.key}

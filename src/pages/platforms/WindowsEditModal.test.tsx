@@ -138,3 +138,80 @@ describe("WindowsEditModal", () => {
     expect(weekdayButtons(container)).toHaveLength(0);
   });
 });
+
+// ── TimeStepper 单挂：钳位 / 24:00 强制分=0 / 键入路径（review 2026-10-22 findings ②③④）──
+import { TimeStepper } from "./WindowsEditModal";
+
+function renderStepper(props: Partial<Parameters<typeof TimeStepper>[0]> = {}) {
+  const onSet = vi.fn();
+  // 查询范围限本 render 的 container：test/render 无自动 cleanup，
+  // document.body 里残留前面 modal 测试的 stepper，全局查询会点错组件。
+  const { container } = render(
+    <TimeStepper
+      suffix="止"
+      hour={12}
+      minute={0}
+      maxHour={24}
+      onSet={onSet}
+      t={t}
+      {...props}
+    />
+  );
+  return { onSet, base: container };
+}
+
+/** 第二行箭头 = 向下（▼）：[小时-, 分钟-] */
+function downArrows(container: ParentNode) {
+  const downs = Array.from(container.querySelectorAll("button")).filter(b => b.textContent === "▼");
+  return { hour: downs[0], minute: downs[1] };
+}
+function upArrows(container: ParentNode) {
+  const ups = Array.from(container.querySelectorAll("button")).filter(b => b.textContent === "▲");
+  return { hour: ups[0], minute: ups[1] };
+}
+
+describe("TimeStepper — 钳位与 24:00 语义", () => {
+  it("止侧键入小时 24 → 分钟强制归 0（24:xx 只允许 24:00）", () => {
+    const { onSet, base } = renderStepper({ hour: 23, minute: 30 });
+    const hourInput = base.querySelectorAll("input")[0] as HTMLInputElement;
+    fireEvent.change(hourInput, { target: { value: "24" } });
+    expect(onSet).toHaveBeenCalledWith(24, 0);
+  });
+
+  it("止侧 24:00 点小时下箭头 → 23:00（分保持 0）", () => {
+    const { onSet, base } = renderStepper({ hour: 24, minute: 0 });
+    fireEvent.click(downArrows(base).hour!);
+    expect(onSet).toHaveBeenCalledWith(23, 0);
+  });
+
+  it("起侧 23:55 分钟上箭头（+15）→ 钳到 23:59 不跨日", () => {
+    const { onSet, base } = renderStepper({ hour: 23, minute: 55, maxHour: 23 });
+    fireEvent.click(upArrows(base).minute!);
+    expect(onSet).toHaveBeenCalledWith(23, 59);
+  });
+
+  it("键入任意分钟（非 15 倍数）可达 —— 22:37", () => {
+    const { onSet, base } = renderStepper({ hour: 0, minute: 0, maxHour: 23 });
+    const [h, m] = base.querySelectorAll("input");
+    fireEvent.change(h as HTMLInputElement, { target: { value: "22" } });
+    fireEvent.change(m as HTMLInputElement, { target: { value: "37" } });
+    // stepper 是无状态受控件：分钟提交按当前 props（hour=0）算，父组件负责回灌后再组合成 22:37
+    expect(onSet).toHaveBeenNthCalledWith(1, 22, 0);
+    expect(onSet).toHaveBeenNthCalledWith(2, 0, 37);
+  });
+
+  it("值无变化不回调（0:00 点小时下箭头 no-op）", () => {
+    const { onSet, base } = renderStepper({ hour: 0, minute: 0 });
+    fireEvent.click(downArrows(base).hour!);
+    expect(onSet).not.toHaveBeenCalled();
+  });
+});
+
+describe("WindowsEditModal — 维度分段控件 ARIA 分组", () => {
+  it("分段按钮的父容器带 radiogroup + aria-label（radio 必须有分组父级）", () => {
+    renderModal([{ start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
+    const groups = document.body.querySelectorAll('[role="radiogroup"][aria-label]');
+    expect(groups.length).toBeGreaterThan(0);
+    expect(groups[groups.length - 1].querySelectorAll('[role="radio"]').length).toBe(3);
+  });
+});
