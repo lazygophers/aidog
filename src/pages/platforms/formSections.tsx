@@ -111,7 +111,7 @@ const C = {
 };
 
 /** 24h spark 条：命中时段点亮（跨天窗口首尾两段都亮）。纯展示，宽 ~96px。 */
-function PeakSpark({ w }: { w: TimeWindow }) {
+export function PeakSpark({ w }: { w: TimeWindow }) {
   const on = (h: number) => {
     const s = w.start_hour, e = w.end_hour;
     return e < s ? h >= s || h < e : h >= s && h < e; // e===s 视为空窗

@@ -1363,6 +1363,8 @@ mod test_upsert_gate {
             upstream_response_headers: r#"{"x":"1"}"#.into(),
             response_body: "up-resp".into(),
             field_trace: "trace".into(),
+            request_url: "http://localhost/v1/messages".into(),
+            upstream_request_url: "https://up/chat/completions".into(),
             status_code: 200,
             ..Default::default()
         }
@@ -1393,11 +1395,12 @@ mod test_upsert_gate {
             Ok(conn
                 .query_row(
                     "SELECT request_headers, request_body, user_response_headers, user_response_body, \
-                     upstream_request_headers, upstream_request_body, upstream_response_headers, \
-                     response_body, field_trace FROM proxy_log WHERE id = ?1",
+                     request_url, upstream_request_headers, upstream_request_body, \
+                     upstream_response_headers, response_body, field_trace, upstream_request_url \
+                     FROM proxy_log WHERE id = ?1",
                     rusqlite::params![id],
                     |r| {
-                        (0..9)
+                        (0..11)
                             .map(|i| r.get::<_, String>(i).map(|s| s.len()))
                             .collect::<rusqlite::Result<Vec<_>>>()
                     },
@@ -1408,7 +1411,7 @@ mod test_upsert_gate {
         .unwrap()
     }
 
-    /// 只开「记录实际上游请求」：用户侧 4 列清空，上游侧 5 列保留。
+    /// 只开「记录实际上游请求」：用户侧 5 列清空（含 request_url），上游侧 6 列保留。
     #[tokio::test]
     async fn upstream_only_setting_strips_user_side() {
         let s = ProxyLogSettings {
@@ -1419,8 +1422,8 @@ mod test_upsert_gate {
         let db = db_with_settings(&s).await;
         upsert_proxy_log(&db, filled_log()).await.unwrap();
         let lens = stored(&db, "gate1").await.expect("row written");
-        assert_eq!(&lens[..4], &[0, 0, 0, 0], "用户侧未被清空: {lens:?}");
-        assert!(lens[4..].iter().all(|&n| n > 0), "上游侧被误清: {lens:?}");
+        assert_eq!(&lens[..5], &[0, 0, 0, 0, 0], "用户侧（含 request_url）未被清空: {lens:?}");
+        assert!(lens[5..].iter().all(|&n| n > 0), "上游侧被误清: {lens:?}");
     }
 
     /// 两个开关都关：只留元数据，九列原始信息全空。
@@ -1437,15 +1440,17 @@ mod test_upsert_gate {
         assert!(lens.iter().all(|&n| n == 0), "仍有原始信息入库: {lens:?}");
     }
 
-    /// master switch 关 → 整行不落库。
+    /// 两侧全关（2026-10-22 起 master 开关已移除，缺省即两侧关）：
+    /// 元数据行照落，11 列原始信息（含两侧 url）全空。
     #[tokio::test]
-    async fn master_switch_off_writes_no_row() {
+    async fn raw_off_writes_metadata_row_only() {
         let s = ProxyLogSettings {
             ..Default::default()
         };
         let db = db_with_settings(&s).await;
         upsert_proxy_log(&db, filled_log()).await.unwrap();
-        assert!(stored(&db, "gate1").await.is_none(), "master 关仍落库");
+        let lens = stored(&db, "gate1").await.expect("元数据行必须照落（无总开关）");
+        assert!(lens.iter().all(|&n| n == 0), "两侧关仍有原始信息入库: {lens:?}");
     }
 
     /// 清空口径漂移守卫：strip_raw_sides 与 ProxyLogColumns::from_log 必须清同一组列。
@@ -1460,22 +1465,26 @@ mod test_upsert_gate {
                 cols.request_body.len(),
                 cols.user_response_headers.len(),
                 cols.user_response_body.len(),
+                cols.request_url.len(),
                 cols.upstream_request_headers.len(),
                 cols.upstream_request_body.len(),
                 cols.upstream_response_headers.len(),
                 cols.response_body.len(),
                 cols.field_trace.len(),
+                cols.upstream_request_url.len(),
             ];
             let via_strip = [
                 log.request_headers.len(),
                 log.request_body.len(),
                 log.user_response_headers.len(),
                 log.user_response_body.len(),
+                log.request_url.len(),
                 log.upstream_request_headers.len(),
                 log.upstream_request_body.len(),
                 log.upstream_response_headers.len(),
                 log.response_body.len(),
                 log.field_trace.len(),
+                log.upstream_request_url.len(),
             ];
             assert_eq!(
                 via_cols, via_strip,
