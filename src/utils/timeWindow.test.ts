@@ -4,6 +4,7 @@ import {
   shiftClock,
   normalizeWindow,
   isCurrentlyPeak,
+  currentPeakMultiplier,
   wallTimeInTz,
   tzOffsetMinutes,
   utcToDisplay,
@@ -151,5 +152,23 @@ describe("peak golden fixture — wall_time（与 Rust 同一份真值）", () =
 describe("peak golden fixture — resolve / is_peak（与 Rust 同一份真值）", () => {
   it.each(goldenFixture.resolve_cases as unknown as GoldenResolveCase[])("$name", (c) => {
     expect(isCurrentlyPeak(c.windows, c.ms, c.model)).toBe(c.in_peak);
+  });
+});
+
+describe("currentPeakMultiplier — first-match 倍率（PeakSection pill 展示）", () => {
+  const NOW = Date.UTC(2026, 5, 26, 8, 30, 0);
+  it("无窗口 / 无命中 → 1.0", () => {
+    expect(currentPeakMultiplier([], NOW)).toBe(1.0);
+    expect(currentPeakMultiplier(undefined, NOW)).toBe(1.0);
+    const miss = { start_hour: 20, end_hour: 22, multiplier: 3 } as TimeWindow;
+    expect(currentPeakMultiplier([miss], NOW)).toBe(1.0);
+  });
+
+  it("命中返回 first-match 的 multiplier；非正数回落 1.0", () => {
+    const first = { start_hour: 6, end_hour: 10, multiplier: 2 } as TimeWindow;
+    const second = { start_hour: 8, end_hour: 12, multiplier: 5 } as TimeWindow;
+    expect(currentPeakMultiplier([first, second], NOW)).toBe(2);
+    const badMult = { start_hour: 6, end_hour: 10, multiplier: 0 } as TimeWindow;
+    expect(currentPeakMultiplier([badMult], NOW)).toBe(1.0);
   });
 });
