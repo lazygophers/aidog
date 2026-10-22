@@ -1107,3 +1107,44 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 .ui-fixed-panel {
   position: fixed;
 }
+
+/* ─── C 方向稿动效与交互态（2026-10-22 时段窗口 + 预算治理三区对齐设计稿）────
+   keyframes 与 hover 类：布局样式仍在组件 inline style，这里只放 inline 写不了的
+   动画与交互态。无 position 声明（护栏 check:modal 只禁 unlayered position）。 */
+@layer components {
+  @keyframes aidog-pop {
+    from { opacity: 0; transform: scale(.96) translateY(8px); }
+    to { opacity: 1; }
+  }
+  @keyframes aidog-rise {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; }
+  }
+  .aidog-anim-pop { animation: aidog-pop .35s cubic-bezier(.2,.9,.3,1.2) both; }
+  .aidog-anim-rise { animation: aidog-rise .4s cubic-bezier(.2,.8,.3,1) both; }
+  /* 列表内条目错峰入场（同容器前 4 项） */
+  .aidog-anim-rise:nth-child(2) { animation-delay: .06s; }
+  .aidog-anim-rise:nth-child(3) { animation-delay: .12s; }
+  .aidog-anim-rise:nth-child(4) { animation-delay: .18s; }
+
+  .aidog-rowcard { transition: border-color .2s; }
+  .aidog-rowcard:hover {
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+
+  .aidog-addbtn {
+    font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm);
+    border: 1px dashed var(--border); background: none; color: var(--text-secondary);
+    cursor: pointer; width: fit-content; transition: all .2s;
+  }
+  .aidog-addbtn:hover {
+    border-color: var(--primary); color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+
+  .aidog-stepper-val { transition: border-color .15s, box-shadow .15s; }
+  .aidog-stepper-val:hover {
+    border-color: var(--primary);
+    box-shadow: 0 0 10px -4px var(--primary);
+  }
+}
