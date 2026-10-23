@@ -33,6 +33,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      # cargo check 在 ubuntu 上编 tauri 的 -sys crate（glib-sys 等）需要系统库 .pc 文件；mac/win runner 自带，无需此步。
+      - name: Install Linux system deps (Tauri)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libglib2.0-dev libgtk-3-dev libwebkit2gtk-4.1-dev librsvg2-dev libayatana-appindicator3-dev libxdo-dev libssl-dev patchelf
       - uses: actions/setup-node@v6
         with:
           node-version: 20
