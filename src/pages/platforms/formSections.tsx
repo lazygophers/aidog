@@ -1553,6 +1553,7 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
   const summary = rateLimitsSummary(bundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }));
   const modelCount = Object.keys(bundle.rate_limits?.models ?? {}).length;
   const inputStyle = { fontSize: 12, height: 28, minWidth: 70 };
+  const numStyle = { ...inputStyle, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
   const labelStyle = { fontSize: 11, opacity: 0.7 };
   return (
     <FormSection
@@ -1580,15 +1581,17 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
 
       {/* 平台级 RPM/TPM：C 方向稿大数字底边线输入 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
-        <label style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
+        <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.rpm", "RPM（请求/分钟）")}</span>
           <Input type="number" min={0} value={draft.rpm} onChange={e => upd("rpm", e.target.value)}
+            className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
-        <label style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
+        <label className="aidog-cell" style={{ display: "flex", alignItems: "baseline", gap: 8, ...C.row }}>
           <span style={labelStyle}>{t("platform.rateLimits.tpm", "TPM（token/分钟）")}</span>
           <Input type="number" min={0} value={draft.tpm} onChange={e => upd("tpm", e.target.value)}
+            className="aidog-bignum"
             style={{ ...inputStyle, flex: 1, minWidth: 60, height: "auto", fontSize: 17, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
             placeholder="—" />
         </label>
@@ -1599,10 +1602,10 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
         <span style={labelStyle}>{t("platform.rateLimits.modelOverrides", "模型级覆盖（缺省回落平台级）")}</span>
         {draft.models.map((m, i) => (
           <div key={i} className={C.rowClass} style={C.row}>
-            <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110 }} />
-            <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={inputStyle} />
-            <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={inputStyle} />
-            <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
+            <Input value={m.model} placeholder="model id" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, model: e.target.value } : x))} style={{ ...inputStyle, flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11 }} />
+            <Input type="number" value={m.rpm} placeholder="RPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, rpm: e.target.value } : x))} style={numStyle} />
+            <Input type="number" value={m.tpm} placeholder="TPM" onChange={e => upd("models", draft.models.map((x, j) => j === i ? { ...x, tpm: e.target.value } : x))} style={numStyle} />
+            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }} onClick={() => upd("models", draft.models.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
         <button type="button" className={C.addBtnClass} onClick={() => upd("models", [...draft.models, { model: "", rpm: "", tpm: "" }])}>
@@ -1616,10 +1619,10 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
         {draft.windows.map((w, i) => (
           <div key={i} className={C.rowClass} style={C.row}>
             <span style={C.pill("hot")}>{w.window === "18000" ? "5h" : w.window === "604800" ? "7d" : `${Number(w.window) / 3600}h`}</span>
-            <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={inputStyle} />
-            <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={inputStyle} />
-            <Input type="number" value={w.budgetPoints} placeholder={t("platform.rateLimits.budgetPoints", "点数预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetPoints: e.target.value } : x))} style={inputStyle} />
-            <Button variant="ghost" size="icon" style={{ height: 28, width: 28 }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
+            <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={numStyle} />
+            <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={numStyle} />
+            <Input type="number" value={w.budgetPoints} placeholder={t("platform.rateLimits.budgetPoints", "点数预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetPoints: e.target.value } : x))} style={numStyle} />
+            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
         <div style={{ display: "flex", gap: 6 }}>
