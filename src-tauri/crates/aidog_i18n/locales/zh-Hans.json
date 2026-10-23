@@ -651,7 +651,8 @@
   "logs.routing.route": "路由",
   "logs.routing.response": "响应",
   "logs.routing.attemptFailed": "尝试失败",
-  "logs.routing.mode.load_balance": "负载均衡",
+
+  "logs.routing.untried": "未尝试",  "logs.routing.mode.load_balance": "负载均衡",
   "logs.routing.mode.failover": "故障转移",
   "logs.routing.mode.health_aware": "健康感知",
   "logs.routing.mode.sticky": "会话保持",

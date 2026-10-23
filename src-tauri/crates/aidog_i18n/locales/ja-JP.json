@@ -673,7 +673,8 @@
   "logs.routing.route": "ルーティング",
   "logs.routing.response": "レスポンス",
   "logs.routing.attemptFailed": "試行失敗",
-  "logs.routing.mode.load_balance": "負荷分散",
+
+  "logs.routing.untried": "未試行",  "logs.routing.mode.load_balance": "負荷分散",
   "logs.routing.mode.failover": "フェイルオーバー",
   "logs.routing.mode.health_aware": "ヘルス考慮",
   "logs.routing.mode.sticky": "セッション維持",

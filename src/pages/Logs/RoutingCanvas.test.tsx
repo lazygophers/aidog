@@ -15,7 +15,7 @@ const snapshot = {
   mode: "failover",
   entries: [
     cand({ order: 1, platform_id: 1 }),
-    cand({ order: 2, platform_id: 2 }),
+    cand({ order: 2, platform_id: 2, tags: ["sticky"] }),
     cand({ order: 3, platform_id: 3, reason: "breaker" }),
   ],
 };
@@ -62,7 +62,10 @@ describe("RoutingCanvas", () => {
     const dim = container.querySelector('[data-node-id="p-3"]')!;
     expect(dim.querySelectorAll(".rc-why").length).toBe(1);
     const win = container.querySelector('[data-node-id="p-2"]')!;
-    // 胜出节点含 19ms·200 响应子行平台数值（不锚文案，只锚胶囊存在性）
-    expect(win.querySelectorAll(".rc-why").length).toBeGreaterThanOrEqual(0);
+    // 胜出节点恰 1 个数据胶囊（fixture tags=["sticky"]，不锚文案）
+    expect(win.querySelectorAll(".rc-why").length).toBe(1);
+    // p-1 选中但未轮到尝试（无失败记录）→ dim + 「未尝试」胶囊
+    expect(container.querySelector('[data-node-id="p-1"]')!.getAttribute("data-state")).toBe("dim");
+    expect(container.querySelector('[data-node-id="p-1"]')!.querySelectorAll(".rc-why").length).toBe(1);
   });
 });

@@ -673,7 +673,8 @@
   "logs.routing.route": "Routage",
   "logs.routing.response": "Réponse",
   "logs.routing.attemptFailed": "Tentative échouée",
-  "logs.routing.mode.load_balance": "Répartition de charge",
+
+  "logs.routing.untried": "Non tenté",  "logs.routing.mode.load_balance": "Répartition de charge",
   "logs.routing.mode.failover": "Basculement",
   "logs.routing.mode.health_aware": "Sensible à la santé",
   "logs.routing.mode.sticky": "Session collante",

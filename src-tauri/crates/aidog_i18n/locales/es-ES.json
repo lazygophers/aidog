@@ -651,7 +651,8 @@
   "logs.routing.route": "Enrutamiento",
   "logs.routing.response": "Respuesta",
   "logs.routing.attemptFailed": "Intento fallido",
-  "logs.routing.mode.load_balance": "Balanceo de carga",
+
+  "logs.routing.untried": "Sin intento",  "logs.routing.mode.load_balance": "Balanceo de carga",
   "logs.routing.mode.failover": "Conmutación por fallo",
   "logs.routing.mode.health_aware": "Consciente de salud",
   "logs.routing.mode.sticky": "Sesión fija",

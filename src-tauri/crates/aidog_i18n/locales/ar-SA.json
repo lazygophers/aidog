@@ -673,7 +673,8 @@
   "logs.routing.route": "التوجيه",
   "logs.routing.response": "الاستجابة",
   "logs.routing.attemptFailed": "محاولة فاشلة",
-  "logs.routing.mode.load_balance": "موازنة التحميل",
+
+  "logs.routing.untried": "لم تتم المحاولة",  "logs.routing.mode.load_balance": "موازنة التحميل",
   "logs.routing.mode.failover": "التبديل عند الفشل",
   "logs.routing.mode.health_aware": "واعٍ بالصحة",
   "logs.routing.mode.sticky": "تثبيت الجلسة",
