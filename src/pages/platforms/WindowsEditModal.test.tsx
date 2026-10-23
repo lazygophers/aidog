@@ -278,4 +278,19 @@ describe("WindowsEditModal — 摘要行 scope/跨天", () => {
     const { container } = renderModal([{ start_hour: 22, end_hour: 6, multiplier: 1.0 }]);
     expect(container.textContent).toContain("次日");
   });
+
+  it("添加窗口默认：本地时区 + 工作日（周一-周五）", () => {
+    const { container, onSave } = renderModal([]);
+    fireEvent.click(
+      Array.from(container.querySelectorAll("button")).find(b => b.textContent?.includes("添加窗口"))!
+    );
+    fireEvent.click(container.querySelector("button.ripple") as HTMLElement);
+    const saved = onSave.mock.calls[0][0] as TimeWindow[];
+    expect(saved).toHaveLength(1);
+    expect(saved[0].days_of_week).toEqual([1, 2, 3, 4, 5]);
+    // 本地 IANA 名（与组件同源取法）；空窗+新窗 → 新窗即 saved[0]
+    expect(saved[0].timezone).toBe(Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC");
+    // 维度选中态 = 周几（radio data-state）
+    expect(container.querySelector("#dim-0-week")).toHaveAttribute("data-state", "on");
+  });
 });
