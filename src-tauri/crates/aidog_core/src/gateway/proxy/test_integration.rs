@@ -3347,6 +3347,42 @@ async fn chat_peak_disabled_503_and_audit_log() {
     assert_eq!(log.blocked_reason, "peak");
 }
 
+/// 高峰禁用开关再关掉（extra 移除 disable_during_peak 键，前端 false=删键语义）后恢复路由。
+#[tokio::test]
+async fn chat_peak_disabled_toggle_off_restores_routing() {
+    let state = make_state(test_db().await).await;
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    setup_group_with_upstream(&state, "gkpeakoff", &upstream).await;
+    set_all_platforms_peak_disabled(&state).await;
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkpeakoff", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE, "开启时应 503 peak");
+
+    // 关闭：键从 extra 删除（峰值窗口保留），update_platform 持久化后应恢复转发
+    for p in aidog_db::list_platforms(&state.db).await.unwrap() {
+        aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+            join_group_ids: None, expires_at: None, quota_source: None,
+        })
+        .await
+        .unwrap();
+    }
+
+    let resp2 = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkpeakoff", r#"{"model":"claude-3","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp2.status(), StatusCode::OK, "关闭后应恢复 200 转发");
+}
+
 /// 票 06（用户裁决 2026-10-16）：分组平台 platform_type 为枚举外值（协议未知）→
 /// 503 + proxy_log blocked_by='router', blocked_reason='unknown_protocol', est_cost=0。
 /// DB 直写脏值模拟降级读新数据（UpdatePlatform API 走 Option<Protocol>，写不进枚举外值）。
