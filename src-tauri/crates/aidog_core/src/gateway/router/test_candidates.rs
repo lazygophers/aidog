@@ -3,6 +3,7 @@ use super::super::ordering::{apply_coding_plan_priority, is_coding_plan};
 use super::super::test_mod::{mk_gp, mk_gp_cp};
 use super::*;
 use aidog_db as db;
+use aidog_db::models::{RouteReason, RouteTag, UpdatePlatform};
 use aidog_stats::DbInitTables;
 
 async fn mk_test_db() -> db::Db {
@@ -2192,4 +2193,242 @@ async fn passthrough_manual_disabled_and_expired_still_excluded() {
         !set.candidates.iter().any(|c| c.platform.id == p.id),
         "expired passthrough must stay excluded"
     );
+}
+
+// ── 票 01：路由决策快照——排除原因标签逐个覆盖 ──
+
+async fn disable_platform(db: &db::Db, id: u64) {
+    db::update_platform(
+        db,
+        aidog_db::models::UpdatePlatform {
+            id,
+            status: Some(PlatformStatus::Disabled),
+                    name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("disable platform");
+}
+
+/// 手动禁用：快照带 disabled-manual 标签，选中候选不带走。
+/// 注意候选须有两个 Enabled 平台，否则命中 sole_platform 单启用短路（不进 filter）。
+#[tokio::test]
+async fn snapshot_labels_manual_disabled() {
+    let db = mk_test_db().await;
+    let live = mk_db_platform(&db, "LIVE").await;
+    let live2 = mk_db_platform(&db, "LIVE2").await;
+    let off = mk_db_platform(&db, "OFF").await;
+    disable_platform(&db, off.id).await;
+    let g = mk_db_group(&db, "g-manual", &[live.id, live2.id, off.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("live candidate available");
+    assert_eq!(set.candidates.len(), 2);
+    assert_eq!(set.routing.entries.len(), 3);
+    let e_live = set.routing.entries.iter().find(|e| e.platform_id == live.id).unwrap();
+    let e_off = set.routing.entries.iter().find(|e| e.platform_id == off.id).unwrap();
+    assert_eq!(e_live.reason, RouteReason::Selected);
+    assert_eq!(e_live.order, 1);
+    assert_eq!(e_off.reason, RouteReason::DisabledManual);
+    assert_eq!(set.routing.mode, Some(g.routing_mode));
+}
+
+/// 熔断：Reject 的候选带 breaker 标签（非回退路径）。
+#[tokio::test]
+async fn snapshot_labels_breaker_rejected() {
+    let db = mk_test_db().await;
+    let broken = mk_db_platform(&db, "BROKEN").await;
+    let live = mk_db_platform(&db, "LIVE").await;
+    let g = mk_db_group(&db, "g-breaker", &[broken.id, live.id]).await;
+
+    let sched = SchedulerState::new();
+    let now = db::now();
+    let th = BreakerThresholds {
+        failure_threshold: 1,
+        open_secs: 1800,
+        half_open_max: 2,
+    };
+    sched.inc_inflight(broken.id);
+    sched.record_failure(broken.id, &th, now);
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings {
+        enabled: true,
+        ..Default::default()
+    };
+    let ctx = ScheduleCtx {
+        scheduler: &sched,
+        sticky: &sticky,
+        settings: &settings,
+        sticky_key: None,
+    };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx), RequestKind::Chat)
+        .await
+        .expect("live candidate available");
+    assert_eq!(set.candidates.len(), 1);
+    let e_broken = set.routing.entries.iter().find(|e| e.platform_id == broken.id).unwrap();
+    assert_eq!(e_broken.reason, RouteReason::Breaker);
+}
+
+/// 高峰禁用：开关 on + 窗口命中（0-24 恒命中）→ peak-disabled 标签。
+#[tokio::test]
+async fn snapshot_labels_peak_disabled() {
+    let db = mk_test_db().await;
+    let peaky = mk_db_platform(&db, "PEAKY").await;
+    let live = mk_db_platform(&db, "LIVE").await;
+    db::update_platform(
+        &db,
+        aidog_db::models::UpdatePlatform {
+            id: peaky.id,
+            extra: Some(
+                r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#
+                    .into(),
+            ),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+            status: None,
+        },
+    )
+    .await
+    .expect("set peak extra");
+    let g = mk_db_group(&db, "g-peak", &[peaky.id, live.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("live candidate available");
+    let e_peaky = set.routing.entries.iter().find(|e| e.platform_id == peaky.id).unwrap();
+    assert_eq!(e_peaky.reason, RouteReason::PeakDisabled);
+    // 整组未全被高峰禁用 → 不触发 peak_disabled Err（行为不变）
+    assert_eq!(set.candidates.len(), 1);
+}
+
+/// 协议未知：unknown-protocol 标签；整组皆未知 → Err("unknown_protocol") 且快照随 Err 携带。
+#[tokio::test]
+async fn snapshot_labels_unknown_protocol_and_err_carries_snapshot() {
+    let db = mk_test_db().await;
+    let unknown = mk_db_platform_with(&db, "UNK", Protocol::Unknown, "").await;
+    let live = mk_db_platform(&db, "LIVE").await;
+    let g = mk_db_group(&db, "g-unknown", &[unknown.id, live.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("live candidate available");
+    let e_unknown = set.routing.entries.iter().find(|e| e.platform_id == unknown.id).unwrap();
+    assert_eq!(e_unknown.reason, RouteReason::UnknownProtocol);
+
+    let g_all_unknown = mk_db_group(&db, "g-unknown-all", &[unknown.id]).await;
+    let err = select_candidates_ctx(&db, &g_all_unknown, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect_err("all unknown must fail");
+    assert!(err == "unknown_protocol");
+    assert_eq!(err.routing.entries.len(), 1);
+    assert_eq!(err.routing.entries[0].reason, RouteReason::UnknownProtocol);
+}
+
+/// coding plan 上浮位置标签：cp 平台带 coding-plan 标签。
+#[tokio::test]
+async fn snapshot_tags_coding_plan_platform() {
+    let db = mk_test_db().await;
+    let cp = mk_db_platform_cp(&db, "CP").await;
+    let plain = mk_db_platform(&db, "PLAIN").await;
+    let g = mk_db_group_mode(&db, "g-cp", &[plain.id, cp.id], RoutingMode::Failover).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("candidates available");
+    let e_cp = set.routing.entries.iter().find(|e| e.platform_id == cp.id).unwrap();
+    let e_plain = set.routing.entries.iter().find(|e| e.platform_id == plain.id).unwrap();
+    assert_eq!(e_cp.tags, vec![RouteTag::CodingPlan]);
+    assert!(e_plain.tags.is_empty());
+}
+
+/// 单平台组短路：成功路径落 selected 快照；peak 硬停 Err 快照带 peak-disabled。
+#[tokio::test]
+async fn snapshot_single_platform_selected_and_peak_blocked() {
+    let db = mk_test_db().await;
+    let only = mk_db_platform(&db, "ONLY").await;
+    db::update_platform(
+        &db,
+        aidog_db::models::UpdatePlatform {
+            id: only.id,
+            extra: Some(
+                r#"{"disable_during_peak":true,"peak":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#
+                    .into(),
+            ),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+            status: None,
+        },
+    )
+    .await
+    .expect("set peak extra");
+    let g = mk_db_group(&db, "g-single", &[only.id]).await;
+
+    let err = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect_err("single platform peak-disabled is hard stop");
+    assert!(err == "peak_disabled");
+    assert_eq!(err.routing.entries.len(), 1);
+    assert_eq!(err.routing.entries[0].reason, RouteReason::PeakDisabled);
+}
+
+async fn mk_db_platform_with(
+    db: &db::Db,
+    name: &str,
+    platform_type: Protocol,
+    extra: &str,
+) -> Platform {
+    db::create_platform(
+        db,
+        CreatePlatform {
+            name: name.into(),
+            platform_type,
+            base_url: "https://example.invalid".into(),
+            api_key: "k".into(),
+            extra: extra.into(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("create platform")
 }

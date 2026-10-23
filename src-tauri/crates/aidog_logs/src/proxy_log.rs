@@ -3,7 +3,7 @@ use aidog_db::{Db, incremental_vacuum_conn, now, retention_cutoff_secs};
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
-const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted";
+const PROXY_LOG_COLUMNS: &str = "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, cache_write_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, done, field_trace, body_omitted, routing";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog> {
@@ -44,6 +44,7 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<aidog_db::models::ProxyLog
         done: row.get::<_, i64>(33)? == 1,
         field_trace: row.get(34)?,
         body_omitted: row.get::<_, i64>(35)? == 1,
+        routing: aidog_db::models::parse_routing(&row.get::<_, String>(36)?),
     })
 }
 
@@ -110,13 +111,14 @@ pub fn upsert_proxy_log(
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             let attempts_str = aidog_db::models::serialize_attempts(&log.attempts);
+            let routing_str = aidog_db::models::serialize_routing(&log.routing);
             // 固定 SQL（列序常量）→ prepare_cached 命中 rusqlite statement cache，省每次写的 prepare 开销
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37)"),
             )?;
             stmt.execute(
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.cache_write_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.done as i64, log.field_trace, log.body_omitted as i64, routing_str],
             )?;
             Ok(())
         })
@@ -182,6 +184,8 @@ pub struct ProxyLogColumns {
     /// `ProxyLog.body_omitted`。in-flight 快照保留本字段（`into_snapshot_meta` 不清），
     /// process_upsert 与快照值取 OR —— 单调 sticky，不随后续节点回落。
     pub body_omitted: i64,
+    /// 路由决策快照（票 01）JSON 串，空串 = 无快照。元数据：不参与两侧 strip。
+    pub routing: String,
 }
 
 /// 渐进式 UPDATE 的列绑定（列名 + SQL 绑定值）。
@@ -274,6 +278,7 @@ impl ProxyLogColumns {
             est_cost: log.est_cost,
             is_stream: log.is_stream as i64,
             attempts: aidog_db::models::serialize_attempts(&log.attempts),
+            routing: aidog_db::models::serialize_routing(&log.routing),
             retry_count: log.retry_count,
             blocked_by: log.blocked_by.clone(),
             blocked_reason: log.blocked_reason.clone(),
@@ -335,6 +340,7 @@ impl ProxyLogColumns {
         diff!("done", done);
         diff!("field_trace", field_trace);
         diff!("body_omitted", body_omitted);
+        diff!("routing", routing);
         out
     }
 
@@ -434,10 +440,10 @@ pub fn insert_proxy_log_columns(
             // 固定 SQL（列序常量）→ prepare_cached 命中 statement cache（渐进式日志首节点高频）
             let mut stmt = conn.prepare_cached(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36)"),
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33,?34,?35,?36,?37)"),
             )?;
             stmt.execute(
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.cache_write_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.done, cols.field_trace, cols.body_omitted, cols.routing],
             )?;
             Ok(())
         })
@@ -1491,5 +1497,112 @@ mod test_upsert_gate {
                 "strip_user={su} strip_upstream={sup}: 两条路径清空的列不一致"
             );
         }
+    }
+}
+
+/// 路由决策快照（票 01）：wire 词名 + 落库 roundtrip + 元数据归位（不进两侧原始信息）。
+#[cfg(test)]
+mod test_routing_snapshot {
+    use super::super::{get_proxy_log, strip_raw_sides, upsert_proxy_log};
+    use aidog_db::models::{
+        ProxyLog, RouteCandidate, RouteReason, RouteTag, RoutingSnapshot, RoutingMode,
+    };
+    use aidog_db::Db;
+
+    fn sample_snapshot() -> RoutingSnapshot {
+        RoutingSnapshot {
+            mode: Some(RoutingMode::Failover),
+            entries: vec![RouteCandidate {
+                order: 1,
+                platform: "p1".into(),
+                platform_id: 7,
+                level_priority: 5,
+                priority: 0,
+                reason: RouteReason::Selected,
+                tags: vec![RouteTag::CodingPlan, RouteTag::Sticky],
+            }],
+        }
+    }
+
+    #[test]
+    fn route_reason_wire_names_are_kebab() {
+        let s = |r: RouteReason| serde_json::to_string(&r).unwrap();
+        assert_eq!(s(RouteReason::Selected), "\"selected\"");
+        assert_eq!(s(RouteReason::DisabledManual), "\"disabled-manual\"");
+        assert_eq!(s(RouteReason::DisabledAuto), "\"disabled-auto\"");
+        assert_eq!(s(RouteReason::PeakDisabled), "\"peak-disabled\"");
+        assert_eq!(s(RouteReason::Breaker), "\"breaker\"");
+        assert_eq!(s(RouteReason::QuotaCooldown), "\"quota-cooldown\"");
+        assert_eq!(s(RouteReason::AuthCooldown), "\"auth-cooldown\"");
+        assert_eq!(s(RouteReason::UnknownProtocol), "\"unknown-protocol\"");
+        assert_eq!(s(RouteReason::KindUnsupported), "\"kind-unsupported\"");
+        assert_eq!(
+            s(RouteReason::ModelNotOnPlatform),
+            "\"model-not-on-platform\""
+        );
+        assert_eq!(
+            s(RouteReason::SkippedDeadUpstream),
+            "\"skipped-dead-upstream\""
+        );
+        let t = |r: RouteTag| serde_json::to_string(&r).unwrap();
+        assert_eq!(t(RouteTag::MappingPromoted), "\"mapping-promoted\"");
+        assert_eq!(t(RouteTag::CodingPlan), "\"coding-plan\"");
+        assert_eq!(t(RouteTag::Demoted), "\"demoted\"");
+        assert_eq!(t(RouteTag::Sticky), "\"sticky\"");
+    }
+
+    #[test]
+    fn parse_routing_empty_and_bad_json_fall_back_to_none() {
+        assert_eq!(aidog_db::models::parse_routing(""), None);
+        assert_eq!(aidog_db::models::parse_routing("not-json"), None);
+    }
+
+    #[tokio::test]
+    async fn routing_roundtrip_via_db_and_untouched_by_side_switches() {
+        let db = Db::new(":memory:").await.unwrap();
+        aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+            .await
+            .unwrap();
+        let mut log = ProxyLog {
+            id: "rt1".into(),
+            group_key: "gk".into(),
+            routing: Some(sample_snapshot()),
+            ..Default::default()
+        };
+        log.done = true;
+        upsert_proxy_log(&db, log.clone()).await.unwrap();
+        // 两侧开关全关（原始信息全清）：快照是元数据，必须原样保留
+        strip_raw_sides(&mut log, true, true);
+        upsert_proxy_log(&db, log).await.unwrap();
+
+        let got = get_proxy_log(&db, "rt1").await.unwrap().expect("row");
+        let rs = got.routing.expect("routing roundtrip");
+        assert_eq!(rs.mode, Some(RoutingMode::Failover));
+        assert_eq!(rs.entries.len(), 1);
+        assert_eq!(rs.entries[0].platform, "p1");
+        assert_eq!(rs.entries[0].platform_id, 7);
+        assert_eq!(rs.entries[0].reason, RouteReason::Selected);
+        assert_eq!(rs.entries[0].tags, vec![RouteTag::CodingPlan, RouteTag::Sticky]);
+        assert_eq!(got.request_body, "", "用户侧应被 strip");
+        assert_eq!(got.response_body, "", "上游侧应被 strip");
+    }
+
+    #[test]
+    fn mark_dead_upstream_only_flips_selected() {
+        let mut rs = sample_snapshot();
+        rs.entries.push(RouteCandidate {
+            order: 2,
+            platform: "p2".into(),
+            platform_id: 8,
+            level_priority: 5,
+            priority: 1,
+            reason: RouteReason::PeakDisabled,
+            tags: Vec::new(),
+        });
+        rs.mark_dead_upstream(7);
+        rs.mark_dead_upstream(8);
+        rs.mark_dead_upstream(999);
+        assert_eq!(rs.entries[0].reason, RouteReason::SkippedDeadUpstream);
+        assert_eq!(rs.entries[1].reason, RouteReason::PeakDisabled);
     }
 }

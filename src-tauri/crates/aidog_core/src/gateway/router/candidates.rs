@@ -6,17 +6,59 @@ use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, Sti
 use super::super::time_windows;
 use super::model_mapping::{resolve_decision_model, resolve_model};
 use super::ordering::{
-    apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_load_balance,
+    apply_coding_plan_priority, apply_sticky, expiry_sort_key, is_coding_plan,
+    order_load_balance,
 };
 use super::{RouteResult, candidate_state, sole_platform};
 use aidog_db as db;
+use aidog_db::models::{RouteCandidate, RouteReason, RouteTag, RoutingSnapshot};
 use std::collections::{HashMap, HashSet};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
 /// `target_model` / `mapping` 对每个候选独立解析：显式映射命中时先把模型名换成映射目标名，
 /// 再按各平台 PlatformModels 槽位匹配（映射不跳过槽位规则）。
+#[derive(Debug)]
 pub struct CandidateSet {
     pub candidates: Vec<RouteResult>,
+    /// 路由决策快照（票 01）：随 proxy_log.routing 落库。
+    pub routing: RoutingSnapshot,
+}
+
+/// 路由失败：`reason` 语义与旧 `String` 错误完全一致（audit 字面量匹配经
+/// Deref<Target=str> / PartialEq<&str> / Display 兼容），额外携带已评估快照，
+/// 供调用方随 proxy_log.routing 落库（票 01）。
+#[derive(Debug, Clone)]
+pub struct RouteFail {
+    pub reason: String,
+    pub routing: RoutingSnapshot,
+}
+
+impl std::fmt::Display for RouteFail {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.reason)
+    }
+}
+
+impl std::ops::Deref for RouteFail {
+    type Target = str;
+    fn deref(&self) -> &str {
+        &self.reason
+    }
+}
+
+impl PartialEq<&str> for RouteFail {
+    fn eq(&self, other: &&str) -> bool {
+        self.reason == *other
+    }
+}
+
+impl From<String> for RouteFail {
+    fn from(reason: String) -> Self {
+        Self {
+            reason,
+            routing: RoutingSnapshot::default(),
+        }
+    }
 }
 
 /// 请求类型（jev-decision-proxy §3.3.3）：候选过滤按类型剔除不支持的平台。
@@ -142,7 +184,7 @@ pub async fn select_candidates(
     db: &db::Db,
     group: &Group,
     source_model: &str,
-) -> Result<CandidateSet, String> {
+) -> Result<CandidateSet, RouteFail> {
     select_candidates_ctx(db, group, source_model, None, RequestKind::Chat).await
 }
 
@@ -154,7 +196,7 @@ pub async fn select_candidates_ctx(
     source_model: &str,
     ctx: Option<&ScheduleCtx<'_>>,
     kind: RequestKind,
-) -> Result<CandidateSet, String> {
+) -> Result<CandidateSet, RouteFail> {
     let mapping = group
         .model_mappings
         .iter()
@@ -162,9 +204,11 @@ pub async fn select_candidates_ctx(
     let mapped_target_model = mapping.map(|m| m.target_model.clone());
     let mapped_platform_id = mapping.map(|m| m.target_platform_id).filter(|id| *id != 0);
 
-    let group_platforms = db::get_group_platforms(db, group.id).await?;
+    let group_platforms = db::get_group_platforms(db, group.id)
+        .await
+        .map_err(RouteFail::from)?;
     if group_platforms.is_empty() {
-        return Err("group has no platforms".to_string());
+        return Err("group has no platforms".to_string().into());
     }
 
     // ── 阶段 -0.5: 请求类型维度（jev-decision-proxy）──
@@ -185,7 +229,7 @@ pub async fn select_candidates_ctx(
             group = %group.name, target_platform_id = target_id,
             "mapped target platform does not support this request kind"
         );
-        return Err(kind.no_platform_err().to_string());
+        return Err(kind.no_platform_err().to_string().into());
     }
 
     let now_ms = db::now();
@@ -226,6 +270,7 @@ pub async fn select_candidates_ctx(
         mut active,
         mut probe,
         breaker_rejected,
+        mut excluded,
         peak_disabled_count,
         kind_rejected_count,
         unknown_protocol_count,
@@ -234,7 +279,8 @@ pub async fn select_candidates_ctx(
     // ── 阶段 2: 熔断全空回退透传 ──
     // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
     // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err）。
-    if active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty() {
+    let breaker_bypass = active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty();
+    if breaker_bypass {
         tracing::warn!(
             group = %group.name, rejected = breaker_rejected.len(),
             "all candidates circuit-broken; bypassing breaker to passthrough real upstream status"
@@ -246,10 +292,18 @@ pub async fn select_candidates_ctx(
                 None => {}
             }
         }
+    } else {
+        // 非回退路径：熔断踢出的候选不再参与本次路由 → 进排除清单（票 01 快照）。
+        excluded.extend(
+            breaker_rejected
+                .into_iter()
+                .map(|(gp, _)| (gp, RouteReason::Breaker)),
+        );
     }
 
     // ── 阶段 3: 按路由模式排序 ──
-    sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
+    let (sticky_id, demoted_ids) =
+        sort_by_routing_mode(&mut active, &mut probe, effective_mode, ctx, now_ms);
 
     // ── 阶段 4: 合并 + 映射提升 ──
     // 显式映射目标平台不在候选集时记录 warn（沿用原逻辑）
@@ -265,6 +319,55 @@ pub async fn select_candidates_ctx(
     }
     let ordered = merge_and_promote_mapping(active, probe, mapped_platform_id);
 
+    // ── 票 01: 路由决策快照 ── 选中者按最终尝试顺序 + 位置标签；排除者附细分原因。
+    let mut entries: Vec<RouteCandidate> = ordered
+        .iter()
+        .enumerate()
+        .map(|(i, gp)| {
+            let mut tags = Vec::new();
+            if mapped_platform_id == Some(gp.platform.id) {
+                tags.push(RouteTag::MappingPromoted);
+            }
+            if is_coding_plan(&gp.platform) {
+                tags.push(RouteTag::CodingPlan);
+            }
+            if demoted_ids.contains(&gp.platform.id) {
+                tags.push(RouteTag::Demoted);
+            }
+            if sticky_id == Some(gp.platform.id) {
+                tags.push(RouteTag::Sticky);
+            }
+            RouteCandidate {
+                order: (i + 1) as u32,
+                platform: gp.platform.name.clone(),
+                platform_id: gp.platform.id,
+                level_priority: gp.level_priority,
+                priority: gp.priority,
+                reason: RouteReason::Selected,
+                tags,
+            }
+        })
+        .collect();
+    let selected_count = entries.len() as u32;
+    entries.extend(
+        excluded
+            .iter()
+            .enumerate()
+            .map(|(i, (gp, reason))| RouteCandidate {
+                order: selected_count + i as u32 + 1,
+                platform: gp.platform.name.clone(),
+                platform_id: gp.platform.id,
+                level_priority: gp.level_priority,
+                priority: gp.priority,
+                reason: *reason,
+                tags: Vec::new(),
+            }),
+    );
+    let routing = RoutingSnapshot {
+        mode: Some(effective_mode),
+        entries,
+    };
+
     // ── 阶段 5: 空候选处理 ──
     if ordered.is_empty() {
         // 整组所有候选是未知协议（DB platform_type 枚举外，票 06）→ 返特殊 Err，
@@ -275,7 +378,10 @@ pub async fn select_candidates_ctx(
                 group = %group.name, unknown_protocol = unknown_protocol_count,
                 "all candidates have unknown protocol; returning unknown_protocol error for audit log"
             );
-            return Err("unknown_protocol".to_string());
+            return Err(RouteFail {
+                reason: "unknown_protocol".to_string(),
+                routing,
+            });
         }
         // 整组所有候选被高峰禁用排除 → 返特殊 Err，caller handler.rs 据此落审计 proxy_log
         // (blocked_by='router', blocked_reason='peak', est_cost=0, status_code=503)。
@@ -285,7 +391,10 @@ pub async fn select_candidates_ctx(
                 group = %group.name, peak_disabled = peak_disabled_count,
                 "all candidates peak-disabled; returning peak_disabled error for audit log"
             );
-            return Err("peak_disabled".to_string());
+            return Err(RouteFail {
+                reason: "peak_disabled".to_string(),
+                routing,
+            });
         }
         // 整组所有候选被请求类型维度剔除 → 返特殊 Err，caller 落审计 proxy_log
         // (blocked_by='router', blocked_reason=no_decision_platform / no_chat_platform, status_code=400)。
@@ -294,11 +403,16 @@ pub async fn select_candidates_ctx(
                 group = %group.name, kind = ?kind, kind_rejected = kind_rejected_count,
                 "all candidates rejected by request kind"
             );
-            return Err(kind.no_platform_err().to_string());
+            return Err(RouteFail {
+                reason: kind.no_platform_err().to_string(),
+                routing,
+            });
         }
-        return Err(
-            "no available platform (all disabled, backing off, or circuit-broken)".to_string(),
-        );
+        return Err(RouteFail {
+            reason: "no available platform (all disabled, backing off, or circuit-broken)"
+                .to_string(),
+            routing,
+        });
     }
 
     // ── 阶段 6: 生成最终候选 ──
@@ -320,7 +434,7 @@ pub async fn select_candidates_ctx(
         "candidates selected"
     );
 
-    Ok(CandidateSet { candidates })
+    Ok(CandidateSet { candidates, routing })
 }
 
 // ── Helper: 单平台分组短路逻辑 ──
@@ -340,14 +454,17 @@ async fn handle_single_platform(
     extra_cache: &ExtraCacheMap,
     kind: RequestKind,
     decision_models: &DecisionModels,
-) -> Result<CandidateSet, String> {
+) -> Result<CandidateSet, RouteFail> {
     // 未知协议（票 06）：无 wire 格式可转，唯一硬停之一（照 peak_disabled 先例，caller 落审计）。
     if matches!(only.platform.platform_type, Protocol::Unknown) {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: unknown protocol, request blocked"
         );
-        return Err("unknown_protocol".to_string());
+        return Err(RouteFail {
+            reason: "unknown_protocol".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::UnknownProtocol),
+        });
     }
 
     // 请求类型不匹配也是硬停（R5：单平台短路同样检查，2026-09-30 复核拍板）。
@@ -356,12 +473,18 @@ async fn handle_single_platform(
             group = %group.name, platform = %only.platform.name, kind = ?kind,
             "single-platform group: request kind unsupported"
         );
-        return Err(kind.no_platform_err().to_string());
+        return Err(RouteFail {
+            reason: kind.no_platform_err().to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::KindUnsupported),
+        });
     }
 
     // 手动 Disabled 是唯一硬停
     if only.platform.status == PlatformStatus::Disabled {
-        return Err("group's only platform is manually disabled".to_string());
+        return Err(RouteFail {
+            reason: "group's only platform is manually disabled".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::DisabledManual),
+        });
     }
 
     // 审核拒绝自动禁用是硬停：即使单平台组也不能绕过，否则同一 session 会再次撞回。
@@ -372,7 +495,10 @@ async fn handle_single_platform(
         && only.platform.auto_disabled_until > now_ms
         && only.platform.last_error.contains("[censorship_blocked]")
     {
-        return Err("group's only platform is censorship-blocked".to_string());
+        return Err(RouteFail {
+            reason: "group's only platform is censorship-blocked".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::DisabledAuto),
+        });
     }
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）；
@@ -389,7 +515,10 @@ async fn handle_single_platform(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: peak-disabled, request blocked"
         );
-        return Err("peak_disabled".to_string());
+        return Err(RouteFail {
+            reason: "peak_disabled".to_string(),
+            routing: single_snapshot(only, group.routing_mode, RouteReason::PeakDisabled),
+        });
     }
 
     // 时段模型：从缓存获取 time_windows，再用 resolve_model
@@ -417,16 +546,41 @@ async fn handle_single_platform(
             target_model,
             mapping: mapping.cloned(),
         }],
+        routing: single_snapshot(only, group.routing_mode, RouteReason::Selected),
     })
+}
+
+/// 单平台组快照（票 01）：唯一候选一个条目，排除时带原因。
+fn single_snapshot(
+    only: &GroupPlatformDetail,
+    mode: RoutingMode,
+    reason: RouteReason,
+) -> RoutingSnapshot {
+    RoutingSnapshot {
+        mode: Some(mode),
+        entries: vec![RouteCandidate {
+            order: 1,
+            platform: only.platform.name.clone(),
+            platform_id: only.platform.id,
+            level_priority: only.level_priority,
+            priority: only.priority,
+            reason,
+            tags: Vec::new(),
+        }],
+    }
 }
 
 // ── Helper: 候选分桶过滤 ──
 
-/// 候选分桶结果：active（健康/已过期试探）、probe（退避中）、breaker_rejected（熔断踢出）、peak_disabled_count
+/// 候选分桶结果：active（健康/已过期试探）、probe（退避中）、breaker_rejected（熔断踢出）、
+/// excluded（票 01 排除候选 + 细分原因）、peak_disabled_count。
 struct FilteredCandidates<'a> {
     active: Vec<&'a GroupPlatformDetail>,
     probe: Vec<&'a GroupPlatformDetail>,
     breaker_rejected: Vec<(&'a GroupPlatformDetail, Option<bool>)>,
+    /// 排除候选 + 细分原因（取代旧「手动禁用/auto_disabled/高峰禁用三合一」，票 01）。
+    excluded: Vec<(&'a GroupPlatformDetail, RouteReason)>,
+    /// 仍按旧窗口判定计数（阶段 5 audit Err 语义不变，见 CLAUDE.md peak 段）。
     peak_disabled_count: usize,
     kind_rejected_count: usize,
     unknown_protocol_count: usize,
@@ -434,7 +588,7 @@ struct FilteredCandidates<'a> {
 
 /// 遍历 group_platforms 按 auto_disabled 三态分桶（enabled / 过期试探），
 /// 再叠加配额冷却（429 配额耗尽，内存态，不改 DB status）与熔断准入门
-/// （Open/HalfOpen 满踢出），高峰禁用计数。
+/// （Open/HalfOpen 满踢出），高峰禁用计数。排除候选逐个带细分原因标签（票 01）。
 fn filter_candidates<'a>(
     group_platforms: &'a [GroupPlatformDetail],
     ctx: Option<&ScheduleCtx<'_>>,
@@ -447,6 +601,7 @@ fn filter_candidates<'a>(
     let mut active = Vec::new();
     let mut probe = Vec::new();
     let mut breaker_rejected = Vec::new();
+    let mut excluded: Vec<(&GroupPlatformDetail, RouteReason)> = Vec::new();
     let mut peak_disabled_count = 0;
     let mut kind_rejected_count = 0;
     let mut unknown_protocol_count = 0;
@@ -458,6 +613,7 @@ fn filter_candidates<'a>(
         // （无 wire 格式可转，路由必错）；整组皆未知 → 阶段 5 返 Err("unknown_protocol")。
         if matches!(gp.platform.platform_type, Protocol::Unknown) {
             unknown_protocol_count += 1;
+            excluded.push((gp, RouteReason::UnknownProtocol));
             continue;
         }
 
@@ -465,6 +621,7 @@ fn filter_candidates<'a>(
         // 纯决策平台 / 无决策能力的平台不进任何桶）。
         if !platform_supports_kind(&gp.platform, kind, decision_models) {
             kind_rejected_count += 1;
+            excluded.push((gp, RouteReason::KindUnsupported));
             continue;
         }
 
@@ -478,6 +635,7 @@ fn filter_candidates<'a>(
             if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
+            excluded.push((gp, exclude_reason_for_state(gp, now_ms, source_model, extra_cache)));
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
         }
 
@@ -496,10 +654,12 @@ fn filter_candidates<'a>(
             && (c.scheduler.quota_cooled(gp.platform.id, now_ms)
                 || c.scheduler.auth_cooled(gp.platform.id, now_ms))
         {
-            tracing::debug!(
-                platform_id = gp.platform.id, platform = %gp.platform.name,
-                "candidate skipped: quota/auth cooldown (memory-only)"
-            );
+            let reason = if c.scheduler.quota_cooled(gp.platform.id, now_ms) {
+                RouteReason::QuotaCooldown
+            } else {
+                RouteReason::AuthCooldown
+            };
+            excluded.push((gp, reason));
             continue;
         }
 
@@ -533,23 +693,50 @@ fn filter_candidates<'a>(
         active,
         probe,
         breaker_rejected,
+        excluded,
         peak_disabled_count,
         kind_rejected_count,
         unknown_protocol_count,
     }
 }
 
+/// `candidate_state` 返 None 时的排除原因归因（票 01）。归因顺序镜像 candidate_state
+/// 的分支顺序（过期 → 高峰 → status），标签与「谁被排除」的既有判定同源。
+fn exclude_reason_for_state(
+    gp: &GroupPlatformDetail,
+    now_ms: i64,
+    source_model: &str,
+    extra_cache: &ExtraCacheMap,
+) -> RouteReason {
+    // 过期（expires_at 独立维度，等效自动禁用——candidate_state 文档口径）
+    if gp.platform.expires_at > 0 && now_ms >= gp.platform.expires_at {
+        return RouteReason::DisabledAuto;
+    }
+    // 高峰禁用：开关 on + 命中窗口（缺一不可）
+    if let Some(c) = extra_cache.get(&gp.platform.id)
+        && c.disable_during_peak
+        && is_in_peak_window_cached(&c.peak_windows, now_ms, source_model)
+    {
+        return RouteReason::PeakDisabled;
+    }
+    if gp.platform.status == PlatformStatus::Disabled {
+        return RouteReason::DisabledManual;
+    }
+    RouteReason::DisabledAuto
+}
+
 // ── Helper: 按路由模式排序 ──
 
 /// 按路由模式对 active/probe 桶排序（Failover/LoadBalance/Sticky）。
+/// 返回 (sticky 提首的平台 id, 失败降权沉底的平台 id 集)（票 01 位置标签采集）。
 fn sort_by_routing_mode(
     active: &mut Vec<&GroupPlatformDetail>,
     probe: &mut Vec<&GroupPlatformDetail>,
     mode: RoutingMode,
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
-) {
-    match mode {
+) -> (Option<u64>, Vec<u64>) {
+    let sticky_id = match mode {
         RoutingMode::Failover => {
             active.sort_by_key(|gp| {
                 (
@@ -567,29 +754,33 @@ fn sort_by_routing_mode(
             });
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
+            None
         }
         RoutingMode::LoadBalance | RoutingMode::HealthAware => {
             order_load_balance(active, now_ms);
             order_load_balance(probe, now_ms);
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
+            None
         }
         RoutingMode::Sticky => {
             order_load_balance(active, now_ms);
             order_load_balance(probe, now_ms);
             apply_coding_plan_priority(active);
             apply_coding_plan_priority(probe);
-            apply_sticky(active, ctx, now_ms);
+            apply_sticky(active, ctx, now_ms)
         }
-    }
+    };
 
     // ── 失败降权沉底（health-aware，2026-09-29）：降权窗口内的平台整体沉到 active 桶
     //    末尾（降权平台之间保持 mode 排序原序），probe 桶本身已是末位试探层不重复处理。
     //    放在 apply_coding_plan_priority 之后：降权优先级高于 coding plan 上浮。
+    let mut demoted_ids = Vec::new();
     if let Some(c) = ctx {
         let mut demoted = Vec::new();
         active.retain(|gp| {
             if c.scheduler.penalty_active(gp.platform.id, now_ms) {
+                demoted_ids.push(gp.platform.id);
                 demoted.push(*gp);
                 false
             } else {
@@ -598,6 +789,7 @@ fn sort_by_routing_mode(
         });
         active.extend(demoted);
     }
+    (sticky_id, demoted_ids)
 }
 
 // ── Helper: 合并 + 映射提升 ──

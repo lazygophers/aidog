@@ -1,6 +1,6 @@
 //! 代理日志模型：完整日志行 / 平台用量统计 / 测试结果 / 列表摘要 / 筛选 / 日志设置。
 
-use super::ProxyAttempt;
+use super::{ProxyAttempt, RoutingMode};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -97,6 +97,11 @@ pub struct ProxyLog {
     /// （不写占位文字，CLAUDE.md「Proxy 日志」段）。存量行 0 = 历史无降级。
     #[serde(default)]
     pub body_omitted: bool,
+    /// 路由决策快照（代理日志-路由决策直观化 票 01）：本次请求的路由评估全程。
+    /// 元数据：恒落库，不受 log_user_request / log_upstream_request 开关控制，
+    /// 不进 strip_raw_sides / ProxyLogColumns::from_log 的两侧「原始信息」列集。
+    #[serde(default)]
+    pub routing: Option<RoutingSnapshot>,
 }
 
 impl ProxyLog {
@@ -111,6 +116,116 @@ impl ProxyLog {
         self.done = true;
         self
     }
+}
+
+// ── 路由决策快照（代理日志-路由决策直观化 票 01）──
+//
+// proxy_log.routing JSON 列的形状，与 attempts 列同模式。TS 侧由 ts-rs 生成到
+// src/services/api/types/generated/（同 ProxyAttempt 模式）；RoutingMode 本身是
+// manual.ts 锁定 enum（无 TS derive），故 mode 字段用 ts(type) 覆写为宽类型。
+
+/// 候选条目的原因标签：`selected` = 进入最终尝试序列；其余为排除 / 跳过原因。
+/// serde rename（kebab-case）即 wire 值，与 TS 侧字面量逐字一致。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum RouteReason {
+    /// 选中（进入最终尝试序列）
+    Selected,
+    /// 手动禁用（status=Disabled）
+    DisabledManual,
+    /// 自动禁用未到期（AutoDisabled 未到退避试探时间）/ 已过期（expires_at，等效自动禁用）
+    DisabledAuto,
+    /// 高峰期禁用（disable_during_peak 开 + 命中 peak 窗口）
+    PeakDisabled,
+    /// 熔断（准入门 Reject；整组熔断回退时回填为 selected）
+    Breaker,
+    /// 配额冷却（429 重置前不调度，内存态）
+    QuotaCooldown,
+    /// 认证冷却（401 权限 / 402 余额，内存态）
+    AuthCooldown,
+    /// 协议未知（DB platform_type 枚举外，票 06）
+    UnknownProtocol,
+    /// 请求类型不支持（Chat/Decision 维度剔除，jev-decision-proxy R2/R3）
+    KindUnsupported,
+    /// 模型不在此平台（预留：现路由无此排除维度，枚举先行供票 02 UI 渲染）
+    ModelNotOnPlatform,
+    /// 死站跳过（重试循环内同 base_url 已 connect 失败，handler.rs R3 补记）
+    SkippedDeadUpstream,
+}
+
+/// 候选条目的位置标签（排序阶段的位置变化）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, TS)]
+#[serde(rename_all = "kebab-case")]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub enum RouteTag {
+    /// 分组 model_mappings 显式指定，提到最前
+    MappingPromoted,
+    /// coding plan 上浮
+    CodingPlan,
+    /// 失败降权沉底（health-aware penalty 窗口）
+    Demoted,
+    /// sticky 会话绑定命中，提到首位
+    Sticky,
+}
+
+/// 单个候选平台的路由评估结果。
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RouteCandidate {
+    /// 排列序号（1 起；选中者按最终尝试顺序在前，排除者附后）
+    #[ts(type = "number")]
+    pub order: u32,
+    pub platform: String,
+    #[ts(type = "number")]
+    pub platform_id: u64,
+    /// per-group 平台优先级（1~10，10 最高）
+    #[ts(type = "number")]
+    pub level_priority: i32,
+    /// 同级内优先级（小者先）
+    #[ts(type = "number")]
+    pub priority: i32,
+    /// 原因标签
+    pub reason: RouteReason,
+    /// 位置标签（仅选中者携带）
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tags: Vec<RouteTag>,
+}
+
+/// 路由决策快照：单次请求的路由评估全程（proxy_log.routing 列）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct RoutingSnapshot {
+    /// 本次路由模式（load_balance / failover / health_aware / sticky）
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[ts(type = "string | null")]
+    pub mode: Option<RoutingMode>,
+    /// 候选平台
+    #[serde(default)]
+    pub entries: Vec<RouteCandidate>,
+}
+
+impl RoutingSnapshot {
+    /// 死站跳过补记（handler.rs 重试循环 R3）：把该候选标为 skipped-dead-upstream。
+    pub fn mark_dead_upstream(&mut self, platform_id: u64) {
+        for e in &mut self.entries {
+            if e.platform_id == platform_id && e.reason == RouteReason::Selected {
+                e.reason = RouteReason::SkippedDeadUpstream;
+            }
+        }
+    }
+}
+
+/// 序列化 routing 列（None / 序列化失败 → 空串）
+pub fn serialize_routing(r: &Option<RoutingSnapshot>) -> String {
+    r.as_ref()
+        .and_then(|s| serde_json::to_string(s).ok())
+        .unwrap_or_default()
+}
+
+/// 解析 routing 列（空串 / 坏 JSON → None）
+pub fn parse_routing(s: &str) -> Option<RoutingSnapshot> {
+    serde_json::from_str(s).ok()
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

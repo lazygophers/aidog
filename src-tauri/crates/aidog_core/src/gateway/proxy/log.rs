@@ -788,6 +788,7 @@ async fn process_connect_log(
         upstream_request_url: String::new(),
         upstream_response_headers: String::new(),
         upstream_status_code: 0,
+        routing: String::new(),
         user_response_headers: String::new(),
         user_response_body: String::new(),
         status_code,
