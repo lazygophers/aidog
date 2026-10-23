@@ -15,7 +15,8 @@
         "title": "AiDog",
         "width": 1026,
         "height": 759,
-        "resizable": true
+        "resizable": true,
+        "maximized": true
       }
     ],
     "security": {
