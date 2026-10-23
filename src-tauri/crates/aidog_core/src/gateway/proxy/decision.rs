@@ -153,8 +153,12 @@ pub(crate) async fn handle_decision(
     )
     .await
     {
-        Ok(c) => c,
+        Ok(c) => {
+            log.routing = Some(c.routing.clone());
+            c
+        }
         Err(e) => {
+            log.routing = Some(e.routing.clone());
             tracing::warn!(group = %group.name, error = %e, "decision route failed");
             return route_fail_response(state, log, log_settings, &e, start, lang).await;
         }

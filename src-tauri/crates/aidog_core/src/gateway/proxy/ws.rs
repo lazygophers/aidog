@@ -177,8 +177,12 @@ pub(crate) async fn handle_ws_passthrough(
     let candidate_set = match select_candidates_ctx(&state.db, &group, "", None, RequestKind::Chat)
         .await
     {
-        Ok(c) => c,
+        Ok(c) => {
+            log.routing = Some(c.routing.clone());
+            c
+        }
         Err(e) => {
+            log.routing = Some(e.routing.clone());
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.done = true;

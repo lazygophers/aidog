@@ -118,8 +118,12 @@ pub(crate) async fn handle_count_tokens(
     )
     .await
     {
-        Ok(c) => c,
+        Ok(c) => {
+            log.routing = Some(c.routing.clone());
+            c
+        }
         Err(e) => {
+            log.routing = Some(e.routing.clone());
             // 路由失败 → 本地估算兜底（不阻断 claude-cli）
             tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
             log.status_code = 200;
