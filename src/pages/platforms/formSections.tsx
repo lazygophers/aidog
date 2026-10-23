@@ -585,13 +585,6 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               </Button>
             </>
           )}
-          <button
-            type="button"
-            className={C.addBtnClass}
-            onClick={() => setBudgets([...budgets, newManualBudget()])}
-          >
-            + {t("platform.manualBudgetAdd", "添加限额")}
-          </button>
       </div>
       {budgets.map((b, idx) => {
         const update = (patch: Partial<ManualBudget>) =>
@@ -607,7 +600,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           }
         };
         return (
-          <div key={b.id} className={C.rowClass} style={C.row}>
+          <div key={b.id} className={C.rowClass} style={{ ...C.row, opacity: b.enabled ? undefined : 0.65 }}>
             <Select
               value={b.kind}
               onValueChange={(v) => onKindChange(v as ManualBudgetKind)}
@@ -622,6 +615,17 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                 <SelectItem value="daily">{t("platform.manualBudgetKindDaily", "每日")}</SelectItem>
               </SelectContent>
             </Select>
+            {/* 金额：C 方向稿大数字底边线输入（4-手动预算区.html .amt） */}
+            <Input
+              className="aidog-bignum"
+              type="number"
+              min={0}
+              step="any"
+              style={{ width: 100, flexShrink: 0, height: "auto", fontSize: 15, fontWeight: 300, border: 0, borderBottom: "1px solid var(--border)", borderRadius: 0, background: "transparent" }}
+              placeholder={t("platform.manualBudgetAmount", "额度")}
+              value={b.amount || ""}
+              onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
+            />
             <Select
               value={b.unit}
               onValueChange={(v) => update({ unit: v as ManualBudgetUnit })}
@@ -635,24 +639,14 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                 <SelectItem value="count">{t("platform.manualBudgetUnitCount", "次数")}</SelectItem>
               </SelectContent>
             </Select>
-            <Input
-              className="input"
-              type="number"
-              min={0}
-              step="any"
-              style={{ width: 100, flexShrink: 0 }}
-              placeholder={t("platform.manualBudgetAmount", "额度")}
-              value={b.amount || ""}
-              onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
-            />
-            {needsWindow && (
+            {needsWindow ? (
               <>
                 <Input
                   className="input"
                   type="number"
                   min={0}
                   step="any"
-                  style={{ width: 80, flexShrink: 0 }}
+                  style={{ width: 80, flexShrink: 0, textAlign: "center", fontVariantNumeric: "tabular-nums" }}
                   placeholder={t("platform.manualBudgetWindow", "窗口")}
                   value={b.window_hours ?? ""}
                   onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
@@ -673,6 +667,9 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
                   </SelectContent>
                 </Select>
               </>
+            ) : (
+              /* 无窗口类型（总额/每日）：破折号占位保持行内对齐（设计稿 .dash） */
+              <span style={{ color: "var(--text-tertiary)" }}>—</span>
             )}
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
               <Switch
@@ -685,7 +682,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               variant="ghost"
               size="icon"
               className="btn-danger"
-              style={{ flexShrink: 0, color: "var(--color-danger)" }}
+              style={{ flexShrink: 0, color: "var(--color-danger)", marginLeft: "auto" }}
               title={t("action.delete", "删除")}
               onClick={() => setBudgets(budgets.filter((_, i) => i !== idx))}
             >
@@ -696,6 +693,13 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
           </div>
         );
       })}
+      <button
+        type="button"
+        className={C.addBtnClass}
+        onClick={() => setBudgets([...budgets, newManualBudget()])}
+      >
+        + {t("platform.manualBudgetAdd", "添加限额")}
+      </button>
     </>
   );
 }
