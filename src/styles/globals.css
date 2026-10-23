@@ -1132,6 +1132,12 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     border-color: color-mix(in srgb, var(--primary) 35%, transparent);
   }
 
+  /* 限频区 RPM/TPM 大数字格 hover（3-限频区.html .cell:hover）；独立于 .aidog-rowcard（后者被测试当行卡计数器） */
+  .aidog-cell { transition: border-color .2s; }
+  .aidog-cell:hover {
+    border-color: color-mix(in srgb, var(--primary) 35%, transparent);
+  }
+
   .aidog-addbtn {
     font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm);
     border: 1px dashed var(--border); background: none; color: var(--text-secondary);
@@ -1147,6 +1153,10 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     border-color: var(--primary);
     box-shadow: 0 0 10px -4px var(--primary);
   }
+
+  /* 限频区 RPM/TPM 大数字底线输入（3-限频区.html .cell input）：右对齐 + 等宽数字 + 聚焦底线 accent */
+  .aidog-bignum { font-variant-numeric: tabular-nums; text-align: right; }
+  .aidog-bignum:focus { border-bottom-color: var(--primary); }
 
   /* 时间选择器弹层（WindowsEditModal TimePicker）：玻璃表面 + 深浅模式各自投影。
      弹层挂在 .aidog-stepper-val（inline position:relative）内，此处只声明弹层自身定位。 */
