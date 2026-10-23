@@ -7,6 +7,7 @@ import type { LogsDetailData } from "./useLogsDetail";
 import { formatDateTime } from "../../utils/formatters";
 import { makeRipple } from "../../components/shared";
 import { CopyCurlButtons } from "./CopyCurlButtons";
+import { RoutingCanvas } from "./RoutingCanvas";
 import { useProtocolLabel } from "../../domains/platforms/useProtocolMeta";
 import type { Protocol } from "../../services/api";
 import { Button } from "@/components/ui/button";
@@ -205,6 +206,16 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         ) : null}
         <MetaItem label={t("logs.time", "时间")} value={formatDateTime(detail.created_at) || "-"} copyText={formatDateTime(detail.created_at) || "-"} t={t} />
       </div>
+
+      {/* ── 路由决策画布（票 02：请求→路由→平台→响应 workflow；快照为空显示占位）── */}
+      <RoutingCanvas
+        routing={detail.routing}
+        attempts={detail.attempts}
+        platformMap={platformMap}
+        durationMs={detail.duration_ms}
+        statusCode={detail.status_code}
+        t={t}
+      />
 
       {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}
       {detail.attempts && detail.attempts.length >= 1 && (
