@@ -246,3 +246,8 @@ tauri-plugin-shell = "2"
 objc2 = { workspace = true }
 objc2-foundation = { workspace = true }
 objc2-app-kit = { workspace = true }
+
+# Windows 的 SQLCipher 无 CommonCrypto，libsqlite3-sys build.rs 硬要 OPENSSL_DIR；vendored 特性
+# 改由 openssl-src 源码自编（mac 走 CommonCrypto、Linux 走系统 OpenSSL，均不受此特性影响）。
+[target.'cfg(windows)'.dependencies]
+rusqlite = { workspace = true, features = ["bundled-sqlcipher-vendored-openssl"] }
