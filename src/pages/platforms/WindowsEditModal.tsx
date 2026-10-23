@@ -212,8 +212,14 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
   };
 
   const addWindow = () => {
-    setLocal(cur => [...cur, { start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
-    setUiDim(cur => [...cur, "none"]);
+    // 新窗口默认：本地时区 + 工作日（周一-周五）。timezone 显式落本地 IANA 名
+    // （带 timezone 的窗口存值即该时区本地时刻）；Intl 拿不到时回落 UTC 防语义错位。
+    const localTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+    setLocal(cur => [...cur, {
+      start_hour: 0, end_hour: 24, multiplier: 1.0,
+      timezone: localTz, days_of_week: [1, 2, 3, 4, 5],
+    }]);
+    setUiDim(cur => [...cur, "week"]);
   };
 
   /** 切换维度 radio：清空另一维度字段（互斥），同步更新 UI-only 选中态。 */
