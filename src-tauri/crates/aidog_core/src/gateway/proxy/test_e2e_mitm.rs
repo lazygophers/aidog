@@ -385,7 +385,9 @@ async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
     //    不 RST_STREAM / 不 CANCEL。这才是定位用户 CANCEL 的关键断言（CANCEL 会让 send_request
     //    先 panic 或 body 读取 err）。
     let status = resp.status();
-    let body_bytes = collect_incoming_body(resp.into_body(), 64 * 1024)
+    // 真上游是 www.baidu.com：不同机房/出口返回的 HTML 大小不定（CI ubuntu 曾超 64KB），
+    // 上限只是防失控保护值，1 MB 足够；被测语义是 body 完整可读不 CANCEL。
+    let body_bytes = collect_incoming_body(resp.into_body(), 1024 * 1024)
         .await
         .expect("h2 response body 必须可完整读取（CANCEL 会在此 err）");
     let body_str = String::from_utf8_lossy(&body_bytes);
