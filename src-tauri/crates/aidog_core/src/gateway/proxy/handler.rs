@@ -581,6 +581,7 @@ pub(crate) async fn handle_proxy_core(
     {
         Ok(c) => c,
         Err(e) => {
+            log.routing = Some(e.routing.clone());
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak'）。
             // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
@@ -605,6 +606,8 @@ pub(crate) async fn handle_proxy_core(
         }
     };
 
+    // 票 01：路由决策快照随主记录落库（终态 upsert 前持续在 log 上，死站补记就地改写）。
+    log.routing = Some(candidate_set.routing);
     let candidates: Vec<RouteResult> = candidate_set.candidates;
 
     // ── Mock / ClaudeCode 透传：不参与重试（非目标），仅按首选候选终态处理。
@@ -717,6 +720,10 @@ pub(crate) async fn handle_proxy_core(
                 platform = %route.platform.name, base_url = %route.platform.base_url,
                 "same-base_url sibling already failed to connect this request, skipping (R3)"
             );
+            // 票 01：死站跳过候选补记进快照（不动 attempts 语义）。
+            if let Some(r) = log.routing.as_mut() {
+                r.mark_dead_upstream(route.platform.id);
+            }
             continue;
         }
         let route_base_url = route.platform.base_url.clone();

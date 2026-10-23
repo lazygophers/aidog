@@ -77,25 +77,27 @@ pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed
 
 /// Sticky：若 session 键命中已绑定平台且该平台仍在健康候选集中，提到首位；
 /// 否则把当前首选（加权随机已定）写为新绑定。失效 / 熔断的旧绑定自然回退（不在集中即重绑）。
+/// 返回 Some(平台 id) = 绑定命中且已提首（票 01 sticky 位置标签）。
 pub(crate) fn apply_sticky(
     platforms: &mut [&GroupPlatformDetail],
     ctx: Option<&ScheduleCtx<'_>>,
     now_ms: i64,
-) {
-    let Some(c) = ctx else { return };
-    let Some(ref key) = c.sticky_key else { return };
+) -> Option<u64> {
+    let c = ctx?;
+    let key = c.sticky_key.as_ref()?;
     if platforms.is_empty() {
-        return;
+        return None;
     }
     if let Some(bound_id) = c.sticky.get(key, now_ms)
         && let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id)
     {
         platforms.swap(0, pos);
-        return; // 绑定健康，维持
+        return Some(bound_id); // 绑定健康，维持
     }
     // 绑定平台已失效 / 熔断 / 不在集 → 落到重绑（用新首选）
     // 写 / 重写绑定为当前首选平台
     c.sticky.put(key.clone(), platforms[0].platform.id, now_ms);
+    None
 }
 
 #[cfg(test)]

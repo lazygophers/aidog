@@ -14,7 +14,9 @@ mod model_mapping;
 mod ordering;
 
 #[allow(unused_imports)]
-pub use candidates::{CandidateSet, RequestKind, ScheduleCtx, select_candidates, select_candidates_ctx};
+pub use candidates::{
+    CandidateSet, RequestKind, RouteFail, ScheduleCtx, select_candidates, select_candidates_ctx,
+};
 
 /// 出站 max_tokens 裁剪（convert_request 前调用）。
 ///
@@ -30,6 +32,7 @@ pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u
 }
 
 /// 路由结果
+#[derive(Debug)]
 pub struct RouteResult {
     pub platform: Platform,
     pub target_model: String,

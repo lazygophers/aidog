@@ -633,6 +633,15 @@ pub fn run_migrations_proxy_log_late(
         "ALTER TABLE proxy_log ADD COLUMN body_omitted INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration 20261024-01 (代理日志-路由决策直观化 票 01): proxy_log 加 routing 列——
+    // 路由决策快照 JSON（评估过的候选平台 + 排除原因标签 + 位置标签 + 路由模式），
+    // 与 attempts 列同模式。元数据：不受 log_user_request / log_upstream_request
+    // 开关控制，恒落库（不进两侧「原始信息」列集）。存量行 DEFAULT '' 补齐 =
+    // 无快照（旧版行），语义正确，无需回填。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN routing TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     Ok(())
 }
 

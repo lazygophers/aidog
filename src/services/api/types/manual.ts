@@ -702,6 +702,9 @@ export interface ProxyLogDetail {
   /** 调度/中间件拦截环节与原因；空串表示未拦截。 */
   blocked_by: string;
   blocked_reason: string;
+  /** 路由决策快照（代理日志-路由决策直观化 票 01）：本次请求的路由评估全程。
+   *  null = 旧版行 / 无快照。mode 为 RoutingMode 字符串（宽类型，UI 侧 cast）。 */
+  routing: import("./generated/RoutingSnapshot").RoutingSnapshot | null;
   /** 「正文已省略」（perf-backend O6）：该行部分正文因日志写入队列字节预算超限被降级丢弃，
    *  只有元数据落库。置位后单调不回落。 */
   body_omitted: boolean;

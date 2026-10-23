@@ -3707,3 +3707,144 @@ async fn convert_path_strips_key_channel_headers() {
         assert_eq!(h.get("x-api-key").map(String::as_str), Some("sk-up"));
     }
 }
+
+// ── 票 01：路由决策快照 ──
+
+async fn create_plain_platform(
+    state: &Arc<ProxyState>,
+    name: &str,
+    base_url: &str,
+) -> aidog_db::models::Platform {
+    aidog_db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: name.into(),
+            platform_type: Protocol::Anthropic,
+            base_url: base_url.to_string(),
+            api_key: "sk-up".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap()
+}
+
+/// 隔离实例跑真实请求（票 01 acceptance）：快照随主记录落库，直接查库可见，
+/// 候选数与分组配置一致；手动禁用候选带 disabled-manual 标签。
+/// 候选须含两个 Enabled 平台，否则命中 sole_platform 单启用短路。
+#[tokio::test]
+async fn routing_snapshot_records_excluded_candidates() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    let live = create_plain_platform(&state, "live", &upstream).await;
+    let live2 = create_plain_platform(&state, "live2", "http://127.0.0.1:9").await;
+    let off = create_plain_platform(&state, "off", "http://127.0.0.1:9").await;
+    aidog_db::update_platform(
+        &state.db,
+        aidog_db::models::UpdatePlatform {
+            id: off.id,
+            status: Some(aidog_db::models::PlatformStatus::Disabled),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gksnap", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput { platform_id: live.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: live2.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: off.id, priority: Some(2), weight: Some(1), level_priority: Some(5) },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let req = messages_request(
+        "gksnap",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let log = last_log_for(&state, "gksnap").await;
+    let rs = log.routing.expect("routing snapshot must be recorded");
+    assert!(rs.mode.is_some());
+    assert_eq!(rs.entries.len(), 3, "候选数应与分组配置一致");
+    let e_live = rs.entries.iter().find(|e| e.platform_id == live.id).unwrap();
+    let e_off = rs.entries.iter().find(|e| e.platform_id == off.id).unwrap();
+    assert_eq!(e_live.reason, aidog_db::models::RouteReason::Selected);
+    assert_eq!(e_live.order, 1);
+    assert_eq!(
+        e_off.reason,
+        aidog_db::models::RouteReason::DisabledManual
+    );
+}
+
+/// 死站跳过补记（票 01）：同 base_url（connect 拒绝死站）第二候选跳过时标
+/// skipped-dead-upstream。用真 connect 失败（127.0.0.1:1 RST）：reset 上游是
+/// 连接建立后被重置，不算 connect_failed，不触发 R3 死站联动。
+#[tokio::test]
+async fn routing_snapshot_marks_skipped_dead_upstream() {
+    let state = make_state(test_db().await).await;
+    let p1 = create_plain_platform(&state, "d1", "http://127.0.0.1:1").await;
+    let p2 = create_plain_platform(&state, "d2", "http://127.0.0.1:1").await;
+    let group = aidog_db::create_group(&state.db, aidog_db::test_support::sample_group("gkdead", vec![]))
+        .await
+        .unwrap();
+    aidog_db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        ],
+    )
+    .await
+    .unwrap();
+
+    let req = messages_request(
+        "gkdead",
+        r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#,
+    );
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+
+    let log = last_log_for(&state, "gkdead").await;
+    let rs = log.routing.expect("routing snapshot must be recorded");
+    assert_eq!(rs.entries.len(), 2);
+    let reasons: Vec<_> = rs.entries.iter().map(|e| e.reason).collect();
+    // 同站 connect 失败：先试的标 selected（尝试过、失败），同站兄弟标 skipped-dead-upstream
+    assert_eq!(
+        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::Selected).count(),
+        1
+    );
+    assert_eq!(
+        reasons.iter().filter(|r| **r == aidog_db::models::RouteReason::SkippedDeadUpstream).count(),
+        1
+    );
+}
