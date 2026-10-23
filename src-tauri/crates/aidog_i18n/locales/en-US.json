@@ -2965,5 +2965,10 @@
   "platform.windows_step_hint": "Type directly, or open the picker (15-minute grid)",
   "platform.peakPillPeak": "Peak ×{{n}}",
   "platform.peakPillOff": "Off-peak ×1.0",
-  "platform.manualBudgetCount": "{{n}} budgets"
+  "platform.manualBudgetCount": "{{n}} budgets",
+  "platform.rateLimits.windowLength": "Window length",
+  "platform.rateLimits.budgetUsd": "Budget ($)",
+  "platform.rateLimits.budgetCount": "Request count",
+  "platform.rateLimits.budgetAmount": "Budget amount",
+  "platform.rateLimits.unitCount": "req"
 }

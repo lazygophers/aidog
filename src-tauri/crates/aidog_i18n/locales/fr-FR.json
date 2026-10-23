@@ -2987,5 +2987,10 @@
   "platform.windows_step_hint": "Saisissez directement, ou ouvrez le sélecteur (pas de 15 min)",
   "platform.peakPillPeak": "Heure de pointe ×{{n}}",
   "platform.peakPillOff": "Heure creuse ×1.0",
-  "platform.manualBudgetCount": "{{n}} budgets"
+  "platform.manualBudgetCount": "{{n}} budgets",
+  "platform.rateLimits.windowLength": "Durée de la fenêtre",
+  "platform.rateLimits.budgetUsd": "Budget ($)",
+  "platform.rateLimits.budgetCount": "Nombre de requêtes",
+  "platform.rateLimits.budgetAmount": "Montant du budget",
+  "platform.rateLimits.unitCount": "fois"
 }

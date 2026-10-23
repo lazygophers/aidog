@@ -723,10 +723,17 @@ export interface RateLimitsConfig {
   models?: Record<string, RateLimitModelOverride>;
 }
 
-/** 额度窗口（extra.quota_windows 条目）：window 秒数 + token/点数预算二选一（端砚墨点 5h/7d）。 */
+/** 额度窗口（extra.quota_windows 条目）：window 秒数 + 预算三选一（token / 金额 $ / 请求次数）。
+ *  budget_points 已从编辑 UI 移除（2026-10-23 用户拍板「token/金额，不要点数」）：
+ *  字段仅存量兼容（读取归一层照常透传），在限频表单里编辑并保存后即被清除。 */
 export interface QuotaWindowConfig {
   window: number;
   budget_tokens?: number;
+  /** 金额预算（$，允许小数）。 */
+  budget_usd?: number;
+  /** 请求次数预算。 */
+  budget_count?: number;
+  /** @deprecated 存量兼容，UI 不再暴露；编辑保存后清除。 */
   budget_points?: number;
 }
 

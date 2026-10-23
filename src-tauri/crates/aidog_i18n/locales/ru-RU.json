@@ -2987,5 +2987,10 @@
   "platform.windows_step_hint": "Вводите напрямую или откройте выбор (шаг 15 минут)",
   "platform.peakPillPeak": "Пик ×{{n}}",
   "platform.peakPillOff": "Не пик ×1.0",
-  "platform.manualBudgetCount": "Лимитов: {{n}}"
+  "platform.manualBudgetCount": "Лимитов: {{n}}",
+  "platform.rateLimits.windowLength": "Длительность окна",
+  "platform.rateLimits.budgetUsd": "Бюджет ($)",
+  "platform.rateLimits.budgetCount": "Кол-во запросов",
+  "platform.rateLimits.budgetAmount": "Сумма бюджета",
+  "platform.rateLimits.unitCount": "раз"
 }

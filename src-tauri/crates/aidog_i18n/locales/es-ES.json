@@ -2965,5 +2965,10 @@
   "platform.windows_step_hint": "Escribe directamente, o abre el selector (pasos de 15 min)",
   "platform.peakPillPeak": "Pico ×{{n}}",
   "platform.peakPillOff": "Fuera de pico ×1.0",
-  "platform.manualBudgetCount": "{{n}} límites"
+  "platform.manualBudgetCount": "{{n}} límites",
+  "platform.rateLimits.windowLength": "Duración de la ventana",
+  "platform.rateLimits.budgetUsd": "Presupuesto ($)",
+  "platform.rateLimits.budgetCount": "Nº de solicitudes",
+  "platform.rateLimits.budgetAmount": "Importe del presupuesto",
+  "platform.rateLimits.unitCount": "veces"
 }

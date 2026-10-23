@@ -2987,5 +2987,10 @@
   "platform.windows_step_hint": "اكتب مباشرة، أو افتح المحدد (خطوات 15 دقيقة)",
   "platform.peakPillPeak": "ذروة ×{{n}}",
   "platform.peakPillOff": "خارج الذروة ×1.0",
-  "platform.manualBudgetCount": "{{n}} حدًا"
+  "platform.manualBudgetCount": "{{n}} حدًا",
+  "platform.rateLimits.windowLength": "طول النافذة",
+  "platform.rateLimits.budgetUsd": "الميزانية ($)",
+  "platform.rateLimits.budgetCount": "عدد الطلبات",
+  "platform.rateLimits.budgetAmount": "مبلغ الميزانية",
+  "platform.rateLimits.unitCount": "مرة"
 }

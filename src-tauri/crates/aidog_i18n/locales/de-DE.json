@@ -2987,5 +2987,10 @@
   "platform.windows_step_hint": "Direkt eintippen oder Auswahl öffnen (15-Min-Raster)",
   "platform.peakPillPeak": "Peak ×{{n}}",
   "platform.peakPillOff": "Nebenzeit ×1.0",
-  "platform.manualBudgetCount": "{{n}} Limits"
+  "platform.manualBudgetCount": "{{n}} Limits",
+  "platform.rateLimits.windowLength": "Fensterdauer",
+  "platform.rateLimits.budgetUsd": "Budget ($)",
+  "platform.rateLimits.budgetCount": "Anfragenzahl",
+  "platform.rateLimits.budgetAmount": "Budgetbetrag",
+  "platform.rateLimits.unitCount": "Mal"
 }

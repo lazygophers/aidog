@@ -2987,5 +2987,10 @@
   "platform.windows_step_hint": "直接入力、または選択を開く（15分刻み）",
   "platform.peakPillPeak": "ピーク ×{{n}}",
   "platform.peakPillOff": "オフピーク ×1.0",
-  "platform.manualBudgetCount": "上限 {{n}} 件"
+  "platform.manualBudgetCount": "上限 {{n}} 件",
+  "platform.rateLimits.windowLength": "ウィンドウ長",
+  "platform.rateLimits.budgetUsd": "予算 ($)",
+  "platform.rateLimits.budgetCount": "リクエスト数",
+  "platform.rateLimits.budgetAmount": "予算額",
+  "platform.rateLimits.unitCount": "回"
 }
