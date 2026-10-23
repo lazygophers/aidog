@@ -1325,6 +1325,8 @@ mod tests {
     /// 升级路径：若加 Linux pkexec / Windows PowerShell 语法集成测，各自加 #[cfg] 分支。
     #[cfg(not(target_os = "macos"))]
     #[test]
+    // 仅非 macOS 编译（macOS 本地 clippy 看不见此块），占位断言会触发 assertions_on_constants。
+    #[allow(clippy::assertions_on_constants)]
     fn osacompile_applescript_placeholder_non_macos() {
         // trust_ca_command / untrust_ca_command 非 macOS 走 pkexec/PowerShell（无 AppleScript 串），
         // osacompile 集成测 macOS-only，非 macOS 平台空桩占位。
