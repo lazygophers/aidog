@@ -78,7 +78,7 @@ function buildNodes(
     } else if (lastFailByPlatform.has(c.platform_id)) {
       nodes.push({ id, cls: "fail", ico: "✕", nm, sb, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {
-      nodes.push({ id, cls: "dim", ico: "·", nm, sb });
+      nodes.push({ id, cls: "dim", ico: "·", nm, sb, pills: [t("logs.routing.untried", "未尝试")] });
     }
   }
   return nodes;
@@ -219,6 +219,7 @@ export function RoutingCanvas({
         <div
           ref={canvasRef}
           data-testid="routing-flow"
+          className={vertical ? "rc-vertical" : undefined}
           style={{
             position: "relative",
             height: pos ? canvasH : undefined,
@@ -242,12 +243,14 @@ export function RoutingCanvas({
                 className={`rc-node ${n.cls}`}
                 style={pos?.[n.id] ? { position: "absolute", left: pos[n.id]!.x, top: pos[n.id]!.y } : undefined}
               >
+                <span className="rc-port in" aria-hidden="true" />
                 <span className="rc-ico">{n.ico}</span>
                 <span style={{ display: "flex", flexDirection: "column", minWidth: 0, alignItems: "flex-start" }}>
                   <span className="rc-nm">{n.nm}</span>
                   {n.sb && <span className="rc-sb">{n.sb}</span>}
                   {n.pills?.map((pl, j) => <span key={j} className={`rc-why ${n.cls === "fail" ? "red" : n.cls === "win" ? "green" : ""}`}>{pl}</span>)}
                 </span>
+                <span className="rc-port out" aria-hidden="true" />
               </div>
             );
           })}

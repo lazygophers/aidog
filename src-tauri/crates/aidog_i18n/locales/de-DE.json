@@ -673,7 +673,8 @@
   "logs.routing.route": "Routing",
   "logs.routing.response": "Antwort",
   "logs.routing.attemptFailed": "Fehlgeschlagener Versuch",
-  "logs.routing.mode.load_balance": "Lastverteilung",
+
+  "logs.routing.untried": "Nicht versucht",  "logs.routing.mode.load_balance": "Lastverteilung",
   "logs.routing.mode.failover": "Failover",
   "logs.routing.mode.health_aware": "Health-aware",
   "logs.routing.mode.sticky": "Sticky-Session",
