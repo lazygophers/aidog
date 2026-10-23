@@ -1194,4 +1194,34 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .aidog-tpop-col button:hover { background: var(--accent-subtle); }
   .aidog-tpop-col button.on { background: var(--primary); color: #fff; }
   .aidog-tpop-col button:disabled { opacity: .25; cursor: default; background: none; }
+
+  /* 路由决策画布（票 02，RoutingCanvas）：workflow 节点 + SVG 连线，配色全走主题变量 */
+  .rc-node {
+    width: max-content; min-width: 150px; max-width: 250px;
+    border-radius: 12px; padding: 9px 12px 9px 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; gap: 9px; align-items: center;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, .18);
+  }
+  .rc-ico {
+    width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; flex: none;
+    background: var(--accent-subtle); color: var(--accent); font-size: 13px; font-weight: 700;
+  }
+  .rc-nm { font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-sb { font-size: 9.5px; color: var(--text-tertiary); font-family: ui-monospace, monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rc-node.win { border-color: color-mix(in srgb, var(--color-success) 50%, transparent); box-shadow: 0 0 20px color-mix(in srgb, var(--color-success) 16%, transparent), 0 4px 18px rgba(0, 0, 0, .18); }
+  .rc-node.win .rc-ico { background: color-mix(in srgb, var(--color-success) 14%, transparent); color: var(--color-success); }
+  .rc-node.win .rc-nm { color: var(--color-success); }
+  .rc-node.fail .rc-ico { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
+  .rc-node.dim { opacity: .55; border-style: dashed; box-shadow: none; }
+  .rc-why {
+    align-self: flex-start; font-size: 9px; padding: 1px 7px; border-radius: 99px; margin-top: 3px;
+    border: 1px solid var(--border); color: var(--text-tertiary); white-space: nowrap;
+  }
+  .rc-why.red { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, transparent); }
+  .rc-why.green { color: var(--color-success); border-color: color-mix(in srgb, var(--color-success) 40%, transparent); }
+  path.rc-edge { fill: none; stroke: var(--border); stroke-width: 1.6; }
+  path.rc-edge.win { stroke: var(--color-success); stroke-width: 2.2; stroke-dasharray: 7 5; animation: rc-flow 1.1s linear infinite; }
+  path.rc-edge.bad { stroke: color-mix(in srgb, var(--color-danger) 45%, transparent); stroke-dasharray: 4 4; }
+  @keyframes rc-flow { to { stroke-dashoffset: -24; } }
 }
