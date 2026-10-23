@@ -2965,5 +2965,10 @@
   "platform.windows_step_hint": "可直接键入，或点开选择（分钟 15 分钟档）",
   "platform.peakPillPeak": "高峰中 ×{{n}}",
   "platform.peakPillOff": "非高峰 ×1.0",
-  "platform.manualBudgetCount": "{{n}} 个限额"
+  "platform.manualBudgetCount": "{{n}} 个限额",
+  "platform.rateLimits.windowLength": "窗口时长",
+  "platform.rateLimits.budgetUsd": "金额 ($)",
+  "platform.rateLimits.budgetCount": "请求次数",
+  "platform.rateLimits.budgetAmount": "预算额度",
+  "platform.rateLimits.unitCount": "次"
 }
