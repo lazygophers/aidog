@@ -171,4 +171,17 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     expect(container.textContent).toContain("×1.0");
     expect(container.querySelectorAll("i")).toHaveLength(0);
   });
+
+  it("起/止时间选择器接线：键入 937 → setWindows 提交 09:37（utc 直存）", () => {
+    const { container, setWindows } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
+    // aria-label = TimePicker suffix（t stub → fallback「起」），限定本 render container
+    const startInput = container.querySelector('input[aria-label="起"]') as HTMLInputElement;
+    fireEvent.change(startInput, { target: { value: "937" } });
+    fireEvent.blur(startInput);
+    expect(setWindows).toHaveBeenCalled();
+    // update 走函数式 setState：把上一态喂进去取结果（与组件内 cur => 映射同构）
+    const updater = setWindows.mock.calls[0][0] as (prev: TimeWindow[]) => TimeWindow[];
+    const next = updater([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
+    expect(next[0]).toMatchObject({ start_hour: 9, start_minute: 37 });
+  });
 });
