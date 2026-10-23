@@ -1138,6 +1138,18 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     border-color: color-mix(in srgb, var(--primary) 35%, transparent);
   }
 
+  /* 首页 DimPanel 窄面板降级（容器查询，WKWebView Safari 16+）：
+     行内 5 个固定宽数字列 + 走势 ≈ 536px 最小宽，而面板 grid minmax(420px,1fr)——
+     窗口 840-1200px 两列态占比条被压没。按面板宽分级隐藏次要列：
+     <600px 隐缓存率+延迟，<500px 再隐成功率+行尾走势。 */
+  .aidog-dimpanel { container-type: inline-size; }
+  @container (max-width: 599px) {
+    .aidog-dim-cache, .aidog-dim-latency { display: none; }
+  }
+  @container (max-width: 499px) {
+    .aidog-dim-success, .aidog-dim-spark { display: none; }
+  }
+
   .aidog-addbtn {
     font-size: 11px; padding: 5px 12px; border-radius: var(--radius-sm);
     border: 1px dashed var(--border); background: none; color: var(--text-secondary);
