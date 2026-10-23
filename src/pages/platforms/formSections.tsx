@@ -21,6 +21,7 @@ import type { ThemeMode } from "../../themes/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { TimePicker } from "./WindowsEditModal";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -743,12 +744,6 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
 // 存储恒 UTC+0；展示 / 输入按选中时区换算，换算内核见 src/utils/peak.ts（shiftClock，按绝对分钟，半时区精确）。
 
 
-/** number input 值裁到 [min,max]；非法输入回落 min。 */
-function clampInt(raw: string, min: number, max: number): number {
-  const v = Math.round(Number(raw));
-  if (!Number.isFinite(v)) return min;
-  return Math.min(max, Math.max(min, v));
-}
 
 /** 窗口预览可读时段：半开区间 [start, end) → 显示 end-1:59:59。
  *  格式：HH:MM:SS - HH:MM:SS（<tz 标签>）+ (次日) 如跨天。
@@ -976,46 +971,22 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               const endDisp = toDisp(w.end_hour, w.end_minute ?? 0);
               return (
                 <>
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-                    {t("platform.start_hour", "起")}
-                    <Input
-                      className="input" type="number" min={0} max={23} style={{ width: 64 }}
-                      value={startDisp.hour}
-                      onChange={e => {
-                        const utc = fromDisp(clampInt(e.target.value, 0, 23), startDisp.minute);
-                        update(idx, { start_hour: utc.hour, start_minute: utc.minute });
-                      }}
-                    />
-                    :
-                    <Input
-                      className="input" type="number" min={0} max={59} style={{ width: 64 }}
-                      value={startDisp.minute}
-                      onChange={e => {
-                        const utc = fromDisp(startDisp.hour, clampInt(e.target.value, 0, 59));
-                        update(idx, { start_hour: utc.hour, start_minute: utc.minute });
-                      }}
-                    />
-                  </label>
-                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-                    {t("platform.end_hour", "止")}
-                    <Input
-                      className="input" type="number" min={0} max={24} style={{ width: 64 }}
-                      value={endDisp.hour}
-                      onChange={e => {
-                        const utc = fromDisp(clampInt(e.target.value, 0, 24), endDisp.minute);
-                        update(idx, { end_hour: utc.hour, end_minute: utc.minute });
-                      }}
-                    />
-                    :
-                    <Input
-                      className="input" type="number" min={0} max={59} style={{ width: 64 }}
-                      value={endDisp.minute}
-                      onChange={e => {
-                        const utc = fromDisp(endDisp.hour, clampInt(e.target.value, 0, 59));
-                        update(idx, { end_hour: utc.hour, end_minute: utc.minute });
-                      }}
-                    />
-                  </label>
+                  <TimePicker
+                    suffix={t("platform.start_hour", "起")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
+                    t={t}
+                    onSet={(h, m) => {
+                      const utc = fromDisp(h, m);
+                      update(idx, { start_hour: utc.hour, start_minute: utc.minute });
+                    }}
+                  />
+                  <TimePicker
+                    suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
+                    t={t}
+                    onSet={(h, m) => {
+                      const utc = fromDisp(h, m);
+                      update(idx, { end_hour: utc.hour, end_minute: utc.minute });
+                    }}
+                  />
                 </>
               );
             })()}
