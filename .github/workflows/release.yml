@@ -42,6 +42,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+      - name: Enable corepack (yarn@4 via packageManager field)
+        run: corepack enable
       - name: Install JS deps
         run: yarn install --immutable
       - name: Type checks (tsc + cargo check)
