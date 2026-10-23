@@ -2962,7 +2962,7 @@
   "platform.rateLimit": "Tasa",
   "platform.rateLimitTitle": "Margen del límite de tasa del proveedor (por minuto), de las cabeceras de {{vendor}}",
   "platform.codingPlanPrice": "Plan",
-  "platform.windows_step_hint": "Escribe directamente, o flechas / rueda del ratón (pasos de 15 min)",
+  "platform.windows_step_hint": "Escribe directamente, o abre el selector (pasos de 15 min)",
   "platform.peakPillPeak": "Pico ×{{n}}",
   "platform.peakPillOff": "Fuera de pico ×1.0",
   "platform.manualBudgetCount": "{{n}} límites"

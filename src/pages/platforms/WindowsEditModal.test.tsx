@@ -139,15 +139,15 @@ describe("WindowsEditModal", () => {
   });
 });
 
-// ── TimeStepper 单挂：钳位 / 24:00 强制分=0 / 键入路径（review 2026-10-22 findings ②③④）──
-import { TimeStepper } from "./WindowsEditModal";
+// ── TimePicker 单挂：键入解析/钳位 / 24:00 语义 / 弹层点选 ──
+import { TimePicker } from "./WindowsEditModal";
 
-function renderStepper(props: Partial<Parameters<typeof TimeStepper>[0]> = {}) {
+function renderPicker(props: Partial<Parameters<typeof TimePicker>[0]> = {}) {
   const onSet = vi.fn();
   // 查询范围限本 render 的 container：test/render 无自动 cleanup，
-  // document.body 里残留前面 modal 测试的 stepper，全局查询会点错组件。
+  // document.body 里残留前面 modal 测试的 picker，全局查询会点错组件。
   const { container } = render(
-    <TimeStepper
+    <TimePicker
       suffix="止"
       hour={12}
       minute={0}
@@ -160,50 +160,99 @@ function renderStepper(props: Partial<Parameters<typeof TimeStepper>[0]> = {}) {
   return { onSet, base: container };
 }
 
-/** 第二行箭头 = 向下（▼）：[小时-, 分钟-] */
-function downArrows(container: ParentNode) {
-  const downs = Array.from(container.querySelectorAll("button")).filter(b => b.textContent === "▼");
-  return { hour: downs[0], minute: downs[1] };
-}
-function upArrows(container: ParentNode) {
-  const ups = Array.from(container.querySelectorAll("button")).filter(b => b.textContent === "▲");
-  return { hour: ups[0], minute: ups[1] };
-}
+const inputOf = (base: HTMLElement) => base.querySelector("input") as HTMLInputElement;
 
-describe("TimeStepper — 钳位与 24:00 语义", () => {
-  it("止侧键入小时 24 → 分钟强制归 0（24:xx 只允许 24:00）", () => {
-    const { onSet, base } = renderStepper({ hour: 23, minute: 30 });
-    const hourInput = base.querySelectorAll("input")[0] as HTMLInputElement;
-    fireEvent.change(hourInput, { target: { value: "24" } });
-    expect(onSet).toHaveBeenCalledWith(24, 0);
+describe("TimePicker — 键入路径", () => {
+  it.each([
+    ["937", 9, 37],   // 3 位无冒号：末两位=分钟
+    ["1530", 15, 30], // 4 位无冒号
+    ["9:5", 9, 5],    // 短冒号形式
+    ["9：30", 9, 30], // 全角冒号
+    ["24", 24, 0],    // 止侧 24 → 分钟强制归 0
+    ["9999", 24, 0],  // 超界钳到最后合法时刻：止侧最大即 24:00（半开区间终点），非 23:59
+  ])("键入 %s → 失焦提交 (%d,%d)", (typed, h, m) => {
+    const { onSet, base } = renderPicker();
+    fireEvent.change(inputOf(base), { target: { value: typed } });
+    fireEvent.blur(inputOf(base));
+    expect(onSet).toHaveBeenCalledWith(h, m);
   });
 
-  it("止侧 24:00 点小时下箭头 → 23:00（分保持 0）", () => {
-    const { onSet, base } = renderStepper({ hour: 24, minute: 0 });
-    fireEvent.click(downArrows(base).hour!);
-    expect(onSet).toHaveBeenCalledWith(23, 0);
+  it("起侧（maxHour=23）键入 25 / 9999 → 钳到 23（超界钳到最后合法时刻 23:59）", () => {
+    const a = renderPicker({ hour: 0, minute: 0, maxHour: 23 });
+    fireEvent.change(inputOf(a.base), { target: { value: "25" } });
+    fireEvent.blur(inputOf(a.base));
+    expect(a.onSet).toHaveBeenCalledWith(23, 0);
+
+    const b = renderPicker({ hour: 0, minute: 0, maxHour: 23 });
+    fireEvent.change(inputOf(b.base), { target: { value: "9999" } });
+    fireEvent.blur(inputOf(b.base));
+    expect(b.onSet).toHaveBeenCalledWith(23, 59);
   });
 
-  it("起侧 23:55 分钟上箭头（+15）→ 钳到 23:59 不跨日", () => {
-    const { onSet, base } = renderStepper({ hour: 23, minute: 55, maxHour: 23 });
-    fireEvent.click(upArrows(base).minute!);
-    expect(onSet).toHaveBeenCalledWith(23, 59);
+  it("Enter 提交；Esc 撤销不回调且显示回退 props 值", () => {
+    const a = renderPicker();
+    fireEvent.change(inputOf(a.base), { target: { value: "8:15" } });
+    fireEvent.keyDown(inputOf(a.base), { key: "Enter" });
+    expect(a.onSet).toHaveBeenCalledWith(8, 15);
+
+    const b = renderPicker();
+    fireEvent.change(inputOf(b.base), { target: { value: "8:15" } });
+    fireEvent.keyDown(inputOf(b.base), { key: "Escape" });
+    expect(b.onSet).not.toHaveBeenCalled();
+    expect(inputOf(b.base).value).toBe("12:00");
   });
 
-  it("键入任意分钟（非 15 倍数）可达 —— 22:37", () => {
-    const { onSet, base } = renderStepper({ hour: 0, minute: 0, maxHour: 23 });
-    const [h, m] = base.querySelectorAll("input");
-    fireEvent.change(h as HTMLInputElement, { target: { value: "22" } });
-    fireEvent.change(m as HTMLInputElement, { target: { value: "37" } });
-    // stepper 是无状态受控件：分钟提交按当前 props（hour=0）算，父组件负责回灌后再组合成 22:37
-    expect(onSet).toHaveBeenNthCalledWith(1, 22, 0);
-    expect(onSet).toHaveBeenNthCalledWith(2, 0, 37);
-  });
-
-  it("值无变化不回调（0:00 点小时下箭头 no-op）", () => {
-    const { onSet, base } = renderStepper({ hour: 0, minute: 0 });
-    fireEvent.click(downArrows(base).hour!);
+  it("非法输入不回调，显示回退原值", () => {
+    const { onSet, base } = renderPicker();
+    fireEvent.change(inputOf(base), { target: { value: "abc" } });
+    fireEvent.blur(inputOf(base));
     expect(onSet).not.toHaveBeenCalled();
+    expect(inputOf(base).value).toBe("12:00");
+  });
+
+  it("值无变化不回调（键入原值 12:00）", () => {
+    const { onSet, base } = renderPicker();
+    fireEvent.change(inputOf(base), { target: { value: "12:00" } });
+    fireEvent.blur(inputOf(base));
+    expect(onSet).not.toHaveBeenCalled();
+  });
+});
+
+describe("TimePicker — 弹层点选", () => {
+  it("focus 弹出；止侧小时 25 档（含 24）、起侧 24 档；分钟 4 档", () => {
+    const a = renderPicker();
+    fireEvent.focus(inputOf(a.base));
+    expect(a.base.querySelectorAll(".aidog-tpop-col")[0].children).toHaveLength(25);
+    expect(a.base.querySelectorAll(".aidog-tpop-col")[1].children).toHaveLength(4);
+
+    const b = renderPicker({ hour: 0, minute: 0, maxHour: 23 });
+    fireEvent.focus(inputOf(b.base));
+    expect(b.base.querySelectorAll(".aidog-tpop-col")[0].children).toHaveLength(24);
+  });
+
+  it("止侧选中 24 → 分钟除 00 外禁用；点选小时 24 提交 (24,0) 且弹层保持", () => {
+    const { onSet, base } = renderPicker({ hour: 18 });
+    fireEvent.focus(inputOf(base));
+    fireEvent.click(base.querySelector('[data-h="24"]') as HTMLElement);
+    expect(onSet).toHaveBeenCalledWith(24, 0);
+    // 无状态受控件：props 未回灌前 hour 仍 18，分钟锁判定按 props —— 此处只验证弹层未收起
+    expect(base.querySelector(".aidog-tpop")).toBeTruthy();
+  });
+
+  it("hour=24 时分钟 15/30/45 disabled，00 可点", () => {
+    const { base } = renderPicker({ hour: 24, minute: 0 });
+    fireEvent.focus(inputOf(base));
+    const mins = Array.from(base.querySelectorAll("[data-m]")) as HTMLButtonElement[];
+    const disabled = mins.filter(b => b.disabled).map(b => b.dataset.m);
+    expect(disabled).toEqual(["15", "30", "45"]);
+  });
+
+  it("点选分钟提交并收起弹层", () => {
+    const { onSet, base } = renderPicker();
+    fireEvent.focus(inputOf(base));
+    fireEvent.click(base.querySelector('[data-m="30"]') as HTMLElement);
+    expect(onSet).toHaveBeenCalledWith(12, 30);
+    expect(base.querySelector(".aidog-tpop")).toBeNull();
   });
 });
 

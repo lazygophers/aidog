@@ -36,32 +36,29 @@ function clampInt(v: number, min: number, max: number, fallback: number): number
   return Math.max(min, Math.min(max, Math.trunc(v)));
 }
 
-/** 步进器单个数字位：可直接键入（每击键即钳位提交，同旧 Input 行为）；非法/空串不打扰。 */
-function StepperDigit({ value, max, onCommit }: { value: number; max: number; onCommit: (v: number) => void }) {
-  return (
-    <input
-      type="text"
-      inputMode="numeric"
-      value={pad(value)}
-      onChange={e => {
-        const n = parseInt(e.target.value, 10);
-        if (Number.isFinite(n)) onCommit(clampInt(n, 0, max, value));
-      }}
-      style={{
-        width: 26, background: "transparent", border: 0, outline: "none", padding: 0,
-        color: "inherit", font: "inherit", fontSize: 16, fontWeight: 600, letterSpacing: 0.5,
-        textAlign: "center",
-      }}
-      aria-label={String(max)}
-    />
-  );
+/** 键入文本 → {h,m}。支持「9」「9:5」「937」「1530」（3-4 位时末两位=分钟）与全角冒号/点；
+ *  小时钳 0..maxHour、分钟钳 0..59；止侧（maxHour=24）24 点时分钟归 0。非法返 null。 */
+function parseTimeInput(raw: string, maxHour: number, fallbackM: number): { h: number; m: number } | null {
+  const s = raw.trim().replace(/[：.]/g, ":");
+  let mt = s.match(/^(\d{1,2}):(\d{1,2})$/) ?? s.match(/^(\d{1,2})$/);
+  if (!mt) {
+    const d = s.match(/^(\d{3,4})$/);
+    if (d) mt = ["", d[1].slice(0, -2), d[1].slice(-2)];
+  }
+  if (!mt) return null;
+  const h = clampInt(+mt[1], 0, maxHour, 0);
+  let m = mt[2] === undefined ? fallbackM : clampInt(+mt[2], 0, 59, fallbackM);
+  // 半开区间 24:xx 只有 24:00 合法（与旧 stepper 同语义）
+  if (maxHour === 24 && h === 24) m = 0;
+  return { h, m };
 }
 
-/** 单侧时间步进器（C 方向稿）：大号只读时:分 + 时/分上下箭头 + 滚轮 15 分钟步进。
+const TP_MINUTES = [0, 15, 30, 45];
+
+/** 单侧时间选择器（C 方向稿 v2）：可直接键入（Enter/失焦提交并钳制，Esc 撤销）+ 点开「时×分」两列弹层。
  *  值变更走 onSet 回调（display 层），UTC 换算由调用方 fromDisp 负责。
- *  maxHour=24 的止侧：24:xx 只允许 24:00（步进与键入都强制分=0）。
- *  时/分是可直接键入的数字输入（箭头/滚轮 15 分钟步进之外的精确录入路径）。 */
-export function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
+ *  maxHour=24 的止侧：小时多一档 24 终点，选中时分钟锁 00。 */
+export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
   suffix: string;
   hour: number;
   minute: number;
@@ -69,66 +66,112 @@ export function TimeStepper({ suffix, hour, minute, maxHour, onSet, t }: {
   onSet: (hour: number, minute: number) => void;
   t: TFunction;
 }) {
-  const step = (dh: number, dm: number) => {
-    const h = clampInt(hour + dh, 0, maxHour, hour);
-    // 分钟上限 59；唯止侧 24:00 终点例外（半开区间 24:xx 只有 24:00 合法）。
-    // 不能写 h === maxHour：起侧 maxHour=23 时 23:xx 分钟合法到 59。
-    const minuteMax = maxHour === 24 && h === 24 ? 0 : 59;
-    const m = clampInt(minute + dm, 0, minuteMax, minute);
-    if (h !== hour || m !== minute) onSet(h, m);
-  };
-  // React 根节点上的 wheel 监听是 passive 的，preventDefault 无效 → ref 挂非 passive 监听
+  const [open, setOpen] = useState(false);
+  // null = 跟随 props；非 null = 键入中（不即时格式化，提交时才解析）
+  const [text, setText] = useState<string | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      step(0, e.deltaY < 0 ? 15 : -15);
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-    // step 闭包引用 hour/minute，值变即重挂以拿到新闭包
-  }, [hour, minute, maxHour, onSet]);
+  const end = maxHour === 24;
 
-  const arrowBtn = (dh: number, dm: number, up: boolean) => (
-    <Button
-      type="button"
-      variant="ghost"
-      size="sm"
-      style={{ padding: "0 7px", fontSize: 8, height: 16, lineHeight: 1, color: "var(--text-tertiary)" }}
-      onClick={() => step(dh, dm)}
-      title={up ? "+" : "-"}
-    >
-      {up ? "▲" : "▼"}
-    </Button>
-  );
+  // 点外部收起（mousedown：早于 blur/commit，先收弹层再提交键入值）
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", onDoc);
+    return () => document.removeEventListener("mousedown", onDoc);
+  }, [open]);
+
+  const commit = () => {
+    if (text === null) return;
+    const parsed = parseTimeInput(text, maxHour, minute);
+    setText(null);
+    if (parsed && (parsed.h !== hour || parsed.m !== minute)) onSet(parsed.h, parsed.m);
+  };
+
+  const hours = Array.from({ length: maxHour + 1 }, (_, i) => i);
+  const minuteLocked = end && hour === 24;
 
   return (
-    <div ref={boxRef} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
-      <div
-        className="aidog-stepper-val"
-        style={{
-          display: "flex", alignItems: "baseline", gap: 2,
-          background: "var(--card)", border: "1px solid var(--border)",
-          borderRadius: "var(--radius-sm)", padding: "4px 10px",
-          fontVariantNumeric: "tabular-nums",
+    <div
+      ref={boxRef}
+      className="aidog-stepper-val"
+      style={{
+        position: "relative",
+        display: "inline-flex", alignItems: "center", gap: 6,
+        background: "var(--card)", border: "1px solid var(--border)",
+        borderRadius: "var(--radius-sm)", padding: "5px 10px",
+        fontVariantNumeric: "tabular-nums",
+      }}
+    >
+      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{suffix}</span>
+      <input
+        aria-label={suffix}
+        inputMode="numeric"
+        value={text ?? `${pad(hour)}:${pad(minute)}`}
+        onChange={e => setText(e.target.value)}
+        onFocus={() => setOpen(true)}
+        onKeyDown={e => {
+          if (e.key === "Enter" || e.key === "Escape") {
+            if (e.key === "Escape") setText(null); else commit();
+            setOpen(false);
+            (e.target as HTMLInputElement).blur();
+          }
         }}
-        title={t("platform.windows_step_hint", "可直接键入，或点箭头/滚轮调整（15 分钟步进）")}
+        onBlur={commit}
+        title={t("platform.windows_step_hint", "可直接键入，或点开选择（分钟 15 分钟档）")}
+        style={{
+          width: 46, background: "transparent", border: 0, outline: "none", padding: 0,
+          color: "inherit", font: "inherit", fontSize: 15, fontWeight: 600, textAlign: "center",
+        }}
+      />
+      <span
+        style={{ color: "var(--text-tertiary)", fontSize: 9, cursor: "pointer" }}
+        onClick={() => setOpen(o => !o)}
       >
-        <StepperDigit value={hour} max={maxHour} onCommit={h => step(h - hour, 0)} />
-        <span style={{ color: "var(--text-tertiary)", fontSize: 13, fontWeight: 600 }}>:</span>
-        <StepperDigit value={minute} max={59} onCommit={m => step(0, m - minute)} />
-        <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 2 }}>{suffix}</span>
-      </div>
-      <div style={{ display: "flex", gap: 3 }}>
-        {arrowBtn(1, 0, true)}
-        {arrowBtn(0, 15, true)}
-      </div>
-      <div style={{ display: "flex", gap: 3 }}>
-        {arrowBtn(-1, 0, false)}
-        {arrowBtn(0, -15, false)}
-      </div>
+        ▾
+      </span>
+      {open && (
+        <div className="aidog-tpop" role="listbox" aria-label={suffix}>
+          <div className="aidog-tpop-col">
+            {hours.map(h => (
+              <button
+                key={h}
+                type="button"
+                role="option"
+                aria-selected={h === hour}
+                className={h === hour ? "on" : ""}
+                data-h={h}
+                onClick={() => { if (h !== hour) onSet(h, end && h === 24 ? 0 : minute); }}
+              >
+                {pad(h)}
+              </button>
+            ))}
+          </div>
+          <div className="aidog-tpop-col">
+            {TP_MINUTES.map(v => {
+              const dis = minuteLocked && v !== 0;
+              return (
+                <button
+                  key={v}
+                  type="button"
+                  role="option"
+                  aria-selected={!dis && v === minute}
+                  className={!dis && v === minute ? "on" : ""}
+                  data-m={v}
+                  disabled={dis}
+                  onClick={() => {
+                    if (v !== minute) onSet(hour, v);
+                    setOpen(false);
+                  }}
+                >
+                  {pad(v)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -316,9 +359,9 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   <span>· {tzLabel}</span>
                 </div>
 
-                {/* 双时间步进器 + 时区 + 删除 */}
-                <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
-                  <TimeStepper
+                {/* 双时间选择器 + 时区 + 删除 */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  <TimePicker
                     suffix={t("platform.start_hour", "起")} hour={startDisp.hour} minute={startDisp.minute} maxHour={23}
                     t={t}
                     onSet={(h, m) => {
@@ -326,8 +369,8 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                       updateWindow(widx, { start_hour: utc.hour, start_minute: utc.minute });
                     }}
                   />
-                  <span style={{ color: "var(--text-tertiary)", fontSize: 12, marginTop: 14 }}>→</span>
-                  <TimeStepper
+                  <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>→</span>
+                  <TimePicker
                     suffix={t("platform.end_hour", "止")} hour={endDisp.hour} minute={endDisp.minute} maxHour={24}
                     t={t}
                     onSet={(h, m) => {
@@ -341,7 +384,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                     value={w.timezone ?? "__utc__"}
                     onValueChange={(v) => updateWindow(widx, { timezone: v === "__utc__" ? undefined : v })}
                   >
-                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28, marginLeft: "auto", marginTop: 8 }}>
+                    <SelectTrigger className="input" style={{ width: 150, fontSize: 11, height: 28, marginLeft: "auto" }}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -355,7 +398,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   <Button
                     variant="ghost"
                     size="sm"
-                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)", marginTop: 8 }}
+                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)" }}
                     onClick={() => removeWindow(widx)}
                     title={t("action.delete", "删除")}
                   >
