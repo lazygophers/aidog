@@ -91,7 +91,7 @@ master 基线本身带红（该轮：vitest 1 红、flutter 4 红、aidog_db 2 �
   保住 4000 行死码。合并多 agent 报告时显式找「两份报告对同一符号/文件的不同说法」
   逐条对账。
 
-## 7. agent 门禁结论的两个假绿盲区（2026-10-20 obs 轮实锤）
+## 7. agent 门禁结论的假绿盲区（2026-10-20 obs 轮实锤）
 
 obs implementer 回报 clippy exit 0，主会话 `--all-targets -D warnings` 复跑当场
 红（items_after_test_module 在 lib test 目标下才 warn，agent 只跑了部分 target 或
@@ -113,6 +113,12 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   passthrough-log-fixes ×1）「首跑 1 红复跑绿、失败名被 grep 过滤丢失」无法归因。
   命令模板改 `2>&1 | tee /tmp/gate.log | grep -E 'test result|error'`——全量落
   文件，屏幕只留摘要，flaky 复现时失败名还在。
+- **`&&` 门禁链上禁裸 grep 计数**（2026-10-24 routing-viz 轮两次实锤）：
+  `cargo clippy 2>&1 | grep -cE '^warning|^error' && cargo test ...` 零 warning
+  时 grep 退出码 1，`&&` 后面的 cargo test / tsc / vitest 全部静默不跑——输出
+  看似有结果实为残缺（该轮靠链尾 MARK 行才发现）。计数类 grep 补 `|| true`，
+  且链尾固定 `echo GATE_CHAIN_DONE`：回看后台输出先找 MARK，不在场 = 链没跑完，
+  中间结果再多也不算门禁跑过。
 
 ## 7b. 门禁红先问「是不是我顺手改的」（2026-10-22 入站密钥轮）
 
