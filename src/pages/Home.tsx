@@ -150,15 +150,18 @@ function Sparkline({
   color,
   width,
   marginTop = 8,
+  className,
 }: {
   values: number[];
   color: string;
   width?: number;
   marginTop?: number;
+  className?: string;
 }) {
   if (values.length < 2) return null;
   return (
     <svg
+      className={className}
       viewBox="0 0 100 22"
       preserveAspectRatio="none"
       style={{ display: "block", marginTop, width: width ?? "100%", height: 22, flexShrink: 0 }}
@@ -429,20 +432,21 @@ export function Home({ onNavigate }: { onNavigate: (id: string, context?: NavCon
           </button>
         </div>
 
-        {/* 2. 四 KPI 紧凑行：今日花费（琥珀 sparkline）/ Token / 请求 / 缓存率（灰阶） */}
+        {/* 2. 四 KPI 紧凑行：今日花费（琥珀 sparkline）/ Token / 请求 / 缓存率（灰阶）。
+            分隔线走 gap:1 + 容器底色（DimPanel 容器同 idiom）：auto-fit 换行时线仍正确。 */}
         <div
           ref={revealKpi.ref}
           className={`reveal${revealKpi.shown ? " in" : ""}`}
-          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", borderBottom: `1px solid ${P.line}` }}
+          style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 1, background: P.line, borderBottom: `1px solid ${P.line}` }}
         >
           {kpis.length > 0 ? (
-            kpis.map((k, i) => (
-              <div key={k.label} style={{ borderInlineEnd: i < kpis.length - 1 ? `1px solid ${P.line}` : undefined }}>
+            kpis.map(k => (
+              <div key={k.label} style={{ background: P.s1 }}>
                 <KpiCell {...k} />
               </div>
             ))
           ) : (
-            <div style={{ padding: "14px 16px", fontSize: F.hint, color: P.muted }}>
+            <div style={{ padding: "14px 16px", fontSize: F.hint, color: P.muted, background: P.s1 }}>
               {loading ? "" : t("home.noToday", "今日暂无请求")}
             </div>
           )}
@@ -572,7 +576,7 @@ function DimPanel({
   const P = usePanel();
   const { t } = useTranslation();
   return (
-    <div style={{ padding: "14px 16px", background: P.s1 }}>
+    <div className="aidog-dimpanel" style={{ padding: "14px 16px", background: P.s1 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <b style={{ fontSize: F.small + 1, color: P.fg }}>{t(titleKey, titleDefault)}</b>
         <span style={{ fontFamily: P.mono, fontSize: 10, color: P.muted }}>
@@ -638,17 +642,17 @@ function DimPanel({
                 <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 44, textAlign: "end" }}>
                   {formatNumber(r.d.total_requests)}
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span className="aidog-dim-success" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.d.total_requests > 0 ? formatPercent((r.d.success_count / r.d.total_requests) * 100, 0) : "--"}
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
+                <span className="aidog-dim-cache" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 42, textAlign: "end" }}>
                   {r.other ? "--" : formatPercent(r.d.cache_rate, 0)}
                 </span>
-                <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
+                <span className="aidog-dim-latency" style={{ fontFamily: P.mono, fontSize: 11, color: P.muted, whiteSpace: "nowrap", minWidth: 46, textAlign: "end" }}>
                   {r.other || r.d.total_requests === 0 ? "--" : formatDurationMs(r.d.avg_duration_ms)}
                 </span>
                 {/* 行尾今日 token 迷你走势（跟随面板窗口）：逐小时走势，灰阶不与占比条抢焦点 */}
-                <Sparkline values={sparks.get(r.name) ?? []} color={seriesColor(1)} width={72} marginTop={0} />
+                <Sparkline className="aidog-dim-spark" values={sparks.get(r.name) ?? []} color={seriesColor(1)} width={72} marginTop={0} />
               </div>
             );
           })}
