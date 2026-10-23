@@ -2962,7 +2962,7 @@
   "platform.rateLimit": "速率",
   "platform.rateLimitTitle": "上游速率限制余量（每分钟），来自 {{vendor}} 响应头",
   "platform.codingPlanPrice": "套餐",
-  "platform.windows_step_hint": "可直接键入，或点箭头/滚轮调整（15 分钟步进）",
+  "platform.windows_step_hint": "可直接键入，或点开选择（分钟 15 分钟档）",
   "platform.peakPillPeak": "高峰中 ×{{n}}",
   "platform.peakPillOff": "非高峰 ×1.0",
   "platform.manualBudgetCount": "{{n}} 个限额"
