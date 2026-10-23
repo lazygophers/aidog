@@ -1147,4 +1147,29 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     border-color: var(--primary);
     box-shadow: 0 0 10px -4px var(--primary);
   }
+
+  /* 时间选择器弹层（WindowsEditModal TimePicker）：玻璃表面 + 深浅模式各自投影。
+     弹层挂在 .aidog-stepper-val（inline position:relative）内，此处只声明弹层自身定位。 */
+  .aidog-tpop {
+    position: absolute; top: calc(100% + 6px); left: 0; z-index: 30;
+    display: flex; gap: 6px; padding: 8px;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: blur(20px) saturate(1.4);
+    border: 1px solid var(--border); border-radius: var(--radius-md);
+    box-shadow: 0 16px 40px -12px rgba(9, 10, 12, .18);
+    animation: aidog-pop .18s ease-out;
+  }
+  :root[data-mode="dark"] .aidog-tpop { box-shadow: 0 16px 40px -12px rgba(0, 0, 0, .5); }
+  .aidog-tpop-col {
+    display: flex; flex-direction: column; gap: 2px;
+    width: 44px; max-height: 216px; overflow-y: auto;
+  }
+  .aidog-tpop-col button {
+    font-size: 11px; padding: 3px 0; border-radius: 6px; border: 0;
+    background: none; color: var(--text-secondary); cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .aidog-tpop-col button:hover { background: var(--accent-subtle); }
+  .aidog-tpop-col button.on { background: var(--primary); color: #fff; }
+  .aidog-tpop-col button:disabled { opacity: .25; cursor: default; background: none; }
 }

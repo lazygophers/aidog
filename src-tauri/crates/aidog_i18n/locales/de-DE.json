@@ -2984,7 +2984,7 @@
   "platform.rateLimit": "Rate",
   "platform.rateLimitTitle": "Verbleibendes Ratenlimit des Anbieters (pro Minute), aus {{vendor}}-Response-Headern",
   "platform.codingPlanPrice": "Tarif",
-  "platform.windows_step_hint": "Direkt eintippen oder Pfeile / Mausrad (15-Min-Schritte)",
+  "platform.windows_step_hint": "Direkt eintippen oder Auswahl öffnen (15-Min-Raster)",
   "platform.peakPillPeak": "Peak ×{{n}}",
   "platform.peakPillOff": "Nebenzeit ×1.0",
   "platform.manualBudgetCount": "{{n}} Limits"
