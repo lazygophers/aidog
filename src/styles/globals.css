@@ -1197,6 +1197,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 
   /* 路由决策画布（票 02，RoutingCanvas）：workflow 节点 + SVG 连线，配色全走主题变量 */
   .rc-node {
+    position: relative;
     width: max-content; min-width: 150px; max-width: 250px;
     border-radius: 12px; padding: 9px 12px 9px 10px;
     background: var(--surface); border: 1px solid var(--border);
@@ -1214,6 +1215,17 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .rc-node.win .rc-nm { color: var(--color-success); }
   .rc-node.fail .rc-ico { background: color-mix(in srgb, var(--color-danger) 12%, transparent); color: var(--color-danger); }
   .rc-node.dim { opacity: .55; border-style: dashed; box-shadow: none; }
+  .rc-port {
+    position: absolute; width: 7px; height: 7px; border-radius: 99px; z-index: 1;
+    background: var(--surface); border: 1.5px solid var(--border);
+    top: 50%; transform: translateY(-50%);
+  }
+  .rc-port.in { left: -4px; }
+  .rc-port.out { right: -4px; }
+  .rc-node.win .rc-port.out { border-color: var(--color-success); }
+  /* 纵向布局（<720px）：连线改上下行，端口随连线方向转到顶/底边中点 */
+  .rc-vertical .rc-port.in { top: -4px; left: 50%; transform: translateX(-50%); }
+  .rc-vertical .rc-port.out { top: auto; right: auto; bottom: -4px; left: 50%; transform: translateX(-50%); }
   .rc-why {
     align-self: flex-start; font-size: 9px; padding: 1px 7px; border-radius: 99px; margin-top: 3px;
     border: 1px solid var(--border); color: var(--text-tertiary); white-space: nowrap;

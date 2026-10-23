@@ -651,7 +651,8 @@
   "logs.routing.route": "Route",
   "logs.routing.response": "Response",
   "logs.routing.attemptFailed": "Attempt failed",
-  "logs.routing.mode.load_balance": "Load balance",
+
+  "logs.routing.untried": "Not tried",  "logs.routing.mode.load_balance": "Load balance",
   "logs.routing.mode.failover": "Failover",
   "logs.routing.mode.health_aware": "Health aware",
   "logs.routing.mode.sticky": "Sticky",

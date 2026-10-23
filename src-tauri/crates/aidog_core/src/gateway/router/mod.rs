@@ -8,6 +8,7 @@
 //! 对外路径保持 `gateway::router::X` 不变（经下方 `pub use` 重导出）。
 
 use super::models::*;
+use aidog_db::models::RouteReason;
 
 mod candidates;
 mod model_mapping;
@@ -51,35 +52,41 @@ pub struct RouteResult {
 ///
 /// `request_model`：当前请求的模型名（用于 peak model scope 过滤，PRD 07-09 D2）。
 /// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
+///
+/// 返回 `(state, reason)`：`reason` 在 state 为 `None`（被排除）时给出归因，
+/// 与 state 判定同分支产出——单一真值源，调用方不得再镜像本函数分支归因。
 pub(crate) fn candidate_state(
     platform: &Platform,
     now_ms: i64,
     request_model: &str,
-) -> Option<bool> {
+) -> (Option<bool>, RouteReason) {
     // 透传平台永远在线（ADR 0008 决策 2）：跳过高峰禁用与 auto_disabled 自动摘除，
     // 仅保留过期 / 手动 Disabled 两个用户显式维度。
     if matches!(platform.platform_type, Protocol::Passthrough) {
         if platform.expires_at > 0 && now_ms >= platform.expires_at {
-            return None;
+            return (None, RouteReason::DisabledAuto);
         }
         return match platform.status {
-            PlatformStatus::Disabled => None,
-            _ => Some(false),
+            PlatformStatus::Disabled => (None, RouteReason::DisabledManual),
+            _ => (Some(false), RouteReason::Selected),
         };
     }
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
-        return None;
+        return (None, RouteReason::DisabledAuto);
     }
     // 高峰禁用（与 status 正交，临时闸门，不改 status 三态）：
     // 开关 on 且 now 落在 peak window 任一窗口 → 排除。用户关开关/出窗口即恢复，无需退避试探。
     if is_peak_disabled(platform, now_ms, request_model) {
-        return None;
+        return (None, RouteReason::PeakDisabled);
     }
     match platform.status {
-        PlatformStatus::Enabled => Some(false),
-        PlatformStatus::AutoDisabled if now_ms >= platform.auto_disabled_until => Some(true),
-        _ => None,
+        PlatformStatus::Enabled => (Some(false), RouteReason::Selected),
+        PlatformStatus::AutoDisabled if now_ms >= platform.auto_disabled_until => {
+            (Some(true), RouteReason::Selected)
+        }
+        PlatformStatus::Disabled => (None, RouteReason::DisabledManual),
+        _ => (None, RouteReason::DisabledAuto),
     }
 }
 

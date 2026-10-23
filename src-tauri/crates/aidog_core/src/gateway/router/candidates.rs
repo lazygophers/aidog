@@ -625,17 +625,17 @@ fn filter_candidates<'a>(
             continue;
         }
 
-        // auto_disabled 维度（DB 持久态）
-        let auto_state = candidate_state(&gp.platform, now_ms, source_model);
+        // auto_disabled 维度（DB 持久态）；state_reason 与判定同源（candidate_state 单一真值源）
+        let (auto_state, state_reason) = candidate_state(&gp.platform, now_ms, source_model);
         if auto_state.is_none() {
-            // 区分高峰禁用与其他排除原因（使用缓存避免重新解析）
+            // 高峰禁用计数沿用缓存窗口命中口径（与归因解耦，行为与旧实现一致）
             let cache = extra_cache.get(&gp.platform.id);
             let peak_windows: &[peak::TimeWindow] =
                 cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
             if is_in_peak_window_cached(peak_windows, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
-            excluded.push((gp, exclude_reason_for_state(gp, now_ms, source_model, extra_cache)));
+            excluded.push((gp, state_reason));
             continue; // 手动 disabled / auto_disabled 未到期 / 高峰禁用 → 跳过
         }
 
@@ -698,31 +698,6 @@ fn filter_candidates<'a>(
         kind_rejected_count,
         unknown_protocol_count,
     }
-}
-
-/// `candidate_state` 返 None 时的排除原因归因（票 01）。归因顺序镜像 candidate_state
-/// 的分支顺序（过期 → 高峰 → status），标签与「谁被排除」的既有判定同源。
-fn exclude_reason_for_state(
-    gp: &GroupPlatformDetail,
-    now_ms: i64,
-    source_model: &str,
-    extra_cache: &ExtraCacheMap,
-) -> RouteReason {
-    // 过期（expires_at 独立维度，等效自动禁用——candidate_state 文档口径）
-    if gp.platform.expires_at > 0 && now_ms >= gp.platform.expires_at {
-        return RouteReason::DisabledAuto;
-    }
-    // 高峰禁用：开关 on + 命中窗口（缺一不可）
-    if let Some(c) = extra_cache.get(&gp.platform.id)
-        && c.disable_during_peak
-        && is_in_peak_window_cached(&c.peak_windows, now_ms, source_model)
-    {
-        return RouteReason::PeakDisabled;
-    }
-    if gp.platform.status == PlatformStatus::Disabled {
-        return RouteReason::DisabledManual;
-    }
-    RouteReason::DisabledAuto
 }
 
 // ── Helper: 按路由模式排序 ──
