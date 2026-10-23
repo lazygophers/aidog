@@ -1470,15 +1470,18 @@ function quotaCustomScriptConfigured(customScript: string, variantId: string, va
 // 的编辑：tab 正文一屏直编，无弹窗无按钮（2026-10-21 表单拍板）。编辑态就地转换，
 // 未按平台「保存」前只进平台表单态、不落库。原 RateLimitsEditModal 的 draft 助手原样搬入。
 
-/** 编辑态：数字一律字符串持有（空串 = 未配），commit 时经 draftToBundle 净化。 */
+/** 编辑态：数字一律字符串持有（空串 = 未配），commit 时经 draftToBundle 净化。
+ *  窗口时长 = 自由数字 + 单位（分钟/小时/天，2026-10-23 A2 定稿）；预算三选一
+ *  token | 金额 $ | 次数（budget_points 已废，见 QuotaWindowConfig 注）。 */
+export type QuotaBudgetMode = "tokens" | "usd" | "count";
 export interface RateLimitsDraft {
   rpm: string;
   tpm: string;
   models: { model: string; rpm: string; tpm: string }[];
-  windows: { window: string; budgetTokens: string; budgetPoints: string }[];
+  windows: { num: string; unit: string; mode: QuotaBudgetMode; amount: string }[];
 }
 
-/** bundle → 编辑态。 */
+/** bundle → 编辑态。window 秒数拆成 数字+单位（优先小时，<1h 用分钟，≥1d 用天）。 */
 export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
   return {
     rpm: b.rate_limits?.rpm ? String(b.rate_limits.rpm) : "",
@@ -1488,15 +1491,21 @@ export function bundleToDraft(b: RateLimitsBundle): RateLimitsDraft {
       rpm: o.rpm ? String(o.rpm) : "",
       tpm: o.tpm ? String(o.tpm) : "",
     })),
-    windows: (b.quota_windows ?? []).map(w => ({
-      window: String(w.window),
-      budgetTokens: w.budget_tokens ? String(w.budget_tokens) : "",
-      budgetPoints: w.budget_points ? String(w.budget_points) : "",
-    })),
+    windows: (b.quota_windows ?? []).map(w => {
+      const sec = w.window;
+      // 整除优先：天 → 小时 → 分钟（45s 这类非整分钟向上归 1 分钟）
+      const [num, unit] = sec >= 86400 && sec % 86400 === 0 ? [String(sec / 86400), "86400"]
+        : sec >= 3600 && sec % 3600 === 0 ? [String(sec / 3600), "3600"]
+        : [String(Math.round(sec / 60)), "60"];
+      const mode: QuotaBudgetMode = w.budget_usd != null ? "usd" : w.budget_count != null ? "count" : "tokens";
+      const amount = mode === "usd" ? w.budget_usd : mode === "count" ? w.budget_count : w.budget_tokens;
+      return { num, unit, mode, amount: amount != null ? String(amount) : "" };
+    }),
   };
 }
 
-/** 编辑态 → bundle（净化：非法数字丢弃；空即 undefined，serialize 侧删键）。 */
+/** 编辑态 → bundle（净化：非法数字丢弃；空即 undefined，serialize 侧删键）。
+ *  budget_points 不再写出（存量行编辑保存后清除，2026-10-23 拍板）。 */
 export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   const num = (s: string): number | undefined => {
     const v = Math.floor(Number(s));
@@ -1516,16 +1525,18 @@ export function draftToBundle(d: RateLimitsDraft): RateLimitsBundle {
   };
   const windows: QuotaWindowConfig[] = [];
   for (const w of d.windows) {
-    const win = num(w.window);
-    if (win === undefined) continue;
-    // 票 02：budget_tokens / budget_points 二选一——同填时取 tokens 优先。
-    const budget_tokens = num(w.budgetTokens);
-    const q: QuotaWindowConfig = {
-      window: win,
-      budget_tokens,
-      budget_points: budget_tokens !== undefined ? undefined : num(w.budgetPoints),
-    };
-    if (q.budget_tokens !== undefined || q.budget_points !== undefined) windows.push(q);
+    const sec = num(w.num) !== undefined ? Math.floor(Number(w.num) * Number(w.unit)) : undefined;
+    if (sec === undefined || sec <= 0) continue;
+    const q: QuotaWindowConfig = { window: sec };
+    if (w.mode === "usd") {
+      const v = parseFloat(w.amount);
+      if (w.amount.trim() !== "" && Number.isFinite(v) && v > 0) q.budget_usd = v;
+    } else if (w.mode === "count") {
+      q.budget_count = num(w.amount);
+    } else {
+      q.budget_tokens = num(w.amount);
+    }
+    if (q.budget_tokens !== undefined || q.budget_usd !== undefined || q.budget_count !== undefined) windows.push(q);
   }
   return {
     rate_limits: rate_limits.rpm !== undefined || rate_limits.tpm !== undefined || rate_limits.models ? rate_limits : undefined,
@@ -1617,25 +1628,68 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
         </button>
       </div>
 
-      {/* 额度窗口 */}
+      {/* 额度窗口（2026-10-23 A2 定稿：时长自由数字+单位，预算三选一 token|金额|次数，预设只是快捷填充） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 10 }}>
-        <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口（5h=18000 / 7d=604800 秒）")}</span>
+        <span style={labelStyle}>{t("platform.rateLimits.quotaWindows", "额度窗口")}</span>
         {draft.windows.map((w, i) => (
           <div key={i} className={C.rowClass} style={C.row}>
-            <span style={C.pill("hot")}>{w.window === "18000" ? "5h" : w.window === "604800" ? "7d" : `${Number(w.window) / 3600}h`}</span>
-            <Input type="number" value={w.window} placeholder={t("platform.rateLimits.windowSec", "秒")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, window: e.target.value } : x))} style={numStyle} />
-            <Input type="number" value={w.budgetTokens} placeholder={t("platform.rateLimits.budgetTokens", "token 预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetTokens: e.target.value } : x))} style={numStyle} />
-            <Input type="number" value={w.budgetPoints} placeholder={t("platform.rateLimits.budgetPoints", "点数预算")} onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, budgetPoints: e.target.value } : x))} style={numStyle} />
-            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
+            <Input
+              type="number" min={1} step={1}
+              value={w.num}
+              aria-label={t("platform.rateLimits.windowLength", "窗口时长")}
+              placeholder="5"
+              onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, num: e.target.value } : x))}
+              style={{ ...numStyle, width: 64, minWidth: 64, flexShrink: 0 }}
+            />
+            <Select
+              value={w.unit}
+              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, unit: v } : x))}
+            >
+              <SelectTrigger className="input" style={{ width: 76, flexShrink: 0, height: 28, fontSize: 12 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="60">{t("platform.windowUnitMinute", "分钟")}</SelectItem>
+                <SelectItem value="3600">{t("platform.windowUnitHour", "小时")}</SelectItem>
+                <SelectItem value="86400">{t("platform.windowUnitDay", "天")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select
+              value={w.mode}
+              onValueChange={(v) => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, mode: v as QuotaBudgetMode, amount: "" } : x))}
+            >
+              <SelectTrigger className="input" style={{ width: 96, flexShrink: 0, height: 28, fontSize: 12 }}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="tokens">{t("platform.rateLimits.budgetTokens", "token 预算")}</SelectItem>
+                <SelectItem value="usd">{t("platform.rateLimits.budgetUsd", "金额 ($)")}</SelectItem>
+                <SelectItem value="count">{t("platform.rateLimits.budgetCount", "请求次数")}</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input
+              type="number"
+              min={0}
+              step={w.mode === "usd" ? "any" : 1}
+              value={w.amount}
+              aria-label={t("platform.rateLimits.budgetAmount", "预算额度")}
+              placeholder={t("platform.manualBudgetAmount", "额度")}
+              onChange={e => upd("windows", draft.windows.map((x, j) => j === i ? { ...x, amount: e.target.value } : x))}
+              style={{ ...numStyle, width: 96, minWidth: 96, flexShrink: 0 }}
+            />
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)", flexShrink: 0 }}>
+              {w.mode === "usd" ? "$" : w.mode === "count" ? t("platform.rateLimits.unitCount", "次") : "tokens"}
+            </span>
+            <Button variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28, marginLeft: "auto" }} onClick={() => upd("windows", draft.windows.filter((_, j) => j !== i))}>×</Button>
           </div>
         ))}
-        <div style={{ display: "flex", gap: 6 }}>
-          <button type="button" className={C.addBtnClass} onClick={() => upd("windows", [...draft.windows, { window: "18000", budgetTokens: "", budgetPoints: "" }])}>
-            + 5h
-          </button>
-          <button type="button" className={C.addBtnClass} onClick={() => upd("windows", [...draft.windows, { window: "604800", budgetTokens: "", budgetPoints: "" }])}>
-            + 7d
-          </button>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          {([["5", "3600", "+ 5 小时"], ["1", "86400", "+ 1 天"], ["7", "86400", "+ 7 天"], ["30", "60", "+ 30 分钟"]] as const).map(([n, u, label]) => (
+            <button key={label} type="button" className={C.addBtnClass}
+              onClick={() => upd("windows", [...draft.windows, { num: n, unit: u, mode: "tokens", amount: "" }])}>
+              {label}
+            </button>
+          ))}
         </div>
       </div>
     </FormSection>

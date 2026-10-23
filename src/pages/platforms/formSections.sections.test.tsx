@@ -104,7 +104,7 @@ const bundle: RateLimitsBundle = {
     rpm: 30, tpm: 150000,
     models: { "gpt-5.4": { rpm: 10, tpm: 40000 } },
   },
-  quota_windows: [{ window: 18000, budget_tokens: 120000, budget_points: 60 }],
+  quota_windows: [{ window: 18000, budget_tokens: 120000 }],
 };
 
 function renderRateLimits(b: RateLimitsBundle) {
@@ -120,14 +120,14 @@ describe("RateLimitsSection — C 方向稿接线", () => {
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(2);
   });
 
-  it("+5h → 编辑态加一行；commit 净化丢空预算行（两预算皆空不落 bundle）", () => {
+  it("+5 小时芯片 → 编辑态加一行；commit 净化丢空预算行（预算空不落 bundle）", () => {
     const { container, setBundle } = renderRateLimits(bundle);
     const before = container.querySelectorAll(".aidog-rowcard").length;
-    const btn = Array.from(container.querySelectorAll("button")).find(b => b.textContent.trim() === "+ 5h")!;
+    const btn = Array.from(container.querySelectorAll("button")).find(b => b.textContent.trim() === "+ 5 小时")!;
     fireEvent.click(btn);
     // 编辑态：行卡 +1（draft.windows 追加）
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(before + 1);
-    // commit：新行 budgetTokens/budgetPoints 皆空 → draftToBundle 净化丢弃，bundle 仍 1 窗口
+    // commit：新行预算空 → draftToBundle 净化丢弃，bundle 仍 1 窗口
     const next = setBundle.mock.calls[0][0] as RateLimitsBundle;
     expect(next.quota_windows).toHaveLength(1);
   });
@@ -136,6 +136,16 @@ describe("RateLimitsSection — C 方向稿接线", () => {
     const { container } = renderRateLimits({});
     expect(container.textContent).toContain("未配置");
     expect(container.querySelectorAll(".aidog-rowcard")).toHaveLength(0);
+  });
+
+  it("时长自由输入接线：5h 行键入 2 → commit window=7200（num×单位秒因子）", () => {
+    const { container, setBundle } = renderRateLimits(bundle);
+    const dur = container.querySelector('input[aria-label="窗口时长"]') as HTMLInputElement;
+    expect((dur as HTMLInputElement).value).toBe("5");
+    fireEvent.change(dur, { target: { value: "2" } });
+    // commit 传普通对象（draftToBundle 已算好），非函数式 updater
+    const next = setBundle.mock.calls[0][0] as RateLimitsBundle;
+    expect(next.quota_windows?.[0]).toMatchObject({ window: 7200, budget_tokens: 120000 });
   });
 });
 
