@@ -77,4 +77,4 @@
 
 ### Domain docs
 
-single-context：根 `CONTEXT.md` + `docs/adr/`（按需惰性创建，缺失不报错）。见 `docs/agents/domain.md`。
+single-context：根 `GLOSSARY.md` + `docs/adr/`（按需惰性创建，缺失不报错）。见 `docs/agents/domain.md`。
