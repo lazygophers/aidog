@@ -106,6 +106,9 @@ pub struct ScheduleCtx<'a> {
 struct ExtraCache {
     time_windows: Vec<serde_json::Value>,
     peak_windows: Vec<peak::TimeWindow>,
+    /// extra.disable_during_peak（用户开关）。单平台短路的 peak 拦截必须以此为准：
+    /// 只看窗口命中会把「配了倍率窗口但没开禁用」的单平台组也拦成 503（2026-10-23 修复）。
+    disable_during_peak: bool,
 }
 
 impl ExtraCache {
@@ -113,9 +116,11 @@ impl ExtraCache {
     fn new(extra: &str, platform_type: &Protocol) -> Self {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
+        let disable_during_peak = peak::parse_disable_during_peak(extra);
         Self {
             time_windows,
             peak_windows,
+            disable_during_peak,
         }
     }
 }
@@ -372,10 +377,14 @@ async fn handle_single_platform(
 
     // 高峰禁用优先级高于 status bypass（单平台组不 bypass 此维度）；
     // 透传平台例外（ADR 0008 决策 2）：高峰禁用维度同样跳过，永远在线。
+    // 开关（disable_during_peak）与窗口命中缺一不可——与多平台路径 is_peak_disabled 同判定。
     let cache = extra_cache.get(&only.platform.id);
     let peak_windows: &[peak::TimeWindow] =
         cache.map(|c| c.peak_windows.as_slice()).unwrap_or_default();
-    if !is_passthrough && is_in_peak_window_cached(peak_windows, now_ms, source_model) {
+    if !is_passthrough
+        && cache.is_some_and(|c| c.disable_during_peak)
+        && is_in_peak_window_cached(peak_windows, now_ms, source_model)
+    {
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             "single-platform group: peak-disabled, request blocked"
