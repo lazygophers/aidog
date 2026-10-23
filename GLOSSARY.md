@@ -30,6 +30,10 @@ _Avoid_: 认证头（那指 aidog 发给上游的头）
 平台上按档位配置的候选模型集合，共 6 槽（`default` / `sonnet` / `opus` / `haiku` / `gpt` / `jev`），路由按 source_model 匹配。`jev` 槽服务 Decision Request。透传平台不吃模型槽（通配命中）。
 _Avoid_: 模型列表（那是下拉候选清单）、model alias、tier
 
+**路由决策快照 (Routing Decision Snapshot)**:
+一次请求路由时对全部候选平台的评估结果：每平台一个原因标签（选中/排除原因）+ 最终顺序与位置依据，随该请求的 proxy_log 落库。回答「为什么选它、为什么不是别的」。
+_Avoid_: 决策日志（那指 tracing 内存日志）、blocked_reason（那只是整组失败的单因）
+
 **est_cost**:
 单请求估算费用，落 proxy_log。已知价取 registry 模型价，缺价走 fallback 单价；透传平台例外恒 0。
 _Avoid_: 账单（那是上游真实计费）
