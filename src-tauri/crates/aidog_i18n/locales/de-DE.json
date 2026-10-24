@@ -1378,6 +1378,7 @@
   "platform.usageLabel": "Verbraucht",
   "platform.usageLoading": "Nutzung wird geladen",
   "platform.viewLogs": "Protokolle ansehen",
+  "platform.successRateLabel": "Erfolg",
   "platform.delete": "Löschen",
   "platform.moreActions": "Weitere Aktionen",
   "platform.editHint": "Plattform bearbeiten",

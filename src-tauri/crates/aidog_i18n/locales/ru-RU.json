@@ -1378,6 +1378,7 @@
   "platform.usageLabel": "Использовано",
   "platform.usageLoading": "Загрузка использования",
   "platform.viewLogs": "Журналы",
+  "platform.successRateLabel": "Успех",
   "platform.delete": "Удалить",
   "platform.moreActions": "Ещё действия",
   "platform.editHint": "Изменить платформу",

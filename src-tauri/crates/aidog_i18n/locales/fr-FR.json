@@ -1378,6 +1378,7 @@
   "platform.usageLabel": "Utilisé",
   "platform.usageLoading": "Chargement de l'utilisation",
   "platform.viewLogs": "Voir les journaux",
+  "platform.successRateLabel": "Réussite",
   "platform.delete": "Supprimer",
   "platform.moreActions": "Plus d'actions",
   "platform.editHint": "Modifier la plateforme",
