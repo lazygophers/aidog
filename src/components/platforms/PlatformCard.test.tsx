@@ -2,6 +2,7 @@
 // 迁 shadcn 后 className 随样式变，快照脆；改测「渲染了什么 + 点击派发什么」。
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "../../test/render";
+import userEvent from "@testing-library/user-event";
 import { PlatformCard } from "./PlatformCard";
 import type { Platform, PlatformQuota, PlatformUsageStats, LastTestResult } from "../../services/api";
 import { platformHasQuotaScript } from "../../domains/platforms/defaults";
@@ -136,25 +137,37 @@ describe("PlatformCard", () => {
     Object.values(mockService).forEach(fn => fn.mockClear());
   });
 
-  it("折叠态: 渲染平台名 + 操作按钮", () => {
+  it("折叠态: 渲染平台名 + 行内操作 + ⋯ 菜单触发器", () => {
     render(<PlatformCard {...baseProps} />);
     expect(screen.getByText("Test Platform")).toBeInTheDocument();
-    // 操作按钮（按 title = i18n key 查询，不依赖图标/className）
-    expect(screen.getByTitle("platform.viewLogs")).toBeInTheDocument();
-    expect(screen.getByTitle("platform.share.button")).toBeInTheDocument();
-    expect(screen.getByTitle("platform.duplicate")).toBeInTheDocument();
+    // 行内操作（title = i18n key）：开关 + 测速对 + 编辑 + ⋯ 触发器
+    expect(screen.getByTitle("platform.disable")).toBeInTheDocument();
+    expect(screen.getByTitle("platform.quickTest")).toBeInTheDocument();
+    expect(screen.getByTitle("platform.customTest")).toBeInTheDocument();
+    expect(screen.getByTitle("platform.editHint")).toBeInTheDocument();
+    expect(screen.getByTitle("platform.moreActions")).toBeInTheDocument();
+    // 低频操作收进 ⋯ 菜单：触发器不在场即菜单未开，菜单项不直接渲染
+    expect(screen.queryByTitle("platform.viewLogs")).not.toBeInTheDocument();
     // 折叠态无明细区（无 usage → hasDetail=false，不渲染 toggle 展开控件）
     expect(screen.queryByRole("button", { name: "platform.toggleDetail" })).not.toBeInTheDocument();
   });
 
-  it("操作按钮点击: 派发对应 handler（携带 platform）", () => {
+  it("⋯ 菜单: 打开后 日志/分享/复制/删除 可点且派发 handler（携带 platform）", async () => {
+    const user = userEvent.setup();
     render(<PlatformCard {...baseProps} />);
-    fireEvent.click(screen.getByTitle("platform.viewLogs"));
+    await user.click(screen.getByTitle("platform.moreActions"));
+    expect(screen.getByText("platform.viewLogs")).toBeInTheDocument();
+    await user.click(screen.getByText("platform.viewLogs"));
     expect(mockService.onViewLogs).toHaveBeenCalledWith(basePlatform);
-    fireEvent.click(screen.getByTitle("platform.share.button"));
+    await user.click(screen.getByTitle("platform.moreActions"));
+    await user.click(screen.getByText("platform.share.button"));
     expect(mockService.onShare).toHaveBeenCalledWith(basePlatform);
-    fireEvent.click(screen.getByTitle("platform.duplicate"));
+    await user.click(screen.getByTitle("platform.moreActions"));
+    await user.click(screen.getByText("platform.duplicate"));
     expect(mockService.onDuplicate).toHaveBeenCalledWith(basePlatform);
+    await user.click(screen.getByTitle("platform.moreActions"));
+    await user.click(screen.getByText("platform.delete"));
+    expect(mockActions.onDelete).toHaveBeenCalledWith(basePlatform.id);
   });
 
   it("启用/禁用开关: 点击派发 onToggleEnabled", () => {

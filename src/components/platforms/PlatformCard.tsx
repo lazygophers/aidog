@@ -18,9 +18,13 @@ import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { parseDisableDuringPeak, parseMitmStats, parseRateLimitsBundle, rateLimitsSummary } from "../../services/api";
 import { useCcMitmInfo, CcMitmRefreshWarning, CcMitmTrendSection, CcPlanBalance } from "./CcMitmInfo";
+import { Pill } from "./Pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 // ── Props types ──
 
@@ -290,194 +294,131 @@ export const PlatformCard = memo(function PlatformCard({
                     : undefined}
                 />
               </div>
-              {/* 名称 + 协议·base_url */}
+              {/* 名称 + 徽标带（终稿：徽标并排进 nameline 一行）+ 协议·base_url 副行 */}
               <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                {/* Coding Plan 套餐协议徽标（数据驱动：读 preset.is_coding_plan，非硬编码协议键名） */}
-                {isCpProtocol && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: 10, fontWeight: 600, color: "var(--color-success)",
-                      background: "color-mix(in srgb, var(--color-success) 12%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
-                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                    }}
-                    title={t("platform.codingPlanHint", "Coding Plan 套餐协议：走独立子域 / 配额计费")}
-                  >
-                    {t("platform.codingPlanBadge", "Coding Plan")}
-                  </div>
-                )}
-                {/* 订阅徽标（spec cc-sub-mitm §3.5）：claude_code 协议 = OAuth 订阅透传，与
-                    isCpProtocol 徽标同款 idiom；协议键比较与上方 isCcMitm 同源 */}
-                {p.platform_type === "claude_code" && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: 10, fontWeight: 600, color: "var(--accent)",
-                      background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                    }}
-                    title={t("platform.subscriptionHint", "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）")}
-                  >
-                    {t("platform.subscriptionBadge", "订阅")}
-                  </div>
-                )}
-                <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 7, minWidth: 0 }}>
+                  <span style={{ fontSize: 14, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</span>
+                  {/* Coding Plan 套餐协议徽标（数据驱动：读 preset.is_coding_plan，非硬编码协议键名） */}
+                  {isCpProtocol && (
+                    <Pill color="var(--color-success)" title={t("platform.codingPlanHint", "Coding Plan 套餐协议：走独立子域 / 配额计费")} style={{ flex: "none" }}>
+                      {t("platform.codingPlanBadge", "Coding Plan")}
+                    </Pill>
+                  )}
+                  {/* 订阅徽标（spec cc-sub-mitm §3.5）：claude_code 协议 = OAuth 订阅透传，与
+                      isCpProtocol 徽标同款 idiom；协议键比较与上方 isCcMitm 同源 */}
+                  {p.platform_type === "claude_code" && (
+                    <Pill color="var(--accent)" title={t("platform.subscriptionHint", "订阅透传：OAuth 订阅绑定，流量经 MITM 观测（不计费，按窗口限额）")} style={{ flex: "none" }}>
+                      {t("platform.subscriptionBadge", "订阅")}
+                    </Pill>
+                  )}
+                  {p.status === "auto_disabled" && (
+                    <Pill color="var(--color-warning)" title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
+                      .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")} style={{ flex: "none" }}>
+                      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M12 9v4" /><path d="M12 17h.01" />
+                        <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                      </svg>
+                      {t("platform.autoDisabled", "自动禁用")}
+                    </Pill>
+                  )}
+                  {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
+                    <Pill color="var(--text-secondary)" title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")} style={{ flex: "none", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z" />
+                      </svg>
+                      {rateLimitsSummary(rateLimitsBundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }))}
+                    </Pill>
+                  )}
+                  {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
+                  {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now()) && (
+                    <Pill color="var(--color-warning)" title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")} style={{ flex: "none" }}>
+                      {t("platform.peak_disabled_badge", "高峰禁用中")}
+                    </Pill>
+                  )}
+                  {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak && 当前命中 → 显示。
+                      model scope 限定时徽标显「高峰·N模型」+ tooltip 列模型；非限定显「高峰」。
+                      disable_during_peak 已有「高峰禁用中」徽标时跳过（避免重复）。 */}
+                  {!disableDuringPeak && (() => {
+                    const phWindows = peakWindows;
+                    if (phWindows.length === 0) return null;
+                    const nowMs = Date.now();
+                    if (!isCurrentlyPeak(phWindows, nowMs)) return null;
+                    // 复用 isCurrentlyPeak 单窗口调用找当前命中窗口（取其 model scope）。
+                    const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs));
+                    const models = hitWin?.models;
+                    const hasScope = models && models.length > 0;
+                    const tooltip = hasScope
+                      ? t("platform.peak_badge_models_tooltip", "受影响模型：{{models}}")
+                          .replace("{{models}}", models!.join(", "))
+                      : t("platform.peak", "高峰时段倍率");
+                    return (
+                      <Pill color="var(--accent)" title={tooltip} style={{ flex: "none" }}>
+                        {hasScope
+                          ? t("platform.peak_badge_limited", "高峰·{{count}}模型")
+                              .replace("{{count}}", String(models!.length))
+                          : t("platform.peak_badge", "高峰")}
+                      </Pill>
+                    );
+                  })()}
+                  {/* 过期标记（独立维度，与 status 正交）：已过期显红 badge，未过期临近时显小字 */}
+                  {p.expires_at > 0 && (() => {
+                    const nowMs = Date.now();
+                    if (nowMs >= p.expires_at) {
+                      return (
+                        <Pill color="var(--color-danger)" title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
+                          .replace("{{time}}", formatDateTime(p.expires_at) ?? "")} style={{ flex: "none" }}>
+                          {t("platform.expired", "已过期")}
+                        </Pill>
+                      );
+                    }
+                    const soon = p.expires_at - nowMs < 86_400_000; // 24h 内高亮
+                    return (
+                      <span
+                        style={{
+                          fontSize: 12, whiteSpace: "nowrap", flex: "none",
+                          color: soon ? "var(--color-warning)" : "var(--text-tertiary)",
+                          fontWeight: soon ? 600 : 500,
+                        }}
+                        title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
+                      >
+                        {t("platform.expiresAtBadge", "到期 {{time}}")
+                          .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
+                      </span>
+                    );
+                  })()}
+                  {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
+                  {lastTest && <LastTestBadge result={lastTest} />}
+                </div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {/* unknown = DB platform_type 落了枚举外的值（票 06）：显式「未知协议」，提示重选平台类型 */}
                   {p.platform_type === "unknown" ? t("platform.unknownProtocol", "未知协议") : protocolLabel || p.platform_type} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
-                {p.status === "auto_disabled" && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
-                      background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
-                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                    }}
-                    title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
-                      .replace("{{time}}", p.auto_disabled_until > 0 ? (formatDateTime(p.auto_disabled_until) ?? "-") : "-")}
-                  >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 9v4" /><path d="M12 17h.01" />
-                      <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                    </svg>
-                    {t("platform.autoDisabled", "自动禁用")}
-                  </div>
-                )}
-                {(rateLimitsBundle.rate_limits || rateLimitsBundle.quota_windows) && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: 10, fontWeight: 600, color: "var(--text-secondary)",
-                      background: "var(--bg-glass)",
-                      border: "1px solid var(--border)",
-                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                    }}
-                    title={t("platform.rateLimits.badgeHint", "已配限频；超限自动排除候选（后续版本生效）")}
-                  >
-                    ⚡ {rateLimitsSummary(rateLimitsBundle, n => t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n }))}
-                  </div>
-                )}
-                {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
-                {disableDuringPeak && isCurrentlyPeak(peakWindows, Date.now()) && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                      fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
-                      background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
-                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                    }}
-                    title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
-                  >
-                    {t("platform.peak_disabled_badge", "高峰禁用中")}
-                  </div>
-                )}
-                {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak && 当前命中 → 显示。
-                    model scope 限定时徽标显「高峰·N模型」+ tooltip 列模型；非限定显「高峰」。
-                    disable_during_peak 已有「高峰禁用中」徽标时跳过（避免重复）。 */}
-                {!disableDuringPeak && (() => {
-                  const phWindows = peakWindows;
-                  if (phWindows.length === 0) return null;
-                  const nowMs = Date.now();
-                  if (!isCurrentlyPeak(phWindows, nowMs)) return null;
-                  // 复用 isCurrentlyPeak 单窗口调用找当前命中窗口（取其 model scope）。
-                  const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs));
-                  const models = hitWin?.models;
-                  const hasScope = models && models.length > 0;
-                  const tooltip = hasScope
-                    ? t("platform.peak_badge_models_tooltip", "受影响模型：{{models}}")
-                        .replace("{{models}}", models!.join(", "))
-                    : t("platform.peak", "高峰时段倍率");
-                  return (
-                    <div
-                      style={{
-                        marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                        fontSize: 10, fontWeight: 600, color: "var(--accent)",
-                        background: "color-mix(in srgb, var(--accent) 12%, transparent)",
-                        border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
-                        borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                      }}
-                      title={tooltip}
-                    >
-                      {hasScope
-                        ? t("platform.peak_badge_limited", "高峰·{{count}}模型")
-                            .replace("{{count}}", String(models!.length))
-                        : t("platform.peak_badge", "高峰")}
-                    </div>
-                  );
-                })()}
-                {/* 过期标记（独立维度，与 status 正交）：已过期显红 badge，未过期临近时显小字 */}
-                {p.expires_at > 0 && (() => {
-                  const nowMs = Date.now();
-                  if (nowMs >= p.expires_at) {
-                    return (
-                      <div
-                        style={{
-                          marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                          fontSize: 10, fontWeight: 600, color: "var(--color-danger)",
-                          background: "color-mix(in srgb, var(--color-danger) 14%, transparent)",
-                          border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)",
-                          borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                        }}
-                        title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
-                          .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
-                      >
-                        {t("platform.expired", "已过期")}
-                      </div>
-                    );
-                  }
-                  const soon = p.expires_at - nowMs < 86_400_000; // 24h 内高亮
-                  return (
-                    <div
-                      style={{
-                        marginTop: 3, fontSize: 10, whiteSpace: "nowrap",
-                        color: soon ? "var(--color-warning)" : "var(--text-tertiary)",
-                        fontWeight: soon ? 600 : 500,
-                      }}
-                      title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
-                    >
-                      {t("platform.expiresAtBadge", "到期 {{time}}")
-                        .replace("{{time}}", formatDateTime(p.expires_at) ?? "")}
-                    </div>
-                  );
-                })()}
                 {/* 所属分组 badge */}
                 {platformMembership && platformMembership.length > 0 && (
                   <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
                     {platformMembership.map(gName => (
-                      <Badge key={gName} variant="secondary" style={{ fontSize: 10, padding: "1px 6px" }}>
+                      <Badge key={gName} variant="secondary" style={{ fontSize: 12, padding: "1px 6px" }}>
                         {gName}
                       </Badge>
                     ))}
                   </div>
                 )}
-                {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
-                {lastTest && <LastTestBadge result={lastTest} />}
                 {/* 订阅透传 OAuth refresh 失败警示（#91703；有失败才渲染） */}
                 {ccMitm?.refresh && ccMitm.refresh.failures > 0 && (
                   <CcMitmRefreshWarning refresh={ccMitm.refresh} />
                 )}
                 {/* 最近一次代理错误（系统维护，非请求记录实时取；最近一次成功即清空不渲染） */}
                 {p.last_error && (
-                  <div
-                    style={{
-                      marginTop: 3, display: "inline-flex", alignItems: "flex-start", gap: 4, maxWidth: "100%",
-                      fontSize: 10, fontWeight: 600, color: "var(--color-danger)",
-                      background: "color-mix(in srgb, var(--color-danger) 14%, transparent)",
-                      border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)",
-                      borderRadius: 5, padding: "1px 6px", cursor: "pointer",
-                    }}
+                  <Pill
+                    color="var(--color-danger)"
                     onClick={() => setLastErrorExpanded(v => !v)}
-                    aria-expanded={lastErrorExpanded}
+                    expanded={lastErrorExpanded}
                     title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
                       .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? (formatDateTime(p.last_error_at) ?? "-") : "-")
                       .replace("{{error}}", p.last_error)}
+                    style={{ marginTop: 3, alignItems: "flex-start", maxWidth: "100%", background: "color-mix(in srgb, var(--color-danger) 14%, transparent)", border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)" }}
                   >
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, marginTop: 2 }}>
                       <circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" />
                     </svg>
                     <span style={lastErrorExpanded
@@ -485,7 +426,7 @@ export const PlatformCard = memo(function PlatformCard({
                       : { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t("platform.lastError", "最近错误")}: {p.last_error}
                     </span>
-                  </div>
+                  </Pill>
                 )}
               </div>
               {/* 快操作 */}
@@ -533,7 +474,7 @@ export const PlatformCard = memo(function PlatformCard({
                       <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
                         <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
                           {formatNumber(Math.max(0, mb.remaining))}
-                          <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>
+                          <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: 3 }}>
                             / {formatNumber(mb.amount)} {mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}
                           </span>
                         </span>
@@ -542,7 +483,7 @@ export const PlatformCard = memo(function PlatformCard({
                         </div>
                       </div>
                     )}
-                    <span style={{ fontSize: 9, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
                       {mb.depleted
                         ? t("platform.manualBudgetDepleted", "额度耗尽")
                         : t("platform.manualBudgetLabel", "手动预算")}
@@ -553,12 +494,12 @@ export const PlatformCard = memo(function PlatformCard({
                 {/* Coding plan：已用 tokens + 预估金额（折叠态亦可见，配额档无此数据） */}
                 {hasCodingEndpoint && u && (
                   <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8 }} title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconBolt size={12} />
                       {formatNumber(total)}
-                      <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.6 }}>tok</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>tok</span>
                     </span>
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 12, fontWeight: 700, color: "var(--text-secondary)" }}>
                       <IconCost size={12} />
                       {formatCostUsd(u.total_cost)}
                     </span>
@@ -599,14 +540,14 @@ export const PlatformCard = memo(function PlatformCard({
                               transition: "width 0.3s ease",
                             }} />
                           </div>
-                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
-                            {value}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                            {value}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span>
                           </span>
-                          <span style={{ fontSize: 9, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                          <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
                             {tierLabel(tier.name)}{countdown && ` ·${countdown}`}
                           </span>
                           {resetClock && (
-                            <span style={{ fontSize: 8, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                            <span style={{ fontSize: 12, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
                               {resetClock}
                             </span>
                           )}
@@ -657,7 +598,7 @@ export const PlatformCard = memo(function PlatformCard({
                     target="_blank"
                     rel="noopener noreferrer"
                     style={{
-                      fontSize: 11, color: "var(--accent)",
+                      fontSize: 12, color: "var(--accent)",
                       textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -712,9 +653,9 @@ export const PlatformCard = memo(function PlatformCard({
                           }} />
                         </div>
                         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
-                          {value}<span style={{ fontSize: 9, fontWeight: 600, opacity: 0.65, marginLeft: 2 }}>{remainSuffix}</span>
+                          {value}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.65, marginLeft: 2 }}>{remainSuffix}</span>
                         </span>
-                        <span style={{ fontSize: 11, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                        <span style={{ fontSize: 12, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
                           <span>{tierLabel(tier.name)}</span>
                           {countdown && (
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
@@ -777,7 +718,7 @@ function EndpointsSection({
           <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {configuredModels.map((m, mi) => (
-              <Badge key={mi} variant="secondary" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</Badge>
+              <Badge key={mi} variant="secondary" style={{ fontSize: 12, padding: "2px 6px" }}>{m}</Badge>
             ))}
           </div>
         </div>
@@ -858,7 +799,7 @@ function PlatformActionButtons({
 }) {
   const { t } = useTranslation();
   return (
-    <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 2, flexShrink: 0, alignItems: "center" }}>
       {canRefresh && (
         <Button
           variant="ghost"
@@ -888,10 +829,11 @@ function PlatformActionButtons({
       />
       {/* 模型测试按钮：passthrough 平台无模型语义（原样透传），隐藏快速/自定义测试 */}
       {platform.platform_type !== "passthrough" && (
-      <div style={{ display: "inline-flex", fontSize: 11 }}>
+      <div style={{ display: "inline-flex", fontSize: 12 }}>
         <Button
           variant="ghost"
-          style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+          size="icon"
+          style={{ height: "auto" }}
           disabled={testing}
           onClick={(e) => { e.stopPropagation(); service.onQuickTest(platform); }}
           title={t("platform.quickTest", "快速测试默认模型")}
@@ -902,46 +844,47 @@ function PlatformActionButtons({
         </Button>
         <Button
           variant="ghost"
-          style={{ fontSize: 11, padding: "3px 6px", height: "auto", borderRadius: "0 6px 6px 0" }}
+          size="icon"
+          style={{ height: "auto" }}
           onClick={(e) => { e.stopPropagation(); service.onCustomTest(platform); }}
           title={t("platform.customTest", "自定义测试")}
         >
-          <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 5l4 4 4-4" />
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M3 12h4l2 5 4-10 2 5h4" />
           </svg>
         </Button>
       </div>
       )}
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); service.onViewLogs(platform); }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 2h10v10H2z" />
-          <path d="M4 5h6M4 7h4M4 9h5" />
-        </svg>
-      </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }}>
+      <Button variant="ghost" size="icon" style={{ height: "auto" }} onClick={(e) => { e.stopPropagation(); service.onEdit(platform); }} title={t("platform.editHint", "编辑平台")}>
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
           <path d="M10 2l2 2-7 7H3v-2l7-7z" />
         </svg>
       </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); service.onShare(platform); }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="3" r="1.6" />
-          <circle cx="3" cy="7" r="1.6" />
-          <circle cx="11" cy="11" r="1.6" />
-          <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
-        </svg>
-      </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); service.onDuplicate(platform); }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="4" y="4" width="8" height="8" rx="1.2" />
-          <path d="M9 4V3a1 1 0 0 0-1-1H3a1 1 0 0 0-1 1v5a1 1 0 0 0 1 1h1" />
-        </svg>
-      </Button>
-      <Button variant="ghost" size="icon" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); actions.onDelete(platform.id); }}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-        </svg>
-      </Button>
+      {/* ── 低频操作收进 ⋯ 菜单（终稿：行内露出 开关+测速+编辑+⋯，其余收口） ── */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" style={{ height: "auto" }} title={t("platform.moreActions", "更多操作")} onClick={(e) => e.stopPropagation()}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+              <circle cx="3" cy="7" r="1.3" /><circle cx="7" cy="7" r="1.3" /><circle cx="11" cy="7" r="1.3" />
+            </svg>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+          <DropdownMenuItem onSelect={() => service.onViewLogs(platform)}>
+            {t("platform.viewLogs", "查看日志")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => service.onShare(platform)}>
+            {t("platform.share.button", "分享")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => service.onDuplicate(platform)}>
+            {t("platform.duplicate", "复制")}
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => actions.onDelete(platform.id)}>
+            {t("platform.delete", "删除")}
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </div>
   );
 }
@@ -1044,7 +987,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
         </Button>
       </div>
-      <span className="text-tertiary" style={{ fontSize: 9, opacity: 0.7 }}>
+      <span className="text-tertiary" style={{ fontSize: 12, opacity: 0.7 }}>
         {t("group.levelPriorityMax", "10=最高优先")}
       </span>
     </div>
@@ -1060,14 +1003,14 @@ function LastTestBadge({ result }: { result: LastTestResult }) {
   const errorText = !ok && result.error ? result.error.slice(0, 30) : "";
   const hasBody = result.response_body.trim().length > 0;
   return (
-    <div style={{ marginTop: 3, maxWidth: "100%" }}>
+    <div style={{ maxWidth: "100%", flex: "none" }}>
       <Button
         type="button"
         variant="ghost"
         onClick={hasBody ? () => setOpen(o => !o) : undefined}
         style={{
           display: "inline-flex", alignItems: "center", gap: 4,
-          fontSize: 10, fontWeight: 600, color,
+          fontSize: 12, fontWeight: 600, color,
           background: `color-mix(in srgb, ${color} 12%, transparent)`,
           border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
           borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
