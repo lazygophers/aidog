@@ -1356,6 +1356,7 @@
   "platform.usageLabel": "已使用",
   "platform.usageLoading": "用量加载中",
   "platform.viewLogs": "查看日志",
+  "platform.successRateLabel": "成功率",
   "platform.delete": "删除",
   "platform.moreActions": "更多操作",
   "platform.editHint": "编辑平台",
