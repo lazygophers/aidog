@@ -193,7 +193,9 @@ export const PlatformCard = memo(function PlatformCard({
     (hasCodingEndpoint && !!u) ||
     (hasCodingEndpoint && p.coding_window_cost > 0) ||
     rateLimit != null ||
-    (isCcMitm && ccPlanHasData);
+    (isCcMitm && ccPlanHasData) ||
+    // 终稿统计带：折叠态也要能看到 今日成本/成功率（usage 一到就显示，无需展开）
+    !!u;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
   // 健康点派生（health.ts::deriveHealth）：401/403 / last_error / status / manual / 成功率
@@ -564,12 +566,30 @@ export const PlatformCard = memo(function PlatformCard({
                   <span
                     title={t("platform.rateLimitTitle", "上游速率限制余量（每分钟），来自 {{vendor}} 响应头", { vendor: rateLimit.vendor })}
                     style={{
-                      flexShrink: 0, fontSize: 10, whiteSpace: "nowrap",
+                      flexShrink: 0, fontSize: 12, whiteSpace: "nowrap",
                       color: rateLimitColor,
                     }}
                   >
                     {t("platform.rateLimit", "速率")} {rateLimitText}
                   </span>
+                )}
+                {/* ── 终稿统计带：今日成本 + 成功率（折叠态可见，usage 到即显）── */}
+                {u && (
+                  <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}
+                      title={t("platform.todayUsageLabel", "今日")}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: u.today_cost > 0 ? "var(--text-primary)" : "var(--text-tertiary)", fontVariantNumeric: "tabular-nums" }}>
+                        {formatCostUsd(u.today_cost)}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("platform.todayUsageLabel", "今日")}</span>
+                    </span>
+                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "flex-end", gap: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: successRateLevel(sr, u.total_requests) === "danger" ? "var(--color-danger)" : successRateLevel(sr, u.total_requests) === "warning" ? "var(--color-warning)" : "var(--color-success)", fontVariantNumeric: "tabular-nums" }}>
+                        {formatPercent(sr)}
+                      </span>
+                      <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("platform.successRateLabel", "成功率")}</span>
+                    </span>
+                  </div>
                 )}
               </div>
             )}

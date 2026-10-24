@@ -1356,6 +1356,7 @@
   "platform.usageLabel": "Used",
   "platform.usageLoading": "Loading usage",
   "platform.viewLogs": "View Logs",
+  "platform.successRateLabel": "Success",
   "platform.delete": "Delete",
   "platform.moreActions": "More actions",
   "platform.editHint": "Edit platform",
