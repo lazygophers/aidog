@@ -7,6 +7,7 @@ import { notificationApi, type NotificationSettings, type Rule, type Channel } f
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { parseToVisual, toText, type Visual } from "../../domains/notifications/ruleExpr";
 
 type Persist = (f: (prev: NotificationSettings) => NotificationSettings) => void;
 
@@ -32,6 +33,34 @@ function RuleEditor({ rule, onSave, onCancel }: {
   const [draft, setDraft] = useState<Rule>(rule);
   const [exprMsg, setExprMsg] = useState("");
   const [exprOk, setExprOk] = useState<"ok" | "err" | null>(null);
+  // 票 05：可视化 ⇄ 文本双向。打开时能解析则进可视化；文本→可视化失败 → 降级提示并停留文本（保留原文）。
+  const initial = parseToVisual(rule.condition ?? "");
+  const [mode, setMode] = useState<"visual" | "text">(initial.ok ? "visual" : "text");
+  const [visual, setVisual] = useState<Visual>(initial.ok ? initial.visual : { join: "&&", terms: [{ field: "severity", op: "==", value: "error" }] });
+  const [degrade, setDegrade] = useState("");
+
+  const applyVisual = (v: Visual) => {
+    setVisual(v);
+    setDraft(d => ({ ...d, condition: v.terms.length ? toText(v) : null }));
+  };
+
+  const switchToVisual = () => {
+    const r = parseToVisual(draft.condition ?? "");
+    if (r.ok) {
+      setVisual(r.visual);
+      setMode("visual");
+      setDegrade("");
+    } else {
+      setDegrade(r.reason);
+    }
+  };
+
+  const switchToText = () => {
+    // 可视化 → 文本：串行化（总可行），空条件保留空。
+    setDraft(d => ({ ...d, condition: d.condition }));
+    setMode("text");
+    setDegrade("");
+  };
 
   const validate = async () => {
     const expr = draft.condition?.trim() ?? "";
@@ -80,19 +109,75 @@ function RuleEditor({ rule, onSave, onCancel }: {
             onChange={e => setDraft(d => ({ ...d, action: { ...d.action, dedup_window_secs: Number(e.target.value) || 0 } }))} />
         </label>
       </div>
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-        <label style={{ display: "flex", flexDirection: "column", gap: 3, fontSize: 11, flex: 1 }}>
-          <span className="text-secondary">
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", justifyContent: "space-between" }}>
+          <span className="text-secondary" style={{ fontSize: 11 }}>
             {t("notif.rules.condition", "条件表达式（可选：字段比较 + && / ||，字段 type/severity/vars.*）")}
           </span>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button type="button" id="notif-rule-mode-visual" data-state={mode === "visual" ? "active" : "idle"}
+              onClick={() => mode === "text" && switchToVisual()}
+              style={{ all: "unset", cursor: "pointer", fontSize: 11, padding: "1px 8px", borderRadius: "var(--radius-sm)",
+                background: mode === "visual" ? "var(--accent-subtle)" : "transparent", color: "var(--text-secondary)" }}>
+              {t("notif.rules.visualMode", "可视化")}
+            </button>
+            <button type="button" id="notif-rule-mode-text" data-state={mode === "text" ? "active" : "idle"}
+              onClick={() => mode === "visual" && switchToText()}
+              style={{ all: "unset", cursor: "pointer", fontSize: 11, padding: "1px 8px", borderRadius: "var(--radius-sm)",
+                background: mode === "text" ? "var(--accent-subtle)" : "transparent", color: "var(--text-secondary)" }}>
+              {t("notif.rules.textMode", "文本")}
+            </button>
+            <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px" }}
+              onClick={validate}>
+              {t("notif.rules.validate", "校验")}
+            </Button>
+          </div>
+        </div>
+        {mode === "visual" ? (
+          <div id="notif-rule-visual" data-state="open" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {visual.terms.map((term, ti) => (
+              <div key={ti} id={`notif-rule-term-${ti}`} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input className="input" list="notif-rule-fields" style={{ fontSize: 12, width: 170 }}
+                  value={term.field}
+                  onChange={e => applyVisual({ ...visual, terms: visual.terms.map((x, i) => i === ti ? { ...x, field: e.target.value } : x) })} />
+                <datalist id="notif-rule-fields">
+                  <option value="type" /><option value="severity" /><option value="vars.platform" /><option value="vars.platform_id" /><option value="vars.project" />
+                </datalist>
+                <select className="input" style={{ fontSize: 12, width: 90 }} value={term.op}
+                  onChange={e => applyVisual({ ...visual, terms: visual.terms.map((x, i) => i === ti ? { ...x, op: e.target.value as typeof term.op } : x) })}>
+                  <option value="==">==</option><option value="!=">!=</option><option value="contains">contains</option>
+                </select>
+                <input className="input" style={{ fontSize: 12, flex: 1 }} value={term.value}
+                  onChange={e => applyVisual({ ...visual, terms: visual.terms.map((x, i) => i === ti ? { ...x, value: e.target.value } : x) })} />
+                <Button variant="ghost" size="sm" style={{ fontSize: 10, height: "auto", padding: "1px 6px" }}
+                  onClick={() => applyVisual({ ...visual, terms: visual.terms.filter((_, i) => i !== ti) })}>
+                  ✕
+                </Button>
+                {ti === 0 && (
+                  <select className="input" style={{ fontSize: 12, width: 56 }} value={visual.join}
+                    onChange={e => applyVisual({ ...visual, join: e.target.value as "&&" || "||" })}>
+                    <option value="&&">&amp;&amp;</option><option value="||">||</option>
+                  </select>
+                )}
+              </div>
+            ))}
+            <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px", alignSelf: "flex-start" }}
+              onClick={() => applyVisual({ ...visual, terms: [...visual.terms, { field: "severity", op: "==", value: "" }] })}>
+              + {t("notif.rules.addField", "加条件")}
+            </Button>
+            <div className="text-tertiary" style={{ fontSize: 11, fontFamily: "var(--font-mono, monospace)" }}>{toText(visual)}</div>
+          </div>
+        ) : (
           <Input className="input" style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)" }}
             placeholder='severity == "error" && vars.platform contains "glm"'
-            value={draft.condition ?? ""} onChange={e => setDraft(d => ({ ...d, condition: e.target.value || null }))} />
-        </label>
-        <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "4px 8px", marginTop: 16 }}
-          onClick={validate}>
-          {t("notif.rules.validate", "校验")}
-        </Button>
+            value={draft.condition ?? ""} onChange={e => { setDraft(d => ({ ...d, condition: e.target.value || null })); setDegrade(""); }} />
+        )}
+        {degrade && (
+          <div id="notif-rule-degrade" data-state="shown" style={{ fontSize: 11, color: "var(--status-warn, #fbbf24)" }}>
+            {t("notif.rules.degradeHint", "该表达式无法转成可视化（原因见下），已保留原文——请继续在文本模式编辑")}
+            <div className="text-tertiary">{degrade}</div>
+          </div>
+        )}
       </div>
       {exprMsg && <div id={`notif-rule-exprmsg-${draft.id}`} data-ok={exprOk === "ok" ? "yes" : "no"}
         style={{ fontSize: 11, color: exprMsg.startsWith("✓") ? "var(--status-ok, #4ade80)" : "var(--status-error, #f87171)" }}>{exprMsg}</div>}
