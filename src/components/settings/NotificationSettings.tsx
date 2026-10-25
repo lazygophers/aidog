@@ -64,8 +64,13 @@ const DEFAULT_SETTINGS: NotifSettings = {
   per_type: {},
   per_event: {},
   channels: { webhook: null, telegram: null, bark: null, discord: null, slack: null, feishu: null, email: null },
+  rules: [],
+  dnd_enabled: false,
   inbox_retention_days: 7,
 };
+
+import { NotificationChannelsSection } from "./NotificationChannels";
+import { NotificationRulesSection } from "./NotificationRules";
 
 function ttsBackendLabel(t: ReturnType<typeof useTranslation>["t"], b: TtsBackend): string {
   return t(`notif.ttsBackend.${b}`, b);
@@ -285,6 +290,29 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           onCheckedChange={() => persist(prev => ({ ...prev, enabled: !prev.enabled }))}
         />
       </NotifSectionCard>
+
+      {/* 免打扰总闸（票 04）：压掉打断性渠道（弹窗/提示音/TTS/外部），收件箱照落；规则可穿透 */}
+      <NotifSectionCard
+        staggerMs={40}
+        style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.dnd", "免打扰")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("notif.dndDesc", "开启后压掉弹窗/提示音/TTS/外部渠道，收件箱照常记录；规则可设「免打扰穿透」")}
+          </div>
+        </div>
+        <Switch
+          checked={settings.dnd_enabled}
+          onCheckedChange={() => persist(prev => ({ ...prev, dnd_enabled: !prev.dnd_enabled }))}
+        />
+      </NotifSectionCard>
+
+      {/* 规则列表（票 04）：通道由规则并集驱动 */}
+      <NotificationRulesSection settings={settings} persist={persist} />
+
+      {/* 外部渠道配置（票 03/04） */}
+      <NotificationChannelsSection settings={settings} persist={persist} />
 
       {/* macOS 授权引导：通知静默不出现时，一键打开系统通知设置允许 aidog。仅 macOS 显示。 */}
       {IS_MACOS && (

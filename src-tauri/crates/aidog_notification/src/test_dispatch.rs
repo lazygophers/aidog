@@ -1,441 +1,232 @@
-use super::*;
-use aidog_db::Db;
-use aidog_stats::DbInitTables;
+// dispatch 规则驱动接线测试（票 04 重写：通道由规则控制，per_event/per_type 只存模板）。
+// 文案断言：t 不引入，模板 fallback 为 zh 硬编码（与 models 同源），文本确定性等价字面量。
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use aidog_db::models::{NotificationSettings, Rule, RuleAction, Channel};
+use aidog_db::Db;
+
+use super::dispatch;
+
 fn vars(pairs: &[(&str, &str)]) -> HashMap<String, String> {
-    pairs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
+    pairs.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect()
 }
 
-// ── 分发集成（无 app handle → 仅落库，验证按 form 选通道）──
 async fn mem_db() -> Arc<Db> {
     let db = Db::new(":memory:").await.unwrap();
-    db.init_tables().await.unwrap();
+    aidog_db::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
     Arc::new(db)
 }
 
-async fn set_form(db: &Arc<Db>, type_str: &str, form: &str, enabled: bool) {
-    let json = serde_json::json!({
-        "enabled": enabled,
-        "tts_enabled": true,
-        "tts_backend": "cross_platform",
-        "per_type": { type_str: { "tts": true, "popup": true, "form": form, "template": "" } }
-    });
-    aidog_db::set_setting(
-        db,
-        aidog_db::models::SetSettingInput {
-            scope: "notification".into(),
-            key: "settings".into(),
-            value: json,
-        },
-    )
+async fn set_rules(db: &Arc<Db>, f: impl FnOnce(&mut NotificationSettings)) {
+    let mut s = NotificationSettings::default();
+    f(&mut s);
+    if s.rules.is_empty() {
+        s.rules = aidog_db::models::preset_rules();
+    }
+    aidog_db::set_setting(db, aidog_db::models::SetSettingInput {
+        scope: "notification".to_string(),
+        key: "settings".to_string(),
+        value: serde_json::to_value(&s).unwrap(),
+    })
     .await
     .unwrap();
 }
 
+fn user_rule(id: &str, typ: &str, channels: Vec<Channel>, dedup: u32, bypass_dnd: bool) -> Rule {
+    Rule {
+        id: id.to_string(),
+        name: id.to_string(),
+        enabled: true,
+        preset: false,
+        match_type: Some(typ.to_string()),
+        condition: None,
+        action: RuleAction { channels, bypass_dnd, dedup_window_secs: dedup },
+    }
+}
+
 #[tokio::test]
-async fn dispatch_full_form_falls_to_inbox_without_app() {
+async fn presets_deliver_task_complete_all_local_channels() {
     let db = mem_db().await;
-    set_form(&db, "task_complete", "full", true).await;
-    let v = vars(&[("project", "aidog")]);
-    let r = dispatch(&db, None, None, "task_complete", Some("done {project}"), &v).await;
+    set_rules(&db, |_| {}).await; // rules 空 → 预置
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("project", "P1")])).await;
     assert!(r.dispatched);
     assert!(r.inbox);
-    assert_eq!(r.body, "done aidog");
+    assert!(r.popup);
+    assert!(r.sound);
+    assert!(r.tts);
     assert!(r.inbox_id.is_some());
-    // 落库一行
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list.len(), 1);
-    assert_eq!(list[0].notif_type, "task_complete");
+    // 收件箱行带 source=api（无 event、非 proxy 语义）+ severity=info
+    let rows = aidog_db::list_notifications(&db, 10).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].source, "api");
+    assert_eq!(rows[0].severity, "info");
+    assert_eq!(rows[0].notif_type, "task_complete");
+    assert!(!rows[0].action_key.is_empty());
 }
 
 #[tokio::test]
-async fn dispatch_inbox_only() {
+async fn breaker_event_source_proxy_and_severity_error() {
     let db = mem_db().await;
-    set_form(&db, "error", "inbox_only", true).await;
-    let r = dispatch(&db, None, None, "error", Some("oops"), &HashMap::new()).await;
-    assert!(r.dispatched && r.inbox && !r.popup && !r.sound);
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list.len(), 1);
-}
-
-#[tokio::test]
-async fn dispatch_sound_only_no_inbox() {
-    let db = mem_db().await;
-    set_form(&db, "waiting_input", "sound_only", true).await;
-    let r = dispatch(&db, None, None, "waiting_input", Some("?"), &HashMap::new()).await;
-    assert!(r.dispatched && r.sound && !r.inbox && !r.popup);
-    // 不落库
-    assert!(
-        aidog_db::list_notifications(&db, 10)
-            .await
-            .unwrap()
-            .is_empty()
-    );
-}
-
-#[tokio::test]
-async fn dispatch_master_switch_off_bypasses() {
-    let db = mem_db().await;
-    set_form(&db, "task_complete", "full", false).await; // enabled=false
-    let r = dispatch(&db, None, None, "task_complete", Some("x"), &HashMap::new()).await;
-    assert!(!r.dispatched);
-    assert!(
-        aidog_db::list_notifications(&db, 10)
-            .await
-            .unwrap()
-            .is_empty()
-    );
-}
-
-#[tokio::test]
-async fn dispatch_unknown_type_as_task_complete() {
-    let db = mem_db().await;
-    // 不配 per_type → 默认 Full + 全 true
+    set_rules(&db, |_| {}).await;
     let r = dispatch(
         &db,
         None,
+        Some("breaker_on"),
+        "",
         None,
-        "my_custom_type",
-        Some("hi"),
-        &HashMap::new(),
+        &vars(&[("platform", "glm_coding"), ("platform_id", "7")]),
     )
     .await;
     assert!(r.dispatched && r.inbox);
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    // 未知 type 兜底到 task_complete（通知不丢）
-    assert_eq!(list[0].notif_type, "task_complete");
-}
-
-// ── 应用行为追踪 key（request_id）注入 ──
-fn is_trace_key(s: &str) -> bool {
-    // new_trace_id() = 6 位 [0-9a-z] (logging.rs gen_trace_id)
-    s.len() == 6
-        && s.chars()
-            .all(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
+    let rows = aidog_db::list_notifications(&db, 10).await.unwrap();
+    assert_eq!(rows[0].source, "proxy");
+    assert_eq!(rows[0].severity, "error");
+    assert_eq!(rows[0].vars.get("platform").map(String::as_str), Some("glm_coding"));
 }
 
 #[tokio::test]
-async fn dispatch_injects_nonempty_unique_action_key() {
+async fn no_matching_rule_suppressed() {
     let db = mem_db().await;
-    set_form(&db, "task_complete", "full", true).await;
-    // 模板引用 {request_id} → body 即为注入的 key（无 span 时走 new_trace_id 兜底）。
-    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
-        scope: "notification".into(),
-        key: "settings".into(),
-        value: serde_json::json!({
-            "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
-            "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
-        }),
-    }).await.unwrap();
-    let r = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
+    set_rules(&db, |s| {
+        s.rules = vec![user_rule("only-task", "task_complete", vec![Channel::Inbox], 0, false)];
+    })
+    .await;
+    // raw 透传类型无规则命中 → 不派发不落库
+    let r = dispatch(&db, None, Some("WhateverRaw"), "", None, &vars(&[])).await;
+    assert!(!r.dispatched);
+    let rows = aidog_db::list_notifications(&db, 10).await.unwrap();
+    assert!(rows.is_empty());
+}
+
+#[tokio::test]
+async fn master_switch_off_bypasses() {
+    let db = mem_db().await;
+    set_rules(&db, |s| {
+        s.enabled = false;
+    })
+    .await;
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("project", "P")])).await;
+    assert!(!r.dispatched);
+    assert!(aidog_db::list_notifications(&db, 10).await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn dnd_suppresses_interruptible_inbox_persists_and_bypass_pierces() {
+    let db = mem_db().await;
+    set_rules(&db, |s| {
+        s.dnd_enabled = true;
+        s.rules = vec![
+            user_rule("r-quiet", "error", vec![Channel::Popup, Channel::Inbox], 0, false),
+            user_rule("r-pierce", "error", vec![Channel::Sound], 0, true),
+        ];
+    })
+    .await;
+    let r = dispatch(&db, None, None, "error", None, &vars(&[])).await;
+    // popup 被免打扰压掉（第一条规则），sound 由 bypass_dnd 规则穿透，inbox 恒可落
     assert!(r.dispatched);
-    assert!(!r.body.is_empty(), "action key must be non-empty");
-    assert!(
-        is_trace_key(&r.body),
-        "fallback key must be 6 [0-9a-z] trace id, got {:?}",
-        r.body
-    );
+    assert!(!r.popup);
+    assert!(r.sound);
+    assert!(r.inbox);
 }
 
 #[tokio::test]
-async fn dispatch_different_triggers_get_different_keys() {
+async fn dedup_window_suppresses_second_dispatch() {
     let db = mem_db().await;
-    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
-        scope: "notification".into(),
-        key: "settings".into(),
-        value: serde_json::json!({
-            "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
-            "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
-        }),
-    }).await.unwrap();
-    let r1 = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
-    let r2 = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
-    assert!(is_trace_key(&r1.body) && is_trace_key(&r2.body));
-    assert_ne!(r1.body, r2.body, "两次独立触发须得不同 key");
+    set_rules(&db, |s| {
+        s.rules = vec![user_rule("r-dedup", "quota_exhaust_forecast", vec![Channel::Inbox], 3600, false)];
+    })
+    .await;
+    let v = vars(&[("project", "P"), ("platform_id", "42")]);
+    let r1 = dispatch(&db, None, Some("quota_exhaust_forecast"), "", None, &v).await;
+    assert!(r1.dispatched);
+    let r2 = dispatch(&db, None, Some("quota_exhaust_forecast"), "", None, &v).await;
+    assert!(!r2.dispatched, "同 dedup_key 窗口内第二次应被频控");
+    assert_eq!(aidog_db::list_notifications(&db, 10).await.unwrap().len(), 1, "窗口内只落一条");
 }
 
 #[tokio::test]
-async fn dispatch_prefers_caller_request_id_in_vars() {
+async fn action_key_unique_and_prefers_caller_request_id() {
     let db = mem_db().await;
-    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
-        scope: "notification".into(),
-        key: "settings".into(),
-        value: serde_json::json!({
-            "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
-            "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
-        }),
-    }).await.unwrap();
-    let v = vars(&[("request_id", "deadbeefcafe0001")]);
-    let r = dispatch(&db, None, None, "task_complete", None, &v).await;
-    // 调用方已带 request_id → 原样沿用，不再兜底生成。
-    assert_eq!(r.body, "deadbeefcafe0001");
+    set_rules(&db, |_| {}).await;
+    // 调用方 request_id 优先
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("request_id", "abc")])).await;
+    assert!(r.dispatched);
+    let rows = aidog_db::list_notifications(&db, 10).await.unwrap();
+    assert_eq!(rows[0].action_key, "abc");
+    // 无 request_id → 非空且两次不同
+    let _ = dispatch(&db, None, None, "waiting_input", None, &vars(&[])).await;
+    let _ = dispatch(&db, None, None, "waiting_input", None, &vars(&[])).await;
+    let rows = aidog_db::list_notifications(&db, 10).await.unwrap();
+    let keys: Vec<&String> = rows.iter().map(|n| &n.action_key).collect();
+    assert!(keys.iter().all(|k| !k.is_empty()));
+    assert_ne!(keys[1], keys[2], "两次触发 key 应不同");
 }
 
 #[tokio::test]
-async fn dispatch_captures_env_span_trace_id() {
-    // 模拟 tauri command #[instrument] / proxy 请求 span：dispatch 在带 trace_id 的活跃 span 内
-    // 运行时，应捕获该 span 的 id 作为 action key（与日志同口径），而非另造新 id。
-    use tracing_subscriber::layer::SubscriberExt;
-    let subscriber =
-        tracing_subscriber::registry().with(aidog_db::logging::trace_id_layer_for_test());
-    let _guard = tracing::subscriber::set_default(subscriber);
-
+async fn event_path_template_fallback_and_fill_empty() {
     let db = mem_db().await;
-    aidog_db::set_setting(&db, aidog_db::models::SetSettingInput {
-        scope: "notification".into(),
-        key: "settings".into(),
-        value: serde_json::json!({
-            "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
-            "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
-        }),
-    }).await.unwrap();
-
-    let tid = aidog_db::logging::new_trace_id();
-    let span = tracing::info_span!("notify", trace_id = %tid);
-    let r = {
-        use tracing::Instrument;
-        dispatch(&db, None, None, "task_complete", None, &HashMap::new())
-            .instrument(span)
-            .await
-    };
-    assert_eq!(
-        r.body, tid,
-        "dispatch 应沿用活跃 span 的 trace_id 作为 action key"
-    );
-}
-
-// ── N2 hook 事件解析（per_event）──
-async fn set_notif_settings(db: &Arc<Db>, value: serde_json::Value) {
-    aidog_db::set_setting(
-        db,
-        aidog_db::models::SetSettingInput {
-            scope: "notification".into(),
-            key: "settings".into(),
-            value,
-        },
-    )
-    .await
-    .unwrap();
+    set_rules(&db, |s| {
+        s.rules = vec![user_rule("r-stop", "Stop", vec![Channel::Inbox], 0, false)];
+    })
+    .await;
+    // Stop 事件默认模板「{project} 任务完成」；缺 project 注入品牌兜底；专属字段缺失 → 空串
+    let r = dispatch(&db, None, Some("Stop"), "", None, &vars(&[])).await;
+    assert!(r.dispatched);
+    assert!(r.body.ends_with("任务完成"));
+    assert!(!r.body.contains("{"), "不残留裸占位：{}", r.body);
+    // 事件名做标题（无 project）
+    assert_eq!(r.title, "Stop");
 }
 
 #[tokio::test]
-async fn dispatch_event_uses_custom_template_and_direct_channels() {
-    let db = mem_db().await;
-    // SubagentStop 启用 + 自定义文案 {agent_type}；tts/popup/sound 全关 → 仅 inbox。
-    set_notif_settings(&db, serde_json::json!({
-        "enabled": true,
-        "tts_enabled": true,
-        "tts_backend": "cross_platform",
-        "per_event": {
-            "SubagentStop": { "enabled": true, "tts": false, "popup": false, "sound": false, "template": "{project} 子代理 {agent_type} 结束" }
+async fn external_channel_rule_triggers_delivery_record() {
+    // 隔离本机代理（fake endpoint 直连）
+    unsafe {
+        std::env::set_var("NO_PROXY", "127.0.0.1,localhost");
+        std::env::set_var("no_proxy", "127.0.0.1,localhost");
+    }
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    std::thread::spawn(move || {
+        for _ in 0..4 {
+            if let Ok((mut sock, _)) = listener.accept() {
+                use std::io::{Read, Write};
+                let mut buf = [0u8; 8192];
+                let _ = sock.read(&mut buf);
+                let resp = "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\nok";
+                let _ = sock.write_all(resp.as_bytes());
+            }
         }
-    })).await;
-    let v = vars(&[("project", "aidog"), ("agent_type", "reviewer")]);
-    let r = dispatch(&db, None, Some("SubagentStop"), "ignored_type", None, &v).await;
-    assert!(r.dispatched);
-    // 通道直接取 EventSetting：tts/popup/sound 都关 → 仅 inbox（恒落库）。
-    assert!(r.inbox && !r.popup && !r.sound && !r.tts);
-    assert_eq!(r.body, "aidog 子代理 reviewer 结束");
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    // inbox 列用事件名（来源标识）。
-    assert_eq!(list[0].notif_type, "SubagentStop");
-}
-
-#[tokio::test]
-async fn dispatch_event_tts_popup_directly_controlled() {
+    });
     let db = mem_db().await;
-    // popup 开、tts 开（全局 tts_enabled 开）→ tts/popup 直控生效，sound 默认 true（向后兼容）。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "tts_enabled": true,
-            "per_event": { "Stop": { "enabled": true, "tts": true, "popup": true } }
-        }),
-    )
+    set_rules(&db, |s| {
+        s.channels.webhook = Some(aidog_db::models::WebhookCfg {
+            url: format!("http://127.0.0.1:{port}/hook"),
+            template: String::new(),
+        });
+        s.rules = vec![user_rule(
+            "r-ext",
+            "task_complete",
+            vec![Channel::Webhook, Channel::Inbox],
+            0,
+            false,
+        )];
+    })
     .await;
-    let v = vars(&[("project", "aidog")]);
-    // 无 app handle → popup/tts/sound 不实际触发，但 DispatchResult 标志反映决策。
-    // per_event[Stop] 未给 sound → serde default_true → r.sound 仍为 true（旧配置向后兼容）。
-    let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
-    assert!(r.dispatched && r.tts && r.popup && r.sound && r.inbox);
-    // 全局 tts_enabled 关 → do_tts 必关，即使 es.tts 开。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "tts_enabled": false,
-            "per_event": { "Stop": { "enabled": true, "tts": true, "popup": true } }
-        }),
-    )
-    .await;
-    let r2 = dispatch(&db, None, Some("Stop"), "", None, &v).await;
-    assert!(!r2.tts && r2.popup);
-}
-
-#[tokio::test]
-async fn dispatch_event_sound_independent_of_popup() {
-    let db = mem_db().await;
-    let v = vars(&[("project", "aidog")]);
-    // sound 开、popup 关 → sound 独立于 popup（不再跟随）。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_event": { "Stop": { "enabled": true, "popup": false, "sound": true } }
-        }),
-    )
-    .await;
-    let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
-    assert!(!r.popup && r.sound, "sound 应独立于 popup: {:?}", r);
-    // sound 关、popup 开 → sound 关，不跟随 popup。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_event": { "Stop": { "enabled": true, "popup": true, "sound": false } }
-        }),
-    )
-    .await;
-    let r2 = dispatch(&db, None, Some("Stop"), "", None, &v).await;
-    assert!(r2.popup && !r2.sound, "sound 关时不应跟随 popup: {:?}", r2);
-}
-
-#[test]
-fn event_setting_sound_backward_compat_defaults_true() {
-    // 旧 per_event 配置无 sound 字段 → 反序列化默认 true（向后兼容）。
-    let es: aidog_db::models::EventSetting =
-        serde_json::from_value(serde_json::json!({ "enabled": true })).unwrap();
-    assert!(es.sound, "旧配置无 sound 应默认 true");
-    // roundtrip 保留 sound。
-    let es2 = aidog_db::models::EventSetting { sound: false, ..es };
-    let json = serde_json::to_string(&es2).unwrap();
-    let back: aidog_db::models::EventSetting = serde_json::from_str(&json).unwrap();
-    assert!(!back.sound, "roundtrip 应保留 sound=false");
-}
-
-#[tokio::test]
-async fn dispatch_event_empty_template_falls_back_to_event_default() {
-    let db = mem_db().await;
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_event": { "PermissionRequest": { "enabled": true, "template": "" } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog"), ("tool_name", "Bash")]);
-    let r = dispatch(&db, None, Some("PermissionRequest"), "ignored", None, &v).await;
-    // template 空 → default_template_for_event(PermissionRequest)，用专属入参 {tool_name}。
-    assert_eq!(r.body, "aidog 请求授权：Bash");
-}
-
-#[tokio::test]
-async fn dispatch_event_missing_field_filled_empty_no_residual_placeholder() {
-    let db = mem_db().await;
-    // PermissionRequest 默认模板含 {tool_name}，但本次 vars 未提供 → 缺失替换为空串，
-    // 不残留裸 {tool_name}（event 路径 fill_empty 策略）。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_event": { "PermissionRequest": { "enabled": true } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog")]);
-    let r = dispatch(&db, None, Some("PermissionRequest"), "", None, &v).await;
-    assert!(!r.body.contains("{tool_name}"), "残留裸占位: {}", r.body);
-    assert_eq!(r.body, "aidog 请求授权：");
-}
-
-#[tokio::test]
-async fn dispatch_event_not_enabled_falls_to_type_path() {
-    let db = mem_db().await;
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_type": { "task_complete": { "form": "inbox_only", "template": "{project} 完成" } },
-            "per_event": { "Stop": { "enabled": false, "template": "x" } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog")]);
-    // 事件未启用 → 走 type_str 类型路径（task_complete），向后兼容/Codex 不破坏。
-    let r = dispatch(&db, None, Some("Stop"), "task_complete", None, &v).await;
-    assert_eq!(r.body, "aidog 完成");
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list[0].notif_type, "task_complete");
-}
-
-#[tokio::test]
-async fn dispatch_no_event_uses_type_path_codex_regression() {
-    let db = mem_db().await;
-    // Codex 路径：complete 脚本 POST type=task_complete，无 event → 走类型路径不受影响。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
-            "per_event": { "Stop": { "enabled": true, "template": "事件路径不应命中" } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog")]);
-    // event=None（Codex 不传 event）→ 类型路径，per_event[Stop] 不命中。
-    let r = dispatch(&db, None, None, "task_complete", None, &v).await;
-    assert!(r.dispatched);
-    assert_eq!(r.body, "aidog 完成");
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list[0].notif_type, "task_complete");
-}
-
-#[tokio::test]
-async fn dispatch_event_present_empty_type_unenabled_suppressed() {
-    let db = mem_db().await;
-    // 通用 CC hook 脚本：带 event、不带 type（type_str=""）。仅启用 Stop，未启用 SubagentStop。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
-            "per_event": { "Stop": { "enabled": true } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog")]);
-    // SubagentStop 未在 per_event 启用 + type_str="" → 守卫抑制，不回退类型路径误派。
-    let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
-    assert!(!r.dispatched, "未启用事件不应派发");
-    assert!(!r.inbox, "未启用事件不应入库");
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list.len(), 0, "不应有任何入库记录");
-}
-
-#[tokio::test]
-async fn dispatch_event_explicit_disabled_empty_type_suppressed() {
-    let db = mem_db().await;
-    // SubagentStop 显式 enabled=false，同样被守卫抑制（type_str="" → 不回退类型路径）。
-    set_notif_settings(
-        &db,
-        serde_json::json!({
-            "enabled": true,
-            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
-            "per_event": { "Stop": { "enabled": true }, "SubagentStop": { "enabled": false } }
-        }),
-    )
-    .await;
-    let v = vars(&[("project", "aidog")]);
-    let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
-    assert!(!r.dispatched, "显式禁用事件不应派发");
-    assert!(!r.inbox, "显式禁用事件不应入库");
-    let list = aidog_db::list_notifications(&db, 10).await.unwrap();
-    assert_eq!(list.len(), 0, "不应有任何入库记录");
+    let r = dispatch(&db, None, None, "task_complete", None, &vars(&[("project", "P")])).await;
+    assert!(r.dispatched && r.inbox);
+    // 外部投递是 spawn 的：轮询投递记录（上限 3s）
+    let mut found = false;
+    for _ in 0..30 {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        let rows = aidog_db::list_notification_deliveries(&db, None, 10).await.unwrap();
+        if rows.iter().any(|d| d.channel == "webhook" && d.status == "success") {
+            found = true;
+            break;
+        }
+    }
+    assert!(found, "webhook 投递记录应出现");
 }
