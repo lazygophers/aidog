@@ -1687,8 +1687,7 @@ async fn decision_capability_is_per_platform_registry_entry() {
     let g = mk_db_group(&db, "grp", &[p.id]).await;
     let e = select_candidates_ctx(&db, &g, "jev-1.13", None, RequestKind::Decision)
         .await
-        .err()
-        .expect("other platform's decision entry must not count");
+        .expect_err("other platform's decision entry must not count");
     assert_eq!(e, "no_decision_platform");
 
     // 本平台自己的条目补上 → 支持
@@ -1744,8 +1743,7 @@ async fn chat_request_skips_decision_only_platform() {
     let g2 = mk_db_group(&db, "grp2", &[only.id]).await;
     let err = select_candidates_ctx(&db, &g2, "gpt-x", None, RequestKind::Chat)
         .await
-        .err()
-        .expect("all decision-only must Err");
+        .expect_err("all decision-only must Err");
     assert_eq!(err, "no_chat_platform");
 }
 
@@ -1806,8 +1804,7 @@ async fn mapping_target_kind_mismatch_errs() {
     let g = db::get_group(&db, g.id).await.unwrap().unwrap();
     let e = select_candidates_ctx(&db, &g, "glm-5.2", None, RequestKind::Chat)
         .await
-        .err()
-        .expect("mapping to decision-only platform must Err");
+        .expect_err("mapping to decision-only platform must Err");
     assert_eq!(e, "no_chat_platform");
 }
 
@@ -1955,8 +1952,7 @@ async fn blank_jev_slot_is_not_decision_capable() {
     let g = mk_db_group(&db, "grp", &[blank.id]).await;
     let e = select_candidates_ctx(&db, &g, "m", None, RequestKind::Decision)
         .await
-        .err()
-        .expect("blank jev must not route decision");
+        .expect_err("blank jev must not route decision");
     assert_eq!(e, "no_decision_platform");
 
     let only = mk_platform_models(
@@ -1974,8 +1970,7 @@ async fn blank_jev_slot_is_not_decision_capable() {
     let g2 = mk_db_group(&db, "grp2", &[only.id]).await;
     let e = select_candidates_ctx(&db, &g2, "m", None, RequestKind::Chat)
         .await
-        .err()
-        .expect("blank chat slots keep platform decision-only");
+        .expect_err("blank chat slots keep platform decision-only");
     assert_eq!(e, "no_chat_platform");
 }
 
