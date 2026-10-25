@@ -56,9 +56,22 @@ crate::tauri_command! {
 }
 
 crate::tauri_command! {
-    pub async fn notification_inbox_list( limit: Option<i64>) -> Result<Vec<Notification>, String> {
+    pub async fn notification_inbox_list(
+        limit: Option<i64>,
+        source: Option<String>,
+        notif_type: Option<String>,
+        severity: Option<String>,
+        since_ms: Option<i64>) -> Result<Vec<Notification>, String> {
     let db = aidog_ctx::db();
-        aidog_db::list_notifications(db, limit.unwrap_or(100)).await
+        aidog_db::list_notifications_filtered(
+            db,
+            source.as_deref(),
+            notif_type.as_deref(),
+            severity.as_deref(),
+            since_ms,
+            limit.unwrap_or(100),
+        )
+        .await
     }
 }
 
@@ -138,5 +151,13 @@ crate::tauri_command! {
         limit: Option<i64>) -> Result<Vec<aidog_db::models::NotificationDelivery>, String> {
     let db = aidog_ctx::db();
         aidog_db::list_notification_deliveries(db, None, limit.unwrap_or(200)).await
+    }
+}
+
+crate::tauri_command! {
+    pub async fn notification_rule_validate(
+        expr: String) -> Result<(), String> {
+    // 规则表达式编译校验（票 04 设置页编辑期报错定位；Err 文案「第 N 字符附近：…」）。
+    aidog_notification::rules::compile_expr(&expr).map(|_| ()).map_err(|e| e.to_string())
     }
 }

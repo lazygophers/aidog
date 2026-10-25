@@ -81,13 +81,52 @@ async fn notification_settings_default_when_absent() {
         SetSettingInput {
             scope: "notification".into(),
             key: "settings".into(),
-            value: serde_json::json!({"enabled": false, "tts_enabled": false}),
+            // 票 04 起：无 rules 字段视为旧结构会被迁移重置——新结构写入须带 rules 标记。
+            value: serde_json::json!({"enabled": false, "tts_enabled": false, "rules": []}),
         },
     )
     .await
     .unwrap();
     let s2 = get_notification_settings(&db).await;
     assert!(!s2.enabled && !s2.tts_enabled);
+    assert!(s2.rules.is_empty(), "存储空 rules → effective_rules 回落预置");
+}
+
+#[tokio::test]
+async fn notification_settings_old_shape_migrates_to_presets() {
+    let db = test_db().await;
+    // 旧结构（无 rules，含 per_event）：检测 → 重置默认（规则=预置 6 条）并持久化
+    set_setting(
+        &db,
+        SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({"enabled": false, "per_event": {"Stop": {"enabled": true}}}),
+        },
+    )
+    .await
+    .unwrap();
+    let s = get_notification_settings(&db).await;
+    assert!(s.enabled, "旧结构重置为默认");
+    assert_eq!(s.rules.len(), 6, "规则=预置 6 条");
+    assert_eq!(s.effective_rules().len(), 6);
+    // 第二次读：已持久化为新结构（不再触发迁移路径，flags 保得住）
+    set_setting(
+        &db,
+        SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::to_value(&crate::models::NotificationSettings {
+                enabled: false,
+                ..Default::default()
+            })
+            .unwrap(),
+        },
+    )
+    .await
+    .unwrap();
+    let s2 = get_notification_settings(&db).await;
+    assert!(!s2.enabled);
 }
 
 // ── 内置规则删除保护（failed 内置残留可删）──

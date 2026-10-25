@@ -201,6 +201,24 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
     // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
     let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
     let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
+    // Migration 20261026-02（票 04）：notification 加 source/severity/vars_json/action_key
+    // （收件箱筛选 + 来源跳转 + 投递记录关联）。旧行缺列 → 读取层 unwrap_or_default 回落。
+    let _ = conn.execute(
+        "ALTER TABLE notification ADD COLUMN source TEXT NOT NULL DEFAULT 'hook'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE notification ADD COLUMN severity TEXT NOT NULL DEFAULT 'info'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE notification ADD COLUMN vars_json TEXT NOT NULL DEFAULT '{}'",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE notification ADD COLUMN action_key TEXT NOT NULL DEFAULT ''",
+        [],
+    );
     Ok(())
 }
 

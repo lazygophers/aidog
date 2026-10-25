@@ -37,6 +37,16 @@ pub enum Severity {
     Error,
 }
 
+impl Severity {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Severity::Info => "info",
+            Severity::Warn => "warn",
+            Severity::Error => "error",
+        }
+    }
+}
+
 /// 语义类型 → 默认级别（与 spec「语义类型目录」一致）。
 pub fn severity_for_type(typ: &str) -> Severity {
     match typ {
