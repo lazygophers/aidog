@@ -134,3 +134,19 @@ fn builtin_spec_conditions_all_parse() {
         );
     }
 }
+
+#[tokio::test]
+async fn notification_delivery_table_exists_in_memory_db() {
+    let db = Db::new(":memory:").await.unwrap();
+    crate::schema::init_tables_raw(&db, std::sync::Arc::new(|_c, _m| Ok(())))
+        .await
+        .unwrap();
+    let id = crate::insert_notification_delivery(&db, "k", "webhook", "success", "", 12)
+        .await
+        .unwrap();
+    assert!(id > 0);
+    let rows = crate::list_notification_deliveries(&db, Some("k"), 5).await.unwrap();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].channel, "webhook");
+    assert_eq!(rows[0].duration_ms, 12);
+}

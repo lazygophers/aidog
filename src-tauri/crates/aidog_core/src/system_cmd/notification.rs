@@ -4,14 +4,42 @@ use gateway::models::*;
 crate::tauri_command! {
     pub async fn notification_settings_get() -> Result<NotificationSettings, String> {
     let db = aidog_ctx::db();
-        Ok(aidog_db::get_notification_settings(db).await)
+        let mut s = aidog_db::get_notification_settings(db).await;
+        // 渠道凭据脱敏回显（票 03）：非空凭据 → 哨兵 ••••；写入侧见 notification_settings_set。
+        if let Some(t) = s.channels.telegram.as_mut()
+            && !t.bot_token.is_empty()
+        {
+            t.bot_token = MASK.to_string();
+        }
+        if let Some(e) = s.channels.email.as_mut()
+            && !e.password.is_empty()
+        {
+            e.password = MASK.to_string();
+        }
+        Ok(s)
     }
 }
+
+/// 凭据脱敏哨兵：settings_get 回显用；settings_set 收到哨兵 = 保留旧值。
+const MASK: &str = "••••";
 
 crate::tauri_command! {
     pub async fn notification_settings_set(
         settings: NotificationSettings) -> Result<(), String> {
     let db = aidog_ctx::db();
+        // 哨兵合并：凭据字段回传 •••• = 用户未改 → 保留库里旧值（脱敏回显的写侧对偶）。
+        let mut settings = settings;
+        let old = aidog_db::get_notification_settings(db).await;
+        if let (Some(new_t), Some(old_t)) = (settings.channels.telegram.as_mut(), old.channels.telegram.as_ref())
+            && new_t.bot_token == MASK
+        {
+            new_t.bot_token = old_t.bot_token.clone();
+        }
+        if let (Some(new_e), Some(old_e)) = (settings.channels.email.as_mut(), old.channels.email.as_ref())
+            && new_e.password == MASK
+        {
+            new_e.password = old_e.password.clone();
+        }
         let retention_days = settings.inbox_retention_days;
         aidog_db::set_setting(db, SetSettingInput {
             scope: "notification".to_string(),
@@ -94,3 +122,21 @@ crate::tauri_command! {
 #[cfg(test)]
 #[path = "test_notification.rs"]
 mod test_notification;
+
+crate::tauri_command! {
+    pub async fn notification_test_channel(
+        channel: String) -> Result<aidog_notification::channels::DeliverySummary, String> {
+    let db = aidog_ctx::db();
+        let settings = aidog_db::get_notification_settings(db).await;
+        let db_arc = std::sync::Arc::new(db.clone());
+        aidog_notification::channels::test_channel(&db_arc, &settings.channels, &channel).await
+    }
+}
+
+crate::tauri_command! {
+    pub async fn notification_delivery_list(
+        limit: Option<i64>) -> Result<Vec<aidog_db::models::NotificationDelivery>, String> {
+    let db = aidog_ctx::db();
+        aidog_db::list_notification_deliveries(db, None, limit.unwrap_or(200)).await
+    }
+}

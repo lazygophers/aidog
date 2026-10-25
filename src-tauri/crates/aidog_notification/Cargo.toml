@@ -11,6 +11,10 @@ license = { workspace = true }
 aidog_ctx = { path = "../aidog_ctx" }
 aidog_db = { path = "../aidog_db" }
 serde = { workspace = true }
+# 通知体系票 03：外部渠道 HTTP（webhook/telegram/bark/discord/slack/feishu）
+reqwest = { workspace = true }
+tokio = { workspace = true }
+lettre = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
 chrono = { workspace = true }

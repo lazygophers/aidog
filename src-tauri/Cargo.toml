@@ -51,6 +51,8 @@ tokio-tungstenite = { version = "0.26", features = ["native-tls"] }
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 hyper = { version = "1", features = ["http1", "http2"] }
 reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
+# 通知外部渠道 email（SMTP，通知体系票 03）：builder + tokio1 + rustls TLS。
+lettre = { version = "0.11", default-features = false, features = ["builder", "smtp-transport", "tokio1", "tokio1-rustls-tls"] }
 # 票 08 无界面内核：`--ui` 形态的静态前端资源（ServeDir + SPA fallback）与 SSE 事件流。
 tower-http = { version = "0.6", features = ["fs"] }
 tokio-stream = { version = "0.1", features = ["sync"] }

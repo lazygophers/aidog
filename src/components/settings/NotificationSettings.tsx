@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
   tts_backend: "cross_platform",
   per_type: {},
   per_event: {},
+  channels: { webhook: null, telegram: null, bark: null, discord: null, slack: null, feishu: null, email: null },
   inbox_retention_days: 7,
 };
 

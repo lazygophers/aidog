@@ -170,6 +170,21 @@ CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
                      WHERE deleted_at = 0",
                     [],
                 );
+    // Migration 20261026-01: notification_delivery 表（通知体系票 03——外部渠道投递记录，
+    // 每通知每渠道 成功/失败/耗时 终态一条；与 notification 表同库 log.db）。
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS notification_delivery (
+                       id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                       action_key  TEXT NOT NULL,
+                       channel     TEXT NOT NULL,
+                       status      TEXT NOT NULL,
+                       error       TEXT NOT NULL DEFAULT '',
+                       duration_ms INTEGER NOT NULL DEFAULT 0,
+                       created_at  INTEGER NOT NULL
+                     );
+         CREATE INDEX IF NOT EXISTS idx_notif_delivery_action
+                     ON notification_delivery(action_key, created_at DESC);",
+    )?;
     // Migration 20260727-08 (原 017): notification 表（从主库迁入 log.db）。
     // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
     // 设置（NotificationSettings）走 settings KV scope=notification（主库），不在此表。

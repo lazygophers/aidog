@@ -313,6 +313,9 @@ pub struct NotificationSettings {
     /// 旧配置无此字段 → serde default 回退 7。
     #[serde(default = "default_inbox_retention_days")]
     pub inbox_retention_days: u32,
+    /// 外部渠道配置（票 03）。旧配置无此字段 → 空（全部旁路，行为不变）。
+    #[serde(default)]
+    pub channels: ExternalChannels,
 }
 
 /// 收件箱默认保留天数（7）。serde 缺省回退用。
@@ -329,6 +332,7 @@ impl Default for NotificationSettings {
             per_type: std::collections::HashMap::new(),
             per_event: std::collections::HashMap::new(),
             inbox_retention_days: default_inbox_retention_days(),
+            channels: ExternalChannels::default(),
         }
     }
 }
@@ -353,6 +357,88 @@ impl NotificationSettings {
             .cloned()
             .or_else(|| default_event_setting_for(event))
     }
+}
+
+/// 通用 webhook 配置：URL + JSON 模板（`{title}`/`{body}` 占位；模板空用默认
+/// `{"title":"{title}","body":"{body}"}`）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct WebhookCfg {
+    pub url: String,
+    #[serde(default)]
+    pub template: String,
+}
+
+/// Telegram 配置。bot_token 属凭据：settings 回显脱敏（system_cmd 层），写入哨兵 `••••` = 保留旧值。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct TelegramCfg {
+    pub bot_token: String,
+    pub chat_id: String,
+    /// API 反代 base（空 = 官方 https://api.telegram.org；自建反代/隔离测试注入用）。
+    #[serde(default)]
+    pub api_base: String,
+}
+
+/// 纯 URL webhook（bark / discord / slack / feishu：payload 结构由渠道层按各家 API 定）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct UrlWebhookCfg {
+    pub url: String,
+}
+
+/// Email（SMTP）配置。password 属凭据：回显脱敏 + 哨兵保留（同 TelegramCfg.bot_token）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct EmailCfg {
+    pub smtp_host: String,
+    #[serde(default)]
+    pub smtp_port: u16,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: String,
+    pub from: String,
+    pub to: String,
+}
+
+/// 外部渠道配置集合（通知体系票 03）：`None` = 该渠道旁路，配置即启用。
+/// 本地 4 形态（popup/inbox/sound/tts）不走本结构（规则引擎 Channel 枚举）。
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct ExternalChannels {
+    #[serde(default)]
+    pub webhook: Option<WebhookCfg>,
+    #[serde(default)]
+    pub telegram: Option<TelegramCfg>,
+    #[serde(default)]
+    pub bark: Option<UrlWebhookCfg>,
+    #[serde(default)]
+    pub discord: Option<UrlWebhookCfg>,
+    #[serde(default)]
+    pub slack: Option<UrlWebhookCfg>,
+    #[serde(default)]
+    pub feishu: Option<UrlWebhookCfg>,
+    #[serde(default)]
+    pub email: Option<EmailCfg>,
+}
+
+/// 外部渠道投递记录（notification_delivery 表行，log.db）。每通知每渠道一条终态记录。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct NotificationDelivery {
+    #[ts(type = "number")]
+    pub id: i64,
+    /// 触发本次投递的操作 key（与 dispatch action_key 同口径；测试发送为 "test"）。
+    pub action_key: String,
+    pub channel: String,
+    /// success | failed。
+    pub status: String,
+    pub error: String,
+    #[ts(type = "number")]
+    pub duration_ms: i64,
+    #[ts(type = "number")]
+    pub created_at: i64,
 }
 
 /// 收件箱通知项（notification 表行）。

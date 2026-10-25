@@ -13,7 +13,7 @@ use std::sync::OnceLock;
 
 // ── 规则模型 ────────────────────────────────────────────────────────────────
 
-/// 动作渠道。票 02 仅本地 4 形态；票 03 扩展外部渠道（webhook/telegram/...）。
+/// 动作渠道：本地 4 形态 + 外部 7 渠道（票 03；外部渠道配置在 models::ExternalChannels）。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Channel {
@@ -21,6 +21,14 @@ pub enum Channel {
     Inbox,
     Sound,
     Tts,
+    // 外部渠道（票 03；配置见 models::ExternalChannels，无配置 = 该渠道旁路）
+    Webhook,
+    Telegram,
+    Bark,
+    Discord,
+    Slack,
+    Email,
+    Feishu,
 }
 
 /// 规则动作：命中后的投递动作。
