@@ -305,6 +305,74 @@ pub fn list_notifications(
     }
 }
 
+/// 外部渠道投递记录落库（log.db，每通知每渠道一条终态记录）。
+#[track_caller]
+pub fn insert_notification_delivery<'a>(
+    db: &'a Db,
+    action_key: &'a str,
+    channel: &'a str,
+    status: &'a str,
+    error: &'a str,
+    duration_ms: i64,
+) -> impl std::future::Future<Output = Result<i64, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let action_key = action_key.to_string();
+        let channel = channel.to_string();
+        let status = status.to_string();
+        let error = error.to_string();
+        let ts = now();
+        db.call_proxy_log_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "INSERT INTO notification_delivery (action_key, channel, status, error, duration_ms, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                params![action_key, channel, status, error, duration_ms, ts],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .await
+        .map_err(|e| format!("insert notification delivery: {e}"))
+    }
+}
+
+/// 投递记录查询（按 created_at 倒序，limit 上限；action_key 过滤可选）。
+#[track_caller]
+pub fn list_notification_deliveries<'a>(
+    db: &'a Db,
+    action_key: Option<&str>,
+    limit: i64,
+) -> impl std::future::Future<Output = Result<Vec<crate::models::NotificationDelivery>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let action_key = action_key.map(str::to_string);
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let sql = match action_key.as_deref().filter(|s| !s.is_empty()) {
+                Some(_) => "SELECT id, action_key, channel, status, error, duration_ms, created_at FROM notification_delivery WHERE action_key = ?1 ORDER BY created_at DESC, id DESC LIMIT ?2",
+                None => "SELECT id, action_key, channel, status, error, duration_ms, created_at FROM notification_delivery ORDER BY created_at DESC, id DESC LIMIT ?1",
+            };
+            let mut stmt = conn.prepare(sql)?;
+            let rows = match action_key.as_deref().filter(|s| !s.is_empty()) {
+                Some(k) => stmt.query_map(params![k, limit], map_delivery)?,
+                None => stmt.query_map(params![limit], map_delivery)?,
+            };
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+fn map_delivery(row: &rusqlite::Row<'_>) -> rusqlite::Result<crate::models::NotificationDelivery> {
+    Ok(crate::models::NotificationDelivery {
+        id: row.get(0)?,
+        action_key: row.get(1)?,
+        channel: row.get(2)?,
+        status: row.get(3)?,
+        error: row.get(4)?,
+        duration_ms: row.get(5)?,
+        created_at: row.get(6)?,
+    })
+}
+
 /// 清空收件箱（删全部行）。
 #[track_caller]
 pub fn clear_notifications(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
