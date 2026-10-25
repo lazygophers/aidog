@@ -75,6 +75,35 @@ describe("NotificationRulesSection — 票 04", () => {
     expect(msg.getAttribute("data-ok")).toBe("no");
   });
 
+  it("票 05：可解析条件打开编辑器即可视化模式；行组序列化显示规范式", () => {
+    const rules = [{ ...user("user-v"), condition: 'severity == "error" && vars.platform contains "glm"' }];
+    const settings = { rules, channels: {} } as unknown as NotificationSettings;
+    const persist = vi.fn();
+    render(<NotificationRulesSection settings={settings} persist={persist} />);
+    fireEvent.click(screen.getByText("notif.rules.edit"));
+    expect(document.getElementById("notif-rule-mode-visual")!.getAttribute("data-state")).toBe("active");
+    expect(document.getElementById("notif-rule-visual")).toBeTruthy();
+    expect(document.getElementById("notif-rule-term-1")).toBeTruthy();
+  });
+
+  it("票 05：混用 &&/|| 的文本切可视化 → 降级提示、停留文本、原文保留", () => {
+    const mixed = 'type == "x" && severity == "error" || vars.k == "v"';
+    const rules = [{ ...user("user-m"), condition: mixed }];
+    const settings = { rules, channels: {} } as unknown as NotificationSettings;
+    const persist = vi.fn();
+    render(<NotificationRulesSection settings={settings} persist={persist} />);
+    fireEvent.click(screen.getByText("notif.rules.edit"));
+    expect(document.getElementById("notif-rule-mode-text")!.getAttribute("data-state")).toBe("active");
+    fireEvent.click(document.getElementById("notif-rule-mode-visual")!);
+    const hint = document.getElementById("notif-rule-degrade")!;
+    expect(hint.getAttribute("data-state")).toBe("shown");
+    expect(hint.textContent).toContain("notif.rules.degradeHint");
+    // 停留文本模式，原文未丢
+    expect(document.getElementById("notif-rule-mode-text")!.getAttribute("data-state")).toBe("active");
+    const cond = document.querySelector<HTMLInputElement>('input[placeholder^="severity =="]')!;
+    expect(cond.value).toBe(mixed);
+  });
+
   it("表达式校验通过：validOk 文案 data-ok=yes", async () => {
     vi.mocked(notificationApi.validateRuleExpr).mockResolvedValueOnce(undefined);
     renderRules([user("user-3")]);
