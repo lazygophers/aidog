@@ -1272,6 +1272,7 @@
   "platform.peak_disabled_badge": "معطّل أوقات الذروة",
   "platform.peak_empty": "غير مُهيأ ← استخدم الافتراضي أو 1.0 (بدون تعديل)",
   "platform.peak_end_at": "ينتهي عند",
+  "platform.peak_period": "فترة السريان (اختياري)",
   "platform.peak_import_default": "استيراد الافتراضي",
   "platform.peak_model_placeholder": "اسم النموذج أو بادئة*",
   "platform.peak_model_scope": "النماذج المتأثرة",

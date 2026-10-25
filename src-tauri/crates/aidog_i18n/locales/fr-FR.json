@@ -1272,6 +1272,7 @@
   "platform.peak_disabled_badge": "Désactivé en pointe",
   "platform.peak_empty": "Non configuré → utiliser le préréglage ou 1.0 (sans ajustement)",
   "platform.peak_end_at": "Expire le",
+  "platform.peak_period": "Période de validité (facultatif)",
   "platform.peak_import_default": "Importer par défaut",
   "platform.peak_model_placeholder": "Nom du modèle ou préfixe*",
   "platform.peak_model_scope": "Modèles concernés",

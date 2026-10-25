@@ -1272,6 +1272,7 @@
   "platform.peak_disabled_badge": "ピーク無効化中",
   "platform.peak_empty": "未設定 → プリセット既定値または 1.0 (調整なし)",
   "platform.peak_end_at": "終了",
+  "platform.peak_period": "有効期間（任意）",
   "platform.peak_import_default": "デフォルトをインポート",
   "platform.peak_model_placeholder": "モデル名またはプレフィックス*",
   "platform.peak_model_scope": "対象モデル",

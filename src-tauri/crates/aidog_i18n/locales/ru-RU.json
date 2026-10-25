@@ -1272,6 +1272,7 @@
   "platform.peak_disabled_badge": "Отключён в пик",
   "platform.peak_empty": "Не настроено → использовать пресет или 1.0 (без корректировки)",
   "platform.peak_end_at": "Истекает",
+  "platform.peak_period": "Период действия (необязательно)",
   "platform.peak_import_default": "Импорт по умолчанию",
   "platform.peak_model_placeholder": "Имя модели или префикс*",
   "platform.peak_model_scope": "Затронутые модели",
