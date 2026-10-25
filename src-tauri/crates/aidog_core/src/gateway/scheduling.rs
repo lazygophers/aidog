@@ -247,6 +247,35 @@ impl SchedulerState {
     }
 
     /// 摘除性状态写穿落盘（fire-and-forget；只在状态变更点调用，成功热路径不触发）。
+    /// 通知体系票 01：熔断事件旁路发射（fire-and-forget）。
+    /// 无 db / 不在 tokio runtime（纯单测直调）→ 静默跳过；发射失败只记日志。
+    fn emit_breaker_event(&self, platform_id: u64, event: &'static str) {
+        let Some(db) = self.db.clone() else { return };
+        if tokio::runtime::Handle::try_current().is_err() {
+            return;
+        }
+        tokio::spawn(async move {
+            let pid = platform_id;
+            let ptype: String = db
+                .platform_write_conn()
+                .call(move |conn| {
+                    Ok(conn
+                        .query_row(
+                            "SELECT platform_type FROM platform WHERE id = ?1",
+                            rusqlite::params![pid as i64],
+                            |r| r.get(0),
+                        )
+                        .unwrap_or_default())
+                })
+                .await
+                .unwrap_or_default();
+            let mut vars = std::collections::HashMap::new();
+            vars.insert("platform".to_string(), ptype);
+            vars.insert("platform_id".to_string(), platform_id.to_string());
+            aidog_notification::semantic::emit(&db, aidog_ctx::try_ctx(), event, vars).await;
+        });
+    }
+
     fn persist(&self, platform_id: u64) {
         let Some(db) = self.db.clone() else { return };
         let row = {
@@ -469,13 +498,14 @@ impl SchedulerState {
 
     /// 成功：更新延迟 EMA、breaker 转 Closed（含 HalfOpen→Closed）、inflight-1、清 connect 失败标记。
     pub fn record_success(&self, platform_id: u64, latency_ms: i64) {
-        let needs_clear = if let Ok(mut g) = self.health.write() {
+        let (needs_clear, breaker_was_nonclosed) = if let Ok(mut g) = self.health.write() {
             let h = g.entry(platform_id).or_default();
             let non_default = h.breaker != BreakerState::Closed { fails: 0 }
                 || h.quota_cooldown_until_ms > 0
                 || h.auth_cooldown_until_ms > 0
                 || h.balance_cooldown_until_ms > 0
                 || h.last_connect_fail_ms > 0;
+            let breaker_was_nonclosed = h.breaker != BreakerState::Closed { fails: 0 };
             Self::dec_inflight(h);
             let sample = latency_ms.max(0) as f64;
             h.latency_ema_ms = if h.latency_ema_ms <= 0.0 {
@@ -488,12 +518,16 @@ impl SchedulerState {
             // 失败降权：成功一次清零回起步（下次失败从档位起步窗口重新计）。
             h.penalty_until_ms = 0;
             h.penalty_consecutive = 0;
-            non_default
+            (non_default, breaker_was_nonclosed)
         } else {
-            false
+            (false, false)
         };
         if needs_clear {
             self.persist(platform_id);
+        }
+        // 通知体系票 01：熔断恢复（Open/HalfOpen → Closed）旁路发射，不改状态机行为。
+        if breaker_was_nonclosed {
+            self.emit_breaker_event(platform_id, "breaker_off");
         }
     }
 
@@ -509,6 +543,8 @@ impl SchedulerState {
         };
         if opened {
             self.persist(platform_id);
+            // 通知体系票 01：熔断触发旁路发射，不改状态机行为。
+            self.emit_breaker_event(platform_id, "breaker_on");
         }
     }
 
@@ -547,6 +583,8 @@ impl SchedulerState {
         }
         if opened {
             self.persist(platform_id);
+            // 通知体系票 01：熔断触发旁路发射，不改状态机行为。
+            self.emit_breaker_event(platform_id, "breaker_on");
         }
     }
 

@@ -364,6 +364,69 @@ async fn run_calibration(
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
 
+/// 配额预测告警提前量（分钟）：距耗尽不足该值时告警。spec 预置规则默认 30（票 02 可由规则覆盖）。
+const FORECAST_THRESHOLD_MIN: f64 = 30.0;
+
+/// 已发射过预测告警的窗口（(platform_id, tier name) → window_start）。
+/// 每窗口每档只发一次（票 01 频控；发送前登记，发送失败不补发——宁漏勿扰）。
+static FORECAST_SENT: std::sync::OnceLock<
+    std::sync::Mutex<std::collections::HashMap<(u64, String), i64>>,
+> = std::sync::OnceLock::new();
+
+fn claim_forecast_window(platform_id: u64, tier: &str, window_start: i64) -> bool {
+    let map = FORECAST_SENT.get_or_init(Default::default);
+    let Ok(mut g) = map.lock() else { return false };
+    match g.get(&(platform_id, tier.to_string())) {
+        Some(&ws) if ws == window_start => false,
+        _ => {
+            g.insert((platform_id, tier.to_string()), window_start);
+            true
+        }
+    }
+}
+
+/// 配额耗尽预测（通知体系票 01）：读平台 est_coding_plan，逐档算距耗尽分钟数，
+/// ≤ 阈值且本窗口未发过 → 旁路发 quota_exhaust_forecast（频控内建）。
+async fn maybe_emit_quota_forecast(db: &Db, platform_id: u64, platform_type: &str) {
+    let pid = platform_id;
+    let json: String = db
+        .platform_write_conn()
+        .call(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                    params![pid as i64],
+                    |r| r.get(0),
+                )
+                .unwrap_or_default())
+        })
+        .await
+        .unwrap_or_default();
+    let plan = EstCodingPlan::from_json(&json);
+    for t in &plan.tiers {
+        if let Some(mins) = super::algo::minutes_to_exhaust(t.est_utilization, t.window_start, now())
+            && mins <= FORECAST_THRESHOLD_MIN
+            && claim_forecast_window(platform_id, &t.name, t.window_start)
+        {
+            let mut vars = std::collections::HashMap::new();
+            vars.insert("platform".to_string(), platform_type.to_string());
+            vars.insert("platform_id".to_string(), platform_id.to_string());
+            vars.insert("tier".to_string(), t.name.clone());
+            vars.insert(
+                "minutes".to_string(),
+                format!("{}", mins.round() as i64),
+            );
+            aidog_notification::semantic::emit(
+                &std::sync::Arc::new(db.clone()),
+                aidog_ctx::try_ctx(),
+                "quota_exhaust_forecast",
+                vars,
+            )
+            .await;
+        }
+    }
+}
+
 /// 单次请求后的预估入口（在 proxy 后台 tokio::spawn 中调用）。
 /// - 余额平台（非 coding plan）：扣金额。
 /// - coding plan 平台：更新 utilization。
@@ -420,6 +483,8 @@ pub async fn estimate_after_request(
         // cache_write 计入 plan token 总量（coding 套餐 5h 窗口按总 token 计，含缓存写）
         let total = (input_tokens + output_tokens + cache_tokens + cache_write_tokens) as f64;
         let _ = apply_coding_plan_delta(db, platform_id, 1, total).await;
+        // 通知体系票 01：配额预测（只在 coding plan 平台——按量平台无窗口耗尽语义）。
+        maybe_emit_quota_forecast(db, platform_id, platform_type).await;
     } else if let Some(ref price) = resolved_price {
         // 按量平台扣金额
         let cost = balance_cost(
