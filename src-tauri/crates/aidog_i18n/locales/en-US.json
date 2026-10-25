@@ -1250,6 +1250,7 @@
   "platform.peak_disabled_badge": "Peak-disabled",
   "platform.peak_empty": "Not configured → use preset default or 1.0 (no adjustment)",
   "platform.peak_end_at": "Expires at",
+  "platform.peak_period": "Active period (optional)",
   "platform.peak_import_default": "Import default",
   "platform.peak_model_placeholder": "Model name or prefix*",
   "platform.peak_model_scope": "Affected models",
