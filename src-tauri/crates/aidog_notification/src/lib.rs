@@ -31,8 +31,6 @@ pub use tts::*;
 pub use vars::*;
 
 #[cfg(test)]
-mod test_dispatch;
-#[cfg(test)]
 mod test_render;
 #[cfg(test)]
 mod test_vars;

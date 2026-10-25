@@ -31,6 +31,8 @@ pub use middleware::*;
 pub use model_entry::*;
 pub use model_test::*;
 pub use notification::*;
+pub mod notification_rules;
+pub use notification_rules::*;
 pub use platform::*;
 pub use price::*;
 pub use protocol::*;

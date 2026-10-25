@@ -1,7 +1,7 @@
 // notification.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { NotifType, NotificationSettings, Notification, NotifyHooksFragment, NotifyDispatchResult, HookClient } from "./types";
+import type { NotifType, NotificationSettings, Notification, NotificationDelivery, NotifyHooksFragment, NotifyDispatchResult, HookClient } from "./types";
 
 export const notificationApi = {
   /** 读取通知设置（无配置 → 默认全开 cross_platform）。 */
@@ -10,8 +10,14 @@ export const notificationApi = {
   setSettings: (settings: NotificationSettings) =>
     invoke<void>("notification_settings_set", { settings }),
   /** 列收件箱（倒序；limit 默认 100）。 */
-  listInbox: (limit?: number) =>
-    invoke<Notification[]>("notification_inbox_list", { limit }),
+  listInbox: (limit?: number, filter?: { source?: string; notifType?: string; severity?: string; sinceMs?: number }) =>
+    invoke<Notification[]>("notification_inbox_list", {
+      limit,
+      source: filter?.source,
+      notifType: filter?.notifType,
+      severity: filter?.severity,
+      sinceMs: filter?.sinceMs,
+    }),
   /** 清空收件箱。 */
   clearInbox: () => invoke<void>("notification_clear"),
   /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
@@ -26,6 +32,16 @@ export const notificationApi = {
   /** 仅测系统提示音通道：跨平台 spawn beep（macOS afplay / Windows powershell / Linux paplay）。 */
   testBeep: () =>
     invoke<void>("notification_test_beep"),
+  /** 外部渠道测试发送（票 03/04：真实投递 + 落投递记录；未配置渠道报错）。 */
+  testChannel: (channel: string) =>
+    invoke<{ channel: string; ok: boolean; error: string; duration_ms: number; attempts: number }>(
+      "notification_test_channel", { channel }),
+  /** 投递记录查询（票 04：收件箱展开；actionKey 过滤可选）。 */
+  listDeliveries: (actionKey?: string, limit?: number) =>
+    invoke<NotificationDelivery[]>("notification_delivery_list", { limit, actionKey }),
+  /** 规则表达式编译校验（票 04：Err 文案带「第 N 字符附近」定位）。 */
+  validateRuleExpr: (expr: string) =>
+    invoke<void>("notification_rule_validate", { expr }),
   /**
    * 一键注入通知 hook（N2）。
    * - client="claude_code"：把 hooks.Stop/Notification 注入基线配置并 re-sync 到所有 settings.{group}.json。

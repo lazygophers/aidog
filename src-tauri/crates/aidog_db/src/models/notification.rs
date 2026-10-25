@@ -1,6 +1,7 @@
 //! 通知模块模型（系统通知 N1/N2）：类型/形态/TTS 后端 + 类型/事件配置 + 总设置 + 收件箱项。
 
 use super::default_true;
+use super::notification_rules::{preset_rules, Rule};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
@@ -316,6 +317,13 @@ pub struct NotificationSettings {
     /// 外部渠道配置（票 03）。旧配置无此字段 → 空（全部旁路，行为不变）。
     #[serde(default)]
     pub channels: ExternalChannels,
+    /// 通知规则（票 04：规则驱动分发）。空 = 视为未迁移/未配置 → `effective_rules()` 回落预置 6 条。
+    #[serde(default)]
+    pub rules: Vec<Rule>,
+    /// 免打扰总闸（票 04）：开 = 压掉打断性渠道（弹窗/提示音/TTS/外部），收件箱照落；
+    /// 规则 bypass_dnd = true 时穿透。
+    #[serde(default)]
+    pub dnd_enabled: bool,
 }
 
 /// 收件箱默认保留天数（7）。serde 缺省回退用。
@@ -333,6 +341,8 @@ impl Default for NotificationSettings {
             per_event: std::collections::HashMap::new(),
             inbox_retention_days: default_inbox_retention_days(),
             channels: ExternalChannels::default(),
+            rules: Vec::new(),
+            dnd_enabled: false,
         }
     }
 }
@@ -347,6 +357,15 @@ impl NotificationSettings {
     /// 注：未命中走「展示层默认」（前端兜底默认目录），DB 不硬写默认集。
     pub fn event_setting(&self, event: &str) -> Option<&EventSetting> {
         self.per_event.get(event)
+    }
+
+    /// 有效规则集：rules 空（未迁移/未配置）→ 预置 6 条；否则按存储值（预置 + 用户规则）。
+    pub fn effective_rules(&self) -> Vec<Rule> {
+        if self.rules.is_empty() {
+            preset_rules()
+        } else {
+            self.rules.clone()
+        }
     }
 
     /// 取某事件**有效**配置（票 01）：per_event 命中 > proxy 语义事件内置默认 > None。
@@ -448,6 +467,18 @@ pub struct Notification {
     #[ts(type = "number")]
     pub id: i64,
     pub notif_type: String,
+    /// 事件来源（hook | proxy | api；旧行空 = hook）。
+    #[serde(default)]
+    pub source: String,
+    /// 级别（info | warn | error；旧行空 = info）。
+    #[serde(default)]
+    pub severity: String,
+    /// 模板变量快照（来源跳转用：platform_id / cwd / session 等；旧行空 map）。
+    #[serde(default)]
+    pub vars: std::collections::HashMap<String, String>,
+    /// 触发操作 key（投递记录关联 + 日志串联；旧行空）。
+    #[serde(default)]
+    pub action_key: String,
     pub title: String,
     pub body: String,
     #[ts(type = "number")]

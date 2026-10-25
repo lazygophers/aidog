@@ -3,4 +3,20 @@
 /**
  * 收件箱通知项（notification 表行）。
  */
-export type Notification = { id: number, notif_type: string, title: string, body: string, created_at: number, };
+export type Notification = { id: number, notif_type: string, 
+/**
+ * 事件来源（hook | proxy | api；旧行空 = hook）。
+ */
+source: string, 
+/**
+ * 级别（info | warn | error；旧行空 = info）。
+ */
+severity: string, 
+/**
+ * 模板变量快照（来源跳转用：platform_id / cwd / session 等；旧行空 map）。
+ */
+vars: { [key in string]?: string }, 
+/**
+ * 触发操作 key（投递记录关联 + 日志串联；旧行空）。
+ */
+action_key: string, title: string, body: string, created_at: number, };

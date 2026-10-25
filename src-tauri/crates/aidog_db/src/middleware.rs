@@ -244,30 +244,83 @@ pub async fn get_scheduling_settings(db: &Db) -> crate::models::SchedulingBreake
 /// 通知设置（settings scope=`notification`, key=`settings`）。缺省 / 解析失败 → 默认（全开 CrossPlatform）。
 pub async fn get_notification_settings(db: &Db) -> crate::models::NotificationSettings {
     match get_setting(db, "notification", "settings").await {
-        Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
+        Ok(Some(v)) => {
+            // 票 04 迁移：旧结构（对象无 rules 字段）→ 重置为默认（规则=预置 6 条），
+            // 保留 channels / inbox_retention_days（票 03 中间态字段），收件箱数据不动。
+            let is_old = v.as_object().is_some_and(|o| !o.contains_key("rules"));
+            if is_old {
+                let channels: crate::models::ExternalChannels = v
+                    .get("channels")
+                    .and_then(|ch| serde_json::from_value(ch.clone()).ok())
+                    .unwrap_or_default();
+                let retention = v
+                    .get("inbox_retention_days")
+                    .and_then(|x| x.as_u64())
+                    .map(|r| r.min(u32::MAX as u64) as u32)
+                    .unwrap_or(crate::models::NotificationSettings::default().inbox_retention_days);
+                let migrated = crate::models::NotificationSettings {
+                    rules: crate::models::preset_rules(),
+                    channels,
+                    inbox_retention_days: retention,
+                    ..Default::default()
+                };
+                tracing::info!("notification settings: 旧结构检测 → 重置默认（规则=预置；收件箱不动）");
+                let _ = set_setting(
+                    db,
+                    SetSettingInput {
+                        scope: "notification".to_string(),
+                        key: "settings".to_string(),
+                        value: serde_json::to_value(&migrated).unwrap_or_default(),
+                    },
+                )
+                .await;
+                return migrated;
+            }
+            serde_json::from_value(v).unwrap_or_default()
+        }
         _ => crate::models::NotificationSettings::default(),
     }
 }
 
 /// 插入收件箱通知，返回新行 id。
+pub async fn insert_notification(
+    db: &Db,
+    notif_type: &str,
+    title: &str,
+    body: &str,
+) -> Result<i64, String> {
+    let empty: std::collections::HashMap<String, String> = Default::default();
+    insert_notification_full(db, notif_type, title, body, "hook", "info", &empty, "").await
+}
+
+/// 完整插入（票 04）：带 source/severity/vars 快照（收件箱筛选 + 来源跳转）与 action_key。
+#[allow(clippy::too_many_arguments)]
 #[track_caller]
-pub fn insert_notification<'a>(
+pub fn insert_notification_full<'a>(
     db: &'a Db,
     notif_type: &'a str,
     title: &'a str,
     body: &'a str,
+    source: &'a str,
+    severity: &'a str,
+    vars: &'a std::collections::HashMap<String, String>,
+    action_key: &'a str,
 ) -> impl std::future::Future<Output = Result<i64, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
         let notif_type = notif_type.to_string();
         let title = title.to_string();
         let body = body.to_string();
+        let source = source.to_string();
+        let severity = severity.to_string();
+        let vars_json = serde_json::to_string(vars).unwrap_or_else(|_| "{}".to_string());
+        let action_key = action_key.to_string();
         let ts = now();
         db
         .call_proxy_log_traced(None, __db_caller, move |conn| {
             conn.execute(
-                "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
-                params![notif_type, title, body, ts],
+                "INSERT INTO notification (notif_type, title, body, source, severity, vars_json, action_key, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                params![notif_type, title, body, source, severity, vars_json, action_key, ts],
             )?;
             Ok(conn.last_insert_rowid())
         })
@@ -287,22 +340,83 @@ pub fn list_notifications(
         db
         .call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
+                "SELECT id, notif_type, title, body, source, severity, vars_json, action_key, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
-            let rows = stmt.query_map(params![limit], |row| {
-                Ok(crate::models::Notification {
-                    id: row.get(0)?,
-                    notif_type: row.get(1)?,
-                    title: row.get(2)?,
-                    body: row.get(3)?,
-                    created_at: row.get(4)?,
-                })
-            })?;
+            let rows = stmt.query_map(params![limit], map_notification)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
         .map_err(|e| e.to_string())
     }
+}
+
+/// 收件箱筛选（票 04）：source / 类型 / 级别 / 起始时间任选，created_at 倒序。
+#[allow(clippy::type_complexity)]
+pub fn list_notifications_filtered<'a>(
+    db: &'a Db,
+    source: Option<&str>,
+    notif_type: Option<&str>,
+    severity: Option<&str>,
+    since_ms: Option<i64>,
+    limit: i64,
+) -> impl std::future::Future<Output = Result<Vec<crate::models::Notification>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    let source = source.filter(|s| !s.is_empty()).map(str::to_string);
+    let notif_type = notif_type.filter(|s| !s.is_empty()).map(str::to_string);
+    let severity = severity.filter(|s| !s.is_empty()).map(str::to_string);
+    async move {
+        db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
+            let mut conds: Vec<String> = Vec::new();
+            let mut vals: Vec<String> = Vec::new();
+            if let Some(x) = &source {
+                vals.push(x.clone());
+                conds.push(format!("source = ?{}", vals.len()));
+            }
+            if let Some(x) = &notif_type {
+                vals.push(x.clone());
+                conds.push(format!("notif_type = ?{}", vals.len()));
+            }
+            if let Some(x) = &severity {
+                vals.push(x.clone());
+                conds.push(format!("severity = ?{}", vals.len()));
+            }
+            if let Some(since) = since_ms {
+                vals.push(since.to_string());
+                conds.push(format!("created_at >= ?{}", vals.len()));
+            }
+            let mut sql = String::from(
+                "SELECT id, notif_type, title, body, source, severity, vars_json, action_key, created_at FROM notification WHERE 1=1",
+            );
+            for c in &conds {
+                sql.push_str(&format!(" AND {c}"));
+            }
+            vals.push(limit.to_string());
+            sql.push_str(&format!(" ORDER BY created_at DESC, id DESC LIMIT ?{}", vals.len()));
+            let mut stmt = conn.prepare(&sql)?;
+            let bind: Vec<&dyn rusqlite::ToSql> =
+                vals.iter().map(|v| v as &dyn rusqlite::ToSql).collect();
+            let rows = stmt.query_map(bind.as_slice(), map_notification)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
+/// notification 行映射（列序与 SELECT 一致；旧行 source/severity 缺列由 unwrap_or_default 回落）。
+fn map_notification(row: &rusqlite::Row<'_>) -> rusqlite::Result<crate::models::Notification> {
+    let vars_json: String = row.get(6).unwrap_or_default();
+    Ok(crate::models::Notification {
+        id: row.get(0)?,
+        notif_type: row.get(1)?,
+        title: row.get(2)?,
+        body: row.get(3)?,
+        source: row.get(4).unwrap_or_default(),
+        severity: row.get(5).unwrap_or_default(),
+        vars: serde_json::from_str(&vars_json).unwrap_or_default(),
+        action_key: row.get(7).unwrap_or_default(),
+        created_at: row.get(8)?,
+    })
 }
 
 /// 外部渠道投递记录落库（log.db，每通知每渠道一条终态记录）。
