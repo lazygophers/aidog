@@ -1272,6 +1272,7 @@
   "platform.peak_disabled_badge": "Spitzenzeit-deaktiviert",
   "platform.peak_empty": "Nicht konfiguriert → Voreinstellung oder 1.0 (keine Anpassung)",
   "platform.peak_end_at": "Gültig bis",
+  "platform.peak_period": "Gültigkeitszeitraum (optional)",
   "platform.peak_import_default": "Standard importieren",
   "platform.peak_model_placeholder": "Modellname oder Präfix*",
   "platform.peak_model_scope": "Betroffene Modelle",

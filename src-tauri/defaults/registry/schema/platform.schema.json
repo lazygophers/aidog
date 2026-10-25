@@ -263,6 +263,11 @@
             "type": "integer",
             "minimum": 0,
             "description": "【可选】窗口生效起点（Unix 秒）。"
+          },
+          "end_at": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "【可选】窗口失效起点（Unix 秒；epoch >= end_at 后窗口不再命中，与 start_at 对称）。"
           }
         }
       },

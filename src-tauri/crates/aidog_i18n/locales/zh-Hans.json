@@ -1250,6 +1250,7 @@
   "platform.peak_disabled_badge": "高峰禁用中",
   "platform.peak_empty": "未配置 → 按预设默认或 1.0（无调整）",
   "platform.peak_end_at": "生效截止",
+  "platform.peak_period": "生效期（可选）",
   "platform.peak_import_default": "导入默认配置",
   "platform.peak_model_placeholder": "模型名或 前缀*",
   "platform.peak_model_scope": "受影响模型",

@@ -803,6 +803,9 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   const [modelList, setModelList] = useState<string[]>([]);
   // 每窗口 model 输入框临时态（idx → 输入串），Enter/逗号/失定提交为 chip。
   const [modelInput, setModelInput] = useState<Record<number, string>>({});
+  // 生效期折叠行开合态（idx → open）：默认收起——数据层本就非必填，UI 不再恒显两个日期框。
+  const [periodOpen, setPeriodOpen] = useState<Record<number, boolean>>({});
+
 
   useEffect(() => {
     // 竞态守卫：快速切协议时旧协议的默认 peak 后到会覆盖新协议的缓存，
@@ -1124,34 +1127,59 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             </div>
           </div>
           {/* 生效期：start_at / end_at（Unix 秒 ↔ datetime-local）。
+              默认收进折叠行（数据层本就非必填，无值不该恒占两行日期框）；带值时行上显示起止摘要。
               空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_start_at", "生效起始")}
-              <Input
-                className="input"
-                type="datetime-local"
-                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                value={secToLocalInput(w.start_at)}
-                onChange={e => {
-                  const sec = localInputToSec(e.target.value);
-                  update(idx, sec == null ? { start_at: undefined } : { start_at: sec });
-                }}
-              />
-            </label>
-            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_end_at", "生效截止")}
-              <Input
-                className="input"
-                type="datetime-local"
-                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                value={secToLocalInput(w.end_at)}
-                onChange={e => {
-                  const sec = localInputToSec(e.target.value);
-                  update(idx, sec == null ? { end_at: undefined } : { end_at: sec });
-                }}
-              />
-            </label>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+            <button
+              type="button"
+              id={`peak-period-${idx}`}
+              data-state={periodOpen[idx] ? "open" : "closed"}
+              onClick={() => setPeriodOpen(s => ({ ...s, [idx]: !s[idx] }))}
+              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center", font: "inherit", color: "inherit" }}
+            >
+              <span style={{ display: "inline-block", transition: "transform .15s", transform: periodOpen[idx] ? "rotate(90deg)" : "none" }}>▸</span>
+              {t("platform.peak_period", "生效期（可选）")}
+              {(w.start_at || w.end_at) && (
+                <span id={`peak-period-summary-${idx}`} style={{ color: "var(--text-primary)" }}>
+                  {[
+                    w.start_at ? toDatetimeLocal(w.start_at * 1000).replace("T", " ") : null,
+                    w.end_at ? toDatetimeLocal(w.end_at * 1000).replace("T", " ") : null,
+                  ].filter(Boolean).join(" → ")}
+                </span>
+              )}
+            </button>
+            {periodOpen[idx] && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", paddingTop: 4 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                  {t("platform.peak_start_at", "生效起始")}
+                  <Input
+                    id={`peak-start-${idx}`}
+                    className="input"
+                    type="datetime-local"
+                    style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                    value={secToLocalInput(w.start_at)}
+                    onChange={e => {
+                      const sec = localInputToSec(e.target.value);
+                      update(idx, sec == null ? { start_at: undefined } : { start_at: sec });
+                    }}
+                  />
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                  {t("platform.peak_end_at", "生效截止")}
+                  <Input
+                    id={`peak-end-${idx}`}
+                    className="input"
+                    type="datetime-local"
+                    style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                    value={secToLocalInput(w.end_at)}
+                    onChange={e => {
+                      const sec = localInputToSec(e.target.value);
+                      update(idx, sec == null ? { end_at: undefined } : { end_at: sec });
+                    }}
+                  />
+                </label>
+              </div>
+            )}
           </div>
         </div>
       ))}
