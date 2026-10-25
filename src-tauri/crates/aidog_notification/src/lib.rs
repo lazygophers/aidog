@@ -14,6 +14,7 @@
 //! - `tts`：弹窗 / TTS 三后端 / 系统提示音（show_popup/speak/play_beep）。
 //! - `dispatch`：核心分发入口（event 自含路径 + 类型兼容路径 + 唯一 action key 解析）。
 
+pub mod rules;
 pub mod semantic;
 mod dispatch;
 mod render;
