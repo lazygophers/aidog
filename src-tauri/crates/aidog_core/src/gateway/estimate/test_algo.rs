@@ -523,3 +523,25 @@ fn legacy_mcp_monthly_without_unit_not_incremented() {
     apply_tier_delta(&mut tier, 1, 1_000_000.0);
     assert_eq!(tier.est_utilization, 5.0);
 }
+
+// ── 通知体系票 01：配额耗尽预测 ──────────────────────────────────────────────
+
+#[test]
+fn minutes_to_exhaust_basic_and_guards() {
+    use super::super::algo::minutes_to_exhaust;
+    let now = 1_700_000_000_000i64;
+    // 窗口内匀速：50% 用了 600s → 速度 50%/10min → 剩 50% 还能 10min。
+    let ws = now - 600_000;
+    let m = minutes_to_exhaust(50.0, ws, now).unwrap();
+    assert!((m - 10.0).abs() < 1e-6, "{m}");
+    // 90% 用了 600s → 剩 10% ≈ 1.11min（≤30 阈值会触发告警）。
+    let m = minutes_to_exhaust(90.0, ws, now).unwrap();
+    assert!((m - 10.0 / 9.0).abs() < 1e-6, "{m}");
+    // 样本太短（<5 分钟）→ None。
+    assert_eq!(minutes_to_exhaust(90.0, now - 60_000, now), None);
+    // 无窗口起点 / 已耗尽 / 非有限 → None。
+    assert_eq!(minutes_to_exhaust(90.0, 0, now), None);
+    assert_eq!(minutes_to_exhaust(100.0, ws, now), None);
+    assert_eq!(minutes_to_exhaust(f64::NAN, ws, now), None);
+    assert_eq!(minutes_to_exhaust(-1.0, ws, now), None);
+}

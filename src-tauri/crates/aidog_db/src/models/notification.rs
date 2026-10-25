@@ -30,11 +30,17 @@ impl NotifType {
 
     /// 从字面量解析；未知/空 → TaskComplete（端点收到任意 type 字符串都可分发，通知不丢）。
     pub fn from_str_or_default(s: &str) -> Self {
+        Self::try_from_str(s).unwrap_or(NotifType::TaskComplete)
+    }
+
+    /// 严格解析（未知 → None；非 FromStr 实现，命名避开 trait 混淆）。/api/notify 透传判定用（票 01）：
+    /// 未知 type 不再误归 TaskComplete，改走事件透传路径。
+    pub fn try_from_str(s: &str) -> Option<Self> {
         match s {
-            "task_complete" => NotifType::TaskComplete,
-            "waiting_input" => NotifType::WaitingInput,
-            "error" => NotifType::Error,
-            _ => NotifType::TaskComplete,
+            "task_complete" => Some(NotifType::TaskComplete),
+            "waiting_input" => Some(NotifType::WaitingInput),
+            "error" => Some(NotifType::Error),
+            _ => None,
         }
     }
 
@@ -186,6 +192,51 @@ pub const CC_HOOK_EVENTS: &[&str] = &[
 /// 目录中可手动开。**跨层镜像**前端 `DEFAULT_ON_EVENTS`。
 pub const DEFAULT_ON_EVENTS: &[&str] = &["Stop", "PermissionRequest"];
 
+/// CC hook 事件 → 语义通知类型映射（通知体系重设计票 01）。
+/// 已映射事件归组到 3 语义类型；未列出 = raw 事件名透传自成类型（走默认规则，票 02 规则引擎承接）。
+/// **跨层镜像**：前端 `src/domains/notifications/semantic.ts` 的 `CC_EVENT_SEMANTIC` 逐字镜像。
+pub fn notif_type_for_event(event: &str) -> Option<NotifType> {
+    match event {
+        "Stop" | "TaskCompleted" | "SubagentStop" => Some(NotifType::TaskComplete),
+        "PermissionRequest" | "Elicitation" | "Notification" => Some(NotifType::WaitingInput),
+        "StopFailure" | "PostToolUseFailure" => Some(NotifType::Error),
+        _ => None,
+    }
+}
+
+/// proxy 内核侧语义事件（票 01 发射点产物：熔断触发/恢复、配额预测）。
+/// 与 CC hook 事件共用 dispatch 事件路径（per_event 配置或内置默认控制通道）。
+pub const PROXY_SEMANTIC_EVENTS: &[&str] = &["breaker_on", "breaker_off", "quota_exhaust_forecast"];
+
+/// proxy 语义事件的内置默认配置（per_event 未配置时生效；CC hook 事件无内置默认，仍用户开启才派发）。
+/// 通道取保守值：熔断触发 error 级弹窗+提示音；熔断恢复 info 级仅收件箱；配额预测 warn 级弹窗。
+pub fn default_event_setting_for(event: &str) -> Option<EventSetting> {
+    match event {
+        "breaker_on" => Some(EventSetting {
+            enabled: true,
+            popup: true,
+            sound: true,
+            tts: false,
+            template: String::new(),
+        }),
+        "breaker_off" => Some(EventSetting {
+            enabled: true,
+            popup: false,
+            sound: false,
+            tts: false,
+            template: String::new(),
+        }),
+        "quota_exhaust_forecast" => Some(EventSetting {
+            enabled: true,
+            popup: true,
+            sound: false,
+            tts: false,
+            template: String::new(),
+        }),
+        _ => None,
+    }
+}
+
 /// 事件名 → 该事件**专属独立默认模板**（zh 硬编码，非 i18n）。
 ///
 /// 每事件一套模板、用各自专属入参（禁所有事件共用一个统一模板）。通用入参所有事件都有：
@@ -229,6 +280,10 @@ pub fn default_template_for_event(event: &str) -> &'static str {
         "Elicitation" => "{project} {server_name} 请求输入",
         "ElicitationResult" => "{project} {server_name} 已响应",
         "SessionEnd" => "{project} 会话结束（{end_reason}）",
+        // proxy 语义事件（票 01）：{platform} 由发射点解析 platform_type 注入。
+        "breaker_on" => "{platform} 熔断触发（连续失败摘除）",
+        "breaker_off" => "{platform} 熔断恢复",
+        "quota_exhaust_forecast" => "{platform} 配额预计 {minutes} 分钟后耗尽（{tier}）",
         _ => "",
     }
 }
@@ -288,6 +343,15 @@ impl NotificationSettings {
     /// 注：未命中走「展示层默认」（前端兜底默认目录），DB 不硬写默认集。
     pub fn event_setting(&self, event: &str) -> Option<&EventSetting> {
         self.per_event.get(event)
+    }
+
+    /// 取某事件**有效**配置（票 01）：per_event 命中 > proxy 语义事件内置默认 > None。
+    /// dispatch 事件路径用本方法（CC hook 事件行为不变：无内置默认，未启用不派发）。
+    pub fn effective_event_setting(&self, event: &str) -> Option<EventSetting> {
+        self.per_event
+            .get(event)
+            .cloned()
+            .or_else(|| default_event_setting_for(event))
     }
 }
 

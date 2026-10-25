@@ -549,3 +549,16 @@ fn claim_calibration_attempt_backs_off_until_cleared() {
     clear_calibration_attempt(pid);
     assert!(claim_calibration_attempt(pid, now + interval + 1), "成功清除后立即放行");
 }
+
+// ── 通知体系票 01：预测频控（每窗口每档 1 次）───────────────────────────────
+
+#[test]
+fn forecast_rate_gate_once_per_window() {
+    // 直接测同模块私有频控表：同 (platform, tier, window) 第二次 false，换窗口 true。
+    // FORECAST_SENT 是进程级 static，用独立 key 避免与其它测试互踩。
+    let pid = 987_654_321u64;
+    assert!(super::claim_forecast_window(pid, "five_hour", 1000));
+    assert!(!super::claim_forecast_window(pid, "five_hour", 1000));
+    assert!(super::claim_forecast_window(pid, "five_hour", 2000)); // 新窗口
+    assert!(super::claim_forecast_window(pid, "weekly_limit", 1000)); // 新档
+}

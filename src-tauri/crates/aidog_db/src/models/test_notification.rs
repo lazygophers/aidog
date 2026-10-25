@@ -217,3 +217,74 @@ fn notification_settings_default_and_partial() {
     assert_eq!(got.form, NotifForm::InboxOnly);
     assert_eq!(got.template, "{project} done");
 }
+
+// ── 通知体系票 01：语义映射 / proxy 事件默认 ─────────────────────────────────
+
+#[test]
+fn cc_event_semantic_mapping_groups() {
+    use super::*;
+    for ev in ["Stop", "TaskCompleted", "SubagentStop"] {
+        assert_eq!(notif_type_for_event(ev), Some(NotifType::TaskComplete), "{ev}");
+    }
+    for ev in ["PermissionRequest", "Elicitation", "Notification"] {
+        assert_eq!(notif_type_for_event(ev), Some(NotifType::WaitingInput), "{ev}");
+    }
+    for ev in ["StopFailure", "PostToolUseFailure"] {
+        assert_eq!(notif_type_for_event(ev), Some(NotifType::Error), "{ev}");
+    }
+    // 未映射 → 透传（None）
+    assert_eq!(notif_type_for_event("SessionStart"), None);
+    assert_eq!(notif_type_for_event("WhateverRaw"), None);
+}
+
+#[test]
+fn cc_mapping_only_uses_known_events() {
+    use super::*;
+    // 映射到的 8 事件必须都在 CC_HOOK_EVENTS 全量目录内（防拼错事件名映射永不生效）。
+    let mapped = [
+        "Stop", "TaskCompleted", "SubagentStop", "PermissionRequest", "Elicitation", "Notification",
+        "StopFailure", "PostToolUseFailure",
+    ];
+    for ev in mapped {
+        assert!(CC_HOOK_EVENTS.contains(&ev), "{ev} 不在 CC_HOOK_EVENTS");
+    }
+}
+
+#[test]
+fn proxy_semantic_events_have_templates_and_defaults() {
+    use super::*;
+    for ev in PROXY_SEMANTIC_EVENTS {
+        assert!(!default_template_for_event(ev).is_empty(), "{ev} 缺默认模板");
+        let es = default_event_setting_for(ev).expect("{ev} 缺内置默认配置");
+        assert!(es.enabled, "{ev} 内置默认应启用");
+    }
+    // CC hook 事件无内置默认（用户开启才派发，行为不变）。
+    assert!(default_event_setting_for("Stop").is_none());
+    assert!(default_event_setting_for("UnknownThing").is_none());
+}
+
+#[test]
+fn effective_event_setting_falls_back_to_builtin() {
+    use super::*;
+    let mut s = NotificationSettings::default();
+    // per_event 未配置 → proxy 事件用内置默认。
+    assert!(s.effective_event_setting("breaker_on").unwrap().enabled);
+    assert!(s.effective_event_setting("Stop").is_none());
+    // 用户显式配置优先于内置默认（含关闭）。
+    s.per_event.insert(
+        "breaker_on".to_string(),
+        EventSetting { enabled: false, ..Default::default() },
+    );
+    assert!(!s.effective_event_setting("breaker_on").unwrap().enabled);
+}
+
+#[test]
+fn notif_type_try_from_str_strict() {
+    use super::*;
+    assert_eq!(NotifType::try_from_str("error"), Some(NotifType::Error));
+    assert_eq!(NotifType::try_from_str("task_complete"), Some(NotifType::TaskComplete));
+    assert_eq!(NotifType::try_from_str("breaker_on"), None);
+    assert_eq!(NotifType::try_from_str(""), None);
+    // 旧路径语义不变：未知 → TaskComplete。
+    assert_eq!(NotifType::from_str_or_default("nope"), NotifType::TaskComplete);
+}

@@ -59,7 +59,7 @@ pub async fn dispatch(
 
     // event 路径：命中 per_event 且 enabled → 自含分发。
     if let Some(es) = event
-        .and_then(|e| settings.event_setting(e))
+        .and_then(|e| settings.effective_event_setting(e))
         .filter(|es| es.enabled)
     {
         let event_name = event.unwrap_or_default();
