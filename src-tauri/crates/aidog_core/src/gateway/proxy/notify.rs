@@ -93,19 +93,29 @@ async fn handle_notify_inner(
     vars.entry("time".to_string())
         .or_insert_with(|| chrono::Local::now().format("%H:%M:%S").to_string());
 
+    // 通知体系票 01：未知 type 字面量不再误归 TaskComplete——透传为事件类别（event 路径）。
+    // 完整「任意 type 走默认规则」由票 02 规则引擎承接（当前：per_event 未启用则不派发）。
+    let (event, notif_type) = match req.event.clone().filter(|e| !e.is_empty()) {
+        Some(e) => (Some(e), req.notif_type.clone()),
+        None => match aidog_db::models::NotifType::try_from_str(&req.notif_type) {
+            Some(_) => (None, req.notif_type.clone()),
+            None if !req.notif_type.is_empty() => (Some(req.notif_type.clone()), String::new()),
+            None => (None, req.notif_type.clone()),
+        },
+    };
     let result = aidog_notification::dispatch(
         &state.db,
         aidog_ctx::try_ctx(),
-        req.event.as_deref(),
-        &req.notif_type,
+        event.as_deref(),
+        &notif_type,
         req.content.as_deref(),
         &vars,
     )
     .await;
 
     tracing::debug!(
-        event = ?req.event,
-        notif_type = %req.notif_type,
+        event = ?event,
+        notif_type = %notif_type,
         dispatched = result.dispatched,
         inbox = result.inbox,
         popup = result.popup,

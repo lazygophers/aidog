@@ -118,6 +118,24 @@ impl TierPace {
     }
 }
 
+/// 配额耗尽预测（通知体系票 01）：距耗尽分钟数 = 剩余 % ÷ 近窗消耗速度。
+/// 速度 = est_utilization /（now - window_start），即窗口内平均消耗。
+/// 数据不足 / 样本太短（< 5 分钟）/ 已耗尽（util ≥ 100）/ 非有限值 → None（不告警）。
+pub fn minutes_to_exhaust(est_utilization: f64, window_start: i64, now_ms: i64) -> Option<f64> {
+    if !est_utilization.is_finite()
+        || !(0.0..100.0).contains(&est_utilization)
+        || window_start <= 0
+    {
+        return None;
+    }
+    let elapsed = now_ms - window_start;
+    if elapsed < 5 * 60_000 {
+        return None;
+    }
+    let speed_pct_per_ms = est_utilization / elapsed as f64;
+    Some((100.0 - est_utilization) / speed_pct_per_ms / 60_000.0)
+}
+
 /// 由 tier 利用率估算 pace。无可靠窗口时间线时按利用率阈值降级。
 pub fn tier_pace(tier: &EstTier) -> TierPace {
     let util = tier.est_utilization;
