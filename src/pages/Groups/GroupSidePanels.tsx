@@ -87,7 +87,9 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
               <b id="g3-latest-selected" style={{ fontFamily: "var(--font-mono, monospace)", color: "var(--primary)" }}>
                 {latest.snapshot.entries.find(e => e.reason === "selected")?.platform ?? `#${latest.platform_id}`}
               </b>
-              <span className="text-tertiary" style={{ fontFamily: "var(--font-mono, monospace)" }}>{latest.source_model}</span>
+              <span className="text-tertiary" style={{ fontFamily: "var(--font-mono, monospace)" }}>
+                {latest.source_model === latest.actual_model ? latest.source_model : latest.source_model + " → " + latest.actual_model}
+              </span>
               <span className="text-tertiary">{formatDateTime(latest.created_at)}</span>
             </div>
             {latest.snapshot.entries.slice(0, 5).map((e, i) => (
