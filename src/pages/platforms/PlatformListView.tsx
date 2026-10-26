@@ -10,7 +10,7 @@ import { platformApi, type Platform, type PurgeCandidate } from "../../services/
 import { IconClose, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
-import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardService } from "../../components/platforms/PlatformCard";
 import { PlatformRow, PlatformRowCols } from "./PlatformRow";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
@@ -19,9 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 
-export function PlatformListView({ s, cardActions, cardService, openCreateGroupRef }: {
+export function PlatformListView({ s, cardService, openCreateGroupRef }: {
   s: PlatformsState;
-  cardActions: PlatformCardActions;
   cardService: PlatformCardService;
   openCreateGroupRef: React.MutableRefObject<(() => void) | null>;
 }) {
@@ -327,7 +326,7 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
                 onClick={() => {
                   const id = deleteId;
                   setDeleteId(null);
-                  if (id !== null) void cardActions.onDelete(id);
+                  if (id !== null) void s.list.handleDelete(id);
                 }}
               >
                 {t("action.delete", "删除")}

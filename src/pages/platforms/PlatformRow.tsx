@@ -204,6 +204,20 @@ export function PlatformRow({
                 {t("platform.autoDisabledBadge", "自动禁用")}
               </span>
             )}
+            {/* per-group 候选优先级（1-10）：行内直改，不收菜单（值域真值源 RouteCandidate.level_priority） */}
+            {onLevelPriorityChange && (
+              <span data-testid="row-level" title={t("platform.levelPriority", "候选优先级")}
+                style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0, marginLeft: 2 }}
+                onClick={e => e.stopPropagation()}>
+                <button type="button" aria-label="-" disabled={(levelPriority ?? 5) <= 1}
+                  style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
+                  onClick={() => onLevelPriorityChange(Math.max(1, (levelPriority ?? 5) - 1))}>−</button>
+                <b style={{ fontSize: 10.5, fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)", minWidth: 18, textAlign: "center" }}>P{levelPriority ?? 5}</b>
+                <button type="button" aria-label="+" disabled={(levelPriority ?? 5) >= 10}
+                  style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
+                  onClick={() => onLevelPriorityChange(Math.min(10, (levelPriority ?? 5) + 1))}>+</button>
+              </span>
+            )}
           </span>
           <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {p.platform_type} · {host}
@@ -271,16 +285,6 @@ export function PlatformRow({
               {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "查看日志")}</DropdownMenuItem>}
               {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "分享配置")}</DropdownMenuItem>}
               {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "复制平台")}</DropdownMenuItem>}
-              {onLevelPriorityChange && (
-                <>
-                  <div style={{ padding: "4px 9px 2px", fontSize: 11, color: "var(--text-tertiary)" }}>{t("platform.levelPriority", "候选优先级")}</div>
-                  {[1, 2, 3, 4, 5].map(lv => (
-                    <DropdownMenuItem key={lv} data-state={levelPriority === lv ? "active" : undefined} onSelect={() => onLevelPriorityChange(lv)}>
-                      {t("platform.levelN", "L{{n}}", { n: lv })}{levelPriority === lv ? " ✓" : ""}
-                    </DropdownMenuItem>
-                  ))}
-                </>
-              )}
               {onDelete && <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(p.id)}>{t("platform.deletePlatformMenu", "删除平台…")}</DropdownMenuItem>}
             </DropdownMenuContent>
           </DropdownMenu>
