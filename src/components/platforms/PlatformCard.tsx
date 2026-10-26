@@ -509,7 +509,7 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
                 {/* B3 折算行：本周期（首个配额窗口 window_start 起）累计折算 $ + 手填套餐价 */}
                 {hasCodingEndpoint && p.coding_window_cost > 0 && (
-                  <span style={{ flexShrink: 0, fontSize: 10, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
+                  <span style={{ flexShrink: 0, fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap" }}>
                     {t("platform.codingWindowCost", "本周期折算")} {formatCostUsd(p.coding_window_cost)}
                     {planPrice != null && ` · ${t("platform.codingPlanPrice", "套餐")} ¥${planPrice}/月`}
                   </span>
@@ -645,7 +645,7 @@ export const PlatformCard = memo(function PlatformCard({
             {/* 配额各档明细 */}
             {showQuota && quota.tiers.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
+                <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {quota.tiers.map(tier => {
                     const isMcp = tier.name === "mcp_monthly";
@@ -722,10 +722,10 @@ function EndpointsSection({
     <>
       {endpoints && endpoints.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
+          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {endpoints.map((ep, ei) => (
-              <Badge key={ei} variant="secondary" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
+              <Badge key={ei} variant="secondary" style={{ fontSize: 11, padding: "1px 6px", opacity: 0.85 }}>
                 {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
                 {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
               </Badge>
@@ -735,7 +735,7 @@ function EndpointsSection({
       )}
       {configuredModels.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
+          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {configuredModels.map((m, mi) => (
               <Badge key={mi} variant="secondary" style={{ fontSize: 12, padding: "2px 6px" }}>{m}</Badge>
@@ -770,7 +770,7 @@ function UsageSection({
       {usage && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+            <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatCostUsd(totalCost)} label="cost" level={costLevel(totalCost)} />
@@ -778,7 +778,7 @@ function UsageSection({
             </div>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
+            <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(usage.today_tokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={formatCostUsd(usage.today_cost)} label="cost" level={costLevel(usage.today_cost)} />
@@ -788,7 +788,7 @@ function UsageSection({
       )}
       {!usage && usagePending && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+          <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
             <span className="skeleton" style={{ width: 70, height: 24 }} />
@@ -963,7 +963,7 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
     >
       <span
         className="text-tertiary"
-        style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}
+        style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}
         title={t("group.levelPriorityHint", "数值越大优先级越高（10=最高优先），仅在本分组生效")}
       >
         {t("group.levelPriority", "优先级")}

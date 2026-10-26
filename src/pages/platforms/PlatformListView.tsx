@@ -161,7 +161,7 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
                   }}>
                     <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
                     <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
-                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</Badge>
+                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</Badge>
                   </div>
                 )}
                 {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
@@ -210,7 +210,7 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
               }}>
                 <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
                 <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                <Badge variant="secondary" className="badge-muted" style={{ fontSize: 10 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
+                <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
               </div>
             );
           })()}
@@ -287,7 +287,7 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
                   {previewList.map((c) => (
                     <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                       <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                      <Badge variant="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
+                      <Badge variant="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
                         {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
                       </Badge>
                     </div>

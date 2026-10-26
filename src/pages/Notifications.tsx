@@ -53,7 +53,7 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
           </span>
           <span
             style={{
-              fontSize: 10,
+              fontSize: 11,
               padding: "1px 6px",
               borderRadius: "var(--radius-sm)",
               background: "var(--accent-subtle)",
@@ -71,29 +71,29 @@ function NotificationItem({ item, idx, t, onNavigate }: { item: Notification; id
         <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <span>{formatDateTime(item.created_at) || "-"}</span>
           {item.source && (
-            <span id={`notif-src-${item.id}`} style={{ fontSize: 10, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--bg-glass)" }}>
+            <span id={`notif-src-${item.id}`} style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--bg-glass)" }}>
               {t(`notif.source.${item.source}`, item.source)}
             </span>
           )}
           {item.severity && item.severity !== "info" && (
-            <span style={{ fontSize: 10, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--status-error-bg, rgba(248,113,113,.15))" : "var(--status-warn-bg, rgba(251,191,36,.15))" }}>
+            <span style={{ fontSize: 11, padding: "0 5px", borderRadius: "var(--radius-sm)", background: item.severity === "error" ? "var(--status-error-bg, rgba(248,113,113,.15))" : "var(--status-warn-bg, rgba(251,191,36,.15))" }}>
               {t(`notif.severity.${item.severity}`, item.severity)}
             </span>
           )}
           {item.source === "proxy" && onNavigate && (
-            <Button variant="ghost" style={{ fontSize: 10, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("platforms")}>
+            <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("platforms")}>
               {t("notif.jump.platforms", "平台页")}
             </Button>
           )}
           {(item.source === "hook" || item.source === "proxy") && onNavigate && (
-            <Button variant="ghost" style={{ fontSize: 10, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("logs")}>
+            <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={() => onNavigate("logs")}>
               {t("notif.jump.logs", "日志")}
             </Button>
           )}
           {item.source === "hook" && item.vars?.cwd && (
             <span style={{ fontFamily: "var(--font-mono, monospace)" }}>{item.vars.cwd}</span>
           )}
-          <Button variant="ghost" style={{ fontSize: 10, height: "auto", padding: "1px 7px" }} onClick={loadDeliveries}>
+          <Button variant="ghost" style={{ fontSize: 11, height: "auto", padding: "1px 7px" }} onClick={loadDeliveries}>
             {deliveries ? t("notif.inbox.hideDeliveries", "收起投递") : t("notif.inbox.showDeliveries", "投递记录")}
           </Button>
         </div>

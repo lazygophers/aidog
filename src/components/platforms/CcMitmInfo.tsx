@@ -56,7 +56,7 @@ export function CcMitmRefreshWarning({ refresh }: { refresh: MitmRefreshStats })
     <div
       style={{
         marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4, maxWidth: "100%",
-        fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
+        fontSize: 11, fontWeight: 600, color: "var(--color-warning)",
         background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
         border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
         borderRadius: 5, padding: "1px 6px",
@@ -82,7 +82,7 @@ export function CcMitmTrendSection({ samples }: { samples: OauthUsageSample[] })
   const latest = samples.length > 0 ? samples[samples.length - 1] : null;
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>
+      <span className="text-tertiary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.3 }}>
         {t("platform.mitmWindowsLabel", "订阅窗口利用率")}
       </span>
       {latest ? (
@@ -115,7 +115,7 @@ export function CcPlanBalance({ plan, samples }: { plan: CcProfile | null; sampl
   const latest = samples.length > 0 ? samples[samples.length - 1] : null;
   if (!plan && !latest) return null;
   return (
-    <span style={{ flexShrink: 0, fontSize: 10, color: "var(--text-tertiary)", whiteSpace: "nowrap", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
+    <span style={{ flexShrink: 0, fontSize: 11, color: "var(--text-tertiary)", whiteSpace: "nowrap", display: "inline-flex", gap: 6, alignItems: "baseline" }}>
       {plan && (
         <span>
           {t("platform.mitmPlanTier", "套餐 {{tier}}", { tier: plan.tier })}

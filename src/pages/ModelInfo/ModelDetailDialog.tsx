@@ -55,7 +55,7 @@ export function ModelDetailDialog({ group, labelMap, pricingOnly, onClose }: {
                   {labelMap[e.platform_code] ?? e.platform_code}
                   {/* 同平台多 SKU：model_id ≠ canonical 时补后缀区分（coding-/free-/日期别名） */}
                   {e.model_id !== group.canonical_model && (
-                    <span className="text-tertiary" style={{ fontSize: 10 }}>· {e.model_id}</span>
+                    <span className="text-tertiary" style={{ fontSize: 11 }}>· {e.model_id}</span>
                   )}
                   {pricingOnly.has(e.platform_code) && (
                     <span className="text-tertiary">{t("modelInfo.priceRefOnly")}</span>
@@ -116,7 +116,7 @@ function EntryDetail({ entry }: { entry: ModelEntry }) {
           {entry.builtin_tools_excluded.length === 0
             ? t("modelInfo.builtinToolsAll")
             : entry.builtin_tools_excluded.map(tool => (
-              <Badge key={tool} variant="secondary" style={{ fontSize: 10, marginInlineEnd: 4 }}>{tool}</Badge>
+              <Badge key={tool} variant="secondary" style={{ fontSize: 11, marginInlineEnd: 4 }}>{tool}</Badge>
             ))}
         </Field>
       </Section>

@@ -346,7 +346,7 @@ function ModelRow({ group, labelMap, onOpen }: {
             {primary ? (labelMap[primary.platform_code] ?? primary.platform_code) : "-"}
           </span>
           {primary?.official && (
-            <Badge variant="secondary" style={{ fontSize: 10, padding: "1px 5px", border: "none" }}>
+            <Badge variant="secondary" style={{ fontSize: 11, padding: "1px 5px", border: "none" }}>
               {t("modelInfo.official")}
             </Badge>
           )}
