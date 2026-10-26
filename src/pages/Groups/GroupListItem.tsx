@@ -9,7 +9,7 @@ import { GroupFlowPanel } from "./GroupFlowPanel";
 import { GroupSidePanels } from "./GroupSidePanels";
 import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
-import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
+import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple, useCountUp } from "../../components/shared";
 import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
 import { PlatformCard, type PlatformCardActions, type PlatformCardService } from "../../components/platforms/PlatformCard";
 import type { DragHandleProps } from "../../components/SortableList";
@@ -135,6 +135,11 @@ export const GroupListItem = memo(function GroupListItem({
   // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
   const proxyVars = useProxyEnvVars();
   const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
+  // G3 票 04 / 旧票 05：统计数字 count-up（reduced-motion 自动降级为直显）
+  const animTodayTokens = useCountUp(u ? u.today_tokens : 0);
+  const animTodayCost = useCountUp(u ? u.today_cost : 0);
+  const animTotalTokens = useCountUp(totalTokens);
+  const animTotalCost = useCountUp(u ? u.total_cost : 0);
   const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
   // ── per-group 多选模式（本地 state, 不持久化）──
@@ -335,10 +340,10 @@ export const GroupListItem = memo(function GroupListItem({
           {/* Aggregate stats chips */}
           {u && (
             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <StatChip icon={<IconBolt size={13} />} value={formatNumber(u.today_tokens)} label={t("group.stats.todayTokens", "今日 tokens")} />
-              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.today_cost)}`} label={t("group.stats.todayCost", "今日费用")} level={costLevel(u.today_cost)} />
-              <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
-              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+              <StatChip icon={<IconBolt size={13} />} value={formatNumber(animTodayTokens)} label={t("group.stats.todayTokens", "今日 tokens")} />
+              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(animTodayCost)}`} label={t("group.stats.todayCost", "今日费用")} level={costLevel(animTodayCost)} />
+              <StatChip icon={<IconBolt size={13} />} value={formatNumber(animTotalTokens)} label="tokens" />
+              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(animTotalCost)}`} label="cost" level={costLevel(animTotalCost)} />
               {u.total_requests > 0 && (
                 <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
                   level={successRateLevel(sRate, u.total_requests)} />
