@@ -5,8 +5,6 @@ import piIcon from "../../assets/platforms/pi.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
 import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
 import { buildStatusOptions, idsForCode } from "./statusSelect";
-import { GroupFlowPanel } from "./GroupFlowPanel";
-import { GroupSidePanels } from "./GroupSidePanels";
 import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple, useCountUp } from "../../components/shared";
@@ -77,6 +75,8 @@ export interface GroupListItemProps {
   t: TFunction;
   onToggleExpanded: (id: number) => void;
   onSetCollapsed: (updater: (prev: Set<number>) => Set<number>) => void;
+  /** 打开独立详情页（观测台三栏） */
+  onOpenDetail?: (id: number) => void;
   onEdit: (detail: GroupDetail) => void;
   onDelete: (id: number) => void;
   onToggleDefault: (group: GroupDetail["group"]) => void;
@@ -119,7 +119,7 @@ export const GroupListItem = memo(function GroupListItem({
   visiblePlatformIds, forceExpanded,
   groupTestRunning,
   cards, actions, cardService, t,
-  onToggleExpanded: _onToggleExpanded, onSetCollapsed, onEdit, onDelete, onToggleDefault,
+  onToggleExpanded: _onToggleExpanded, onSetCollapsed, onOpenDetail, onEdit, onDelete, onToggleDefault,
   onTestGroup, onCreatePlatform, onNavigate,
   onPlatPointerDown, onDeleteMapping, onSetMappingGroupId,
   onSetMSource, onSetMTargetPlatform, onSetMTargetModel, onAddMapping,
@@ -253,6 +253,15 @@ export const GroupListItem = memo(function GroupListItem({
             { key: "pi", label: t("group.menuCopyPi", "pi 启动命令"), text: buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={piIcon} width={14} height={14} alt="pi" /> },
           ]}
         />
+        {onOpenDetail && (
+          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onOpenDetail(group.id); }} title={t("group.detail.open", "打开详情页")}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="7" />
+              <path d="M21 21l-4.3-4.3" />
+              <path d="M11 8v6M8 11h6" />
+            </svg>
+          </Button>
+        )}
         <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
@@ -358,6 +367,15 @@ export const GroupListItem = memo(function GroupListItem({
           )}
         </div>
       )}
+        {/* G3 设计稿 grp-card.hp：组健康条 = 全量成功率 */}
+        {u && u.total_requests > 0 && (
+          <div style={{ paddingLeft: 26 }}>
+            <div title={t("group.health.title", "成功率 {{rate}}", { rate: formatPercent(sRate, 1) })}
+              style={{ height: 4, borderRadius: 2, background: "var(--secondary, #EEF1F5)", overflow: "hidden", maxWidth: 320 }}>
+              <div style={{ height: "100%", width: sRate + "%", background: sRate >= 98 ? "var(--color-success, #1F9D61)" : sRate >= 90 ? "var(--color-warning, #C77E1E)" : "var(--color-danger, #D14B4B)" }} />
+            </div>
+          </div>
+        )}
     </div>
   );
 
@@ -469,13 +487,6 @@ export const GroupListItem = memo(function GroupListItem({
                   {t("group.batchMoveGroup", "移组")}
                 </Button>
               </div>
-            )}
-            {/* G3 票 03：请求流向（桑基）+ 双侧边（候选序/最近路由）常驻，非多选模式 */}
-            {mode !== "select" && gps.length > 0 && (
-              <>
-                <GroupSidePanels group={group} gps={gps} />
-                <GroupFlowPanel groupKey={group.group_key} gps={gps} />
-              </>
             )}
             {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
             {fullPlats.length > 0 && (
