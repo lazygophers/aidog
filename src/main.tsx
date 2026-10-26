@@ -5,13 +5,16 @@ import { AppProvider } from "./context/AppContext";
 import "./locales";
 import "./styles/globals.css";
 import { installFrontendLog } from "./utils/frontendLog";
+import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 
 installFrontendLog();
 
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
-    <AppProvider>
-      <App />
-    </AppProvider>
+    <ErrorBoundary scope="root">
+      <AppProvider>
+        <App />
+      </AppProvider>
+    </ErrorBoundary>
   </React.StrictMode>,
 );
