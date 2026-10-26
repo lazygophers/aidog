@@ -26,7 +26,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
         value={config[key]}
         onChange={(e) => setField(key, Number(e.target.value))}
       />
-      {hint && <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{hint}</span>}
+      {hint && <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>}
     </label>
   );
 
@@ -55,7 +55,7 @@ export function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
           setField(key, n);
         }}
       />
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{hint}</span>
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>
     </label>
   );
 

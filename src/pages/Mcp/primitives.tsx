@@ -71,7 +71,7 @@ export function McpRow({
               <span
                 key={k}
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   padding: "1px 5px",
                   borderRadius: 4,
                   background: "var(--bg)",
@@ -186,7 +186,7 @@ export function TransportBadge({ transport }: { transport: string }) {
     <Badge
       variant="outline"
       style={{
-        fontSize: 10,
+        fontSize: 11,
         fontWeight: 600,
         padding: "1px 6px",
         background: s.bg,

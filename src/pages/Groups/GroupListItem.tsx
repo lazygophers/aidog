@@ -218,10 +218,10 @@ export const GroupListItem = memo(function GroupListItem({
           <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
             {group.name}
             {group.is_default && (
-              <Badge style={{ fontSize: 10, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
+              <Badge style={{ fontSize: 11, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
             )}
             {group.auto_from_platform && (
-              <Badge variant="secondary" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
+              <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
             )}
           </div>
           <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
@@ -648,7 +648,7 @@ export const GroupListItem = memo(function GroupListItem({
                     {items.map((c) => (
                       <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
                         <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.name}</span>
-                        <Badge variant="secondary" style={{ fontSize: 10, flexShrink: 0 }}>
+                        <Badge variant="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
                           {c.reason === "auth_failed" ? t("platform.purgeDisabledReasonAuthFailed", "认证失效（401/403）") : t("platform.purgeDisabledReasonExpired", "已过期")}
                         </Badge>
                       </div>

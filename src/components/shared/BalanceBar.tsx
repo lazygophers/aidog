@@ -48,7 +48,7 @@ export function BalanceBar({ remaining, total, currency = "$", level, showTotal 
           {formatCost(remaining)}
         </span>
         {hasTotal && showTotal && (
-          <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+          <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
             / {currency}
             {formatCost(total!)}
           </span>

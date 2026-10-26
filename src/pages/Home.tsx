@@ -186,7 +186,7 @@ function KpiCell({ label, value, spark, amber }: { label: string; value: string;
   const P = usePanel();
   return (
     <div style={{ padding: "14px 16px", minWidth: 0 }}>
-      <div style={{ fontFamily: P.mono, fontSize: 10, letterSpacing: ".1em", color: P.muted, whiteSpace: "nowrap" }}>
+      <div style={{ fontFamily: P.mono, fontSize: 11, letterSpacing: ".1em", color: P.muted, whiteSpace: "nowrap" }}>
         {label}
       </div>
       <div
@@ -581,7 +581,7 @@ function DimPanel({
     <div className="aidog-dimpanel" style={{ padding: "14px 16px", background: P.s1 }}>
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, marginBottom: 4, flexWrap: "wrap" }}>
         <b style={{ fontSize: F.small + 1, color: P.fg }}>{t(titleKey, titleDefault)}</b>
-        <span style={{ fontFamily: P.mono, fontSize: 10, color: P.muted }}>
+        <span style={{ fontFamily: P.mono, fontSize: 11, color: P.muted }}>
           TODAY · {t("home.dimMetric", "tokens / 花费 / 请求")}
         </span>
       </div>

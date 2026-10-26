@@ -118,7 +118,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
         {/* Auto badge */}
         {editTarget!.group.auto_from_platform && (
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)" }}>
-            <Badge variant="secondary" style={{ fontSize: 10, padding: "0 5px" }}>auto</Badge>
+            <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px" }}>auto</Badge>
             {t("group.autoFromPlatform", "自动创建，部分字段不可编辑")}
           </div>
         )}

@@ -54,7 +54,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden }: TopbarProps)
         <span style={{ fontSize: 11 }}>⌕</span>
         <span style={{ flex: 1, textAlign: "start" }}>{t("topbar.search", "搜索（⌘K）")}</span>
         <kbd style={{
-          fontFamily: "var(--font-mono, monospace)", fontSize: 10,
+          fontFamily: "var(--font-mono, monospace)", fontSize: 11,
           border: "1px solid var(--border)", borderBottomWidth: 2, borderRadius: 5,
           padding: "0 6px", color: "var(--muted-foreground)",
           background: "var(--card)",

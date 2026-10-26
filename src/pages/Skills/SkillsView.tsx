@@ -434,7 +434,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               variant="outline"
               title={t("skills.sourceType", "来源类型")}
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 padding: "2px 6px",
                 background: "var(--bg-floating)",
                 color: "var(--text-secondary)",
@@ -450,7 +450,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
               variant="outline"
               title={t("skills.pluginName", "plugin 来源")}
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 padding: "2px 6px",
                 background: "var(--bg-floating)",
                 color: "var(--text-secondary)",
@@ -476,7 +476,7 @@ function SkillRow({ skill, idx, busyKey, writeReady, selected, onSelect, onToggl
         )}
         {/* 安装时间次要行（紧凑） */}
         {skill.installed_at && (
-          <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
+          <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
             <span>{t("skills.installedAt", "安装于")}: </span>
             <span title={skill.installed_at}>{formatDateTime(skill.installed_at)}</span>
             {skill.skill_folder_hash && (

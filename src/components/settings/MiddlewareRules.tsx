@@ -930,29 +930,29 @@ function RuleRow({ rule, budget, onEdit, onToggle, onDelete }: RuleRowProps) {
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <span style={{ fontSize: F.hint, fontWeight: 600 }}>{rule.name}</span>
           {rule.is_builtin && (
-            <span className="badge badge-accent" style={{ fontSize: 10 }}>
+            <span className="badge badge-accent" style={{ fontSize: 11 }}>
               {t("middleware.builtin", "内置")}
             </span>
           )}
           {rule.failed && (
-            <span className="badge" style={{ fontSize: 10, color: "var(--color-danger)" }}>
+            <span className="badge" style={{ fontSize: 11, color: "var(--color-danger)" }}>
               {t("middleware.failed", "失效")}
             </span>
           )}
-          <span className="badge" style={{ fontSize: 10 }}>
+          <span className="badge" style={{ fontSize: 11 }}>
             {actionsSummary(t, rule.actions)}
           </span>
           {hasObserve(rule.actions) && (
             <span
               className="badge"
-              style={{ fontSize: 10, color: "var(--color-warning)" }}
+              style={{ fontSize: 11, color: "var(--color-warning)" }}
               title={t("middleware.observeHint", "开启后命中不拦截：请求照常转发并计费，只在日志里记一笔，用来验证规则是否误伤")}
             >
               {t("middleware.observe", "观察模式")}
             </span>
           )}
           {!!appliesSummary(rule.applies_to) && (
-            <span className="badge" style={{ fontSize: 10 }}>
+            <span className="badge" style={{ fontSize: 11 }}>
               {appliesSummary(rule.applies_to)}
             </span>
           )}
