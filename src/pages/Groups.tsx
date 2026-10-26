@@ -74,6 +74,14 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const [showCreate, setShowCreate] = useState(false);
   // G3 详情页（观测台三栏）：独立视图态，idiom 同 editTarget/showCreate。null = 列表。
   const [detailTarget, setDetailTarget] = useState<number | null>(null);
+  // 侧栏点当前菜单（AI 平台）= 收起分组详情回到列表（App.handleNavigate 同页早退路径派发）。
+  useEffect(() => {
+    const onReset = (e: Event) => {
+      if ((e as CustomEvent).detail?.id === "platforms") setDetailTarget(null);
+    };
+    window.addEventListener("aidog:nav-reset", onReset);
+    return () => window.removeEventListener("aidog:nav-reset", onReset);
+  }, []);
   useEffect(() => {
     if (!openCreateGroupRef) return;
     openCreateGroupRef.current = () => setShowCreate(true);
@@ -805,6 +813,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
           onTestGroup={handleTestGroup}
           onEditPlatform={p => cardService.onEdit(p)}
           onDeleteMapping={handleDeleteMapping}
+          onSetLevelPriority={handleSetLevelPriority}
           onAddPlatform={onCreatePlatform ? () => onCreatePlatform([detail.group.id], detail.group.id) : undefined}
         />
       );

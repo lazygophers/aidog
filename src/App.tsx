@@ -167,7 +167,11 @@ function App() {
   }, []);
 
   const handleNavigate = (id: string, context?: NavContext) => {
-    if (id === activeNav && !context) return;
+    // 点当前菜单项 = 回到该页列表态（如分组详情全屏视图收起），页内子视图监听 aidog:nav-reset。
+    if (id === activeNav && !context) {
+      window.dispatchEvent(new CustomEvent("aidog:nav-reset", { detail: { id } }));
+      return;
+    }
     // A dirty page (e.g. Claude Code Settings) may intercept the switch.
     requestNavigation(() => {
       // startTransition: 目标页 chunk 未加载完时, React 保留当前已提交的树
