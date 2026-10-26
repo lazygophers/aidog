@@ -10,7 +10,7 @@ import { formatDateTime } from "../../utils/formatters";
 /** 静态候选序：与后端 sort_by_routing_mode 同构的简化排序——
  *  仅启用的平台参与；failover/health_aware/sticky 按 (level_priority 降, priority 升) 定序；
  *  load_balance 同序但语义为权重分布（level_priority 视作权重近似）。 */
-function staticOrder(gps: GroupPlatformDetail[]): GroupPlatformDetail[] {
+export function staticOrder(gps: GroupPlatformDetail[]): GroupPlatformDetail[] {
   return gps
     .filter(g => g.platform.status === "enabled")
     .sort((a, b) => (b.level_priority - a.level_priority) || (a.priority - b.priority));

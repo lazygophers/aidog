@@ -622,7 +622,42 @@ pub fn group_platform_breakdown<'a>(
     }
 }
 
-/// 最近一次路由快照（log.db 读池）：双侧边「最近路由」常驻区数据源。
+/// 分组 7 天趋势（详情页右栏）：stats_agg_hourly 按本地日 × platform GROUP BY。
+#[track_caller]
+pub fn group_daily_breakdown<'a>(
+    db: &'a Db,
+    group_key: &'a str,
+    days: i64,
+) -> impl std::future::Future<Output = Result<Vec<aidog_db::models::GroupDailyBreakdown>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let group_key = group_key.to_string();
+        use chrono::Duration;
+        let since = (chrono::Local::now() - Duration::days(days))
+            .format("%Y-%m-%d 00:00:00")
+            .to_string();
+        db.call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare_cached(
+                "SELECT substr(time_hour, 1, 10), platform_id, SUM(request_count), SUM(sum_est_cost) \
+                 FROM stats_agg_hourly WHERE group_key = ?1 AND time_hour >= ?2 AND deleted_at = 0 \
+                 GROUP BY substr(time_hour, 1, 10), platform_id ORDER BY 1, 3 DESC",
+            )?;
+            let rows = stmt.query_map(params![group_key, since], |row| {
+                Ok(aidog_db::models::GroupDailyBreakdown {
+                    day: row.get(0)?,
+                    platform_id: row.get(1)?,
+                    requests: row.get(2)?,
+                    est_cost: row.get(3)?,
+                })
+            })?;
+            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| format!("group daily breakdown: {e}"))
+    }
+}
+
+/// 最近一次路由快照（log.db 读池）：双侧边「最近路由」常驻区数据源。/// 最近一次路由快照（log.db 读池）：双侧边「最近路由」常驻区数据源。
 #[track_caller]
 pub fn latest_routing_snapshot<'a>(
     db: &'a Db,

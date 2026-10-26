@@ -91,6 +91,8 @@ export interface GroupListViewProps {
   handleAddMapping: () => void;
   handleSetLevelPriority: (gid: number, pid: number, v: number) => void;
   handlePurgeDisabled: (gid: number) => void;
+  /** 打开独立详情页（观测台三栏） */
+  onOpenDetail?: (id: number) => void;
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   // 批量删除（group-batch-ops s3）
@@ -138,7 +140,7 @@ export function GroupListView(props: GroupListViewProps) {
     onToast,
     handleReorderGroups, openEdit, handleDeleteGroup, handleToggleDefault,
     handleTestGroup, handleDeleteMapping, handleAddMapping,
-    handleSetLevelPriority, handlePurgeDisabled,
+    handleSetLevelPriority, handlePurgeDisabled, onOpenDetail,
     onCreatePlatform, onNavigate,
     onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
     onBatchOverrideModels, batchOverrideTarget, batchOverrideBusy, confirmBatchOverrideModels, setBatchOverrideTarget,
@@ -253,6 +255,7 @@ export function GroupListView(props: GroupListViewProps) {
                 onToggleExpanded={toggleGroupExpanded}
                 onSetCollapsed={setCollapsedGroups}
                 onEdit={openEdit}
+                onOpenDetail={onOpenDetail}
                 onDelete={setDeleteGroupId}
                 onToggleDefault={handleToggleDefault}
                 onTestGroup={handleTestGroup}

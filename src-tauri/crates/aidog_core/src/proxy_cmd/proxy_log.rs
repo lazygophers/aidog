@@ -302,6 +302,14 @@ pub async fn group_platform_breakdown(
 }
 
 crate::tauri_command! {
+pub async fn group_daily_usage(
+    group_key: String) -> Result<Vec<gateway::models::GroupDailyBreakdown>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::group_daily_breakdown(db, &group_key, 7).await
+}
+}
+
+crate::tauri_command! {
 pub async fn group_latest_routing(
     group_key: String) -> Result<Option<gateway::models::LatestRouting>, String> {
     let db = aidog_ctx::db();
