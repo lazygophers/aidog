@@ -2,7 +2,8 @@ import { tokens } from "./tokens.generated";
 import type { ThemeDefinition, ThemeMode } from "./types";
 
 /**
- * Mono 主题 —— 色值来源是跨栈 token 表（票 13）。
+ * Mono 主题 —— G3 观测台（整体风格重设计票 01，2026-10-26）。
+ * 色值来源是跨栈 token 表（票 13 机制不变，值已按 G3 真值表重写）。
  *
  * 真值源：`design/tokens/tokens.json`（同一份表生成 React 侧的 `tokens.generated.ts`）。
  * 改色一律改那份 JSON 再跑 `yarn tokens`；本文件只做「token 语义名 → shadcn 语义变量」的映射，
@@ -17,11 +18,13 @@ function vars(mode: ThemeMode): Record<string, string> {
   const c = tokens[mode];
   // accent 的 rgb 三元组：--app-bg-overlay 的光晕要跟着主色走，token 表没有单独的
   // overlay 色（已回报票 10），这里从 accent 派生而不是另写一个字面色。
-  const accentRgb = mode === "dark" ? "94, 106, 210" : "78, 89, 196";
+  const accentRgb = mode === "dark" ? "139, 92, 217" : "122, 70, 201";
   return {
     // ── 结构（非颜色，票 13 不动）──
-    "--radius-sm": "8px",
-    "--radius-md": "12px",
+    // G3 真值表：--radius 8px（按钮 7 / 卡 10 / 徽标 4）
+    "--radius": "8px",
+    "--radius-sm": "7px",
+    "--radius-md": "10px",
     "--radius-lg": "16px",
     "--radius-xl": "24px",
     "--glass-blur": "20px",
@@ -30,12 +33,10 @@ function vars(mode: ThemeMode): Record<string, string> {
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
     // token 表只有 shadow-tile / shadow-float 两档，现仓要 sm/md/lg 三档 —— 缺项已回报票 10，
     // 在补进真值源之前保持原值不动（不现编一套三档）。
-    "--shadow-sm":
-      mode === "dark"
-        ? "0 1px 3px rgba(0, 0, 0, 0.4)"
-        : "0 1px 3px rgba(28, 25, 23, 0.04), 0 1px 2px rgba(28, 25, 23, 0.02)",
-    "--shadow-md": mode === "dark" ? "0 4px 20px rgba(0, 0, 0, 0.5)" : "0 4px 20px rgba(28, 25, 23, 0.06)",
-    "--shadow-lg": mode === "dark" ? "0 8px 32px rgba(0, 0, 0, 0.6)" : "0 8px 32px rgba(28, 25, 23, 0.08)",
+    // G3：卡面 0 1px 3px 5%（=token shadow-rail-card）、弹层 0 16px 40px 14%（=shadow-float）；md 档沿用旧中间值。
+    "--shadow-sm": c["shadow-rail-card"],
+    "--shadow-md": mode === "dark" ? "0 4px 20px rgba(0, 0, 0, 0.5)" : "0 4px 20px rgba(28, 36, 48, 0.06)",
+    "--shadow-lg": c["shadow-float"],
     "--shadow-color": mode === "dark" ? "0, 0, 0" : "28, 25, 23",
     // 背景光晕：形状（角度/半径/透明度）保持原样，只把颜色换成主色。
     "--app-bg-overlay":
@@ -86,6 +87,11 @@ function vars(mode: ThemeMode): Record<string, string> {
     // accent 深色下是近黑，近黑折线画在卡片上 1.01:1，线还在但数据看不见。
     // 用户 2026-09-23 拍板「图表另用一个颜色，保留原来的蓝紫」    // 当天已落地（`ChartPalette.primary` 读 dataPrimary），这里是补齐 React 侧。
     "--data-primary": c["data-primary"],
+    // G3 图表序列色（流线/序列）：chart-1 = 主色系，dark 调亮一档的语义色家族。
+    "--chart-1": c["data-primary"],
+    "--chart-2": c["chart-2"],
+    "--chart-3": c["chart-3"],
+    "--chart-4": c["chart-4"],
     "--input": c["line-strong"],
     // 焦点环 = 主色带透明度，token 表里就是 live-edge（活着的格子的边）。
     "--ring": c["live-edge"],
