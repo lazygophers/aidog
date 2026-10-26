@@ -57,7 +57,7 @@ const baseProps = {
   groupTestRunning: false,
   onSelectGroup: vi.fn(), onClose: vi.fn(), onCreateGroup: vi.fn(), onEditGroup: vi.fn(),
   onTestGroup: vi.fn(), onEditPlatform: vi.fn(),
-  onDeleteMapping: vi.fn(), onAddPlatform: vi.fn(),
+  onDeleteMapping: vi.fn(), onAddPlatform: vi.fn(), onSetLevelPriority: vi.fn(),
 };
 
 describe("GroupDetailPage — 观测台三栏", () => {
