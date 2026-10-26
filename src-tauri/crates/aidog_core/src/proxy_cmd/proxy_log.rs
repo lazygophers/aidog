@@ -289,3 +289,22 @@ pub async fn proxy_log_cleanup_estimate() -> Result<gateway::models::CleanupEsti
 #[cfg(test)]
 #[path = "test_proxy_log.rs"]
 mod test_proxy_log;
+
+// ── G3 分组页（整体风格重设计票 03）：flow 拆分 + 最近路由快照（只读）──
+crate::tauri_command! {
+pub async fn group_platform_breakdown(
+    group_key: String,
+    window: Option<String>,
+    by_model: Option<bool>) -> Result<Vec<gateway::models::GroupPlatformBreakdown>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::group_platform_breakdown(db, &group_key, window.as_deref().unwrap_or("7d"), by_model.unwrap_or(false)).await
+}
+}
+
+crate::tauri_command! {
+pub async fn group_latest_routing(
+    group_key: String) -> Result<Option<gateway::models::LatestRouting>, String> {
+    let db = aidog_ctx::db();
+    aidog_stats::latest_routing_snapshot(db, &group_key).await
+}
+}

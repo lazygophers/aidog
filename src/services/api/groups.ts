@@ -1,7 +1,17 @@
 // groups.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "../transport";
-import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats } from "./types";
+import type { RoutingMode, Group, GroupPlatformDetail, ModelMapping, EnvVar, GroupDetail, PlatformUsageStats, GroupPlatformBreakdown, LatestRouting } from "./types";
+
+// ── G3 分组页（整体风格票 03）：flow 拆分 + 最近路由快照（只读命令）──
+export const groupFlowApi = {
+  /** 分组 → 平台（可选模型维度）用量拆分：桑基 flow 数据源。window: "7d" | "today"。 */
+  breakdown: (groupKey: string, window: "7d" | "today", byModel: boolean) =>
+    invoke<GroupPlatformBreakdown[]>("group_platform_breakdown", { groupKey, window, byModel }),
+  /** 最近一次路由决策快照（proxy_log.routing 最新一条；无 → null）。 */
+  latestRouting: (groupKey: string) =>
+    invoke<LatestRouting | null>("group_latest_routing", { groupKey }),
+};
 
 export const groupUsageApi = {
   stats: (groupKey: string) =>
