@@ -16,7 +16,6 @@ import i18n from "./locales";
 // 挂起时 React 保留旧树在屏上直到新 chunk resolve, 不掉进 fallback, 无闪烁。
 const Home = lazy(() => import("./pages/Home").then(m => ({ default: m.Home })));
 const Platforms = lazy(() => import("./pages/Platforms").then(m => ({ default: m.Platforms })));
-const GroupsPage = lazy(() => import("./pages/GroupsPage").then(m => ({ default: m.Groups })));
 const AppSettings = lazy(() => import("./pages/AppSettings").then(m => ({ default: m.AppSettings })));
 const Logs = lazy(() => import("./pages/Logs").then(m => ({ default: m.Logs })));
 const Stats = lazy(() => import("./pages/Stats").then(m => ({ default: m.Stats })));
@@ -38,10 +37,9 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
-  // G3 设计稿 6 侧栏：监控（分组 ⌘1 / 平台 ⌘2 / 日志 ⌘3）。分组为独立导航页（GroupConsoleList）。
-  { id: "groups", icon: "groups", labelKey: "nav.groups", section: "nav.section.monitoring", kbd: "⌘1" },
+  // G3 侧栏：概览 ⌘1 第一位 / 监控 = 平台 ⌘2（分组内嵌 GroupsEmbedded，同页展示分组段 + 平台行）/ 日志 ⌘3。
+  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview", kbd: "⌘1" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.monitoring", kbd: "⌘2" },
-  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats", kbd: "⌘3" },
   { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
@@ -187,7 +185,7 @@ function App() {
       if (e.key === "k" || e.key === "K") {
         e.preventDefault();
         setPaletteOpen(v => !v);
-      } else if (e.key === "1") { e.preventDefault(); handleNavigate("groups"); }
+      } else if (e.key === "1") { e.preventDefault(); handleNavigate("home"); }
       else if (e.key === "2") { e.preventDefault(); handleNavigate("platforms"); }
       else if (e.key === "3") { e.preventDefault(); handleNavigate("logs"); }
     };
@@ -255,8 +253,7 @@ function App() {
         <Suspense fallback={null}>
           <div className="animate-fade-in" key={effectiveNav}>
             {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
-            {effectiveNav === "groups" && <GroupsPage onNavigate={handleNavigate} />}
-            {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
+                {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
             {effectiveNav === "request-log" && <RequestLog />}
             {effectiveNav === "mitm-log" && <MitmLog />}
             {effectiveNav === "settings" && <AppSettings tab={settingsTab} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}

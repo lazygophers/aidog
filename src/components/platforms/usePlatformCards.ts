@@ -41,7 +41,7 @@ interface UsePlatformCardsReturn {
   setLastTestMap: React.Dispatch<React.SetStateAction<Record<number, LastTestResult>>>;
   refreshLastTest: (platformId: number) => Promise<void>;
   // Actions
-  refreshQuota: (p: Platform) => Promise<void>;
+  refreshQuota: (p: Platform, opts?: { silent?: boolean }) => Promise<void>;
   toggleExpanded: (id: number, next: boolean) => void;
   handleQuickTest: (p: Platform) => Promise<void>;
   /** 启停平台。返回后端写回的最新平台行（供调用方就地打补丁，不必重拉列表）；失败返回 null。 */
@@ -99,10 +99,12 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   }, []);
 
   // Refresh quota
-  const refreshQuota = useCallback(async (p: Platform) => {
+  const refreshQuota = useCallback(async (p: Platform, opts?: { silent?: boolean }) => {
     if (!p.api_key) {
-      setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`, ok: false });
-      setTimeout(() => setToast(null), 3000);
+      if (!opts?.silent) {
+        setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 Token")}`, ok: false });
+        setTimeout(() => setToast(null), 3000);
+      }
       return;
     }
     setQuotaRefreshing((s) => ({ ...s, [p.id]: true }));
@@ -116,14 +118,16 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));
-      } else {
+      } else if (!opts?.silent) {
         setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
       }
     } catch (e) {
       console.error(e);
-      setToast({ text: `${p.name}: ${t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
-      setTimeout(() => setToast(null), 3000);
+      if (!opts?.silent) {
+        setToast({ text: `${p.name}: ${t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
+        setTimeout(() => setToast(null), 3000);
+      }
     }
     setQuotaRefreshing((s) => ({ ...s, [p.id]: false }));
   }, [t, setToast]);

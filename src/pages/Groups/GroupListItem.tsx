@@ -284,6 +284,12 @@ export const GroupListItem = memo(function GroupListItem({
               {t("group.batchOps", "多选")}
             </Button>
           )}
+          {onOpenDetail && (
+            <Button variant="ghost" className="ripple" data-testid="group-section-detail" style={headBtn}
+              onClick={(e) => { makeRipple(e); onOpenDetail(group.id); }}>
+              {t("group.detail.openShort", "详情")}
+            </Button>
+          )}
           <Button variant="ghost" className="ripple" style={headBtn} onClick={(e) => { makeRipple(e); onEdit({ group, platforms: gps, model_mappings }); }}>
             {t("group.sectionSettings", "设置")}
           </Button>
@@ -296,7 +302,6 @@ export const GroupListItem = memo(function GroupListItem({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" style={{ minWidth: 170 }}>
-              {onOpenDetail && <DropdownMenuItem onSelect={() => onOpenDetail(group.id)}>{t("group.detail.open", "打开详情页")}</DropdownMenuItem>}
               {onTestGroup && (
                 <DropdownMenuItem disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning}
                   onSelect={() => onTestGroup(group, gps)}>

@@ -18,13 +18,12 @@ import { GroupEditPanel } from "./Groups/GroupEditPanel";
 import { GroupCreateModal } from "./Groups/GroupCreateModal";
 import { GroupListView } from "./Groups/GroupListView";
 import { GroupDetailPage } from "./Groups/GroupDetailPage";
-import { GroupConsoleList } from "./Groups/GroupConsoleList";
 import { useGroupData } from "./Groups/useGroupData";
 import { useGroupTest } from "./Groups/useGroupTest";
 import { usePlatformDrag } from "./Groups/usePlatformDrag";
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery, variant = "embedded" }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   onGroupsChanged?: () => void;
   /** 平台被删后触发父级（Platforms 页 usePlatformsState.removePlatformsByIds）局部移除 platforms state。
@@ -56,9 +55,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   /** 平台搜索关键词（来自 Platforms 页头搜索框）：命中平台只展示命中项（同组其他折叠），
    *  命中分组名整组展开；空串 = 不过滤（原行为）。 */
   searchQuery?: string;
-  /** 渲染形态：embedded = 平台页内嵌列表（稿 5 段式，GroupListView）；
-   *  page = 独立导航页（稿 6 分组页：pgtop 工具栏 + 紧凑组卡，GroupConsoleList）。 */
-  variant?: "page" | "embedded";
 }) {
   const { t } = useTranslation();
 
@@ -110,6 +106,17 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
+  // quota 自动初拉：行式列表无手动刷新入口，挂载后对有 key 且未拉过的平台静默拉一次余额，
+  // 否则余额列永远是 est_balance_remaining 回落值（coding 套餐真实余额不上屏）。
+  const quotaBootRef = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    for (const p of platforms) {
+      if (p.api_key && !quotaBootRef.current.has(p.id)) {
+        quotaBootRef.current.add(p.id);
+        void cards.refreshQuota(p, { silent: true });
+      }
+    }
+  }, [platforms, cards.refreshQuota]);
   const cardsSetUsageMap = cards.setUsageMap;
   const usageReqRef = useRef<Set<number>>(new Set());
   useEffect(() => {
@@ -802,26 +809,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
         />
       );
     }
-  }
-
-  // ── Console list（G3 设计稿「分组页」：pgtop + 紧凑组卡；独立导航页 variant="page" 用）──
-  if (variant === "page") {
-    return (
-      <GroupConsoleList
-        details={details}
-        groupStats={groupStats}
-        loading={loading}
-        t={t}
-        proxyBaseUrl={proxyBaseUrl}
-        onOpenDetail={setDetailTarget}
-        onCreateGroup={() => setShowCreate(true)}
-        onPurgeAllGroups={async () => {
-          for (const d of details) {
-            await handlePurgeDisabled(d.group.id);
-          }
-        }}
-      />
-    );
   }
 
   // ── List view ──
