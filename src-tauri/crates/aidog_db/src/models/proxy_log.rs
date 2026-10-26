@@ -244,6 +244,19 @@ pub struct GroupPlatformBreakdown {
     pub est_cost: f64,
 }
 
+/// 分组页 7 天趋势行（详情页右栏趋势卡）：stats_agg_hourly 按天（本地日期）× 平台 GROUP BY。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct GroupDailyBreakdown {
+    /// 本地日期（time_hour 前 10 位，YYYY-MM-DD）。
+    pub day: String,
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    #[ts(type = "number")]
+    pub requests: i64,
+    pub est_cost: f64,
+}
+
 /// 最近一次路由快照（G3 票 03 双侧边「最近路由」常驻区）：proxy_log 最新一条带 routing 的行。
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]

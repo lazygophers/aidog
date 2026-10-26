@@ -17,6 +17,7 @@ import {
 import { GroupEditPanel } from "./Groups/GroupEditPanel";
 import { GroupCreateModal } from "./Groups/GroupCreateModal";
 import { GroupListView } from "./Groups/GroupListView";
+import { GroupDetailPage } from "./Groups/GroupDetailPage";
 import { useGroupData } from "./Groups/useGroupData";
 import { useGroupTest } from "./Groups/useGroupTest";
 import { usePlatformDrag } from "./Groups/usePlatformDrag";
@@ -71,6 +72,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
+  // G3 详情页（观测台三栏）：独立视图态，idiom 同 editTarget/showCreate。null = 列表。
+  const [detailTarget, setDetailTarget] = useState<number | null>(null);
   useEffect(() => {
     if (!openCreateGroupRef) return;
     openCreateGroupRef.current = () => setShowCreate(true);
@@ -770,6 +773,33 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     );
   }
 
+  // ── Detail page（观测台三栏，G3 设计稿「分组页终稿」独立成页）──
+  if (detailTarget != null) {
+    const detail = details.find(d => d.group.id === detailTarget);
+    if (detail) {
+      return (
+        <GroupDetailPage
+          detail={detail}
+          details={details}
+          platforms={platforms}
+          t={t}
+          groupStats={groupStats}
+          cards={cards}
+          cardService={cardService}
+          groupTestRunning={groupTest?.running ?? false}
+          onSelectGroup={setDetailTarget}
+          onClose={() => setDetailTarget(null)}
+          onCreateGroup={() => setShowCreate(true)}
+          onEditGroup={openEdit}
+          onTestGroup={handleTestGroup}
+          onEditPlatform={p => cardService.onEdit(p)}
+          onDeleteMapping={handleDeleteMapping}
+          onAddPlatform={onCreatePlatform ? () => onCreatePlatform([detail.group.id], detail.group.id) : undefined}
+        />
+      );
+    }
+  }
+
   // ── List view ──
   return (
     <GroupListView
@@ -821,6 +851,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       handleAddMapping={handleAddMapping}
       handleSetLevelPriority={handleSetLevelPriority}
       handlePurgeDisabled={handlePurgeDisabled}
+      onOpenDetail={setDetailTarget}
       onCreatePlatform={onCreatePlatform}
       onNavigate={onNavigate}
       onBatchDelete={handleBatchDelete}
