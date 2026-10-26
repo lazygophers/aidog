@@ -5,6 +5,8 @@ import piIcon from "../../assets/platforms/pi.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
 import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
 import { buildStatusOptions, idsForCode } from "./statusSelect";
+import { GroupFlowPanel } from "./GroupFlowPanel";
+import { GroupSidePanels } from "./GroupSidePanels";
 import { platformApi } from "../../services/api";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple } from "../../components/shared";
@@ -333,6 +335,8 @@ export const GroupListItem = memo(function GroupListItem({
           {/* Aggregate stats chips */}
           {u && (
             <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+              <StatChip icon={<IconBolt size={13} />} value={formatNumber(u.today_tokens)} label={t("group.stats.todayTokens", "今日 tokens")} />
+              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.today_cost)}`} label={t("group.stats.todayCost", "今日费用")} level={costLevel(u.today_cost)} />
               <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
               <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
               {u.total_requests > 0 && (
@@ -460,6 +464,13 @@ export const GroupListItem = memo(function GroupListItem({
                   {t("group.batchMoveGroup", "移组")}
                 </Button>
               </div>
+            )}
+            {/* G3 票 03：请求流向（桑基）+ 双侧边（候选序/最近路由）常驻，非多选模式 */}
+            {mode !== "select" && gps.length > 0 && (
+              <>
+                <GroupSidePanels group={group} gps={gps} />
+                <GroupFlowPanel groupKey={group.group_key} gps={gps} />
+              </>
             )}
             {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
             {fullPlats.length > 0 && (

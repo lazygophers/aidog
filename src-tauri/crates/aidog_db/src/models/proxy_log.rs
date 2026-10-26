@@ -228,6 +228,34 @@ pub fn parse_routing(s: &str) -> Option<RoutingSnapshot> {
     serde_json::from_str(s).ok()
 }
 
+/// 分组页桑基 flow 明细行（G3 整体风格票 03）：stats_agg_hourly 按 (platform_id, model?) GROUP BY。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct GroupPlatformBreakdown {
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    /// 模型维度（by_model=false 时恒 None = 平台级聚合）。
+    #[serde(default)]
+    pub model: Option<String>,
+    #[ts(type = "number")]
+    pub requests: i64,
+    #[ts(type = "number")]
+    pub success: i64,
+    pub est_cost: f64,
+}
+
+/// 最近一次路由快照（G3 票 03 双侧边「最近路由」常驻区）：proxy_log 最新一条带 routing 的行。
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../../../src/services/api/types/generated/")]
+pub struct LatestRouting {
+    #[ts(type = "number")]
+    pub platform_id: i64,
+    pub source_model: String,
+    #[ts(type = "number")]
+    pub created_at: i64,
+    pub snapshot: RoutingSnapshot,
+}
+
 /// 平台使用统计（从 proxy_logs 聚合）
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../../../src/services/api/types/generated/")]
