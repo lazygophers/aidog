@@ -229,9 +229,16 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const {
     locale, setLocale,
-    themeMode, toggleMode,
   } = useApp();
   const [langOpen, setLangOpen] = useState(false);
+  // G3 骨架（票 02）：两档折叠 216px ↔ 56px 图标态，localStorage 记忆。
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("aidog.sidebar.collapsed") === "1"; } catch { return false; }
+  });
+  const toggleCollapsed = () => setCollapsed((v) => {
+    try { localStorage.setItem("aidog.sidebar.collapsed", v ? "0" : "1"); } catch { /* 私有模式等 */ }
+    return !v;
+  });
   // 折叠子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开。
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
   // section 折叠态：用户 toggle 覆盖；未覆盖时 active 所在 section 自动展开。
@@ -248,21 +255,27 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
 
   return (
     <aside
-      className="glass glass-highlight"
+      id="g3-sidebar"
+      data-state={collapsed ? "collapsed" : "expanded"}
       style={{
-        width: 200,
-        minWidth: 200,
+        width: collapsed ? 56 : 216,
+        minWidth: collapsed ? 56 : 216,
         height: "100%",
         display: "flex",
         flexDirection: "column",
-        padding: "16px 10px",
+        padding: collapsed ? "12px 8px" : "16px 12px",
         gap: 4,
+        // G3：侧栏底 = bg-chrome（light #FAFBFC / dark 同页面底），右边一条 hairline
+        background: "var(--bg-chrome)",
+        borderInlineEnd: "1px solid var(--border)",
+        transition: "width 180ms cubic-bezier(0.4, 0, 0.2, 1)",
+        overflow: "hidden",
       }}
     >
-      {/* Logo */}
+      {/* Logo 行 + 折叠开关（G3：216/56 两档） */}
       <div style={{
-        padding: "10px 12px 20px",
-        fontSize: 17,
+        padding: collapsed ? "4px 0 16px" : "10px 6px 20px",
+        fontSize: 15,
         fontWeight: 700,
         letterSpacing: "-0.3px",
         display: "flex",
@@ -272,14 +285,18 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         <img
           src="/logo.svg"
           alt="logo"
-          style={{
-            width: 28,
-            height: 28,
-            flexShrink: 0,
-            filter: "drop-shadow(0 2px 4px rgba(var(--shadow-rgb), 0.1))",
-          }}
+          style={{ width: 26, height: 26, flexShrink: 0 }}
         />
-        <span>{t("app.title")}</span>
+        {!collapsed && <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "var(--primary)" }}>{t("app.title")}</span>}
+        <Button
+          id="g3-sidebar-collapse"
+          variant="ghost"
+          title={collapsed ? t("sidebar.expand", "展开侧栏") : t("sidebar.collapse", "折叠侧栏")}
+          onClick={toggleCollapsed}
+          style={{ padding: 4, width: 24, minWidth: 0, fontSize: 11, color: "var(--text-tertiary)", height: "auto" }}
+        >
+          {collapsed ? "»" : "«"}
+        </Button>
       </div>
 
       {/* Navigation — 纵向滚动: 窗口矮/分组展开多时 nav 项溢出可滚 (minHeight:0 是 flex 子项 overflow 生效关键) */}
@@ -293,7 +310,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
           const hasHeader = sec.key !== "";
           return (
             <div key={sec.key || "_"} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {hasHeader && (
+              {hasHeader && !collapsed && (
                 <Button
                   variant="ghost"
                   style={{
@@ -323,35 +340,31 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 const isActive = item.id === topId;
                 const hasChildren = !!item.children && item.children.length > 0;
                 const inThis = activeId.startsWith(item.id + "/");
-                const expanded = expandedNav[item.id] ?? (inThis ? true : false);
+                // 折叠态不展开子菜单：点击顶级项直接跳首个 child
+                const expanded = !collapsed && (expandedNav[item.id] ?? (inThis ? true : false));
                 return (
             <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <Button
                 variant="ghost"
                 className={isActive ? "ripple" : "ripple hover-lift"}
+                title={collapsed ? t(item.labelKey) : undefined}
                 style={{
-                  justifyContent: "flex-start",
-                  gap: 10,
-                  padding: "10px 12px",
+                  justifyContent: collapsed ? "center" : "flex-start",
+                  gap: collapsed ? 0 : 9,
+                  padding: collapsed ? "9px 0" : "8px 10px",
                   fontWeight: isActive ? 600 : 400,
-                  // 同上：字走 --accent（token accent-text），不走近黑的 --primary。
-                  color: isActive
-                    ? "var(--accent)"
-                    : "var(--text-secondary)",
-                  background: isActive
-                    ? "var(--accent-subtle)"
-                    : "transparent",
-                  // 萤火虫激活态：左侧流光条 + 描边 glow
-                  boxShadow: isActive
-                    ? "inset 2px 0 0 var(--accent-edge), inset 0 0 0 1px var(--accent-edge), 0 0 12px color-mix(in srgb, var(--accent) 28%, transparent)"
-                    : "none",
+                  // G3：选中 = accent-subtle 淡底 + 左 2px primary + 主色字（真值表 .nav .it.on）
+                  color: isActive ? "var(--primary)" : "var(--text-secondary)",
+                  background: isActive ? "var(--accent-subtle)" : "transparent",
+                  borderInlineStart: `2px solid ${isActive ? "var(--primary)" : "transparent"}`,
                   borderRadius: "var(--radius-sm)",
-                  fontSize: 13,
+                  fontSize: 12.5,
                   height: "auto",
                   position: "relative",
                 }}
                 onClick={(e) => {
                   makeRipple(e);
+                  if (collapsed && hasChildren) { onNavigate(item.children![0].id); return; }
                   if (hasChildren) {
                     // header 点击始终 toggle 展开；仅「展开 + 未在组内」时跳首个 child。
                     // 修复：group 已展开但 activeId 不在组内时，点击应收起而非重新展开+跳转。
@@ -373,8 +386,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 }}>
                   {(icons as Record<string, React.ReactNode>)[item.icon]}
                 </span>
-                <span style={{ flex: 1, minWidth: 0, textAlign: "start", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(item.labelKey)}</span>
-                {hasChildren && (
+                {!collapsed && <span style={{ flex: 1, minWidth: 0, textAlign: "start", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(item.labelKey)}</span>}
+                {hasChildren && !collapsed && (
                   <span style={{
                     opacity: 0.4,
                     transform: expanded ? "rotate(180deg)" : "none",
@@ -382,7 +395,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     display: "inline-flex",
                   }}>{icons.chevron}</span>
                 )}
-                {item.badge != null && item.badge > 0 && (
+                {item.badge != null && item.badge > 0 && !collapsed && (
                   <span
                     style={{
                       fontSize: 10,
@@ -403,7 +416,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 )}
               </Button>
               {hasChildren && expanded && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingInlineStart: 12 }}>
                   {(() => {
                     const groups: { key: string; items: NavChild[] }[] = [];
                     for (const c of item.children!) {
@@ -434,12 +447,11 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                                 justifyContent: "flex-start",
                                 padding: "7px 10px 7px 26px",
                                 fontWeight: childActive ? 600 : 400,
-                                fontSize: 12.5,
-                                color: childActive ? "var(--accent)" : "var(--text-secondary)",
+                                fontSize: 12,
+                                color: childActive ? "var(--primary)" : "var(--text-secondary)",
                                 background: childActive ? "var(--accent-subtle)" : "transparent",
                                 borderRadius: "var(--radius-sm)",
-                                borderLeft: childActive ? "2px solid var(--accent-edge)" : "2px solid transparent",
-                                boxShadow: childActive ? "0 0 8px color-mix(in srgb, var(--accent) 22%, transparent)" : "none",
+                                borderInlineStart: childActive ? "2px solid var(--primary)" : "2px solid transparent",
                                 height: "auto",
                               }}
                               onClick={(e) => { makeRipple(e); onNavigate(c.id); }}
@@ -461,7 +473,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         })}
       </nav>
 
-      {/* Bottom Controls */}
+      {/* Bottom Controls（G3：主题切换移顶栏，这里保语言 + 用户区行） */}
       <div style={{
         display: "flex",
         flexDirection: "column",
@@ -469,36 +481,34 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         paddingTop: 12,
         borderTop: "1px solid var(--border)",
       }}>
-        {/* Theme: 黑/白 (dark/light) toggle —— 单一 mono 主题, 配色轴收敛为 mode */}
-        <Button
-          variant="ghost"
-          className="ripple hover-lift"
-          onClick={(e) => { makeRipple(e); toggleMode(); }}
-          style={{
-            width: "100%",
-            justifyContent: "space-between",
-            fontSize: 12,
-            padding: "7px 10px",
-            color: "var(--text-secondary)",
-            height: "auto",
-          }}
-          title={themeMode === "light" ? t("theme.dark") : t("theme.light")}
-        >
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-            {themeMode === "light" ? icons.sun : icons.moon}
-            {themeMode === "light" ? t("theme.light") : t("theme.dark")}
-          </span>
+        {/* 用户区（G3 .nav .u）：avatar 圆 + 当前语言（折叠态只 avatar） */}
+        <div id="g3-sidebar-user" style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          padding: collapsed ? "6px 0" : "6px 8px",
+          fontSize: 11.5,
+          color: "var(--text-secondary)",
+          whiteSpace: "nowrap",
+        }}>
           <span style={{
-            width: 12,
-            height: 12,
+            width: 26,
+            height: 26,
             borderRadius: "50%",
-            background: themeMode === "light" ? "#ffffff" : "#0a0a0b",
+            background: "color-mix(in srgb, var(--primary) 14%, transparent)",
+            color: "var(--primary)",
+            display: "inline-flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontWeight: 700,
+            fontSize: 11,
             flexShrink: 0,
-            boxShadow: "0 0 0 1px var(--border)",
-          }} />
-        </Button>
+          }}>A</span>
+          {!collapsed && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t(`lang.${locale}`)}</span>}
+        </div>
 
-        {/* Language Picker */}
+        {/* Language Picker（折叠态隐藏，语言经展开态或设置页改） */}
+        {!collapsed && (
         <Dropdown
           open={langOpen}
           onToggle={() => setLangOpen((v) => !v)}
@@ -531,6 +541,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             </DropdownItem>
           ))}
         </Dropdown>
+        )}
       </div>
     </aside>
   );

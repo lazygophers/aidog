@@ -3,6 +3,7 @@ import { listen } from "./services/transport";
 import { notify, isTauri } from "./services/platform";
 import { PathPickerHost } from "./components/shared/PathPickerHost";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
+import { Topbar } from "./components/Topbar";
 import type { Tab } from "./pages/AppSettings";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
 import i18n from "./locales";
@@ -187,29 +188,38 @@ function App() {
   // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。
   const settingsTab: Tab = activeNav.startsWith("settings/") ? (activeNav.slice(9) as Tab) : "system";
 
+  // 面包屑：section 标签 / 页标签（从 BASE_NAV 解析；settings 子页用子页标签）。
+  const t0 = (k: string) => i18n.t(k);
+  const crumb = (() => {
+    const item = BASE_NAV.find(n => n.id === resolvedNav.split("/")[0]);
+    if (!item) return ["", ""] as [string, string];
+    const child = item.children?.find(c => c.id === resolvedNav);
+    return [t0(item.section ?? ""), t0(child ? child.labelKey : item.labelKey)] as [string, string];
+  })();
+  // G3 画布：大画布页（统计/日志/通知/首页）带点阵网格，表单页（settings 等）不带。
+  const canvasPages = new Set(["home", "stats", "logs", "notifications"]);
+
   return (
     <div style={{
       display: "flex",
       height: "100%",
       width: "100%",
-      padding: 12,
-      gap: 12,
-      // 萤火虫：主壳玻璃衔接 — 侧栏与 main 间一条极淡的 primary 分隔光晕
-      backgroundImage: "linear-gradient(90deg, transparent 200px, color-mix(in srgb, var(--primary) 8%, transparent) 212px, transparent 224px)",
-      backgroundRepeat: "no-repeat",
     }}>
       <Sidebar
         navItems={navItems}
         activeId={resolvedNav}
         onNavigate={handleNavigate}
       />
-      <main style={{
-        flex: 1,
-        overflow: "auto",
-        padding: "24px 32px",
-        // 萤火虫：main 区域玻璃卡面感（轻微 bg-surface 叠层）
-        borderRadius: "var(--radius-lg)",
-      }}>
+      <div id="g3-content" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        <Topbar crumb={crumb} onOpenNotifications={() => handleNavigate("notifications")} notifHidden={!notifEnabled} />
+        <main
+          id="g3-main"
+          className={canvasPages.has(effectiveNav) ? "g3-canvas-grid" : undefined}
+          style={{
+            flex: 1,
+            overflow: "auto",
+            padding: "20px 26px",
+          }}>
         {/* fallback=null：startTransition 已保证挂起时旧树留屏, fallback 正常路径不会被看到；
             仅冷启动首帧（无旧树可留）时短暂命中，此时页面本就空白，null 与骨架视觉等价。 */}
         <Suspense fallback={null}>
@@ -228,6 +238,7 @@ function App() {
           </div>
         </Suspense>
       </main>
+      </div>
       {pendingUpdate && (
         <UpdatePromptModal
           update={pendingUpdate}

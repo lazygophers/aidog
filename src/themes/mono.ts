@@ -49,6 +49,8 @@ function vars(mode: ThemeMode): Record<string, string> {
 
     // ── 色（全部来自 token 表）──
     "--background": c.bg,
+    // G3 骨架：侧栏 / 顶栏底（票 02）
+    "--bg-chrome": c["bg-chrome"],
     "--foreground": c.fg,
     "--card": c.surface,
     "--card-foreground": c.fg,
