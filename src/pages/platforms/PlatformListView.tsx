@@ -2,7 +2,7 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state/handlers 经 props 从 usePlatformsState 传入。
 //   渲染：页头（搜索 + 添加分组 + 添加平台 + 清理失效）+ GroupsEmbedded（分组段）+ 未分组平台列表 +
 //   ModelTestPanel overlay + groupDrag portal + ShareModal + toast portal。
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
@@ -10,7 +10,8 @@ import { platformApi, type Platform, type PurgeCandidate } from "../../services/
 import { IconClose, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { GroupsEmbedded } from "../Groups";
-import { PlatformCard, type PlatformCardActions, type PlatformCardService } from "../../components/platforms/PlatformCard";
+import type { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
+import { PlatformRow, PlatformRowCols } from "./PlatformRow";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import type { PlatformsState } from "./usePlatformsState";
@@ -49,8 +50,8 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
     searchQuery, setSearchQuery,
     handleGroupsChanged, removePlatformsByIds,
     standalonePlatforms,
-    faviconFailed, expandedIds, testResults, testingId,
-    lastTestMap, platformMembership, usageMap, usageLoading,
+    expandedIds, testResults, testingId, toggleExpanded,
+    lastTestMap, usageMap,
     setProgressiveCount,
     toast, setToast,
     handlePurgeDisabled,
@@ -77,12 +78,6 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
   // 一次手滑的代价远大于多点一下。Flutter 侧本来就有确认（`platforms.dart:347-354`）。
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const deleteTarget = platforms.find((p) => p.id === deleteId) ?? null;
-  // 只替换 onDelete；`setDeleteId` 是稳定引用，所以整个对象仍只在 cardActions 变时重建，
-  // PlatformCard 的 memo 不会因此失效。
-  const actions = useMemo<PlatformCardActions>(
-    () => ({ ...cardActions, onDelete: (id: number) => setDeleteId(id) }),
-    [cardActions],
-  );
 
   // ponytail: purge 确认在 AlertDialog Action 触发（busy 期间禁按钮防双击）
   const onPurgeConfirm = async () => {
@@ -93,21 +88,25 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
   return (
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Header */}
-      <div className="section-header" style={{ justifyContent: "space-between" }}>
-        <div>
-          <div className="section-title">{t("page.platforms")}</div>
-          <div className="section-desc">
-            {headerTotal > 0 ? `${headerActive} / ${headerTotal} active` : t("platform.empty")}
+      {/* Header（稿 5 .top：大标题 + active 计数点 + 搜索 + 添加分组 / 添加平台 / 清理失效） */}
+      <header data-testid="platforms-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
+          <h1 style={{ fontSize: 21, fontWeight: 650, letterSpacing: "-0.01em", margin: 0 }}>{t("page.platforms")}</h1>
+          <div data-testid="platforms-counter" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-secondary)" }}>
+            <span style={{ width: 7, height: 7, borderRadius: "50%", background: "var(--color-success)", boxShadow: "0 0 6px color-mix(in srgb, var(--color-success) 70%, transparent)", display: "inline-block" }} />
+            <b className="num" style={{ color: "var(--foreground)", fontWeight: 600, fontVariantNumeric: "tabular-nums" }}>{headerActive}</b>
+            <span style={{ opacity: 0.6 }}>/</span>
+            <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>{headerTotal}</span>
+            <span>active</span>
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
           <Input
             className="input"
             placeholder={t("platform.searchPlaceholder", "搜索平台...")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: 180, fontSize: 13 }}
+            style={{ width: 230, height: 32, fontSize: 12.5, borderRadius: 7 }}
           />
           <Button onClick={() => openCreateGroupRef.current?.()}>
             + {t("group.add", "添加分组")}
@@ -123,99 +122,105 @@ export function PlatformListView({ s, cardActions, cardService, openCreateGroupR
             {t("platform.purgeDisabled", "清理失效平台")}
           </Button>
         </div>
-      </div>
+      </header>
 
       {/* 分组段（内嵌） */}
       <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
+      {/* 未分组段（稿 5：分隔标题 + 列头 + 行式列表；全屏视图态隐藏） */}
       {!groupFullscreen && (<>
-      {/* 分隔线 */}
-      <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />
-
-      {/* Platform List */}
-      {loading ? (
-        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
-      ) : (
-        <div ref={platListRef} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {platforms.length === 0 && (
-            <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
-              <div className="text-tertiary" style={{ fontSize: 13 }}>{t("platform.empty")}</div>
-            </div>
-          )}
-          {standalonePlatforms.map((p, i) => {
-            const isDragging = platDrag?.from === i;
-            const draggedPlat = platDrag ? standalonePlatforms[platDrag.from] : null;
-            const draggedColor = draggedPlat ? (colorMap[draggedPlat.platform_type] || "var(--accent)") : "";
-            return (
-              <React.Fragment key={p.id}>
-                {/* Ghost card at insertion point */}
-                {platDrag && platDrag.to === i && draggedPlat && (
+        <div data-testid="ungrouped-divider" style={{ display: "flex", alignItems: "center", gap: 12, margin: "26px 0 4px", color: "var(--text-tertiary)", fontSize: 12 }}>
+          <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+          {t("platform.ungrouped", "未分组")} · {standalonePlatforms.length} {t("group.platforms", "平台")}
+          <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
+        </div>
+        {loading ? (
+          <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
+        ) : (
+          <div style={{ border: "1px solid var(--border)", borderRadius: 11, background: "var(--card)", overflow: "hidden", boxShadow: "var(--shadow-sm)" }}>
+            {standalonePlatforms.length === 0 && (
+              <div className="text-tertiary" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>{t("platform.empty")}</div>
+            )}
+            {standalonePlatforms.length > 0 && <PlatformRowCols t={t} />}
+            <div ref={platListRef} style={{ display: "flex", flexDirection: "column" }}>
+              {standalonePlatforms.map((p, i) => {
+                const isDragging = platDrag?.from === i;
+                return (
+                  <React.Fragment key={p.id}>
+                    {platDrag && platDrag.to === i && standalonePlatforms[platDrag.from] && (
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: 14,
+                        padding: "10px 16px", margin: "2px 0", borderRadius: 12,
+                        background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                        border: "1.5px dashed var(--accent)",
+                        opacity: 0.5, filter: "grayscale(0.8)",
+                        pointerEvents: "none", transition: "all 150ms ease",
+                      }}>
+                        <div style={{ width: 10, height: 10, borderRadius: "50%", background: colorMap[standalonePlatforms[platDrag.from].platform_type] || "var(--accent)", flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{standalonePlatforms[platDrag.from].name}</span>
+                        <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[standalonePlatforms[platDrag.from].platform_type] || standalonePlatforms[platDrag.from].platform_type}</Badge>
+                      </div>
+                    )}
+                    {/* 未分组平台 pointer 拖拽加入分组（HTML5 DnD 在 WKWebView 失效故用 pointer events） */}
+                    <div
+                      onPointerDown={(e) => onStandaloneGroupPointerDown(e, p)}
+                      onPointerMove={onStandaloneGroupPointerMove}
+                      onPointerUp={onStandaloneGroupPointerUp}
+                      style={{ cursor: groupDrag?.pid === p.id ? "grabbing" : undefined, opacity: isDragging ? 0.5 : undefined }}
+                    >
+                      <PlatformRow
+                        platform={p}
+                        usage={usageMap[p.id]}
+                        quotaRaw={quota.quotaMap[p.id]}
+                        quotaPreferReal={!!quota.quotaRealIds[p.id]}
+                        lastTest={lastTestMap[p.id]}
+                        manualResult={testResults[p.id]}
+                        testing={testingId === p.id}
+                        expanded={expandedIds.has(p.id)}
+                        t={t}
+                        lang={i18n.language}
+                        onToggleExpanded={(next) => toggleExpanded(p.id, next)}
+                        onToggle={(pp) => cardService.onToggleEnabled(pp)}
+                        onEdit={(pp) => cardService.onEdit(pp)}
+                        onShare={(pp) => cardService.onShare(pp)}
+                        onDuplicate={(pp) => cardService.onDuplicate(pp)}
+                        onViewLogs={(pp) => cardService.onViewLogs(pp)}
+                        onQuickTest={(pp) => cardService.onQuickTest(pp)}
+                        onDelete={(id) => setDeleteId(id)}
+                        lead={
+                          <span className="drag-handle drag-handle-inline" style={{ cursor: "grab", display: "inline-flex", alignItems: "center", opacity: 0.85, touchAction: "none" }}
+                            title={t("group.dragPlatform", "拖拽加入分组")}>
+                            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
+                          </span>
+                        }
+                      />
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+              {platDrag && (() => {
+                if (platDrag.to !== standalonePlatforms.length) return null;
+                const dp = standalonePlatforms[platDrag.from];
+                const dc = colorMap[dp.platform_type] || "var(--accent)";
+                return (
                   <div style={{
-                    display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
+                    display: "flex", alignItems: "center", gap: 14,
                     padding: "10px 16px", margin: "2px 0", borderRadius: 12,
                     background: "var(--glass-bg, rgba(255,255,255,0.06))",
                     border: "1.5px dashed var(--accent)",
                     opacity: 0.5, filter: "grayscale(0.8)",
                     pointerEvents: "none", transition: "all 150ms ease",
                   }}>
-                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
-                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[draggedPlat.platform_type] || draggedPlat.platform_type}</Badge>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
+                    <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
                   </div>
-                )}
-                {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
-                <div
-                  onPointerDown={(e) => onStandaloneGroupPointerDown(e, p)}
-                  onPointerMove={onStandaloneGroupPointerMove}
-                  onPointerUp={onStandaloneGroupPointerUp}
-                  style={{ cursor: groupDrag?.pid === p.id ? "grabbing" : undefined }}
-                >
-                <PlatformCard
-                  platform={p}
-                  index={i}
-                  isDragging={isDragging}
-                  dragActive={!!platDrag}
-                  quotaRaw={quota.quotaMap[p.id]}
-                  quotaPreferReal={!!quota.quotaRealIds[p.id]}
-                  refreshing={!!quota.quotaRefreshing[p.id]}
-                  quotaPending={!!quota.quotaPending[p.id]}
-                  usagePending={usageLoading && !usageMap[p.id]}
-                  usage={usageMap[p.id]}
-                  expanded={expandedIds.has(p.id)}
-                  manualResult={testResults[p.id]}
-                  testing={testingId === p.id}
-                  faviconFailed={faviconFailed.has(p.id)}
-                  actions={actions}
-                  service={cardService}
-                  platformMembership={platformMembership.get(p.id)}
-                  lastTest={lastTestMap[p.id]}
-                />
-                </div>
-              </React.Fragment>
-            );
-          })}
-          {platDrag && (() => {
-            if (platDrag.to !== standalonePlatforms.length) return null;
-            const dp = standalonePlatforms[platDrag.from];
-            const dc = colorMap[dp.platform_type] || "var(--accent)";
-            return (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
-                padding: "10px 16px", margin: "2px 0", borderRadius: 12,
-                background: "var(--glass-bg, rgba(255,255,255,0.06))",
-                border: "1.5px dashed var(--accent)",
-                opacity: 0.5, filter: "grayscale(0.8)",
-                pointerEvents: "none", transition: "all 150ms ease",
-              }}>
-                <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
-                <Badge variant="secondary" className="badge-muted" style={{ fontSize: 11 }}>{labelMap[dp.platform_type] || dp.platform_type}</Badge>
-              </div>
-            );
-          })()}
-        </div>
-      )}
+                );
+              })()}
+            </div>
+          </div>
+        )}
       </>)}
     </div>
 

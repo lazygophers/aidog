@@ -1,22 +1,22 @@
 import { Fragment, memo, useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
-import claudeIcon from "../../assets/platforms/claude_code.svg";
-import piIcon from "../../assets/platforms/pi.svg";
-import codexIcon from "../../assets/platforms/openai.svg";
-import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PlatformQuota, LastTestResult, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
+import type { GroupDetail, GroupPlatformDetail, Platform, PlatformUsageStats, PurgeCandidate, PlatformErrorStatus } from "../../services/api";
 import { buildStatusOptions, idsForCode } from "./statusSelect";
 import { platformApi } from "../../services/api";
-import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
-import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel, makeRipple, useCountUp } from "../../components/shared";
-import { IconCheck, IconHome, IconBolt, IconCost } from "../../components/icons";
-import { PlatformCard, type PlatformCardActions, type PlatformCardService } from "../../components/platforms/PlatformCard";
+import { formatCost, formatPercent, formatNumber, successRate as calcSuccessRate } from "../../utils/formatters";
+import { makeRipple } from "../../components/shared";
+import { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
+import { PlatformRow } from "../platforms/PlatformRow";
 import type { DragHandleProps } from "../../components/SortableList";
-import { buildClaudeCommand, buildCodexCommand, buildPiCommand, routingModeLabel, GroupIcon, useProxyEnvVars } from "../../domains/groups";
+import { buildClaudeCommand, buildCodexCommand, buildPiCommand, routingModeLabel, useProxyEnvVars } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,7 +30,7 @@ import {
 
 /** usePlatformCards 的卡片展示状态快照（memo 化子组件按需接收） */
 export interface CardsSnapshot {
-  quotaMap: Record<number, PlatformQuota>;
+  quotaMap: Record<number, import("../../services/api").PlatformQuota>;
   quotaRealIds: Record<number, boolean>;
   quotaRefreshing: Record<number, boolean>;
   usageMap: Record<number, PlatformUsageStats>;
@@ -38,7 +38,7 @@ export interface CardsSnapshot {
   testResults: Record<number, "ok" | "fail">;
   testingId: number | null;
   faviconFailed: Set<number>;
-  lastTestMap: Record<number, LastTestResult>;
+  lastTestMap: Record<number, import("../../services/api").LastTestResult>;
 }
 
 /** GroupListItem props：每个分组行的全部渲染依赖，显式化为 props 以支持 React.memo 细粒度更新。 */
@@ -107,10 +107,12 @@ export interface GroupListItemProps {
   handle: DragHandleProps;
 }
 
+
 /**
- * 单个分组行组件，React.memo 包裹。
- * 父 renderItem 只传稳定 props（handle 除外），避免无关父 state 变化触发全组列表重渲。
- * handle 来自 dnd-kit 每次 render 重建，是唯一不稳定 prop；接受此代价——handle 变化仅触发单行更新。
+ * 单个分组段组件（G3 设计稿「平台管理页」.group 段式布局），React.memo 包裹。
+ * 版式：group-head（折叠箭头 + 组名 + N 平台 + 今日/请求/成功率 + 多选/设置/⋯）
+ * + 批量条 + 成员 PlatformRow 行 + 模型映射 chips。原卡片式渲染已按稿重写；
+ * props 接口与全部 handler 保持不变（GroupListView 管线零改动）。
  */
 export const GroupListItem = memo(function GroupListItem({
   detail, index, usageStat: u, balance, platforms,
@@ -133,26 +135,20 @@ export const GroupListItem = memo(function GroupListItem({
 }: GroupListItemProps) {
   const { group, platforms: gps, model_mappings } = detail;
   // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
+  const { i18n } = useTranslation();
   const proxyVars = useProxyEnvVars();
-  const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
-  // G3 票 04 / 旧票 05：统计数字 count-up（reduced-motion 自动降级为直显）
-  const animTodayTokens = useCountUp(u ? u.today_tokens : 0);
-  const animTodayCost = useCountUp(u ? u.today_cost : 0);
-  const animTotalTokens = useCountUp(totalTokens);
-  const animTotalCost = useCountUp(u ? u.total_cost : 0);
   const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
   // ── per-group 多选模式（本地 state, 不持久化）──
   const [mode, setMode] = useState<"view" | "select">("view");
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  // 按状态选数据（plat-select-status）：下拉首次展开拉一次；null = 未拉（含拉失败后重试语义：
-  // 失败置 [] 不再重试，避免每次展开都打失败 RPC）。
+  // 按状态选数据（plat-select-status）：下拉首次展开拉一次；null = 未拉（含拉失败后重试语义）。
   const [errStatus, setErrStatus] = useState<PlatformErrorStatus[] | null>(null);
 
-  // ponytail: purge 确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规），open 态本地管理。
+  // purge 确认走 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）。
   const [purgeConfirmOpen, setPurgeConfirmOpen] = useState(false);
   const [purging, setPurging] = useState(false);
-  // ponytail: 弹窗打开时拉一次 preview（非常驻轮询），按 action 分「永久删除」「移出本分组」两段。
+  // 弹窗打开时拉一次 preview（非常驻轮询），按 action 分「永久删除」「移出本分组」两段。
   const [previewList, setPreviewList] = useState<PurgeCandidate[] | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   useEffect(() => {
@@ -166,7 +162,7 @@ export const GroupListItem = memo(function GroupListItem({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [purgeConfirmOpen, group.id]);
 
-  // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式（load 刷新后 gps 变化触发）。
+  // 批量删除成功后：selectedIds 内平台从 gps 全消失 → 自动退出多选模式。
   useEffect(() => {
     if (mode !== "select" || selectedIds.size === 0) return;
     const currentIds = new Set(gps.map(gp => gp.platform.id));
@@ -177,8 +173,7 @@ export const GroupListItem = memo(function GroupListItem({
     }
   }, [gps, mode, selectedIds]);
 
-  // 非删除类批量成功（覆盖模型 / 改状态 / 移组 add 模式）：平台仍存活，auto-exist effect 不触发，
-  // 靠父级 batchDoneSignal 自增强制退出多选模式（初始 0 跳过，避免 mount 误触发）。
+  // 非删除类批量成功：靠父级 batchDoneSignal 自增强制退出多选模式（初始 0 跳过）。
   const batchDoneSignalRef = useRef(0);
   useEffect(() => {
     if (batchDoneSignal === undefined) return;
@@ -190,449 +185,337 @@ export const GroupListItem = memo(function GroupListItem({
     }
   }, [batchDoneSignal, mode]);
 
-  const header = (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-      {/* ── 行 1：身份 + 快操作 ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        {/* Drag handle */}
-        <span
-          ref={handle.ref}
-          {...handle.attributes}
-          {...handle.listeners}
-          className={`drag-handle drag-handle-inline${handle.isDragging ? " is-active" : ""}`}
-          title={t("group.dragToReorder", "拖动排序")}
-          style={{ touchAction: "none", flexShrink: 0, display: "inline-flex" }}
-          onClick={e => e.stopPropagation()}
-        >
-          <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-        </span>
-        {/* Group icon：单平台跟随平台 logo */}
-        <GroupIcon gps={gps} group={group} />
-        {/* Name + path + routing + platform count */}
-        <div
-          style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
-          onClick={() => { if (!handle.isDragging) onSetCollapsed(prev => {
-            const s = new Set(prev); isExpanded ? s.add(group.id) : s.delete(group.id); return s;
-          }); }}
-        >
-          <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
-            {group.name}
-            {group.is_default && (
-              <Badge style={{ fontSize: 11, padding: "0 5px", fontWeight: 500, background: "var(--primary)", color: "var(--primary-foreground)", border: "1px solid var(--accent-edge)" }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</Badge>
-            )}
-            {group.auto_from_platform && (
-              <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
-            )}
-          </div>
-          <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
-            <Badge variant="secondary" style={{ padding: "0 6px" }}>
-              {routingModeLabel(t, group.routing_mode)}
-            </Badge>
-            {gps.length > 0 && (
-              <span className="text-tertiary">{gps.length} {t("group.platforms", "平台")}</span>
-            )}
-            {/* claude_code 订阅独占分组：存量混合组警示（不自动拆分，2026-09-27 拍板 warn-only） */}
-            {gps.length > 1 && gps.some(gp => gp.platform.platform_type === "claude_code") && (
-              <span title={t("group.soloHint", "Claude Code 订阅平台只允许独占分组，不能与其他平台同组")}
-                style={{ fontSize: 11, color: "var(--color-warning, var(--text-tertiary))" }}>
-                ⚠ {t("group.soloBadge", "订阅混组")}
-              </span>
-            )}
-          </div>
-        </div>
-        {/* Quick actions */}
-        <CopyButton
-          text={group.group_key}
-          title={t("group.copyCommand", "复制启动命令")}
-          defaultLabel={t("group.copyCommand", "复制启动命令")}
-          hoverLabel={t("group.copyKeyLabel", "复制密钥")}
-          menu={[
-            { key: "key", label: t("group.menuCopyKey", "API Key"), text: group.group_key },
-            { key: "claude", label: t("group.menuCopyClaude", "Claude 启动命令"), text: buildClaudeCommand(group.group_key), icon: <img src={claudeIcon} width={14} height={14} alt="Claude" /> },
-            { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
-            { key: "pi", label: t("group.menuCopyPi", "pi 启动命令"), text: buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars]), icon: <img src={piIcon} width={14} height={14} alt="pi" /> },
-          ]}
-        />
-        {onOpenDetail && (
-          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onOpenDetail(group.id); }} title={t("group.detail.open", "打开详情页")}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="7" />
-              <path d="M21 21l-4.3-4.3" />
-              <path d="M11 8v6M8 11h6" />
-            </svg>
-          </Button>
-        )}
-        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
-          <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
-          </svg>
-        </Button>
-        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning} title={t("group.testAll", "一键测试本组全部平台")}>
-          <IconBolt size={14} />
-        </Button>
-        {onCreatePlatform && (
-          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M7 2v10M2 7h10" />
-            </svg>
-          </Button>
-        )}
-        {/* 清理本分组失效（auto_disabled）平台：独占的永久删，共享的仅移除本分组关联 */}
-        <Button
-          variant="ghost"
-          className="ripple"
-          onClick={(e) => { e.stopPropagation(); makeRipple(e); setPurgeConfirmOpen(true); }}
-          title={t("group.purgeDisabled", "清理失效")}
-          style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
-        >
-          {t("group.purgeDisabled", "清理失效")}
-        </Button>
-        {/* 进入 per-group 多选模式 */}
-        {gps.length > 0 && (
-          <Button
-            variant="ghost"
-            className="ripple"
-            onClick={(e) => { e.stopPropagation(); makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}
-            title={t("group.batchOps", "多选")}
-            style={{ fontSize: 11, gap: 4, padding: "3px 8px", height: "auto", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
-          >
-            {t("group.batchOps", "多选")}
-          </Button>
-        )}
-        {/* 设为默认分组（单选） */}
-        <Button
-          variant="ghost"
-          className="ripple"
-          aria-pressed={group.is_default}
-          aria-label={group.is_default
-            ? t("group.unsetDefault", "取消默认分组")
-            : t("group.setAsDefault", "设为默认分组")}
-          onClick={e => { e.stopPropagation(); makeRipple(e); onToggleDefault(group); }}
-          title={group.is_default
-            ? t("group.isDefaultTitle", "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml")
-            : t("group.setAsDefault", "设为默认分组")}
-          style={{
-            fontSize: 11, gap: 4, padding: "3px 8px", height: "auto",
-            display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
-            ...(group.is_default ? {
-              color: "var(--accent)",
-              background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
-              borderRadius: "var(--radius-sm)",
-            } : {}),
-          }}
-        >
-          {group.is_default
-            ? <IconCheck size={12} />
-            : <IconHome size={12} />}
-          {group.is_default
-            ? t("group.defaultConfigWritten", "默认配置已写入")
-            : t("group.setAsDefault", "设为默认")}
-        </Button>
-        <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto" }} onClick={e => { e.stopPropagation(); makeRipple(e); onEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-          </svg>
-        </Button>
-        {(!group.auto_from_platform || gps.length === 0) && (
-          <Button variant="ghost" size="icon" className="ripple" style={{ height: "auto", color: "var(--color-danger)" }} onClick={(e) => { e.stopPropagation(); makeRipple(e); onDelete(group.id); }}>
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-            </svg>
-          </Button>
-        )}
-      </div>
-      {/* ── 行 2：统计 + 余额 ── */}
-      {(u || balance != null) && (
-        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 26 }}>
-          {/* Aggregate stats chips */}
-          {u && (
-            <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-              <StatChip icon={<IconBolt size={13} />} value={formatNumber(animTodayTokens)} label={t("group.stats.todayTokens", "今日 tokens")} />
-              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(animTodayCost)}`} label={t("group.stats.todayCost", "今日费用")} level={costLevel(animTodayCost)} />
-              <StatChip icon={<IconBolt size={13} />} value={formatNumber(animTotalTokens)} label="tokens" />
-              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(animTotalCost)}`} label="cost" level={costLevel(animTotalCost)} />
-              {u.total_requests > 0 && (
-                <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
-                  level={successRateLevel(sRate, u.total_requests)} />
-              )}
-            </div>
-          )}
-          {/* Aggregate balance */}
-          {balance != null && (
-            <div style={{ minWidth: 90, flexShrink: 0 }}>
-              <BalanceBar remaining={balance} showTotal={false} />
-            </div>
-          )}
-        </div>
-      )}
-        {/* G3 设计稿 grp-card.hp：组健康条 = 全量成功率 */}
-        {u && u.total_requests > 0 && (
-          <div style={{ paddingLeft: 26 }}>
-            <div title={t("group.health.title", "成功率 {{rate}}", { rate: formatPercent(sRate, 1) })}
-              style={{ height: 4, borderRadius: 2, background: "var(--secondary, #EEF1F5)", overflow: "hidden", maxWidth: 320 }}>
-              <div style={{ height: "100%", width: sRate + "%", background: sRate >= 98 ? "var(--color-success, #1F9D61)" : sRate >= 90 ? "var(--color-warning, #C77E1E)" : "var(--color-danger, #D14B4B)" }} />
-            </div>
-          </div>
-        )}
-    </div>
-  );
-
   const fullPlats = gps
     .map(gp => platforms.find(pp => pp.id === gp.platform.id))
     .filter((pp): pp is Platform => !!pp)
-    // 搜索命中过滤：仅渲染命中平台卡（null = 无搜索，保留原行为）
     .filter(pp => !visiblePlatformIds || visiblePlatformIds.has(pp.id));
 
-  // 按状态选选项（plat-select-status）：组内平台实际命中的错误码（升序 + 计数）。
+  // 按状态选选项（plat-select-status）。
   const statusOptions = errStatus !== null
     ? buildStatusOptions(errStatus, fullPlats.map(p => p.id))
     : [];
 
+  const headBtn: React.CSSProperties = { fontSize: 12, height: 26, padding: "0 9px", borderRadius: 6 };
+
+  const gstatStyle: React.CSSProperties = { fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", gap: 18, marginLeft: 10 };
+
   return (
     <div
-      className="animate-fade-in"
       data-group-id={group.id}
-      style={{ animationDelay: `${index * 60}ms` }}
+      data-testid="group-section"
+      data-expanded={(forceExpanded || isExpanded || mode === "select") ? "true" : "false"}
+      className="animate-fade-in"
+      style={{
+        marginTop: index === 0 ? 0 : 22,
+        border: "1px solid var(--border)",
+        borderRadius: 11,
+        background: "var(--card)",
+        overflow: "hidden",
+        boxShadow: "var(--shadow-sm)",
+        animationDelay: `${index * 60}ms`,
+        ...(isDragOver ? { outline: "2px solid var(--accent)", outlineOffset: 2 } : {}),
+        ...(handle.isDragging ? { opacity: 0.5 } : {}),
+      }}
     >
-      <CompactCard
-        header={header}
-        revealDelay={index * 60}
-        expanded={forceExpanded || isExpanded || mode === "select"}
-        onToggle={(next) => {
-          if (mode === "select") return; // 多选模式禁折叠
-          onSetCollapsed(prev => {
-            const s = new Set(prev); next ? s.delete(group.id) : s.add(group.id); return s;
-          });
+      {/* ── group-head（稿 .group-head）：折叠 / 组名 / 计数 / 三统计 / 操作 ── */}
+      <div
+        data-testid="group-section-head"
+        onClick={() => { if (mode !== "select") onSetCollapsed(prev => {
+          const s = new Set(prev); isExpanded ? s.add(group.id) : s.delete(group.id); return s;
+        }); }}
+        style={{
+          display: "flex", alignItems: "center", gap: 12, padding: "11px 16px",
+          background: "var(--bg-chrome, var(--secondary))",
+          borderBottom: (forceExpanded || isExpanded || mode === "select") ? "1px solid var(--border)" : undefined,
+          cursor: mode === "select" ? "default" : "pointer",
         }}
-        toggleLabel={t("group.toggleDetails", "展开/收起明细")}
-        style={handle.isDragging
-          ? { opacity: 0.5 }
-          : isDragOver
-            ? { outline: "2px solid var(--accent)", outlineOffset: 2 }
-            : undefined}
       >
-        {(
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={e => e.stopPropagation()}>
-            {/* 多选模式工具栏 */}
-            {mode === "select" && (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap",
-                padding: "8px 0", borderBottom: "1px solid var(--border)",
-              }}>
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  onClick={() => { setMode("view"); setSelectedIds(new Set()); }}>
-                  {t("action.cancel", "取消")}
-                </Button>
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
-                  {t("group.selectAll", "全选")}
-                </Button>
-                {/* 按状态选（plat-select-status）：动态错误码选项 = 组内平台实际命中的码；
-                    口径 = 实时调度态优先（429/402/401/503）回落 24h 日志最近失败码。 */}
-                <Select
-                  onOpenChange={(open) => {
-                    if (open && errStatus === null) {
-                      platformApi.errorStatus()
-                        // 已到期的冷却条目剔除（fetch 一次不再刷新，过期码不该再列出）。
-                        .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
-                        .catch(() => setErrStatus([]));
-                    }
-                  }}
-                  onValueChange={(v) => {
-                    const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
-                    if (ids.size > 0) setSelectedIds(ids);
-                  }}
-                >
-                  <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "4px 10px", minHeight: 26, width: "auto" }}>
-                    <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statusOptions.map(o => (
-                      <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
-                        {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
-                      </SelectItem>
-                    ))}
-                    {statusOptions.length === 0 && (
-                      <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
-                        {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-                <span className="text-secondary" style={{ fontSize: 12 }}>
-                  {t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}
-                </span>
-                <div style={{ flex: 1 }} />
-                {/* 4 批量操作按钮（占位 handler, modal 在 s3-s5 实现） */}
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  disabled={selectedIds.size === 0}
-                  onClick={() => onBatchDelete([...selectedIds], group.id)}>
-                  {t("group.batchDelete", "删除")}
-                </Button>
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  disabled={selectedIds.size === 0}
-                  onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
-                  {t("group.batchOverrideModels", "覆盖模型")}
-                </Button>
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  disabled={selectedIds.size === 0}
-                  onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
-                  {t("group.batchSetStatus", "改状态")}
-                </Button>
-                <Button variant="ghost" style={{ fontSize: 12, padding: "4px 10px", height: "auto" }}
-                  disabled={selectedIds.size === 0}
-                  onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
-                  {t("group.batchMoveGroup", "移组")}
-                </Button>
-              </div>
-            )}
-            {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
-            {fullPlats.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {fullPlats.map((p, idx) => (
-                  <Fragment key={p.id}>
-                    {dropIndicatorIdx === idx && (
-                      <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
-                    )}
-                    <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
-                      {mode === "select" ? (
-                        /* 多选 checkbox */
-                        <label style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", cursor: "pointer", padding: "0 4px" }}>
-                          <Checkbox
-                            checked={selectedIds.has(p.id)}
-                            onCheckedChange={() => setSelectedIds(prev => {
-                              const s = new Set(prev);
-                              s.has(p.id) ? s.delete(p.id) : s.add(p.id);
-                              return s;
-                            })}
-                          />
-                        </label>
-                      ) : (
-                        /* pointer 拖拽把手：组内排序 + 跨分组移动（WKWebView 下 HTML5 drop 不可靠，改 pointer） */
-                        <span
-                          onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
-                          className="drag-handle drag-handle-inline"
-                          style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", touchAction: "none" }}
-                          title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
-                        >
-                          <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-                        </span>
-                      )}
-                      <div data-gp-id={p.id} style={{ flex: 1, minWidth: 0 }}>
-                        <PlatformCard
-                          platform={p}
-                          index={idx}
-                          isDragging={false}
-                          dragActive={false}
-                          quotaRaw={cards.quotaMap[p.id]}
-                          quotaPreferReal={!!cards.quotaRealIds[p.id]}
-                          refreshing={!!cards.quotaRefreshing[p.id]}
-                          usage={cards.usageMap[p.id]}
-                          expanded={cards.expandedIds.has(p.id)}
-                          manualResult={cards.testResults[p.id]}
-                          testing={cards.testingId === p.id}
-                          faviconFailed={cards.faviconFailed.has(p.id)}
-                          actions={actions}
-                          service={cardService}
-                          draggable={false}
-                          lastTest={cards.lastTestMap[p.id]}
-                          levelPriority={gps.find(gp => gp.platform.id === p.id)?.level_priority ?? 5}
-                          onLevelPriorityChange={v => onSetLevelPriority(group.id, p.id, v)}
-                        />
-                      </div>
-                    </div>
-                  </Fragment>
-                ))}
-                {dropIndicatorIdx === dropIndicatorTotal && (
-                  <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
-                )}
-              </div>
-            )}
-
-            {/* Model Mappings */}
-            {model_mappings.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                {model_mappings.map((m, mi) => (
-                  <div key={mi} style={{
-                    display: "flex", alignItems: "center", gap: 8, fontSize: 12,
-                    padding: "6px 10px", borderRadius: "var(--radius-sm)",
-                    background: "var(--bg-glass)", border: "1px solid var(--border)",
-                  }}>
-                    <span style={{ fontWeight: 600, color: "var(--accent)" }}>{m.source_model}</span>
-                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M2 6h8M8 4l2 2-2 2" />
-                    </svg>
-                    <span style={{ flex: 1 }}>{m.target_model}</span>
-                    <Button variant="ghost" size="icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                      onClick={(e) => { e.stopPropagation(); onDeleteMapping(group.id, mi); }}>
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M2 2l6 6M8 2l-6 6" />
-                      </svg>
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Quick Add Mapping */}
-            <Button variant="ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", height: "auto", color: "var(--text-secondary)", alignSelf: "flex-start" }}
-              onClick={(e) => { e.stopPropagation(); onSetMappingGroupId(showMappingForm ? null : group.id); }}>
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                <path d="M6 2v8M2 6h8" />
-              </svg>
-              {t("mapping.add")}
+        {/* 折叠箭头（drag handle 复用此位：把手悬停浮现，点击区域折叠） */}
+        <span
+          ref={handle.ref}
+          {...handle.attributes}
+          {...handle.listeners}
+          data-testid="group-section-chev"
+          title={t("group.dragToReorder", "拖动排序")}
+          onClick={(e: React.MouseEvent) => { if (handle.isDragging) e.stopPropagation(); }}
+          style={{
+            display: "inline-flex", color: "var(--text-tertiary)", cursor: "grab", touchAction: "none",
+            transform: (forceExpanded || isExpanded || mode === "select") ? "rotate(90deg)" : undefined,
+            transition: "transform .18s", flexShrink: 0,
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M4 2.5L8 6l-4 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        </span>
+        {/* 组名 + 默认星标 */}
+        <span data-testid="group-section-name" style={{ fontSize: 13.5, fontWeight: 620, letterSpacing: "-0.005em", display: "inline-flex", alignItems: "center", gap: 5 }}>
+          {group.name}
+          {group.is_default && (
+            <span title={t("group.isDefaultTitle", "默认分组")} style={{ color: "var(--color-warning)", fontSize: 10 }}>★</span>
+          )}
+          {group.auto_from_platform && (
+            <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
+          )}
+        </span>
+        {/* 计数（稿 .gcount）+ 路由模式 */}
+        <span style={{
+          fontSize: 12, color: "var(--text-tertiary)", background: "var(--secondary)",
+          border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
+        }}>
+          {routingModeLabel(t, group.routing_mode)} · {gps.length} {t("group.platforms", "平台")}
+        </span>
+        {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
+        <span style={gstatStyle}>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "今")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${u ? formatCost(u.today_cost) : "0"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.requests", "请求")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.total_requests) : "0"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.successRate", "成功率")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}</b></span>
+          {balance != null && (
+            <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${formatCost(balance)}</b></span>
+          )}
+        </span>
+        {/* 右侧操作（稿 .gactions：拖入提示 / 多选 / 设置 / ⋯） */}
+        <span style={{ marginLeft: "auto", display: "inline-flex", gap: 6, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+          <span style={{
+            marginLeft: 2, fontSize: 12, color: "var(--text-tertiary)",
+            border: "1px dashed var(--input)", borderRadius: 6, padding: "2px 8px",
+            display: "inline-flex", alignItems: "center", gap: 5,
+          }} title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>⠿ {t("group.dropHint", "拖入平台")}</span>
+          {gps.length > 0 && (
+            <Button variant="ghost" className="ripple" style={headBtn} onClick={(e) => { makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}>
+              {t("group.batchOps", "多选")}
             </Button>
+          )}
+          <Button variant="ghost" className="ripple" style={headBtn} onClick={(e) => { makeRipple(e); onEdit({ group, platforms: gps, model_mappings }); }}>
+            {t("group.sectionSettings", "设置")}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button type="button" data-testid="group-section-menu" className="ripple" title={t("platform.more", "更多")}
+                style={{ ...headBtn, display: "inline-flex", alignItems: "center", background: "transparent", border: "1px solid transparent", color: "var(--text-tertiary)", cursor: "pointer" }}
+                onClick={(e) => { makeRipple(e); }}>
+                ⋯
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" style={{ minWidth: 170 }}>
+              {onOpenDetail && <DropdownMenuItem onSelect={() => onOpenDetail(group.id)}>{t("group.detail.open", "打开详情页")}</DropdownMenuItem>}
+              {onTestGroup && (
+                <DropdownMenuItem disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTestRunning}
+                  onSelect={() => onTestGroup(group, gps)}>
+                  {t("group.testAll", "一键测试本组全部平台")}
+                </DropdownMenuItem>
+              )}
+              {onCreatePlatform && <DropdownMenuItem onSelect={() => onCreatePlatform([group.id], group.id)}>{t("group.addPlatform", "添加平台")}</DropdownMenuItem>}
+              <DropdownMenuItem onSelect={() => onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key })}>
+                {t("group.viewStats", "查看统计")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setPurgeConfirmOpen(true)}>{t("group.purgeDisabled", "清理失效")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onToggleDefault(group)}>
+                {group.is_default ? t("group.unsetDefault", "取消默认分组") : t("group.setAsDefault", "设为默认分组")}
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(group.group_key); }}>{t("group.menuCopyKey", "API Key")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildClaudeCommand(group.group_key)); }}>{t("group.menuCopyClaude", "Claude 启动命令")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildCodexCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyCodex", "Codex 启动命令")}</DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => { void navigator.clipboard?.writeText(buildPiCommand(group.group_key, [...(group.env_vars ?? []), ...proxyVars])); }}>{t("group.menuCopyPi", "pi 启动命令")}</DropdownMenuItem>
+              {(!group.auto_from_platform || gps.length === 0) && (
+                <DropdownMenuItem style={{ color: "var(--color-danger)" }} onSelect={() => onDelete(group.id)}>{t("group.delete", "删除分组")}</DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </span>
+      </div>
 
-            {showMappingForm && (
-              <div className="animate-fade-in" style={{
-                paddingTop: 10, borderTop: "1px solid var(--border)",
-                display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-              }} onClick={e => e.stopPropagation()}>
-                <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                  placeholder={t("mapping.source")} value={mSource}
-                  onChange={(e) => onSetMSource(e.target.value)} />
-                {/* radix Select 禁 value="" → __none__ 哨兵映射回 "" */}
+      {/* ── 批量条（稿 .batchbar）：多选模式下成员行上方常驻 ── */}
+      {mode === "select" && (
+        <div data-testid="group-batchbar" style={{
+          display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", flexWrap: "wrap",
+          background: "var(--accent-subtle)", borderBottom: "1px solid color-mix(in srgb, var(--primary) 35%, transparent)",
+          fontSize: 12, color: "var(--text-secondary)",
+        }} onClick={e => e.stopPropagation()}>
+          <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
+          <Button variant="ghost" style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+            onClick={() => { setMode("view"); setSelectedIds(new Set()); }}>
+            {t("action.cancel", "取消")}
+          </Button>
+          <Button variant="ghost" style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+            onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
+            {t("group.selectAll", "全选")}
+          </Button>
+          {/* 按状态选（plat-select-status）：动态错误码选项；口径 = 实时调度态优先回落 24h 日志最近失败码。 */}
+          <Select
+            onOpenChange={(open) => {
+              if (open && errStatus === null) {
+                platformApi.errorStatus()
+                  .then(r => setErrStatus(r.filter(i => !(i.source === "cooldown" && i.until_ms !== null && i.until_ms < Date.now()))))
+                  .catch(() => setErrStatus([]));
+              }
+            }}
+            onValueChange={(v) => {
+              const ids = idsForCode(errStatus ?? [], fullPlats.map(p => p.id), Number(v));
+              if (ids.size > 0) setSelectedIds(ids);
+            }}
+          >
+            <SelectTrigger style={{ fontSize: 12, height: "auto", padding: "3px 9px", minHeight: 26, width: "auto", background: "var(--secondary)" }}>
+              <SelectValue placeholder={t("group.selectByStatus", "按状态选")} />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(o => (
+                <SelectItem key={o.code} value={String(o.code)} style={{ fontSize: 12 }}>
+                  {`${o.code} · ${t(`group.err.${o.code}`, `HTTP ${o.code}`)}（${o.count}）`}
+                </SelectItem>
+              ))}
+              {statusOptions.length === 0 && (
+                <SelectItem value="__none__" disabled style={{ fontSize: 12 }}>
+                  {errStatus === null ? "…" : t("group.selectByStatusNone", "无错误状态")}
+                </SelectItem>
+              )}
+            </SelectContent>
+          </Select>
+          <div style={{ flex: 1 }} />
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+            onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
+            {t("group.batchMoveGroup", "移组")}
+          </Button>
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+            onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
+            {t("group.batchSetStatus", "改状态")}
+          </Button>
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+            onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
+            {t("group.batchOverrideModels", "覆盖模型")}
+          </Button>
+          <Button variant="ghost" disabled={selectedIds.size === 0}
+            style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", color: "var(--color-danger)" }}
+            onClick={() => onBatchDelete([...selectedIds], group.id)}>
+            {t("group.batchDelete", "删除")}
+          </Button>
+        </div>
+      )}
+      {/* ── 成员行（稿 .rows：PlatformRow 行式）+ 落点指示线 ── */}
+      {(forceExpanded || isExpanded || mode === "select") && fullPlats.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()}>
+          {fullPlats.map((p, idx) => (
+            <Fragment key={p.id}>
+              {dropIndicatorIdx === idx && (
+                <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-1px 0", opacity: 0.7 }} />
+              )}
+              <PlatformRow
+                platform={p}
+                usage={cards.usageMap[p.id]}
+                quotaRaw={cards.quotaMap[p.id]}
+                quotaPreferReal={!!cards.quotaRealIds[p.id]}
+                lastTest={cards.lastTestMap[p.id]}
+                manualResult={cards.testResults[p.id]}
+                testing={cards.testingId === p.id}
+                expanded={cards.expandedIds.has(p.id)}
+                selecting={mode === "select"}
+                selected={selectedIds.has(p.id)}
+                levelPriority={gps.find(gp => gp.platform.id === p.id)?.level_priority ?? 5}
+                t={t}
+                lang={i18n.language}
+                onSelect={() => setSelectedIds(prev => {
+                  const s = new Set(prev);
+                  s.has(p.id) ? s.delete(p.id) : s.add(p.id);
+                  return s;
+                })}
+                onToggleExpanded={(next) => actions.onToggleExpanded(p.id, next)}
+                onToggle={(pp) => cardService.onToggleEnabled(pp)}
+                onEdit={(pp) => cardService.onEdit(pp)}
+                onShare={(pp) => cardService.onShare(pp)}
+                onDuplicate={(pp) => cardService.onDuplicate(pp)}
+                onViewLogs={(pp) => cardService.onViewLogs(pp)}
+                onQuickTest={(pp) => cardService.onQuickTest(pp)}
+                onDelete={(id) => actions.onDelete(id)}
+                onLevelPriorityChange={(v) => onSetLevelPriority(group.id, p.id, v)}
+                lead={
+                  <span
+                    onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
+                    className="drag-handle drag-handle-inline"
+                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none", opacity: 0.85 }}
+                    title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
+                  >
+                    <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
+                  </span>
+                }
+              />
+            </Fragment>
+          ))}
+          {dropIndicatorIdx === dropIndicatorTotal && (
+            <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-1px 0", opacity: 0.7 }} />
+          )}
+        </div>
+      )}
+      {(forceExpanded || isExpanded || mode === "select") && fullPlats.length === 0 && (
+        <div className="text-tertiary" style={{ padding: "14px 16px", fontSize: 12 }} onClick={e => e.stopPropagation()}>
+          {t("group.noPlatforms", "暂无平台")}
+        </div>
+      )}
+
+      {/* ── 模型映射 chips（稿 6 mp 样式）+ 快速添加 ── */}
+      {(forceExpanded || isExpanded || mode === "select") && (
+        <div style={{ borderTop: "1px solid var(--border)", padding: "8px 14px 10px" }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+            <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", letterSpacing: "1.2px", textTransform: "uppercase" }}>
+              {t("group.detail.mappings", "模型映射")} · {model_mappings.length}
+            </span>
+            <Button variant="ghost" style={{ fontSize: 12, gap: 4, padding: "2px 8px", height: "auto", color: "var(--text-secondary)" }}
+              onClick={() => onSetMappingGroupId(showMappingForm ? null : group.id)}>
+              ＋ {t("mapping.add")}
+            </Button>
+          </div>
+          {model_mappings.map((m, mi) => (
+            <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", fontSize: 12 }}>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid color-mix(in srgb, var(--primary) 35%, var(--border))", borderRadius: 6, padding: "2px 8px", color: "var(--primary)", background: "var(--secondary)" }}>{m.source_model}</span>
+              <span style={{ color: "var(--text-tertiary)" }}>⟶</span>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", color: "var(--text-secondary)", background: "var(--secondary)" }}>{m.target_model}</span>
+              <span style={{ flex: 1 }} />
+              <button type="button" className="ripple" title={t("group.deleteMapping", "删除映射")}
+                style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 12, padding: "0 4px" }}
+                onClick={(e) => { e.stopPropagation(); onDeleteMapping(group.id, mi); }}>✕</button>
+            </div>
+          ))}
+          {showMappingForm && (
+            <div className="animate-fade-in" style={{
+              paddingTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+            }}>
+              <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                placeholder={t("mapping.source")} value={mSource}
+                onChange={(e) => onSetMSource(e.target.value)} />
+              <Select
+                value={mTargetPlatform === "" ? "__none__" : String(mTargetPlatform)}
+                onValueChange={(v) => { onSetMTargetPlatform(v === "__none__" ? "" : Number(v)); onSetMTargetModel(""); }}>
+                <SelectTrigger style={{ fontSize: 12, width: 140 }}>
+                  <SelectValue placeholder={t("mapping.targetPlatform")} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">{t("mapping.targetPlatform")}</SelectItem>
+                  {platforms.map((pp) => <SelectItem key={pp.id} value={String(pp.id)}>{pp.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {availableModels.length > 0 ? (
                 <Select
-                  value={mTargetPlatform === "" ? "__none__" : String(mTargetPlatform)}
-                  onValueChange={(v) => { onSetMTargetPlatform(v === "__none__" ? "" : Number(v)); onSetMTargetModel(""); }}>
-                  <SelectTrigger style={{ fontSize: 12, width: 140 }}>
-                    <SelectValue placeholder={t("mapping.targetPlatform")} />
+                  value={mTargetModel || "__none__"}
+                  onValueChange={(v) => onSetMTargetModel(v === "__none__" ? "" : v)}>
+                  <SelectTrigger style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
+                    <SelectValue placeholder={t("mapping.target")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="__none__">{t("mapping.targetPlatform")}</SelectItem>
-                    {platforms.map((p) => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}
+                    <SelectItem value="__none__">{t("mapping.target")}</SelectItem>
+                    {availableModels.map(mm => <SelectItem key={mm} value={mm}>{mm}</SelectItem>)}
                   </SelectContent>
                 </Select>
-                {availableModels.length > 0 ? (
-                  <Select
-                    value={mTargetModel || "__none__"}
-                    onValueChange={(v) => onSetMTargetModel(v === "__none__" ? "" : v)}>
-                    <SelectTrigger style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
-                      <SelectValue placeholder={t("mapping.target")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">{t("mapping.target")}</SelectItem>
-                      {availableModels.map((m) => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                    placeholder={t("mapping.target")} value={mTargetModel}
-                    onChange={(e) => onSetMTargetModel(e.target.value)} />
-                )}
-                <Button style={{ fontSize: 12, padding: "6px 12px", height: "auto" }}
-                  onClick={onAddMapping}
-                  disabled={!mSource || !mTargetPlatform || !mTargetModel}>
-                  {t("action.create")}
-                </Button>
-              </div>
-            )}
-          </div>
-        )}
-      </CompactCard>
-
+              ) : (
+                <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                  placeholder={t("mapping.target")} value={mTargetModel}
+                  onChange={(e) => onSetMTargetModel(e.target.value)} />
+              )}
+              <Button style={{ fontSize: 12, padding: "6px 12px", height: "auto" }}
+                onClick={onAddMapping}
+                disabled={!mSource || !mTargetPlatform || !mTargetModel}>
+                {t("action.create")}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
       {/* 清理失效确认 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）。 */}
       <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>

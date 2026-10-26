@@ -115,6 +115,8 @@ export interface NavItem {
   labelKey: string;
   /** 所属 section（顶级分组）i18n key；相邻同 section 归为一节，节头可折叠。 */
   section?: string;
+  /** 可选快捷键标识（G3 稿 6 侧栏 .k：⌘1/⌘2/⌘3，仅展示）。 */
+  kbd?: string;
   /** 可选未读 badge 计数（> 0 时显示）。 */
   badge?: number;
   /** 可选折叠子菜单；存在时该项渲染为可展开分组。 */
@@ -387,6 +389,9 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   {(icons as Record<string, React.ReactNode>)[item.icon]}
                 </span>
                 {!collapsed && <span style={{ flex: 1, minWidth: 0, textAlign: "start", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t(item.labelKey)}</span>}
+                {!collapsed && item.kbd && (
+                  <span style={{ fontSize: 9, opacity: 0.5, fontFamily: "var(--font-mono, monospace)", flexShrink: 0 }}>{item.kbd}</span>
+                )}
                 {hasChildren && !collapsed && (
                   <span style={{
                     opacity: 0.4,
@@ -503,8 +508,16 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             fontWeight: 700,
             fontSize: 11,
             flexShrink: 0,
-          }}>A</span>
-          {!collapsed && <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t(`lang.${locale}`)}</span>}
+          }}>L</span>
+          {!collapsed && (
+            <>
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{t("sidebar.localInstance", "本地实例")}</span>
+              <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+                <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--color-success)", display: "inline-block" }} />
+                {t("sidebar.running", "运行中")}
+              </span>
+            </>
+          )}
         </div>
 
         {/* Language Picker（折叠态隐藏，语言经展开态或设置页改） */}
