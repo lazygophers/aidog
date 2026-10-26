@@ -960,6 +960,8 @@
   "nav.home": "Inicio",
   "sidebar.expand": "Expandir barra lateral",
   "sidebar.collapse": "Contraer barra lateral",
+  "topbar.palettePlaceholder": "Ir a…",
+  "topbar.paletteNoResults": "Sin resultados",
   "topbar.search": "Buscar (⌘K)",
   "nav.logs": "Registro Proxy",
   "nav.mcp": "MCP",

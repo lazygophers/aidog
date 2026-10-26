@@ -960,6 +960,8 @@
   "nav.home": "Home",
   "sidebar.expand": "Expand sidebar",
   "sidebar.collapse": "Collapse sidebar",
+  "topbar.palettePlaceholder": "Jump to…",
+  "topbar.paletteNoResults": "No results",
   "topbar.search": "Search (⌘K)",
   "nav.logs": "Proxy Log",
   "nav.mcp": "MCP",

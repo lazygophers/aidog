@@ -10,9 +10,11 @@ export interface TopbarProps {
   crumb: [string, string];
   onOpenNotifications?: () => void;
   notifHidden?: boolean;
+  /** ⌘K 打开命令面板（App 层挂 CommandPalette）。 */
+  onOpenSearch?: () => void;
 }
 
-export function Topbar({ crumb, onOpenNotifications, notifHidden }: TopbarProps) {
+export function Topbar({ crumb, onOpenNotifications, notifHidden, onOpenSearch }: TopbarProps) {
   const { t } = useTranslation();
   const { themeMode, toggleMode } = useApp();
   return (
@@ -42,6 +44,7 @@ export function Topbar({ crumb, onOpenNotifications, notifHidden }: TopbarProps)
       <button
         type="button"
         id="g3-topbar-search"
+        onClick={onOpenSearch}
         title={t("topbar.search", "搜索（⌘K）")}
         style={{
           all: "unset", cursor: "pointer",
