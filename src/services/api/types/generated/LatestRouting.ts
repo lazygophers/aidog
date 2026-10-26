@@ -4,4 +4,8 @@ import type { RoutingSnapshot } from "./RoutingSnapshot";
 /**
  * 最近一次路由快照（G3 票 03 双侧边「最近路由」常驻区）：proxy_log 最新一条带 routing 的行。
  */
-export type LatestRouting = { platform_id: number, source_model: string, created_at: number, snapshot: RoutingSnapshot, };
+export type LatestRouting = { platform_id: number, source_model: string, 
+/**
+ * 实际路由到的上游模型（proxy_log.actual_model）。
+ */
+actual_model: string, created_at: number, snapshot: RoutingSnapshot, };

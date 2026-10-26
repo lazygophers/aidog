@@ -1,5 +1,5 @@
 // GroupDetailPage — G3 分组详情页（设计稿「分组页终稿」1:1 独立成页）。
-// 三栏观测台：左组列表（切组）/ 中央统计带 + 桑基 flow + 成员表 + 模型映射 / 右候选序 + 最近路由 + 7 天趋势 + 组操作。
+// 双栏观测台：中央统计带 + 桑基 flow + 成员表 + 模型映射 / 右候选序 + 最近路由 + 7 天趋势 + 组操作。
 // 数据源全部复用现有 API；idiom 同 GroupEditPanel（页内独立视图态，Groups.tsx detailTarget 分支渲染）。
 import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
@@ -245,7 +245,6 @@ export function GroupDetailPage(props: {
   const ordered = staticOrder(gps);
   const isLB = group.routing_mode === "load_balance";
   const platName = (id: number) => gps.find(g => g.platform.id === id)?.platform.platform_type ?? ("#" + id);
-  const healthColor = sRate >= 98 ? "var(--color-success, #1F9D61)" : sRate >= 90 ? "var(--color-warning, #C77E1E)" : "var(--color-danger, #D14B4B)";
   const totalPlatLinks = details.reduce((s, d) => s + d.platforms.length, 0);
   return (
     <div data-testid="group-detail-page" style={{ display: "flex", flexDirection: "column", width: "100%", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card)", boxShadow: "0 1px 3px rgba(28,36,48,.05)" }}>
@@ -261,38 +260,8 @@ export function GroupDetailPage(props: {
           {t("group.detail.newGroup", "＋ 新建分组")}
         </Button>
       </div>
-      {/* pgbody：200px / 1fr / 264px */}
-      <div style={{ display: "grid", gridTemplateColumns: "200px 1fr 264px", gap: 14, padding: "14px 16px", background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)", alignItems: "start" }}>
-        {/* 左：组列表 */}
-        <div data-testid="detail-group-list">
-          <div style={seclabStyle}>Groups</div>
-          {details.map(d => {
-            const du = groupStats[d.group.group_key];
-            const ds = du ? calcSuccessRate(du.success_count, du.total_requests) : 0;
-            const on = d.group.id === group.id;
-            return (
-              <div key={d.group.id} data-gid={d.group.id} data-state={on ? "on" : "off"} onClick={() => props.onSelectGroup(d.group.id)}
-                style={{ border: "1px solid " + (on ? "var(--primary)" : "var(--border)"), borderRadius: 8, padding: "9px 11px", marginBottom: 7, cursor: "pointer", transition: ".13s", background: on ? "var(--accent-subtle, #FBF9FE)" : "var(--card)", boxShadow: on ? "0 0 0 1px var(--primary)" : "none" }}>
-                <div style={{ fontWeight: 650, fontSize: 12.5, display: "flex", alignItems: "center", gap: 5 }}>
-                  {d.group.name}
-                  {d.group.is_default && <span style={{ color: "var(--color-warning, #C77E1E)", fontSize: 10 }}>★</span>}
-                </div>
-                <div style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", marginTop: 3 }}>
-                  {routingModeLabel(t, d.group.routing_mode)} · {d.platforms.length} {t("group.platforms", "平台")}
-                </div>
-                <div style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", marginTop: 2 }}>
-                  {t("group.detail.todayShort", "今")} {formatNumber(du?.today_tokens ?? 0)} · ${formatCost(du?.today_cost ?? 0)}
-                </div>
-                <div style={{ height: 4, borderRadius: 2, background: "var(--secondary, #EEF1F5)", marginTop: 6, overflow: "hidden" }}>
-                  <i style={{ display: "block", height: "100%", width: ds + "%", background: healthColor }} />
-                </div>
-              </div>
-            );
-          })}
-          <div onClick={props.onCreateGroup} style={{ border: "1px dashed var(--border)", borderRadius: 8, padding: 8, textAlign: "center", fontSize: 11.5, color: "var(--text-tertiary)", cursor: "pointer" }}>
-            {t("group.detail.newGroup", "＋ 新建分组")}
-          </div>
-        </div>
+      {/* pgbody：1fr / 264px */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 264px", gap: 14, padding: "14px 16px", background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)", alignItems: "start" }}>
         {/* 中央：统计带 + flow + 成员表 */}
         <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10 }} data-testid="detail-stats">

@@ -264,6 +264,8 @@ pub struct LatestRouting {
     #[ts(type = "number")]
     pub platform_id: i64,
     pub source_model: String,
+    /// 实际路由到的上游模型（proxy_log.actual_model）。
+    pub actual_model: String,
     #[ts(type = "number")]
     pub created_at: i64,
     pub snapshot: RoutingSnapshot,

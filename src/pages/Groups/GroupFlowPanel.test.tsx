@@ -71,7 +71,7 @@ describe("GroupSidePanels — 候选序 + 最近路由（票 03）", () => {
 
   it("最近路由：selected 平台 + reason 徽标", async () => {
     const latest: LatestRouting = {
-      platform_id: 2, source_model: "m-b", created_at: 1730000000000,
+      platform_id: 2, source_model: "claude-opus", actual_model: "glm-5.3", created_at: 1730000000000,
       snapshot: { mode: null, entries: [
         { order: 1, platform: "deepseek", platform_id: 2, level_priority: 1, priority: 1, reason: "selected", tags: [] },
         { order: 2, platform: "glm_coding", platform_id: 1, level_priority: 1, priority: 2, reason: "excluded_no_model", tags: [] },
@@ -81,5 +81,7 @@ describe("GroupSidePanels — 候选序 + 最近路由（票 03）", () => {
     render(<GroupSidePanels group={{ id: 1, group_key: "gk", routing_mode: "failover" } as never} gps={gps} />);
     expect((await screen.findByText("deepseek", { selector: "#g3-latest-selected" })).textContent).toBe("deepseek");
     expect(document.querySelector('[data-reason="excluded_no_model"]')).toBeTruthy();
+    // 请求模型 → 实际模型
+    expect(document.getElementById("g3-latest-routing")!.textContent).toContain("claude-opus → glm-5.3");
   });
 });
