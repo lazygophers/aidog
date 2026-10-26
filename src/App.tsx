@@ -37,11 +37,11 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
-  // G3 侧栏：概览 ⌘1 第一位 / 监控 = 平台 ⌘2（分组内嵌 GroupsEmbedded，同页展示分组段 + 平台行）/ 日志 ⌘3。
-  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview", kbd: "⌘1" },
-  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.monitoring", kbd: "⌘2" },
+  // G3 侧栏：概览第一位 / 监控 = 平台（分组内嵌 GroupsEmbedded，同页展示分组段 + 平台行）/ 日志。
+  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
+  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.monitoring" },
   { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.logStats" },
-  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats", kbd: "⌘3" },
+  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.logStats" },
   { id: "request-log", icon: "logs", labelKey: "nav.requestLog", section: "nav.section.logStats" },
   { id: "mitm-log", icon: "logs", labelKey: "nav.mitmLog", section: "nav.section.logStats" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.logStats" },
@@ -74,7 +74,7 @@ const BASE_NAV: NavItem[] = [
 function App() {
   const [activeNav, setActiveNav] = useState("home");
   const [navContext, setNavContext] = useState<NavContext>({});
-  // G3 全局骨架：⌘K 命令面板 + ⌘1/2/3 页面快捷键（设计稿顶栏 kbd + 侧栏 kbd 标识）。
+  // G3 全局骨架：⌘K 命令面板（设计稿顶栏 kbd）。
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
@@ -185,14 +185,11 @@ function App() {
       if (e.key === "k" || e.key === "K") {
         e.preventDefault();
         setPaletteOpen(v => !v);
-      } else if (e.key === "1") { e.preventDefault(); handleNavigate("home"); }
-      else if (e.key === "2") { e.preventDefault(); handleNavigate("platforms"); }
-      else if (e.key === "3") { e.preventDefault(); handleNavigate("logs"); }
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-    // handleNavigate 每渲染重建（闭包捕获 activeNav），effect 跟随重挂监听。
-  }, [handleNavigate]);
+  }, []);
 
   // 隐藏菜单：日志关闭去 logs；通知关闭去 notifications。
   const navItems = BASE_NAV.filter(n => {
