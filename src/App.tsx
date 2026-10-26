@@ -2,6 +2,7 @@ import { useState, useEffect, useTransition, lazy, Suspense } from "react";
 import { listen } from "./services/transport";
 import { notify, isTauri } from "./services/platform";
 import { PathPickerHost } from "./components/shared/PathPickerHost";
+import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
 import { Topbar } from "./components/Topbar";
 import type { Tab } from "./pages/AppSettings";
@@ -222,6 +223,7 @@ function App() {
           }}>
         {/* fallback=null：startTransition 已保证挂起时旧树留屏, fallback 正常路径不会被看到；
             仅冷启动首帧（无旧树可留）时短暂命中，此时页面本就空白，null 与骨架视觉等价。 */}
+        <ErrorBoundary scope="page" key={effectiveNav}>
         <Suspense fallback={null}>
           <div className="animate-fade-in" key={effectiveNav}>
             {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
@@ -237,6 +239,7 @@ function App() {
             {effectiveNav === "about" && <About />}
           </div>
         </Suspense>
+        </ErrorBoundary>
       </main>
       </div>
       {pendingUpdate && (
