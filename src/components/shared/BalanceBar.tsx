@@ -65,7 +65,7 @@ export function BalanceBar({ remaining, total, currency = "$", level, showTotal 
           }}
         >
           <div
-            className={`progress-fill${striped ? " striped" : ""}`}
+            className={`progress-fill g3-bar-fill${striped ? " striped" : ""}`}
             style={{
               width: `${pct}%`,
               height: "100%",

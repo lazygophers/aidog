@@ -1080,9 +1080,20 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   animation-play-state: paused;
 }
 
+/* G3 票 04 / 旧票 05 动效：进度条充能（scaleX 0→1，600ms）*/
+@keyframes g3-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.g3-bar-fill {
+  transform-origin: left center;
+  animation: g3-fill 600ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .ripple-wave,
+  .g3-bar-fill,
   .progress-fill.striped,
   .skeleton,
   .animate-fade-in,
