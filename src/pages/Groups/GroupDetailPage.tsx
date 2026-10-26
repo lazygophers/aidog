@@ -110,6 +110,7 @@ function MembersCard(props: {
   t: TFunction;
   onQuickTest: (p: Platform) => void;
   onEditPlatform: (p: Platform) => void;
+  onSetLevelPriority?: (pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
 }) {
@@ -156,6 +157,19 @@ function MembersCard(props: {
               {p.endpoints?.[0]?.protocol && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{p.endpoints[0].protocol}</span>}
               <MemberTag status={p.status} t={t} />
               {gp != null && <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp.level_priority, prio: gp.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>#{idx + 1}</span>}
+              {/* per-group 候选优先级（1-10）行内直改，同列表页 PlatformRow stepper idiom */}
+              {gp != null && props.onSetLevelPriority && (
+                <span data-testid="detail-row-level" title={t("platform.levelPriority", "候选优先级")}
+                  style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+                  <button type="button" aria-label="-" disabled={gp.level_priority <= 1}
+                    style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
+                    onClick={() => props.onSetLevelPriority!(p.id, Math.max(1, gp.level_priority - 1))}>−</button>
+                  <b style={{ fontSize: 10.5, fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)", minWidth: 18, textAlign: "center" }}>P{gp.level_priority}</b>
+                  <button type="button" aria-label="+" disabled={gp.level_priority >= 10}
+                    style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
+                    onClick={() => props.onSetLevelPriority!(p.id, Math.min(10, gp.level_priority + 1))}>+</button>
+                </span>
+              )}
             </span>
             <span>
               {formatNumber(u?.total_requests ?? 0)} · {share}%
@@ -234,6 +248,7 @@ export function GroupDetailPage(props: {
   onEditGroup: (detail: GroupDetail) => void;
   onTestGroup: (group: GroupDetail["group"], gps: GroupDetail["platforms"]) => void;
   onEditPlatform: (p: Platform) => void;
+  onSetLevelPriority: (groupId: number, pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
 }) {
@@ -305,6 +320,7 @@ export function GroupDetailPage(props: {
             onEditPlatform={props.onEditPlatform}
             onDeleteMapping={props.onDeleteMapping}
             onAddPlatform={props.onAddPlatform}
+            onSetLevelPriority={(pid, v) => props.onSetLevelPriority(group.id, pid, v)}
           />
         </div>
         {/* 右：候选序 + 最近路由 + 趋势 + 组操作 */}
