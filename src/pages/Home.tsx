@@ -92,23 +92,25 @@ export function buildDimRows(
 // 命令面板视觉 token（direction-approved.md 锁定）：分层中性面 s1/s2、行线、SF Mono 数字栈。
 // 导出供 HomeTrendChart（嵌面板内的维度趋势）取同一份显式浅色文字。
 export const PANEL = {
-  fg: "#f5f5f0",
-  muted: "#8a8580",
-  s1: "#0e0e0e",
-  s2: "#151514",
-  line: "rgba(255,255,255,.07)",
-  mono: '"SF Mono", ui-monospace, Menlo, monospace',
+  // G3 石墨夜（整体风格票 05）：值 = token 真值表 dark 列
+  fg: "#E4E7EC",
+  muted: "#8E98A6",
+  s1: "#1E2127",
+  s2: "#262A32",
+  line: "#2A2E36",
+  mono: '"IBM Plex Mono", "SF Mono", ui-monospace, Menlo, monospace',
 } as const;
 
 // 浅色面板调色板（2026-10-03 用户报告浅色模式主页未适配）：暖纸面系，
 // 与暗色 PANEL 同构，由 usePanel 按主题切换。
 export type PanelTokens = { -readonly [K in keyof typeof PANEL]: string };
 const PANEL_LIGHT: PanelTokens = {
-  fg: "#1f1e1b",
-  muted: "#6f6a62",
-  s1: "#ffffff",
-  s2: "#f4f3f0",
-  line: "rgba(0,0,0,.08)",
+  // G3 light（票 05）：值 = token 真值表 light 列
+  fg: "#1C2430",
+  muted: "#6B7686",
+  s1: "#FFFFFF",
+  s2: "#F1F3F6",
+  line: "#E3E7EC",
   mono: PANEL.mono,
 };
 
@@ -117,8 +119,8 @@ export function usePanel(): PanelTokens {
   const mode = useThemeMode();
   return mode === "light" ? PANEL_LIGHT : PANEL;
 }
-// 琥珀渐变眉条（Raycast 品牌渐变位换琥珀系）。
-const BROW_GRADIENT = "linear-gradient(90deg, #64521d, #e8c547 55%, #f2dc8a)";
+// 眉条渐变（G3 票 05：紫系 = 主色 → chart-2）。
+const BROW_GRADIENT = "linear-gradient(90deg, #4C2D7E, #7A46C9 55%, #A377E8)";
 
 /**
  * 数值序列 → 归一化 [x,y] 点集（KPI sparkline 用）：
