@@ -982,6 +982,8 @@
   "nav.home": "Accueil",
   "sidebar.expand": "Déployer la barre latérale",
   "sidebar.collapse": "Réduire la barre latérale",
+  "topbar.palettePlaceholder": "Aller à…",
+  "topbar.paletteNoResults": "Aucun résultat",
   "topbar.search": "Rechercher (⌘K)",
   "nav.logs": "Journal Proxy",
   "nav.mcp": "MCP",

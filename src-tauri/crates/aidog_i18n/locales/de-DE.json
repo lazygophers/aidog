@@ -982,6 +982,8 @@
   "nav.home": "Startseite",
   "sidebar.expand": "Seitenleiste ausklappen",
   "sidebar.collapse": "Seitenleiste einklappen",
+  "topbar.palettePlaceholder": "Springen zu…",
+  "topbar.paletteNoResults": "Keine Treffer",
   "topbar.search": "Suchen (⌘K)",
   "nav.logs": "Proxy-Protokoll",
   "nav.mcp": "MCP",

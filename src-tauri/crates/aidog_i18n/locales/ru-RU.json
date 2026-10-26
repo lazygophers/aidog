@@ -982,6 +982,8 @@
   "nav.home": "Главная",
   "sidebar.expand": "Развернуть боковую панель",
   "sidebar.collapse": "Свернуть боковую панель",
+  "topbar.palettePlaceholder": "Перейти к…",
+  "topbar.paletteNoResults": "Нет результатов",
   "topbar.search": "Поиск (⌘K)",
   "nav.logs": "Журнал прокси",
   "nav.mcp": "MCP",

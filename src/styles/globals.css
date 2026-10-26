@@ -1300,3 +1300,9 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   path.rc-edge.bad { stroke: color-mix(in srgb, var(--color-danger) 45%, transparent); stroke-dasharray: 4 4; }
   @keyframes rc-flow { to { stroke-dashoffset: -24; } }
 }
+
+/* G3 画布点阵网格（设计稿 .gridbg：24px 点阵，大画布页挂 .g3-canvas-grid；仅 background，无 position） */
+.g3-canvas-grid {
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
