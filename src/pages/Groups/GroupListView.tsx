@@ -453,7 +453,7 @@ function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFun
       <CardHeader style={{ padding: 0, gap: 8 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <CardTitle style={{ fontSize: 14, fontWeight: 600 }}>{t("group.unmatched", "未匹配")}</CardTitle>
-          <Badge variant="secondary" style={{ fontSize: 10, padding: "0 6px", fontWeight: 500 }}>
+          <Badge variant="secondary" style={{ fontSize: 11, padding: "0 6px", fontWeight: 500 }}>
             {t("group.unmatchedBadge", "虚拟桶")}
           </Badge>
         </div>

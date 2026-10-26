@@ -149,7 +149,7 @@ function RuleEditor({ rule, onSave, onCancel }: {
                 </select>
                 <input className="input" style={{ fontSize: 12, flex: 1 }} value={term.value}
                   onChange={e => applyVisual({ ...visual, terms: visual.terms.map((x, i) => i === ti ? { ...x, value: e.target.value } : x) })} />
-                <Button variant="ghost" size="sm" style={{ fontSize: 10, height: "auto", padding: "1px 6px" }}
+                <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "1px 6px" }}
                   onClick={() => applyVisual({ ...visual, terms: visual.terms.filter((_, i) => i !== ti) })}>
                   ✕
                 </Button>
@@ -255,7 +255,7 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
               onCheckedChange={v => setRules(rs => rs.map(x => x.id === r.id ? { ...x, enabled: v } : x))} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: 12, fontWeight: 600 }}>{r.name || r.id}</span>
-              {r.preset && <span style={{ fontSize: 10, marginLeft: 6, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--accent)" }}>{t("notif.rules.preset", "预置")}</span>}
+              {r.preset && <span style={{ fontSize: 11, marginLeft: 6, padding: "0 5px", borderRadius: "var(--radius-sm)", background: "var(--accent-subtle)", color: "var(--accent)" }}>{t("notif.rules.preset", "预置")}</span>}
               <span style={{ fontSize: 11, color: "var(--text-tertiary)", marginLeft: 8 }}>
                 {r.match_type ?? t("notif.rules.anyType", "任意类型")}{r.condition ? ` · ${r.condition}` : ""}
               </span>
@@ -264,17 +264,17 @@ export function NotificationRulesSection({ settings, persist }: { settings: Noti
               </span>
             </div>
             {r.preset ? (
-              <Button variant="ghost" size="sm" style={{ fontSize: 10, height: "auto", padding: "2px 8px" }}
+              <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px" }}
                 onClick={() => copyPreset(r)}>
                 {t("notif.rules.copyAction", "复制")}
               </Button>
             ) : (
               <div style={{ display: "flex", gap: 4 }}>
-                <Button variant="ghost" size="sm" style={{ fontSize: 10, height: "auto", padding: "2px 8px" }}
+                <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px" }}
                   onClick={() => setEditing(r)}>
                   {t("notif.rules.edit", "编辑")}
                 </Button>
-                <Button variant="ghost" size="sm" style={{ fontSize: 10, height: "auto", padding: "2px 8px" }}
+                <Button variant="ghost" size="sm" style={{ fontSize: 11, height: "auto", padding: "2px 8px" }}
                   onClick={() => setRules(rs => rs.filter(x => x.id !== r.id))}>
                   {t("notif.rules.delete", "删除")}
                 </Button>

@@ -91,7 +91,7 @@ export function GaugeChart({
           </span>
           <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>{fmt(value)}</span>
           {label != null && (
-            <span style={{ fontSize: 10, color: "var(--text-tertiary)", maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)", maxWidth: "70%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
               {label}
             </span>
           )}

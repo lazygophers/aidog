@@ -66,7 +66,7 @@ export function MultiKeyPreview({
             <span style={{ fontWeight: 600, wordBreak: "break-all" }}>{previewNames[i] ?? ""}</span>
             <span style={{
               display: "inline-block", padding: "2px 6px", borderRadius: "var(--radius-sm)",
-              background: "var(--bg-glass)", fontSize: 10, fontWeight: 700, justifySelf: "start",
+              background: "var(--bg-glass)", fontSize: 11, fontWeight: 700, justifySelf: "start",
             }}>{protocol.toUpperCase()}</span>
             <span style={{ color: "var(--text-secondary)", wordBreak: "break-all" }}>{baseUrl || "—"}</span>
             <span style={{ color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)" }}>{maskTail(k)}</span>

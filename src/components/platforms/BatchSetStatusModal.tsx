@@ -119,7 +119,7 @@ export function BatchSetStatusModal({
               padding: "5px 0", borderBottom: "1px solid var(--border)",
             }}>
               <span style={{
-                fontSize: 10, fontWeight: 500, padding: "0 5px", borderRadius: "var(--radius-sm)",
+                fontSize: 11, fontWeight: 500, padding: "0 5px", borderRadius: "var(--radius-sm)",
                 ...(p.status === "enabled"
                   ? { color: "var(--color-success)", background: "color-mix(in srgb, var(--color-success) 14%, transparent)" }
                   : p.status === "auto_disabled"

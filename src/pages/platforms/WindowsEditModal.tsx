@@ -104,7 +104,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{suffix}</span>
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{suffix}</span>
       <input
         aria-label={suffix}
         inputMode="numeric"
@@ -354,7 +354,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   </span>
                   {isNextDay && (
                     <span style={{
-                      fontSize: 10, padding: "1px 6px", borderRadius: 4,
+                      fontSize: 11, padding: "1px 6px", borderRadius: 4,
                       border: "1px solid color-mix(in srgb, var(--color-warning) 40%, transparent)",
                       color: "var(--color-warning)",
                       background: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
@@ -404,7 +404,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   <Button
                     variant="ghost"
                     size="sm"
-                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)" }}
+                    style={{ padding: "2px 6px", fontSize: 11, color: "var(--color-danger)" }}
                     onClick={() => removeWindow(widx)}
                     title={t("action.delete", "删除")}
                   >
@@ -454,7 +454,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 6px", fontSize: 10, minWidth: 24, height: "auto", fontWeight: 600 }}
+                          style={{ padding: "1px 6px", fontSize: 11, minWidth: 24, height: "auto", fontWeight: 600 }}
                           onClick={() => toggleWeekday(widx, di)}
                           title={t(`platform.weekday_short.${di}`)}
                         >
@@ -475,7 +475,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 5px", fontSize: 10, minWidth: 26, height: "auto" }}
+                          style={{ padding: "1px 5px", fontSize: 11, minWidth: 26, height: "auto" }}
                           onClick={() => toggleDayOfMonth(widx, dom)}
                         >
                           {dom}

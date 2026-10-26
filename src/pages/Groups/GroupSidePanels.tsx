@@ -38,7 +38,7 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
       <div id="g3-candidates" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.candidates.title", "候选序")}</span>
-          <span className="text-tertiary" style={{ fontSize: 10.5, fontFamily: "var(--font-mono, monospace)" }}>{routingModeLabel(t, group.routing_mode)}</span>
+          <span className="text-tertiary" style={{ fontSize: 11.5, fontFamily: "var(--font-mono, monospace)" }}>{routingModeLabel(t, group.routing_mode)}</span>
         </div>
         {ordered.length === 0 ? (
           <div className="text-secondary" style={{ fontSize: 12 }}>{t("group.candidates.none", "无启用中的候选平台")}</div>
@@ -64,7 +64,7 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
                 <span className="text-tertiary" style={{ fontFamily: "var(--font-mono, monospace)", minWidth: 14 }}>{i + 1}</span>
                 <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{g.platform.platform_type}</span>
                 {g.platform.status !== "enabled" && (
-                  <span style={{ fontSize: 10, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "停用")}</span>
+                  <span style={{ fontSize: 11, color: "var(--color-warning)" }}>{t("group.candidates.disabled", "停用")}</span>
                 )}
                 <span style={{ flex: 1 }} />
                 <span className="text-tertiary" title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: g.level_priority, prio: g.priority })}>
@@ -93,7 +93,7 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
             {latest.snapshot.entries.slice(0, 5).map((e, i) => (
               <div key={i} style={{ display: "flex", gap: 8, fontSize: 11, alignItems: "center" }}>
                 <span data-reason={e.reason} style={{
-                  minWidth: 40, fontSize: 10, padding: "0 5px", borderRadius: 4,
+                  minWidth: 40, fontSize: 11, padding: "0 5px", borderRadius: 4,
                   background: e.reason === "selected" ? "var(--accent-subtle)" : "var(--secondary)",
                   color: e.reason === "selected" ? "var(--primary)" : "var(--muted-foreground)",
                 }}>{e.reason}</span>

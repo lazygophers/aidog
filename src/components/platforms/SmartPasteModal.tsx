@@ -261,7 +261,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>{t("platform.paste.baseUrl", "Base URL")}</span>
-                <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
+                <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
                   {t("platform.paste.baseUrlMultiHint", "不同类型可各选一个")}
                 </span>
               </div>
@@ -279,7 +279,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
                     <span
                       style={{
                         flexShrink: 0,
-                        fontSize: 10.5,
+                        fontSize: 11.5,
                         padding: "1px 6px",
                         borderRadius: 4,
                         background: "var(--accent-subtle)",
@@ -301,7 +301,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <span>{t("platform.paste.apiKey", "Token")}</span>
                 {parsed.apiKeys.length > 1 && (
-                  <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
+                  <span style={{ fontSize: 11.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
                     {t("platform.paste.apiKeyMultiHint", "已选 {{n}}/{{total}}，将批量创建", { n: selKeys.length, total: parsed.apiKeys.length })}
                   </span>
                 )}

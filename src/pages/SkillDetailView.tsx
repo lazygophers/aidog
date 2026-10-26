@@ -147,7 +147,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
                 <span
                   key={a}
                   style={{
-                    fontSize: 10,
+                    fontSize: 11,
                     padding: "1px 5px",
                     borderRadius: 3,
                     border: "1px solid var(--border)",
@@ -161,7 +161,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
             {path && (
               <span
                 style={{
-                  fontSize: 10,
+                  fontSize: 11,
                   color: "var(--text-secondary)",
                   fontFamily: "var(--font-mono, monospace)",
                   wordBreak: "break-all",
@@ -196,7 +196,7 @@ export function SkillDetailView({ skill, onClose }: Props) {
           >
             <div
               style={{
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 600,
                 color: "var(--text-secondary)",
                 padding: "0 14px 6px",

@@ -172,7 +172,7 @@ export function SearchableProtocolSelect({
         </span>
         {/* 萤火虫箭头 (对齐 select.tsx group-data-[state=open]:rotate-180) */}
         <span style={{
-          fontSize: 10, color: "var(--text-tertiary)",
+          fontSize: 11, color: "var(--text-tertiary)",
           transition: "transform 200ms ease",
           transform: open ? "rotate(180deg)" : "rotate(0deg)",
         }}>▼</span>
@@ -246,7 +246,7 @@ export function SearchableProtocolSelect({
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
                       background: "color-mix(in srgb, var(--color-success) 20%, transparent)",
                       color: "var(--color-success, var(--color-success))",
-                      fontSize: 10, fontWeight: 600,
+                      fontSize: 11, fontWeight: 600,
                     }}>
                       Code
                     </span>

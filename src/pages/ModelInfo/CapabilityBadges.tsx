@@ -26,7 +26,7 @@ export function CapabilityBadges({ capabilities }: { capabilities: string[] }) {
   return (
     <span style={{ display: "inline-flex", gap: 4, flexWrap: "wrap" }}>
       {capabilities.map(c => (
-        <Badge key={c} variant="secondary" style={{ fontSize: 10, padding: "1px 6px", border: "none" }}>
+        <Badge key={c} variant="secondary" style={{ fontSize: 11, padding: "1px 6px", border: "none" }}>
           {capabilityLabel(t, c)}
         </Badge>
       ))}

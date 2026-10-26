@@ -126,7 +126,7 @@ export function McpModals({ d }: { d: McpData }) {
                           <span
                             key={a}
                             style={{
-                              fontSize: 10,
+                              fontSize: 11,
                               padding: "1px 5px",
                               borderRadius: 4,
                               background: "var(--bg-elevated)",
@@ -137,7 +137,7 @@ export function McpModals({ d }: { d: McpData }) {
                           </span>
                         ))}
                         {disabled && (
-                          <span style={{ fontSize: 10, color: "var(--success)" }}>
+                          <span style={{ fontSize: 11, color: "var(--success)" }}>
                             {t("mcp.alreadyImported", "已导入")}
                           </span>
                         )}
@@ -504,7 +504,7 @@ function RecommendedPane({ d }: { d: McpData }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
                       {e.display_name || e.name}
                       {inst && (
-                        <span style={{ fontSize: 10, fontWeight: 500, color: "var(--success)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 500, color: "var(--success)" }}>
                           {t("mcp.installed", "已安装")}
                         </span>
                       )}

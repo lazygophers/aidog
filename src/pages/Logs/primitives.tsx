@@ -25,9 +25,9 @@ const NONE = "__none__";
 export const ROW_STYLE: React.CSSProperties = { cursor: "pointer" };
 export const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6 };
 export const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
-export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
+export const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
 export const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
-export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
+export const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 11, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent)" };
 export const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
 export const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
 
@@ -119,7 +119,7 @@ export function RequestTabs({
             >
               {item.title}
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 400 }}>{item.subtitle}</span>
-              {item.protocol && <span className="badge" style={{ fontSize: 10, padding: "1px 5px" }}>{item.protocol}</span>}
+              {item.protocol && <span className="badge" style={{ fontSize: 11, padding: "1px 5px" }}>{item.protocol}</span>}
               {item.statusCode != null && item.statusCode > 0 && (
                 <span style={{
                   fontSize: F.small, fontWeight: 600,

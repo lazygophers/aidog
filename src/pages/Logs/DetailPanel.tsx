@@ -222,7 +222,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
         <div className="glass-surface hover-lift" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.attempts", "尝试记录")}</span>
-            <span className="badge" style={{ fontSize: 10, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
+            <span className="badge" style={{ fontSize: 11, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
               {t("logs.attemptCount", "{{n}} 次").replace("{{n}}", String(detail.attempts.length))}
             </span>
           </div>
@@ -246,7 +246,7 @@ function DetailBody({ detail, t, copied, copiedId, setCopiedId, openDetail, copy
                       {platName}
                     </span>
                     {a.error && (
-                      <span style={{ fontSize: 10, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
+                      <span style={{ fontSize: 11, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
                         {a.error}
                       </span>
                     )}

@@ -316,7 +316,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   style={{
                     justifyContent: "space-between",
                     padding: "8px 10px 4px",
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 700,
                     color: "var(--text-tertiary)",
                     opacity: 0.7,
@@ -398,7 +398,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 {item.badge != null && item.badge > 0 && !collapsed && (
                   <span
                     style={{
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: 700,
                       minWidth: 16,
                       height: 16,
@@ -427,7 +427,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                     return groups.map((g) => (
                       <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <div style={{
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 600,
                           color: "var(--text-secondary)",
                           opacity: 0.6,

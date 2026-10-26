@@ -90,7 +90,7 @@ const C = {
   pill: (tone: "neutral" | "hot" | "ok"): React.CSSProperties => {
     const c = tone === "hot" ? "var(--color-warning)" : tone === "ok" ? "var(--color-success)" : "var(--text-tertiary)";
     return {
-      fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
+      fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
       color: c, border: `1px solid color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 35%, transparent)`,
       background: `color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 8%, transparent)`,
     };
@@ -1081,7 +1081,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 <span
                   key={mi}
                   className="badge badge-muted"
-                  style={{ fontSize: 10, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
+                  style={{ fontSize: 11, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   {m}
                   <Button

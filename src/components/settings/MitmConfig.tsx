@@ -508,7 +508,7 @@ export function MitmConfigTab() {
                       </code>
                       <span
                         style={{
-                          fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                          fontSize: 11, padding: "2px 6px", borderRadius: 4,
                           background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
                           color: "var(--text-secondary)",
                         }}
@@ -548,7 +548,7 @@ export function MitmConfigTab() {
                 </code>
                 <span
                   style={{
-                    fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                    fontSize: 11, padding: "2px 6px", borderRadius: 4,
                     background: e.source === "default"
                       ? "color-mix(in srgb, var(--primary) 15%, transparent)"
                       : "color-mix(in srgb, var(--text-tertiary) 15%, transparent)",
@@ -568,7 +568,7 @@ export function MitmConfigTab() {
                   return (
                     <span
                       style={{
-                        fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                        fontSize: 11, padding: "2px 6px", borderRadius: 4,
                         background: "color-mix(in srgb, var(--color-success) 15%, transparent)",
                         color: "var(--text-secondary)",
                       }}

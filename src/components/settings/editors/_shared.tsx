@@ -152,7 +152,7 @@ export function FieldLabel({ field, t, style, nonDefault, onReset, highlight }: 
               display: "inline-flex", alignItems: "center", gap: 3,
               padding: "1px 6px", borderRadius: 999, cursor: "pointer",
               border: "1px solid var(--accent)", background: "transparent",
-              color: "var(--accent)", fontSize: 10, fontWeight: 600, lineHeight: 1.4,
+              color: "var(--accent)", fontSize: 11, fontWeight: 600, lineHeight: 1.4,
             }}
           >
             <span style={{ width: 5, height: 5, borderRadius: "50%", background: "var(--accent)", flexShrink: 0 }} />

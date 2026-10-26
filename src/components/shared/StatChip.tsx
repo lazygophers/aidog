@@ -54,7 +54,7 @@ export function StatChip({ icon, value, label, color, level }: StatChipProps) {
         <span style={{ fontSize: 13, display: "inline-flex", color: valueColor }}>{icon}</span>
       )}
       <span className="counter" style={{ fontWeight: 700, color: valueColor }}>{value}</span>
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
     </Badge>
   );
 }
