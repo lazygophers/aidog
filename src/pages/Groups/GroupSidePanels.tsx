@@ -1,6 +1,6 @@
 // GroupSidePanels — G3 分组页双侧边（整体风格重设计票 03，brief 21/22）。
-// 左：静态候选序（前端按 sort_by_routing_mode 同构排序 + 状态过滤）与「下一个请求」预期路径；
-// 右：最近一次路由决策快照（group_latest_routing，proxy_log.routing 最新一条）。同屏常驻，无点击切换。
+// 上：静态候选序（前端按 sort_by_routing_mode 同构排序 + 状态过滤）与「下一个请求」预期路径；
+// 下：最近一次路由决策快照（group_latest_routing，proxy_log.routing 最新一条）。同屏常驻，无点击切换。
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { groupFlowApi, type Group, type GroupPlatformDetail, type LatestRouting } from "../../services/api";
@@ -33,8 +33,8 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
   const weightSum = ordered.reduce((s, g) => s + Math.max(1, g.level_priority), 0);
 
   return (
-    <div id="g3-side-panels" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-      {/* ── 左：候选序 + 下一个请求 ── */}
+    <div id="g3-side-panels" style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+      {/* ── 上：候选序 + 下一个请求 ── */}
       <div id="g3-candidates" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.candidates.title", "候选序")}</span>
@@ -76,7 +76,7 @@ export function GroupSidePanels({ group, gps }: { group: Group; gps: GroupPlatfo
         )}
       </div>
 
-      {/* ── 右：最近路由快照 ── */}
+      {/* ── 下：最近路由快照 ── */}
       <div id="g3-latest-routing" className="glass-surface" style={{ padding: "12px 14px", display: "flex", flexDirection: "column", gap: 6 }}>
         <span style={{ fontSize: 12.5, fontWeight: 600 }}>{t("group.routing.latest", "最近路由")}</span>
         {!latest ? (
