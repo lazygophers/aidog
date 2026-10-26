@@ -2,7 +2,7 @@
 // 10 列 grid（稿 .row）：handle 26 / logo 34 / ident 1.35fr / 配额 1fr / 今日 74 / 成功率 62 /
 // 延迟 58 / 模型 58 / 最近测速 150 / 操作 108。色一律走主题 token（稿的 #08090A 画布映射
 // var(--background) 系），几何（列宽/间距/字号）1:1 按稿。
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { Platform, PlatformUsageStats, PlatformQuota, LastTestResult } from "../../services/api";
 import { parseRateLimitsBundle } from "../../services/api";
@@ -35,6 +35,33 @@ export function PlatformRowCols({ t }: { t: TFunction }) {
       <span>{t("platform.col.lastTest", "最近测速")}</span>
       <span style={{ textAlign: "right" }}>{t("platform.col.ops", "操作")}</span>
     </div>
+  );
+}
+
+/** per-group 候选优先级（1-10）数字输入框：失焦/回车提交，clamp 1-10，Esc 还原。列表页行与分组详情成员表共用。 */
+export function LevelPriorityInput({ value, onChange, testId, title }: {
+  value: number; onChange: (v: number) => void; testId: string; title?: string;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => { setDraft(String(value)); }, [value]);
+  const commit = () => {
+    const n = Math.round(Number(draft));
+    const clamped = draft.trim() !== "" && Number.isFinite(n) ? Math.min(10, Math.max(1, n)) : value;
+    setDraft(String(clamped));
+    if (clamped !== value) onChange(clamped);
+  };
+  return (
+    <input data-testid={testId} type="text" inputMode="numeric" title={title} value={draft}
+      onChange={(e) => { if (/^-?\d{0,2}$/.test(e.target.value)) setDraft(e.target.value); }}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+        else if (e.key === "Escape") { setDraft(String(value)); e.currentTarget.blur(); }
+      }}
+      onClick={(e) => e.stopPropagation()}
+      style={{ width: 26, height: 18, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4,
+        background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0,
+        fontFamily: "var(--font-mono, monospace)", textAlign: "center", flexShrink: 0, marginLeft: 2 }} />
   );
 }
 
@@ -204,19 +231,10 @@ export function PlatformRow({
                 {t("platform.autoDisabledBadge", "自动禁用")}
               </span>
             )}
-            {/* per-group 候选优先级（1-10）：行内直改，不收菜单（值域真值源 RouteCandidate.level_priority） */}
+            {/* per-group 候选优先级（1-10）：数字输入直改（值域真值源 RouteCandidate.level_priority） */}
             {onLevelPriorityChange && (
-              <span data-testid="row-level" title={t("platform.levelPriority", "候选优先级")}
-                style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0, marginLeft: 2 }}
-                onClick={e => e.stopPropagation()}>
-                <button type="button" aria-label="-" disabled={(levelPriority ?? 5) <= 1}
-                  style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
-                  onClick={() => onLevelPriorityChange(Math.max(1, (levelPriority ?? 5) - 1))}>−</button>
-                <b style={{ fontSize: 10.5, fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)", minWidth: 18, textAlign: "center" }}>P{levelPriority ?? 5}</b>
-                <button type="button" aria-label="+" disabled={(levelPriority ?? 5) >= 10}
-                  style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
-                  onClick={() => onLevelPriorityChange(Math.min(10, (levelPriority ?? 5) + 1))}>+</button>
-              </span>
+              <LevelPriorityInput testId="row-level" title={t("platform.levelPriority", "候选优先级")}
+                value={levelPriority ?? 5} onChange={onLevelPriorityChange} />
             )}
           </span>
           <span style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>

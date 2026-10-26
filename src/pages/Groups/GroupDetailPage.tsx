@@ -8,6 +8,7 @@ import { groupFlowApi } from "../../services/api";
 import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
+import { LevelPriorityInput } from "../platforms/PlatformRow";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { routingModeLabel } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -157,18 +158,10 @@ function MembersCard(props: {
               {p.endpoints?.[0]?.protocol && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{p.endpoints[0].protocol}</span>}
               <MemberTag status={p.status} t={t} />
               {gp != null && <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp.level_priority, prio: gp.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>#{idx + 1}</span>}
-              {/* per-group 候选优先级（1-10）行内直改，同列表页 PlatformRow stepper idiom */}
+              {/* per-group 候选优先级（1-10）行内直改，同列表页 LevelPriorityInput */}
               {gp != null && props.onSetLevelPriority && (
-                <span data-testid="detail-row-level" title={t("platform.levelPriority", "候选优先级")}
-                  style={{ display: "inline-flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-                  <button type="button" aria-label="-" disabled={gp.level_priority <= 1}
-                    style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
-                    onClick={() => props.onSetLevelPriority!(p.id, Math.max(1, gp.level_priority - 1))}>−</button>
-                  <b style={{ fontSize: 10.5, fontFamily: "var(--font-mono, monospace)", color: "var(--text-secondary)", minWidth: 18, textAlign: "center" }}>P{gp.level_priority}</b>
-                  <button type="button" aria-label="+" disabled={gp.level_priority >= 10}
-                    style={{ width: 16, height: 16, lineHeight: 1, border: "1px solid var(--border)", borderRadius: 4, background: "transparent", color: "var(--text-secondary)", cursor: "pointer", fontSize: 11, padding: 0 }}
-                    onClick={() => props.onSetLevelPriority!(p.id, Math.min(10, gp.level_priority + 1))}>+</button>
-                </span>
+                <LevelPriorityInput testId="detail-row-level" title={t("platform.levelPriority", "候选优先级")}
+                  value={gp.level_priority} onChange={(v) => props.onSetLevelPriority!(p.id, v)} />
               )}
             </span>
             <span>
