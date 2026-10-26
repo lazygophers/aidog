@@ -982,6 +982,8 @@
   "nav.home": "الرئيسية",
   "sidebar.expand": "توسيع الشريط",
   "sidebar.collapse": "طي الشريط",
+  "topbar.palettePlaceholder": "الانتقال إلى…",
+  "topbar.paletteNoResults": "لا توجد نتائج",
   "topbar.search": "بحث (⌘K)",
   "nav.logs": "سجل الوكيل",
   "nav.mcp": "MCP",

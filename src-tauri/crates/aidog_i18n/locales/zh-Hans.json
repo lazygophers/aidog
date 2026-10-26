@@ -960,6 +960,8 @@
   "nav.home": "首页",
   "sidebar.expand": "展开侧栏",
   "sidebar.collapse": "折叠侧栏",
+  "topbar.palettePlaceholder": "跳转到…",
+  "topbar.paletteNoResults": "无匹配结果",
   "topbar.search": "搜索（⌘K）",
   "nav.logs": "代理日志",
   "nav.mcp": "MCP",

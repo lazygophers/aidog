@@ -982,6 +982,8 @@
   "nav.home": "ホーム",
   "sidebar.expand": "サイドバーを展開",
   "sidebar.collapse": "サイドバーを折りたたむ",
+  "topbar.palettePlaceholder": "移動先…",
+  "topbar.paletteNoResults": "該当なし",
   "topbar.search": "検索（⌘K）",
   "nav.logs": "プロキシログ",
   "nav.mcp": "MCP",

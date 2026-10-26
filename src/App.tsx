@@ -4,6 +4,7 @@ import { notify, isTauri } from "./services/platform";
 import { PathPickerHost } from "./components/shared/PathPickerHost";
 import { ErrorBoundary } from "./components/shared/ErrorBoundary";
 import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
+import { CommandPalette } from "./components/CommandPalette";
 import { Topbar } from "./components/Topbar";
 import type { Tab } from "./pages/AppSettings";
 import { UpdatePromptModal } from "./components/UpdatePromptModal";
@@ -72,6 +73,8 @@ const BASE_NAV: NavItem[] = [
 function App() {
   const [activeNav, setActiveNav] = useState("home");
   const [navContext, setNavContext] = useState<NavContext>({});
+  // G3 全局骨架：⌘K 命令面板 + ⌘1/2/3 页面快捷键（设计稿顶栏 kbd + 侧栏 kbd 标识）。
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
   const [, startTransition] = useTransition();
@@ -175,6 +178,21 @@ function App() {
     });
   };
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return;
+      if (e.key === "k" || e.key === "K") {
+        e.preventDefault();
+        setPaletteOpen(v => !v);
+      } else if (e.key === "1") { e.preventDefault(); handleNavigate("home"); }
+      else if (e.key === "2") { e.preventDefault(); handleNavigate("platforms"); }
+      else if (e.key === "3") { e.preventDefault(); handleNavigate("logs"); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // handleNavigate 每渲染重建（闭包捕获 activeNav），effect 跟随重挂监听。
+  }, [handleNavigate]);
+
   // 隐藏菜单：日志关闭去 logs；通知关闭去 notifications。
   const navItems = BASE_NAV.filter(n => {
     if (!notifEnabled && n.id === "notifications") return false;
@@ -212,7 +230,14 @@ function App() {
         onNavigate={handleNavigate}
       />
       <div id="g3-content" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
-        <Topbar crumb={crumb} onOpenNotifications={() => handleNavigate("notifications")} notifHidden={!notifEnabled} />
+        <CommandPalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        navItems={navItems}
+        activeId={resolvedNav}
+        onNavigate={handleNavigate}
+      />
+      <Topbar crumb={crumb} onOpenNotifications={() => handleNavigate("notifications")} notifHidden={!notifEnabled} onOpenSearch={() => setPaletteOpen(true)} />
         <main
           id="g3-main"
           className={canvasPages.has(effectiveNav) ? "g3-canvas-grid" : undefined}
