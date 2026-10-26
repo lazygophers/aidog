@@ -668,19 +668,20 @@ pub fn latest_routing_snapshot<'a>(
         let group_key = group_key.to_string();
         db.call_read_proxy_log_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
-                "SELECT platform_id, model, created_at, routing \
+                "SELECT platform_id, model, actual_model, created_at, routing \
                  FROM proxy_log WHERE group_key = ?1 AND routing != '' AND deleted_at = 0 \
                  ORDER BY id DESC LIMIT 1",
             )?;
             let mut rows = stmt.query(params![group_key])?;
             match rows.next()? {
                 Some(row) => {
-                    let routing: String = row.get(3)?;
+                    let routing: String = row.get(4)?;
                     match aidog_db::models::parse_routing(&routing) {
                         Some(snapshot) => Ok(Some(aidog_db::models::LatestRouting {
                             platform_id: row.get(0)?,
                             source_model: row.get(1)?,
-                            created_at: row.get(2)?,
+                            actual_model: row.get(2)?,
+                            created_at: row.get(3)?,
                             snapshot,
                         })),
                         // routing 列有值但 JSON 坏 → 视为无快照（不炸整个面板）

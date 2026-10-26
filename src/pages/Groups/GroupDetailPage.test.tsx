@@ -63,10 +63,10 @@ const baseProps = {
 describe("GroupDetailPage — 观测台三栏", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("三栏挂载：组列表 / 统计带 / flow / 成员表 / 趋势", async () => {
+  it("双栏挂载：统计带 / flow / 成员表 / 趋势", async () => {
     vi.mocked(groupFlowApi.daily!).mockResolvedValue(daily);
     render(<GroupDetailPage {...baseProps} />);
-    expect(document.querySelector('[data-testid="detail-group-list"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="detail-group-list"]')).toBeNull(); // 左栏 GROUPS 已移除
     expect(document.querySelector('[data-testid="detail-stats"]')).toBeTruthy();
     await waitFor(() => expect(document.querySelector('[data-testid="detail-flow"]')).toBeTruthy());
     expect(document.querySelector('[data-testid="detail-members"]')).toBeTruthy();
@@ -80,11 +80,9 @@ describe("GroupDetailPage — 观测台三栏", () => {
     await waitFor(() => expect(document.querySelector('[data-testid="detail-trend"] [title*="2026-10-25"]')).toBeTruthy());
   });
 
-  it("左栏组卡点击 → onSelectGroup；返回 → onClose", () => {
+  it("返回 → onClose", () => {
     vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
     render(<GroupDetailPage {...baseProps} />);
-    fireEvent.click(document.querySelector('[data-gid="1"]')!);
-    expect(baseProps.onSelectGroup).toHaveBeenCalledWith(1);
     fireEvent.click(document.querySelector('[data-testid="detail-back"]')!);
     expect(baseProps.onClose).toHaveBeenCalled();
   });
