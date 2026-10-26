@@ -74,7 +74,7 @@ function buildNodes(
     if (c.reason !== "selected") {
       nodes.push({ id, cls: "dim", ico: "·", nm, sb, pills: [t(REASON_KEY[c.reason])] });
     } else if (id === winId) {
-      nodes.push({ id, cls: "win", ico: "✓", nm, sb, pills: c.tags.map((tg) => t(TAG_KEY[tg])) });
+      nodes.push({ id, cls: "win", ico: "✓", nm, sb, pills: (c.tags ?? []).map((tg) => t(TAG_KEY[tg])) });
     } else if (lastFailByPlatform.has(c.platform_id)) {
       nodes.push({ id, cls: "fail", ico: "✕", nm, sb, pills: [`${t("logs.routing.attemptFailed", "尝试失败")} ${lastFailByPlatform.get(c.platform_id)}`] });
     } else {

@@ -1,4 +1,3 @@
-import { useState } from "react";
 // Platforms — 平台管理页（主组件）。
 // ponytail: 阶段 4 二次拆分后的 orchestrator。state/handlers 全在 usePlatformsState（含 usePlatformQuota 子系统），
 //   JSX 分两个区块子组件：PlatformEditForm（编辑/新建态）+ PlatformListView（列表态）。
@@ -8,8 +7,8 @@ import { useState } from "react";
 // 行为零变更（纯结构重构）：不改业务逻辑 / i18n key / Tauri command 签名。
 // App.tsx import 路径 `./pages/Platforms` 保持不变。
 import { useRef, useMemo } from "react";
-import { DeletePlatformConfirm } from "../components/platforms/DeletePlatformConfirm";
-import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
+
+import type { PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformsState } from "./platforms/usePlatformsState";
 import { PlatformEditForm } from "./platforms/PlatformEditForm";
 import { PlatformListView } from "./platforms/PlatformListView";
@@ -62,17 +61,6 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     s_setTestingPlatform: form.setTestingPlatform,
     s_setFaviconFailed: list.setFaviconFailed,
   };
-  // 删除确认（G3 票 04）：⋯ 菜单删除先弹确认，确认后才走乐观删除链。
-  const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
-  const cardActions = useMemo<PlatformCardActions>(() => ({
-    onPointerDown: (e, index) => actionsRef.current.s_handlePlatPointerDown(e, index),
-    onPointerMove: (e) => actionsRef.current.s_handlePlatPointerMove(e),
-    onPointerUp: () => actionsRef.current.s_handlePlatPointerUp(),
-    onToggleExpanded: (id, next) => actionsRef.current.s_toggleExpanded(id, next),
-    onRefreshQuota: (p) => actionsRef.current.refreshQuota(p),
-    onDelete: (id) => setConfirmDelete(id),
-    onFaviconFailed: (id) => actionsRef.current.s_setFaviconFailed(prev => new Set(prev).add(id)),
-  }), []);
   // 卡片行为服务（票 12）：只吃 platform 的 7 个回调独立成 service 对象，
   // 同样走 latest-ref 稳定引用，保 PlatformCard memo 生效。
   const cardService = useMemo<PlatformCardService>(() => ({
@@ -93,14 +81,7 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // ── List view ──
   return (
     <>
-      <PlatformListView s={s} cardActions={cardActions} cardService={cardService} openCreateGroupRef={openCreateGroupRef} />
-      {/* G3 票 04 / 旧票 03：删除平台先确认（密钥/端点/配置将删、日志保留、不可撤销） */}
-      <DeletePlatformConfirm
-        open={confirmDelete != null}
-        name={confirmDelete != null ? (list.platforms.find(p => p.id === confirmDelete)?.platform_type ?? undefined) : undefined}
-        onConfirm={() => { const id = confirmDelete; setConfirmDelete(null); if (id != null) actionsRef.current.s_handleDelete(id); }}
-        onCancel={() => setConfirmDelete(null)}
-      />
+      <PlatformListView s={s} cardService={cardService} openCreateGroupRef={openCreateGroupRef} />
     </>
   );
 }
