@@ -243,7 +243,7 @@ function MembersCard(props: {
 /** 分组详情页（G3 设计稿「分组页终稿」1:1 三栏）。由 Groups.tsx detailTarget 分支渲染。 */
 export function GroupDetailPage(props: {
   detail: GroupDetail;
-  details: GroupDetail[];
+  details?: GroupDetail[]; // 兼容旧调用方；详情页不再消费（全局统计属列表页信息）
   platforms: Platform[];
   t: TFunction;
   groupStats: Record<string, PlatformUsageStats>;
@@ -262,7 +262,7 @@ export function GroupDetailPage(props: {
   onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
   memberDropIndicator?: { gid: number; idx: number } | null;
 }) {
-  const { detail, details, platforms, t, groupStats, cards, cardService } = props;
+  const { detail, platforms, t, groupStats, cards, cardService } = props;
   const { group } = detail;
   const gps = detail.platforms;
   const u = groupStats[group.group_key];
@@ -270,7 +270,6 @@ export function GroupDetailPage(props: {
   const ordered = staticOrder(gps);
   const isLB = group.routing_mode === "load_balance";
   const platName = (id: number) => gps.find(g => g.platform.id === id)?.platform.platform_type ?? ("#" + id);
-  const totalPlatLinks = details.reduce((s, d) => s + d.platforms.length, 0);
   return (
     <div data-testid="group-detail-page" style={{ display: "flex", flexDirection: "column", width: "100%", border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden", background: "var(--card)", boxShadow: "0 1px 3px rgba(28,36,48,.05)" }}>
       {/* pgtop */}
@@ -281,7 +280,8 @@ export function GroupDetailPage(props: {
         <h1 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{t("nav.groups", "分组")}</h1>
         {/* 当前组名必须上屏：详情页全页无组名时无法辨认展示的是哪个组 */}
         <span style={{ fontSize: 13, fontWeight: 600 }}>{group.name}</span>
-        <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{details.length} {t("group.detail.countGroups", "个分组")} · {totalPlatLinks} {t("group.detail.countLinks", "个平台关联")}</span>
+        {/* 计数只显当前组自己的成员数；details.length/全量关联和是别的分组的信息，禁入详情页（2026-10-27 用户报） */}
+        <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{detail.platforms.length} {t("group.platforms", "平台")}</span>
         <div style={{ flex: 1 }} />
       </div>
       {/* pgbody：1fr / 264px */}

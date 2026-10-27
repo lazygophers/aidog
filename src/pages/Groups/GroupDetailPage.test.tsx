@@ -83,6 +83,17 @@ describe("GroupDetailPage — 观测台三栏", () => {
     await waitFor(() => expect(document.querySelector('[data-testid="detail-trend"] [title*="2026-10-25"]')).toBeTruthy());
   });
 
+  it("pgtop 不展示全局统计（其它分组的信息），只显当前组成员数", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    render(<GroupDetailPage {...baseProps} />);
+    const page = document.querySelector('[data-testid="group-detail-page"]')!;
+    // 2026-10-27 用户报：详情页 pgtop 显示「7 个分组 · 13 个平台关联」——details.length
+    // 是全部分组数、totalPlatLinks 是全部分组的关联和，都是别的分组的信息，禁入详情页
+    expect(page.textContent).not.toContain("group.detail.countGroups");
+    expect(page.textContent).not.toContain("group.detail.countLinks");
+    expect(page.textContent).toContain("group.platforms"); // 当前组自己的成员数
+  });
+
   it("返回 → onClose", () => {
     vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
     render(<GroupDetailPage {...baseProps} />);
