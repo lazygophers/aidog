@@ -87,8 +87,8 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
   return (
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Header（稿 5 .top：大标题 + active 计数点 + 搜索 + 添加分组 / 添加平台 / 清理失效） */}
-      <header data-testid="platforms-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
+      {/* Header（稿 5 .top：大标题 + active 计数点 + 搜索 + 添加分组 / 添加平台 / 清理失效）——只在列表态显示，分组全屏视图（创建/编辑/详情）独立成页不带页头 */}
+      {!groupFullscreen && (<header data-testid="platforms-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <h1 style={{ fontSize: 21, fontWeight: 650, letterSpacing: "-0.01em", margin: 0 }}>{t("page.platforms")}</h1>
           <div data-testid="platforms-counter" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-secondary)" }}>
@@ -121,7 +121,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
             {t("platform.purgeDisabled", "清理失效平台")}
           </Button>
         </div>
-      </header>
+      </header>)}
 
       {/* 分组段（内嵌） */}
       <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onPlatformDeleted={(ids: number[]) => removePlatformsByIds(ids)} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={s.groupsReloadRef} onCountChange={setProgressiveCount} searchQuery={searchQuery} />
