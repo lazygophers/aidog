@@ -10,7 +10,7 @@ import { formatNumber, formatCost, formatPercent, formatDurationMs, formatRelati
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
-import { allModelValues } from "../../domains/platforms/health";
+import { allModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLabel, formatResetCountdown } from "../../domains/platforms/health";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -73,7 +73,7 @@ export interface PlatformRowProps {
   platform: Platform;
   usage?: PlatformUsageStats;
   quotaRaw?: PlatformQuota;
-  quotaPreferReal?: boolean; // 保留接口（父级管线传入）；行式余额列只用 balance/est 回落，暂不消费校准标记
+  quotaPreferReal?: boolean; // 真查校准标记：命中时配额列优先真实 quota（computeQuotaDisplay 口径，同 PlatformCard）
   lastTest?: LastTestResult;
   manualResult?: "ok" | "fail";
   testing?: boolean;
@@ -115,7 +115,7 @@ function StatCell({ v, l, tone }: { v: string; l: string; tone?: "ok" | "warn" |
 }
 
 export function PlatformRow({
-  platform: p, usage: u, quotaRaw, quotaPreferReal: _quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
+  platform: p, usage: u, quotaRaw, quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
   expanded, selecting, selected, levelPriority,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
@@ -138,14 +138,9 @@ export function PlatformRow({
   const nowMs = Date.now();
   const inPeak = isCurrentlyPeak(peakWindows, nowMs);
   const hitWin = inPeak ? peakWindows.find(w => isCurrentlyPeak([w], nowMs)) : undefined;
-  // 配额列：真实 quota balance 优先，缺省回落系统维护的 est_balance_remaining。
-  const bal = quotaRaw?.balance ?? null;
-  const remaining = bal ? bal.remaining : p.est_balance_remaining;
-  const total = bal?.total ?? null;
-  const pct = total != null && total > 0 ? Math.max(0, Math.min(100, (remaining / total) * 100)) : null;
-  const level = p.balance_level;
-  const barColor = level === "red" || (pct != null && pct < 15) ? "var(--color-danger)"
-    : level === "yellow" || (pct != null && pct < 30) ? "var(--color-warning)" : "var(--color-success)";
+  // 配额列统一口径（同 PlatformCard）：真查校准（quotaPreferReal）→ est 预估 → 无数据。
+  const quota = useMemo(() => computeQuotaDisplay(p, quotaRaw, !!quotaPreferReal), [p, quotaRaw, quotaPreferReal]);
+  const mb = useMemo(() => computeManualBudgetDisplay(p.manual_budgets), [p.manual_budgets]);
   const sRate = u && u.total_requests > 0 ? calcSuccessRate(u.success_count, u.total_requests) : null;
   const host = hostOf(p.base_url);
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
@@ -163,6 +158,19 @@ export function PlatformRow({
     color: "var(--text-tertiary)", cursor: "pointer", border: "1px solid transparent", background: "transparent",
     transition: "background .15s, color .15s, border-color .15s", ...extra,
   });
+
+  const refreshBtn = onRefreshQuota && (
+    <button type="button" data-testid="row-refresh-quota" title={t("platform.quotaRefresh", "刷新额度")}
+      disabled={refreshing} onClick={(e) => { e.stopPropagation(); onRefreshQuota(p); }}
+      style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "var(--text-tertiary)", display: "inline-flex", lineHeight: 0 }}>
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+        className={refreshing ? "spin" : undefined}>
+        <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+        <polyline points="21 3 21 9 15 9" />
+      </svg>
+    </button>
+  );
 
   return (
     <div data-testid="platform-row" data-platform-id={p.id} data-status={status} data-selected={selected ? "true" : undefined}
@@ -244,37 +252,79 @@ export function PlatformRow({
             {p.platform_type} · {host}
           </span>
         </span>
-        {/* 列 4：余额 / 配额 */}
+        {/* 列 4：余额 / 配额（coding 档位 / 余额条 / 手动预算，口径同 PlatformCard.computeQuotaDisplay） */}
         <span style={{ minWidth: 0, display: "flex", flexDirection: "column", gap: 5 }}>
-          <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
-            <span className="num" style={{ color: "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
-              ${remaining > 0 ? formatCost(remaining) : "0"}
-            </span>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-              <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-                {total != null ? `/ $${formatCost(total)}` : t("platform.col.balance", "余额")}
-              </span>
-              {onRefreshQuota && (
-                <button type="button" data-testid="row-refresh-quota" title={t("platform.quotaRefresh", "刷新额度")}
-                  disabled={refreshing} onClick={(e) => { e.stopPropagation(); onRefreshQuota(p); }}
-                  style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "var(--text-tertiary)", display: "inline-flex", lineHeight: 0 }}>
-                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                    strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                    className={refreshing ? "spin" : undefined}>
-                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                    <polyline points="21 3 21 9 15 9" />
-                  </svg>
-                </button>
-              )}
-            </span>
-          </span>
-          <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
-            <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${pct ?? 0}%`, background: barColor }} />
-          </span>
+          {quota.tiers.length > 0 ? (
+            quota.tiers.map((tier, i) => {
+              const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
+              const countdown = formatResetCountdown(tier.resetsAt);
+              return (
+                <span key={tier.name} data-testid="row-quota-tier" data-tier={tier.name}
+                  title={`${tierLabel(tier.name)} ${t("platform.quotaRemainSuffix", "剩")} ${tier.remainPct.toFixed(0)}%${countdown ? ` · ${countdown}` : ""}`}
+                  style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--text-tertiary)", minWidth: 0 }}>
+                  <span style={{ width: 32, flexShrink: 0 }}>{tierLabel(tier.name)}</span>
+                  <span style={{ flex: 1, height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
+                    <span style={{ display: "block", height: "100%", borderRadius: 99, width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, background: tierColor }} />
+                  </span>
+                  <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: tierColor, fontWeight: 600 }}>{tier.remainPct.toFixed(0)}%</span>
+                  {countdown && <span style={{ whiteSpace: "nowrap" }}>{countdown}</span>}
+                  {i === 0 && refreshBtn}
+                </span>
+              );
+            })
+          ) : quota.balanceRemaining != null ? (
+            (() => {
+              const isAcu = quota.currency === "ACU";
+              const pct = quota.balanceTotal != null && quota.balanceTotal > 0
+                ? Math.max(0, Math.min(100, (quota.balanceRemaining / quota.balanceTotal) * 100))
+                : null;
+              const barColor = p.balance_level === "red" || (pct != null && pct < 15) ? "var(--color-danger)"
+                : p.balance_level === "yellow" || (pct != null && pct < 30) ? "var(--color-warning)" : "var(--color-success)";
+              return (
+                <>
+                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
+                    <span className="num" style={{ color: "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
+                      {isAcu ? "" : "$"}{quota.balanceRemaining > 0 ? formatCost(quota.balanceRemaining) : "0"}
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
+                        {quota.balanceTotal != null ? `/ $${formatCost(quota.balanceTotal)}` : isAcu ? "ACU" : t("platform.col.balance", "余额")}
+                      </span>
+                      {refreshBtn}
+                    </span>
+                  </span>
+                  <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
+                    <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${pct ?? 0}%`, background: barColor }} />
+                  </span>
+                </>
+              );
+            })()
+          ) : mb && mb.hasData ? (
+            (() => {
+              const isUsd = mb.unit === "usd";
+              return (
+                <>
+                  <span style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)" }}>
+                    <span className="num" style={{ color: mb.depleted ? "var(--color-danger)" : "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
+                      {isUsd ? "$" : ""}{formatNumber(Math.max(0, mb.remaining))}
+                    </span>
+                    <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: "var(--text-tertiary)" }}>
+                      {isUsd ? `/ $${formatCost(mb.amount)}` : `/ ${formatNumber(mb.amount)} ${mb.unit === "count" ? t("platform.manualBudgetUnitCountShort", "次") : "tok"}`}
+                    </span>
+                  </span>
+                  <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
+                    <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${mb.ratio * 100}%`, background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)" }} />
+                  </span>
+                </>
+              );
+            })()
+          ) : (
+            <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>—</span>
+          )}
           {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
           {(isCpProtocol || hasCodingEndpoint) && u && (
             <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}
-              style={{ fontSize: 10.5, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
+              style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
               ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · ${formatCost(u.total_cost)}
             </span>
           )}
