@@ -10,7 +10,7 @@ import { formatNumber, formatCost, formatPercent, formatDurationMs, formatRelati
 import { isCurrentlyPeak } from "../../utils/timeWindow";
 import { ProtocolLogo } from "../../domains/platforms/ProtocolLogo";
 import { useProtocolMeta } from "../../domains/platforms/useProtocolMeta";
-import { allModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLabel, formatResetCountdown } from "../../domains/platforms/health";
+import { allModelValues, computeQuotaDisplay, computeManualBudgetDisplay, tierLabel, formatResetCountdown, formatResetClock } from "../../domains/platforms/health";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -258,6 +258,7 @@ export function PlatformRow({
             quota.tiers.map((tier, i) => {
               const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
               const countdown = formatResetCountdown(tier.resetsAt);
+              const resetClock = formatResetClock(tier.resetsAt);
               return (
                 <span key={tier.name} data-testid="row-quota-tier" data-tier={tier.name}
                   title={`${tierLabel(tier.name)} ${t("platform.quotaRemainSuffix", "剩")} ${tier.remainPct.toFixed(0)}%${countdown ? ` · ${countdown}` : ""}`}
@@ -267,7 +268,7 @@ export function PlatformRow({
                     <span style={{ display: "block", height: "100%", borderRadius: 99, width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, background: tierColor }} />
                   </span>
                   <span className="num" style={{ fontVariantNumeric: "tabular-nums", color: tierColor, fontWeight: 600 }}>{tier.remainPct.toFixed(0)}%</span>
-                  {countdown && <span style={{ whiteSpace: "nowrap" }}>{countdown}</span>}
+                  {resetClock && <span style={{ whiteSpace: "nowrap" }} title={`${t("platform.quotaResetAt", "重置于")} ${resetClock}`}>{resetClock}</span>}
                   {i === 0 && refreshBtn}
                 </span>
               );

@@ -172,6 +172,8 @@ async fn handle_group_info_inner(
             total_cost: 0.0,
             today_tokens: 0,
             today_cost: 0.0,
+            today_requests: 0,
+            today_success: 0,
         });
 
     let success_rate = if stats.total_requests > 0 {
