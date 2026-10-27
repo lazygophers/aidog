@@ -19,11 +19,13 @@ import {
 export const PLATFORM_ROW_GRID = "26px 34px minmax(200px,1.35fr) minmax(150px,1fr) 74px 62px 58px 58px 150px 108px";
 
 /** 未分组段列头（稿 .cols），与行 grid 同列宽。 */
-export function PlatformRowCols({ t }: { t: TFunction }) {
+export function PlatformRowCols({ t, riseDelay }: { t: TFunction; riseDelay?: number }) {
   return (
-    <div data-testid="platform-row-cols" style={{
+    <div data-testid="platform-row-cols" className={riseDelay != null ? "aidog-anim-rise" : undefined}
+      style={{
       display: "grid", gridTemplateColumns: PLATFORM_ROW_GRID, gap: 10,
-      padding: "0 14px 6px 8px", fontSize: 12, color: "var(--text-tertiary)", letterSpacing: "0.02em",
+      padding: "0 14px 0 8px", fontSize: 12, color: "var(--text-tertiary)", letterSpacing: "0.02em",
+      ...(riseDelay != null ? { animationDelay: `${riseDelay}ms` } : {}),
     }}>
       <span /><span />
       <span>{t("platform.col.name", "平台")}</span>
@@ -69,6 +71,12 @@ function hostOf(base_url: string): string {
   try { return new URL(base_url).host; } catch { return base_url; }
 }
 
+/** 毫秒戳 → HH:mm（稿 5「自动禁用 · HH:mm 重试」徽标）。 */
+function hhmm(ms: number): string {
+  const d = new Date(ms);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export interface PlatformRowProps {
   platform: Platform;
   usage?: PlatformUsageStats;
@@ -77,6 +85,8 @@ export interface PlatformRowProps {
   lastTest?: LastTestResult;
   manualResult?: "ok" | "fail";
   testing?: boolean;
+  /** 稿 5 stagger 入场 delay（ms，封顶 720）；不传不播动画。 */
+  riseDelay?: number;
   expanded?: boolean;
   selecting?: boolean;
   selected?: boolean;
@@ -116,7 +126,7 @@ function StatCell({ v, l, tone }: { v: string; l: string; tone?: "ok" | "warn" |
 
 export function PlatformRow({
   platform: p, usage: u, quotaRaw, quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
-  expanded, selecting, selected, levelPriority,
+  riseDelay, expanded, selecting, selected, levelPriority,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
 }: PlatformRowProps) {
@@ -174,13 +184,16 @@ export function PlatformRow({
 
   return (
     <div data-testid="platform-row" data-platform-id={p.id} data-status={status} data-selected={selected ? "true" : undefined}
+      className={riseDelay != null ? "aidog-anim-rise" : undefined}
       style={{
         position: "relative",
         opacity: enabled ? undefined : 0.62,
+        ...(riseDelay != null ? { animationDelay: `${Math.min(riseDelay, 720)}ms` } : {}),
         ...(selected ? { background: "var(--accent-subtle)", boxShadow: "inset 2px 0 0 var(--primary)" } : {}),
       }}>
       <div
         onClick={() => { if (!selecting) onToggleExpanded?.(!expanded); }}
+        className="aidog-row-hover"
         style={{
           display: "grid", gridTemplateColumns: PLATFORM_ROW_GRID, alignItems: "center", gap: STAT_GAP,
           padding: "11px 14px 11px 8px", borderBottom: "1px solid var(--border)",
@@ -239,7 +252,9 @@ export function PlatformRow({
             )}
             {status === "auto_disabled" && (
               <span style={badgeStyle("var(--color-warning)", "color-mix(in srgb, var(--color-warning) 12%, transparent)", "color-mix(in srgb, var(--color-warning) 35%, transparent)")}>
-                {t("platform.autoDisabledBadge", "自动禁用")}
+                {p.auto_disabled_until > nowMs
+                  ? t("platform.autoDisabledRetry", "自动禁用 · {{time}} 重试", { time: hhmm(p.auto_disabled_until) })
+                  : t("platform.autoDisabledBadge", "自动禁用")}
               </span>
             )}
             {/* per-group 候选优先级（1-10）：数字输入直改（值域真值源 RouteCandidate.level_priority） */}
@@ -295,7 +310,7 @@ export function PlatformRow({
                     </span>
                   </span>
                   <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
-                    <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${pct ?? 0}%`, background: barColor }} />
+                    <span data-testid="row-quota-bar" className="aidog-barfill" style={{ display: "block", height: "100%", borderRadius: 99, width: `${pct ?? 0}%`, background: barColor }} />
                   </span>
                 </>
               );
@@ -314,7 +329,7 @@ export function PlatformRow({
                     </span>
                   </span>
                   <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
-                    <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${mb.ratio * 100}%`, background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)" }} />
+                    <span data-testid="row-quota-bar" className="aidog-barfill" style={{ display: "block", height: "100%", borderRadius: 99, width: `${mb.ratio * 100}%`, background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)" }} />
                   </span>
                 </>
               );
@@ -361,7 +376,7 @@ export function PlatformRow({
         </span>
         {/* 列 10：操作（稿 .ops：⚡ 测速 · ✎ 编辑 · ⋯ 菜单 · 启用开关） */}
         <span style={{ display: "flex", alignItems: "center", gap: 7, justifyContent: "flex-end" }} onClick={e => e.stopPropagation()}>
-          <button type="button" className="ripple" title={t("platform.quickTest", "测速")} style={iconBtn(inPeak ? { color: "var(--color-warning)" } : undefined)}
+          <button type="button" className="ripple" title={t("platform.quickTest", "测速")} style={iconBtn({ color: "var(--color-warning)" })}
             onClick={() => onQuickTest?.(p)}>
             <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><path d="M8.2 1.2L3 8h3.4l-.8 4.8L11 6H7.4z" /></svg>
           </button>
@@ -374,7 +389,7 @@ export function PlatformRow({
                 <svg width="13" height="13" viewBox="0 0 14 14" fill="currentColor"><circle cx="3" cy="7" r="1.3" /><circle cx="7" cy="7" r="1.3" /><circle cx="11" cy="7" r="1.3" /></svg>
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" style={{ minWidth: 150 }}>
+            <DropdownMenuContent align="end" style={{ minWidth: 142 }}>
               {onViewLogs && <DropdownMenuItem onSelect={() => onViewLogs(p)}>{t("platform.viewLogs", "查看日志")}</DropdownMenuItem>}
               {onShare && <DropdownMenuItem onSelect={() => onShare(p)}>{t("platform.share.button", "分享配置")}</DropdownMenuItem>}
               {onDuplicate && <DropdownMenuItem onSelect={() => onDuplicate(p)}>{t("platform.duplicate", "复制平台")}</DropdownMenuItem>}

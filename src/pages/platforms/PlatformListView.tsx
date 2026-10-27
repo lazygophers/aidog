@@ -88,7 +88,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header（稿 5 .top：大标题 + active 计数点 + 搜索 + 添加分组 / 添加平台 / 清理失效）——只在列表态显示，分组全屏视图（创建/编辑/详情）独立成页不带页头 */}
-      {!groupFullscreen && (<header data-testid="platforms-header" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
+      {!groupFullscreen && (<header data-testid="platforms-header" className="aidog-anim-rise" style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, paddingBottom: 4, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 14 }}>
           <h1 style={{ fontSize: 21, fontWeight: 650, letterSpacing: "-0.01em", margin: 0 }}>{t("page.platforms")}</h1>
           <div data-testid="platforms-counter" style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--text-secondary)" }}>
@@ -100,21 +100,35 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-          <Input
-            className="input"
-            placeholder={t("platform.searchPlaceholder", "搜索平台...")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            style={{ width: 230, height: 32, fontSize: 12.5, borderRadius: 7 }}
-          />
+          {/* 稿 5 .search：surface 底 + 搜索图标 + 功能 Input + ⌘K */}
+          <label className="aidog-search" style={{
+            display: "flex", alignItems: "center", gap: 8, width: 230, height: 32, padding: "0 9px",
+            background: "var(--card)", border: "1px solid var(--border)", borderRadius: 7, cursor: "text",
+          }}>
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" style={{ flexShrink: 0, opacity: 0.55 }}><circle cx="7" cy="7" r="5" stroke="currentColor" strokeWidth="1.6" /><path d="M11 11l3.2 3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+            <Input
+              placeholder={t("platform.searchPlaceholder", "搜索平台...")}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              style={{ flex: 1, minWidth: 0, height: "auto", border: "none", background: "transparent", padding: 0, fontSize: 12.5, boxShadow: "none" }}
+            />
+            <kbd style={{
+              fontFamily: "var(--font-mono, monospace)", fontSize: 12, color: "var(--text-tertiary)",
+              background: "var(--secondary)", border: "1px solid var(--border)", borderBottomWidth: 2,
+              borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap",
+            }}>⌘K</kbd>
+          </label>
+          {/* 稿 5 .btn 基础款 / .btn.primary 淡紫 */}
           <Button onClick={() => openCreateGroupRef.current?.()}>
             + {t("group.add", "添加分组")}
           </Button>
-          <Button onClick={() => { resetForm(); setShowForm(true); }}>
+          <Button
+            onClick={() => { resetForm(); setShowForm(true); }}
+            style={{ background: "var(--accent-subtle)", color: "var(--primary)", borderColor: "color-mix(in srgb, var(--primary) 45%, transparent)" }}
+          >
             + {t("platform.add")}
           </Button>
           <Button
-            variant="ghost"
             onClick={() => setPurgeConfirmOpen(true)}
             title={t("platform.purgeDisabled", "清理失效平台")}
           >
@@ -129,7 +143,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {/* 未分组段（稿 5：分隔标题 + 列头 + 行式列表；全屏视图态隐藏） */}
       {!groupFullscreen && (<>
-        <div data-testid="ungrouped-divider" style={{ display: "flex", alignItems: "center", gap: 12, margin: "26px 0 4px", color: "var(--text-tertiary)", fontSize: 12 }}>
+        <div data-testid="ungrouped-divider" className="aidog-anim-rise" style={{ display: "flex", alignItems: "center", gap: 12, margin: "34px 0 4px", color: "var(--text-tertiary)", fontSize: 12, animationDelay: "480ms" }}>
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
           {t("platform.ungrouped", "未分组")} · {standalonePlatforms.length} {t("group.platforms", "平台")}
           <span style={{ flex: 1, height: 1, background: "var(--border)" }} />
@@ -141,7 +155,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
             {standalonePlatforms.length === 0 && (
               <div className="text-tertiary" style={{ padding: 40, textAlign: "center", fontSize: 13 }}>{t("platform.empty")}</div>
             )}
-            {standalonePlatforms.length > 0 && <PlatformRowCols t={t} />}
+            {standalonePlatforms.length > 0 && <PlatformRowCols t={t} riseDelay={500} />}
             <div ref={platListRef} style={{ display: "flex", flexDirection: "column" }}>
               {standalonePlatforms.map((p, i) => {
                 const isDragging = platDrag?.from === i;
@@ -170,6 +184,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                     >
                       <PlatformRow
                         platform={p}
+                        riseDelay={540 + 60 * i}
                         usage={usageMap[p.id]}
                         quotaRaw={quota.quotaMap[p.id]}
                         quotaPreferReal={!!quota.quotaRealIds[p.id]}
@@ -189,7 +204,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                         onQuickTest={(pp) => cardService.onQuickTest(pp)}
                         onDelete={(id) => setDeleteId(id)}
                         lead={
-                          <span className="drag-handle drag-handle-inline" style={{ cursor: "grab", display: "inline-flex", alignItems: "center", opacity: 0.85, touchAction: "none" }}
+                          <span className="drag-handle drag-handle-inline aidog-dragfade" style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none" }}
                             title={t("group.dragPlatform", "拖拽加入分组")}>
                             <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
                           </span>
