@@ -2,13 +2,14 @@
 // 双栏观测台：中央统计带 + 桑基 flow + 成员表 + 模型映射 / 右候选序 + 最近路由 + 7 天趋势 + 组操作。
 // 数据源全部复用现有 API；idiom 同 GroupEditPanel（页内独立视图态，Groups.tsx detailTarget 分支渲染）。
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
 import { groupFlowApi } from "../../services/api";
 import { GroupSidePanels, staticOrder } from "./GroupSidePanels";
 import type { CardsSnapshot } from "./GroupListItem";
 import { GroupFlowPanel } from "./GroupFlowPanel";
-import { LevelPriorityInput } from "../platforms/PlatformRow";
+import { PlatformRow, PlatformRowCols } from "../platforms/PlatformRow";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
 import { routingModeLabel } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
@@ -92,24 +93,14 @@ function TrendCard(props: { groupKey: string; t: TFunction; platName: (id: numbe
 }
 
 
-/** 详情页成员行徽标：auto_disabled = 熔断冷却（设计稿 tg.d），disabled = 停用。 */
-function MemberTag(props: { status: string; t: TFunction }) {
-  if (props.status === "auto_disabled") {
-    return <span style={{ fontSize: 9.5, borderRadius: 4, padding: "1px 6px", fontFamily: "var(--font-mono, monospace)", background: "rgba(209,75,75,.12)", color: "var(--color-danger, #D14B4B)" }}>{props.t("group.detail.broken", "熔断冷却")}</span>;
-  }
-  if (props.status === "disabled") {
-    return <span style={{ fontSize: 9.5, borderRadius: 4, padding: "1px 6px", fontFamily: "var(--font-mono, monospace)", background: "rgba(199,126,30,.13)", color: "var(--color-warning, #C77E1E)" }}>{props.t("group.candidates.disabled", "停用")}</span>;
-  }
-  return null;
-}
-
-/** 中央成员表（设计稿 memrow 网格：状态点/名称/占比/成功率/费用/延迟/配额+操作）+ 底部模型映射。 */
+/** 中央成员表：复用列表页 PlatformRow 行卡（配额/coding plan 档位/刷新/优先级/启停/展开明细）+ 底部模型映射。 */
 function MembersCard(props: {
   detail: GroupDetail;
   platforms: Platform[];
   cards: CardsSnapshot;
+  cardService: import("../../components/platforms/PlatformCard").PlatformCardService;
+  lang: string;
   t: TFunction;
-  onQuickTest: (p: Platform) => void;
   onEditPlatform: (p: Platform) => void;
   onSetLevelPriority?: (pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
@@ -123,9 +114,10 @@ function MembersCard(props: {
   const fullPlats = gps
     .map(gp => props.platforms.find(pp => pp.id === gp.platform.id))
     .filter((pp): pp is Platform => !!pp);
-  const totalReqs = fullPlats.reduce((s, p) => s + (cards.usageMap[p.id]?.total_requests ?? 0), 0);
-  const statusColor = (s: string) =>
-    s === "enabled" ? "var(--color-success, #1F9D61)" : s === "auto_disabled" ? "var(--color-danger, #D14B4B)" : "var(--text-tertiary)";
+  const [memberExpanded, setMemberExpanded] = useState<Set<number>>(new Set());
+  const toggleMember = (id: number, next: boolean) => {
+    setMemberExpanded(prev => { const s = new Set(prev); if (next) s.add(id); else s.delete(id); return s; });
+  };
   return (
     <div style={{ ...acardStyle, padding: 0, overflow: "hidden" }} data-testid="detail-members" data-group-id={detail.group.id}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
@@ -138,76 +130,53 @@ function MembersCard(props: {
           </Button>
         )}
       </div>
+      {fullPlats.length > 0 && <PlatformRowCols t={t} />}
       {fullPlats.length === 0 ? (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "18px 14px" }}>{t("group.empty", "暂无平台")}</div>
       ) : fullPlats.map((p, idx) => {
-        const u = cards.usageMap[p.id];
-        const share = totalReqs > 0 ? Math.round((u?.total_requests ?? 0) / totalReqs * 100) : 0;
-        const sRate = u && u.total_requests > 0 ? calcSuccessRate(u.success_count, u.total_requests) : null;
-        const last = cards.lastTestMap[p.id];
-        const balance = cards.quotaMap[p.id]?.balance;
-        const quotaPct = balance && balance.total ? Math.max(0, Math.min(100, Math.round(balance.remaining / balance.total * 100))) : null;
         const gp = gps.find(g => g.platform.id === p.id);
-        const chartColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
         return (
           <Fragment key={p.id}>
             {props.memberDropIndicator?.gid === detail.group.id && props.memberDropIndicator.idx === idx && (
               <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-1px 0", opacity: 0.7 }} />
             )}
-          <div className="memrow" data-plat-id={p.id} data-gp-id={p.id} style={{
-            display: "grid", gridTemplateColumns: "20px 22px 1fr 130px 74px 74px 84px 100px", gap: 8, alignItems: "center",
-            padding: "10px 14px", borderBottom: "1px solid #EEF1F5", fontSize: 12,
-            opacity: p.status === "enabled" ? 1 : 0.62,
-          }}>
-            {props.onMemberPointerDown ? (
-              <span data-testid="detail-drag-handle" onPointerDown={(e) => props.onMemberPointerDown!(e, p.id, detail.group.id)}
-                style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none", color: "var(--text-tertiary)", opacity: 0.85 }}
-                title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>
-                <svg width="9" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
-              </span>
-            ) : <span />}
-            <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor(p.status), display: "inline-block" }} />
-            <span style={{ fontWeight: 600, display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
-              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_type}</span>
-              {p.endpoints?.[0]?.protocol && <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{p.endpoints[0].protocol}</span>}
-              <MemberTag status={p.status} t={t} />
-              {gp != null && <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp.level_priority, prio: gp.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>#{idx + 1}</span>}
-              {/* per-group 候选优先级（1-10）行内直改，同列表页 LevelPriorityInput */}
-              {gp != null && props.onSetLevelPriority && (
-                <LevelPriorityInput testId="detail-row-level" title={t("platform.levelPriority", "候选优先级")}
-                  value={gp.level_priority} onChange={(v) => props.onSetLevelPriority!(p.id, v)} />
-              )}
-            </span>
-            <span>
-              {formatNumber(u?.total_requests ?? 0)} · {share}%
-              <span style={{ height: 5, borderRadius: 3, background: "var(--secondary, #EEF1F5)", overflow: "hidden", marginTop: 3, display: "block" }}>
-                <i style={{ display: "block", height: "100%", width: share + "%", background: chartColors[idx % 4] }} />
-              </span>
-            </span>
-            <span style={{ fontSize: 11.5, color: sRate == null ? "var(--text-tertiary)" : sRate >= 98 ? "var(--color-success, #1F9D61)" : sRate >= 90 ? "var(--color-warning, #C77E1E)" : "var(--color-danger, #D14B4B)" }}>
-              {sRate == null ? "—" : formatPercent(sRate, 1)}
-            </span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>${formatCost(u?.today_cost ?? 0)}</span>
-            <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: last ? (last.success ? "var(--text-tertiary)" : "var(--color-danger, #D14B4B)") : "var(--text-tertiary)" }}>
-              {last ? (last.duration_ms + "ms " + (last.success ? "✓" : "✗")) : "—"}
-            </span>
-            <span style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-              {quotaPct != null && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ width: 48, height: 5, borderRadius: 3, background: "var(--secondary, #EEF1F5)", overflow: "hidden", display: "inline-block" }}>
-                    <i style={{ display: "block", height: "100%", width: quotaPct + "%", background: quotaPct > 20 ? "var(--primary)" : "var(--color-warning, #C77E1E)" }} />
+            <div data-plat-id={p.id} data-gp-id={p.id}>
+              <PlatformRow
+                platform={p}
+                usage={cards.usageMap[p.id]}
+                quotaRaw={cards.quotaMap[p.id]}
+                quotaPreferReal={!!cards.quotaRealIds[p.id]}
+                onRefreshQuota={cards.refreshQuota ? (pp) => { void cards.refreshQuota!(pp); } : undefined}
+                refreshing={!!cards.quotaRefreshing[p.id]}
+                lastTest={cards.lastTestMap[p.id]}
+                manualResult={cards.testResults[p.id]}
+                testing={cards.testingId === p.id}
+                expanded={memberExpanded.has(p.id)}
+                onToggleExpanded={(next) => toggleMember(p.id, next)}
+                onToggle={(pp) => props.cardService.onToggleEnabled(pp)}
+                onEdit={props.onEditPlatform}
+                onShare={(pp) => props.cardService.onShare(pp)}
+                onDuplicate={(pp) => props.cardService.onDuplicate(pp)}
+                onViewLogs={(pp) => props.cardService.onViewLogs(pp)}
+                onQuickTest={(pp) => props.cardService.onQuickTest(pp)}
+                levelPriority={gp?.level_priority}
+                onLevelPriorityChange={gp != null && props.onSetLevelPriority ? (v) => props.onSetLevelPriority!(p.id, v) : undefined}
+                t={t}
+                lang={props.lang}
+                lead={
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    {props.onMemberPointerDown && (
+                      <span data-testid="detail-drag-handle" onPointerDown={(e) => props.onMemberPointerDown!(e, p.id, detail.group.id)}
+                        style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none", color: "var(--text-tertiary)", opacity: 0.85 }}
+                        title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>
+                        <svg width="9" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
+                      </span>
+                    )}
+                    <span title={t("group.candidates.posReason", "优先级 {{level}} / 序 {{prio}}", { level: gp?.level_priority, prio: gp?.priority })} style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>#{idx + 1}</span>
                   </span>
-                  <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10, color: "var(--text-tertiary)" }}>{quotaPct}%</span>
-                </span>
-              )}
-              <Button variant="ghost" size="icon" style={{ width: 22, height: 22, minWidth: 22 }} onClick={() => props.onQuickTest(p)} title={t("group.detail.testOne", "快速测试")}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" /></svg>
-              </Button>
-              <Button variant="ghost" size="icon" style={{ width: 22, height: 22, minWidth: 22 }} onClick={() => props.onEditPlatform(p)} title={t("action.edit", "编辑")}>
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" /><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" /></svg>
-              </Button>
-            </span>
-          </div>
+                }
+              />
+            </div>
           </Fragment>
         );
       })}
@@ -263,6 +232,7 @@ export function GroupDetailPage(props: {
   memberDropIndicator?: { gid: number; idx: number } | null;
 }) {
   const { detail, platforms, t, groupStats, cards, cardService } = props;
+  const { i18n } = useTranslation();
   const { group } = detail;
   const gps = detail.platforms;
   const u = groupStats[group.group_key];
@@ -324,8 +294,8 @@ export function GroupDetailPage(props: {
             <GroupFlowPanel groupKey={group.group_key} gps={gps} />
           </div>
           <MembersCard
-            detail={detail} platforms={platforms} cards={cards} t={t}
-            onQuickTest={cardService.onQuickTest}
+            detail={detail} platforms={platforms} cards={cards} cardService={cardService}
+            lang={i18n.language} t={t}
             onEditPlatform={props.onEditPlatform}
             onDeleteMapping={props.onDeleteMapping}
             onAddPlatform={props.onAddPlatform}
