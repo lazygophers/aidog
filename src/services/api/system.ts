@@ -42,6 +42,8 @@ export const dbApi = {
 export const aboutApi = {
   /** 读取应用 / 运行时 / 系统 / 构建版本信息。 */
   info: () => invoke<AboutInfo>("about_info"),
+  /** 经 macOS 管理员验证后返回 SQLite（SQLCipher）加密密钥 hex（64 字符）。 */
+  revealDbKey: () => invoke<string>("db_master_key_reveal"),
 };
 
 // ─── CLI 工具环境（Claude Code / Codex / pi）─────────────────

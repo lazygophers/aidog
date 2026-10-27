@@ -51,6 +51,22 @@ export function About() {
   const revealUpdate = useReveal<HTMLDivElement>(80);
   const revealGithub = useReveal<HTMLDivElement>(160);
   const revealCli = useReveal<HTMLDivElement>(240);
+  const revealDbKey = useReveal<HTMLDivElement>(320);
+
+  // ─── 数据库密钥（SQLCipher master key；管理员验证后才显示）──────────
+  const [dbKey, setDbKey] = useState("");
+  const [dbKeyBusy, setDbKeyBusy] = useState(false);
+  const [dbKeyErr, setDbKeyErr] = useState("");
+  const handleRevealDbKey = async () => {
+    setDbKeyErr(""); setDbKeyBusy(true);
+    try {
+      setDbKey(await aboutApi.revealDbKey());
+    } catch (e) {
+      setDbKeyErr(String(e));
+    } finally {
+      setDbKeyBusy(false);
+    }
+  };
 
   useEffect(() => {
     aboutApi.info().then(setInfo).catch(() => setInfo(null));
@@ -326,6 +342,41 @@ export function About() {
         <div style={{ fontSize: 12, color: "var(--text-tertiary)", fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
           {GITHUB_REPO}
         </div>
+      </div>
+
+      {/* 数据库密钥：管理员验证后显示（SQLCipher master key，供 sqlcipher 工具开库） */}
+      <div ref={revealDbKey.ref} className={`glass-surface hover-lift reveal${revealDbKey.shown ? " in" : ""}`} style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }} data-testid="about-db-key">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+              {t("about.dbKey.title", "数据库密钥")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              {t("about.dbKey.desc", "本机数据库（SQLite / SQLCipher）的加密密钥，验证管理员身份后显示")}
+            </div>
+          </div>
+          {!dbKey && (
+            <Button onClick={(e) => { makeRipple(e); void handleRevealDbKey(); }} disabled={dbKeyBusy}>
+              {dbKeyBusy ? t("status.loading") : t("about.dbKey.reveal", "验证并显示")}
+            </Button>
+          )}
+        </div>
+        {dbKey && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <code data-testid="about-db-key-value" style={{ flex: 1, minWidth: 0, fontSize: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", wordBreak: "break-all", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--border)", background: "var(--bg-glass, rgba(127,127,127,.06))" }}>{dbKey}</code>
+            <Button variant="outline" onClick={() => void navigator.clipboard.writeText(dbKey)}>{t("action.copy", "复制")}</Button>
+          </div>
+        )}
+        {dbKey && (
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            {t("about.dbKey.hint", "sqlcipher 工具开库：")}<code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>{"PRAGMA key = \"x'{密钥}'\""}</code>
+          </div>
+        )}
+        {dbKeyErr && (
+          <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-danger)" }}>
+            {t("about.dbKey.fail", "验证未通过或已取消")}
+          </div>
+        )}
       </div>
 
       {/* 本地环境：Claude Code / Codex CLI */}
