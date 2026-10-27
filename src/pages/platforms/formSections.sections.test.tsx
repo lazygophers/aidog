@@ -194,27 +194,19 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     const next = updater([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
     expect(next[0]).toMatchObject({ start_hour: 9, start_minute: 37 });
   });
-  it("生效期默认收起：无值窗口无日期框；点开出现两个 datetime-local", () => {
+  it("生效期平铺恒显：两个 datetime-local 直接渲染（非必填，空 = 立即/永久）", () => {
     const { container } = renderPeak([{ start_hour: 0, end_hour: 24, multiplier: 1 }]);
-    expect(container.querySelector("#peak-start-0")).toBeNull();
-    expect(container.querySelector("#peak-end-0")).toBeNull();
-    expect(container.querySelector("#peak-period-0")?.getAttribute("data-state")).toBe("closed");
-    fireEvent.click(container.querySelector("#peak-period-0")!);
-    expect(container.querySelector("#peak-period-0")?.getAttribute("data-state")).toBe("open");
-    expect(container.querySelector("#peak-start-0")).not.toBeNull();
-    expect(container.querySelector("#peak-end-0")).not.toBeNull();
+    expect((container.querySelector("#peak-start-0") as HTMLInputElement).value).toBe("");
+    expect((container.querySelector("#peak-end-0") as HTMLInputElement).value).toBe("");
   });
 
-  it("带值窗口收起态显示起止摘要；清空起始 → setWindows 提交 start_at undefined", () => {
+  it("带值窗口回填 datetime；清空起始 → setWindows 提交 start_at undefined，end_at 保留", () => {
     // 本地时区构造，避免 TZ 环境差异；toDatetimeLocal 同为本地时区输出
     const startSec = Math.floor(new Date(2026, 0, 2, 3, 0).getTime() / 1000);
     const endSec = Math.floor(new Date(2026, 5, 30, 15, 0).getTime() / 1000);
     const w0 = { start_hour: 0, end_hour: 24, multiplier: 1, start_at: startSec, end_at: endSec };
     const { container, setWindows } = renderPeak([w0]);
-    // 收起态：摘要显示、日期框不渲染
-    expect(container.querySelector("#peak-period-summary-0")?.textContent).toBe("2026-01-02 03:00 → 2026-06-30 15:00");
-    expect(container.querySelector("#peak-start-0")).toBeNull();
-    fireEvent.click(container.querySelector("#peak-period-0")!);
+    expect((container.querySelector("#peak-start-0") as HTMLInputElement).value).toBe("2026-01-02T03:00");
     // 清空起始 → start_at undefined，end_at 保留
     fireEvent.change(container.querySelector("#peak-start-0")!, { target: { value: "" } });
     expect(setWindows).toHaveBeenCalled();

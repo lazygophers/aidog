@@ -86,13 +86,18 @@ const C = {
     color, background: `color-mix(in srgb, ${color} 12%, transparent)`,
     border: `1px solid color-mix(in srgb, ${color} 32%, transparent)`,
   }),
-  /** 实时态 / 摘要 pill */
+  /** 实时态 / 摘要 pill（稿 2/3/4 .pill：10px；neutral = 透明底 + line 边框） */
   pill: (tone: "neutral" | "hot" | "ok"): React.CSSProperties => {
     const c = tone === "hot" ? "var(--color-warning)" : tone === "ok" ? "var(--color-success)" : "var(--text-tertiary)";
     return {
-      fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
-      color: c, border: `1px solid color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 35%, transparent)`,
-      background: `color-mix(in srgb, ${tone === "neutral" ? "currentColor" : c} 8%, transparent)`,
+      fontSize: 10, fontWeight: 600, padding: "3px 9px", borderRadius: 6, whiteSpace: "nowrap",
+      color: c,
+      ...(tone === "neutral"
+        ? { border: "1px solid var(--border)", background: "transparent" }
+        : {
+            border: `1px solid color-mix(in srgb, ${c} 35%, transparent)`,
+            background: `color-mix(in srgb, ${c} 8%, transparent)`,
+          }),
     };
   },
   /** 编辑行卡 */
@@ -803,8 +808,6 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
   const [modelList, setModelList] = useState<string[]>([]);
   // 每窗口 model 输入框临时态（idx → 输入串），Enter/逗号/失定提交为 chip。
   const [modelInput, setModelInput] = useState<Record<number, string>>({});
-  // 生效期折叠行开合态（idx → open）：默认收起——数据层本就非必填，UI 不再恒显两个日期框。
-  const [periodOpen, setPeriodOpen] = useState<Record<number, boolean>>({});
 
 
   useEffect(() => {
@@ -890,8 +893,9 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 key={m}
                 variant="ghost"
                 size="sm"
-                className={tzMode === m ? "btn-primary" : ""}
-                style={{ padding: "2px 8px", fontSize: 11, height: "auto" }}
+                style={tzMode === m
+                  ? { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                  : { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
                 onClick={() => setTzMode(m)}
               >
                 {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
@@ -927,7 +931,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
       </div>
 
       {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
         <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
           <Switch
             checked={disableDuringPeak}
@@ -954,7 +958,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               : t("platform.currently_off_peak", "当前：非高峰期")}
           </span>
         )}
-        <span style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, marginLeft: 4 }}>
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
         </span>
       </div>
@@ -964,7 +968,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
         </div>
       )}
       {windows.map((w, idx) => (
-        <div key={idx} className="aidog-anim-rise" style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+        <div key={idx} className="aidog-anim-rise" style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--card)", border: "1px solid var(--border)" }}>
           {/* 顶行：时段 + 倍率 + 周日 + 删除 */}
           <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
             {(() => {
@@ -1081,7 +1085,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
                 <span
                   key={mi}
                   className="badge badge-muted"
-                  style={{ fontSize: 11, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
+                  style={{ fontSize: 10, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
                 >
                   {m}
                   <Button
@@ -1126,64 +1130,41 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
               </datalist>
             </div>
           </div>
-          {/* 生效期：start_at / end_at（Unix 秒 ↔ datetime-local）。
-              默认收进折叠行（数据层本就非必填，无值不该恒占两行日期框）；带值时行上显示起止摘要。
-              空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
-          <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-            <button
-              type="button"
-              id={`peak-period-${idx}`}
-              data-state={periodOpen[idx] ? "open" : "closed"}
-              onClick={() => setPeriodOpen(s => ({ ...s, [idx]: !s[idx] }))}
-              style={{ background: "none", border: "none", padding: 0, cursor: "pointer", display: "inline-flex", gap: 6, alignItems: "center", font: "inherit", color: "inherit" }}
-            >
-              <span style={{ display: "inline-block", transition: "transform .15s", transform: periodOpen[idx] ? "rotate(90deg)" : "none" }}>▸</span>
-              {t("platform.peak_period", "生效期（可选）")}
-              {(w.start_at || w.end_at) && (
-                <span id={`peak-period-summary-${idx}`} style={{ color: "var(--text-primary)" }}>
-                  {[
-                    w.start_at ? toDatetimeLocal(w.start_at * 1000).replace("T", " ") : null,
-                    w.end_at ? toDatetimeLocal(w.end_at * 1000).replace("T", " ") : null,
-                  ].filter(Boolean).join(" → ")}
-                </span>
-              )}
-            </button>
-            {periodOpen[idx] && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", paddingTop: 4 }}>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                  {t("platform.peak_start_at", "生效起始")}
-                  <Input
-                    id={`peak-start-${idx}`}
-                    className="input"
-                    type="datetime-local"
-                    style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                    value={secToLocalInput(w.start_at)}
-                    onChange={e => {
-                      const sec = localInputToSec(e.target.value);
-                      update(idx, sec == null ? { start_at: undefined } : { start_at: sec });
-                    }}
-                  />
-                </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                  {t("platform.peak_end_at", "生效截止")}
-                  <Input
-                    id={`peak-end-${idx}`}
-                    className="input"
-                    type="datetime-local"
-                    style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                    value={secToLocalInput(w.end_at)}
-                    onChange={e => {
-                      const sec = localInputToSec(e.target.value);
-                      update(idx, sec == null ? { end_at: undefined } : { end_at: sec });
-                    }}
-                  />
-                </label>
-              </div>
-            )}
+          {/* 生效期：start_at / end_at（Unix 秒 ↔ datetime-local），平铺恒显（稿 2）。
+              非必填：空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginTop: 2 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+              {t("platform.peak_start_at", "生效起始")}
+              <Input
+                id={`peak-start-${idx}`}
+                className="input"
+                type="datetime-local"
+                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                value={secToLocalInput(w.start_at)}
+                onChange={e => {
+                  const sec = localInputToSec(e.target.value);
+                  update(idx, sec == null ? { start_at: undefined } : { start_at: sec });
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+              {t("platform.peak_end_at", "生效截止")}
+              <Input
+                id={`peak-end-${idx}`}
+                className="input"
+                type="datetime-local"
+                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                value={secToLocalInput(w.end_at)}
+                onChange={e => {
+                  const sec = localInputToSec(e.target.value);
+                  update(idx, sec == null ? { end_at: undefined } : { end_at: sec });
+                }}
+              />
+            </label>
           </div>
         </div>
       ))}
-      <button type="button" className={C.addBtnClass} onClick={add}>
+      <button type="button" className={C.addBtnClass} style={{ marginTop: 2 }} onClick={add}>
         + {t("platform.add_window", "添加窗口")}
       </button>
       <Dialog open={modalOpen} onOpenChange={(v) => { if (!v) setModalOpen(false); }}>
