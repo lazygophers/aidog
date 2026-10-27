@@ -55,6 +55,7 @@ const baseProps = {
   cards,
   cardService: { onQuickTest: vi.fn(), onEdit: vi.fn(), onShare: vi.fn(), onDuplicate: vi.fn(), onViewLogs: vi.fn(), onCustomTest: vi.fn(), onToggleEnabled: vi.fn() } as never,
   groupTestRunning: false,
+  onMemberPointerDown: vi.fn(), memberDropIndicator: null,
   onSelectGroup: vi.fn(), onClose: vi.fn(), onEditGroup: vi.fn(),
   onTestGroup: vi.fn(), onEditPlatform: vi.fn(),
   onDeleteMapping: vi.fn(), onAddPlatform: vi.fn(), onSetLevelPriority: vi.fn(),
@@ -93,5 +94,18 @@ describe("GroupDetailPage — 观测台三栏", () => {
     const del = document.querySelector('[data-testid="detail-mappings"] button')!;
     fireEvent.click(del);
     expect(baseProps.onDeleteMapping).toHaveBeenCalledWith(1, 0);
+  });
+});
+
+describe("GroupDetailPage — 成员行拖拽把手", () => {
+  it("传 onMemberPointerDown 时渲染把手，pointerDown 冒 pid/gid", () => {
+    vi.mocked(groupFlowApi.daily!).mockResolvedValue([]);
+    render(<GroupDetailPage {...baseProps} />);
+    const handle = document.querySelector('[data-testid="detail-drag-handle"]')!;
+    expect(handle).toBeTruthy();
+    fireEvent.pointerDown(handle, { clientX: 10, clientY: 10 });
+    expect(baseProps.onMemberPointerDown).toHaveBeenCalledWith(
+      expect.anything(), 1, 1,
+    );
   });
 });

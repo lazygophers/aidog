@@ -1,7 +1,7 @@
 // GroupDetailPage — G3 分组详情页（设计稿「分组页终稿」1:1 独立成页）。
 // 双栏观测台：中央统计带 + 桑基 flow + 成员表 + 模型映射 / 右候选序 + 最近路由 + 7 天趋势 + 组操作。
 // 数据源全部复用现有 API；idiom 同 GroupEditPanel（页内独立视图态，Groups.tsx detailTarget 分支渲染）。
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import type { TFunction } from "i18next";
 import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
 import { groupFlowApi } from "../../services/api";
@@ -114,6 +114,9 @@ function MembersCard(props: {
   onSetLevelPriority?: (pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
+  /** 成员行拖拽（复用列表页 usePlatformDrag：组内重排 priority 序，WKWebView pointer 方案） */
+  onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
+  memberDropIndicator?: { gid: number; idx: number } | null;
 }) {
   const { detail, cards, t } = props;
   const gps = detail.platforms;
@@ -124,7 +127,7 @@ function MembersCard(props: {
   const statusColor = (s: string) =>
     s === "enabled" ? "var(--color-success, #1F9D61)" : s === "auto_disabled" ? "var(--color-danger, #D14B4B)" : "var(--text-tertiary)";
   return (
-    <div style={{ ...acardStyle, padding: 0, overflow: "hidden" }} data-testid="detail-members">
+    <div style={{ ...acardStyle, padding: 0, overflow: "hidden" }} data-testid="detail-members" data-group-id={detail.group.id}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderBottom: "1px solid var(--border)" }}>
         <b style={{ fontSize: 12.5 }}>{t("group.detail.members", "成员平台")} · {fullPlats.length}</b>
         <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, color: "var(--text-tertiary)" }}>{t("group.detail.byCandidateOrder", "按候选序")}</span>
@@ -147,11 +150,22 @@ function MembersCard(props: {
         const gp = gps.find(g => g.platform.id === p.id);
         const chartColors = ["var(--chart-1)", "var(--chart-2)", "var(--chart-3)", "var(--chart-4)"];
         return (
-          <div key={p.id} className="memrow" data-plat-id={p.id} style={{
-            display: "grid", gridTemplateColumns: "22px 1fr 130px 74px 74px 84px 100px", gap: 8, alignItems: "center",
+          <Fragment key={p.id}>
+            {props.memberDropIndicator?.gid === detail.group.id && props.memberDropIndicator.idx === idx && (
+              <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-1px 0", opacity: 0.7 }} />
+            )}
+          <div className="memrow" data-plat-id={p.id} data-gp-id={p.id} style={{
+            display: "grid", gridTemplateColumns: "20px 22px 1fr 130px 74px 74px 84px 100px", gap: 8, alignItems: "center",
             padding: "10px 14px", borderBottom: "1px solid #EEF1F5", fontSize: 12,
             opacity: p.status === "enabled" ? 1 : 0.62,
           }}>
+            {props.onMemberPointerDown ? (
+              <span data-testid="detail-drag-handle" onPointerDown={(e) => props.onMemberPointerDown!(e, p.id, detail.group.id)}
+                style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none", color: "var(--text-tertiary)", opacity: 0.85 }}
+                title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>
+                <svg width="9" height="14" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
+              </span>
+            ) : <span />}
             <span style={{ width: 7, height: 7, borderRadius: "50%", background: statusColor(p.status), display: "inline-block" }} />
             <span style={{ fontWeight: 600, display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
               <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_type}</span>
@@ -194,6 +208,7 @@ function MembersCard(props: {
               </Button>
             </span>
           </div>
+          </Fragment>
         );
       })}
       {/* 模型映射（设计稿 mp 行：source chip → 平台 chip → 目标模型 chip） */}
@@ -243,6 +258,9 @@ export function GroupDetailPage(props: {
   onSetLevelPriority: (groupId: number, pid: number, v: number) => void;
   onDeleteMapping: (groupId: number, index: number) => void;
   onAddPlatform?: () => void;
+  /** 成员行拖拽（Groups.tsx 注入 usePlatformDrag 句柄） */
+  onMemberPointerDown?: (ev: React.PointerEvent, pid: number, gid: number) => void;
+  memberDropIndicator?: { gid: number; idx: number } | null;
 }) {
   const { detail, details, platforms, t, groupStats, cards, cardService } = props;
   const { group } = detail;
@@ -310,6 +328,8 @@ export function GroupDetailPage(props: {
             onDeleteMapping={props.onDeleteMapping}
             onAddPlatform={props.onAddPlatform}
             onSetLevelPriority={(pid, v) => props.onSetLevelPriority(group.id, pid, v)}
+            onMemberPointerDown={props.onMemberPointerDown}
+            memberDropIndicator={props.memberDropIndicator}
           />
         </div>
         {/* 右：候选序 + 最近路由 + 趋势 + 组操作 */}
