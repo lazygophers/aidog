@@ -1258,6 +1258,18 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   .aidog-tpop-col button.on { background: var(--primary); color: #fff; }
   .aidog-tpop-col button:disabled { opacity: .25; cursor: default; background: none; }
 
+  /* 「+ 添加窗口」虚线框按钮（1-时段窗口弹窗.html .add）：hover 变紫 */
+  .aidog-dashed-add {
+    border: 1px dashed var(--border);
+    color: var(--text-secondary);
+    transition: border-color .2s, color .2s, background .2s;
+  }
+  .aidog-dashed-add:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 6%, transparent);
+  }
+
   /* 路由决策画布（票 02，RoutingCanvas）：workflow 节点 + SVG 连线，配色全走主题变量 */
   .rc-node {
     position: relative;
