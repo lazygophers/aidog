@@ -1179,12 +1179,26 @@ input[type="week"]::-webkit-calendar-picker-indicator {
     from { opacity: 0; transform: scale(.96) translateY(8px); }
     to { opacity: 1; }
   }
+  /* 只写 from：终点取元素自身样式（含行内 opacity 的禁用行 .62 降透明不被动画终帧顶掉）；
+     fill backwards 让 delay 期间保持 from 态。稿 5 .rise：9px / .45s / cubic-bezier(.2,.8,.3,1)。 */
   @keyframes aidog-rise {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; }
+    from { opacity: 0; transform: translateY(9px); }
   }
   .aidog-anim-pop { animation: aidog-pop .35s cubic-bezier(.2,.9,.3,1.2) both; }
-  .aidog-anim-rise { animation: aidog-rise .4s cubic-bezier(.2,.8,.3,1) both; }
+  .aidog-anim-rise { animation: aidog-rise .45s cubic-bezier(.2,.8,.3,1) backwards; }
+  /* 稿 5 barfill：余额条入场 0→N 宽 */
+  @keyframes aidog-barfill { from { width: 0; } }
+  .aidog-barfill { animation: aidog-barfill .7s cubic-bezier(.2,.8,.3,1) backwards; }
+  /* 稿 5 .handle：行拖拽把手 hover 浮现（.row:hover 时 .85） */
+  .aidog-dragfade { opacity: 0; transition: opacity .15s; }
+  .aidog-row-hover:hover .aidog-dragfade { opacity: .85; }
+  /* 稿 5 .search:focus-within 紫晕 */
+  .aidog-search { transition: border-color .15s, box-shadow .15s; }
+  .aidog-search:hover { border-color: color-mix(in srgb, var(--foreground) 15%, var(--border)); }
+  .aidog-search:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
   /* 列表内条目错峰入场（同容器前 4 项） */
   .aidog-anim-rise:nth-child(2) { animation-delay: .06s; }
   .aidog-anim-rise:nth-child(3) { animation-delay: .12s; }

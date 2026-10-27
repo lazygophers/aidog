@@ -195,6 +195,8 @@ export const GroupListItem = memo(function GroupListItem({
     : [];
 
   const headBtn: React.CSSProperties = { fontSize: 12, height: 26, padding: "0 9px", borderRadius: 6 };
+  // 稿 5 .batchbar .bact：批量条按钮基础款
+  const bactBtn: React.CSSProperties = { fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", border: "1px solid var(--border)" };
 
   const gstatStyle: React.CSSProperties = { fontSize: 12, color: "var(--text-secondary)", display: "inline-flex", gap: 18, marginLeft: 10 };
 
@@ -203,15 +205,17 @@ export const GroupListItem = memo(function GroupListItem({
       data-group-id={group.id}
       data-testid="group-section"
       data-expanded={(forceExpanded || isExpanded || mode === "select") ? "true" : "false"}
-      className="animate-fade-in"
+      className="aidog-anim-rise"
       style={{
-        marginTop: index === 0 ? 0 : 22,
+        // 稿 5 .group margin 26：父容器 gap 12 + 此处 14 = 净距 26（首组 0）
+        marginTop: index === 0 ? 0 : 14,
         border: "1px solid var(--border)",
         borderRadius: 11,
         background: "var(--card)",
         overflow: "hidden",
         boxShadow: "var(--shadow-sm)",
-        animationDelay: `${index * 60}ms`,
+        // 稿 5 stagger：组卡 60ms / 240ms（60 + index*180），组内行在 PlatformRow riseDelay
+        animationDelay: `${60 + index * 180}ms`,
         ...(isDragOver ? { outline: "2px solid var(--accent)", outlineOffset: 2 } : {}),
         ...(handle.isDragging ? { opacity: 0.5 } : {}),
       }}
@@ -279,7 +283,8 @@ export const GroupListItem = memo(function GroupListItem({
             display: "inline-flex", alignItems: "center", gap: 5,
           }} title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}>⠿ {t("group.dropHint", "拖入平台")}</span>
           {gps.length > 0 && (
-            <Button variant="ghost" className="ripple" style={headBtn} onClick={(e) => { makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}>
+            <Button variant="ghost" className="ripple" style={{ ...headBtn, ...(mode === "select" ? { background: "var(--accent-subtle)", color: "var(--primary)", border: "1px solid color-mix(in srgb, var(--primary) 45%, transparent)" } : {}) }}
+              onClick={(e) => { makeRipple(e); setMode("select"); setSelectedIds(new Set()); }}>
               {t("group.batchOps", "多选")}
             </Button>
           )}
@@ -335,11 +340,25 @@ export const GroupListItem = memo(function GroupListItem({
           fontSize: 12, color: "var(--text-secondary)",
         }} onClick={e => e.stopPropagation()}>
           <span style={{ fontWeight: 620, color: "var(--primary)" }}>{t("group.selectedCount", "已选 {{count}} 个", { count: selectedIds.size })}</span>
-          <Button variant="ghost" style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
-            onClick={() => { setMode("view"); setSelectedIds(new Set()); }}>
-            {t("action.cancel", "取消")}
+          {/* 稿 5 .batchbar .sep：竖分隔线 */}
+          <span style={{ width: 1, height: 14, background: "color-mix(in srgb, var(--foreground) 12%, transparent)" }} />
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ ...bactBtn, color: "var(--color-danger)" }}
+            onClick={() => onBatchDelete([...selectedIds], group.id)}>
+            {t("group.batchDelete", "批量删除")}
           </Button>
-          <Button variant="ghost" style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
+            {t("group.batchMoveGroup", "移动到分组")}
+          </Button>
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
+            {t("group.batchSetStatus", "改状态")}
+          </Button>
+          <Button variant="ghost" disabled={selectedIds.size === 0} style={bactBtn}
+            onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
+            {t("group.batchOverrideModels", "覆盖模型")}
+          </Button>
+          <Button variant="ghost" style={bactBtn}
             onClick={() => setSelectedIds(new Set(fullPlats.map(p => p.id)))}>
             {t("group.selectAll", "全选")}
           </Button>
@@ -373,24 +392,11 @@ export const GroupListItem = memo(function GroupListItem({
               )}
             </SelectContent>
           </Select>
-          <div style={{ flex: 1 }} />
-          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
-            onClick={() => onBatchMoveGroup([...selectedIds], group.id)}>
-            {t("group.batchMoveGroup", "移组")}
-          </Button>
-          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
-            onClick={() => onBatchSetStatus([...selectedIds], group.id)}>
-            {t("group.batchSetStatus", "改状态")}
-          </Button>
-          <Button variant="ghost" disabled={selectedIds.size === 0} style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)" }}
-            onClick={() => onBatchOverrideModels([...selectedIds], group.id)}>
-            {t("group.batchOverrideModels", "覆盖模型")}
-          </Button>
-          <Button variant="ghost" disabled={selectedIds.size === 0}
-            style={{ fontSize: 12, padding: "3px 9px", height: "auto", borderRadius: 6, background: "var(--secondary)", color: "var(--color-danger)" }}
-            onClick={() => onBatchDelete([...selectedIds], group.id)}>
-            {t("group.batchDelete", "删除")}
-          </Button>
+          {/* 稿 5 .batchbar .cancel：取消多选靠右 */}
+          <span data-testid="group-batch-cancel" onClick={() => { setMode("view"); setSelectedIds(new Set()); }}
+            style={{ marginLeft: "auto", fontSize: 12, color: "var(--text-tertiary)", cursor: "pointer" }}>
+            {t("group.cancelMultiSelect", "取消多选")}
+          </span>
         </div>
       )}
       {/* ── 成员行（稿 .rows：PlatformRow 行式）+ 落点指示线 ── */}
@@ -403,6 +409,7 @@ export const GroupListItem = memo(function GroupListItem({
               )}
               <PlatformRow
                 platform={p}
+                riseDelay={120 + index * 180 + idx * 60}
                 usage={cards.usageMap[p.id]}
                 quotaRaw={cards.quotaMap[p.id]}
                 quotaPreferReal={!!cards.quotaRealIds[p.id]}
@@ -434,8 +441,8 @@ export const GroupListItem = memo(function GroupListItem({
                 lead={
                   <span
                     onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
-                    className="drag-handle drag-handle-inline"
-                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none", opacity: 0.85 }}
+                    className="drag-handle drag-handle-inline aidog-dragfade"
+                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", touchAction: "none" }}
                     title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
                   >
                     <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor"><circle cx="3" cy="3" r="1.4" /><circle cx="7" cy="3" r="1.4" /><circle cx="3" cy="8" r="1.4" /><circle cx="7" cy="8" r="1.4" /><circle cx="3" cy="13" r="1.4" /><circle cx="7" cy="13" r="1.4" /></svg>
