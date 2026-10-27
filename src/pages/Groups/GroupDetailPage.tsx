@@ -279,6 +279,8 @@ export function GroupDetailPage(props: {
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
         </Button>
         <h1 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{t("nav.groups", "分组")}</h1>
+        {/* 当前组名必须上屏：详情页全页无组名时无法辨认展示的是哪个组 */}
+        <span style={{ fontSize: 13, fontWeight: 600 }}>{group.name}</span>
         <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{details.length} {t("group.detail.countGroups", "个分组")} · {totalPlatLinks} {t("group.detail.countLinks", "个平台关联")}</span>
         <div style={{ flex: 1 }} />
       </div>
