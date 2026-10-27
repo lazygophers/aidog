@@ -1428,7 +1428,6 @@
   "platform.peak_overwrite_confirm_title": "ピーク設定を上書きしますか？",
   "platform.peak_start_at": "開始",
   "platform.protocol": "プロトコル",
-  "platform.protocolLocked": "作成後プロトコルは変更できません",
   "platform.purgeDisabled": "無効化プラットフォームを整理",
   "platform.purgeDisabledConfirm": "ライブラリ全体の無効化（自動無効化）プラットフォームを永久削除します。元に戻せません。続行しますか？",
   "platform.purgeDisabledDone": "無効化プラットフォーム {{count}} 件を削除",

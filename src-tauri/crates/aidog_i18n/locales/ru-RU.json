@@ -1428,7 +1428,6 @@
   "platform.peak_overwrite_confirm_title": "Перезаписать конфигурацию пика?",
   "platform.peak_start_at": "Действует с",
   "platform.protocol": "Протокол",
-  "platform.protocolLocked": "Протокол нельзя изменить после создания",
   "platform.purgeDisabled": "Очистить отключённые платформы",
   "platform.purgeDisabledConfirm": "Все отключённые (авто-отключённые) платформы библиотеки будут удалены навсегда. Это необратимо. Продолжить?",
   "platform.purgeDisabledDone": "Удалено отключённых платформ: {{count}}",

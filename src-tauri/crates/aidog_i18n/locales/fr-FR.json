@@ -1428,7 +1428,6 @@
   "platform.peak_overwrite_confirm_title": "Écraser la configuration de pointe ?",
   "platform.peak_start_at": "Effectif à partir de",
   "platform.protocol": "Protocole",
-  "platform.protocolLocked": "Le protocole ne peut pas être modifié après création",
   "platform.purgeDisabled": "Purger les plateformes désactivées",
   "platform.purgeDisabledConfirm": "Cela supprimera définitivement toutes les plateformes désactivées (auto-désactivées) de la bibliothèque. Irréversible. Continuer ?",
   "platform.purgeDisabledDone": "Supprimé {{count}} plateforme(s) désactivée(s)",

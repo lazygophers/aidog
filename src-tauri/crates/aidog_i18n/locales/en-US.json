@@ -1406,7 +1406,6 @@
   "platform.peak_overwrite_confirm_title": "Overwrite peak config?",
   "platform.peak_start_at": "Effective from",
   "platform.protocol": "Protocol",
-  "platform.protocolLocked": "Protocol cannot be changed after creation",
   "platform.purgeDisabled": "Purge disabled platforms",
   "platform.purgeDisabledConfirm": "This will permanently delete all disabled (auto-disabled) platforms across the library. This cannot be undone. Continue?",
   "platform.purgeDisabledDone": "Deleted {{count}} disabled platform(s)",
