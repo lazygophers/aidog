@@ -137,7 +137,6 @@ export const GroupListItem = memo(function GroupListItem({
   // 代理 env（claude settings.json env 段），前置 export 注入 codex 启动命令（codex 无 config proxy）。
   const { i18n } = useTranslation();
   const proxyVars = useProxyEnvVars();
-  const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
   // ── per-group 多选模式（本地 state, 不持久化）──
   const [mode, setMode] = useState<"view" | "select">("view");
@@ -266,8 +265,8 @@ export const GroupListItem = memo(function GroupListItem({
         {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
         <span style={gstatStyle}>
           <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.detail.todayShort", "今")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${u ? formatCost(u.today_cost) : "0"}</b></span>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.requests", "请求")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.total_requests) : "0"}</b></span>
-          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.successRate", "成功率")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.total_requests > 0 ? formatPercent(sRate, 1) : "—"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todayRequests", "今日请求")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u ? formatNumber(u.today_requests) : "0"}</b></span>
+          <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("group.todaySuccessRate", "今日成功率")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>{u && u.today_requests > 0 ? formatPercent(calcSuccessRate(u.today_success, u.today_requests), 1) : "—"}</b></span>
           {balance != null && (
             <span><span style={{ color: "var(--text-tertiary)", marginRight: 5 }}>{t("platform.col.balance", "余额")}</span><b className="num" style={{ color: "var(--foreground)", fontWeight: 560 }}>${formatCost(balance)}</b></span>
           )}

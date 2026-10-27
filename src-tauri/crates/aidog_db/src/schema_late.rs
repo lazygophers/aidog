@@ -401,7 +401,7 @@ fn translate_legacy_middleware_rules(conn: &Connection) -> SqlResult<usize> {
             };
         let leaf = |target: &str, pat: &str| json!({ "kind": "leaf", "target": target, "field": "", "match_type": match_type, "pattern": pat });
         let conditions: Option<serde_json::Value> = match (&target, &effective_pattern) {
-            (Some(t), Some(p)) if p.is_empty() && rule_type == "error_rule" => {
+            (Some(_t), Some(p)) if p.is_empty() && rule_type == "error_rule" => {
                 // 旧 error_rule 空 pattern = 任意非 2xx 命中 → 翻译为 status 数字叶子
                 //（classify_error 仅在非 2xx 路径调用，语义等价）。
                 Some(

@@ -23,4 +23,12 @@ today_tokens: number,
 /**
  * 今日（本地 00:00 起）预估花费（$），基于 est_cost 聚合
  */
-today_cost: number, };
+today_cost: number, 
+/**
+ * 今日（本地 00:00 起）请求数（分组列表卡片「今日请求」展示口径）
+ */
+today_requests: number, 
+/**
+ * 今日（本地 00:00 起）成功数（与 today_requests 配对算成功率）
+ */
+today_success: number, };
