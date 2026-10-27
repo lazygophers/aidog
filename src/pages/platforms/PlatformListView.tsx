@@ -173,6 +173,7 @@ export function PlatformListView({ s, cardService, openCreateGroupRef }: {
                         usage={usageMap[p.id]}
                         quotaRaw={quota.quotaMap[p.id]}
                         quotaPreferReal={!!quota.quotaRealIds[p.id]}
+                        onRefreshQuota={(pp) => quota.refreshQuota(pp)}
                         lastTest={lastTestMap[p.id]}
                         manualResult={testResults[p.id]}
                         testing={testingId === p.id}
