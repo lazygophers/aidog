@@ -9,9 +9,8 @@ import { makeRipple } from "../../components/shared";
 import { PlatformCardActions, PlatformCardService } from "../../components/platforms/PlatformCard";
 import { PlatformRow } from "../platforms/PlatformRow";
 import type { DragHandleProps } from "../../components/SortableList";
-import { buildClaudeCommand, buildCodexCommand, buildPiCommand, routingModeLabel, useProxyEnvVars } from "../../domains/groups";
+import { buildClaudeCommand, buildCodexCommand, buildPiCommand, useProxyEnvVars } from "../../domains/groups";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -54,12 +53,6 @@ export interface GroupListItemProps {
   isDragOver: boolean;
   dropIndicatorIdx: number | null; // 当前 gid 的 dropIndicator.idx，null = 无
   dropIndicatorTotal: number;      // fullPlats.length，计算末尾指示线用
-  // 映射表单（仅当 mappingGroupId === group.id 时展开）
-  showMappingForm: boolean;
-  mSource: string;
-  mTargetPlatform: number | "";
-  mTargetModel: string;
-  availableModels: string[];
   /** 搜索命中过滤：null/undefined = 不过滤（原行为），Set = 仅渲染 id 命中的平台卡 */
   visiblePlatformIds: Set<number> | null;
   /** 搜索态下强制展开（无视 collapsedGroups），让用户直接看到命中平台 */
@@ -84,12 +77,6 @@ export interface GroupListItemProps {
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   onPlatPointerDown: (e: React.PointerEvent, pid: number, gid: number) => void;
-  onDeleteMapping: (groupId: number, index: number) => void;
-  onSetMappingGroupId: (id: number | null) => void;
-  onSetMSource: (v: string) => void;
-  onSetMTargetPlatform: (v: number | "") => void;
-  onSetMTargetModel: (v: string) => void;
-  onAddMapping: () => void;
   onSetLevelPriority: (gid: number, pid: number, v: number) => void;
   onPurgeDisabled: (gid: number) => void | Promise<void>;
   /** 批量删除：收 selectedIds + gid → 开 BatchDeleteModal（父级渲染 modal）。 */
@@ -117,14 +104,12 @@ export interface GroupListItemProps {
 export const GroupListItem = memo(function GroupListItem({
   detail, index, usageStat: u, balance, platforms,
   isExpanded, isDragOver, dropIndicatorIdx, dropIndicatorTotal,
-  showMappingForm, mSource, mTargetPlatform, mTargetModel, availableModels,
   visiblePlatformIds, forceExpanded,
   groupTestRunning,
   cards, actions, cardService, t,
   onToggleExpanded: _onToggleExpanded, onSetCollapsed, onOpenDetail, onEdit, onDelete, onToggleDefault,
   onTestGroup, onCreatePlatform, onNavigate,
-  onPlatPointerDown, onDeleteMapping, onSetMappingGroupId,
-  onSetMSource, onSetMTargetPlatform, onSetMTargetModel, onAddMapping,
+  onPlatPointerDown,
   onSetLevelPriority, onPurgeDisabled,
   onBatchDelete,
   onBatchOverrideModels,
@@ -259,12 +244,12 @@ export const GroupListItem = memo(function GroupListItem({
             <Badge variant="secondary" style={{ fontSize: 11, padding: "0 5px", fontWeight: 500 }}>auto</Badge>
           )}
         </span>
-        {/* 计数（稿 .gcount）+ 路由模式 */}
+        {/* 计数（稿 .gcount） */}
         <span style={{
           fontSize: 12, color: "var(--text-tertiary)", background: "var(--secondary)",
           border: "1px solid var(--border)", borderRadius: 99, padding: "1px 8px", whiteSpace: "nowrap",
         }}>
-          {routingModeLabel(t, group.routing_mode)} · {gps.length} {t("group.platforms", "平台")}
+          {gps.length} {t("group.platforms", "平台")}
         </span>
         {/* 三统计（稿 .gstats：今日 / 请求 / 成功率） */}
         <span style={gstatStyle}>
@@ -462,73 +447,6 @@ export const GroupListItem = memo(function GroupListItem({
         </div>
       )}
 
-      {/* ── 模型映射 chips（稿 6 mp 样式）+ 快速添加 ── */}
-      {(forceExpanded || isExpanded || mode === "select") && (
-        <div style={{ borderTop: "1px solid var(--border)", padding: "8px 14px 10px" }} onClick={e => e.stopPropagation()}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", letterSpacing: "1.2px", textTransform: "uppercase" }}>
-              {t("group.detail.mappings", "模型映射")} · {model_mappings.length}
-            </span>
-            <Button variant="ghost" style={{ fontSize: 12, gap: 4, padding: "2px 8px", height: "auto", color: "var(--text-secondary)" }}
-              onClick={() => onSetMappingGroupId(showMappingForm ? null : group.id)}>
-              ＋ {t("mapping.add")}
-            </Button>
-          </div>
-          {model_mappings.map((m, mi) => (
-            <div key={mi} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", fontSize: 12 }}>
-              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid color-mix(in srgb, var(--primary) 35%, var(--border))", borderRadius: 6, padding: "2px 8px", color: "var(--primary)", background: "var(--secondary)" }}>{m.source_model}</span>
-              <span style={{ color: "var(--text-tertiary)" }}>⟶</span>
-              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: 10.5, border: "1px solid var(--border)", borderRadius: 6, padding: "2px 8px", color: "var(--text-secondary)", background: "var(--secondary)" }}>{m.target_model}</span>
-              <span style={{ flex: 1 }} />
-              <button type="button" className="ripple" title={t("group.deleteMapping", "删除映射")}
-                style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 12, padding: "0 4px" }}
-                onClick={(e) => { e.stopPropagation(); onDeleteMapping(group.id, mi); }}>✕</button>
-            </div>
-          ))}
-          {showMappingForm && (
-            <div className="animate-fade-in" style={{
-              paddingTop: 10, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
-            }}>
-              <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                placeholder={t("mapping.source")} value={mSource}
-                onChange={(e) => onSetMSource(e.target.value)} />
-              <Select
-                value={mTargetPlatform === "" ? "__none__" : String(mTargetPlatform)}
-                onValueChange={(v) => { onSetMTargetPlatform(v === "__none__" ? "" : Number(v)); onSetMTargetModel(""); }}>
-                <SelectTrigger style={{ fontSize: 12, width: 140 }}>
-                  <SelectValue placeholder={t("mapping.targetPlatform")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__none__">{t("mapping.targetPlatform")}</SelectItem>
-                  {platforms.map((pp) => <SelectItem key={pp.id} value={String(pp.id)}>{pp.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-              {availableModels.length > 0 ? (
-                <Select
-                  value={mTargetModel || "__none__"}
-                  onValueChange={(v) => onSetMTargetModel(v === "__none__" ? "" : v)}>
-                  <SelectTrigger style={{ flex: 1, minWidth: 100, fontSize: 12 }}>
-                    <SelectValue placeholder={t("mapping.target")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__none__">{t("mapping.target")}</SelectItem>
-                    {availableModels.map(mm => <SelectItem key={mm} value={mm}>{mm}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                  placeholder={t("mapping.target")} value={mTargetModel}
-                  onChange={(e) => onSetMTargetModel(e.target.value)} />
-              )}
-              <Button style={{ fontSize: 12, padding: "6px 12px", height: "auto" }}
-                onClick={onAddMapping}
-                disabled={!mSource || !mTargetPlatform || !mTargetModel}>
-                {t("action.create")}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
       {/* 清理失效确认 AlertDialog（禁原生 confirm，CLAUDE.md 硬规）。 */}
       <AlertDialog open={purgeConfirmOpen} onOpenChange={(next) => { if (!next && !purging) setPurgeConfirmOpen(false); }}>
         <AlertDialogContent className="glass-elevated" style={{ maxWidth: 440, padding: "20px 22px" }}>

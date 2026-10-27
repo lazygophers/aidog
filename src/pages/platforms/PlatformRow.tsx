@@ -206,8 +206,22 @@ export function PlatformRow({
         <span style={{ justifySelf: "center", display: "inline-flex", alignItems: "center" }} onClick={e => e.stopPropagation()}>
           {selecting
             ? (
-              <input type="checkbox" data-testid="row-select" checked={!!selected} onChange={() => onSelect?.()}
-                style={{ width: 15, height: 15, accentColor: "var(--primary)", cursor: "pointer" }} />
+              <button type="button" role="checkbox" aria-checked={!!selected} data-testid="row-select" tabIndex={0}
+                onClick={() => onSelect?.()}
+                onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); onSelect?.(); } }}
+                style={{
+                  width: 15, height: 15, borderRadius: 4.5, cursor: "pointer", padding: 0,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center", lineHeight: 0,
+                  border: `1px solid ${selected ? "var(--primary)" : "var(--border)"}`,
+                  background: selected ? "var(--primary)" : "transparent",
+                  color: selected ? "#fff" : "var(--text-tertiary)",
+                }}>
+                {selected && (
+                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
+                    <path d="M1.5 5.5L4 8l4.5-6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </button>
             )
             : lead}
         </span>
