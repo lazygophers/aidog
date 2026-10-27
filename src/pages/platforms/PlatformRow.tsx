@@ -95,6 +95,9 @@ export interface PlatformRowProps {
   onQuickTest?: (p: Platform) => void;
   onDelete?: (id: number) => void;
   onLevelPriorityChange?: (v: number) => void;
+  /** 余额手动刷新（放余额条右侧；不传不渲染） */
+  onRefreshQuota?: (p: Platform) => void;
+  refreshing?: boolean;
 }
 
 const STAT_GAP = 10;
@@ -112,7 +115,7 @@ function StatCell({ v, l, tone }: { v: string; l: string; tone?: "ok" | "warn" |
 }
 
 export function PlatformRow({
-  platform: p, usage: u, quotaRaw, quotaPreferReal: _quotaPreferReal, lastTest, manualResult, testing,
+  platform: p, usage: u, quotaRaw, quotaPreferReal: _quotaPreferReal, lastTest, manualResult, testing, onRefreshQuota, refreshing,
   expanded, selecting, selected, levelPriority,
   t, lang, lead, onSelect, onToggleExpanded, onToggle,
   onEdit, onShare, onDuplicate, onViewLogs, onQuickTest, onDelete, onLevelPriorityChange,
@@ -247,13 +250,34 @@ export function PlatformRow({
             <span className="num" style={{ color: "var(--foreground)", fontWeight: 560, fontVariantNumeric: "tabular-nums" }}>
               ${remaining > 0 ? formatCost(remaining) : "0"}
             </span>
-            <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
-              {total != null ? `/ $${formatCost(total)}` : t("platform.col.balance", "余额")}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+              <span className="num" style={{ fontVariantNumeric: "tabular-nums" }}>
+                {total != null ? `/ $${formatCost(total)}` : t("platform.col.balance", "余额")}
+              </span>
+              {onRefreshQuota && (
+                <button type="button" data-testid="row-refresh-quota" title={t("platform.quotaRefresh", "刷新额度")}
+                  disabled={refreshing} onClick={(e) => { e.stopPropagation(); onRefreshQuota(p); }}
+                  style={{ border: "none", background: "transparent", padding: 0, cursor: "pointer", color: "var(--text-tertiary)", display: "inline-flex", lineHeight: 0 }}>
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                    strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                    className={refreshing ? "spin" : undefined}>
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                    <polyline points="21 3 21 9 15 9" />
+                  </svg>
+                </button>
+              )}
             </span>
           </span>
           <span style={{ height: 4, borderRadius: 99, background: "color-mix(in srgb, var(--foreground) 7%, transparent)", overflow: "hidden", display: "block" }}>
             <span data-testid="row-quota-bar" style={{ display: "block", height: "100%", borderRadius: 99, width: `${pct ?? 0}%`, background: barColor }} />
           </span>
+          {/* Coding plan 使用情况（对齐 PlatformCard：累计 tokens + 预估金额） */}
+          {(isCpProtocol || hasCodingEndpoint) && u && (
+            <span data-testid="row-coding-usage" title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}
+              style={{ fontSize: 10.5, color: "var(--text-tertiary)", fontFamily: "var(--font-mono, monospace)", whiteSpace: "nowrap" }}>
+              ⚡ {formatNumber(u.total_input_tokens + u.total_output_tokens)} · ${formatCost(u.total_cost)}
+            </span>
+          )}
         </span>
         {/* 列 5-8：今日 / 成功率 / 延迟 / 模型 */}
         <StatCell v={u ? `$${formatCost(u.today_cost)}` : "—"} l={t("platform.col.today", "今日")} tone={u ? undefined : "dim"} />

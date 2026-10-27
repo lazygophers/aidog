@@ -430,6 +430,8 @@ export const GroupListItem = memo(function GroupListItem({
                 onQuickTest={(pp) => cardService.onQuickTest(pp)}
                 onDelete={(id) => actions.onDelete(id)}
                 onLevelPriorityChange={(v) => onSetLevelPriority(group.id, p.id, v)}
+                onRefreshQuota={(pp) => actions.onRefreshQuota(pp)}
+                refreshing={!!cards.quotaRefreshing[p.id]}
                 lead={
                   <span
                     onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
