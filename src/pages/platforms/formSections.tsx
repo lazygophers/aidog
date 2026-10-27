@@ -582,7 +582,7 @@ export function ManualBudgetsFields({ budgets, setBudgets, tiers, setTierId, sel
               <Button
                 variant="ghost"
                 size="sm"
-                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--primary)" }} // 稿 .fillbtn = primary
                 title={selectedTier?.source_url}
                 onClick={() => selectedTier && setBudgets(tierToBudgets(selectedTier))}
               >
@@ -939,9 +939,8 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
           />
           <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.disable_during_peak", "高峰期禁用")}</span>
         </label>
-        {/* 实时态预览：仅当开关 on 才显（off 时无意义） */}
-        {disableDuringPeak && (
-          <span
+        {/* 实时态徽标恒显（稿 2 badge-peak；2026-10-27 拍板 q6）：高峰编辑直接相关，off 态也报当前状态 */}
+        <span
             style={{
               fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
               color: nowPeak ? "var(--color-danger)" : "var(--text-tertiary)",
@@ -956,8 +955,7 @@ export function PeakSection({ windows, setWindows, tzMode, setTzMode, disableDur
             {nowPeak
               ? t("platform.currently_peak", "当前：高峰期")
               : t("platform.currently_off_peak", "当前：非高峰期")}
-          </span>
-        )}
+        </span>
         <span style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
         </span>
@@ -1578,7 +1576,7 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
   const modelCount = Object.keys(bundle.rate_limits?.models ?? {}).length;
   const inputStyle = { fontSize: 12, height: 28, minWidth: 70 };
   const numStyle = { ...inputStyle, textAlign: "center", fontVariantNumeric: "tabular-nums" } as React.CSSProperties;
-  const labelStyle = { fontSize: 11, opacity: 0.7 };
+  const labelStyle = { fontSize: 11, opacity: 0.7, color: "var(--text-tertiary)" }; // 稿 .lb/.lb2 = fg-3
   return (
     <FormSection
       title={t("platform.rateLimits.title", "限频")}
