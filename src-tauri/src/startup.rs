@@ -275,6 +275,7 @@ pub fn run() {
             aidog_core::platform_cmd::model_entry::model_info_snapshot,
             // About
             aidog_core::system_cmd::about::about_info,
+            aidog_core::system_cmd::about::db_master_key_reveal,
             // CLI 工具环境（Claude Code / Codex 版本 / 安装 / 升级 / 冲突诊断）
             aidog_core::cli_env::cli_check_versions,
             aidog_core::cli_env::cli_install,
