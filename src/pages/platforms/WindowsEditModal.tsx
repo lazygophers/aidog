@@ -104,7 +104,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
         fontVariantNumeric: "tabular-nums",
       }}
     >
-      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{suffix}</span>
+      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{suffix}</span>
       <input
         aria-label={suffix}
         inputMode="numeric"
@@ -121,7 +121,7 @@ export function TimePicker({ suffix, hour, minute, maxHour, onSet, t }: {
         onBlur={commit}
         title={t("platform.windows_step_hint", "可直接键入，或点开选择（分钟 15 分钟档）")}
         style={{
-          width: 46, background: "transparent", border: 0, outline: "none", padding: 0,
+          width: 48, background: "transparent", border: 0, outline: "none", padding: 0,
           color: "inherit", font: "inherit", fontSize: 15, fontWeight: 600, textAlign: "center",
         }}
       />
@@ -284,8 +284,9 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   type="button"
                   variant="ghost"
                   size="sm"
-                  className={tzMode === m ? "btn-primary" : ""}
-                  style={{ padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                  style={tzMode === m
+                    ? { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                    : { padding: "2px 8px", fontSize: 11, height: "auto", fontWeight: 400 }}
                   onClick={() => setTzMode(m)}
                 >
                   {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
@@ -354,7 +355,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   </span>
                   {isNextDay && (
                     <span style={{
-                      fontSize: 11, padding: "1px 6px", borderRadius: 4,
+                      fontSize: 10, padding: "1px 6px", borderRadius: 4,
                       border: "1px solid color-mix(in srgb, var(--color-warning) 40%, transparent)",
                       color: "var(--color-warning)",
                       background: "color-mix(in srgb, var(--color-warning) 8%, transparent)",
@@ -404,7 +405,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                   <Button
                     variant="ghost"
                     size="sm"
-                    style={{ padding: "2px 6px", fontSize: 11, color: "var(--color-danger)" }}
+                    style={{ padding: "2px 6px", fontSize: 10, color: "var(--color-danger)" }}
                     onClick={() => removeWindow(widx)}
                     title={t("action.delete", "删除")}
                   >
@@ -433,8 +434,9 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                         data-state={dim === opt.key ? "on" : "off"}
                         variant="ghost"
                         size="sm"
-                        className={dim === opt.key ? "btn-primary" : ""}
-                        style={{ padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400 }}
+                        style={dim === opt.key
+                          ? { padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400, background: "var(--foreground)", color: "var(--background)", borderColor: "transparent" }
+                          : { padding: "2px 10px", fontSize: 11, height: "auto", fontWeight: 400 }}
                         onClick={() => switchDimension(widx, opt.key)}
                       >
                         {opt.label}
@@ -454,7 +456,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 6px", fontSize: 11, minWidth: 24, height: "auto", fontWeight: 600 }}
+                          style={{ padding: "1px 6px", fontSize: 10, minWidth: 24, height: "auto", fontWeight: 600 }}
                           onClick={() => toggleWeekday(widx, di)}
                           title={t(`platform.weekday_short.${di}`)}
                         >
@@ -475,7 +477,7 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
                           type="button"
                           variant={active ? "default" : "ghost"}
                           size="sm"
-                          style={{ padding: "1px 5px", fontSize: 11, minWidth: 26, height: "auto" }}
+                          style={{ padding: "1px 5px", fontSize: 10, minWidth: 26, height: "auto" }}
                           onClick={() => toggleDayOfMonth(widx, dom)}
                         >
                           {dom}
@@ -489,10 +491,11 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
           })}
         </div>
 
-        {/* 添加窗口 */}
+        {/* 添加窗口（稿 1 .add：全宽虚线框，hover 变紫） */}
         <Button
           variant="ghost"
-          style={{ padding: "4px 10px", fontSize: 11, marginTop: 10, justifyContent: "flex-start" }}
+          className="aidog-dashed-add"
+          style={{ width: "100%", padding: "4px 10px", fontSize: 11, marginTop: 4, justifyContent: "flex-start" }}
           onClick={addWindow}
         >
           + {t("platform.windows_edit_add", "添加窗口")}
@@ -503,7 +506,12 @@ export function WindowsEditModal({ open, windows, onSave, onClose, tzMode, setTz
           <Button variant="ghost" onClick={onClose}>
             {t("action.cancel", "取消")}
           </Button>
-          <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}>
+          {/* 稿 1 footer .primary：单色反转（前景色底/背景色字），非紫渐变 */}
+          <Button
+            className="ripple"
+            style={{ background: "var(--foreground)", color: "var(--background)", borderColor: "var(--foreground)", fontWeight: 500 }}
+            onClick={(e) => { makeRipple(e); handleSave(); }}
+          >
             {t("action.confirm", "确认")}
           </Button>
         </div>
