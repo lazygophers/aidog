@@ -58,10 +58,9 @@ describe("PlatformEditForm unknown protocol", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("keeps known platform editing locked", async () => {
+  it("shows the protocol selector when editing a known platform", async () => {
     render(<PlatformEditForm s={state("openai")} />);
-    expect(screen.queryByRole("combobox", { name: "protocol" })).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByText("Protocol cannot be changed after creation")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("combobox", { name: "protocol" })).toHaveValue("openai"));
   });
 });
 

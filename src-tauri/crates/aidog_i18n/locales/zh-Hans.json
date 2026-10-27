@@ -1406,7 +1406,6 @@
   "platform.peak_overwrite_confirm_title": "覆盖高峰配置？",
   "platform.peak_start_at": "生效起始",
   "platform.protocol": "协议",
-  "platform.protocolLocked": "创建后协议不可更改",
   "platform.purgeDisabled": "清理失效平台",
   "platform.purgeDisabledConfirm": "将永久删除全库失效(自动禁用)平台，不可恢复，确定？",
   "platform.purgeDisabledDone": "已删除 {{count}} 个失效平台",

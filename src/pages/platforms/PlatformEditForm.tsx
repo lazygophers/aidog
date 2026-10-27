@@ -10,7 +10,7 @@ import {
   type ProtocolOption,
 } from "../../domains/platforms";
 import { buildProtocolsFromPresets } from "../../domains/platforms/defaults";
-import { useProtocolColorMap, useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
+import { useProtocolLabelMap } from "../../domains/platforms/useProtocolMeta";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 import { Button } from "@/components/ui/button";
@@ -81,7 +81,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
   // 切语言重拉。全表覆盖原「仅 2 key」最小拉取（docPromise 单例缓存，无额外 RPC）。
   const labelMap = useProtocolLabelMap(i18n.language);
   // 品牌色（async 派生自 registry platform.json 的 color）；首帧 fallback var(--accent)。
-  const colorMap = useProtocolColorMap();
   // SmartPasteModal presets（ProtocolOption[]，hosts 内联派生）；首帧空数组（弹窗未开时不渲染）。
   const [presets, setPresets] = useState<ProtocolOption[]>([]);
   useEffect(() => {
@@ -143,32 +142,12 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         <FormSection title={t("platform.sectionBasic", "基础信息")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
-          {editing && editing.platform_type !== "unknown" ? (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 8,
-              padding: "10px 14px", borderRadius: "var(--radius-sm)",
-              background: "var(--bg-glass)", border: "1px solid var(--border)",
-              fontSize: 14,
-            }}>
-              <span style={{
-                display: "inline-block", padding: "2px 8px", borderRadius: "var(--radius-sm)",
-                background: `color-mix(in srgb, ${colorMap[protocol] || "var(--accent)"} 12%, transparent)`,
-                color: colorMap[protocol] || "var(--accent)",
-                fontSize: 11, fontWeight: 700,
-              }}>
-                {labelMap[protocol] || protocol}
-              </span>
-              <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
-                {t("platform.protocolLocked", "Protocol cannot be changed after creation")}
-              </span>
-            </div>
-          ) : (
-            <SearchableProtocolSelect
-              value={protocol}
-              codingPlan={codingPlan}
-              onChange={handleProtocolChange}
-            />
-          )}
+          {/* 协议可改（2026-10-27 用户拍板）：编辑态与创建态同款选择器；unknown 修复/正常切换共用 handleProtocolChange */}
+          <SearchableProtocolSelect
+            value={protocol}
+            codingPlan={codingPlan}
+            onChange={handleProtocolChange}
+          />
           {protocol === "unknown" && (
             <p role="alert">{t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存")}</p>
           )}
