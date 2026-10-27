@@ -1,11 +1,10 @@
 import { useState, useEffect, useReducer, useCallback, useMemo, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type {
-  GroupDetail, Platform, PlatformModels, RoutingMode, ModelMapping,
+  GroupDetail, Platform, PlatformModels, RoutingMode,
 } from "../services/api";
 import { groupApi, groupDetailApi, platformApi } from "../services/api";
 import { setUiExtra } from "../services/api/ui_extra";
-import { allModelValues } from "../domains/platforms";
 import { getProtocolSearchTermsMap } from "../domains/platforms/defaults";
 import type { PlatformCardActions, PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
@@ -91,12 +90,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const [cGroupKey, setCGroupKey] = useState("");
   const [cMode, setCMode] = useState<RoutingMode>("health_aware");
   const [cPlatformIds, setCPlatformIds] = useState<number[]>([]);
-
-  // Mapping form (for quick add in list view)
-  const [mappingGroupId, setMappingGroupId] = useState<number | null>(null);
-  const [mSource, setMSource] = useState("");
-  const [mTargetPlatform, setMTargetPlatform] = useState<number | "">("");
-  const [mTargetModel, setMTargetModel] = useState("");
 
   // 全屏视图态（创建/编辑/详情分组）：通知父级隐藏页头与下方未分组平台列表，独立成页。
   const fullscreenView = editTarget !== null || showCreate || detailTarget !== null;
@@ -652,38 +645,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [silentReload, onGroupsChanged]);
 
-  // ── Quick mapping (list view) — persists inline via group.update ──
-  const handleAddMapping = useCallback(async () => {
-    if (!mappingGroupId || !mSource || mTargetPlatform === "" || !mTargetModel) return;
-    const detail = details.find(d => d.group.id === mappingGroupId);
-    if (!detail) return;
-    try {
-      const next: ModelMapping[] = [
-        ...detail.model_mappings,
-        {
-          source_model: mSource,
-          target_platform_id: mTargetPlatform,
-          target_model: mTargetModel,
-          request_timeout_secs: 0,
-          connect_timeout_secs: 0,
-        },
-      ];
-      const gid = mappingGroupId;
-      // ponytail: quick mapping 编辑走最小 update，但后端 UpdateGroup.env_vars 是
-      // #[serde(default)] Vec（非 Option），缺省 = [] 会清空既有 env_vars。
-      // 同 model_mappings 一并透传 detail 当前值，保持 partial update 语义。
-      await groupApi.update({ id: gid, model_mappings: next, env_vars: detail.group.env_vars });
-      setMSource(""); setMTargetPlatform(""); setMTargetModel("");
-      setMappingGroupId(null);
-      refreshSingleGroup(gid); // 单组映射变更 → 就地刷新
-      onGroupsChanged?.();
-    } catch (e) {
-      console.error(e);
-      onToast?.({ text: `${t("group.addMappingFailed", "添加映射失败")}: ${e}`, ok: false });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappingGroupId, mSource, mTargetPlatform, mTargetModel, details, onGroupsChanged, onToast, t]);
-
   const handlePurgeDisabled = useCallback(async (gid: number) => {
     try {
       const r = await platformApi.purgeDisabled(gid);
@@ -705,7 +666,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     if (!detail) return;
     try {
       const next = detail.model_mappings.filter((_, i) => i !== index);
-      // ponytail: 同 handleAddMapping —— env_vars 必须透传，否则被 default 清空。
+      // ponytail: env_vars 必须透传，否则被 default 清空。
       await groupApi.update({ id: groupId, model_mappings: next, env_vars: detail.group.env_vars });
       refreshSingleGroup(groupId); // 单组映射删除 → 就地刷新
       onGroupsChanged?.();
@@ -715,9 +676,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [details, onGroupsChanged, onToast, t]);
-
-  const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
-  const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
 
   // 协议搜索词（registry name 全 locale + keywords）：挂载时拉一次，平台搜索跨语言匹配用
   const [protocolTerms, setProtocolTerms] = useState<Partial<Record<string, string[]>>>({});
@@ -843,15 +801,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       collapsedGroups={collapsedGroups}
       setCollapsedGroups={setCollapsedGroups}
       toggleGroupExpanded={toggleGroupExpanded}
-      mappingGroupId={mappingGroupId}
-      mSource={mSource}
-      mTargetPlatform={mTargetPlatform}
-      mTargetModel={mTargetModel}
-      availableModels={availableModels}
-      setMappingGroupId={setMappingGroupId}
-      setMSource={setMSource}
-      setMTargetPlatform={setMTargetPlatform}
-      setMTargetModel={setMTargetModel}
       dropIndicator={dropIndicator}
       dragOverGroup={dragOverGroup}
       onPlatPointerDown={onPlatPointerDown}
@@ -870,8 +819,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
       handleDeleteGroup={handleDeleteGroup}
       handleToggleDefault={handleToggleDefault}
       handleTestGroup={handleTestGroup}
-      handleDeleteMapping={handleDeleteMapping}
-      handleAddMapping={handleAddMapping}
       handleSetLevelPriority={handleSetLevelPriority}
       handlePurgeDisabled={handlePurgeDisabled}
       onOpenDetail={setDetailTarget}

@@ -52,16 +52,6 @@ export interface GroupListViewProps {
   collapsedGroups: Set<number>;
   setCollapsedGroups: React.Dispatch<React.SetStateAction<Set<number>>>;
   toggleGroupExpanded: (id: number) => void;
-  // 映射表单（列表内快速添加）
-  mappingGroupId: number | null;
-  mSource: string;
-  mTargetPlatform: number | "";
-  mTargetModel: string;
-  availableModels: string[];
-  setMappingGroupId: (id: number | null) => void;
-  setMSource: (v: string) => void;
-  setMTargetPlatform: (v: number | "") => void;
-  setMTargetModel: (v: string) => void;
   // 拖拽
   dropIndicator: { gid: number; idx: number } | null;
   dragOverGroup: number | null;
@@ -87,8 +77,6 @@ export interface GroupListViewProps {
   handleDeleteGroup: (id: number) => void;
   handleToggleDefault: (group: GroupDetail["group"]) => void;
   handleTestGroup: (group: GroupDetail["group"], gps: GroupDetail["platforms"]) => void;
-  handleDeleteMapping: (groupId: number, index: number) => void;
-  handleAddMapping: () => void;
   handleSetLevelPriority: (gid: number, pid: number, v: number) => void;
   handlePurgeDisabled: (gid: number) => void;
   /** 打开独立详情页（观测台三栏） */
@@ -131,15 +119,13 @@ export function GroupListView(props: GroupListViewProps) {
     details, platforms, t, loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
     groupRows, groupIndexById, groupStats, groupBalance, unmatchedStat, groupSearch,
     collapsedGroups, setCollapsedGroups, toggleGroupExpanded,
-    mappingGroupId, mSource, mTargetPlatform, mTargetModel, availableModels,
-    setMappingGroupId, setMSource, setMTargetPlatform, setMTargetModel,
     dropIndicator, dragOverGroup, onPlatPointerDown,
     cards, makeGroupCardActions, cardService,
     groupTest, setGroupTest,
     removeTarget, setRemoveTarget, confirmDeletePlatform, removePlatformFromGroup,
     onToast,
     handleReorderGroups, openEdit, handleDeleteGroup, handleToggleDefault,
-    handleTestGroup, handleDeleteMapping, handleAddMapping,
+    handleTestGroup,
     handleSetLevelPriority, handlePurgeDisabled, onOpenDetail,
     onCreatePlatform, onNavigate,
     onBatchDelete, batchDeleteTarget, batchDeleteBusy, confirmBatchDelete, setBatchDeleteTarget,
@@ -240,11 +226,6 @@ export function GroupListView(props: GroupListViewProps) {
                 isDragOver={dragOverGroup === group.id}
                 dropIndicatorIdx={di}
                 dropIndicatorTotal={fullPlatsLen}
-                showMappingForm={mappingGroupId === group.id}
-                mSource={mSource}
-                mTargetPlatform={mTargetPlatform}
-                mTargetModel={mTargetModel}
-                availableModels={availableModels}
                 visiblePlatformIds={gs?.visibleIds ?? null}
                 forceExpanded={!!gs}
                 groupTestRunning={groupTest?.running === true}
@@ -262,12 +243,6 @@ export function GroupListView(props: GroupListViewProps) {
                 onCreatePlatform={onCreatePlatform}
                 onNavigate={onNavigate}
                 onPlatPointerDown={onPlatPointerDown}
-                onDeleteMapping={handleDeleteMapping}
-                onSetMappingGroupId={setMappingGroupId}
-                onSetMSource={setMSource}
-                onSetMTargetPlatform={setMTargetPlatform}
-                onSetMTargetModel={setMTargetModel}
-                onAddMapping={handleAddMapping}
                 onSetLevelPriority={handleSetLevelPriority}
                 onPurgeDisabled={handlePurgeDisabled}
                 onBatchDelete={onBatchDelete}
