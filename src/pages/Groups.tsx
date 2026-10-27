@@ -813,6 +813,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
           onEditPlatform={p => cardService.onEdit(p)}
           onDeleteMapping={handleDeleteMapping}
           onSetLevelPriority={handleSetLevelPriority}
+          onMemberPointerDown={onPlatPointerDown}
+          memberDropIndicator={dropIndicator}
           onAddPlatform={onCreatePlatform ? () => onCreatePlatform([detail.group.id], detail.group.id) : undefined}
         />
       );
