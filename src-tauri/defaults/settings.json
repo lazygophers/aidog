@@ -424,6 +424,15 @@
           ]
         },
         {
+          "matcher": "Bash",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "python3 -c 'import json,sys,re;c=json.load(sys.stdin).get(\"tool_input\",{}).get(\"command\",\"\");print(json.dumps({\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"permissionDecision\":\"ask\",\"permissionDecisionReason\":\"数据库 CLI 直操作或经 ssh/docker exec 嵌套执行，需确认\"}}) if re.search(r\"\\b(mysql|mariadb|mysqldump|redis-cli|mongosh|mongo|mongodump|psql|pg_dump|pg_restore|sqlite3)\\b\",c) else \"\",end=\"\")'"
+            }
+          ]
+        },
+        {
           "matcher": "Grep|Glob|Bash",
           "hooks": [
             {
