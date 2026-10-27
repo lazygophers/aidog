@@ -1428,7 +1428,6 @@
   "platform.peak_overwrite_confirm_title": "الكتابة فوق تهيئة الذروة؟",
   "platform.peak_start_at": "ساري من",
   "platform.protocol": "البروتوكول",
-  "platform.protocolLocked": "لا يمكن تغيير البروتوكول بعد الإنشاء",
   "platform.purgeDisabled": "تنظيف المنصات المعطّلة",
   "platform.purgeDisabledConfirm": "سيحذف نهائيًا جميع المنصات المعطّلة (المعطّلة تلقائيًا) في المكتبة. لا يمكن التراجع. المتابعة؟",
   "platform.purgeDisabledDone": "تم حذف {{count}} منصة معطّلة",

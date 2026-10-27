@@ -1428,7 +1428,6 @@
   "platform.peak_overwrite_confirm_title": "Spitzenkonfiguration überschreiben?",
   "platform.peak_start_at": "Gültig ab",
   "platform.protocol": "Protokoll",
-  "platform.protocolLocked": "Protokoll kann nach Erstellung nicht geändert werden",
   "platform.purgeDisabled": "Deaktivierte Plattformen entfernen",
   "platform.purgeDisabledConfirm": "Alle deaktivierten (auto-deaktivierten) Plattformen der Bibliothek werden dauerhaft gelöscht. Nicht rückgängig zu machen. Fortfahren?",
   "platform.purgeDisabledDone": "{{count}} deaktivierte Plattform(en) gelöscht",

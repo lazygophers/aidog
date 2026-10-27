@@ -1406,7 +1406,6 @@
   "platform.peak_overwrite_confirm_title": "¿Sobrescribir configuración pico?",
   "platform.peak_start_at": "Vigente desde",
   "platform.protocol": "Protocolo",
-  "platform.protocolLocked": "El protocolo no se puede cambiar tras la creación",
   "platform.purgeDisabled": "Purgar plataformas deshabilitadas",
   "platform.purgeDisabledConfirm": "Se eliminarán permanentemente todas las plataformas deshabilitadas (auto-deshabilitadas) de la biblioteca. No se puede deshacer. ¿Continuar?",
   "platform.purgeDisabledDone": "Eliminadas {{count}} plataforma(s) deshabilitada(s)",
