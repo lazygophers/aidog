@@ -808,7 +808,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
           groupTestRunning={groupTest?.running ?? false}
           onSelectGroup={setDetailTarget}
           onClose={() => setDetailTarget(null)}
-          onCreateGroup={() => setShowCreate(true)}
           onEditGroup={openEdit}
           onTestGroup={handleTestGroup}
           onEditPlatform={p => cardService.onEdit(p)}
