@@ -413,16 +413,9 @@ pub fn set_default_group(
 }
 
 pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
-    // 检查是否为自动分组
-    let group = get_group(db, id).await?.ok_or("group not found")?;
-    if !group.auto_from_platform.is_empty() {
-        // auto 分组：仅当关联平台已空（源平台已删的孤儿分组）时允许手动删除
-        let plats = get_group_platforms(db, id).await?;
-        if !plats.is_empty() {
-            return Err(
-                "auto-created group with linked platforms cannot be deleted manually".to_string(),
-            );
-        }
-    }
+    // 2026-10-27 拍板：auto 分组带平台也允许手动删除（此前仅孤儿组可删，用户删不掉）。
+    // 组软删后关联行与手动组删除同口径（join 未软删组不可见）＝组内平台解绑保留，平台本身不动；
+    // 源平台日后可经 platform_ensure_auto_group 幂等重建组。
+    get_group(db, id).await?.ok_or("group not found")?;
     force_delete_group(db, id).await
 }

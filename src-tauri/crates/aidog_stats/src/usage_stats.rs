@@ -107,6 +107,8 @@ pub fn get_platform_usage_stats(
                     total_cost: cost,
                     today_tokens,
                     today_cost,
+                    today_requests: 0,
+                    today_success: 0,
                 })
             })?;
             Ok(stats)
@@ -196,7 +198,9 @@ pub fn get_group_usage_stats<'a>(
             let mut stmt = conn.prepare_cached(
                 &format!("SELECT {AGG_TOTAL_COLS}, \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
-                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0), \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN request_count ELSE 0 END), 0), \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN success_count ELSE 0 END), 0) \
                  FROM stats_agg_hourly WHERE group_key = ?1 AND deleted_at = 0"),
             )?;
             let stats = stmt.query_row(
@@ -210,6 +214,8 @@ pub fn get_group_usage_stats<'a>(
                     let cost: f64 = row.get(5)?;
                     let today_tokens: i64 = row.get(6)?;
                     let today_cost: f64 = row.get(7)?;
+                    let today_requests: i64 = row.get(8)?;
+                    let today_success: i64 = row.get(9)?;
                     Ok(aidog_db::models::PlatformUsageStats {
                         total_requests: total,
                         success_count: success,
@@ -222,6 +228,8 @@ pub fn get_group_usage_stats<'a>(
                         total_cost: cost,
                         today_tokens,
                         today_cost,
+                        today_requests,
+                        today_success,
                     })
                 },
             )?;
@@ -250,12 +258,15 @@ pub fn get_all_group_usage_stats(
     async move {
         // stats_agg_hourly 已迁回主库（stats-agg-to-main-db s1），走主库读池。
         db.call_read_traced(None, __db_caller, move |conn| {
+            let today_key = local_today_hour_key();
             let mut stmt = conn.prepare_cached(&format!(
-                "SELECT group_key, {AGG_TOTAL_COLS} \
+                "SELECT group_key, {AGG_TOTAL_COLS}, \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?1 THEN request_count ELSE 0 END), 0), \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?1 THEN success_count ELSE 0 END), 0) \
                  FROM stats_agg_hourly WHERE deleted_at = 0 AND group_key <> '' \
                  GROUP BY group_key"
             ))?;
-            let rows = stmt.query_map([], |row| {
+            let rows = stmt.query_map(params![today_key], |row| {
                 let group_key: String = row.get(0)?;
                 let total: i64 = row.get(1).unwrap_or(0);
                 let success: i64 = row.get(2).unwrap_or(0);
@@ -263,6 +274,8 @@ pub fn get_all_group_usage_stats(
                 let out: i64 = row.get(4).unwrap_or(0);
                 let cache: i64 = row.get(5).unwrap_or(0);
                 let cost: f64 = row.get(6).unwrap_or(0.0);
+                let today_requests: i64 = row.get(7).unwrap_or(0);
+                let today_success: i64 = row.get(8).unwrap_or(0);
                 Ok((
                     group_key,
                     aidog_db::models::PlatformUsageStats {
@@ -281,6 +294,8 @@ pub fn get_all_group_usage_stats(
                         total_cost: cost,
                         today_tokens: 0,
                         today_cost: 0.0,
+                        today_requests,
+                        today_success,
                     },
                 ))
             })?;
@@ -361,6 +376,8 @@ pub fn platform_usage_stats_all(
                         total_cost: cost,
                         today_tokens,
                         today_cost,
+                        today_requests: 0,
+                        today_success: 0,
                     },
                 ))
             })?;

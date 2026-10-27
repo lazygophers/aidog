@@ -492,7 +492,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
     onRefreshQuota: cards.refreshQuota,
     onDelete: (id) => {
       const p = platforms.find(pp => pp.id === id);
-      if (p) handleGroupRemovePlatform(p, gid);
+      if (p) { handleGroupRemovePlatform(p, gid); return; }
+      onToast?.({ text: t("group.platformNotFound", "平台数据未加载，请刷新后重试"), ok: false });
+      setTimeout(() => onToast?.(null), 3000);
     },
     onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
     // eslint-disable-next-line react-hooks/exhaustive-deps

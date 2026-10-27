@@ -302,6 +302,14 @@ pub struct PlatformUsageStats {
     /// 今日（本地 00:00 起）预估花费（$），基于 est_cost 聚合
     #[serde(default)]
     pub today_cost: f64,
+    /// 今日（本地 00:00 起）请求数（分组列表卡片「今日请求」展示口径）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub today_requests: i64,
+    /// 今日（本地 00:00 起）成功数（与 today_requests 配对算成功率）
+    #[serde(default)]
+    #[ts(type = "number")]
+    pub today_success: i64,
 }
 
 /// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
