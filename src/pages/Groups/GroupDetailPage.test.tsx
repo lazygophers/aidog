@@ -71,6 +71,8 @@ describe("GroupDetailPage — 观测台三栏", () => {
     expect(document.querySelector('[data-testid="detail-stats"]')).toBeTruthy();
     await waitFor(() => expect(document.querySelector('[data-testid="detail-flow"]')).toBeTruthy());
     expect(document.querySelector('[data-testid="detail-members"]')).toBeTruthy();
+    // pgtop 必须显示当前组名（否则全页无组名可辨，误判开成别的组）
+    expect(screen.getByText("main")).toBeTruthy();
     // 成员行：两平台 + 熔断徽标 + 协议小字
     expect(document.querySelector('[data-plat-id="1"]')!.textContent).toContain("glm_coding");
     expect(document.querySelector('[data-plat-id="1"]')!.textContent).toContain("openai");

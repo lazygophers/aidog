@@ -98,8 +98,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onPlatformDeleted,
   const [mTargetPlatform, setMTargetPlatform] = useState<number | "">("");
   const [mTargetModel, setMTargetModel] = useState("");
 
-  // 全屏视图态（创建/编辑分组）：通知父级隐藏下方未分组平台列表，避免与全屏视图并列。
-  const fullscreenView = editTarget !== null || showCreate;
+  // 全屏视图态（创建/编辑/详情分组）：通知父级隐藏页头与下方未分组平台列表，独立成页。
+  const fullscreenView = editTarget !== null || showCreate || detailTarget !== null;
   useEffect(() => {
     onViewModeChange?.(fullscreenView);
   }, [fullscreenView, onViewModeChange]);
