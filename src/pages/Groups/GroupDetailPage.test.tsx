@@ -55,7 +55,7 @@ const baseProps = {
   cards,
   cardService: { onQuickTest: vi.fn(), onEdit: vi.fn(), onShare: vi.fn(), onDuplicate: vi.fn(), onViewLogs: vi.fn(), onCustomTest: vi.fn(), onToggleEnabled: vi.fn() } as never,
   groupTestRunning: false,
-  onSelectGroup: vi.fn(), onClose: vi.fn(), onCreateGroup: vi.fn(), onEditGroup: vi.fn(),
+  onSelectGroup: vi.fn(), onClose: vi.fn(), onEditGroup: vi.fn(),
   onTestGroup: vi.fn(), onEditPlatform: vi.fn(),
   onDeleteMapping: vi.fn(), onAddPlatform: vi.fn(), onSetLevelPriority: vi.fn(),
 };

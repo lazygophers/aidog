@@ -237,7 +237,6 @@ export function GroupDetailPage(props: {
   groupTestRunning: boolean;
   onSelectGroup: (id: number) => void;
   onClose: () => void;
-  onCreateGroup: () => void;
   onEditGroup: (detail: GroupDetail) => void;
   onTestGroup: (group: GroupDetail["group"], gps: GroupDetail["platforms"]) => void;
   onEditPlatform: (p: Platform) => void;
@@ -264,9 +263,6 @@ export function GroupDetailPage(props: {
         <h1 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>{t("nav.groups", "分组")}</h1>
         <span style={{ fontSize: 11.5, color: "var(--text-tertiary)" }}>{details.length} {t("group.detail.countGroups", "个分组")} · {totalPlatLinks} {t("group.detail.countLinks", "个平台关联")}</span>
         <div style={{ flex: 1 }} />
-        <Button variant="outline" style={{ height: "auto", padding: "5px 12px", fontSize: 12 }} onClick={props.onCreateGroup}>
-          {t("group.detail.newGroup", "＋ 新建分组")}
-        </Button>
       </div>
       {/* pgbody：1fr / 264px */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 264px", gap: 14, padding: "14px 16px", background: "linear-gradient(180deg, var(--secondary, #FBFBFD), transparent)", alignItems: "start" }}>
