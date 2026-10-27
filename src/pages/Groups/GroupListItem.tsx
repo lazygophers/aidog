@@ -38,6 +38,8 @@ export interface CardsSnapshot {
   testingId: number | null;
   faviconFailed: Set<number>;
   lastTestMap: Record<number, import("../../services/api").LastTestResult>;
+  /** 真查刷新（usePlatformCards 同款）；详情页成员行刷新按钮用，缺省不渲染按钮 */
+  refreshQuota?: (p: Platform, opts?: { silent?: boolean }) => Promise<void>;
 }
 
 /** GroupListItem props：每个分组行的全部渲染依赖，显式化为 props 以支持 React.memo 细粒度更新。 */

@@ -36,8 +36,8 @@ const detail = {
 } as never;
 const details = [detail] as never;
 const platforms = [
-  { id: 1, platform_type: "glm_coding", status: "enabled", endpoints: [{ protocol: "openai" }] },
-  { id: 2, platform_type: "deepseek", status: "auto_disabled", endpoints: [] },
+  { id: 1, platform_type: "glm_coding", status: "enabled", endpoints: [{ protocol: "openai" }], models: {} },
+  { id: 2, platform_type: "deepseek", status: "auto_disabled", endpoints: [], models: {} },
 ] as never;
 const cards = {
   quotaMap: { 1: { success: true, error: null, queried_at: 0, balance: { remaining: 30, total: 100, used: 70, currency: "CNY", is_valid: true }, coding_plan: null } },
@@ -46,6 +46,7 @@ const cards = {
     2: { total_requests: 200, success_count: 100, total_input_tokens: 1, total_output_tokens: 1, total_cache_tokens: 0, cache_rate: 0, recent_failures: 9, recent_total: 10, total_cost: 0.4, today_tokens: 56, today_cost: 0.03 },
   },
   expandedIds: new Set<number>(), testResults: {}, testingId: null, faviconFailed: new Set<number>(), lastTestMap: { 1: { success: true, status_code: 200, duration_ms: 342, created_at: 0, error: "", response_body: "" } },
+  refreshQuota: vi.fn().mockResolvedValue(undefined),
 } as never;
 
 const baseProps = {
@@ -73,10 +74,14 @@ describe("GroupDetailPage — 观测台三栏", () => {
     expect(document.querySelector('[data-testid="detail-members"]')).toBeTruthy();
     // pgtop 必须显示当前组名（否则全页无组名可辨，误判开成别的组）
     expect(screen.getByText("main")).toBeTruthy();
-    // 成员行：两平台 + 熔断徽标 + 协议小字
+    // 成员行（复用 PlatformRow）：平台名 + 熔断徽标 + 配额条 + 刷新按钮 + 优先级输入
     expect(document.querySelector('[data-plat-id="1"]')!.textContent).toContain("glm_coding");
-    expect(document.querySelector('[data-plat-id="1"]')!.textContent).toContain("openai");
-    expect(document.querySelector('[data-plat-id="2"]')!.textContent).toContain("group.detail.broken");
+    expect(document.querySelector('[data-plat-id="2"]')!.textContent).toContain("platform.autoDisabledBadge");
+    expect(document.querySelector('[data-plat-id="1"] [data-testid="row-quota-bar"]')).toBeTruthy();
+    expect(document.querySelector('[data-plat-id="1"] [data-testid="row-refresh-quota"]')).toBeTruthy();
+    expect(document.querySelector('[data-plat-id="1"] [data-testid="row-level"]')).toBeTruthy();
+    fireEvent.click(document.querySelector('[data-plat-id="1"] [data-testid="row-refresh-quota"]')!);
+    expect(cards.refreshQuota).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
     // 模型映射 chip 链
     expect(document.querySelector('[data-testid="detail-mappings"]')!.textContent).toContain("gpt-5.2");
     // 趋势卡拿到 daily 后渲染两排柱（top2 平台）
