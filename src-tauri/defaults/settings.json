@@ -381,7 +381,18 @@
             "Bash(git push -f:*)",
             "Bash(git push origin --delete:*)",
             "Bash(git reset:*)",
-            "Bash(git checkout:*)"
+            "Bash(git checkout:*)",
+            "Bash(mysql:*)",
+            "Bash(mariadb:*)",
+            "Bash(mysqldump:*)",
+            "Bash(redis-cli:*)",
+            "Bash(mongosh:*)",
+            "Bash(mongo:*)",
+            "Bash(mongodump:*)",
+            "Bash(psql:*)",
+            "Bash(pg_dump:*)",
+            "Bash(pg_restore:*)",
+            "Bash(sqlite3:*)"
         ]
     },
     "hooks": {
