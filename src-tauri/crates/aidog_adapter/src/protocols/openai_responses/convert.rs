@@ -298,7 +298,11 @@ pub fn parse_responses_response(
         .and_then(|u| u.get("output_tokens"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
-    let cache_read_tokens = 0; // Responses API 暂不支持缓存读取
+    let cache_read_tokens = usage
+        .and_then(|u| u.get("input_tokens_details"))
+        .and_then(|d| d.get("cached_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
 
     Some(crate::converter::NonStreamResponse {
         id,
