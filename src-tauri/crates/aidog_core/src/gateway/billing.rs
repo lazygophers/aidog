@@ -47,6 +47,7 @@ pub async fn calc_est_cost(
     output_tokens: i32,
     cache_tokens: i32,
     cache_write_tokens: i32,
+    cache_write_1h_tokens: i32,
     platform_id: i64,
     created_at_ms: i64,
 ) -> f64 {
@@ -88,6 +89,7 @@ pub async fn calc_est_cost(
             output_cost_per_token: settings.fallback_output_price / 1_000_000.0,
             cache_read_input_token_cost: 0.0,
             cache_write_input_token_cost: 0.0,
+            cache_write_1h_input_token_cost: 0.0,
             source: "fallback".to_string(),
         },
         peak_applied: false,
@@ -108,10 +110,12 @@ pub async fn calc_est_cost(
         output_tokens,
         cache_tokens,
         cache_write_tokens,
+        cache_write_1h_tokens,
         rp.input_cost_per_token,
         rp.output_cost_per_token,
         rp.cache_read_input_token_cost,
         rp.cache_write_input_token_cost,
+        rp.cache_write_1h_input_token_cost,
         multiplier,
     )
 }
@@ -125,16 +129,19 @@ pub fn est_cost_from(
     output_tokens: i32,
     cache_tokens: i32,
     cache_write_tokens: i32,
+    cache_write_1h_tokens: i32,
     input_cost_per_token: f64,
     output_cost_per_token: f64,
     cache_read_input_token_cost: f64,
     cache_write_input_token_cost: f64,
+    cache_write_1h_input_token_cost: f64,
     multiplier: f64,
 ) -> f64 {
     let base = input_tokens as f64 * input_cost_per_token
         + output_tokens as f64 * output_cost_per_token
         + cache_tokens as f64 * cache_read_input_token_cost
-        + cache_write_tokens as f64 * cache_write_input_token_cost;
+        + cache_write_tokens as f64 * cache_write_input_token_cost
+        + cache_write_1h_tokens as f64 * cache_write_1h_input_token_cost;
     base * multiplier
 }
 
@@ -210,13 +217,13 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "passthrough", "", 1000, 2000, 0, 0, 0, 1, 1).await;
         assert_eq!(
             cost, 0.0,
             "passthrough platform must short-circuit to 0 before fallback"
         );
         // 非 passthrough 对照：走 fallback 默认价，非 0
-        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0).await;
+        let other = calc_est_cost(&db, "unknown-model", "anthropic", "", 1000, 0, 0, 0, 0, 0, 0).await;
         assert!(
             other > 0.0,
             "non-passthrough unknown model falls back to default price, got {other}"
@@ -231,7 +238,7 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
-        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 1, 1).await;
+        let cost = calc_est_cost(&db, "any-model", "unknown", "", 1000, 2000, 0, 0, 0, 1, 1).await;
         assert_eq!(
             cost, 0.0,
             "unknown protocol must short-circuit to 0 before fallback"
@@ -262,8 +269,10 @@ mod tests {
             500,
             0,
             0,
+            0,
             3.0 / 1_000_000.0,
             15.0 / 1_000_000.0,
+            0.0,
             0.0,
             0.0,
             1.0,
@@ -280,7 +289,7 @@ mod tests {
         let mult = super::super::peak::resolve_multiplier(&windows, created_at_ms, "claude-3");
         assert_eq!(mult, 2.0);
         let base = 1000.0 * 3.0 / 1_000_000.0;
-        let cost = est_cost_from(1000, 0, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, 0.0, mult);
+        let cost = est_cost_from(1000, 0, 0, 0, 0, 3.0 / 1_000_000.0, 0.0, 0.0, 0.0, 0.0, mult);
         assert!((cost - base * 2.0).abs() < 1e-12);
     }
 
@@ -289,7 +298,7 @@ mod tests {
     fn est_cost_from_cache_read_discount() {
         let input_cost = 3.0 / 1_000_000.0;
         let cache_cost = 0.3 / 1_000_000.0; // 折扣价，远低于 input_cost
-        let cost = est_cost_from(0, 0, 1000, 0, input_cost, 0.0, cache_cost, 0.0, 1.0);
+        let cost = est_cost_from(0, 0, 1000, 0, 0, input_cost, 0.0, cache_cost, 0.0, 0.0, 1.0);
         assert!((cost - 1000.0 * cache_cost).abs() < 1e-12);
         assert!(cost < 1000.0 * input_cost);
     }
@@ -311,7 +320,9 @@ mod tests {
             0,
             0,
             0,
+            0,
             hit.price.input_cost_per_token,
+            0.0,
             0.0,
             0.0,
             0.0,
@@ -330,7 +341,7 @@ mod tests {
         let created_at_ms = 1_767_254_400_000; // 2026-01-01 08:00 UTC
         let extra = r#"{"peak":[{"start_hour":6,"end_hour":10,"multiplier":2.0}]}"#;
         let cost = calc_est_cost(
-            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 1, created_at_ms,
+            &db, "unknown-model", "anthropic", extra, 1000, 0, 0, 0, 0, 1, created_at_ms,
         )
         .await;
         assert!((cost - 0.003 * 2.0).abs() < 1e-12, "cost = {cost}");
@@ -380,6 +391,39 @@ mod tests {
         assert_eq!(an["web_search"]["currency"].as_str(), None, "缺省 USD");
     }
 
+    /// B3：1h 档计价——cache_write_1h 用量落 1h 单价，与 5m 桶分开（1h=2× input 例）。
+    #[test]
+    fn est_cost_from_cache_write_1h_priced_separately() {
+        let pw5m = 3.75 / 1_000_000.0; // 1.25× input
+        let pw1h = 6.0 / 1_000_000.0; // 2× input
+        let cost = est_cost_from(0, 0, 0, 100, 50, 0.0, 0.0, 0.0, pw5m, pw1h, 1.0);
+        let expected = 100.0 * pw5m + 50.0 * pw1h;
+        assert!( (cost - expected).abs() < 1e-12, "cost = {cost}");
+        // 反证：若 1h 桶误按 5m 价计，结果会低 50×(6.0-3.75)/1M
+        assert!(cost > 150.0 * pw5m);
+    }
+
+    /// B3 缺省继承：条目无 `price.cache_write_1h` → 1h 单价回落 cache_write 值
+    /// （无该字段平台 5m/1h 同价，零回归）；有该字段 → 各走各价。
+    #[test]
+    fn resolve_price_cache_write_1h_defaults_to_cache_write() {
+        let without = serde_json::json!({
+            "price": { "input": 3.0e-6, "cache_write": 3.75e-6 }
+        });
+        let hit = aidog_db::resolve_price_from(Some(&without), false, 3.0, 3.0, 0, 0);
+        assert_eq!(hit.price.cache_write_input_token_cost, 3.75e-6);
+        assert_eq!(
+            hit.price.cache_write_1h_input_token_cost, 3.75e-6,
+            "缺省回落 cache_write，无该字段平台零回归"
+        );
+        let with = serde_json::json!({
+            "price": { "input": 3.0e-6, "cache_write": 3.75e-6, "cache_write_1h": 6.0e-6 }
+        });
+        let hit = aidog_db::resolve_price_from(Some(&with), false, 3.0, 3.0, 0, 0);
+        assert_eq!(hit.price.cache_write_input_token_cost, 3.75e-6);
+        assert_eq!(hit.price.cache_write_1h_input_token_cost, 6.0e-6);
+    }
+
     /// tools_pricing_in 照 peak_in 惯例：协议 / 字段缺失 → None；容器非 object → warn 返 None。
     #[test]
     fn tools_pricing_in_missing_or_malformed_returns_none() {
@@ -402,7 +446,7 @@ fn est_cost_from_cache_write_priced_separately() {
     let input_cost = 3.0 / 1_000_000.0;
     let cache_read_cost = 0.3 / 1_000_000.0;
     let cache_write_cost = 3.75 / 1_000_000.0; // 1.25× input
-    let cost = est_cost_from(0, 0, 1000, 2000, input_cost, 0.0, cache_read_cost, cache_write_cost, 1.0);
+    let cost = est_cost_from(0, 0, 1000, 2000, 0, input_cost, 0.0, cache_read_cost, cache_write_cost, 0.0, 1.0);
     assert!((cost - (1000.0 * cache_read_cost + 2000.0 * cache_write_cost)).abs() < 1e-12);
     // 反证：若 write 误按 read 价计，结果会低 2000×(3.75-0.3)/1M
     assert!(cost > 2000.0 * cache_read_cost);

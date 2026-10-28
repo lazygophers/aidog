@@ -17,6 +17,10 @@ pub struct ResolvedPrice {
     /// 2026-09-28 起消费；缺省 0 = 条目未标（计价层按 0 加项，不回退 input 价）。
     #[serde(default)]
     pub cache_write_input_token_cost: f64,
+    /// 缓存写入 1h TTL 单价（registry `price.cache_write_1h`，Anthropic 2× input 价；
+    /// spec B3）。缺省回落 `cache_write` 值——无该字段的平台 5m/1h 同价，零回归。
+    #[serde(default)]
+    pub cache_write_1h_input_token_cost: f64,
     pub source: String, // "platform_override" | "default_platform" | "top_level" | "fallback"
 }
 
