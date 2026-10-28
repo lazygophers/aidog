@@ -273,6 +273,33 @@
       },
       "description": "【可选】平台级高峰/低峰计价窗口（每窗口可指定 timezone，缺省 UTC；first-match wins，跨天 end<start）。条目带模型 peak 绝对价时本倍率被压成 1.0。注意三层同名不同层：本字段 peak = 平台级计价窗口；models.peak = 高峰模型切换分支；模型条目 peak = 高峰绝对价对象。"
     },
+    "tools_pricing": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "per_1000"
+        ],
+        "properties": {
+          "per_1000": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "description": "【必填】每 1,000 次成功调用的原币价（官方按次定价，非 token 价）。"
+          },
+          "currency": {
+            "type": "string",
+            "enum": [
+              "CNY",
+              "USD"
+            ],
+            "description": "【可选】per_1000 的计价币种；缺省 = USD。CNY 价由计费层按 CNY_PER_USD 常量换算 USD 入账。"
+          }
+        }
+      },
+      "description": "【可选】按次计价声明（工具逐条，键为开放集，平台逐家自定、无跨平台词表）。计费链：Anthropic usage.server_tool_use 计数 × 本价；未声明的工具键计 0、不设按次 fallback；按次费不乘 peak 倍率。"
+    },
     "name": {
       "type": "object",
       "additionalProperties": false,

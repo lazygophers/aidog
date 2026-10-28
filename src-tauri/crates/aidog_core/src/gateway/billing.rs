@@ -6,6 +6,14 @@
 
 use aidog_db::Db;
 
+use super::registry::effective_presets;
+
+/// CNY→USD 汇率（1 USD 兑 CNY 数）：`tools_pricing` 声明 `currency: "CNY"` 的按次价换算
+/// USD 计费用（est_cost 列全库统一 USD 口径）。值 6.6675 = ECB 参考汇率（frankfurter.dev
+/// `/v1/latest?base=USD&symbols=CNY`，2026-10-27 参考价，2026-10-28 取值）。
+/// 随版本更新（spec B6：不进 schema / DB / 运行时配置，汇率大变时改此常量重发版）。
+pub const CNY_PER_USD: f64 = 6.6675;
+
 /// 根据 `model_entry` 定价计算单次请求预估花费（$），含 peak 调价。
 ///
 /// 价格走 `resolve_price`（票 T4）：按 `(platform_type, model_name)` 查 `model_entry` 条目
@@ -128,6 +136,65 @@ pub fn est_cost_from(
         + cache_tokens as f64 * cache_read_input_token_cost
         + cache_write_tokens as f64 * cache_write_input_token_cost;
     base * multiplier
+}
+
+/// 按次工具计费纯函数（spec-按次计费 B3）：Σ `per_1000 ÷ 1000 × 计数`，
+/// `currency: "CNY"` 的条目经 [`CNY_PER_USD`] 换算 USD，其余（含缺省）按 USD 直用。
+/// `tools_pricing` = platform.json 顶层 `tools_pricing` 容器（None = 平台无声明）；
+/// `counts` = (工具键, 成功调用次数)。未声明工具键 / per_1000 缺失或非正 → 该键计 0；
+/// 平台无声明或存在未声明键时汇总 warn 一条（spec B5，每请求至多一条防刷屏）。
+/// 按次费不乘 peak 倍率（官方按次价无峰谷差证据，spec B3）。
+pub fn tools_cost(tools_pricing: Option<&serde_json::Value>, counts: &[(&str, i64)]) -> f64 {
+    if counts.is_empty() {
+        return 0.0;
+    }
+    let mut cost = 0.0;
+    let mut undeclared: Vec<&str> = Vec::new();
+    for (key, count) in counts {
+        if *count <= 0 {
+            continue;
+        }
+        let entry = tools_pricing.and_then(|tp| tp.get(*key));
+        match entry
+            .and_then(|e| e.get("per_1000"))
+            .and_then(serde_json::Value::as_f64)
+        {
+            Some(per_1000) if per_1000 > 0.0 => {
+                let usd = per_1000 / 1000.0 * *count as f64;
+                let is_cny =
+                    entry.and_then(|e| e.get("currency")).and_then(serde_json::Value::as_str)
+                        == Some("CNY");
+                cost += if is_cny { usd / CNY_PER_USD } else { usd };
+            }
+            _ => undeclared.push(key),
+        }
+    }
+    if tools_pricing.is_none() || !undeclared.is_empty() {
+        tracing::warn!(
+            undeclared = ?undeclared,
+            "tool call counts without tools_pricing declaration; billed as 0"
+        );
+    }
+    cost
+}
+
+/// 按 protocol 名（serde 裸名，如 "deepseek"）查生效 preset（DB 优先）的 `tools_pricing`
+/// 按次计价容器。协议 / 字段缺失 → None；字段非 object（解析失败）→ warn 返 None
+/// （照 `peak::peak_in` 惯例，禁抄第二份真值源）。数据唯一落点 = platform.json
+/// （spec-按次计费 A3）。
+pub fn default_tools_pricing(protocol: &str) -> Option<serde_json::Value> {
+    tools_pricing_in(&effective_presets(), protocol)
+}
+
+/// [`default_tools_pricing`] 的纯函数核心：从任意一篇 presets 文档取某协议的 tools_pricing。
+pub fn tools_pricing_in(doc: &serde_json::Value, protocol: &str) -> Option<serde_json::Value> {
+    let proto_obj = doc.get("protocols").and_then(|p| p.get(protocol))?;
+    let val = proto_obj.get("tools_pricing")?;
+    if !val.is_object() {
+        tracing::warn!(protocol, "tools_pricing preset parse failed; skipping");
+        return None;
+    }
+    Some(val.clone())
 }
 
 #[cfg(test)]
@@ -267,6 +334,64 @@ mod tests {
         )
         .await;
         assert!((cost - 0.003 * 2.0).abs() < 1e-12, "cost = {cost}");
+    }
+
+    /// tools_cost ① CNY 按次价经汇率换算 USD（est_cost 全库统一 USD 口径）。
+    #[test]
+    fn tools_cost_cny_converts_to_usd() {
+        let tp = serde_json::json!({ "web_search": { "per_1000": 5.0, "currency": "CNY" } });
+        let cost = tools_cost(Some(&tp), &[("web_search", 1000)]);
+        assert!((cost - 5.0 / CNY_PER_USD).abs() < 1e-12, "cost = {cost}");
+    }
+
+    /// tools_cost ② USD（缺省币种，currency 字段省略）直用不换算。
+    #[test]
+    fn tools_cost_usd_direct() {
+        let tp = serde_json::json!({ "web_search": { "per_1000": 10.0 } });
+        let cost = tools_cost(Some(&tp), &[("web_search", 1000)]);
+        assert!((cost - 10.0).abs() < 1e-12, "cost = {cost}");
+    }
+
+    /// tools_cost ③ 平台无 tools_pricing 声明 → 恒 0（不设按次 fallback，spec B5：兜底必错）。
+    #[test]
+    fn tools_cost_no_declaration_zero() {
+        assert_eq!(tools_cost(None, &[("web_search", 1000)]), 0.0);
+    }
+
+    /// tools_cost ④ 声明了 web_search 价、请求带未声明的 web_fetch 计数 → 该键计 0，
+    /// 已声明键照常计（Anthropic 只声明 web_search 的真实形状）。
+    #[test]
+    fn tools_cost_undeclared_key_zero() {
+        let tp = serde_json::json!({ "web_search": { "per_1000": 10.0 } });
+        let cost = tools_cost(Some(&tp), &[("web_search", 1000), ("web_fetch", 500)]);
+        assert!((cost - 10.0).abs() < 1e-12, "cost = {cost}");
+    }
+
+    /// tools_pricing 读取链端到端：bundled registry 的 deepseek / anthropic 条目
+    /// 可经 default_tools_pricing 取到（无 DB 时回落编译期内置那份）。
+    #[test]
+    fn default_tools_pricing_reads_bundled_registry() {
+        let ds = default_tools_pricing("deepseek").expect("deepseek tools_pricing bundled");
+        assert_eq!(ds["search"]["per_1000"].as_f64(), Some(5.0));
+        assert_eq!(ds["search"]["currency"].as_str(), Some("CNY"));
+        assert_eq!(ds["fetch"]["per_1000"].as_f64(), Some(5.0));
+        let an = default_tools_pricing("anthropic").expect("anthropic tools_pricing bundled");
+        assert_eq!(an["web_search"]["per_1000"].as_f64(), Some(10.0));
+        assert_eq!(an["web_search"]["currency"].as_str(), None, "缺省 USD");
+    }
+
+    /// tools_pricing_in 照 peak_in 惯例：协议 / 字段缺失 → None；容器非 object → warn 返 None。
+    #[test]
+    fn tools_pricing_in_missing_or_malformed_returns_none() {
+        let doc = serde_json::json!({
+            "protocols": {
+                "no_field": {},
+                "malformed": { "tools_pricing": 5 }
+            }
+        });
+        assert_eq!(tools_pricing_in(&doc, "no_field"), None);
+        assert_eq!(tools_pricing_in(&doc, "malformed"), None);
+        assert_eq!(tools_pricing_in(&doc, "absent"), None);
     }
 }
 
