@@ -64,6 +64,15 @@ describe("PlatformEditForm unknown protocol", () => {
   });
 });
 
+describe("PlatformEditForm drawer variant", () => {
+  it("renders footer actions, drops the back button, keeps save gating", () => {
+    render(<PlatformEditForm s={state("openai")} variant="drawer" />);
+    expect(screen.getByTestId("platform-drawer-footer")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /action\.back/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "action.save" })).toBeEnabled();
+  });
+});
+
 describe("PlatformEditForm advanced tabs (8-tab split)", () => {
   it("shows 8 tabs in order with quota first selected, old labels gone", () => {
     render(<PlatformEditForm s={state("openai")} />);

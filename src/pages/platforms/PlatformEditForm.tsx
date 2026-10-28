@@ -29,8 +29,9 @@ import { MultiKeyPreview } from "./MultiKeyPreview";
 import { SectionTabs } from "../../components/shared";
 import { makeRipple } from "../../components/shared";
 
-export function PlatformEditForm({ s }: { s: PlatformsState }) {
+export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; variant?: "page" | "drawer" }) {
   const { t, i18n } = useTranslation();
+  const isDrawer = variant === "drawer";
   const themeMode = useThemeMode();
 
   // ponytail: slice 化后 form 字段全部从 s.form 读，list/quota slice 本视图不直接消费。
@@ -89,13 +90,34 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     buildProtocolsFromPresets(i18n.language).then(list => { if (!cancelled) setPresets(list); });
     return () => { cancelled = true; };
   }, [i18n.language]);
+  // 保存按钮（page 态在 header、drawer 态在 footer 复用；disabled 条件三态共用）
+  const saveDisabled = !name || protocol === "unknown"
+    // passthrough（自定义透传）：base_url 与 api_key 都必填（共识稿 §2）
+    || (isPassThrough ? (endpoints.length === 0 || !apiKey)
+    : isPassthrough ? endpoints.length === 0
+    : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)));
+  const actionButtons = (
+    <>
+      <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
+      <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
+        disabled={saveDisabled}>
+        {editing
+          ? t("action.save")
+          : batchPreviewKeys && batchPreviewKeys.length > 1
+            ? t("platform.batch.createN", "批量创建（{{n}}）", { n: batchPreviewKeys.length })
+            : t("action.create")}
+      </Button>
+    </>
+  );
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%", ...(isDrawer ? { height: "100%", minHeight: 0 } : {}) }}>
       {/* Edit page header */}
-      <div className="section-header" style={{ gap: 10 }}>
-        <Button variant="ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
-          ← {t("action.back", "Back")}
-        </Button>
+      <div className="section-header" style={{ gap: 10, ...(isDrawer ? { paddingRight: 32 } : {}) }}>
+        {!isDrawer && (
+          <Button variant="ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
+            ← {t("action.back", "Back")}
+          </Button>
+        )}
         <div style={{ flex: 1 }}>
           <div className="section-title">
             {editing ? editing.name : t("platform.add")}
@@ -113,19 +135,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
               {t("platform.paste.title", "智能识别")}
             </Button>
           )}
-          <Button variant="outline" onClick={resetForm}>{t("action.cancel")}</Button>
-          <Button className="ripple" onClick={(e) => { makeRipple(e); handleSave(); }}
-            disabled={!name || protocol === "unknown"
-              // passthrough（自定义透传）：base_url 与 api_key 都必填（共识稿 §2）
-              || (isPassThrough ? (endpoints.length === 0 || !apiKey)
-              : isPassthrough ? endpoints.length === 0
-              : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
-            {editing
-              ? t("action.save")
-              : batchPreviewKeys && batchPreviewKeys.length > 1
-                ? t("platform.batch.createN", "批量创建（{{n}}）", { n: batchPreviewKeys.length })
-                : t("action.create")}
-          </Button>
+          {!isDrawer && actionButtons}
         </div>
       </div>
 
@@ -138,7 +148,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
         />
       )}
 
-      <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16, ...(isDrawer ? { flex: 1, minHeight: 0, overflowY: "auto" as const } : {}) }}>
         {/* 基础信息：名称 + 协议 */}
         <FormSection title={t("platform.sectionBasic", "基础信息")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
@@ -348,6 +358,13 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           </div>
         )}
       </div>
+
+      {/* 抽屉态 footer（稿 5 dfoot）：取消 / 保存 固定底部，随内容滚动的区块之上 */}
+      {isDrawer && (
+        <div data-testid="platform-drawer-footer" style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 4 }}>
+          {actionButtons}
+        </div>
+      )}
     </div>
   );
 }
