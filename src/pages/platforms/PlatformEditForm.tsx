@@ -2,7 +2,7 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state 经 props 从 usePlatformsState 传入，
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires）
 //   均为 props 驱动的 JSX，无跨组件 setState。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import {
@@ -79,6 +79,38 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
   const [advTab, setAdvTab] = useState("quota");
   const activeAdvTab = advTabs.some(x => x.id === advTab) ? advTab : advTabs[0].id;
 
+  // ── 抽屉左列分区导航（稿 5 dnav，2026-10-28 拍板）：竖排分区 + 「已配」徽标（该分区主要字段已填则亮）。
+  // base 分区点击滚动到锚点；高级分区点击切 advTab（等价横排 SectionTabs，drawer 态不再渲染后者；page 态保持横排）。
+  const configuredBySec: Record<string, boolean> = {
+    basic: !!name.trim() && protocol !== "unknown",
+    endpoints: endpoints.some(e => !!e.base_url?.trim()),
+    auth: !!apiKey.trim(),
+    models: Object.values(models).some(Boolean),
+    quota: quotaSource === "manual" && manualBudgets.length > 0,
+    timemodels: timemodels.timeModels.length > 0,
+    peak: timemodels.peak.length > 0,
+    direct: timemodels.directModels.length > 0,
+    ratelimits: Object.keys(rateLimits).length > 0,
+    breaker: !!(breakerFailureThreshold || breakerOpenSecs || breakerHalfOpenMax),
+    expiry: expiryEnabled && expiresAt > 0,
+    group: joinGroupIds.length > 0,
+  };
+  const hasUpstream = !isMock && !isPassthrough && !isPassThrough;
+  const dnavItems = [
+    { id: "basic", label: t("platform.sectionBasic", "基础信息"), adv: false },
+    ...(hasUpstream ? [
+      { id: "endpoints", label: t("platform.endpoints", "协议端点"), adv: false },
+      { id: "auth", label: t("platform.sectionAuth", "认证"), adv: false },
+      { id: "models", label: t("platform.models", "模型配置"), adv: false },
+    ] : []),
+    ...advTabs.map(x => ({ id: x.id, label: x.label, adv: true })),
+  ];
+  const scrollBodyRef = useRef<HTMLDivElement>(null);
+  const scrollToSec = (id: string) => {
+    scrollBodyRef.current?.querySelector(`[data-pf-sec="${id}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   // 协议本地化 label 映射（共享 hook 全表）。fallback: PROTOCOL_LABELS 硬编码 → key；
   // 切语言重拉。全表覆盖原「仅 2 key」最小拉取（docPromise 单例缓存，无额外 RPC）。
   const labelMap = useProtocolLabelMap(i18n.language);
@@ -148,8 +180,32 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
         />
       )}
 
-      <div className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16, ...(isDrawer ? { flex: 1, minHeight: 0, overflowY: "auto" as const } : {}) }}>
+      {/* drawer 态：左列 dnav + 右侧滚动表单体（稿 5）；page 态无 wrapper，分区导航仍为横排 SectionTabs */}
+      <div style={isDrawer ? { display: "flex", flex: 1, minHeight: 0, gap: 10 } : undefined}>
+        {isDrawer && (
+          <nav data-testid="platform-dnav" aria-label={t("common.sectionTabs", "设置分区")}
+            style={{ flexShrink: 0, width: 118, display: "flex", flexDirection: "column", gap: 1, paddingTop: 2 }}>
+            {dnavItems.map(item => (
+              <button key={item.id} type="button"
+                onClick={() => (item.adv ? setAdvTab(item.id) : scrollToSec(item.id))}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6,
+                  fontSize: 12.5, padding: "5.5px 9px", borderRadius: 6, cursor: "pointer",
+                  border: "none", background: "transparent", textAlign: "left",
+                  color: "var(--text-secondary)",
+                  ...(item.adv && item.id === activeAdvTab ? { background: "var(--accent-subtle)", color: "var(--text-primary)", fontWeight: 600 } : {}),
+                }}>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.label}</span>
+                {configuredBySec[item.id] && (
+                  <span style={{ fontSize: 11, color: "var(--success)", flexShrink: 0 }}>{t("platform.sectionConfigured", "已配")}</span>
+                )}
+              </button>
+            ))}
+          </nav>
+        )}
+      <div ref={scrollBodyRef} className="animate-fade-in" style={{ display: "flex", flexDirection: "column", gap: 16, ...(isDrawer ? { flex: 1, minWidth: 0, overflowY: "auto" as const } : {}) }}>
         {/* 基础信息：名称 + 协议 */}
+        <div data-pf-sec="basic">
         <FormSection title={t("platform.sectionBasic", "基础信息")}>
           <Input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
@@ -163,6 +219,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
             <p role="alert">{t("platform.unknownProtocolSave", "请选择有效的协议类型后再保存")}</p>
           )}
         </FormSection>
+        </div>
 
         {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
         {isMock && (
@@ -214,9 +271,10 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
         {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
         {!isMock && !isPassthrough && !isPassThrough && (
         <>
-        <EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} />
+        <div data-pf-sec="endpoints"><EndpointsSection endpoints={endpoints} setEndpoints={setEndpoints} protocol={protocol} t={t} /></div>
 
         {/* Token（创建态多行 = 每行一个，批量创建；编辑态单行单平台） */}
+        <div data-pf-sec="auth">
         <FormSection title={t("platform.sectionAuth", "认证")}>
           <ApiKeyField
             value={apiKey} onChange={handleApiKeyChange} show={showKey} onToggleShow={() => setShowKey(!showKey)}
@@ -226,6 +284,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
               : t("platform.tokenPlaceholder", "Token（每行一个，多行将批量创建平台）")}
           />
         </FormSection>
+        </div>
 
         {/* 多 key 批量创建实时预览（创建态 + 非 keyOptional + 多 key 时触发，D1/D2/D3）。
             只读确认：name 自动生成 `{base}-{key尾4位}` 撞名追号，确认后复用 runBatchCreateFromPaste。 */}
@@ -240,6 +299,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
         )}
 
         {/* Models Matrix — 默认列 + 时段档列合并 card（PRD 07-09） */}
+        <div data-pf-sec="models">
         <ModelsMatrixSection
           models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
@@ -251,11 +311,12 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
           tzMode={timemodels.windowsTz} setTzMode={timemodels.setWindowsTz}
           t={t}
         />
+        </div>
         </>
         )}
 
         {/* ── 高级设置（2026-10-08）：顶部 sticky 分段条 + panels；左菜单样式只用于时段档 tab 内部 ── */}
-        {advTabs.length > 1 && (
+        {!isDrawer && advTabs.length > 1 && (
           <SectionTabs tabs={advTabs} active={activeAdvTab} onChange={setAdvTab} />
         )}
         {/* 配额查询（quota-ia 票 03；2026-10-20 从计费 tab 拆出独立 tab）：Tab「自动脚本 / 手动预算」互斥；
@@ -357,6 +418,7 @@ export function PlatformEditForm({ s, variant = "page" }: { s: PlatformsState; v
             {saveError}
           </div>
         )}
+      </div>
       </div>
 
       {/* 抽屉态 footer（稿 5 dfoot）：取消 / 保存 固定底部，随内容滚动的区块之上 */}

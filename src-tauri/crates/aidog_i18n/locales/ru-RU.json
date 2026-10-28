@@ -1476,6 +1476,7 @@
   "platform.saveFail": "Не удалось сохранить",
   "platform.searchPlaceholder": "Поиск платформ...",
   "platform.sectionAuth": "Аутентификация",
+  "platform.sectionConfigured": "Готово",
   "platform.sectionBasic": "Основное",
   "platform.tabQuota": "Запрос квоты",
   "platform.tabTimemodels": "Модели по времени",

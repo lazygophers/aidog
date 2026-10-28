@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import type { PlatformsState } from "./usePlatformsState";
 import { PlatformEditForm } from "./PlatformEditForm";
 
@@ -39,6 +39,7 @@ function state(original: "unknown" | "openai", protocol = original): PlatformsSt
       manualBudgets: [], timemodels: {
         peak: [], setPeak: vi.fn(), windowsTz: "local", setWindowsTz: vi.fn(),
         disableDuringPeak: false, setDisableDuringPeak: vi.fn(), timeModels: [], setTimeModels: vi.fn(),
+        directModels: [], setDirectModels: vi.fn(),
       }, joinGroupIds: [], rateLimits: {},
     },
     list: { groupDetails: [] },
@@ -70,6 +71,17 @@ describe("PlatformEditForm drawer variant", () => {
     expect(screen.getByTestId("platform-drawer-footer")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /action\.back/ })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "action.save" })).toBeEnabled();
+  });
+
+  it("drawer shows vertical dnav with configured badge; page keeps horizontal tabs without dnav", () => {
+    const { rerender } = render(<PlatformEditForm s={state("openai")} variant="drawer" />);
+    const nav = screen.getByTestId("platform-dnav");
+    const texts = within(nav).getAllByRole("button").map(b => b.textContent);
+    // 工厂态：name+protocol 已填 → basic 亮「已配」；models {} 空 → 无徽标
+    expect(texts).toContain("基础信息已配");
+    expect(texts).toContain("模型配置");
+    rerender(<PlatformEditForm s={state("openai")} />);
+    expect(screen.queryByTestId("platform-dnav")).not.toBeInTheDocument();
   });
 });
 
