@@ -4,7 +4,7 @@
 // （那条禁的是共享 i18n 实例的译文断言）。
 import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent } from "../../test/render";
-import { ManualBudgetsFields, RateLimitsSection, PeakSection } from "./formSections";
+import { ManualBudgetsFields, RateLimitsSection, PeakSection, DirectModelsSection } from "./formSections";
 import type { ManualBudget, RateLimitsBundle, TimeWindow } from "../domains/platforms/defaults";
 import type { PlanQuotaTier } from "../domains/platforms/defaults";
 
@@ -214,5 +214,47 @@ describe("PeakSection — C 方向稿接线（preset RPC mock 空）", () => {
     const next = updater([w0]);
     expect(next[0].start_at).toBeUndefined();
     expect(next[0].end_at).toBe(endSec);
+  });
+});
+
+// ── DirectModelsSection（直通模型，票 02）───────────────────────────────────
+function renderDirect(models: string[]) {
+  const setModels = vi.fn();
+  const { container } = render(<DirectModelsSection models={models} setModels={setModels} t={t} />);
+  return { container, setModels };
+}
+
+describe("DirectModelsSection — 直通模型（票 02）", () => {
+  it("添加：输入模型 id → setModels 追加；重复/空白不追加", () => {
+    const { container, setModels } = renderDirect(["m1"]);
+    const input = container.querySelector('[data-testid="direct-model-input"]') as HTMLInputElement;
+    const add = container.querySelector('[data-testid="direct-model-add"]')!;
+    fireEvent.change(input, { target: { value: "  m2  " } });
+    fireEvent.click(add);
+    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
+    expect(updater(["m1"])).toEqual(["m1", "m2"]);
+
+    fireEvent.change(input, { target: { value: "m1" } });
+    fireEvent.click(add);
+    fireEvent.change(input, { target: { value: "   " } });
+    fireEvent.click(add);
+    expect(setModels).toHaveBeenCalledTimes(1);
+  });
+
+  it("删除：按 testid 点删 → setModels 过滤掉该条", () => {
+    const { container, setModels } = renderDirect(["m1", "m2", "m3"]);
+    expect(container.querySelectorAll('[data-testid^="direct-model-remove-"]')).toHaveLength(3);
+    fireEvent.click(container.querySelector('[data-testid="direct-model-remove-1"]')!);
+    const updater = setModels.mock.calls[0][0] as (prev: string[]) => string[];
+    expect(updater(["m1", "m2", "m3"])).toEqual(["m1", "m3"]);
+  });
+
+  it("行输入只读回显模型 id；空列表无行、无删除按钮", () => {
+    const { container } = renderDirect([]);
+    expect(container.querySelector('[data-testid="direct-model-0"]')).toBeNull();
+    const r = renderDirect(["kimi-k2"]);
+    const row = r.container.querySelector('[data-testid="direct-model-0"]') as HTMLInputElement;
+    expect(row.value).toBe("kimi-k2");
+    expect(row.readOnly).toBe(true);
   });
 });
