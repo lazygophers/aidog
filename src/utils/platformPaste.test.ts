@@ -202,6 +202,25 @@ describe("parsePlatformPaste", () => {
     expect(out.baseUrls[0]?.url).toBe("https://api.lasong.xyz/v1");
     expect(out.apiKeys[0]).toBe("sk-ofBibe1400nnyY7Za2kdZ9SmXHFIyV6FNNrQwcgp95lxd9Q4BZ");
   });
+  it("step_plan 分享帖（URL+无前缀 64 位 key）→ stepfun", () => {
+    const out = parsePlatformPaste(
+      "URL=https://api.stepfun.com/step_plan/v1\nKEY=2f5UUAugAkjiof1fpiTkWC8Pf3Hj3V80V5pprbWPwaATNiQmf1PjxafocYZf04DQ7",
+      ALL_PRESETS,
+    );
+    expect(out.platform?.value).toBe("stepfun");
+    expect(out.apiKeys[0]).toBe(
+      "2f5UUAugAkjiof1fpiTkWC8Pf3Hj3V80V5pprbWPwaATNiQmf1PjxafocYZf04DQ7",
+    );
+  });
+
+  it("无前缀长随机 key 单独粘贴 → 不因 key 串子串误命中缩写 keyword（如 opencode_zen 的 mf）", () => {
+    const out = parsePlatformPaste(
+      "KEY=2f5UUAugAkjiof1fpiTkWC8Pf3Hj3V80V5pprbWPwaATNiQmf1PjxafocYZf04DQ7",
+      ALL_PRESETS,
+    );
+    expect(out.platform).toBeNull();
+  });
+
   it("returns empty result for blank text", () => {
     expect(parsePlatformPaste("", PRESETS)).toEqual({
       apiKeys: [],
