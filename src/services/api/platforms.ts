@@ -456,6 +456,39 @@ export function serializeDisableDuringPeak(extra: string, enabled: boolean): str
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra JSON 解析直通模型列表（直接模型转发）。缺失 / 非法 / 含非字符串 → 过滤后返回。 */
+export function parseDirectModels(extra: string): string[] {
+  if (!extra.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "direct_models" in parsed) {
+      const arr = (parsed as { direct_models: unknown }).direct_models;
+      if (Array.isArray(arr)) return arr.filter((x): x is string => typeof x === "string" && x.length > 0);
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+/** 把直通模型列表写回 extra JSON（保留其余键）。空数组 → 移除键（未声明 = 走默认链）。 */
+export function serializeDirectModels(extra: string, models: string[]): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  const clean = models.map(m => m.trim()).filter(m => m.length > 0);
+  if (clean.length === 0) {
+    delete obj.direct_models;
+  } else {
+    obj.direct_models = clean;
+  }
+  return JSON.stringify(obj);
+}
+
 
 /** 从 platform.extra JSON 解析 mitm_stats 开关（cc-sub-mitm 票 12：Claude Code 订阅平台
  *  的 MITM 接入形态标记）。缺失 / 非法 / 非布尔 → false。 */
