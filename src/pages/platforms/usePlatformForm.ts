@@ -66,6 +66,9 @@ export interface PlatformFormState {
   setEditing: React.Dispatch<React.SetStateAction<Platform | null>>;
   showForm: boolean;
   setShowForm: React.Dispatch<React.SetStateAction<boolean>>;
+  /** 复制语义标记（handleDuplicate 置位，resetForm/handleEdit/openCreatePlatform 复位）：
+   *  新建与复制都 editing=null，路由靠本字段区分（编辑/复制进抽屉、新建走全页，2026-10-28 拍板）。 */
+  duplicating: boolean;
   showPaste: boolean;
   setShowPaste: React.Dispatch<React.SetStateAction<boolean>>;
   pasteInitialText: string | undefined;
@@ -169,6 +172,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [duplicating, setDuplicating] = useState(false);
   const [showPaste, setShowPaste] = useState(false);
   // aidog://platform/import deep-link 导入：SmartPasteModal 预填文本（来自 URL ?data=<base64>）。
   // 非空时弹窗以之初始化并跳过自动读剪贴板；null = 正常手动/剪贴板路径。
@@ -344,7 +348,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setBatchPreviewKeys(null);
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "", jev: "" });
     setAvailableModels([]); setEndpoints([]);
-    setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
+    setEditing(null); setShowForm(false); setFetchError(""); setSaveError(""); setDuplicating(false);
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setQuotaVariantId(""); setQuotaCustomScript(""); setQuotaRequires({});
     setQuotaSource("auto"); setQuotaSourcePristine(true);
@@ -403,7 +407,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       }
     }
     setEndpoints(eps);
-    setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
+    setEditing(p); setShowForm(true); setFetchError(""); setSaveError(""); setDuplicating(false);
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
     {
@@ -461,7 +465,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     });
     setAvailableModels(p.available_models ?? []);
     setEndpoints(p.endpoints ?? []);
-    setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
+    setEditing(null); setShowForm(true); setFetchError(""); setSaveError(""); setDuplicating(true);
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
     {
@@ -804,7 +808,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   };
 
   return {
-    editing, setEditing, showForm, setShowForm, showPaste, setShowPaste,
+    editing, setEditing, showForm, setShowForm, duplicating, showPaste, setShowPaste,
     pasteInitialText, setPasteInitialText, shareData, setShareData,
     groupFullscreen, setGroupFullscreen, showKey, setShowKey,
     testingPlatform, setTestingPlatform,
