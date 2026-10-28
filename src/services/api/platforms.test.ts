@@ -12,6 +12,8 @@ import {
   parseRateLimitsBundle, serializeRateLimitsBundle, rateLimitsSummary,
   parseDisableDuringPeak,
   serializeDisableDuringPeak,
+  parseDirectModels,
+  serializeDirectModels,
   parseMitmStats,
   serializeMitmStats,
   parsePlatformTimeWindows,
@@ -284,6 +286,31 @@ describe("serializeDisableDuringPeak", () => {
     expect(JSON.parse(serializeDisableDuringPeak("", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("bad", true)).disable_during_peak).toBe(true);
     expect(JSON.parse(serializeDisableDuringPeak("[]", true)).disable_during_peak).toBe(true);
+  });
+});
+
+describe("parseDirectModels", () => {
+  it.each(BAD)("非法/缺键 %s 回空数组", (extra) => {
+    expect(parseDirectModels(extra)).toEqual([]);
+  });
+
+  it("过滤非字符串与空串条目", () => {
+    expect(parseDirectModels('{"direct_models":["m1",1,null,"","m2"]}')).toEqual(["m1", "m2"]);
+  });
+});
+
+describe("serializeDirectModels", () => {
+  it("空数组/全空白 → 删键（未声明 = 走默认链），保留兄弟键", () => {
+    const o = JSON.parse(serializeDirectModels('{"mock":{},"direct_models":["m1"]}', []));
+    expect(o.direct_models).toBeUndefined();
+    expect(o.mock).toEqual({});
+    expect(JSON.parse(serializeDirectModels('{"direct_models":["m1"]}', ["  "])).direct_models).toBeUndefined();
+  });
+
+  it("非空 → trim 后写键；非法/数组 extra 重建", () => {
+    expect(JSON.parse(serializeDirectModels("", [" m1 "])).direct_models).toEqual(["m1"]);
+    expect(JSON.parse(serializeDirectModels("bad", ["m1"])).direct_models).toEqual(["m1"]);
+    expect(JSON.parse(serializeDirectModels("[]", ["m1"])).direct_models).toEqual(["m1"]);
   });
 });
 

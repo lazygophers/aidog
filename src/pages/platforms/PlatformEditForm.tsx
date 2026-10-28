@@ -21,7 +21,7 @@ import {
   FormSection, ApiKeyField,
   DevinConfigSection, PassthroughConfigSection, PassThroughSection, EndpointsSection,
   BreakerSection, PeakSection, RateLimitsSection, GroupAssignSection,
-  ExpirySection, QuotaSection,
+  ExpirySection, QuotaSection, DirectModelsSection,
 } from "./formSections";
 import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { CcMitmAccessSection } from "./CcMitmAccessSection";
@@ -69,6 +69,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "quota", label: t("platform.tabQuota", "配额查询") }] : []),
     ...(!isMock && !isPassthrough && !isPassThrough ? [{ id: "timemodels", label: t("platform.tabTimemodels", "时段档") }] : []),
     ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "peak", label: t("platform.tabPeak", "高峰时段倍率") }] : []),
+    ...(!isMock && editing && !isPassthrough && !isPassThrough ? [{ id: "direct", label: t("platform.tabDirect", "直通模型") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "ratelimits", label: t("platform.tabRateLimits", "限频") }] : []),
     ...(editing && !isPassthrough && !isPassThrough ? [{ id: "breaker", label: t("platform.tabBreaker", "熔断") }] : []),
     { id: "expiry", label: t("platform.tabExpiry", "过期时间") },
@@ -275,6 +276,14 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             disableDuringPeak={timemodels.disableDuringPeak} setDisableDuringPeak={timemodels.setDisableDuringPeak}
             protocol={protocol}
             themeMode={themeMode}
+            t={t}
+          />
+        )}
+
+        {/* 直通模型（直接模型转发）：extra.direct_models；仅编辑态可配（声明即生效），mock 无路由不渲染 */}
+        {!isMock && editing && !isPassthrough && !isPassThrough && (advTabs.length === 1 || activeAdvTab === "direct") && (
+          <DirectModelsSection
+            models={timemodels.directModels} setModels={timemodels.setDirectModels}
             t={t}
           />
         )}

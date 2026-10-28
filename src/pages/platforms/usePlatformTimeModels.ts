@@ -2,9 +2,11 @@ import { useState } from "react";
 import {
   parsePlatformPeak,
   parseDisableDuringPeak,
+  parseDirectModels,
   parsePlatformTimeWindows,
   serializePlatformPeak,
   serializeDisableDuringPeak,
+  serializeDirectModels,
   serializePlatformTimeWindows,
   type TimeModelRule,
 } from "../../services/api";
@@ -19,6 +21,9 @@ export interface PlatformTimeModelsState {
   setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   timeModels: TimeModelRule[];
   setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
+  /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
+  directModels: string[];
+  setDirectModels: React.Dispatch<React.SetStateAction<string[]>>;
   reset: () => void;
   hydrate: (extra: string) => void;
   serialize: (extra: string) => string;
@@ -34,23 +39,28 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
   const [disableDuringPeak, setDisableDuringPeak] = useState(false);
   /** time_windows：空数组删除键，无规则时使用默认模型。 */
   const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
+  /** direct_models：直通模型列表，空数组删除键（未声明 = 走默认链）。 */
+  const [directModels, setDirectModels] = useState<string[]>([]);
 
   const reset = () => {
     setPeak([]);
     setWindowsTz("local");
     setDisableDuringPeak(false);
     setTimeModels([]);
+    setDirectModels([]);
   };
 
   const hydrate = (extra: string) => {
     setPeak(parsePlatformPeak(extra));
     setDisableDuringPeak(parseDisableDuringPeak(extra));
     setTimeModels(parsePlatformTimeWindows(extra));
+    setDirectModels(parseDirectModels(extra));
   };
 
   const serialize = (extra: string) => {
     let next = serializePlatformPeak(extra, peak);
     next = serializeDisableDuringPeak(next, disableDuringPeak);
+    next = serializeDirectModels(next, directModels);
     return serializePlatformTimeWindows(next, timeModels);
   };
 
@@ -58,6 +68,7 @@ export function usePlatformTimeModels(): PlatformTimeModelsState {
     peak, setPeak, windowsTz, setWindowsTz,
     disableDuringPeak, setDisableDuringPeak,
     timeModels, setTimeModels,
+    directModels, setDirectModels,
     reset, hydrate, serialize,
   };
 }

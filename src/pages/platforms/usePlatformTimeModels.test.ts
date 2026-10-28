@@ -8,23 +8,26 @@ const extra = JSON.stringify({
   peak: [{ start_hour: 9, end_hour: 10, multiplier: 2 }],
   disable_during_peak: true,
   time_windows: [rule],
+  direct_models: ["m1", "m2"],
 });
 
 describe("usePlatformTimeModels", () => {
-  it("hydrates all three persisted fields with their actual values", () => {
+  it("hydrates all four persisted fields with their actual values", () => {
     const { result } = renderHook(() => usePlatformTimeModels());
     act(() => result.current.hydrate(extra));
     expect(result.current.peak).toEqual([{ start_hour: 9, end_hour: 10, multiplier: 2 }]);
     expect(result.current.disableDuringPeak).toBe(true);
     expect(result.current.timeModels).toEqual([rule]);
+    expect(result.current.directModels).toEqual(["m1", "m2"]);
   });
 
-  it("serializes all three fields and preserves unrelated extra", () => {
+  it("serializes all four fields and preserves unrelated extra", () => {
     const { result } = renderHook(() => usePlatformTimeModels());
     act(() => {
       result.current.setPeak([{ start_hour: 1, end_hour: 2, multiplier: 3 }]);
       result.current.setDisableDuringPeak(true);
       result.current.setTimeModels([rule]);
+      result.current.setDirectModels(["m1"]);
       result.current.setWindowsTz("utc");
     });
     const serialized = JSON.parse(result.current.serialize(JSON.stringify({ keep: "yes" })));
@@ -32,15 +35,26 @@ describe("usePlatformTimeModels", () => {
     expect(serialized.peak).toEqual([{ start_hour: 1, end_hour: 2, multiplier: 3 }]);
     expect(serialized.disable_during_peak).toBe(true);
     expect(serialized.time_windows).toEqual([rule]);
+    expect(serialized.direct_models).toEqual(["m1"]);
     expect(result.current.windowsTz).toBe("utc");
   });
 
-  it("deletes all three persisted keys when cleared", () => {
+  it("direct_models empty list is not written into extra", () => {
+    const { result } = renderHook(() => usePlatformTimeModels());
+    act(() => result.current.hydrate(extra));
+    act(() => result.current.setDirectModels([]));
+    const serialized = JSON.parse(result.current.serialize(extra));
+    expect(serialized.direct_models).toBeUndefined();
+    expect(serialized.keep).toBe("yes");
+  });
+
+  it("deletes all four persisted keys when cleared", () => {
     const { result } = renderHook(() => usePlatformTimeModels());
     act(() => result.current.hydrate(extra));
     act(() => result.current.reset());
     const serialized = JSON.parse(result.current.serialize(extra));
     expect(serialized).toEqual({ keep: "yes" });
     expect(result.current.windowsTz).toBe("local");
+    expect(result.current.directModels).toEqual([]);
   });
 });

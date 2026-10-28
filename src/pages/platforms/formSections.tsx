@@ -1702,3 +1702,61 @@ export function RateLimitsSection({ bundle, setBundle, t }: {
     </FormSection>
   );
 }
+
+/** 直通模型（直接模型转发）：平台声明 direct_models，声明即生效不查 registry。
+ *  添加走文本输入（聚合站自定义模型名可配），逐条删除；空列表 = 未声明。 */
+export function DirectModelsSection({ models, setModels, t }: {
+  models: string[];
+  setModels: React.Dispatch<React.SetStateAction<string[]>>;
+  t: TFunction;
+}) {
+  const [input, setInput] = useState("");
+  const add = () => {
+    const v = input.trim();
+    if (!v || models.includes(v)) return;
+    setModels(prev => [...prev, v]);
+    setInput("");
+  };
+  return (
+    <FormSection
+      title={t("platform.direct_models", "直通模型")}
+      desc={t("platform.direct_models_desc", "声明后，分组请求携带这些模型 id 时只在声明它的平台里按现有优先级转发（保留请求模型原名）；组内无人声明则走默认链。声明即生效，不查模型收录。")}
+    >
+      <div className="aidog-anim-rise" style={C.strip}>
+        <div style={C.tile("var(--data-primary)")}>直</div>
+        <span style={C.pill(models.length > 0 ? "ok" : "neutral")}>
+          {t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n: models.length })}
+        </span>
+      </div>
+      {models.map((m, i) => (
+        <div key={m} className={C.rowClass} style={C.row}>
+          <Input
+            value={m}
+            readOnly
+            data-testid={`direct-model-${i}`}
+            style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+          />
+          <Button
+            variant="ghost" size="icon" className="btn-danger" style={{ height: 28, width: 28 }}
+            data-testid={`direct-model-remove-${i}`}
+            aria-label={t("platform.delete", "删除")}
+            onClick={() => setModels(prev => prev.filter((_, j) => j !== i))}
+          >×</Button>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 6, marginTop: models.length > 0 ? 6 : 0 }}>
+        <Input
+          data-testid="direct-model-input"
+          value={input}
+          placeholder={t("platform.direct_models_placeholder", "模型 id，如 claude-sonnet-4-5")}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+          style={{ flex: 1, minWidth: 110, fontFamily: "var(--font-mono, monospace)", fontSize: 11, height: 28 }}
+        />
+        <button type="button" data-testid="direct-model-add" className={C.addBtnClass} onClick={add}>
+          + {t("platform.direct_models_add", "添加")}
+        </button>
+      </div>
+    </FormSection>
+  );
+}
