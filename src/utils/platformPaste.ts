@@ -618,7 +618,11 @@ export function parsePlatformPaste(
       }
     }
   }
-  if (!platform) platform = matchPlatform(text, presets, baseUrls);
+  // keyword 打分前剔除已提取 key 串：无前缀长随机 key 的子串会误命中 2-3 字母缩写
+  // keyword（如 opencode_zen 的 "mf" 命中 64 位 base62 key 的 "Qmf1" 致整串误配）。
+  let matchText = text;
+  for (const k of apiKeys) matchText = matchText.split(k).join(" ");
+  if (!platform) platform = matchPlatform(matchText, presets, baseUrls);
 
   return {
     apiKeys,
