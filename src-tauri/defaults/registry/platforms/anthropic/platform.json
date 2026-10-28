@@ -1,5 +1,10 @@
 {
-  "last_updated": 1792068956,
+  "last_updated": 1793197195,
+  "tools_pricing": {
+    "web_search": {
+      "per_1000": 10.0
+    }
+  },
   "endpoints": {
     "default": [
       {
