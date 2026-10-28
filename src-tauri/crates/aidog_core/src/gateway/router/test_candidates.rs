@@ -2427,3 +2427,174 @@ async fn mk_db_platform_with(
     .await
     .expect("create platform")
 }
+
+// ── 直通模型链（直接模型转发票 01）──
+
+/// 三文件库 fixture：直通链测试走 get_group_platforms（platform/group split 表），
+/// 内存库三 handle 同连接测不出错路由（db-pool-routing.md），一律用 three_file_db。
+async fn mk_three_file_db() -> (db::Db, tempfile::TempDir) {
+    aidog_db::test_support::three_file_db().await
+}
+
+async fn set_extra(db: &db::Db, id: u64, extra: &str) {
+    db::update_platform(
+        db,
+        UpdatePlatform {
+            id,
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: Some(extra.into()),
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("set extra");
+}
+
+/// 直通命中：声明平台唯一候选，转发模型名 = 请求原名（不进槽位匹配）。
+#[tokio::test]
+async fn direct_model_hits_with_original_name() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["my-custom-model"]}"#).await;
+    let g = mk_db_group(&db, "direct", &[a.id, b.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "my-custom-model", None, RequestKind::Chat)
+        .await
+        .expect("direct hit");
+    assert_eq!(set.candidates.len(), 1, "only the declarer is a candidate");
+    assert_eq!(set.candidates[0].platform.id, a.id);
+    assert_eq!(
+        set.candidates[0].target_model, "my-custom-model",
+        "forwarded name stays original (no slot rewrite)"
+    );
+}
+
+/// 组内 failover：多个声明平台按现有排序（priority）逐个试，均转发原名。
+#[tokio::test]
+async fn direct_model_failover_across_declarers() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["m1"]}"#).await;
+    set_extra(&db, b.id, r#"{"direct_models":["m1"]}"#).await;
+    let g = mk_db_group(&db, "direct-fo", &[a.id, b.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "m1", None, RequestKind::Chat)
+        .await
+        .expect("direct failover");
+    assert_eq!(set.candidates.len(), 2);
+    assert_eq!(set.candidates[0].platform.id, a.id);
+    assert_eq!(set.candidates[1].platform.id, b.id);
+    assert!(set.candidates.iter().all(|c| c.target_model == "m1"));
+}
+
+/// 声明平台全不可用（手动 Disabled）→ Err("direct_model_unavailable")，
+/// 快照随 Err 携带且排除原因细分。
+#[tokio::test]
+async fn direct_model_all_unavailable_errs_with_snapshot() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["m1"]}"#).await;
+    db::update_platform(
+        &db,
+        UpdatePlatform {
+            id: a.id,
+            status: Some(PlatformStatus::Disabled),
+            name: None,
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+            join_group_ids: None,
+            expires_at: None,
+            quota_source: None,
+        },
+    )
+    .await
+    .expect("disable declarer");
+    let g = mk_db_group(&db, "direct-dead", &[a.id, b.id]).await;
+
+    let e = select_candidates_ctx(&db, &g, "m1", None, RequestKind::Chat)
+        .await
+        .expect_err("all declarers unavailable must Err");
+    assert_eq!(&*e, "direct_model_unavailable");
+    let dead = e
+        .routing
+        .entries
+        .iter()
+        .find(|en| en.platform_id == a.id)
+        .unwrap();
+    assert_eq!(dead.reason, RouteReason::DisabledManual);
+}
+
+/// 无人声明该模型 → 默认链原样（候选回到全组，槽位匹配生效）。
+#[tokio::test]
+async fn direct_model_not_declared_falls_back_default_chain() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["other-model"]}"#).await;
+    let g = mk_db_group(&db, "direct-fallback", &[a.id, b.id]).await;
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", None, RequestKind::Chat)
+        .await
+        .expect("default chain");
+    assert_eq!(set.candidates.len(), 2, "whole group via default chain");
+    assert_eq!(set.candidates[0].target_model, "claude-opus-4-8");
+}
+
+/// 组内无任何 direct_models → 映射行为零回归：目标平台提首 + 槽位匹配照旧。
+#[tokio::test]
+async fn no_direct_models_group_mapping_unchanged() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    let g = mk_db_group(&db, "no-direct", &[a.id, b.id]).await;
+    let g = with_mapping(&db, &g, "src", b.id, "claude-opus-4").await;
+
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .expect("default chain with mapping");
+    assert_eq!(
+        set.candidates[0].platform.id, b.id,
+        "mapping target platform still promoted first"
+    );
+}
+
+/// 直通链上映射只翻译不锁平台：映射 target_platform_id 不提首，按现有排序；
+/// target_model = 映射后的原名（不经槽位）。
+#[tokio::test]
+async fn direct_model_mapping_translates_without_locking() {
+    let (db, _dir) = mk_three_file_db().await;
+    let a = mk_db_platform(&db, "A").await;
+    let b = mk_db_platform(&db, "B").await;
+    set_extra(&db, a.id, r#"{"direct_models":["mapped-t"]}"#).await;
+    set_extra(&db, b.id, r#"{"direct_models":["mapped-t"]}"#).await;
+    let g = mk_db_group(&db, "direct-map", &[a.id, b.id]).await;
+    // 默认链会把 target_platform_id=b 提首；直通链必须保持 priority 顺序 a 在前
+    let g = with_mapping(&db, &g, "src", b.id, "mapped-t").await;
+
+    let set = select_candidates_ctx(&db, &g, "src", None, RequestKind::Chat)
+        .await
+        .expect("direct chain via mapped name");
+    assert_eq!(set.candidates[0].platform.id, a.id, "no mapping promotion");
+    assert_eq!(set.candidates[0].target_model, "mapped-t");
+}
