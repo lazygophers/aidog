@@ -588,7 +588,13 @@ pub(crate) async fn handle_proxy_core(
             // 整组候选皆未知协议（票 06）→ 同样落审计（blocked_reason='unknown_protocol', 503）。
             // 聊天请求被请求类型维度整组剔除（组内只剩纯决策平台）→ 落审计 proxy_log
             //（blocked_by='router', blocked_reason='no_chat_platform', status_code=400，R7）。
-            if e == "no_chat_platform" || e == "peak_disabled" || e == "unknown_protocol" {
+            // 直通模型声明平台全不可用（直接模型转发）→ 同样落审计
+            //（blocked_by='router', blocked_reason='direct_model_unavailable', 503）。
+            if e == "no_chat_platform"
+                || e == "peak_disabled"
+                || e == "unknown_protocol"
+                || e == "direct_model_unavailable"
+            {
                 return route_fail_response(&state, &mut log, &log_settings, &e, start, lang).await;
             }
             log.response_body = format!("route error: {e}");
