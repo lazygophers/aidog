@@ -1221,6 +1221,7 @@
   "platform.direct_models_desc": "Una vez declarados, las solicitudes de grupo con estos ids de modelo solo se enrutan a las plataformas que los declaran, conservando el nombre del modelo solicitado (failover según la prioridad existente). Si ninguna plataforma los declara, se aplica la cadena predeterminada. La declaración surte efecto de inmediato, sin consultar el registro.",
   "platform.direct_models_placeholder": "Id de modelo, p. ej. claude-sonnet-4-5",
   "platform.direct_models_add": "Añadir",
+  "platform.direct_models_count": "{{n}} modelos",
   "platform.mitmSection": "Estadísticas MITM de reenvío de suscripción",
   "platform.mitmStatsToggle": "Activar (descifrar vía proxy CONNECT para seguir el uso y el coste de referencia)",
   "platform.mitmCaHint": "El túnel MITM no está listo: activa el túnel e instala el certificado raíz (CA) en Ajustes → MITM; si no, el tráfico se reenvía a ciegas y sin estadísticas.",
