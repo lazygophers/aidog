@@ -154,6 +154,7 @@ pub(crate) async fn handle_mock(
             log.cache_tokens,
             0,
             0,
+            0,
             now_ms,
         )
         .await;

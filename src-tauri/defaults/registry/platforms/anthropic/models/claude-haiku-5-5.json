@@ -1,5 +1,5 @@
 {
-  "last_updated": 1792068956,
+  "last_updated": 1793201693,
   "supported_protocols": [
     "anthropic"
   ],
@@ -23,6 +23,7 @@
     "output": 5e-07,
     "cache_read": 1e-08,
     "cache_write": 1.25e-07,
+    "cache_write_1h": 2e-07,
     "context_tiers": [
       {
         "min_tokens": 100001,

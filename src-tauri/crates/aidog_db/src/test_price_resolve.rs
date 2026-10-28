@@ -10,6 +10,7 @@ fn base_price(source: &str) -> ResolvedPrice {
         output_cost_per_token: 3e-5,
         cache_read_input_token_cost: 5e-7,
         cache_write_input_token_cost: 0.0,
+        cache_write_1h_input_token_cost: 0.0,
         source: source.to_string(),
     }
 }

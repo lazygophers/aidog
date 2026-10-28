@@ -5,6 +5,7 @@ fn placeholder_stream_log(id: &str) -> ProxyLog {
     let ts = aidog_db::now();
     ProxyLog {
         id: id.to_string(),
+        cache_write_1h_tokens: 0,
         group_key: "gk_test".to_string(),
         model: "claude".to_string(),
         actual_model: "glm-5".to_string(),

@@ -191,6 +191,7 @@ pub fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         output_tokens: 20,
         cache_tokens: 0,
         cache_write_tokens: 0,
+        cache_write_1h_tokens: 0,
         est_cost: 0.0,
         is_stream: false,
         attempts: Vec::new(),
