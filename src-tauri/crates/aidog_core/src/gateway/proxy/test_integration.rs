@@ -3848,3 +3848,68 @@ async fn routing_snapshot_marks_skipped_dead_upstream() {
         1
     );
 }
+
+/// 直接模型转发验收 #4：声明平台全禁用 → handler route-fail 路径落审计行
+/// blocked_by='router', blocked_reason='direct_model_unavailable', status_code=503, est_cost=0。
+/// 注：直通链入口有 `len() > 1` guard（candidates.rs），字面单平台组不走直通链，需 ≥2 平台组。
+/// 三文件库 fixture（proxy_log / platform split 表，db-pool-routing.md）。
+#[tokio::test]
+async fn chat_direct_model_unavailable_503_and_audit_log() {
+    let (db, _dir) = aidog_db::test_support::three_file_db().await;
+    let state = make_state(db).await;
+    setup_group_with_upstream(&state, "gkdirectfail", "https://example.invalid").await;
+    // 补第二个同组平台（组 ≥2 才进直通链）；声明平台 Disabled，它不声明 m1
+    let second = aidog_db::create_platform(
+        &state.db,
+        aidog_db::test_support::sample_platform("second"),
+    )
+    .await
+    .unwrap();
+    let group = aidog_db::list_groups(&state.db)
+        .await
+        .unwrap()
+        .into_iter()
+        .find(|g| g.group_key == "gkdirectfail")
+        .unwrap();
+    let existing = aidog_db::get_group_platforms(&state.db, group.id).await.unwrap();
+    let mut gps: Vec<crate::gateway::models::GroupPlatformInput> = existing
+        .iter()
+        .map(|g| crate::gateway::models::GroupPlatformInput {
+            platform_id: g.platform.id,
+            priority: Some(g.priority),
+            weight: Some(1),
+            level_priority: Some(g.level_priority),
+        })
+        .collect();
+    gps.push(crate::gateway::models::GroupPlatformInput {
+        platform_id: second.id,
+        priority: Some(1),
+        weight: Some(1),
+        level_priority: Some(1),
+    });
+    aidog_db::set_group_platforms(&state.db, group.id, &gps).await.unwrap();
+    // 唯一声明 m1 的平台手动 Disabled → 组内声明平台全不可用
+    aidog_db::update_platform(&state.db, aidog_db::models::UpdatePlatform {
+        id: existing[0].platform.id,
+        name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"direct_models":["m1"]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: Some(aidog_db::models::PlatformStatus::Disabled),
+        manual_budgets: None, join_group_ids: None, expires_at: None, quota_source: None,
+    })
+    .await
+    .unwrap();
+    state.db.invalidate_group_details_cache();
+
+    let resp = handle_proxy(
+        AxumState(state.clone()),
+        messages_request("gkdirectfail", r#"{"model":"m1","max_tokens":10,"messages":[{"role":"user","content":"hi"}]}"#),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let log = last_log_for(&state, "gkdirectfail").await;
+    assert_eq!(log.status_code, 503);
+    assert_eq!(log.blocked_by, "router");
+    assert_eq!(log.blocked_reason, "direct_model_unavailable");
+    assert_eq!(log.est_cost, 0.0, "route-fail must not be priced");
+}
