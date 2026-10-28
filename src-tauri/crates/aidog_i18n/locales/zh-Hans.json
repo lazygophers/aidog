@@ -1454,6 +1454,7 @@
   "platform.saveFail": "保存失败",
   "platform.searchPlaceholder": "搜索平台...",
   "platform.sectionAuth": "认证",
+  "platform.sectionConfigured": "已配",
   "platform.sectionBasic": "基础信息",
   "platform.tabQuota": "配额查询",
   "platform.tabTimemodels": "时段档",

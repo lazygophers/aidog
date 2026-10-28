@@ -76,6 +76,12 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     onCustomTest: (p) => actionsRef.current.s_setTestingPlatform(p),
   }), []);
 
+  // ── 新建态全页表单（2026-10-28 拍板：仅新建走全页；编辑 / 复制进右侧抽屉）──
+  // 新建与复制都 editing=null，靠 form.duplicating 区分（handleDuplicate 置位，resetForm 复位）。
+  if (form.showForm && !form.editing && !form.duplicating) {
+    return <PlatformEditForm s={s} />;
+  }
+
   // ── List view + 编辑态抽屉（重设计稿 5：点行内「编辑」右侧滑入抽屉，页面其余压暗）──
   // showForm 由 handleEdit / handleDuplicate / openCreatePlatform 置位；关闭走 resetForm 复位表单。
   return (
@@ -84,7 +90,7 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
       <Sheet open={form.showForm} onOpenChange={(open) => { if (!open) form.resetForm(); }}>
         <SheetContent
           side="right"
-          className="w-[400px] sm:max-w-[400px] p-4 pt-12"
+          className="w-[520px] sm:max-w-[520px] p-4 pt-12"
           data-testid="platform-edit-drawer"
         >
           <SheetTitle className="sr-only">{form.editing?.name ?? t("platform.add")}</SheetTitle>
