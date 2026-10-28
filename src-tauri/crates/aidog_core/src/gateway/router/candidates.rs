@@ -151,6 +151,8 @@ struct ExtraCache {
     /// extra.disable_during_peak（用户开关）。单平台短路的 peak 拦截必须以此为准：
     /// 只看窗口命中会把「配了倍率窗口但没开禁用」的单平台组也拦成 503（2026-10-23 修复）。
     disable_during_peak: bool,
+    /// extra.direct_models（直通模型声明，直接模型转发）。
+    direct_models: Vec<String>,
 }
 
 impl ExtraCache {
@@ -159,10 +161,12 @@ impl ExtraCache {
         let time_windows = time_windows::parse_platform_time_windows(extra);
         let peak_windows = peak::peak_for(extra, &platform_type.wire_str());
         let disable_during_peak = peak::parse_disable_during_peak(extra);
+        let direct_models = db::models::PlatformExtra::parse(extra).direct_models;
         Self {
             time_windows,
             peak_windows,
             disable_during_peak,
+            direct_models,
         }
     }
 }
@@ -246,6 +250,40 @@ pub async fn select_candidates_ctx(
             )
         })
         .collect();
+
+    // ── 直通模型链（直接模型转发）：有效模型名（映射命中取 target_model，否则请求原名）
+    // 被组内任一平台 extra.direct_models 声明 → 只在声明它的平台里走全维度过滤 + 现有排序
+    // failover。此链映射只翻译不锁平台（跳过提首与静默回落），转发模型名 = 原名（不进槽位匹配）。
+    // 无人声明该模型 → 默认链原样（下方阶段 0 起，含提首/回落）。
+    // 排序在阶段 0 之前但仅限多平台组：需求原话「声明平台全不可用 → 直接报错」优先于
+    // 等效单平台分组（恰好 1 个 Enabled）短路；字面单平台组（len==1）保留 bypass 语义不动。
+    let direct_model = mapped_target_model
+        .clone()
+        .unwrap_or_else(|| source_model.to_string());
+    let direct_ids: HashSet<u64> = group_platforms
+        .iter()
+        .filter(|gp| {
+            extra_cache
+                .get(&gp.platform.id)
+                .is_some_and(|c| c.direct_models.iter().any(|m| m == &direct_model))
+        })
+        .map(|gp| gp.platform.id)
+        .collect();
+    if !direct_ids.is_empty() && group_platforms.len() > 1 {
+        return select_direct_candidates(
+            group,
+            &group_platforms,
+            mapping,
+            &extra_cache,
+            &direct_ids,
+            &direct_model,
+            ctx,
+            now_ms,
+            effective_mode,
+            kind,
+            &decision_models,
+        );
+    }
 
     // ── 阶段 0: 单启用平台分组短路 ──
     if let Some(only) = sole_platform(&group_platforms) {
@@ -568,6 +606,130 @@ fn single_snapshot(
             tags: Vec::new(),
         }],
     }
+}
+
+// ── Helper: 直通模型链（直接模型转发）──
+
+/// 有效模型被组内平台 `extra.direct_models` 声明时的候选选取：对整组跑 `filter_candidates`
+/// 全维度过滤后只保留声明平台，再按 `sort_by_routing_mode` 现有排序 failover（无映射提首）。
+/// 转发模型名 = 直通原名（不进槽位匹配）。声明平台全不可用（含熔断踢出——直通链无
+/// breaker bypass）→ `RouteFail("direct_model_unavailable")`，caller handler.rs 据此落
+/// 审计 proxy_log（blocked_by='router', status_code=503）。
+#[allow(clippy::too_many_arguments)]
+fn select_direct_candidates(
+    group: &Group,
+    group_platforms: &[GroupPlatformDetail],
+    mapping: Option<&ModelMapping>,
+    extra_cache: &ExtraCacheMap,
+    direct_ids: &HashSet<u64>,
+    direct_model: &str,
+    ctx: Option<&ScheduleCtx<'_>>,
+    now_ms: i64,
+    mode: RoutingMode,
+    kind: RequestKind,
+    decision_models: &DecisionModels,
+) -> Result<CandidateSet, RouteFail> {
+    let in_direct = |gp: &GroupPlatformDetail| direct_ids.contains(&gp.platform.id);
+    let FilteredCandidates {
+        mut active,
+        mut probe,
+        breaker_rejected,
+        excluded,
+        ..
+    } = filter_candidates(
+        group_platforms,
+        ctx,
+        now_ms,
+        direct_model,
+        extra_cache,
+        kind,
+        decision_models,
+    );
+    active.retain(|gp| in_direct(gp));
+    probe.retain(|gp| in_direct(gp));
+    // 排除清单只留直通平台；熔断踢出的直通平台计入不可用（直通链无 breaker bypass）
+    let mut excluded: Vec<(&GroupPlatformDetail, RouteReason)> = excluded
+        .into_iter()
+        .filter(|(gp, _)| in_direct(gp))
+        .collect();
+    excluded.extend(
+        breaker_rejected
+            .into_iter()
+            .filter(|(gp, _)| in_direct(gp))
+            .map(|(gp, _)| (gp, RouteReason::Breaker)),
+    );
+
+    let (sticky_id, demoted_ids) = sort_by_routing_mode(&mut active, &mut probe, mode, ctx, now_ms);
+    let ordered: Vec<&GroupPlatformDetail> = active.into_iter().chain(probe).collect();
+
+    // 决策快照（与默认链同形状：选中按最终顺序 + 位置标签，排除附细分原因；无 MappingPromoted）
+    let selected_count = ordered.len() as u32;
+    let mut entries: Vec<RouteCandidate> = ordered
+        .iter()
+        .enumerate()
+        .map(|(i, gp)| {
+            let mut tags = Vec::new();
+            if is_coding_plan(&gp.platform) {
+                tags.push(RouteTag::CodingPlan);
+            }
+            if demoted_ids.contains(&gp.platform.id) {
+                tags.push(RouteTag::Demoted);
+            }
+            if sticky_id == Some(gp.platform.id) {
+                tags.push(RouteTag::Sticky);
+            }
+            RouteCandidate {
+                order: (i + 1) as u32,
+                platform: gp.platform.name.clone(),
+                platform_id: gp.platform.id,
+                level_priority: gp.level_priority,
+                priority: gp.priority,
+                reason: RouteReason::Selected,
+                tags,
+            }
+        })
+        .collect();
+    entries.extend(excluded.iter().enumerate().map(|(i, (gp, reason))| RouteCandidate {
+        order: selected_count + i as u32 + 1,
+        platform: gp.platform.name.clone(),
+        platform_id: gp.platform.id,
+        level_priority: gp.level_priority,
+        priority: gp.priority,
+        reason: *reason,
+        tags: Vec::new(),
+    }));
+    let routing = RoutingSnapshot {
+        mode: Some(mode),
+        entries,
+    };
+
+    if ordered.is_empty() {
+        tracing::info!(
+            group = %group.name, model = %direct_model, declared = direct_ids.len(),
+            "all direct-model platforms unavailable; returning direct_model_unavailable for audit log"
+        );
+        return Err(RouteFail {
+            reason: "direct_model_unavailable".to_string(),
+            routing,
+        });
+    }
+
+    let candidates: Vec<RouteResult> = ordered
+        .into_iter()
+        .map(|gp| RouteResult {
+            platform: gp.platform.clone(),
+            target_model: direct_model.to_string(),
+            mapping: mapping.cloned(),
+        })
+        .collect();
+
+    tracing::info!(
+        group = %group.name, model = %direct_model, candidate_count = candidates.len(),
+        mode = ?mode, first_platform = %candidates[0].platform.name,
+        "direct-model candidates selected"
+    );
+
+    Ok(CandidateSet { candidates, routing })
 }
 
 // ── Helper: 候选分桶过滤 ──

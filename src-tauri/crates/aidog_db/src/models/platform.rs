@@ -364,6 +364,9 @@ pub struct PlatformExtra {
     pub breaker: PlatformBreaker,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub disable_during_peak: bool,
+    /// 直通模型列表（直接模型转发）：声明即真值，不查 registry 收录。
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub direct_models: Vec<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub peak: Vec<crate::models::stats::TimeWindow>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
