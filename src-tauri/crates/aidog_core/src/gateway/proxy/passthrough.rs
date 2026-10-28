@@ -877,12 +877,13 @@ async fn relay_passthrough_nonstream(
     log.duration_ms = start.elapsed().as_millis() as i32;
     if opts.extract_usage {
         // usage 借用：lossy 不经 to_string 中转
-        let (input_tokens, output_tokens, cache_tokens, cache_write_tokens) =
+        let (input_tokens, output_tokens, cache_tokens, cache_write_tokens, cache_write_1h) =
             extract_usage(String::from_utf8_lossy(&body).as_ref());
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
         log.cache_tokens = cache_tokens;
         log.cache_write_tokens = cache_write_tokens;
+        log.cache_write_1h_tokens = cache_write_1h;
     }
     // 透传：upstream body == client body（无协议转换），仍按侧 gate 落库
     log.response_body = if record_upstream_body {

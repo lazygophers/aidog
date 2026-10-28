@@ -158,6 +158,9 @@ fn overlay_prices(base: &mut ResolvedPrice, tier: &Value) {
     if let Some(v) = tier.get("cache_write").and_then(Value::as_f64) {
         base.cache_write_input_token_cost = v;
     }
+    if let Some(v) = tier.get("cache_write_1h").and_then(Value::as_f64) {
+        base.cache_write_1h_input_token_cost = v;
+    }
 }
 
 /// 上下文阶梯选档：取 `price.context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
@@ -237,6 +240,7 @@ pub fn resolve_price_from(
         output_cost_per_token: fallback_output / 1_000_000.0,
         cache_read_input_token_cost: 0.0,
         cache_write_input_token_cost: 0.0,
+        cache_write_1h_input_token_cost: 0.0,
         source: "fallback".to_string(),
     };
     let Some(pd) = pd else {
@@ -256,6 +260,7 @@ pub fn resolve_price_from(
                 output_cost_per_token: 0.0,
                 cache_read_input_token_cost: 0.0,
                 cache_write_input_token_cost: 0.0,
+        cache_write_1h_input_token_cost: 0.0,
                 source: "model_entry+free".to_string(),
             },
             peak_applied: false,
@@ -271,6 +276,11 @@ pub fn resolve_price_from(
                 output_cost_per_token: output,
                 cache_read_input_token_cost: num("cache_read"),
                 cache_write_input_token_cost: num("cache_write"),
+                // B3：1h 单价缺省回落 cache_write（无该字段平台 5m/1h 同价，零回归）。
+                cache_write_1h_input_token_cost: price_obj
+                    .get("cache_write_1h")
+                    .and_then(Value::as_f64)
+                    .unwrap_or_else(|| num("cache_write")),
                 source: "model_entry".to_string(),
             },
             &price_obj,

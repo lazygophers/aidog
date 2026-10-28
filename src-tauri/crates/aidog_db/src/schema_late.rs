@@ -604,6 +604,13 @@ pub fn run_migrations_proxy_log_late(
         "ALTER TABLE proxy_log ADD COLUMN cache_write_tokens INTEGER NOT NULL DEFAULT 0",
         [],
     );
+    // Migration 20261028-01 (B3 cache 5m/1h 拆价): proxy_log 加 cache_write_1h_tokens 列——
+    // Anthropic `cache_creation.ephemeral_1h_input_tokens` 独立落库，计价走 `price.cache_write_1h`
+    // 档（2× input 价）。存量行 DEFAULT 0 补齐 = 历史无采集，语义正确，无需回填。
+    let _ = conn.execute(
+        "ALTER TABLE proxy_log ADD COLUMN cache_write_1h_tokens INTEGER NOT NULL DEFAULT 0",
+        [],
+    );
     // Migration 20261001-01 (perf-backend O5): proxy_log 三个读侧窄索引，堵界面查询随
     // 行数线性变慢（票 03 实测 scaled 20.5 万行：L3 计数 56ms / L8 最近测试 57ms /
     // L11 mitm 未计入 39ms，加索引后 0.96 / 0.00 / 0.01ms）。索引列（source_protocol /

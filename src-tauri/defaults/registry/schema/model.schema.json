@@ -234,6 +234,11 @@
           "minimum": 0,
           "description": "【可选】缓存写单价（$/token）。"
         },
+        "cache_write_1h": {
+          "type": "number",
+          "minimum": 0,
+          "description": "【可选】缓存写 1h TTL 单价（$/token，Anthropic 官方 2× input 价）。缺省回落 cache_write 值（spec B3）。"
+        },
         "peak": {
           "type": "object",
           "minProperties": 1,

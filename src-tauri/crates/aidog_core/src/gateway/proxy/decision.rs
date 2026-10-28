@@ -425,11 +425,12 @@ async fn decision_attempt(
     }
 
     // token 记账：usage.input_tokens / output_tokens（Anthropic 同名字段，extract_usage 已认）。
-    let (input, output, cache, cache_write) = extract_usage(&body_str);
+    let (input, output, cache, cache_write, cache_write_1h) = extract_usage(&body_str);
     log.input_tokens = input;
     log.output_tokens = output;
     log.cache_tokens = cache;
     log.cache_write_tokens = cache_write;
+    log.cache_write_1h_tokens = cache_write_1h;
     // R14：上游显式 cost 直接采用（est_cost != 0 时 process_upsert 跳过 registry 价回落；
     // 无 cost 则留 0，由 process_upsert 按 registry 价 × tokens 计算，高峰倍率链照常生效）。
     if let Some(cost) = upstream_cost {

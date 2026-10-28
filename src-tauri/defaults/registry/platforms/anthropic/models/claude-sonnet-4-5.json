@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859415,
+  "last_updated": 1793201693,
   "supported_protocols": [
     "anthropic"
   ],
@@ -21,6 +21,7 @@
     "input": 3e-06,
     "output": 1.5e-05,
     "cache_read": 3e-07,
-    "cache_write": 3.75e-06
+    "cache_write": 3.75e-06,
+    "cache_write_1h": 6e-06
   }
 }
