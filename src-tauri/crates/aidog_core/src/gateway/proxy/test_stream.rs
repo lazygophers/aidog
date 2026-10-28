@@ -132,7 +132,8 @@ fn accumulate_sse_usage_openai_stream_final_usage() {
         }
     });
     accumulate_sse_usage(&last, &i, &o, &c, &std::sync::atomic::AtomicI32::new(0));
-    assert_eq!(i.load(Relaxed), 1024);
+    // B1：prompt_tokens 含 cached 部分，input 扣减后 1024−512=512。
+    assert_eq!(i.load(Relaxed), 512);
     assert_eq!(o.load(Relaxed), 200);
     assert_eq!(c.load(Relaxed), 512);
 }
@@ -1051,11 +1052,56 @@ fn extract_usage_returns_cache_write() {
 }
 
 /// DeepSeek prompt_cache_hit_tokens 并入 cache_read 分支（同读价语义）。
+/// B1：deepseek 的 prompt_tokens 含 hit 部分，input 按绑定 arm 扣减，避免双重计价。
 #[test]
 fn extract_usage_deepseek_prompt_cache_hit() {
     let body = r#"{"usage":{"prompt_tokens":100,"completion_tokens":5,"prompt_cache_hit_tokens":60,"prompt_cache_miss_tokens":40}}"#;
     let (i, o, c, cw) = extract_usage(body);
-    assert_eq!((i, o, c, cw), (100, 5, 60, 0));
+    assert_eq!((i, o, c, cw), (40, 5, 60, 0));
+}
+
+/// B1：openai prompt_tokens_details.cached_tokens 命中时 input 扣减 cached。
+#[test]
+fn extract_usage_openai_cached_deducts_input() {
+    let body = r#"{"usage":{"prompt_tokens":100,"completion_tokens":5,"prompt_tokens_details":{"cached_tokens":40}}}"#;
+    assert_eq!(extract_usage(body), (60, 5, 40, 0));
+}
+
+/// B1 反向锚：anthropic input_tokens 天然不含 cache，不扣。
+#[test]
+fn extract_usage_anthropic_cache_read_does_not_deduct() {
+    let body = r#"{"usage":{"input_tokens":7,"output_tokens":3,"cache_read_input_tokens":50,"cache_creation_input_tokens":80}}"#;
+    assert_eq!(extract_usage(body), (7, 3, 50, 80));
+}
+
+/// B2：responses input_tokens_details 命中时读 cached/cache_write 并按官方公式扣 input
+/// （ordinaryInputTokens = input_tokens − cached_tokens − cache_write_tokens）。
+#[test]
+fn extract_usage_responses_input_tokens_details() {
+    let body = r#"{"usage":{"input_tokens":100,"output_tokens":5,"input_tokens_details":{"cached_tokens":30,"cache_write_tokens":10}}}"#;
+    assert_eq!(extract_usage(body), (60, 5, 30, 10));
+}
+
+/// B2 流式对称：responses usage 经 accumulate_sse_usage 同样读侧 + 扣减。
+#[test]
+fn accumulate_sse_usage_responses_input_tokens_details() {
+    use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+    let i = AtomicI32::new(0);
+    let o = AtomicI32::new(0);
+    let c = AtomicI32::new(0);
+    let cw = AtomicI32::new(0);
+    let v: Value = serde_json::json!({
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 5,
+            "input_tokens_details": { "cached_tokens": 30, "cache_write_tokens": 10 }
+        }
+    });
+    accumulate_sse_usage(&v, &i, &o, &c, &cw);
+    assert_eq!(i.load(Relaxed), 60);
+    assert_eq!(o.load(Relaxed), 5);
+    assert_eq!(c.load(Relaxed), 30);
+    assert_eq!(cw.load(Relaxed), 10);
 }
 
 // ── O8 预筛回归：feed_sse_usage 不含 usage/model 的行跳过 JSON 解析 ──
