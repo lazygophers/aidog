@@ -1725,7 +1725,7 @@ export function DirectModelsSection({ models, setModels, t }: {
       <div className="aidog-anim-rise" style={C.strip}>
         <div style={C.tile("var(--data-primary)")}>直</div>
         <span style={C.pill(models.length > 0 ? "ok" : "neutral")}>
-          {t("platform.rateLimits.windowsCount", "{{n}} 个窗口", { n: models.length })}
+          {t("platform.direct_models_count", "{{n}} 个模型", { n: models.length })}
         </span>
       </div>
       {models.map((m, i) => (

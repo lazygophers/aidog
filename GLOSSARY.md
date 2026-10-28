@@ -153,3 +153,12 @@ _避免_: deployment、provider preset
 ## 统一日志（卡顿/故障定位入口）
 
 前后端同文件：`~/.aidog/logs/aidog.<YYYY-MM-DD-HH>.log`，按小时分割，按 `retention_hours`（默认 24）自动清理，设置页可调（`app_log_settings_get/set`，file_enabled/level/retention_hours）。前端 console（error/warn/info/debug）与未捕获异常由 `src/utils/frontendLog.ts` 入口 patch 转发 `app_log_frontend` 命令，Rust 侧 tracing `target=frontend` 落同一 appender。定位卡顿：复现时段内 grep `frontend`（前端渲染异常）+ `trace_id`（代理请求链）+ `ERROR`（后端），打包给 AI：`tar czf aidog-logs.tgz -C ~/.aidog logs`。_避免_: appender、webview console
+
+### 直接模型转发
+
+**直通模型（Direct Model）**:
+平台级声明（`platform.extra.direct_models`）的一组模型 id：分组请求带这些 id 时，只在声明
+它的平台中按现有优先级 failover，转发保留请求的模型原名（跳过槽位改写）；声明平台全不可用
+回 503（`blocked_reason: direct_model_unavailable`，落 proxy_log 审计）。声明即生效，不查
+registry 收录（聚合站自定义模型名可配）。整条直通链只在组内任一平台声明了直通模型时启用，
+未声明的组行为与现状一致。_避免_: 直接模型（需求口语）、直连模型

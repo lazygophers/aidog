@@ -1221,6 +1221,7 @@
   "platform.direct_models_desc": "When declared, group requests carrying these model ids are routed only to platforms that declare them, preserving the requested model name (failover follows existing priority). If no platform declares the id, the default chain applies. Declaration takes effect immediately — no registry lookup.",
   "platform.direct_models_placeholder": "Model id, e.g. claude-sonnet-4-5",
   "platform.direct_models_add": "Add",
+  "platform.direct_models_count": "{{n}} models",
   "platform.mitmSection": "Subscription passthrough MITM stats",
   "platform.mitmStatsToggle": "Enable (decrypt via CONNECT proxy to track usage and reference cost)",
   "platform.mitmCaHint": "MITM tunnel not ready: enable the tunnel and install the root CA under Settings → MITM, otherwise traffic is blind-forwarded with no stats.",

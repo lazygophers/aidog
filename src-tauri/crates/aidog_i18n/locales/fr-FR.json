@@ -1243,6 +1243,7 @@
   "platform.direct_models_desc": "Une fois déclarés, les requêtes de groupe portant ces identifiants de modèle ne sont acheminées que vers les plateformes qui les déclarent, en conservant le nom du modèle demandé (failover selon la priorité existante). Si aucune plateforme ne les déclare, la chaîne par défaut s'applique. La déclaration prend effet immédiatement, sans consultation du registre.",
   "platform.direct_models_placeholder": "Identifiant de modèle, ex. claude-sonnet-4-5",
   "platform.direct_models_add": "Ajouter",
+  "platform.direct_models_count": "{{n}} modèles",
   "platform.mitmSection": "Statistiques MITM du relais d'abonnement",
   "platform.mitmStatsToggle": "Activer (déchiffrer via le proxy CONNECT pour suivre l'usage et le coût de référence)",
   "platform.mitmCaHint": "Le tunnel MITM n'est pas prêt : activez le tunnel et installez le faux certificat racine (CA) dans Paramètres → MITM, sinon le trafic est relayé à l'aveugle, sans statistiques.",

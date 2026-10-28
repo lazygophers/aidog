@@ -1221,6 +1221,7 @@
   "platform.direct_models_desc": "声明后，分组请求携带这些模型 id 时只在声明它的平台里按现有优先级转发（保留请求模型原名）；组内无人声明则走默认链。声明即生效，不查模型收录。",
   "platform.direct_models_placeholder": "模型 id，如 claude-sonnet-4-5",
   "platform.direct_models_add": "添加",
+  "platform.direct_models_count": "{{n}} 个模型",
   "platform.mitmSection": "订阅透传 MITM 统计",
   "platform.mitmStatsToggle": "启用（经 CONNECT 代理解密统计用量与参考成本）",
   "platform.mitmCaHint": "MITM 隧道未就绪：请到 设置 → MITM 启用隧道并安装假根证书（CA），否则流量盲转、无统计。",
