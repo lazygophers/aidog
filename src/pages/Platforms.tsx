@@ -7,16 +7,13 @@
 // 行为零变更（纯结构重构）：不改业务逻辑 / i18n key / Tauri command 签名。
 // App.tsx import 路径 `./pages/Platforms` 保持不变。
 import { useRef, useMemo } from "react";
-import { useTranslation } from "react-i18next";
 
 import type { PlatformCardService } from "../components/platforms/PlatformCard";
 import { usePlatformsState } from "./platforms/usePlatformsState";
 import { PlatformEditForm } from "./platforms/PlatformEditForm";
 import { PlatformListView } from "./platforms/PlatformListView";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
 export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void; initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean } }) {
-  const { t } = useTranslation();
   // GroupsEmbedded「添加分组」弹窗触发 ref（按钮上移到本页页头）。
   const openCreateGroupRef = useRef<(() => void) | null>(null);
   // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
@@ -76,27 +73,15 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
     onCustomTest: (p) => actionsRef.current.s_setTestingPlatform(p),
   }), []);
 
-  // ── 新建态全页表单（2026-10-28 拍板：仅新建走全页；编辑 / 复制进右侧抽屉）──
-  // 新建与复制都 editing=null，靠 form.duplicating 区分（handleDuplicate 置位，resetForm 复位）。
-  if (form.showForm && !form.editing && !form.duplicating) {
+  // ── Edit / Add form (full page, no list) ──
+  if (form.showForm) {
     return <PlatformEditForm s={s} />;
   }
 
-  // ── List view + 编辑态抽屉（重设计稿 5：点行内「编辑」右侧滑入抽屉，页面其余压暗）──
-  // showForm 由 handleEdit / handleDuplicate / openCreatePlatform 置位；关闭走 resetForm 复位表单。
+  // ── List view ──
   return (
     <>
       <PlatformListView s={s} cardService={cardService} openCreateGroupRef={openCreateGroupRef} />
-      <Sheet open={form.showForm} onOpenChange={(open) => { if (!open) form.resetForm(); }}>
-        <SheetContent
-          side="right"
-          className="w-[520px] sm:max-w-[520px] p-4 pt-12"
-          data-testid="platform-edit-drawer"
-        >
-          <SheetTitle className="sr-only">{form.editing?.name ?? t("platform.add")}</SheetTitle>
-          <PlatformEditForm s={s} variant="drawer" />
-        </SheetContent>
-      </Sheet>
     </>
   );
 }

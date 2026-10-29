@@ -8,7 +8,7 @@
 //
 // 本脚本守三条：
 //   A. globals.css 的 unlayered 区不得声明 position（白名单：弹窗定位硬保障那几个 .ui-* 类）。
-//   B. shadcn Dialog / AlertDialog / Sheet 的 Overlay 与 Content 必须挂 .ui-dialog-* 保障类。
+//   B. shadcn Dialog / AlertDialog 的 Overlay 与 Content 必须挂 .ui-dialog-* 保障类。
 //   C. 手写弹窗（position:fixed + inset:0 的遮罩）必须经 createPortal 挂 document.body。
 //
 // 退出码非 0 = 有违规，CI 与本地 `yarn check:modal` 均按此判定。
@@ -21,7 +21,7 @@ const CSS = join(ROOT, "src/styles/globals.css");
 const SRC = join(ROOT, "src");
 
 /** 允许 unlayered 声明 position 的选择器（弹窗定位硬保障，见 globals.css 末尾）。 */
-const POSITION_ALLOWLIST = [".ui-dialog-overlay", ".ui-dialog-panel", ".ui-fixed-panel"];
+const POSITION_ALLOWLIST = [".ui-dialog-overlay", ".ui-dialog-panel"];
 
 const errors = [];
 
@@ -88,7 +88,6 @@ const errors = [];
 const UI_GUARDS = [
   ["src/components/ui/dialog.tsx", ["ui-dialog-overlay", "ui-dialog-panel"]],
   ["src/components/ui/alert-dialog.tsx", ["ui-dialog-overlay", "ui-dialog-panel"]],
-  ["src/components/ui/sheet.tsx", ["ui-dialog-overlay", "ui-fixed-panel"]],
 ];
 for (const [rel, classes] of UI_GUARDS) {
   const src = readFileSync(join(ROOT, rel), "utf8");
