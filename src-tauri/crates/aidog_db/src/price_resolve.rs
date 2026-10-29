@@ -141,6 +141,8 @@ fn parse_price_data(raw: &str) -> Value {
 pub struct PriceResolution {
     pub price: ResolvedPrice,
     pub peak_applied: bool,
+    /// 条目原币种为 CNY（单价已换算成 USD）；余额币种未知时据此推断余额币种。
+    pub source_cny: bool,
 }
 
 impl PriceResolution {
@@ -254,6 +256,7 @@ pub fn resolve_price_from(
         return PriceResolution {
             price: fallback(),
             peak_applied: false,
+            source_cny: false,
         };
     };
     // 旧形状行（价格平铺顶层）已由 `parse_price_data` 归一化，这里只认 `price` 子树
@@ -271,6 +274,7 @@ pub fn resolve_price_from(
                 source: "model_entry+free".to_string(),
             },
             peak_applied: false,
+            source_cny: false,
         };
     }
     let num =|k: &str| price_obj.get(k).and_then(Value::as_f64).unwrap_or(0.0);
@@ -317,9 +321,9 @@ pub fn resolve_price_from(
     // 币种换算（唯一入口）：条目 `price.currency == "CNY"` → 分档 / peak 叠完后的全部单价
     // 除以汇率成 USD，所有下游（est_cost / 明细 / 模拟器 / 余额预估）共用。fallback 兜底价
     // 本身是 USD，不换算；缺省 currency 按 USD。
-    if price_obj.get("currency").and_then(Value::as_str) == Some("CNY")
-        && price.source != "fallback"
-    {
+    let source_cny = price_obj.get("currency").and_then(Value::as_str) == Some("CNY")
+        && price.source != "fallback";
+    if source_cny {
         price.input_cost_per_token /= CNY_PER_USD;
         price.output_cost_per_token /= CNY_PER_USD;
         price.cache_read_input_token_cost /= CNY_PER_USD;
@@ -329,6 +333,7 @@ pub fn resolve_price_from(
     PriceResolution {
         price,
         peak_applied,
+        source_cny,
     }
 }
 
