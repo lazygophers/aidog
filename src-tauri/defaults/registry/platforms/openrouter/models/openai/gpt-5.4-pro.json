@@ -10,6 +10,7 @@
   "max_output_tokens": 128000,
   "thinking_supported": true,
   "price": {
+    "currency": "USD",
     "input": 3e-05,
     "output": 0.00018,
     "context_tiers": [
@@ -20,7 +21,7 @@
       }
     ]
   },
-  "last_updated": 1792068956,
+  "last_updated": 1793244705,
   "supported_protocols": [
     "anthropic",
     "openai"

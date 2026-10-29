@@ -1,6 +1,6 @@
 {
   "max_input_tokens": 1000000,
-  "last_updated": 1790859416,
+  "last_updated": 1793244702,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -17,6 +17,7 @@
   ],
   "official": true,
   "price": {
+    "currency": "CNY",
     "input": 1.25e-06,
     "output": 3.75e-06
   },

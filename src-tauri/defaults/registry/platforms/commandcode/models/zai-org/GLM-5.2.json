@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "zai-org/GLM-5.2",
   "display_name": "GLM-5.2",
   "canonical_model": "glm-5.2",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 1.4e-06,
     "output": 4.4e-06,
     "cache_read": 2.6e-07

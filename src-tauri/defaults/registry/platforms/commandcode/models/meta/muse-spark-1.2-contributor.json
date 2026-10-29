@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244703,
   "model_id": "meta/muse-spark-1.2-contributor",
   "display_name": "Muse Spark 1.2 Contributor",
   "canonical_model": "muse-spark-1.2-contributor",
@@ -16,6 +16,7 @@
     "openai_responses"
   ],
   "price": {
+    "currency": "USD",
     "input": 1.0000000000000001e-07,
     "output": 2.0000000000000002e-07,
     "cache_read": 2e-09

@@ -1,5 +1,5 @@
 {
-  "last_updated": 1790859420,
+  "last_updated": 1793244705,
   "supported_protocols": [
     "anthropic",
     "openai"
@@ -16,6 +16,7 @@
   "max_output_tokens": 262144,
   "official": true,
   "price": {
+    "currency": "USD",
     "input": 1.0000000000000001e-07,
     "output": 3e-07
   },
