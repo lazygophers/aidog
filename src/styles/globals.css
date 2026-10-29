@@ -1161,7 +1161,7 @@ input[type="week"]::-webkit-calendar-picker-indicator {
 }
 
 /* ─── 弹窗定位硬保障（故意 unlayered）───────────────────────────────────────
-   .ui-dialog-overlay / .ui-dialog-panel 挂在 shadcn Dialog / AlertDialog / Sheet 的
+   .ui-dialog-overlay / .ui-dialog-panel 挂在 shadcn Dialog / AlertDialog 的
    Overlay 与 Content 上（src/components/ui/*.tsx），是「弹窗必须相对**窗口**定位」这条
    规则的唯一落点。裸写（不进 layer）是刻意的：调用方传进来的 className（.glass-surface
    等自定义类）也压不掉它，弹窗永远按视口居中，不会掉回页面流里。
@@ -1177,12 +1177,6 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   position: fixed;
   max-height: calc(100vh - 48px);
   overflow-y: auto;
-}
-
-/* 侧边抽屉（Sheet）只保 position，不能带 inset —— inset 会压掉 side variant 的
-   inset-y-0 / left-0 / right-0（同样是 unlayered > utilities），抽屉被拉成全屏。 */
-.ui-fixed-panel {
-  position: fixed;
 }
 
 /* ─── C 方向稿动效与交互态（2026-10-22 时段窗口 + 预算治理三区对齐设计稿）────
