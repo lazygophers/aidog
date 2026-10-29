@@ -139,9 +139,9 @@ mitm_bypass 测试读加密列断言明文——子集门禁全绿，合并到 m
   派发 prompt 的 Rust 门禁一律写 `cargo test --workspace`；agent 拿到短命令自行补全
   并在回报注明。
 - **MARK 在场 ≠ 链跑完**（2026-10-29 计费线实锤）：`grep ... | head; echo MARK` 结构把
-  cargo 中途失败吞掉，MARK 照打。`grep -cE 'test result: ok'` 得 4、期望 34（cargo
+  cargo 中途失败吞掉，MARK 照打。`grep -cE 'test result: ok'` 得 4、期望 <N>（cargo
   编译期失败中断），差点当绿。门禁链除 MARK 外再核一个数：`test result: ok` 计数 =
-  suite 总数；开工前在干净 HEAD 数一次期望值写进派发 prompt（2026-10-29 为 34，随
+  suite 总数；开工前在干净 HEAD 数一次期望值写进派发 prompt（<N> 例：2026-10-29 为 34，随
   crate 增减变，不当常量）。
 - **门禁脚本名从 `package.json` scripts 抄，不凭记忆写**（2026-10-29）：派单与票面模板
   曾写 `yarn check-i18n`（不存在），真名 `yarn check:i18n`（同族：`check:registry` /
