@@ -68,6 +68,18 @@ async fn presets_deliver_task_complete_all_local_channels() {
 }
 
 #[tokio::test]
+async fn presets_match_cc_hook_event_by_semantic_type() {
+    let db = mem_db().await;
+    set_rules(&db, |_| {}).await;
+    let r = dispatch(&db, None, Some("Stop"), "", None, &vars(&[("project", "P1")])).await;
+    assert!(r.dispatched);
+    assert!(r.popup);
+    assert!(r.inbox);
+    assert!(r.sound);
+    assert!(r.tts);
+}
+
+#[tokio::test]
 async fn breaker_event_source_proxy_and_severity_error() {
     let db = mem_db().await;
     set_rules(&db, |_| {}).await;
