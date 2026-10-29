@@ -2478,7 +2478,7 @@
   "tray.overBudgetHint": "Dépassement",
   "tray.pageDesc": "Tableau de la barre des menus — les segments chargés s'affichent en direct dans l'ordre ; stats du jour à droite.",
   "tray.peakBadge": "Heures de pointe",
-"tray.persistError": "Échec de l'enregistrement de la configuration du tray : {{msg}}",
+  "tray.persistError": "Échec de l'enregistrement de la configuration du tray : {{msg}}",
   "tray.preview": "Aperçu en direct",
   "tray.previewEmpty": "Aucun élément",
   "tray.previewTitle": "Aperçu barre de menus",
