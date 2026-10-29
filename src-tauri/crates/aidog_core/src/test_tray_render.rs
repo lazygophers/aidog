@@ -6,6 +6,7 @@
 use super::{platform_item_parts, tray_layout, trim_trailing_zeros};
 use aidog_db::{Db, TrayConfig, TrayItem, set_tray_config};
 use aidog_stats::DbInitTables;
+use serde_json::json;
 
 async fn test_db() -> Db {
     aidog_db::test_support::ensure_test_master_key();
@@ -250,4 +251,133 @@ fn trim_trailing_zeros_cases() {
     assert_eq!(trim_trailing_zeros("12"), "12", "无小数点原样返回");
     assert_eq!(trim_trailing_zeros("1.000"), "1");
     assert_eq!(trim_trailing_zeros("0.00001"), "0.00001");
+}
+
+// ─── 平台槽多指标（metrics / unit / decimals / coding 窗口细分）───
+
+fn item_json(v: serde_json::Value) -> TrayItem {
+    serde_json::from_value(v).expect("TrayItem from json")
+}
+
+#[test]
+fn platform_metrics_legacy_config_unchanged_without_metrics() {
+    // metrics=None → display 旧口径逐字不变（含 coding plan 压过 balance 的旧规则）。
+    let plan = r#"{"tiers":[{"name":"five_hour","est_utilization":10.0}]}"#;
+    let p = platform(99.0, plan);
+    let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance"}));
+    assert_eq!(super::platform_item_value(&p, &item, None), "90%");
+    let item = item_json(json!({"item_type": "platform", "platform_id": 1, "display": "coding"}));
+    assert_eq!(super::platform_item_value(&p, &item, None), "90%");
+    let empty_metrics =
+        item_json(json!({"item_type": "platform", "platform_id": 1, "display": "balance", "metrics": []}));
+    assert_eq!(super::platform_item_value(&p, &empty_metrics, None), "90%");
+}
+
+#[test]
+fn platform_metrics_join_with_separator() {
+    let p = platform(10.10, "");
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "today_cost", "today_tokens"],
+    }));
+    // 无 per-platform today 数据 → today 两项落 0 值默认单位。
+    assert_eq!(
+        super::platform_item_value(&p, &item, None),
+        "$10.1 · $0 · 0 tok"
+    );
+}
+
+#[test]
+fn platform_metrics_unit_and_decimals() {
+    let p = platform(10.10, "");
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "today_cost"], "unit": " U", "decimals": 3,
+    }));
+    // unit 非空：$ 前缀去掉、单位作后缀；decimals 是裁尾零的上限（与 today_usage cost 同语义）。
+    assert_eq!(super::platform_item_value(&p, &item, None), "10.1 U · 0 U");
+    let tok = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["today_tokens"], "unit": "k",
+    }));
+    assert_eq!(super::platform_item_value(&p, &tok, None), "0k");
+}
+
+#[test]
+fn platform_metrics_coding_window_tiers() {
+    let plan = r#"{"tiers":[
+        {"name":"five_hour","est_utilization":25.0},
+        {"name":"weekly_limit","est_utilization":50.0}
+    ]}"#;
+    let p = platform(0.0, plan);
+    // coding:<tier> 取指定窗口；coding 取首个窗口；缺失 tier 跳过该指标。
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["balance", "coding:weekly_limit", "coding:five_hour", "coding:nope"],
+    }));
+    assert_eq!(
+        super::platform_item_value(&p, &item, None),
+        "$0 · 50% · 75%"
+    );
+    // 全部指标不可用 → "—"。
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1, "metrics": ["coding:nope"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None), "—");
+}
+
+#[test]
+fn platform_metrics_today_values_from_prefetched_stat() {
+    let p = platform(1.0, "");
+    let stat = aidog_stats::TodayPlatformStat {
+        platform_id: 1,
+        platform_name: "Acme".to_string(),
+        tokens: 1234,
+        cost: 0.5,
+        requests: 7,
+    };
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["today_cost", "today_tokens"],
+    }));
+    assert_eq!(
+        super::platform_item_value(&p, &item, Some(&stat)),
+        "$0.5 · 1234 tok"
+    );
+}
+
+#[test]
+fn platform_metrics_reset_time_known_tier() {
+    use chrono::TimeZone;
+    // 今天本地 10:00 起点 + five_hour(5h) cycle → 15:00 今天 → "HH:mm"。
+    let today = chrono::Local::now().date_naive();
+    let start = chrono::Local
+        .from_local_datetime(&today.and_hms_opt(10, 0, 0).unwrap())
+        .single()
+        .unwrap()
+        .timestamp_millis();
+    let plan = format!(
+        r#"{{"tiers":[{{"name":"five_hour","est_utilization":10.0,"window_start":{start}}}]}}"#
+    );
+    let p = platform(0.0, &plan);
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["reset_time:five_hour"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None), "15:00");
+}
+
+#[test]
+fn platform_metrics_reset_time_skips_unusable_tiers() {
+    // window_start=0（无可靠周期起点）与未知 cycle 的 tier 都跳过 → "—"。
+    let plan = r#"{"tiers":[
+        {"name":"five_hour","est_utilization":10.0,"window_start":0},
+        {"name":"mystery","est_utilization":20.0,"window_start":123}
+    ]}"#;
+    let p = platform(0.0, plan);
+    let item = item_json(json!({
+        "item_type": "platform", "platform_id": 1,
+        "metrics": ["reset_time:five_hour", "reset_time:mystery"],
+    }));
+    assert_eq!(super::platform_item_value(&p, &item, None), "—");
 }
