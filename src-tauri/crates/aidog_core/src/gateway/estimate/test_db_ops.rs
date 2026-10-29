@@ -629,15 +629,25 @@ async fn balance_usd_platform_cny_model_deducts_usd() {
 }
 
 #[tokio::test]
-async fn balance_missing_currency_treated_as_usd() {
+async fn balance_missing_currency_cny_model_falls_back_to_cny() {
     let db = mem_db().await;
     let id = mk_platform(&db, false).await;
     seed_cny_model(&db).await;
-    write_real_quota(&db, id, 100.0, "", now()).await.unwrap(); // 从未真查 → 无币种记录
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap(); // 从未真查 → 无币种记录 → 回落模型条目币种 CNY，扣 2.0（等于换算前行为）
     run_est(&db, id, 0.0, 1000, 500).await;
     let p = db::get_platform(&db, id).await.unwrap().unwrap();
-    let usd = 2.0 / aidog_db::CNY_PER_USD;
-    assert!((p.est_balance_remaining - (100.0 - usd)).abs() < 1e-6, "got {}", p.est_balance_remaining);
+    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
+}
+
+#[tokio::test]
+async fn balance_missing_currency_usd_model_deducts_usd() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    seed_entry(&db, "deepseek", "ccy-model", r#"{"price":{"input":0.001,"output":0.002}}"#).await;
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    run_est(&db, id, 0.0, 1000, 500).await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    assert!((p.est_balance_remaining - 98.0).abs() < 1e-6, "got {}", p.est_balance_remaining);
 }
 
 #[tokio::test]
